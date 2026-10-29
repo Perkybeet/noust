@@ -865,6 +865,27 @@ its disk, its certificates and its alerts are said by that server, through its o
 ones the fleet sent it, [above](#where-a-channel-is-heard), and any of its own), so they keep
 arriving when the central is down or the line between them is cut.
 
+### When the central goes quiet
+
+The central cannot tell its servers that it is down, and a server cannot call its central. What a
+server can do is notice that the calls stopped. The monitor of a central probes every server every
+half minute for as long as it runs, and says so in each call (`X-Noust-Heartbeat: 30`); the server
+notes the time of the last call of every central that presented its fleet token and what the central
+said of itself. When a central that said it keeps watch has not called for
+`notifications.central_silent_minutes` (15 by default, 0 turns it off; never less than three of the
+calls it promised), the server says it through **its own channels**, once, as `central_silent`:
+*"The central that manages this server has not called it for 17 minutes. This server goes on
+delivering its own notifications."* The first call after that closes it.
+
+Only a central that said it keeps watch is missed. A central whose monitor does not run probes only
+while somebody has its console open, and nobody promised to call again, so a server does not say
+anything about a console that was closed. Run the central's monitor (`noust monitor enable`) to have
+its servers notice that it is gone. While a server's monitoring is **paused** on the central the
+central does not ask it either, so a pause longer than the limit is also heard as a silence: resume
+it, or raise `notifications.central_silent_minutes` on that server for the window. A server whose
+line to the central is cut says it as well, and so does the central, about the server
+(`node_unreachable`): both are true, from each end.
+
 ### The record of deliveries of the whole fleet
 
 Whether a message reached the place it was meant for is the question after an outage, and the

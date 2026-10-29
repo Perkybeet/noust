@@ -1678,6 +1678,24 @@
       ]
     }
   },
+  "central.silent": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>The central stopped calling</b> · nas\nThe central that manages this server has not called it for 17 minutes. This server goes on delivering its own notifications.\n\n<b>Server:</b> web-1\n<b>Last call:</b> 2026-10-29 09:12 UTC",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML"
+  },
+  "central.heard": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>The central calls again</b> · nas\nThis server is getting the central's calls again.\n\n<b>Server:</b> web-1\n<b>Was silent for:</b> 23 min 40 s",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML"
+  },
   "hostile.deploy_failed": {
     "chat_id": "-1001234567890",
     "text": "✕ <b>Deploy failed</b> · shop.example.com\nIt stopped at an error before the new version could take over.\n\n<b>Server:</b> wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n<b>Release:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (&lt;b&gt;x&lt;/b&gt;&amp;amp;&lt;!channel&gt; @everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @here &lt;@U123&gt; &lt;#C1&gt; red emoji 🚀\n<b>Started by:</b> Webhook\n<b>Duration:</b> 1 min 12 s\n<b>Inspect with:</b> <code>noust diagnose shop.example.com</code>\n\n<i>What the system reported</i>\n<pre>Release did not pass &lt;its&gt; health &amp; check\n&lt;urlopen error [Errno 111] Connection refused&gt;\n```\n@everyone &lt;!channel&gt; &lt;@U123|admin&gt; &amp;lt;b&amp;gt;\nred *bold* _italic_ ~strike~ `code`\nnoitcnuf\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…</pre>",

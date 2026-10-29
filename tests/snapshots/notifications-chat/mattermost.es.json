@@ -2769,6 +2769,54 @@
       }
     ]
   },
+  "central.silent": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ La central ha dejado de llamar · nas",
+        "color": "#e3a73c",
+        "title": "▲ La central ha dejado de llamar · nas",
+        "text": "La central que gestiona este servidor no lo llama desde hace 17 minutos. Este servidor sigue entregando sus propios avisos.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Última llamada",
+            "value": "2026-10-29 09:12 UTC"
+          }
+        ],
+        "footer": "Noust · web-1"
+      }
+    ]
+  },
+  "central.heard": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● La central vuelve a llamar · nas",
+        "color": "#4dc47e",
+        "title": "● La central vuelve a llamar · nas",
+        "text": "Este servidor vuelve a recibir las llamadas de su central.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Estuvo callada durante",
+            "value": "23 min 40 s"
+          }
+        ],
+        "footer": "Noust · web-1"
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "username": "Noust",
     "attachments": [

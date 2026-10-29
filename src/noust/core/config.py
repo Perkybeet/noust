@@ -303,6 +303,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "language": "en",
         # Where this server's links open, inside its central's console; see core/https_url.py.
         "console_url": "",
+        # Minutes the central that manages this server may stay quiet before the server says so
+        # (0 turns it off); see fleet/central_calls.py.
+        "central_silent_minutes": 15,
         "events": {
             "deploy_started": False,
             "deploy_success": True,
@@ -369,6 +372,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "security_release": True,
             "container_restart_loop": True,
             "recipe_outdated": True,
+            # The central that manages this server stopped calling it.
+            "central_silent": True,
         },
         "channels": {
             # A webhook URL is a capability: Slack and Discord embed the
@@ -2162,6 +2167,9 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "web.session_timeout": _int_range_validator("web.session_timeout", 300, 86400),
     "web.public_url": https_url_validator("web.public_url"),
     "notifications.console_url": https_url_validator("notifications.console_url"),
+    "notifications.central_silent_minutes": _int_range_validator(
+        "notifications.central_silent_minutes", 0, 1440
+    ),
     "web.api_enabled": _validate_flag("web.api_enabled"),
     "dns.check_previews": _validate_flag("dns.check_previews"),
     "github.host": _validate_github_host,

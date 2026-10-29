@@ -1607,6 +1607,25 @@
   },
   "container.recovered": null,
   "recipe.outdated": null,
+  "central.silent": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/central_silent/nas",
+    "payload": {
+      "summary": "La central ha dejado de llamar · nas: La central que gestiona este servidor no lo llama desde hace 17 minutos. Este servidor sigue entregando sus propios avisos.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "central_silent",
+      "class": "central.silent",
+      "custom_details": {
+        "server": "web-1",
+        "last_heard": "2026-10-29 09:12 UTC"
+      }
+    },
+    "client": "Noust"
+  },
+  "central.heard": null,
   "hostile.deploy_failed": {
     "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
     "event_action": "trigger",

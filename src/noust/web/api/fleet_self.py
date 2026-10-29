@@ -16,19 +16,16 @@ anyone having asked.
 
 from __future__ import annotations
 
-import re
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from noust.fleet.central_calls import central_of_token
 from noust.fleet.policy import current_access
 from noust.web.api.deps import NoustErrorRoute, require_auth
 
 router = APIRouter(route_class=NoustErrorRoute)
-
-#: A central's fleet token name: ``fleet-<central>`` or ``fleet-<central>.<n>``.
-_FLEET_TOKEN = re.compile(r"fleet-([a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?)(?:\.[0-9]+)?")
 
 
 class FleetSelfResponse(BaseModel):
@@ -71,12 +68,11 @@ def fleet_self(session: Annotated[dict[str, Any], Depends(require_auth)]) -> Fle
     row = get_store().get_fleet_access()
     fleet = bool(session.get("fleet"))
     token_name = session.get("token_name") if fleet else None
-    match = _FLEET_TOKEN.fullmatch(str(token_name)) if token_name else None
     return FleetSelfResponse(
         level=access.level,
         host_access=access.host_access,
         fleet=fleet,
         token_name=str(token_name) if token_name else None,
-        central=match.group(1) if match else None,
+        central=central_of_token(str(token_name) if token_name else None),
         updated_at=str(row["updated_at"]) if row else None,
     )

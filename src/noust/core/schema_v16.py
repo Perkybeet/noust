@@ -110,8 +110,19 @@ CREATE TABLE IF NOT EXISTS fleet_node_settings (
 """
 FLEET_COLUMNS: list[Column] = []
 
-# Owned by the fleet notifications lane: routes by domain, tag, severity, event and server.
-NOTIFY_SQL = ""
+# Owned by the fleet notifications lane (item 90, D3): when each central that manages this server
+# last called it, and whether it said it keeps watch, so that a server can tell its central went
+# quiet. A server cannot call its central, so the silence is the only sign it has. The routes of a
+# channel (domain, tag, severity, event and server) are inside the channel's own value and need no
+# table.
+NOTIFY_SQL = """
+CREATE TABLE IF NOT EXISTS fleet_central_calls (
+    central TEXT PRIMARY KEY,
+    first_call_at REAL NOT NULL,
+    last_call_at REAL NOT NULL,
+    heartbeat_s INTEGER
+);
+"""
 NOTIFY_COLUMNS: list[Column] = []
 
 # Owned by the sources lane: the installation tokens a central leases to a node.

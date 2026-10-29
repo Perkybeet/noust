@@ -3168,6 +3168,63 @@
     },
     "flags": 4096
   },
+  "central.silent": {
+    "embeds": [
+      {
+        "title": "▲ La central ha dejado de llamar · nas",
+        "description": "La central que gestiona este servidor no lo llama desde hace 17 minutos. Este servidor sigue entregando sus propios avisos.",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Última llamada",
+            "value": "2026-10-29 09:12 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "central.heard": {
+    "embeds": [
+      {
+        "title": "● La central vuelve a llamar · nas",
+        "description": "Este servidor vuelve a recibir las llamadas de su central.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Estuvo callada durante",
+            "value": "23 min 40 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
   "hostile.deploy_failed": {
     "embeds": [
       {

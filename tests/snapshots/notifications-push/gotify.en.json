@@ -1056,6 +1056,16 @@
       }
     }
   },
+  "central.silent": {
+    "title": "▲ The central stopped calling · nas",
+    "message": "The central that manages this server has not called it for 17 minutes. This server goes on delivering its own notifications.\n\nServer: web-1\nLast call: 2026-10-29 09:12 UTC",
+    "priority": 5
+  },
+  "central.heard": {
+    "title": "● The central calls again · nas",
+    "message": "This server is getting the central's calls again.\n\nServer: web-1\nWas silent for: 23 min 40 s",
+    "priority": 2
+  },
   "hostile.deploy_failed": {
     "title": "✕ Deploy failed · shop.example.com",
     "message": "It stopped at an error before the new version could take over.\n\nServer: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nRelease: 20260929-104449\nCommit: a1b2c3d (<b>x</b>&amp;<!channel> @everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @here <@U123> <#C1> red emoji 🚀\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  Release did not pass <its> health & check\n  <urlopen error [Errno 111] Connection refused>\n  ```\n  @everyone <!channel> <@U123|admin> &lt;b&gt;\n  red *bold* _italic_ ~strike~ `code`\n  noitcnuf\n  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…",

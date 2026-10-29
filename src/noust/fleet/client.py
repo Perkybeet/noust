@@ -36,6 +36,7 @@ from noust.core.exceptions import (
 )
 from noust.core.secrets import SecretStore
 from noust.core.store import NoustStore, get_store
+from noust.fleet.central_calls import MAX_HEARTBEAT
 from noust.fleet.keys import TOKEN, secret_name
 from noust.fleet.tunnels import TunnelManager, get_tunnels
 
@@ -96,6 +97,12 @@ ELEVATED_HEADER = "X-Noust-Elevated"
 #: ``noust.web.auth.FLEET_ACTOR_PERMISSIONS_HEADER``.
 ACTOR_PERMISSIONS_HEADER = "X-Noust-Actor-Permissions"
 ACTOR_PERMISSION_PATTERN = re.compile(r"[a-z][a-z0-9_.]{0,63}")
+
+#: How often this central says it calls, in seconds, when it can promise to: the monitor's
+#: probe, which runs for as long as the central does. A server that reads it expects to hear
+#: again, and says so through its own channels when it does not
+#: (:mod:`noust.fleet.central_calls`). Must match ``noust.web.auth.FLEET_HEARTBEAT_HEADER``.
+HEARTBEAT_HEADER = "X-Noust-Heartbeat"
 
 #: What an actor label may look like; the node refuses anything else with 400.
 #: Mirrors ``noust.web.auth.FLEET_ACTOR_PATTERN``.
@@ -269,6 +276,7 @@ class NodeClient:
         actor_role: str | None = None,
         elevated: bool | str = False,
         actor_permissions: Iterable[str] | None = None,
+        heartbeat: int | None = None,
     ) -> dict[str, str]:
         """
         Build the headers every request to the node carries.
@@ -291,12 +299,15 @@ class NodeClient:
             actor_permissions: What that operator may do on the central, for a node that reads
                 it (4.1); omitted when None. An empty collection is sent as such: a person who
                 may do nothing is not a credential with no person behind it.
+            heartbeat: Seconds between this central's calls, when it can promise to keep calling
+                (4.1); omitted when None.
 
         Returns:
             ``Authorization`` with the fleet token, and the actor headers.
 
         Raises:
-            NodeError: When no token is stored, or the actor, scope or reference is malformed.
+            NodeError: When no token is stored, or the actor, scope, reference or heartbeat is
+                malformed.
             NodeRefusedError: When the node already refused the token
                 (:meth:`mark_refused`) and this client does not retry.
         """
@@ -322,6 +333,17 @@ class NodeClient:
             if not all(ACTOR_PERMISSION_PATTERN.fullmatch(name) for name in names):
                 raise NodeError("Invalid actor permissions: a permission name is malformed")
             headers[ACTOR_PERMISSIONS_HEADER] = ",".join(names)
+        if heartbeat is not None:
+            if (
+                isinstance(heartbeat, bool)
+                or not isinstance(heartbeat, int)
+                or not 1 <= heartbeat <= MAX_HEARTBEAT
+            ):
+                raise NodeError(
+                    f"Invalid heartbeat: {heartbeat!r}",
+                    details=f"It is whole seconds, from 1 to {MAX_HEARTBEAT}.",
+                )
+            headers[HEARTBEAT_HEADER] = str(heartbeat)
         if isinstance(elevated, str):
             if not SYNC_ELEVATION_PATTERN.fullmatch(elevated):
                 raise NodeError(
@@ -346,6 +368,7 @@ class NodeClient:
         actor_role: str | None = None,
         elevated: bool | str = False,
         actor_permissions: Iterable[str] | None = None,
+        heartbeat: int | None = None,
     ) -> httpx.Response:
         """
         Send one request to the node's API and return its answer.
@@ -364,6 +387,7 @@ class NodeClient:
                 the change a push of the fleet's settings carries (see :meth:`auth_headers`).
             actor_permissions: What that operator may do on the central; see
                 :meth:`auth_headers`.
+            heartbeat: How often this central says it calls; see :meth:`auth_headers`.
 
         Returns:
             The response, whatever its status, except 401 and 403.
@@ -383,6 +407,7 @@ class NodeClient:
             actor_role=actor_role,
             elevated=elevated,
             actor_permissions=actor_permissions,
+            heartbeat=heartbeat,
         )
         url = self.base_url() + path
         http = load_httpx()

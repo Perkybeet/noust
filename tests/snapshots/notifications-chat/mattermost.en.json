@@ -2769,6 +2769,54 @@
       }
     ]
   },
+  "central.silent": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ The central stopped calling · nas",
+        "color": "#e3a73c",
+        "title": "▲ The central stopped calling · nas",
+        "text": "The central that manages this server has not called it for 17 minutes. This server goes on delivering its own notifications.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Last call",
+            "value": "2026-10-29 09:12 UTC"
+          }
+        ],
+        "footer": "Noust · web-1"
+      }
+    ]
+  },
+  "central.heard": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● The central calls again · nas",
+        "color": "#4dc47e",
+        "title": "● The central calls again · nas",
+        "text": "This server is getting the central's calls again.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Was silent for",
+            "value": "23 min 40 s"
+          }
+        ],
+        "footer": "Noust · web-1"
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "username": "Noust",
     "attachments": [

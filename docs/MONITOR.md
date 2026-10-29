@@ -88,6 +88,7 @@ Every scan interval (60 seconds by default, never less than 10):
 | Containers | A container of a Compose stack that Docker restarted `monitor.container_restart_limit` times (5; 0 turns it off) since the monitor first saw it. See [Containers that keep restarting](#containers-that-keep-restarting). Looked at every `monitor.container_check_seconds` (60). | notification `container_restart_loop` |
 | Security releases | The update check found a Noust release that fixes a vulnerability and this server runs an earlier one. Once per release and again every `monitor.security_renotify_hours` (72; 0 never) while it stays behind; looked at every `monitor.security_check_hours` (6; 0 turns it off). `updates.check: false` silences it. | notification `security_release` |
 | Recipes | Recipes installed from the catalogue have a newer version in it (`noust recipe outdated`). Said when the list changes and every `monitor.recipe_renotify_days` (7; 0 never repeats) while it does not; looked at every `monitor.recipe_check_hours` (24; 0 turns it off). The catalogue ships inside Noust, so the look costs no request. | notification `recipe_outdated` |
+| Central | The central that manages this server, and said it keeps watch (its own monitor probes every server every half minute), has not called for `notifications.central_silent_minutes` (15; 0 turns it off). Said once, and again when it calls. A central that never said so is not missed | notification `central_silent` |
 
 Observations are kept in `/var/lib/noust/observations.db` (`~/.local/share/noust/` when run
 without root). The same process and signal within an hour is recorded once; observations
@@ -434,7 +435,7 @@ nginx.service,postgresql.service --list`.
 The events above (`unit_failed`, `app_unreachable`, `app_recovered`, `cert_expiring`,
 `disk_threshold`, `backup_missing`, `cron_failed`, `cron_success`, `os_patches`, `token_expiring`,
 `alert_firing`, `alert_resolved`, `alert_acknowledged`, `cron_missed`, `cleanup_failed`, `cleanup_success`,
-`probe_failed`, `probe_recovered`, `security_release`, `container_restart_loop` and `recipe_outdated`) go through Noust's notification channels (webhook, Slack,
+`probe_failed`, `probe_recovered`, `security_release`, `container_restart_loop`, `recipe_outdated` and `central_silent`) go through Noust's notification channels (webhook, Slack,
 Discord, Telegram, email, Pushover, ntfy, Gotify, Teams, Mattermost, Matrix, Lark, PagerDuty, and any
 others you add by name), which are
 configured under `notifications.*` in the console's Settings > Channels or with `noust notify`

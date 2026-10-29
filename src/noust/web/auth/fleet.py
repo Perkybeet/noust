@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import importlib
 import ipaddress
+import logging
+import sqlite3
 from collections.abc import Callable, Mapping
 from typing import Any
 
@@ -26,6 +28,7 @@ from noust.web.auth.constants import (
     FLEET_ACTOR_SCOPE_HEADER,
     FLEET_AUTH_PATHS,
     FLEET_ELEVATED_HEADER,
+    FLEET_HEARTBEAT_HEADER,
     FLEET_PERMISSION_PATTERN,
     FLEET_PERMISSIONS_MAX,
     FLEET_PROTECTED_CONFIG_SECTIONS,
@@ -45,6 +48,8 @@ from noust.web.permissions.roles import (
     permissions_for_role,
     permissions_for_scope,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def fleet_origin_refusal(connection: HTTPConnection | None) -> str | None:
@@ -121,6 +126,8 @@ def admit_fleet(payload: dict[str, Any], connection: HTTPConnection | None) -> d
             "Reach this server through the central, or use a token of your own.",
         )
 
+    note_call(payload, connection)
+
     # The central applying the fleet's settings for a person's change (4.1).
     synced = admit_sync(payload, connection)
     if synced is not None:
@@ -184,6 +191,29 @@ def admit_fleet(payload: dict[str, Any], connection: HTTPConnection | None) -> d
     payload["on_behalf_of"] = actor
     payload["elevation_attested"] = connection.headers.get(FLEET_ELEVATED_HEADER) == "1"
     return payload
+
+
+def note_call(payload: Mapping[str, Any], connection: HTTPConnection) -> None:
+    """
+    Note that a central called, and what it said of how often it does.
+
+    A server cannot call its central, so it can only tell that the central is gone by the calls
+    stopping (:mod:`noust.fleet.central_calls`). The note is a courtesy to whoever reads it: a
+    store that cannot be written must never turn a call the central is entitled to into an error.
+
+    Args:
+        payload: The raw payload of a fleet token.
+        connection: The request or handshake that presented it.
+    """
+    from noust.fleet.central_calls import CentralCalls, central_of_token, heartbeat_of
+
+    central = central_of_token(str(payload.get("token_name") or ""))
+    if central is None:
+        return
+    try:
+        CentralCalls().note(central, heartbeat_of(connection.headers.get(FLEET_HEARTBEAT_HEADER)))
+    except (sqlite3.Error, OSError) as exc:
+        logger.warning("Could not note a call of the central %s: %s", central, exc)
 
 
 def fleet_claimed_permissions(header: str | None) -> frozenset[str] | None:

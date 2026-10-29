@@ -26,12 +26,12 @@ from pydantic import BaseModel, Field
 
 from noust.core import audit
 from noust.core.server_text import ServerText, say
+from noust.fleet.central_calls import central_of_token
 from noust.fleet.settings.kinds import AVAILABLE, kind_of
 from noust.fleet.settings.managed import ManagedRow, ManagedSettings
 from noust.fleet.settings.signature import SyncSignature
 from noust.web.api.databases.common import session_actor
 from noust.web.api.deps import NoustErrorRoute, require_auth
-from noust.web.api.fleet_self import _FLEET_TOKEN
 from noust.web.auth.fleet_sync import is_sync
 
 router = APIRouter(route_class=NoustErrorRoute)
@@ -163,8 +163,7 @@ def central_of(session: dict[str, Any]) -> str:
         The central, as its token's name says it (``fleet-nas.2`` is ``nas``).
     """
     token = str(session.get("token_name") or "central")
-    match = _FLEET_TOKEN.fullmatch(token)
-    return match.group(1) if match else token
+    return central_of_token(token) or token
 
 
 @router.get("", response_model=ManagedSettingsOut)
