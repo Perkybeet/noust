@@ -1,0 +1,1 @@
+import{in as e}from"./useNode-Csubojm6.js";import{a as t}from"./nodeErrors-BZWnMLZ8.js";var n=e();function r({label:e,text:r,icon:i,onClick:a,loading:o=!1}){return(0,n.jsx)(t,{size:`sm`,variant:`ghost`,"aria-label":e,icon:i,loading:o,onClick:a,children:(0,n.jsx)(`span`,{className:`max-sm:sr-only`,children:r})})}export{r as t};
