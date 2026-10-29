@@ -30,7 +30,7 @@ from noust.core.fs import DryRunFileSystem, set_fs
 from noust.core.logger import DEBUG_LOG
 from noust.core.runner import FakeRunner
 from noust.core.store import DeploymentStatus, NoustStore, StoreError
-from noust.deployers.helpers.target import DeployTarget
+from noust.deployers.helpers.target import DeployTarget, fetch_into_target
 from noust.deployers.nodejs import NodeJSDeployer
 from noust.deployers.recorder import CapturingLogger, DeploymentRecorder, note_source, recording
 from noust.managers.backup_manager import BackupMetadata
@@ -275,6 +275,43 @@ def test_an_operation_on_a_release_that_exists_has_its_commit_from_the_first_mom
         seen.append((row.git_commit, row.release_id))
 
     assert seen == [("abc1234", "20261029-120000-abc1234")]
+
+
+def test_the_in_place_fetch_tells_the_recording_as_soon_as_the_source_is_in(
+    tmp_path: Path, store: NoustStore
+) -> None:
+    """The fetch every in-place deployer shares (a Compose stack, a monorepo) is where it learns."""
+
+    class Source:
+        def fetch(self, **kwargs: Any) -> bool:
+            return True
+
+    recorder = DeploymentRecorder(
+        store,
+        DOMAIN,
+        "cli",
+        logger=CapturingLogger(),
+        log_root=tmp_path / "deploy-logs",
+        git_info=lambda: ("abc1234", "main"),
+    )
+    seen: list[str | None] = []
+
+    with recording(recorder, git_branch="main"):
+        row = store.get_deployment(recorder.deployment_id)
+        assert row is not None and row.git_commit is None
+        fetch_into_target(
+            DeployTarget(path=tmp_path / "app", existed=False, had_files=False),
+            Source(),  # type: ignore[arg-type]
+            "https://example.com/app.git",
+            branch=None,
+            domain=DOMAIN,
+            logger=CapturingLogger(),
+        )
+        row = store.get_deployment(recorder.deployment_id)
+        assert row is not None
+        seen.append(row.git_commit)
+
+    assert seen == ["abc1234"]
 
 
 def test_telling_the_source_outside_a_recording_does_nothing(store: NoustStore) -> None:

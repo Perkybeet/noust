@@ -109,7 +109,6 @@ from noust.deployers.recorder import (
     DeploymentRecorder,
     GitInfo,
     checkout_git_info,
-    note_source,
     recorder_for,
     recording,
 )
@@ -1236,7 +1235,6 @@ class DockerComposeDeployer(AppDeployer):
                 self._remember_serving_privileges()
             self.logger.step(1, total_steps, "Fetching source code")
             self._fetch_source()
-            note_source()
 
             self.logger.step(2, total_steps, "Discovering compose file")
             self._discover_compose_file()

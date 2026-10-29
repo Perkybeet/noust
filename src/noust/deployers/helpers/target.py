@@ -36,6 +36,7 @@ from noust.core.exceptions import DeploymentError
 from noust.core.fs import FileSystem
 from noust.core.logger import Logger
 from noust.core.store import App
+from noust.deployers.recorder import note_source
 
 if TYPE_CHECKING:
     from noust.managers.source_manager import SourceManager
@@ -191,6 +192,7 @@ def fetch_into_target(
     """
     if not target.had_files:
         source_manager.fetch(source=source, destination=target.path, branch=branch)
+        note_source()
         return
     if not (target.path / ".git").exists():
         raise DeploymentError(
@@ -206,3 +208,4 @@ def fetch_into_target(
         f"Checkout at {target.path} brought up to date in place; files git does not "
         "track (the .env, bind-mounted data) are kept"
     )
+    note_source()
