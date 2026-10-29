@@ -232,8 +232,17 @@ tabs:
             summary: Swift, Zig, Crystal and any other stack without a native runtime, deployed as a container from its Dockerfile or with Railpack.
           - source: docs/sources.md
             slug: guides/sources
+            title: Connect a repository
             type: guide
-            summary: "Where the code comes from (GitHub, GitLab, SSH, submodules, LFS) and which pushes become deployments."
+            summary: "The addresses git understands, submodules and LFS, GitHub, GitLab, Gitea and Bitbucket, the allowed origins, and changing where the code comes from."
+          - source: docs/sources-pushes.md
+            slug: guides/sources/which-pushes-deploy
+            type: guide
+            summary: "The two filters every push goes through before it deploys: skip markers in its commits, and the paths it must touch."
+          - source: docs/sources-push-or-archive.md
+            slug: guides/sources/push-or-archive
+            type: guide
+            summary: Deploy by pushing to a repository on the server itself, or from an archive or a pasted Dockerfile, with no forge at all.
           - source: docs/build.md
             slug: guides/build
             title: Build and start commands
