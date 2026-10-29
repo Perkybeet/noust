@@ -123,10 +123,12 @@ export const installedRecipesQuery = () =>
 /**
  * Where a recipe's logo is served from, for an `<img>`: on a central with a node selected the
  * node's own copy, through the proxy, like every other call. The logo is an SVG held to a
- * closed list of elements, so it needs nothing the Content Security Policy forbids.
+ * closed list of elements (or a PNG with nothing in it but pixels), so it needs nothing the
+ * Content Security Policy forbids. It is asked for the theme it will be drawn on: the server
+ * recolours a mark that would not read on that stone.
  */
-export function recipeLogoSrc(logo: string): string {
-  return nodeApiPath(activeNode(), logo);
+export function recipeLogoSrc(logo: string, scheme: "light" | "dark" = "light"): string {
+  return nodeApiPath(activeNode(), `${logo}?scheme=${scheme}`);
 }
 
 /**

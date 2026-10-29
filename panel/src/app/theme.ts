@@ -85,3 +85,30 @@ function subscribe(listener: () => void): () => void {
 export function useTheme(): readonly [ThemeChoice, (choice: ThemeChoice) => void] {
   return [useSyncExternalStore(subscribe, snapshot), setTheme] as const;
 }
+
+export type ColourScheme = "light" | "dark";
+
+const SYSTEM_DARK = "(prefers-color-scheme: dark)";
+
+function systemPrefersDark(): boolean {
+  return typeof window.matchMedia === "function" && window.matchMedia(SYSTEM_DARK).matches;
+}
+
+function subscribeSystem(listener: () => void): () => void {
+  if (typeof window.matchMedia !== "function") return () => undefined;
+  const query = window.matchMedia(SYSTEM_DARK);
+  query.addEventListener("change", listener);
+  return () => query.removeEventListener("change", listener);
+}
+
+/**
+ * The theme the console is drawn in, once "follow the system" is settled: what the logo of a recipe
+ * is asked for, because a black mark is lost on the dark stone and the server recolours it for the
+ * one it is told. A browser that cannot say is light.
+ */
+export function useColourScheme(): ColourScheme {
+  const [choice] = useTheme();
+  const systemDark = useSyncExternalStore(subscribeSystem, systemPrefersDark, () => false);
+  if (choice === "system") return systemDark ? "dark" : "light";
+  return choice;
+}

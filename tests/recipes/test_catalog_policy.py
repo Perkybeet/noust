@@ -15,12 +15,14 @@ from __future__ import annotations
 
 import re
 import xml.etree.ElementTree as ET
+from datetime import date
 from importlib import resources
 from pathlib import Path
 
 import pytest
 
 from noust.recipes import get_recipe, list_recipes, logo_svg
+from noust.recipes.logos import parse_logo_notice
 from noust.recipes.model import Recipe
 
 #: The catalogue as it ships (generated), and the policy and format a contributor follows.
@@ -70,41 +72,82 @@ def monogram_letters(svg: str) -> str | None:
     return letters
 
 
-#: Projects whose own guidelines forbid a third party's use of their logo: whatever the
-#: collection holds, the recipe carries the monogram (scripts/recipe_logos.py, FORBIDDEN).
-NO_THIRD_PARTY_LOGO = {"plausible"}
+#: Projects whose own text does not let a third party show their logo: whatever a collection holds, the
+#: recipe carries the monogram (scripts/recipe_logos.py, FORBIDDEN, which says where each was read).
+NO_THIRD_PARTY_LOGO = {"plausible", "trek", "leantime", "owncast", "typebot", "joplin-server"}
 
 ICONS = Path(str(resources.files("noust.recipes").joinpath("assets").joinpath("_simple-icons")))
 
 
+def _is_monogram(recipe: Recipe) -> bool:
+    """Whether the logo is the one drawn for Noust: a picture (a PNG) never is."""
+    return (
+        recipe.logo is not None
+        and recipe.logo.endswith(".svg")
+        and monogram_letters(logo_svg(recipe.name)) is not None
+    )
+
+
 @pytest.mark.parametrize("recipe", list_recipes(), ids=lambda recipe: recipe.name)
-def test_a_logo_is_a_mark_of_the_collection_noust_s_monogram_or_a_mark_with_its_notice(
-    recipe: Recipe,
-) -> None:
+def test_a_logo_is_a_mark_with_its_licence_and_source_or_noust_s_monogram(recipe: Recipe) -> None:
     """The mark of a project is its trademark: shipping it needs a record of why it may be."""
     if recipe.logo_icon is not None:
-        assert recipe.name not in NO_THIRD_PARTY_LOGO, f"{recipe.name}'s guidelines forbid it"
-        assert recipe.logo_license == "CC0-1.0"
+        assert recipe.name not in NO_THIRD_PARTY_LOGO, f"{recipe.name}'s own text forbids it"
         assert (ICONS / f"{recipe.logo_icon}.svg").is_file(), recipe.logo_icon
-        assert "CC0-1.0" in (ICONS / "NOTICE").read_text()
+        assert recipe.logo_license, "the collection's index says what licence the mark is under"
+        assert (recipe.logo_origin or "").startswith(
+            "https://github.com/simple-icons/simple-icons/"
+        )
         return
-    letters = monogram_letters(logo_svg(recipe.name))
-
-    if letters is None:
-        notice = assets_of(recipe) / "LOGO-NOTICE"
-        assert notice.is_file(), f"{recipe.name}'s logo is not the monogram and has no LOGO-NOTICE"
-        text = notice.read_text()
-        assert "http" in text and "licen" in text.lower(), "the source and the licence"
-    else:
-        assert letters.upper() == letters.upper().strip()
+    notice = assets_of(recipe) / "LOGO-NOTICE"
+    if _is_monogram(recipe):
+        assert not notice.exists(), f"{recipe.name} has the monogram and a notice for another mark"
+        assert recipe.logo_license is None and recipe.logo_origin is None
+        return
+    assert recipe.name not in NO_THIRD_PARTY_LOGO, f"{recipe.name}'s own text forbids its mark"
+    assert notice.is_file(), f"{recipe.name}'s logo is not the monogram and has no LOGO-NOTICE"
+    parsed = parse_logo_notice(recipe.name, notice.read_text())
+    assert recipe.logo_license == parsed.license and recipe.logo_origin == parsed.source
+    assert parsed.retrieved <= date.today() and parsed.terms, (
+        "what the project says of its logo, read"
+    )
+    assert parsed.mark and parsed.changes
 
 
 def test_a_project_that_forbids_a_third_party_s_logo_is_given_the_monogram() -> None:
-    """Plausible's guidelines (plausible.io/trademark, read 2026-10-06) say so."""
+    """Each of these has said so in a text a person can read (``FORBIDDEN`` in the tool says where)."""
     for name in NO_THIRD_PARTY_LOGO:
         recipe = get_recipe(name)
-        assert recipe.logo_icon is None
-        assert monogram_letters(logo_svg(name)) is not None
+        assert recipe.logo_icon is None and recipe.logo_license is None
+        assert monogram_letters(logo_svg(name)) is not None, name
+
+
+def test_the_tool_and_the_test_forbid_the_same_projects() -> None:
+    """One list in the tool that adds logos, held to the one a test refuses a mark for."""
+    import importlib.util
+    import sys
+
+    path = Path(__file__).resolve().parents[2] / "scripts" / "recipe_logos.py"
+    spec = importlib.util.spec_from_file_location("recipe_logos_policy", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["recipe_logos_policy"] = module
+    spec.loader.exec_module(module)
+
+    assert set(module.FORBIDDEN) == NO_THIRD_PARTY_LOGO
+
+
+def test_a_notice_stands_beside_a_mark_and_nowhere_else() -> None:
+    """A LOGO-NOTICE of a recipe whose logo is the collection's or the monogram says nothing true."""
+    packaged = Path(str(resources.files("noust.recipes").joinpath("assets")))
+    with_notice = {entry.parent.name for entry in packaged.glob("*/LOGO-NOTICE")}
+    marks = {
+        recipe.name
+        for recipe in list_recipes()
+        if recipe.logo_icon is None and not _is_monogram(recipe)
+    }
+
+    assert with_notice == marks
 
 
 def test_no_mark_is_kept_that_no_recipe_names() -> None:
@@ -225,6 +268,7 @@ def test_the_docs_hold_the_policy_on_names_marks_licences_and_logos() -> None:
         "NOTICE",
         "source-available",
         "plausible.io/trademark",
+        "Retrieved",
         "not legal advice",
     ):
         assert needle in section, needle

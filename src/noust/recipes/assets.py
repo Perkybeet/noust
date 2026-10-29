@@ -11,6 +11,8 @@ a Compose recipe's configuration files and a recipe's logo.
 
 from __future__ import annotations
 
+import functools
+import json
 import re
 from importlib import resources
 from typing import Any
@@ -151,6 +153,27 @@ def read_asset(name: str, asset: str) -> str:
     return text
 
 
+def read_asset_bytes(name: str, asset: str) -> bytes:
+    """
+    Read a recipe asset that is not text (a logo that is a picture).
+
+    Args:
+        name: The recipe.
+        asset: The asset's path under ``assets/<recipe>/``.
+
+    Returns:
+        Its bytes.
+
+    Raises:
+        RecipeError: It is not shipped, or larger than :data:`MAX_ASSET_BYTES`.
+    """
+    resource = asset_resource(name, checked_asset(name, asset))
+    data = bytes(resource.read_bytes())
+    if len(data) > MAX_ASSET_BYTES:
+        raise recipe_error(name, f"asset {asset!r} is larger than {MAX_ASSET_BYTES // 1024} KiB")
+    return data
+
+
 #: Where the marks a recipe names with ``simple-icons:<slug>`` are, under ``assets/``.
 SIMPLE_ICONS_DIRECTORY = "_simple-icons"
 
@@ -180,3 +203,24 @@ def read_simple_icon(slug: str) -> str:
     if not resource.is_file():
         raise RecipeNotFoundError(f"the package does not carry the simple-icons mark {slug!r}")
     return str(resource.read_text(encoding="utf-8"))
+
+
+@functools.lru_cache(maxsize=1)
+def simple_icon_index() -> dict[str, Any]:
+    """
+    Read what the package records of the marks it carries from the simple-icons collection.
+
+    Returns:
+        ``{"version": ..., "marks": {slug: {"title", "hex", "license", "source", ...}}}``, as
+        ``scripts/recipe_logos.py sync`` wrote it from the collection's own data.
+    """
+    resource = (
+        resources.files("noust.recipes")
+        .joinpath("assets")
+        .joinpath(SIMPLE_ICONS_DIRECTORY)
+        .joinpath("index.json")
+    )
+    if not resource.is_file():
+        return {"version": "", "marks": {}}
+    loaded = json.loads(resource.read_text(encoding="utf-8"))
+    return loaded if isinstance(loaded, dict) else {"version": "", "marks": {}}

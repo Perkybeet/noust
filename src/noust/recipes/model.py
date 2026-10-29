@@ -227,16 +227,19 @@ def logo_source(logo: str | None) -> str | None:
     return "simple-icons" if simple_icon_slug(logo) is not None else "asset"
 
 
-def logo_license(logo: str | None) -> str | None:
+@dataclass(frozen=True)
+class LogoCredit:
     """
-    Args:
-        logo: A recipe's ``logo:`` as written, or None.
+    Where a mark that is not Noust's own comes from.
 
-    Returns:
-        The licence of the mark's file when it is the collection's (CC0-1.0); None for a file
-        of the recipe, whose licence is the recipe's own (the monogram is Noust's).
+    Attributes:
+        license: The licence of the mark's file, as an SPDX expression (``LicenseRef-...`` where the
+            terms are a permission the project gives in writing).
+        origin: The address the file was taken from, at the commit or release it was read at.
     """
-    return SIMPLE_ICONS_LICENSE if simple_icon_slug(logo) is not None else None
+
+    license: str
+    origin: str
 
 
 class RecipeError(ValidationError):
@@ -632,7 +635,9 @@ class Recipe:
         slogan: One line for the catalogue card.
         category: One of :data:`CATEGORIES`.
         tags: Lower-case labels for the catalogue's filter.
-        logo: The SVG shipped under ``assets/<name>/``.
+        logo: The SVG shipped under ``assets/<name>/``, or ``simple-icons:<slug>``.
+        logo_credit: Where the mark comes from and under what licence, when it is not Noust's
+            monogram: from the file's ``LOGO-NOTICE`` or from the collection's index.
         version: The version of the application the recipe pins.
         revision: The recipe's own revision of that version.
         updated: When the recipe last changed.
@@ -692,6 +697,7 @@ class Recipe:
     category: str = "other"
     tags: tuple[str, ...] = ()
     logo: str | None = None
+    logo_credit: LogoCredit | None = None
     version: str = ""
     revision: int = 1
     updated: date | None = None
@@ -796,8 +802,13 @@ class Recipe:
 
     @property
     def logo_license(self) -> str | None:
-        """The licence of the mark's file when the logo is the collection's, else None."""
-        return logo_license(self.logo)
+        """The licence of the mark's file; None for the monogram, which is Noust's own."""
+        return self.logo_credit.license if self.logo_credit else None
+
+    @property
+    def logo_origin(self) -> str | None:
+        """The address the mark was taken from; None for the monogram."""
+        return self.logo_credit.origin if self.logo_credit else None
 
     @property
     def database_engine(self) -> str | None:
@@ -871,7 +882,8 @@ class Recipe:
             "logo": self.logo,
             "logo_source": logo_source(self.logo),
             "logo_icon": self.logo_icon,
-            "logo_license": logo_license(self.logo),
+            "logo_license": self.logo_license,
+            "logo_origin": self.logo_origin,
             "version": self.version or None,
             "revision": self.revision,
             "updated": self.updated.isoformat() if self.updated else None,
