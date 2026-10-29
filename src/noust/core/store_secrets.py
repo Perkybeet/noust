@@ -90,6 +90,7 @@ NOT_SECRET: dict[tuple[str, str], str] = {
     ("custom_certificates", "key_type"): "an algorithm name",
     ("database_accounts", "password_changed_at"): "a time",
     ("database_links", "env_var"): "the name of a variable",
+    ("db_server_defaults", "server_key"): "the key of a database server, such as mysql@legacy",
     (
         "fleet_desired",
         "secret_paths",
