@@ -19,9 +19,9 @@ from noust.recipes import RecipeError, parse_recipe
 from noust.recipes import deploy as deploy_module
 from noust.recipes.deploy import plan_recipe
 from noust.recipes.model import ROOT_EQUIVALENT_KINDS, ROOT_EQUIVALENT_SENTENCES
-from tests.recipes.factory import DIGEST, compose_recipe, use_demo_assets
+from tests.recipes.factory import compose_recipe, use_demo_assets
+from tests.support.recipe_root_support import SOCKET, manager
 
-SOCKET = "/var/run/docker.sock:/var/run/docker.sock"
 LOG = Logger(verbose=False)
 
 
@@ -29,27 +29,6 @@ LOG = Logger(verbose=False)
 def demo_assets(monkeypatch: pytest.MonkeyPatch) -> None:
     """Let the recipe named ``demo`` use the assets of a shipped recipe."""
     use_demo_assets(monkeypatch)
-
-
-def manager(*mounts: str, **extra: str) -> dict[str, Any]:
-    """A Compose recipe whose web service mounts what is given, as Portainer's does."""
-    lines = "".join(f"      - {mount}\n" for mount in mounts)
-    extras = "".join(f"      {key}: {value}\n" for key, value in extra.items())
-    document = (
-        "services:\n"
-        "  web:\n"
-        f"    image: ghcr.io/o/app:1.2.3@{DIGEST}\n"
-        "    restart: unless-stopped\n"
-        f"{extras}"
-        "    volumes:\n"
-        f"{lines}"
-        "      - data:/data\n"
-        "    ports:\n"
-        '      - "127.0.0.1:${PORT}:9000"\n'
-        "volumes:\n"
-        "  data:\n"
-    )
-    return compose_recipe(compose=document, variables={})
 
 
 def test_the_docker_socket_is_refused_in_a_recipe_that_does_not_say_what_it_is() -> None:

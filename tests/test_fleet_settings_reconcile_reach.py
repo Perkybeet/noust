@@ -17,7 +17,7 @@ from __future__ import annotations
 from typing import Any
 
 from noust.fleet.settings.reconcile import plan_node
-from tests.test_fleet_settings_reconcile import applied, steps, wanted
+from tests.support.fleet_settings_reconcile_support import applied, steps, wanted
 
 
 def test_a_setting_whose_route_cannot_match_here_is_not_pushed() -> None:

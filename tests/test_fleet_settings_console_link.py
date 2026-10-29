@@ -28,9 +28,9 @@ from noust.fleet.settings import snapshots
 from noust.fleet.settings.desired import FleetSettings
 from noust.fleet.settings.kinds import AVAILABLE, kind_of
 from noust.fleet.settings.push import find, push
+from tests.support.fleet_settings_actions_support import apply, node_items, save, states
 from tests.support.fleet_settings_node import ManagedNode
 from tests.support.fleet_views_support import Central, build_central
-from tests.test_fleet_settings_actions import apply, node_items, save, states
 
 CENTRAL = "https://central.example.com"
 

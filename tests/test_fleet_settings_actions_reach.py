@@ -24,9 +24,9 @@ import pytest
 from noust.core.store import NoustStore
 from noust.fleet.aggregate import set_aggregator
 from noust.fleet.settings.desired import FleetSettings
+from tests.support.fleet_settings_actions_support import CHANNEL, apply, node_items, save, states
 from tests.support.fleet_settings_node import ManagedNode
 from tests.support.fleet_views_support import Central, build_central
-from tests.test_fleet_settings_actions import CHANNEL, apply, node_items, save, states
 
 SHOP = {"domain": "shop.example.com", "tags": ["prod"]}
 BLOG = {"domain": "blog.example.org", "tags": ["staging"]}

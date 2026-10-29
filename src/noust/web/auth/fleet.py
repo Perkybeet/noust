@@ -49,7 +49,7 @@ from noust.web.permissions.roles import (
     permissions_for_scope,
 )
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("noust.web.auth")
 
 
 def fleet_origin_refusal(connection: HTTPConnection | None) -> str | None:

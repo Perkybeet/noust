@@ -398,7 +398,7 @@ def test_the_command_the_refusal_suggests_is_one_the_cli_takes(
     from noust.recipes import RecipeError, parse_recipe
     from noust.recipes import deploy as deploy_module
     from tests.recipes.factory import use_demo_assets
-    from tests.recipes.test_root_equivalent import SOCKET, manager
+    from tests.support.recipe_root_support import SOCKET, manager
 
     use_demo_assets(monkeypatch)
     recipe = parse_recipe("demo", {**manager(SOCKET), "root_equivalent": "docker_socket"})
