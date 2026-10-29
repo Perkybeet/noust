@@ -16,7 +16,7 @@ works as on any Noust.
 The console's own fleet pages (a central's, never a plain server's: **All servers** in the scope
 selector) show every server it manages side by side - whether it answers, what it runs, what needs
 attention on each - and the selector switches the whole console to one of them; see
-[console.md](console.md#fleet) for its pages.
+[console.md](console-fleet.md#fleet) for its pages.
 
 ![Fleet](assets/console/fleet.png)
 
@@ -149,7 +149,7 @@ and no `noust central run`.
   `--trusted-proxy`). A central reachable from the internet is the one thing to avoid: prefer
   a VPN or an SSH tunnel to it (`ssh -L 8443:127.0.0.1:8443 root@central`).
   A hub has no nginx sites of its own, so `noust console expose` (a name, a certificate and an
-  allow-list through Noust's nginx, [docs/console.md](console.md#reaching-it)) is for a central
+  allow-list through Noust's nginx, [docs/console.md](console-start.md#reaching-it)) is for a central
   that also deploys, `central.role = server`; a hub serves its own TLS, as above.
 
 `noust central run` works on a VPS too (as root, or with `NOUST_DATA_DIR` pointing at a
@@ -544,7 +544,7 @@ counting a failure and skipping the other servers. The job runs in its own syste
 server, and the console that starts again reads how the unit ended. A server older than 3.2
 marks that job interrupted; the central then waits for the server's own record of the update.
 In the console, the detail of each server in a fleet job shows the job's log on that server and
-what it returned (see [console.md](console.md#fleet)).
+what it returned (see [console.md](console-fleet.md#fleet)).
 
 ## An application on several servers
 

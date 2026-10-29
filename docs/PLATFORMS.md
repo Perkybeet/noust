@@ -34,7 +34,7 @@ this order, and nothing else:
    enable` (the console as a service, on loopback only), unless the server already has them: a
    second run upgrades Noust and leaves the configuration, and the console's token, alone;
 5. prints how to reach the console: the SSH tunnel, and `noust console expose` to publish it with
-   a certificate ([console.md](console.md#reaching-it)).
+   a certificate ([console.md](console-start.md#reaching-it)).
 
 It never downloads another script and never pipes anything it fetched into a shell: the only
 things it downloads are the repository key (checked) and the packages (signed by that key, checked

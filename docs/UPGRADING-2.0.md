@@ -462,7 +462,7 @@ leaves everything else where it is.
   running console reads the token from disk on every request, so issuing a new one with
   `wasm web token --new` retires the old one at once, with no restart needed. To keep the
   console running across reboots, run it as a service with `wasm web enable` (2.1); see
-  [console.md](console.md#keep-it-running).
+  [console.md](console-start.md#keep-it-running).
 - WebSocket tickets from `POST /api/auth/ws-ticket` now also work for an API token, not only
   a browser session: the ticket redeems as that same token, its scope included (admin or
   otherwise). Before, the endpoint accepted the request but no handshake could ever redeem

@@ -55,5 +55,5 @@ noust console expose --domain console.kelmoor.dev --allow-ip 198.51.100.0/24
 
 It refuses while any account can sign in without a second factor, or when the name does not point
 at the server. `--allow-ip` limits who can even see the sign-in page; without it, the second factor
-is all that stops a stranger. [Reaching the console](console.md#reaching-it) covers it, and
+is all that stops a stranger. [Reaching the console](console-start.md#reaching-it) covers it, and
 `noust console unexpose` removes exactly what it made.

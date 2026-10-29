@@ -63,7 +63,7 @@ logo, slogan, category, tags, version and the date it changed, search and the ca
 filters (the API's own, kept in the address), and paging at 20, 50, 100 or all. **Details** opens
 a recipe's page; **Use** opens the new-application wizard on that recipe, with the variables it
 cannot run without in front. **Installed** is `noust recipe outdated` with an **Update** that queues
-`noust recipe update` as a job. See [console.md](console.md#recipes).
+`noust recipe update` as a job. See [console.md](console-applications.md#recipes).
 
 ### What a Docker recipe never does
 

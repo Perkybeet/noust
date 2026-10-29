@@ -219,7 +219,7 @@ definition of it (no service publishes a TCP port on the host), and the deploy, 
   draws how a request travels, from the ports through the names and locations to the backends
   and who holds each backend's port and whether it answers, with the flow animated by CSS and
   still under `prefers-reduced-motion`. **Try a URL** animates the path one request takes and
-  explains each step of the choice. See [console.md](console.md#a-site-as-text-structure-and-diagram).
+  explains each step of the choice. See [console.md](console-domains.md#a-site-as-text-structure-and-diagram).
 - **A site's configuration is tested inside the live one.** The test used to wrap the site in an
   empty `http` block, so a site that used a `limit_req_zone`, a `map` or a `log_format` declared
   in `nginx.conf` failed while valid, and one that declared an `upstream` another site already

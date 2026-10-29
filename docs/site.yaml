@@ -499,8 +499,53 @@ tabs:
         pages:
           - source: docs/console.md
             slug: reference/console
+            title: The console, page by page
             type: reference
-            summary: The browser console, page by page.
+            summary: "The browser console: how it is laid out, the features that are on or off, live updates and themes, and a page for each of its parts."
+          - source: docs/console-start.md
+            slug: reference/console/start
+            type: reference
+            summary: Starting the console, keeping it running, reaching it through a tunnel or on a name of its own, signing in, and sudo mode.
+          - source: docs/console-overview.md
+            slug: reference/console/overview
+            type: reference
+            summary: "The server's overview, its map, the charts, the activity and the logs."
+          - source: docs/console-fleet.md
+            slug: reference/console/fleet
+            type: reference
+            summary: "A central's own pages: every server side by side, and what each one needs."
+          - source: docs/console-applications.md
+            slug: reference/console/applications
+            type: reference
+            summary: "The list of applications, the recipes, one application's pages, the deploy queue, Diagnose, the terminal and cron."
+          - source: docs/console-domains.md
+            slug: reference/console/domains
+            type: reference
+            summary: Domains, certificates and the sites Noust did not write.
+          - source: docs/console-databases.md
+            slug: reference/console/databases
+            type: reference
+            summary: Engines, databases, their tables, the SQL console, backups and users.
+          - source: docs/console-backups.md
+            slug: reference/console/backups
+            type: reference
+            summary: "Backups, schedules, destinations, volumes and Noust's own state."
+          - source: docs/console-server.md
+            slug: reference/console/server
+            type: reference
+            summary: "The server itself: system, services, logs, storage, updates and security."
+          - source: docs/console-settings.md
+            slug: reference/console/settings
+            type: reference
+            summary: "Every settings page: accounts, security, tokens, channels, integrations, the console and About."
+          - source: docs/console-keyboard.md
+            slug: reference/console/keyboard
+            type: reference
+            summary: "The console's keyboard shortcuts and the command palette."
+          - source: docs/console-accessibility.md
+            slug: reference/console/accessibility
+            type: reference
+            summary: What the console does for keyboard, screen reader and low-vision users, and how it is checked.
 
   - title: Releases
     slug: releases

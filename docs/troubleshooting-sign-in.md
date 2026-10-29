@@ -56,7 +56,7 @@ Then choose **Access token** on the sign-in page and paste it.
 
 Browsers offer passkeys only on a site with a certificate they trust, so not through an SSH tunnel
 to `127.0.0.1` or with a self-signed certificate. Use the authenticator app there, or publish the
-console on a name of its own ([Reaching the console](console.md#reaching-it)).
+console on a name of its own ([Reaching the console](console-start.md#reaching-it)).
 
 ## You are signed out all the time
 

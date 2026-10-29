@@ -36,7 +36,7 @@ You have a server, an application and a way back. Here is where each next thing 
 - **Accounts, roles, approvals and the audit log:** [Security](security.md).
 - **Teams, projects and environments:** [Teams](teams.md).
 - **Single sign-on, LDAP and SCIM:** [Single sign-on](sso.md).
-- **The console on a name of its own, over HTTPS:** [Reaching the console](console.md#reaching-it).
+- **The console on a name of its own, over HTTPS:** [Reaching the console](console-start.md#reaching-it).
 
 ## Several servers
 
