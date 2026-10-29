@@ -31,7 +31,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -184,7 +184,7 @@ class MovePlan:
     sites: tuple[SitePlan, ...]
     blockers: tuple[ServerText, ...] = ()
     skipped: tuple[str, ...] = ()
-    left_behind: tuple[str, ...] = field(default=())
+    left_behind: tuple[str, ...] = ()
 
     @property
     def blocked(self) -> bool:
