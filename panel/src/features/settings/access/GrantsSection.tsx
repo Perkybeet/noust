@@ -20,7 +20,6 @@ import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { RowAction } from "../RowAction";
-import { SettingsPrimaryAction } from "../SettingsShell";
 import { GrantDialog } from "./GrantDialog";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
@@ -82,7 +81,7 @@ export function GrantsSection() {
 
   const grant = (
     <Button
-      variant="primary"
+      variant="secondary"
       icon={<ICONS.add aria-hidden="true" />}
       onClick={() => {
         setGranting(true);
@@ -93,8 +92,12 @@ export function GrantsSection() {
   );
 
   return (
-    <Section title={t("access.grants.title")} icon={OBJECT_ICONS.role} description={t("access.grants.description")}>
-      {query.data !== undefined && query.data.bindings.length > 0 ? <SettingsPrimaryAction>{grant}</SettingsPrimaryAction> : null}
+    <Section
+      title={t("access.grants.title")}
+      icon={OBJECT_ICONS.role}
+      description={t("access.grants.description")}
+      {...(query.data !== undefined && query.data.bindings.length > 0 ? { actions: grant } : {})}
+    >
       <QueryState
         query={query}
         label={t("access.loadingLabel")}

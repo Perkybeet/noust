@@ -8,16 +8,17 @@ import type { Status } from "../../../components/ui/StatusPill";
 import type { T } from "../../../i18n";
 import { formatClock } from "../../../lib/format";
 import type { Account } from "./api";
-import { isRole } from "./roles";
-import type { Role } from "./roles";
 
 export type AccountStatus = "active" | "locked" | "disabled" | "invited";
 
 export interface AccountsSearch {
   q?: string;
-  role?: Role;
+  role?: string;
   state?: AccountStatus;
 }
+
+/** A role's name as the server writes it (`release-manager`): the filter takes any role of the list, the owner and yours included. */
+const ROLE_NAME = /^[a-z0-9][a-z0-9-]{0,39}$/;
 
 const STATES: readonly AccountStatus[] = ["active", "locked", "disabled", "invited"];
 
@@ -27,7 +28,7 @@ function isState(value: unknown): value is AccountStatus {
 
 export function validateAccountsSearch(search: Record<string, unknown>): AccountsSearch {
   const q = typeof search["q"] === "string" && search["q"] !== "" ? search["q"] : undefined;
-  const role = typeof search["role"] === "string" && isRole(search["role"]) ? search["role"] : undefined;
+  const role = typeof search["role"] === "string" && ROLE_NAME.test(search["role"]) ? search["role"] : undefined;
   const state = isState(search["state"]) ? search["state"] : undefined;
   return { ...(q !== undefined ? { q } : {}), ...(role !== undefined ? { role } : {}), ...(state !== undefined ? { state } : {}) };
 }
@@ -45,7 +46,7 @@ export function accountStatus(account: Pick<Account, "status" | "locked_until">,
 export function filterAccounts(accounts: readonly Account[], search: AccountsSearch, now: number = Date.now()): Account[] {
   const needle = search.q?.trim().toLowerCase() ?? "";
   return accounts
-    .filter((account) => (search.role === undefined ? true : account.role === search.role))
+    .filter((account) => (search.role === undefined ? true : (account.roles ?? [account.role]).includes(search.role)))
     .filter((account) => (search.state === undefined ? true : accountStatus(account, now) === search.state))
     .filter((account) =>
       needle === ""
