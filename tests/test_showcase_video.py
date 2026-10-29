@@ -23,6 +23,7 @@ import pytest
 
 from noust.core.alerts.rules import FIRING, AlertRules
 from noust.core.store import NoustStore
+from noust.recipes import get_recipe
 from tests.support.showcase import (
     FRA_APPS,
     NODES,
@@ -209,10 +210,13 @@ def test_the_central_has_its_databases_and_the_n8n_it_installed(store: NoustStor
     assert state.database_names == ["wrenfield_prod", "brumaria_shop", "nortewave_wp", "sessions"]
     with store._transaction() as cursor:
         cursor.execute(
-            "SELECT apps.domain, app_recipes.recipe FROM app_recipes JOIN apps ON apps.id = app_recipes.app_id"
+            "SELECT apps.domain, app_recipes.recipe, app_recipes.version, app_recipes.revision "
+            "FROM app_recipes JOIN apps ON apps.id = app_recipes.app_id"
         )
         installed = [tuple(row) for row in cursor.fetchall()]
-    assert installed == [("automations.kelmoor.dev", "n8n")]
+    n8n = get_recipe("n8n")
+    # Installed at the catalog's own version and revision: nothing to update in the video.
+    assert installed == [("automations.kelmoor.dev", "n8n", n8n.version, n8n.revision)]
 
 
 def test_the_people_of_the_agency_have_accounts(store: NoustStore) -> None:

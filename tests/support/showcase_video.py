@@ -627,12 +627,13 @@ def seed_video_extras(store: NoustStore, node: str, state: ShowcaseState) -> Non
         with store._transaction() as cursor:
             cursor.execute(
                 "INSERT INTO app_recipes (app_id, recipe, kind, version, revision, installed_at, "
-                "updated_at) VALUES (?, ?, ?, ?, 1, ?, ?)",
+                "updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (
                     state.app_ids[app.domain],
                     recipe.name,
                     recipe.kind,
                     recipe.version or "1",
+                    recipe.revision,
                     now,
                     now,
                 ),
