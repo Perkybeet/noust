@@ -926,6 +926,11 @@ async def lifespan(app: FastAPI):
     # holding ports; they go before this one opens any.
     await asyncio.to_thread(sweep_stale_tunnels)
     fleet_probe = start_probe(daemon=False, active=lambda: event_hub.listening)
+    # The servers that came back, or joined, get the fleet's settings: whichever process saw them
+    # leaves a note in the store and this is the one that acts on it (item 90).
+    from noust.web.fleet_settings_actions import start_watcher
+
+    settings_watcher = start_watcher()
     # What the server did while the console was not running: a reboot, or an
     # update that kept going in its own systemd unit.
     from noust.web.api.server.lifecycle import on_console_start
@@ -946,6 +951,7 @@ async def lifespan(app: FastAPI):
         if not shutting_down():
             raise
     finally:
+        settings_watcher.stop()
         fleet_probe.stop()
         stop_metrics_collector()
         jobs.unsubscribe_all(invalidate_after_job)

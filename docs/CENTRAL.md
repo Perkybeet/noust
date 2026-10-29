@@ -712,6 +712,58 @@ server is `noust db move` ([databases.md](databases.md#moving-a-database-or-an-e
   apply, sudo mode is asked once for the job (the target's import marks it), and a server older than this is
   skipped as `unsupported` like any bulk action.
 
+## Settings of the fleet
+
+Some settings are the fleet's: you write them once, on the central, and every server it manages has
+them. Five kinds are managed this way: **notification channels**, **alert rules**, **backup
+destinations**, **registry logins** and **shared variables** of the server. (Secret managers, DNS and
+cloud providers and source integrations are named by the design and are not managed from the central
+yet: set them on each server.) What belongs to the machine - the web server, the firewall, SSH,
+ports, runtimes, database engines, updates of the system, a server's own console and its security,
+accounts and audit - is never pushed; the central shows a difference and the server decides.
+
+A setting has a value for **every server** and, optionally, **exceptions**: a value of its own for
+one server, set from the central. A server follows the fleet's value unless it has an exception or is
+**independent** (the central pushes it nothing, and it still appears in every fleet view). Whoever
+signs in on a server can still change a setting there: the server rules on its own machine, and that
+setting becomes **the server's own exception** (`overridden`) until the central is told to put it
+back. A server that leaves the fleet, or is made independent, keeps the last value it applied as its
+own: nothing a setting put on a server is ever deleted from it.
+
+```bash
+# the API, as the console uses it (all under /api/fleet)
+GET    /settings                          # the kinds, and every setting in every scope
+GET    /settings/status                   # where each server stands on each setting
+PUT    /settings/{kind}/{name}            # {"value": {...}, "scope": "fleet" | "node:web-2", "apply": true}
+DELETE /settings/{kind}/{name}?scope=...  # the servers keep what they applied
+PUT    /servers/{node}/settings-mode      # {"mode": "managed" | "independent"}
+POST   /settings/apply                    # "Apply to the fleet": a fleet job, with each server's progress
+POST   /servers/{node}/settings/{kind}/{name}/restore   # back to the fleet's value on that server
+```
+
+The value of a setting is the body of the server's own route for it (a channel's is what
+`PUT /api/notifications/channels/{name}` takes), and the server judges it with its own validators:
+the central checks only the shape. A secret goes in and never comes out; it is kept in the central's
+secret store (sealed, on a sealed central) and shown as `***`.
+
+**Who approves, and how a server knows.** Setting or removing one needs sudo mode and the permission
+the server's own route asks (`settings.manage`, `server.manage`, `backups.manage` or `apps.manage`,
+by kind): `fleet.manage` is not enough to manage the registry logins of every server. The change is
+recorded with an id and the person who approved it. The pushes that apply it - also the ones made
+later, when a server comes back, with nobody in front of the console - carry
+`X-Noust-Actor: fleet-sync on behalf of <person> (change <id>)` and `X-Noust-Elevated:
+change:<id>`. A server takes that as the confirmation of sudo mode **only** for the routes of these
+five kinds and the routes that record what was applied, and **only** when its ceiling is `admin`;
+anything else signed that way is refused (`fleet_sync_refused`, `fleet_sync_ceiling`), and its audit
+trail names the person and the change.
+
+**When it is applied.** When a setting is saved; when a server answers after a silence, or joins (the
+console acts on a note the probe leaves in the store, within half a minute, and again after five if it
+did not get done); and when someone presses **Apply to the fleet**. A setting that exists on a server
+and is not the fleet's is not taken over unless you say so (`adopt`), and one its operator changed is
+left unless you name it (`restore`) or the operator asked for it back on that server. A server on an
+older Noust (before 4.1) is skipped as `unsupported`.
+
 ## A fleet on different versions
 
 A 3.1 central drives 3.0 servers, and a 3.0 central drives 3.1 servers. A 3.0 server shows as

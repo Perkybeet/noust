@@ -18743,6 +18743,270 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/fleet/servers/{node}/settings-mode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Mode
+         * @description Make a server follow the fleet's settings, or leave it out of them.
+         *
+         *     An independent server is pushed nothing and is let go of what it had (it keeps it, as its own);
+         *     it still appears in every fleet view. A server that follows them again is applied everything.
+         *
+         *     Args:
+         *         node: The server.
+         *         body: The mode.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The mode and the job that settles it.
+         *
+         *     Raises:
+         *         ValidationError: 400 for a mode that is not one, or a server that is not in the fleet.
+         */
+        put: operations["set_mode_api_fleet_servers__node__settings_mode_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/servers/{node}/settings/{resource}/{name}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Setting
+         * @description Put a setting back as the fleet's on a server whose operator changed it: "back to the fleet's".
+         *
+         *     Args:
+         *         node: The server.
+         *         resource: The kind.
+         *         name: The setting.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The job that does it.
+         *
+         *     Raises:
+         *         ResourceNotFoundError: 404 when the server is not given that setting by the fleet.
+         */
+        post: operations["restore_setting_api_fleet_servers__node__settings__resource___name__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Settings
+         * @description List what the fleet's settings hold, in every scope, and the kinds there are.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The kinds, and every setting with its secrets shown as ``***``.
+         */
+        get: operations["list_settings_api_fleet_settings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/settings/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply Settings
+         * @description Apply the fleet's settings to the servers: "Apply to the fleet".
+         *
+         *     A bulk action like the others: a plan first (which servers run, which are skipped and why),
+         *     batches, and a record per server with each setting's result - ``created``, ``updated``,
+         *     ``in_sync``, ``overridden`` (its operator changed it; left unless asked), ``restored``,
+         *     ``released``, ``conflict`` (it exists there and is not the fleet's; left unless asked to adopt
+         *     it), ``unsupported`` or ``failed`` with the server's own words. Poll it with
+         *     ``GET /api/fleet/jobs/{id}``.
+         *
+         *     Args:
+         *         body: The servers, and what to do about conflicts and changed settings.
+         *         request: The request.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         ``plan`` and, unless only planning, ``job``.
+         *
+         *     Raises:
+         *         ValidationError: An unknown server or option, or no server to apply to.
+         *         HTTPException: 403 ``elevation_required`` for ``adopt``, ``restore`` and ``restore_all``
+         *             without sudo mode: they take over what a server has or undo what its operator did.
+         */
+        post: operations["apply_settings_api_fleet_settings_apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/settings/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Settings Status
+         * @description Say, for each setting, where each server stands.
+         *
+         *     Every server is asked what it manages (it looks at what it holds first, so a setting its own
+         *     operator changed shows as such). A server that cannot be read is said so with the reason, not
+         *     guessed at. Nothing secret is read.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         refresh: Ask even a server whose answer is a few seconds old.
+         *
+         *     Returns:
+         *         ``servers`` (how each answered, its mode, whether a look is waiting), ``settings`` (each
+         *         with its fleet row, its exceptions and a cell per server: ``origin`` and ``sync``),
+         *         ``released`` (what a server still manages that the fleet no longer wants), and
+         *         ``partial``.
+         */
+        get: operations["settings_status_api_fleet_settings_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/settings/{resource}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Kind
+         * @description List the settings of one kind, in every scope.
+         *
+         *     Args:
+         *         resource: The kind.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The kind, and its settings.
+         *
+         *     Raises:
+         *         ValidationError: 400 for a kind that is unknown, or not managed from the central yet.
+         */
+        get: operations["list_kind_api_fleet_settings__resource__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/settings/{resource}/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Setting
+         * @description Show one setting: the fleet's value and every exception.
+         *
+         *     Args:
+         *         resource: The kind.
+         *         name: The setting.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its rows, one per scope, with secrets shown as ``***``.
+         *
+         *     Raises:
+         *         ResourceNotFoundError: 404 when there is no such setting.
+         */
+        get: operations["get_setting_api_fleet_settings__resource___name__get"];
+        /**
+         * Set Setting
+         * @description Set a setting of the fleet, and apply it to the servers.
+         *
+         *     Needs sudo mode and the permission the server's own route for it asks. It is recorded as a
+         *     change with an id; the pushes that apply it carry the person who approves it and that change.
+         *
+         *     Args:
+         *         resource: The kind.
+         *         name: The setting.
+         *         body: Its value, the scope it is set in and whether to apply it now.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The setting as stored, and the job applying it.
+         *
+         *     Raises:
+         *         ValidationError: 400 for a name, scope or value that is not acceptable, naming the field.
+         *         NoustPermissionError: 403 without the permission of that kind.
+         */
+        put: operations["set_setting_api_fleet_settings__resource___name__put"];
+        post?: never;
+        /**
+         * Remove Setting
+         * @description Take a setting away from the fleet. The servers keep what they applied, as their own.
+         *
+         *     Args:
+         *         resource: The kind.
+         *         name: The setting.
+         *         session: The elevated session.
+         *         scope: ``fleet`` or ``node:<server>``.
+         *         apply: Let the servers go of it now.
+         *
+         *     Returns:
+         *         Whether there was one, and the job that lets the servers go of it.
+         *
+         *     Raises:
+         *         NoustPermissionError: 403 without the permission of that kind.
+         */
+        delete: operations["remove_setting_api_fleet_settings__resource___name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/fleet/summary": {
         parameters: {
             query?: never;
@@ -20028,6 +20292,118 @@ export interface paths {
         get: operations["search_logs_api_logs_search_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/managed-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Managed
+         * @description List the settings a central manages here, after looking at what this server holds.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Each with its state: ``managed``, or ``overridden`` where this server's own operator
+         *         changed it.
+         */
+        get: operations["list_managed_api_managed_settings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/managed-settings/{resource}/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Record Applied
+         * @description Record that the central wrote a setting here, and fingerprint what this server holds of it.
+         *
+         *     Only the central's push can do this (it is signed with the person and the change).
+         *
+         *     Args:
+         *         resource: The kind.
+         *         name: The setting.
+         *         body: The version the central pushed.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The setting, ``managed`` again also if it had been ``overridden``.
+         *
+         *     Raises:
+         *         HTTPException: 403 ``fleet_sync_required`` for anyone else.
+         *         ValidationError: 400 for a kind this server cannot be managed for.
+         *         ResourceNotFoundError: 404 when this server holds no such setting.
+         */
+        put: operations["record_applied_api_managed_settings__resource___name__put"];
+        post?: never;
+        /**
+         * Release
+         * @description Stop treating a setting as the fleet's. This server keeps it as its own.
+         *
+         *     Args:
+         *         resource: The kind.
+         *         name: The setting.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Whether this server managed it.
+         *
+         *     Raises:
+         *         HTTPException: 403 ``fleet_sync_required`` for anyone but the central.
+         */
+        delete: operations["release_api_managed_settings__resource___name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/managed-settings/{resource}/{name}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask Restore
+         * @description Ask the central to put a setting back as the fleet's.
+         *
+         *     This server cannot call its central: the request waits until the central next applies the
+         *     fleet's settings here, and shows as ``restore_requested_at``.
+         *
+         *     Args:
+         *         resource: The kind.
+         *         name: The setting.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The setting, still ``overridden`` until then.
+         *
+         *     Raises:
+         *         ResourceNotFoundError: 404 when no central manages it here.
+         */
+        post: operations["ask_restore_api_managed_settings__resource___name__restore_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -41760,6 +42136,212 @@ export interface components {
             updated_at?: string | null;
         };
         /**
+         * FleetSettingIn
+         * @description A setting to set.
+         *
+         *     Attributes:
+         *         value: The body of the server's own route for it. A secret sent back as ``***`` keeps
+         *             the one stored.
+         *         scope: ``fleet`` for every server, or ``node:<server>`` for an exception.
+         *         apply: Apply it to the servers now (the default).
+         */
+        FleetSettingIn: {
+            /**
+             * Apply
+             * @default true
+             */
+            apply: boolean;
+            /**
+             * Scope
+             * @default fleet
+             */
+            scope: string;
+            /** Value */
+            value: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * FleetSettingKindOut
+         * @description One kind of setting.
+         *
+         *     Attributes:
+         *         key: Its name (``channel``).
+         *         title: What it is called.
+         *         available: Whether this release manages it from the central.
+         *         permission: The permission a person needs to set one for the fleet.
+         *         operations: The routes a server must offer to take one.
+         *         reason: Why it is not available: a sentence with its code, when it is not.
+         */
+        FleetSettingKindOut: {
+            /** Available */
+            available: boolean;
+            /** Key */
+            key: string;
+            /** Operations */
+            operations?: string[];
+            /** Permission */
+            permission?: string | null;
+            /** Reason */
+            reason?: {
+                [key: string]: unknown;
+            } | null;
+            /** Title */
+            title: string;
+        };
+        /**
+         * FleetSettingOut
+         * @description One setting of the fleet, in one scope.
+         *
+         *     Attributes:
+         *         resource: The kind.
+         *         name: The setting.
+         *         scope: ``fleet``, or ``node:<server>`` for an exception.
+         *         node: The server of an exception.
+         *         version: The row's version: one counter for every setting, never reused.
+         *         value: The value, with ``***`` where a secret is stored.
+         *         secrets: The paths of the value that hold a secret.
+         *         change: The change that wrote it.
+         *         changed_by: The person who approved that change.
+         *         changed_at: When.
+         */
+        FleetSettingOut: {
+            /** Change */
+            change: string;
+            /** Changed At */
+            changed_at: string;
+            /** Changed By */
+            changed_by: string;
+            /** Name */
+            name: string;
+            /** Node */
+            node?: string | null;
+            /** Resource */
+            resource: string;
+            /** Scope */
+            scope: string;
+            /** Secrets */
+            secrets: string[];
+            /** Value */
+            value: {
+                [key: string]: unknown;
+            };
+            /** Version */
+            version: number;
+        };
+        /**
+         * FleetSettingRemovedOut
+         * @description A setting that was taken away.
+         *
+         *     Attributes:
+         *         removed: Whether there was one.
+         *         apply: The job that lets the servers go of it; null when none was started.
+         */
+        FleetSettingRemovedOut: {
+            apply?: components["schemas"]["FleetSettingsAppliedOut"] | null;
+            /** Removed */
+            removed: boolean;
+        };
+        /**
+         * FleetSettingSavedOut
+         * @description A setting that was set.
+         *
+         *     Attributes:
+         *         setting: It, as stored.
+         *         apply: The job applying it; null when none was started.
+         */
+        FleetSettingSavedOut: {
+            apply?: components["schemas"]["FleetSettingsAppliedOut"] | null;
+            setting: components["schemas"]["FleetSettingOut"];
+        };
+        /**
+         * FleetSettingsAppliedOut
+         * @description The job that applies a change.
+         *
+         *     Attributes:
+         *         job_id: The job: ``GET /api/fleet/jobs/{id}`` says how each server is doing.
+         *         nodes: The servers it runs on.
+         */
+        FleetSettingsAppliedOut: {
+            /** Job Id */
+            job_id: string;
+            /** Nodes */
+            nodes: string[];
+        };
+        /**
+         * FleetSettingsApplyIn
+         * @description Apply the fleet's settings to the servers.
+         *
+         *     Attributes:
+         *         nodes: The servers; every one when empty.
+         *         adopt: Take over a setting a server already has that is not the fleet's.
+         *         restore: ``kind/name`` to put back where a server's operator changed it.
+         *         restore_all: Put back every one of them.
+         *         plan: Only say what would run.
+         */
+        FleetSettingsApplyIn: {
+            /**
+             * Adopt
+             * @default false
+             */
+            adopt: boolean;
+            /** Nodes */
+            nodes?: string[];
+            /**
+             * Plan
+             * @default false
+             */
+            plan: boolean;
+            /** Restore */
+            restore?: string[];
+            /**
+             * Restore All
+             * @default false
+             */
+            restore_all: boolean;
+        };
+        /**
+         * FleetSettingsModeIn
+         * @description How a server follows the fleet's settings.
+         *
+         *     Attributes:
+         *         mode: ``managed`` (it follows them) or ``independent`` (it is left out).
+         */
+        FleetSettingsModeIn: {
+            /** Mode */
+            mode: string;
+        };
+        /**
+         * FleetSettingsModeOut
+         * @description A server's mode.
+         *
+         *     Attributes:
+         *         node: The server.
+         *         mode: Its mode.
+         *         apply: The job that settles it, when one was started.
+         */
+        FleetSettingsModeOut: {
+            apply?: components["schemas"]["FleetSettingsAppliedOut"] | null;
+            /** Mode */
+            mode: string;
+            /** Node */
+            node: string;
+        };
+        /**
+         * FleetSettingsOut
+         * @description Everything the fleet's settings hold.
+         *
+         *     Attributes:
+         *         kinds: Every kind there is, and whether it can be set.
+         *         items: Every setting in every scope.
+         */
+        FleetSettingsOut: {
+            /** Items */
+            items: components["schemas"]["FleetSettingOut"][];
+            /** Kinds */
+            kinds: components["schemas"]["FleetSettingKindOut"][];
+        };
+        /**
          * FleetViewOut
          * @description One fleet view.
          *
@@ -45260,6 +45842,84 @@ export interface components {
             unreferenced_since?: string | null;
             /** Zone */
             zone: string;
+        };
+        /**
+         * ManagedSettingAppliedIn
+         * @description What the central says it applied.
+         *
+         *     Attributes:
+         *         version: The version of its row that it pushed.
+         */
+        ManagedSettingAppliedIn: {
+            /** Version */
+            version: number;
+        };
+        /**
+         * ManagedSettingOut
+         * @description One setting a central manages here.
+         *
+         *     Attributes:
+         *         resource: The kind (``channel``, ``alert_rule``, ``backup_destination``, ``registry``,
+         *             ``variable``).
+         *         name: The setting.
+         *         central: The central that pushed it.
+         *         version: The version of the central's row that was applied.
+         *         fingerprint: A handle of what this server held right after (a prefix of a keyed hash).
+         *         state: ``managed``, or ``overridden`` when this server's own operator changed it.
+         *         change: The change the central pushed it for.
+         *         applied_by: The person who approved that change.
+         *         applied_at: When it was applied.
+         *         overridden_at: When this server found it changed.
+         *         restore_requested_at: When this server's operator asked the central to put it back.
+         */
+        ManagedSettingOut: {
+            /** Applied At */
+            applied_at: string;
+            /** Applied By */
+            applied_by: string;
+            /** Central */
+            central: string;
+            /** Change */
+            change: string;
+            /** Fingerprint */
+            fingerprint: string;
+            /** Name */
+            name: string;
+            /** Overridden At */
+            overridden_at?: string | null;
+            /** Resource */
+            resource: string;
+            /** Restore Requested At */
+            restore_requested_at?: string | null;
+            /** State */
+            state: string;
+            /** Version */
+            version: number;
+        };
+        /**
+         * ManagedSettingReleasedOut
+         * @description The answer to letting a setting go.
+         *
+         *     Attributes:
+         *         released: Whether this server managed it.
+         */
+        ManagedSettingReleasedOut: {
+            /** Released */
+            released: boolean;
+        };
+        /**
+         * ManagedSettingsOut
+         * @description Every setting a central manages here.
+         *
+         *     Attributes:
+         *         items: Them, by kind and name, after looking at what this server holds.
+         *         kinds: The kinds of setting this server can be managed for.
+         */
+        ManagedSettingsOut: {
+            /** Items */
+            items: components["schemas"]["ManagedSettingOut"][];
+            /** Kinds */
+            kinds: string[];
         };
         /**
          * ManifestApplyRequest
@@ -85073,6 +85733,299 @@ export interface operations {
             };
         };
     };
+    set_mode_api_fleet_servers__node__settings_mode_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FleetSettingsModeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetSettingsModeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_setting_api_fleet_servers__node__settings__resource___name__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+                resource: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetSettingsAppliedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_settings_api_fleet_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetSettingsOut"];
+                };
+            };
+        };
+    };
+    apply_settings_api_fleet_settings_apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FleetSettingsApplyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    settings_status_api_fleet_settings_status_get: {
+        parameters: {
+            query?: {
+                /** @description Ask the servers even if they were just asked */
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_kind_api_fleet_settings__resource__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resource: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetSettingsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_setting_api_fleet_settings__resource___name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resource: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetSettingsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_setting_api_fleet_settings__resource___name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resource: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FleetSettingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetSettingSavedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_setting_api_fleet_settings__resource___name__delete: {
+        parameters: {
+            query?: {
+                /** @description fleet, or node:<server> for an exception */
+                scope?: string;
+                /** @description Let the servers go of it now */
+                apply?: boolean;
+            };
+            header?: never;
+            path: {
+                resource: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetSettingRemovedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     fleet_summary_api_fleet_summary_get: {
         parameters: {
             query?: {
@@ -86411,6 +87364,126 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LogSearchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_managed_api_managed_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagedSettingsOut"];
+                };
+            };
+        };
+    };
+    record_applied_api_managed_settings__resource___name__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resource: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManagedSettingAppliedIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagedSettingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    release_api_managed_settings__resource___name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resource: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagedSettingReleasedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ask_restore_api_managed_settings__resource___name__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resource: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagedSettingOut"];
                 };
             };
             /** @description Validation Error */

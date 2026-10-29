@@ -661,6 +661,19 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("fleet", "view_logs"): ("GET", "/api/views/logs", "apps.read", False),
     ("fleet", "view_search"): ("GET", "/api/views/search", "apps.read", False),
     ("fleet", "view_sites"): ("GET", "/api/views/sites", "apps.read", False),
+    ("fleet_settings", "set_mode"): ("PUT", "/api/fleet/servers/{node}/settings-mode", "fleet.manage", True),
+    ("fleet_settings", "restore_setting"): ("POST", "/api/fleet/servers/{node}/settings/{resource}/{name}/restore", "fleet.manage", True),
+    ("fleet_settings", "list_settings"): ("GET", "/api/fleet/settings", "fleet.read", False),
+    ("fleet_settings", "apply_settings"): ("POST", "/api/fleet/settings/apply", "fleet.manage", False),
+    ("fleet_settings", "settings_status"): ("GET", "/api/fleet/settings/status", "fleet.read", False),
+    ("fleet_settings", "list_kind"): ("GET", "/api/fleet/settings/{resource}", "fleet.read", False),
+    ("fleet_settings", "get_setting"): ("GET", "/api/fleet/settings/{resource}/{name}", "fleet.read", False),
+    ("fleet_settings", "set_setting"): ("PUT", "/api/fleet/settings/{resource}/{name}", "fleet.manage", True),
+    ("fleet_settings", "remove_setting"): ("DELETE", "/api/fleet/settings/{resource}/{name}", "fleet.manage", True),
+    ("fleet_settings", "list_managed"): ("GET", "/api/managed-settings", "settings.read", False),
+    ("fleet_settings", "record_applied"): ("PUT", "/api/managed-settings/{resource}/{name}", "settings.manage", False),
+    ("fleet_settings", "release"): ("DELETE", "/api/managed-settings/{resource}/{name}", "settings.manage", False),
+    ("fleet_settings", "ask_restore"): ("POST", "/api/managed-settings/{resource}/{name}/restore", "settings.manage", False),
     ("git_push", "get_push"): ("GET", "/api/push", "server.read", False),
     ("git_push", "setup_push"): ("POST", "/api/push/setup", "server.host_access", True),
     ("integrations", "github_status"): ("GET", "/api/integrations/github", "apps.read", False),
@@ -6323,6 +6336,118 @@ class Fleet:
 
 
 
+class FleetSettings:
+    """Fleet settings: 13 operations."""
+
+    def __init__(self, call: Call) -> None:
+        self._call = call
+
+    def set_mode(self, node: str, body: "FleetSettingsModeIn") -> "FleetSettingsModeOut":
+        """PUT /api/fleet/servers/{node}/settings-mode
+
+        Set Mode
+
+        Needs: permission `fleet.manage`, sudo mode."""
+        return self._call("PUT", f"/api/fleet/servers/{quote(str(node), safe='')}/settings-mode", query=None, body=body)
+
+    def restore_setting(self, node: str, resource: str, name: str) -> "FleetSettingsAppliedOut":
+        """POST /api/fleet/servers/{node}/settings/{resource}/{name}/restore
+
+        Restore Setting
+
+        Needs: permission `fleet.manage`, sudo mode."""
+        return self._call("POST", f"/api/fleet/servers/{quote(str(node), safe='')}/settings/{quote(str(resource), safe='')}/{quote(str(name), safe='')}/restore", query=None, body=None)
+
+    def list_settings(self) -> "FleetSettingsOut":
+        """GET /api/fleet/settings
+
+        List Settings
+
+        Needs: permission `fleet.read`."""
+        return self._call("GET", "/api/fleet/settings", query=None, body=None)
+
+    def apply_settings(self, body: "FleetSettingsApplyIn") -> dict[str, Any]:
+        """POST /api/fleet/settings/apply
+
+        Apply Settings
+
+        Needs: permission `fleet.manage`."""
+        return self._call("POST", "/api/fleet/settings/apply", query=None, body=body)
+
+    def settings_status(self, *, refresh: Union[bool, None] = None) -> dict[str, Any]:
+        """GET /api/fleet/settings/status
+
+        Settings Status
+
+        Needs: permission `fleet.read`."""
+        return self._call("GET", "/api/fleet/settings/status", query={"refresh": refresh}, body=None)
+
+    def list_kind(self, resource: str) -> "FleetSettingsOut":
+        """GET /api/fleet/settings/{resource}
+
+        List Kind
+
+        Needs: permission `fleet.read`."""
+        return self._call("GET", f"/api/fleet/settings/{quote(str(resource), safe='')}", query=None, body=None)
+
+    def get_setting(self, resource: str, name: str) -> "FleetSettingsOut":
+        """GET /api/fleet/settings/{resource}/{name}
+
+        Get Setting
+
+        Needs: permission `fleet.read`."""
+        return self._call("GET", f"/api/fleet/settings/{quote(str(resource), safe='')}/{quote(str(name), safe='')}", query=None, body=None)
+
+    def set_setting(self, resource: str, name: str, body: "FleetSettingIn") -> "FleetSettingSavedOut":
+        """PUT /api/fleet/settings/{resource}/{name}
+
+        Set Setting
+
+        Needs: permission `fleet.manage`, sudo mode."""
+        return self._call("PUT", f"/api/fleet/settings/{quote(str(resource), safe='')}/{quote(str(name), safe='')}", query=None, body=body)
+
+    def remove_setting(self, resource: str, name: str, *, scope: Union[str, None] = None, apply: Union[bool, None] = None) -> "FleetSettingRemovedOut":
+        """DELETE /api/fleet/settings/{resource}/{name}
+
+        Remove Setting
+
+        Needs: permission `fleet.manage`, sudo mode."""
+        return self._call("DELETE", f"/api/fleet/settings/{quote(str(resource), safe='')}/{quote(str(name), safe='')}", query={"scope": scope, "apply": apply}, body=None)
+
+    def list_managed(self) -> "ManagedSettingsOut":
+        """GET /api/managed-settings
+
+        List Managed
+
+        Needs: permission `settings.read`."""
+        return self._call("GET", "/api/managed-settings", query=None, body=None)
+
+    def record_applied(self, resource: str, name: str, body: "ManagedSettingAppliedIn") -> "ManagedSettingOut":
+        """PUT /api/managed-settings/{resource}/{name}
+
+        Record Applied
+
+        Needs: permission `settings.manage`."""
+        return self._call("PUT", f"/api/managed-settings/{quote(str(resource), safe='')}/{quote(str(name), safe='')}", query=None, body=body)
+
+    def release(self, resource: str, name: str) -> "ManagedSettingReleasedOut":
+        """DELETE /api/managed-settings/{resource}/{name}
+
+        Release
+
+        Needs: permission `settings.manage`."""
+        return self._call("DELETE", f"/api/managed-settings/{quote(str(resource), safe='')}/{quote(str(name), safe='')}", query=None, body=None)
+
+    def ask_restore(self, resource: str, name: str) -> "ManagedSettingOut":
+        """POST /api/managed-settings/{resource}/{name}/restore
+
+        Ask Restore
+
+        Needs: permission `settings.manage`."""
+        return self._call("POST", f"/api/managed-settings/{quote(str(resource), safe='')}/{quote(str(name), safe='')}/restore", query=None, body=None)
+
+
+
 class GitPush:
     """Git push: 2 operations."""
 
@@ -10171,6 +10296,7 @@ class Api:
     deployments: Deployments
     domains: Domains
     fleet: Fleet
+    fleet_settings: FleetSettings
     git_push: GitPush
     integrations: Integrations
     jobs: Jobs
@@ -10231,6 +10357,7 @@ class Api:
         self.deployments = Deployments(call)
         self.domains = Domains(call)
         self.fleet = Fleet(call)
+        self.fleet_settings = FleetSettings(call)
         self.git_push = GitPush(call)
         self.integrations = Integrations(call)
         self.jobs = Jobs(call)

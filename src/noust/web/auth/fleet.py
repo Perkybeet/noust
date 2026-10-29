@@ -35,6 +35,7 @@ from noust.web.auth.constants import (
     FORWARDING_HEADERS,
     SCOPE_RANK,
 )
+from noust.web.auth.fleet_sync import admit_sync, is_sync, refuse_sync, sync_route_refusal
 from noust.web.auth.payload import FleetCredentialRefused, actor_label, is_fleet
 from noust.web.permissions import ALL_PERMISSIONS, Permission
 from noust.web.permissions.enforce import patched_config_key
@@ -119,6 +120,11 @@ def admit_fleet(payload: dict[str, Any], connection: HTTPConnection | None) -> d
             refusal or "A fleet token needs a connection.",
             "Reach this server through the central, or use a token of your own.",
         )
+
+    # The central applying the fleet's settings for a person's change (4.1).
+    synced = admit_sync(payload, connection)
+    if synced is not None:
+        return synced
 
     actor = connection.headers.get(FLEET_ACTOR_HEADER)
     if actor is not None and not FLEET_ACTOR_PATTERN.fullmatch(actor):
@@ -344,6 +350,10 @@ async def ensure_fleet_allowed(request: Request, payload: Mapping[str, Any]) -> 
         return
     method = request.method.upper()
     path = request.url.path
+    if is_sync(payload):
+        refused = sync_route_refusal(method, path)
+        if refused is not None:
+            refuse_sync(request, payload, refused)
     config_key = (
         await patched_config_key(request) if (method, path) == ("PATCH", "/api/config") else None
     )
@@ -366,6 +376,10 @@ def ensure_fleet_handshake_allowed(connection: HTTPConnection, payload: Mapping[
     """
     if not is_fleet(payload):
         return
+    if is_sync(payload):
+        refused = sync_route_refusal("GET", str(connection.scope.get("path", "")))
+        if refused is not None:
+            refuse_sync(connection, payload, refused)
     reason = fleet_refusal("GET", str(connection.scope.get("path", "")))
     if reason is not None:
         _refuse_fleet_operation(connection, payload, reason)

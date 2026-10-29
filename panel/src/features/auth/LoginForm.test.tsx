@@ -25,7 +25,7 @@ const ACCOUNT = {
   person_ref: "ana@example.com",
   mfa_enabled: true,
   passkeys: 0,
-  backup_codes_remaining: 8,
+  backup_codes_remaining: 8, owner: false,
   failures_since_login: 0,
   created_at: 1_790_000_000,
 };
@@ -147,7 +147,7 @@ describe("sign-in with an account", () => {
 
   it("signs an account without a second factor in on its password, and sends it to set one up", async () => {
     let signedIn = false;
-    const fresh = { ...ANA, mfa_required: true, account: { ...ACCOUNT, mfa_enabled: false, backup_codes_remaining: 0 } };
+    const fresh = { ...ANA, mfa_required: true, account: { ...ACCOUNT, mfa_enabled: false, backup_codes_remaining: 0 , owner: false} };
     const backend = fakeBackend({
       ...signedInRoutes(fresh),
       "GET /api/auth/session": () => json(200, signedIn ? fresh : SIGNED_OUT),

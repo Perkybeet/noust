@@ -136,12 +136,16 @@ class Verdict:
         announce_recovered: The server answers again after an outage that was announced.
         down_for: How long the outage lasted, seconds, when it ended.
         state: The state after the look.
+        came_back: The server answers after at least one silence, announced or not. A server
+            that missed a push in a blip is as much in need of a new look as one that was down
+            for an hour, so this is wider than ``announce_recovered``.
     """
 
     state: LivenessState
     announce_down: bool = False
     announce_recovered: bool = False
     down_for: float = 0.0
+    came_back: bool = False
 
 
 def _now_iso() -> str:
@@ -291,7 +295,7 @@ class Liveness:
         down_for = max(0.0, now - state.since) if state.since is not None else 0.0
         clean = LivenessState(node=node)
         self._save(clean)
-        return Verdict(state=clean, announce_recovered=recovered, down_for=down_for)
+        return Verdict(state=clean, announce_recovered=recovered, down_for=down_for, came_back=True)
 
     def forget_outage(self, node: str) -> None:
         """

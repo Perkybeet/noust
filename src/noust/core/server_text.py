@@ -278,6 +278,76 @@ CATALOG: dict[str, str] = {
     "terminal.limit_total.hint": "Close one, or raise terminal.max_sessions.",
     "terminal.limit_user": "You already have {open} terminals open, the most one person may",
     "terminal.limit_user.hint": "Close one, or raise terminal.max_sessions_per_user.",
+    # -- The settings a central manages on every server (noust.fleet.settings) ---------------
+    "fleet_settings.unknown_kind": "{kind} is not something the fleet manages",
+    "fleet_settings.unknown_kind.hint": "The fleet manages: {kinds}.",
+    "fleet_settings.kind_not_yet": "The central cannot manage {kind} for the fleet yet",
+    "fleet_settings.kind_not_yet.hint": "For now, set it on each server, in its own settings.",
+    "fleet_settings.value_not_object": "The value of a {kind} must be an object of fields",
+    "fleet_settings.value_not_object.hint": (
+        "Send the fields that a server's own settings take for a {kind}."
+    ),
+    "fleet_settings.unknown_field": "A {kind} has no field called {field}",
+    "fleet_settings.unknown_field.hint": "A {kind} takes: {fields}.",
+    "fleet_settings.missing_field": "A {kind} needs {field}",
+    "fleet_settings.missing_field.hint": "A server cannot make one without it.",
+    "fleet_settings.value_too_large": "This {kind} is larger than the {limit} bytes a setting may be",
+    "fleet_settings.secret_missing": "{field} is hidden and nothing is stored for it yet",
+    "fleet_settings.secret_missing.hint": (
+        "Type the secret again: it is only shown as {redacted} when one is stored."
+    ),
+    "fleet_settings.bad_scope": "{scope} is not a place a setting of the fleet can be set",
+    "fleet_settings.bad_scope.hint": "Use 'fleet' for every server, or 'node:<server>' for one.",
+    "fleet_settings.permission_missing": "Setting a {kind} for the fleet needs the permission {permission}",
+    "fleet_settings.permission_missing.hint": (
+        "It is the permission that setting one on a single server asks: ask an administrator "
+        "for a role that has it."
+    ),
+    "fleet_settings.unknown_node": "There is no server called {node} in this fleet",
+    "fleet_settings.unknown_node.hint": "List the servers with: {command}",
+    "fleet_settings.managed_missing": "This server holds no {kind} called {name}",
+    "fleet_settings.managed_missing.hint": (
+        "A setting is recorded as the fleet's after the central has written it: write it first."
+    ),
+    "fleet_settings.not_managed": "No central manages the {kind} {name} on this server",
+    "fleet_settings.not_managed.hint": "Only a setting a central pushed can be asked back.",
+    "fleet_settings.sync_ceiling": (
+        "This server lets its central do at most '{level}', and applying the fleet's settings "
+        "needs 'admin'"
+    ),
+    "fleet_settings.sync_ceiling.hint": "Raise it on this server, as root:\n  {command}",
+    "fleet_settings.sync_route": "A push of the fleet's settings cannot {method} {path}",
+    "fleet_settings.sync_route.hint": (
+        "It may only write the settings the fleet manages: channels, alert rules, backup "
+        "destinations, registry logins and shared variables."
+    ),
+    "fleet_settings.sync_required": (
+        "Only the central that manages this server can record a setting as the fleet's"
+    ),
+    "fleet_settings.sync_required.hint": (
+        "The central does it when it applies a setting; nobody records one by hand."
+    ),
+    "fleet_settings.backend_changed": (
+        "The backup destination {name} is {have} on this server and the fleet wants it {want}"
+    ),
+    "fleet_settings.backend_changed.hint": (
+        "No route changes the backend of a destination: remove it on that server, or name the "
+        "fleet's one differently."
+    ),
+    "fleet_settings.item_conflict": (
+        "The {kind} {name} already exists on this server and is not the fleet's"
+    ),
+    "fleet_settings.item_conflict.hint": (
+        "Apply again letting the fleet take it over, or give the fleet's setting another name."
+    ),
+    "fleet_settings.item_unsupported": (
+        "This server cannot take a {kind} from the fleet: it does not offer {operation}"
+    ),
+    "fleet_settings.item_unsupported.hint": "It runs an older Noust: update it first.",
+    "fleet_settings.no_such_setting": "The fleet has no {kind} called {name}",
+    "fleet_settings.no_such_setting.hint": "List what it has with: GET /api/fleet/settings",
+    "fleet_settings.bad_mode": "{mode} is not a way a server can follow the fleet's settings",
+    "fleet_settings.bad_mode.hint": "Use 'managed' to follow them, or 'independent' to be left out.",
     # -- Which control asks something of a person, and how to stop it asking -----------------
     # (noust.core.compliance.explain decides which one; the words are here.)
     "controls.asked_by_setting": (

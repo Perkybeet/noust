@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1071 operations.
+1084 operations.
 
 ## Access
 
@@ -744,6 +744,24 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/views/logs` | View Logs | `apps.read` |  |  |
 | GET | `/api/views/search` | View Search | `apps.read` |  |  |
 | GET | `/api/views/sites` | View Sites | `apps.read` |  |  |
+
+## Fleet settings
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| PUT | `/api/fleet/servers/{node}/settings-mode` | Set Mode | `fleet.manage` | yes |  |
+| POST | `/api/fleet/servers/{node}/settings/{resource}/{name}/restore` | Restore Setting | `fleet.manage` | yes |  |
+| GET | `/api/fleet/settings` | List Settings | `fleet.read` |  |  |
+| POST | `/api/fleet/settings/apply` | Apply Settings | `fleet.manage` |  |  |
+| GET | `/api/fleet/settings/status` | Settings Status | `fleet.read` |  |  |
+| GET | `/api/fleet/settings/{resource}` | List Kind | `fleet.read` |  |  |
+| GET | `/api/fleet/settings/{resource}/{name}` | Get Setting | `fleet.read` |  |  |
+| PUT | `/api/fleet/settings/{resource}/{name}` | Set Setting | `fleet.manage` | yes |  |
+| DELETE | `/api/fleet/settings/{resource}/{name}` | Remove Setting | `fleet.manage` | yes |  |
+| GET | `/api/managed-settings` | List Managed | `settings.read` |  |  |
+| PUT | `/api/managed-settings/{resource}/{name}` | Record Applied | `settings.manage` |  |  |
+| DELETE | `/api/managed-settings/{resource}/{name}` | Release | `settings.manage` |  |  |
+| POST | `/api/managed-settings/{resource}/{name}/restore` | Ask Restore | `settings.manage` |  |  |
 
 ## Git push
 

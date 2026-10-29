@@ -49,7 +49,7 @@ const DECIDER = {
   ...SESSION,
   grant: null,
   role: "security",
-  account: { id: 2, username: "bea", display_name: "", role: "security", status: "active", mfa_enabled: true, passkeys: 0, backup_codes_remaining: 8, failures_since_login: 0, created_at: NOW },
+  account: { id: 2, username: "bea", display_name: "", role: "security", status: "active", mfa_enabled: true, passkeys: 0, backup_codes_remaining: 8, owner: false, failures_since_login: 0, created_at: NOW },
 };
 
 describe("the approvals inbox", () => {

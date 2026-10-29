@@ -1074,6 +1074,7 @@ def all_actions() -> dict[str, ActionSpec]:
     from noust.web import (  # noqa: F401
         fleet_database_actions,
         fleet_placement_actions,
+        fleet_settings_actions,
         fleet_ship_actions,
     )
 

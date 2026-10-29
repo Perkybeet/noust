@@ -34,7 +34,7 @@ function account(username: string, role: string, extra: Record<string, unknown> 
     person_ref: `${username}@example.com`,
     mfa_enabled: true,
     passkeys: 0,
-    backup_codes_remaining: 8,
+    backup_codes_remaining: 8, owner: false,
     failures_since_login: 0,
     created_at: NOW - 86_400,
     last_login_at: NOW - 3600,

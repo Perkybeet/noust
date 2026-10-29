@@ -20,7 +20,7 @@ const ACCOUNT = {
   person_ref: "maria@acme.test",
   mfa_enabled: true,
   passkeys: 0,
-  backup_codes_remaining: 8,
+  backup_codes_remaining: 8, owner: false,
   failures_since_login: 0,
   created_at: 1_790_000_000,
 };

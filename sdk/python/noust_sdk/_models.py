@@ -3812,6 +3812,72 @@ FleetSelfResponse = TypedDict("FleetSelfResponse", {
     "updated_at": NotRequired[Union[str, None]],
 })
 
+FleetSettingIn = TypedDict("FleetSettingIn", {
+    "apply": NotRequired[bool],
+    "scope": NotRequired[str],
+    "value": Required[dict[str, Any]],
+})
+
+FleetSettingKindOut = TypedDict("FleetSettingKindOut", {
+    "available": Required[bool],
+    "key": Required[str],
+    "operations": NotRequired[list[str]],
+    "permission": NotRequired[Union[str, None]],
+    "reason": NotRequired[Union[dict[str, Any], None]],
+    "title": Required[str],
+})
+
+FleetSettingOut = TypedDict("FleetSettingOut", {
+    "change": Required[str],
+    "changed_at": Required[str],
+    "changed_by": Required[str],
+    "name": Required[str],
+    "node": NotRequired[Union[str, None]],
+    "resource": Required[str],
+    "scope": Required[str],
+    "secrets": Required[list[str]],
+    "value": Required[dict[str, Any]],
+    "version": Required[int],
+})
+
+FleetSettingRemovedOut = TypedDict("FleetSettingRemovedOut", {
+    "apply": NotRequired[Union["FleetSettingsAppliedOut", None]],
+    "removed": Required[bool],
+})
+
+FleetSettingSavedOut = TypedDict("FleetSettingSavedOut", {
+    "apply": NotRequired[Union["FleetSettingsAppliedOut", None]],
+    "setting": Required["FleetSettingOut"],
+})
+
+FleetSettingsAppliedOut = TypedDict("FleetSettingsAppliedOut", {
+    "job_id": Required[str],
+    "nodes": Required[list[str]],
+})
+
+FleetSettingsApplyIn = TypedDict("FleetSettingsApplyIn", {
+    "adopt": NotRequired[bool],
+    "nodes": NotRequired[list[str]],
+    "plan": NotRequired[bool],
+    "restore": NotRequired[list[str]],
+    "restore_all": NotRequired[bool],
+})
+
+FleetSettingsModeIn = TypedDict("FleetSettingsModeIn", {
+    "mode": Required[str],
+})
+
+FleetSettingsModeOut = TypedDict("FleetSettingsModeOut", {
+    "apply": NotRequired[Union["FleetSettingsAppliedOut", None]],
+    "mode": Required[str],
+    "node": Required[str],
+})
+
+FleetSettingsOut = TypedDict("FleetSettingsOut", {
+    "items": Required[list["FleetSettingOut"]],
+    "kinds": Required[list["FleetSettingKindOut"]],
+})
+
 FleetViewOut = TypedDict("FleetViewOut", {
     "generated_at": Required[str],
     "items": Required[list[dict[str, Any]]],
@@ -4978,6 +5044,33 @@ ManagedRecordModel = TypedDict("ManagedRecordModel", {
     "type": Required[str],
     "unreferenced_since": NotRequired[Union[str, None]],
     "zone": Required[str],
+})
+
+ManagedSettingAppliedIn = TypedDict("ManagedSettingAppliedIn", {
+    "version": Required[int],
+})
+
+ManagedSettingOut = TypedDict("ManagedSettingOut", {
+    "applied_at": Required[str],
+    "applied_by": Required[str],
+    "central": Required[str],
+    "change": Required[str],
+    "fingerprint": Required[str],
+    "name": Required[str],
+    "overridden_at": NotRequired[Union[str, None]],
+    "resource": Required[str],
+    "restore_requested_at": NotRequired[Union[str, None]],
+    "state": Required[str],
+    "version": Required[int],
+})
+
+ManagedSettingReleasedOut = TypedDict("ManagedSettingReleasedOut", {
+    "released": Required[bool],
+})
+
+ManagedSettingsOut = TypedDict("ManagedSettingsOut", {
+    "items": Required[list["ManagedSettingOut"]],
+    "kinds": Required[list[str]],
 })
 
 ManifestApplyRequest = TypedDict("ManifestApplyRequest", {

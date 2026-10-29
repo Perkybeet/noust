@@ -600,6 +600,21 @@ EVENTS: dict[str, EventSpec] = {
             "fleet.provision.power": "A machine created at a cloud provider was powered on there.",
         },
     ),
+    # The settings a central manages on every server (4.1): what a person set for the fleet, and
+    # what each node applied, released or found changed by its own operator.
+    **_events(
+        "change",
+        NOTICE,
+        {
+            "fleet.setting.set": "A setting of the fleet was set or changed on this central, as a change somebody approved.",
+            "fleet.setting.remove": "A setting of the fleet was removed from this central; the servers keep what they applied.",
+            "fleet.setting.mode": "A server was left out of the fleet's settings, or made to follow them again.",
+            "fleet.setting.apply": "A central applied a setting of the fleet on this node, for a change somebody approved.",
+            "fleet.setting.release": "A setting stopped being the fleet's on this node, which kept it as its own.",
+            "fleet.setting.diverge": "A setting the fleet manages was found changed on this node, by its own operator.",
+            "fleet.setting.restore": "This node's operator asked the central to put a setting back as the fleet's.",
+        },
+    ),
     # The console's terminal and one-off commands (4.0): a shell as an application,
     # or as root, is the most root-equivalent thing the console opens.
     **_events(

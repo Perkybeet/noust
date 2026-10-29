@@ -85,6 +85,7 @@ from noust.web.api.fleet_builders import router as fleet_builders_router
 from noust.web.api.fleet_databases import router as fleet_databases_router
 from noust.web.api.fleet_placements import router as fleet_placements_router
 from noust.web.api.fleet_self import router as fleet_self_router
+from noust.web.api.fleet_settings import router as fleet_settings_router
 from noust.web.api.git_credentials import router as git_credentials_router
 from noust.web.api.gitlab import router as gitlab_router
 from noust.web.api.identity import router as identity_router
@@ -95,6 +96,7 @@ from noust.web.api.jobs import router as jobs_router
 from noust.web.api.ldap import router as ldap_router
 from noust.web.api.log_drains import router as log_drains_router
 from noust.web.api.log_search import router as log_search_router
+from noust.web.api.managed_settings import router as managed_settings_router
 from noust.web.api.manifest import router as manifest_router
 from noust.web.api.map import router as map_router
 from noust.web.api.mcp import router as mcp_router
@@ -236,6 +238,7 @@ router.include_router(metrics_router, prefix="/metrics", tags=["Metrics"])
 router.include_router(probes_router, prefix="/probes", tags=["Probes"])
 router.include_router(alerts_router, prefix="/alerts", tags=["Alerts"])
 router.include_router(notifications_router, prefix="/notifications", tags=["Notifications"])
+router.include_router(managed_settings_router, prefix="/managed-settings", tags=["Fleet settings"])
 router.include_router(overview_router, prefix="/overview", tags=["Overview"])
 # How the server fits together, as a graph read from it (4.0).
 router.include_router(map_router, prefix="/map", tags=["Map"])
@@ -422,6 +425,7 @@ router.include_router(approvals_router, prefix="/approvals", tags=["Approvals"])
 router.include_router(fleet_router, prefix="/fleet", tags=["Fleet"])
 # The page of a resource across the servers, whether there is a fleet or not.
 router.include_router(views_router, prefix="/views", tags=["Fleet"])
+router.include_router(fleet_settings_router, prefix="/fleet", tags=["Fleet settings"])
 router.include_router(fleet_placements_router, prefix="/fleet/placements", tags=["Fleet"])
 router.include_router(fleet_builders_router, prefix="/fleet/builders", tags=["Fleet"])
 # A database moved to another server: the fleet engine's action, with a typed body.

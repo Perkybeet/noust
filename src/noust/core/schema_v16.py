@@ -65,7 +65,49 @@ ROLES_COLUMNS: list[Column] = []
 
 # Owned by the fleet settings lane: the state a central wants (fleet_desired, on the central) and
 # what each node applied of it (fleet_managed, on every node) (item 90).
-FLEET_SQL = ""
+#
+# ``version`` of fleet_desired is the row's own AUTOINCREMENT id: one counter for every setting and
+# scope, never reused, so that "the version a node applied" says which row of which scope it was
+# even after an exception is added or taken away. fleet_managed holds a fingerprint, never a
+# value: a node can say what it applied and whether it still holds it, and a central can learn
+# that without anything secret crossing back.
+FLEET_SQL = """
+CREATE TABLE IF NOT EXISTS fleet_desired (
+    version INTEGER PRIMARY KEY AUTOINCREMENT,
+    resource TEXT NOT NULL,
+    name TEXT NOT NULL,
+    scope TEXT NOT NULL DEFAULT 'fleet',
+    value TEXT NOT NULL,
+    secret_paths TEXT NOT NULL DEFAULT '[]',
+    change_id TEXT NOT NULL,
+    changed_by TEXT NOT NULL,
+    changed_at TEXT NOT NULL,
+    UNIQUE (resource, name, scope)
+);
+
+CREATE TABLE IF NOT EXISTS fleet_managed (
+    resource TEXT NOT NULL,
+    name TEXT NOT NULL,
+    central TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    fingerprint TEXT NOT NULL,
+    state TEXT NOT NULL DEFAULT 'managed',
+    change_id TEXT NOT NULL,
+    applied_by TEXT NOT NULL,
+    applied_at TEXT NOT NULL,
+    overridden_at TEXT,
+    restore_requested_at TEXT,
+    PRIMARY KEY (resource, name)
+);
+
+CREATE TABLE IF NOT EXISTS fleet_node_settings (
+    node TEXT PRIMARY KEY,
+    mode TEXT NOT NULL DEFAULT 'managed',
+    changed_by TEXT,
+    changed_at TEXT,
+    resync_requested_at TEXT
+);
+"""
 FLEET_COLUMNS: list[Column] = []
 
 # Owned by the fleet notifications lane: routes by domain, tag, severity, event and server.

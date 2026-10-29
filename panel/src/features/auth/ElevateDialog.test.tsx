@@ -137,7 +137,7 @@ const PERSON = {
     status: "active",
     mfa_enabled: true,
     passkeys: 1,
-    backup_codes_remaining: 8,
+    backup_codes_remaining: 8, owner: false,
     failures_since_login: 0,
     created_at: 1_790_000_000,
   },

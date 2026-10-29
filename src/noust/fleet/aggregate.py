@@ -41,6 +41,7 @@ import builtins
 import hashlib
 import json
 import logging
+import sqlite3
 import threading
 import time
 from collections.abc import Callable, Mapping, Sequence
@@ -52,13 +53,14 @@ from typing import TYPE_CHECKING, Any, Protocol
 from urllib.parse import quote
 
 from noust.core.exceptions import NodeError, NodeRefusedError, NodeUnreachableError
-from noust.core.store import NodeRecord
+from noust.core.store import NodeRecord, NoustStore
 from noust.fleet import liveness
 
 if TYPE_CHECKING:
     import httpx
 
     from noust.fleet.nodes import NodeManager
+    from noust.fleet.settings.signature import SyncSignature
 
 logger = logging.getLogger(__name__)
 
@@ -280,6 +282,8 @@ class Asker:
         elevated: Whether the central vouches for the operator's sudo mode.
         permissions: What the operator may do on the central, when an account (4.1): a node
             that reads them grants these, cut by its ceiling, and its answer depends on them.
+        sync: The person and the change of a push of the fleet's settings: the asker then
+            speaks as that push (:mod:`noust.fleet.settings.signature`), whatever else it says.
     """
 
     actor: str
@@ -287,6 +291,7 @@ class Asker:
     role: str | None = None
     elevated: bool = False
     permissions: tuple[str, ...] | None = None
+    sync: SyncSignature | None = None
 
     def __post_init__(self) -> None:
         # A job keeps its asker as JSON, which hands a list back.
@@ -296,6 +301,8 @@ class Asker:
     @property
     def audience(self) -> str:
         """What a node's answer depends on besides the node: role, scope and permissions."""
+        if self.sync is not None:
+            return "sync"
         if self.permissions is None:
             return f"{self.role or '-'}/{self.scope}"
         digest = hashlib.sha256(",".join(sorted(self.permissions)).encode()).hexdigest()[:12]
@@ -307,6 +314,13 @@ class Asker:
             The keyword arguments of :meth:`noust.fleet.client.NodeClient.request`
             that say who asks.
         """
+        if self.sync is not None:
+            return {
+                "actor": self.sync.actor,
+                "actor_scope": "admin",
+                "actor_role": None,
+                "elevated": self.sync.elevation,
+            }
         return {
             "actor": self.actor,
             "actor_scope": self.scope,
@@ -2017,6 +2031,27 @@ class Aggregator:
             since=seen,
         )
 
+    @staticmethod
+    def _note_return(store: NoustStore, name: str) -> None:
+        """
+        Note that a server answered after a silence, so the settings of the fleet are looked at
+        again on it: it may have missed a push.
+
+        Written to the store, because the process that sees a server return is not always the one
+        that applies settings (the monitor's probe sees it, the console's watcher acts).
+
+        Args:
+            store: The central's store.
+            name: The server.
+        """
+        from noust.fleet.settings.desired import FleetSettings
+
+        try:
+            FleetSettings(store).request_resync(name)
+        except sqlite3.Error as exc:
+            # A look is never refused for want of somewhere to write a note.
+            logger.warning("Could not note that %s came back: %s", name, exc)
+
     def _outage_ended(self, tracker: liveness.Liveness, name: str) -> None:
         """
         Close a node's outage, announcing the recovery if the outage was announced.
@@ -2026,6 +2061,8 @@ class Aggregator:
             name: The node.
         """
         verdict = tracker.answered(name, self._wall())
+        if verdict.came_back:
+            self._note_return(tracker.store, name)
         if not verdict.announce_recovered:
             return
         from noust.core.notifications.fleet import notify_node_recovered
