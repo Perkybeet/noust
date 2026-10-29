@@ -533,7 +533,7 @@ each is its own choice:
   uses, stays, and the deletion says so with the command that would drop it.
 - **The certificate** goes with the application unless `--keep-certificate` says otherwise.
 - **The directory** goes unless `--keep-files`; one outside Noust's apps directory (an adopted
-  stack) stays unless it is named ([compose.md](compose.md#deleting-an-adopted-stack)).
+  stack) stays unless it is named ([compose.md](compose-adopt.md#deleting-an-adopted-stack)).
 
 The command asks for the application's **name to be typed**, not a `y`; `-y` skips it for scripts.
 Over the API, `DELETE /api/apps/{domain}` takes the same choices as query parameters

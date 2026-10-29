@@ -81,7 +81,7 @@ static site and `base_directory` on a PHP application are refused, with what to 
 ## Where it comes from, and who wins
 
 There are two places, and the operator's wins **whole**, the way the operator's
-[deploy hooks](compose.md#operator-hooks) win:
+[deploy hooks](compose-hooks.md#operator-hooks) win:
 
 1. The operator's block, stored on the server for one application (below). When it exists, the
    repository's `build:` is not read at all: nothing is merged, so what only the repository said

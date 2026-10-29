@@ -612,7 +612,7 @@ curl -s -X DELETE -H "Authorization: Bearer $TOKEN" https://panel.example.com/ap
 "operator"` means it replaces the repository's. Writing hooks is root-equivalent because a hook
 runs with the application's identity and secrets. `repository_error` says why the running code's
 own `noust.yaml` is not valid, when it is not: the next deployment fails with it. See
-[compose.md](compose.md#noustyaml) and [compose.md](compose.md#operator-hooks).
+[compose.md](compose-hooks.md#noustyaml) and [compose.md](compose-hooks.md#operator-hooks).
 
 ### Container applications
 
@@ -709,7 +709,7 @@ that serves the domain, when its name is not the domain's), `port` and `accept_r
 `docker compose up --dry-run` says starting the stack as Noust would create, recreate or remove
 something, the call answers `409` with Compose's own output in `output` and the lines in
 `changes`, and adopts nothing unless `accept_recreate` is true. `dry_run` carries that output
-verbatim on success. See [compose.md](compose.md#adopting-a-running-stack).
+verbatim on success. See [compose.md](compose-adopt.md#adopting-a-running-stack).
 
 The same family: `PATCH /api/apps/{domain}/backup-before-update` with `{"enabled": false}`
 (sudo mode; answers `{domain, backup_before_update, previous}`) switches off the copy of a
@@ -721,8 +721,8 @@ it as a worker (sudo mode); `PATCH /api/apps/{domain}/follow-tags` with `{"patte
 accepts a Compose stack, for which the mode means each web service is updated behind a relay:
 `instances` is empty and `reason` and `hint` say what is missing (a published port, the line an
 operator's own site must include). See
-[compose.md](compose.md#zero-downtime-updates-the-relay),
-[compose.md](compose.md#stack-database-backups-and-restore),
+[compose.md](compose-relay.md#zero-downtime-updates-the-relay),
+[compose.md](compose-backups.md#stack-database-backups-and-restore),
 [compose.md](compose.md#workers-without-a-web-port) and
 [compose.md](compose.md#deploying-by-tag).
 

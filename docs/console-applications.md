@@ -51,7 +51,7 @@ reads the project from the running containers' labels, finds the site, and shows
 registers the stack without cloning, cleaning, rebuilding or restarting anything, and installs its
 service without starting it. If the rehearsal lists changes, the adoption is refused with
 Compose's own output, unless you tick **Adopt anyway, recreating what Compose lists** after reading
-it. Adopting needs sudo mode. See [compose.md](compose.md#adopting-a-running-stack).
+it. Adopting needs sudo mode. See [compose.md](compose-adopt.md#adopting-a-running-stack).
 
 ![New application](assets/console/apps-new.png)
 

@@ -23,7 +23,7 @@ anything.
   `noust.yaml` (or `noust app build set`) replaces any of the install, build and start commands, the
   base directory, the directory a static build leaves and the runtime: [build.md](build.md).
 - A command that must run on every deploy before the new version serves (a database migration)
-  is a `pre_deploy` hook in `noust.yaml`: [compose.md](compose.md#noustyaml). Hooks run as the
+  is a `pre_deploy` hook in `noust.yaml`: [compose.md](compose-hooks.md#noustyaml). Hooks run as the
   application's own account with its `.env`, and a failing `pre_deploy` stops the deploy with what
   served before still serving.
 - Go, Rust, Ruby, Java and Kotlin, .NET, Elixir and Deno are built on the server with its own
@@ -61,7 +61,7 @@ thing to keep per release. Server-side secrets go in `.env` (generated from `.en
 `NEXT_PUBLIC_*` variables are baked into the bundle at build time, so changing one needs an
 update, not just a restart. A project that uses Prisma has its migration applied before the new
 release serves, and a failed one aborts the update; declaring the migration as a hook takes it
-over ([compose.md](compose.md#prisma)).
+over ([compose.md](compose-hooks.md#prisma)).
 
 ### Nuxt
 

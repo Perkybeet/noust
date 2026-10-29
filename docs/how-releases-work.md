@@ -37,7 +37,7 @@ the image that is already on the host. See [containers.md](containers.md#release
 A Docker Compose stack that already ran before Noust (`noust app adopt`) is registered in
 place at the directory it runs from, which can be outside the apps directory (`/opt/shop`,
 say). Noust never converts, cleans or deletes such a directory on its own; see
-[Adopting a running stack](compose.md#adopting-a-running-stack).
+[Adopting a running stack](compose-adopt.md#adopting-a-running-stack).
 
 ## Layout on disk
 

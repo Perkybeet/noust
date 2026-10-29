@@ -235,8 +235,25 @@ tabs:
             summary: Container applications from a Dockerfile, a registry image or Railpack, with releases that are images.
           - source: docs/compose.md
             slug: guides/compose
+            title: Deploy a Docker Compose stack
             type: guide
-            summary: Docker Compose projects, noust.yaml hooks, the zero-downtime relay, adopting a running stack.
+            summary: What Noust does with a stack, its file, variables and networks, which service gets the site, routing by path, workers, scheduled tasks and deploying by tag.
+          - source: docs/compose-hooks.md
+            slug: guides/compose/hooks
+            type: guide
+            summary: "A stack's noust.yaml, the hooks that run before and after a deploy, the operator's own hooks, and going back past a migration."
+          - source: docs/compose-relay.md
+            slug: guides/compose/relay
+            type: guide
+            summary: "Updating a stack without a cut: a twin of each web service while it is recreated, and your own site's include."
+          - source: docs/compose-adopt.md
+            slug: guides/compose/adopt
+            type: guide
+            summary: Register a stack that already runs without recreating a container, what it requires, and what updates do afterwards.
+          - source: docs/compose-backups.md
+            slug: guides/compose/backups
+            type: guide
+            summary: The databases of a stack, dumped before every update, and how they are restored.
           - source: docs/recipes.md
             slug: guides/recipes
             type: guide

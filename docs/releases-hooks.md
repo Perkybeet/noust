@@ -30,8 +30,8 @@ noust app hooks clear shop.example.com                # the repository's noust.y
 ```
 
 The full schema (`service`, `workdir`, `backup.databases`), the validation rules and the
-operator's hooks are in [compose.md](compose.md#noustyaml) and
-[compose.md](compose.md#operator-hooks). What every type shares:
+operator's hooks are in [compose.md](compose-hooks.md#noustyaml) and
+[compose.md](compose-hooks.md#operator-hooks). What every type shares:
 
 - **`pre_deploy` runs after the build and before anything serves the new version.** On
   releases that is after the tree is handed to the service user and before `current` moves; in
@@ -48,7 +48,7 @@ operator's hooks are in [compose.md](compose.md#noustyaml) and
 - **Static sites have no hooks**, nor does any site that is only files the web server serves
   (a Vite build without a server). Nothing of them runs, so declaring some is refused with the
   reason. A Docker Compose stack runs each hook in a one-off container of its new image; see
-  [compose.md](compose.md#noustyaml).
+  [compose.md](compose-hooks.md#noustyaml).
 
 ## Prisma
 
@@ -105,7 +105,7 @@ ran, and shows the backup taken before the first of them with the command that r
 
 - **A restore that puts the database back is not asked.** A backup that carries a Compose
   stack's database dumps restores them with its files (see
-  [compose.md](compose.md#rolling-back-past-a-migration)); `--databases-only` puts back just
+  [compose.md](compose-hooks.md#rolling-back-past-a-migration)); `--databases-only` puts back just
   those. A restore into another domain (`--target-domain`) is a copy and is not asked either.
 - **The automatic way back is not refused.** When the health gate fails, the previous release
   (or the previous containers, or the in-place tree) is put back whatever the attempt did,
@@ -119,4 +119,4 @@ ran, and shows the backup taken before the first of them with the command that r
 
 For a stack, an update copies its databases first (on by default, and it stops the update when
 the copy fails), which is the backup the refusal proposes:
-[Docker Compose](releases-compose.md#docker-compose) below and [compose.md](compose.md#stack-database-backups-and-restore).
+[Docker Compose](releases-compose.md#docker-compose) below and [compose.md](compose-backups.md#stack-database-backups-and-restore).

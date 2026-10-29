@@ -21,7 +21,7 @@ against the schema it was not written for.
   `workdir`, `timeout` (1 to 3600 seconds, 600 by default) and `migrates`. The schema is closed:
   a key Noust does not know, a path that climbs with `..` and a link instead of a file are
   refused, and the error names the field. The same file can say `backup.databases` (see below).
-  [compose.md](compose.md#noustyaml) has the whole schema.
+  [compose.md](compose-hooks.md#noustyaml) has the whole schema.
 - **Never a shell.** `run` is split into an argument list and run through the command runner
   like every other process; a pipe or a redirection goes in a script you commit.
 - **Where a hook runs.** In a Compose stack, in a one-off container of the image the deploy just
@@ -87,7 +87,7 @@ starting a new one: for as long as the new one took to listen, nginx had nobody 
   web service, and a servers file the site reaches it through,
   `/etc/nginx/noust-upstreams/<app>/<service>.servers`, which the site Noust writes includes by
   itself. A site you wrote yourself must include it, and turning the mode on says the exact line.
-  See [compose.md](compose.md#zero-downtime-updates-the-relay).
+  See [compose.md](compose-relay.md#zero-downtime-updates-the-relay).
 
 ## Adopting a stack that already runs
 

@@ -32,7 +32,7 @@
     { "route": "/apps/$domain/settings/deploy-on-push", "slug": "reference/api", "source": "docs/api.md", "anchor": "deploy-webhooks" },
     { "route": "/apps/$domain/settings/deploys", "slug": "guides/releases/deploys", "source": "docs/releases-deploys.md", "anchor": "which-branch-an-update-builds" },
     { "route": "/apps/$domain/settings/export", "slug": "guides/leaving", "source": "docs/leaving.md", "anchor": "before-you-go" },
-    { "route": "/apps/$domain/settings/hooks", "slug": "guides/compose", "source": "docs/compose.md", "anchor": "noustyaml" },
+    { "route": "/apps/$domain/settings/hooks", "slug": "guides/compose/hooks", "source": "docs/compose-hooks.md", "anchor": "noustyaml" },
     { "route": "/apps/$domain/settings/previews", "slug": "guides/previews", "source": "docs/previews.md" },
     { "route": "/apps/$domain/settings/resources", "slug": "guides/runtime", "source": "docs/runtime.md", "anchor": "tuning-the-unit" },
     { "route": "/apps/$domain/settings/source", "slug": "guides/sources", "source": "docs/sources.md" },

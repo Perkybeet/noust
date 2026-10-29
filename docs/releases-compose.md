@@ -20,7 +20,7 @@ dump of each database the stack runs (Postgres, MySQL, MariaDB and MongoDB, foun
 compose file). The copy is on by default and **stops the update when it cannot be made**,
 because without it a migration cannot be undone; `noust app backup-before-update DOMAIN off`
 (or `backup.databases: off` in `noust.yaml`) turns it off. See
-[compose.md](compose.md#stack-database-backups-and-restore).
+[compose.md](compose-backups.md#stack-database-backups-and-restore).
 
 1. **Record what serves.** `docker compose ps -q` lists the running containers and
    `docker inspect` reads, for each, the image it runs, the image name it was created from and
@@ -36,12 +36,12 @@ because without it a migration cannot be undone; `noust app backup-before-update
    built (`docker compose run --rm --no-deps`), with the service's own environment and network
    and before anything is recreated. A hook that fails is handled like a failed build: nothing
    was recreated, the tree and the image names are put back, and the error carries the hook's
-   output. See [compose.md](compose.md#noustyaml).
+   output. See [compose.md](compose-hooks.md#noustyaml).
 4. **Recreate** with `docker compose up -d --remove-orphans`. With zero-downtime on, each web
    service the site reaches through Noust's servers file is recreated first while a relay
    container of its new image serves it, one at a time in `depends_on` order, and the rest of
    the stack follows with `up -d`; see
-   [compose.md](compose.md#zero-downtime-updates-the-relay).
+   [compose.md](compose-relay.md#zero-downtime-updates-the-relay).
 5. **Judge.** A stack with a web port is probed like any other application, on the port the
    site proxies to. Every stack then has its containers read with `docker compose ps -a`: a
    container that keeps restarting, is dead, exited with a non-zero code or reports itself

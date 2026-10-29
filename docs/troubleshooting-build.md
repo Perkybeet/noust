@@ -80,7 +80,7 @@ without activating it: the failure can be reproduced without touching what serve
 ### A migration failed
 
 A `pre_deploy` hook that fails stops the deploy before anything serves the new version, and its
-output is the error ([What a hook failing means](compose.md#what-a-hook-failing-means)). Fix the
+output is the error ([What a hook failing means](compose-hooks.md#what-a-hook-failing-means)). Fix the
 migration and deploy again.
 
 ### The framework builds for a platform this server is not
