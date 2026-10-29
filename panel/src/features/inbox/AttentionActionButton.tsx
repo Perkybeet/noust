@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
-import { acknowledgeAlert, alertKeys, handBackAlert } from "../../api/queries/alerts";
+import { acknowledgeAlert, handBackAlert, refreshAlerts } from "../../api/queries/alerts";
 import type { OverviewAttentionItem } from "../../api/queries/overview";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { useT } from "../../i18n";
@@ -48,7 +48,7 @@ function AlertButton({ action, iconFor }: { action: AlertAction; iconFor: ((acti
   const icon = iconFor?.(action);
   const change = useMutation({
     mutationFn: () => (reopening ? handBackAlert(action.rule, action.subject) : acknowledgeAlert(action.rule, action.subject)),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: alertKeys.rules }),
+    onSuccess: () => refreshAlerts(queryClient),
     onError: (error) => {
       reportActionError(t(reopening ? "inbox.actions.reopenFailed" : "inbox.actions.acknowledgeFailed"), error);
     },

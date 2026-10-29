@@ -222,8 +222,8 @@ class TestDockerfileBuilds:
         lines: list[str] = []
 
         class Log(Logger):
-            def debug(self, message: str, *args, **kwargs) -> None:
-                lines.append(message)
+            def output(self, line: str) -> None:
+                lines.append(line)
 
         ImageBuilder(
             runner=runner,

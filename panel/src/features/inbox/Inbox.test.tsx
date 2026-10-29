@@ -27,27 +27,40 @@ const EXPIRING = {
   reasons: [{ kind: "certificate", severity: "warn", code: "certificate_expires_in", params: { days: 12 }, detail: null, when: null, deployment_id: null, actions: ["renew_certificate"] }],
 };
 
-function alertRules(taken: boolean) {
+/**
+ * The alert that fires, as the server lists it among what needs attention: it is the server that
+ * says so (`managers/overview.py`), so that a fleet reading each server's own list counts it too.
+ */
+function alertItem(taken: boolean, by = "alice") {
+  const params = { rule: "disk-high", subject: "", since: SINCE, ...(taken ? { by, at: SINCE + 60 } : {}) };
   return {
-    items: [
+    id: "alert:disk-high:",
+    subject: { kind: "alert", rule: "disk-high", subject: "" },
+    title: "disk-high",
+    severity: "warn",
+    reasons: [
       {
-        name: "disk-high",
-        enabled: true,
-        severity: "warning",
-        metric: "disk",
-        states: [{ subject: "", state: "firing", since: SINCE, last_value: 91, acknowledged_by: taken ? "alice" : null, acknowledged_at: taken ? SINCE + 60 : null }],
+        kind: "alert",
+        severity: "warn",
+        code: taken ? "alert_taken" : "alert_firing",
+        params,
+        detail: null,
+        when: new Date(SINCE * 1000).toISOString(),
+        deployment_id: null,
+        actions: [taken ? "reopen_alert" : "acknowledge_alert"],
       },
     ],
-    metrics: [],
-    firing: 1,
   };
+}
+
+function overviewWithAlert(taken: boolean, by = "alice") {
+  return overviewFixture({ attention_total: 3, attention: [FAILED_APP, alertItem(taken, by), EXPIRING] });
 }
 
 function inboxRoutes(over: Record<string, RouteHandler> = {}): Record<string, RouteHandler> {
   return {
     ...signedInRoutes(),
-    "GET /api/overview": () => json(200, overviewFixture({ attention_total: 2, attention: [FAILED_APP, EXPIRING] })),
-    "GET /api/alerts/rules": () => json(200, alertRules(false)),
+    "GET /api/overview": () => json(200, overviewWithAlert(false)),
     "GET /api/probes": () =>
       json(200, {
         items: [{ name: "blog", enabled: true, address: "https://blog.example.com", status: { state: "down", since: SINCE, last_error: "HTTP 503 Service Unavailable", failures: 3 } }],
@@ -121,7 +134,7 @@ describe("the inbox", () => {
     let taken = false;
     const backend = fakeBackend(
       inboxRoutes({
-        "GET /api/alerts/rules": () => json(200, alertRules(taken)),
+        "GET /api/overview": () => json(200, overviewWithAlert(taken)),
         "POST /api/alerts/rules/disk-high/acknowledge": () => {
           taken = true;
           return json(200, { ok: true });
@@ -146,8 +159,29 @@ describe("the inbox", () => {
     expect(await within(panel).findByRole("button", { name: "Acknowledge disk-high" })).toBeInTheDocument();
   });
 
+  it("lists an alert once, from the server's list alone, and does not read the rules to add it again", async () => {
+    // A console that also read the rules would name the alert twice: two reasons on one row.
+    const backend = fakeBackend(inboxRoutes());
+    const { user } = await openBell("Inbox, 4 things need you");
+    const panel = await screen.findByRole("dialog", { name: "Inbox" });
+    const rows = await within(panel).findAllByRole("listitem");
+    expect(rows.filter((row) => row.textContent.includes("disk-high"))).toHaveLength(1);
+    expect(within(panel).getAllByText("This alert is firing.", { exact: false })).toHaveLength(1);
+    expect(backend.callsTo("GET /api/alerts/rules")).toHaveLength(0);
+    await user.keyboard("{Escape}");
+  });
+
+  it("names the person who took an alert through a central, first and in the console's language", async () => {
+    fakeBackend(inboxRoutes({ "GET /api/overview": () => json(200, overviewWithAlert(true, "fleet-fra-1 on behalf of marta")) }));
+    const { user } = await openBell(/^Inbox, \d+ things? need you$/);
+    const panel = await screen.findByRole("dialog", { name: "Inbox" });
+    expect(await within(panel).findByText("This alert is firing. marta (from the central fra-1) took it.")).toBeInTheDocument();
+    expect(panel).not.toHaveTextContent("on behalf of");
+    await user.keyboard("{Escape}");
+  });
+
   it("says nothing needs the operator when nothing does, and offers the history", async () => {
-    fakeBackend(inboxRoutes({ "GET /api/overview": () => json(200, overviewFixture()), "GET /api/alerts/rules": () => json(200, { items: [], metrics: [], firing: 0 }), "GET /api/probes": () => json(200, { items: [], down: 0, status_page: {} }) }));
+    fakeBackend(inboxRoutes({ "GET /api/overview": () => json(200, overviewFixture()), "GET /api/probes": () => json(200, { items: [], down: 0, status_page: {} }) }));
     await openBell("Inbox, nothing needs you");
     const panel = await screen.findByRole("dialog", { name: "Inbox" });
     expect(await within(panel).findByText("Nothing needs you")).toBeInTheDocument();

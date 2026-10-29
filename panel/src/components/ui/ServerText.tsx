@@ -39,10 +39,11 @@ function strings(values: Values): Record<string, string> {
 }
 
 /** The words of a sentence as text: this console's, or the English the server sent beside the code. */
-function sentence(locale: Locale, coded: CodedText | null | undefined, english: string | null | undefined, part: SentencePart): string {
+export function serverSentence(locale: Locale, coded: CodedText | null | undefined, english: string | null | undefined, part: SentencePart): string {
   const key = coded ? keyFor(coded, part) : null;
   return coded && key !== null ? say(locale, key, strings(coded.params ?? {})) : (english ?? "");
 }
+
 
 /** The words of a sentence as nodes: a command is set as it is, in mono. */
 function sentenceRich(locale: Locale, coded: CodedText | null | undefined, english: string | null | undefined, part: SentencePart): ReactNode {
@@ -84,5 +85,5 @@ export function ServerText({ coded, text, part = "text" }: ServerTextProps) {
  */
 export function useServerSentence(): (coded: CodedText | null | undefined, english: string | null | undefined, part?: SentencePart) => string {
   const t = useT();
-  return (coded, english, part = "text") => sentence(t.locale, coded, english, part);
+  return (coded, english, part = "text") => serverSentence(t.locale, coded, english, part);
 }

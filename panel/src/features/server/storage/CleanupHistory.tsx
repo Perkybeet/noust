@@ -28,6 +28,7 @@ import type { CleanupRun } from "../queries";
 import { cleanupActionLabel } from "./CleanupScheduleCard";
 import { SkeletonCard } from "../../../components/ui/Skeleton";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
+import { namedActor } from "../../activity/data";
 
 /** Runs the card keeps room for while they load. */
 const TYPICAL_RUNS = 4;
@@ -89,7 +90,7 @@ function RunDrawer({ run, onClose }: { run: CleanupRun; onClose: () => void }) {
         <p className="flex flex-wrap items-center gap-2 text-13">
           <StatusPill state={status.state} label={status.label} size="sm" />
           <RelativeTime value={run.started_at} />
-          {run.actor ? <Mono tone="muted">{run.actor}</Mono> : null}
+          {run.actor ? <Mono tone="muted">{namedActor(t, run.actor)}</Mono> : null}
         </p>
         {disk !== null ? (
           <p className="text-13 text-fg">

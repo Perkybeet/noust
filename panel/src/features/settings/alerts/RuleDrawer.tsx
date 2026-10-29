@@ -8,7 +8,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
-import { alertKeys, saveAlertRule } from "../../../api/queries/alerts";
+import { refreshAlerts, saveAlertRule } from "../../../api/queries/alerts";
 import type { AlertMetric, AlertRule } from "../../../api/queries/alerts";
 import { Button } from "../../../components/ui/Button";
 import { Checkbox } from "../../../components/ui/Checkbox";
@@ -57,7 +57,7 @@ export function RuleDrawer({ rule, metrics, open, onOpenChange }: RuleDrawerProp
   const save = useMutation({
     mutationFn: () => saveAlertRule(form.name.trim(), ruleBody(form, rule?.enabled ?? true)),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: alertKeys.rules });
+      await refreshAlerts(queryClient);
       onOpenChange(false);
     },
     onMutate: () => {

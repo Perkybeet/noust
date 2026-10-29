@@ -27,6 +27,9 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+from noust.core.fleet_tokens import central_of_token
+from noust.core.server_text import ServerText, say
+
 #: The kinds of principal an event can name. ``anonymous`` is a caller that
 #: has not proven who it is yet: a refused sign-in, a refused handshake.
 ActorKind = Literal["user", "token", "master", "fleet", "cli", "system", "anonymous"]
@@ -100,6 +103,23 @@ class Actor:
                 return f"{via} on behalf of {self.name}"
             return self.name or via or "fleet"
         return self.name or self.id or "user"
+
+    @property
+    def sentence(self) -> ServerText | None:
+        """
+        Name the person first when a central acted for them.
+
+        Returns:
+            ``marta (from the central fra-1)`` as a sentence the console translates, for an
+            operator who acted through a central's token; None for every other actor, whose
+            label already says all there is.
+        """
+        if self.kind != "fleet" or not self.name or not self.via:
+            return None
+        token = self.via.removeprefix("fleet:")
+        return say(
+            "actors.through_central", person=self.name, central=central_of_token(token) or token
+        )
 
     def to_dict(self) -> dict[str, str]:
         """
@@ -190,6 +210,49 @@ class Actor:
         if text.startswith("fleet-"):
             return cls(kind="fleet", id=text, name=text, source=source)
         return cls(kind="user", id=text, name=text, source=source)
+
+
+def actor_sentence(label: str | None) -> ServerText | None:
+    """
+    Say a stored actor label as a sentence, when it is more than a name.
+
+    Args:
+        label: What an audit line, an alert or a history row recorded as who acted.
+
+    Returns:
+        The sentence for an operator who acted through a central (``fleet-fra-1 on behalf of
+        marta``), person first; None for any other label.
+    """
+    return Actor.from_label(label).sentence if label and " on behalf of " in label else None
+
+
+def actor_words(label: str | None) -> str:
+    """
+    Say a stored actor label in English, for a terminal or a message nobody translates.
+
+    Args:
+        label: What was recorded as who acted.
+
+    Returns:
+        ``marta (from the central fra-1)`` for an operator who acted through a central; any other
+        label as it is, and an empty string for none.
+    """
+    sentence = actor_sentence(label)
+    return sentence.text if sentence is not None else (label or "")
+
+
+def actor_person(label: str | None) -> str:
+    """
+    Name who to put first in a message that cannot be translated by the console.
+
+    Args:
+        label: What was recorded as who acted.
+
+    Returns:
+        The person behind a central's token, and any other label as it is.
+    """
+    sentence = actor_sentence(label)
+    return str(sentence.params["person"]) if sentence is not None else (label or "")
 
 
 def _optional(value: Any) -> str | None:

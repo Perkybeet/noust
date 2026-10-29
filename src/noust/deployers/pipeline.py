@@ -107,7 +107,7 @@ def _undo(completed: list[DeployStep], logger: Logger) -> None:
         # the machine in a worse state than the failure did.
         except Exception as exc:
             failures += 1
-            logger.debug(f"Rollback of '{step.title}' failed: {exc}")
+            logger.warning(f"Rollback of '{step.title}' failed: {exc}")
 
     if failures:
         logger.warning(f"Rollback completed with {failures} error(s); check manually")

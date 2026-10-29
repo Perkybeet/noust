@@ -79,7 +79,7 @@ class BuildMixin(CommandsMixin):
             except OSError as e:
                 # An undo runs while something has already gone wrong; one
                 # directory that will not go away must not hide that failure.
-                self.logger.debug(f"Could not remove {self.app_path}: {e}")
+                self.logger.warning(f"Could not remove {self.app_path}: {e}")
 
     def remove_site(self) -> None:
         """Remove the web server site configuration for this domain."""
@@ -179,7 +179,7 @@ class BuildMixin(CommandsMixin):
             # Cleanup is an error boundary: one failure must not abort the rest.
             except Exception as e:
                 errors += 1
-                self.logger.debug(f"Rollback of {what} failed: {e}")
+                self.logger.warning(f"Rollback of {what} failed: {e}")
 
         return errors == 0
 

@@ -4,7 +4,7 @@ import type { ServiceInfo } from "./data";
 import { appOfUnit, filterServices, isFiltered, serviceState, validateServicesSearch } from "./data";
 
 function service(name: string, active: boolean, description: string | null = null): ServiceInfo {
-  return { name, active, enabled: true, status: active ? "running" : "stopped", description, pid: null, uptime: null, memory: null, managed: true };
+  return { name, active, enabled: true, status: active ? "running" : "stopped", description, pid: null, uptime: null, memory: null, managed: true, scheduled: false };
 }
 
 describe("serviceState", () => {
@@ -29,6 +29,27 @@ describe("serviceState", () => {
       label: "common.statusPill.stopped",
     });
     expect(serviceState({ active: false })).toEqual({ state: "stopped", label: "common.statusPill.stopped" });
+  });
+
+  it("is scheduled, not stopped, when a timer starts the service and it waits for its next run", () => {
+    // A backup or a cron job: inactive between two runs by design.
+    expect(serviceState({ active: false, active_state: "inactive", sub_state: "dead", result: "success", scheduled: true })).toEqual({
+      state: "stopped",
+      label: "services.state.scheduled",
+    });
+    expect(serviceState({ active: false, scheduled: true })).toEqual({ state: "stopped", label: "services.state.scheduled" });
+  });
+
+  it("is running while a scheduled service runs, and failed when its last run failed", () => {
+    expect(serviceState({ active: false, active_state: "activating", sub_state: "start", result: "success", scheduled: true })).toEqual({
+      state: "running",
+      label: "common.statusPill.running",
+    });
+    expect(serviceState({ active: false, active_state: "failed", sub_state: "failed", result: "exit-code", scheduled: true })).toEqual({
+      state: "failed",
+      label: "common.statusPill.failed",
+      detail: "exit-code",
+    });
   });
 
   it("is failed - the state word stays Failed - with systemd's own result word as a separate detail", () => {

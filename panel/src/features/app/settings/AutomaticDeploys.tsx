@@ -32,6 +32,7 @@ import { reportActionError } from "../../apps/useAppActions";
 import { useResumeDeploys } from "../useResumeDeploys";
 import { olderServer } from "./queries";
 import { RowError, RowLoading } from "./settingRows";
+import { namedActor } from "../../activity/data";
 
 /** The longest reason the backend keeps with a pause. */
 const MAX_REASON = 300;
@@ -134,7 +135,7 @@ export function AutomaticDeploysRows({ domain }: { domain: string }) {
     ) : (
       <span>
         {t.rich("rollout.hold.pausedSince", { time: <RelativeTime value={paused.at} /> })}
-        {paused.by !== null ? ` ${t("rollout.hold.pausedBy", { by: paused.by })}` : ""}
+        {paused.by !== null ? ` ${t("rollout.hold.pausedBy", { by: namedActor(t, paused.by) })}` : ""}
         {paused.reason !== null ? ` ${t("rollout.hold.pausedReason", { reason: paused.reason })}` : ""}
         {data.held > 0 ? ` ${t("rollout.auto.heldNow", { count: data.held })}` : ""}
       </span>

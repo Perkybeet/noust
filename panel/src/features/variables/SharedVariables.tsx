@@ -32,6 +32,7 @@ import { SettingsPrimaryAction } from "../settings/SettingsShell";
 import { SharedVariableDialog } from "./SharedVariableDialog";
 import type { SharedVariableDraft, SharedVariableTarget } from "./SharedVariableDialog";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
+import { namedActor } from "../activity/data";
 
 /** How an application refers to a scope's variable, as the server reads it. */
 export function referenceSyntax(scope: VariableScope): string {
@@ -285,7 +286,7 @@ export function SharedVariables({ scope, name = "", canManage, primary = false, 
       cell: (variable) => (
         <span className="flex min-w-0 flex-col text-13">
           <RelativeTime value={variable.updated_at} className="text-fg" />
-          {variable.updated_by ? <span className="truncate text-12 text-fg-muted">{t("variables.shared.changedBy", { actor: variable.updated_by })}</span> : null}
+          {variable.updated_by ? <span className="truncate text-12 text-fg-muted">{t("variables.shared.changedBy", { actor: namedActor(t, variable.updated_by) })}</span> : null}
         </span>
       ),
     },

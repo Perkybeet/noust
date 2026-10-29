@@ -26,6 +26,7 @@ import { reportActionError } from "../apps/useAppActions";
 import { olderServer } from "../app/settings/queries";
 import { RowError, RowLoading } from "../app/settings/settingRows";
 import { SETTINGS_ICONS } from "../app/settings/objectIcons";
+import { namedActor } from "../activity/data";
 
 /** The lengths a freeze is offered for, in hours; `open` lasts until somebody lifts it. */
 const LENGTHS = [
@@ -187,7 +188,7 @@ function FreezeItem({ freeze, canLift, onLift }: { freeze: Freeze; canLift: bool
         <p className="text-12 text-fg-muted">
           {ends !== null ? t("rollout.freeze.rangeUntil", { from, until: formatDateTime(ends, t.locale) }) : t("rollout.freeze.rangeOpen", { from })}
           {freeze.scope === "server" ? ` · ${t("rollout.freeze.scopeServer")}` : ""}
-          {freeze.created_by !== null ? ` · ${t("rollout.freeze.by", { by: freeze.created_by })}` : ""}
+          {freeze.created_by !== null ? ` · ${t("rollout.freeze.by", { by: namedActor(t, freeze.created_by) })}` : ""}
         </p>
       </div>
       {canLift ? (

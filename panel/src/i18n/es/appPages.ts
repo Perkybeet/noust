@@ -330,6 +330,7 @@ export const appPages: Catalog<typeof en> = {
       },
       runningFor: "En ejecución desde hace {duration}",
       notGitCheckout: "No es un checkout de git",
+      commitPending: "Todavía no se sabe",
       copyCommit: "Copiar commit",
       buildLogTitle: "Registro de compilación",
       buildLogFollowing: "Sigue al despliegue mientras escribe. Desplazarse hacia arriba lo pausa; Seguir lo reanuda.",

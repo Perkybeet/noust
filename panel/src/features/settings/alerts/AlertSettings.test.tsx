@@ -127,8 +127,8 @@ async function confirmItsYou(user: ReturnType<typeof renderConsole>["user"]): Pr
   await user.click(within(confirm).getByRole("button", { name: "Continue" }));
 }
 
-function ruleRow(name: string): HTMLElement {
-  const found = within(screen.getByRole("list", { name: "Alert rules" }))
+function ruleRow(name: string, list = "Alert rules"): HTMLElement {
+  const found = within(screen.getByRole("list", { name: list }))
     .getAllByRole("listitem")
     .find((item) => item.textContent.startsWith(name));
   if (found === undefined) throw new Error(`no row for ${name}`);
@@ -181,6 +181,19 @@ describe("Alerts", () => {
     });
     expect(await within(ruleRow("shop-memory")).findByRole("button", { name: "Acknowledge the alert for shop.example.com" })).toBeInTheDocument();
     expect(within(ruleRow("shop-memory")).queryByText(/Acknowledged by/)).toBeNull();
+  });
+
+  it("names the person first when a central took the alert for them, in the language of the console", { timeout: 30_000 }, async () => {
+    const taken = rule("shop-memory", {
+      ...FIRING,
+      states: [{ ...FIRING.states[0], acknowledged_by: "fleet-fra-1 on behalf of marta", acknowledged_at: NOW - 30 }],
+    });
+    alertsBackend([rule("cpu-high"), taken]);
+    renderConsole("/alerts");
+    await screen.findByRole("list", { name: "Alert rules" });
+    const badge = await within(ruleRow("shop-memory")).findByText(/Acknowledged by/);
+    expect(badge).toHaveTextContent(/Acknowledged by\s+marta \(from the central fra-1\)/);
+    expect(badge).not.toHaveTextContent("on behalf of");
   });
 
   it("explains what a rule is when there is none", { timeout: 20_000 }, async () => {
@@ -357,6 +370,22 @@ describe("Alerts", () => {
     // From off to the default is one change, not yet saved.
     expect(screen.getByRole("region", { name: "Unsaved changes" })).toHaveTextContent("1 unsaved change");
     expect(backend.callsTo("PATCH /api/config")).toHaveLength(0);
+  });
+
+  it("reads a central's acknowledgement in Spanish with the person first", { timeout: 30_000 }, async () => {
+    const taken = rule("shop-memory", {
+      ...FIRING,
+      states: [{ ...FIRING.states[0], acknowledged_by: "fleet-fra-1 on behalf of marta", acknowledged_at: NOW - 30 }],
+    });
+    alertsBackend([rule("cpu-high"), taken]);
+    await act(async () => {
+      await setLocale("es");
+    });
+    renderConsole("/alerts");
+    await screen.findByRole("list", { name: "Reglas de alerta" });
+    const badge = await within(ruleRow("shop-memory", "Reglas de alerta")).findByText(/Reconocida por/);
+    expect(badge).toHaveTextContent(/Reconocida por\s+marta \(desde la central fra-1\)/);
+    expect(badge).not.toHaveTextContent("on behalf of");
   });
 
   it("reads in Spanish, with no accessibility violations", { timeout: 20_000 }, async () => {

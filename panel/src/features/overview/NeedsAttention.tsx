@@ -23,6 +23,7 @@ import { mergeAttention } from "./attention";
 import type { Severity } from "./attention";
 import { attentionTarget } from "./attentionTarget";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
+import { namedActor } from "../activity/data";
 
 /**
  * What the monitor saw, in words, by its signal (`src/noust/monitor/models.py`) and severity
@@ -82,11 +83,11 @@ export function reasonText(t: T, reason: OverviewAttentionReason): string {
       return t("overview.attention.unitRestarting");
     case "monitor_finding":
       return monitorText(t, text(params["severity"]) ?? "", text(params["signal"]) ?? "");
-    // What the console adds to the server's list (features/overview/attention.ts).
     case "alert_firing":
       return t("inbox.reasons.alertFiring");
     case "alert_taken":
-      return t("inbox.reasons.alertTaken", { by: text(params["by"]) ?? "" });
+      return t("inbox.reasons.alertTaken", { by: namedActor(t, text(params["by"]) ?? "") });
+    // What the console adds to the server's list (features/overview/attention.ts).
     case "probe_down":
       return t("inbox.reasons.probeDown");
     case "approval_waiting":

@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import type { QueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 
-import { alertKeys, alertRulesQuery } from "../../api/queries/alerts";
 import { appsQuery } from "../../api/queries/apps";
 import { sessionQuery } from "../../api/queries/auth";
 import { overviewKeys, overviewQuery } from "../../api/queries/overview";
@@ -11,12 +10,12 @@ import { probeKeys, probesQuery } from "../../api/queries/probes";
 import { installedRecipesQuery } from "../../api/queries/recipes";
 import { versionQuery } from "../../api/queries/system";
 import { approvalKeys, approvalsQuery } from "../approvals/api";
-import { alertItems, approvalItems, attentionCounters, mergeAttention, noustItems, probeItems, recipeItems } from "../overview/attention";
+import { approvalItems, attentionCounters, mergeAttention, noustItems, probeItems, recipeItems } from "../overview/attention";
 import type { AttentionCounters } from "../overview/attention";
 import { attentionItems, attentionTotal } from "../overview/overviewData";
 
 /**
- * How often what only polling can know is read again: alerts, probes, requests waiting. Two
+ * How often what only polling can know is read again: probes, requests waiting. Two
  * minutes, because opening the inbox reads them again at once (`refreshAttention`) and an idle page
  * must ask the server for little (e2e/idle-requests.spec.ts).
  */
@@ -32,34 +31,34 @@ const NONE: readonly OverviewAttentionItem[] = [];
 
 /** Reads again what the inbox is made of: when it is opened, it must not say what was true two minutes ago. */
 export function refreshAttention(queryClient: QueryClient): void {
-  for (const queryKey of [overviewKeys.all, alertKeys.rules, probeKeys.all, approvalKeys.all]) void queryClient.invalidateQueries({ queryKey });
+  for (const queryKey of [overviewKeys.all, probeKeys.all, approvalKeys.all]) void queryClient.invalidateQueries({ queryKey });
 }
 
 /**
- * What the console adds to the server's own list: the alerts firing, the probes down, the requests
- * waiting for this person's decision, a newer Noust and the recipes with an update. Each read is
+ * What the console adds to the server's own list: the probes down, the requests waiting for this
+ * person's decision, a newer Noust and the recipes with an update. Each read is
  * asked only by whoever may make it - what a role cannot see is not asked for, and not counted.
  *
  * The recipes are the one read that costs the server something (it compares every installed
  * application with the catalog), so the bell does not ask for it on every page: it counts what the
  * console already holds, and the inbox, once opened, reads it (`deep`).
  *
- * The alerts and the probes are the console's own reads of them (`api/queries`); which of them
- * need somebody is the settings pages' own definition (`selectFiringAlerts`, `selectFailingProbes`),
- * which `alertItems` and `probeItems` turn into items.
+ * The probes are the console's own read of them (`api/queries`); which of them need somebody is
+ * the settings page's own definition (`selectFailingProbes`), which `probeItems` turns into items.
+ * The alerts are not here: the server lists the ones firing among what needs attention, because
+ * a fleet reads each server's own list and would never count what only a console added.
  */
 export function useExtraAttention(deep = false): readonly OverviewAttentionItem[] {
   const { data: permissions } = useQuery({ ...sessionQuery(), select: (session) => session.permissions });
   const can = (permission: string): boolean => permissions?.includes(permission) ?? false;
   const readsServer = can("server.read");
-  const alerts = useQuery({ ...alertRulesQuery(), enabled: readsServer, refetchInterval: POLL_MS, retry: false });
   const probes = useQuery({ ...probesQuery(), enabled: readsServer, refetchInterval: POLL_MS, retry: false });
   const approvals = useQuery({ ...approvalsQuery("requested"), enabled: permissions !== undefined, refetchInterval: POLL_MS, retry: false });
   const version = useQuery({ ...versionQuery(), enabled: can("server.manage"), retry: false });
   const recipes = useQuery({ ...installedRecipesQuery(), enabled: deep && can("apps.read"), staleTime: RECIPES_STALE_MS, retry: false });
   return useMemo(
-    () => [...alertItems(alerts.data), ...probeItems(probes.data), ...approvalItems(approvals.data), ...noustItems(version.data), ...recipeItems(recipes.data)],
-    [alerts.data, probes.data, approvals.data, version.data, recipes.data],
+    () => [...probeItems(probes.data), ...approvalItems(approvals.data), ...noustItems(version.data), ...recipeItems(recipes.data)],
+    [probes.data, approvals.data, version.data, recipes.data],
   );
 }
 

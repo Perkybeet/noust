@@ -66,6 +66,7 @@ import { useDeploymentJob } from "./useDeploymentJob";
 import { deploymentStatusWord, shortCommit, triggerWords } from "./words";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 import { ArrivalRow } from "../ArrivalRow";
+import { namedActor } from "../../activity/data";
 
 /**
  * How much of the history a deployment's page reads: the whole of it, as the Deployments tab does. A window of the newest twenty
@@ -190,6 +191,10 @@ function Facts({ deployment, t }: { deployment: Deployment; t: T }) {
               </p>
             ) : null}
           </div>
+        ) : RUNNING.has(deployment.status) ? (
+          // The commit is on the row once the source is fetched. Until then nothing is known,
+          // which is not the same as the source not being a git checkout.
+          <EmptyCell reason={t("appPages.deployments.page.commitPending")} />
         ) : (
           <span className="text-fg-faint">
             {t("appPages.deployments.page.notGitCheckout")}
@@ -766,7 +771,7 @@ function Deploy({
           <Notice title={t("queue.cancel.deploymentCancelledTitle")}>
             {deployment.cancelled_by
               ? t("queue.cancel.deploymentCancelled", {
-                  who: deployment.cancelled_by,
+                  who: namedActor(t, deployment.cancelled_by),
                 })
               : t("queue.cancel.deploymentCancelledAnonymous")}
           </Notice>

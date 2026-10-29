@@ -38,12 +38,23 @@ export interface ServiceStateView {
  * alone, the only distinction available.
  */
 export function serviceState(
-  service: Pick<ServiceInfo, "active" | "active_state" | "sub_state" | "result">,
+  service: Pick<ServiceInfo, "active" | "active_state" | "sub_state" | "result"> & { scheduled?: boolean | undefined },
 ): ServiceStateView {
   const activeState = (service.active_state ?? "").trim().toLowerCase();
   const subState = (service.sub_state ?? "").trim().toLowerCase();
   const result = (service.result ?? "").trim().toLowerCase();
   const detail = result !== "" && result !== "success" ? result : undefined;
+
+  // A service a timer starts (a backup, a cron job) is inactive between two runs by design: it
+  // waits for its timer, and is not stopped (`ServiceManager.timer_phase`, which the machine
+  // tally and the server's filters read as well). While a run is in progress it is running; a
+  // run that failed or a loop is judged like any other unit's, below.
+  if (service.scheduled === true && activeState !== "failed" && subState !== "failed" && subState !== "auto-restart") {
+    if (service.active || activeState === "active" || activeState === "activating" || activeState === "reloading") {
+      return { state: "running", label: "common.statusPill.running" };
+    }
+    return { state: "stopped", label: "services.state.scheduled" };
+  }
 
   // Checked first: systemd reports these mid-crash-loop, before it gives up and settles on
   // ActiveState=failed, so a unit here is neither cleanly running nor cleanly stopped - a
@@ -62,7 +73,7 @@ export function serviceState(
   return { state: "stopped", label: "common.statusPill.stopped" };
 }
 
-export const SERVICE_STATES = ["failed", "running", "stopped"] as const;
+export const SERVICE_STATES = ["failed", "running", "stopped", "scheduled"] as const;
 export type ServiceStateFilter = (typeof SERVICE_STATES)[number];
 
 export interface ServicesSearch {
@@ -70,7 +81,7 @@ export interface ServicesSearch {
   q?: string;
   /** List every unit on the host, not just the ones Noust created (`GET ?noust_only=false`). */
   all?: true;
-  /** Only the units in this state; "failed" also keeps the ones systemd is restarting. */
+  /** Only the units in this state; "failed" also keeps the ones systemd is restarting, "scheduled" the ones a timer starts, between two runs. */
   state?: ServiceStateFilter;
   /** Only the units that carry this tag. */
   tag?: string;
@@ -100,12 +111,13 @@ export function isFiltered(search: ServicesSearch): boolean {
   return search.q !== undefined || search.state !== undefined || search.tag !== undefined;
 }
 
-/** Whether a unit is in the state a filter asks for. */
+/** Whether a unit is in the state a filter asks for (`ServiceManager.state_group`'s groups). */
 export function inState(service: ServiceInfo, state: ServiceStateFilter): boolean {
-  const view = serviceState(service).state;
-  if (state === "failed") return view === "failed" || view === "warning";
-  if (state === "running") return view === "running";
-  return view === "stopped";
+  const view = serviceState(service);
+  if (state === "failed") return view.state === "failed" || view.state === "warning";
+  if (state === "running") return view.state === "running";
+  if (state === "scheduled") return view.label === "services.state.scheduled";
+  return view.state === "stopped" && view.label !== "services.state.scheduled";
 }
 
 /** The services a search keeps, in their original order. */

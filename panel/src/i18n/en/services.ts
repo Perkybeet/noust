@@ -2,6 +2,7 @@
 export const services = {
   state: {
     restarting: "Restarting",
+    scheduled: "Scheduled",
   },
   tabs: {
     label: "Service sections",
@@ -25,6 +26,7 @@ export const services = {
     stateAny: "Any state",
     stateFailed: "Failed",
     stateStopped: "Stopped",
+    stateScheduled: "Scheduled",
     count: { one: "{count} service", other: "{count} services" },
     countFiltered: "{shown} of {total} services",
     tableCaption: "Services",

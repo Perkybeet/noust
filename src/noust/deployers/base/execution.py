@@ -96,7 +96,7 @@ class ExecutionMixin(ProjectMixin):
             env = {**pinned, **(env or {})}
         if command and self._pinned_runtime() is not None:
             command = [self._pinned_program(command[0]), *command[1:]]
-        self.logger.debug(f"Running: {' '.join(command)}")
+        self.logger.substep(f"Running: {' '.join(command)}")
 
         # Beyond the .env: what only the build is given and what Noust says
         # about the deployment, less what only the running application is given.
@@ -148,7 +148,7 @@ class ExecutionMixin(ProjectMixin):
             if stream:
                 result = self.runner.stream(
                     command,
-                    on_line=self.logger.debug,
+                    on_line=self.logger.output,
                     cwd=cwd or self.build_path,
                     env=run_env or None,
                     timeout=timeout,

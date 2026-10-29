@@ -4330,7 +4330,7 @@
         "type": "object"
       },
       "AttentionItem": {
-        "description": "Something that needs an operator.\n\nAttributes:\n    id: Stable across refreshes.\n    subject: What it is about: ``{\"kind\": \"app\", \"domain\": ...}``,\n        ``{\"kind\": \"certificate\", \"domain\": ...}``, ``{\"kind\": \"unit\",\n        \"name\": ...}`` or ``{\"kind\": \"monitor\", \"process\": ..., \"pid\": ...}``.\n    title: A domain, a unit, a process.\n    severity: The worst of its reasons.\n    reasons: Each reason, with its own severity.",
+        "description": "Something that needs an operator.\n\nAttributes:\n    id: Stable across refreshes.\n    subject: What it is about: ``{\"kind\": \"app\", \"domain\": ...}``,\n        ``{\"kind\": \"certificate\", \"domain\": ...}``, ``{\"kind\": \"unit\",\n        \"name\": ...}``, ``{\"kind\": \"monitor\", \"process\": ..., \"pid\": ...}`` or\n        ``{\"kind\": \"alert\", \"rule\": ..., \"subject\": ...}``.\n    title: A domain, a unit, a process, a rule (and the application it fires for).\n    severity: The worst of its reasons.\n    reasons: Each reason, with its own severity.",
         "properties": {
           "id": {
             "title": "Id",
@@ -4368,7 +4368,7 @@
         "type": "object"
       },
       "AttentionReason": {
-        "description": "One reason an item needs attention.\n\nAttributes:\n    kind: ``state``, ``deploy``, ``certificate``, ``unit`` or ``monitor``.\n    severity: ``fail`` or ``warn``.\n    code: Machine-readable and stable; the console words it. ``service_failed``,\n        ``service_restarting``, ``running_outside_unit``, ``deploy_failed``, ``deploy_rolled_back``,\n        ``certificate_expired``, ``certificate_expires_today``,\n        ``certificate_expires_in``, ``unit_failed``, ``unit_restarting``,\n        ``monitor_finding``.\n    params: Values for the console's sentence (days, a signal).\n    detail: The system's own words, verbatim.\n    when: When it happened.\n    deployment_id: A deployment to open for the full story.\n    actions: What can be done, as identifiers the console maps to buttons:\n        ``view_log``, ``diagnose``, ``view_deployment``,\n        ``renew_certificate``, ``open_service``, ``open_observation``.",
+        "description": "One reason an item needs attention.\n\nAttributes:\n    kind: ``state``, ``deploy``, ``certificate``, ``unit``, ``monitor`` or ``alert``.\n    severity: ``fail`` or ``warn``.\n    code: Machine-readable and stable; the console words it. ``service_failed``,\n        ``service_restarting``, ``running_outside_unit``, ``deploy_failed``, ``deploy_rolled_back``,\n        ``certificate_expired``, ``certificate_expires_today``,\n        ``certificate_expires_in``, ``unit_failed``, ``unit_restarting``,\n        ``monitor_finding``, ``alert_firing`` (nobody has taken it) and ``alert_taken``\n        (somebody has; it still fires).\n    params: Values for the console's sentence (days, a signal).\n    detail: The system's own words, verbatim.\n    when: When it happened.\n    deployment_id: A deployment to open for the full story.\n    actions: What can be done, as identifiers the console maps to buttons:\n        ``view_log``, ``diagnose``, ``view_deployment``,\n        ``renew_certificate``, ``open_service``, ``open_observation``,\n        ``acknowledge_alert``, ``reopen_alert``.",
         "properties": {
           "actions": {
             "items": {
@@ -31130,6 +31130,12 @@
             "title": "Running",
             "type": "integer"
           },
+          "scheduled": {
+            "default": 0,
+            "description": "Services a timer starts (a backup, a cron job) that wait for their next run: inactive by design, so neither running nor stopped",
+            "title": "Scheduled",
+            "type": "integer"
+          },
           "stopped": {
             "title": "Stopped",
             "type": "integer"
@@ -50995,7 +51001,7 @@
         "type": "object"
       },
       "ServiceInfo": {
-        "description": "Service information.\n\nAttributes:\n    managed: Whether Noust manages this unit. False only when listing with\n        ``noust_only=false``, which walks every unit on the host; such a\n        row carries systemd's state fields and nothing else (``enabled``\n        false, no PID, memory or uptime), read from the one listing.\n    active_state: Systemd's own ``ActiveState`` (``active``, ``failed``,\n        ``activating``, ...). Distinguishes a unit systemd is repeatedly\n        restarting from one that is cleanly stopped, which ``active``\n        alone cannot: both report ``active=false`` between attempts.\n    sub_state: Systemd's own ``SubState`` (``running``, ``dead``,\n        ``auto-restart``, ...), the finer-grained half of the same story.\n    result: Systemd's own ``Result`` for the last run (``success``,\n        ``exit-code``, ``signal``, ...).\n    tags: The unit's tags, sorted.",
+        "description": "Service information.\n\nAttributes:\n    managed: Whether Noust manages this unit. False only when listing with\n        ``noust_only=false``, which walks every unit on the host; such a\n        row carries systemd's state fields and nothing else (``enabled``\n        false, no PID, memory or uptime), read from the one listing.\n    active_state: Systemd's own ``ActiveState`` (``active``, ``failed``,\n        ``activating``, ...). Distinguishes a unit systemd is repeatedly\n        restarting from one that is cleanly stopped, which ``active``\n        alone cannot: both report ``active=false`` between attempts.\n    sub_state: Systemd's own ``SubState`` (``running``, ``dead``,\n        ``auto-restart``, ...), the finer-grained half of the same story.\n    result: Systemd's own ``Result`` for the last run (``success``,\n        ``exit-code``, ``signal``, ...).\n    scheduled: A timer starts this unit (a backup, a cron job). Between two runs it is\n        inactive by design: it waits for its timer, and is not stopped.\n    tags: The unit's tags, sorted.",
         "properties": {
           "active": {
             "title": "Active",
@@ -51068,6 +51074,11 @@
               }
             ],
             "title": "Result"
+          },
+          "scheduled": {
+            "default": false,
+            "title": "Scheduled",
+            "type": "boolean"
           },
           "status": {
             "title": "Status",
@@ -113773,7 +113784,7 @@
             }
           },
           {
-            "description": "Only the units in this state. 'failed' also keeps the ones systemd keeps restarting; the console's Services page filters the same way",
+            "description": "Only the units in this state. 'failed' also keeps the ones systemd keeps restarting, and 'scheduled' the ones a timer starts, between two runs; the console's Services page filters the same way",
             "in": "query",
             "name": "state",
             "required": false,
@@ -113783,7 +113794,8 @@
                   "enum": [
                     "failed",
                     "running",
-                    "stopped"
+                    "stopped",
+                    "scheduled"
                   ],
                   "type": "string"
                 },
@@ -113791,7 +113803,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Only the units in this state. 'failed' also keeps the ones systemd keeps restarting; the console's Services page filters the same way",
+              "description": "Only the units in this state. 'failed' also keeps the ones systemd keeps restarting, and 'scheduled' the ones a timer starts, between two runs; the console's Services page filters the same way",
               "title": "State"
             }
           },

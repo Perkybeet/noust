@@ -124,6 +124,8 @@ src/noust/
                     `cli/lookup.py`
     web_gate.py     the one door to the console's token manager for the layers that cannot import
                     `web`, with the error that says how to install its dependencies
+    fleet_tokens.py what the name of a fleet token says of its central (`fleet-<central>`); the
+                    audit trail and the central's calls both ask it
   validators/       names, environments, sources, ports, domains
   managers/         adapters: web server, systemd, certs, backups, databases, source, cron
     diagnose.py     why an app is down: read-only probes, most likely cause first
@@ -141,6 +143,9 @@ src/noust/
     port_claims.py  who holds a port: applications, the ports a Compose stack publishes, streams,
                     databases, engines, SSH, the console and the kernel; every caller asks it
     app_identity.py the one answer to "which account does this app run as"
+    unit_states.py  the one decision of what state a unit is in: running, failed, stopped, or
+                    scheduled (a service its timer starts, between two runs); the Services page,
+                    the top bar's tally and `noust service list` all read it
     site_topology.py, timeline.py   what a site reaches, live; one timeline over a stretch
     internal_ca.py, ca_trust.py  the server's own authority for names that only resolve inside a
                     private network (`noust cert ca`): name-constrained, one machinery with the

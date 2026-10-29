@@ -18,15 +18,31 @@ async function stripAt(units: typeof MACHINE.units) {
 }
 
 describe("unitTallySummary", () => {
+  it("says how many services wait for their timer, so the sentence adds up to the Services page", async () => {
+    await loadCatalog("es");
+    // Eight backups between two runs are not "stopped": they wait. The strip's three counts leave
+    // them out; the sentence says them once.
+    expect(unitTallySummary({ running: 15, failed: 0, stopped: 1, scheduled: 13 }, bindT("en"))).toBe(
+      "Noust's services: 15 running, 0 failed, 1 stopped, 13 waiting for their timer",
+    );
+    expect(unitTallySummary({ running: 15, failed: 0, stopped: 1, scheduled: 13 }, bindT("es"))).toBe(
+      "Servicios de Noust: 15 en marcha, 0 con fallo, 1 detenidos, 13 a la espera de su temporizador",
+    );
+  });
+
+  it("does not mention a timer when no service waits for one", () => {
+    expect(unitTallySummary({ running: 15, failed: 0, stopped: 1, scheduled: 0 }, bindT("en"))).toBe("Noust's services: 15 running, 0 failed, 1 stopped");
+  });
+
   it("says what each count means, in one sentence", () => {
-    expect(unitTallySummary({ running: 15, failed: 0, stopped: 1 }, bindT("en"))).toBe(
+    expect(unitTallySummary({ running: 15, failed: 0, stopped: 1, scheduled: 0 }, bindT("en"))).toBe(
       "Noust's services: 15 running, 0 failed, 1 stopped",
     );
   });
 
   it("says it in Spanish too", async () => {
     await loadCatalog("es");
-    expect(unitTallySummary({ running: 15, failed: 0, stopped: 1 }, bindT("es"))).toBe(
+    expect(unitTallySummary({ running: 15, failed: 0, stopped: 1, scheduled: 0 }, bindT("es"))).toBe(
       "Servicios de Noust: 15 en marcha, 0 con fallo, 1 detenidos",
     );
   });
@@ -34,13 +50,13 @@ describe("unitTallySummary", () => {
 
 describe("the unit tally", () => {
   it("names itself the same sentence it shows as a tooltip, not two different ones", async () => {
-    const { strip } = await stripAt({ running: 9, failed: 1, stopped: 2 });
+    const { strip } = await stripAt({ running: 9, failed: 1, stopped: 2, scheduled: 0 });
     const link = within(strip).getByRole("link", { name: "Noust's services: 9 running, 1 failed, 2 stopped" });
     expect(link).toHaveAttribute("href", "/server/services");
   });
 
   it("says each count in words, with its shape", async () => {
-    const { strip } = await stripAt({ running: 9, failed: 1, stopped: 2 });
+    const { strip } = await stripAt({ running: 9, failed: 1, stopped: 2, scheduled: 0 });
     const link = within(strip).getByRole("link", { name: "Noust's services: 9 running, 1 failed, 2 stopped" });
     // Both forms are rendered; the strip's own width (a container query) shows one of them:
     // the words, or on a narrower strip the counts alone, whose meaning the link's name keeps.
@@ -49,21 +65,21 @@ describe("the unit tally", () => {
   });
 
   it("keeps the machine's name whole: the counts and meters give way first", async () => {
-    const { strip } = await stripAt({ running: 9, failed: 1, stopped: 2 });
+    const { strip } = await stripAt({ running: 9, failed: 1, stopped: 2, scheduled: 0 });
     const name = within(strip).getByText("web-01");
     expect(name.closest("a")).toHaveClass("shrink-0");
     expect(name).not.toHaveClass("truncate");
   });
 
   it("shows the same sentence as a tooltip on keyboard focus", async () => {
-    const { strip } = await stripAt({ running: 9, failed: 1, stopped: 2 });
+    const { strip } = await stripAt({ running: 9, failed: 1, stopped: 2, scheduled: 0 });
     const link = within(strip).getByRole("link", { name: "Noust's services: 9 running, 1 failed, 2 stopped" });
     link.focus();
     expect(await screen.findByText("Noust's services: 9 running, 1 failed, 2 stopped", {}, { timeout: 2000 })).toBeInTheDocument();
   });
 
   it("has no accessibility violations, with a failure to show", async () => {
-    const { strip } = await stripAt({ running: 9, failed: 1, stopped: 2 });
+    const { strip } = await stripAt({ running: 9, failed: 1, stopped: 2, scheduled: 0 });
     await expectNoAxeViolations(strip);
   });
 });

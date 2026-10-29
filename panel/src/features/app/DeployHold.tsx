@@ -9,6 +9,7 @@ import { useT } from "../../i18n";
 import { formatDateTime, parseTimestamp } from "../../lib/format";
 import { useResumeDeploys } from "./useResumeDeploys";
 import { Play } from "lucide-react";
+import { namedActor } from "../activity/data";
 
 /**
  * The freeze that holds an app's deploys, in the words the person who froze them gave. A freeze
@@ -58,7 +59,7 @@ export function DeployHold({ domain }: { domain: string }) {
           }
         >
           <p>{t.rich("rollout.hold.pausedSince", { time: <RelativeTime value={paused.at} /> })}</p>
-          {paused.by !== null ? <p className="mt-1">{t("rollout.hold.pausedBy", { by: paused.by })}</p> : null}
+          {paused.by !== null ? <p className="mt-1">{t("rollout.hold.pausedBy", { by: namedActor(t, paused.by) })}</p> : null}
           {paused.reason !== null ? <p className="mt-1">{t("rollout.hold.pausedReason", { reason: paused.reason })}</p> : null}
           {data.held > 0 ? <p className="mt-1">{t("rollout.auto.heldNow", { count: data.held })}</p> : null}
         </Notice>

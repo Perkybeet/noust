@@ -37,6 +37,7 @@ from noust.core.store import App, NoustStore
 from noust.deployers import bluegreen, lifecycle
 from noust.deployers.bluegreen import Listener
 from noust.deployers.helpers import preflight
+from noust.deployers.recorder import CapturingLogger
 from tests.support.bluegreen import (
     BASE,
     DOMAIN,
@@ -284,6 +285,32 @@ def test_listeners_nobody_can_name_do_not_block_an_activation(
     ).activate(root / "releases" / FIRST, ReleaseManager(root))
 
     assert switch.to_color == "blue"
+
+
+def test_what_nobody_could_tell_stays_out_of_the_log_the_operator_reads(
+    root: Path, store: NoustStore, app: App, machine: Machine
+) -> None:
+    """
+    A zero-downtime deployment's log said "[DEBUG] Could not tell which process listens".
+
+    It is true, it is for whoever debugs Noust, and it reads like a fault to the
+    person who deploys. The deployment goes through with the unit being active
+    as the evidence, and says nothing of it in the recorded log.
+    """
+    switched_on(machine, store, app)
+    logger = CapturingLogger()
+    recorded: list[str] = []
+    logger.attach_sink(recorded.append)
+
+    engine(
+        machine,
+        store,
+        logger=logger,
+        listeners=lambda port: None,
+        unit_facts=lambda unit: bluegreen.UnitFacts(state="", pids=None),
+    ).activate(root / "releases" / FIRST, ReleaseManager(root))
+
+    assert not [line for line in recorded if "DEBUG" in line or "Could not tell" in line]
 
 
 # ---------------------------------------------------------------------------

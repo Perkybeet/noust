@@ -362,7 +362,6 @@
   "activity.actor.notRecorded": "Nicht aufgezeichnet",
   "activity.actor.terminal": "{name} am Terminal",
   "activity.actor.terminalUnknown": "Jemand am Terminal",
-  "activity.actor.throughCentral": "{name}, über {central}",
   "activity.actor.system": "Noust selbst",
   "activity.jobLog.title": "Job-Log",
   "activity.jobLog.couldNotLoad": "Das Log des Jobs konnte nicht geladen werden",

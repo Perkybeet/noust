@@ -32,6 +32,7 @@ from noust.core.alerts import (
     parse_threshold,
 )
 from noust.core.alerts.model import DEFAULT_COOLDOWN_S, DEFAULT_DURATION_S
+from noust.core.audit.actor import actor_words
 from noust.core.exceptions import NoustError
 from noust.monitor.alert_engine import acknowledge_alert
 
@@ -154,11 +155,9 @@ def list_command(ctx: Context) -> None:
 @pass_context
 def status_command(ctx: Context) -> None:
     """Show the alerts that are firing now."""
-    rules = AlertRules()
-    by_id = {rule.id: rule for rule in rules.rules()}
-    firing = [s for s in rules.states() if s.state == "firing" and s.rule_id in by_id]
+    firing = AlertRules().firing()
     if ctx.json_output:
-        click.echo(json.dumps([{**s.to_dict(), "rule": by_id[s.rule_id].name} for s in firing]))
+        click.echo(json.dumps([{**s.to_dict(), "rule": rule.name} for rule, s in firing]))
         return
     if not firing:
         ctx.logger.success("Nothing is firing.")
@@ -167,13 +166,13 @@ def status_command(ctx: Context) -> None:
         ["Rule", "About", "Now", "Limit", "Taken by"],
         [
             [
-                by_id[s.rule_id].name,
+                rule.name,
                 s.subject or "the server",
-                format_value(by_id[s.rule_id].spec.unit, s.last_value or 0.0),
-                _limit(by_id[s.rule_id]),
-                s.acknowledged_by or "-",
+                format_value(rule.spec.unit, s.last_value or 0.0),
+                _limit(rule),
+                actor_words(s.acknowledged_by) or "-",
             ]
-            for s in firing
+            for rule, s in firing
         ],
     )
 
@@ -308,7 +307,8 @@ def ack_command(ctx: Context, name: str, subject: str, by: str) -> None:
     except NoustError as exc:
         raise _fail(ctx, exc) from exc
     ctx.logger.success(
-        f"{name}{f' for {subject}' if subject else ''} is taken by {state.acknowledged_by}."
+        f"{name}{f' for {subject}' if subject else ''} is taken by "
+        f"{actor_words(state.acknowledged_by)}."
     )
 
 

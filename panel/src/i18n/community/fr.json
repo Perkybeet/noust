@@ -362,7 +362,6 @@
   "activity.actor.notRecorded": "Non enregistré",
   "activity.actor.terminal": "{name} au terminal",
   "activity.actor.terminalUnknown": "Quelqu'un au terminal",
-  "activity.actor.throughCentral": "{name}, via {central}",
   "activity.actor.system": "Noust lui-même",
   "activity.jobLog.title": "Journal de la tâche",
   "activity.jobLog.couldNotLoad": "Impossible de charger le journal de la tâche",

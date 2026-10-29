@@ -306,7 +306,7 @@ def engine(machine: Machine, store: NoustStore, **kwargs: Any) -> BlueGreen:
     assert row is not None
     return BlueGreen(
         row,
-        logger=Logger(),
+        logger=kwargs.pop("logger", None) or Logger(),
         store=store,
         services=machine,  # type: ignore[arg-type]
         web=machine,  # type: ignore[arg-type]

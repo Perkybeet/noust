@@ -211,6 +211,13 @@ class MachineUnits(BaseModel):
     running: int
     failed: int
     stopped: int
+    scheduled: int = Field(
+        default=0,
+        description=(
+            "Services a timer starts (a backup, a cron job) that wait for their next run: "
+            "inactive by design, so neither running nor stopped"
+        ),
+    )
 
 
 class MachineApps(BaseModel):

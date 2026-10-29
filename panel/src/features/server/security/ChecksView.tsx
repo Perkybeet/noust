@@ -28,6 +28,7 @@ import type { SecurityCheck, Checks } from "../queries";
 import { AcceptRiskDialog, FixDialog, GuidedDrawer } from "./FixDialogs";
 import { actionTarget, checkState, checkTitle, isOpen, sortChecks } from "./data";
 import { Disclosure } from "../../../components/ui/Disclosure";
+import { namedActor } from "../../activity/data";
 
 type Opened = { kind: "fix" | "guided" | "accept"; check: SecurityCheck } | null;
 
@@ -125,7 +126,7 @@ function acceptedLine(t: T, check: SecurityCheck): string {
   const accepted = check.accepted;
   if (accepted === null || accepted === undefined) return "";
   const until = parseTimestamp(accepted.expires_at);
-  return t("server.checks.acceptedBy", { actor: accepted.accepted_by, date: until ? formatDate(until, {}, t.locale) : accepted.expires_at });
+  return t("server.checks.acceptedBy", { actor: namedActor(t, accepted.accepted_by), date: until ? formatDate(until, {}, t.locale) : accepted.expires_at });
 }
 
 function AcceptedRow({ check }: { check: SecurityCheck }) {

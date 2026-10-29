@@ -18,10 +18,13 @@ Two guarantees shape everything here:
   recorder is caught at this boundary, logged as a warning, and the deployment
   continues; a broken history database must not take deploys down with it.
 - **The captured log is complete even when the console is quiet.** The build
-  output the runner streams goes through ``Logger.debug``, which drops it
-  before it is printed unless ``--verbose`` was given. :class:`CapturingLogger`
-  therefore mirrors the suppressed detail to the recording sink as well, so the
-  file always holds what the operator will need after a failure.
+  output the runner streams goes through ``Logger.output``, and the steps' own
+  detail through ``Logger.substep`` and ``command_output``: the console drops all
+  of it unless ``--verbose`` was given. :class:`CapturingLogger` therefore
+  mirrors that detail to the recording sink as well, so the file always holds
+  what the operator will need after a failure. ``Logger.debug`` is the one
+  exception, on purpose: it is for whoever debugs Noust and goes to the debug
+  log (``noust.core.logger.DEBUG_LOG``), never into the file a person reads.
 - **What is recorded carries no secret.** The build runs with the
   application's environment, and the log and the error text are readable with
   the panel's ``read`` scope. Every line and the error pass through a
@@ -34,6 +37,7 @@ import sqlite3
 import time
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Protocol, TextIO
@@ -70,6 +74,12 @@ GitInfo = Callable[[], tuple[str | None, str | None]]
 
 #: Answers the environment the deployment's commands currently run with.
 EnvSource = Callable[[], Mapping[str, Any] | None]
+
+#: The recording the code running now belongs to, set by :func:`recording` for the length of the
+#: block. A deployer learns what it is deploying in the middle of a pipeline several layers away
+#: from where the recorder was opened, and says so through :func:`note_source` rather than being
+#: handed the recorder through every class in between.
+_ACTIVE: ContextVar[DeploymentRecorder | None] = ContextVar("noust_active_recording", default=None)
 
 #: What the recorder treats as "the history could not be written": the store's
 #: own errors, the SQLite errors underneath it, and filesystem trouble around
@@ -175,14 +185,33 @@ class CapturingLogger(Logger):
 
     def debug(self, message: str) -> None:
         """
-        Log a debug message, capturing it even when the console drops it.
+        Log a debug message to the debug log and, when verbose, the console; never the recording.
+
+        The recording is what the operator reads after a deployment. A debug line used to be
+        mirrored into it, so a zero-downtime log said "[DEBUG] Could not tell which process
+        listens on port 3001" to someone who only wanted to know whether it went through.
+        What an operator needs is said with :meth:`substep`, :meth:`output` or a warning.
 
         Args:
             message: Debug message.
         """
+        sink = self._sink
+        self._sink = None
+        try:
+            super().debug(message)
+        finally:
+            self._sink = sink
+
+    def output(self, line: str) -> None:
+        """
+        Log one line of a command's output, capturing it even when the console drops it.
+
+        Args:
+            line: The line, without its newline.
+        """
         if self._sink is not None and not self.verbose:
-            self._sink(f"      [DEBUG] {message}")
-        super().debug(message)
+            self._sink(f"        {line}")
+        super().output(line)
 
     def substep(self, message: str) -> None:
         """
@@ -393,6 +422,48 @@ class DeploymentRecorder:
         except _RECORDING_ERRORS as exc:
             self._warn(exc)
 
+    def note_source(self) -> None:
+        """
+        Record what the source says about this deployment, now that it has been fetched.
+
+        The commit, its branch and subject and the release being built are known the moment
+        the source is in place, and the row of a deployment that runs for minutes was empty of
+        all of them until it ended: its page had no commit to show. The same facts are read
+        again when the deployment finishes, when the tree is the final word.
+        """
+        if self._deployment_id is None or self._finished:
+            return
+        try:
+            self._record_source()
+        except _RECORDING_ERRORS as exc:
+            self._warn(exc)
+
+    def _record_source(self) -> tuple[str | None, str | None, str | None, str | None]:
+        """
+        Read the commit, branch, subject and release from the deployer, and put them on the row.
+
+        Returns:
+            ``(commit, branch, subject, release)``, each None when the deployer cannot say.
+
+        Raises:
+            NoustError: The store refused the write.
+            sqlite3.Error: The history database failed.
+        """
+        git_commit, git_branch = self._collect_git_info()
+        commit_message = self._collect_commit_message()
+        release_id = self._collect_release_id()
+        if self._deployment_id is not None and (
+            git_commit or git_branch or commit_message or release_id
+        ):
+            self._store.annotate_deployment(
+                self._deployment_id,
+                git_commit=git_commit,
+                git_branch=git_branch,
+                commit_message=commit_message,
+                release_id=release_id,
+            )
+        return git_commit, git_branch, commit_message, release_id
+
     def mark_previous_success_rolled_back(self) -> None:
         """
         Flip the domain's most recent ``success`` row to ``rolled_back``.
@@ -579,17 +650,7 @@ class DeploymentRecorder:
         commit_message: str | None = None
         release_id: str | None = None
         try:
-            git_commit, git_branch = self._collect_git_info()
-            commit_message = self._collect_commit_message()
-            release_id = self._collect_release_id()
-            if git_commit or git_branch or commit_message or release_id:
-                self._store.annotate_deployment(
-                    self._deployment_id,
-                    git_commit=git_commit,
-                    git_branch=git_branch,
-                    commit_message=commit_message,
-                    release_id=release_id,
-                )
+            git_commit, git_branch, commit_message, release_id = self._record_source()
             self._store.finish_deployment(self._deployment_id, status, error=error)
             if status == DeploymentStatus.SUCCESS.value:
                 # What the application now runs with, to tell later what it has
@@ -883,6 +944,7 @@ def recording(
     *,
     git_branch: str | None = None,
     on_failure: Callable[[BaseException], None] | None = None,
+    source_known: bool = False,
 ) -> Iterator[DeploymentRecorder]:
     """
     Record whatever runs inside the block as one deployment attempt.
@@ -897,17 +959,39 @@ def recording(
         git_branch: Branch requested, when known.
         on_failure: Cleanup to run before the failure is recorded, such as
             abandoning a half-built release.
+        source_known: The recorder's readers can already say which commit and release
+            this is, because the operation is about one that exists (a rollback, a
+            promotion, a migration) instead of one it is about to fetch. The row has
+            them from the first moment.
 
     Yields:
         The recorder, for the block to annotate.
     """
     recorder.start(git_branch=git_branch)
+    if source_known:
+        recorder.note_source()
+    token = _ACTIVE.set(recorder)
     try:
-        yield recorder
-    except BaseException as exc:
-        # Not handling: the failure is recorded and re-raised unchanged.
-        if on_failure is not None:
-            on_failure(exc)
-        recorder.finish_failure(exc)
-        raise
-    recorder.finish_success()
+        try:
+            yield recorder
+        except BaseException as exc:
+            # Not handling: the failure is recorded and re-raised unchanged.
+            if on_failure is not None:
+                on_failure(exc)
+            recorder.finish_failure(exc)
+            raise
+        recorder.finish_success()
+    finally:
+        _ACTIVE.reset(token)
+
+
+def note_source() -> None:
+    """
+    Tell the deployment being recorded what its source turned out to be.
+
+    Called by a deployer right after it has fetched the source. Outside a recording, or in a
+    rehearsal that records nothing, it does nothing.
+    """
+    recorder = _ACTIVE.get()
+    if recorder is not None:
+        recorder.note_source()

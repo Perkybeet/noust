@@ -24,6 +24,7 @@ const SERVICES: ServiceList["services"] = [
     active_state: "active",
     sub_state: "running",
     result: "success",
+    scheduled: false,
   },
   {
     name: "admin-example-com",
@@ -38,6 +39,7 @@ const SERVICES: ServiceList["services"] = [
     active_state: "inactive",
     sub_state: "dead",
     result: "success",
+    scheduled: false,
   },
 ];
 
@@ -57,6 +59,7 @@ const ALL_SERVICES: ServiceList["services"] = [
     active_state: "active",
     sub_state: "running",
     result: "success",
+    scheduled: false,
   },
 ];
 
@@ -154,6 +157,48 @@ describe("the services tab", () => {
     await waitFor(() => {
       expect(location().search).toEqual({});
     });
+  });
+
+  it("says a service its timer starts is scheduled, not stopped, and filters them apart", async () => {
+    const backup = {
+      name: "noust-backup-shop",
+      description: "noust backup run shop.example.com",
+      active: false,
+      enabled: true,
+      status: "stopped",
+      pid: null,
+      uptime: null,
+      memory: null,
+      managed: true,
+      active_state: "inactive",
+      sub_state: "dead",
+      result: "success",
+      scheduled: true,
+    };
+    const services = [...SERVICES, backup];
+    const { table, user, location } = await servicesAt("/server/services", { "GET /api/services": () => json(200, { services, total: services.length }) });
+
+    const row = (await within(table).findByText("noust-backup-shop")).closest("tr");
+    if (!row) throw new Error("no row");
+    expect(within(row).getByText("Scheduled")).toHaveAttribute("data-state", "stopped");
+    expect(within(row).queryByText("Stopped")).not.toBeInTheDocument();
+
+    // Stopped keeps only what is stopped; the backup has a filter of its own.
+    await user.click(screen.getByRole("combobox", { name: "State" }));
+    await user.click(await screen.findByRole("option", { name: "Stopped" }));
+    await waitFor(() => {
+      expect(location().search).toEqual({ state: "stopped" });
+    });
+    expect(within(table).queryByText("noust-backup-shop")).not.toBeInTheDocument();
+    expect(within(table).getByText("admin-example-com")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("combobox", { name: "State" }));
+    await user.click(await screen.findByRole("option", { name: "Scheduled" }));
+    await waitFor(() => {
+      expect(location().search).toEqual({ state: "scheduled" });
+    });
+    expect(within(table).getByText("noust-backup-shop")).toBeInTheDocument();
+    expect(within(table).queryByText("admin-example-com")).not.toBeInTheDocument();
   });
 
   it("creates a service in simple mode through POST /api/services", async () => {

@@ -947,7 +947,11 @@ def _build_summary(view: NodeView) -> builtins.list[dict[str, Any]]:
             {
                 **_server_row(view),
                 "apps": apps,
-                "units": _counts(machine.get("units"), ("running", "failed", "stopped"))
+                # ``scheduled`` is the services a timer starts, which a server of 4.0 or before
+                # does not count apart: for it, they are in ``stopped`` as they always were.
+                "units": _counts(
+                    machine.get("units"), ("running", "failed", "stopped"), ("scheduled",)
+                )
                 if machine
                 else None,
                 "certificates_expiring": _certificates_expiring(view),

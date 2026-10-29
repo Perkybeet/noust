@@ -75,6 +75,8 @@ CATALOG: dict[str, str] = {
         "Add one with Account > Cloudflare Tunnel:Edit: "
         "noust dns provider add NAME --kind cloudflare --token-stdin"
     ),
+    # -- A person, when a central acted for them (noust.core.audit.actor) -----------------------
+    "actors.through_central": "{person} (from the central {central})",
     # -- What an operator may call an object (noust.validators.object_names) ----------------
     "names.rule.words": (
         "Use lower-case letters, digits, '-' and '_', starting with a letter, "

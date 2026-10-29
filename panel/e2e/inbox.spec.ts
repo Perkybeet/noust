@@ -24,26 +24,41 @@ function panel(page: Page) {
   return page.getByRole("dialog", { name: "Inbox" });
 }
 
-/** An alert rule that is firing, as the API lists it; `taken` after somebody acknowledged it. */
-function firing(taken: boolean) {
+/**
+ * The alert that fires, as the server lists it among what needs attention (`managers/overview.py`):
+ * `taken` after somebody acknowledged it. The seeded machine has no alert firing, so the real
+ * answer of the Overview is given one more item.
+ */
+function alertItem(taken: boolean) {
   const since = Math.floor(Date.now() / 1000) - 840;
   return {
-    items: [
+    id: "alert:disk-high:",
+    subject: { kind: "alert", rule: "disk-high", subject: "" },
+    title: "disk-high",
+    severity: "warn",
+    reasons: [
       {
-        name: "disk-high",
-        enabled: true,
-        severity: "warning",
-        metric: "disk",
-        comparator: ">",
-        threshold: 90,
-        unit: "percent",
-        scope: "server",
-        states: [{ subject: "", state: "firing", since, last_value: 93, acknowledged_by: taken ? "alice" : null, acknowledged_at: taken ? since + 60 : null }],
+        kind: "alert",
+        severity: "warn",
+        code: taken ? "alert_taken" : "alert_firing",
+        params: { rule: "disk-high", subject: "", since, ...(taken ? { by: "alice", at: since + 60 } : {}) },
+        detail: null,
+        when: new Date(since * 1000).toISOString(),
+        deployment_id: null,
+        actions: [taken ? "reopen_alert" : "acknowledge_alert"],
       },
     ],
-    metrics: [],
-    firing: 1,
   };
+}
+
+/** Adds the alert to the real Overview, taken or not as `taken()` says when it is asked. */
+async function withFiringAlert(page: Page, taken: () => boolean) {
+  await page.route("**/api/overview**", async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const response = await route.fetch();
+    const body = (await response.json()) as { attention: unknown[]; attention_total: number };
+    return route.fulfill({ response, json: { ...body, attention: [...body.attention, alertItem(taken())], attention_total: body.attention_total + 1 } });
+  });
 }
 
 test("the bell holds what needs the operator, from any page, and the item is two clicks away", async ({ page, consoleServer }) => {
@@ -83,7 +98,7 @@ test("the bar counts the same things, beside the places that have them", async (
 
 test("an alert is acknowledged in its row, which then offers to reopen it", async ({ page, consoleServer }) => {
   let taken = false;
-  await page.route("**/api/alerts/rules", (route) => (route.request().method() === "GET" ? route.fulfill({ json: firing(taken) }) : route.continue()));
+  await withFiringAlert(page, () => taken);
   await page.route("**/api/alerts/rules/disk-high/acknowledge**", (route) => {
     taken = route.request().method() === "POST";
     return route.fulfill({ json: { ok: true } });
@@ -105,7 +120,7 @@ test("an alert is acknowledged in its row, which then offers to reopen it", asyn
 });
 
 test("a failure stays in the inbox after its toast is gone, and the toast is kept under Recent", async ({ page, consoleServer }) => {
-  await page.route("**/api/alerts/rules", (route) => (route.request().method() === "GET" ? route.fulfill({ json: firing(false) }) : route.continue()));
+  await withFiringAlert(page, () => false);
   // The stream says, once, that the alert fired; every later connection is the real one.
   let said = false;
   await page.route("**/events", (route) => {

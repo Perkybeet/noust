@@ -433,6 +433,29 @@ class TestAcknowledged:
         assert "alice is looking into it" in note.summary and "90%" in note.summary
         assert facts["firing_for"].startswith("7 min")
 
+    def test_a_person_acting_through_a_central_is_named_not_the_credential(
+        self, h: Harness
+    ) -> None:
+        """The channels hear who is on it, not the token of the central that carried the call."""
+        self.fire(h)
+        h.advance(120)
+
+        state = acknowledge_alert(
+            h.rules,
+            "cpu-high",
+            by="fleet-fra-1 on behalf of marta",
+            publish=self.publish(h),
+            clock=h.clock,
+        )
+
+        # The record keeps the label as it was: the audit trail needs the credential too.
+        assert state.acknowledged_by == "fleet-fra-1 on behalf of marta"
+        (note,) = h.sent
+        facts = {f.key: f.value for f in note.facts}
+        assert facts["acknowledged_by"] == "marta"
+        assert "marta is looking into it" in note.summary
+        assert "on behalf of" not in note.summary
+
     def test_taking_it_twice_tells_nobody_twice(self, h: Harness) -> None:
         self.fire(h)
 

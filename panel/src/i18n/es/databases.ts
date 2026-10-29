@@ -182,7 +182,7 @@ export const databases: Catalog<typeof en> = {
     accessFull: "Completo",
     accessLimited: "Solo la cuenta de la aplicación",
     accessRefused: "Rechazado",
-    accessUnknown: "Aún no se sabe",
+    accessUnknown: "Todavía no se sabe",
     limitedNote: "Donde el acceso es limitado, Noust solo encontró en el contenedor la cuenta de la propia aplicación: ve y gestiona lo que esa cuenta puede.",
     stopTitle: "Detener {place}",
     stopDescription: "{place} guarda los datos de {app}: mientras esté detenido, {app} no puede llegar a su base de datos.",

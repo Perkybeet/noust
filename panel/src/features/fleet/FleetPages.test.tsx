@@ -5,7 +5,7 @@ import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem } from "../../test/fakes";
-import { APPS_VIEW, JOB, PLAN, SSH_TIMEOUT, centralSession, fleetRoutes } from "./testFixtures";
+import { APPS_VIEW, JOB, PLAN, SSH_TIMEOUT, SUMMARY_VIEW, centralSession, fleetRoutes } from "./testFixtures";
 
 /**
  * A list's row by a text in it. The tests run at a phone's width (jsdom matches no media
@@ -67,6 +67,28 @@ describe("the fleet's summary", () => {
     expect(within(await rowOf(table, "web-2")).getByRole("link", { name: "Open web-2" })).toHaveAttribute("href", "/n/web-2");
     expect(within(await rowOf(table, "old-1")).getByText("Older Noust")).toBeInTheDocument();
     await expectNoAxeViolations(container, { page: true });
+  });
+
+  it("counts an alert that fires on a server among what needs attention, and opens it where alerts are", { timeout: 30_000 }, async () => {
+    // The fleet reads each server's own list, so what the server lists is what the fleet counts:
+    // an alert is there because the server says so (managers/overview.py), not because a console added it.
+    const alert = {
+      id: "alert:disk-high:",
+      title: "disk-high",
+      severity: "warn",
+      subject: { kind: "alert", rule: "disk-high", subject: "" },
+      reasons: [{ code: "alert_firing", kind: "alert", severity: "warn", actions: ["acknowledge_alert"], params: { rule: "disk-high", subject: "", since: 1_790_000_000 } }],
+    };
+    const view = {
+      ...SUMMARY_VIEW,
+      items: SUMMARY_VIEW.items.map((row) => (row.node === "db-1" ? { ...row, overview: { attention: [alert], attention_total: 1 } } : row)),
+    };
+    fakeBackend({ ...fleetRoutes(), "GET /api/fleet/summary": () => json(200, view) });
+    renderConsole("/fleet");
+    const attention = await waitFor(() => card("Needs attention"));
+    const link = await within(attention).findByRole("link", { name: "disk-high" });
+    expect(link).toHaveAttribute("href", "/n/db-1/alerts");
+    expect(within(attention).getByText("db-1")).toBeInTheDocument();
   });
 
   it("names the context: All servers in the selector, the fleet in the strip, and no server over the title", { timeout: 30_000 }, async () => {

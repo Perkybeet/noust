@@ -36,6 +36,7 @@ import { typedHost } from "./friction";
 import { identityQuery, powerQuery, serverKeys } from "./queries";
 import type { Power as PowerStatus, ScheduledPower } from "./queries";
 import { toast } from "../../components/ui/toast";
+import { namedActor } from "../activity/data";
 
 export type PowerKind = "reboot" | "shutdown";
 
@@ -239,7 +240,7 @@ export function ScheduledPowerBanner({ scheduled }: { scheduled: ScheduledPower 
         </Button>
       }
     >
-      {scheduled.requested_by ? t("server.power.bannerRequestedBy", { actor: scheduled.requested_by }) : t("server.power.bannerNoActor")}
+      {scheduled.requested_by ? t("server.power.bannerRequestedBy", { actor: namedActor(t, scheduled.requested_by) }) : t("server.power.bannerNoActor")}
       {cancel.isError ? <ServerErrorBlock live compact error={explainServerError(t, cancel.error, node)} title={t("server.power.cancelFailed")} className="mt-2" /> : null}
     </Notice>
   );

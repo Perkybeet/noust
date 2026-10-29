@@ -14601,7 +14601,7 @@ noust service list [OPTIONS]
 | Option | What it does | Default |
 |---|---|---|
 | `--all`, `-a` | Include units Noust does not own. |  |
-| `--state` | Only the units in this state; failed also keeps the ones systemd keeps restarting. |  |
+| `--state` | Only the units in this state; failed also keeps the ones systemd keeps restarting, and scheduled the ones a timer starts, between two runs. |  |
 | `--tag` | Only the units that carry this tag. |  |
 | `--json` | Print the service list as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |

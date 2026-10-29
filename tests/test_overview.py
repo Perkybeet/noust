@@ -31,6 +31,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from noust.core.alerts.model import AlertRule
+from noust.core.alerts.rules import FIRING, AlertRules, AlertState
 from noust.core.exceptions import NoustError
 from noust.core.store import App, BackupScheduleRecord, JobRecord, NoustStore
 from noust.managers import overview as overview_module
@@ -127,6 +129,7 @@ def collect(store: NoustStore, **collaborators: Any) -> dict[str, Any]:
         "certificates": lambda: [],
         "backups": lambda: [],
         "observations": lambda: [],
+        "alerts": lambda: [],
         "metrics": None,
         "updates": None,
         "now": NOW,
@@ -538,6 +541,106 @@ def test_an_open_observation_is_a_warning_and_a_dismissed_one_is_not(store: Nous
     assert items[0]["subject"] == {"kind": "monitor", "process": "xmrig", "pid": 4242}
     assert items[0]["reasons"][0]["params"] == {"severity": "warning", "signal": "name_pattern"}
     assert "cmdline" not in str(items[0]) and "command" not in items[0]["reasons"][0]
+
+
+def firing(
+    rules: AlertRules,
+    name: str,
+    *,
+    subject: str = "",
+    severity: str = "warning",
+    by: str | None = None,
+    enabled: bool = True,
+    state: str = FIRING,
+) -> None:
+    """Store a rule and leave one of its subjects in a state, taken or not."""
+    saved = rules.save(
+        AlertRule(
+            name=name, metric="cpu", comparator=">", threshold=90.0, severity=severity, enabled=True
+        )
+    )
+    assert saved.id is not None
+    rules.put_state(AlertState(saved.id, subject, state, NOW_EPOCH - 600, 93.0, True))
+    if by:
+        rules.acknowledge(name, subject, by=by)
+    if not enabled:
+        rules.set_enabled(name, False)
+
+
+def test_an_alert_firing_on_the_server_needs_attention(store: NoustStore) -> None:
+    """
+    A fleet reads each server's own list, so what only the console added (the alert that
+    fires) never counted there: a node with an alert firing read as one with nothing to do.
+    """
+    firing(AlertRules(store), "cpu-high", severity="failed")
+
+    (item,) = collect_overview(
+        store=store,
+        services=lambda: [],
+        certificates=lambda: [],
+        backups=lambda: [],
+        observations=lambda: [],
+        metrics=None,
+        updates=None,
+        now=NOW,
+    )["attention"]
+
+    assert item["id"] == "alert:cpu-high:"
+    assert item["subject"] == {"kind": "alert", "rule": "cpu-high", "subject": ""}
+    assert item["title"] == "cpu-high"
+    assert item["severity"] == "fail"
+    (reason,) = item["reasons"]
+    assert (reason["kind"], reason["code"], reason["actions"]) == (
+        "alert",
+        "alert_firing",
+        ["acknowledge_alert"],
+    )
+    assert reason["params"] == {"rule": "cpu-high", "subject": "", "since": NOW_EPOCH - 600}
+    assert reason["when"] is not None
+
+
+def test_an_alert_on_an_application_names_both_and_a_warning_warns(store: NoustStore) -> None:
+    firing(AlertRules(store), "memory-high", subject="shop.example.com")
+
+    (item,) = collect(store, alerts=None)["attention"]
+
+    assert item["title"] == "memory-high \u00b7 shop.example.com"
+    assert item["severity"] == "warn"
+    assert item["reasons"][0]["params"]["subject"] == "shop.example.com"
+
+
+def test_an_alert_somebody_took_is_listed_as_taken_and_can_be_handed_back(
+    store: NoustStore,
+) -> None:
+    """It still fires, so it still counts; what changes is what can be done about it."""
+    firing(AlertRules(store), "cpu-high", by="marta")
+
+    (item,) = collect(store, alerts=None)["attention"]
+
+    (reason,) = item["reasons"]
+    assert (reason["code"], reason["actions"]) == ("alert_taken", ["reopen_alert"])
+    assert reason["params"]["by"] == "marta"
+    assert isinstance(reason["params"]["at"], float)
+
+
+def test_an_alert_that_cleared_or_whose_rule_is_off_needs_no_attention(
+    store: NoustStore,
+) -> None:
+    rules = AlertRules(store)
+    firing(rules, "cleared", state="ok")
+    firing(rules, "switched-off", enabled=False)
+
+    assert collect(store, alerts=None)["attention"] == []
+
+
+def test_an_alert_is_ranked_with_the_rest_of_the_list_worst_first(store: NoustStore) -> None:
+    deploy(store, "shop.example.com")
+    firing(AlertRules(store), "disk-full")
+    units = [unit("shop-example-com", "shop.example.com", "failed", "failed")]
+
+    items = collect(store, services=lambda: units, alerts=None)["attention"]
+
+    assert [i["id"] for i in items] == ["app:shop.example.com", "alert:disk-full:"]
 
 
 def test_the_list_is_cut_but_says_how_many_there_were(

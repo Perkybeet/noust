@@ -114,6 +114,7 @@ describe("tags on services", () => {
       active_state: "active",
       sub_state: "running",
       result: "success",
+      scheduled: false,
       tags: ["prod"],
     },
     {
@@ -129,6 +130,7 @@ describe("tags on services", () => {
       active_state: "inactive",
       sub_state: "dead",
       result: "success",
+      scheduled: false,
       tags: [],
     },
   ];

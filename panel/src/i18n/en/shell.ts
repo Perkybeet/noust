@@ -130,6 +130,7 @@ export const shell = {
   machine: {
     landmark: "This machine",
     unitsSummary: "Noust's services: {running} running, {failed} failed, {stopped} stopped",
+    unitsSummaryScheduled: "Noust's services: {running} running, {failed} failed, {stopped} stopped, {scheduled} waiting for their timer",
     load: "Load",
     loadAverage: "Load average: {one} {five} {fifteen}",
     loadDetail: "over one minute, {five} over five, {fifteen} over fifteen",

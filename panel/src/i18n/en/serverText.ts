@@ -14,6 +14,11 @@
  * scripts/generate_server_text.py` writes the table, and this catalog and the Spanish one follow.
  */
 export const serverText = {
+  actors: {
+    through_central: {
+      text: "{person} (from the central {central})",
+    },
+  },
   approvals: {
     asked_approved: {
       text: "This needs a second person's approval, whoever you are. Request {request} is approved: send the call again with it now.",

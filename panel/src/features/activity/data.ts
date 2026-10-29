@@ -11,6 +11,7 @@ import { deployStatus } from "../../components/page/status";
 import type { StatusView } from "../../components/page/status";
 import type { AuditEntry } from "../../api/queries/audit";
 import type { JobList } from "../../api/queries/jobs";
+import { serverSentence } from "../../components/ui/ServerText";
 import { hasMessage } from "../../i18n";
 import type { PlainKey, T } from "../../i18n";
 import { parseTimestamp } from "../../lib/format";
@@ -330,6 +331,38 @@ export interface ActorWords {
   raw: string;
 }
 
+/** The central a fleet token is named after: `fleet-fra-1` and `fleet-fra-1.2` are `fra-1`; any other name is its own. */
+function centralOf(token: string): string {
+  const name = token.replace(/^fleet:/, "");
+  return /^fleet-([a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?)(?:\.[0-9]+)?$/.exec(name)?.[1] ?? name;
+}
+
+/** The person and the central of a label like `fleet-fra-1 on behalf of marta` (`actor_label()`); null for any other actor. */
+export function fleetActor(label: string): { person: string; central: string } | null {
+  const [token, ...rest] = label.split(" on behalf of ");
+  const person = rest.join(" on behalf of ").trim();
+  return rest.length > 0 && token !== undefined && token.trim() !== "" && person !== "" ? { person, central: centralOf(token.trim()) } : null;
+}
+
+/**
+ * A person who acted through a central, named first and in the console's language: `marta (from
+ * the central fra-1)`. It is the server's sentence (`actors.through_central`), so the Spanish one is
+ * the same everywhere an actor is worded.
+ */
+function throughCentral(t: T, person: string, central: string): string {
+  return serverSentence(t.locale, { code: "actors.through_central", params: { person, central } }, `${person} (from the central ${central})`, "text");
+}
+
+/**
+ * Who acted, for a place that shows a stored label as it is ("changed by", "taken by"): the person
+ * behind a central first and in the console's language, and every other label untouched - a name
+ * is a name, and what a person typed is not worded.
+ */
+export function namedActor(t: T, label: string): string {
+  const fleet = fleetActor(label);
+  return fleet === null ? label : throughCentral(t, fleet.person, fleet.central);
+}
+
 /**
  * `actor_label()` in `noust.web.auth`: `"master"`, `"token:<name>"`, a browser session's id
  * (the full value, or the twelve characters that helper keeps), `"webhook"` for a deploy the
@@ -338,6 +371,8 @@ export interface ActorWords {
  * needs is never hidden behind the paraphrase.
  */
 export function describeActor(t: T, actor: string): ActorWords {
+  const fleet = fleetActor(actor);
+  if (fleet !== null) return { label: throughCentral(t, fleet.person, fleet.central), raw: actor };
   if (actor === "master") return { label: t("activity.actor.masterToken"), raw: actor };
   if (actor === "anonymous") return { label: t("activity.actor.anonymous"), raw: actor };
   if (actor === "webhook") return { label: t("activity.actor.webhookDelivery"), raw: actor };
@@ -370,8 +405,8 @@ export function describeWho(t: T, who: AuditActor, raw: string): ActorWords {
     case "cli":
       return { label: name === null ? t("activity.actor.terminalUnknown") : t("activity.actor.terminal", { name }), raw };
     case "fleet": {
-      const central = who.via?.replace(/^fleet:/, "") ?? null;
-      if (name !== null && central !== null) return { label: t("activity.actor.throughCentral", { name, central }), raw };
+      const central = who.via !== undefined && who.via !== null ? centralOf(who.via) : null;
+      if (name !== null && central !== null) return { label: throughCentral(t, name, central), raw };
       return { label: name ?? central ?? raw, raw };
     }
     case "system":

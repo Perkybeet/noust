@@ -17,6 +17,7 @@ deploy.
 
 from __future__ import annotations
 
+import logging
 import stat
 from datetime import datetime
 from pathlib import Path
@@ -26,11 +27,12 @@ import pytest
 
 from noust.core.exceptions import BackupError, BuildError
 from noust.core.fs import DryRunFileSystem, set_fs
+from noust.core.logger import DEBUG_LOG
 from noust.core.runner import FakeRunner
 from noust.core.store import DeploymentStatus, NoustStore, StoreError
-from noust.deployers.helpers.target import DeployTarget
+from noust.deployers.helpers.target import DeployTarget, fetch_into_target
 from noust.deployers.nodejs import NodeJSDeployer
-from noust.deployers.recorder import CapturingLogger, DeploymentRecorder
+from noust.deployers.recorder import CapturingLogger, DeploymentRecorder, note_source, recording
 from noust.managers.backup_manager import BackupMetadata
 from noust.managers.rollback_manager import RollbackManager
 from tests.support.deployers import build_deployer
@@ -137,7 +139,7 @@ def test_streamed_build_output_is_captured_without_verbose(
     tmp_path: Path, store: NoustStore
 ) -> None:
     """
-    The runner streams install output through ``logger.debug``, which a quiet
+    The runner streams install output through ``logger.output``, which a quiet
     console drops. The captured log must hold it anyway: it is the part the
     operator reads after a failure.
     """
@@ -204,6 +206,119 @@ def test_deploy_records_git_commit_and_branch(
     record = store.list_deployments(DOMAIN)[0]
     assert record.git_commit == "abc1234"
     assert record.git_branch == "main"
+
+
+def test_the_commit_is_on_the_row_while_an_in_place_deployment_builds(
+    tmp_path: Path, store: NoustStore, runner: FakeRunner
+) -> None:
+    """
+    The commit was written when the deployment ended, so the page of a running one said
+    "Not a git checkout". It is known when the source is fetched and is recorded then.
+    """
+    runner.script([*READ, "rev-parse", "--abbrev-ref", "HEAD"], stdout="main\n")
+    runner.script([*READ, "rev-parse", "--short", "HEAD"], stdout="abc1234\n")
+
+    deployer = happy_deployer(tmp_path)
+    (tmp_path / "app" / ".git").mkdir(parents=True)
+    seen: list[tuple[str, str | None, str | None]] = []
+
+    def build() -> bool:
+        row = store.list_deployments(DOMAIN)[0]
+        seen.append((row.status, row.git_commit, row.git_branch))
+        return True
+
+    deployer.build = build
+
+    assert deployer.deploy() is True
+
+    assert seen == [("running", "abc1234", "main")]
+
+
+def test_a_source_that_is_not_git_leaves_the_row_without_a_commit_while_it_runs(
+    tmp_path: Path, store: NoustStore
+) -> None:
+    """Nothing is made up for a tree that has no commit."""
+    deployer = happy_deployer(tmp_path)
+    seen: list[tuple[str | None, str | None]] = []
+
+    def build() -> bool:
+        row = store.list_deployments(DOMAIN)[0]
+        seen.append((row.git_commit, row.commit_message))
+        return True
+
+    deployer.build = build
+
+    assert deployer.deploy() is True
+
+    assert seen == [(None, None)]
+
+
+def test_an_operation_on_a_release_that_exists_has_its_commit_from_the_first_moment(
+    tmp_path: Path, store: NoustStore
+) -> None:
+    """A rollback or a promotion fetches nothing: the commit it is about is known before it starts."""
+    recorder = DeploymentRecorder(
+        store,
+        DOMAIN,
+        "cli",
+        logger=CapturingLogger(),
+        log_root=tmp_path / "deploy-logs",
+        git_info=lambda: ("abc1234", "main"),
+        release_id=lambda: "20261029-120000-abc1234",
+        operation="rollback",
+    )
+    seen: list[tuple[str | None, str | None]] = []
+
+    with recording(recorder, git_branch="main", source_known=True):
+        row = store.get_deployment(recorder.deployment_id)
+        assert row is not None
+        seen.append((row.git_commit, row.release_id))
+
+    assert seen == [("abc1234", "20261029-120000-abc1234")]
+
+
+def test_the_in_place_fetch_tells_the_recording_as_soon_as_the_source_is_in(
+    tmp_path: Path, store: NoustStore
+) -> None:
+    """The fetch every in-place deployer shares (a Compose stack, a monorepo) is where it learns."""
+
+    class Source:
+        def fetch(self, **kwargs: Any) -> bool:
+            return True
+
+    recorder = DeploymentRecorder(
+        store,
+        DOMAIN,
+        "cli",
+        logger=CapturingLogger(),
+        log_root=tmp_path / "deploy-logs",
+        git_info=lambda: ("abc1234", "main"),
+    )
+    seen: list[str | None] = []
+
+    with recording(recorder, git_branch="main"):
+        row = store.get_deployment(recorder.deployment_id)
+        assert row is not None and row.git_commit is None
+        fetch_into_target(
+            DeployTarget(path=tmp_path / "app", existed=False, had_files=False),
+            Source(),  # type: ignore[arg-type]
+            "https://example.com/app.git",
+            branch=None,
+            domain=DOMAIN,
+            logger=CapturingLogger(),
+        )
+        row = store.get_deployment(recorder.deployment_id)
+        assert row is not None
+        seen.append(row.git_commit)
+
+    assert seen == ["abc1234"]
+
+
+def test_telling_the_source_outside_a_recording_does_nothing(store: NoustStore) -> None:
+    """A deployer run by a test, or by a rehearsal, has no row to tell."""
+    note_source()
+
+    assert store.list_deployments(DOMAIN) == []
 
 
 def test_job_id_is_recorded_when_a_job_started_the_deploy(
@@ -551,29 +666,70 @@ def test_a_refused_rollback_records_nothing(tmp_path: Path, store: NoustStore) -
 
 
 def test_capturing_logger_mirrors_suppressed_detail(capsys: pytest.CaptureFixture) -> None:
-    """Verbose-only lines reach the sink even when the console drops them."""
+    """What a person reads in a deployment's log reaches the sink even when the console drops it."""
     logger = CapturingLogger(verbose=False)
     lines: list[str] = []
     logger.attach_sink(lines.append)
 
     logger.step(1, 2, "Building application")
-    logger.debug("hidden debug line")
     logger.substep("hidden substep")
+    logger.output("added 42 packages in 3s")
     logger.command_output("stdout line\n", "stderr line\n")
 
     captured = "\n".join(lines)
     assert "Building application" in captured
-    assert "hidden debug line" in captured
     assert "hidden substep" in captured
+    assert "added 42 packages in 3s" in captured
     assert "stdout line" in captured
     assert "stderr line" in captured
 
     console = capsys.readouterr().out
-    assert "hidden debug line" not in console, "the console keeps its quiet default"
+    assert "added 42 packages" not in console, "the console keeps its quiet default"
 
     logger.detach_sink()
-    logger.debug("after detach")
+    logger.output("after detach")
     assert "after detach" not in "\n".join(lines)
+
+
+@pytest.mark.parametrize("verbose", [False, True])
+def test_a_debug_line_never_reaches_the_deployment_log(
+    verbose: bool, caplog: pytest.LogCaptureFixture
+) -> None:
+    """
+    A debug line is for whoever debugs Noust, not for the person reading the deployment.
+
+    "[DEBUG] Could not tell which process listens on port 3001" is true and means
+    nothing to an operator. It goes to the debug log; the log of the deployment
+    holds what the operator needs, whether or not the console is verbose.
+    """
+    logger = CapturingLogger(verbose=verbose)
+    lines: list[str] = []
+    logger.attach_sink(lines.append)
+
+    with caplog.at_level(logging.DEBUG, logger=DEBUG_LOG):
+        logger.debug("Could not tell which process listens on port 3001")
+
+    assert lines == []
+    assert [record.getMessage() for record in caplog.records if record.name == DEBUG_LOG] == [
+        "Could not tell which process listens on port 3001"
+    ]
+
+
+def test_streamed_command_output_is_not_labelled_debug(capsys: pytest.CaptureFixture) -> None:
+    """The lines of an install are output, in the log as plain text and on a verbose console."""
+    quiet = CapturingLogger(verbose=False)
+    lines: list[str] = []
+    quiet.attach_sink(lines.append)
+    quiet.output("added 42 packages in 3s")
+    assert lines == ["        added 42 packages in 3s"]
+
+    loud = CapturingLogger(verbose=True, no_color=True)
+    loud_lines: list[str] = []
+    loud.attach_sink(loud_lines.append)
+    loud.output("added 42 packages in 3s")
+    assert "added 42 packages in 3s" in capsys.readouterr().out
+    assert [line for line in loud_lines if "added 42 packages" in line]
+    assert not [line for line in loud_lines if "DEBUG" in line]
 
 
 # ---------------------------------------------------------------------------

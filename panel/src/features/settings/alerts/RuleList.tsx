@@ -7,7 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCheck, Pencil } from "lucide-react";
 import { useState } from "react";
 
-import { acknowledgeAlert, alertKeys, alertRulesQuery, handBackAlert, removeAlertRule, switchAlertRule } from "../../../api/queries/alerts";
+import { acknowledgeAlert, alertRulesQuery, handBackAlert, refreshAlerts, removeAlertRule, switchAlertRule } from "../../../api/queries/alerts";
 import type { AlertMetric, AlertRule, AlertRuleList } from "../../../api/queries/alerts";
 import { QueryState } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
@@ -32,6 +32,7 @@ import { acknowledgement } from "./data";
 import { RuleDrawer } from "./RuleDrawer";
 import { appliesTo, formatReading, ruleSentence } from "./rules";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
+import { fleetActor, namedActor } from "../../activity/data";
 
 function stateOf(rule: AlertRule): { status: Status; key: "firing" | "ok" | "off" } {
   if (!rule.enabled) return { status: "stopped", key: "off" };
@@ -52,7 +53,7 @@ function FiringLine({ rule, entry, unit }: { rule: AlertRule; entry: NonNullable
   const acknowledged = acknowledgement(entry);
   const change = useMutation({
     mutationFn: () => (acknowledged !== null ? handBackAlert(rule.name, entry.subject) : acknowledgeAlert(rule.name, entry.subject)),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: alertKeys.rules }),
+    onSuccess: () => refreshAlerts(queryClient),
     onError: (error) => {
       reportActionError(t(acknowledged !== null ? "alerts.rules.ack.reopenFailed" : "alerts.rules.ack.failed"), error);
     },
@@ -69,7 +70,7 @@ function FiringLine({ rule, entry, unit }: { rule: AlertRule; entry: NonNullable
       {acknowledged !== null ? (
         <Badge>
           {t.rich("alerts.rules.ack.acknowledged", {
-            who: <Mono key="who">{acknowledged.by}</Mono>,
+            who: fleetActor(acknowledged.by) === null ? <Mono key="who">{acknowledged.by}</Mono> : namedActor(t, acknowledged.by),
             when: <RelativeTime key="when" value={acknowledged.at} />,
           })}
         </Badge>
@@ -102,7 +103,7 @@ function RuleRow({ rule, metrics }: { rule: AlertRule; metrics: readonly AlertMe
 
   const toggle = useMutation({
     mutationFn: (next: boolean) => switchAlertRule(rule.name, next),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: alertKeys.rules }),
+    onSuccess: () => refreshAlerts(queryClient),
     onError: (error) => {
       reportActionError(t("alerts.rules.switchFailed"), error);
     },
@@ -176,7 +177,7 @@ function RuleRow({ rule, metrics }: { rule: AlertRule; metrics: readonly AlertMe
         destructive
         onConfirm={async () => {
           await removeAlertRule(rule.name);
-          await queryClient.invalidateQueries({ queryKey: alertKeys.rules });
+          await refreshAlerts(queryClient);
         }}
       />
     </RowList.Item>
