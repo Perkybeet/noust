@@ -53,7 +53,7 @@ def warm_recipe_library() -> None:
     search_recipes()
 
 
-def pin_settings_update_check() -> str:
+def pin_settings_update_check(*, up_to_date: bool = False) -> str:
     """
     Answer the update check from the sandbox instead of GitHub.
 
@@ -63,14 +63,18 @@ def pin_settings_update_check() -> str:
     answers are pinned to the next minor version of the one installed, so the
     page always shows an update to offer.
 
+    Args:
+        up_to_date: Pin them to the version installed instead: the product video's servers
+            run the release it presents, and have nothing to offer.
+
     Returns:
         The version the check reports as released.
     """
-    from noust import __version__
+    import noust
     from noust.core.update_checker import UpdateChecker
 
-    numbers = [int(part) for part in re.findall(r"\d+", __version__)[:2]] + [0, 0]
-    latest = f"{numbers[0]}.{numbers[1] + 1}.0"
+    numbers = [int(part) for part in re.findall(r"\d+", noust.__version__)[:2]] + [0, 0]
+    latest = noust.__version__ if up_to_date else f"{numbers[0]}.{numbers[1] + 1}.0"
 
     def fetch_latest(cls: type[UpdateChecker], *args: object) -> str:
         """Report the pinned release, both published and installable."""

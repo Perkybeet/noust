@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import ipaddress
+import re
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -89,6 +90,25 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--profile",
+        choices=("docs", "video"),
+        default="docs",
+        help=(
+            "with --showcase, which of its datasets: docs (the documentation's screenshots, "
+            "the default) or video (the product video: four servers, releases, alerts, "
+            "nightly backups, the agency's people, and its repositories answering git)"
+        ),
+    )
+    parser.add_argument(
+        "--shown-version",
+        default=None,
+        metavar="VERSION",
+        help=(
+            "report this Noust version instead of the installed one, with no update to offer "
+            "(screenshots and the product video only)"
+        ),
+    )
+    parser.add_argument(
         "--empty",
         action="store_true",
         help=(
@@ -139,6 +159,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help=argparse.SUPPRESS,
     )
     args = parser.parse_args(argv)
+    if args.profile != "docs" and not args.showcase:
+        parser.error("--profile chooses one of --showcase's datasets; add --showcase")
+    if args.shown_version is not None and not re.fullmatch(r"\d+\.\d+\.\d+", args.shown_version):
+        parser.error(f"--shown-version takes a version like 4.1.0, not {args.shown_version}")
     try:
         loopback = ipaddress.ip_address(args.host).is_loopback
     except ValueError:

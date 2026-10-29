@@ -46,7 +46,7 @@ before using it, and extend the note above.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
 
 from noust.core.fs import get_fs
@@ -131,6 +131,15 @@ class ShowcaseApp:
         cert_expires_soon: Whether this application's certificate should lead its node's
             certificate list, which console_server.py's fake certbot answers in expiry
             order (offset 0 is the shortest validity) - at most one per node.
+        layout: ``inplace`` or ``releases`` (see CONTRIBUTING.md, "Deploy engine"); on
+            releases every successful deployment names the release it built.
+        clock: The local time of day ("HH:MM") each of ``commits`` started at, one for
+            one: ``deployed_days_ago`` is then a whole number of days and the deployment
+            starts on that day at that time, so a history reads like working hours rather
+            than a multiple of 24 hours before whenever the machine was seeded. None keeps
+            ``deployed_days_ago`` as fractional days before now.
+        recipe: The catalog recipe it was installed from, recorded the way an install
+            records it; None for an application deployed from its own repository.
     """
 
     domain: str
@@ -145,6 +154,9 @@ class ShowcaseApp:
     alias: str | None = None
     has_cert: bool = True
     cert_expires_soon: bool = False
+    layout: str = "inplace"
+    clock: tuple[str, ...] | None = None
+    recipe: str | None = None
 
 
 #: The eight applications on "fra-1", the agency's own main server, in the order the
@@ -534,6 +546,75 @@ def _build_log(app: ShowcaseApp, commit: ShowcaseCommit) -> str:
     return "\n".join(lines) + "\n"
 
 
+#: Seconds a deployment of each type takes, before the small per-commit spread
+#: :func:`_duration` adds: a Next.js build is the slow one, a static site copies files.
+_DURATIONS: dict[str, float] = {
+    "nextjs": 41.0,
+    "nodejs": 19.0,
+    "static": 4.0,
+    "python": 23.0,
+    "php-fpm": 14.0,
+    "docker-compose": 33.0,
+}
+
+
+def _duration(app: ShowcaseApp, commit: ShowcaseCommit, *, varied: bool) -> float:
+    """
+    Args:
+        app: The application.
+        commit: The commit deployed.
+        varied: Spread the duration by a few seconds per commit (the "video" profile), so a
+            history does not read as one number repeated; the "docs" profile keeps the two
+            durations its screenshots were taken with.
+
+    Returns:
+        How long the deployment took, in seconds.
+    """
+    if not varied:
+        return 24.0 if app.app_type == "nextjs" else 11.0
+    base = _DURATIONS.get(app.app_type, 20.0)
+    # The commit's own hash decides the spread: stable from one run to the next.
+    return round(base + (int(commit.sha[:4], 16) % 90) / 10 - 4.5, 1)
+
+
+def release_id_for(started: datetime, sha: str) -> str:
+    """
+    Name a release the way :class:`noust.core.appdir.releases.ReleaseManager` names its
+    directory: the UTC moment it was built, then the commit.
+
+    Args:
+        started: When the deployment that built it started (naive local time).
+        sha: The commit.
+
+    Returns:
+        The release id, e.g. ``20261028-171203-5f8a3b6``.
+    """
+    return f"{started.astimezone(timezone.utc).strftime('%Y%m%d-%H%M%S')}-{sha}"
+
+
+def started_at(app: ShowcaseApp, index: int, now: datetime) -> datetime:
+    """
+    When one deployment of a showcase application started.
+
+    Args:
+        app: The application.
+        index: Which of its ``commits``.
+        now: The moment the machine is seeded.
+
+    Returns:
+        ``now`` less ``deployed_days_ago[index]`` days, or, with ``clock``, that many
+        whole days back at that local time of day - never later than a minute ago, so a
+        time of day still to come today is not a deployment in the future.
+    """
+    days = app.deployed_days_ago[index]
+    if app.clock is None:
+        return now - timedelta(days=days)
+    hour, minute = (int(part) for part in app.clock[index].split(":"))
+    day = (now - timedelta(days=round(days))).date()
+    moment = datetime.combine(day, time(hour, minute))
+    return min(moment, now - timedelta(minutes=1))
+
+
 def _record_commit(
     store: NoustStore,
     log_root: Path,
@@ -541,6 +622,8 @@ def _record_commit(
     commit: ShowcaseCommit,
     *,
     started: datetime,
+    release_id: str | None = None,
+    varied: bool = False,
 ) -> int:
     """
     Record one deployment of one showcase application, backdated, with its build log.
@@ -555,6 +638,8 @@ def _record_commit(
         app: The application.
         commit: The commit being recorded.
         started: When the deployment started.
+        release_id: The release it built, on the releases layout; None in place.
+        varied: Spread its duration per commit (see :func:`_duration`).
 
     Returns:
         The deployment's id.
@@ -563,6 +648,8 @@ def _record_commit(
         app.domain, "webhook", git_commit=commit.sha, git_branch=app.branch
     )
     store.annotate_deployment(deployment_id, commit_message=commit.message)
+    if release_id is not None:
+        store.annotate_deployment(deployment_id, release_id=release_id)
 
     directory = log_root / app.domain
     fs = get_fs()
@@ -581,7 +668,7 @@ def _record_commit(
             )
         return int(deployment_id)
 
-    duration = 24.0 if app.app_type == "nextjs" else 11.0
+    duration = _duration(app, commit, varied=varied)
     finished = started + timedelta(seconds=duration)
     with store._transaction() as cursor:
         cursor.execute(
@@ -599,7 +686,97 @@ def _record_commit(
     return int(deployment_id)
 
 
-def cert_alt_names(node: str) -> dict[str, str]:
+#: The datasets this module seeds: "docs" is the one ``docs/assets/console/`` is taken from
+#: (``panel/e2e/docs.spec.ts`` names its domains and its failed application); "video" is the
+#: same agency as the product video tells it (:mod:`tests.support.showcase_video`): four
+#: servers, every application on releases, alert rules, nightly backups, the people of the
+#: agency with accounts, and nothing failed yet, since the video makes it happen.
+PROFILES = ("docs", "video")
+
+
+def nodes_for(profile: str = "docs") -> dict[str, tuple[ShowcaseApp, ...]]:
+    """
+    Args:
+        profile: One of :data:`PROFILES`.
+
+    Returns:
+        Each server of that profile's fleet and its applications.
+
+    Raises:
+        ValueError: For a profile that is not one of :data:`PROFILES`.
+    """
+    if profile == "docs":
+        return NODES
+    if profile == "video":
+        from tests.support.showcase_video import VIDEO_NODES
+
+        return VIDEO_NODES
+    raise ValueError(f"Unknown showcase profile {profile!r}; one of {', '.join(PROFILES)}")
+
+
+def _record_video_history(
+    store: NoustStore,
+    log_root: Path,
+    apps: tuple[ShowcaseApp, ...],
+    state: ShowcaseState,
+    now: datetime,
+) -> None:
+    """
+    Record every application's deployments in the order they happened, across applications.
+
+    The API lists deployments by id, so a history recorded one application at a time would
+    put the oldest deployment of the last application above the newest of the first on the
+    Overview. On releases, each successful deployment names the release it built, the store
+    remembers the releases, and the newest successful one is the active release.
+
+    Args:
+        store: The store.
+        log_root: Where captured build logs live.
+        apps: The node's applications, already created.
+        state: What was created, for the application ids.
+        now: The moment the machine is seeded.
+    """
+    from noust.core.store import ReleaseRecord
+
+    history = sorted(
+        (
+            (started_at(app, index, now), app, commit)
+            for app in apps
+            for index, commit in enumerate(app.commits)
+        ),
+        key=lambda entry: entry[0],
+    )
+    active: dict[str, str] = {}
+    app_paths = {app.domain: app.app_path for app in store.list_apps()}
+    for started, app, commit in history:
+        releases = app.layout == "releases"
+        release_id = release_id_for(started, commit.sha) if releases else None
+        _record_commit(
+            store, log_root, app, commit, started=started, release_id=release_id, varied=True
+        )
+        if release_id is None:
+            continue
+        failed = commit.status != "success"
+        store.record_release(
+            ReleaseRecord(
+                id=release_id,
+                app_id=state.app_ids[app.domain],
+                git_commit=commit.sha,
+                created_at=started.astimezone(timezone.utc).isoformat(),
+                activated_at=None
+                if failed
+                else (started + timedelta(minutes=1)).astimezone(timezone.utc).isoformat(),
+                status="failed" if failed else "superseded",
+                path=f"{app_paths[app.domain]}/releases/{release_id}",
+            )
+        )
+        if not failed:
+            active[app.domain] = release_id
+    for domain, release_id in active.items():
+        store.mark_release_active(state.app_ids[domain], release_id)
+
+
+def cert_alt_names(node: str, *, profile: str = "docs") -> dict[str, str]:
     """
     A node's own domains that have an alias, for the extra SAN their certificate shows.
 
@@ -610,15 +787,23 @@ def cert_alt_names(node: str) -> dict[str, str]:
 
     Args:
         node: Which of :data:`NODES` to read; the agency's main server by default.
+        profile: One of :data:`PROFILES`.
 
     Returns:
         Domain to alias, for every application of that node that has one.
     """
-    apps = NODES.get(node, FRA_APPS)
+    nodes = nodes_for(profile)
+    apps = nodes.get(node, nodes["fra-1"])
     return {app.domain: app.alias for app in apps if app.alias is not None}
 
 
-def seed_showcase_state(store: NoustStore, *, node: str = "fra-1") -> ShowcaseState:
+def seed_showcase_state(
+    store: NoustStore,
+    *,
+    node: str = "fra-1",
+    profile: str = "docs",
+    apps_root: Path | str = "/var/www/apps",
+) -> ShowcaseState:
     """
     Populate a store with one of Kelmoor's invented machines: its applications, their
     deployment history, domains, databases - everything ``console_server.py``'s
@@ -631,11 +816,17 @@ def seed_showcase_state(store: NoustStore, *, node: str = "fra-1") -> ShowcaseSt
         node: Which of :data:`NODES` to seed; the agency's main server by default. Unknown
             names fall back to it too, rather than raising, so a plain ``--showcase`` with
             no ``--hostname`` still seeds a complete machine.
+        profile: One of :data:`PROFILES`. "video" also seeds what
+            :func:`tests.support.showcase_video.seed_video_extras` adds to the store.
+        apps_root: The directory the applications live under, as the store records it:
+            a real server's by default; a sandbox that runs real updates gives its own.
 
     Returns:
         What was created.
     """
-    apps = NODES.get(node, FRA_APPS)
+    nodes = nodes_for(profile)
+    apps = nodes.get(node, nodes["fra-1"])
+    video = profile == "video"
     state = ShowcaseState()
     log_root = store.db_path.parent / "deploy-logs"
     now = datetime.now()
@@ -648,10 +839,11 @@ def seed_showcase_state(store: NoustStore, *, node: str = "fra-1") -> ShowcaseSt
                 source=f"https://github.com/{GITHUB_ORG}/{app.repo}.git",
                 branch=app.branch,
                 port=app.port,
-                app_path=f"/var/www/apps/{domain_to_app_name(app.domain)}",
+                app_path=f"{str(apps_root).rstrip('/')}/{domain_to_app_name(app.domain)}",
                 status=app.status,
                 is_static=app.is_static,
                 ssl_enabled=True,
+                layout=app.layout,
             )
         )
         assert record.id is not None
@@ -671,7 +863,9 @@ def seed_showcase_state(store: NoustStore, *, node: str = "fra-1") -> ShowcaseSt
                     app_id=record.id,
                     name=unit,
                     unit_file=f"/etc/systemd/system/{unit}.service",
-                    working_directory=f"/var/www/apps/{unit}",
+                    # On releases a unit runs whatever ``current`` points at.
+                    working_directory=record.app_path
+                    + ("/current" if app.layout == "releases" else ""),
                     command=_SERVICE_COMMAND.get(app.app_type, "/usr/bin/node current/server.js"),
                     status="failed" if app.status == AppStatus.FAILED.value else "active",
                     enabled=True,
@@ -703,9 +897,17 @@ def seed_showcase_state(store: NoustStore, *, node: str = "fra-1") -> ShowcaseSt
         if app.alias is not None:
             store.add_domain(app.domain, app.alias, DomainKind.ALIAS.value)
 
-        for commit, days_ago in zip(app.commits, app.deployed_days_ago, strict=True):
-            _record_commit(store, log_root, app, commit, started=now - timedelta(days=days_ago))
+        if len(app.commits) != len(app.deployed_days_ago) or (
+            app.clock is not None and len(app.clock) != len(app.commits)
+        ):
+            raise ValueError(f"{app.domain}: one start (and one time of day) per commit")
+        if not video:
+            for index, commit in enumerate(app.commits):
+                _record_commit(store, log_root, app, commit, started=started_at(app, index, now))
         state.deployment_domains.append(app.domain)
+
+    if video:
+        _record_video_history(store, log_root, apps, state, now)
 
     # Whichever domain leads state.cert_domains gets the shortest validity from
     # console_server.py's fake certbot (make_runner's _certificates): put the one app that
@@ -714,6 +916,12 @@ def seed_showcase_state(store: NoustStore, *, node: str = "fra-1") -> ShowcaseSt
     state.cert_domains.sort(key=lambda domain: 0 if domain in expiring else 1)
 
     state.backup_domains = [a.domain for a in apps[:2]]
+
+    if video:
+        from tests.support.showcase_video import seed_video_extras
+
+        seed_video_extras(store, node, state)
+        return state
 
     # One database per one or two of this node's own applications, plus a shared cache -
     # named after the node's first application rather than "fra-1"'s by name, so "ams-3"
