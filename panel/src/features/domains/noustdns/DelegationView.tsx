@@ -24,7 +24,7 @@ function Sentence({ sentence }: { sentence: NoustSentence }) {
   const coded = { code: sentence.code, params: sentence.params ?? {} };
   return (
     <span className="flex min-w-0 flex-col gap-1">
-      <span className="text-14 text-pretty">
+      <span className="text-14 text-pretty wrap-anywhere">
         <ServerText coded={coded} text={sentence.text} />
       </span>
       {sentence.hint ? (
@@ -63,7 +63,7 @@ function CheckResult({ check }: { check: NoustDelegationCheck }) {
         <StatusPill state={check.ready ? "running" : "warning"} label={check.ready ? t("noustDns.delegation.ready") : t("noustDns.delegation.notReady")} />
         <span className="text-14 text-fg-muted">{check.delegated === true ? t("noustDns.delegation.delegated") : check.delegated === false ? t("noustDns.delegation.notDelegated") : t("noustDns.delegation.unknown")}</span>
       </div>
-      <DataTable caption={t("noustDns.delegation.checkTitle")} columns={columns} rows={check.servers} getRowId={(server) => `${server.name}/${server.address}`} />
+      <DataTable mobile="scroll" caption={t("noustDns.delegation.checkTitle")} columns={columns} rows={check.servers} getRowId={(server) => `${server.name}/${server.address}`} />
       <KeyValueList items={facts} />
       {check.problems.length > 0 ? (
         <Subsection title={t("noustDns.delegation.problemsTitle")}>

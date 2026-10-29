@@ -152,6 +152,18 @@ const SCREENS: readonly Screen[] = [
   { name: "sites", path: "/domains/sites" },
   { name: "certificates", path: "/domains/certificates" },
   { name: "dns", path: "/domains/dns" },
+  {
+    name: "dns-add-ionos",
+    path: "/domains/dns",
+    act: async (page) => {
+      await page.getByRole("button", { name: /Add account|Añadir cuenta/ }).first().click();
+      const dialog = page.getByRole("dialog");
+      await expect(dialog).toBeVisible();
+      await dialog.getByRole("combobox").first().click();
+      await page.getByRole("option", { name: /IONOS/ }).click();
+      await expect(dialog.getByText(/IONOS/).first()).toBeVisible();
+    },
+  },
   { name: "noust-dns-install", path: "/domains/dns/noust" },
   {
     name: "noust-dns-install-missing",
@@ -214,6 +226,9 @@ test.describe("domains screens @screens", () => {
         await screen.act?.(page);
         await settle(page);
         await stillness(page);
+        // L-4: a page never scrolls sideways at 390px; only a table, a log or a tab strip scrolls inside itself.
+        const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        expect(overflow, `${screen.name} at ${label}`).toBeLessThanOrEqual(0);
         await page.screenshot({ path: path.join(dir, `${screen.name}-${label}.png`), fullPage: true });
       }
     });

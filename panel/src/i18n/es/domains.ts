@@ -306,6 +306,7 @@ export const domains: Catalog<typeof en> = {
     roleLegend: "Rol",
     addDialogTitle: "Añadir un dominio a {app}",
     addDialogTitleAny: "Añadir un dominio",
+    moreOptions: "Más opciones",
     appLabel: "Aplicación",
     appPlaceholder: "Elige una aplicación",
     appNeeded: "Elige la aplicación a la que pertenece el nombre.",

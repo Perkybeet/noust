@@ -107,6 +107,7 @@ describe("an application's Domains tab", () => {
     const dialog = await screen.findByRole("dialog", { name: `Add a domain to ${APP}` });
     await user.type(within(dialog).getByLabelText("Domain"), `Blog.${APP}`);
     // Choosing the kind leaves the field, which is what asks DNS: there is no button for it.
+    await user.click(within(dialog).getByRole("button", { name: "More options" }));
     await user.click(within(dialog).getByRole("radio", { name: /Redirect/ }));
     expect(await within(dialog).findByText(`blog.${APP} points somewhere else`)).toBeInTheDocument();
     expect(within(dialog).getByText("198.51.100.23")).toBeInTheDocument();

@@ -12,6 +12,7 @@ import { Notice } from "../../components/ui/Notice";
 import { Button } from "../../components/ui/Button";
 import { ChoiceCards } from "../../components/ui/ChoiceCards";
 import { Dialog } from "../../components/ui/Dialog";
+import { Disclosure } from "../../components/ui/Disclosure";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
@@ -275,13 +276,18 @@ export function AddDomainDialog({ app: given, apps = [], open, onOpenChange, onA
             <p className="text-12 text-pretty text-fg-muted">{t("domains.temporary.help")}</p>
           )}
         </div>
-        <KindChoice app={picked ?? t("domains.addDomainDialog.theApplication")} value={kind} onChange={setKind} />
-        {kind === "alias" ? (
-          <Field label={t("network.addDomain.portLabel")} description={t("network.addDomain.portHelp", { app })} optional>
-            <Input mono inputMode="numeric" value={port} onValueChange={setPort} autoComplete="off" />
-          </Field>
-        ) : null}
-        <Checkbox label={t("network.addDomain.dnsLabel")} description={t("network.addDomain.dnsHelp")} checked={pointDns} onCheckedChange={setPointDns} />
+        {/* What most names never change: an alias, on the application's own port, with its DNS record made. */}
+        <Disclosure label={t("domains.addDomainDialog.moreOptions")} defaultOpen={false}>
+          <div className="flex flex-col gap-5">
+            <KindChoice app={picked ?? t("domains.addDomainDialog.theApplication")} value={kind} onChange={setKind} />
+            {kind === "alias" ? (
+              <Field label={t("network.addDomain.portLabel")} description={t("network.addDomain.portHelp", { app: picked ?? t("domains.addDomainDialog.theApplication") })} optional>
+                <Input mono inputMode="numeric" value={port} onValueChange={setPort} autoComplete="off" />
+              </Field>
+            ) : null}
+            <Checkbox label={t("network.addDomain.dnsLabel")} description={t("network.addDomain.dnsHelp")} checked={pointDns} onCheckedChange={setPointDns} />
+          </div>
+        </Disclosure>
         {wildcard ? <Notice title={t("network.addDomain.wildcardTitle")}>{t("network.addDomain.wildcardNote")}</Notice> : null}
 
         {isChecked && !wildcard ? (

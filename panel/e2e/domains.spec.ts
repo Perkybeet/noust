@@ -71,6 +71,7 @@ test("a name that does not point here is added, and the failed order is shown in
   const dialog = page.getByRole("dialog", { name: `Add a domain to ${app}` });
   await dialog.getByLabel("Domain").fill(name);
   // Choosing the kind leaves the field, which is what asks DNS.
+  await dialog.getByRole("button", { name: "More options" }).click();
   await dialog.getByRole("radio", { name: /Redirect/ }).check();
   await expect(dialog.getByText(`${name} has no DNS record yet`)).toBeVisible();
   await dialog.getByRole("button", { name: "Show the records" }).click();

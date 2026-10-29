@@ -131,9 +131,30 @@ export const noustDns = {
     keyFailed: "Could not read the key",
   },
 
+  /** From the central: a primary and its secondaries in one go. */
+  cluster: {
+    open: "Set up on several servers",
+    title: "Set up Noust DNS on several servers",
+    description: "The primary goes first, and each secondary then reads its address and key. Put them in different networks.",
+    primary: "Primary server",
+    primaryHelp: "Holds the zones you edit.",
+    secondaries: "Secondary servers",
+    secondariesHelp: "Copy every zone, so the domains still answer when one is down.",
+    server: "Server",
+    choose: "Choose a server",
+    secondaryServer: "Server of secondary {number}",
+    secondaryName: "Name of secondary {number}",
+    addSecondary: "Add a secondary",
+    epelLabel: "Enable EPEL where Knot comes from it",
+    epelHelp: "Only RHEL and its rebuilds need it. Without it, a server that needs it is left out.",
+    missing: "Choose a server and give a name for each.",
+    sameServer: "Each part needs a server of its own.",
+    action: "Set up",
+    failed: "Noust DNS was not set up on those servers",
+  },
+
   /** Taking it away. */
   remove: {
-    heading: "Remove Noust DNS",
     description: "Stops the name server and puts the previous configuration back. The package and the signing keys stay.",
     action: "Remove Noust DNS",
     deleteZones: "Also delete its zones and records",

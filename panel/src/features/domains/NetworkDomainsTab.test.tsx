@@ -196,6 +196,7 @@ describe("an application's Domains tab, beyond its names", () => {
     await user.click(await screen.findByRole("button", { name: "Add domain" }));
     const dialog = await screen.findByRole("dialog", { name: `Add a domain to ${APP}` });
     await user.type(within(dialog).getByLabelText("Domain"), `api.${APP}`);
+    await user.click(within(dialog).getByRole("button", { name: "More options" }));
     await user.type(within(dialog).getByLabelText(/^Port/), "9200");
     await user.click(within(dialog).getByRole("checkbox", { name: /Create its DNS record/ }));
     expect(await within(dialog).findByText(`api.${APP} points here`)).toBeInTheDocument();

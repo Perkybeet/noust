@@ -2,7 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { expectNoAxeViolations } from "../../../test/axe";
-import { json, problem } from "../../../test/fakes";
+import { json, NODES, problem } from "../../../test/fakes";
 import { DS, NOT_INSTALLED, NOT_SET_UP, noustConsole, PRIMARY, SECONDARY, ZONE, ZONES } from "./noustFixtures";
 import { noustState } from "./state";
 import { glueOf } from "./ZonesPanel";
@@ -323,5 +323,45 @@ describe("a zone", () => {
     expect(screen.getByText("Resolvers find ns1.old.example for example.com, not your name servers")).toBeInTheDocument();
     expect(screen.getByText("Change the name servers at your registrar and wait for its TTL to pass.")).toBeInTheDocument();
     await expectNoAxeViolations(document.body);
+  });
+});
+
+describe("Noust DNS on several servers, from the central", () => {
+  it("sends a primary and its secondary to the central, which sets them up as one fleet job", { timeout: 30_000 }, async () => {
+    const { user, backend, location } = noustConsole("/domains/dns", {
+      "GET /api/nodes": () => json(200, { items: NODES }),
+      "GET /api/dns/noust/server": () => json(200, NOT_INSTALLED),
+      "POST /api/fleet/dns/cluster": () => json(200, { plan: { action: "dns_cluster", nodes: [], batches: [] }, job: { job_id: "f1", status: "queued", message: "queued" } }),
+    });
+
+    await user.click(await screen.findByRole("button", { name: "Set up on several servers" }));
+    const dialog = await screen.findByRole("dialog", { name: "Set up Noust DNS on several servers" });
+    // Without the servers and their names it says what is missing and asks the central for nothing.
+    await user.click(within(dialog).getByRole("button", { name: "Set up" }));
+    expect(await within(dialog).findByText("Choose a server and give a name for each.")).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/fleet/dns/cluster")).toHaveLength(0);
+
+    await user.click(within(dialog).getByRole("combobox", { name: "Server" }));
+    await user.click(await screen.findByRole("option", { name: "web-2" }));
+    await user.type(within(dialog).getByLabelText("Name server name"), "ns1.example.net");
+    await user.click(within(dialog).getByRole("combobox", { name: "Server of secondary 1" }));
+    await user.click(await screen.findByRole("option", { name: "db-1" }));
+    await user.type(within(dialog).getByLabelText("Name of secondary 1"), "ns2.example.net");
+    await user.click(within(dialog).getByRole("button", { name: "Set up" }));
+
+    await waitFor(() => expect(backend.callsTo("POST /api/fleet/dns/cluster")).toHaveLength(1));
+    expect(backend.callsTo("POST /api/fleet/dns/cluster")[0]?.body).toEqual({
+      primary: { node: "web-2", hostname: "ns1.example.net" },
+      secondaries: [{ node: "db-1", hostname: "ns2.example.net" }],
+      epel: false,
+      plan: false,
+    });
+    await waitFor(() => expect(location().pathname).toBe("/fleet/jobs/f1"));
+  });
+
+  it("is not offered on a server that is no central", async () => {
+    noustConsole("/domains/dns", { "GET /api/dns/noust/server": () => json(200, NOT_INSTALLED) });
+    expect(await screen.findByRole("link", { name: "Set up Noust DNS" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Set up on several servers" })).not.toBeInTheDocument();
   });
 });

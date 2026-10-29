@@ -39,7 +39,7 @@ function RemoveCard({ server }: { server: NoustServer }) {
     mutationFn: () => request("delete", "/api/dns/noust/server", { query: { delete_zones: deleteZones } }),
   });
   return (
-    <DangerZone title={t("noustDns.remove.heading")}>
+    <DangerZone title={t("common.words.remove")}>
       <DangerAction
         title={t("noustDns.remove.action")}
         description={t("noustDns.remove.description")}

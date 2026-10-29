@@ -1,14 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 
+import { useState } from "react";
+
 import { noustServerQuery } from "../../../api/queries/noustDns";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
-import { buttonClassName } from "../../../components/ui/Button";
+import { Button, buttonClassName } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
+import { useServerList } from "../../../nodes/servers";
+import { ClusterDialog } from "./ClusterDialog";
 import { noustState, NOUST_PILL, stateLabel } from "./state";
 
 /**
@@ -20,6 +24,8 @@ import { noustState, NOUST_PILL, stateLabel } from "./state";
 export function NoustDnsCard() {
   const t = useT();
   const status = useQuery({ ...noustServerQuery(), retry: false });
+  const servers = useServerList();
+  const [clustering, setClustering] = useState(false);
   if (status.isError) return null;
   if (status.data === undefined) {
     return (
@@ -39,11 +45,20 @@ export function NoustDnsCard() {
       description={t("noustDns.card.description")}
       status={<StatusPill state={NOUST_PILL[state]} label={stateLabel(t, state)} size="sm" />}
       actions={
-        <Link to="/domains/dns/noust" className={buttonClassName("secondary", "sm")}>
-          {started ? t("noustDns.card.open") : t("noustDns.card.setUp")}
-        </Link>
+        <>
+          {servers.nodes.length > 0 && !started ? (
+            <Button size="sm" onClick={() => setClustering(true)}>
+              {t("noustDns.cluster.open")}
+            </Button>
+          ) : null}
+          <Link to="/domains/dns/noust" className={buttonClassName("secondary", "sm")}>
+            {started ? t("noustDns.card.open") : t("noustDns.card.setUp")}
+          </Link>
+        </>
       }
-      {...(started ? { children: <p className="text-13 text-fg-muted">{t("noustDns.card.zones", { count: server.zones })}</p> } : {})}
-    />
+    >
+      {started ? <p className="text-13 text-fg-muted">{t("noustDns.card.zones", { count: server.zones })}</p> : null}
+      <ClusterDialog open={clustering} onOpenChange={setClustering} />
+    </Card>
   );
 }

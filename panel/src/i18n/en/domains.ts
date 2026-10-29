@@ -308,6 +308,7 @@ export const domains = {
     roleLegend: "Role",
     addDialogTitle: "Add a domain to {app}",
     addDialogTitleAny: "Add a domain",
+    moreOptions: "More options",
     appLabel: "Application",
     appPlaceholder: "Choose an application",
     appNeeded: "Choose the application the name is for.",
