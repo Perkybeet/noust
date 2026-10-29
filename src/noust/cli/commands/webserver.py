@@ -325,7 +325,9 @@ def migrate_command(
         ctx.logger.success(f"{moved.domain} is behind {display(result.target)}")
     for warning in result.warnings:
         ctx.logger.warning(warning)
-    ctx.logger.info(
-        f"New applications go behind {display(str(Config().get('webserver')))} until you change "
-        f"the setting: noust config set webserver {result.target}"
-    )
+    setting = str(Config().get("webserver", DEFAULT_CONFIG["webserver"]))
+    if setting != result.target:
+        ctx.logger.info(
+            f"New applications still go behind {display(setting)}; change that with: "
+            f"noust config set webserver {result.target}"
+        )
