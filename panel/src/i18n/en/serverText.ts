@@ -651,4 +651,100 @@ export const serverText = {
       hint: "A tunnel's connector reads its token at boot, with nobody to type a passphrase. Run tunnels on a server, not on a sealed central.",
     },
   },
+  webserver_move: {
+    approximate: {
+      text: "{directive} (line {line}) is carried over as {result}",
+    },
+    compose_only: {
+      text: "{domain} is a Docker Compose application, and those are served by nginx only",
+      hint: "Leave it behind nginx.",
+    },
+    confirm_handover: {
+      text: "{target} will take over ports 80 and 443 from {source} for {count} site(s)",
+      hint: "Every site is unreachable for the seconds the swap takes, and everything is put back if one of them does not answer. To go ahead: confirm in the API, --yes on the command line.",
+    },
+    confirm_live: {
+      text: "{count} site(s) will move from {source} to {target}, which is serving",
+      hint: "Each site is tested by {target} before it is switched, and put back if it does not answer. To go ahead: confirm in the API, --yes on the command line.",
+    },
+    console_site: {
+      text: "{domain} is the public name of the console, which Noust sets up behind nginx only",
+      hint: "Take it off first with {command}, or leave the web server as it is.",
+    },
+    included: {
+      text: "Line {line} includes {path}, which is not carried over",
+      hint: "The translation does not read the files a site includes. Copy what that file holds into the new site by hand, or leave the application where it is.",
+    },
+    left_behind: {
+      text: "{name} is a site of {source} that Noust cannot move",
+      hint: "{source} would stop serving it. Write its equivalent for {target} at {target_path} yourself, or leave the web server as it is.",
+    },
+    losses_to_accept: {
+      text: "The new sites will not do {count} thing(s) that the old ones did",
+      hint: "Read them in the plan. To go ahead anyway, accept them: accept_losses in the API, --accept-losses on the command line.",
+    },
+    no_site: {
+      text: "{domain} has no site file on {source}",
+      hint: "There is nothing to translate. Deploy the application again so that it gets a site, then plan the move again.",
+    },
+    not_restored: {
+      text: "Not everything could be put back",
+      hint: "What follows says what was left and where it is. The audit log says what was moved.",
+    },
+    not_serving: {
+      text: "{target} did not start",
+      hint: "Its own message is shown as it was. {source} was started again and the sites are as they were.",
+    },
+    operator_site: {
+      text: "The site of {domain} is yours, not Noust's ({path})",
+      hint: "Noust never rewrites a site you wrote. Write its equivalent for {target} at {target_path} yourself, then plan the move again: both files are left as they are and only the application moves.",
+    },
+    partial_handover: {
+      text: "{target} is not serving: moving {count} of the {total} sites would leave the others without a web server",
+      hint: "Ports 80 and 443 belong to one web server at a time. Move every site together: {command}",
+    },
+    protection: {
+      text: "{directive} (line {line}) protects the site, and {target} has nothing equivalent",
+      hint: "The new site would not be protected that way. Put another protection in front of it first, or leave the application where it is.",
+    },
+    rejected: {
+      text: "{target} did not accept the translated site of {domain}",
+      hint: "Its own message is shown as it was. Nothing was changed: fix what it names in the site on {source}, or leave the application where it is.",
+    },
+    status_site: {
+      text: "{domain} is the public name of the status page, which Noust sets up behind nginx only",
+      hint: "Take it off first with {command}, or leave the web server as it is.",
+    },
+    target_missing: {
+      text: "{target} is not installed on this server",
+      hint: "Install it first, then plan the move again: {command}",
+    },
+    tuning: {
+      text: "{directive} (line {line}) tunes {source} and is left out",
+    },
+    unanswered: {
+      text: "{domain} did not answer through {target}",
+      hint: "What was tried and what the application's unit said is shown as it was. Everything was put back: {source} serves the sites again.",
+    },
+    unknown: {
+      text: "{domain} is neither an application nor a site behind {source}",
+      hint: "See what is behind each web server with: {command}",
+    },
+    unreadable: {
+      text: "{source} would not read this site: {problem} (line {line})",
+      hint: "Fix the site where it is, with the editor of its page, then plan the move again.",
+    },
+    unsupported: {
+      text: "{directive} (line {line}) has no equivalent in {target}",
+      hint: "The new site will not do what that line did. Check the site after the move, or leave the application where it is.",
+    },
+    variable: {
+      text: "{directive} (line {line}) reads {variable}, which {target} cannot give",
+      hint: "The new site would send something else in its place. Check it after the move, or leave the application where it is.",
+    },
+    zero_downtime: {
+      text: "{domain} runs in zero-downtime mode, which only nginx supports",
+      hint: "Turn the mode off first, then plan the move again: {command}",
+    },
+  },
 } as const;

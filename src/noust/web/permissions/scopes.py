@@ -164,6 +164,9 @@ RULES: tuple[Rule, ...] = (
     # An account for a private registry is a credential of the server: choosing which
     # applications use it is the server's, not a team's.
     _rule("/api/apps/{domain}/registry-logins", INSTANCE, methods=("PUT",)),
+    # Which web server serves a site holds ports 80 and 443 for every site of the machine: a
+    # plan names the sites left behind, and a move reloads or hands over the server of all.
+    _rule("/api/apps/{domain}/webserver/**", INSTANCE),
     _rule("/api/apps/{domain}/databases/link", RESOURCE, _APP, _BODY_DATABASE),
     # A release goes from an application to another: both must be visible.
     _rule("/api/apps/{domain}/promote", RESOURCE, _APP, _BODY_TARGET, methods=("POST",)),
@@ -354,6 +357,8 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/audit/**", OPEN),
     _rule("/api/openapi.json", OPEN),
     _rule("/api/config/**", OPEN),
+    # The web servers of the machine and moving every site between them (item 105).
+    _rule("/api/webserver/**", INSTANCE),
     # A document looked at runs nothing and belongs to nobody.
     _rule("/api/compose/**", OPEN),
     # The catalogue is nobody's; what was installed from it is an application's.

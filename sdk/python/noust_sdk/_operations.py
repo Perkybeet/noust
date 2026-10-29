@@ -214,6 +214,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("applications", "get_update_schedule"): ("GET", "/api/apps/{domain}/update-schedule", "apps.read", False),
     ("applications", "put_update_schedule"): ("PUT", "/api/apps/{domain}/update-schedule", "apps.manage", False),
     ("applications", "delete_update_schedule"): ("DELETE", "/api/apps/{domain}/update-schedule", "apps.manage", False),
+    ("applications", "post_app_migrate"): ("POST", "/api/apps/{domain}/webserver/migrate", "root_equivalent", True),
+    ("applications", "get_app_plan"): ("GET", "/api/apps/{domain}/webserver/plan", "apps.read", False),
     ("applications", "get_zero_downtime"): ("GET", "/api/apps/{domain}/zero-downtime", "apps.read", False),
     ("applications", "put_zero_downtime"): ("PUT", "/api/apps/{domain}/zero-downtime", "apps.manage", True),
     ("applications", "deploy_apps"): ("POST", "/api/deploy", "apps.deploy", False),
@@ -942,6 +944,9 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("server", "restart_outdated_services"): ("POST", "/api/server/updates/restarts", "server.manage", True),
     ("server", "list_runs"): ("GET", "/api/server/updates/runs", "server.read", False),
     ("server", "get_run"): ("GET", "/api/server/updates/runs/{update_id}", "server.read", False),
+    ("server", "post_migrate"): ("POST", "/api/webserver/migrate", "root_equivalent", True),
+    ("server", "get_migration_plan"): ("GET", "/api/webserver/migration/plan", "apps.read", False),
+    ("server", "get_status"): ("GET", "/api/webserver/status", "settings.read", False),
     ("services", "list_services"): ("GET", "/api/services", "server.read", False),
     ("services", "create_service"): ("POST", "/api/services", "root_equivalent", True),
     ("services", "verify_unit"): ("POST", "/api/services/verify", "root_equivalent", False),
@@ -1367,7 +1372,7 @@ class Alerts:
 
 
 class Applications:
-    """Applications: 168 operations."""
+    """Applications: 170 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -2611,6 +2616,22 @@ class Applications:
 
         Needs: permission `apps.manage`."""
         return self._call("DELETE", f"/api/apps/{quote(str(domain), safe='')}/update-schedule", query=None, body=None)
+
+    def post_app_migrate(self, domain: str, *, body: Union["WebserverAppMoveRequest", None] = None) -> "JobAcceptedResponse":
+        """POST /api/apps/{domain}/webserver/migrate
+
+        Post App Migrate
+
+        Needs: permission `root_equivalent`, sudo mode, a second person's approval can be required."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/webserver/migrate", query=None, body=body)
+
+    def get_app_plan(self, domain: str, *, to: Union[Literal["nginx", "apache"], None] = None, text: Union[bool, None] = None) -> "WebserverMovePlanOut":
+        """GET /api/apps/{domain}/webserver/plan
+
+        Get App Plan
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/webserver/plan", query={"to": to, "text": text}, body=None)
 
     def get_zero_downtime(self, domain: str) -> "ZeroDowntimeResponse":
         """GET /api/apps/{domain}/zero-downtime
@@ -8209,7 +8230,7 @@ class SelfBackup:
 
 
 class Server:
-    """Server: 72 operations."""
+    """Server: 75 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -8789,6 +8810,30 @@ class Server:
 
         Needs: permission `server.read`."""
         return self._call("GET", f"/api/server/updates/runs/{quote(str(update_id), safe='')}", query=None, body=None)
+
+    def post_migrate(self, body: "WebserverMoveRequest") -> "JobAcceptedResponse":
+        """POST /api/webserver/migrate
+
+        Post Migrate
+
+        Needs: permission `root_equivalent`, sudo mode, a second person's approval can be required."""
+        return self._call("POST", "/api/webserver/migrate", query=None, body=body)
+
+    def get_migration_plan(self, *, to: Literal["nginx", "apache"], domain: Union[list[str], None] = None, all: Union[bool, None] = None, text: Union[bool, None] = None) -> "WebserverMovePlanOut":
+        """GET /api/webserver/migration/plan
+
+        Get Migration Plan
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", "/api/webserver/migration/plan", query={"to": to, "domain": domain, "all": all, "text": text}, body=None)
+
+    def get_status(self) -> "WebserverStatusOut":
+        """GET /api/webserver/status
+
+        Get Status
+
+        Needs: permission `settings.read`."""
+        return self._call("GET", "/api/webserver/status", query=None, body=None)
 
 
 

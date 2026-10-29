@@ -7038,6 +7038,79 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/webserver/migrate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post App Migrate
+         * @description Queue the move of one application's site to the other web server.
+         *
+         *     Needs sudo mode. The same checks and the same put-back as moving every site; when the web
+         *     server it moves to is not running the move is refused (409 ``webserver_move``) with the
+         *     command that moves them all.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated, elevated session.
+         *         body: Where to, and what the operator agreed to.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ConfirmationRequired: The losses or the move are not agreed to yet.
+         *         WebserverMoveError: Something stops it.
+         */
+        post: operations["post_app_migrate_api_apps__domain__webserver_migrate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/webserver/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get App Plan
+         * @description Show what moving one application's site to the other web server would do. Changes nothing.
+         *
+         *     When the web server it would move to is not running, the plan is blocked and its blocker
+         *     names the command that moves every site together: ports 80 and 443 belong to one server.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *         to: The web server to move to; the other one than it is behind when left out.
+         *         text: Include the translated site in the answer.
+         *
+         *     Returns:
+         *         The plan.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: The application is behind that web server already.
+         */
+        get: operations["get_app_plan_api_apps__domain__webserver_plan_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/zero-downtime": {
         parameters: {
             query?: never;
@@ -30371,6 +30444,106 @@ export interface paths {
          *         UnsupportedHostError: The server is not Debian or Ubuntu.
          */
         post: operations["post_install_api_waf_install_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/webserver/migrate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Migrate
+         * @description Queue the move of sites to a web server.
+         *
+         *     Needs sudo mode. Without ``confirm`` the answer is the confirmation to ask the operator for,
+         *     and without ``accept_losses`` the list of what the new sites will not do; neither changes
+         *     anything. The job tests every translated site in the new server, takes over (ports 80 and 443
+         *     too, when it is not serving) and asks for every site through it; if one does not answer
+         *     everything is put back.
+         *
+         *     Args:
+         *         body: Where to, which sites, and what the operator agreed to.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         ConfirmationRequired: The losses or the move are not agreed to yet (400 with the warnings).
+         *         WebserverMoveError: Something stops it (409 ``webserver_move``).
+         *         ValidationError: Nothing to move, or neither sites nor ``all`` were given.
+         */
+        post: operations["post_migrate_api_webserver_migrate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/webserver/migration/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Migration Plan
+         * @description Show what moving sites to a web server would do. Changes nothing.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         to: The web server to move to.
+         *         domain: The sites to move; repeat the parameter for each.
+         *         all: Every application and site behind the other web server.
+         *         text: Include the translated site of each in the answer.
+         *
+         *     Returns:
+         *         The plan, from :func:`~noust.deployers.webserver_move_plan.plan_move`.
+         *
+         *     Raises:
+         *         ValidationError: Neither sites nor ``all`` were given, or both, or a site is unknown.
+         */
+        get: operations["get_migration_plan_api_webserver_migration_plan_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/webserver/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Status
+         * @description Show the web servers of this machine and what is behind each.
+         *
+         *     ``webserver`` is the one **new** applications are put behind; each application keeps the one
+         *     it was deployed behind. The server that is running holds ports 80 and 443.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The setting, the server that holds the ports and each server's state and counts.
+         */
+        get: operations["get_status_api_webserver_status_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -64049,6 +64222,29 @@ export interface components {
             state: string;
         };
         /**
+         * WebserverAppMoveRequest
+         * @description Move one application's site to a web server.
+         *
+         *     Attributes:
+         *         to: The web server to move to; the other one than it is behind now when left out.
+         *         accept_losses: Go ahead although the new site will not do everything the old one did.
+         *         confirm: Go ahead with the move itself.
+         */
+        WebserverAppMoveRequest: {
+            /**
+             * Accept Losses
+             * @default false
+             */
+            accept_losses: boolean;
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+            /** To */
+            to?: ("nginx" | "apache") | null;
+        };
+        /**
          * WebserverConfig
          * @description Web server configuration.
          */
@@ -64058,6 +64254,151 @@ export interface components {
              * @description Web server to use (nginx or apache)
              */
             webserver: string;
+        };
+        /**
+         * WebserverFindingOut
+         * @description Something about the old site that the new one does not carry over as it was.
+         *
+         *     Attributes:
+         *         reason: ``unsupported``, ``protection``, ``included``, ``variable``, ``approximate``,
+         *             ``tuning`` or ``unreadable``.
+         *         severity: ``blocks`` (cannot move until it is fixed), ``loses`` (the new site will not do
+         *             something the old one did; needs ``accept_losses``) or ``notes`` (carried over in
+         *             another form, or a knob that changes no answer).
+         *         directive: The directive as the old web server names it.
+         *         line: Its line in the old file; None for the file as a whole.
+         *         protection: Whether what is lost was a protection (a login, a limit, a firewall).
+         *         code: The key of its sentence.
+         *         params: The values it is said with.
+         *         text: The sentence in English.
+         *         hint: How to fix it in English, when it has a fix.
+         */
+        WebserverFindingOut: {
+            /** Code */
+            code: string;
+            /** Directive */
+            directive: string;
+            /** Hint */
+            hint?: string | null;
+            /** Line */
+            line?: number | null;
+            /** Params */
+            params?: {
+                [key: string]: string | number | boolean;
+            };
+            /** Protection */
+            protection: boolean;
+            /** Reason */
+            reason: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "blocks" | "loses" | "notes";
+            /** Text */
+            text: string;
+        };
+        /**
+         * WebserverMovePlanOut
+         * @description What moving a set of sites to a web server would do.
+         *
+         *     Attributes:
+         *         source: The web server they are behind.
+         *         target: The one they would move to.
+         *         mode: ``live`` when the target is serving (each site moves on its own) or ``handover``
+         *             when it is not (the ports pass from one server to the other, for every site at once).
+         *         source_running: Whether the old server is running.
+         *         target_installed: Whether the new one is installed.
+         *         target_running: Whether the new one is running.
+         *         install_command: How to install the new one when it is not.
+         *         sites: What each site becomes.
+         *         blockers: What stops the move as a whole.
+         *         skipped: Sites asked for that are behind the target already.
+         *         left_behind: Sites of the old server that are not moving and would stop being served.
+         *         blocked: Whether anything stops the move, a site's or the whole's.
+         *         modules: The Apache modules the sites need.
+         *         losses: How many things the new sites will not do that the old ones did.
+         *         confirmation: What the operator agrees to by going ahead.
+         */
+        WebserverMovePlanOut: {
+            /** Blocked */
+            blocked: boolean;
+            /** Blockers */
+            blockers?: components["schemas"]["WebserverSentenceOut"][];
+            confirmation: components["schemas"]["WebserverSentenceOut"];
+            /**
+             * Install Command
+             * @default
+             */
+            install_command: string;
+            /** Left Behind */
+            left_behind?: string[];
+            /** Losses */
+            losses: number;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "live" | "handover";
+            /** Modules */
+            modules?: string[];
+            /** Sites */
+            sites: components["schemas"]["WebserverSitePlanOut"][];
+            /** Skipped */
+            skipped?: string[];
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "nginx" | "apache";
+            /** Source Running */
+            source_running: boolean;
+            /**
+             * Target
+             * @enum {string}
+             */
+            target: "nginx" | "apache";
+            /** Target Installed */
+            target_installed: boolean;
+            /** Target Running */
+            target_running: boolean;
+        };
+        /**
+         * WebserverMoveRequest
+         * @description Move sites to a web server.
+         *
+         *     Attributes:
+         *         to: The web server to move to.
+         *         domains: The sites to move; leave out and use ``all`` for every one behind the other.
+         *         all: Every application and site behind the other web server: what a handover moves.
+         *         accept_losses: Go ahead although the new sites will not do everything the old ones did
+         *             (the plan lists each thing).
+         *         confirm: Go ahead with the move itself. Without it the answer is the confirmation to
+         *             ask for, and nothing changes.
+         */
+        WebserverMoveRequest: {
+            /**
+             * Accept Losses
+             * @default false
+             */
+            accept_losses: boolean;
+            /**
+             * All
+             * @default false
+             */
+            all: boolean;
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+            /** Domains */
+            domains?: string[] | null;
+            /**
+             * To
+             * @enum {string}
+             */
+            to: "nginx" | "apache";
         };
         /**
          * WebserverResponse
@@ -64087,6 +64428,133 @@ export interface components {
             };
             /** Webserver */
             webserver: string;
+        };
+        /**
+         * WebserverSentenceOut
+         * @description A sentence of the server's, as a code and its values, with its English beside it.
+         *
+         *     Attributes:
+         *         code: The key of the sentence in ``serverText``, which the console translates.
+         *         params: The values it is said with.
+         *         text: The sentence in English.
+         *         hint: How to fix it in English, when it has a fix.
+         */
+        WebserverSentenceOut: {
+            /** Code */
+            code: string;
+            /** Hint */
+            hint?: string | null;
+            /** Params */
+            params?: {
+                [key: string]: string | number | boolean;
+            };
+            /** Text */
+            text: string;
+        };
+        /**
+         * WebserverServerOut
+         * @description One web server of the machine.
+         *
+         *     Attributes:
+         *         installed: Whether it is installed.
+         *         running: Whether it is running, which is what holds ports 80 and 443.
+         *         starts_at_boot: Whether it starts at boot.
+         *         version: Its version, when it could be read.
+         *         applications: How many applications are behind it.
+         *         sites: How many sites of no application are behind it.
+         */
+        WebserverServerOut: {
+            /** Applications */
+            applications: number;
+            /** Installed */
+            installed: boolean;
+            /** Running */
+            running: boolean;
+            /** Sites */
+            sites: number;
+            /** Starts At Boot */
+            starts_at_boot: boolean;
+            /** Version */
+            version?: string | null;
+        };
+        /**
+         * WebserverSitePlanOut
+         * @description One site, and what moving it would do.
+         *
+         *     Attributes:
+         *         domain: The application's domain, or the site's.
+         *         kind: ``app`` or ``site`` (one that belongs to no application).
+         *         source: The web server it is behind now.
+         *         target: The one it would move to.
+         *         source_path: Its file now.
+         *         target_path: Where its file would be.
+         *         operator_site: Whether the file now is the operator's, which is never rewritten.
+         *         keeps_operator_site: Whether the operator already wrote its equivalent, which is kept.
+         *         movable: Whether nothing stops it.
+         *         blockers: What stops it.
+         *         findings: What the new site does not carry over as it was.
+         *         modules: The Apache modules the new site needs.
+         *         text: The translated site, when asked for with ``text=true``.
+         */
+        WebserverSitePlanOut: {
+            /** Blockers */
+            blockers?: components["schemas"]["WebserverSentenceOut"][];
+            /** Domain */
+            domain: string;
+            /** Findings */
+            findings?: components["schemas"]["WebserverFindingOut"][];
+            /** Keeps Operator Site */
+            keeps_operator_site: boolean;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "app" | "site";
+            /** Modules */
+            modules?: string[];
+            /** Movable */
+            movable: boolean;
+            /** Operator Site */
+            operator_site: boolean;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "nginx" | "apache";
+            /** Source Path */
+            source_path: string;
+            /**
+             * Target
+             * @enum {string}
+             */
+            target: "nginx" | "apache";
+            /** Target Path */
+            target_path: string;
+            /** Text */
+            text?: string | null;
+        };
+        /**
+         * WebserverStatusOut
+         * @description The web servers of the machine.
+         *
+         *     Attributes:
+         *         webserver: The setting: the one new applications are put behind.
+         *         holds_ports: The one that is running (and so holds ports 80 and 443), None when both or
+         *             neither are.
+         *         servers: Each web server, by name.
+         */
+        WebserverStatusOut: {
+            /** Holds Ports */
+            holds_ports?: ("nginx" | "apache") | null;
+            /** Servers */
+            servers: {
+                [key: string]: components["schemas"]["WebserverServerOut"];
+            };
+            /**
+             * Webserver
+             * @enum {string}
+             */
+            webserver: "nginx" | "apache";
         };
         /**
          * WebserverUpdateResponse
@@ -74400,6 +74868,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WebhookSecretResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_app_migrate_api_apps__domain__webserver_migrate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["WebserverAppMoveRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_app_plan_api_apps__domain__webserver_plan_get: {
+        parameters: {
+            query?: {
+                to?: ("nginx" | "apache") | null;
+                text?: boolean;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebserverMovePlanOut"];
                 };
             };
             /** @description Validation Error */
@@ -99783,6 +100320,93 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InstallResponse"];
+                };
+            };
+        };
+    };
+    post_migrate_api_webserver_migrate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebserverMoveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_migration_plan_api_webserver_migration_plan_get: {
+        parameters: {
+            query: {
+                to: "nginx" | "apache";
+                domain?: string[] | null;
+                all?: boolean;
+                text?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebserverMovePlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_status_api_webserver_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebserverStatusOut"];
                 };
             };
         };

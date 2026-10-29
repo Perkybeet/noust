@@ -4,7 +4,7 @@
 
 Every command of `noust`, with its options. Global options (`--verbose`, `--dry-run`, `--json`, `--no-color`, `--reason`) go before or after the command name. `noust COMMAND --help` prints the same text, and `man noust` is generated from the same tree.
 
-Commands: [`2fa`](#noust-2fa), [`access`](#noust-access), [`alert`](#noust-alert), [`app`](#noust-app), [`approval`](#noust-approval), [`audit`](#noust-audit), [`auth`](#noust-auth), [`backup`](#noust-backup), [`central`](#noust-central), [`cert`](#noust-cert), [`compliance`](#noust-compliance), [`compose`](#noust-compose), [`config`](#noust-config), [`console`](#noust-console), [`context`](#noust-context), [`create`](#noust-create), [`cron`](#noust-cron), [`db`](#noust-db), [`delete`](#noust-delete), [`deploy`](#noust-deploy), [`diagnose`](#noust-diagnose), [`dns`](#noust-dns), [`domain`](#noust-domain), [`ens`](#noust-ens), [`env`](#noust-env), [`environment`](#noust-environment), [`fleet`](#noust-fleet), [`github`](#noust-github), [`gitlab`](#noust-gitlab), [`health`](#noust-health), [`import`](#noust-import), [`incident`](#noust-incident), [`list`](#noust-list), [`log`](#noust-log), [`logdrain`](#noust-logdrain), [`logs`](#noust-logs), [`manifest`](#noust-manifest), [`map`](#noust-map), [`mcp`](#noust-mcp), [`monitor`](#noust-monitor), [`node`](#noust-node), [`notify`](#noust-notify), [`passkey`](#noust-passkey), [`preview`](#noust-preview), [`probe`](#noust-probe), [`project`](#noust-project), [`push`](#noust-push), [`recipe`](#noust-recipe), [`registry`](#noust-registry), [`releases`](#noust-releases), [`restart`](#noust-restart), [`restore-server`](#noust-restore-server), [`rollback`](#noust-rollback), [`runtime`](#noust-runtime), [`secrets`](#noust-secrets), [`self-backup`](#noust-self-backup), [`self-update`](#noust-self-update), [`server`](#noust-server), [`service`](#noust-service), [`sessions`](#noust-sessions), [`setup`](#noust-setup), [`site`](#noust-site), [`start`](#noust-start), [`status`](#noust-status), [`stop`](#noust-stop), [`store`](#noust-store), [`stream`](#noust-stream), [`support`](#noust-support), [`team`](#noust-team), [`token`](#noust-token), [`tunnel`](#noust-tunnel), [`update`](#noust-update), [`upload`](#noust-upload), [`user`](#noust-user), [`variables`](#noust-variables), [`web`](#noust-web), [`workspace`](#noust-workspace)
+Commands: [`2fa`](#noust-2fa), [`access`](#noust-access), [`alert`](#noust-alert), [`app`](#noust-app), [`approval`](#noust-approval), [`audit`](#noust-audit), [`auth`](#noust-auth), [`backup`](#noust-backup), [`central`](#noust-central), [`cert`](#noust-cert), [`compliance`](#noust-compliance), [`compose`](#noust-compose), [`config`](#noust-config), [`console`](#noust-console), [`context`](#noust-context), [`create`](#noust-create), [`cron`](#noust-cron), [`db`](#noust-db), [`delete`](#noust-delete), [`deploy`](#noust-deploy), [`diagnose`](#noust-diagnose), [`dns`](#noust-dns), [`domain`](#noust-domain), [`ens`](#noust-ens), [`env`](#noust-env), [`environment`](#noust-environment), [`fleet`](#noust-fleet), [`github`](#noust-github), [`gitlab`](#noust-gitlab), [`health`](#noust-health), [`import`](#noust-import), [`incident`](#noust-incident), [`list`](#noust-list), [`log`](#noust-log), [`logdrain`](#noust-logdrain), [`logs`](#noust-logs), [`manifest`](#noust-manifest), [`map`](#noust-map), [`mcp`](#noust-mcp), [`monitor`](#noust-monitor), [`node`](#noust-node), [`notify`](#noust-notify), [`passkey`](#noust-passkey), [`preview`](#noust-preview), [`probe`](#noust-probe), [`project`](#noust-project), [`push`](#noust-push), [`recipe`](#noust-recipe), [`registry`](#noust-registry), [`releases`](#noust-releases), [`restart`](#noust-restart), [`restore-server`](#noust-restore-server), [`rollback`](#noust-rollback), [`runtime`](#noust-runtime), [`secrets`](#noust-secrets), [`self-backup`](#noust-self-backup), [`self-update`](#noust-self-update), [`server`](#noust-server), [`service`](#noust-service), [`sessions`](#noust-sessions), [`setup`](#noust-setup), [`site`](#noust-site), [`start`](#noust-start), [`status`](#noust-status), [`stop`](#noust-stop), [`store`](#noust-store), [`stream`](#noust-stream), [`support`](#noust-support), [`team`](#noust-team), [`token`](#noust-token), [`tunnel`](#noust-tunnel), [`update`](#noust-update), [`upload`](#noust-upload), [`user`](#noust-user), [`variables`](#noust-variables), [`web`](#noust-web), [`webserver`](#noust-webserver), [`workspace`](#noust-workspace)
 
 ## noust 2fa
 
@@ -16061,6 +16061,66 @@ noust web token [OPTIONS]
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+## noust webserver
+
+Which web server serves each site, and moving them to the other one.
+
+```bash
+noust webserver [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`migrate`](#noust-webserver-migrate), [`plan`](#noust-webserver-plan), [`status`](#noust-webserver-status)
+
+### noust webserver migrate
+
+Move sites to the other web server, and put everything back if one does not answer.
+
+```bash
+noust webserver migrate [OPTIONS] [DOMAINS]...
+```
+
+Arguments: `domains`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--to` | The web server to move them to. |  |
+| `--all` | Every application and site behind the other web server: what a handover of ports 80 and 443 moves. |  |
+| `--accept-losses` | Go ahead although the new sites will not do everything the old ones did. |  |
+| `--yes`, `-y` | Do not ask for confirmation. |  |
+| `--json` | Print the plan (or, with --yes, its result) as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust webserver plan
+
+Show what moving sites to a web server would do. Changes nothing.
+
+```bash
+noust webserver plan [OPTIONS] [DOMAINS]...
+```
+
+Arguments: `domains`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--to` | The web server to move them to. |  |
+| `--all` | Every application and site behind the other web server: what a handover of ports 80 and 443 moves. |  |
+| `--show` | Print the translated site of this one in full. |  |
+| `--json` | Print the plan as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust webserver status
+
+Show the web server of new applications and what is behind each.
+
+```bash
+noust webserver status [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print what is behind each web server as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ## noust workspace

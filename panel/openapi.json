@@ -62794,6 +62794,38 @@
         "title": "WebhookStatusResponse",
         "type": "object"
       },
+      "WebserverAppMoveRequest": {
+        "description": "Move one application's site to a web server.\n\nAttributes:\n    to: The web server to move to; the other one than it is behind now when left out.\n    accept_losses: Go ahead although the new site will not do everything the old one did.\n    confirm: Go ahead with the move itself.",
+        "properties": {
+          "accept_losses": {
+            "default": false,
+            "title": "Accept Losses",
+            "type": "boolean"
+          },
+          "confirm": {
+            "default": false,
+            "title": "Confirm",
+            "type": "boolean"
+          },
+          "to": {
+            "anyOf": [
+              {
+                "enum": [
+                  "nginx",
+                  "apache"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To"
+          }
+        },
+        "title": "WebserverAppMoveRequest",
+        "type": "object"
+      },
       "WebserverConfig": {
         "description": "Web server configuration.",
         "properties": {
@@ -62807,6 +62839,245 @@
           "webserver"
         ],
         "title": "WebserverConfig",
+        "type": "object"
+      },
+      "WebserverFindingOut": {
+        "description": "Something about the old site that the new one does not carry over as it was.\n\nAttributes:\n    reason: ``unsupported``, ``protection``, ``included``, ``variable``, ``approximate``,\n        ``tuning`` or ``unreadable``.\n    severity: ``blocks`` (cannot move until it is fixed), ``loses`` (the new site will not do\n        something the old one did; needs ``accept_losses``) or ``notes`` (carried over in\n        another form, or a knob that changes no answer).\n    directive: The directive as the old web server names it.\n    line: Its line in the old file; None for the file as a whole.\n    protection: Whether what is lost was a protection (a login, a limit, a firewall).\n    code: The key of its sentence.\n    params: The values it is said with.\n    text: The sentence in English.\n    hint: How to fix it in English, when it has a fix.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "directive": {
+            "title": "Directive",
+            "type": "string"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line"
+          },
+          "params": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "title": "Params",
+            "type": "object"
+          },
+          "protection": {
+            "title": "Protection",
+            "type": "boolean"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "blocks",
+              "loses",
+              "notes"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "severity",
+          "directive",
+          "protection",
+          "code",
+          "text"
+        ],
+        "title": "WebserverFindingOut",
+        "type": "object"
+      },
+      "WebserverMovePlanOut": {
+        "description": "What moving a set of sites to a web server would do.\n\nAttributes:\n    source: The web server they are behind.\n    target: The one they would move to.\n    mode: ``live`` when the target is serving (each site moves on its own) or ``handover``\n        when it is not (the ports pass from one server to the other, for every site at once).\n    source_running: Whether the old server is running.\n    target_installed: Whether the new one is installed.\n    target_running: Whether the new one is running.\n    install_command: How to install the new one when it is not.\n    sites: What each site becomes.\n    blockers: What stops the move as a whole.\n    skipped: Sites asked for that are behind the target already.\n    left_behind: Sites of the old server that are not moving and would stop being served.\n    blocked: Whether anything stops the move, a site's or the whole's.\n    modules: The Apache modules the sites need.\n    losses: How many things the new sites will not do that the old ones did.\n    confirmation: What the operator agrees to by going ahead.",
+        "properties": {
+          "blocked": {
+            "title": "Blocked",
+            "type": "boolean"
+          },
+          "blockers": {
+            "items": {
+              "$ref": "#/components/schemas/WebserverSentenceOut"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "confirmation": {
+            "$ref": "#/components/schemas/WebserverSentenceOut"
+          },
+          "install_command": {
+            "default": "",
+            "title": "Install Command",
+            "type": "string"
+          },
+          "left_behind": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Left Behind",
+            "type": "array"
+          },
+          "losses": {
+            "title": "Losses",
+            "type": "integer"
+          },
+          "mode": {
+            "enum": [
+              "live",
+              "handover"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "modules": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Modules",
+            "type": "array"
+          },
+          "sites": {
+            "items": {
+              "$ref": "#/components/schemas/WebserverSitePlanOut"
+            },
+            "title": "Sites",
+            "type": "array"
+          },
+          "skipped": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Skipped",
+            "type": "array"
+          },
+          "source": {
+            "enum": [
+              "nginx",
+              "apache"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "source_running": {
+            "title": "Source Running",
+            "type": "boolean"
+          },
+          "target": {
+            "enum": [
+              "nginx",
+              "apache"
+            ],
+            "title": "Target",
+            "type": "string"
+          },
+          "target_installed": {
+            "title": "Target Installed",
+            "type": "boolean"
+          },
+          "target_running": {
+            "title": "Target Running",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "source",
+          "target",
+          "mode",
+          "source_running",
+          "target_installed",
+          "target_running",
+          "sites",
+          "blocked",
+          "losses",
+          "confirmation"
+        ],
+        "title": "WebserverMovePlanOut",
+        "type": "object"
+      },
+      "WebserverMoveRequest": {
+        "description": "Move sites to a web server.\n\nAttributes:\n    to: The web server to move to.\n    domains: The sites to move; leave out and use ``all`` for every one behind the other.\n    all: Every application and site behind the other web server: what a handover moves.\n    accept_losses: Go ahead although the new sites will not do everything the old ones did\n        (the plan lists each thing).\n    confirm: Go ahead with the move itself. Without it the answer is the confirmation to\n        ask for, and nothing changes.",
+        "properties": {
+          "accept_losses": {
+            "default": false,
+            "title": "Accept Losses",
+            "type": "boolean"
+          },
+          "all": {
+            "default": false,
+            "title": "All",
+            "type": "boolean"
+          },
+          "confirm": {
+            "default": false,
+            "title": "Confirm",
+            "type": "boolean"
+          },
+          "domains": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domains"
+          },
+          "to": {
+            "enum": [
+              "nginx",
+              "apache"
+            ],
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "to"
+        ],
+        "title": "WebserverMoveRequest",
         "type": "object"
       },
       "WebserverResponse": {
@@ -62841,6 +63112,240 @@
           "webserver"
         ],
         "title": "WebserverResponse",
+        "type": "object"
+      },
+      "WebserverSentenceOut": {
+        "description": "A sentence of the server's, as a code and its values, with its English beside it.\n\nAttributes:\n    code: The key of the sentence in ``serverText``, which the console translates.\n    params: The values it is said with.\n    text: The sentence in English.\n    hint: How to fix it in English, when it has a fix.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "params": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "title": "Params",
+            "type": "object"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "text"
+        ],
+        "title": "WebserverSentenceOut",
+        "type": "object"
+      },
+      "WebserverServerOut": {
+        "description": "One web server of the machine.\n\nAttributes:\n    installed: Whether it is installed.\n    running: Whether it is running, which is what holds ports 80 and 443.\n    starts_at_boot: Whether it starts at boot.\n    version: Its version, when it could be read.\n    applications: How many applications are behind it.\n    sites: How many sites of no application are behind it.",
+        "properties": {
+          "applications": {
+            "title": "Applications",
+            "type": "integer"
+          },
+          "installed": {
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "running": {
+            "title": "Running",
+            "type": "boolean"
+          },
+          "sites": {
+            "title": "Sites",
+            "type": "integer"
+          },
+          "starts_at_boot": {
+            "title": "Starts At Boot",
+            "type": "boolean"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "installed",
+          "running",
+          "starts_at_boot",
+          "applications",
+          "sites"
+        ],
+        "title": "WebserverServerOut",
+        "type": "object"
+      },
+      "WebserverSitePlanOut": {
+        "description": "One site, and what moving it would do.\n\nAttributes:\n    domain: The application's domain, or the site's.\n    kind: ``app`` or ``site`` (one that belongs to no application).\n    source: The web server it is behind now.\n    target: The one it would move to.\n    source_path: Its file now.\n    target_path: Where its file would be.\n    operator_site: Whether the file now is the operator's, which is never rewritten.\n    keeps_operator_site: Whether the operator already wrote its equivalent, which is kept.\n    movable: Whether nothing stops it.\n    blockers: What stops it.\n    findings: What the new site does not carry over as it was.\n    modules: The Apache modules the new site needs.\n    text: The translated site, when asked for with ``text=true``.",
+        "properties": {
+          "blockers": {
+            "items": {
+              "$ref": "#/components/schemas/WebserverSentenceOut"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/WebserverFindingOut"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "keeps_operator_site": {
+            "title": "Keeps Operator Site",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "app",
+              "site"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "modules": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Modules",
+            "type": "array"
+          },
+          "movable": {
+            "title": "Movable",
+            "type": "boolean"
+          },
+          "operator_site": {
+            "title": "Operator Site",
+            "type": "boolean"
+          },
+          "source": {
+            "enum": [
+              "nginx",
+              "apache"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "source_path": {
+            "title": "Source Path",
+            "type": "string"
+          },
+          "target": {
+            "enum": [
+              "nginx",
+              "apache"
+            ],
+            "title": "Target",
+            "type": "string"
+          },
+          "target_path": {
+            "title": "Target Path",
+            "type": "string"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "required": [
+          "domain",
+          "kind",
+          "source",
+          "target",
+          "source_path",
+          "target_path",
+          "operator_site",
+          "keeps_operator_site",
+          "movable"
+        ],
+        "title": "WebserverSitePlanOut",
+        "type": "object"
+      },
+      "WebserverStatusOut": {
+        "description": "The web servers of the machine.\n\nAttributes:\n    webserver: The setting: the one new applications are put behind.\n    holds_ports: The one that is running (and so holds ports 80 and 443), None when both or\n        neither are.\n    servers: Each web server, by name.",
+        "properties": {
+          "holds_ports": {
+            "anyOf": [
+              {
+                "enum": [
+                  "nginx",
+                  "apache"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Holds Ports"
+          },
+          "servers": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/WebserverServerOut"
+            },
+            "title": "Servers",
+            "type": "object"
+          },
+          "webserver": {
+            "enum": [
+              "nginx",
+              "apache"
+            ],
+            "title": "Webserver",
+            "type": "string"
+          }
+        },
+        "required": [
+          "webserver",
+          "servers"
+        ],
+        "title": "WebserverStatusOut",
         "type": "object"
       },
       "WebserverUpdateResponse": {
@@ -79575,6 +80080,147 @@
         ],
         "x-noust-permission": "secrets.reveal",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/webserver/migrate": {
+      "post": {
+        "description": "Queue the move of one application's site to the other web server.\n\nNeeds sudo mode. The same checks and the same put-back as moving every site; when the web\nserver it moves to is not running the move is refused (409 ``webserver_move``) with the\ncommand that moves them all.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated, elevated session.\n    body: Where to, and what the operator agreed to.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ConfirmationRequired: The losses or the move are not agreed to yet.\n    WebserverMoveError: Something stops it.",
+        "operationId": "post_app_migrate_api_apps__domain__webserver_migrate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/WebserverAppMoveRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post App Migrate",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "root_equivalent",
+        "x-noust-requires-approval": {
+          "action": "root_equivalent",
+          "kind": "infrastructure",
+          "when": "always"
+        },
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/webserver/plan": {
+      "get": {
+        "description": "Show what moving one application's site to the other web server would do. Changes nothing.\n\nWhen the web server it would move to is not running, the plan is blocked and its blocker\nnames the command that moves every site together: ports 80 and 443 belong to one server.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n    to: The web server to move to; the other one than it is behind when left out.\n    text: Include the translated site in the answer.\n\nReturns:\n    The plan.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: The application is behind that web server already.",
+        "operationId": "get_app_plan_api_apps__domain__webserver_plan_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "nginx",
+                    "apache"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "text",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Text",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebserverMovePlanOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get App Plan",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/apps/{domain}/zero-downtime": {
@@ -118770,6 +119416,165 @@
         ],
         "x-noust-permission": "server.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/webserver/migrate": {
+      "post": {
+        "description": "Queue the move of sites to a web server.\n\nNeeds sudo mode. Without ``confirm`` the answer is the confirmation to ask the operator for,\nand without ``accept_losses`` the list of what the new sites will not do; neither changes\nanything. The job tests every translated site in the new server, takes over (ports 80 and 443\ntoo, when it is not serving) and asks for every site through it; if one does not answer\neverything is put back.\n\nArgs:\n    body: Where to, which sites, and what the operator agreed to.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    ConfirmationRequired: The losses or the move are not agreed to yet (400 with the warnings).\n    WebserverMoveError: Something stops it (409 ``webserver_move``).\n    ValidationError: Nothing to move, or neither sites nor ``all`` were given.",
+        "operationId": "post_migrate_api_webserver_migrate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebserverMoveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Migrate",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "root_equivalent",
+        "x-noust-requires-approval": {
+          "action": "root_equivalent",
+          "kind": "infrastructure",
+          "when": "always"
+        },
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/webserver/migration/plan": {
+      "get": {
+        "description": "Show what moving sites to a web server would do. Changes nothing.\n\nArgs:\n    session: The authenticated session.\n    to: The web server to move to.\n    domain: The sites to move; repeat the parameter for each.\n    all: Every application and site behind the other web server.\n    text: Include the translated site of each in the answer.\n\nReturns:\n    The plan, from :func:`~noust.deployers.webserver_move_plan.plan_move`.\n\nRaises:\n    ValidationError: Neither sites nor ``all`` were given, or both, or a site is unknown.",
+        "operationId": "get_migration_plan_api_webserver_migration_plan_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "enum": [
+                "nginx",
+                "apache"
+              ],
+              "title": "To",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "domain",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Domain"
+            }
+          },
+          {
+            "in": "query",
+            "name": "all",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "All",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "text",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Text",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebserverMovePlanOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Migration Plan",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/webserver/status": {
+      "get": {
+        "description": "Show the web servers of this machine and what is behind each.\n\n``webserver`` is the one **new** applications are put behind; each application keeps the one\nit was deployed behind. The server that is running holds ports 80 and 443.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The setting, the server that holds the ports and each server's state and counts.",
+        "operationId": "get_status_api_webserver_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebserverStatusOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Status",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "settings.read"
       }
     },
     "/api/workspaces/deploy": {

@@ -130,6 +130,7 @@ COMMAND_MODULES: dict[str, str] = {
     "user": "noust.cli.commands.user",
     "variables": "noust.cli.commands.variables",
     "web": "noust.cli.commands.web",
+    "webserver": "noust.cli.commands.webserver",
     "workspace": "noust.cli.commands.workspace",
 }
 

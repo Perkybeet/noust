@@ -160,6 +160,8 @@ from noust.web.api.views import router as views_router
 from noust.web.api.volume_backups import router as volume_backups_router
 from noust.web.api.waf import router as waf_router
 from noust.web.api.waf import server_router as waf_server_router
+from noust.web.api.webserver_move import app_router as webserver_app_router
+from noust.web.api.webserver_move import router as webserver_router
 from noust.web.api.workspaces import router as workspaces_router
 from noust.web.api.zero_downtime import router as zero_downtime_router
 from noust.web.auth import require_auth
@@ -326,6 +328,9 @@ router.include_router(previews_router, prefix="/apps", tags=["Previews"])
 router.include_router(sandbox_router, prefix="/apps", tags=["Applications"])
 # identity.py owns only paths under "/{domain}/identity".
 router.include_router(identity_router, prefix="/apps", tags=["Applications"])
+# Which web server serves an application's site, and moving it to the other one (item 105).
+router.include_router(webserver_app_router, prefix="/apps", tags=["Applications"])
+router.include_router(webserver_router, prefix="/webserver", tags=["Server"])
 # app_runtime.py gathers the runtime area's paths under "/{domain}/...": the unit's
 # sandbox ("/hardening").
 router.include_router(app_runtime_router, prefix="/apps", tags=["Applications"])

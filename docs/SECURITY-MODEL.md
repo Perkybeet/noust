@@ -359,8 +359,8 @@ only what recovering an account takes.
 ### The routes
 
 <!-- generated:routes -->
-- **1100** API operations. **1058** need a permission (`x-noust-permission`) and **42** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **364** operations need sudo mode and **40** can need a second person.
+- **1105** API operations. **1063** need a permission (`x-noust-permission`) and **42** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **366** operations need sudo mode and **42** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
@@ -370,7 +370,7 @@ only what recovering an account takes.
 | `apps.deploy` | 39 |
 | `apps.manage` | 146 |
 | `apps.operate` | 34 |
-| `apps.read` | 149 |
+| `apps.read` | 151 |
 | `apps.terminal` | 12 |
 | `audit.manage` | 1 |
 | `audit.read` | 10 |
@@ -384,7 +384,7 @@ only what recovering an account takes.
 | `fleet.manage` | 53 |
 | `fleet.read` | 28 |
 | `public` | 42 |
-| `root_equivalent` | 18 |
+| `root_equivalent` | 20 |
 | `secrets.reveal` | 16 |
 | `security.manage` | 8 |
 | `self` | 41 |
@@ -393,7 +393,7 @@ only what recovering an account takes.
 | `server.read` | 78 |
 | `server.terminal` | 1 |
 | `settings.manage` | 34 |
-| `settings.read` | 25 |
+| `settings.read` | 26 |
 | `teams.manage` | 14 |
 | `teams.read` | 10 |
 <!-- /generated:routes -->
@@ -485,14 +485,14 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **526** events.
+The catalogue holds **528** events.
 
 | Category | Events |
 |---|---|
 | access | 48 |
 | account | 40 |
 | config | 30 |
-| change | 346 |
+| change | 348 |
 | read | 21 |
 | denial | 16 |
 | system | 22 |

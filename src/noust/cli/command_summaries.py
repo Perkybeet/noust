@@ -468,6 +468,12 @@ SUMMARIES: dict[str, tuple[bool, bool | str, str, str]] = {
         "",
         "Run the browser panel for this server.",
     ),
+    "webserver": (
+        False,
+        False,
+        "",
+        "Which web server serves each site, and moving them to the other one.",
+    ),
     "workspace": (
         False,
         False,
