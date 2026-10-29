@@ -230,6 +230,12 @@ RULES: tuple[Rule, ...] = (
     # on it is a team's, the engine is nobody's. Making, upgrading and removing one is the
     # server's; a team member picks one for its application's database through the choices.
     _rule("/api/databases/instances/**", INSTANCE),
+    # Where databases run: read by every team, like the engines' list it joins with the instances',
+    # with the count of databases filtered to what the caller's teams own. Choosing the default
+    # of an engine decides where every team's next database goes: the server's.
+    _rule("/api/databases/servers", SCOPED, methods=("GET",)),
+    _rule("/api/databases/servers/{key}", SCOPED, methods=("GET",)),
+    _rule("/api/databases/servers/**", INSTANCE),
     # Moving a database to another engine rewrites its applications' variables and uses
     # engines nobody owns: the server's, whoever's database it is.
     _rule("/api/databases/moves/**", INSTANCE),

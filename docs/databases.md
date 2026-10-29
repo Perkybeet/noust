@@ -28,6 +28,7 @@ Valkey and MongoDB images and their common derivatives). The key goes wherever a
 went:
 
 ```bash
+noust db servers                                  # the same, as database servers, with the default of each engine
 noust db engines                                  # host engines, then containers
 noust db list                                     # every database, and the engines that could not be read
 noust db tables shop --engine postgresql@shop.postgres

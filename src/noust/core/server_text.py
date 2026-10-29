@@ -465,6 +465,37 @@ CATALOG: dict[str, str] = {
     "fleet_settings.reach_unknown.hint": (
         "Nothing was sent. Apply again when the server answers its applications."
     ),
+    # -- Database servers: versions without support (4.1, item 103) -----------------------
+    # One sentence for a version whose project has stopped fixing security problems, one for a
+    # version that is about to; both are confirmed with unsupported_ok.
+    "database_servers.unsupported_ended": (
+        "{name} {version} has had no security fixes since {end_of_life}"
+    ),
+    "database_servers.unsupported_ended.hint": (
+        "Run it only for an application that needs it, and leave it off the internet. To go "
+        "ahead, confirm that you accept running it: unsupported_ok in the API, "
+        "--accept-unsupported on the command line."
+    ),
+    "database_servers.unsupported_ending": (
+        "{name} {version} stops getting security fixes on {end_of_life}"
+    ),
+    "database_servers.unsupported_ending.hint": (
+        "A server made today would run for a long time without them. To go ahead, confirm that "
+        "you accept it: unsupported_ok in the API, --accept-unsupported on the command line."
+    ),
+    # -- Database servers: the list, and the default of an engine (4.1, item 103) --------------
+    "database_servers.unknown": "There is no database server {key}",
+    "database_servers.unknown.hint": "List them with: {command}",
+    "database_servers.default_app": (
+        "{key} is the database of an application's stack, so it cannot be the default"
+    ),
+    "database_servers.default_app.hint": (
+        "A default is the system's engine or an instance Noust runs. Make one with: {command}"
+    ),
+    "database_servers.default_not_ready": "{key} is {state}, so it cannot be the default yet",
+    "database_servers.default_not_ready.hint": "Wait for it to finish, then choose it again.",
+    # -- A database an engine holds and Noust does not manage yet (4.1) ---------------------
+    "databases.already_added": "The database {name} on {engine} is already added to Noust",
     # -- Which control asks something of a person, and how to stop it asking -----------------
     # (noust.core.compliance.explain decides which one; the words are here.)
     "controls.asked_by_setting": (

@@ -69,6 +69,7 @@ from noust.deployers.helpers.databases import (
     database_identifiers,
     provision_database,
 )
+from noust.managers.database.adoption import record_database
 from noust.managers.database.base import (
     PROFILES,
     READ_ONLY_ACCOUNT_PREFIX,
@@ -1601,17 +1602,7 @@ class DatabaseService:
         for view in self.list_databases(engine):
             if view.tracked or view.missing:
                 continue
-            manager = self.manager(view.engine)
-            self.store.create_database(
-                Database(
-                    name=view.name,
-                    engine=view.engine,
-                    host="localhost",
-                    port=manager.server_port(),
-                    encoding=view.encoding,
-                )
-            )
-            adopted.append(f"{view.engine}/{view.name}")
+            adopted.append(record_database(self, view))
         if adopted:
             self.audit("db.adopt", engine or "all", databases=",".join(adopted))
         return adopted

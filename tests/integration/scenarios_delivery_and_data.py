@@ -1705,6 +1705,333 @@ def scenario_database_instances(sc: Scenario) -> None:
 
 
 # ---------------------------------------------------------------------------------------------
+# A MySQL 8.0 in a container beside the system's engine: a version its project no longer supports
+# ---------------------------------------------------------------------------------------------
+
+MY80_NAME = "my80"
+MY80_ENGINE = f"mysql@{MY80_NAME}"
+MY80_DATABASE = "shop"
+MY80_DUMP = "/root/it-shop80.sql"
+
+
+def databases_of(sc: Scenario, label: str) -> list[dict[str, Any]]:
+    """``noust db list --json``: the databases every engine holds."""
+    listed = json_of(sc.run("noust db list --json", timeout=120, label=label), "db list")
+    return listed if isinstance(listed, list) else listed["databases"]
+
+
+def servers_of(sc: Scenario, label: str) -> dict[str, dict[str, Any]]:
+    """``noust db servers --json``, by key."""
+    listing = json_of(sc.run("noust db servers --json", timeout=120, label=label), "db servers")
+    return {server["key"]: server for server in listing["servers"]}
+
+
+@scenario("database_instance_mysql80")
+def scenario_database_mysql_80_beside_the_system(sc: Scenario) -> None:
+    """
+    A MySQL 8.0 in a container lives beside the system's engine, with a database, its copy and its restoration.
+
+    MySQL 8.0 is a version its project no longer supports (item 103): the catalog offers it with the
+    date its support ended, pinned by digest, and Noust makes it only when the operator accepts that.
+    Beside the system's engine (MariaDB in the harness) the two are database servers of one list,
+    each the default of its own engine; the instance is published on loopback only and held to its
+    memory; a database in it takes data, is dumped and restored as a new one, survives a stop and a
+    start, and one the engine holds and Noust did not make is added to Noust by name. Removing the
+    instance takes its container, its volume and its unit with it, and leaves the system's engine as it was.
+    """
+    run.require_cli(sc, "db servers", what="the database servers of one list (4.1, item 103)")
+    run.require_docker(sc)
+    try:
+        # -- The system's engine is a database server, and the default of its engine ----------
+        before = servers_of(sc, "noust db servers (before)")
+        system = before.get("mysql")
+        sc.check(
+            system is not None, f"the system's engine is not a database server: {list(before)!r}"
+        )
+        assert system is not None
+        sc.check(
+            system["runs_in"] == "system"
+            and system["default"]
+            and system["default_source"] == "system",
+            f"the system's engine is not its own default: {system!r}",
+        )
+        system_flavour = system["flavour"]
+
+        # -- 8.0 is offered as a version without support, and not made without saying yes -----
+        catalog = json_of(
+            sc.run(
+                "noust db instance catalog --engine mysql --json",
+                timeout=30,
+                label="noust db instance catalog --engine mysql",
+            ),
+            "db instance catalog",
+        )
+        (entry,) = catalog["engines"]
+        versions = {item["version"]: item for item in entry["versions"]}
+        sc.check(
+            versions["8.0"]["unsupported"]
+            and versions["8.0"]["support"] == "ended"
+            and versions["8.0"]["end_of_life"] == "2026-04-30"
+            and not versions["8.0"]["default"],
+            f"the catalog does not say what MySQL 8.0 is: {versions['8.0']!r}",
+        )
+        sc.check(
+            re.fullmatch(r"sha256:[0-9a-f]{64}", versions["8.0"]["digest"]) is not None,
+            "MySQL 8.0 is not pinned by a digest",
+        )
+        refused = sc.run(
+            f"noust db instance create {MY80_NAME} --engine mysql --version 8.0 --memory 1g --yes",
+            timeout=120,
+            check=False,
+            label="noust db instance create --version 8.0 (without accepting it)",
+        )
+        said = refused.stdout + refused.stderr
+        sc.check(
+            refused.returncode != 0 and "--accept-unsupported" in said and "2026-04-30" in said,
+            f"the refusal does not say the date and how to accept it: {said!r}",
+        )
+        nothing = sc.run(
+            f"docker ps -aq -f name=noust-db-{MY80_NAME} | wc -l; "
+            f"systemctl list-unit-files 'noust-db-{MY80_NAME}*' --no-legend | wc -l",
+            timeout=30,
+            label="what the refused creation left",
+        ).stdout.split()
+        sc.check(
+            nothing == ["0", "0"], f"the refused creation left containers or units: {nothing!r}"
+        )
+
+        # -- Made, beside the system's engine -------------------------------------------------
+        made = json_of(
+            sc.run(
+                f"noust db instance create {MY80_NAME} --engine mysql --version 8.0 --memory 1g "
+                "--accept-unsupported --yes --json",
+                timeout=1800,
+                label=f"noust db instance create {MY80_NAME} --engine mysql --version 8.0 --memory 1g",
+            ),
+            "db instance create",
+        )
+        sc.check(made["key"] == MY80_ENGINE, f"the instance is addressed as {made['key']!r}")
+        sc.check(
+            made["digest"] == versions["8.0"]["digest"]
+            and made["reference"].endswith(made["digest"]),
+            f"the instance does not run the digest the catalog pins: {made['reference']!r}",
+        )
+        sc.check(
+            (made["support"], made["end_of_life"]) == ("ended", "2026-04-30"),
+            f"the instance does not say its support ended: {made['support']!r} {made['end_of_life']!r}",
+        )
+        port = made["host_port"]
+        container = sc.run(
+            f"docker ps -q -f name=noust-db-{MY80_NAME} | head -1",
+            timeout=15,
+            label="the instance's container",
+        ).stdout.strip()
+        sc.check(bool(container), "no container is running for the instance")
+        published = sc.run(
+            f"docker port {container}", timeout=15, label="docker port <the instance>"
+        ).stdout
+        sc.check(
+            f"127.0.0.1:{port}" in published and "0.0.0.0" not in published,  # noqa: S104 - the check that it is not bound
+            f"the instance is published beyond loopback: {published!r}",
+        )
+        memory = sc.run(
+            f"docker inspect -f '{{{{.HostConfig.Memory}}}}' {container}",
+            timeout=15,
+            label="the memory limit Docker holds it to",
+        ).stdout.strip()
+        sc.check(memory == str(1024 * 1024 * 1024), f"the container's memory limit is {memory}")
+
+        # -- Two database servers of one list -------------------------------------------------
+        beside = servers_of(sc, "noust db servers (beside)")
+        mine, theirs = beside.get(MY80_ENGINE), beside.get("mysql")
+        sc.check(
+            mine is not None and theirs is not None, f"the list lost a server: {list(beside)!r}"
+        )
+        assert mine is not None and theirs is not None
+        sc.check(
+            mine["runs_in"] == "noust_container"
+            and mine["flavour"] == "mysql"
+            and mine["version"] == "8.0"
+            and mine["running"]
+            and mine["name"] == MY80_NAME,
+            f"the instance is not described as a container beside the system's: {mine!r}",
+        )
+        sc.check(
+            theirs["runs_in"] == "system"
+            and theirs["flavour"] == system_flavour
+            and theirs["databases"] == system["databases"],
+            f"the system's engine changed when the instance was made: {theirs!r} vs {system!r}",
+        )
+        sc.check(
+            mine["port"] != theirs["port"],
+            f"the instance and the system's engine share a port: {mine['port']!r}",
+        )
+        # Each engine has its own default: MariaDB and MySQL are two, and the one there is of
+        # an engine is its default.
+        sc.check(
+            theirs["default"] and mine["default"] == (system_flavour != "mysql"),
+            f"the defaults are not one per engine: {theirs['default']!r}, {mine['default']!r}",
+        )
+        engines = sc.run(
+            "noust db engines --json", timeout=60, label="noust db engines --json"
+        ).stdout
+        sc.check(MY80_ENGINE in engines, "the instance is not listed among the engines")
+
+        # -- A database in it takes data, and is copied -----------------------------------------
+        sc.run(
+            f"noust db create {MY80_DATABASE} --engine {MY80_ENGINE}",
+            timeout=120,
+            label=f"noust db create {MY80_DATABASE} --engine {MY80_ENGINE}",
+        )
+        db_query(
+            sc,
+            MY80_DATABASE,
+            "CREATE TABLE orders (id int PRIMARY KEY, quantity int)",
+            engine=MY80_ENGINE,
+            write=True,
+            label="CREATE TABLE orders",
+        )
+        db_query(
+            sc,
+            MY80_DATABASE,
+            "INSERT INTO orders VALUES (1, 10), (2, 20)",
+            engine=MY80_ENGINE,
+            write=True,
+            label="INSERT two orders",
+        )
+        rows = orders(sc, MY80_ENGINE, MY80_DATABASE, "the orders")
+        sc.check("10" in rows and "20" in rows, f"the data is not there: {rows!r}")
+        server_rows = db_query(
+            sc, MY80_DATABASE, "SELECT VERSION()", engine=MY80_ENGINE, label="the engine's version"
+        ).stdout
+        sc.check(
+            "8.0" in server_rows, f"the engine in the container is not MySQL 8.0: {server_rows!r}"
+        )
+        sc.run(
+            f"noust db backup {MY80_DATABASE} --engine {MY80_ENGINE} --output {MY80_DUMP}",
+            timeout=180,
+            label="noust db backup shop",
+        )
+        sc.run(
+            f"noust db restore {MY80_DATABASE} {MY80_DUMP} --engine {MY80_ENGINE} "
+            "--as-new shop_copy --force",
+            timeout=180,
+            label="noust db restore --as-new shop_copy",
+        )
+        copy = orders(sc, MY80_ENGINE, "shop_copy", "the orders of the copy")
+        sc.check("10" in copy and "20" in copy, f"the restored copy lacks the data: {copy!r}")
+        counted = servers_of(sc, "noust db servers (with data)")[MY80_ENGINE]["databases"]
+        sc.check(counted == 2, f"the server does not count its two databases: {counted!r}")
+
+        # -- A database the engine holds and Noust did not make is added by name --------------
+        db_query(
+            sc,
+            "mysql",
+            "CREATE DATABASE loose",
+            engine=MY80_ENGINE,
+            write=True,
+            label="a database made outside Noust",
+        )
+        loose = next(
+            (
+                d
+                for d in databases_of(sc, "noust db list --json")
+                if d["name"] == "loose" and d["engine"] == MY80_ENGINE
+            ),
+            None,
+        )
+        sc.check(
+            loose is not None and loose["tracked"] is False,
+            f"a database made outside Noust is not shown as one Noust does not manage: {loose!r}",
+        )
+        sc.run(
+            f"noust db adopt loose --engine {MY80_ENGINE}",
+            timeout=120,
+            label="noust db adopt loose --engine (add one database to Noust)",
+        )
+        after_adopt = {
+            d["name"]: d
+            for d in databases_of(sc, "noust db list --json (after)")
+            if d["engine"] == MY80_ENGINE
+        }
+        sc.check(
+            after_adopt["loose"]["tracked"] is True and after_adopt[MY80_DATABASE]["tracked"],
+            f"adding one database to Noust did not add it: {after_adopt.get('loose')!r}",
+        )
+
+        # -- The default of an engine is a choice that can be taken back ----------------------
+        chosen = json_of(
+            sc.run(
+                f"noust db servers default {MY80_ENGINE} --json",
+                timeout=60,
+                label=f"noust db servers default {MY80_ENGINE}",
+            ),
+            "db servers default",
+        )
+        sc.check(
+            chosen["default"] and chosen["default_source"] == "chosen",
+            f"choosing the default did not take: {chosen!r}",
+        )
+        taken = json_of(
+            sc.run(
+                f"noust db servers default {MY80_ENGINE} --clear --json",
+                timeout=60,
+                label=f"noust db servers default {MY80_ENGINE} --clear",
+            ),
+            "db servers default --clear",
+        )
+        sc.check(
+            taken["default_source"] != "chosen", f"taking the choice back did not take: {taken!r}"
+        )
+
+        # -- Stopped and started: the data is in the volume -------------------------------------
+        sc.run(f"noust db instance stop {MY80_NAME}", timeout=120, label="noust db instance stop")
+        listed_stopped = servers_of(sc, "noust db servers (stopped)")[MY80_ENGINE]
+        sc.check(
+            listed_stopped["state"] == "stopped" and "start" in listed_stopped["actions"],
+            f"a stopped instance is not listed as one that can be started: {listed_stopped!r}",
+        )
+        gone = db_query(
+            sc,
+            MY80_DATABASE,
+            "SELECT 1",
+            engine=MY80_ENGINE,
+            check=False,
+            label="a query while it is stopped",
+        )
+        sc.check(gone.returncode != 0, "a stopped instance answered a query")
+        sc.run(f"noust db instance start {MY80_NAME}", timeout=300, label="noust db instance start")
+        again = orders(sc, MY80_ENGINE, MY80_DATABASE, "the orders after a stop and a start")
+        sc.check("10" in again and "20" in again, f"the data did not survive a restart: {again!r}")
+
+        # -- The system's engine was never touched ----------------------------------------------
+        after = servers_of(sc, "noust db servers (after)")
+        sc.check(
+            after["mysql"]["databases"] == system["databases"]
+            and after["mysql"]["port"] == system["port"],
+            f"the system's engine changed while the instance lived beside it: {after['mysql']!r}",
+        )
+    except AssertionError:
+        journal_tail(sc, "-u 'noust-db-*' -u docker", "journalctl (on failure)")
+        raise
+    finally:
+        sc.run(
+            f"noust db instance remove {MY80_NAME} --yes; rm -f {MY80_DUMP}",
+            timeout=300,
+            check=False,
+            label="cleanup",
+        )
+    left = sc.run(
+        "docker ps -aq -f name=noust-db- | wc -l; docker volume ls -q -f name=noust-db- | wc -l; "
+        "ls /var/lib/noust/db-instances 2>/dev/null | wc -l; "
+        "systemctl list-unit-files 'noust-db-*' --no-legend | wc -l",
+        timeout=60,
+        label="what removing the instance left behind",
+    ).stdout.split()
+    sc.check(left == ["0", "0", "0", "0"], f"containers, volumes, files, units left: {left!r}")
+
+
+# ---------------------------------------------------------------------------------------------
 # Previews by hand: a branch, a name template, the variables, a clone of the data, the hooks
 # ---------------------------------------------------------------------------------------------
 

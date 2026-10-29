@@ -38,12 +38,11 @@ error carries the container's own log.
 
 from __future__ import annotations
 
-import json
 import platform
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from noust.central import require_server_role
 from noust.core.database_exposures import ExposureStore
@@ -56,6 +55,7 @@ from noust.core.db_instance_store import (
     InstanceRecord,
     check_launch,
 )
+from noust.core.db_server_defaults import DbServerDefaultStore
 from noust.core.exceptions import (
     ConfirmationRequired,
     DatabaseBackupError,
@@ -81,6 +81,8 @@ from noust.managers.database.instance_catalog import (
     resolve_pin,
     spec_for,
     spec_of_record,
+    unsupported_notice,
+    unsupported_text,
     with_variant,
 )
 from noust.managers.database.instance_compose import (
@@ -89,6 +91,7 @@ from noust.managers.database.instance_compose import (
     render_engine_config,
     render_env,
 )
+from noust.managers.database.instance_images import PULL_TIMEOUT, pull_and_read_digest
 from noust.managers.database.instance_records import key_of, stub_instance
 from noust.managers.database.instances import instance_key, storage_name
 from noust.managers.database.service import DatabaseService
@@ -101,6 +104,9 @@ from noust.validators.db_instance import (
     check_instance_name,
     check_memory,
 )
+
+if TYPE_CHECKING:
+    from noust.core.server_text import ServerText
 
 __all__ = [
     "HEALTH_SECONDS",
@@ -120,9 +126,6 @@ SIGNIN_SECONDS = 90
 
 #: Seconds between two looks at the container.
 POLL_SECONDS = 3
-
-#: What Docker may take to pull an image: a database image is several hundred megabytes.
-PULL_TIMEOUT = 1800
 
 #: What a Docker command that only looks or removes may take.
 DOCKER_TIMEOUT = 120
@@ -173,6 +176,14 @@ class InstancePlan:
         custom: The image is the operator's, pinned by them, and not the catalog's.
         command: The whole command the operator made the container run, or empty.
         args: What the operator adds after the arguments Noust passes, or empty.
+        unsupported: The version is one whose project has stopped fixing security problems, or
+            is about to (:func:`~noust.managers.database.instance_catalog.unsupported_notice`):
+            making it needs ``unsupported_ok``.
+        support: Where its version stands in its project's support (``supported``,
+            ``ending_soon``, ``ended`` or ``unknown``).
+        end_of_life: The date the support ends or ended, or None when none is published.
+        unsupported_text: The sentence ``unsupported`` is confirmed with, as a code and its
+            values; None for a version that needs no confirmation.
     """
 
     name: str
@@ -192,11 +203,44 @@ class InstancePlan:
     custom: bool = False
     command: tuple[str, ...] = ()
     args: tuple[str, ...] = ()
+    unsupported: bool = False
+    support: str | None = None
+    end_of_life: str | None = None
+    unsupported_text: ServerText | None = None
 
     @property
     def requires_confirmation(self) -> bool:
         """Whether creating it needs the operator to accept that Noust did not test it."""
         return self.custom or bool(self.command) or bool(self.args)
+
+    @property
+    def requires_unsupported_ok(self) -> bool:
+        """Whether creating it needs the operator to accept running a version without support."""
+        return self.unsupported
+
+    @property
+    def digest_pending(self) -> bool:
+        """Whether the digest is read when the instance is made (an image given by its tag)."""
+        return not self.digest
+
+    def require_unsupported_accepted(self, accepted: bool) -> None:
+        """
+        Refuse a version without support the operator has not accepted running.
+
+        Asked before the price of an image of their own, so that one answer comes at a time and
+        the first is the one about the engine's version.
+
+        Args:
+            accepted: The operator accepted (``unsupported_ok``).
+
+        Raises:
+            ConfirmationRequired: The version is unsupported and they did not; ``field`` is
+                ``unsupported_ok`` and it carries the sentence with the date.
+        """
+        if self.unsupported and not accepted and self.unsupported_text is not None:
+            raise ConfirmationRequired(
+                [self.unsupported_text.text], field="unsupported_ok", coded=self.unsupported_text
+            )
 
     def require_accepted(self, accepted: bool) -> None:
         """
@@ -234,7 +278,9 @@ class InstancePlan:
             "version": self.version,
             "image": self.image,
             "digest": self.digest,
-            "reference": f"{self.image}:{self.tag or self.version}@{self.digest}",
+            "digest_pending": self.digest_pending,
+            "reference": f"{self.image}:{self.tag or self.version}"
+            + (f"@{self.digest}" if self.digest else ""),
             "host_port": self.host_port,
             "memory_limit_mb": self.memory_limit_mb,
             "warnings": list(self.warnings),
@@ -245,6 +291,11 @@ class InstancePlan:
             "command": list(self.command),
             "args": list(self.args),
             "requires_confirmation": self.requires_confirmation,
+            "unsupported": self.unsupported,
+            "requires_unsupported_ok": self.requires_unsupported_ok,
+            "support": self.support,
+            "end_of_life": self.end_of_life,
+            "unsupported_coded": self.unsupported_text.to_dict() if self.unsupported_text else None,
         }
 
 
@@ -574,14 +625,17 @@ class ManagedInstances:
                 ``postgis``); the engine's own image when None.
             init_scripts: SQL scripts (name and content) the engine runs, in name order, the
                 first time it starts: PostgreSQL, MySQL and MariaDB only.
-            image: An image of the operator's own, ``repository[:tag]@sha256:digest``: the
-                engine from an image Noust did not choose, which the operator pins. It needs
-                ``version``, which says what the image is, and is not a ``variant``.
+            image: An image of the operator's own, ``repository:tag`` (Noust reads the tag's
+                digest when it makes the instance and pins it) or
+                ``repository[:tag]@sha256:digest`` (pinned by the operator): the engine from an
+                image Noust did not choose. It needs ``version``, which says what the image is,
+                and is not a ``variant``.
             command: The whole command the container runs, instead of the engine's own.
             args: Arguments added after the ones Noust passes the engine. Not with a command.
 
         Returns:
-            The plan.
+            The plan. Its ``digest`` is empty for an image given by its tag: it is read when
+            the instance is made.
 
         Raises:
             ValidationError: Something asked for cannot be had, Docker or its
@@ -595,14 +649,16 @@ class ManagedInstances:
         spec, chosen = self._spec_asked(engine, variant, version, image)
         pin = resolve_pin(spec, version)
         architecture = host_architecture()
-        if architecture not in spec.platforms:
+        platforms = pin.platforms or spec.platforms
+        if architecture not in platforms:
             raise ValidationError(
-                f"{spec.display_name} is not published for this server's processor ({architecture})",
+                f"{spec.display_name} {pin.version} is not published for this server's processor "
+                f"({architecture})",
                 details=(
-                    f"Its image exists for {', '.join(spec.platforms)} only. Use the engine's own "
-                    "image, or another variant, on this server."
+                    f"Its image exists for {', '.join(platforms)} only. Use another version, the "
+                    "engine's own image or another variant on this server."
                 ),
-                field="variant",
+                field="version" if pin.platforms else "variant",
             )
         self._require_docker()
         key = instance_key(spec.engine, container=name)
@@ -629,6 +685,8 @@ class ManagedInstances:
                 field="init_scripts",
             )
         host_port = self._choose_port(port, spec)
+        notice = support_notice(spec.flavour, pin.version)
+        old = unsupported_notice(spec, pin)
         return InstancePlan(
             name=name,
             key=key,
@@ -649,6 +707,10 @@ class ManagedInstances:
                 command=bool(words),
                 args=bool(extra),
             ),
+            unsupported=old is not None,
+            support=notice.status,
+            end_of_life=notice.end_of_life,
+            unsupported_text=unsupported_text(spec, pin, old) if old is not None else None,
             variant=CUSTOM_VARIANT
             if chosen is not None
             else (variant.strip().lower() if variant and variant.strip() else None),
@@ -697,7 +759,7 @@ class ManagedInstances:
                 "image it did not choose.",
                 field="version",
             )
-        chosen = parse_custom_image(str(image).strip())
+        chosen = parse_custom_image(str(image).strip(), pin_later=True)
         return custom_spec(spec, chosen, version), chosen
 
     def _require_docker(self) -> None:
@@ -872,8 +934,18 @@ class ManagedInstances:
                 "its extensions are the ones that image installed, and its database dumps can "
                 "only be loaded into an engine that has them."
             )
+        if custom and not pin.digest:
+            warnings.append(
+                f"Noust reads the digest of {spec.repository}:{pin.tag} when it makes the "
+                "instance and pins it: what runs is exactly those bytes, whatever the registry "
+                "serves for the tag later. The digest is in the instance's description once it "
+                "exists."
+            )
         notice = support_notice(spec.flavour, pin.version)
-        if notice.status in ("ended", "ending_soon"):
+        old = unsupported_notice(spec, pin)
+        if old is not None:
+            warnings.append(unsupported_text(spec, pin, old).text)
+        elif notice.status in ("ended", "ending_soon"):
             warnings.append(notice.message)
         return warnings
 
@@ -893,6 +965,7 @@ class ManagedInstances:
         command: Sequence[str] | None = None,
         args: Sequence[str] | None = None,
         accept_untested: bool = False,
+        unsupported_ok: bool = False,
     ) -> dict[str, Any]:
         """
         Make an instance, start it, and return once it answers.
@@ -910,22 +983,27 @@ class ManagedInstances:
             init_scripts: SQL scripts (name and content) the engine runs the first time it
                 starts, in name order. They are written beside the Compose file and are not
                 run again.
-            image: An image of the operator's own, pinned by digest (see :meth:`plan`).
+            image: An image of the operator's own, by tag or pinned by digest (see
+                :meth:`plan`); one given by its tag is pinned here, before anything is made.
             command: The whole command the container runs instead of the engine's.
             args: Arguments added after the ones Noust passes the engine.
             accept_untested: The operator accepts what running an image, a command or arguments
                 Noust did not choose costs; without it, creating one is refused with the price.
+            unsupported_ok: The operator accepts running a version whose project has stopped
+                fixing security problems (or is about to); without it, creating one is refused
+                with the date.
 
         Returns:
             The instance, as :meth:`describe` says.
 
         Raises:
             ValidationError: Something asked for cannot be had.
-            ConfirmationRequired: An image, a command or arguments of the operator's own, without
-                ``accept_untested``; nothing was changed.
+            ConfirmationRequired: A version without support (``unsupported_ok``), or an image,
+                a command or arguments of the operator's own (``accept_untested``), without the
+                confirmation; nothing was changed.
             DatabaseExistsError: The name is taken or left something behind.
-            DatabaseEngineError: The image cannot be pulled, the unit fails or the
-                engine does not answer.
+            DatabaseEngineError: The image cannot be pulled, its digest cannot be read, the
+                unit fails or the engine does not answer.
         """
         decided = self.plan(
             name,
@@ -939,7 +1017,20 @@ class ManagedInstances:
             command=command,
             args=args,
         )
+        decided.require_unsupported_accepted(unsupported_ok)
         decided.require_accepted(accept_untested)
+        if decided.digest_pending:
+            # An image given by registry and tag: the digest is what is pinned, read once, here,
+            # before a row exists, so a registry that cannot say leaves nothing to undo.
+            decided = replace(
+                decided,
+                digest=pull_and_read_digest(
+                    self._docker,
+                    decided.image,
+                    decided.tag or decided.version,
+                    say=self.logger.info,
+                ),
+            )
         password = BaseDatabaseManager.generate_password(32)
         record = self.records.create(
             name=decided.name,
@@ -980,6 +1071,8 @@ class ManagedInstances:
             variant=record.variant,
             port=record.host_port,
             memory_mb=record.memory_limit_mb,
+            unsupported=True if decided.unsupported else None,
+            end_of_life=decided.end_of_life if decided.unsupported else None,
         )
         done = self.records.get(name) or replace(record, state=READY)
         return self.describe(done)
@@ -1364,31 +1457,8 @@ class ManagedInstances:
         Raises:
             DatabaseEngineError: Docker could not pull it or says nothing of it.
         """
-        reference = f"{record.image}:{record.tag}"
-        self.logger.info(f"Looking for a newer {reference}")
-        pulled = self._docker("pull", reference, timeout=PULL_TIMEOUT)
-        if not pulled.success:
-            raise DatabaseEngineError(
-                f"Docker could not pull {reference}",
-                details="Check that this server reaches Docker Hub and that the daemon runs.",
-                output=(pulled.stderr or pulled.stdout).strip() or None,
-            )
-        shown = self._docker(
-            "inspect", "--type", "image", "--format", "{{json .RepoDigests}}", reference, timeout=30
-        )
-        try:
-            listed = json.loads(shown.stdout or "[]") if shown.success else []
-        except json.JSONDecodeError:
-            listed = []
-        prefix = f"{record.image}@"
-        for entry in listed if isinstance(listed, list) else []:
-            if isinstance(entry, str) and entry.startswith(prefix):
-                return entry[len(prefix) :]
-        raise DatabaseEngineError(
-            f"Docker did not say which digest {reference} is",
-            details="Run 'docker image inspect' on it to see what it holds.",
-            output=(shown.stderr or shown.stdout).strip() or None,
-        )
+        self.logger.info(f"Looking for a newer {record.image}:{record.tag}")
+        return pull_and_read_digest(self._docker, record.image, record.tag, say=self.logger.info)
 
     def check_upgrade(
         self, name: str, image: str | None, accept_untested: bool
@@ -1780,6 +1850,8 @@ class ManagedInstances:
             record: The instance's row.
         """
         key = key_of(record)
+        # An engine that had this instance as its chosen default has the automatic one again.
+        DbServerDefaultStore(self.service.store).forget(key)
         self.service.refresh_instances()
         for row in self.service.store.list_databases(engine=key):
             self.service.forget(key, row.name)

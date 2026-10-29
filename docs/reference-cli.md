@@ -5751,7 +5751,7 @@ Install engines, and manage databases, users, backups and application links.
 noust db [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`access`](#noust-db-access), [`adopt`](#noust-db-adopt), [`backup`](#noust-db-backup), [`backup-delete`](#noust-db-backup-delete), [`backup-push`](#noust-db-backup-push), [`backup-remote`](#noust-db-backup-remote), [`backup-run`](#noust-db-backup-run), [`backup-schedule`](#noust-db-backup-schedule), [`backup-verify`](#noust-db-backup-verify), [`backups`](#noust-db-backups), [`catalog`](#noust-db-catalog), [`choices`](#noust-db-choices), [`config`](#noust-db-config), [`connect`](#noust-db-connect), [`connect-info`](#noust-db-connect-info), [`connection-string`](#noust-db-connection-string), [`create`](#noust-db-create), [`describe`](#noust-db-describe), [`drop`](#noust-db-drop), [`engines`](#noust-db-engines), [`explain`](#noust-db-explain), [`export`](#noust-db-export), [`exposure`](#noust-db-exposure), [`extension`](#noust-db-extension), [`fix-owner`](#noust-db-fix-owner), [`forget`](#noust-db-forget), [`globals`](#noust-db-globals), [`grant`](#noust-db-grant), [`history`](#noust-db-history), [`import`](#noust-db-import), [`import-all`](#noust-db-import-all), [`info`](#noust-db-info), [`install`](#noust-db-install), [`instance`](#noust-db-instance), [`key`](#noust-db-key), [`keys`](#noust-db-keys), [`limits`](#noust-db-limits), [`link`](#noust-db-link), [`links`](#noust-db-links), [`list`](#noust-db-list), [`metrics`](#noust-db-metrics), [`move`](#noust-db-move), [`pitr`](#noust-db-pitr), [`provision`](#noust-db-provision), [`public`](#noust-db-public), [`query`](#noust-db-query), [`replica`](#noust-db-replica), [`restart`](#noust-db-restart), [`restore`](#noust-db-restore), [`restore-remote`](#noust-db-restore-remote), [`revoke`](#noust-db-revoke), [`row`](#noust-db-row), [`rows`](#noust-db-rows), [`saved`](#noust-db-saved), [`settings`](#noust-db-settings), [`slow-queries`](#noust-db-slow-queries), [`sqlite`](#noust-db-sqlite), [`start`](#noust-db-start), [`status`](#noust-db-status), [`stop`](#noust-db-stop), [`tables`](#noust-db-tables), [`tag`](#noust-db-tag), [`tls`](#noust-db-tls), [`transfer`](#noust-db-transfer), [`uninstall`](#noust-db-uninstall), [`unlink`](#noust-db-unlink), [`user-create`](#noust-db-user-create), [`user-delete`](#noust-db-user-delete), [`user-list`](#noust-db-user-list), [`user-password`](#noust-db-user-password)
+Subcommands: [`access`](#noust-db-access), [`adopt`](#noust-db-adopt), [`backup`](#noust-db-backup), [`backup-delete`](#noust-db-backup-delete), [`backup-push`](#noust-db-backup-push), [`backup-remote`](#noust-db-backup-remote), [`backup-run`](#noust-db-backup-run), [`backup-schedule`](#noust-db-backup-schedule), [`backup-verify`](#noust-db-backup-verify), [`backups`](#noust-db-backups), [`catalog`](#noust-db-catalog), [`choices`](#noust-db-choices), [`config`](#noust-db-config), [`connect`](#noust-db-connect), [`connect-info`](#noust-db-connect-info), [`connection-string`](#noust-db-connection-string), [`create`](#noust-db-create), [`describe`](#noust-db-describe), [`drop`](#noust-db-drop), [`engines`](#noust-db-engines), [`explain`](#noust-db-explain), [`export`](#noust-db-export), [`exposure`](#noust-db-exposure), [`extension`](#noust-db-extension), [`fix-owner`](#noust-db-fix-owner), [`forget`](#noust-db-forget), [`globals`](#noust-db-globals), [`grant`](#noust-db-grant), [`history`](#noust-db-history), [`import`](#noust-db-import), [`import-all`](#noust-db-import-all), [`info`](#noust-db-info), [`install`](#noust-db-install), [`instance`](#noust-db-instance), [`key`](#noust-db-key), [`keys`](#noust-db-keys), [`limits`](#noust-db-limits), [`link`](#noust-db-link), [`links`](#noust-db-links), [`list`](#noust-db-list), [`metrics`](#noust-db-metrics), [`move`](#noust-db-move), [`pitr`](#noust-db-pitr), [`provision`](#noust-db-provision), [`public`](#noust-db-public), [`query`](#noust-db-query), [`replica`](#noust-db-replica), [`restart`](#noust-db-restart), [`restore`](#noust-db-restore), [`restore-remote`](#noust-db-restore-remote), [`revoke`](#noust-db-revoke), [`row`](#noust-db-row), [`rows`](#noust-db-rows), [`saved`](#noust-db-saved), [`servers`](#noust-db-servers), [`settings`](#noust-db-settings), [`slow-queries`](#noust-db-slow-queries), [`sqlite`](#noust-db-sqlite), [`start`](#noust-db-start), [`status`](#noust-db-status), [`stop`](#noust-db-stop), [`tables`](#noust-db-tables), [`tag`](#noust-db-tag), [`tls`](#noust-db-tls), [`transfer`](#noust-db-transfer), [`uninstall`](#noust-db-uninstall), [`unlink`](#noust-db-unlink), [`user-create`](#noust-db-user-create), [`user-delete`](#noust-db-user-delete), [`user-list`](#noust-db-user-list), [`user-password`](#noust-db-user-password)
 
 ### noust db access
 
@@ -5774,11 +5774,13 @@ Arguments: `database`
 
 ### noust db adopt
 
-Track the databases created outside Noust.
+Add to Noust the databases created outside it: all of them, or NAME (with --engine).
 
 ```bash
-noust db adopt [OPTIONS]
+noust db adopt [OPTIONS] [NAME]
 ```
+
+Arguments: `name`
 
 | Option | What it does | Default |
 |---|---|---|
@@ -6474,6 +6476,7 @@ noust db instance catalog [OPTIONS]
 
 | Option | What it does | Default |
 |---|---|---|
+| `--engine`, `-e` | Only this engine: another version of one you have chosen. |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
@@ -6498,10 +6501,11 @@ Arguments: `name`
 | `--port` | The port on 127.0.0.1. A free one just above the engine's own when omitted. |  |
 | `--variant` | An image of the engine with something added, such as pgvector or postgis for PostgreSQL ('noust db instance catalog'). The engine's own image when omitted. |  |
 | `--init-script` | A .sql file the engine runs, in name order, the first time it starts (PostgreSQL, MySQL and MariaDB; repeatable). It is not run again, and it is readable by the container: no secrets. |  |
-| `--image` | An image of your own instead of the catalog's: repository[:tag]@sha256:DIGEST. The digest is mandatory (a tag can be moved after you looked; 'docker buildx imagetools inspect REPO:TAG' prints it) and --version says which version it is. Noust has not tested it. |  |
+| `--image` | An image of your own instead of the catalog's: REGISTRY/REPOSITORY:TAG, whose digest Noust reads and pins when it makes the instance (a tag can be moved after you looked; the instance runs the digest), or repository[:tag]@sha256:DIGEST when you pin it yourself. --version says which version it is. Noust has not tested it. |  |
 | `--args` | Arguments added after the ones Noust passes the engine, such as '-c max_connections=200'. Split like a shell would and never run by one. Not with --command. No secrets: a command line is visible to every local user. |  |
 | `--command` | The container's whole command, instead of the engine's: Noust adds nothing to it (the memory share, TLS), so it is refused for an instance that serves TLS. Not with --args. |  |
 | `--accept-untested` | Accept that Noust has not tested an image, a command or arguments you chose. Needed with --yes or --json for them; --yes alone answers the question, not this. |  |
+| `--accept-unsupported` | Accept running a version whose project has stopped fixing security problems, or is about to ('noust db instance catalog' marks them). Needed with --yes or --json for them; --yes alone answers the question, not this. |  |
 | `--yes`, `-y` | Do not ask before making it. |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
@@ -7541,6 +7545,57 @@ Arguments: `saved_id`
 
 | Option | What it does | Default |
 |---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust db servers
+
+The database servers: where databases run, and the default of each engine.
+
+```bash
+noust db servers [OPTIONS] [COMMAND] [ARGS]...
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--engine`, `-e` | Only this engine: mysql is MySQL and MariaDB, mariadb only MariaDB. |  |
+| `--json` | Print the servers as JSON. |  |
+
+Subcommands: [`default`](#noust-db-servers-default), [`list`](#noust-db-servers-list)
+
+### noust db servers default
+
+Make a server the one a new database of its engine is made on.
+
+```bash
+noust db servers default [OPTIONS] KEY
+```
+
+Arguments: `key`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--clear` | Take the choice back: the engine's default is the one Noust works out (the system's engine, else the only one, else the oldest). |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the server as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust db servers list
+
+List the database servers: the system's engines and the containers, in one table.
+
+```bash
+noust db servers list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--engine`, `-e` | Only this engine: mysql is MySQL and MariaDB, mariadb only MariaDB. |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the servers as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust db settings

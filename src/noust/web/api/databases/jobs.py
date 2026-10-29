@@ -342,6 +342,7 @@ def instance_job(
     command: list[str] | None = None,
     args: list[str] | None = None,
     accept_untested: bool = False,
+    unsupported_ok: bool = False,
     actor: str | None = None,
     job_context: JobContext | None = None,
 ) -> dict[str, Any]:
@@ -363,12 +364,15 @@ def instance_job(
         variant: The image variant, for ``create``.
         init_scripts: SQL scripts (``name`` and ``content``) the engine runs the first time it
             starts, for ``create``.
-        image: An image of the operator's own, pinned by digest: for ``create``, and for an
-            ``upgrade`` of an instance already on one.
+        image: An image of the operator's own, by tag (Noust pins it when it makes the
+            instance) or pinned by digest: for ``create``; for an ``upgrade`` of an instance
+            already on one, pinned by digest.
         command: The container's whole command, for ``create``.
         args: Arguments added after the engine's, for ``create``.
         accept_untested: The operator accepted that Noust did not test what they chose, checked
             when the job was queued.
+        unsupported_ok: The operator accepted running a version without support, for ``create``;
+            checked when the job was queued and again by the manager.
         actor: Who queued it, as the audit trail names them.
         job_context: Injected by the job manager.
 
@@ -400,6 +404,7 @@ def instance_job(
                 command=command,
                 args=args,
                 accept_untested=accept_untested,
+                unsupported_ok=unsupported_ok,
             )
         }
     elif action == "start":

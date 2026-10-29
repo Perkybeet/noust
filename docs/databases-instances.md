@@ -68,6 +68,45 @@ host's. Everything below that says "an engine" says it of an instance too.
 `--version` matches by components (`8` is MySQL 8.4; `11` is ambiguous for MariaDB and says so).
 A new version is added to the catalog by a release of Noust, after reading it from its registry.
 
+**Versions whose project no longer supports them.** An application that still needs MySQL 5.7 or PostgreSQL 13
+can have it beside the current one. These versions are in the catalog too, pinned by digest like the rest, each
+with the date its project stopped fixing security problems:
+
+| Engine | Versions without support | Support ended or ends |
+|---|---|---|
+| MySQL | 5.7 (amd64 only), 8.0 | 2023-10-31, 2026-04-30 |
+| PostgreSQL | 12, 13, 14 | 2024-11-21, 2025-11-13, 2026-11-12 |
+| MariaDB | 10.6 | 2026-07-06 |
+| MongoDB | 6.0 | 2025-07-31 |
+
+`noust db instance catalog` marks them `(no support)`, and `noust db instance create` says since when they have
+had no security fixes and asks you to accept running them: say yes to the question, or give
+`--accept-unsupported` (`--yes` alone is not accepting it). The API takes `unsupported_ok` and answers a 400
+`confirmation_required` on that field, with the date and a code the console translates, until it is given. They
+are never the default, and a prefix still means the supported version it always meant (`--version 8` is 8.4;
+8.0 is asked for as `8.0`). A version whose project's date passes while it is still in the catalog needs the same
+confirmation, and so does an image of your own that says it is such a version. Redis, Valkey, KeyDB and ClickHouse
+publish no end-of-support date for a version, so Noust offers no older one of them.
+
+**Database servers.** The system's engine and the instances are all *database servers*, and
+`noust db servers` lists them together: engine and version, where each runs (the system, a container Noust runs,
+or a container an application's stack runs), when its support ends, how many databases it holds and which is the
+**default** of its engine. A database made with just the engine's name (`noust db create shop --engine mysql`, or
+the database a new application asks for) goes to the default. Nobody chose one: it is the system's engine, else the
+only instance there is, else the oldest. `noust db servers default mysql@legacy` chooses it, `--clear` takes the
+choice back, and a version asked for (`--version`) or a server named by its key (`mysql@legacy`) is always honoured
+over it. The console reads the same list from `GET /api/databases/servers`.
+
+```bash
+noust db servers                                  # every database server, with its default
+noust db servers default mysql@legacy             # new MySQL databases go to the instance
+noust db servers default mysql@legacy --clear     # back to the system's engine
+noust db adopt shop --engine mysql@legacy         # add one database Noust does not manage yet to Noust
+```
+
+A database an engine holds and Noust does not manage is not a kind of database: its state is *not added* and the
+action is to add it (`noust db adopt NAME --engine ENGINE`, `POST /api/databases/databases/{engine}/{name}/adopt`).
+
 **KeyDB** is a fork of Redis 6.2 that speaks its protocol and keeps its files, so it is driven by the same
 code as Redis and Valkey (keys browser, accounts, profiles, snapshots, metrics, backup policies). It only runs as
 an instance: no distribution packages it, so `noust db install keydb` says to make one
@@ -176,7 +215,10 @@ by digest by Noust. When you need another (your own build with an extension, a v
 an instance can run it, with the price said and accepted first:
 
 ```bash
-# Your own image, pinned by digest (docker buildx imagetools inspect ghcr.io/acme/pg-timescale:17.2 prints it)
+# Your own image: its registry and tag, which Noust pins by digest when it makes the instance
+noust db instance create ts --engine postgresql --version 17 --memory 2g \
+    --image ghcr.io/acme/pg-timescale:17.2
+# or pinned by you (docker buildx imagetools inspect ghcr.io/acme/pg-timescale:17.2 prints the digest)
 noust db instance create ts --engine postgresql --version 17 --memory 2g \
     --image ghcr.io/acme/pg-timescale:17.2@sha256:4f1c...e9
 # The catalog's image with arguments of yours after the ones Noust passes the engine
@@ -188,11 +230,15 @@ noust db instance launch pg --reset                      # back to what Noust pa
 noust db instance upgrade ts --image ghcr.io/acme/pg-timescale:17.3@sha256:77a0...12
 ```
 
-- **The image is pinned by you.** A reference without a digest is refused, saying how to read one: a tag is a
-  promise and a digest is a file. `--version` is mandatory with `--image` because Noust cannot read it from an
-  image it did not choose, and it decides where the data lives, what TLS the engine can serve and when its
-  support ends. An image and a `--variant` are two answers to one question. Noust never looks for a newer image
-  of one you pinned: `noust db instance upgrade NAME --image ...` names the next, and accepts again.
+- **The image is pinned by digest.** Give its registry and tag (`ghcr.io/acme/pg-timescale:17.2`) and Noust
+  pulls the tag when it makes the instance, reads the digest the registry served and records it: the container
+  is started from the digest and never from the tag, so what runs is exactly those bytes whatever the registry
+  serves for the tag later. A tag is required (`latest` is not assumed), and the plan says that the digest is read
+  at creation (`digest_pending` in the API). Give a digest yourself (`repository:tag@sha256:...`) and that digest is
+  the one used. `--version` is mandatory with `--image` because Noust cannot read it from an image it did not
+  choose, and it decides where the data lives, what TLS the engine can serve and when its support ends. An image
+  and a `--variant` are two answers to one question. Noust never looks for a newer image of one you pinned:
+  `noust db instance upgrade NAME --image ...` names the next, pinned by its digest, and accepts again.
 - **Noust manages it as it manages an official one:** the data where the official image keeps it, the engine's
   own port, the superuser's password in the variable the official image reads, the health probe, and dumps and
   restores through the engine's own client inside the container. An image that does any of that differently will

@@ -36,12 +36,16 @@ version must be newer than the one it leaves, and a move is recorded: `noust db 
 lists them, and `noust db instance rollback N` points the applications back at the engine they left.
 What was written to the new instance since the move is dumped first and is *not* carried back: an older
 server cannot load a newer one's dump. The new instance is stopped, not removed; removing the old one
-is yours to do once the new one has proved itself.
+is yours to do once the new one has proved itself. If the engine's databases were on a server chosen as the
+default of its engine (`noust db servers default`), the choice goes with them to the new instance, and back
+with a rollback.
 
 What stops a move, listed before anything changes: a database made public (close it first), a
 variable Noust did not write (it will not rewrite what it cannot restore), an account an application
 signs in as whose password Noust does not know, an older target server (it could not read the dump),
-a name the target already holds, an engine that is not PostgreSQL, MySQL, MariaDB or MongoDB (a Redis
+a target version its project no longer supports (accepting that is yours, where the instance is made:
+the plan says the `noust db instance create ... --accept-unsupported` and `noust db move` that do it by
+hand), a name the target already holds, an engine that is not PostgreSQL, MySQL, MariaDB or MongoDB (a Redis
 or Valkey snapshot is the whole instance), and an application that connects with TLS to a target that
 cannot keep it. `--plan` and `--dry-run` change nothing; the dump is the one thing a move cannot make
 atomic, so writes made to the database while it runs are not carried over: stop what writes for the

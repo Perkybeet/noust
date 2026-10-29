@@ -13242,6 +13242,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/databases/databases/{engine}/{name}/adopt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Adopt Database Route
+         * @description Add one database an engine holds to Noust.
+         *
+         *     A database Noust does not manage is not a different kind of database: its ``noust_state``
+         *     is ``not_added`` and this is the action. From then on it is listed as Noust's, can be
+         *     linked to an application and is backed up with it.
+         *
+         *     Args:
+         *         engine: The engine, or the key of the server it runs on.
+         *         name: The database.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The database as it is now.
+         *
+         *     Raises:
+         *         DatabaseNotFoundError: 404 when the engine holds no such database.
+         *         DatabaseExistsError: 409 (``databases.already_added``) when Noust already manages it.
+         */
+        post: operations["adopt_database_route_api_databases_databases__engine___name__adopt_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/databases/databases/{engine}/{name}/connect": {
         parameters: {
             query?: never;
@@ -14798,8 +14834,8 @@ export interface paths {
          *         The queued job.
          *
          *     Raises:
-         *         ConfirmationRequired: An image, a command or arguments of the operator's own, without
-         *             ``accept_untested``.
+         *         ConfirmationRequired: A version without support, without ``unsupported_ok``; an image, a
+         *             command or arguments of the operator's own, without ``accept_untested``.
          */
         post: operations["create_instance_api_databases_instances_post"];
         delete?: never;
@@ -14819,11 +14855,19 @@ export interface paths {
          * Instance Catalog
          * @description List what Noust can run as an instance: each engine, and its versions with their digests.
          *
+         *     The versions whose project has stopped supporting them are in the list, marked
+         *     ``unsupported`` with their end-of-support date: making one needs ``unsupported_ok``.
+         *
          *     Args:
          *         session: The authenticated session.
+         *         engine: Only this engine (a flavour or an alias): what "another version" asks with once
+         *             the engine is chosen.
          *
          *     Returns:
          *         The engines, in the order the console offers them.
+         *
+         *     Raises:
+         *         ValidationError: 400 when Noust runs no such engine as a container; the hint lists them.
          */
         get: operations["instance_catalog_api_databases_instances_catalog_get"];
         put?: never;
@@ -16360,6 +16404,117 @@ export interface paths {
          */
         post: operations["show_token_api_databases_replicas__engine___name__token_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/servers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Servers
+         * @description List the database servers: the system's engines and the containers, in one list.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         engine: Only the servers of this engine: ``mysql`` is MySQL and MariaDB, ``mariadb``
+         *             only MariaDB.
+         *
+         *     Returns:
+         *         The servers with their default and their support, and what could not be read.
+         */
+        get: operations["list_servers_api_databases_servers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/servers/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Server
+         * @description Describe one database server.
+         *
+         *     Args:
+         *         key: Its key (``mysql``, ``mysql@legacy``).
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The server.
+         *
+         *     Raises:
+         *         DatabaseNotFoundError: 404 ``databaseerror`` with the code ``database_servers.unknown``
+         *             when no server has that key.
+         *         ValidationError: 400 when the key cannot be a server's.
+         */
+        get: operations["get_server_api_databases_servers__key__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/servers/{key}/default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Default Server
+         * @description Make a server the one new databases of its engine are made on.
+         *
+         *     The system's engine and the containers Noust runs can be it; an application's container
+         *     cannot, nor one still being made. The choice replaces the one before it and is audited.
+         *
+         *     Args:
+         *         key: The server's key.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The server, now the default of its engine.
+         *
+         *     Raises:
+         *         DatabaseNotFoundError: 404 when no server has that key.
+         *         ValidationError: 400 (``database_servers.default_app``,
+         *             ``database_servers.default_not_ready``) when it cannot be the default.
+         */
+        put: operations["set_default_server_api_databases_servers__key__default_put"];
+        post?: never;
+        /**
+         * Clear Default Server
+         * @description Take back the choice of a server as the default: its engine returns to the automatic one.
+         *
+         *     A server that was not the chosen one is left as it is.
+         *
+         *     Args:
+         *         key: The server's key.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The server as it is now.
+         *
+         *     Raises:
+         *         DatabaseNotFoundError: 404 when no server has that key.
+         */
+        delete: operations["clear_default_server_api_databases_servers__key__default_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -34354,14 +34509,33 @@ export interface components {
             digest: string;
             /** End Of Life */
             end_of_life?: string | null;
+            /**
+             * Support
+             * @default unknown
+             */
+            support: string;
             /** Tag */
             tag: string;
+            /**
+             * Unsupported
+             * @default false
+             */
+            unsupported: boolean;
             /** Version */
             version: string;
         };
         /**
          * CatalogVersionResponse
          * @description One version Noust offers: its tag, the digest pinned and when support ends.
+         *
+         *     Attributes:
+         *         support: Where the version stands in its project's support: ``supported``,
+         *             ``ending_soon``, ``ended`` or ``unknown`` (the project publishes no date).
+         *         unsupported: Making it needs ``unsupported_ok``: the project has stopped fixing
+         *             security problems, or is about to. Offered for the application that needs it, never
+         *             as the default.
+         *         platforms: The processors its image is published for (``amd64``, ``arm64``); MySQL 5.7
+         *             has an amd64 image only.
          */
         CatalogVersionResponse: {
             /** Default */
@@ -34370,6 +34544,18 @@ export interface components {
             digest: string;
             /** End Of Life */
             end_of_life?: string | null;
+            /** Platforms */
+            platforms?: string[];
+            /**
+             * Support
+             * @default unknown
+             */
+            support: string;
+            /**
+             * Unsupported
+             * @default false
+             */
+            unsupported: boolean;
             /** Version */
             version: string;
         };
@@ -37910,8 +38096,16 @@ export interface components {
          *         project: The slug of its project.
          *         environment: The slug of its environment.
          *         tags: Its tags, sorted.
+         *         noust_state: What Noust knows of it, apart from where it runs: ``added`` (Noust manages
+         *             it), ``not_added`` (the engine holds it and Noust does not manage it), ``missing`` or
+         *             ``unverified`` (see ``missing`` and ``unverified``). ``engine`` is the key of the
+         *             server it runs on (``GET /api/databases/servers``).
+         *         actions: What can be done to it now: ``add_to_noust`` for one that is ``not_added``
+         *             (``POST .../databases/{engine}/{name}/adopt``).
          */
         DatabaseInfoResponse: {
+            /** Actions */
+            actions?: string[];
             /** App */
             app?: string | null;
             /** Apps */
@@ -37937,6 +38131,11 @@ export interface components {
             missing: boolean;
             /** Name */
             name: string;
+            /**
+             * Noust State
+             * @default added
+             */
+            noust_state: string;
             /** Owner */
             owner?: string | null;
             /** Project */
@@ -44100,8 +44299,10 @@ export interface components {
          *             them); the engine's own image when omitted.
          *         init_scripts: SQL scripts run, in name order, the first time the engine starts
          *             (PostgreSQL, MySQL and MariaDB; at most ten).
-         *         image: An image of your own instead of the catalog's, ``repository[:tag]@sha256:digest``.
-         *             The digest is mandatory (a tag can be moved after you looked) and ``version`` says
+         *         image: An image of your own instead of the catalog's: ``repository:tag`` (registry
+         *             included), which Noust pins by the digest the registry serves for the tag when it makes
+         *             the instance, or ``repository[:tag]@sha256:digest`` when you pin it yourself. A tag can
+         *             be moved after you looked; the instance runs the digest, never the tag. ``version`` says
          *             which version it is. Noust has not tested it; not with ``variant``.
          *         command: The container's whole command, instead of the engine's: a list of words, never
          *             a shell line. Noust adds nothing to it. Not with ``args``.
@@ -44110,6 +44311,10 @@ export interface components {
          *         accept_untested: The operator accepts that Noust has not tested an image, a command or
          *             arguments they chose. Without it, queueing one is a 400 ``confirmation_required``
          *             carrying what is accepted, and nothing is queued.
+         *         unsupported_ok: The operator accepts running a version whose project has stopped fixing
+         *             security problems, or is about to (``GET .../catalog`` says which: ``unsupported``).
+         *             Without it, queueing one is a 400 ``confirmation_required`` on this field carrying
+         *             the date, and nothing is queued.
          */
         InstanceRequest: {
             /**
@@ -44133,6 +44338,11 @@ export interface components {
             name: string;
             /** Port */
             port?: number | null;
+            /**
+             * Unsupported Ok
+             * @default false
+             */
+            unsupported_ok: boolean;
             /** Variant */
             variant?: string | null;
             /** Version */
@@ -56102,6 +56312,116 @@ export interface components {
             public_key?: string | null;
         };
         /**
+         * ServerListResponse
+         * @description Every database server of this server.
+         *
+         *     Attributes:
+         *         servers: The servers: the system's engines, then the containers by key.
+         *         problems: What could not be asked (Docker not answering, an engine that refused Noust),
+         *             so a short list is never taken for a server with nothing in it.
+         */
+        ServerListResponse: {
+            /** Problems */
+            problems?: components["schemas"]["ListingProblemResponse"][];
+            /** Servers */
+            servers: components["schemas"]["ServerResponse"][];
+        };
+        /**
+         * ServerResponse
+         * @description One database server.
+         *
+         *     Attributes:
+         *         key: What it is addressed by wherever an engine is named (``mysql`` for the system's,
+         *             ``mysql@legacy`` for a container Noust runs, ``postgresql@shop.db`` for one an
+         *             application's stack runs). It is the ``engine`` of every database on it.
+         *         engine: The engine it speaks: ``postgresql``, ``mysql``, ``redis``, ``mongodb`` or
+         *             ``clickhouse``.
+         *         flavour: What it is: ``mariadb`` is an engine ``mysql``, ``valkey`` an engine ``redis``.
+         *         display_name: The flavour for a person.
+         *         version: Its version: what the engine reports for the system's, the tag it was made
+         *             with for a container Noust runs, null for an application's (its image says it).
+         *         runs_in: ``system``, ``noust_container`` (Noust starts, stops, upgrades and removes it)
+         *             or ``app_container`` (an application's stack does; it is listed and nothing more).
+         *         name: The instance's name for a container Noust runs (``legacy``); null for the others.
+         *             ``/api/databases/instances/{name}`` takes it.
+         *         state: ``running``, ``stopped``, ``creating``, ``upgrading``, ``removing``, or Docker's
+         *             own word for a container that exists and is not running.
+         *         running: It answers.
+         *         port: The port it listens on: 127.0.0.1's for a container Noust runs.
+         *         memory_limit_mb: A container Noust runs is held to this.
+         *         image: The image of a container; null for the system's.
+         *         digest: The digest a container Noust runs is pinned to.
+         *         custom_image: The image is the operator's own, not the catalog's.
+         *         app: The application whose stack runs it, for ``app_container``.
+         *         support: Where its version stands in its project's support: ``supported``,
+         *             ``ending_soon``, ``ended`` or ``unknown`` (no date is published).
+         *         end_of_life: When the support ends or ended; null when none is published.
+         *         created_at: When Noust made it (a container Noust runs).
+         *         databases: How many databases it holds that the caller may see; null when it is not
+         *             running or could not be read (``problems`` says why).
+         *         default: It is the server a new database of its engine is made on.
+         *         default_source: Why: ``chosen`` (an operator did), ``system`` (nobody chose and the
+         *             system has the engine), ``only`` (the one there is) or ``oldest``; null when it is
+         *             not the default.
+         *         actions: What can be done to it now: ``start``, ``stop``, ``set_default``,
+         *             ``clear_default`` (the choice can be taken back), ``other_version`` (make another
+         *             version of its engine in a container: ``GET .../instances/catalog?engine=...``),
+         *             ``upgrade`` and ``remove``. Empty for an application's container and for one being
+         *             made or removed.
+         */
+        ServerResponse: {
+            /** Actions */
+            actions?: string[];
+            /** App */
+            app?: string | null;
+            /** Created At */
+            created_at?: string | null;
+            /**
+             * Custom Image
+             * @default false
+             */
+            custom_image: boolean;
+            /** Databases */
+            databases?: number | null;
+            /**
+             * Default
+             * @default false
+             */
+            default: boolean;
+            /** Default Source */
+            default_source?: string | null;
+            /** Digest */
+            digest?: string | null;
+            /** Display Name */
+            display_name: string;
+            /** End Of Life */
+            end_of_life?: string | null;
+            /** Engine */
+            engine: string;
+            /** Flavour */
+            flavour: string;
+            /** Image */
+            image?: string | null;
+            /** Key */
+            key: string;
+            /** Memory Limit Mb */
+            memory_limit_mb?: number | null;
+            /** Name */
+            name?: string | null;
+            /** Port */
+            port?: number | null;
+            /** Running */
+            running: boolean;
+            /** Runs In */
+            runs_in: string;
+            /** State */
+            state: string;
+            /** Support */
+            support?: string | null;
+            /** Version */
+            version?: string | null;
+        };
+        /**
          * ServerRoleCreate
          * @description Request to define a role of one's own.
          */
@@ -64231,6 +64551,15 @@ export interface components {
          *         args: The arguments the operator adds, or empty.
          *         requires_confirmation: Making it needs ``accept_untested``: Noust has not tested what
          *             the operator chose.
+         *         unsupported: The version has no security support from its project, or is about to lose it.
+         *         requires_unsupported_ok: Making it needs ``unsupported_ok``.
+         *         support: ``supported``, ``ending_soon``, ``ended`` or ``unknown``.
+         *         end_of_life: When the support ends or ended; null when the project publishes no date.
+         *         unsupported_coded: The sentence the confirmation is made of, as a code and its values for
+         *             the console to translate (``database_servers.unsupported_ended`` or
+         *             ``database_servers.unsupported_ending``); null when none is needed.
+         *         digest_pending: The image was given by registry and tag: ``digest`` is empty and Noust
+         *             reads and pins it when the instance is made.
          */
         noust__web__api__databases__instances__PlanResponse: {
             /** Args */
@@ -64244,8 +64573,15 @@ export interface components {
             custom: boolean;
             /** Digest */
             digest: string;
+            /**
+             * Digest Pending
+             * @default false
+             */
+            digest_pending: boolean;
             /** Display Name */
             display_name: string;
+            /** End Of Life */
+            end_of_life?: string | null;
             /** Engine */
             engine: string;
             /** Flavour */
@@ -64269,8 +64605,21 @@ export interface components {
              * @default false
              */
             requires_confirmation: boolean;
+            /**
+             * Requires Unsupported Ok
+             * @default false
+             */
+            requires_unsupported_ok: boolean;
+            /** Support */
+            support?: string | null;
             /** Tag */
             tag?: string | null;
+            /**
+             * Unsupported
+             * @default false
+             */
+            unsupported: boolean;
+            unsupported_coded?: components["schemas"]["CodedText"] | null;
             /** Variant */
             variant?: string | null;
             /** Version */
@@ -79752,6 +80101,38 @@ export interface operations {
             };
         };
     };
+    adopt_database_route_api_databases_databases__engine___name__adopt_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatabaseInfoResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_connect_api_databases_databases__engine___name__connect_get: {
         parameters: {
             query?: {
@@ -81612,7 +81993,10 @@ export interface operations {
     };
     instance_catalog_api_databases_instances_catalog_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only this engine: another version of one already chosen */
+                engine?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -81626,6 +82010,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["noust__web__api__databases__instances__CatalogResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -83276,6 +83669,131 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReplicaTokenResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_servers_api_databases_servers_get: {
+        parameters: {
+            query?: {
+                /** @description Only this engine (a flavour, an alias, or an engine's family) */
+                engine?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_server_api_databases_servers__key__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_default_server_api_databases_servers__key__default_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_default_server_api_databases_servers__key__default_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerResponse"];
                 };
             };
             /** @description Validation Error */

@@ -45,6 +45,7 @@ from noust.core.db_migration_store import (
     MigrationRecord,
     MovedDatabase,
 )
+from noust.core.db_server_defaults import DbServerDefaultStore
 from noust.core.exceptions import (
     DatabaseBackupError,
     DatabaseEngineError,
@@ -252,6 +253,19 @@ class InstanceMigrations:
         """Where progress is reported."""
         return self.managed.logger
 
+    def _follow_default(self, flavour: str, old_key: str, new_key: str) -> None:
+        """
+        Make the default server of an engine follow its databases, when it was chosen.
+
+        Args:
+            flavour: The engine.
+            old_key: The server the databases left.
+            new_key: The server they went to.
+        """
+        service = self.managed.service
+        actor = service.actor.label if service.actor is not None else None
+        DbServerDefaultStore(service.store).follow(flavour, old_key, new_key, set_by=actor)
+
     # ------------------------------------------------------------ questions
 
     def all(self) -> list[dict[str, Any]]:
@@ -418,6 +432,17 @@ class InstanceMigrations:
                 "verify it keep verifying it"
             )
 
+        if proposed.unsupported:
+            # Accepting a version without support is the operator's own decision about one
+            # version, asked where the instance is made; a move does not take it for them.
+            blockers.append(
+                f"{spec.display_name} {pin.version} is a version its project no longer supports "
+                f"({proposed.end_of_life}): a move does not make one. Make the instance yourself "
+                f"(noust db instance create {target} --engine {spec.flavour} --version "
+                f"{pin.version} --memory {proposed.memory_limit_mb}m --accept-unsupported) and "
+                f"move each database to it with noust db move DATABASE --from {found.key} "
+                f"--to {proposed.key}"
+            )
         if spec.engine not in MOVABLE:
             blockers.append(
                 f"A {spec.display_name} snapshot is the whole instance and Noust does not load "
@@ -583,6 +608,9 @@ class InstanceMigrations:
             except NoustError as exc:
                 warnings.append(f"{plan.instance} could not be stopped: {exc.message}")
         self.records.set_state(record.id, DONE)
+        # The databases are on the new instance: if the old server was the one chosen for new
+        # databases, the new one is now.
+        self._follow_default(plan.flavour, plan.source, target_key)
         self.managed.service.audit(
             "db.instance.migrate",
             plan.source,
@@ -692,6 +720,7 @@ class InstanceMigrations:
             except NoustError as exc:
                 warnings.append(f"{target.name} could not be stopped: {exc.message}")
         self.records.set_state(record.id, ROLLED_BACK)
+        self._follow_default(target.flavour, target_key, source_key)
         service.audit("db.instance.rollback", source_key, to=target.name, databases=len(repointed))
         warnings.append(
             f"What was written to {target.name} since the move is not on {source_key}"

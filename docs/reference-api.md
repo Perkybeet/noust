@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1087 operations.
+1092 operations.
 
 ## Access
 
@@ -501,6 +501,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | DELETE | `/api/databases/databases/{engine}/{name}` | Drop Database | `databases.manage` | yes |  |
 | GET | `/api/databases/databases/{engine}/{name}/access` | List Access | `databases.read` |  |  |
 | PUT | `/api/databases/databases/{engine}/{name}/access/{username}` | Set Profile | `databases.write` |  |  |
+| POST | `/api/databases/databases/{engine}/{name}/adopt` | Adopt Database Route | `databases.manage` |  |  |
 | GET | `/api/databases/databases/{engine}/{name}/connect` | Get Connect | `databases.read` |  |  |
 | GET | `/api/databases/databases/{engine}/{name}/extensions` | List Extensions | `databases.read` |  |  |
 | POST | `/api/databases/databases/{engine}/{name}/extensions` | Add Extension | `databases.manage` | yes |  |
@@ -612,6 +613,10 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/databases/replicas/{engine}/promote` | Promote | `databases.manage` | yes |  |
 | DELETE | `/api/databases/replicas/{engine}/{name}` | Remove | `databases.manage` | yes |  |
 | POST | `/api/databases/replicas/{engine}/{name}/token` | Show Token | `databases.manage` | yes |  |
+| GET | `/api/databases/servers` | List Servers | `databases.read` |  |  |
+| GET | `/api/databases/servers/{key}` | Get Server | `databases.read` |  |  |
+| PUT | `/api/databases/servers/{key}/default` | Set Default Server | `databases.manage` |  |  |
+| DELETE | `/api/databases/servers/{key}/default` | Clear Default Server | `databases.manage` |  |  |
 | POST | `/api/databases/users` | Create User | `databases.write` |  |  |
 | POST | `/api/databases/users/grant` | Grant Privileges | `databases.write` |  |  |
 | POST | `/api/databases/users/revoke` | Revoke Privileges | `databases.write` |  |  |
