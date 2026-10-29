@@ -230,8 +230,64 @@ CREATE TABLE IF NOT EXISTS db_server_defaults (
 """
 ENGINES_COLUMNS: list[Column] = []
 
-# Owned by the DNS lane: the zones and records of Noust DNS (item 104).
-DNS_SQL = ""
+# Owned by the DNS lane: Noust DNS, an authoritative name server Noust installs and the zones it
+# serves (item 104). ``authdns_server`` is the one row of this server's part in it: its role
+# (``primary`` holds the zones and their records here, ``secondary`` copies them from a primary),
+# the addresses it answers on, the name it is known by as a name server, and exactly which
+# firewall rules Noust made for it (all it will close). ``authdns_zones`` and ``authdns_records``
+# are the primary's zones: the editor writes them and the zone files are rendered from them, so
+# the engine holds no state Noust must reconcile. The SOA serial is the engine's (it signs and
+# increments), so it is not a column. ``authdns_secondaries`` are the servers a primary notifies
+# and lets transfer its zones. The transfer key is a secret file in the secret store and the
+# signing keys are the engine's: neither is a column.
+DNS_SQL = """
+CREATE TABLE IF NOT EXISTS authdns_server (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    engine TEXT NOT NULL,
+    role TEXT NOT NULL CHECK (role IN ('primary', 'secondary')),
+    hostname TEXT,
+    listen TEXT NOT NULL DEFAULT '[]',
+    primary_address TEXT,
+    firewall TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS authdns_zones (
+    name TEXT PRIMARY KEY,
+    nameservers TEXT NOT NULL DEFAULT '[]',
+    contact TEXT NOT NULL,
+    default_ttl INTEGER NOT NULL DEFAULT 3600,
+    dnssec INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL,
+    updated_by TEXT
+);
+
+CREATE TABLE IF NOT EXISTS authdns_records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    zone TEXT NOT NULL REFERENCES authdns_zones(name) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    ttl INTEGER,
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL,
+    updated_by TEXT,
+    UNIQUE (zone, name, type, content)
+);
+CREATE INDEX IF NOT EXISTS idx_authdns_records_zone ON authdns_records(zone, name);
+
+CREATE TABLE IF NOT EXISTS authdns_secondaries (
+    address TEXT PRIMARY KEY,
+    hostname TEXT,
+    added_at TEXT NOT NULL,
+    added_by TEXT
+);
+"""
 DNS_COLUMNS: list[Column] = []
 
 

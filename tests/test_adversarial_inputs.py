@@ -1358,3 +1358,93 @@ def source_forge() -> Any:
     from noust.core.forge_events import Forge
 
     return Forge.GITHUB
+
+
+class TestTheRecordsOfAZoneOfNoustDns:
+    """What a person writes in a zone Noust DNS serves, which becomes a zone file (4.1, item 104)."""
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_what_is_accepted_as_a_zone_is_a_plain_domain(self, value: str) -> None:
+        from noust.validators.dns_zone import check_zone_name
+
+        accepted, result = verdict(check_zone_name, value)
+
+        if accepted:
+            assert re.fullmatch(
+                r"[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+", result
+            )
+            assert len(result) <= 253 and ".." not in result
+            assert check_zone_name(result) == result
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_what_is_accepted_as_the_name_of_a_record_is_a_relative_name(self, value: str) -> None:
+        from noust.validators.dns_zone import check_record_name
+
+        accepted, result = verdict(check_record_name, value, "example.com")
+
+        if accepted:
+            assert result == "@" or re.fullmatch(r"(\*|[a-z0-9_-]+)(\.[a-z0-9_-]+)*", result)
+            assert not CONTROL.search(result) and " " not in result and "$" not in result
+            assert check_record_name(result, "example.com") == result
+
+    @SETTINGS
+    @given(
+        kind=st.sampled_from(["A", "AAAA", "CNAME", "MX", "NS", "TXT", "SRV", "CAA", "PTR", "DS"]),
+        value=HOSTILE,
+    )
+    def test_what_is_accepted_as_content_is_canonical_and_has_no_line_break(
+        self, kind: str, value: str
+    ) -> None:
+        from noust.validators.dns_zone import check_record
+
+        accepted, result = verdict(check_record, kind, value)
+
+        if accepted:
+            assert not CONTROL.search(result)
+            assert check_record(kind, result) == result
+            if kind != "TXT":
+                assert "$" not in result and ";" not in result and "(" not in result
+
+    @pytest.mark.parametrize("payload", [p for p in PAYLOADS if p.strip()])
+    def test_the_payloads_that_beat_other_validators_are_refused_everywhere_a_zone_takes_text(
+        self, payload: str
+    ) -> None:
+        from noust.validators.dns_zone import (
+            check_contact,
+            check_hostname,
+            check_record,
+            check_record_name,
+            check_zone_name,
+        )
+
+        for function in (check_zone_name, check_hostname, check_contact):
+            if function is check_hostname and payload == ".":
+                continue  # the root is how a null MX says "no mail", and only a host name may be it
+            accepted, _ = verdict(function, payload)
+            assert not accepted, (function.__name__, payload)
+        accepted, _ = verdict(check_record_name, payload, "example.com")
+        assert not accepted, payload
+        for kind in ("A", "AAAA", "CNAME", "MX", "NS", "SRV", "CAA", "PTR", "DS"):
+            accepted, _ = verdict(check_record, kind, payload)
+            assert not accepted, (kind, payload)
+
+    @SETTINGS
+    @given(
+        data=st.recursive(
+            st.none() | st.booleans() | st.integers() | st.text(max_size=20),
+            lambda c: st.lists(c, max_size=3) | st.dictionaries(st.text(max_size=8), c, max_size=4),
+            max_leaves=12,
+        )
+    )
+    def test_whatever_arrives_is_judged_or_refused_and_never_crashes(self, data: Any) -> None:
+        from noust.validators import dns_zone
+
+        verdict(dns_zone.check_zone_name, data)
+        verdict(dns_zone.check_hostname, data)
+        verdict(dns_zone.check_nameservers, data)
+        verdict(dns_zone.check_ttl, data)
+        verdict(dns_zone.check_record_type, data)
+        verdict(dns_zone.check_record_name, data, "example.com")
+        verdict(dns_zone.check_record, "TXT", data)
