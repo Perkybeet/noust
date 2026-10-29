@@ -271,7 +271,7 @@ describe("Settings > About", () => {
       },
     });
     renderConsole("/settings/about");
-    await screen.findByRole("heading", { level: 1, name: "Settings" });
+    await screen.findByRole("heading", { level: 1, name: "About Noust" });
     await waitFor(() => expect(backend.callsTo("GET /api/system/update/auto")).toHaveLength(1));
 
     // The version is in, the automatic updates are not: a section drawn now would be pushed down

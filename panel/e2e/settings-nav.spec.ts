@@ -1,23 +1,23 @@
 /**
- * Settings, grouped by whose they are (docs/DESIGN.md 6.14, NV-7, NV-11), against the real backend:
- * six titled groups in two blocks, a filter from twelve sections that finds a section by the name it
+ * Settings, grouped by what each section is for (docs/DESIGN.md 6.14, NV-7, NV-11), against the real backend:
+ * seven titled groups, a hub that opens on every section as a door, a filter from twelve sections that finds a section by the name it
  * had before, a list that never outgrows the window at 1440 by 900, and on a phone an index page of its own. Both themes.
  */
 
 import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
 
-const GROUPS = ["This server", "Monitoring", "Developers", "People and access", "Governance", "Fleet"];
+const GROUPS = ["People and access", "Notifications and channels", "Connections", "Security and frameworks", "API", "Fleet", "Noust"];
 
-test("the sections are in six groups that say whose they are, in the order of the design", async ({ page, consoleServer }) => {
+test("the sections are in seven groups that say what they are for, in the order of the design", async ({ page, consoleServer }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await signIn(page, consoleServer, "/settings");
+  await signIn(page, consoleServer, "/settings/general");
   const list = page.getByRole("navigation", { name: "Settings sections" });
   await expect(list).toBeVisible();
   for (const group of GROUPS) await expect(list.getByText(group, { exact: true })).toBeVisible();
   const headings = await list.locator("p").allTextContents();
   expect(headings.map((text) => text.trim())).toEqual(GROUPS);
   // Within a group, the order an operator sets a server up in.
-  await expect(list.getByRole("link").first()).toHaveText("General");
+  await expect(list.getByRole("link").first()).toHaveText("People");
   const links = await list.getByRole("link").allTextContents();
   // What warns is Alerts, an area of the bar, and no longer a section of Settings.
   expect(links).not.toContain("Alert rules");
@@ -29,6 +29,21 @@ test("the sections are in six groups that say whose they are, in the order of th
   expect(await list.evaluate((nav) => getComputedStyle(nav).overflowY)).toBe("auto");
   await settle(page);
   await expectNoA11yViolations(page, "the settings list");
+});
+
+test("the hub opens on every section, by what it is for, with a line on what is inside", async ({ page, consoleServer }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(page, consoleServer, "/settings");
+  await expect(page.getByRole("heading", { level: 1, name: "Settings", exact: true })).toBeVisible();
+  for (const group of GROUPS) await expect(page.getByRole("heading", { level: 2, name: group, exact: true })).toBeVisible();
+  // A door is a link to its section and says what is in it, so a newcomer finds it without knowing its name.
+  const door = page.getByRole("link", { name: /^Channels Where messages go when something happens/ });
+  await expect(door).toHaveAttribute("href", "/settings/notifications");
+  await door.click();
+  await expect(page.getByRole("heading", { level: 1, name: "Channels", exact: true })).toBeVisible();
+  await page.goto("/settings");
+  await settle(page);
+  await expectNoA11yViolations(page, "the settings hub");
 });
 
 test("a filter finds a section by its name and by the name it had before", async ({ page, consoleServer }) => {
@@ -57,14 +72,15 @@ test("the old names of the sections still open them", async ({ page, consoleServ
   await expect(page.getByRole("navigation", { name: "Settings sections" }).getByRole("link", { name: "Console address" })).toHaveAttribute("aria-current", "page");
 });
 
-test("on a phone the list is the index page, with its groups, and a section has its way back", async ({ page, consoleServer }) => {
+test("on a phone the hub is the index page, with its groups, and a section has its way back", async ({ page, consoleServer }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await signIn(page, consoleServer, "/settings");
-  const index = page.getByRole("navigation", { name: "Settings sections" });
-  await expect(index.getByText("This server", { exact: true })).toBeVisible();
-  await expect(index.getByRole("link", { name: "Channels" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "People and access", exact: true })).toBeVisible();
+  const channels = page.getByRole("link", { name: /^Channels / });
+  await expect(channels).toBeVisible();
   await settle(page);
-  await expectNoA11yViolations(page, "the settings index on a phone");
-  await index.getByRole("link", { name: "Channels" }).click();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await expectNoA11yViolations(page, "the settings hub on a phone");
+  await channels.click();
   await expect(page.getByRole("link", { name: "All sections" })).toBeVisible();
 });

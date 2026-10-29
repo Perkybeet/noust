@@ -11,7 +11,8 @@ import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures
 import { confirmItsYou, stillness } from "./settings.helpers";
 
 const PAGES = [
-  { path: "/settings", heading: "This server", title: /^General settings/ },
+  { path: "/settings/general", heading: "This server", title: /^General settings/ },
+  { path: "/settings/registries", heading: "Container registries", title: /^Image registries/ },
   { path: "/settings/notifications", heading: "Channels", title: /^Notifications settings/ },
   { path: "/settings/integrations", heading: "GitHub", title: /^Integrations/ },
   { path: "/settings/variables", heading: "Server variables", title: /^Server variables settings/ },
@@ -24,7 +25,7 @@ function saveBar(page: Page) {
 }
 
 test("every server settings page loads its sections and passes axe", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/settings");
+  await signIn(page, consoleServer, "/settings/general");
   const tabs = page.getByRole("navigation", { name: "Settings sections" });
   for (const entry of PAGES) {
     await page.goto(entry.path);
@@ -74,7 +75,7 @@ test("General saves from one bar; a refused value stays beside its field, verbat
   // Saving configuration is sudo mode: the bar asks "Confirm it's you" before the first write.
   problems.expect(/status of 422 .* \/api\/config\/backup$/);
   problems.expect(/status of 400 .* \/api\/config\/apps-directory$/);
-  await signIn(page, consoleServer, "/settings");
+  await signIn(page, consoleServer, "/settings/general");
   const name = page.getByLabel("Server name");
   const retention = page.getByLabel("Backups kept per app");
   await expect(retention).toHaveValue(/^\d+$/);

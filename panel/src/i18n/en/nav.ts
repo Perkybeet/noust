@@ -48,20 +48,18 @@ export const nav = {
    * groups, and what the page says about whose the sections are on a fleet.
    */
   settingsGroups: {
-    central: "Central {name}",
-    serverDescription: "How Noust runs on {name}. These follow the server you choose.",
-    centralDescription: "These are the central's, {name}: they stay the same whichever server you choose.",
     nodeNoteTitle: "Sign-in, two-factor and API tokens of {node} are managed on {node}",
     nodeNote:
       "{node} refuses this central on them on purpose: a central that was taken over could otherwise lock you out of every server. Sign in to the console of {node}, or run these on {node}:",
     nodeNoteCommands: "On {node}",
     titles: {
-      thisServer: "This server",
-      monitoring: "Monitoring",
-      developers: "Developers",
       people: "People and access",
-      governance: "Governance",
+      notices: "Notifications and channels",
+      connections: "Connections",
+      security: "Security and frameworks",
+      api: "API",
       fleet: "Fleet",
+      noust: "Noust",
     },
   },
   /** After a destination's name, for assistive technology: "Services 1 failed". */
@@ -109,7 +107,8 @@ export const nav = {
     settings: { label: "Settings", keywords: "rename delete name" },
   },
   settingsTabs: {
-    general: { label: "General", command: "General settings" },
+    overview: { label: "All settings", command: "Settings" },
+    general: { label: "General", keywords: "server name address folder applications web server nginx apache builds freeze", command: "General settings" },
     notifications: {
       label: "Channels",
       keywords: "notifications alerts email slack webhook channels where messages go",
@@ -121,9 +120,9 @@ export const nav = {
       command: "Alert rules settings",
     },
     integrations: {
-      label: "Integrations",
-      keywords: "github app repositories push pull request previews",
-      command: "Integrations settings",
+      label: "Connections",
+      keywords: "integrations github gitlab gitea bitbucket app repositories push pull request previews webhooks code host leases",
+      command: "Connections settings",
     },
     probes: {
       label: "Probes and status page",
@@ -148,9 +147,9 @@ export const nav = {
       command: "Roles settings",
     },
     compliance: {
-      label: "ENS report",
-      keywords: "compliance ens esquema nacional seguridad check report audit evidence",
-      command: "ENS report",
+      label: "Frameworks",
+      keywords: "frameworks compliance ens iso 27001 esquema nacional seguridad check report audit evidence normativas",
+      command: "Frameworks and compliance report",
     },
     cloud: {
       label: "Cloud providers",
@@ -195,5 +194,9 @@ export const nav = {
     logShipping: "Log shipping",
     cloud: "Cloud",
     security: "Security",
+    integrations: "Integrations",
+    accounts: "Accounts",
+    variables: "Variables",
+    general: "Settings",
   },
 } as const;

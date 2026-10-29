@@ -35,6 +35,7 @@ export const FLEET_PATHS: readonly string[] = ["/fleet"];
  */
 export const CENTRAL_PATHS: readonly string[] = [
   "/settings/servers",
+  "/settings/fleet",
   "/settings/cloud",
   "/settings/central",
   "/settings/accounts",

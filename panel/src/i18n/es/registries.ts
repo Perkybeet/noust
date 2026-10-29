@@ -2,6 +2,11 @@ import type { registries as en } from "../en/registries";
 import type { Catalog } from "../types";
 
 export const registries: Catalog<typeof en> = {
+  nav: {
+    label: "Registros de imágenes",
+    keywords: "registros de contenedores docker hub ghcr acceso descargar imágenes privadas cuentas container registries",
+    command: "Ajustes de registros de imágenes",
+  },
   title: "Registros de contenedores",
   description: "Cuentas de los registros que guardan tus imágenes privadas. Una aplicación descarga y construye con las cuentas que le asocies. Las contraseñas se guardan en este servidor y no se vuelven a mostrar.",
   loading: "Cargando las cuentas de registro",

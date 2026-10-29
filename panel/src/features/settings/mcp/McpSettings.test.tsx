@@ -54,7 +54,7 @@ async function pageAt(initial: Partial<Status> = {}, extra: Record<string, Route
   screenWidth(1440);
   const world = mcpBackend(initial, extra);
   const harness = renderConsole("/settings/mcp");
-  await screen.findByRole("heading", { level: 1, name: "Settings" });
+  await screen.findByRole("heading", { level: 1, name: "MCP" });
   return { ...harness, ...world };
 }
 

@@ -79,7 +79,7 @@ test("turns the deploy started event on and the rolled back one off, with the la
 test("the console's public address is refused unless https, and notifications then link to it", async ({ page, consoleServer, problems }) => {
   // The refused address is a 400 by design, shown under its field.
   problems.expect(/status of 400 .* \/api\/config$/);
-  await signIn(page, consoleServer, "/settings");
+  await signIn(page, consoleServer, "/settings/general");
   const input = page.getByLabel("Console address");
   await expect(input).toHaveValue("");
   await settle(page);
@@ -101,7 +101,7 @@ test("the console's public address is refused unless https, and notifications th
   await expect(page.getByText("Messages link to")).toContainText("https://console.example.org");
 
   // Leave the worker's server as it was: empty means notifications carry no link.
-  await page.goto("/settings");
+  await page.goto("/settings/general");
   await page.getByLabel("Console address").fill("");
   await saveBar(page).getByRole("button", { name: "Save" }).click();
   await expect(saveBar(page).getByText("No unsaved changes")).toBeVisible();

@@ -40,7 +40,6 @@ import { OVERVIEW_SCREENS } from "../features/nav/overview";
 import { PROJECTS_SCREENS } from "../features/nav/projects";
 import { SERVER_SCREENS, SERVICE_SCREENS } from "../features/nav/server";
 import { RENAMED, SETTINGS_SCREENS, groupSettings } from "../features/nav/settings";
-import type { SettingsBlock } from "../features/nav/settings";
 import { TEAM_SCREENS } from "../features/nav/team";
 import type { PlainKey } from "../i18n";
 import { REDIRECT_ROWS } from "./redirects";
@@ -195,13 +194,11 @@ export function tabsById(id: string, ctx: NavContext = {}): TabItem[] {
 }
 
 export { RENAMED, SETTINGS_GROUPS, groupSettings, settingsGroupOf } from "../features/nav/settings";
-export type { SettingsBlock } from "../features/nav/settings";
 
-/** The sections of Settings a block holds, in titled groups, from the whole register. */
-export function settingsGroups(block: SettingsBlock, ctx: NavContext = {}): { id: string; sections: Dest[] }[] {
+/** The sections of Settings, in titled groups, from the whole register. */
+export function settingsGroups(ctx: NavContext = {}): { id: string; sections: Dest[] }[] {
   return groupSettings(
     REGISTERED.filter((entry) => entry.id === "settings" || entry.parent === "settings"),
-    block,
     ctx,
   );
 }

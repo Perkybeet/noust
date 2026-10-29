@@ -187,7 +187,7 @@ withFleet("a node's own settings stay on the node; the central's say whose they 
   await expect(page).toHaveURL(new RegExp(`/n/${NODE_NAME}/settings/notifications$`));
   await expect(page.getByRole("button", { name: `Server: ${NODE_NAME}` })).toBeVisible();
   const sections = page.getByRole("navigation", { name: "Settings sections" }).first();
-  await expect(sections.getByRole("link", { name: "General" })).toHaveAttribute("href", `/n/${NODE_NAME}/settings`);
+  await expect(sections.getByRole("link", { name: "General" })).toHaveAttribute("href", `/n/${NODE_NAME}/settings/general`);
   await settle(page);
   await expectNoA11yViolations(page, "a node's own settings");
 
@@ -195,7 +195,7 @@ withFleet("a node's own settings stay on the node; the central's say whose they 
   await expect(page).toHaveURL(/\/settings\/tokens$/);
   await expect(page.getByRole("button", { name: /^Server: this central/ })).toBeVisible();
   await expect(page.getByText(`Sign-in, two-factor and API tokens of ${NODE_NAME} are managed on ${NODE_NAME}`)).toBeVisible();
-  await expect(sections.getByRole("link", { name: "General" })).toHaveAttribute("href", `/n/${NODE_NAME}/settings`);
+  await expect(sections.getByRole("link", { name: "General" })).toHaveAttribute("href", `/n/${NODE_NAME}/settings/general`);
   await settle(page);
   await expectNoA11yViolations(page, "the central's settings, from a node");
 });

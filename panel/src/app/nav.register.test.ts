@@ -144,23 +144,22 @@ describe("3. the budgets", () => {
     for (const strip of strips) expect(tabsById(strip, EVERYTHING).length, `the strip of ${strip}`).toBeLessThanOrEqual(8);
   });
 
-  it("keeps Settings to eight sections a group, six groups and twenty a block (NV-3)", () => {
-    for (const block of ["server", "instance"] as const) {
-      const groups = settingsGroups(block, EVERYTHING);
-      expect(groups.length, block).toBeLessThanOrEqual(6);
-      expect(groups.flatMap((group) => group.sections).length, block).toBeLessThanOrEqual(20);
-      for (const group of groups) expect(group.sections.length, `${block} / ${group.id}`).toBeLessThanOrEqual(8);
-    }
+  it("keeps Settings to eight sections a group, seven groups and twenty-six in all (NV-3)", () => {
+    // The two lists of 4.0 (the server's and the instance's) are one now, grouped by what a section is for,
+    // so the budget is theirs together: eight a group, and a person scans seven headings, not fourteen.
+    const groups = settingsGroups(EVERYTHING);
+    expect(groups.length).toBeLessThanOrEqual(7);
+    expect(groups.flatMap((group) => group.sections).length).toBeLessThanOrEqual(26);
+    for (const group of groups) expect(group.sections.length, group.id).toBeLessThanOrEqual(8);
   });
 
   it("puts every settings section in exactly one group of the groups there are", () => {
-    const grouped = (["server", "instance"] as const).flatMap((block) => settingsGroups(block, EVERYTHING).flatMap((group) => group.sections.map((entry) => entry.id)));
+    const grouped = settingsGroups(EVERYTHING).flatMap((group) => group.sections.map((entry) => entry.id));
     expect(new Set(grouped).size, "a section is in two groups").toBe(grouped.length);
-    for (const block of ["server", "instance"] as const) {
-      for (const group of settingsGroups(block, EVERYTHING)) expect(SETTINGS_GROUPS[block], group.id).toContain(group.id);
-    }
-    const sections = DESTS.filter((entry) => entry.id === "settings" || (entry.parent === "settings" && entry.kind === "section"));
-    // The account's own sections are not Settings (NV-7): they live at /account, and every section of Settings is in a group.
+    for (const group of settingsGroups(EVERYTHING)) expect(SETTINGS_GROUPS, group.id).toContain(group.id);
+    const sections = DESTS.filter((entry) => entry.parent === "settings" && entry.kind === "section");
+    // The account's own sections are not Settings (NV-7): they live at /account. The root is the hub that
+    // lists the others and is in no group; every section is in one.
     expect(sections.filter((entry) => !grouped.includes(entry.id)).map((entry) => entry.id)).toEqual([]);
   });
 
@@ -502,18 +501,24 @@ describe("whose a screen is", () => {
     expect(dest("account.security").owner).toBe("account");
   });
 
-  it("holds the groups of 2.5 of the navigation design, in the order of 2.5", () => {
-    const names = (block: "server" | "instance") => settingsGroups(block, EVERYTHING).map((group) => [group.id, group.sections.map((entry) => entry.id.replace(/^settings\.?/, "") || "general")]);
-    expect(names("server")).toEqual([
-      ["this-server", ["general", "variables", "secret-managers", "console", "integrations", "about"]],
-      ["monitoring", ["notifications", "log-shipping"]],
-      ["developers", ["tokens", "api", "manifest", "mcp"]],
+  it("holds the groups a person looks for a setting by, in the order of the second column", () => {
+    const names = settingsGroups(EVERYTHING).map((group) => [group.id, group.sections.map((entry) => entry.id.replace(/^settings\./, ""))]);
+    expect(names).toEqual([
+      ["people", ["accounts", "access", "sso", "approvals", "console"]],
+      ["notices", ["notifications", "log-shipping"]],
+      ["connections", ["integrations", "registries", "deploy-keys", "secret-managers", "cloud"]],
+      ["security", ["compliance", "controls", "audit"]],
+      ["api", ["tokens", "api", "manifest", "mcp"]],
+      ["fleet", ["fleet", "servers", "central"]],
+      ["noust", ["general", "variables", "about"]],
     ]);
-    expect(names("instance")).toEqual([
-      ["people", ["accounts", "access", "sso", "approvals"]],
-      ["governance", ["audit", "controls", "compliance"]],
-      ["fleet", ["servers", "cloud", "central"]],
-    ]);
+  });
+
+  it("has a hub for Settings, which is the area and not a section of itself", () => {
+    expect(dest("settings").to).toBe("/settings");
+    expect(settingsGroups(EVERYTHING).flatMap((group) => group.sections.map((entry) => entry.id))).not.toContain("settings");
+    expect(label(dest("settings.general"))).toBe("General");
+    expect(dest("settings.general").to).toBe("/settings/general");
   });
 
   it("names the settings sections with the words of the glossary (5.4), the old ones kept as search words", () => {
@@ -525,7 +530,11 @@ describe("whose a screen is", () => {
       "settings.about": "About Noust",
       "settings.access": "Roles",
       "settings.controls": "Controls",
-      "settings.compliance": "ENS report",
+      "settings.compliance": "Frameworks",
+      "settings.integrations": "Connections",
+      "settings.accounts": "People",
+      "settings.registries": "Image registries",
+      "settings.fleet": "Fleet settings",
       "settings.cloud": "Cloud providers",
     });
     expect(text("nav.renamed.notifications")).toBe("Notifications");

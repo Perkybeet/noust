@@ -42,20 +42,18 @@ export const nav: Catalog<typeof en> = {
     switch: "Cambiar {name}",
   },
   settingsGroups: {
-    central: "Central {name}",
-    serverDescription: "Cómo funciona Noust en {name}. Siguen al servidor que elijas.",
-    centralDescription: "Son de la central, {name}: no cambian elijas el servidor que elijas.",
     nodeNoteTitle: "El inicio de sesión, la verificación en dos pasos y los tokens de API de {node} se gestionan en {node}",
     nodeNote:
       "{node} rechaza a esta central en ellos a propósito: una central comprometida podría dejarte fuera de todos los servidores. Inicia sesión en la consola de {node} o ejecuta esto en {node}:",
     nodeNoteCommands: "En {node}",
     titles: {
-      thisServer: "Este servidor",
-      monitoring: "Monitorización",
-      developers: "Desarrolladores",
-      people: "Personas y accesos",
-      governance: "Gobernanza",
+      people: "Personas y acceso",
+      notices: "Avisos y canales",
+      connections: "Conexiones",
+      security: "Seguridad y normativas",
+      api: "API",
       fleet: "Flota",
+      noust: "Noust",
     },
   },
   failed: { one: "{count} fallido", other: "{count} fallidos" },
@@ -116,8 +114,10 @@ export const nav: Catalog<typeof en> = {
     settings: { label: "Ajustes", keywords: "renombrar eliminar nombre rename delete" },
   },
   settingsTabs: {
+    overview: { label: "Todos los ajustes", command: "Ajustes" },
     general: {
       label: "General",
+      keywords: "nombre del servidor dirección carpeta aplicaciones servidor web nginx apache compilaciones congelar general",
       command: "Ajustes generales",
     },
     notifications: {
@@ -131,9 +131,9 @@ export const nav: Catalog<typeof en> = {
       command: "Ajustes de reglas de alerta",
     },
     integrations: {
-      label: "Integraciones",
-      keywords: "github app repositorios push pull request vistas previas integrations",
-      command: "Ajustes de integraciones",
+      label: "Conexiones",
+      keywords: "integraciones github gitlab gitea bitbucket app repositorios push pull request vistas previas webhooks arrendamientos integrations connections",
+      command: "Ajustes de conexiones",
     },
     probes: {
       label: "Sondas y estado",
@@ -158,9 +158,9 @@ export const nav: Catalog<typeof en> = {
       command: "Ajustes de roles",
     },
     compliance: {
-      label: "Informe ENS",
-      keywords: "cumplimiento ens esquema nacional de seguridad comprobación informe auditoría evidencias compliance report",
-      command: "Informe ENS",
+      label: "Normativas",
+      keywords: "normativas cumplimiento ens iso 27001 esquema nacional de seguridad comprobación informe auditoría evidencias compliance frameworks report",
+      command: "Normativas e informe de cumplimiento",
     },
     cloud: {
       label: "Proveedores en la nube",
@@ -207,5 +207,9 @@ export const nav: Catalog<typeof en> = {
     logShipping: "Envío de logs",
     cloud: "Nube",
     security: "Seguridad",
+    integrations: "Integraciones",
+    accounts: "Cuentas",
+    variables: "Variables",
+    general: "Ajustes",
   },
 };

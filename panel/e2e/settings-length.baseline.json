@@ -6,10 +6,13 @@
   "slack": 120,
   "routes": {
     "settings-general": {
-      "path": "/settings",
+      "path": "/settings/general",
       "height": 1471,
       "reason": "One form holds the server's identity, the console address, the folders, the limits, the web server and the deploy freeze; the console address has its own section, and what stays is measured again when it leaves."
     },
+    "settings-registries": { "path": "/settings/registries", "height": 400 },
+    "settings-deploy-keys": { "path": "/settings/deploy-keys", "height": 900 },
+    "settings-fleet": { "path": "/settings/fleet", "height": 900 },
     "settings-variables": { "path": "/settings/variables", "height": 342 },
     "settings-secret-managers": { "path": "/settings/secret-managers", "height": 441 },
     "settings-console": { "path": "/settings/console", "height": 460 },

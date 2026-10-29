@@ -64,7 +64,7 @@ async function integrations(routes: Record<string, RouteHandler> = {}) {
     "GET /api/deploy-keys/hosts": () => json(200, HOSTS),
     ...routes,
   });
-  const harness = renderConsole("/settings/integrations");
+  const harness = renderConsole("/settings/deploy-keys");
   const heading = await screen.findByRole("heading", { level: 2, name: "Deploy keys" });
   const section = heading.closest("section");
   if (!section) throw new Error("no deploy keys section");

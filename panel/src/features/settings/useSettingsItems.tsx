@@ -1,12 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { Landmark } from "lucide-react";
 import { useMemo } from "react";
-import type { ReactNode } from "react";
 
 import { sessionQuery } from "../../api/queries/auth";
 import type { Dest, NavContext } from "../../app/navCore";
 import type { SettingsNavItem } from "../../components/page/SettingsLayout";
-import { Mono } from "../../components/ui/Mono";
 import { useT } from "../../i18n";
 import type { PlainKey } from "../../i18n";
 import { useHasFleet, useReturnServer, useServerList } from "../../nodes/servers";
@@ -14,23 +11,27 @@ import { useConsoleContext } from "../../nodes/useNode";
 import { useCentral } from "../central/central";
 import { iconOf } from "../nav/icons";
 import { RENAMED, SETTINGS_SCREENS, groupSettings } from "../nav/settings";
-import type { SettingsBlock } from "../nav/settings";
 
-/** What the register's group ids are called in the list: whose the sections under them are. */
-const GROUP_TITLES: Readonly<Record<string, PlainKey>> = {
-  "this-server": "nav.settingsGroups.titles.thisServer",
-  monitoring: "nav.settingsGroups.titles.monitoring",
-  developers: "nav.settingsGroups.titles.developers",
+/** What the register's group ids are called in the list: what its sections are for. */
+export const GROUP_TITLES: Readonly<Record<string, PlainKey>> = {
   people: "nav.settingsGroups.titles.people",
-  governance: "nav.settingsGroups.titles.governance",
+  notices: "nav.settingsGroups.titles.notices",
+  connections: "nav.settingsGroups.titles.connections",
+  security: "nav.settingsGroups.titles.security",
+  api: "nav.settingsGroups.titles.api",
   fleet: "nav.settingsGroups.titles.fleet",
+  noust: "nav.settingsGroups.titles.noust",
 };
 
-const BLOCKS: readonly SettingsBlock[] = ["server", "instance"];
+/** An item of the list, with the register's id of the section and whether it is the central's whichever server is selected. */
+export interface SettingsSection extends SettingsNavItem {
+  id: string;
+  central: boolean;
+}
 
 /** What the sections of Settings are about, for the page that frames them and for the second column. */
 export interface SettingsView {
-  items: SettingsNavItem[];
+  items: SettingsSection[];
   /** The page is the central's own, not a server's. */
   onCentral: boolean;
   hasFleet: boolean;
@@ -41,10 +42,13 @@ export interface SettingsView {
 }
 
 /**
- * The sections of Settings as a list, grouped by whose they are (NV-7, NV-11) and drawn from the
- * register: the selected server's own follow the selector, the instance's are the central's whichever
- * server is selected. One list for the page that frames them (SettingsShell) and for the second
- * column of the double bar, so the two can never name different sections.
+ * The sections of Settings as one list, in the groups a person looks for a setting by (people and
+ * access, notifications, connections, security, API, the fleet, Noust) and drawn from the register.
+ * One list for the page that frames them (SettingsShell), for the hub that opens them
+ * (SettingsHome) and for the second column of the double bar, so the three can never name different
+ * sections. Whose a section is (the selected server's, or the central's whichever server is
+ * selected) is decided by where it leads, not by a heading over it: from the central's sections the
+ * server's lead back to the server the operator came from.
  */
 export function useSettingsItems(): SettingsView {
   const t = useT();
@@ -62,52 +66,25 @@ export function useSettingsItems(): SettingsView {
   const permissions = session?.permissions;
   const sealed = central.sealed;
 
-  const items = useMemo<SettingsNavItem[]>(() => {
+  const items = useMemo<SettingsSection[]>(() => {
     const ctx: NavContext = { can: (permission) => permissions?.includes(permission) ?? false, when: { fleet: hasFleet || sealed } };
-    const scopes: Readonly<Record<SettingsBlock, ReactNode>> = {
-      server: (
-        <Mono tone="default" truncate className="min-w-0">
-          {serverName}
-        </Mono>
-      ),
-      instance: (
-        <span className="inline-flex min-w-0 items-center gap-1.5">
-          <Landmark aria-hidden="true" className="size-icon-xs shrink-0 text-fg-faint" />
-          <span className="min-w-0 truncate">{t.rich("nav.settingsGroups.central", { name: <Mono key="central">{centralName}</Mono> })}</span>
-        </span>
-      ),
-    };
-    const item = (entry: Dest, block: SettingsBlock, group: string): SettingsNavItem => {
-      const root = entry.id === "settings";
+    const item = (entry: Dest, group: string): SettingsSection => {
       const names = [entry.keywords !== undefined ? t(entry.keywords) : "", ...(RENAMED[entry.id] ?? []).map((key) => t(key))];
       return {
         to: entry.to,
-        label: t(root ? (entry.rootLabel ?? entry.label) : entry.label),
+        label: t(entry.label),
         icon: iconOf(entry),
-        ...(root ? { exact: true } : {}),
         keywords: names.join(" ").trim(),
         // From the central's sections, the server's lead back to the server the operator was on.
         ...(entry.central !== true && onCentral ? { search: { node: serverNode ?? undefined } } : {}),
-        group: t(GROUP_TITLES[group] ?? "nav.settingsGroups.titles.thisServer"),
+        group: t(GROUP_TITLES[group] ?? "nav.settingsGroups.titles.noust"),
         groupKey: group,
-        // Alone, a server's groups need no name above them; with a fleet each is headed by whose it is.
-        ...(hasFleet ? { scope: scopes[block], scopeKey: block } : {}),
+        id: entry.id,
+        central: entry.central === true,
       };
     };
-    return BLOCKS.flatMap((block) => {
-      const groups = groupSettings(SETTINGS_SCREENS, block, ctx);
-      if (!hasFleet) return groups.flatMap((group) => group.sections.map((entry) => item(entry, block, group.id)));
-      // On a fleet the central's own sections that the register files with the server's (the API
-      // tokens, a node refuses a central on them) go under the central's name: under a server's they
-      // would say they are that server's.
-      const centrals = (entry: Dest): boolean => entry.central === true;
-      if (block === "server") {
-        return groups.flatMap((group) => group.sections.filter((entry) => !centrals(entry)).map((entry) => item(entry, block, group.id)));
-      }
-      const lent = groupSettings(SETTINGS_SCREENS, "server", ctx).flatMap((group) => group.sections.filter(centrals).map((entry) => item(entry, block, group.id)));
-      return [...lent, ...groups.flatMap((group) => group.sections.map((entry) => item(entry, block, group.id)))];
-    });
-  }, [t, hasFleet, sealed, permissions, onCentral, serverNode, serverName, centralName]);
+    return groupSettings(SETTINGS_SCREENS, ctx).flatMap((group) => group.sections.map((entry) => item(entry, group.id)));
+  }, [t, hasFleet, sealed, permissions, onCentral, serverNode]);
 
   return { items, onCentral, hasFleet, serverNode, serverName, centralName };
 }

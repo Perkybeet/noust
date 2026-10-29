@@ -227,7 +227,7 @@ async function pageAt(initial: Partial<Fixture> = {}, extra: Record<string, Rout
   screenWidth(1440);
   const world = ssoBackend(initial, extra);
   const harness = renderConsole("/settings/sso");
-  await screen.findByRole("heading", { level: 1, name: "Settings" });
+  await screen.findByRole("heading", { level: 1, name: "Single sign-on" });
   return { ...harness, ...world };
 }
 
