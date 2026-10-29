@@ -518,6 +518,16 @@ export const serverText = {
       hint: "List the roles with: {command}",
     },
   },
+  sources: {
+    lease_expired: {
+      text: "The GitHub access that {central} leased to this server for {repository} ended at {ended_at} and has not been renewed",
+      hint: "{central} last called at {last_call} and did not lease a new one: it may not reach GitHub, or its GitHub App no longer covers {repository}. Until it does, anything that starts on this server and reads {repository} fails. A deploy key does not depend on the central; see: {command}",
+    },
+    lease_expired_quiet: {
+      text: "The GitHub access that {central} leased to this server for {repository} ended at {ended_at}, and {central} has not called since {last_call}",
+      hint: "Anything that starts on this server and reads {repository} (a scheduled update, a preview) fails until {central} calls again and leases a new one: check that the central is running and reaches this server. A deploy key does not depend on the central; see: {command}",
+    },
+  },
   terminal: {
     disabled: {
       text: "Terminals are turned off on this server",

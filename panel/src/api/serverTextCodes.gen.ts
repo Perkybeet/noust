@@ -139,6 +139,8 @@ export const SERVER_TEXT = {
   "roles.separation_role": { text: ["subject"], hint: ["governing", "running"], commands: [] },
   "roles.too_many": { text: ["max"], hint: ["command"], commands: ["command"] },
   "roles.unknown": { text: ["name"], hint: ["command"], commands: ["command"] },
+  "sources.lease_expired": { text: ["central", "ended_at", "repository"], hint: ["central", "command", "last_call", "repository"], commands: ["command"] },
+  "sources.lease_expired_quiet": { text: ["central", "ended_at", "last_call", "repository"], hint: ["central", "command", "repository"], commands: ["command"] },
   "terminal.disabled": { text: [], hint: ["command"], commands: ["command"] },
   "terminal.limit_total": { text: ["open"], hint: [], commands: [] },
   "terminal.limit_user": { text: ["open"], hint: [], commands: [] },

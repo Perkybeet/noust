@@ -778,7 +778,9 @@ def git_auth_error(url: str | None, result: CommandResult) -> SourceError:
         The error to raise, carrying git's own output verbatim.
     """
     bare = split_url_credentials(url)[0] if url else None
-    return SourceError(
+    from noust.integrations.github.leases import expired_error
+
+    return expired_error(bare, result) or SourceError(
         GIT_AUTH_FAILURE_MESSAGE,
         details=git_auth_fix(bare),
         output=redact_git_text(result.stderr or result.stdout),
@@ -2454,12 +2456,12 @@ class SourceManager(BaseManager):
 
     def _github_auth(self, args: Sequence[str], cwd: Path | None) -> dict[str, str]:
         """
-        Build the GitHub App credential for one git network command, when one applies.
+        Build the GitHub credential for one git network command, when one applies.
 
-        The one place an installation token reaches git, so the clone, the
-        fetches, ``ls-remote`` (the upstream check) and the blobless
-        checkout of an inspection all get it, and nothing else does. The
-        token travels in git's environment only (see
+        The one place an installation token reaches git (this server's App's, or the one its
+        central leased), so the clone, the fetches, ``ls-remote`` (the upstream check) and the
+        blobless checkout of an inspection all get it, and nothing else does. The token travels
+        in git's environment only (see
         :func:`~noust.integrations.github.app.git_auth_environment`).
 
         Args:
@@ -2467,12 +2469,10 @@ class SourceManager(BaseManager):
             cwd: The repository the command runs in, if any.
 
         Returns:
-            Variables to add to git's environment; empty for a local command,
-            a repository that is not an https github.com one, a server with no
-            GitHub App, or no installation covering the repository. A token
-            GitHub would not give is logged and the command runs without it:
-            a public repository still clones, and a private one fails with
-            git's own words.
+            Variables to add to git's environment; empty for a local command, a repository no
+            App or lease reaches, or no installation covering it. A token GitHub would not give,
+            or a lease that ended, is logged and the command runs without it: a public
+            repository still clones, and a private one fails with git's own words.
         """
         verb = args[0] if args else ""
         if verb not in _NETWORK_VERBS:
@@ -2481,19 +2481,19 @@ class SourceManager(BaseManager):
         # half of Noust, and this module is imported by the deployers.
         from noust.integrations.github.app import (
             git_auth_environment,
-            github_app_configured,
-            is_github_https,
+            has_token_access,
+            token_access_configured,
         )
 
-        url = next((a for a in args if is_github_https(a)), None)
+        url = next((a for a in args if has_token_access(a)), None)
         if url is None and cwd is not None:
             url = self._remote_urls.get(os.path.abspath(cwd))
         if url is None and cwd is not None and verb in ("fetch", "pull"):
-            if not github_app_configured():
+            if not token_access_configured():
                 return {}
             origin = self._git(["remote", "get-url", "origin"], cwd=cwd)
             url = origin.stdout.strip() if origin.success else None
-        if not url or not is_github_https(url):
+        if not url or not has_token_access(url):
             return {}
         try:
             return git_auth_environment(

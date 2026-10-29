@@ -499,6 +499,27 @@ CATALOG: dict[str, str] = {
     "approvals.central_missing.hint": (
         "Ask for it on the central and retry through it once it is approved."
     ),
+    # -- The GitHub access a central leases to a server, and what an ended one looks like ----
+    "sources.lease_expired_quiet": (
+        "The GitHub access that {central} leased to this server for {repository} ended at "
+        "{ended_at}, and {central} has not called since {last_call}"
+    ),
+    "sources.lease_expired_quiet.hint": (
+        "Anything that starts on this server and reads {repository} (a scheduled update, a "
+        "preview) fails until {central} calls again and leases a new one: check that the central "
+        "is running and reaches this server. A deploy key does not depend on the central; "
+        "see: {command}"
+    ),
+    "sources.lease_expired": (
+        "The GitHub access that {central} leased to this server for {repository} ended at "
+        "{ended_at} and has not been renewed"
+    ),
+    "sources.lease_expired.hint": (
+        "{central} last called at {last_call} and did not lease a new one: it may not reach "
+        "GitHub, or its GitHub App no longer covers {repository}. Until it does, anything that "
+        "starts on this server and reads {repository} fails. A deploy key does not depend on the "
+        "central; see: {command}"
+    ),
 }
 
 

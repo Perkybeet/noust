@@ -507,6 +507,16 @@ export const serverText: Catalog<typeof en> = {
       hint: "Lista los roles con: {command}",
     },
   },
+  sources: {
+    lease_expired: {
+      text: "El acceso a GitHub que {central} cedió a este servidor para {repository} terminó el {ended_at} y no se ha renovado",
+      hint: "{central} llamó por última vez el {last_call} y no cedió uno nuevo: puede que no llegue a GitHub, o que su GitHub App ya no cubra {repository}. Hasta que lo haga, todo lo que arranque en este servidor y lea {repository} falla. Una clave de despliegue no depende de la central; mira: {command}",
+    },
+    lease_expired_quiet: {
+      text: "El acceso a GitHub que {central} cedió a este servidor para {repository} terminó el {ended_at}, y {central} no ha llamado desde el {last_call}",
+      hint: "Todo lo que arranque en este servidor y lea {repository} (una actualización programada, una preview) falla hasta que {central} vuelva a llamar y ceda uno nuevo: comprueba que la central está en marcha y llega a este servidor. Una clave de despliegue no depende de la central; mira: {command}",
+    },
+  },
   terminal: {
     disabled: {
       text: "Los terminales están desactivados en este servidor",

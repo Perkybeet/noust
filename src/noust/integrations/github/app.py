@@ -43,6 +43,7 @@ from noust.core.runner import CommandRunner, get_runner
 from noust.core.secrets import SecretStore
 from noust.core.store import GitHubAppRecord, get_store
 from noust.integrations.github.client import GitHubClient, get_client
+from noust.integrations.github.leases import SourceLeases, expired_sentence, target_of
 
 logger = logging.getLogger(__name__)
 
@@ -489,17 +490,129 @@ def is_github_https(url: str) -> bool:
     )
 
 
+def extra_header_environment(host: str, token: str, config_index: int = 0) -> dict[str, str]:
+    """
+    Build the git environment that sends an installation token to one host.
+
+    ``http.https://<host>/.extraheader`` set through ``GIT_CONFIG_COUNT`` and its pairs: the
+    token is only ever in git's environment, which only root can read, and never in argv, the
+    URL, ``.git/config`` or a log. The header is scoped to the host, so a submodule elsewhere
+    never receives it. The one place it is spelled, for the App this server has and for the token
+    a central leased to it.
+
+    Args:
+        host: The GitHub host, with its port when it has one.
+        token: The installation token.
+        config_index: The first free ``GIT_CONFIG_KEY_<n>`` index.
+
+    Returns:
+        The variables to add to git's environment.
+    """
+    basic = base64.b64encode(f"x-access-token:{token}".encode()).decode("ascii")
+    return {
+        "GIT_CONFIG_COUNT": str(config_index + 1),
+        f"GIT_CONFIG_KEY_{config_index}": f"http.https://{host}/.extraheader",
+        f"GIT_CONFIG_VALUE_{config_index}": f"AUTHORIZATION: basic {basic}",
+    }
+
+
+def is_leased_https(url: str) -> bool:
+    """
+    Tell whether an https URL is a repository of a host a central leased access to.
+
+    Args:
+        url: A repository URL.
+
+    Returns:
+        True when a lease is held for the URL's host and the URL names a repository on it.
+    """
+    try:
+        return target_of(url, SourceLeases().hosts()) is not None
+    except (NoustError, sqlite3.Error) as exc:
+        logger.debug("Could not read the leases: %s", exc)
+        return False
+
+
+def has_token_access(url: str) -> bool:
+    """
+    Tell whether a token reaches a repository URL: this server's App or a central's lease.
+
+    Args:
+        url: A repository URL.
+
+    Returns:
+        True for an https repository of the App's host, or of a host a lease is held for.
+    """
+    return is_github_https(url) or is_leased_https(url)
+
+
+def token_access_configured() -> bool:
+    """
+    Tell whether this server has any way to get a GitHub token, cheaply.
+
+    Returns:
+        True when it has an App or holds a lease.
+    """
+    return github_app_configured() or leases_held()
+
+
+def leases_held() -> bool:
+    """
+    Tell whether a central has leased this server any GitHub access, cheaply.
+
+    Returns:
+        True when a lease is held, ended or not.
+    """
+    try:
+        return bool(SourceLeases().hosts())
+    except (NoustError, sqlite3.Error) as exc:
+        logger.debug("Could not read the leases: %s", exc)
+        return False
+
+
+def leased_environment(url: str, *, config_index: int = 0) -> dict[str, str]:
+    """
+    Build the git environment of the token a central leased for a repository.
+
+    Args:
+        url: The repository URL git is given.
+        config_index: The first free ``GIT_CONFIG_KEY_<n>`` index.
+
+    Returns:
+        The variables to add to git's environment; empty when no lease was ever held that covers
+        the repository.
+
+    Raises:
+        IntegrationError: A lease covered it and has ended, or its token cannot be opened. The
+            words are the sentence that says whose it was and that the central went quiet.
+    """
+    try:
+        leases = SourceLeases()
+        target = target_of(url, leases.hosts())
+    except (NoustError, sqlite3.Error) as exc:
+        logger.debug("Could not read the leases: %s", exc)
+        return {}
+    if target is None:
+        return {}
+    host, repository = target
+    lease = leases.usable(host, repository)
+    if lease is None:
+        sentence = expired_sentence(url, leases)
+        if sentence is not None:
+            raise IntegrationError.from_text(sentence)
+        return {}
+    return extra_header_environment(host, leases.token_of(lease), config_index)
+
+
 def git_auth_environment(
     url: str, *, installation_id: int | None = None, config_index: int = 0
 ) -> dict[str, str]:
     """
     Build the git environment that lets one clone or fetch use an installation token.
 
-    ``http.https://github.com/.extraheader`` set through ``GIT_CONFIG_COUNT``
-    and its pairs: the token is only ever in git's environment, which only
-    root can read, and never in argv, the URL, ``.git/config`` or a log.
-    The header is scoped to the App's host (github.com, or ``github.host``), so a
-    submodule elsewhere never receives it.
+    The token is this server's own App's when it has one that covers the repository; otherwise
+    the one a central leased to it (:mod:`noust.integrations.github.leases`). Either way it is
+    :func:`extra_header_environment`: in git's environment only.
 
     Args:
         url: The repository URL git is given.
@@ -510,29 +623,26 @@ def git_auth_environment(
 
     Returns:
         The variables to add to git's environment; empty when the URL is not
-        an https repository of the App's host, no App exists, or no installation
-        covers the repository.
+        an https repository of the App's host or of a leased one, or nothing covers the
+        repository.
 
     Raises:
         IntegrationError: An installation covers the repository but GitHub
-            would not give a token for it.
+            would not give a token for it, or a lease covered it and has ended.
     """
-    if not is_github_https(url):
-        return {}
-    repository = integration_repository(url)
-    app = load_app()
-    if app is None or repository is None:
-        return {}
-    chosen = installation_for(repository, installation_id)
-    if chosen is None:
-        return {}
-    token = app.installation_token(chosen)
-    basic = base64.b64encode(f"x-access-token:{token}".encode()).decode("ascii")
-    return {
-        "GIT_CONFIG_COUNT": str(config_index + 1),
-        f"GIT_CONFIG_KEY_{config_index}": f"http.https://{configured_host()}/.extraheader",
-        f"GIT_CONFIG_VALUE_{config_index}": f"AUTHORIZATION: basic {basic}",
-    }
+    if is_github_https(url):
+        repository = integration_repository(url)
+        app = load_app()
+        chosen = (
+            installation_for(repository, installation_id)
+            if app is not None and repository is not None
+            else None
+        )
+        if app is not None and chosen is not None:
+            return extra_header_environment(
+                configured_host(), app.installation_token(chosen), config_index
+            )
+    return leased_environment(url, config_index=config_index)
 
 
 def github_app_configured() -> bool:
