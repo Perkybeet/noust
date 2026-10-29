@@ -1,1 +1,0 @@
-import{f as e,sr as t}from"./icons-B88vxMiL.js";var n={all:[`overview`]},r=15e3,i=()=>t({queryKey:n.all,queryFn:({signal:t})=>e(`get`,`/api/overview`,{signal:t}),refetchInterval:r});export{i as n,n as t};

@@ -1,0 +1,1 @@
+import{in as e}from"./useNode-CVgs5h80.js";import{n as t}from"./Match-DSekwN_k.js";import{t as n}from"./SettingsShell-PoBsDy-X.js";var r=e();function i(){return(0,r.jsx)(n,{children:(0,r.jsx)(t,{})})}export{i as component};

@@ -1,1 +1,0 @@
-import{l as e}from"./passkeys-LtAiFtzT.js";function t(t,n){let{browser:r,system:i}=e(n);return i===null?r:t(`auth.passkeys.suggestedName`,{browser:r,system:i})}export{t};

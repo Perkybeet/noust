@@ -1,1 +1,0 @@
-import{in as e}from"./useNode-Dy1TG182.js";import{t}from"./_team-Cm2834gF.js";import{t as n}from"./TeamLayout-CCSAU-T8.js";var r=e();function i(){let{team:e}=t.useParams();return(0,r.jsx)(n,{team:e},e)}export{i as component};

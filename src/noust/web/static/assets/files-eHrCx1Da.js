@@ -1,0 +1,1 @@
+import{in as e}from"./useNode-CVgs5h80.js";import{n as t,t as n}from"./files-D5RaGkAS.js";import{t as r}from"./searchNavigation-DqleCHUE.js";var i=e();function a(){let{domain:e}=n.useParams(),a=n.useSearch(),o=n.useNavigate();return(0,i.jsx)(t,{domain:e,folder:a.path??``,onFolder:e=>void o({search:e===``?{}:{path:e},...r()})},e)}export{a as component};

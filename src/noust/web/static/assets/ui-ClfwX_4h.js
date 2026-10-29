@@ -1,0 +1,1 @@
+import{n as e}from"./TextLink-Bn0_p9L-.js";var t=e(`inline`);export{t};

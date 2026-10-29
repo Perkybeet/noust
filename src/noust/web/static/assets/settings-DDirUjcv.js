@@ -1,1 +1,0 @@
-import{in as e}from"./useNode-Dy1TG182.js";import{n as t}from"./Match-amfaERta.js";import{t as n}from"./SettingsShell-4D_x4ANH.js";var r=e();function i(){return(0,r.jsx)(n,{children:(0,r.jsx)(t,{})})}export{i as component};
