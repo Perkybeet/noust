@@ -865,6 +865,23 @@ its disk, its certificates and its alerts are said by that server, through its o
 ones the fleet sent it, [above](#where-a-channel-is-heard), and any of its own), so they keep
 arriving when the central is down or the line between them is cut.
 
+### The record of deliveries of the whole fleet
+
+Whether a message reached the place it was meant for is the question after an outage, and the
+answer is on the server that sent it: each server keeps the record of its own deliveries
+(**Settings > Notifications**, `GET /api/notifications/deliveries`). The central asks all of them
+and lists them as one, newest first, with the server of each and a link to the page where a failed
+one can be sent again on that server:
+
+```bash
+GET /api/views/deliveries?state=failed&channel=ops&node=web-2&limit=100
+```
+
+The central's own record is one more server's (`@central`). `counts` is each server's whole record
+by state (`sent`, `retrying`, `held`, `failed`), not only the part the list shows, and a server
+that does not let the operator read its settings comes in `refusals` with the permission it is
+missing, as in every other view of the fleet.
+
 ### Where the links of a notification open
 
 A server's own console is normally reachable only through the central's tunnel, so a link built from

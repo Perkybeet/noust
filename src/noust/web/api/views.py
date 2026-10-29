@@ -150,6 +150,19 @@ class ViewOut(ViewEnvelope):
     items: list[dict[str, Any]]
 
 
+class DeliveriesOut(ViewOut):
+    """
+    The record of deliveries of every server.
+
+    Attributes:
+        counts: For each server that answered (this central's own name for itself), how many
+            deliveries its record has in each state (``sent``, ``failed``, ``retrying``,
+            ``held``), the whole of it and not only the part listed in ``items``.
+    """
+
+    counts: dict[str, dict[str, int]] = Field(default_factory=dict)
+
+
 class SearchHitOut(BaseModel):
     """
     One thing a search found, on one server.
@@ -427,6 +440,67 @@ async def view_activity(
         One row per event.
     """
     return await _view("activity", request, session, node, refresh, {"limit": limit})
+
+
+@router.get("/deliveries", response_model=DeliveriesOut)
+async def view_deliveries(
+    request: Request,
+    session: Session,
+    node: NodeFilter = None,
+    refresh: Refresh = False,
+    state: Annotated[
+        str | None,
+        Query(description="Only deliveries in this state: sent, retrying, held or failed"),
+    ] = None,
+    channel: Annotated[str | None, Query(description="Only deliveries to this channel")] = None,
+    limit: Annotated[int, Query(ge=1, le=500, description="Deliveries per server")] = 100,
+) -> dict[str, Any]:
+    """
+    The record of deliveries of every server, newest first.
+
+    Each server delivers its own notifications and keeps its own record, so this is where to look
+    after an outage for whether a message reached the place it was meant for. ``counts`` is each
+    server's whole record by state. A server that does not let the operator read its settings
+    comes grouped in ``refusals``.
+
+    Args:
+        request: The request.
+        session: The authenticated session.
+        node: Only these servers.
+        refresh: Ask again.
+        state: Only this state.
+        channel: Only this channel.
+        limit: Deliveries per server.
+
+    Returns:
+        One row per delivery, with its server and the page where it can be sent again, and the
+        counts of each server.
+
+    Raises:
+        ValidationError: 400 for a state that does not exist.
+    """
+    from noust.core.notification_ledger import STATES
+    from noust.fleet import deliveries
+
+    if state is not None and state not in STATES:
+        raise ValidationError(
+            f"Unknown delivery state: {state!r}",
+            details=f"The states are: {', '.join(STATES)}.",
+            field="state",
+        )
+    deliveries.register()
+    params: dict[str, Any] = {"limit": limit}
+    if state:
+        params["state"] = state
+    if channel:
+        params["channel"] = channel
+    body = await _view("deliveries", request, session, node, refresh, params)
+    counted = await _view("delivery_counts", request, session, node, refresh)
+    body["counts"] = {
+        str(row["node"]): {str(k): int(v) for k, v in row["counts"].items()}
+        for row in counted["items"]
+    }
+    return body
 
 
 @router.get("/search", response_model=SearchOut)

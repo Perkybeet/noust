@@ -658,6 +658,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("fleet", "view_certificates"): ("GET", "/api/views/certificates", "apps.read", False),
     ("fleet", "view_cron"): ("GET", "/api/views/cron", "apps.read", False),
     ("fleet", "view_databases"): ("GET", "/api/views/databases", "databases.read", False),
+    ("fleet", "view_deliveries"): ("GET", "/api/views/deliveries", "settings.read", False),
     ("fleet", "view_logs"): ("GET", "/api/views/logs", "apps.read", False),
     ("fleet", "view_search"): ("GET", "/api/views/search", "apps.read", False),
     ("fleet", "view_sites"): ("GET", "/api/views/sites", "apps.read", False),
@@ -5809,7 +5810,7 @@ class Domains:
 
 
 class Fleet:
-    """Fleet: 64 operations."""
+    """Fleet: 65 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -6311,6 +6312,14 @@ class Fleet:
 
         Needs: permission `databases.read`."""
         return self._call("GET", "/api/views/databases", query={"node": node, "refresh": refresh}, body=None)
+
+    def view_deliveries(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None, state: Union[str, None] = None, channel: Union[str, None] = None, limit: Union[int, None] = None) -> "DeliveriesOut":
+        """GET /api/views/deliveries
+
+        View Deliveries
+
+        Needs: permission `settings.read`."""
+        return self._call("GET", "/api/views/deliveries", query={"node": node, "refresh": refresh, "state": state, "channel": channel, "limit": limit}, body=None)
 
     def view_logs(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None, q: Union[str, None] = None, since: Union[str, None] = None, until: Union[str, None] = None, level: Union[str, None] = None, limit: Union[int, None] = None) -> "ViewOut":
         """GET /api/views/logs

@@ -2503,6 +2503,18 @@ DeletionPlanResponse = TypedDict("DeletionPlanResponse", {
     "path": Required[str],
 })
 
+DeliveriesOut = TypedDict("DeliveriesOut", {
+    "counts": NotRequired[dict[str, dict[str, int]]],
+    "fleet": Required[bool],
+    "generated_at": Required[str],
+    "items": Required[list[dict[str, Any]]],
+    "nodes": Required[list["ViewNodeOut"]],
+    "partial": Required[bool],
+    "refusals": Required[list["RefusalGroupOut"]],
+    "resource": Required[str],
+    "servers": Required[list["ViewServerOut"]],
+})
+
 DeliveryConfig = TypedDict("DeliveryConfig", {
     "max_concurrent_builds": NotRequired[int],
     "max_minutes": NotRequired[int],

@@ -29468,6 +29468,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/views/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View Deliveries
+         * @description The record of deliveries of every server, newest first.
+         *
+         *     Each server delivers its own notifications and keeps its own record, so this is where to look
+         *     after an outage for whether a message reached the place it was meant for. ``counts`` is each
+         *     server's whole record by state. A server that does not let the operator read its settings
+         *     comes grouped in ``refusals``.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *         state: Only this state.
+         *         channel: Only this channel.
+         *         limit: Deliveries per server.
+         *
+         *     Returns:
+         *         One row per delivery, with its server and the page where it can be sent again, and the
+         *         counts of each server.
+         *
+         *     Raises:
+         *         ValidationError: 400 for a state that does not exist.
+         */
+        get: operations["view_deliveries_api_views_deliveries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/views/logs": {
         parameters: {
             query?: never;
@@ -38205,6 +38246,41 @@ export interface components {
             keeps_directory: boolean;
             /** Path */
             path: string;
+        };
+        /**
+         * DeliveriesOut
+         * @description The record of deliveries of every server.
+         *
+         *     Attributes:
+         *         counts: For each server that answered (this central's own name for itself), how many
+         *             deliveries its record has in each state (``sent``, ``failed``, ``retrying``,
+         *             ``held``), the whole of it and not only the part listed in ``items``.
+         */
+        DeliveriesOut: {
+            /** Counts */
+            counts?: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
+            /** Fleet */
+            fleet: boolean;
+            /** Generated At */
+            generated_at: string;
+            /** Items */
+            items: {
+                [key: string]: unknown;
+            }[];
+            /** Nodes */
+            nodes: components["schemas"]["ViewNodeOut"][];
+            /** Partial */
+            partial: boolean;
+            /** Refusals */
+            refusals: components["schemas"]["RefusalGroupOut"][];
+            /** Resource */
+            resource: string;
+            /** Servers */
+            servers: components["schemas"]["ViewServerOut"][];
         };
         /**
          * DeliveryConfig
@@ -97378,6 +97454,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    view_deliveries_api_views_deliveries_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself. Leave it out for every server */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+                /** @description Only deliveries in this state: sent, retrying, held or failed */
+                state?: string | null;
+                /** @description Only deliveries to this channel */
+                channel?: string | null;
+                /** @description Deliveries per server */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveriesOut"];
                 };
             };
             /** @description Validation Error */

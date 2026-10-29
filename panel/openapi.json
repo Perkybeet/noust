@@ -14813,6 +14813,78 @@
         "title": "DeletionPlanResponse",
         "type": "object"
       },
+      "DeliveriesOut": {
+        "description": "The record of deliveries of every server.\n\nAttributes:\n    counts: For each server that answered (this central's own name for itself), how many\n        deliveries its record has in each state (``sent``, ``failed``, ``retrying``,\n        ``held``), the whole of it and not only the part listed in ``items``.",
+        "properties": {
+          "counts": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "fleet": {
+            "title": "Fleet",
+            "type": "boolean"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/ViewNodeOut"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "partial": {
+            "title": "Partial",
+            "type": "boolean"
+          },
+          "refusals": {
+            "items": {
+              "$ref": "#/components/schemas/RefusalGroupOut"
+            },
+            "title": "Refusals",
+            "type": "array"
+          },
+          "resource": {
+            "title": "Resource",
+            "type": "string"
+          },
+          "servers": {
+            "items": {
+              "$ref": "#/components/schemas/ViewServerOut"
+            },
+            "title": "Servers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "resource",
+          "generated_at",
+          "partial",
+          "fleet",
+          "servers",
+          "nodes",
+          "refusals",
+          "items"
+        ],
+        "title": "DeliveriesOut",
+        "type": "object"
+      },
       "DeliveryConfig": {
         "description": "The limits a server delivers under: how much builds at once, waits, and takes.",
         "properties": {
@@ -115133,6 +115205,124 @@
           "Fleet"
         ],
         "x-noust-permission": "databases.read"
+      }
+    },
+    "/api/views/deliveries": {
+      "get": {
+        "description": "The record of deliveries of every server, newest first.\n\nEach server delivers its own notifications and keeps its own record, so this is where to look\nafter an outage for whether a message reached the place it was meant for. ``counts`` is each\nserver's whole record by state. A server that does not let the operator read its settings\ncomes grouped in ``refusals``.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n    state: Only this state.\n    channel: Only this channel.\n    limit: Deliveries per server.\n\nReturns:\n    One row per delivery, with its server and the page where it can be sent again, and the\n    counts of each server.\n\nRaises:\n    ValidationError: 400 for a state that does not exist.",
+        "operationId": "view_deliveries_api_views_deliveries_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Only deliveries in this state: sent, retrying, held or failed",
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only deliveries in this state: sent, retrying, held or failed",
+              "title": "State"
+            }
+          },
+          {
+            "description": "Only deliveries to this channel",
+            "in": "query",
+            "name": "channel",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only deliveries to this channel",
+              "title": "Channel"
+            }
+          },
+          {
+            "description": "Deliveries per server",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Deliveries per server",
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveriesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "View Deliveries",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "settings.read"
       }
     },
     "/api/views/logs": {
