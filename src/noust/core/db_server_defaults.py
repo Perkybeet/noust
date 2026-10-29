@@ -155,6 +155,32 @@ class DbServerDefaultStore:
             cursor.execute("DELETE FROM db_server_defaults WHERE flavour = ?", (flavour,))
             return cursor.rowcount > 0
 
+    def follow(self, flavour: str, old_key: str, new_key: str, *, set_by: str | None) -> bool:
+        """
+        Move the choice to the server that took over from the one chosen.
+
+        A move of an engine's databases to a newer version leaves the old server stopped: the
+        operator who chose it chose where their databases are, and they are now on the new one.
+
+        Args:
+            flavour: The engine.
+            old_key: The server the databases left.
+            new_key: The server they went to.
+            set_by: Who moved them.
+
+        Returns:
+            True when ``old_key`` was the chosen default and ``new_key`` is now; False when
+            nobody chose it (the automatic default follows what exists by itself).
+
+        Raises:
+            ValidationError: ``new_key`` is not a key a default can be chosen by.
+        """
+        current = self.get(flavour)
+        if current is None or current.server_key != old_key:
+            return False
+        self.set(flavour, new_key, set_by=set_by)
+        return True
+
     def forget(self, server_key: str) -> int:
         """
         Forget that a server was chosen, because it is gone.

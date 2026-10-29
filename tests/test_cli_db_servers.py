@@ -50,6 +50,18 @@ class TestTheList:
         text = "\n".join(log)
         assert "postgresql@pg16" in text and "postgresql@pg17" in text
 
+    def test_the_list_by_default_takes_the_options_of_the_list(self, made: World) -> None:
+        # `noust db servers --json` is the command the errors and the docs write.
+        result = run("servers", "--json")
+
+        assert result.exit_code == 0, result.output
+        assert [s["key"] for s in json.loads(result.stdout)["servers"]] == [
+            "postgresql@pg16",
+            "postgresql@pg17",
+        ]
+        narrowed = run("servers", "--engine", "mysql", "--json")
+        assert json.loads(narrowed.stdout)["servers"] == []
+
     def test_the_default_is_marked(self, made: World, log: list[str]) -> None:
         result = run("servers", "list")
 

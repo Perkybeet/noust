@@ -85,11 +85,19 @@ def _row(server: dict[str, Any]) -> list[str]:
 
 
 @click.group("servers", cls=NoustGroup, invoke_without_command=True)
+@click.option(
+    "--engine",
+    "-e",
+    metavar="ENGINE",
+    help="Only this engine: mysql is MySQL and MariaDB, mariadb only MariaDB.",
+)
+@global_flags
+@json_option("Print the servers as JSON.")
 @click.pass_context
-def servers_group(click_ctx: click.Context) -> None:
+def servers_group(click_ctx: click.Context, engine: str | None) -> None:
     """The database servers: where databases run, and the default of each engine."""
     if click_ctx.invoked_subcommand is None:
-        click_ctx.invoke(list_command)
+        click_ctx.invoke(list_command, engine=engine)
 
 
 @servers_group.command("list", read_only=True)
