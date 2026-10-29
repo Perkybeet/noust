@@ -17,7 +17,7 @@ slogan: "A fast, light BitTorrent client with a web interface."
 description: "Download and seed torrents on the server and manage them from the browser or a remote app. The web interface asks for a password; the peer port 51413 is open to the network so that others can connect to you."
 category: utilities
 tags: [torrent, bittorrent, downloads, p2p]
-logo: logo.svg
+logo: simple-icons:transmission
 version: "4.1.3"
 revision: 1
 updated: 2026-10-20

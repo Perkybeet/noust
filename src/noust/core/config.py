@@ -61,6 +61,7 @@ from noust.core.ens.profile import STANDARD as STANDARD_PROFILE
 from noust.core.ens.profile import SUDO_IDLE_RANGE, SUDO_MAX_RANGE
 from noust.core.exceptions import ConfigError, SecurityError, ValidationError
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs
+from noust.core.https_url import https_url_validator
 from noust.validators.domain import is_valid_domain
 from noust.validators.origins import SHAPES as ALLOWED_SOURCE_SHAPES
 from noust.validators.origins import check_allowed_source
@@ -300,6 +301,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # certbot's own output) never is. noust.core.messages is the catalog;
         # see _validate_notification_language for the accepted values.
         "language": "en",
+        # Where this server's links open, inside its central's console; see core/https_url.py.
+        "console_url": "",
+        # Minutes the central that manages this server may stay quiet before the server says so
+        # (0 turns it off); see fleet/central_calls.py.
+        "central_silent_minutes": 15,
         "events": {
             "deploy_started": False,
             "deploy_success": True,
@@ -366,6 +372,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "security_release": True,
             "container_restart_loop": True,
             "recipe_outdated": True,
+            # The central that manages this server stopped calling it.
+            "central_silent": True,
         },
         "channels": {
             # A webhook URL is a capability: Slack and Discord embed the
@@ -420,7 +428,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # address, often 127.0.0.1 behind a reverse proxy, and no site's
         # public URL can be derived from that). Deploy notifications use it
         # to link to a deployment's page; nothing else reads it today. Must
-        # be absolute https - see _validate_public_url.
+        # be absolute https - see core/https_url.py.
         "public_url": "",
         # The public base of /hooks/ that code hosts deliver to, written by
         # `noust web expose-hooks`; unset while webhooks can only reach this
@@ -1451,39 +1459,6 @@ def _validate_forge_hosts(value: Any) -> list[str]:
     return normalise_declared(value)
 
 
-def _validate_public_url(value: Any) -> str:
-    """
-    Accept the console's public URL, or leave it unset.
-
-    Read by :mod:`noust.core.deploy_notifications` to link a deployment
-    notification back to its page in the console. Restricted to https,
-    unlike the bind address it is next to in ``web.*``: this value is handed
-    to an operator's phone or chat client, and an ``http://`` link there is a
-    credential-carrying session cookie away from being read in the clear -
-    the exact outcome the console's own cookies are marked Secure to avoid.
-
-    Args:
-        value: The candidate value, from either front end.
-
-    Returns:
-        The value with any trailing slash removed, so every caller that
-        joins a path onto it produces exactly one - or ``""`` when unset.
-
-    Raises:
-        ConfigError: When it is set and is not an absolute ``https://`` URL.
-    """
-    text = "" if value is None else str(value).strip()
-    if not text:
-        return ""
-    parsed = urlparse(text)
-    if parsed.scheme != "https" or not parsed.netloc:
-        raise ConfigError(
-            "web.public_url must be an absolute https:// URL",
-            details=f"Got {text!r}. Use an address such as https://console.example.com.",
-        )
-    return text.rstrip("/")
-
-
 def _validate_hooks_url(value: Any) -> str:
     """
     Accept the public base URL of ``/hooks/``, or leave it unset.
@@ -2190,7 +2165,11 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "backup.max_per_app": _int_range_validator("backup.max_per_app", 1, 100),
     "web.port": _int_range_validator("web.port", 1, 65535),
     "web.session_timeout": _int_range_validator("web.session_timeout", 300, 86400),
-    "web.public_url": _validate_public_url,
+    "web.public_url": https_url_validator("web.public_url"),
+    "notifications.console_url": https_url_validator("notifications.console_url"),
+    "notifications.central_silent_minutes": _int_range_validator(
+        "notifications.central_silent_minutes", 0, 1440
+    ),
     "web.api_enabled": _validate_flag("web.api_enabled"),
     "dns.check_previews": _validate_flag("dns.check_previews"),
     "github.host": _validate_github_host,

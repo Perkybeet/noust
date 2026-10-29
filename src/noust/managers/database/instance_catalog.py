@@ -19,29 +19,42 @@ multi-architecture image. None is ever typed from memory: ``scripts/database_pin
 check`` reads each from its registry and fails when the table differs, and the
 tests refuse a digest that is not shaped like one.
 
-The tables are what the registries served on 2026-10-06. A version added
-upstream later is not offered until it is added here, which is the safe
+The tables are what the registries served on 2026-10-06 (the versions whose
+support has ended, which an operator may still need, on 2026-10-29). A version
+added upstream later is not offered until it is added here, which is the safe
 direction; one that is withdrawn upstream keeps working from its digest until
 it is upgraded.
+
+**Versions without support are offered too** (item 103): MySQL 5.7 and 8.0,
+PostgreSQL 12 to 14, MariaDB 10.6 and MongoDB 6.0 are in the table with
+``legacy=True``, pinned like the rest. Making one is a decision, not a default:
+it carries the date its project stopped fixing security problems and needs the
+operator's ``unsupported_ok`` (:func:`unsupported_notice` says when).
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, replace
+from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from noust.core.db_instance_store import CUSTOM_VARIANT, check_version
 from noust.core.exceptions import ValidationError
-from noust.managers.database.eol import support_notice
+from noust.core.server_text import say
+from noust.managers.database.eol import SupportNotice, support_notice
 from noust.managers.database.flavours import FLAVOURS
 from noust.validators.container import split_image_reference
 
 if TYPE_CHECKING:
     from noust.core.db_instance_store import InstanceRecord
+    from noust.core.server_text import ServerText
 
 #: When the digests below were read from the registries.
 PINNED_ON = "2026-10-06"
+
+#: The same, for the versions whose support has ended.
+LEGACY_PINNED_ON = "2026-10-29"
 
 
 @dataclass(frozen=True)
@@ -53,12 +66,21 @@ class ImagePin:
         version: The tag, a major such as ``17`` or ``8.4``.
         digest: The digest of the tag's image index.
         default: The version offered when none is asked for.
+        tag: The tag the digest was read from, when it is not the version.
+        legacy: The project no longer supports it, or is about to stop. Noust offers it for the
+            application that needs it, beside the current ones, and the operator confirms the
+            price (``unsupported_ok``) before one is made. Never the default, and a prefix an
+            operator types (``8``) never lands on it while a supported version answers.
+        platforms: The processors this image alone is published for, when fewer than the
+            engine's (MySQL 5.7 has an amd64 image only); None for the engine's own.
     """
 
     version: str
     digest: str
     default: bool = False
     tag: str | None = None
+    legacy: bool = False
+    platforms: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -185,6 +207,24 @@ SPECS: dict[str, EngineSpec] = {
             min_memory_mb=256,
             default_memory_mb=512,
             pins=(
+                # The versions whose project has stopped fixing security problems, or is about to,
+                # for the application that still needs one (item 103). They are the engine's own
+                # image only: a variant offers the supported majors.
+                ImagePin(
+                    "12",
+                    "sha256:2f2a8c2a7d10862e7fba2602e304523554f9df8244c632dafe2628ccb398fb5c",
+                    legacy=True,
+                ),
+                ImagePin(
+                    "13",
+                    "sha256:4689940c683801b4ab839ab3b0a0a3555a5fe425371422310944e89eca7d8068",
+                    legacy=True,
+                ),
+                ImagePin(
+                    "14",
+                    "sha256:0472f5295d05c211cc42b3daa5e84a128e390c5267b60ced9fe044bcf4edfdb8",
+                    legacy=True,
+                ),
                 ImagePin(
                     "15", "sha256:7e2070cf6ad06fb3cbbd141b1bafbb7fd5bb63e2b6001e6daf34448eb555e4b3"
                 ),
@@ -272,6 +312,18 @@ SPECS: dict[str, EngineSpec] = {
             min_memory_mb=512,
             default_memory_mb=1024,
             pins=(
+                # 5.7 has an image for amd64 only. Its project's last release was in 2023.
+                ImagePin(
+                    "5.7",
+                    "sha256:4bc6bc963e6d8443453676cae56536f4b8156d78bae03c0145cbe47c2aad73bb",
+                    legacy=True,
+                    platforms=("amd64",),
+                ),
+                ImagePin(
+                    "8.0",
+                    "sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b",
+                    legacy=True,
+                ),
                 ImagePin(
                     "8.4",
                     "sha256:6ea90827b1100f8f2ae306a539f86d2c264a26ed435a2a9f75551dd5c3aeb242",
@@ -291,6 +343,11 @@ SPECS: dict[str, EngineSpec] = {
             min_memory_mb=256,
             default_memory_mb=512,
             pins=(
+                ImagePin(
+                    "10.6",
+                    "sha256:f1c56f035ed268a0d7c2c2e06dc879f6319b997cb434cf822a4cfd72a7aa184d",
+                    legacy=True,
+                ),
                 ImagePin(
                     "10.11",
                     "sha256:7db29378d4fdab73f8123bbc2b48905c90d1a4b00cf848b028f1e81e623257f2",
@@ -419,6 +476,11 @@ SPECS: dict[str, EngineSpec] = {
             default_memory_mb=1024,
             pins=(
                 ImagePin(
+                    "6.0",
+                    "sha256:8b6d8f5bbedb25cb73517b65cf99f13aeb75ad5b157a56c479287a840bbad3ac",
+                    legacy=True,
+                ),
+                ImagePin(
                     "7.0", "sha256:1f995ad6fdb93244a1addab1b58f934a0bc2f5643c38e02f5e9d7f0c7d227a7b"
                 ),
                 ImagePin(
@@ -516,6 +578,8 @@ class CustomImage:
         tag: The tag the digest was read from, or None.
         digest: The digest. Mandatory: a tag is a promise and a digest is a file, and the
             official images are pinned by Noust so that the same row is the same software.
+            Empty only for an image given by registry and tag, which Noust pins when the
+            instance is made (:func:`parse_custom_image`, ``pin_later``).
     """
 
     repository: str
@@ -523,19 +587,22 @@ class CustomImage:
     digest: str
 
 
-def parse_custom_image(reference: str) -> CustomImage:
+def parse_custom_image(reference: str, *, pin_later: bool = False) -> CustomImage:
     """
     Read the image an operator asked for.
 
     Args:
         reference: ``repository[:tag]@sha256:digest``.
+        pin_later: Accept ``repository:tag`` too, for Noust to read the digest of the tag when
+            it makes the instance (:func:`~noust.managers.database.instance_images.pull_and_read_digest`).
+            The tag is then mandatory: ``latest`` is not assumed for an image nobody named.
 
     Returns:
-        The image.
+        The image; its digest is empty when it is to be pinned later.
 
     Raises:
         ValidationError: It is not an image reference, or it has no digest (``field`` is
-            ``image``).
+            ``image``), or, with ``pin_later``, no tag either.
     """
     name, tag, digest = split_image_reference(reference if isinstance(reference, str) else "")
     host, slash, path = name.partition("/")
@@ -546,6 +613,18 @@ def parse_custom_image(reference: str) -> CustomImage:
             details="A repository is lower case: only a registry's host name may have capitals.",
             field="image",
         )
+    if digest is None and pin_later:
+        if tag is None:
+            raise ValidationError(
+                "Say which tag of the image to run",
+                details=(
+                    "Write it as repository:tag, such as ghcr.io/acme/pg:17.2. Noust reads the "
+                    "tag's digest when it makes the instance and pins it, so that what runs is "
+                    "exactly those bytes; it does not assume 'latest'."
+                ),
+                field="image",
+            )
+        return CustomImage(repository=name, tag=tag, digest="")
     if digest is None:
         raise ValidationError(
             "An image Noust did not choose has to be pinned by its digest",
@@ -611,8 +690,9 @@ def resolve_pin(spec: EngineSpec, version: str | None) -> ImagePin:
     Decide which image a version asked for is.
 
     The version is a prefix by components, as everywhere a version is typed:
-    ``17`` is PostgreSQL 17, ``8`` is MySQL 8.4 (the one 8 there is), and ``11``
-    is ambiguous between MariaDB's 11.4 and 11.8, so it is refused with both.
+    ``17`` is PostgreSQL 17, ``8`` is MySQL 8.4 (the one supported 8 there is; 8.0
+    is asked for by its name), and ``11`` is ambiguous between MariaDB's 11.4 and
+    11.8, so it is refused with both.
 
     Args:
         spec: The engine.
@@ -630,7 +710,12 @@ def resolve_pin(spec: EngineSpec, version: str | None) -> ImagePin:
     exact = [pin for pin in spec.pins if pin.version == version.strip()]
     if exact:
         return exact[0]
+    # A prefix means the supported version it always meant (``8`` is MySQL 8.4, not 8.0): the ones
+    # without support answer only when nothing supported does.
     matching = [pin for pin in spec.pins if pin.version.split(".")[: len(wanted)] == wanted]
+    supported = [pin for pin in matching if not pin.legacy]
+    if supported:
+        matching = supported
     if len(matching) == 1:
         return matching[0]
     offered = ", ".join(pin.version for pin in spec.pins)
@@ -645,6 +730,57 @@ def resolve_pin(spec: EngineSpec, version: str | None) -> ImagePin:
         details=f"Versions it offers: {offered}.",
         field="version",
     )
+
+
+def unsupported_notice(
+    spec: EngineSpec, pin: ImagePin, *, today: date | None = None
+) -> SupportNotice | None:
+    """
+    Say whether making an instance of a version needs the operator's confirmation.
+
+    It does when the table of the catalog lists the version as one without support (``legacy``)
+    and when its project's date has passed, which is what an image of the operator's own that
+    says it is MySQL 5.7 comes to. A version with no published date is not unsupported: Noust
+    invents none.
+
+    Args:
+        spec: The engine (the operator's image, when it is one: its ``pins`` has the version
+            the operator says it is).
+        pin: The version.
+        today: The date to judge against; today when omitted.
+
+    Returns:
+        The support notice of the version when it needs the confirmation, else None.
+    """
+    notice = support_notice(spec.flavour, pin.version, today=today)
+    if notice.end_of_life is None:
+        return None
+    if pin.legacy or notice.status == "ended":
+        return notice
+    return None
+
+
+def unsupported_text(spec: EngineSpec, pin: ImagePin, notice: SupportNotice) -> ServerText:
+    """
+    Say, as a sentence the console translates, what a version without support costs.
+
+    Args:
+        spec: The engine.
+        pin: The version.
+        notice: Its :func:`unsupported_notice`.
+
+    Returns:
+        ``database_servers.unsupported_ended`` when its project's date has passed, else
+        ``database_servers.unsupported_ending``, with the engine, the version and the date.
+    """
+    values = {
+        "name": FLAVOURS[spec.flavour].display_name,
+        "version": pin.version,
+        "end_of_life": notice.end_of_life or "",
+    }
+    if notice.status == "ended":
+        return say("database_servers.unsupported_ended", **values)
+    return say("database_servers.unsupported_ending", **values)
 
 
 def pin_of(spec: EngineSpec, version: str) -> ImagePin | None:
@@ -662,18 +798,29 @@ def pin_of(spec: EngineSpec, version: str) -> ImagePin | None:
     return next((pin for pin in spec.pins if pin.version == version), None)
 
 
-def offered() -> list[dict[str, Any]]:
+def offered(engine: str | None = None) -> list[dict[str, Any]]:
     """
     List what Noust can run as an instance, for the API and the CLI.
+
+    Args:
+        engine: Only this flavour (or an alias of it): what "another version" is asked with
+            once the engine is chosen. All of them when omitted.
 
     Returns:
         One entry per flavour: its name, engine, display name, image
         repository, minimum and suggested memory, and each version with its
-        digest, whether it is the default and, where the project publishes one,
-        when its upstream support ends.
+        digest, whether it is the default, where the project publishes one
+        when its upstream support ends and whether it is ``support``ed, whether making it
+        needs the operator's ``unsupported_ok`` and the processors it is published for.
+
+    Raises:
+        ValidationError: Noust runs no such engine as a container.
     """
+    chosen = spec_for(engine).flavour if engine else None
     entries: list[dict[str, Any]] = []
     for spec in SPECS.values():
+        if chosen is not None and spec.flavour != chosen:
+            continue
         versions = []
         for pin in spec.pins:
             notice = support_notice(spec.flavour, pin.version)
@@ -683,6 +830,9 @@ def offered() -> list[dict[str, Any]]:
                     "digest": pin.digest,
                     "default": pin.default,
                     "end_of_life": notice.end_of_life,
+                    "support": notice.status,
+                    "unsupported": unsupported_notice(spec, pin) is not None,
+                    "platforms": list(pin.platforms or spec.platforms),
                 }
             )
         entries.append(
@@ -711,6 +861,8 @@ def offered() -> list[dict[str, Any]]:
                                 "end_of_life": support_notice(
                                     spec.flavour, pin.version
                                 ).end_of_life,
+                                "support": support_notice(spec.flavour, pin.version).status,
+                                "unsupported": unsupported_notice(spec, pin) is not None,
                             }
                             for pin in variant.pins
                         ],

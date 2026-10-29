@@ -33,16 +33,12 @@ MIGRATED = {"wordpress", "uptime-kuma", "umami", "n8n"}
 #: Listed, not deployable, with the reason.
 UNAVAILABLE = {
     "appwrite",
-    "bookstack",
     "cal-com",
-    "coder",
     "excalidraw",
     "hermes-agent",
     "joplin-server",
     "minio",
-    "openclaw",
     "pocketbase",
-    "portainer",
     "stalwart",
     "strapi",
     "supabase",
@@ -152,7 +148,7 @@ def test_every_recipe_has_what_a_catalogue_card_shows(recipe: Recipe) -> None:
     """Title, slogan, a real category, tags, a logo, links over https."""
     assert recipe.title and recipe.slogan and recipe.description
     assert recipe.category in CATEGORIES
-    assert recipe.logo == "logo.svg"
+    assert recipe.logo == "logo.svg" or (recipe.logo or "").startswith("simple-icons:")
     assert recipe.homepage.startswith("https://")
     if recipe.available:
         assert recipe.category != "other"

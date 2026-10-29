@@ -1,0 +1,87 @@
+# CertMate: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/certmate
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: certmate
+kind: compose
+title: "CertMate"
+slogan: "Self-hosted control plane for TLS certificates, ready for 47-day certificates: issue, renew..."
+description: "CertMate is an SSL certificate management system with a web UI and REST API. It automates issuing and renewing Let's Encrypt certificates via DNS-01 challenges across 20+ DNS providers, with unified backups and multi-account support."
+category: security
+tags: [ssl, certificates, security, self-hosted]
+logo: logo.svg
+version: "2.21.3"
+revision: 1
+updated: 2026-10-28
+homepage: https://www.certmate.org/
+docs: https://www.certmate.org/docs/
+repository: https://github.com/fabriziosalmi/certmate
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SECRET_KEY:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for secret key."
+  API_BEARER_TOKEN:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for api bearer token."
+  BEHIND_PROXY:
+    default: "true"
+    description: "Setting BEHIND_PROXY of the application; the template leaves it to the operator."
+  CLOUDFLARE_TOKEN:
+    default: ""
+    secret: true
+    description: "Setting CLOUDFLARE_TOKEN of the application; the template leaves it to the operator."
+  LETSENCRYPT_EMAIL:
+    default: ""
+    description: "Setting LETSENCRYPT_EMAIL of the application; the template leaves it to the operator."
+  LOG_LEVEL:
+    default: "INFO"
+    description: "Setting LOG_LEVEL of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    certmate:
+      image: fabriziosalmi/certmate:2.21.3@sha256:26ddcbfb89807e4e5620528a689403b49bba132dc504ab45f4cf2b7516ceb0dd
+      environment:
+        FLASK_ENV: production
+        SECRET_KEY: ${SECRET_KEY}
+        API_BEARER_TOKEN: ${API_BEARER_TOKEN}
+        BEHIND_PROXY: ${BEHIND_PROXY}
+        CLOUDFLARE_TOKEN: ${CLOUDFLARE_TOKEN}
+        LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL}
+        LOG_LEVEL: ${LOG_LEVEL}
+      volumes:
+        - certmate_certificates:/app/certificates
+        - certmate_data:/app/data
+        - certmate_logs:/app/logs
+        - certmate_backups:/app/backups
+      restart: unless-stopped
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - -f
+          - http://localhost:8000/health
+        interval: 30s
+        timeout: 10s
+        retries: 3
+        start_period: 40s
+      ports:
+        - 127.0.0.1:${PORT}:8000
+  volumes:
+    certmate_certificates:
+    certmate_data:
+    certmate_logs:
+    certmate_backups:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes certmate_certificates, certmate_data, certmate_logs, certmate_backups of this application: back them up before updating."

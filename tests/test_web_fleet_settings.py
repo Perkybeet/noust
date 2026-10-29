@@ -105,6 +105,7 @@ class TestTheKindsAndWhatIsSet:
             "backup_destination",
             "registry",
             "variable",
+            "console_link",
         ]
         assert kinds["channel"]["permission"] == "settings.manage"
         assert "PUT /api/notifications/channels/{name}" in kinds["channel"]["operations"]

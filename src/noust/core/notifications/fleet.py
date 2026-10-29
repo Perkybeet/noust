@@ -31,6 +31,10 @@ from noust.core.notifications.composers import (
 )
 from noust.core.notifier import notify_composed
 
+#: Every kind of event a central says, and the only ones: the rest of what happens on a server is
+#: said by that server, through its own channels, so it arrives when the central is down too.
+CENTRAL_KINDS: tuple[str, ...] = ("node_unreachable", "node_recovered", "node_host_key_changed")
+
 
 def notify_node_unreachable(
     node: str,

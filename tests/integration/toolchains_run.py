@@ -1024,7 +1024,7 @@ SCENARIOS.append(("monorepo_instant_rollback", scenario_monorepo_instant_rollbac
 # Runtimes downloaded and installed for real: Node, Python with uv, PHP with apt (A-43)
 # ---------------------------------------------------------------------------
 
-#: Where the managed runtimes live (docs/build.md#runtimes).
+#: Where the managed runtimes live (docs/build-runtimes.md#runtimes).
 RUNTIMES_ROOT = "/opt/noust/runtimes"
 
 

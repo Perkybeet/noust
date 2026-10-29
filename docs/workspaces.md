@@ -8,7 +8,7 @@ This replaces the `monorepo` type for new work. That type (a `turbo.json`, one w
 configuration and at least two apps under `apps/`, with one unit and one subdomain per workspace)
 keeps working for what is deployed with it. It is created in place and has no previews, and it only
 knows nginx; the applications below have all three. It can have the instant rollback too:
-`noust app migrate` puts it on releases ([releases.md](releases.md#a-monorepo-on-releases)).
+`noust app migrate` puts it on releases ([releases.md](releases-compose.md#a-monorepo-on-releases)).
 
 - [Read the workspaces](#read-the-workspaces)
 - [Create the applications](#create-the-applications)

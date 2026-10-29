@@ -14,7 +14,7 @@ slogan: Dashboards and alerts for metrics, logs and traces.
 description: The open-source observability platform, to query, visualise and alert on data from Prometheus, Loki, PostgreSQL and many more. Its own data is a SQLite file.
 category: monitoring
 tags: [dashboards, metrics, observability, alerts]
-logo: logo.svg
+logo: simple-icons:grafana
 version: "13.2.3"
 revision: 1
 updated: 2026-10-06

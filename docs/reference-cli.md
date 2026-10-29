@@ -4,13 +4,13 @@
 
 Every command of `noust`, with its options. Global options (`--verbose`, `--dry-run`, `--json`, `--no-color`, `--reason`) go before or after the command name. `noust COMMAND --help` prints the same text, and `man noust` is generated from the same tree.
 
-Commands: [`2fa`](#noust-2fa), [`access`](#noust-access), [`alert`](#noust-alert), [`app`](#noust-app), [`approval`](#noust-approval), [`audit`](#noust-audit), [`auth`](#noust-auth), [`backup`](#noust-backup), [`central`](#noust-central), [`cert`](#noust-cert), [`compliance`](#noust-compliance), [`compose`](#noust-compose), [`config`](#noust-config), [`console`](#noust-console), [`context`](#noust-context), [`create`](#noust-create), [`cron`](#noust-cron), [`db`](#noust-db), [`delete`](#noust-delete), [`deploy`](#noust-deploy), [`diagnose`](#noust-diagnose), [`dns`](#noust-dns), [`domain`](#noust-domain), [`ens`](#noust-ens), [`env`](#noust-env), [`environment`](#noust-environment), [`fleet`](#noust-fleet), [`github`](#noust-github), [`gitlab`](#noust-gitlab), [`health`](#noust-health), [`import`](#noust-import), [`incident`](#noust-incident), [`list`](#noust-list), [`log`](#noust-log), [`logdrain`](#noust-logdrain), [`logs`](#noust-logs), [`manifest`](#noust-manifest), [`map`](#noust-map), [`mcp`](#noust-mcp), [`monitor`](#noust-monitor), [`node`](#noust-node), [`notify`](#noust-notify), [`passkey`](#noust-passkey), [`preview`](#noust-preview), [`probe`](#noust-probe), [`project`](#noust-project), [`push`](#noust-push), [`recipe`](#noust-recipe), [`registry`](#noust-registry), [`releases`](#noust-releases), [`restart`](#noust-restart), [`restore-server`](#noust-restore-server), [`rollback`](#noust-rollback), [`runtime`](#noust-runtime), [`secrets`](#noust-secrets), [`self-backup`](#noust-self-backup), [`self-update`](#noust-self-update), [`server`](#noust-server), [`service`](#noust-service), [`sessions`](#noust-sessions), [`setup`](#noust-setup), [`site`](#noust-site), [`start`](#noust-start), [`status`](#noust-status), [`stop`](#noust-stop), [`store`](#noust-store), [`stream`](#noust-stream), [`support`](#noust-support), [`team`](#noust-team), [`token`](#noust-token), [`tunnel`](#noust-tunnel), [`update`](#noust-update), [`upload`](#noust-upload), [`user`](#noust-user), [`variables`](#noust-variables), [`web`](#noust-web), [`workspace`](#noust-workspace)
+Commands: [`2fa`](#noust-2fa), [`access`](#noust-access), [`alert`](#noust-alert), [`app`](#noust-app), [`approval`](#noust-approval), [`audit`](#noust-audit), [`auth`](#noust-auth), [`backup`](#noust-backup), [`central`](#noust-central), [`cert`](#noust-cert), [`compliance`](#noust-compliance), [`compose`](#noust-compose), [`config`](#noust-config), [`console`](#noust-console), [`context`](#noust-context), [`create`](#noust-create), [`cron`](#noust-cron), [`db`](#noust-db), [`delete`](#noust-delete), [`deploy`](#noust-deploy), [`diagnose`](#noust-diagnose), [`dns`](#noust-dns), [`domain`](#noust-domain), [`ens`](#noust-ens), [`env`](#noust-env), [`environment`](#noust-environment), [`fleet`](#noust-fleet), [`github`](#noust-github), [`gitlab`](#noust-gitlab), [`health`](#noust-health), [`import`](#noust-import), [`incident`](#noust-incident), [`list`](#noust-list), [`log`](#noust-log), [`logdrain`](#noust-logdrain), [`logs`](#noust-logs), [`manifest`](#noust-manifest), [`map`](#noust-map), [`mcp`](#noust-mcp), [`monitor`](#noust-monitor), [`node`](#noust-node), [`notify`](#noust-notify), [`passkey`](#noust-passkey), [`preview`](#noust-preview), [`probe`](#noust-probe), [`project`](#noust-project), [`push`](#noust-push), [`recipe`](#noust-recipe), [`registry`](#noust-registry), [`releases`](#noust-releases), [`restart`](#noust-restart), [`restore-server`](#noust-restore-server), [`rollback`](#noust-rollback), [`runtime`](#noust-runtime), [`secrets`](#noust-secrets), [`self-backup`](#noust-self-backup), [`self-update`](#noust-self-update), [`server`](#noust-server), [`service`](#noust-service), [`sessions`](#noust-sessions), [`setup`](#noust-setup), [`site`](#noust-site), [`start`](#noust-start), [`status`](#noust-status), [`stop`](#noust-stop), [`store`](#noust-store), [`stream`](#noust-stream), [`support`](#noust-support), [`team`](#noust-team), [`token`](#noust-token), [`tunnel`](#noust-tunnel), [`update`](#noust-update), [`upload`](#noust-upload), [`user`](#noust-user), [`variables`](#noust-variables), [`web`](#noust-web), [`webserver`](#noust-webserver), [`workspace`](#noust-workspace)
 
-### noust 2fa
+## noust 2fa
 
 Enrol, confirm, disable or recover two-factor authentication for logins.
 
-```
+```bash
 noust 2fa [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -20,7 +20,7 @@ Subcommands: [`backup-codes`](#noust-2fa-backup-codes), [`confirm`](#noust-2fa-c
 
 Regenerate the backup codes, invalidating every one issued before.
 
-```
+```bash
 noust 2fa backup-codes [OPTIONS]
 ```
 
@@ -33,7 +33,7 @@ noust 2fa backup-codes [OPTIONS]
 
 Verify CODE against the pending secret and activate the second factor.
 
-```
+```bash
 noust 2fa confirm [OPTIONS] CODE
 ```
 
@@ -47,7 +47,7 @@ Arguments: `code`
 
 Turn the second factor off, on presentation of a current CODE or an unused backup code.
 
-```
+```bash
 noust 2fa disable [OPTIONS] CODE
 ```
 
@@ -61,7 +61,7 @@ Arguments: `code`
 
 Begin enrolment: generate a pending secret. Nothing is enforced until 'noust 2fa confirm CODE' verifies it.
 
-```
+```bash
 noust 2fa enroll [OPTIONS]
 ```
 
@@ -73,7 +73,7 @@ noust 2fa enroll [OPTIONS]
 
 Report the two-factor state, without exposing any secret.
 
-```
+```bash
 noust 2fa status [OPTIONS]
 ```
 
@@ -82,11 +82,11 @@ noust 2fa status [OPTIONS]
 | `--json` | Print the status as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust access
+## noust access
 
 Roles, and where each person holds them.
 
-```
+```bash
 noust access [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -96,7 +96,7 @@ Subcommands: [`grant`](#noust-access-grant), [`list`](#noust-access-list), [`per
 
 Give an account a role at a scope.
 
-```
+```bash
 noust access grant [OPTIONS] USERNAME
 ```
 
@@ -115,7 +115,7 @@ Arguments: `username`
 
 List who holds a role where, besides each account's own role and team memberships.
 
-```
+```bash
 noust access list [OPTIONS]
 ```
 
@@ -130,7 +130,7 @@ noust access list [OPTIONS]
 
 List every permission a role can hold, and what it allows.
 
-```
+```bash
 noust access permissions [OPTIONS]
 ```
 
@@ -143,7 +143,7 @@ noust access permissions [OPTIONS]
 
 Take a role away, by the id 'noust access list' shows.
 
-```
+```bash
 noust access revoke [OPTIONS] BINDING_ID
 ```
 
@@ -157,7 +157,7 @@ Arguments: `binding_id`
 
 Define roles of your own, as sets of permissions.
 
-```
+```bash
 noust access role [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -167,7 +167,7 @@ Subcommands: [`create`](#noust-access-role-create), [`duplicate`](#noust-access-
 
 Define a role.
 
-```
+```bash
 noust access role create [OPTIONS] NAME
 ```
 
@@ -184,7 +184,7 @@ Arguments: `name`
 
 Copy a role into a role of your own, which you then change as you like.
 
-```
+```bash
 noust access role duplicate [OPTIONS] NAME NEW_NAME
 ```
 
@@ -199,7 +199,7 @@ Arguments: `name`, `new_name`
 
 List the server's roles, and a team's built-in ones.
 
-```
+```bash
 noust access role list [OPTIONS]
 ```
 
@@ -212,7 +212,7 @@ noust access role list [OPTIONS]
 
 Take or leave what a newer release ships for a role you edited.
 
-```
+```bash
 noust access role offers [OPTIONS] NAME
 ```
 
@@ -229,7 +229,7 @@ Arguments: `name`
 
 Remove a role of your own that nobody holds.
 
-```
+```bash
 noust access role remove [OPTIONS] NAME
 ```
 
@@ -244,7 +244,7 @@ Arguments: `name`
 
 Put a role Noust ships back to how it comes: it follows the release again.
 
-```
+```bash
 noust access role reset [OPTIONS] NAME
 ```
 
@@ -258,7 +258,7 @@ Arguments: `name`
 
 Change a role, one Noust ships included; everyone who holds it holds the change.
 
-```
+```bash
 noust access role set [OPTIONS] NAME
 ```
 
@@ -275,7 +275,7 @@ Arguments: `name`
 
 Show what a role holds, permission by permission, and who holds it.
 
-```
+```bash
 noust access role show [OPTIONS] NAME
 ```
 
@@ -286,11 +286,11 @@ Arguments: `name`
 | `--json` | Print the role as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust alert
+## noust alert
 
 Alert rules on CPU, memory, disk, load and traffic.
 
-```
+```bash
 noust alert [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -300,7 +300,7 @@ Subcommands: [`ack`](#noust-alert-ack), [`disable`](#noust-alert-disable), [`ena
 
 Take an alert that is firing: its reminders stop and the channels are told.
 
-```
+```bash
 noust alert ack [OPTIONS] NAME
 ```
 
@@ -316,7 +316,7 @@ Arguments: `name`
 
 Turn a rule off; what it had decided is forgotten.
 
-```
+```bash
 noust alert disable [OPTIONS] NAME
 ```
 
@@ -330,7 +330,7 @@ Arguments: `name`
 
 Turn a rule on.
 
-```
+```bash
 noust alert enable [OPTIONS] NAME
 ```
 
@@ -344,7 +344,7 @@ Arguments: `name`
 
 List the alert rules and how many subjects of each are firing.
 
-```
+```bash
 noust alert list [OPTIONS]
 ```
 
@@ -360,7 +360,7 @@ noust alert list [OPTIONS]
 
 List what a rule can watch, and the unit its limit is written in.
 
-```
+```bash
 noust alert metrics [OPTIONS]
 ```
 
@@ -376,7 +376,7 @@ noust alert metrics [OPTIONS]
 
 Remove a rule and what it remembered.
 
-```
+```bash
 noust alert remove [OPTIONS] NAME
 ```
 
@@ -390,7 +390,7 @@ Arguments: `name`
 
 Create an alert rule, or replace the one of that name.
 
-```
+```bash
 noust alert set [OPTIONS] NAME
 ```
 
@@ -416,7 +416,7 @@ Arguments: `name`
 
 Show the alerts that are firing now.
 
-```
+```bash
 noust alert status [OPTIONS]
 ```
 
@@ -432,7 +432,7 @@ noust alert status [OPTIONS]
 
 Hand a firing alert back: its reminder speaks again.
 
-```
+```bash
 noust alert unack [OPTIONS] NAME
 ```
 
@@ -443,11 +443,11 @@ Arguments: `name`
 | `--app` | The application the alert is about; leave out for the server's. | `` |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust app
+## noust app
 
 Change how a deployed application is laid out and what it may use.
 
-```
+```bash
 noust app [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -457,7 +457,7 @@ Subcommands: [`adopt`](#noust-app-adopt), [`adopt-site`](#noust-app-adopt-site),
 
 Register a Docker Compose stack that already runs, without touching it.
 
-```
+```bash
 noust app adopt [OPTIONS] DOMAIN
 ```
 
@@ -480,7 +480,7 @@ Arguments: `domain`
 
 Register a site that already runs on nginx or Apache, without rebuilding it.
 
-```
+```bash
 noust app adopt-site [OPTIONS] DOMAIN
 ```
 
@@ -499,7 +499,7 @@ Arguments: `domain`
 
 Set an application from a declaration file, as 'noust app export --as-yaml' writes one.
 
-```
+```bash
 noust app apply [OPTIONS] DOMAIN FILE
 ```
 
@@ -520,7 +520,7 @@ Arguments: `domain`, `file`
 
 Show or set whether an update copies a stack's databases first.
 
-```
+```bash
 noust app backup-before-update [OPTIONS] DOMAIN [on|off]
 ```
 
@@ -535,7 +535,7 @@ Arguments: `domain`, `state`
 
 Show or set whether an update is refused when its backup fails.
 
-```
+```bash
 noust app backup-required [OPTIONS] DOMAIN [on|off|default]
 ```
 
@@ -550,7 +550,7 @@ Arguments: `domain`, `state`
 
 Show, pin or unpin the branch an application deploys from.
 
-```
+```bash
 noust app branch [OPTIONS] DOMAIN [BRANCH]
 ```
 
@@ -569,7 +569,7 @@ Arguments: `domain`, `branch`
 
 The commands an application is installed, built and started with: see, set or unset them.
 
-```
+```bash
 noust app build [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -579,7 +579,7 @@ Subcommands: [`set`](#noust-app-build-set), [`show`](#noust-app-build-show), [`u
 
 Set an application's build block, replacing the repository's noust.yaml whole.
 
-```
+```bash
 noust app build set [OPTIONS] DOMAIN
 ```
 
@@ -603,7 +603,7 @@ Arguments: `domain`
 
 Show the build block the next deployment of an application uses, and where it comes from.
 
-```
+```bash
 noust app build show [OPTIONS] DOMAIN
 ```
 
@@ -618,7 +618,7 @@ Arguments: `domain`
 
 Remove keys of the operator's block, or all of it, so the repository's applies again.
 
-```
+```bash
 noust app build unset [OPTIONS] DOMAIN [KEY]...
 ```
 
@@ -632,7 +632,7 @@ Arguments: `domain`, `keys`
 
 The cache the package managers keep between an application's builds.
 
-```
+```bash
 noust app cache [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -642,7 +642,7 @@ Subcommands: [`clear`](#noust-app-cache-clear), [`show`](#noust-app-cache-show)
 
 Empty an application's build cache; its next build downloads what it needs again.
 
-```
+```bash
 noust app cache clear [OPTIONS] DOMAIN
 ```
 
@@ -657,7 +657,7 @@ Arguments: `domain`
 
 Show where an application's build cache is and how much it holds.
 
-```
+```bash
 noust app cache show [OPTIONS] DOMAIN
 ```
 
@@ -672,7 +672,7 @@ Arguments: `domain`
 
 Clone an application: the same application on NEW_DOMAIN.
 
-```
+```bash
 noust app clone [OPTIONS] DOMAIN NEW_DOMAIN
 ```
 
@@ -696,7 +696,7 @@ Arguments: `domain`, `new_domain`
 
 The compose file, profiles and extra arguments of a Docker Compose stack.
 
-```
+```bash
 noust app compose [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -706,7 +706,7 @@ Subcommands: [`document`](#noust-app-compose-document), [`replace`](#noust-app-c
 
 Print the Compose document a stack runs from.
 
-```
+```bash
 noust app compose document [OPTIONS] DOMAIN
 ```
 
@@ -721,7 +721,7 @@ Arguments: `domain`
 
 Replace the Compose document a stack runs from.
 
-```
+```bash
 noust app compose replace [OPTIONS] DOMAIN
 ```
 
@@ -739,7 +739,7 @@ Arguments: `domain`
 
 Forget the choices; the unit's own record of the file applies again.
 
-```
+```bash
 noust app compose reset [OPTIONS] DOMAIN
 ```
 
@@ -753,7 +753,7 @@ Arguments: `domain`
 
 Change what a Compose stack is run with, keeping what is not named.
 
-```
+```bash
 noust app compose set [OPTIONS] DOMAIN
 ```
 
@@ -775,7 +775,7 @@ Arguments: `domain`
 
 Show what a Compose stack is run with.
 
-```
+```bash
 noust app compose show [OPTIONS] DOMAIN
 ```
 
@@ -790,7 +790,7 @@ Arguments: `domain`
 
 Show the variables the compose file asks for and which of them the stack has.
 
-```
+```bash
 noust app compose variables [OPTIONS] DOMAIN
 ```
 
@@ -805,7 +805,7 @@ Arguments: `domain`
 
 How a container application is built and run: see it, change it.
 
-```
+```bash
 noust app container [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -815,7 +815,7 @@ Subcommands: [`check`](#noust-app-container-check), [`set`](#noust-app-container
 
 Ask the registry whether the tag of an image application points at a new image.
 
-```
+```bash
 noust app container check [OPTIONS] DOMAIN
 ```
 
@@ -830,7 +830,7 @@ Arguments: `domain`
 
 Change how a container application is built and run.
 
-```
+```bash
 noust app container set [OPTIONS] DOMAIN
 ```
 
@@ -865,7 +865,7 @@ Arguments: `domain`
 
 Show how a container application is built and run.
 
-```
+```bash
 noust app container show [OPTIONS] DOMAIN
 ```
 
@@ -880,7 +880,7 @@ Arguments: `domain`
 
 An SSH key of its own for the repository an application is built from.
 
-```
+```bash
 noust app deploy-key [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -890,7 +890,7 @@ Subcommands: [`assign`](#noust-app-deploy-key-assign), [`forget-host`](#noust-ap
 
 Make an existing key the one that reaches this application's repository.
 
-```
+```bash
 noust app deploy-key assign [OPTIONS] DOMAIN KEY
 ```
 
@@ -907,7 +907,7 @@ Arguments: `domain`, `key`
 
 Forget a pinned host key, so the next connection pins the one the host shows now.
 
-```
+```bash
 noust app deploy-key forget-host [OPTIONS] HOST
 ```
 
@@ -925,7 +925,7 @@ Arguments: `host`
 
 Make an ed25519 key, with no passphrase, for the application's repository.
 
-```
+```bash
 noust app deploy-key generate [OPTIONS] DOMAIN
 ```
 
@@ -944,7 +944,7 @@ Arguments: `domain`
 
 List the SSH host keys Noust pinned the first time it connected to each code host.
 
-```
+```bash
 noust app deploy-key hosts [OPTIONS]
 ```
 
@@ -960,7 +960,7 @@ noust app deploy-key hosts [OPTIONS]
 
 Use a private key you already have as the application's deploy key.
 
-```
+```bash
 noust app deploy-key import [OPTIONS] DOMAIN
 ```
 
@@ -980,7 +980,7 @@ Arguments: `domain`
 
 List every deploy key and the applications it reaches.
 
-```
+```bash
 noust app deploy-key list [OPTIONS]
 ```
 
@@ -996,7 +996,7 @@ noust app deploy-key list [OPTIONS]
 
 Pin a code host's SSH key before the first connection, by the fingerprint it publishes.
 
-```
+```bash
 noust app deploy-key pin-host [OPTIONS] HOST
 ```
 
@@ -1015,7 +1015,7 @@ Arguments: `host`
 
 Delete the deploy keys whose repositories no application is built from any more.
 
-```
+```bash
 noust app deploy-key prune [OPTIONS]
 ```
 
@@ -1030,7 +1030,7 @@ noust app deploy-key prune [OPTIONS]
 
 Take the repository off its deploy key, and delete the key when nothing else uses it.
 
-```
+```bash
 noust app deploy-key remove [OPTIONS] DOMAIN
 ```
 
@@ -1048,7 +1048,7 @@ Arguments: `domain`
 
 Make the key that will replace the application's, keeping the old one working.
 
-```
+```bash
 noust app deploy-key rotate [OPTIONS] DOMAIN
 ```
 
@@ -1068,7 +1068,7 @@ Arguments: `domain`
 
 Show the deploy key of an application's repository, and the public half to add at the code host.
 
-```
+```bash
 noust app deploy-key show [OPTIONS] DOMAIN
 ```
 
@@ -1086,7 +1086,7 @@ Arguments: `domain`
 
 Ask the repository for its branches with the deploy key, as a deploy would.
 
-```
+```bash
 noust app deploy-key test [OPTIONS] DOMAIN
 ```
 
@@ -1103,7 +1103,7 @@ Arguments: `domain`
 
 Print the captured log of a deployment of an application.
 
-```
+```bash
 noust app deploy-log [OPTIONS] DOMAIN [DEPLOYMENT_ID]
 ```
 
@@ -1123,7 +1123,7 @@ Arguments: `domain`, `deployment_id`
 
 List the sites on this server that Noust did not deploy, and what each one is.
 
-```
+```bash
 noust app discover [OPTIONS]
 ```
 
@@ -1136,7 +1136,7 @@ noust app discover [OPTIONS]
 
 Show what the application takes of the disk, and the limit its deploys are held to.
 
-```
+```bash
 noust app disk [OPTIONS] DOMAIN
 ```
 
@@ -1155,7 +1155,7 @@ Arguments: `domain`
 
 Run one command in an application, as the application: noust app exec DOMAIN -- PROGRAM ARGS.
 
-```
+```bash
 noust app exec [OPTIONS] DOMAIN [COMMAND]...
 ```
 
@@ -1172,7 +1172,7 @@ Arguments: `domain`, `command`
 
 Export everything that defines an application as a JSON document.
 
-```
+```bash
 noust app export [OPTIONS] DOMAIN
 ```
 
@@ -1193,7 +1193,7 @@ Arguments: `domain`
 
 The files of an application, as its own account.
 
-```
+```bash
 noust app files [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -1203,7 +1203,7 @@ Subcommands: [`get`](#noust-app-files-get), [`list`](#noust-app-files-list), [`m
 
 Copy a file out of the application: to DESTINATION, or to standard output.
 
-```
+```bash
 noust app files get [OPTIONS] DOMAIN PATH [DESTINATION]
 ```
 
@@ -1217,7 +1217,7 @@ Arguments: `domain`, `path`, `destination`
 
 List a directory of the application (its own directory by default).
 
-```
+```bash
 noust app files list [OPTIONS] DOMAIN [PATH]
 ```
 
@@ -1232,7 +1232,7 @@ Arguments: `domain`, `path`
 
 Create a directory whose parent exists.
 
-```
+```bash
 noust app files mkdir [OPTIONS] DOMAIN PATH
 ```
 
@@ -1246,7 +1246,7 @@ Arguments: `domain`, `path`
 
 Rename or move something inside the application.
 
-```
+```bash
 noust app files move [OPTIONS] DOMAIN SOURCE DESTINATION
 ```
 
@@ -1261,7 +1261,7 @@ Arguments: `domain`, `source`, `destination`
 
 Copy a local file into the application at PATH, as the application's account.
 
-```
+```bash
 noust app files put [OPTIONS] DOMAIN SOURCE PATH
 ```
 
@@ -1276,7 +1276,7 @@ Arguments: `domain`, `source`, `path`
 
 Delete a file, a link, or a directory. A link is removed, never what it points at.
 
-```
+```bash
 noust app files remove [OPTIONS] DOMAIN PATH
 ```
 
@@ -1292,7 +1292,7 @@ Arguments: `domain`, `path`
 
 Show, set or clear the tags an application deploys.
 
-```
+```bash
 noust app follow-tags [OPTIONS] DOMAIN [PATTERN]
 ```
 
@@ -1311,7 +1311,7 @@ Arguments: `domain`, `pattern`
 
 The user and token a private https repository needs, kept as a secret.
 
-```
+```bash
 noust app git-credential [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -1321,7 +1321,7 @@ Subcommands: [`remove`](#noust-app-git-credential-remove), [`set`](#noust-app-gi
 
 Forget the credential of the application's repository.
 
-```
+```bash
 noust app git-credential remove [OPTIONS] DOMAIN
 ```
 
@@ -1339,7 +1339,7 @@ Arguments: `domain`
 
 Keep the user and token git signs in to this application's repository with.
 
-```
+```bash
 noust app git-credential set [OPTIONS] DOMAIN
 ```
 
@@ -1358,7 +1358,7 @@ Arguments: `domain`
 
 Say whether the application's repository has a credential, and as whom.
 
-```
+```bash
 noust app git-credential show [OPTIONS] DOMAIN
 ```
 
@@ -1376,7 +1376,7 @@ Arguments: `domain`
 
 The sandbox an application's unit runs in: see it, or change it.
 
-```
+```bash
 noust app hardening [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -1386,7 +1386,7 @@ Subcommands: [`set`](#noust-app-hardening-set), [`status`](#noust-app-hardening-
 
 Run the application's unit in this sandbox: off, default or strict.
 
-```
+```bash
 noust app hardening set [OPTIONS] DOMAIN {off|default|strict}
 ```
 
@@ -1405,7 +1405,7 @@ Arguments: `domain`, `profile`
 
 Show the sandbox of the application's unit and how exposed systemd finds it.
 
-```
+```bash
 noust app hardening status [OPTIONS] DOMAIN
 ```
 
@@ -1420,7 +1420,7 @@ Arguments: `domain`
 
 Record a Docker Compose stack that publishes no port as a worker.
 
-```
+```bash
 noust app headless [OPTIONS] DOMAIN
 ```
 
@@ -1437,7 +1437,7 @@ Arguments: `domain`
 
 Show or set what the health gate asks of an application.
 
-```
+```bash
 noust app health [OPTIONS] DOMAIN
 ```
 
@@ -1468,7 +1468,7 @@ Arguments: `domain`
 
 Commands a deployment runs before it serves and after: see, set or clear them.
 
-```
+```bash
 noust app hooks [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -1478,7 +1478,7 @@ Subcommands: [`clear`](#noust-app-hooks-clear), [`set`](#noust-app-hooks-set), [
 
 Remove an application's hooks, so the repository's noust.yaml applies again.
 
-```
+```bash
 noust app hooks clear [OPTIONS] DOMAIN
 ```
 
@@ -1492,7 +1492,7 @@ Arguments: `domain`
 
 Set an application's hooks, replacing the repository's noust.yaml whole.
 
-```
+```bash
 noust app hooks set [OPTIONS] DOMAIN
 ```
 
@@ -1508,7 +1508,7 @@ Arguments: `domain`
 
 Show the hooks the next deployment of an application runs, and where they come from.
 
-```
+```bash
 noust app hooks show [OPTIONS] DOMAIN
 ```
 
@@ -1523,7 +1523,7 @@ Arguments: `domain`
 
 The system account an application runs as: see it, or give it its own.
 
-```
+```bash
 noust app identity [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -1533,7 +1533,7 @@ Subcommands: [`migrate`](#noust-app-identity-migrate), [`status`](#noust-app-ide
 
 Run the application as its own system account instead of the shared one.
 
-```
+```bash
 noust app identity migrate [OPTIONS] [DOMAIN]
 ```
 
@@ -1551,7 +1551,7 @@ Arguments: `domain`
 
 Show the account the application runs as, and whether it is its own.
 
-```
+```bash
 noust app identity status [OPTIONS] DOMAIN
 ```
 
@@ -1566,7 +1566,7 @@ Arguments: `domain`
 
 Create an application from a 'noust app export' document.
 
-```
+```bash
 noust app import [OPTIONS] FILE
 ```
 
@@ -1589,7 +1589,7 @@ Arguments: `file`
 
 Show or set the memory, CPU and task limits of an application.
 
-```
+```bash
 noust app limits [OPTIONS] DOMAIN
 ```
 
@@ -1608,7 +1608,7 @@ Arguments: `domain`
 
 Move an in-place application onto the release layout.
 
-```
+```bash
 noust app migrate [OPTIONS] DOMAIN
 ```
 
@@ -1625,7 +1625,7 @@ Arguments: `domain`
 
 Files kept for an application, and server paths bound into its container.
 
-```
+```bash
 noust app mount [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -1635,7 +1635,7 @@ Subcommands: [`bind`](#noust-app-mount-bind), [`file`](#noust-app-mount-file), [
 
 Bind SOURCE, a path of the server, at TARGET in a container application.
 
-```
+```bash
 noust app mount bind [OPTIONS] DOMAIN SOURCE TARGET
 ```
 
@@ -1650,7 +1650,7 @@ Arguments: `domain`, `source`, `target`
 
 Keep a file for the application at TARGET, linked into every release.
 
-```
+```bash
 noust app mount file [OPTIONS] DOMAIN TARGET
 ```
 
@@ -1666,7 +1666,7 @@ Arguments: `domain`, `target`
 
 List the files and server paths mounted into an application.
 
-```
+```bash
 noust app mount list [OPTIONS] DOMAIN
 ```
 
@@ -1681,7 +1681,7 @@ Arguments: `domain`
 
 Remove a mount. A file Noust kept is deleted with it.
 
-```
+```bash
 noust app mount remove [OPTIONS] DOMAIN TARGET
 ```
 
@@ -1696,7 +1696,7 @@ Arguments: `domain`, `target`
 
 Print the text of a mounted file. It may hold a secret: the read is on record.
 
-```
+```bash
 noust app mount show [OPTIONS] DOMAIN TARGET
 ```
 
@@ -1710,7 +1710,7 @@ Arguments: `domain`, `target`
 
 Move an application to another project or environment.
 
-```
+```bash
 noust app move [OPTIONS] DOMAIN
 ```
 
@@ -1731,7 +1731,7 @@ Arguments: `domain`
 
 Show the Docker networks a Compose stack is on and who else is on them.
 
-```
+```bash
 noust app networks [OPTIONS] DOMAIN
 ```
 
@@ -1746,7 +1746,7 @@ Arguments: `domain`
 
 The system packages an application needs on the host (a library, a font, a converter).
 
-```
+```bash
 noust app packages [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -1756,7 +1756,7 @@ Subcommands: [`add`](#noust-app-packages-add), [`install`](#noust-app-packages-i
 
 Add packages to what an application declares, keeping the others, and install them.
 
-```
+```bash
 noust app packages add [OPTIONS] DOMAIN NAMES...
 ```
 
@@ -1772,7 +1772,7 @@ Arguments: `domain`, `names`
 
 Install the packages an application declares that the host lacks.
 
-```
+```bash
 noust app packages install [OPTIONS] DOMAIN
 ```
 
@@ -1787,7 +1787,7 @@ Arguments: `domain`
 
 Stop declaring packages. They stay installed: another application, or the system, may use them.
 
-```
+```bash
 noust app packages remove [OPTIONS] DOMAIN NAMES...
 ```
 
@@ -1802,7 +1802,7 @@ Arguments: `domain`, `names`
 
 Declare the packages an application needs, replacing its list, and install them.
 
-```
+```bash
 noust app packages set [OPTIONS] DOMAIN [NAMES]...
 ```
 
@@ -1818,7 +1818,7 @@ Arguments: `domain`, `names`
 
 Show what an application declares, what the host has of it, and the server's policy.
 
-```
+```bash
 noust app packages show [OPTIONS] DOMAIN
 ```
 
@@ -1833,7 +1833,7 @@ Arguments: `domain`
 
 Show what the application is set to that it does not run with yet.
 
-```
+```bash
 noust app pending [OPTIONS] DOMAIN
 ```
 
@@ -1848,7 +1848,7 @@ Arguments: `domain`
 
 Who may reach an application's site and how: password, addresses, limits, headers.
 
-```
+```bash
 noust app policy [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -1858,7 +1858,7 @@ Subcommands: [`clients`](#noust-app-policy-clients), [`http3`](#noust-app-policy
 
 Client certificates: who may open a site that asks for one.
 
-```
+```bash
 noust app policy clients [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -1868,7 +1868,7 @@ Subcommands: [`ca`](#noust-app-policy-clients-ca), [`issue`](#noust-app-policy-c
 
 Print the certificate of the application's client authority (public).
 
-```
+```bash
 noust app policy clients ca [OPTIONS] DOMAIN
 ```
 
@@ -1882,7 +1882,7 @@ Arguments: `domain`
 
 Make a certificate for a client of the site.
 
-```
+```bash
 noust app policy clients issue [OPTIONS] DOMAIN NAME
 ```
 
@@ -1899,7 +1899,7 @@ Arguments: `domain`, `name`
 
 List the client certificates made for an application, revoked ones included.
 
-```
+```bash
 noust app policy clients list [OPTIONS] DOMAIN
 ```
 
@@ -1914,7 +1914,7 @@ Arguments: `domain`
 
 Revoke a certificate: the site refuses it from the moment it is rendered again.
 
-```
+```bash
 noust app policy clients revoke [OPTIONS] DOMAIN SERIAL
 ```
 
@@ -1930,7 +1930,7 @@ Arguments: `domain`, `serial`
 
 Say whether this application's server can serve it over HTTP/3, and what is missing.
 
-```
+```bash
 noust app policy http3 [OPTIONS] DOMAIN
 ```
 
@@ -1945,7 +1945,7 @@ Arguments: `domain`
 
 Publish an application on a private network only: a tailnet or a WireGuard interface.
 
-```
+```bash
 noust app policy private [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -1955,7 +1955,7 @@ Subcommands: [`certificate`](#noust-app-policy-private-certificate), [`disable`]
 
 Serve an application with the certificate Tailscale issues for this server's name.
 
-```
+```bash
 noust app policy private certificate [OPTIONS] DOMAIN
 ```
 
@@ -1970,7 +1970,7 @@ Arguments: `domain`
 
 Let an application answer anybody again: the private ranges leave the allowed addresses.
 
-```
+```bash
 noust app policy private disable [OPTIONS] DOMAIN
 ```
 
@@ -1986,7 +1986,7 @@ Arguments: `domain`
 
 Make an application answer a private network only.
 
-```
+```bash
 noust app policy private enable [OPTIONS] DOMAIN
 ```
 
@@ -2004,7 +2004,7 @@ Arguments: `domain`
 
 List the private networks this server is on.
 
-```
+```bash
 noust app policy private networks [OPTIONS]
 ```
 
@@ -2017,7 +2017,7 @@ noust app policy private networks [OPTIONS]
 
 Say whether an application answers a private network only, and which.
 
-```
+```bash
 noust app policy private show [OPTIONS] DOMAIN
 ```
 
@@ -2032,7 +2032,7 @@ Arguments: `domain`
 
 Show the networks a site believes Cloudflare's client-address header from.
 
-```
+```bash
 noust app policy ranges [OPTIONS]
 ```
 
@@ -2046,7 +2046,7 @@ noust app policy ranges [OPTIONS]
 
 Take every field of the policy back to its default. The accounts are kept.
 
-```
+```bash
 noust app policy reset [OPTIONS] DOMAIN
 ```
 
@@ -2061,7 +2061,7 @@ Arguments: `domain`
 
 What happens at a prefix of the site: a password, headers, another service, a redirect.
 
-```
+```bash
 noust app policy route [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -2071,7 +2071,7 @@ Subcommands: [`add`](#noust-app-policy-route-add), [`list`](#noust-app-policy-ro
 
 Set what happens at a prefix of the site; a route at the same prefix is replaced.
 
-```
+```bash
 noust app policy route add [OPTIONS] DOMAIN PATH
 ```
 
@@ -2094,7 +2094,7 @@ Arguments: `domain`, `path`
 
 List the routes of an application's site.
 
-```
+```bash
 noust app policy route list [OPTIONS] DOMAIN
 ```
 
@@ -2109,7 +2109,7 @@ Arguments: `domain`
 
 Take a route away; the prefix is served as the rest of the site again.
 
-```
+```bash
 noust app policy route remove [OPTIONS] DOMAIN PATH
 ```
 
@@ -2124,7 +2124,7 @@ Arguments: `domain`, `path`
 
 Change an application's policy: what you name changes, the rest stays.
 
-```
+```bash
 noust app policy set [OPTIONS] DOMAIN
 ```
 
@@ -2171,7 +2171,7 @@ Arguments: `domain`
 
 Show an application's policy, its accounts and the headers its site sends.
 
-```
+```bash
 noust app policy show [OPTIONS] DOMAIN
 ```
 
@@ -2186,7 +2186,7 @@ Arguments: `domain`
 
 The accounts of an application's password.
 
-```
+```bash
 noust app policy user [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -2196,7 +2196,7 @@ Subcommands: [`add`](#noust-app-policy-user-add), [`remove`](#noust-app-policy-u
 
 Add an account to the application's password, or change its password. Asks for it.
 
-```
+```bash
 noust app policy user add [OPTIONS] DOMAIN USERNAME
 ```
 
@@ -2212,7 +2212,7 @@ Arguments: `domain`, `username`
 
 Remove an account of the application's password.
 
-```
+```bash
 noust app policy user remove [OPTIONS] DOMAIN USERNAME
 ```
 
@@ -2227,7 +2227,7 @@ Arguments: `domain`, `username`
 
 The web application firewall: what the server has, what its rules saw, installing it.
 
-```
+```bash
 noust app policy waf [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -2237,7 +2237,7 @@ Subcommands: [`events`](#noust-app-policy-waf-events), [`install`](#noust-app-po
 
 Show what the rules judged lately for an application, and the rules that matched most.
 
-```
+```bash
 noust app policy waf events [OPTIONS] DOMAIN
 ```
 
@@ -2253,7 +2253,7 @@ Arguments: `domain`
 
 Install nginx's ModSecurity module and the OWASP Core Rule Set (Debian and Ubuntu).
 
-```
+```bash
 noust app policy waf install [OPTIONS]
 ```
 
@@ -2266,7 +2266,7 @@ noust app policy waf install [OPTIONS]
 
 Say whether this application's server can run the WAF, and what is missing.
 
-```
+```bash
 noust app policy waf show [OPTIONS] DOMAIN
 ```
 
@@ -2281,7 +2281,7 @@ Arguments: `domain`
 
 The processes an application runs beside its web process: workers, schedulers.
 
-```
+```bash
 noust app process [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -2291,7 +2291,7 @@ Subcommands: [`list`](#noust-app-process-list), [`logs`](#noust-app-process-logs
 
 List the processes of an application with the state of each copy.
 
-```
+```bash
 noust app process list [OPTIONS] DOMAIN
 ```
 
@@ -2306,7 +2306,7 @@ Arguments: `domain`
 
 Read the journal of a process: all its copies, interleaved.
 
-```
+```bash
 noust app process logs [OPTIONS] DOMAIN NAME
 ```
 
@@ -2321,7 +2321,7 @@ Arguments: `domain`, `name`
 
 Stop a process and forget it.
 
-```
+```bash
 noust app process remove [OPTIONS] DOMAIN NAME
 ```
 
@@ -2336,7 +2336,7 @@ Arguments: `domain`, `name`
 
 Run INSTANCES copies of a process. 0 stops them and keeps the definition.
 
-```
+```bash
 noust app process scale [OPTIONS] DOMAIN NAME INSTANCES
 ```
 
@@ -2351,7 +2351,7 @@ Arguments: `domain`, `name`, `instances`
 
 Define a process of the application, or change one, and run it.
 
-```
+```bash
 noust app process set [OPTIONS] DOMAIN NAME COMMAND
 ```
 
@@ -2370,7 +2370,7 @@ Arguments: `domain`, `name`, `command`
 
 The process types (web, release, workers) a repository declares.
 
-```
+```bash
 noust app process-types [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -2380,7 +2380,7 @@ Subcommands: [`show`](#noust-app-process-types-show)
 
 Show the process types an application declares and which ones a deployment uses.
 
-```
+```bash
 noust app process-types show [OPTIONS] DOMAIN
 ```
 
@@ -2395,7 +2395,7 @@ Arguments: `domain`
 
 Put a release of DOMAIN on another application and activate it there.
 
-```
+```bash
 noust app promote [OPTIONS] DOMAIN
 ```
 
@@ -2416,7 +2416,7 @@ Arguments: `domain`
 
 List the applications a release of DOMAIN can be promoted to.
 
-```
+```bash
 noust app promotion [OPTIONS] DOMAIN
 ```
 
@@ -2431,7 +2431,7 @@ Arguments: `domain`
 
 Hand a Docker Compose stack that runs outside its unit back to Noust.
 
-```
+```bash
 noust app reclaim [OPTIONS] DOMAIN
 ```
 
@@ -2448,7 +2448,7 @@ Arguments: `domain`
 
 Show how an application is scaled, or run it as COPIES copies of its web process.
 
-```
+```bash
 noust app replicas [OPTIONS] DOMAIN [COPIES]
 ```
 
@@ -2463,7 +2463,7 @@ Arguments: `domain`, `copies`
 
 Say whether the application could run on more than one server, and what stops it.
 
-```
+```bash
 noust app replication [OPTIONS] DOMAIN
 ```
 
@@ -2478,7 +2478,7 @@ Arguments: `domain`
 
 Build an application without root: see, try, enable or disable its sandbox.
 
-```
+```bash
 noust app sandbox [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -2488,7 +2488,7 @@ Subcommands: [`compose-exception`](#noust-app-sandbox-compose-exception), [`disa
 
 Allow a Docker Compose stack privileged containers and the Docker socket.
 
-```
+```bash
 noust app sandbox compose-exception [OPTIONS] DOMAIN
 ```
 
@@ -2504,7 +2504,7 @@ Arguments: `domain`
 
 Build the application as root: an explicit decision, recorded with a reason.
 
-```
+```bash
 noust app sandbox disable [OPTIONS] DOMAIN
 ```
 
@@ -2520,7 +2520,7 @@ Arguments: `domain`
 
 Build the application in the sandbox from its next deploy on.
 
-```
+```bash
 noust app sandbox enable [OPTIONS] DOMAIN
 ```
 
@@ -2538,7 +2538,7 @@ Arguments: `domain`
 
 Prove that the build sandbox holds on this server.
 
-```
+```bash
 noust app sandbox self-test [OPTIONS]
 ```
 
@@ -2551,7 +2551,7 @@ noust app sandbox self-test [OPTIONS]
 
 Show how an application builds: in the sandbox, or as root and why.
 
-```
+```bash
 noust app sandbox status [OPTIONS] DOMAIN
 ```
 
@@ -2566,7 +2566,7 @@ Arguments: `domain`
 
 Build what the application's next update would build, in the sandbox, without activating it.
 
-```
+```bash
 noust app sandbox test [OPTIONS] DOMAIN
 ```
 
@@ -2581,7 +2581,7 @@ Arguments: `domain`
 
 How an application's repository is fetched, and which pushes deploy it.
 
-```
+```bash
 noust app source [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -2591,7 +2591,7 @@ Subcommands: [`change`](#noust-app-source-change), [`reset`](#noust-app-source-r
 
 Make an application deploy from another repository or directory.
 
-```
+```bash
 noust app source change [OPTIONS] DOMAIN SOURCE
 ```
 
@@ -2609,7 +2609,7 @@ Arguments: `domain`, `new_source`
 
 Go back to the default source options.
 
-```
+```bash
 noust app source reset [OPTIONS] DOMAIN
 ```
 
@@ -2623,7 +2623,7 @@ Arguments: `domain`
 
 Change some source options of an application, keeping the others.
 
-```
+```bash
 noust app source set [OPTIONS] DOMAIN
 ```
 
@@ -2644,7 +2644,7 @@ Arguments: `domain`
 
 Show submodules, Git LFS, shallow clone, watch paths and skip markers of an application.
 
-```
+```bash
 noust app source show [OPTIONS] DOMAIN
 ```
 
@@ -2659,7 +2659,7 @@ Arguments: `domain`
 
 Show or set how long an application's unit has to stop, and with which signal.
 
-```
+```bash
 noust app stop-grace [OPTIONS] DOMAIN
 ```
 
@@ -2677,7 +2677,7 @@ Arguments: `domain`
 
 Tags on applications: find them, and deploy the ones that share a tag.
 
-```
+```bash
 noust app tag [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -2687,7 +2687,7 @@ Subcommands: [`add`](#noust-app-tag-add), [`deploy`](#noust-app-tag-deploy), [`l
 
 Give an application more tags.
 
-```
+```bash
 noust app tag add [OPTIONS] DOMAIN TAGS...
 ```
 
@@ -2701,7 +2701,7 @@ Arguments: `domain`, `tags`
 
 Update every application that carries TAG, one after the other.
 
-```
+```bash
 noust app tag deploy [OPTIONS] TAG
 ```
 
@@ -2718,7 +2718,7 @@ Arguments: `tag_name`
 
 List the tags of one application, or every tagged application.
 
-```
+```bash
 noust app tag list [OPTIONS] [DOMAIN]
 ```
 
@@ -2734,7 +2734,7 @@ Arguments: `domain`
 
 Take tags off an application.
 
-```
+```bash
 noust app tag remove [OPTIONS] DOMAIN TAGS...
 ```
 
@@ -2748,7 +2748,7 @@ Arguments: `domain`, `tags`
 
 Restart every application and service that carries TAG.
 
-```
+```bash
 noust app tag restart [OPTIONS] TAG
 ```
 
@@ -2763,7 +2763,7 @@ Arguments: `tag_name`
 
 Make an application carry exactly these tags (none clears them).
 
-```
+```bash
 noust app tag set [OPTIONS] DOMAIN [TAGS]...
 ```
 
@@ -2777,7 +2777,7 @@ Arguments: `domain`, `tags`
 
 Show the requests an application served, and what was asked of it.
 
-```
+```bash
 noust app traffic [OPTIONS] DOMAIN
 ```
 
@@ -2794,7 +2794,7 @@ Arguments: `domain`
 
 Limits and options of an application's unit: soft memory, swap, weights, CPUs, ulimits, capabilities, devices.
 
-```
+```bash
 noust app tuning [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -2804,7 +2804,7 @@ Subcommands: [`clear`](#noust-app-tuning-clear), [`set`](#noust-app-tuning-set),
 
 Remove all the tuning: the unit goes back to what the template writes.
 
-```
+```bash
 noust app tuning clear [OPTIONS] DOMAIN
 ```
 
@@ -2821,7 +2821,7 @@ Arguments: `domain`
 
 Tune the application's unit; what is not named is kept.
 
-```
+```bash
 noust app tuning set [OPTIONS] DOMAIN
 ```
 
@@ -2851,7 +2851,7 @@ Arguments: `domain`
 
 Show how the application's unit is tuned and the lines it has for it.
 
-```
+```bash
 noust app tuning status [OPTIONS] DOMAIN
 ```
 
@@ -2866,7 +2866,7 @@ Arguments: `domain`
 
 The deploy webhook of an application: a push to its repository deploys it.
 
-```
+```bash
 noust app webhook [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -2876,7 +2876,7 @@ Subcommands: [`deliveries`](#noust-app-webhook-deliveries), [`disable`](#noust-a
 
 List what the forge has sent to this application's webhook.
 
-```
+```bash
 noust app webhook deliveries [OPTIONS] DOMAIN
 ```
 
@@ -2895,7 +2895,7 @@ Arguments: `domain`
 
 Discard the webhook secret: deliveries are answered 404 from now on.
 
-```
+```bash
 noust app webhook disable [OPTIONS] DOMAIN
 ```
 
@@ -2912,7 +2912,7 @@ Arguments: `domain`
 
 Say what to give a container registry so a push of the image deploys the application.
 
-```
+```bash
 noust app webhook registry [OPTIONS] DOMAIN
 ```
 
@@ -2931,7 +2931,7 @@ Arguments: `domain`
 
 Create the webhook secret, or replace it.
 
-```
+```bash
 noust app webhook rotate [OPTIONS] DOMAIN
 ```
 
@@ -2950,7 +2950,7 @@ Arguments: `domain`
 
 Show how far the webhook is set up.
 
-```
+```bash
 noust app webhook show [OPTIONS] DOMAIN
 ```
 
@@ -2969,7 +2969,7 @@ Arguments: `domain`
 
 Show or switch blue/green activation of an application.
 
-```
+```bash
 noust app zero-downtime [OPTIONS] DOMAIN [on|off]
 ```
 
@@ -2984,11 +2984,11 @@ Arguments: `domain`, `mode`
 | `--json` | Print the mode (or what was changed) as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust approval
+## noust approval
 
 Four-eyes requests: list them, and approve or reject them as root.
 
-```
+```bash
 noust approval [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -2998,7 +2998,7 @@ Subcommands: [`approve`](#noust-approval-approve), [`list`](#noust-approval-list
 
 Approve a request: its requester may make that exact call once.
 
-```
+```bash
 noust approval approve [OPTIONS] APPROVAL_ID
 ```
 
@@ -3013,7 +3013,7 @@ Arguments: `approval_id`
 
 List approval requests, those waiting for a decision by default.
 
-```
+```bash
 noust approval list [OPTIONS]
 ```
 
@@ -3027,7 +3027,7 @@ noust approval list [OPTIONS]
 
 Reject a request, or withdraw an approval that was not used yet.
 
-```
+```bash
 noust approval reject [OPTIONS] APPROVAL_ID
 ```
 
@@ -3042,7 +3042,7 @@ Arguments: `approval_id`
 
 Show one request with the call it snapshots, secrets redacted.
 
-```
+```bash
 noust approval show [OPTIONS] APPROVAL_ID
 ```
 
@@ -3053,11 +3053,11 @@ Arguments: `approval_id`
 | `--json` | Print the request as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust audit
+## noust audit
 
 Read, verify, export and review the audit log.
 
-```
+```bash
 noust audit [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -3067,7 +3067,7 @@ Subcommands: [`events`](#noust-audit-events), [`export`](#noust-audit-export), [
 
 List every event the audit log can record.
 
-```
+```bash
 noust audit events [OPTIONS]
 ```
 
@@ -3080,7 +3080,7 @@ noust audit events [OPTIONS]
 
 Export the audit log for a period, for an auditor or a SIEM.
 
-```
+```bash
 noust audit export [OPTIONS]
 ```
 
@@ -3096,7 +3096,7 @@ noust audit export [OPTIONS]
 
 List audit events, newest first.
 
-```
+```bash
 noust audit list [OPTIONS]
 ```
 
@@ -3116,7 +3116,7 @@ noust audit list [OPTIONS]
 
 Apply retention now: old audit files and Noust's other records past their period.
 
-```
+```bash
 noust audit prune [OPTIONS]
 ```
 
@@ -3129,7 +3129,7 @@ noust audit prune [OPTIONS]
 
 Show one recorded terminal session.
 
-```
+```bash
 noust audit recording [OPTIONS] RECORDING_ID
 ```
 
@@ -3146,7 +3146,7 @@ Arguments: `recording_id`
 
 List the recordings of terminal sessions, newest first.
 
-```
+```bash
 noust audit recordings [OPTIONS]
 ```
 
@@ -3163,7 +3163,7 @@ noust audit recordings [OPTIONS]
 
 Record that you reviewed the audit log for a period (ENS op.exp.8.r1).
 
-```
+```bash
 noust audit review [OPTIONS]
 ```
 
@@ -3180,7 +3180,7 @@ noust audit review [OPTIONS]
 
 Send what each destination has not received yet (for a timer without the console).
 
-```
+```bash
 noust audit ship [OPTIONS]
 ```
 
@@ -3193,7 +3193,7 @@ noust audit ship [OPTIONS]
 
 Show one event in full, by sequence number or id.
 
-```
+```bash
 noust audit show [OPTIONS] EVENT
 ```
 
@@ -3208,7 +3208,7 @@ Arguments: `event`
 
 Say whether the audit trail works and where it is shipped.
 
-```
+```bash
 noust audit status [OPTIONS]
 ```
 
@@ -3221,7 +3221,7 @@ noust audit status [OPTIONS]
 
 Check the audit chain and report the first broken link.
 
-```
+```bash
 noust audit verify [OPTIONS]
 ```
 
@@ -3230,11 +3230,11 @@ noust audit verify [OPTIONS]
 | `--json` | Print the result as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust auth
+## noust auth
 
 How people sign in to the console besides a password.
 
-```
+```bash
 noust auth [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -3244,7 +3244,7 @@ Subcommands: [`ldap`](#noust-auth-ldap), [`local-login`](#noust-auth-local-login
 
 Directories people sign in against, with the name and password they have there.
 
-```
+```bash
 noust auth ldap [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -3254,7 +3254,7 @@ Subcommands: [`link`](#noust-auth-ldap-link), [`remove`](#noust-auth-ldap-remove
 
 Link an account to a person in a directory by hand.
 
-```
+```bash
 noust auth ldap link [OPTIONS] NAME USERNAME
 ```
 
@@ -3269,7 +3269,7 @@ Arguments: `name`, `username`
 
 Remove a directory and its password. People linked to it can no longer sign in through it.
 
-```
+```bash
 noust auth ldap remove [OPTIONS] NAME
 ```
 
@@ -3284,7 +3284,7 @@ Arguments: `name`
 
 Add a directory, or change one: only the settings given change.
 
-```
+```bash
 noust auth ldap set [OPTIONS] NAME
 ```
 
@@ -3336,7 +3336,7 @@ Arguments: `name`
 
 Show the configured directories, or one in full. Passwords are never shown.
 
-```
+```bash
 noust auth ldap show [OPTIONS] [NAME]
 ```
 
@@ -3351,7 +3351,7 @@ Arguments: `name`
 
 Look at a directory the way a sign-in would: the connection, the service account, the base.
 
-```
+```bash
 noust auth ldap test [OPTIONS] NAME
 ```
 
@@ -3366,7 +3366,7 @@ Arguments: `name`
 
 Turn the password and passkey sign-in off once single sign-on is in.
 
-```
+```bash
 noust auth local-login [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -3376,7 +3376,7 @@ Subcommands: [`exempt`](#noust-auth-local-login-exempt), [`off`](#noust-auth-loc
 
 The break-glass accounts that keep their password while it is off.
 
-```
+```bash
 noust auth local-login exempt [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -3386,7 +3386,7 @@ Subcommands: [`add`](#noust-auth-local-login-exempt-add), [`remove`](#noust-auth
 
 Let an account keep its password and passkeys when they are off.
 
-```
+```bash
 noust auth local-login exempt add [OPTIONS] USERNAME
 ```
 
@@ -3400,7 +3400,7 @@ Arguments: `username`
 
 Stop an account keeping its password when they are off.
 
-```
+```bash
 noust auth local-login exempt remove [OPTIONS] USERNAME
 ```
 
@@ -3414,7 +3414,7 @@ Arguments: `username`
 
 Stop accepting passwords and passkeys: only the identity provider signs people in.
 
-```
+```bash
 noust auth local-login off [OPTIONS]
 ```
 
@@ -3426,7 +3426,7 @@ noust auth local-login off [OPTIONS]
 
 Accept passwords and passkeys again.
 
-```
+```bash
 noust auth local-login on [OPTIONS]
 ```
 
@@ -3438,7 +3438,7 @@ noust auth local-login on [OPTIONS]
 
 Show whether passwords and passkeys still sign accounts in.
 
-```
+```bash
 noust auth local-login status [OPTIONS]
 ```
 
@@ -3451,7 +3451,7 @@ noust auth local-login status [OPTIONS]
 
 Single sign-in through an OpenID Connect provider.
 
-```
+```bash
 noust auth oidc [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -3461,7 +3461,7 @@ Subcommands: [`identities`](#noust-auth-oidc-identities), [`link`](#noust-auth-o
 
 List the people at providers that are linked to accounts.
 
-```
+```bash
 noust auth oidc identities [OPTIONS]
 ```
 
@@ -3475,7 +3475,7 @@ noust auth oidc identities [OPTIONS]
 
 Link an account to a person at a provider, so they sign in as it.
 
-```
+```bash
 noust auth oidc link [OPTIONS] NAME USERNAME
 ```
 
@@ -3490,7 +3490,7 @@ Arguments: `name`, `username`
 
 Remove a provider and its client secret.
 
-```
+```bash
 noust auth oidc remove [OPTIONS] NAME
 ```
 
@@ -3505,7 +3505,7 @@ Arguments: `name`
 
 Add an identity provider, or change one: only the settings given change.
 
-```
+```bash
 noust auth oidc set [OPTIONS] NAME
 ```
 
@@ -3552,7 +3552,7 @@ Arguments: `name`
 
 Show the configured providers, or one in full. Secrets are never shown.
 
-```
+```bash
 noust auth oidc show [OPTIONS] [NAME]
 ```
 
@@ -3567,7 +3567,7 @@ Arguments: `name`
 
 Look at a provider the way a sign-in would: discovery, keys, secret, callback.
 
-```
+```bash
 noust auth oidc test [OPTIONS] NAME
 ```
 
@@ -3582,7 +3582,7 @@ Arguments: `name`
 
 Cut a link ('noust auth oidc identities' lists them with their ids).
 
-```
+```bash
 noust auth oidc unlink [OPTIONS] IDENTITY_ID
 ```
 
@@ -3596,7 +3596,7 @@ Arguments: `identity_id`
 
 SAML 2.0 identity providers people sign in with (Entra ID, Okta, Keycloak, ADFS).
 
-```
+```bash
 noust auth saml [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -3606,7 +3606,7 @@ Subcommands: [`link`](#noust-auth-saml-link), [`metadata`](#noust-auth-saml-meta
 
 Link an account to a person at a SAML provider by hand.
 
-```
+```bash
 noust auth saml link [OPTIONS] NAME USERNAME
 ```
 
@@ -3621,7 +3621,7 @@ Arguments: `name`, `username`
 
 Print this server's SAML metadata for a provider, to register it with the identity provider.
 
-```
+```bash
 noust auth saml metadata [OPTIONS] NAME
 ```
 
@@ -3636,7 +3636,7 @@ Arguments: `name`
 
 Remove a SAML provider. People linked to it can no longer sign in through it.
 
-```
+```bash
 noust auth saml remove [OPTIONS] NAME
 ```
 
@@ -3651,7 +3651,7 @@ Arguments: `name`
 
 Add a SAML provider, or change one: only the settings given change.
 
-```
+```bash
 noust auth saml set [OPTIONS] NAME
 ```
 
@@ -3699,7 +3699,7 @@ Arguments: `name`
 
 Show the configured SAML providers, or one in full.
 
-```
+```bash
 noust auth saml show [OPTIONS] [NAME]
 ```
 
@@ -3715,7 +3715,7 @@ Arguments: `name`
 
 Look at a provider the way a sign-in would: its certificates, its address, what it is told.
 
-```
+```bash
 noust auth saml test [OPTIONS] NAME
 ```
 
@@ -3731,7 +3731,7 @@ Arguments: `name`
 
 Identity providers that provision accounts (SCIM 2.0): who may have one, and who left.
 
-```
+```bash
 noust auth scim [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -3741,7 +3741,7 @@ Subcommands: [`remove`](#noust-auth-scim-remove), [`set`](#noust-auth-scim-set),
 
 Remove a source and its roster. Its token stops working; its accounts stay as they are.
 
-```
+```bash
 noust auth scim remove [OPTIONS] NAME
 ```
 
@@ -3756,7 +3756,7 @@ Arguments: `name`
 
 Add an identity provider that provisions accounts, or change one.
 
-```
+```bash
 noust auth scim set [OPTIONS] NAME
 ```
 
@@ -3788,7 +3788,7 @@ Arguments: `name`
 
 Show the sources, or one in full. Tokens are never shown.
 
-```
+```bash
 noust auth scim show [OPTIONS] [NAME]
 ```
 
@@ -3803,7 +3803,7 @@ Arguments: `name`
 
 List the people a source provisioned, with the state of their account.
 
-```
+```bash
 noust auth scim users [OPTIONS] NAME
 ```
 
@@ -3814,11 +3814,11 @@ Arguments: `name`
 | `--json` | Print the roster as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust backup
+## noust backup
 
 Create, inspect and restore application backups.
 
-```
+```bash
 noust backup [OPTIONS] [COMMAND] [ARGS]...
 ```
 
@@ -3828,7 +3828,7 @@ Subcommands: [`create`](#noust-backup-create), [`delete`](#noust-backup-delete),
 
 Back an application up into one restorable archive.
 
-```
+```bash
 noust backup create [OPTIONS] DOMAIN
 ```
 
@@ -3853,7 +3853,7 @@ Arguments: `domain`
 
 Delete a backup and remove its archive from disk.
 
-```
+```bash
 noust backup delete [OPTIONS] BACKUP_ID
 ```
 
@@ -3868,7 +3868,7 @@ Arguments: `backup_id`
 
 Manage remote backup destinations (rclone).
 
-```
+```bash
 noust backup destination [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -3878,7 +3878,7 @@ Subcommands: [`add`](#noust-backup-destination-add), [`list`](#noust-backup-dest
 
 Create a backup destination.
 
-```
+```bash
 noust backup destination add [OPTIONS] NAME
 ```
 
@@ -3899,7 +3899,7 @@ Arguments: `name`
 
 List the configured backup destinations.
 
-```
+```bash
 noust backup destination list [OPTIONS]
 ```
 
@@ -3912,7 +3912,7 @@ noust backup destination list [OPTIONS]
 
 Encrypt the credentials of the destinations made before they were.
 
-```
+```bash
 noust backup destination protect [OPTIONS]
 ```
 
@@ -3924,7 +3924,7 @@ noust backup destination protect [OPTIONS]
 
 Remove a backup destination and its secrets. Backups already sent there are kept.
 
-```
+```bash
 noust backup destination remove [OPTIONS] NAME
 ```
 
@@ -3939,7 +3939,7 @@ Arguments: `name`
 
 Reveal a destination's encryption passphrases, for safekeeping.
 
-```
+```bash
 noust backup destination show-key [OPTIONS] NAME
 ```
 
@@ -3954,7 +3954,7 @@ Arguments: `name`
 
 Check that a backup destination can be reached.
 
-```
+```bash
 noust backup destination test [OPTIONS] NAME
 ```
 
@@ -3968,7 +3968,7 @@ Arguments: `name`
 
 Change a backup destination's fields. A blank secret field keeps its stored value.
 
-```
+```bash
 noust backup destination update [OPTIONS] NAME
 ```
 
@@ -3987,7 +3987,7 @@ Arguments: `name`
 
 Rehearse restoring an application's newest backup, and keep the report.
 
-```
+```bash
 noust backup drill [OPTIONS] DOMAIN
 ```
 
@@ -4003,7 +4003,7 @@ Arguments: `domain`
 
 List the restore drills that were run, newest first.
 
-```
+```bash
 noust backup drills [OPTIONS] [DOMAIN]
 ```
 
@@ -4019,7 +4019,7 @@ Arguments: `domain`
 
 Seal the backups kept on this server's disk, so a copy of the disk does not open them.
 
-```
+```bash
 noust backup encryption [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -4029,7 +4029,7 @@ Subcommands: [`disable`](#noust-backup-encryption-disable), [`enable`](#noust-ba
 
 Stop sealing new backups. Every key is kept, so what was sealed still opens.
 
-```
+```bash
 noust backup encryption disable [OPTIONS]
 ```
 
@@ -4042,7 +4042,7 @@ noust backup encryption disable [OPTIONS]
 
 Seal every backup this server makes from now on, and show the key once.
 
-```
+```bash
 noust backup encryption enable [OPTIONS]
 ```
 
@@ -4055,7 +4055,7 @@ noust backup encryption enable [OPTIONS]
 
 Put back a key this server lost, from the copy you kept elsewhere.
 
-```
+```bash
 noust backup encryption import-key [OPTIONS] KEY_ID
 ```
 
@@ -4070,7 +4070,7 @@ Arguments: `key_id`
 
 Make a new key for the backups made from now on. The old key stays, and opens what it sealed.
 
-```
+```bash
 noust backup encryption rotate [OPTIONS]
 ```
 
@@ -4083,7 +4083,7 @@ noust backup encryption rotate [OPTIONS]
 
 Seal the backups already on this disk that were made in clear.
 
-```
+```bash
 noust backup encryption seal-existing [OPTIONS]
 ```
 
@@ -4097,7 +4097,7 @@ noust backup encryption seal-existing [OPTIONS]
 
 Show a key (the current one by default), to keep it somewhere else.
 
-```
+```bash
 noust backup encryption show-key [OPTIONS] [KEY_ID]
 ```
 
@@ -4111,7 +4111,7 @@ Arguments: `key_id`
 
 Say whether new backups are sealed, with which key, and how many are in clear.
 
-```
+```bash
 noust backup encryption status [OPTIONS]
 ```
 
@@ -4124,7 +4124,7 @@ noust backup encryption status [OPTIONS]
 
 Read the whole output of the backups that failed.
 
-```
+```bash
 noust backup failures [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -4134,7 +4134,7 @@ Subcommands: [`list`](#noust-backup-failures-list), [`show`](#noust-backup-failu
 
 List the backups that failed, newest first, without their output.
 
-```
+```bash
 noust backup failures list [OPTIONS]
 ```
 
@@ -4149,7 +4149,7 @@ noust backup failures list [OPTIONS]
 
 Print all that a failed backup said, the record a notice names.
 
-```
+```bash
 noust backup failures show [OPTIONS] FAILURE_ID
 ```
 
@@ -4165,7 +4165,7 @@ Arguments: `failure_id`
 
 Move Noust backups found in DIRECTORY into the backup directory.
 
-```
+```bash
 noust backup import [OPTIONS] DIRECTORY
 ```
 
@@ -4182,7 +4182,7 @@ Arguments: `directory`
 
 Show what a backup contains and where it came from.
 
-```
+```bash
 noust backup info [OPTIONS] BACKUP_ID
 ```
 
@@ -4197,7 +4197,7 @@ Arguments: `backup_id`
 
 List the backups on this server, newest first.
 
-```
+```bash
 noust backup list [OPTIONS] [DOMAIN]
 ```
 
@@ -4215,7 +4215,7 @@ Arguments: `domain`
 
 How hard the backups lean on the server while they run: nice, disk class, CPU ceiling.
 
-```
+```bash
 noust backup priority [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -4225,7 +4225,7 @@ Subcommands: [`apply`](#noust-backup-priority-apply), [`set`](#noust-backup-prio
 
 Bring the backup services on this server to the configured settings.
 
-```
+```bash
 noust backup priority apply [OPTIONS]
 ```
 
@@ -4238,7 +4238,7 @@ noust backup priority apply [OPTIONS]
 
 Change the settings and bring the backup services already on this server along.
 
-```
+```bash
 noust backup priority set [OPTIONS]
 ```
 
@@ -4255,7 +4255,7 @@ noust backup priority set [OPTIONS]
 
 Show the settings every backup service is written with.
 
-```
+```bash
 noust backup priority show [OPTIONS]
 ```
 
@@ -4268,7 +4268,7 @@ noust backup priority show [OPTIONS]
 
 Upload a local backup to a remote destination.
 
-```
+```bash
 noust backup push [OPTIONS] BACKUP_ID DESTINATION
 ```
 
@@ -4282,7 +4282,7 @@ Arguments: `backup_id`, `destination`
 
 List what a remote backup destination holds.
 
-```
+```bash
 noust backup remote-list [OPTIONS] DESTINATION
 ```
 
@@ -4298,7 +4298,7 @@ Arguments: `destination`
 
 Put an application back the way a backup left it.
 
-```
+```bash
 noust backup restore [OPTIONS] BACKUP_ID
 ```
 
@@ -4320,7 +4320,7 @@ Arguments: `backup_id`
 
 Back applications up automatically on a timer.
 
-```
+```bash
 noust backup schedule [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -4330,7 +4330,7 @@ Subcommands: [`create`](#noust-backup-schedule-create), [`delete`](#noust-backup
 
 Back an application up on a timer and drop its old scheduled backups.
 
-```
+```bash
 noust backup schedule create [OPTIONS] DOMAIN
 ```
 
@@ -4352,7 +4352,7 @@ Arguments: `domain`
 
 Stop backing an application up automatically.
 
-```
+```bash
 noust backup schedule delete [OPTIONS] DOMAIN
 ```
 
@@ -4366,7 +4366,7 @@ Arguments: `domain`
 
 Show which applications back themselves up, and when they last did.
 
-```
+```bash
 noust backup schedule list [OPTIONS]
 ```
 
@@ -4381,7 +4381,7 @@ noust backup schedule list [OPTIONS]
 
 Replace an application's backup schedule.
 
-```
+```bash
 noust backup schedule update [OPTIONS] DOMAIN
 ```
 
@@ -4403,7 +4403,7 @@ Arguments: `domain`
 
 Show how much disk the backups take, per application.
 
-```
+```bash
 noust backup storage [OPTIONS]
 ```
 
@@ -4416,7 +4416,7 @@ noust backup storage [OPTIONS]
 
 Delete the backups beyond every policy's retention, without waiting for a run.
 
-```
+```bash
 noust backup sweep [OPTIONS]
 ```
 
@@ -4429,7 +4429,7 @@ noust backup sweep [OPTIONS]
 
 Check that a backup archive is intact and restorable.
 
-```
+```bash
 noust backup verify [OPTIONS] BACKUP_ID
 ```
 
@@ -4443,7 +4443,7 @@ Arguments: `backup_id`
 
 Back up an application's persistent data and Docker volumes on their own.
 
-```
+```bash
 noust backup volumes [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -4453,7 +4453,7 @@ Subcommands: [`create`](#noust-backup-volumes-create), [`delete`](#noust-backup-
 
 Back up an application's data now, one archive per target.
 
-```
+```bash
 noust backup volumes create [OPTIONS] DOMAIN
 ```
 
@@ -4472,7 +4472,7 @@ Arguments: `domain`
 
 Delete a data backup from this server. Copies on destinations stay.
 
-```
+```bash
 noust backup volumes delete [OPTIONS] BACKUP_ID
 ```
 
@@ -4487,7 +4487,7 @@ Arguments: `backup_id`
 
 List the data backups on this server, newest first.
 
-```
+```bash
 noust backup volumes list [OPTIONS] [DOMAIN]
 ```
 
@@ -4503,7 +4503,7 @@ Arguments: `domain`
 
 Send a data backup to a destination, after checking it.
 
-```
+```bash
 noust backup volumes push [OPTIONS] BACKUP_ID
 ```
 
@@ -4518,7 +4518,7 @@ Arguments: `backup_id`
 
 List what a destination holds of an application's data, by target.
 
-```
+```bash
 noust backup volumes remote [OPTIONS] DOMAIN
 ```
 
@@ -4534,7 +4534,7 @@ Arguments: `domain`
 
 Put an application's data back as a backup held it.
 
-```
+```bash
 noust backup volumes restore [OPTIONS] [BACKUP_ID]
 ```
 
@@ -4555,7 +4555,7 @@ Arguments: `backup_id`
 
 Run an application's data backup policy now: back up, check, send, prune.
 
-```
+```bash
 noust backup volumes run [OPTIONS] DOMAIN
 ```
 
@@ -4570,7 +4570,7 @@ Arguments: `domain`
 
 Set, show or remove an application's data backup policy.
 
-```
+```bash
 noust backup volumes schedule [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -4580,7 +4580,7 @@ Subcommands: [`remove`](#noust-backup-volumes-schedule-remove), [`set`](#noust-b
 
 Remove an application's data backup policy and its timer. Its backups stay.
 
-```
+```bash
 noust backup volumes schedule remove [OPTIONS] DOMAIN
 ```
 
@@ -4595,7 +4595,7 @@ Arguments: `domain`
 
 Create or replace an application's data backup policy, and its timer.
 
-```
+```bash
 noust backup volumes schedule set [OPTIONS] DOMAIN
 ```
 
@@ -4622,7 +4622,7 @@ Arguments: `domain`
 
 Show one application's data backup policy, or every policy.
 
-```
+```bash
 noust backup volumes schedule show [OPTIONS] [DOMAIN]
 ```
 
@@ -4637,7 +4637,7 @@ Arguments: `domain`
 
 List the data an application declares: its persistent paths and Compose volumes.
 
-```
+```bash
 noust backup volumes targets [OPTIONS] DOMAIN
 ```
 
@@ -4653,7 +4653,7 @@ Arguments: `domain`
 
 Prove a data backup intact: its digest, its signature and that it reads through.
 
-```
+```bash
 noust backup volumes verify [OPTIONS] BACKUP_ID
 ```
 
@@ -4665,11 +4665,11 @@ Arguments: `backup_id`
 | `--json` | Print the verdict as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust central
+## noust central
 
 Run and look after a central: the Noust that manages your servers.
 
-```
+```bash
 noust central [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -4679,7 +4679,7 @@ Subcommands: [`backup`](#noust-central-backup), [`run`](#noust-central-run), [`s
 
 Back up the central's store, secrets and keys into one encrypted file.
 
-```
+```bash
 noust central backup [OPTIONS]
 ```
 
@@ -4696,7 +4696,7 @@ noust central backup [OPTIONS]
 
 Serve the central's console in the foreground (what the container runs).
 
-```
+```bash
 noust central run [OPTIONS]
 ```
 
@@ -4710,7 +4710,7 @@ noust central run [OPTIONS]
 
 Encrypt every secret (node keys and tokens, integration keys) under a passphrase. After this, the central starts locked until it is given the passphrase. The passphrase cannot be recovered: keep it somewhere else.
 
-```
+```bash
 noust central seal [OPTIONS]
 ```
 
@@ -4722,7 +4722,7 @@ noust central seal [OPTIONS]
 
 Report the central's role, data, certificate, seal, servers and 2FA.
 
-```
+```bash
 noust central status [OPTIONS]
 ```
 
@@ -4735,7 +4735,7 @@ noust central status [OPTIONS]
 
 Give the running central the passphrase of its sealed secrets.
 
-```
+```bash
 noust central unlock [OPTIONS]
 ```
 
@@ -4747,7 +4747,7 @@ noust central unlock [OPTIONS]
 
 Decrypt every secret and remove the seal.
 
-```
+```bash
 noust central unseal [OPTIONS]
 ```
 
@@ -4755,11 +4755,11 @@ noust central unseal [OPTIONS]
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust cert
+## noust cert
 
 Obtain, inspect and retire the SSL certificates of this server.
 
-```
+```bash
 noust cert [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -4769,7 +4769,7 @@ Subcommands: [`acme`](#noust-cert-acme), [`ca`](#noust-cert-ca), [`create`](#nou
 
 Show, or change, which authority certificates are ordered from and as whom.
 
-```
+```bash
 noust cert acme [OPTIONS]
 ```
 
@@ -4788,7 +4788,7 @@ noust cert acme [OPTIONS]
 
 The server's own certificate authority, for names that only resolve inside a network.
 
-```
+```bash
 noust cert ca [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -4798,7 +4798,7 @@ Subcommands: [`init`](#noust-cert-ca-init), [`issue`](#noust-cert-ca-issue), [`l
 
 Make this server's authority.
 
-```
+```bash
 noust cert ca init [OPTIONS]
 ```
 
@@ -4817,7 +4817,7 @@ noust cert ca init [OPTIONS]
 
 Sign a certificate for some names and keep it as internal-LABEL.
 
-```
+```bash
 noust cert ca issue [OPTIONS] LABEL HOST...
 ```
 
@@ -4833,7 +4833,7 @@ Arguments: `label`, `hosts`
 
 List the certificates the authority signed that are kept, soonest to expire first.
 
-```
+```bash
 noust cert ca list [OPTIONS]
 ```
 
@@ -4846,7 +4846,7 @@ noust cert ca list [OPTIONS]
 
 Delete the authority and its key.
 
-```
+```bash
 noust cert ca remove [OPTIONS]
 ```
 
@@ -4860,7 +4860,7 @@ noust cert ca remove [OPTIONS]
 
 Sign a certificate again, for the same names and as long, and reload the sites that serve it.
 
-```
+```bash
 noust cert ca renew [OPTIONS] [NAME]
 ```
 
@@ -4876,7 +4876,7 @@ Arguments: `name`
 
 Print the authority's certificate: public, what a device installs. The key never leaves.
 
-```
+```bash
 noust cert ca root [OPTIONS]
 ```
 
@@ -4891,7 +4891,7 @@ noust cert ca root [OPTIONS]
 
 Show the authority: what it signs for, when it expires, and whether this server trusts it.
 
-```
+```bash
 noust cert ca status [OPTIONS]
 ```
 
@@ -4904,7 +4904,7 @@ noust cert ca status [OPTIONS]
 
 Say how to trust the authority on a device (TARGET), or trust it on this server (--here).
 
-```
+```bash
 noust cert ca trust [OPTIONS] [debian|rhel|alpine|arch|macos|windows|io
                            s|android|firefox|java|node|curl]
 ```
@@ -4922,7 +4922,7 @@ Arguments: `target`
 
 Obtain a certificate for one or more domains.
 
-```
+```bash
 noust cert create [OPTIONS]
 ```
 
@@ -4941,7 +4941,7 @@ noust cert create [OPTIONS]
 
 Remove the certificate files for DOMAIN from this machine.
 
-```
+```bash
 noust cert delete [OPTIONS] DOMAIN
 ```
 
@@ -4956,7 +4956,7 @@ Arguments: `domain`
 
 Show what the certificate for DOMAIN covers and when it expires.
 
-```
+```bash
 noust cert info [OPTIONS] DOMAIN
 ```
 
@@ -4971,7 +4971,7 @@ Arguments: `domain`
 
 List the certificates this machine holds, with their expiry dates.
 
-```
+```bash
 noust cert list [OPTIONS]
 ```
 
@@ -4985,7 +4985,7 @@ noust cert list [OPTIONS]
 
 Delete an uploaded certificate. One an application serves cannot be deleted.
 
-```
+```bash
 noust cert remove-upload [OPTIONS] NAME
 ```
 
@@ -5000,7 +5000,7 @@ Arguments: `name`
 
 Renew certificates before they expire.
 
-```
+```bash
 noust cert renew [OPTIONS]
 ```
 
@@ -5014,7 +5014,7 @@ noust cert renew [OPTIONS]
 
 Tell Let's Encrypt that the certificate for DOMAIN must no longer be trusted.
 
-```
+```bash
 noust cert revoke [OPTIONS] DOMAIN
 ```
 
@@ -5029,7 +5029,7 @@ Arguments: `domain`
 
 Show where APP's certificate comes from, and what is served.
 
-```
+```bash
 noust cert source [OPTIONS] APP
 ```
 
@@ -5044,7 +5044,7 @@ Arguments: `app_domain`
 
 Check a certificate and its key, and keep them as NAME.
 
-```
+```bash
 noust cert upload [OPTIONS] NAME
 ```
 
@@ -5062,7 +5062,7 @@ Arguments: `name`
 
 List the uploaded certificates, what they cover, when they expire and who serves them.
 
-```
+```bash
 noust cert uploads [OPTIONS]
 ```
 
@@ -5075,7 +5075,7 @@ noust cert uploads [OPTIONS]
 
 Choose where APP's certificate comes from: ordered (over HTTP, or DNS with --dns), uploaded, or signed by this server's own authority (--internal).
 
-```
+```bash
 noust cert use [OPTIONS] APP
 ```
 
@@ -5092,11 +5092,11 @@ Arguments: `app_domain`
 | `--json` | Print the certificate as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust compliance
+## noust compliance
 
 Choose compliance frameworks (ENS, ISO 27001, NIS2, CIS, SOC 2, GDPR) and their controls.
 
-```
+```bash
 noust compliance [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -5106,7 +5106,7 @@ Subcommands: [`check`](#noust-compliance-check), [`controls`](#noust-compliance-
 
 Judge this server framework by framework, with the clause of each finding.
 
-```
+```bash
 noust compliance check [OPTIONS]
 ```
 
@@ -5122,7 +5122,7 @@ noust compliance check [OPTIONS]
 
 List every control: its value in force, its default, its setting, and who forces it.
 
-```
+```bash
 noust compliance controls [OPTIONS]
 ```
 
@@ -5135,7 +5135,7 @@ noust compliance controls [OPTIONS]
 
 Turn frameworks off. What they forced goes back to the default, or to a stricter framework or setting that still asks for it.
 
-```
+```bash
 noust compliance disable [OPTIONS] FRAMEWORK...
 ```
 
@@ -5151,7 +5151,7 @@ Arguments: `frameworks_`
 
 Turn frameworks on, after showing which controls change and the clause each serves.
 
-```
+```bash
 noust compliance enable [OPTIONS] FRAMEWORK...
 ```
 
@@ -5167,7 +5167,7 @@ Arguments: `frameworks_`
 
 List the frameworks, whether each is on, and how many controls it asks of.
 
-```
+```bash
 noust compliance frameworks [OPTIONS]
 ```
 
@@ -5180,7 +5180,7 @@ noust compliance frameworks [OPTIONS]
 
 Set a control's own value (on or off, a number, a choice; "none" for no limit).
 
-```
+```bash
 noust compliance set [OPTIONS] CONTROL VALUE
 ```
 
@@ -5196,7 +5196,7 @@ Arguments: `control`, `value`
 
 Show one framework: what it asks of each control, the clause it serves, and what stays yours.
 
-```
+```bash
 noust compliance show [OPTIONS] FRAMEWORK
 ```
 
@@ -5211,7 +5211,7 @@ Arguments: `framework`
 
 Show which frameworks are on, which controls they force, and which you set yourself.
 
-```
+```bash
 noust compliance status [OPTIONS]
 ```
 
@@ -5220,11 +5220,11 @@ noust compliance status [OPTIONS]
 | `--json` | Print the state as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust compose
+## noust compose
 
 Look at a Docker Compose document before it is deployed.
 
-```
+```bash
 noust compose [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -5234,7 +5234,7 @@ Subcommands: [`check`](#noust-compose-check), [`import`](#noust-compose-import)
 
 Say what a Compose document is, without running it.
 
-```
+```bash
 noust compose check [OPTIONS] FILE
 ```
 
@@ -5249,7 +5249,7 @@ Arguments: `file`
 
 Turn a Coolify or Dokploy service template into a Compose document Noust deploys.
 
-```
+```bash
 noust compose import [OPTIONS] FILE
 ```
 
@@ -5265,11 +5265,11 @@ Arguments: `file`
 | `--json` | Print what was made as JSON (never the secrets). |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust config
+## noust config
 
 Read, upgrade, clean and edit Noust's configuration file.
 
-```
+```bash
 noust config [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -5285,7 +5285,7 @@ Subcommands: [`clean`](#noust-config-clean), [`get`](#noust-config-get), [`path`
 
 Remove the settings that no version of Noust reads any more.
 
-```
+```bash
 noust config clean [OPTIONS]
 ```
 
@@ -5301,7 +5301,7 @@ noust config clean [OPTIONS]
 
 Print one configuration value, addressed by its dotted key.
 
-```
+```bash
 noust config get [OPTIONS] KEY
 ```
 
@@ -5318,7 +5318,7 @@ Arguments: `key`
 
 Show where the configuration file lives, and whether it exists.
 
-```
+```bash
 noust config path [OPTIONS]
 ```
 
@@ -5333,7 +5333,7 @@ noust config path [OPTIONS]
 
 Encrypt the secrets of the notification channels that config.yaml holds as text.
 
-```
+```bash
 noust config protect [OPTIONS]
 ```
 
@@ -5348,7 +5348,7 @@ noust config protect [OPTIONS]
 
 Set one configuration value, addressed by its dotted key, and save it.
 
-```
+```bash
 noust config set [OPTIONS] KEY [VALUE]
 ```
 
@@ -5368,7 +5368,7 @@ Arguments: `key`, `value`
 
 Show the configuration in effect.
 
-```
+```bash
 noust config show [OPTIONS]
 ```
 
@@ -5384,7 +5384,7 @@ noust config show [OPTIONS]
 
 Add the options a newer Noust expects.
 
-```
+```bash
 noust config upgrade [OPTIONS]
 ```
 
@@ -5396,11 +5396,11 @@ noust config upgrade [OPTIONS]
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust console
+## noust console
 
 Publish the console on a name of its own, over TLS, or take it off again.
 
-```
+```bash
 noust console [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -5410,7 +5410,7 @@ Subcommands: [`expose`](#noust-console-expose), [`status`](#noust-console-status
 
 Open the console at https://DOMAIN, with a certificate, instead of an SSH tunnel.
 
-```
+```bash
 noust console expose [OPTIONS]
 ```
 
@@ -5428,7 +5428,7 @@ noust console expose [OPTIONS]
 
 Show whether the console is published, where, and whether it is still in place.
 
-```
+```bash
 noust console status [OPTIONS]
 ```
 
@@ -5441,7 +5441,7 @@ noust console status [OPTIONS]
 
 Take the console off its public name, back to an SSH tunnel only.
 
-```
+```bash
 noust console unexpose [OPTIONS]
 ```
 
@@ -5451,11 +5451,11 @@ noust console unexpose [OPTIONS]
 | `--json` | Print the outcome as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust context
+## noust context
 
 Save and choose the servers this machine operates through their API.
 
-```
+```bash
 noust context [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -5465,7 +5465,7 @@ Subcommands: [`add`](#noust-context-add), [`current`](#noust-context-current), [
 
 Save a server.
 
-```
+```bash
 noust context add [OPTIONS] NAME
 ```
 
@@ -5485,7 +5485,7 @@ Arguments: `name`
 
 Print the server commands run on, or say they run here.
 
-```
+```bash
 noust context current [OPTIONS]
 ```
 
@@ -5497,7 +5497,7 @@ noust context current [OPTIONS]
 
 List the saved servers, marking the one in use.
 
-```
+```bash
 noust context list [OPTIONS]
 ```
 
@@ -5510,7 +5510,7 @@ noust context list [OPTIONS]
 
 Forget a saved server, and the token file this tool kept for it.
 
-```
+```bash
 noust context remove [OPTIONS] NAME
 ```
 
@@ -5524,7 +5524,7 @@ Arguments: `name`
 
 Run commands on this server from now on.
 
-```
+```bash
 noust context use [OPTIONS] NAME
 ```
 
@@ -5538,7 +5538,7 @@ Arguments: `name`
 
 Check that a saved server answers and the token is accepted.
 
-```
+```bash
 noust context verify [OPTIONS] [NAME]
 ```
 
@@ -5549,11 +5549,11 @@ Arguments: `name`
 | `--json` | Print the answer as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust create
+## noust create
 
 Deploy a web application and put it online.
 
-```
+```bash
 noust create [OPTIONS]
 ```
 
@@ -5611,11 +5611,11 @@ noust create [OPTIONS]
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust cron
+## noust cron
 
 Run commands on a schedule, as systemd timers.
 
-```
+```bash
 noust cron [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -5625,7 +5625,7 @@ Subcommands: [`create`](#noust-cron-create), [`delete`](#noust-cron-delete), [`d
 
 Create a cron job as a systemd timer, or rewrite one Noust already owns.
 
-```
+```bash
 noust cron create [OPTIONS] NAME COMMAND
 ```
 
@@ -5645,7 +5645,7 @@ Arguments: `name`, `command`
 
 Remove a cron job's timer and service units.
 
-```
+```bash
 noust cron delete [OPTIONS] NAME
 ```
 
@@ -5660,7 +5660,7 @@ Arguments: `name`
 
 Disable a job's timer, keeping the unit files.
 
-```
+```bash
 noust cron disable [OPTIONS] NAME
 ```
 
@@ -5674,7 +5674,7 @@ Arguments: `name`
 
 Enable a job's timer and start it now.
 
-```
+```bash
 noust cron enable [OPTIONS] NAME
 ```
 
@@ -5688,7 +5688,7 @@ Arguments: `name`
 
 Show which occurrences of a job ran, were late or never ran.
 
-```
+```bash
 noust cron ledger [OPTIONS] NAME
 ```
 
@@ -5704,7 +5704,7 @@ Arguments: `name`
 
 List every Noust cron job with its schedule and last result.
 
-```
+```bash
 noust cron list [OPTIONS]
 ```
 
@@ -5717,7 +5717,7 @@ noust cron list [OPTIONS]
 
 Start a job's service immediately, outside its schedule.
 
-```
+```bash
 noust cron run [OPTIONS] NAME
 ```
 
@@ -5731,7 +5731,7 @@ Arguments: `name`
 
 Show a job's recent executions, reconstructed from the journal.
 
-```
+```bash
 noust cron runs [OPTIONS] NAME
 ```
 
@@ -5743,21 +5743,21 @@ Arguments: `name`
 | `--json` | Print the runs as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust db
+## noust db
 
 Install engines, and manage databases, users, backups and application links.
 
-```
+```bash
 noust db [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`access`](#noust-db-access), [`adopt`](#noust-db-adopt), [`backup`](#noust-db-backup), [`backup-delete`](#noust-db-backup-delete), [`backup-push`](#noust-db-backup-push), [`backup-remote`](#noust-db-backup-remote), [`backup-run`](#noust-db-backup-run), [`backup-schedule`](#noust-db-backup-schedule), [`backup-verify`](#noust-db-backup-verify), [`backups`](#noust-db-backups), [`catalog`](#noust-db-catalog), [`choices`](#noust-db-choices), [`config`](#noust-db-config), [`connect`](#noust-db-connect), [`connect-info`](#noust-db-connect-info), [`connection-string`](#noust-db-connection-string), [`create`](#noust-db-create), [`describe`](#noust-db-describe), [`drop`](#noust-db-drop), [`engines`](#noust-db-engines), [`explain`](#noust-db-explain), [`export`](#noust-db-export), [`exposure`](#noust-db-exposure), [`extension`](#noust-db-extension), [`fix-owner`](#noust-db-fix-owner), [`forget`](#noust-db-forget), [`globals`](#noust-db-globals), [`grant`](#noust-db-grant), [`history`](#noust-db-history), [`import`](#noust-db-import), [`import-all`](#noust-db-import-all), [`info`](#noust-db-info), [`install`](#noust-db-install), [`instance`](#noust-db-instance), [`key`](#noust-db-key), [`keys`](#noust-db-keys), [`limits`](#noust-db-limits), [`link`](#noust-db-link), [`links`](#noust-db-links), [`list`](#noust-db-list), [`metrics`](#noust-db-metrics), [`move`](#noust-db-move), [`pitr`](#noust-db-pitr), [`provision`](#noust-db-provision), [`public`](#noust-db-public), [`query`](#noust-db-query), [`replica`](#noust-db-replica), [`restart`](#noust-db-restart), [`restore`](#noust-db-restore), [`restore-remote`](#noust-db-restore-remote), [`revoke`](#noust-db-revoke), [`row`](#noust-db-row), [`rows`](#noust-db-rows), [`saved`](#noust-db-saved), [`settings`](#noust-db-settings), [`slow-queries`](#noust-db-slow-queries), [`sqlite`](#noust-db-sqlite), [`start`](#noust-db-start), [`status`](#noust-db-status), [`stop`](#noust-db-stop), [`tables`](#noust-db-tables), [`tag`](#noust-db-tag), [`tls`](#noust-db-tls), [`transfer`](#noust-db-transfer), [`uninstall`](#noust-db-uninstall), [`unlink`](#noust-db-unlink), [`user-create`](#noust-db-user-create), [`user-delete`](#noust-db-user-delete), [`user-list`](#noust-db-user-list), [`user-password`](#noust-db-user-password)
+Subcommands: [`access`](#noust-db-access), [`adopt`](#noust-db-adopt), [`backup`](#noust-db-backup), [`backup-delete`](#noust-db-backup-delete), [`backup-push`](#noust-db-backup-push), [`backup-remote`](#noust-db-backup-remote), [`backup-run`](#noust-db-backup-run), [`backup-schedule`](#noust-db-backup-schedule), [`backup-verify`](#noust-db-backup-verify), [`backups`](#noust-db-backups), [`catalog`](#noust-db-catalog), [`choices`](#noust-db-choices), [`config`](#noust-db-config), [`connect`](#noust-db-connect), [`connect-info`](#noust-db-connect-info), [`connection-string`](#noust-db-connection-string), [`create`](#noust-db-create), [`describe`](#noust-db-describe), [`drop`](#noust-db-drop), [`engines`](#noust-db-engines), [`explain`](#noust-db-explain), [`export`](#noust-db-export), [`exposure`](#noust-db-exposure), [`extension`](#noust-db-extension), [`fix-owner`](#noust-db-fix-owner), [`forget`](#noust-db-forget), [`globals`](#noust-db-globals), [`grant`](#noust-db-grant), [`history`](#noust-db-history), [`import`](#noust-db-import), [`import-all`](#noust-db-import-all), [`info`](#noust-db-info), [`install`](#noust-db-install), [`instance`](#noust-db-instance), [`key`](#noust-db-key), [`keys`](#noust-db-keys), [`limits`](#noust-db-limits), [`link`](#noust-db-link), [`links`](#noust-db-links), [`list`](#noust-db-list), [`metrics`](#noust-db-metrics), [`move`](#noust-db-move), [`pitr`](#noust-db-pitr), [`provision`](#noust-db-provision), [`public`](#noust-db-public), [`query`](#noust-db-query), [`replica`](#noust-db-replica), [`restart`](#noust-db-restart), [`restore`](#noust-db-restore), [`restore-remote`](#noust-db-restore-remote), [`revoke`](#noust-db-revoke), [`row`](#noust-db-row), [`rows`](#noust-db-rows), [`saved`](#noust-db-saved), [`servers`](#noust-db-servers), [`settings`](#noust-db-settings), [`slow-queries`](#noust-db-slow-queries), [`sqlite`](#noust-db-sqlite), [`start`](#noust-db-start), [`status`](#noust-db-status), [`stop`](#noust-db-stop), [`tables`](#noust-db-tables), [`tag`](#noust-db-tag), [`tls`](#noust-db-tls), [`transfer`](#noust-db-transfer), [`uninstall`](#noust-db-uninstall), [`unlink`](#noust-db-unlink), [`user-create`](#noust-db-user-create), [`user-delete`](#noust-db-user-delete), [`user-list`](#noust-db-user-list), [`user-password`](#noust-db-user-password)
 
 ### noust db access
 
 List who can reach a database, or give one account a profile on it.
 
-```
+```bash
 noust db access [OPTIONS] DATABASE
 ```
 
@@ -5774,11 +5774,13 @@ Arguments: `database`
 
 ### noust db adopt
 
-Track the databases created outside Noust.
+Add to Noust the databases created outside it: all of them, or NAME (with --engine).
 
+```bash
+noust db adopt [OPTIONS] [NAME]
 ```
-noust db adopt [OPTIONS]
-```
+
+Arguments: `name`
 
 | Option | What it does | Default |
 |---|---|---|
@@ -5789,7 +5791,7 @@ noust db adopt [OPTIONS]
 
 Write a database to a backup file.
 
-```
+```bash
 noust db backup [OPTIONS] DATABASE
 ```
 
@@ -5807,7 +5809,7 @@ Arguments: `database`
 
 Delete a dump from this server, or its copy from a destination.
 
-```
+```bash
 noust db backup-delete [OPTIONS] FILE
 ```
 
@@ -5825,7 +5827,7 @@ Arguments: `file`
 
 Send a dump to a backup destination, after checking it.
 
-```
+```bash
 noust db backup-push [OPTIONS] FILE
 ```
 
@@ -5841,7 +5843,7 @@ Arguments: `file`
 
 List what a backup destination holds: the databases, or one database's dumps.
 
-```
+```bash
 noust db backup-remote [OPTIONS]
 ```
 
@@ -5857,7 +5859,7 @@ noust db backup-remote [OPTIONS]
 
 Run a database's backup policy now: dump, check, send, prune.
 
-```
+```bash
 noust db backup-run [OPTIONS] [DATABASE]
 ```
 
@@ -5874,7 +5876,7 @@ Arguments: `database`
 
 Set, show or remove a database's backup policy (schedule, retention, destinations).
 
-```
+```bash
 noust db backup-schedule [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -5884,7 +5886,7 @@ Subcommands: [`remove`](#noust-db-backup-schedule-remove), [`set`](#noust-db-bac
 
 Remove a database's backup policy and its timer. Its dumps stay.
 
-```
+```bash
 noust db backup-schedule remove [OPTIONS] [DATABASE]
 ```
 
@@ -5901,7 +5903,7 @@ Arguments: `database`
 
 Create or replace a database's backup policy, and its timer.
 
-```
+```bash
 noust db backup-schedule set [OPTIONS] [DATABASE]
 ```
 
@@ -5932,7 +5934,7 @@ Arguments: `database`
 
 Show one database's backup policy, or every policy.
 
-```
+```bash
 noust db backup-schedule show [OPTIONS] [DATABASE]
 ```
 
@@ -5949,7 +5951,7 @@ Arguments: `database`
 
 Check a dump: size, digest and the engine's own reading of it.
 
-```
+```bash
 noust db backup-verify [OPTIONS] FILE
 ```
 
@@ -5966,7 +5968,7 @@ Arguments: `file`
 
 List the database backups on this server.
 
-```
+```bash
 noust db backups [OPTIONS]
 ```
 
@@ -5981,7 +5983,7 @@ noust db backups [OPTIONS]
 
 Show which engines and versions can be installed on this server.
 
-```
+```bash
 noust db catalog [OPTIONS]
 ```
 
@@ -5994,7 +5996,7 @@ noust db catalog [OPTIONS]
 
 List the engines and versions a database can be created on, and how.
 
-```
+```bash
 noust db choices [OPTIONS]
 ```
 
@@ -6007,7 +6009,7 @@ noust db choices [OPTIONS]
 
 Store the account Noust signs in to an engine with, after trying it.
 
-```
+```bash
 noust db config [OPTIONS]
 ```
 
@@ -6022,7 +6024,7 @@ noust db config [OPTIONS]
 
 Open a session with the engine's own client.
 
-```
+```bash
 noust db connect [OPTIONS]
 ```
 
@@ -6037,7 +6039,7 @@ noust db connect [OPTIONS]
 
 Show the SSH tunnel to reach a database from your computer.
 
-```
+```bash
 noust db connect-info [OPTIONS] DATABASE
 ```
 
@@ -6056,7 +6058,7 @@ Arguments: `database`
 
 Print a connection string for an application to use.
 
-```
+```bash
 noust db connection-string [OPTIONS] DATABASE USERNAME
 ```
 
@@ -6073,7 +6075,7 @@ Arguments: `database`, `username`
 
 Create a database and record it in the store.
 
-```
+```bash
 noust db create [OPTIONS] NAME
 ```
 
@@ -6091,7 +6093,7 @@ Arguments: `name`
 
 Show a table's columns, primary key, indexes and constraints.
 
-```
+```bash
 noust db describe [OPTIONS] DATABASE TABLE
 ```
 
@@ -6108,7 +6110,7 @@ Arguments: `database`, `table`
 
 Delete a database and everything in it, after a last dump.
 
-```
+```bash
 noust db drop [OPTIONS] NAME
 ```
 
@@ -6126,7 +6128,7 @@ Arguments: `name`
 
 List the engines Noust can manage, and their versions.
 
-```
+```bash
 noust db engines [OPTIONS]
 ```
 
@@ -6139,7 +6141,7 @@ noust db engines [OPTIONS]
 
 Show how the engine would run a statement.
 
-```
+```bash
 noust db explain [OPTIONS] DATABASE QUERY
 ```
 
@@ -6157,7 +6159,7 @@ Arguments: `database`, `query`
 
 Print a read's whole result as CSV or JSON, to redirect into a file.
 
-```
+```bash
 noust db export [OPTIONS] DATABASE QUERY
 ```
 
@@ -6175,7 +6177,7 @@ Arguments: `database`, `query`
 
 List database ports open beyond this machine; exits 1 when there is one.
 
-```
+```bash
 noust db exposure [OPTIONS]
 ```
 
@@ -6188,7 +6190,7 @@ noust db exposure [OPTIONS]
 
 Load and unload the PostgreSQL extensions of a database.
 
-```
+```bash
 noust db extension [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -6198,7 +6200,7 @@ Subcommands: [`add`](#noust-db-extension-add), [`list`](#noust-db-extension-list
 
 Load an extension into a database (CREATE EXTENSION).
 
-```
+```bash
 noust db extension add [OPTIONS] DATABASE NAME
 ```
 
@@ -6218,7 +6220,7 @@ Arguments: `database`, `name`
 
 List the extensions of a database: the loaded ones, or with --all everything the server offers.
 
-```
+```bash
 noust db extension list [OPTIONS] DATABASE
 ```
 
@@ -6238,7 +6240,7 @@ Arguments: `database`
 
 Unload an extension from a database (DROP EXTENSION).
 
-```
+```bash
 noust db extension remove [OPTIONS] DATABASE NAME
 ```
 
@@ -6259,7 +6261,7 @@ Arguments: `database`, `name`
 
 Give a PostgreSQL database, and its objects, to its application's role.
 
-```
+```bash
 noust db fix-owner [OPTIONS] NAME
 ```
 
@@ -6278,7 +6280,7 @@ Arguments: `name`
 
 Forget a tracked database that no longer exists on its engine.
 
-```
+```bash
 noust db forget [OPTIONS] NAME
 ```
 
@@ -6293,7 +6295,7 @@ Arguments: `name`
 
 The roles of a PostgreSQL server, which no database dump carries.
 
-```
+```bash
 noust db globals [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -6303,7 +6305,7 @@ Subcommands: [`dump`](#noust-db-globals-dump), [`list`](#noust-db-globals-list),
 
 Dump the roles of the server with pg_dumpall --globals-only.
 
-```
+```bash
 noust db globals dump [OPTIONS]
 ```
 
@@ -6317,7 +6319,7 @@ noust db globals dump [OPTIONS]
 
 List the files of roles this server has dumped, newest first.
 
-```
+```bash
 noust db globals list [OPTIONS]
 ```
 
@@ -6330,7 +6332,7 @@ noust db globals list [OPTIONS]
 
 Create the roles of a file that this server does not have.
 
-```
+```bash
 noust db globals restore [OPTIONS] SOURCE
 ```
 
@@ -6346,7 +6348,7 @@ Arguments: `source`
 
 Grant a user privileges on a database.
 
-```
+```bash
 noust db grant [OPTIONS] USERNAME DATABASE
 ```
 
@@ -6363,7 +6365,7 @@ Arguments: `username`, `database`
 
 List the statements you ran in the console, newest first.
 
-```
+```bash
 noust db history [OPTIONS]
 ```
 
@@ -6380,7 +6382,7 @@ noust db history [OPTIONS]
 
 Import a dump into DATABASE, creating it when it does not exist.
 
-```
+```bash
 noust db import [OPTIONS] DATABASE FILE
 ```
 
@@ -6403,7 +6405,7 @@ Arguments: `database`, `file`
 
 Import a dump of every database of an engine, and its accounts when asked.
 
-```
+```bash
 noust db import-all [OPTIONS] FILE
 ```
 
@@ -6427,7 +6429,7 @@ Arguments: `file`
 
 Show a database's size, owner, application, support and access.
 
-```
+```bash
 noust db info [OPTIONS] NAME
 ```
 
@@ -6443,7 +6445,7 @@ Arguments: `name`
 
 Install a database engine: postgresql, mysql, mariadb, redis, valkey or mongodb.
 
-```
+```bash
 noust db install [OPTIONS] ENGINE
 ```
 
@@ -6458,7 +6460,7 @@ Arguments: `engine`
 
 Run another version of an engine, or an engine the host lacks, in a container.
 
-```
+```bash
 noust db instance [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -6468,12 +6470,13 @@ Subcommands: [`catalog`](#noust-db-instance-catalog), [`create`](#noust-db-insta
 
 List the engines Noust can run as an instance, and the versions it offers.
 
-```
+```bash
 noust db instance catalog [OPTIONS]
 ```
 
 | Option | What it does | Default |
 |---|---|---|
+| `--engine`, `-e` | Only this engine: another version of one you have chosen. |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
@@ -6484,7 +6487,7 @@ noust db instance catalog [OPTIONS]
 
 Make an instance NAME and start it.
 
-```
+```bash
 noust db instance create [OPTIONS] NAME
 ```
 
@@ -6498,10 +6501,11 @@ Arguments: `name`
 | `--port` | The port on 127.0.0.1. A free one just above the engine's own when omitted. |  |
 | `--variant` | An image of the engine with something added, such as pgvector or postgis for PostgreSQL ('noust db instance catalog'). The engine's own image when omitted. |  |
 | `--init-script` | A .sql file the engine runs, in name order, the first time it starts (PostgreSQL, MySQL and MariaDB; repeatable). It is not run again, and it is readable by the container: no secrets. |  |
-| `--image` | An image of your own instead of the catalog's: repository[:tag]@sha256:DIGEST. The digest is mandatory (a tag can be moved after you looked; 'docker buildx imagetools inspect REPO:TAG' prints it) and --version says which version it is. Noust has not tested it. |  |
+| `--image` | An image of your own instead of the catalog's: REGISTRY/REPOSITORY:TAG, whose digest Noust reads and pins when it makes the instance (a tag can be moved after you looked; the instance runs the digest), or repository[:tag]@sha256:DIGEST when you pin it yourself. --version says which version it is. Noust has not tested it. |  |
 | `--args` | Arguments added after the ones Noust passes the engine, such as '-c max_connections=200'. Split like a shell would and never run by one. Not with --command. No secrets: a command line is visible to every local user. |  |
 | `--command` | The container's whole command, instead of the engine's: Noust adds nothing to it (the memory share, TLS), so it is refused for an instance that serves TLS. Not with --args. |  |
 | `--accept-untested` | Accept that Noust has not tested an image, a command or arguments you chose. Needed with --yes or --json for them; --yes alone answers the question, not this. |  |
+| `--accept-unsupported` | Accept running a version whose project has stopped fixing security problems, or is about to ('noust db instance catalog' marks them). Needed with --yes or --json for them; --yes alone answers the question, not this. |  |
 | `--yes`, `-y` | Do not ask before making it. |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
@@ -6513,7 +6517,7 @@ Arguments: `name`
 
 Show or change how an instance is asked whether it is well.
 
-```
+```bash
 noust db instance health [OPTIONS] NAME
 ```
 
@@ -6536,7 +6540,7 @@ Arguments: `name`
 
 Show or change what an instance's container is started with.
 
-```
+```bash
 noust db instance launch [OPTIONS] NAME
 ```
 
@@ -6560,7 +6564,7 @@ Arguments: `name`
 
 Show or change what an instance may use: memory, CPUs and swap.
 
-```
+```bash
 noust db instance limits [OPTIONS] NAME
 ```
 
@@ -6583,7 +6587,7 @@ Arguments: `name`
 
 List the instances Noust runs, and how much of the server's memory they hold.
 
-```
+```bash
 noust db instance list [OPTIONS]
 ```
 
@@ -6599,7 +6603,7 @@ noust db instance list [OPTIONS]
 
 Move an engine's databases to a new instance of a newer major version.
 
-```
+```bash
 noust db instance migrate [OPTIONS] SOURCE
 ```
 
@@ -6623,7 +6627,7 @@ Arguments: `source`
 
 List the moves to a newer version, newest first, and which can be rolled back.
 
-```
+```bash
 noust db instance migrations [OPTIONS]
 ```
 
@@ -6639,7 +6643,7 @@ noust db instance migrations [OPTIONS]
 
 Remove an instance, its container, its volumes and its data.
 
-```
+```bash
 noust db instance remove [OPTIONS] NAME
 ```
 
@@ -6658,7 +6662,7 @@ Arguments: `name`
 
 Sign an instance's certificate again and restart it on the new one.
 
-```
+```bash
 noust db instance renew-tls [OPTIONS] NAME
 ```
 
@@ -6677,7 +6681,7 @@ Arguments: `name`
 
 Point the applications back at the engine a move left.
 
-```
+```bash
 noust db instance rollback [OPTIONS] MIGRATION
 ```
 
@@ -6696,7 +6700,7 @@ Arguments: `migration`
 
 Show one instance: its image, its port, its memory, where its files are.
 
-```
+```bash
 noust db instance show [OPTIONS] NAME
 ```
 
@@ -6714,7 +6718,7 @@ Arguments: `name`
 
 Start an instance and wait until its engine answers.
 
-```
+```bash
 noust db instance start [OPTIONS] NAME
 ```
 
@@ -6732,7 +6736,7 @@ Arguments: `name`
 
 Stop an instance. Its data stays; the applications that use it lose their database.
 
-```
+```bash
 noust db instance stop [OPTIONS] NAME
 ```
 
@@ -6750,7 +6754,7 @@ Arguments: `name`
 
 Show or change how an instance serves TLS.
 
-```
+```bash
 noust db instance tls [OPTIONS] NAME
 ```
 
@@ -6771,7 +6775,7 @@ Arguments: `name`
 
 Show Noust's certificate authority, the one applications trust.
 
-```
+```bash
 noust db instance tls-ca [OPTIONS]
 ```
 
@@ -6787,7 +6791,7 @@ noust db instance tls-ca [OPTIONS]
 
 Move an instance to the newest image of its version.
 
-```
+```bash
 noust db instance upgrade [OPTIONS] NAME
 ```
 
@@ -6808,7 +6812,7 @@ Arguments: `name`
 
 Show a bounded preview of one Redis key.
 
-```
+```bash
 noust db key [OPTIONS] SLOT KEY
 ```
 
@@ -6825,7 +6829,7 @@ Arguments: `slot`, `key`
 
 Scan a Redis database's keys, with their type, TTL and memory.
 
-```
+```bash
 noust db keys [OPTIONS] [SLOT]
 ```
 
@@ -6845,7 +6849,7 @@ Arguments: `slot`
 
 Show the limits of an engine on this host, or set them.
 
-```
+```bash
 noust db limits [OPTIONS] ENGINE
 ```
 
@@ -6866,7 +6870,7 @@ Arguments: `engine`
 
 Give an application a database's connection string, and restart it.
 
-```
+```bash
 noust db link [OPTIONS] DOMAIN DATABASE
 ```
 
@@ -6886,7 +6890,7 @@ Arguments: `domain`, `database`
 
 List the databases an application uses.
 
-```
+```bash
 noust db links [OPTIONS] DOMAIN
 ```
 
@@ -6901,7 +6905,7 @@ Arguments: `domain`
 
 List the databases on every running engine.
 
-```
+```bash
 noust db list [OPTIONS]
 ```
 
@@ -6920,7 +6924,7 @@ noust db list [OPTIONS]
 
 Show an engine's, or one database's, size, connections and cache hits.
 
-```
+```bash
 noust db metrics [OPTIONS] ENGINE [DATABASE]
 ```
 
@@ -6935,7 +6939,7 @@ Arguments: `engine`, `database`
 
 Move DATABASE to another engine: another version, the host's or an instance.
 
-```
+```bash
 noust db move [OPTIONS] DATABASE
 ```
 
@@ -6956,7 +6960,7 @@ Arguments: `database`
 
 Recover PostgreSQL to an instant: the log archived, base backups, and the recovery.
 
-```
+```bash
 noust db pitr [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -6966,7 +6970,7 @@ Subcommands: [`base`](#noust-db-pitr-base), [`disable`](#noust-db-pitr-disable),
 
 Take a base backup now, and apply retention.
 
-```
+```bash
 noust db pitr base [OPTIONS]
 ```
 
@@ -6979,7 +6983,7 @@ noust db pitr base [OPTIONS]
 
 Stop archiving the log. The archive and the base backups stay unless --delete-archive.
 
-```
+```bash
 noust db pitr disable [OPTIONS]
 ```
 
@@ -6993,7 +6997,7 @@ noust db pitr disable [OPTIONS]
 
 Start archiving the write-ahead log, prove it works and take the first base backup.
 
-```
+```bash
 noust db pitr enable [OPTIONS]
 ```
 
@@ -7012,7 +7016,7 @@ noust db pitr enable [OPTIONS]
 
 Bring the base backups and the log back from DESTINATION, for a recovery.
 
-```
+```bash
 noust db pitr fetch [OPTIONS] DESTINATION
 ```
 
@@ -7027,7 +7031,7 @@ Arguments: `destination`
 
 Recover the whole cluster to an instant.
 
-```
+```bash
 noust db pitr restore [OPTIONS]
 ```
 
@@ -7045,7 +7049,7 @@ noust db pitr restore [OPTIONS]
 
 Do the upkeep: a base backup when one is due, retention, and sending the archive.
 
-```
+```bash
 noust db pitr run [OPTIONS]
 ```
 
@@ -7058,7 +7062,7 @@ noust db pitr run [OPTIONS]
 
 Show whether the log is archived, the base backups, and the window a recovery can reach.
 
-```
+```bash
 noust db pitr status [OPTIONS]
 ```
 
@@ -7071,7 +7075,7 @@ noust db pitr status [OPTIONS]
 
 Send the log and the base backups to the destinations, and prune them there.
 
-```
+```bash
 noust db pitr sync [OPTIONS]
 ```
 
@@ -7084,7 +7088,7 @@ noust db pitr sync [OPTIONS]
 
 Create a database and an account for an application, and link them.
 
-```
+```bash
 noust db provision [OPTIONS] DOMAIN
 ```
 
@@ -7106,7 +7110,7 @@ Arguments: `domain`
 
 Make a database reachable from the network on purpose, and private again.
 
-```
+```bash
 noust db public [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -7116,7 +7120,7 @@ Subcommands: [`close`](#noust-db-public-close), [`list`](#noust-db-public-list),
 
 Make DATABASE private again: remove the port, the account, the TLS line and the firewall rule.
 
-```
+```bash
 noust db public close [OPTIONS] DATABASE
 ```
 
@@ -7136,7 +7140,7 @@ Arguments: `database`
 
 List the databases that are reachable from the network.
 
-```
+```bash
 noust db public list [OPTIONS]
 ```
 
@@ -7152,7 +7156,7 @@ noust db public list [OPTIONS]
 
 Make DATABASE reachable from the network: a public port, an account of its own, the firewall.
 
-```
+```bash
 noust db public open [OPTIONS] DATABASE
 ```
 
@@ -7177,7 +7181,7 @@ Arguments: `database`
 
 Show how DATABASE is reachable, and whether it listens now.
 
-```
+```bash
 noust db public show [OPTIONS] DATABASE
 ```
 
@@ -7197,7 +7201,7 @@ Arguments: `database`
 
 Run one statement against a database, read-only unless told otherwise.
 
-```
+```bash
 noust db query [OPTIONS] DATABASE QUERY
 ```
 
@@ -7213,7 +7217,7 @@ Arguments: `database`, `query`
 
 Run read replicas of this server's PostgreSQL, over TLS, with an account of their own.
 
-```
+```bash
 noust db replica [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -7223,7 +7227,7 @@ Subcommands: [`join`](#noust-db-replica-join), [`prepare`](#noust-db-replica-pre
 
 Make this server a replica of the primary CODE names.
 
-```
+```bash
 noust db replica join [OPTIONS] [CODE]
 ```
 
@@ -7242,7 +7246,7 @@ Arguments: `code`
 
 Make room for a replica called NAME on this server, and print its join code.
 
-```
+```bash
 noust db replica prepare [OPTIONS] NAME
 ```
 
@@ -7266,7 +7270,7 @@ Arguments: `name`
 
 Stop following the primary: this server becomes a primary and accepts writes.
 
-```
+```bash
 noust db replica promote [OPTIONS]
 ```
 
@@ -7281,7 +7285,7 @@ noust db replica promote [OPTIONS]
 
 Take a replica away: its account, its slot and its pg_hba.conf line go.
 
-```
+```bash
 noust db replica remove [OPTIONS] NAME
 ```
 
@@ -7299,7 +7303,7 @@ Arguments: `name`
 
 Show the replicas prepared here, or the primary this server follows.
 
-```
+```bash
 noust db replica status [OPTIONS]
 ```
 
@@ -7313,7 +7317,7 @@ noust db replica status [OPTIONS]
 
 Print the join code of a replica prepared here again.
 
-```
+```bash
 noust db replica token [OPTIONS] NAME
 ```
 
@@ -7329,7 +7333,7 @@ Arguments: `name`
 
 Restart an engine's service.
 
-```
+```bash
 noust db restart [OPTIONS] ENGINE
 ```
 
@@ -7343,7 +7347,7 @@ Arguments: `engine`
 
 Load a backup into a database, never losing what it held.
 
-```
+```bash
 noust db restore [OPTIONS] DATABASE FILE
 ```
 
@@ -7363,7 +7367,7 @@ Arguments: `database`, `file`
 
 Download a dump from a destination, verify it and restore it.
 
-```
+```bash
 noust db restore-remote [OPTIONS] DATABASE FILE
 ```
 
@@ -7383,7 +7387,7 @@ Arguments: `database`, `file`
 
 Take privileges away from a user.
 
-```
+```bash
 noust db revoke [OPTIONS] USERNAME DATABASE
 ```
 
@@ -7400,7 +7404,7 @@ Arguments: `username`, `database`
 
 Insert, change or delete one row, found by its whole primary key.
 
-```
+```bash
 noust db row [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -7410,7 +7414,7 @@ Subcommands: [`delete`](#noust-db-row-delete), [`insert`](#noust-db-row-insert),
 
 Delete one row; nothing changes unless exactly that row exists.
 
-```
+```bash
 noust db row delete [OPTIONS] DATABASE TABLE
 ```
 
@@ -7429,7 +7433,7 @@ Arguments: `database`, `table`
 
 Insert one row; columns left out take their defaults.
 
-```
+```bash
 noust db row insert [OPTIONS] DATABASE TABLE
 ```
 
@@ -7448,7 +7452,7 @@ Arguments: `database`, `table`
 
 Change one row; nothing changes unless exactly that row exists.
 
-```
+```bash
 noust db row update [OPTIONS] DATABASE TABLE
 ```
 
@@ -7468,7 +7472,7 @@ Arguments: `database`, `table`
 
 Read a page of a table's rows, as the database's read-only account.
 
-```
+```bash
 noust db rows [OPTIONS] DATABASE TABLE
 ```
 
@@ -7492,7 +7496,7 @@ Arguments: `database`, `table`
 
 Keep statements under a name.
 
-```
+```bash
 noust db saved [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -7502,7 +7506,7 @@ Subcommands: [`add`](#noust-db-saved-add), [`list`](#noust-db-saved-list), [`rem
 
 Save a statement under a name.
 
-```
+```bash
 noust db saved add [OPTIONS] NAME QUERY
 ```
 
@@ -7518,7 +7522,7 @@ Arguments: `name`, `query`
 
 List your saved queries.
 
-```
+```bash
 noust db saved list [OPTIONS]
 ```
 
@@ -7533,7 +7537,7 @@ noust db saved list [OPTIONS]
 
 Delete one of your saved queries.
 
-```
+```bash
 noust db saved remove [OPTIONS] SAVED_ID
 ```
 
@@ -7543,11 +7547,62 @@ Arguments: `saved_id`
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
+### noust db servers
+
+The database servers: where databases run, and the default of each engine.
+
+```bash
+noust db servers [OPTIONS] [COMMAND] [ARGS]...
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--engine`, `-e` | Only this engine: mysql is MySQL and MariaDB, mariadb only MariaDB. |  |
+| `--json` | Print the servers as JSON. |  |
+
+Subcommands: [`default`](#noust-db-servers-default), [`list`](#noust-db-servers-list)
+
+### noust db servers default
+
+Make a server the one a new database of its engine is made on.
+
+```bash
+noust db servers default [OPTIONS] KEY
+```
+
+Arguments: `key`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--clear` | Take the choice back: the engine's default is the one Noust works out (the system's engine, else the only one, else the oldest). |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the server as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust db servers list
+
+List the database servers: the system's engines and the containers, in one table.
+
+```bash
+noust db servers list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--engine`, `-e` | Only this engine: mysql is MySQL and MariaDB, mariadb only MariaDB. |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the servers as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
 ### noust db settings
 
 Show an engine's settings, or change them with KEY=VALUE.
 
-```
+```bash
 noust db settings [OPTIONS] ENGINE [KEY=VALUE]...
 ```
 
@@ -7563,7 +7618,7 @@ Arguments: `engine`, `assignments`
 
 List the statements that take longest on average, or how to turn that on.
 
-```
+```bash
 noust db slow-queries [OPTIONS] DATABASE
 ```
 
@@ -7580,7 +7635,7 @@ Arguments: `database`
 
 The SQLite databases an application keeps: list, check and copy them.
 
-```
+```bash
 noust db sqlite [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -7590,7 +7645,7 @@ Subcommands: [`check`](#noust-db-sqlite-check), [`copy`](#noust-db-sqlite-copy),
 
 Ask SQLite whether a database is sound. Changes nothing.
 
-```
+```bash
 noust db sqlite check [OPTIONS] DOMAIN PATH
 ```
 
@@ -7610,7 +7665,7 @@ Arguments: `domain`, `path`
 
 Copy a database, consistently, while the application runs.
 
-```
+```bash
 noust db sqlite copy [OPTIONS] DOMAIN PATH
 ```
 
@@ -7629,7 +7684,7 @@ Arguments: `domain`, `path`
 
 List the SQLite databases applications keep, in their data directories.
 
-```
+```bash
 noust db sqlite list [OPTIONS] [DOMAIN]
 ```
 
@@ -7647,7 +7702,7 @@ Arguments: `domain`
 
 Start an engine's service.
 
-```
+```bash
 noust db start [OPTIONS] ENGINE
 ```
 
@@ -7661,7 +7716,7 @@ Arguments: `engine`
 
 Show which engines are installed and running, and their upstream support.
 
-```
+```bash
 noust db status [OPTIONS] [ENGINE]
 ```
 
@@ -7676,7 +7731,7 @@ Arguments: `engine`
 
 Stop an engine's service.
 
-```
+```bash
 noust db stop [OPTIONS] ENGINE
 ```
 
@@ -7690,7 +7745,7 @@ Arguments: `engine`
 
 List a database's tables and views, with estimated rows and sizes.
 
-```
+```bash
 noust db tables [OPTIONS] DATABASE
 ```
 
@@ -7709,7 +7764,7 @@ Arguments: `database`
 
 Free labels on databases, to find them by.
 
-```
+```bash
 noust db tag [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -7719,7 +7774,7 @@ Subcommands: [`add`](#noust-db-tag-add), [`list`](#noust-db-tag-list), [`remove`
 
 Give a database more tags.
 
-```
+```bash
 noust db tag add [OPTIONS] NAME TAGS...
 ```
 
@@ -7734,7 +7789,7 @@ Arguments: `name`, `tags`
 
 List the tags of a database, or every tagged one.
 
-```
+```bash
 noust db tag list [OPTIONS] [NAME]
 ```
 
@@ -7751,7 +7806,7 @@ Arguments: `name`
 
 Take tags off a database.
 
-```
+```bash
 noust db tag remove [OPTIONS] NAME TAGS...
 ```
 
@@ -7766,7 +7821,7 @@ Arguments: `name`, `tags`
 
 Make a database carry exactly these tags (none clears them).
 
-```
+```bash
 noust db tag set [OPTIONS] NAME [TAGS]...
 ```
 
@@ -7781,7 +7836,7 @@ Arguments: `name`, `tags`
 
 Give a host engine a certificate clients can verify, and keep it current.
 
-```
+```bash
 noust db tls [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -7791,7 +7846,7 @@ Subcommands: [`disable`](#noust-db-tls-disable), [`enable`](#noust-db-tls-enable
 
 Take the certificate off the engine: its settings go back as they were.
 
-```
+```bash
 noust db tls disable [OPTIONS]
 ```
 
@@ -7805,7 +7860,7 @@ noust db tls disable [OPTIONS]
 
 Give the engine the certificate of HOST, and prove it presents it.
 
-```
+```bash
 noust db tls enable [OPTIONS]
 ```
 
@@ -7824,7 +7879,7 @@ noust db tls enable [OPTIONS]
 
 Bring each engine's copy up to its certificate, load it, and prove what is presented.
 
-```
+```bash
 noust db tls refresh [OPTIONS]
 ```
 
@@ -7837,7 +7892,7 @@ noust db tls refresh [OPTIONS]
 
 Show which engines serve a certificate of Noust's, and whether it is current.
 
-```
+```bash
 noust db tls status [OPTIONS]
 ```
 
@@ -7850,7 +7905,7 @@ noust db tls status [OPTIONS]
 
 Move DATABASE from one server of the fleet to another.
 
-```
+```bash
 noust db transfer [OPTIONS] DATABASE
 ```
 
@@ -7875,7 +7930,7 @@ Arguments: `database`
 
 Remove a database engine from this server.
 
-```
+```bash
 noust db uninstall [OPTIONS] ENGINE
 ```
 
@@ -7891,7 +7946,7 @@ Arguments: `engine`
 
 Take a database away from an application.
 
-```
+```bash
 noust db unlink [OPTIONS] DOMAIN DATABASE
 ```
 
@@ -7909,7 +7964,7 @@ Arguments: `domain`, `database`
 
 Create a database user, optionally with a profile on one database.
 
-```
+```bash
 noust db user-create [OPTIONS] USERNAME
 ```
 
@@ -7928,7 +7983,7 @@ Arguments: `username`
 
 Delete a database user.
 
-```
+```bash
 noust db user-delete [OPTIONS] USERNAME
 ```
 
@@ -7945,7 +8000,7 @@ Arguments: `username`
 
 List the users of an engine.
 
-```
+```bash
 noust db user-list [OPTIONS]
 ```
 
@@ -7959,7 +8014,7 @@ noust db user-list [OPTIONS]
 
 Give a user a new password, and the applications that use it too.
 
-```
+```bash
 noust db user-password [OPTIONS] USERNAME
 ```
 
@@ -7974,11 +8029,11 @@ Arguments: `username`
 | `--force`, `-f`, `-y` | Do not ask for confirmation. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust delete
+## noust delete
 
 Delete an application and everything deployed with it.
 
-```
+```bash
 noust delete [OPTIONS] DOMAIN
 ```
 
@@ -7997,11 +8052,11 @@ Arguments: `domain`
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust deploy
+## noust deploy
 
 Follow the deploy queue, cancel a build, and hold, freeze or release deploys.
 
-```
+```bash
 noust deploy [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -8011,7 +8066,7 @@ Subcommands: [`cancel`](#noust-deploy-cancel), [`freeze`](#noust-deploy-freeze),
 
 Cancel a deployment: a job that waits, or the build that runs.
 
-```
+```bash
 noust deploy cancel [OPTIONS] TARGET
 ```
 
@@ -8027,7 +8082,7 @@ Arguments: `target`
 
 Freeze deploys: nothing is deployed, of DOMAIN or of the whole server, for a while.
 
-```
+```bash
 noust deploy freeze [OPTIONS] [DOMAIN]
 ```
 
@@ -8045,7 +8100,7 @@ Arguments: `domain`
 
 List the freezes that hold deploys now, or will.
 
-```
+```bash
 noust deploy freezes [OPTIONS]
 ```
 
@@ -8059,7 +8114,7 @@ noust deploy freezes [OPTIONS]
 
 Say what holds the deploys of an application, if anything: a pause or a freeze.
 
-```
+```bash
 noust deploy held [OPTIONS] DOMAIN
 ```
 
@@ -8074,7 +8129,7 @@ Arguments: `domain`
 
 Show or set how many deployments of an application's history are kept.
 
-```
+```bash
 noust deploy keep [OPTIONS] DOMAIN [N|default]
 ```
 
@@ -8089,7 +8144,7 @@ Arguments: `domain`, `count`
 
 Hold what deploys an application by itself: its pushes, its tags and its schedules.
 
-```
+```bash
 noust deploy pause [OPTIONS] DOMAIN
 ```
 
@@ -8104,7 +8159,7 @@ Arguments: `domain`
 
 Show or set whether going back pauses what deploys the application by itself.
 
-```
+```bash
 noust deploy pause-on-rollback [OPTIONS] DOMAIN [on|off]
 ```
 
@@ -8119,7 +8174,7 @@ Arguments: `domain`, `choice`
 
 Show what is deploying and what is waiting to.
 
-```
+```bash
 noust deploy queue [OPTIONS] [DOMAIN]
 ```
 
@@ -8134,7 +8189,7 @@ Arguments: `domain`
 
 Let an application's pushes, tags and schedules deploy it again.
 
-```
+```bash
 noust deploy resume [OPTIONS] DOMAIN
 ```
 
@@ -8149,7 +8204,7 @@ Arguments: `domain`
 
 Update an application by itself, on a schedule.
 
-```
+```bash
 noust deploy schedule [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -8159,7 +8214,7 @@ Subcommands: [`list`](#noust-deploy-schedule-list), [`remove`](#noust-deploy-sch
 
 List the applications that update themselves.
 
-```
+```bash
 noust deploy schedule list [OPTIONS]
 ```
 
@@ -8172,7 +8227,7 @@ noust deploy schedule list [OPTIONS]
 
 Stop an application updating itself: the timer and the schedule go.
 
-```
+```bash
 noust deploy schedule remove [OPTIONS] DOMAIN
 ```
 
@@ -8186,7 +8241,7 @@ Arguments: `domain`
 
 Run an application's scheduled update now, once, exactly as its timer does.
 
-```
+```bash
 noust deploy schedule run [OPTIONS] DOMAIN
 ```
 
@@ -8200,7 +8255,7 @@ Arguments: `domain`
 
 Make an application update itself at a time, with a backup first.
 
-```
+```bash
 noust deploy schedule set [OPTIONS] DOMAIN
 ```
 
@@ -8219,7 +8274,7 @@ Arguments: `domain`
 
 Show when an application updates itself, and how its last run ended.
 
-```
+```bash
 noust deploy schedule show [OPTIONS] DOMAIN
 ```
 
@@ -8234,7 +8289,7 @@ Arguments: `domain`
 
 Lift the freeze of an application, or of the whole server without DOMAIN.
 
-```
+```bash
 noust deploy unfreeze [OPTIONS] [DOMAIN]
 ```
 
@@ -8246,11 +8301,11 @@ Arguments: `domain`
 | `--json` | Print the freezes that were lifted as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust diagnose
+## noust diagnose
 
 Explain why an application is down.
 
-```
+```bash
 noust diagnose [OPTIONS] DOMAIN
 ```
 
@@ -8260,11 +8315,11 @@ Arguments: `domain`
 |---|---|---|
 | `--json` | Print the diagnosis as JSON. |  |
 
-### noust dns
+## noust dns
 
 DNS accounts, the records Noust manages in them, and the DNS-01 challenge.
 
-```
+```bash
 noust dns [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -8274,7 +8329,7 @@ Subcommands: [`check`](#noust-dns-check), [`ensure`](#noust-dns-ensure), [`provi
 
 Does NAME point at this server? Asked of the public DNS, as the certificate authority will.
 
-```
+```bash
 noust dns check [OPTIONS] NAME
 ```
 
@@ -8290,7 +8345,7 @@ Arguments: `name`
 
 Make HOSTNAME point at this server, creating its record in the account that holds the zone.
 
-```
+```bash
 noust dns ensure [OPTIONS] APP HOSTNAME
 ```
 
@@ -8311,7 +8366,7 @@ Arguments: `app_domain`, `hostname`
 
 The DNS accounts Noust holds: Cloudflare, DigitalOcean, Hetzner, Gandi and Route 53 (records and the challenge, Cloudflare also tunnels), and certbot's plugins.
 
-```
+```bash
 noust dns provider [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -8321,7 +8376,7 @@ Subcommands: [`add`](#noust-dns-provider-add), [`kinds`](#noust-dns-provider-kin
 
 Add a DNS account. Its credential is proven first, and kept only in the secret store.
 
-```
+```bash
 noust dns provider add [OPTIONS] NAME
 ```
 
@@ -8340,7 +8395,7 @@ Arguments: `name`
 
 List the providers Noust knows, and what an account of each needs.
 
-```
+```bash
 noust dns provider kinds [OPTIONS]
 ```
 
@@ -8353,7 +8408,7 @@ noust dns provider kinds [OPTIONS]
 
 List the DNS accounts and when each one's credential last worked.
 
-```
+```bash
 noust dns provider list [OPTIONS]
 ```
 
@@ -8366,7 +8421,7 @@ noust dns provider list [OPTIONS]
 
 Remove an account and its credential. The records stay at the provider.
 
-```
+```bash
 noust dns provider remove [OPTIONS] NAME
 ```
 
@@ -8381,7 +8436,7 @@ Arguments: `name`
 
 Change whether an account creates records on its own, or how long a challenge waits.
 
-```
+```bash
 noust dns provider set [OPTIONS] NAME
 ```
 
@@ -8397,7 +8452,7 @@ Arguments: `name`
 
 Try an account's credential again and list the zones it manages.
 
-```
+```bash
 noust dns provider verify [OPTIONS] NAME
 ```
 
@@ -8412,7 +8467,7 @@ Arguments: `name`
 
 List the DNS records Noust manages, who made them and who uses them.
 
-```
+```bash
 noust dns records [OPTIONS]
 ```
 
@@ -8425,7 +8480,7 @@ noust dns records [OPTIONS]
 
 Let APP go of its records (or of HOSTNAME's): the last user's release deletes what Noust made.
 
-```
+```bash
 noust dns release [OPTIONS] APP [HOSTNAME]
 ```
 
@@ -8441,7 +8496,7 @@ Arguments: `app_domain`, `hostname`
 
 Release the records nobody has used for an hour. The monitor does this every hour.
 
-```
+```bash
 noust dns sweep [OPTIONS]
 ```
 
@@ -8450,11 +8505,11 @@ noust dns sweep [OPTIONS]
 | `--json` | Print the outcomes as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust domain
+## noust domain
 
 Serve an application on more domains: aliases and redirects.
 
-```
+```bash
 noust domain [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -8464,7 +8519,7 @@ Subcommands: [`add`](#noust-domain-add), [`canonical`](#noust-domain-canonical),
 
 Make APP answer on DOMAIN too.
 
-```
+```bash
 noust domain add [OPTIONS] APP DOMAIN
 ```
 
@@ -8486,7 +8541,7 @@ Arguments: `app_domain`, `domain`
 
 Choose whether www.<domain> or <domain> is served; the other one redirects to it.
 
-```
+```bash
 noust domain canonical [OPTIONS] APP {www|apex|none}
 ```
 
@@ -8501,7 +8556,7 @@ Arguments: `app_domain`, `spelling`
 
 Make APP's certificate cover exactly the names it answers on, or say how one name is covered.
 
-```
+```bash
 noust domain certificate [OPTIONS] APP [NAME]
 ```
 
@@ -8520,7 +8575,7 @@ Arguments: `app_domain`, `name`
 
 Stop APP answering on DOMAIN without forgetting it.
 
-```
+```bash
 noust domain disable [OPTIONS] APP DOMAIN
 ```
 
@@ -8534,7 +8589,7 @@ Arguments: `app_domain`, `domain`
 
 Serve DOMAIN again, after 'noust domain disable'.
 
-```
+```bash
 noust domain enable [OPTIONS] APP DOMAIN
 ```
 
@@ -8549,7 +8604,7 @@ Arguments: `app_domain`, `domain`
 
 List the domains APP answers on.
 
-```
+```bash
 noust domain list [OPTIONS] APP
 ```
 
@@ -8564,7 +8619,7 @@ Arguments: `app_domain`
 
 Proxy an alias to another port of the application, or back to its own with 'none'.
 
-```
+```bash
 noust domain port [OPTIONS] APP DOMAIN PORT|none
 ```
 
@@ -8578,7 +8633,7 @@ Arguments: `app_domain`, `domain`, `port`
 
 Stop APP answering on DOMAIN.
 
-```
+```bash
 noust domain remove [OPTIONS] APP DOMAIN
 ```
 
@@ -8592,7 +8647,7 @@ Arguments: `app_domain`, `domain`
 
 Give APP a temporary name made of this server's address, for a server with no domain yet.
 
-```
+```bash
 noust domain temporary [OPTIONS] APP
 ```
 
@@ -8606,11 +8661,11 @@ Arguments: `app_domain`
 | `--json` | Print the name as JSON (with --show). |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust ens
+## noust ens
 
 Check this server against Spain's ENS (category MEDIUM) and write the evidence.
 
-```
+```bash
 noust ens [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -8620,7 +8675,7 @@ Subcommands: [`access-review`](#noust-ens-access-review), [`check`](#noust-ens-c
 
 The periodic review of who may do what (op.acc.4.4).
 
-```
+```bash
 noust ens access-review [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -8630,7 +8685,7 @@ Subcommands: [`attest`](#noust-ens-access-review-attest), [`list`](#noust-ens-ac
 
 Record that you reviewed the list of accounts and roles (op.acc.4.4).
 
-```
+```bash
 noust ens access-review attest [OPTIONS]
 ```
 
@@ -8644,7 +8699,7 @@ noust ens access-review attest [OPTIONS]
 
 Show every account, role, second factor and token, and past reviews.
 
-```
+```bash
 noust ens access-review list [OPTIONS]
 ```
 
@@ -8657,7 +8712,7 @@ noust ens access-review list [OPTIONS]
 
 Compare this server with the ens-medium profile, measure by measure.
 
-```
+```bash
 noust ens check [OPTIONS]
 ```
 
@@ -8672,7 +8727,7 @@ noust ens check [OPTIONS]
 
 Each application's owner, criticality and classification (op.exp.1).
 
-```
+```bash
 noust ens inventory [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -8682,7 +8737,7 @@ Subcommands: [`list`](#noust-ens-inventory-list), [`set`](#noust-ens-inventory-s
 
 List the inventory, or export it as JSON or CSV for an auditor.
 
-```
+```bash
 noust ens inventory list [OPTIONS]
 ```
 
@@ -8697,7 +8752,7 @@ noust ens inventory list [OPTIONS]
 
 Set an application's owner, criticality or classification.
 
-```
+```bash
 noust ens inventory set [OPTIONS] DOMAIN
 ```
 
@@ -8716,7 +8771,7 @@ Arguments: `domain`
 
 Show which security profile is on, and every value ens-medium fixes.
 
-```
+```bash
 noust ens profile [OPTIONS]
 ```
 
@@ -8729,7 +8784,7 @@ noust ens profile [OPTIONS]
 
 Write the evidence bundle for an ENS auditor (JSON and Markdown, hashed).
 
-```
+```bash
 noust ens report [OPTIONS]
 ```
 
@@ -8740,11 +8795,11 @@ noust ens report [OPTIONS]
 | `--json` | Print the report itself as JSON instead of writing files. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust env
+## noust env
 
 Read and set the environment variables of a deployed application.
 
-```
+```bash
 noust env [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -8754,7 +8809,7 @@ Subcommands: [`audience`](#noust-env-audience), [`comment`](#noust-env-comment),
 
 Say whether a variable is for the build, the running application, or both.
 
-```
+```bash
 noust env audience [OPTIONS] DOMAIN NAME
 ```
 
@@ -8771,7 +8826,7 @@ Arguments: `domain`, `name`
 
 Show, set or take away the comment above a variable.
 
-```
+```bash
 noust env comment [OPTIONS] DOMAIN NAME [TEXT]
 ```
 
@@ -8785,7 +8840,7 @@ Arguments: `domain`, `name`, `text`
 
 Ask for each variable the application declares and save its .env.
 
-```
+```bash
 noust env configure [OPTIONS] DOMAIN
 ```
 
@@ -8799,7 +8854,7 @@ Arguments: `domain`
 
 Write an application's variables to a file, owner-readable only.
 
-```
+```bash
 noust env export [OPTIONS] DOMAIN
 ```
 
@@ -8814,7 +8869,7 @@ Arguments: `domain`
 
 Override whether one environment variable is treated as a secret.
 
-```
+```bash
 noust env mark [OPTIONS] DOMAIN NAME
 ```
 
@@ -8831,7 +8886,7 @@ Arguments: `domain`, `name`
 
 Move an application's variables from its systemd unit into its .env (units written by 1.x).
 
-```
+```bash
 noust env migrate [OPTIONS] [DOMAIN]
 ```
 
@@ -8846,7 +8901,7 @@ Arguments: `domain`
 
 Resolve the references in an application's variables again, without a deploy.
 
-```
+```bash
 noust env resolve [OPTIONS] DOMAIN
 ```
 
@@ -8860,7 +8915,7 @@ Arguments: `domain`
 
 Add or change variables, keeping the others.
 
-```
+```bash
 noust env set [OPTIONS] DOMAIN NAME=VALUE...
 ```
 
@@ -8880,7 +8935,7 @@ Arguments: `domain`, `pairs`
 
 List the variables an application runs with, secrets hidden.
 
-```
+```bash
 noust env show [OPTIONS] DOMAIN
 ```
 
@@ -8896,7 +8951,7 @@ Arguments: `domain`
 
 Bring a real .env file into an application's variables.
 
-```
+```bash
 noust env sync [OPTIONS] DOMAIN
 ```
 
@@ -8916,7 +8971,7 @@ Arguments: `domain`
 
 Remove variables, keeping the others.
 
-```
+```bash
 noust env unset [OPTIONS] DOMAIN NAMES...
 ```
 
@@ -8926,11 +8981,11 @@ Arguments: `domain`, `names`
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust environment
+## noust environment
 
 Manage the environments of the projects.
 
-```
+```bash
 noust environment [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -8940,7 +8995,7 @@ Subcommands: [`create`](#noust-environment-create), [`delete`](#noust-environmen
 
 Create an environment in a project.
 
-```
+```bash
 noust environment create [OPTIONS] NAME
 ```
 
@@ -8957,7 +9012,7 @@ Arguments: `name`
 
 Delete an environment that holds nothing.
 
-```
+```bash
 noust environment delete [OPTIONS] ENVIRONMENT
 ```
 
@@ -8974,7 +9029,7 @@ Arguments: `environment`
 
 List environments, with what each holds.
 
-```
+```bash
 noust environment list [OPTIONS]
 ```
 
@@ -8989,7 +9044,7 @@ noust environment list [OPTIONS]
 
 Change an environment's display name; the short name commands use stays.
 
-```
+```bash
 noust environment rename [OPTIONS] ENVIRONMENT NAME
 ```
 
@@ -9001,11 +9056,11 @@ Arguments: `environment`, `name`
 | `--project` | The project. | `default` |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust fleet
+## noust fleet
 
 Enroll this server in a fleet, or see the fleet from its central.
 
-```
+```bash
 noust fleet [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -9015,7 +9070,7 @@ Subcommands: [`access`](#noust-fleet-access), [`activity`](#noust-fleet-activity
 
 Show or set the most any central may do on this server.
 
-```
+```bash
 noust fleet access [OPTIONS]
 ```
 
@@ -9030,7 +9085,7 @@ noust fleet access [OPTIONS]
 
 What happened lately on every node, newest first.
 
-```
+```bash
 noust fleet activity [OPTIONS]
 ```
 
@@ -9045,7 +9100,7 @@ noust fleet activity [OPTIONS]
 
 Every application of every node, with its state, type and last deployment.
 
-```
+```bash
 noust fleet apps [OPTIONS]
 ```
 
@@ -9060,7 +9115,7 @@ noust fleet apps [OPTIONS]
 
 Let a central manage this server, and print the join code for it.
 
-```
+```bash
 noust fleet authorize [OPTIONS]
 ```
 
@@ -9082,7 +9137,7 @@ noust fleet authorize [OPTIONS]
 
 Every application's newest backup, the gaps first: none, old, unverified, unscheduled.
 
-```
+```bash
 noust fleet backups [OPTIONS]
 ```
 
@@ -9096,7 +9151,7 @@ noust fleet backups [OPTIONS]
 
 The server that builds an application for the others.
 
-```
+```bash
 noust fleet builder [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -9106,7 +9161,7 @@ Subcommands: [`clear`](#noust-fleet-builder-clear), [`list`](#noust-fleet-builde
 
 Go back to building DOMAIN where it runs. Touches no server.
 
-```
+```bash
 noust fleet builder clear [OPTIONS] DOMAIN
 ```
 
@@ -9120,7 +9175,7 @@ Arguments: `domain`
 
 List the applications that are built on a server other than the ones that run them.
 
-```
+```bash
 noust fleet builder list [OPTIONS]
 ```
 
@@ -9133,7 +9188,7 @@ noust fleet builder list [OPTIONS]
 
 Choose NODE as the server that builds DOMAIN. Touches no server.
 
-```
+```bash
 noust fleet builder set [OPTIONS] DOMAIN NODE
 ```
 
@@ -9148,7 +9203,7 @@ Arguments: `domain`, `node`
 
 Say which server builds DOMAIN.
 
-```
+```bash
 noust fleet builder show [OPTIONS] DOMAIN
 ```
 
@@ -9163,7 +9218,7 @@ Arguments: `domain`
 
 Every certificate of every node, the soonest to expire first.
 
-```
+```bash
 noust fleet certs [OPTIONS]
 ```
 
@@ -9178,7 +9233,7 @@ noust fleet certs [OPTIONS]
 
 Create servers at a cloud provider and bring them into the fleet.
 
-```
+```bash
 noust fleet cloud [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -9188,7 +9243,7 @@ Subcommands: [`account`](#noust-fleet-cloud-account), [`catalog`](#noust-fleet-c
 
 The provider accounts this central creates servers with.
 
-```
+```bash
 noust fleet cloud account [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -9198,7 +9253,7 @@ Subcommands: [`add`](#noust-fleet-cloud-account-add), [`list`](#noust-fleet-clou
 
 Keep a provider API token as NAME.
 
-```
+```bash
 noust fleet cloud account add [OPTIONS] NAME
 ```
 
@@ -9217,7 +9272,7 @@ Arguments: `name`
 
 List the accounts. A token is never shown, only its last characters.
 
-```
+```bash
 noust fleet cloud account list [OPTIONS]
 ```
 
@@ -9230,7 +9285,7 @@ noust fleet cloud account list [OPTIONS]
 
 Forget an account and its token.
 
-```
+```bash
 noust fleet cloud account remove [OPTIONS] NAME
 ```
 
@@ -9246,7 +9301,7 @@ Arguments: `name`
 
 Replace the token of an account, after the provider accepted the new one.
 
-```
+```bash
 noust fleet cloud account token [OPTIONS] NAME
 ```
 
@@ -9262,7 +9317,7 @@ Arguments: `name`
 
 Ask the provider whether it still accepts the token of NAME.
 
-```
+```bash
 noust fleet cloud account verify [OPTIONS] NAME
 ```
 
@@ -9276,7 +9331,7 @@ Arguments: `name`
 
 Show what ACCOUNT can create: locations, plans and images (with prices where known).
 
-```
+```bash
 noust fleet cloud catalog [OPTIONS] ACCOUNT
 ```
 
@@ -9292,7 +9347,7 @@ Arguments: `account`
 
 List the providers a server can be created at, and where each one's token is made.
 
-```
+```bash
 noust fleet cloud providers [OPTIONS]
 ```
 
@@ -9305,7 +9360,7 @@ noust fleet cloud providers [OPTIONS]
 
 The cloud-init library: scripts and fragments a new server can boot with.
 
-```
+```bash
 noust fleet cloud script [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -9315,7 +9370,7 @@ Subcommands: [`delete`](#noust-fleet-cloud-script-delete), [`list`](#noust-fleet
 
 Delete one of your own library entries.
 
-```
+```bash
 noust fleet cloud script delete [OPTIONS] NAME
 ```
 
@@ -9330,7 +9385,7 @@ Arguments: `name`
 
 List the library: what ships with Noust, then your own.
 
-```
+```bash
 noust fleet cloud script list [OPTIONS]
 ```
 
@@ -9343,7 +9398,7 @@ noust fleet cloud script list [OPTIONS]
 
 Print the document a new server would boot with when given NAMES, its host key withheld.
 
-```
+```bash
 noust fleet cloud script preview [OPTIONS] [NAMES]...
 ```
 
@@ -9357,7 +9412,7 @@ Arguments: `names`
 
 Add a script or fragment to the library, or replace your own of the same name.
 
-```
+```bash
 noust fleet cloud script save [OPTIONS] NAME
 ```
 
@@ -9375,7 +9430,7 @@ Arguments: `name`
 
 Print the text of a library entry.
 
-```
+```bash
 noust fleet cloud script show [OPTIONS] NAME
 ```
 
@@ -9389,7 +9444,7 @@ Arguments: `name`
 
 The machines this central created at a provider.
 
-```
+```bash
 noust fleet cloud server [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -9399,7 +9454,7 @@ Subcommands: [`create`](#noust-fleet-cloud-server-create), [`delete`](#noust-fle
 
 Create the server NAME at a provider, install Noust on it and join it to this central.
 
-```
+```bash
 noust fleet cloud server create [OPTIONS] NAME
 ```
 
@@ -9429,7 +9484,7 @@ Arguments: `name`
 
 Delete the machine NAME at its provider: it is destroyed, and the charge for it stops.
 
-```
+```bash
 noust fleet cloud server delete [OPTIONS] NAME
 ```
 
@@ -9445,7 +9500,7 @@ Arguments: `name`
 
 Link the server NAME, already in the fleet, to its machine at a provider.
 
-```
+```bash
 noust fleet cloud server link [OPTIONS] NAME
 ```
 
@@ -9463,7 +9518,7 @@ Arguments: `name`
 
 List the machines this central created.
 
-```
+```bash
 noust fleet cloud server list [OPTIONS]
 ```
 
@@ -9476,7 +9531,7 @@ noust fleet cloud server list [OPTIONS]
 
 Start a machine that is off.
 
-```
+```bash
 noust fleet cloud server power-on [OPTIONS] NAME
 ```
 
@@ -9490,7 +9545,7 @@ Arguments: `name`
 
 Describe a machine this central created.
 
-```
+```bash
 noust fleet cloud server show [OPTIONS] NAME
 ```
 
@@ -9506,7 +9561,7 @@ Arguments: `name`
 
 Forget which machine NAME runs on. The machine and the server are not touched.
 
-```
+```bash
 noust fleet cloud server unlink [OPTIONS] NAME
 ```
 
@@ -9520,7 +9575,7 @@ Arguments: `name`
 
 Stop trusting a central: remove its SSH key lines and revoke its tokens.
 
-```
+```bash
 noust fleet deauthorize [OPTIONS]
 ```
 
@@ -9535,7 +9590,7 @@ noust fleet deauthorize [OPTIONS]
 
 Enroll the server at --host as NAME: install Noust if needed, authorize this central, join it.
 
-```
+```bash
 noust fleet enroll [OPTIONS] NAME
 ```
 
@@ -9561,7 +9616,7 @@ Arguments: `name`
 
 List the fleet jobs, or show one with every node's state and words.
 
-```
+```bash
 noust fleet jobs [OPTIONS] [JOB_ID]
 ```
 
@@ -9577,7 +9632,7 @@ Arguments: `job_id`
 
 Dial a central that cannot reach this server, and print the link code for it.
 
-```
+```bash
 noust fleet link [OPTIONS]
 ```
 
@@ -9600,7 +9655,7 @@ noust fleet link [OPTIONS]
 
 Search the logs of every node at once, newest first.
 
-```
+```bash
 noust fleet logs [OPTIONS] [WORDS]...
 ```
 
@@ -9620,7 +9675,7 @@ Arguments: `words`
 
 Compare one metric of every node over the same window.
 
-```
+```bash
 noust fleet metrics [OPTIONS]
 ```
 
@@ -9636,7 +9691,7 @@ noust fleet metrics [OPTIONS]
 
 An application that runs on several servers: where, how it looks, rolling it out.
 
-```
+```bash
 noust fleet placement [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -9646,7 +9701,7 @@ Subcommands: [`add`](#noust-fleet-placement-add), [`copy`](#noust-fleet-placemen
 
 Record where DOMAIN runs, or change it; what you do not give is kept.
 
-```
+```bash
 noust fleet placement add [OPTIONS] DOMAIN
 ```
 
@@ -9667,7 +9722,7 @@ Arguments: `domain`
 
 Put DOMAIN on the servers that lack it, from one that has it.
 
-```
+```bash
 noust fleet placement copy [OPTIONS] DOMAIN
 ```
 
@@ -9689,7 +9744,7 @@ Arguments: `domain`
 
 List the applications that run on several servers (the central's own record).
 
-```
+```bash
 noust fleet placement list [OPTIONS]
 ```
 
@@ -9702,7 +9757,7 @@ noust fleet placement list [OPTIONS]
 
 Forget where DOMAIN runs. Nothing is touched on any server.
 
-```
+```bash
 noust fleet placement remove [OPTIONS] DOMAIN
 ```
 
@@ -9717,7 +9772,7 @@ Arguments: `domain`
 
 Roll DOMAIN out over its servers so that they all run the same commit.
 
-```
+```bash
 noust fleet placement rollout [OPTIONS] DOMAIN
 ```
 
@@ -9743,7 +9798,7 @@ Arguments: `domain`
 
 Build DOMAIN on one server and run that build on the others.
 
-```
+```bash
 noust fleet placement ship [OPTIONS] DOMAIN
 ```
 
@@ -9771,7 +9826,7 @@ Arguments: `domain`
 
 Show DOMAIN across its servers: which commit each serves, and who differs.
 
-```
+```bash
 noust fleet placement status [OPTIONS] DOMAIN
 ```
 
@@ -9786,7 +9841,7 @@ Arguments: `domain`
 
 Write the servers DOMAIN runs on for the load balancer in front of them.
 
-```
+```bash
 noust fleet placement upstreams [OPTIONS] DOMAIN
 ```
 
@@ -9802,7 +9857,7 @@ Arguments: `domain`
 
 Run a fleet job again on its nodes that failed or were not reached.
 
-```
+```bash
 noust fleet retry [OPTIONS] JOB_ID
 ```
 
@@ -9819,7 +9874,7 @@ Arguments: `job_id`
 
 Run ACTION on several nodes: renew certificates, back up, update, restart, update Noust or the OS.
 
-```
+```bash
 noust fleet run [OPTIONS] {certs_renew|backups_run|backups_verify|apps_
                        update|apps_restart|noust_update|index_refresh|os_updat
                        es|placement_rollout|placement_copy}
@@ -9846,7 +9901,7 @@ Arguments: `action`
 
 Show every node this central manages: reachability, version, apps, units, certificates.
 
-```
+```bash
 noust fleet status [OPTIONS]
 ```
 
@@ -9859,7 +9914,7 @@ noust fleet status [OPTIONS]
 
 Stop dialling a central: stop the link, remove its key and unit, revoke its tokens.
 
-```
+```bash
 noust fleet unlink [OPTIONS]
 ```
 
@@ -9873,7 +9928,7 @@ noust fleet unlink [OPTIONS]
 
 Every node's Noust (installed and available) and pending system updates.
 
-```
+```bash
 noust fleet updates [OPTIONS]
 ```
 
@@ -9883,11 +9938,11 @@ noust fleet updates [OPTIONS]
 | `--json` | Print the view as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust github
+## noust github
 
 This server's GitHub App: private repositories, push and pull request events.
 
-```
+```bash
 noust github [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -9897,7 +9952,7 @@ Subcommands: [`host`](#noust-github-host), [`installations`](#noust-github-insta
 
 The GitHub the App talks to: github.com, or a GitHub Enterprise host.
 
-```
+```bash
 noust github host [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -9907,7 +9962,7 @@ Subcommands: [`reset`](#noust-github-host-reset), [`set`](#noust-github-host-set
 
 Go back to github.com.
 
-```
+```bash
 noust github host reset [OPTIONS]
 ```
 
@@ -9920,7 +9975,7 @@ noust github host reset [OPTIONS]
 
 Point the App at a GitHub Enterprise Server or Cloud (data residency) host.
 
-```
+```bash
 noust github host set [OPTIONS] HOST
 ```
 
@@ -9935,7 +9990,7 @@ Arguments: `host`
 
 Show which GitHub this server's App talks to.
 
-```
+```bash
 noust github host show [OPTIONS]
 ```
 
@@ -9948,7 +10003,7 @@ noust github host show [OPTIONS]
 
 List the accounts the App is installed on.
 
-```
+```bash
 noust github installations [OPTIONS]
 ```
 
@@ -9962,7 +10017,7 @@ noust github installations [OPTIONS]
 
 Forget the App's credentials and installations on this server.
 
-```
+```bash
 noust github remove [OPTIONS]
 ```
 
@@ -9976,7 +10031,7 @@ noust github remove [OPTIONS]
 
 List the repositories the App can deploy, with the source to deploy each as.
 
-```
+```bash
 noust github repos [OPTIONS]
 ```
 
@@ -9989,7 +10044,7 @@ noust github repos [OPTIONS]
 
 Explain how the App is created; with --print-manifest, show its manifest.
 
-```
+```bash
 noust github setup [OPTIONS]
 ```
 
@@ -10003,7 +10058,7 @@ noust github setup [OPTIONS]
 
 Show the App, where it is installed, and where GitHub delivers its events.
 
-```
+```bash
 noust github status [OPTIONS]
 ```
 
@@ -10012,11 +10067,11 @@ noust github status [OPTIONS]
 | `--json` | Print the status as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust gitlab
+## noust gitlab
 
 GitLab connections: a project and branch picker, and private clones.
 
-```
+```bash
 noust gitlab [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -10026,7 +10081,7 @@ Subcommands: [`branches`](#noust-gitlab-branches), [`connect`](#noust-gitlab-con
 
 List a project's branches (PROJECT is its id or its path, group/project).
 
-```
+```bash
 noust gitlab branches [OPTIONS] NAME PROJECT
 ```
 
@@ -10041,7 +10096,7 @@ Arguments: `name`, `project`
 
 Add a connection that signs in with an access token.
 
-```
+```bash
 noust gitlab connect [OPTIONS] NAME
 ```
 
@@ -10058,7 +10113,7 @@ Arguments: `name`
 
 List the groups a connection's user belongs to.
 
-```
+```bash
 noust gitlab groups [OPTIONS] NAME
 ```
 
@@ -10073,7 +10128,7 @@ Arguments: `name`
 
 List the GitLab connections and OAuth applications.
 
-```
+```bash
 noust gitlab list [OPTIONS]
 ```
 
@@ -10086,7 +10141,7 @@ noust gitlab list [OPTIONS]
 
 The OAuth application registered in GitLab, so people can connect without a token.
 
-```
+```bash
 noust gitlab oauth-app [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -10096,7 +10151,7 @@ Subcommands: [`remove`](#noust-gitlab-oauth-app-remove), [`set`](#noust-gitlab-o
 
 Forget the OAuth application of a host.
 
-```
+```bash
 noust gitlab oauth-app remove [OPTIONS]
 ```
 
@@ -10109,7 +10164,7 @@ noust gitlab oauth-app remove [OPTIONS]
 
 Record an OAuth application.
 
-```
+```bash
 noust gitlab oauth-app set [OPTIONS]
 ```
 
@@ -10124,7 +10179,7 @@ noust gitlab oauth-app set [OPTIONS]
 
 List the projects a connection's user can read, most recently active first.
 
-```
+```bash
 noust gitlab projects [OPTIONS] NAME
 ```
 
@@ -10142,7 +10197,7 @@ Arguments: `name`
 
 Forget a connection and its token.
 
-```
+```bash
 noust gitlab remove [OPTIONS] NAME
 ```
 
@@ -10156,7 +10211,7 @@ Arguments: `name`
 
 Ask GitLab who a connection is, and record whether it still works.
 
-```
+```bash
 noust gitlab test [OPTIONS] NAME
 ```
 
@@ -10167,11 +10222,11 @@ Arguments: `name`
 | `--json` | Print the connection as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust health
+## noust health
 
 Check the server and report anything that needs attention.
 
-```
+```bash
 noust health [OPTIONS]
 ```
 
@@ -10179,11 +10234,11 @@ noust health [OPTIONS]
 |---|---|---|
 | `--json` | Print the report as JSON. |  |
 
-### noust import
+## noust import
 
 Read Vercel, Railway, Render or Heroku configuration from a repository, or a Coolify, Dokploy, CapRover or Dokku application from its server.
 
-```
+```bash
 noust import [OPTIONS] [PATH]
 ```
 
@@ -10207,11 +10262,11 @@ Arguments: `path`
 | `--json` | Print the proposal (or, with --deploy, what was done) as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust incident
+## noust incident
 
 Freeze the evidence of a security incident and lock the console down.
 
-```
+```bash
 noust incident [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -10221,7 +10276,7 @@ Subcommands: [`freeze`](#noust-incident-freeze), [`status`](#noust-incident-stat
 
 Take an evidence package with a SHA-256 manifest and lock the console down.
 
-```
+```bash
 noust incident freeze [OPTIONS]
 ```
 
@@ -10238,7 +10293,7 @@ noust incident freeze [OPTIONS]
 
 Say whether the console is locked down for an incident.
 
-```
+```bash
 noust incident status [OPTIONS]
 ```
 
@@ -10251,7 +10306,7 @@ noust incident status [OPTIONS]
 
 Lift the console lockdown a freeze put in place.
 
-```
+```bash
 noust incident unfreeze [OPTIONS]
 ```
 
@@ -10260,11 +10315,11 @@ noust incident unfreeze [OPTIONS]
 | `--json` | Print the lockdown that was lifted as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust list
+## noust list
 
 List the applications deployed on this server.
 
-```
+```bash
 noust list [OPTIONS]
 ```
 
@@ -10281,11 +10336,11 @@ noust list [OPTIONS]
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust log
+## noust log
 
 Search the logs of every application, and set how long the journal keeps them.
 
-```
+```bash
 noust log [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -10295,7 +10350,7 @@ Subcommands: [`retention`](#noust-log-retention), [`search`](#noust-log-search)
 
 How long the journal keeps the logs.
 
-```
+```bash
 noust log retention [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -10305,7 +10360,7 @@ Subcommands: [`clear`](#noust-log-retention-clear), [`set`](#noust-log-retention
 
 Remove Noust's retention: journald goes back to its own defaults.
 
-```
+```bash
 noust log retention clear [OPTIONS]
 ```
 
@@ -10317,7 +10372,7 @@ noust log retention clear [OPTIONS]
 
 Keep the logs this long and/or within this much disk; journald is restarted (it keeps what it has).
 
-```
+```bash
 noust log retention set [OPTIONS]
 ```
 
@@ -10332,7 +10387,7 @@ noust log retention set [OPTIONS]
 
 Show how long the logs are kept and how much disk they take.
 
-```
+```bash
 noust log retention show [OPTIONS]
 ```
 
@@ -10348,7 +10403,7 @@ noust log retention show [OPTIONS]
 
 Search the logs of the applications, newest first.
 
-```
+```bash
 noust log search [OPTIONS] [WORDS]...
 ```
 
@@ -10368,11 +10423,11 @@ Arguments: `words`
 | `--json` | Print the result as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust logdrain
+## noust logdrain
 
 Ship the logs of applications to Loki, Axiom, Fluent Bit, OTLP or a remote syslog.
 
-```
+```bash
 noust logdrain [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -10382,7 +10437,7 @@ Subcommands: [`add`](#noust-logdrain-add), [`disable`](#noust-logdrain-disable),
 
 Make a destination, or change the one of that name.
 
-```
+```bash
 noust logdrain add [OPTIONS] NAME
 ```
 
@@ -10413,7 +10468,7 @@ Arguments: `name`
 
 Stop shipping to a destination, keeping it.
 
-```
+```bash
 noust logdrain disable [OPTIONS] NAME
 ```
 
@@ -10427,7 +10482,7 @@ Arguments: `name`
 
 Ship to a destination again.
 
-```
+```bash
 noust logdrain enable [OPTIONS] NAME
 ```
 
@@ -10441,7 +10496,7 @@ Arguments: `name`
 
 List the destinations and how each is doing.
 
-```
+```bash
 noust logdrain list [OPTIONS]
 ```
 
@@ -10454,7 +10509,7 @@ noust logdrain list [OPTIONS]
 
 Remove a destination and its token.
 
-```
+```bash
 noust logdrain remove [OPTIONS] NAME
 ```
 
@@ -10469,7 +10524,7 @@ Arguments: `name`
 
 The shipper: read the logs of applications and send what is new, in a loop.
 
-```
+```bash
 noust logdrain run [OPTIONS]
 ```
 
@@ -10483,7 +10538,7 @@ noust logdrain run [OPTIONS]
 
 The unit that runs the shipper.
 
-```
+```bash
 noust logdrain service [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -10493,7 +10548,7 @@ Subcommands: [`install`](#noust-logdrain-service-install), [`remove`](#noust-log
 
 Install the shipper's unit and start it.
 
-```
+```bash
 noust logdrain service install [OPTIONS]
 ```
 
@@ -10505,7 +10560,7 @@ noust logdrain service install [OPTIONS]
 
 Stop the shipper and remove its unit. Destinations are kept.
 
-```
+```bash
 noust logdrain service remove [OPTIONS]
 ```
 
@@ -10517,7 +10572,7 @@ noust logdrain service remove [OPTIONS]
 
 Say whether the shipper is installed and running.
 
-```
+```bash
 noust logdrain service status [OPTIONS]
 ```
 
@@ -10530,7 +10585,7 @@ noust logdrain service status [OPTIONS]
 
 Send one line to a destination, and say what it answered.
 
-```
+```bash
 noust logdrain test [OPTIONS] NAME
 ```
 
@@ -10540,11 +10595,11 @@ Arguments: `name`
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust logs
+## noust logs
 
 Show what an application has been writing to its log.
 
-```
+```bash
 noust logs [OPTIONS] DOMAIN
 ```
 
@@ -10561,11 +10616,11 @@ Arguments: `domain`
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust manifest
+## noust manifest
 
 Write a server down, preview what would change, and apply it.
 
-```
+```bash
 noust manifest [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -10575,7 +10630,7 @@ Subcommands: [`apply`](#noust-manifest-apply), [`export`](#noust-manifest-export
 
 Make the server match a manifest.
 
-```
+```bash
 noust manifest apply [OPTIONS] FILE
 ```
 
@@ -10594,7 +10649,7 @@ Arguments: `file`
 
 Write down the applications and projects you can see as a manifest.
 
-```
+```bash
 noust manifest export [OPTIONS]
 ```
 
@@ -10607,7 +10662,7 @@ noust manifest export [OPTIONS]
 
 Say what applying a manifest would change. Changes nothing.
 
-```
+```bash
 noust manifest plan [OPTIONS] FILE
 ```
 
@@ -10623,7 +10678,7 @@ Arguments: `file`
 
 Check a manifest and say what it holds. Needs no server.
 
-```
+```bash
 noust manifest validate [OPTIONS] FILE
 ```
 
@@ -10634,11 +10689,11 @@ Arguments: `file`
 | `--json` | Print what the manifest holds as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust map
+## noust map
 
 Show how this server fits together: names, applications, databases, scheduled work and data.
 
-```
+```bash
 noust map [OPTIONS]
 ```
 
@@ -10650,11 +10705,11 @@ noust map [OPTIONS]
 | `--json` | Print the graph as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust mcp
+## noust mcp
 
 Let clients inspect, deploy and control applications through MCP.
 
-```
+```bash
 noust mcp [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -10664,7 +10719,7 @@ Subcommands: [`disable`](#noust-mcp-disable), [`enable`](#noust-mcp-enable), [`g
 
 Turn the MCP endpoint off: it answers nothing until it is turned on again.
 
-```
+```bash
 noust mcp disable [OPTIONS]
 ```
 
@@ -10676,7 +10731,7 @@ noust mcp disable [OPTIONS]
 
 Turn the MCP endpoint on.
 
-```
+```bash
 noust mcp enable [OPTIONS]
 ```
 
@@ -10688,7 +10743,7 @@ noust mcp enable [OPTIONS]
 
 Choose which groups of tools are offered: inspect, deploy, control.
 
-```
+```bash
 noust mcp groups [OPTIONS] {inspect|deploy|control}...
 ```
 
@@ -10702,7 +10757,7 @@ Arguments: `groups`
 
 Say whether MCP is on and which groups of tools it offers.
 
-```
+```bash
 noust mcp status [OPTIONS]
 ```
 
@@ -10715,7 +10770,7 @@ noust mcp status [OPTIONS]
 
 Issue an API token with the permissions a client needs and no more.
 
-```
+```bash
 noust mcp token [OPTIONS] NAME
 ```
 
@@ -10735,7 +10790,7 @@ Arguments: `name`
 
 List every tool, the permission its route needs and what it asks to be confirmed.
 
-```
+```bash
 noust mcp tools [OPTIONS]
 ```
 
@@ -10744,11 +10799,11 @@ noust mcp tools [OPTIONS]
 | `--json` | Print the tools as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust monitor
+## noust monitor
 
 Watch this server and write down what stands out.
 
-```
+```bash
 noust monitor [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -10758,7 +10813,7 @@ Subcommands: [`autoenable`](#noust-monitor-autoenable), [`config`](#noust-monito
 
 Enable the monitor unless it was turned off (what the package runs).
 
-```
+```bash
 noust monitor autoenable [OPTIONS]
 ```
 
@@ -10770,7 +10825,7 @@ noust monitor autoenable [OPTIONS]
 
 Show the monitor's current settings and where its database lives.
 
-```
+```bash
 noust monitor config [OPTIONS]
 ```
 
@@ -10782,7 +10837,7 @@ noust monitor config [OPTIONS]
 
 Stop the monitor and keep it from starting at boot.
 
-```
+```bash
 noust monitor disable [OPTIONS]
 ```
 
@@ -10794,7 +10849,7 @@ noust monitor disable [OPTIONS]
 
 Start the monitor now and on every boot, installing it if needed.
 
-```
+```bash
 noust monitor enable [OPTIONS]
 ```
 
@@ -10806,7 +10861,7 @@ noust monitor enable [OPTIONS]
 
 Print the newest value of every metric the way a scraper reads it.
 
-```
+```bash
 noust monitor export [OPTIONS]
 ```
 
@@ -10819,7 +10874,7 @@ noust monitor export [OPTIONS]
 
 Write the monitor's systemd unit, without starting it.
 
-```
+```bash
 noust monitor install [OPTIONS]
 ```
 
@@ -10831,7 +10886,7 @@ noust monitor install [OPTIONS]
 
 Scan on a loop in this terminal, until you press Ctrl+C.
 
-```
+```bash
 noust monitor run [OPTIONS]
 ```
 
@@ -10843,7 +10898,7 @@ noust monitor run [OPTIONS]
 
 Look at the machine once and print what stands out.
 
-```
+```bash
 noust monitor scan [OPTIONS]
 ```
 
@@ -10857,7 +10912,7 @@ noust monitor scan [OPTIONS]
 
 Show whether the monitor is running and what it is watching.
 
-```
+```bash
 noust monitor status [OPTIONS]
 ```
 
@@ -10871,7 +10926,7 @@ noust monitor status [OPTIONS]
 
 Send one email to the configured recipients to prove the settings work.
 
-```
+```bash
 noust monitor test-email [OPTIONS]
 ```
 
@@ -10883,7 +10938,7 @@ noust monitor test-email [OPTIONS]
 
 Remove the monitor's systemd unit from this server.
 
-```
+```bash
 noust monitor uninstall [OPTIONS]
 ```
 
@@ -10892,11 +10947,11 @@ noust monitor uninstall [OPTIONS]
 | `-y`, `--yes` | Do not ask for confirmation. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust node
+## noust node
 
 Manage the servers this central manages, through their API over SSH tunnels.
 
-```
+```bash
 noust node [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -10906,7 +10961,7 @@ Subcommands: [`add`](#noust-node-add), [`assign`](#noust-node-assign), [`export`
 
 Register NAME from the join code it printed, and check the tunnel and the token.
 
-```
+```bash
 noust node add [OPTIONS] NAME
 ```
 
@@ -10929,7 +10984,7 @@ Arguments: `name`
 
 Give NAME to a team.
 
-```
+```bash
 noust node assign [OPTIONS] NAME
 ```
 
@@ -10945,7 +11000,7 @@ Arguments: `name`
 
 Write down what this central knows about NAME, to take it over on another central.
 
-```
+```bash
 noust node export [OPTIONS] NAME
 ```
 
@@ -10960,7 +11015,7 @@ Arguments: `name`
 
 Record, for NAME already added here, the inventory another central exported for it.
 
-```
+```bash
 noust node inventory [OPTIONS] NAME FILE
 ```
 
@@ -10976,7 +11031,7 @@ Arguments: `name`, `file`
 
 Print this central's key for NAME and the command that authorizes it on NAME.
 
-```
+```bash
 noust node key [OPTIONS] NAME
 ```
 
@@ -10991,7 +11046,7 @@ Arguments: `name`
 
 Show or change NAME's labels: KEY=VALUE sets one, KEY- removes it.
 
-```
+```bash
 noust node label [OPTIONS] NAME [CHANGES]...
 ```
 
@@ -11006,7 +11061,7 @@ Arguments: `name`, `changes`
 
 Servers behind NAT that dial in to this central.
 
-```
+```bash
 noust node link [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -11016,7 +11071,7 @@ Subcommands: [`add`](#noust-node-link-add), [`cancel`](#noust-node-link-cancel),
 
 Register NAME from the link code it printed, once it connects and answers.
 
-```
+```bash
 noust node link add [OPTIONS] NAME
 ```
 
@@ -11032,7 +11087,7 @@ Arguments: `name`
 
 Cancel the invitation of NAME, if it was never answered.
 
-```
+```bash
 noust node link cancel [OPTIONS] NAME
 ```
 
@@ -11046,7 +11101,7 @@ Arguments: `name`
 
 Invite the server NAME to dial in, and print the command to run on it.
 
-```
+```bash
 noust node link invite [OPTIONS] NAME
 ```
 
@@ -11064,7 +11119,7 @@ Arguments: `name`
 
 Prepare this central for servers that dial in.
 
-```
+```bash
 noust node link setup [OPTIONS]
 ```
 
@@ -11077,7 +11132,7 @@ noust node link setup [OPTIONS]
 
 Say whether this central can take servers that dial in, and which do.
 
-```
+```bash
 noust node link status [OPTIONS]
 ```
 
@@ -11090,7 +11145,7 @@ noust node link status [OPTIONS]
 
 List the nodes this central manages, with what it last learnt about each.
 
-```
+```bash
 noust node list [OPTIONS]
 ```
 
@@ -11103,7 +11158,7 @@ noust node list [OPTIONS]
 
 Move NAME from root to the unprivileged noust-tunnel account (a node enrolled by 3.0).
 
-```
+```bash
 noust node migrate-tunnel [OPTIONS] NAME
 ```
 
@@ -11119,7 +11174,7 @@ Arguments: `name`
 
 Pause NAME's monitoring while you work on it.
 
-```
+```bash
 noust node pause [OPTIONS] NAME
 ```
 
@@ -11133,7 +11188,7 @@ Arguments: `name`
 
 Give NAME a new key: first the command to run on it, then the join code it prints.
 
-```
+```bash
 noust node rekey [OPTIONS] NAME
 ```
 
@@ -11149,7 +11204,7 @@ Arguments: `name`
 
 Stop managing NAME: revoke its token there, close its tunnel, delete its key and token here.
 
-```
+```bash
 noust node remove [OPTIONS] NAME
 ```
 
@@ -11166,7 +11221,7 @@ Arguments: `name`
 
 Put NAME's monitoring back, with a clean count of silences.
 
-```
+```bash
 noust node resume [OPTIONS] NAME
 ```
 
@@ -11180,7 +11235,7 @@ Arguments: `name`
 
 Show one node: its address, pinned host key, tunnel and last status.
 
-```
+```bash
 noust node show [OPTIONS] NAME
 ```
 
@@ -11195,7 +11250,7 @@ Arguments: `name`
 
 Show or change how this central connects to NAME: its wait and its bastion.
 
-```
+```bash
 noust node ssh [OPTIONS] NAME
 ```
 
@@ -11218,7 +11273,7 @@ Arguments: `name`
 
 Check NAME end to end: the tunnel, the token and the API. Exits 1 when it fails.
 
-```
+```bash
 noust node test [OPTIONS] NAME
 ```
 
@@ -11233,7 +11288,7 @@ Arguments: `name`
 
 Give NAME back to the instance: no team sees it any more.
 
-```
+```bash
 noust node unassign [OPTIONS] NAME
 ```
 
@@ -11244,11 +11299,11 @@ Arguments: `name`
 | `--json` | Print the result as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust notify
+## noust notify
 
 Notification channels: what Noust tells you, and where.
 
-```
+```bash
 noust notify [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -11258,7 +11313,7 @@ Subcommands: [`channel`](#noust-notify-channel), [`deliveries`](#noust-notify-de
 
 Add, change and remove notification channels.
 
-```
+```bash
 noust notify channel [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -11268,7 +11323,7 @@ Subcommands: [`remove`](#noust-notify-channel-remove), [`set`](#noust-notify-cha
 
 Remove a channel. A default channel is emptied instead.
 
-```
+```bash
 noust notify channel remove [OPTIONS] NAME
 ```
 
@@ -11283,7 +11338,7 @@ Arguments: `name`
 
 Create or change a channel, keeping what is not mentioned.
 
-```
+```bash
 noust notify channel set [OPTIONS] NAME
 ```
 
@@ -11324,7 +11379,7 @@ Arguments: `name`
 
 Show the record of deliveries: what went out, what waits and what failed.
 
-```
+```bash
 noust notify deliveries [OPTIONS]
 ```
 
@@ -11343,7 +11398,7 @@ noust notify deliveries [OPTIONS]
 
 List the events a channel may be switched for, and which are on.
 
-```
+```bash
 noust notify events [OPTIONS]
 ```
 
@@ -11359,7 +11414,7 @@ noust notify events [OPTIONS]
 
 List every notification channel, the default of each type and your own.
 
-```
+```bash
 noust notify list [OPTIONS]
 ```
 
@@ -11375,7 +11430,7 @@ noust notify list [OPTIONS]
 
 Send again what failed, now.
 
-```
+```bash
 noust notify retry [OPTIONS] [DELIVERY_ID]
 ```
 
@@ -11389,7 +11444,7 @@ Arguments: `delivery_id`
 
 List the chats the Telegram bot can send to, with their ids.
 
-```
+```bash
 noust notify telegram-chats [OPTIONS]
 ```
 
@@ -11406,7 +11461,7 @@ noust notify telegram-chats [OPTIONS]
 
 Send a test message through CHANNEL.
 
-```
+```bash
 noust notify test [OPTIONS] CHANNEL
 ```
 
@@ -11416,11 +11471,11 @@ Arguments: `channel`
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust passkey
+## noust passkey
 
 List and remove the passkeys that sign in to the console; recover when all are lost.
 
-```
+```bash
 noust passkey [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -11430,7 +11485,7 @@ Subcommands: [`list`](#noust-passkey-list), [`remove`](#noust-passkey-remove), [
 
 List every passkey on this server, or those of one account (or --master).
 
-```
+```bash
 noust passkey list [OPTIONS] [USERNAME]
 ```
 
@@ -11446,7 +11501,7 @@ Arguments: `username`
 
 Remove one passkey, whoever it belongs to.
 
-```
+```bash
 noust passkey remove [OPTIONS] PASSKEY_ID
 ```
 
@@ -11461,7 +11516,7 @@ Arguments: `passkey_id`
 
 Remove every passkey of one account, or of the master token (--master).
 
-```
+```bash
 noust passkey reset [OPTIONS] [USERNAME]
 ```
 
@@ -11473,11 +11528,11 @@ Arguments: `username`
 | `-f`, `--force` | Do not ask for confirmation. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust preview
+## noust preview
 
 Pull request previews: a short-lived copy of an application per pull request.
 
-```
+```bash
 noust preview [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -11487,7 +11542,7 @@ Subcommands: [`approve`](#noust-preview-approve), [`create`](#noust-preview-crea
 
 Approve the commit of a pull request that waits, and build it.
 
-```
+```bash
 noust preview approve [OPTIONS] PREVIEW_DOMAIN
 ```
 
@@ -11506,7 +11561,7 @@ Arguments: `preview_domain`
 
 Make a preview by hand, from an open pull request, a branch or a tag.
 
-```
+```bash
 noust preview create [OPTIONS] DOMAIN
 ```
 
@@ -11529,7 +11584,7 @@ Arguments: `domain`
 
 Turn previews off for an application and remove the previews it has.
 
-```
+```bash
 noust preview disable [OPTIONS] DOMAIN
 ```
 
@@ -11548,7 +11603,7 @@ Arguments: `domain`
 
 Does the wildcard record of the previews of DOMAIN reach this server?
 
-```
+```bash
 noust preview dns [OPTIONS] DOMAIN
 ```
 
@@ -11563,7 +11618,7 @@ Arguments: `domain`
 
 Turn previews on for an application, or change their settings.
 
-```
+```bash
 noust preview enable [OPTIONS] DOMAIN
 ```
 
@@ -11594,7 +11649,7 @@ Arguments: `domain`
 
 List previews, of one application or of every one.
 
-```
+```bash
 noust preview list [OPTIONS] [DOMAIN]
 ```
 
@@ -11609,7 +11664,7 @@ Arguments: `domain`
 
 Show what a preview's process printed, or the log of its last build.
 
-```
+```bash
 noust preview logs [OPTIONS] PREVIEW_DOMAIN
 ```
 
@@ -11625,7 +11680,7 @@ Arguments: `preview_domain`
 
 List the open pull requests of an application's repository (GitHub App).
 
-```
+```bash
 noust preview pulls [OPTIONS] DOMAIN
 ```
 
@@ -11640,7 +11695,7 @@ Arguments: `domain`
 
 Build a preview again, from the head of its branch as it is now.
 
-```
+```bash
 noust preview redeploy [OPTIONS] PREVIEW_DOMAIN
 ```
 
@@ -11657,7 +11712,7 @@ Arguments: `preview_domain`
 
 Turn down the commit of a pull request that waits; the pull request is told.
 
-```
+```bash
 noust preview reject [OPTIONS] PREVIEW_DOMAIN
 ```
 
@@ -11674,7 +11729,7 @@ Arguments: `preview_domain`
 
 Remove one preview now: its application, certificate and record.
 
-```
+```bash
 noust preview remove [OPTIONS] PREVIEW_DOMAIN
 ```
 
@@ -11691,7 +11746,7 @@ Arguments: `preview_domain`
 
 Start a preview that was stopped.
 
-```
+```bash
 noust preview start [OPTIONS] PREVIEW_DOMAIN
 ```
 
@@ -11708,7 +11763,7 @@ Arguments: `preview_domain`
 
 Stop a preview without removing it.
 
-```
+```bash
 noust preview stop [OPTIONS] PREVIEW_DOMAIN
 ```
 
@@ -11725,7 +11780,7 @@ Arguments: `preview_domain`
 
 Remove expired previews, and those whose application is gone.
 
-```
+```bash
 noust preview sweep [OPTIONS]
 ```
 
@@ -11741,7 +11796,7 @@ noust preview sweep [OPTIONS]
 
 The variables the previews of an application are given besides its own.
 
-```
+```bash
 noust preview vars [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -11751,7 +11806,7 @@ Subcommands: [`list`](#noust-preview-vars-list), [`set`](#noust-preview-vars-set
 
 List the variables defined for the previews of an application (secrets hidden).
 
-```
+```bash
 noust preview vars list [OPTIONS] DOMAIN
 ```
 
@@ -11766,7 +11821,7 @@ Arguments: `domain`
 
 Define a variable previews are given; it wins over the application's own.
 
-```
+```bash
 noust preview vars set [OPTIONS] DOMAIN NAME [VALUE]
 ```
 
@@ -11783,7 +11838,7 @@ Arguments: `domain`, `name`, `value`
 
 Stop giving previews variables.
 
-```
+```bash
 noust preview vars unset [OPTIONS] DOMAIN NAMES...
 ```
 
@@ -11793,11 +11848,11 @@ Arguments: `domain`, `names`
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust probe
+## noust probe
 
 Probes of an address from outside the application, and the public status page.
 
-```
+```bash
 noust probe [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -11807,7 +11862,7 @@ Subcommands: [`history`](#noust-probe-history), [`list`](#noust-probe-list), [`r
 
 Show the incidents of a probe, newest first.
 
-```
+```bash
 noust probe history [OPTIONS] NAME
 ```
 
@@ -11825,7 +11880,7 @@ Arguments: `name`
 
 List the probes, where each stands and how often it answered.
 
-```
+```bash
 noust probe list [OPTIONS]
 ```
 
@@ -11841,7 +11896,7 @@ noust probe list [OPTIONS]
 
 Remove a probe with its answers, its days and its incidents.
 
-```
+```bash
 noust probe remove [OPTIONS] NAME
 ```
 
@@ -11855,7 +11910,7 @@ Arguments: `name`
 
 Ask a probe now (every one with no name), whatever its interval.
 
-```
+```bash
 noust probe run [OPTIONS] [NAME]
 ```
 
@@ -11873,7 +11928,7 @@ Arguments: `name`
 
 Create a probe, or change the one of that name; what is not named is kept.
 
-```
+```bash
 noust probe set [OPTIONS] NAME
 ```
 
@@ -11897,7 +11952,7 @@ Arguments: `name`
 
 The public status page of the probes marked public.
 
-```
+```bash
 noust probe status-page [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -11907,7 +11962,7 @@ Subcommands: [`publish`](#noust-probe-status-page-publish), [`set`](#noust-probe
 
 Serve the page on a name of its own, over TLS, with a certificate.
 
-```
+```bash
 noust probe status-page publish [OPTIONS] DOMAIN
 ```
 
@@ -11922,7 +11977,7 @@ Arguments: `domain`
 
 Change the status page's settings.
 
-```
+```bash
 noust probe status-page set [OPTIONS]
 ```
 
@@ -11937,7 +11992,7 @@ noust probe status-page set [OPTIONS]
 
 Show how the status page is set up and whether it is on a name.
 
-```
+```bash
 noust probe status-page show [OPTIONS]
 ```
 
@@ -11953,7 +12008,7 @@ noust probe status-page show [OPTIONS]
 
 Take the page off its name, removing exactly what publishing made.
 
-```
+```bash
 noust probe status-page unpublish [OPTIONS]
 ```
 
@@ -11965,7 +12020,7 @@ noust probe status-page unpublish [OPTIONS]
 
 Write the page's files now, instead of at the monitor's next scan.
 
-```
+```bash
 noust probe status-page write [OPTIONS]
 ```
 
@@ -11973,11 +12028,11 @@ noust probe status-page write [OPTIONS]
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust project
+## noust project
 
 Manage the projects of the teams.
 
-```
+```bash
 noust project [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -11987,7 +12042,7 @@ Subcommands: [`create`](#noust-project-create), [`delete`](#noust-project-delete
 
 Create a project in a team, with its production environment.
 
-```
+```bash
 noust project create [OPTIONS] NAME
 ```
 
@@ -12003,7 +12058,7 @@ Arguments: `name`
 
 Delete a project that holds nothing, with its environments.
 
-```
+```bash
 noust project delete [OPTIONS] PROJECT
 ```
 
@@ -12019,7 +12074,7 @@ Arguments: `project`
 
 List projects, with their environments and what they hold.
 
-```
+```bash
 noust project list [OPTIONS]
 ```
 
@@ -12033,7 +12088,7 @@ noust project list [OPTIONS]
 
 Change a project's display name; the short name commands use stays.
 
-```
+```bash
 noust project rename [OPTIONS] PROJECT NAME
 ```
 
@@ -12044,11 +12099,11 @@ Arguments: `project`, `name`
 | `--team` | The team it belongs to (default: the default team). |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust push
+## noust push
 
 Deploy an application with git push, to a repository on this server.
 
-```
+```bash
 noust push [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -12058,7 +12113,7 @@ Subcommands: [`disable`](#noust-push-disable), [`enable`](#noust-push-enable), [
 
 Make an application stop deploying from git push.
 
-```
+```bash
 noust push disable [OPTIONS] DOMAIN
 ```
 
@@ -12074,7 +12129,7 @@ Arguments: `domain`
 
 Make an application deploy from git push.
 
-```
+```bash
 noust push enable [OPTIONS] DOMAIN
 ```
 
@@ -12094,7 +12149,7 @@ Arguments: `domain`
 
 The keys that may push to an application's repository (one key per application).
 
-```
+```bash
 noust push key [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -12104,7 +12159,7 @@ Subcommands: [`add`](#noust-push-key-add), [`list`](#noust-push-key-list), [`rem
 
 Let a key push to an application's repository.
 
-```
+```bash
 noust push key add [OPTIONS] DOMAIN LABEL
 ```
 
@@ -12121,7 +12176,7 @@ Arguments: `domain`, `label`
 
 List the keys that may push to an application.
 
-```
+```bash
 noust push key list [OPTIONS] DOMAIN
 ```
 
@@ -12136,7 +12191,7 @@ Arguments: `domain`
 
 Take a key's permission to push to an application away.
 
-```
+```bash
 noust push key remove [OPTIONS] DOMAIN LABEL_OR_FINGERPRINT
 ```
 
@@ -12151,7 +12206,7 @@ Arguments: `domain`, `which`
 
 List the applications that deploy from git push.
 
-```
+```bash
 noust push list [OPTIONS]
 ```
 
@@ -12164,7 +12219,7 @@ noust push list [OPTIONS]
 
 Write an application's hook and its settings again.
 
-```
+```bash
 noust push refresh [OPTIONS] DOMAIN
 ```
 
@@ -12179,7 +12234,7 @@ Arguments: `domain`
 
 Prepare this server to take git pushes (once, as root).
 
-```
+```bash
 noust push setup [OPTIONS]
 ```
 
@@ -12192,7 +12247,7 @@ noust push setup [OPTIONS]
 
 Show how an application's push deployment stands: branch, remote, keys, hook.
 
-```
+```bash
 noust push show [OPTIONS] DOMAIN
 ```
 
@@ -12208,7 +12263,7 @@ Arguments: `domain`
 
 Say whether this server takes git pushes, and what stops it.
 
-```
+```bash
 noust push status [OPTIONS]
 ```
 
@@ -12217,11 +12272,11 @@ noust push status [OPTIONS]
 | `--json` | Print the status as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust recipe
+## noust recipe
 
 The recipe catalogue: browse it, install from it and keep what you installed up to date.
 
-```
+```bash
 noust recipe [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -12231,7 +12286,7 @@ Subcommands: [`add`](#noust-recipe-add), [`catalog`](#noust-recipe-catalog), [`c
 
 Add your own recipe to the catalogue.
 
-```
+```bash
 noust recipe add [OPTIONS] PATH
 ```
 
@@ -12249,7 +12304,7 @@ Arguments: `path`
 
 The signed packages of recipes that grow the catalogue between releases.
 
-```
+```bash
 noust recipe catalog [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -12259,7 +12314,7 @@ Subcommands: [`fetch`](#noust-recipe-catalog-fetch), [`import`](#noust-recipe-ca
 
 Download a signed package over https and import it, with every check import has.
 
-```
+```bash
 noust recipe catalog fetch [OPTIONS] URL
 ```
 
@@ -12277,7 +12332,7 @@ Arguments: `url`
 
 Import a signed package of recipes.
 
-```
+```bash
 noust recipe catalog import [OPTIONS] PACKAGE
 ```
 
@@ -12295,7 +12350,7 @@ Arguments: `package`
 
 Go back to the recipes this release ships.
 
-```
+```bash
 noust recipe catalog remove [OPTIONS]
 ```
 
@@ -12310,7 +12365,7 @@ noust recipe catalog remove [OPTIONS]
 
 Say which package is in place, who signed it, and whose keys are trusted.
 
-```
+```bash
 noust recipe catalog show [OPTIONS]
 ```
 
@@ -12323,7 +12378,7 @@ noust recipe catalog show [OPTIONS]
 
 Trust a key to sign packages: NAME is yours to choose, PUBLIC_KEY is 64 hex digits.
 
-```
+```bash
 noust recipe catalog trust [OPTIONS] NAME PUBLIC_KEY
 ```
 
@@ -12340,7 +12395,7 @@ Arguments: `name`, `public_key`
 
 Check a recipe file, or a folder of them, without adding anything.
 
-```
+```bash
 noust recipe check [OPTIONS] PATH
 ```
 
@@ -12355,7 +12410,7 @@ Arguments: `path`
 
 Install a recipe on a domain.
 
-```
+```bash
 noust recipe install [OPTIONS] NAME
 ```
 
@@ -12373,6 +12428,7 @@ Arguments: `name`
 | `--no-backups` | Do not schedule the daily backups an installed application starts with. |  |
 | `--install-requirements` | Install the language runtime and the database engines the recipe needs and this server lacks, instead of stopping. |  |
 | `--database` | The SQL engine to run it on, for a recipe that offers a choice (WordPress runs on either). |  |
+| `--accept-root-equivalent` | Confirm that you accept a recipe that is root on this server (one that controls Docker): it is refused without it. |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
@@ -12382,7 +12438,7 @@ Arguments: `name`
 
 List the recipes, the ones this release can deploy first.
 
-```
+```bash
 noust recipe list [OPTIONS]
 ```
 
@@ -12392,15 +12448,17 @@ noust recipe list [OPTIONS]
 | `--category` | Only the recipes of this category. |  |
 | `--tag` | Only the recipes with this tag. |  |
 | `--kind` | Only native or only compose recipes. |  |
+| `--unavailable` | Only the recipes that are listed and cannot be installed, with the reason of each. |  |
+| `--tested`, `--untested` | Only the recipes that were started for real in the harness, or only the others. |  |
+| `--reason` | Only the listed recipes left out for this reason. |  |
 | `--origin` | Only the package's recipes (shipped), a catalogue package's (catalog) or yours (operator). |  |
 | `--json` | Print the recipes as JSON. |  |
-| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust recipe outdated
 
 Say which installed recipes the catalogue has a newer version of.
 
-```
+```bash
 noust recipe outdated [OPTIONS]
 ```
 
@@ -12414,7 +12472,7 @@ noust recipe outdated [OPTIONS]
 
 Remove one of your own recipes.
 
-```
+```bash
 noust recipe remove [OPTIONS] NAME
 ```
 
@@ -12431,7 +12489,7 @@ Arguments: `name`
 
 Show what a recipe needs from this server and whether it has it.
 
-```
+```bash
 noust recipe requirements [OPTIONS] NAME
 ```
 
@@ -12446,7 +12504,7 @@ Arguments: `name`
 
 Describe one recipe: what it deploys, from where, and what it needs.
 
-```
+```bash
 noust recipe show [OPTIONS] NAME
 ```
 
@@ -12461,7 +12519,7 @@ Arguments: `name`
 
 Update an installed recipe to the catalogue's version.
 
-```
+```bash
 noust recipe update [OPTIONS] DOMAIN
 ```
 
@@ -12476,11 +12534,11 @@ Arguments: `domain`
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust registry
+## noust registry
 
 The container registry accounts used to pull and build private images.
 
-```
+```bash
 noust registry [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -12490,7 +12548,7 @@ Subcommands: [`add`](#noust-registry-add), [`attach`](#noust-registry-attach), [
 
 Add a registry account.
 
-```
+```bash
 noust registry add [OPTIONS] NAME
 ```
 
@@ -12509,7 +12567,7 @@ Arguments: `name`
 
 Say which registry accounts an application pulls and builds with.
 
-```
+```bash
 noust registry attach [OPTIONS] DOMAIN [NAMES]...
 ```
 
@@ -12524,7 +12582,7 @@ Arguments: `domain`, `names`
 
 List the registry accounts, without their passwords.
 
-```
+```bash
 noust registry list [OPTIONS]
 ```
 
@@ -12537,7 +12595,7 @@ noust registry list [OPTIONS]
 
 Remove an account, its password and which applications use it.
 
-```
+```bash
 noust registry remove [OPTIONS] NAME
 ```
 
@@ -12552,7 +12610,7 @@ Arguments: `name`
 
 Show one account.
 
-```
+```bash
 noust registry show [OPTIONS] NAME
 ```
 
@@ -12567,7 +12625,7 @@ Arguments: `name`
 
 Try an account against its registry.
 
-```
+```bash
 noust registry test [OPTIONS] NAME
 ```
 
@@ -12582,7 +12640,7 @@ Arguments: `name`
 
 Change an account's kind, host, user or password; a change forgets the last test.
 
-```
+```bash
 noust registry update [OPTIONS] NAME
 ```
 
@@ -12597,11 +12655,11 @@ Arguments: `name`
 | `--json` | Print the account as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust releases
+## noust releases
 
 List an application's releases and go back to one instantly.
 
-```
+```bash
 noust releases [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -12611,7 +12669,7 @@ Subcommands: [`bundle`](#noust-releases-bundle), [`keep`](#noust-releases-keep),
 
 Build a release without activating it and pack it into one file for another server.
 
-```
+```bash
 noust releases bundle [OPTIONS] DOMAIN
 ```
 
@@ -12630,7 +12688,7 @@ Arguments: `domain`
 
 Show or set how many releases an application keeps on disk.
 
-```
+```bash
 noust releases keep [OPTIONS] DOMAIN [N]
 ```
 
@@ -12648,7 +12706,7 @@ Arguments: `domain`, `count`
 
 List the releases of an application, newest first.
 
-```
+```bash
 noust releases list [OPTIONS] DOMAIN
 ```
 
@@ -12663,7 +12721,7 @@ Arguments: `domain`
 
 Make a release that was built with 'noust update --build-only' the one that serves.
 
-```
+```bash
 noust releases promote [OPTIONS] DOMAIN [RELEASE]
 ```
 
@@ -12680,7 +12738,7 @@ Arguments: `domain`, `release`
 
 Run a release that another server built, behind the health gate.
 
-```
+```bash
 noust releases receive [OPTIONS] DOMAIN BUNDLE
 ```
 
@@ -12698,7 +12756,7 @@ Arguments: `domain`, `bundle`
 
 Make an earlier release the one that serves, without rebuilding anything.
 
-```
+```bash
 noust releases rollback [OPTIONS] DOMAIN [RELEASE]
 ```
 
@@ -12709,11 +12767,11 @@ Arguments: `domain`, `release`
 | `--schema-changed-ok` | Go back even past deployments that changed the database schema. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust restart
+## noust restart
 
 Restart an application, picking up its current build and environment.
 
-```
+```bash
 noust restart [OPTIONS] DOMAIN
 ```
 
@@ -12726,11 +12784,11 @@ Arguments: `domain`
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust restore-server
+## noust restore-server
 
 Bring a whole server back from a bundle of Noust's own state.
 
-```
+```bash
 noust restore-server [OPTIONS]
 ```
 
@@ -12753,11 +12811,11 @@ noust restore-server [OPTIONS]
 | `--json` | Print the report as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust rollback
+## noust rollback
 
 Return an application to its most recent backup.
 
-```
+```bash
 noust rollback [OPTIONS] DOMAIN [BACKUP_ID]
 ```
 
@@ -12769,11 +12827,11 @@ Arguments: `domain`, `backup_id`
 | `--schema-changed-ok` | Go back even past deployments that changed the database schema. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust runtime
+## noust runtime
 
 The language runtimes (Node, Python, PHP) applications can be pinned to.
 
-```
+```bash
 noust runtime [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -12783,7 +12841,7 @@ Subcommands: [`install`](#noust-runtime-install), [`list`](#noust-runtime-list),
 
 Install a runtime: node@22, node@22.11.0, python@3.12 or php@8.3.
 
-```
+```bash
 noust runtime install [OPTIONS] LANGUAGE@VERSION
 ```
 
@@ -12798,7 +12856,7 @@ Arguments: `spec`
 
 List the runtimes Noust installed, the PHP versions and what the server runs.
 
-```
+```bash
 noust runtime list [OPTIONS]
 ```
 
@@ -12811,7 +12869,7 @@ noust runtime list [OPTIONS]
 
 Remove an installed runtime: node@22.11.0 or python@3.12.4 (the full version).
 
-```
+```bash
 noust runtime remove [OPTIONS] LANGUAGE@VERSION
 ```
 
@@ -12821,11 +12879,11 @@ Arguments: `spec`
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust secrets
+## noust secrets
 
 Secret managers (Vault, Doppler, Infisical) that variables refer to.
 
-```
+```bash
 noust secrets [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -12835,7 +12893,7 @@ Subcommands: [`add`](#noust-secrets-add), [`kinds`](#noust-secrets-kinds), [`lis
 
 Add a secret manager, or change one.
 
-```
+```bash
 noust secrets add [OPTIONS] NAME
 ```
 
@@ -12855,7 +12913,7 @@ Arguments: `name`
 
 List the kinds of secret manager and the settings each takes.
 
-```
+```bash
 noust secrets kinds [OPTIONS]
 ```
 
@@ -12868,7 +12926,7 @@ noust secrets kinds [OPTIONS]
 
 List the secret managers this server knows.
 
-```
+```bash
 noust secrets list [OPTIONS]
 ```
 
@@ -12881,7 +12939,7 @@ noust secrets list [OPTIONS]
 
 Remove a secret manager and its token.
 
-```
+```bash
 noust secrets remove [OPTIONS] NAME
 ```
 
@@ -12895,7 +12953,7 @@ Arguments: `name`
 
 Check that a secret manager answers and accepts its token.
 
-```
+```bash
 noust secrets test [OPTIONS] NAME
 ```
 
@@ -12905,11 +12963,11 @@ Arguments: `name`
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust self-backup
+## noust self-backup
 
 Back up Noust's own state (store, configuration, secrets, keys, certificates, units).
 
-```
+```bash
 noust self-backup [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -12919,7 +12977,7 @@ Subcommands: [`create`](#noust-self-backup-create), [`delete`](#noust-self-backu
 
 Take a bundle of Noust's own state into one encrypted file.
 
-```
+```bash
 noust self-backup create [OPTIONS]
 ```
 
@@ -12933,7 +12991,7 @@ noust self-backup create [OPTIONS]
 
 Delete a bundle from this server. Copies on destinations stay.
 
-```
+```bash
 noust self-backup delete [OPTIONS] BUNDLE
 ```
 
@@ -12948,7 +13006,7 @@ Arguments: `bundle`
 
 Bring a bundle from a destination to this server, checked against its digest.
 
-```
+```bash
 noust self-backup fetch [OPTIONS] NAME
 ```
 
@@ -12964,7 +13022,7 @@ Arguments: `name`
 
 List the bundles on this server, newest first.
 
-```
+```bash
 noust self-backup list [OPTIONS]
 ```
 
@@ -12977,7 +13035,7 @@ noust self-backup list [OPTIONS]
 
 Send a bundle to a destination. It is encrypted by a passphrase that is not sent.
 
-```
+```bash
 noust self-backup push [OPTIONS] BUNDLE
 ```
 
@@ -12992,7 +13050,7 @@ Arguments: `bundle`
 
 List the bundles a destination holds, for this server or another one.
 
-```
+```bash
 noust self-backup remote [OPTIONS]
 ```
 
@@ -13007,7 +13065,7 @@ noust self-backup remote [OPTIONS]
 
 Put Noust's own state back from a bundle, on this server.
 
-```
+```bash
 noust self-backup restore [OPTIONS] BUNDLE
 ```
 
@@ -13027,7 +13085,7 @@ Arguments: `bundle`
 
 Run the schedule now: back up, prove the bundle, send, prune.
 
-```
+```bash
 noust self-backup run [OPTIONS]
 ```
 
@@ -13040,7 +13098,7 @@ noust self-backup run [OPTIONS]
 
 Set, show or remove the schedule of Noust's own state backup.
 
-```
+```bash
 noust self-backup schedule [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -13050,7 +13108,7 @@ Subcommands: [`remove`](#noust-self-backup-schedule-remove), [`set`](#noust-self
 
 Remove the schedule and its timer. The bundles and the stored passphrase stay.
 
-```
+```bash
 noust self-backup schedule remove [OPTIONS]
 ```
 
@@ -13063,7 +13121,7 @@ noust self-backup schedule remove [OPTIONS]
 
 Create or replace the schedule, and its timer.
 
-```
+```bash
 noust self-backup schedule set [OPTIONS]
 ```
 
@@ -13087,7 +13145,7 @@ noust self-backup schedule set [OPTIONS]
 
 Show the schedule of Noust's own state backup.
 
-```
+```bash
 noust self-backup schedule show [OPTIONS]
 ```
 
@@ -13100,7 +13158,7 @@ noust self-backup schedule show [OPTIONS]
 
 Prove a bundle restorable without restoring it.
 
-```
+```bash
 noust self-backup verify [OPTIONS] BUNDLE
 ```
 
@@ -13112,11 +13170,11 @@ Arguments: `bundle`
 | `--json` | Print the verdict as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust self-update
+## noust self-update
 
 Let this server install Noust's own new releases: when, which, and what it did.
 
-```
+```bash
 noust self-update [OPTIONS] [COMMAND] [ARGS]...
 ```
 
@@ -13126,7 +13184,7 @@ Subcommands: [`run`](#noust-self-update-run), [`set`](#noust-self-update-set), [
 
 Decide and, if the settings say so, install a new release now (the timer's command is --scheduled).
 
-```
+```bash
 noust self-update run [OPTIONS]
 ```
 
@@ -13140,7 +13198,7 @@ noust self-update run [OPTIONS]
 
 Change the settings of the automatic update; what is not given stays as it was.
 
-```
+```bash
 noust self-update set [OPTIONS]
 ```
 
@@ -13157,7 +13215,7 @@ noust self-update set [OPTIONS]
 
 Show the settings of the automatic update, its timer and its last run.
 
-```
+```bash
 noust self-update show [OPTIONS]
 ```
 
@@ -13166,11 +13224,11 @@ noust self-update show [OPTIONS]
 | `--json` | Print the settings and the last run as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust server
+## noust server
 
 Manage this server: updates, reboots, disks, swap, the clock and the journal.
 
-```
+```bash
 noust server [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -13180,7 +13238,7 @@ Subcommands: [`cleanup`](#noust-server-cleanup), [`cleanup-schedule`](#noust-ser
 
 Free disk space with one of a closed list of actions.
 
-```
+```bash
 noust server cleanup [OPTIONS] {journal|pkg-cache|docker-build-
                             cache|docker-dangling-images|docker-
                             image|releases}
@@ -13205,7 +13263,7 @@ Arguments: `action`
 
 Clean the disk by itself: when, how full it must be, what is run, and what ran.
 
-```
+```bash
 noust server cleanup-schedule [OPTIONS] [COMMAND] [ARGS]...
 ```
 
@@ -13215,7 +13273,7 @@ Subcommands: [`history`](#noust-server-cleanup-schedule-history), [`run`](#noust
 
 List the cleanups that ran, the newest first: scheduled ones and by hand.
 
-```
+```bash
 noust server cleanup-schedule history [OPTIONS]
 ```
 
@@ -13229,7 +13287,7 @@ noust server cleanup-schedule history [OPTIONS]
 
 Run the cleanup policy now (the timer's own command is --scheduled).
 
-```
+```bash
 noust server cleanup-schedule run [OPTIONS]
 ```
 
@@ -13243,7 +13301,7 @@ noust server cleanup-schedule run [OPTIONS]
 
 Change the cleanup policy; what is not given stays as it was.
 
-```
+```bash
 noust server cleanup-schedule set [OPTIONS]
 ```
 
@@ -13262,7 +13320,7 @@ noust server cleanup-schedule set [OPTIONS]
 
 Show the cleanup policy and its timer.
 
-```
+```bash
 noust server cleanup-schedule show [OPTIONS]
 ```
 
@@ -13275,7 +13333,7 @@ noust server cleanup-schedule show [OPTIONS]
 
 Show the host name, or rename the machine to NAME.
 
-```
+```bash
 noust server hostname [OPTIONS] [NAME]
 ```
 
@@ -13294,7 +13352,7 @@ Arguments: `name`
 
 Read the journal of any unit, with filters, a query, or the entries around one.
 
-```
+```bash
 noust server logs [OPTIONS] [UNIT]
 ```
 
@@ -13322,7 +13380,7 @@ Arguments: `unit`
 
 Move this server's applications, data and state to another server.
 
-```
+```bash
 noust server migrate [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -13332,7 +13390,7 @@ Subcommands: [`check`](#noust-server-migrate-check), [`plan`](#noust-server-migr
 
 Ask every application the questions to answer before pointing DNS at this server.
 
-```
+```bash
 noust server migrate check [OPTIONS]
 ```
 
@@ -13345,7 +13403,7 @@ noust server migrate check [OPTIONS]
 
 Say what moving this server would take and whether it can start. Changes nothing.
 
-```
+```bash
 noust server migrate plan [OPTIONS]
 ```
 
@@ -13359,7 +13417,7 @@ noust server migrate plan [OPTIONS]
 
 Copy everything now and send it to a destination, ready for 'noust restore-server'.
 
-```
+```bash
 noust server migrate prepare [OPTIONS]
 ```
 
@@ -13378,7 +13436,7 @@ noust server migrate prepare [OPTIONS]
 
 List the processes, or the units that use the machine. Observation only.
 
-```
+```bash
 noust server processes [OPTIONS]
 ```
 
@@ -13394,7 +13452,7 @@ noust server processes [OPTIONS]
 
 Reboot the server, now or later, after looking at what it would break.
 
-```
+```bash
 noust server reboot [OPTIONS]
 ```
 
@@ -13418,7 +13476,7 @@ noust server reboot [OPTIONS]
 
 Hardening checks, SSH, the firewall, fail2ban and accepted risks.
 
-```
+```bash
 noust server security [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -13428,7 +13486,7 @@ Subcommands: [`accept`](#noust-server-security-accept), [`checks`](#noust-server
 
 Accept a check's finding as a documented risk, until a date (a year at most).
 
-```
+```bash
 noust server security accept [OPTIONS] CHECK_ID
 ```
 
@@ -13446,7 +13504,7 @@ Arguments: `check_id`
 
 Run the hardening checks and print what needs attention.
 
-```
+```bash
 noust server security checks [OPTIONS]
 ```
 
@@ -13461,7 +13519,7 @@ noust server security checks [OPTIONS]
 
 Keep a pending change, once a new SSH login since it was applied is on record.
 
-```
+```bash
 noust server security confirm [OPTIONS] [CHANGE_ID]
 ```
 
@@ -13477,7 +13535,7 @@ Arguments: `change_id`
 
 fail2ban: its jails and bans, lifting a ban, installing it.
 
-```
+```bash
 noust server security fail2ban [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -13487,7 +13545,7 @@ Subcommands: [`install`](#noust-server-security-fail2ban-install), [`status`](#n
 
 Install fail2ban with an sshd jail that never bans the SSH sessions open now.
 
-```
+```bash
 noust server security fail2ban install [OPTIONS]
 ```
 
@@ -13502,7 +13560,7 @@ noust server security fail2ban install [OPTIONS]
 
 Show whether fail2ban runs, its jails and the addresses banned now.
 
-```
+```bash
 noust server security fail2ban status [OPTIONS]
 ```
 
@@ -13515,7 +13573,7 @@ noust server security fail2ban status [OPTIONS]
 
 Lift the ban of an address.
 
-```
+```bash
 noust server security fail2ban unban [OPTIONS] ADDRESS
 ```
 
@@ -13531,7 +13589,7 @@ Arguments: `address`
 
 Make fail2ban watch nginx as well, or stop.
 
-```
+```bash
 noust server security fail2ban web [OPTIONS] {on|off}
 ```
 
@@ -13547,7 +13605,7 @@ Arguments: `state`
 
 The firewall against the ports that really answer, changed without locking you out.
 
-```
+```bash
 noust server security firewall [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -13557,7 +13615,7 @@ Subcommands: [`allow`](#noust-server-security-firewall-allow), [`delete`](#noust
 
 Open a port, to everyone or to one address or network. Undone unless confirmed.
 
-```
+```bash
 noust server security firewall allow [OPTIONS] PORT
 ```
 
@@ -13575,7 +13633,7 @@ Arguments: `port`
 
 Delete a rule by the id 'firewall status' shows. Undone unless confirmed.
 
-```
+```bash
 noust server security firewall delete [OPTIONS] RULE_ID
 ```
 
@@ -13590,7 +13648,7 @@ Arguments: `rule_id`
 
 Close a port. Never SSH's or a public console's. Undone unless confirmed.
 
-```
+```bash
 noust server security firewall deny [OPTIONS] PORT
 ```
 
@@ -13608,7 +13666,7 @@ Arguments: `port`
 
 Turn the firewall off. It comes back on unless confirmed.
 
-```
+```bash
 noust server security firewall disable [OPTIONS]
 ```
 
@@ -13622,7 +13680,7 @@ noust server security firewall disable [OPTIONS]
 
 Turn ufw on, denying incoming by default, SSH and a public console allowed first.
 
-```
+```bash
 noust server security firewall enable [OPTIONS]
 ```
 
@@ -13636,7 +13694,7 @@ noust server security firewall enable [OPTIONS]
 
 Show the firewall's rules and every port that answers, with the verdict for each.
 
-```
+```bash
 noust server security firewall status [OPTIONS]
 ```
 
@@ -13649,7 +13707,7 @@ noust server security firewall status [OPTIONS]
 
 Apply a check's automatic fix, with its guard.
 
-```
+```bash
 noust server security fix [OPTIONS] CHECK_ID
 ```
 
@@ -13666,7 +13724,7 @@ Arguments: `check_id`
 
 List the SSH and firewall changes, the ones waiting for confirmation first.
 
-```
+```bash
 noust server security pending [OPTIONS]
 ```
 
@@ -13679,7 +13737,7 @@ noust server security pending [OPTIONS]
 
 Undo a pending SSH or firewall change now.
 
-```
+```bash
 noust server security revert [OPTIONS] [CHANGE_ID]
 ```
 
@@ -13694,7 +13752,7 @@ Arguments: `change_id`
 
 List accepted risks, withdrawn and expired ones included.
 
-```
+```bash
 noust server security risks [OPTIONS]
 ```
 
@@ -13707,7 +13765,7 @@ noust server security risks [OPTIONS]
 
 sshd's effective configuration, its fixes and the administrators' keys.
 
-```
+```bash
 noust server security ssh [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -13717,7 +13775,7 @@ Subcommands: [`add-key`](#noust-server-security-ssh-add-key), [`harden`](#noust-
 
 Let a public key log in as root or an account that can become root.
 
-```
+```bash
 noust server security ssh add-key [OPTIONS] [PUBLIC_KEY]
 ```
 
@@ -13734,7 +13792,7 @@ Arguments: `public_key`
 
 Apply an sshd fix safely: proof of another way in, sshd -t, reload, verify.
 
-```
+```bash
 noust server security ssh harden [OPTIONS] {disable-passwords|no-empty-
                                         passwords|root-no|root-prohibit-
                                         password|sensible-defaults|verbose-
@@ -13753,7 +13811,7 @@ Arguments: `fix`
 
 List root's and every administrator's keys, with when each was last used.
 
-```
+```bash
 noust server security ssh keys [OPTIONS]
 ```
 
@@ -13766,7 +13824,7 @@ noust server security ssh keys [OPTIONS]
 
 Show what a fix would change (before and after) and whether its guard holds.
 
-```
+```bash
 noust server security ssh plan [OPTIONS] {disable-passwords|no-empty-
                                       passwords|root-no|root-prohibit-
                                       password|sensible-defaults|verbose-
@@ -13784,7 +13842,7 @@ Arguments: `fix`
 
 Remove a key by its SHA256 fingerprint.
 
-```
+```bash
 noust server security ssh remove-key [OPTIONS] FINGERPRINT
 ```
 
@@ -13802,7 +13860,7 @@ Arguments: `fingerprint`
 
 Show sshd's effective values (sshd -T -C), Noust's drop-in and the open sessions.
 
-```
+```bash
 noust server security ssh status [OPTIONS]
 ```
 
@@ -13815,7 +13873,7 @@ noust server security ssh status [OPTIONS]
 
 Show the security summary: the quick checks' counts, what needs attention, pending changes.
 
-```
+```bash
 noust server security status [OPTIONS]
 ```
 
@@ -13828,7 +13886,7 @@ noust server security status [OPTIONS]
 
 Withdraw a check's acceptance, so its finding shows again.
 
-```
+```bash
 noust server security unaccept [OPTIONS] CHECK_ID
 ```
 
@@ -13842,7 +13900,7 @@ Arguments: `check_id`
 
 Power the server off.
 
-```
+```bash
 noust server shutdown [OPTIONS]
 ```
 
@@ -13863,7 +13921,7 @@ noust server shutdown [OPTIONS]
 
 Show how the server is, in one look.
 
-```
+```bash
 noust server status [OPTIONS]
 ```
 
@@ -13876,7 +13934,7 @@ noust server status [OPTIONS]
 
 Show the real filesystems and what takes their space.
 
-```
+```bash
 noust server storage [OPTIONS]
 ```
 
@@ -13890,7 +13948,7 @@ noust server storage [OPTIONS]
 
 Swap: what there is, making a swap file, removing it.
 
-```
+```bash
 noust server swap [OPTIONS] [COMMAND] [ARGS]...
 ```
 
@@ -13900,7 +13958,7 @@ Subcommands: [`create`](#noust-server-swap-create), [`remove`](#noust-server-swa
 
 Make /swapfile, switch it on, and keep it across reboots.
 
-```
+```bash
 noust server swap create [OPTIONS]
 ```
 
@@ -13918,7 +13976,7 @@ noust server swap create [OPTIONS]
 
 Switch off and delete the swap file Noust made.
 
-```
+```bash
 noust server swap remove [OPTIONS]
 ```
 
@@ -13934,7 +13992,7 @@ noust server swap remove [OPTIONS]
 
 Show the swap of this machine.
 
-```
+```bash
 noust server swap status [OPTIONS]
 ```
 
@@ -13947,7 +14005,7 @@ noust server swap status [OPTIONS]
 
 Set how eagerly the kernel swaps, now and at boot.
 
-```
+```bash
 noust server swap swappiness [OPTIONS] VALUE
 ```
 
@@ -13964,7 +14022,7 @@ Arguments: `value`
 
 The clock: time zone and synchronisation.
 
-```
+```bash
 noust server time [OPTIONS] [COMMAND] [ARGS]...
 ```
 
@@ -13974,7 +14032,7 @@ Subcommands: [`ntp`](#noust-server-time-ntp), [`status`](#noust-server-time-stat
 
 Turn time synchronisation on or off.
 
-```
+```bash
 noust server time ntp [OPTIONS] {on|off}
 ```
 
@@ -13992,7 +14050,7 @@ Arguments: `state`
 
 Show the time, the zone and whether the clock is synchronised.
 
-```
+```bash
 noust server time status [OPTIONS]
 ```
 
@@ -14005,7 +14063,7 @@ noust server time status [OPTIONS]
 
 Change the time zone, and list the cron and backup timers that move.
 
-```
+```bash
 noust server time timezone [OPTIONS] ZONE
 ```
 
@@ -14022,7 +14080,7 @@ Arguments: `zone`
 
 List, refresh and apply operating system updates.
 
-```
+```bash
 noust server updates [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -14032,7 +14090,7 @@ Subcommands: [`apply`](#noust-server-updates-apply), [`auto`](#noust-server-upda
 
 Apply updates, in their own systemd unit, following them to the end.
 
-```
+```bash
 noust server updates apply [OPTIONS]
 ```
 
@@ -14052,7 +14110,7 @@ noust server updates apply [OPTIONS]
 
 The distribution's own automatic updates.
 
-```
+```bash
 noust server updates auto [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -14062,7 +14120,7 @@ Subcommands: [`disable`](#noust-server-updates-auto-disable), [`enable`](#noust-
 
 Turn automatic updates off.
 
-```
+```bash
 noust server updates auto disable [OPTIONS]
 ```
 
@@ -14077,7 +14135,7 @@ noust server updates auto disable [OPTIONS]
 
 Turn automatic updates on (installing their package if needed). Never reboots.
 
-```
+```bash
 noust server updates auto enable [OPTIONS]
 ```
 
@@ -14093,7 +14151,7 @@ noust server updates auto enable [OPTIONS]
 
 Show whether automatic updates are on, and how.
 
-```
+```bash
 noust server updates auto status [OPTIONS]
 ```
 
@@ -14106,7 +14164,7 @@ noust server updates auto status [OPTIONS]
 
 Show the updates that were run, or one of them with its last output.
 
-```
+```bash
 noust server updates history [OPTIONS] [UPDATE_ID]
 ```
 
@@ -14122,7 +14180,7 @@ Arguments: `update_id`
 
 List the pending updates, security ones first.
 
-```
+```bash
 noust server updates list [OPTIONS]
 ```
 
@@ -14135,7 +14193,7 @@ noust server updates list [OPTIONS]
 
 Download fresh package metadata, then count what is pending.
 
-```
+```bash
 noust server updates refresh [OPTIONS]
 ```
 
@@ -14150,7 +14208,7 @@ noust server updates refresh [OPTIONS]
 
 Finish an update that was interrupted (dpkg --configure -a).
 
-```
+```bash
 noust server updates repair [OPTIONS]
 ```
 
@@ -14165,7 +14223,7 @@ noust server updates repair [OPTIONS]
 
 Restart the services an update left running on replaced libraries.
 
-```
+```bash
 noust server updates restart-services [OPTIONS] [UNITS]...
 ```
 
@@ -14179,11 +14237,11 @@ Arguments: `units`
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust service
+## noust service
 
 Manage the systemd services Noust owns.
 
-```
+```bash
 noust service [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -14193,7 +14251,7 @@ Subcommands: [`create`](#noust-service-create), [`delete`](#noust-service-delete
 
 Create a service and install its unit file.
 
-```
+```bash
 noust service create [OPTIONS]
 ```
 
@@ -14210,7 +14268,7 @@ noust service create [OPTIONS]
 
 Stop a service, disable it and remove its unit file.
 
-```
+```bash
 noust service delete [OPTIONS] NAME
 ```
 
@@ -14225,7 +14283,7 @@ Arguments: `name`
 
 List services and whether they are running.
 
-```
+```bash
 noust service list [OPTIONS]
 ```
 
@@ -14241,7 +14299,7 @@ noust service list [OPTIONS]
 
 Show the journal for a service.
 
-```
+```bash
 noust service logs [OPTIONS] NAME
 ```
 
@@ -14257,7 +14315,7 @@ Arguments: `name`
 
 Restart a service.
 
-```
+```bash
 noust service restart [OPTIONS] NAME
 ```
 
@@ -14271,7 +14329,7 @@ Arguments: `name`
 
 Start a service.
 
-```
+```bash
 noust service start [OPTIONS] NAME
 ```
 
@@ -14285,7 +14343,7 @@ Arguments: `name`
 
 Show whether a service is running and enabled.
 
-```
+```bash
 noust service status [OPTIONS] NAME
 ```
 
@@ -14300,7 +14358,7 @@ Arguments: `name`
 
 Stop a service.
 
-```
+```bash
 noust service stop [OPTIONS] NAME
 ```
 
@@ -14314,7 +14372,7 @@ Arguments: `name`
 
 Free labels on services, to find them by.
 
-```
+```bash
 noust service tag [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -14324,7 +14382,7 @@ Subcommands: [`add`](#noust-service-tag-add), [`list`](#noust-service-tag-list),
 
 Give a service more tags.
 
-```
+```bash
 noust service tag add [OPTIONS] NAME TAGS...
 ```
 
@@ -14338,7 +14396,7 @@ Arguments: `name`, `tags`
 
 List the tags of a service, or every tagged one.
 
-```
+```bash
 noust service tag list [OPTIONS] [NAME]
 ```
 
@@ -14354,7 +14412,7 @@ Arguments: `name`
 
 Take tags off a service.
 
-```
+```bash
 noust service tag remove [OPTIONS] NAME TAGS...
 ```
 
@@ -14368,7 +14426,7 @@ Arguments: `name`, `tags`
 
 Make a service carry exactly these tags (none clears them).
 
-```
+```bash
 noust service tag set [OPTIONS] NAME [TAGS]...
 ```
 
@@ -14378,11 +14436,11 @@ Arguments: `name`, `tags`
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust sessions
+## noust sessions
 
 Manage active panel sessions.
 
-```
+```bash
 noust sessions [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -14392,7 +14450,7 @@ Subcommands: [`list`](#noust-sessions-list), [`revoke`](#noust-sessions-revoke),
 
 List every active panel session.
 
-```
+```bash
 noust sessions list [OPTIONS]
 ```
 
@@ -14405,7 +14463,7 @@ noust sessions list [OPTIONS]
 
 Revoke one session, named by a unique PREFIX of its id, as listed by 'noust sessions list'.
 
-```
+```bash
 noust sessions revoke [OPTIONS] PREFIX
 ```
 
@@ -14419,7 +14477,7 @@ Arguments: `prefix`
 
 Revoke every active session.
 
-```
+```bash
 noust sessions revoke-others [OPTIONS]
 ```
 
@@ -14428,11 +14486,11 @@ noust sessions revoke-others [OPTIONS]
 | `-f`, `--force` | Do not ask for confirmation. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust setup
+## noust setup
 
 Prepare this server, and check that it stayed prepared.
 
-```
+```bash
 noust setup [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -14448,7 +14506,7 @@ Subcommands: [`completions`](#noust-setup-completions), [`doctor`](#noust-setup-
 
 Install tab completion for noust.
 
-```
+```bash
 noust setup completions [OPTIONS]
 ```
 
@@ -14466,7 +14524,7 @@ noust setup completions [OPTIONS]
 
 Diagnose this machine and say how to fix what is wrong.
 
-```
+```bash
 noust setup doctor [OPTIONS]
 ```
 
@@ -14481,7 +14539,7 @@ noust setup doctor [OPTIONS]
 
 Install what deployments need and create Noust's directories.
 
-```
+```bash
 noust setup init [OPTIONS]
 ```
 
@@ -14497,7 +14555,7 @@ noust setup init [OPTIONS]
 
 Check that Noust can write to the directories it owns.
 
-```
+```bash
 noust setup permissions [OPTIONS]
 ```
 
@@ -14512,7 +14570,7 @@ noust setup permissions [OPTIONS]
 
 Install Railpack, so container applications can be built without a Dockerfile.
 
-```
+```bash
 noust setup railpack [OPTIONS]
 ```
 
@@ -14528,7 +14586,7 @@ noust setup railpack [OPTIONS]
 
 Finish the renaming that 4.0 begins, without restarting anything.
 
-```
+```bash
 noust setup rename [OPTIONS]
 ```
 
@@ -14543,7 +14601,7 @@ noust setup rename [OPTIONS]
 
 Remove the links an upgrade to 3.0 left under the product's old names.
 
-```
+```bash
 noust setup retire-links [OPTIONS]
 ```
 
@@ -14558,7 +14616,7 @@ noust setup retire-links [OPTIONS]
 
 Set up the SSH key Noust clones private repositories with.
 
-```
+```bash
 noust setup ssh [OPTIONS]
 ```
 
@@ -14573,11 +14631,11 @@ noust setup ssh [OPTIONS]
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust site
+## noust site
 
 Manage the nginx and apache virtual hosts on this server.
 
-```
+```bash
 noust site [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -14587,7 +14645,7 @@ Subcommands: [`create`](#noust-site-create), [`delete`](#noust-site-delete), [`d
 
 Create a site and secure it with a certificate.
 
-```
+```bash
 noust site create [OPTIONS]
 ```
 
@@ -14605,7 +14663,7 @@ noust site create [OPTIONS]
 
 Delete a site, its configuration and its certificate.
 
-```
+```bash
 noust site delete [OPTIONS] DOMAIN
 ```
 
@@ -14620,7 +14678,7 @@ Arguments: `domain`
 
 Show what changed between a version of a site's file and the file now.
 
-```
+```bash
 noust site diff [OPTIONS] DOMAIN VERSION
 ```
 
@@ -14636,7 +14694,7 @@ Arguments: `domain`, `version`
 
 Stop serving a site, keeping its configuration.
 
-```
+```bash
 noust site disable [OPTIONS] DOMAIN
 ```
 
@@ -14650,7 +14708,7 @@ Arguments: `domain`
 
 Start serving a site that is configured but off.
 
-```
+```bash
 noust site enable [OPTIONS] DOMAIN
 ```
 
@@ -14664,7 +14722,7 @@ Arguments: `domain`
 
 List the versions kept of a site's file, newest first, and say if it has drifted.
 
-```
+```bash
 noust site history [OPTIONS] DOMAIN
 ```
 
@@ -14680,7 +14738,7 @@ Arguments: `domain`
 
 List the sites configured on this server.
 
-```
+```bash
 noust site list [OPTIONS]
 ```
 
@@ -14697,7 +14755,7 @@ noust site list [OPTIONS]
 
 Show the end of what the web server logged for a site.
 
-```
+```bash
 noust site logs [OPTIONS] DOMAIN
 ```
 
@@ -14715,7 +14773,7 @@ Arguments: `domain`
 
 Put an earlier version of a site's file back.
 
-```
+```bash
 noust site restore [OPTIONS] DOMAIN VERSION
 ```
 
@@ -14731,7 +14789,7 @@ Arguments: `domain`, `version`
 
 Print the configuration file of a site.
 
-```
+```bash
 noust site show [OPTIONS] DOMAIN
 ```
 
@@ -14745,7 +14803,7 @@ Arguments: `domain`
 
 What answers a request for a name no site serves: nothing, a 503, or a redirect.
 
-```
+```bash
 noust site unknown-hosts [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -14755,7 +14813,7 @@ Subcommands: [`reset`](#noust-site-unknown-hosts-reset), [`set`](#noust-site-unk
 
 Take the site away: the first site answers an unknown name again.
 
-```
+```bash
 noust site unknown-hosts reset [OPTIONS]
 ```
 
@@ -14769,7 +14827,7 @@ noust site unknown-hosts reset [OPTIONS]
 
 Answer an unknown name with ACTION: close, refuse (503) or redirect.
 
-```
+```bash
 noust site unknown-hosts set [OPTIONS] {close|refuse|redirect}
 ```
 
@@ -14787,7 +14845,7 @@ Arguments: `action`
 
 Say what answers an unknown name now, and what else claims to be the default.
 
-```
+```bash
 noust site unknown-hosts show [OPTIONS]
 ```
 
@@ -14797,11 +14855,11 @@ noust site unknown-hosts show [OPTIONS]
 | `--json` | Print the status as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust start
+## noust start
 
 Start an application that is stopped.
 
-```
+```bash
 noust start [OPTIONS] DOMAIN
 ```
 
@@ -14814,11 +14872,11 @@ Arguments: `domain`
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust status
+## noust status
 
 Show how an application is configured and whether it is running.
 
-```
+```bash
 noust status [OPTIONS] DOMAIN
 ```
 
@@ -14833,11 +14891,11 @@ Arguments: `domain`
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust stop
+## noust stop
 
 Stop an application and leave it stopped.
 
-```
+```bash
 noust stop [OPTIONS] DOMAIN
 ```
 
@@ -14850,11 +14908,11 @@ Arguments: `domain`
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust store
+## noust store
 
 Inspect and maintain the database Noust records deployments in.
 
-```
+```bash
 noust store [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -14864,7 +14922,7 @@ Subcommands: [`compat`](#noust-store-compat), [`export`](#noust-store-export), [
 
 Say which Noust releases can open this store, and how to go back to an earlier one.
 
-```
+```bash
 noust store compat [OPTIONS]
 ```
 
@@ -14878,7 +14936,7 @@ noust store compat [OPTIONS]
 
 Dump every record as JSON, to a file or to stdout, without secret values.
 
-```
+```bash
 noust store export [OPTIONS]
 ```
 
@@ -14892,7 +14950,7 @@ noust store export [OPTIONS]
 
 Record applications this server was already running before Noust.
 
-```
+```bash
 noust store import [OPTIONS]
 ```
 
@@ -14904,7 +14962,7 @@ noust store import [OPTIONS]
 
 Create the database, or reopen an existing one without touching it.
 
-```
+```bash
 noust store init [OPTIONS]
 ```
 
@@ -14916,7 +14974,7 @@ noust store init [OPTIONS]
 
 Print the location of the database file.
 
-```
+```bash
 noust store path [OPTIONS]
 ```
 
@@ -14928,7 +14986,7 @@ noust store path [OPTIONS]
 
 Count the applications, sites, services and databases on record.
 
-```
+```bash
 noust store stats [OPTIONS]
 ```
 
@@ -14941,7 +14999,7 @@ noust store stats [OPTIONS]
 
 Match the recorded service states to what systemd reports.
 
-```
+```bash
 noust store sync [OPTIONS]
 ```
 
@@ -14949,11 +15007,11 @@ noust store sync [OPTIONS]
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust stream
+## noust stream
 
 Publish a TCP or UDP port in front of a backend, through nginx and the firewall.
 
-```
+```bash
 noust stream [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -14963,7 +15021,7 @@ Subcommands: [`add`](#noust-stream-add), [`check`](#noust-stream-check), [`list`
 
 Publish PORT and carry it to the backend, opening it in the firewall.
 
-```
+```bash
 noust stream add [OPTIONS] NAME
 ```
 
@@ -14985,7 +15043,7 @@ Arguments: `name`
 
 Say whether nginx here can publish a TCP or UDP port, and what is missing.
 
-```
+```bash
 noust stream check [OPTIONS]
 ```
 
@@ -14998,7 +15056,7 @@ noust stream check [OPTIONS]
 
 List the published ports and how far each one got.
 
-```
+```bash
 noust stream list [OPTIONS]
 ```
 
@@ -15011,7 +15069,7 @@ noust stream list [OPTIONS]
 
 Close a published port: the firewall rules made for it, its file, and nginx's use of it.
 
-```
+```bash
 noust stream remove [OPTIONS] NAME
 ```
 
@@ -15026,7 +15084,7 @@ Arguments: `name`
 
 Finish the openings and closings that were interrupted.
 
-```
+```bash
 noust stream repair [OPTIONS]
 ```
 
@@ -15034,11 +15092,11 @@ noust stream repair [OPTIONS]
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust support
+## noust support
 
 Collect what a maintainer needs to help you, with the secrets masked.
 
-```
+```bash
 noust support [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -15048,7 +15106,7 @@ Subcommands: [`report`](#noust-support-report)
 
 Print a report to paste into an issue, with secrets masked.
 
-```
+```bash
 noust support report [OPTIONS]
 ```
 
@@ -15061,11 +15119,11 @@ noust support report [OPTIONS]
 | `--json` | Print the report as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust team
+## noust team
 
 Manage teams, and the people in them.
 
-```
+```bash
 noust team [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -15075,7 +15133,7 @@ Subcommands: [`add-member`](#noust-team-add-member), [`create`](#noust-team-crea
 
 Make an account a member of a team, or change its role there.
 
-```
+```bash
 noust team add-member [OPTIONS] TEAM USERNAME
 ```
 
@@ -15090,7 +15148,7 @@ Arguments: `team`, `username`
 
 Create a team, with a default project and its production environment.
 
-```
+```bash
 noust team create [OPTIONS] NAME
 ```
 
@@ -15105,7 +15163,7 @@ Arguments: `name`
 
 Delete a team that holds nothing.
 
-```
+```bash
 noust team delete [OPTIONS] TEAM
 ```
 
@@ -15120,7 +15178,7 @@ Arguments: `team`
 
 List the teams, with how many people and projects each has.
 
-```
+```bash
 noust team list [OPTIONS]
 ```
 
@@ -15133,7 +15191,7 @@ noust team list [OPTIONS]
 
 List a team's members and their role in it.
 
-```
+```bash
 noust team members [OPTIONS] TEAM
 ```
 
@@ -15148,7 +15206,7 @@ Arguments: `team`
 
 Take an account out of a team.
 
-```
+```bash
 noust team remove-member [OPTIONS] TEAM USERNAME
 ```
 
@@ -15162,7 +15220,7 @@ Arguments: `team`, `username`
 
 Change the name a team is shown as; its slug stays.
 
-```
+```bash
 noust team rename [OPTIONS] TEAM NAME
 ```
 
@@ -15172,11 +15230,11 @@ Arguments: `team`, `name`
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust token
+## noust token
 
 Manage API tokens: named, scoped credentials for scripts and automation.
 
-```
+```bash
 noust token [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -15186,7 +15244,7 @@ Subcommands: [`create`](#noust-token-create), [`list`](#noust-token-list), [`rev
 
 Issue a named, scoped API token. NAME must be unique across every token ever issued, live or revoked.
 
-```
+```bash
 noust token create [OPTIONS] NAME
 ```
 
@@ -15208,7 +15266,7 @@ Arguments: `name`
 
 List every API token ever issued, live and revoked alike.
 
-```
+```bash
 noust token list [OPTIONS]
 ```
 
@@ -15221,7 +15279,7 @@ noust token list [OPTIONS]
 
 Revoke one API token by its id, as listed by 'noust token list'.
 
-```
+```bash
 noust token revoke [OPTIONS] TOKEN_ID
 ```
 
@@ -15236,7 +15294,7 @@ Arguments: `token_id`
 
 Change the networks a live API token is accepted from, without issuing another.
 
-```
+```bash
 noust token set [OPTIONS] TOKEN_ID
 ```
 
@@ -15248,11 +15306,11 @@ Arguments: `token_id`
 | `--any-ip` | Accept the token from anywhere again. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust tunnel
+## noust tunnel
 
 Reach an application through a Cloudflare Tunnel: no public address, no open port.
 
-```
+```bash
 noust tunnel [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -15262,7 +15320,7 @@ Subcommands: [`check`](#noust-tunnel-check), [`create`](#noust-tunnel-create), [
 
 Say whether a tunnel can run here, and what is missing.
 
-```
+```bash
 noust tunnel check [OPTIONS]
 ```
 
@@ -15275,7 +15333,7 @@ noust tunnel check [OPTIONS]
 
 Create a tunnel at Cloudflare and run its connector here.
 
-```
+```bash
 noust tunnel create [OPTIONS] NAME
 ```
 
@@ -15291,7 +15349,7 @@ Arguments: `name`
 
 Install cloudflared, the connector a tunnel runs through.
 
-```
+```bash
 noust tunnel install-cloudflared [OPTIONS]
 ```
 
@@ -15304,7 +15362,7 @@ noust tunnel install-cloudflared [OPTIONS]
 
 List the tunnels, whether their connectors run and what each one carries.
 
-```
+```bash
 noust tunnel list [OPTIONS]
 ```
 
@@ -15317,7 +15375,7 @@ noust tunnel list [OPTIONS]
 
 Stop a tunnel's connector, delete the tunnel at Cloudflare and let go of its records.
 
-```
+```bash
 noust tunnel remove [OPTIONS] NAME
 ```
 
@@ -15332,7 +15390,7 @@ Arguments: `name`
 
 Finish the creations and removals that were interrupted.
 
-```
+```bash
 noust tunnel repair [OPTIONS]
 ```
 
@@ -15344,7 +15402,7 @@ noust tunnel repair [OPTIONS]
 
 The public names a tunnel carries, and where each one goes.
 
-```
+```bash
 noust tunnel route [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -15354,7 +15412,7 @@ Subcommands: [`add`](#noust-tunnel-route-add), [`remove`](#noust-tunnel-route-re
 
 Carry HOSTNAME through TUNNEL.
 
-```
+```bash
 noust tunnel route add [OPTIONS] TUNNEL HOSTNAME
 ```
 
@@ -15374,7 +15432,7 @@ Arguments: `tunnel`, `hostname`
 
 Stop carrying HOSTNAME, and let go of its record (a record Noust did not make stays).
 
-```
+```bash
 noust tunnel route remove [OPTIONS] TUNNEL HOSTNAME
 ```
 
@@ -15386,11 +15444,11 @@ Arguments: `tunnel`, `hostname`
 | `--json` | Print the result as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust update
+## noust update
 
 Pull the latest code, rebuild and restart an application.
 
-```
+```bash
 noust update [OPTIONS] DOMAIN
 ```
 
@@ -15413,11 +15471,11 @@ Arguments: `domain`
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust upload
+## noust upload
 
 Give Noust the code of an application as an archive.
 
-```
+```bash
 noust upload [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -15427,7 +15485,7 @@ Subcommands: [`add`](#noust-upload-add), [`list`](#noust-upload-list), [`prune`]
 
 Extract an archive of a project and print the source that names it.
 
-```
+```bash
 noust upload add [OPTIONS] ARCHIVE
 ```
 
@@ -15443,7 +15501,7 @@ Arguments: `archive`
 
 Show the archives that were uploaded, newest first, and which ones an application uses.
 
-```
+```bash
 noust upload list [OPTIONS]
 ```
 
@@ -15456,7 +15514,7 @@ noust upload list [OPTIONS]
 
 Remove unfinished uploads and the ones no application used for a week.
 
-```
+```bash
 noust upload prune [OPTIONS]
 ```
 
@@ -15468,7 +15526,7 @@ noust upload prune [OPTIONS]
 
 Delete an upload that no application deploys from.
 
-```
+```bash
 noust upload remove [OPTIONS] ID
 ```
 
@@ -15478,11 +15536,11 @@ Arguments: `upload_id`
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust user
+## noust user
 
 Manage the accounts that sign in to the console, each with its roles.
 
-```
+```bash
 noust user [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -15492,7 +15550,7 @@ Subcommands: [`create`](#noust-user-create), [`disable`](#noust-user-disable), [
 
 Create an account with a password, typed at a hidden prompt.
 
-```
+```bash
 noust user create [OPTIONS] USERNAME
 ```
 
@@ -15512,7 +15570,7 @@ Arguments: `username`
 
 Disable an account: its sessions and tokens stop working at once.
 
-```
+```bash
 noust user disable [OPTIONS] USERNAME
 ```
 
@@ -15526,7 +15584,7 @@ Arguments: `username`
 
 Enable a disabled account again.
 
-```
+```bash
 noust user enable [OPTIONS] USERNAME
 ```
 
@@ -15540,7 +15598,7 @@ Arguments: `username`
 
 Documented exceptions to the separation of duties, with a reason and an end.
 
-```
+```bash
 noust user exception [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -15550,7 +15608,7 @@ Subcommands: [`add`](#noust-user-exception-add), [`list`](#noust-user-exception-
 
 Let PERSON_REF hold incompatible roles, for a documented reason and a time.
 
-```
+```bash
 noust user exception add [OPTIONS] PERSON_REF
 ```
 
@@ -15565,7 +15623,7 @@ Arguments: `person_ref`
 
 List every separation-of-duties exception ever recorded.
 
-```
+```bash
 noust user exception list [OPTIONS]
 ```
 
@@ -15578,7 +15636,7 @@ noust user exception list [OPTIONS]
 
 Withdraw an exception before it runs out.
 
-```
+```bash
 noust user exception revoke [OPTIONS] EXCEPTION_ID
 ```
 
@@ -15592,7 +15650,7 @@ Arguments: `exception_id`
 
 Invite a person: they set their own password and authenticator.
 
-```
+```bash
 noust user invite [OPTIONS] USERNAME
 ```
 
@@ -15614,7 +15672,7 @@ Arguments: `username`
 
 List every account, its roles, status and last sign-in.
 
-```
+```bash
 noust user list [OPTIONS]
 ```
 
@@ -15627,7 +15685,7 @@ noust user list [OPTIONS]
 
 Remove an account. Prefer 'disable': a removed account's name in the audit log no longer names a record.
 
-```
+```bash
 noust user remove [OPTIONS] USERNAME
 ```
 
@@ -15642,7 +15700,7 @@ Arguments: `username`
 
 Remove an account's authenticator; it enrols a new one at its next sign-in.
 
-```
+```bash
 noust user reset-mfa [OPTIONS] USERNAME
 ```
 
@@ -15656,7 +15714,7 @@ Arguments: `username`
 
 Set every role an account holds; what it may do is what they hold together.
 
-```
+```bash
 noust user roles [OPTIONS] USERNAME ROLES...
 ```
 
@@ -15670,7 +15728,7 @@ Arguments: `username`, `roles`
 
 Set the address an account's invitations and password resets are mailed to.
 
-```
+```bash
 noust user set-email [OPTIONS] USERNAME [ADDRESS]
 ```
 
@@ -15685,7 +15743,7 @@ Arguments: `username`, `address`
 
 Change the role an account is known by, leaving the others it holds.
 
-```
+```bash
 noust user set-role [OPTIONS] USERNAME ROLE
 ```
 
@@ -15699,7 +15757,7 @@ Arguments: `username`, `role`
 
 Lift an account's lockout before it runs out.
 
-```
+```bash
 noust user unlock [OPTIONS] USERNAME
 ```
 
@@ -15709,11 +15767,11 @@ Arguments: `username`
 |---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust variables
+## noust variables
 
 Variables shared by the server, a team, a project or an environment.
 
-```
+```bash
 noust variables [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -15723,7 +15781,7 @@ Subcommands: [`list`](#noust-variables-list), [`set`](#noust-variables-set), [`u
 
 List the variables of a scope, secrets hidden.
 
-```
+```bash
 noust variables list [OPTIONS] {server|team|project|environment}
 ```
 
@@ -15742,7 +15800,7 @@ Arguments: `scope`
 
 Create or change a shared variable.
 
-```
+```bash
 noust variables set [OPTIONS] {server|team|project|environment} NAME
                            [VALUE]
 ```
@@ -15763,7 +15821,7 @@ Arguments: `scope`, `name`, `value`
 
 Remove shared variables.
 
-```
+```bash
 noust variables unset [OPTIONS] {server|team|project|environment}
                              NAMES...
 ```
@@ -15781,7 +15839,7 @@ Arguments: `scope`, `names`
 
 List the applications whose variables refer to a shared variable.
 
-```
+```bash
 noust variables used-by [OPTIONS] {server|team|project|environment}
                                NAME
 ```
@@ -15796,11 +15854,11 @@ Arguments: `scope`, `name`
 | `--json` | Print the applications as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust web
+## noust web
 
 Run the browser panel for this server.
 
-```
+```bash
 noust web [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -15816,7 +15874,7 @@ Subcommands: [`disable`](#noust-web-disable), [`enable`](#noust-web-enable), [`e
 
 Stop the panel's systemd service and remove it.
 
-```
+```bash
 noust web disable [OPTIONS]
 ```
 
@@ -15831,7 +15889,7 @@ noust web disable [OPTIONS]
 
 Run the panel as a systemd service that survives reboots.
 
-```
+```bash
 noust web enable [OPTIONS]
 ```
 
@@ -15855,7 +15913,7 @@ noust web enable [OPTIONS]
 
 Receive webhooks on DOMAIN, a name of its own, without exposing the console.
 
-```
+```bash
 noust web expose-hooks [OPTIONS] DOMAIN
 ```
 
@@ -15876,7 +15934,7 @@ Arguments: `domain`
 
 Install the packages the panel needs.
 
-```
+```bash
 noust web install [OPTIONS]
 ```
 
@@ -15893,7 +15951,7 @@ noust web install [OPTIONS]
 
 Rewrite noust-web.service for this version, keeping where it listens (run by the package).
 
-```
+```bash
 noust web refresh-unit [OPTIONS]
 ```
 
@@ -15908,7 +15966,7 @@ noust web refresh-unit [OPTIONS]
 
 Stop the panel and start it again.
 
-```
+```bash
 noust web restart [OPTIONS]
 ```
 
@@ -15933,7 +15991,7 @@ noust web restart [OPTIONS]
 
 Start the panel and print an access token.
 
-```
+```bash
 noust web start [OPTIONS]
 ```
 
@@ -15960,7 +16018,7 @@ noust web start [OPTIONS]
 
 Show whether the panel is running, and whether as a service or in the background.
 
-```
+```bash
 noust web status [OPTIONS]
 ```
 
@@ -15976,7 +16034,7 @@ noust web status [OPTIONS]
 
 Stop the panel started with 'noust web start -d'.
 
-```
+```bash
 noust web stop [OPTIONS]
 ```
 
@@ -15991,7 +16049,7 @@ noust web stop [OPTIONS]
 
 Show the state of the access token, or issue a new one with --new.
 
-```
+```bash
 noust web token [OPTIONS]
 ```
 
@@ -16005,11 +16063,71 @@ noust web token [OPTIONS]
 | `--no-color` | Never emit colour. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
-### noust workspace
+## noust webserver
+
+Which web server serves each site, and moving them to the other one.
+
+```bash
+noust webserver [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`migrate`](#noust-webserver-migrate), [`plan`](#noust-webserver-plan), [`status`](#noust-webserver-status)
+
+### noust webserver migrate
+
+Move sites to the other web server, and put everything back if one does not answer.
+
+```bash
+noust webserver migrate [OPTIONS] [DOMAINS]...
+```
+
+Arguments: `domains`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--to` | The web server to move them to. |  |
+| `--all` | Every application and site behind the other web server: what a handover of ports 80 and 443 moves. |  |
+| `--accept-losses` | Go ahead although the new sites will not do everything the old ones did. |  |
+| `--yes`, `-y` | Do not ask for confirmation. |  |
+| `--json` | Print the plan (or, with --yes, its result) as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust webserver plan
+
+Show what moving sites to a web server would do. Changes nothing.
+
+```bash
+noust webserver plan [OPTIONS] [DOMAINS]...
+```
+
+Arguments: `domains`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--to` | The web server to move them to. |  |
+| `--all` | Every application and site behind the other web server: what a handover of ports 80 and 443 moves. |  |
+| `--show` | Print the translated site of this one in full. |  |
+| `--json` | Print the plan as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust webserver status
+
+Show the web server of new applications and what is behind each.
+
+```bash
+noust webserver status [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print what is behind each web server as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+## noust workspace
 
 A monorepo as one application per workspace.
 
-```
+```bash
 noust workspace [OPTIONS] COMMAND [ARGS]...
 ```
 
@@ -16019,7 +16137,7 @@ Subcommands: [`create`](#noust-workspace-create), [`detect`](#noust-workspace-de
 
 Deploy workspaces of a monorepo, one application each.
 
-```
+```bash
 noust workspace create [OPTIONS] SOURCE
 ```
 
@@ -16040,7 +16158,7 @@ Arguments: `source`
 
 Find the workspaces of a repository and which of them are applications.
 
-```
+```bash
 noust workspace detect [OPTIONS] SOURCE
 ```
 

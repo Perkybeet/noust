@@ -18,7 +18,7 @@ slogan: Workflow automation with a visual editor.
 description: "Source-available (Sustainable Use License) workflow automation with a visual editor and hundreds of integrations: for your own business, not to resell. It runs as a pinned npm package, with its data kept in shared/ across releases."
 category: automation
 tags: [automation, workflows, integrations, nodejs]
-logo: logo.svg
+logo: simple-icons:n8n
 version: "1.123.82"
 revision: 2
 updated: 2026-10-27

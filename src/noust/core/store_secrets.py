@@ -90,6 +90,11 @@ NOT_SECRET: dict[tuple[str, str], str] = {
     ("custom_certificates", "key_type"): "an algorithm name",
     ("database_accounts", "password_changed_at"): "a time",
     ("database_links", "env_var"): "the name of a variable",
+    ("db_server_defaults", "server_key"): "the key of a database server, such as mysql@legacy",
+    (
+        "fleet_desired",
+        "secret_paths",
+    ): "which fields of a fleet setting are secret; their values are in the secret store",
     (
         "db_instance_migrations",
         "source_key",
@@ -115,6 +120,18 @@ NOT_SECRET: dict[tuple[str, str], str] = {
     ("oidc_tickets", "binding_hash"): "a hash of a one-time value, short-lived",
     ("oidc_tickets", "ticket_hash"): "a hash of a one-time value, short-lived",
     ("registry_logins", "secret_name"): "the name of a secret in the secret store",
+    (
+        "source_lease_grants",
+        "lease_key",
+    ): "the name of a lease (host, installation and part), not a credential",
+    (
+        "source_leases",
+        "lease_key",
+    ): "the name of a lease (host, installation and part), not a credential",
+    (
+        "source_leases",
+        "token_name",
+    ): "the name of the secret file the token is in; the token is never a column",
     (
         "secret_providers",
         "settings",

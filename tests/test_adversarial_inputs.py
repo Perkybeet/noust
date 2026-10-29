@@ -866,6 +866,96 @@ class TestWhatAnOperatorChoosesForAnInstance:
             parse_custom_image(reference)
 
 
+class TestAnImageNoustPinsAtCreation:
+    """An image given by registry and tag is read for its digest when the instance is made (4.1)."""
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_what_is_accepted_is_a_repository_and_a_tag_that_are_neither_an_option_nor_a_shell(
+        self, value: str
+    ) -> None:
+        from noust.managers.database.instance_catalog import parse_custom_image
+
+        accepted, result = verdict(parse_custom_image, value, pin_later=True)
+
+        if accepted:
+            assert result.digest == "" or re.fullmatch(r"sha256:[0-9a-f]{64}", result.digest)
+            # Without a digest the tag is what Noust reads one from: it is never missing.
+            assert result.digest or result.tag
+            assert not result.repository.startswith("-")
+            assert not CONTROL.search(result.repository) and "@" not in result.repository
+            assert " " not in result.repository and "://" not in result.repository
+            assert result.tag is None or not CONTROL.search(result.tag)
+
+    @pytest.mark.parametrize(
+        "reference",
+        [
+            "acme/pg",
+            "acme/pg:",
+            "acme/pg:-v",
+            "acme/pg:a b",
+            "acme/pg:1\n",
+            "acme/pg:1:2",
+            "--privileged:1",
+            "https://acme/pg:1",
+            "ACME/pg:1",
+            "acme/pg:1@sha256:" + "z" * 64,
+        ],
+    )
+    def test_the_references_that_have_beaten_other_parsers(self, reference: str) -> None:
+        from noust.managers.database.instance_catalog import parse_custom_image
+
+        with pytest.raises(ValidationError):
+            parse_custom_image(reference, pin_later=True)
+
+
+class TestTheKeyOfADatabaseServer:
+    """The key a default is chosen by: the host's engine, or an instance Noust runs (4.1)."""
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_what_is_accepted_is_an_engine_and_at_most_the_name_of_an_instance(
+        self, value: str
+    ) -> None:
+        from noust.validators.db_instance import check_server_key
+
+        accepted, result = verdict(check_server_key, value)
+
+        if accepted:
+            assert result == value
+            engine, _, name = result.partition("@")
+            assert re.fullmatch(r"[a-z][a-z0-9]{1,23}", engine)
+            assert "@" not in name and "." not in name and "/" not in name
+            assert not CONTROL.search(result) and " " not in result
+
+    @pytest.mark.parametrize(
+        "key",
+        [
+            "",
+            "mysql@",
+            "@a",
+            "mysql@a@b",
+            "mysql@a.b",
+            "mysql@../x",
+            "mysql@a\n",
+            "MySQL",
+            "my sql",
+        ],
+    )
+    def test_the_keys_that_have_beaten_other_parsers(self, key: str) -> None:
+        from noust.validators.db_instance import check_server_key
+
+        with pytest.raises(ValidationError):
+            check_server_key(key)
+
+    def test_a_value_that_is_not_text_is_refused_not_crashed_on(self) -> None:
+        from noust.validators.db_instance import check_server_key
+
+        for value in (None, 5, ["mysql"], b"mysql"):
+            with pytest.raises(ValidationError):
+                check_server_key(value)
+
+
 class TestWhatAMoveOfADatabaseNames:
     @SETTINGS
     @given(value=HOSTILE)
@@ -1086,3 +1176,185 @@ class TestTheSettingsOfTheFleet:
         for person, change in ((payload, "c0123456789ab"), ("ana", payload)):
             with pytest.raises(NoustError):
                 SyncSignature(person=person, change=change)
+
+
+# ---------------------------------------------------------------------------
+# What a channel of the fleet is routed by
+# ---------------------------------------------------------------------------
+
+
+class TestTheRouteOfAChannelOfTheFleet:
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_a_server_pattern_is_a_name_and_nothing_a_pattern_cannot_hold(self, value: str) -> None:
+        from noust.fleet.settings.reach import check_route, servers_of
+
+        channel = {"type": "slack", "route": {"servers": [value]}}
+        accepted, _ = verdict(check_route, channel)
+
+        # It is matched against a server's name with fnmatch and is never part of a command.
+        if accepted:
+            for entry in servers_of(channel):
+                assert re.fullmatch(r"[A-Za-z0-9*?._:/@-]{1,253}", entry), entry
+                assert not CONTROL.search(entry)
+
+    @SETTINGS
+    @given(value=HOSTILE, field=st.sampled_from(["apps", "tags", "min_severity", "servers"]))
+    def test_a_route_that_is_accepted_is_decided_without_failing(
+        self, value: str, field: str
+    ) -> None:
+        from noust.fleet.settings.reach import check_route, explain
+
+        channel = {"type": "slack", "route": {field: value if field == "min_severity" else [value]}}
+        accepted, _ = verdict(check_route, channel)
+
+        # Where a route is accepted the decision on any server and any application is a verdict,
+        # not a crash on a pattern nobody expected.
+        if accepted:
+            apps = [{"domain": value, "tags": [value]}]
+            assert explain("channel", channel, "web-1", apps).reaches in (True, False)
+
+    @pytest.mark.parametrize("payload", [p for p in PAYLOADS if p and p.strip()])
+    def test_a_payload_in_a_list_of_a_route_is_refused_or_read_as_the_name_it_trims_to(
+        self, payload: str
+    ) -> None:
+        from noust.core.notifications.routing import Route
+        from noust.fleet.settings.reach import check_route, servers_of
+
+        for field in ("servers", "apps", "tags"):
+            channel = {"type": "slack", "route": {field: [payload]}}
+            accepted, _ = verdict(check_route, channel)
+            if not accepted:
+                continue
+            # A trailing newline is trimmed like any space around a name; nothing else is let in.
+            read = (
+                servers_of(channel)
+                if field == "servers"
+                else getattr(Route.from_mapping(channel["route"]), field)
+            )
+            for entry in read:
+                assert re.fullmatch(r"[A-Za-z0-9*?._:/@-]{1,253}", entry), (field, entry)
+
+
+# ---------------------------------------------------------------------------
+# An event of a code host that a central forwards to a server
+# ---------------------------------------------------------------------------
+
+
+class TestTheEventsACentralForwards:
+    """What a server acts on comes from a repository's text, through a central it trusts to deploy."""
+
+    SHA = "a" * 40
+    PUSH = {
+        "forge": "github",
+        "repository": "you/app",
+        "clone_url": "https://github.com/you/app.git",
+        "branch": "main",
+        "head_sha": SHA,
+    }
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_a_branch_that_is_accepted_is_inert_as_an_argument_and_as_a_path(
+        self, value: str
+    ) -> None:
+        from noust.validators.forge_event import parse_forwarded_event
+
+        accepted, event = verdict(parse_forwarded_event, "push", {**self.PUSH, "branch": value})
+
+        if accepted:
+            assert re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9._/+@-]{0,254}", event.branch)
+            assert ".." not in event.branch and "//" not in event.branch
+            assert not event.branch.endswith(("/", ".", ".lock"))
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_a_repository_that_is_accepted_is_one_segment_pair_of_a_request_path(
+        self, value: str
+    ) -> None:
+        from noust.validators.forge_event import parse_forwarded_event
+
+        accepted, event = verdict(parse_forwarded_event, "push", {**self.PUSH, "repository": value})
+
+        if accepted:
+            owner, _, name = event.repository.partition("/")
+            assert owner and name and "/" not in name
+            assert owner.strip(".") and name.strip(".")
+            assert not CONTROL.search(event.repository)
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_a_commit_and_an_address_that_are_accepted_carry_nothing_but_their_alphabet(
+        self, value: str
+    ) -> None:
+        from noust.validators.forge_event import parse_forwarded_event
+
+        accepted, event = verdict(parse_forwarded_event, "push", {**self.PUSH, "head_sha": value})
+        if accepted:
+            assert re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", event.head_sha)
+        accepted, event = verdict(parse_forwarded_event, "push", {**self.PUSH, "clone_url": value})
+        if accepted:
+            assert event.clone_url.startswith("https://") and "@" not in event.clone_url
+            assert not CONTROL.search(event.clone_url) and " " not in event.clone_url
+
+    @SETTINGS
+    @given(value=HOSTILE, field=st.sampled_from(["title", "author", "sender", "head_message"]))
+    def test_the_free_text_of_a_pull_request_has_no_control_character(
+        self, value: str, field: str
+    ) -> None:
+        from noust.core.forge_events import PullRequestAction, PullRequestEvent, event_to_dict
+        from noust.validators.forge_event import parse_forwarded_event
+
+        base = event_to_dict(
+            PullRequestEvent(
+                forge=source_forge(),
+                action=PullRequestAction.OPENED,
+                repository="you/app",
+                clone_url="https://github.com/you/app.git",
+                number=1,
+                title="t",
+                branch="b",
+                base_branch="main",
+                head_sha=self.SHA,
+            )
+        )
+
+        accepted, event = verdict(parse_forwarded_event, "pull_request", {**base, field: value})
+
+        if accepted:
+            text = getattr(event, field)
+            # A commit message keeps its line breaks and a tab; nothing else that can end a line.
+            assert not re.search(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", text)
+            if field != "head_message":
+                assert "\n" not in text and "\r" not in text
+
+    @pytest.mark.parametrize("payload", [p for p in PAYLOADS if p])
+    def test_the_payloads_that_beat_other_validators_are_refused_in_every_name_of_an_event(
+        self, payload: str
+    ) -> None:
+        from noust.validators.forge_event import parse_forwarded_event
+
+        for field in ("branch", "repository", "head_sha"):
+            accepted, _ = verdict(parse_forwarded_event, "push", {**self.PUSH, field: payload})
+            assert not accepted, (field, payload)
+
+    @SETTINGS
+    @given(
+        data=st.recursive(
+            st.none() | st.booleans() | st.integers() | st.text(max_size=20),
+            lambda c: st.lists(c, max_size=3) | st.dictionaries(st.text(max_size=8), c, max_size=4),
+            max_leaves=12,
+        )
+    )
+    def test_whatever_arrives_is_read_or_refused_and_never_crashes(self, data: Any) -> None:
+        from noust.validators.forge_event import parse_forwarded_event
+
+        for kind in ("push", "tag", "pull_request"):
+            verdict(parse_forwarded_event, kind, data)
+
+
+def source_forge() -> Any:
+    """The code host the events of these tests come from."""
+    from noust.core.forge_events import Forge
+
+    return Forge.GITHUB

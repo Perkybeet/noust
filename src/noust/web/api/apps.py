@@ -94,8 +94,8 @@ from noust.managers.database.service import OWN_DATABASE_TYPES, DatabaseService
 from noust.managers.port_claims import PortClaims
 from noust.managers.rollback_manager import RollbackManager
 from noust.managers.service_manager import ResourceLimits, ServiceManager
-from noust.recipes import RecipeError, get_recipe
-from noust.recipes.deploy import refuse_conflicts, with_database
+from noust.recipes import get_recipe
+from noust.recipes.deploy import refuse_conflicts, require_available, with_database
 from noust.terminal.targets import validate_service
 from noust.validators.environment import EnvironmentValidationError
 from noust.validators.source import is_upload_tree, validate_source
@@ -112,6 +112,7 @@ from noust.web.api.platform_proposal import (
     PlatformProposalResponse,
     platform_proposal_response,
 )
+from noust.web.api.recipe_root import confirm_root_equivalent
 from noust.web.api.scope import resolve_target_for
 from noust.web.auth import (
     actor_label,
@@ -378,6 +379,7 @@ class CreateAppRequest(BaseModel):
         "needs that this server lacks, instead of refusing. A package installed as root: it "
         "needs the server's permission and sudo mode",
     )
+    accept_root_equivalent: bool = False
     port: int | None = Field(default=None, description="Application port")
     webserver: str = Field(default="nginx", description="Web server to use")
     branch: str | None = Field(default=None, description="Git branch to deploy")
@@ -1207,11 +1209,8 @@ def create_app(
     if recipe is not None:
         with_database(recipe, body.recipe_database)  # refused now, not by the job
         refuse_conflicts(source=body.source, app_type=body.app_type)
-        if not recipe.available:
-            raise RecipeError(
-                f"{recipe.title} is not available in this release",
-                details=recipe.unavailable_reason or "See GET /api/recipes",
-            )
+        require_available(recipe)
+        confirm_root_equivalent(recipe, domain, body.accept_root_equivalent, request, session)
     elif body.compose_document is not None:
         if body.source or container is not None:
             raise ValidationError(

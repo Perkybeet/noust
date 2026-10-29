@@ -110,16 +110,124 @@ CREATE TABLE IF NOT EXISTS fleet_node_settings (
 """
 FLEET_COLUMNS: list[Column] = []
 
-# Owned by the fleet notifications lane: routes by domain, tag, severity, event and server.
-NOTIFY_SQL = ""
+# Owned by the fleet notifications lane (item 90, D3): when each central that manages this server
+# last called it, and whether it said it keeps watch, so that a server can tell its central went
+# quiet. A server cannot call its central, so the silence is the only sign it has. The routes of a
+# channel (domain, tag, severity, event and server) are inside the channel's own value and need no
+# table.
+NOTIFY_SQL = """
+CREATE TABLE IF NOT EXISTS fleet_central_calls (
+    central TEXT PRIMARY KEY,
+    first_call_at REAL NOT NULL,
+    last_call_at REAL NOT NULL,
+    heartbeat_s INTEGER
+);
+"""
 NOTIFY_COLUMNS: list[Column] = []
 
-# Owned by the sources lane: the installation tokens a central leases to a node.
-SOURCES_SQL = ""
+# Owned by the sources lane (item 90, D6): the code host's access a central gives the servers it
+# manages. ``source_leases`` is on a node: the installation tokens a central leased to it, each
+# scoped to the repositories the node serves and to reading their contents, kept as a secret file
+# sealed under the node's own key (``token_name`` names that file; the token is never a column).
+# ``expires_at`` is the node's own clock, set from the seconds the central said the token lives
+# for, so a node whose clock is off does not trust a token for longer than it lives.
+# ``source_lease_grants`` is on the central: what it leased to which node, so that it renews a
+# lease before it ends and can say, per node, why one is missing.
+# ``source_forwards`` and ``source_follows`` are on the central too: a delivery of the code host
+# that it forwards to a node (kept until the node has it, so a node that is down when a push
+# arrives gets it when it is back) and the deployment or preview the node started for it, which the
+# central follows until it ends to write the commit's status and the preview's comment.
+SOURCES_SQL = """
+CREATE TABLE IF NOT EXISTS source_leases (
+    central TEXT NOT NULL,
+    lease_key TEXT NOT NULL,
+    host TEXT NOT NULL,
+    installation_id INTEGER NOT NULL,
+    repos TEXT NOT NULL DEFAULT '[]',
+    permissions TEXT NOT NULL DEFAULT '{}',
+    token_name TEXT NOT NULL,
+    received_at REAL NOT NULL,
+    expires_at REAL NOT NULL,
+    PRIMARY KEY (central, lease_key)
+);
+
+CREATE TABLE IF NOT EXISTS source_lease_grants (
+    node TEXT NOT NULL,
+    lease_key TEXT NOT NULL,
+    host TEXT NOT NULL,
+    installation_id INTEGER NOT NULL,
+    repos TEXT NOT NULL DEFAULT '[]',
+    state TEXT NOT NULL,
+    pushed_at REAL,
+    expires_at REAL,
+    error TEXT,
+    updated_at REAL NOT NULL,
+    PRIMARY KEY (node, lease_key)
+);
+
+CREATE TABLE IF NOT EXISTS source_forwards (
+    id TEXT PRIMARY KEY,
+    delivery TEXT NOT NULL,
+    node TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    repo TEXT NOT NULL,
+    ref TEXT,
+    number INTEGER,
+    commit_sha TEXT,
+    event TEXT NOT NULL,
+    state TEXT NOT NULL DEFAULT 'pending',
+    attempts INTEGER NOT NULL DEFAULT 0,
+    next_attempt_at REAL,
+    error TEXT,
+    answer TEXT,
+    created_at REAL NOT NULL,
+    delivered_at REAL
+);
+CREATE INDEX IF NOT EXISTS idx_source_forwards_state ON source_forwards(state, next_attempt_at);
+CREATE INDEX IF NOT EXISTS idx_source_forwards_created ON source_forwards(created_at);
+
+CREATE TABLE IF NOT EXISTS source_follows (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    forward_id TEXT NOT NULL,
+    node TEXT NOT NULL,
+    domain TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    repo TEXT NOT NULL,
+    installation_id INTEGER,
+    ref TEXT,
+    environment TEXT NOT NULL,
+    environment_url TEXT,
+    job_id TEXT,
+    number INTEGER,
+    action TEXT,
+    provider_ref INTEGER,
+    comment_ref TEXT,
+    last_state TEXT,
+    state TEXT NOT NULL DEFAULT 'active',
+    detail TEXT,
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL,
+    finished_at REAL
+);
+CREATE INDEX IF NOT EXISTS idx_source_follows_state ON source_follows(state, updated_at);
+"""
 SOURCES_COLUMNS: list[Column] = []
 
 # Owned by the engines lane: the default database server of each engine on a server (item 103).
-ENGINES_SQL = ""
+# One row per engine (a flavour: MySQL and MariaDB each have theirs) with the key of the server
+# the operator chose: the host's engine (``mysql``) or an instance Noust runs (``mysql@legacy``).
+# An engine with no row has the default Noust works out (the system's, else the only one, else the
+# oldest), which is not stored: it follows what exists. The key is kept as text, not as a
+# reference, because the host's engine has no row anywhere else; removing an instance forgets
+# its row (ManagedInstances._forget).
+ENGINES_SQL = """
+CREATE TABLE IF NOT EXISTS db_server_defaults (
+    flavour TEXT PRIMARY KEY,
+    server_key TEXT NOT NULL,
+    set_by TEXT,
+    set_at TEXT NOT NULL
+);
+"""
 ENGINES_COLUMNS: list[Column] = []
 
 # Owned by the DNS lane: the zones and records of Noust DNS (item 104).

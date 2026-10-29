@@ -14,7 +14,9 @@ here decides what an outage is; it only makes sure someone keeps asking.
 
 **When.** In the monitor daemon, always: it runs as long as the server does.
 In the console, only while at least one console has the event stream open, so
-an idle console does not dial every node every half minute for nobody.
+an idle console does not dial every node every half minute for nobody. The
+daemon's calls say how often they come (``X-Noust-Heartbeat``) and a console's
+do not: a node expects to hear again only from a central that promised it.
 
 **Once.** A lock file makes the probe single-flight across processes: the
 daemon holds it for as long as it probes, and the console takes it for one
@@ -95,12 +97,17 @@ def _can_reach(store: NoustStore) -> bool:
     return not (sealing.is_sealed(root) and not sealing.is_unlocked(root))
 
 
-def _gather_round() -> None:
+def _gather_round(heartbeat: int | None = None) -> None:
     """
     Ask the nodes worth asking now the ``servers`` view, waiting for all of them.
 
     A node that was paused for maintenance is not asked, and one that has been silent for
     a while is asked less often (:mod:`noust.fleet.liveness`).
+
+    Args:
+        heartbeat: Seconds between rounds, said in every call when the probe can promise to keep
+            calling; a node then expects to hear again and says so when it does not
+            (:mod:`noust.fleet.central_calls`). None for a probe that cannot promise it.
     """
     import time
 
@@ -113,7 +120,7 @@ def _gather_round() -> None:
         return
     gather(
         "servers",
-        asker=Asker(actor=PROBE_ACTOR, scope="read"),
+        asker=Asker(actor=PROBE_ACTOR, scope="read", heartbeat=heartbeat),
         nodes=names,
         refresh=True,
         node_timeout=PROBE_NODE_TIMEOUT,
@@ -143,14 +150,18 @@ class ReachabilityProbe:
         interval: float = PROBE_INTERVAL_SECONDS,
         store: NoustStore | None = None,
         lock_path: Path | None = None,
-        gather_round: Callable[[], None] = _gather_round,
+        gather_round: Callable[[], None] | None = None,
     ) -> None:
         self.daemon = daemon
         self._active = active
         self.interval = interval
         self._store = store
         self._lock_path = lock_path
-        self._gather = gather_round
+        # The monitor's probe runs for as long as the central does, so it can say so; a
+        # console's runs while somebody has it open, and promises nothing.
+        self._gather = gather_round or (
+            lambda: _gather_round(heartbeat=int(self.interval) if self.daemon else None)
+        )
         self._round = threading.Lock()
         self._fd: int | None = None
         self._stop = threading.Event()

@@ -159,6 +159,21 @@ def hostname(host: str | None = None) -> str:
     return (host or configured_host()).split(":", 1)[0]
 
 
+def hosts_of(host: str) -> tuple[str, ...]:
+    """
+    Name how a clone URL spells a GitHub host.
+
+    Args:
+        host: A GitHub host, with its port when it has one.
+
+    Returns:
+        The host with and without its port: a clone URL names the host and a webhook payload
+        carries it in ``html_url``.
+    """
+    name = hostname(host)
+    return (host, name) if host != name else (name,)
+
+
 def repository_hosts(config: Config | None = None) -> tuple[str, ...]:
     """
     Name the hosts whose repositories the GitHub App integration serves.
@@ -167,12 +182,9 @@ def repository_hosts(config: Config | None = None) -> tuple[str, ...]:
         config: The configuration; the process-wide one when None.
 
     Returns:
-        The configured host's name, with and without its port: a clone URL names the host
-        and a webhook payload carries it in ``html_url``.
+        The configured host's name, with and without its port (see :func:`hosts_of`).
     """
-    host = configured_host(config)
-    name = hostname(host)
-    return (host, name) if host != name else (name,)
+    return hosts_of(configured_host(config))
 
 
 def integration_repository(source: str | None) -> str | None:

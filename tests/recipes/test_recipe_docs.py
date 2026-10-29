@@ -1,7 +1,7 @@
 # Copyright (c) 2024-2026 Yago López Prado
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""scripts/recipe_docs.py: the catalogue's table in docs/recipes.md cannot drift from the recipes."""
+"""scripts/recipe_docs.py: the catalogue's table in docs/recipes-catalog.md cannot drift from the recipes."""
 
 from __future__ import annotations
 

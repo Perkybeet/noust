@@ -36,7 +36,7 @@ has them under **Domains, Certificates, More actions, Certificate authority**.
 | Challenge | How | Needs |
 |---|---|---|
 | `http-01` (the default) | The authority fetches a file from port 80. | The name points at this server, port 80 reachable. |
-| `dns-01` | The authority looks up `_acme-challenge.<name>`. | A [DNS account](network.md#dns-accounts-and-the-records-noust-owns) that holds the zone. Port 80 can stay closed. **A wildcard needs it.** |
+| `dns-01` | The authority looks up `_acme-challenge.<name>`. | A [DNS account](network-dns.md#dns-accounts-and-the-records-noust-owns) that holds the zone. Port 80 can stay closed. **A wildcard needs it.** |
 
 For a Cloudflare, DigitalOcean, Hetzner, Gandi or Amazon Route 53 account Noust answers the
 challenge itself, through two hooks certbot keeps in the lineage's renewal configuration

@@ -18,7 +18,7 @@ from pathlib import Path
 
 from noust.managers.backup_destinations import BACKEND_FIELDS
 
-PAGE = Path(__file__).resolve().parents[1] / "docs" / "disaster-recovery.md"
+PAGE = Path(__file__).resolve().parents[1] / "docs" / "backups-destinations.md"
 
 
 def guide() -> str:

@@ -16,7 +16,7 @@ slogan: A local-first personal finance app with a sync server you host.
 description: "Envelope budgeting that runs in your browser, with optional end-to-end encrypted sync between devices through this server, bank imports and reports. Single container with its data in a volume. The first person to open it chooses the server password, so do it right after installing."
 category: business
 tags: [budget, finance, accounting, personal]
-logo: logo.svg
+logo: simple-icons:actualbudget
 version: "26.10.0"
 revision: 1
 updated: 2026-10-06

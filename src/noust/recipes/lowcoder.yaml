@@ -1,0 +1,68 @@
+# Lowcoder: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/lowcoder.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: lowcoder
+kind: compose
+title: "Lowcoder"
+slogan: "Lowcoder (forked from OpenBlocks) is a self-hosted, open-source, low-code platform for building..."
+description: "Rapid business App Builder for Everyone"
+category: backend
+tags: [lowcoder, openblocks, low, code, platform, open, source, low-code]
+logo: logo.svg
+version: "3.0.0"
+revision: 1
+updated: 2026-10-28
+homepage: https://www.lowcoder.cloud/
+docs: https://docs.lowcoder.cloud/
+repository: https://github.com/lowcoder-org/lowcoder
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_LOWCODER:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_PASSWORD_ENCRYPTION:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for encryption."
+  SERVICE_PASSWORD_SALT:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for salt."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    lowcoder:
+      image: lowcoderorg/lowcoder-ce:3.0.0@sha256:7eba83baa9a38f4869a146a0b5b41d6ace5ab1de30474f27be25e6a09fa0040e
+      environment:
+        SERVICE_URL_LOWCODER: ${SERVICE_URL_LOWCODER}
+        LOWCODER_EMAIL_SIGNUP_ENABLED: ${LOWCODER_EMAIL_SIGNUP_ENABLED:-true}
+        LOWCODER_DB_ENCRYPTION_PASSWORD: ${SERVICE_PASSWORD_ENCRYPTION}
+        LOWCODER_DB_ENCRYPTION_SALT: ${SERVICE_PASSWORD_SALT}
+      volumes:
+        - lowcoder_data:/lowcoder-stacks
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - -f
+          - http://127.0.0.1:3000/health
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:3000
+  volumes:
+    lowcoder_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_PASSWORD_ENCRYPTION and SERVICE_PASSWORD_SALT in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume lowcoder_data of this application: back it up before updating."

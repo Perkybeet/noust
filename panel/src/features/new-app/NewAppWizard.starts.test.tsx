@@ -148,6 +148,7 @@ describe("starting from a recipe", () => {
       expect(backend.callsTo("POST /api/apps")).toHaveLength(1);
     });
     expect(backend.callsTo("POST /api/apps")[0]?.body).toEqual({
+      accept_root_equivalent: false,
       domain: "blog.example.com",
       recipe: "wordpress",
       app_type: "auto",

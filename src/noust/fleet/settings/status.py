@@ -18,6 +18,11 @@ draws them apart:
   fleet's and the server still treats it as such), ``not_applicable``, or why the server could not
   be read: ``unreachable``, ``unsupported`` (an older Noust), ``refused`` or ``unknown``.
 
+A third fact belongs to a channel with a route: whether the route can match anything on the
+server (``reach``, :mod:`noust.fleet.settings.reach`). A server it cannot match on is not behind;
+it is ``not_applicable``, and ``reach.why`` says what cannot match. What it still holds of the
+setting is shown as it is.
+
 Nothing secret is read from a server: the state is the version it applied and what it says of it.
 """
 
@@ -36,12 +41,13 @@ from noust.fleet.aggregate import (
     gather,
 )
 from noust.fleet.settings.desired import DesiredSetting, FleetSettings
+from noust.fleet.settings.reach import Reach, explain, needs_apps
 from noust.fleet.settings.routes import MANAGED_PREFIX
 
 if TYPE_CHECKING:
     from noust.fleet.nodes import NodeManager
 
-__all__ = ["ORIGINS", "SYNC_STATES", "compose", "read"]
+__all__ = ["ORIGINS", "SYNC_STATES", "compose", "reach_of", "read"]
 
 #: Where a server's value comes from.
 ORIGINS = ("fleet", "central_exception", "local_exception", "independent", "none")
@@ -104,6 +110,33 @@ def _register() -> None:
     RESOURCES.setdefault(MANAGED_VIEW.name, MANAGED_VIEW)
 
 
+def reach_of(
+    settings: FleetSettings,
+    nodes: Sequence[str],
+    apps: Mapping[str, Sequence[Mapping[str, Any]] | None] | None,
+) -> dict[tuple[str, str, str], Reach]:
+    """
+    Say where each setting can match something, for each server that follows the fleet.
+
+    Args:
+        settings: What the central wants.
+        nodes: The servers.
+        apps: The applications each server lists; None for a server that did not say, and for
+            all when they were not asked (nothing depends on them).
+
+    Returns:
+        ``(server, kind, name)`` to :class:`Reach`, for what each server should have.
+    """
+    found: dict[tuple[str, str, str], Reach] = {}
+    for node in nodes:
+        listed = apps.get(node) if apps is not None else None
+        for setting in settings.effective_for(node):
+            found[(node, setting.resource, setting.name)] = explain(
+                setting.resource, setting.value, node, listed
+            )
+    return found
+
+
 def _cell(
     node: str,
     wanted: DesiredSetting | None,
@@ -111,6 +144,7 @@ def _cell(
     *,
     mode: str,
     status: str | None,
+    reach: Reach | None = None,
 ) -> dict[str, Any]:
     """
     Say where one server stands on one setting.
@@ -121,10 +155,12 @@ def _cell(
         row: What the server says it manages of it.
         mode: ``managed`` or ``independent``.
         status: How the server answered, when it was asked.
+        reach: Whether the route can match anything on the server; assumed to when None.
 
     Returns:
         The cell.
     """
+    reach = reach or Reach(True)
     origin = "none"
     if wanted is not None:
         origin = "central_exception" if wanted.node else "fleet"
@@ -134,6 +170,9 @@ def _cell(
         sync = "release_pending" if row is not None else "not_applicable"
     elif wanted is None:
         sync = "release_pending" if row is not None else "not_applicable"
+    elif reach.reaches is False:
+        # Not sent here and not behind: the route has nothing to match on this server.
+        sync = "not_applicable"
     elif status != "ok":
         sync = _UNREADABLE.get(status or "", "unknown")
     elif row is None:
@@ -156,11 +195,16 @@ def _cell(
         "applied_at": held.get("applied_at") if held is not None else None,
         "change": held.get("change") if held is not None else None,
         "restore_requested": bool(held.get("restore_requested_at")) if held is not None else False,
+        "reach": {"reaches": reach.reaches, "why": reach.why},
     }
 
 
 def compose(
-    settings: FleetSettings, result: FleetResult, *, nodes: Sequence[str] | None = None
+    settings: FleetSettings,
+    result: FleetResult,
+    *,
+    nodes: Sequence[str] | None = None,
+    reach: Mapping[tuple[str, str, str], Reach] | None = None,
 ) -> dict[str, Any]:
     """
     Put what the central wants beside what each server says.
@@ -169,6 +213,8 @@ def compose(
         settings: What the central wants.
         result: What each server said it manages (the ``managed_settings`` view).
         nodes: The servers, in order; every registered one by default.
+        reach: Whether each setting can match anything on each server (:func:`reach_of`); every
+            setting is taken to when None.
 
     Returns:
         ``servers`` (how each answered, its mode and whether a look is waiting), ``settings``
@@ -205,6 +251,7 @@ def compose(
                     rows.get(node, {}).get(key),
                     mode=modes.get(node, "managed"),
                     status=status,
+                    reach=(reach or {}).get((node, key[0], key[1])),
                 )
             )
         row = fleet.get(key)
@@ -286,4 +333,40 @@ def read(
     _register()
     manager = manager or NodeManager()
     result = gather(MANAGED_VIEW.name, asker=asker, manager=manager, nodes=nodes, refresh=refresh)
-    return compose(settings, result, nodes=[n.name for n in result.nodes if not n.local])
+    names = [n.name for n in result.nodes if not n.local]
+    reach = reach_of(settings, names, _applications(settings, asker, manager, names, refresh))
+    return compose(settings, result, nodes=names, reach=reach)
+
+
+def _applications(
+    settings: FleetSettings,
+    asker: Asker,
+    manager: NodeManager,
+    names: Sequence[str],
+    refresh: bool,
+) -> dict[str, list[dict[str, Any]] | None] | None:
+    """
+    Ask the servers their applications, when some route depends on them.
+
+    Args:
+        settings: What the central wants.
+        asker: Who asks.
+        manager: The node registry.
+        names: The servers.
+        refresh: Ask even a server whose answer is a few seconds old.
+
+    Returns:
+        Each server's applications, None for one that did not answer; None altogether when no
+        route depends on them, so nobody is asked for nothing.
+    """
+    if not any(needs_apps(s.resource, s.value) for s in settings.list()):
+        return None
+    result = gather("apps", asker=asker, manager=manager, nodes=list(names), refresh=refresh)
+    listed: dict[str, list[dict[str, Any]] | None] = {
+        o.name: [] for o in result.nodes if o.status == "ok"
+    }
+    for item in result.items:
+        rows = listed.get(str(item.get("node")))
+        if rows is not None:
+            rows.append(item)
+    return {name: listed.get(name) for name in names}

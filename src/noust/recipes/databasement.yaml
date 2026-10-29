@@ -1,0 +1,71 @@
+# Databasement: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/databasement
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: databasement
+kind: compose
+title: "Databasement"
+slogan: "Self-hosted database backup manager with a web UI."
+description: "Self-hosted database backup manager with a web UI. Schedule, backup, and restore MySQL, PostgreSQL, MariaDB, Microsoft SQL Server, MongoDB, SQLite, Firebird and Redis to S3, SFTP, Samba or local storage. SSH tunnel support."
+category: files
+tags: [backup, database, mysql, postgres, mongodb, files]
+logo: logo.svg
+version: "1.8.4"
+revision: 1
+updated: 2026-10-28
+homepage: https://david-crty.github.io/databasement/
+docs: https://david-crty.github.io/databasement/self-hosting/docker
+repository: https://github.com/David-Crty/databasement
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  APP_KEY:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for app key."
+  APP_URL:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  APP_DISPLAY_TIMEZONE:
+    default: "UTC"
+    description: "Setting APP_DISPLAY_TIMEZONE of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    databasement:
+      image: davidcrty/databasement:1.8.4@sha256:836fff382b161d5fd0ab8355bd8c75e372d1348b473399975d76b8b2195ab005
+      restart: unless-stopped
+      environment:
+        APP_KEY: ${APP_KEY}
+        APP_URL: ${APP_URL}
+        DB_CONNECTION: sqlite
+        DB_DATABASE: /data/database.sqlite
+        ENABLE_QUEUE_WORKER: 'true'
+        TRUSTED_PROXIES: '*'
+        LOG_CHANNEL: stderr
+        APP_DISPLAY_TIMEZONE: ${APP_DISPLAY_TIMEZONE}
+      volumes:
+        - databasement-data:/data
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - -f
+          - http://localhost:2226/health
+        interval: 30s
+        timeout: 10s
+        retries: 3
+        start_period: 60s
+      ports:
+        - 127.0.0.1:${PORT}:2226
+  volumes:
+    databasement-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume databasement-data of this application: back it up before updating."

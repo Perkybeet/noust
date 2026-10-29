@@ -18,6 +18,11 @@ server's own typed routes. The rules:
 - A setting the server has as the fleet's that the central no longer wants - it was removed, or the
   server was made independent - is **let go**: the server stops treating it as the fleet's and
   keeps it as its own. Nothing a setting put on a server is ever deleted from it.
+- A setting whose route cannot match anything on the server (:mod:`noust.fleet.settings.reach`) is
+  **held back**: nothing is pushed, so a credential does not reach a machine that could never use
+  it, and what the server already holds of it is left exactly as it is. When the route can match
+  again, the version decides as always. If the applications that decide it could not be read, it
+  is held back too, and says so.
 - What another central manages is not this one's to touch.
 """
 
@@ -42,9 +47,12 @@ class Step:
         name: The setting.
         action: ``apply`` (push it), ``keep`` (leave it) or ``release`` (let go of it).
         reason: Why: for ``apply`` ``new``, ``outdated`` or ``restore``; for ``keep``
-            ``in_sync`` or ``overridden``; for ``release`` ``removed`` or ``independent``.
+            ``in_sync``, ``overridden``, ``out_of_reach`` or ``reach_unknown``; for ``release``
+            ``removed`` or ``independent``.
         setting: What the server should have, for ``apply`` and ``keep``.
         row: What the server says it applied, when it did.
+        why: For ``out_of_reach``, what cannot match on the server: ``server``, ``domain`` or
+            ``tag`` (:data:`noust.fleet.settings.reach.REASONS`).
     """
 
     resource: str
@@ -53,6 +61,7 @@ class Step:
     reason: str
     setting: DesiredSetting | None = None
     row: Mapping[str, Any] | None = None
+    why: str | None = None
 
 
 def plan_node(
@@ -63,6 +72,8 @@ def plan_node(
     restore_all: bool = False,
     independent: bool = False,
     central: str | None = None,
+    out_of_reach: Mapping[tuple[str, str], str] | None = None,
+    reach_unknown: Collection[tuple[str, str]] = (),
 ) -> list[Step]:
     """
     Work out the steps for one server.
@@ -75,6 +86,10 @@ def plan_node(
         independent: The server follows none of it: everything it manages is let go.
         central: This central, as the server knows it; the rows of another central are ignored.
             All the rows when None.
+        out_of_reach: ``(kind, name)`` of the settings whose route cannot match anything on this
+            server, with what cannot (:func:`noust.fleet.settings.reach.explain`).
+        reach_unknown: ``(kind, name)`` of the settings whose reach depends on applications that
+            could not be read.
 
     Returns:
         The steps, by kind and name.
@@ -88,7 +103,12 @@ def plan_node(
     for setting in [] if independent else desired:
         key = (setting.resource, setting.name)
         row = rows.pop(key, None)
-        steps[key] = _step_for(setting, row, restore, restore_all)
+        if out_of_reach is not None and key in out_of_reach:
+            steps[key] = Step(*key, "keep", "out_of_reach", setting, row, why=out_of_reach[key])
+        elif key in reach_unknown:
+            steps[key] = Step(*key, "keep", "reach_unknown", setting, row)
+        else:
+            steps[key] = _step_for(setting, row, restore, restore_all)
     for key, row in rows.items():
         steps[key] = Step(
             key[0], key[1], "release", "independent" if independent else "removed", None, row

@@ -2605,11 +2605,13 @@ def revoke_own_fleet_token(
         )
     name = get_token_manager().revoke_api_token(int(session["token_id"]))
     # What the central managed stays here as this server's own; it only stops being managed.
+    from noust.fleet.central_calls import CentralCalls
     from noust.fleet.settings.managed import ManagedSettings
     from noust.web.api.databases.common import session_actor
     from noust.web.api.managed_settings import central_of
 
     ManagedSettings().release_all(central_of(session), actor=session_actor(session))
+    CentralCalls().forget(central_of(session))
 
     audit_event(
         "auth.token.revoke",

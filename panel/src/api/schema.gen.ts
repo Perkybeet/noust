@@ -7038,6 +7038,79 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/webserver/migrate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post App Migrate
+         * @description Queue the move of one application's site to the other web server.
+         *
+         *     Needs sudo mode. The same checks and the same put-back as moving every site; when the web
+         *     server it moves to is not running the move is refused (409 ``webserver_move``) with the
+         *     command that moves them all.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated, elevated session.
+         *         body: Where to, and what the operator agreed to.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ConfirmationRequired: The losses or the move are not agreed to yet.
+         *         WebserverMoveError: Something stops it.
+         */
+        post: operations["post_app_migrate_api_apps__domain__webserver_migrate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/webserver/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get App Plan
+         * @description Show what moving one application's site to the other web server would do. Changes nothing.
+         *
+         *     When the web server it would move to is not running, the plan is blocked and its blocker
+         *     names the command that moves every site together: ports 80 and 443 belong to one server.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *         to: The web server to move to; the other one than it is behind when left out.
+         *         text: Include the translated site in the answer.
+         *
+         *     Returns:
+         *         The plan.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: The application is behind that web server already.
+         */
+        get: operations["get_app_plan_api_apps__domain__webserver_plan_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/zero-downtime": {
         parameters: {
             query?: never;
@@ -13242,6 +13315,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/databases/databases/{engine}/{name}/adopt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Adopt Database Route
+         * @description Add one database an engine holds to Noust.
+         *
+         *     A database Noust does not manage is not a different kind of database: its ``noust_state``
+         *     is ``not_added`` and this is the action. From then on it is listed as Noust's, can be
+         *     linked to an application and is backed up with it.
+         *
+         *     Args:
+         *         engine: The engine, or the key of the server it runs on.
+         *         name: The database.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The database as it is now.
+         *
+         *     Raises:
+         *         DatabaseNotFoundError: 404 when the engine holds no such database.
+         *         DatabaseExistsError: 409 (``databases.already_added``) when Noust already manages it.
+         */
+        post: operations["adopt_database_route_api_databases_databases__engine___name__adopt_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/databases/databases/{engine}/{name}/connect": {
         parameters: {
             query?: never;
@@ -14798,8 +14907,8 @@ export interface paths {
          *         The queued job.
          *
          *     Raises:
-         *         ConfirmationRequired: An image, a command or arguments of the operator's own, without
-         *             ``accept_untested``.
+         *         ConfirmationRequired: A version without support, without ``unsupported_ok``; an image, a
+         *             command or arguments of the operator's own, without ``accept_untested``.
          */
         post: operations["create_instance_api_databases_instances_post"];
         delete?: never;
@@ -14819,11 +14928,19 @@ export interface paths {
          * Instance Catalog
          * @description List what Noust can run as an instance: each engine, and its versions with their digests.
          *
+         *     The versions whose project has stopped supporting them are in the list, marked
+         *     ``unsupported`` with their end-of-support date: making one needs ``unsupported_ok``.
+         *
          *     Args:
          *         session: The authenticated session.
+         *         engine: Only this engine (a flavour or an alias): what "another version" asks with once
+         *             the engine is chosen.
          *
          *     Returns:
          *         The engines, in the order the console offers them.
+         *
+         *     Raises:
+         *         ValidationError: 400 when Noust runs no such engine as a container; the hint lists them.
          */
         get: operations["instance_catalog_api_databases_instances_catalog_get"];
         put?: never;
@@ -16360,6 +16477,117 @@ export interface paths {
          */
         post: operations["show_token_api_databases_replicas__engine___name__token_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/servers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Servers
+         * @description List the database servers: the system's engines and the containers, in one list.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         engine: Only the servers of this engine: ``mysql`` is MySQL and MariaDB, ``mariadb``
+         *             only MariaDB.
+         *
+         *     Returns:
+         *         The servers with their default and their support, and what could not be read.
+         */
+        get: operations["list_servers_api_databases_servers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/servers/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Server
+         * @description Describe one database server.
+         *
+         *     Args:
+         *         key: Its key (``mysql``, ``mysql@legacy``).
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The server.
+         *
+         *     Raises:
+         *         DatabaseNotFoundError: 404 ``databaseerror`` with the code ``database_servers.unknown``
+         *             when no server has that key.
+         *         ValidationError: 400 when the key cannot be a server's.
+         */
+        get: operations["get_server_api_databases_servers__key__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/servers/{key}/default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Default Server
+         * @description Make a server the one new databases of its engine are made on.
+         *
+         *     The system's engine and the containers Noust runs can be it; an application's container
+         *     cannot, nor one still being made. The choice replaces the one before it and is audited.
+         *
+         *     Args:
+         *         key: The server's key.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The server, now the default of its engine.
+         *
+         *     Raises:
+         *         DatabaseNotFoundError: 404 when no server has that key.
+         *         ValidationError: 400 (``database_servers.default_app``,
+         *             ``database_servers.default_not_ready``) when it cannot be the default.
+         */
+        put: operations["set_default_server_api_databases_servers__key__default_put"];
+        post?: never;
+        /**
+         * Clear Default Server
+         * @description Take back the choice of a server as the default: its engine returns to the automatic one.
+         *
+         *     A server that was not the chosen one is left as it is.
+         *
+         *     Args:
+         *         key: The server's key.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The server as it is now.
+         *
+         *     Raises:
+         *         DatabaseNotFoundError: 404 when no server has that key.
+         */
+        delete: operations["clear_default_server_api_databases_servers__key__default_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -18896,9 +19124,9 @@ export interface paths {
          *
          *     Returns:
          *         ``servers`` (how each answered, its mode, whether a look is waiting), ``settings`` (each
-         *         with its fleet row, its exceptions and a cell per server: ``origin`` and ``sync``),
-         *         ``released`` (what a server still manages that the fleet no longer wants), and
-         *         ``partial``.
+         *         with its fleet row, its exceptions and a cell per server: ``origin``, ``sync`` and
+         *         ``reach``, whether a channel's route can match anything on that server), ``released``
+         *         (what a server still manages that the fleet no longer wants), and ``partial``.
          */
         get: operations["settings_status_api_fleet_settings_status_get"];
         put?: never;
@@ -19002,6 +19230,128 @@ export interface paths {
          *         NoustPermissionError: 403 without the permission of that kind.
          */
         delete: operations["remove_setting_api_fleet_settings__resource___name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sources Status
+         * @description Show what this central does so that its servers deploy from GitHub.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The App and whether GitHub can reach this central, each server's access to clone with, how
+         *         many events are in each state and how many deployments are followed.
+         */
+        get: operations["sources_status_api_fleet_sources_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/sources/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sources Deliveries
+         * @description List the events handed, or owed, to the servers.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         node: Only this server's.
+         *         state: Only in this state: ``pending``, ``delivered``, ``failed`` or ``expired``.
+         *         limit: Most events.
+         *
+         *     Returns:
+         *         The events, newest first, each with what the server queued and what is followed.
+         *
+         *     Raises:
+         *         ValidationError: 400 for a state nobody defined.
+         */
+        get: operations["sources_deliveries_api_fleet_sources_deliveries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/sources/deliveries/{forward_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry Delivery
+         * @description Hand an event over again that the central had given up on.
+         *
+         *     Args:
+         *         forward_id: The event.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The event, pending and due now; the worker hands it over within seconds.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such event; 409 when it is not one that was given up
+         *             on (one the server took is not sent twice).
+         */
+        post: operations["retry_delivery_api_fleet_sources_deliveries__forward_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/sources/leases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lease Again
+         * @description Look at the servers and lease what each needs, now.
+         *
+         *     Args:
+         *         body: The servers to look at, and whether to replace what is not due.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Each server after the look.
+         *
+         *     Raises:
+         *         HTTPException: 409 ``no_github_app`` when this central has no App to lease with.
+         *         ValidationError: 400 for repositories without the servers they are for, or a repository
+         *             that is not one.
+         */
+        post: operations["lease_again_api_fleet_sources_leases_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -21676,6 +22026,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/notifications/console-url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Console Url
+         * @description Read where the links of this server's notifications open.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The address, empty when none is set.
+         */
+        get: operations["get_console_url_api_notifications_console_url_get"];
+        /**
+         * Set Console Url
+         * @description Set where the links of this server's notifications open.
+         *
+         *     A central that manages this server sets it (``notifications.console_url``), through the
+         *     settings of the fleet; it can also be set by hand, and an empty address clears it.
+         *
+         *     Args:
+         *         body: The address.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The address as it is stored.
+         *
+         *     Raises:
+         *         ConfigError: 400 for an address that is not an absolute https one, naming the setting.
+         */
+        put: operations["set_console_url_api_notifications_console_url_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/notifications/deliveries": {
         parameters: {
             query?: never;
@@ -22312,14 +22705,17 @@ export interface paths {
          *         tag: One tag.
          *         kind: ``native`` or ``compose``.
          *         origin: Only the recipes from this source.
+         *         available: Whether the recipe installs.
+         *         unavailable_code: Only the listed recipes left out for this reason.
+         *         tested: Whether the recipe was started for real.
          *
          *     Returns:
          *         The matching recipes, with whether each is available and why not, and
          *         the files of the server's own recipes that could not be read.
          *
          *     Raises:
-         *         RecipeError: ``category``, ``kind`` or ``origin`` is not one of the
-         *             closed lists (400).
+         *         RecipeError: ``category``, ``kind``, ``origin`` or ``unavailable_code`` is not one
+         *             of the closed lists (400).
          */
         get: operations["get_recipes_api_recipes_get"];
         put?: never;
@@ -26832,6 +27228,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sources/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Forward Event
+         * @description Queue what an event of the central's code host asks for on this server.
+         *
+         *     Args:
+         *         body: The event.
+         *         session: The authenticated session; only a central's.
+         *
+         *     Returns:
+         *         What was queued, what declined and why, and what previews the pull request.
+         *
+         *     Raises:
+         *         HTTPException: 403 ``central_only`` for anyone but a central.
+         *         ValidationError: 400 naming the field of an event that is not exactly one.
+         */
+        post: operations["forward_event_api_sources_events_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sources/leases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Leases
+         * @description List the GitHub access centrals have leased to this server.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Each lease with when it ends, and the centrals that call this server.
+         */
+        get: operations["list_leases_api_sources_leases_get"];
+        /**
+         * Hold Lease
+         * @description Take a token a central leases to this server, replacing the lease of the same key.
+         *
+         *     Args:
+         *         body: The lease.
+         *         session: The authenticated session; only a central's.
+         *
+         *     Returns:
+         *         The lease, without its token.
+         *
+         *     Raises:
+         *         HTTPException: 403 ``central_only`` for anyone but a central.
+         *         ValidationError: 400 when it is not a lease this server will keep.
+         */
+        put: operations["hold_lease_api_sources_leases_put"];
+        post?: never;
+        /**
+         * Drop Leases
+         * @description Forget leases of the calling central, one or all.
+         *
+         *     Args:
+         *         session: The authenticated session; only a central's, and only its own leases.
+         *         key: Only this lease; every one of the central's when omitted.
+         *
+         *     Returns:
+         *         How many were forgotten.
+         *
+         *     Raises:
+         *         HTTPException: 403 ``central_only`` for anyone but a central.
+         */
+        delete: operations["drop_leases_api_sources_leases_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/streams": {
         parameters: {
             query?: never;
@@ -29425,6 +29907,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/views/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View Deliveries
+         * @description The record of deliveries of every server, newest first.
+         *
+         *     Each server delivers its own notifications and keeps its own record, so this is where to look
+         *     after an outage for whether a message reached the place it was meant for. ``counts`` is each
+         *     server's whole record by state. A server that does not let the operator read its settings
+         *     comes grouped in ``refusals``.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *         state: Only this state.
+         *         channel: Only this channel.
+         *         limit: Deliveries per server.
+         *
+         *     Returns:
+         *         One row per delivery, with its server and the page where it can be sent again, and the
+         *         counts of each server.
+         *
+         *     Raises:
+         *         ValidationError: 400 for a state that does not exist.
+         */
+        get: operations["view_deliveries_api_views_deliveries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/views/logs": {
         parameters: {
             query?: never;
@@ -29921,6 +30444,106 @@ export interface paths {
          *         UnsupportedHostError: The server is not Debian or Ubuntu.
          */
         post: operations["post_install_api_waf_install_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/webserver/migrate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Migrate
+         * @description Queue the move of sites to a web server.
+         *
+         *     Needs sudo mode. Without ``confirm`` the answer is the confirmation to ask the operator for,
+         *     and without ``accept_losses`` the list of what the new sites will not do; neither changes
+         *     anything. The job tests every translated site in the new server, takes over (ports 80 and 443
+         *     too, when it is not serving) and asks for every site through it; if one does not answer
+         *     everything is put back.
+         *
+         *     Args:
+         *         body: Where to, which sites, and what the operator agreed to.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         ConfirmationRequired: The losses or the move are not agreed to yet (400 with the warnings).
+         *         WebserverMoveError: Something stops it (409 ``webserver_move``).
+         *         ValidationError: Nothing to move, or neither sites nor ``all`` were given.
+         */
+        post: operations["post_migrate_api_webserver_migrate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/webserver/migration/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Migration Plan
+         * @description Show what moving sites to a web server would do. Changes nothing.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         to: The web server to move to.
+         *         domain: The sites to move; repeat the parameter for each.
+         *         all: Every application and site behind the other web server.
+         *         text: Include the translated site of each in the answer.
+         *
+         *     Returns:
+         *         The plan, from :func:`~noust.deployers.webserver_move_plan.plan_move`.
+         *
+         *     Raises:
+         *         ValidationError: Neither sites nor ``all`` were given, or both, or a site is unknown.
+         */
+        get: operations["get_migration_plan_api_webserver_migration_plan_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/webserver/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Status
+         * @description Show the web servers of this machine and what is behind each.
+         *
+         *     ``webserver`` is the one **new** applications are put behind; each application keeps the one
+         *     it was deployed behind. The server that is running holds ports 80 and 443.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The setting, the server that holds the ports and each server's state and counts.
+         */
+        get: operations["get_status_api_webserver_status_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -34267,14 +34890,33 @@ export interface components {
             digest: string;
             /** End Of Life */
             end_of_life?: string | null;
+            /**
+             * Support
+             * @default unknown
+             */
+            support: string;
             /** Tag */
             tag: string;
+            /**
+             * Unsupported
+             * @default false
+             */
+            unsupported: boolean;
             /** Version */
             version: string;
         };
         /**
          * CatalogVersionResponse
          * @description One version Noust offers: its tag, the digest pinned and when support ends.
+         *
+         *     Attributes:
+         *         support: Where the version stands in its project's support: ``supported``,
+         *             ``ending_soon``, ``ended`` or ``unknown`` (the project publishes no date).
+         *         unsupported: Making it needs ``unsupported_ok``: the project has stopped fixing
+         *             security problems, or is about to. Offered for the application that needs it, never
+         *             as the default.
+         *         platforms: The processors its image is published for (``amd64``, ``arm64``); MySQL 5.7
+         *             has an amd64 image only.
          */
         CatalogVersionResponse: {
             /** Default */
@@ -34283,6 +34925,18 @@ export interface components {
             digest: string;
             /** End Of Life */
             end_of_life?: string | null;
+            /** Platforms */
+            platforms?: string[];
+            /**
+             * Support
+             * @default unknown
+             */
+            support: string;
+            /**
+             * Unsupported
+             * @default false
+             */
+            unsupported: boolean;
             /** Version */
             version: string;
         };
@@ -34307,6 +34961,33 @@ export interface components {
             category: string;
             /** Count */
             count: number;
+        };
+        /**
+         * CentralCallOut
+         * @description One central that calls this server, and when it last did.
+         *
+         *     Attributes:
+         *         central: The central, as its fleet token names it.
+         *         first_call_at: When this server first noted a call of it.
+         *         last_call_at: When it last did (noted to the minute).
+         *         quiet_for_s: Seconds since then.
+         *         keeps_watch: It said it keeps watch (its monitor probes every server every half minute),
+         *             so this server expects to hear from it again and says so when it does not.
+         *         heartbeat_s: How often it said it calls, when it did.
+         */
+        CentralCallOut: {
+            /** Central */
+            central: string;
+            /** First Call At */
+            first_call_at: string;
+            /** Heartbeat S */
+            heartbeat_s?: number | null;
+            /** Keeps Watch */
+            keeps_watch: boolean;
+            /** Last Call At */
+            last_call_at: string;
+            /** Quiet For S */
+            quiet_for_s: number;
         };
         /**
          * CentralInfo
@@ -36361,6 +37042,22 @@ export interface components {
             url: string;
         };
         /**
+         * ConsoleUrlModel
+         * @description Where the links of this server's notifications open.
+         *
+         *     Attributes:
+         *         url: This server's address inside the console of the central that manages it,
+         *             ``https://<central>/n/<server>``; empty when none is set, and the links are built
+         *             from ``web.public_url``.
+         */
+        ConsoleUrlModel: {
+            /**
+             * Url
+             * @default
+             */
+            url: string;
+        };
+        /**
          * ConstraintResponse
          * @description One constraint.
          *
@@ -36809,6 +37506,11 @@ export interface components {
          *     is the interface's own contract.
          */
         CreateAppRequest: {
+            /**
+             * Accept Root Equivalent
+             * @default false
+             */
+            accept_root_equivalent: boolean;
             /**
              * App Type
              * @description Application type. Left on auto with a recipe
@@ -37775,8 +38477,16 @@ export interface components {
          *         project: The slug of its project.
          *         environment: The slug of its environment.
          *         tags: Its tags, sorted.
+         *         noust_state: What Noust knows of it, apart from where it runs: ``added`` (Noust manages
+         *             it), ``not_added`` (the engine holds it and Noust does not manage it), ``missing`` or
+         *             ``unverified`` (see ``missing`` and ``unverified``). ``engine`` is the key of the
+         *             server it runs on (``GET /api/databases/servers``).
+         *         actions: What can be done to it now: ``add_to_noust`` for one that is ``not_added``
+         *             (``POST .../databases/{engine}/{name}/adopt``).
          */
         DatabaseInfoResponse: {
+            /** Actions */
+            actions?: string[];
             /** App */
             app?: string | null;
             /** Apps */
@@ -37802,6 +38512,11 @@ export interface components {
             missing: boolean;
             /** Name */
             name: string;
+            /**
+             * Noust State
+             * @default added
+             */
+            noust_state: string;
             /** Owner */
             owner?: string | null;
             /** Project */
@@ -38172,6 +38887,38 @@ export interface components {
             queue_limit: number;
         };
         /**
+         * DeliveryCountsOut
+         * @description How many events are in each state.
+         *
+         *     Attributes:
+         *         pending: Waiting for their server.
+         *         delivered: Taken.
+         *         failed: Refused for good.
+         *         expired: Given up on after the server stayed away.
+         */
+        DeliveryCountsOut: {
+            /**
+             * Delivered
+             * @default 0
+             */
+            delivered: number;
+            /**
+             * Expired
+             * @default 0
+             */
+            expired: number;
+            /**
+             * Failed
+             * @default 0
+             */
+            failed: number;
+            /**
+             * Pending
+             * @default 0
+             */
+            pending: number;
+        };
+        /**
          * DeliveryListResponse
          * @description The record of deliveries.
          *
@@ -38242,6 +38989,63 @@ export interface components {
             subject: string;
             /** Updated At */
             updated_at: number;
+        };
+        /**
+         * DeliveryOut
+         * @description An event handed, or owed, to a server.
+         *
+         *     Attributes:
+         *         id: Its id.
+         *         delivery: GitHub's id for the delivery.
+         *         node: The server.
+         *         kind: ``push``, ``tag`` or ``pull_request``.
+         *         repository: ``owner/repo``.
+         *         ref: The branch or tag.
+         *         number: The pull request.
+         *         commit: The commit announced.
+         *         state: ``pending``, ``delivered``, ``failed`` or ``expired``.
+         *         attempts: How many times it was tried.
+         *         next_attempt_at: When it is tried next.
+         *         error: Why the last try did not work.
+         *         jobs: What the server queued for it (domain and job).
+         *         follows: What the central follows because of it.
+         *         created_at: When it was written down.
+         *         delivered_at: When the server took it.
+         */
+        DeliveryOut: {
+            /** Attempts */
+            attempts: number;
+            /** Commit */
+            commit?: string | null;
+            /** Created At */
+            created_at: string;
+            /** Delivered At */
+            delivered_at?: string | null;
+            /** Delivery */
+            delivery: string;
+            error?: components["schemas"]["ProblemOut"] | null;
+            /** Follows */
+            follows?: components["schemas"]["FollowOut"][];
+            /** Id */
+            id: string;
+            /** Jobs */
+            jobs?: {
+                [key: string]: unknown;
+            }[];
+            /** Kind */
+            kind: string;
+            /** Next Attempt At */
+            next_attempt_at?: string | null;
+            /** Node */
+            node: string;
+            /** Number */
+            number?: number | null;
+            /** Ref */
+            ref?: string | null;
+            /** Repository */
+            repository: string;
+            /** State */
+            state: string;
         };
         /**
          * DeployKeyCreateRequest
@@ -42368,6 +43172,56 @@ export interface components {
             resource: string;
         };
         /**
+         * FollowOut
+         * @description A deployment or a preview the central follows.
+         *
+         *     Attributes:
+         *         id: Its number.
+         *         node: The server it is on.
+         *         domain: The application.
+         *         kind: ``deployment`` or ``preview``.
+         *         repository: ``owner/repo``.
+         *         ref: The commit, branch or tag.
+         *         job_id: The server's job (a deployment).
+         *         number: The pull request (a preview).
+         *         action: What happened to the pull request.
+         *         last_state: What was last said on GitHub.
+         *         state: ``active``, ``done`` or ``lost``.
+         *         detail: How it ended.
+         *         created_at: When it began.
+         *         finished_at: When it ended.
+         */
+        FollowOut: {
+            /** Action */
+            action?: string | null;
+            /** Created At */
+            created_at: string;
+            /** Detail */
+            detail?: string | null;
+            /** Domain */
+            domain: string;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Id */
+            id: number;
+            /** Job Id */
+            job_id?: string | null;
+            /** Kind */
+            kind: string;
+            /** Last State */
+            last_state?: string | null;
+            /** Node */
+            node: string;
+            /** Number */
+            number?: number | null;
+            /** Ref */
+            ref?: string | null;
+            /** Repository */
+            repository: string;
+            /** State */
+            state: string;
+        };
+        /**
          * FollowTagsResponse
          * @description The tags an application deploys now.
          *
@@ -42474,6 +43328,123 @@ export interface components {
         ForwardAuthPresets: {
             /** Presets */
             presets: components["schemas"]["ForwardAuthPreset"][];
+        };
+        /**
+         * ForwardedEventIn
+         * @description An event a central forwards.
+         *
+         *     Attributes:
+         *         kind: ``push``, ``tag`` or ``pull_request``.
+         *         event: The event as :func:`noust.core.forge_events.event_to_dict` writes it.
+         *         delivery: The code host's id for the delivery, kept in the jobs' metadata and the
+         *             applications' delivery logs.
+         *         host: The GitHub host the repository is on, which decides which sources are it.
+         *         default_branch: The repository's default branch (a push only), which an application with
+         *             no branch of its own follows.
+         */
+        ForwardedEventIn: {
+            /** Default Branch */
+            default_branch?: string | null;
+            /** Delivery */
+            delivery?: string | null;
+            /** Event */
+            event: {
+                [key: string]: unknown;
+            };
+            /**
+             * Host
+             * @default github.com
+             */
+            host: string;
+            /** Kind */
+            kind: string;
+        };
+        /**
+         * ForwardedEventOut
+         * @description What this server did with the event.
+         *
+         *     Attributes:
+         *         status: ``queued`` when something was queued, ``ignored`` otherwise.
+         *         kind: The kind of event.
+         *         jobs: The updates queued by a push or a tag.
+         *         ignored: The applications that did not update, with why.
+         *         refused: How many updates the full queue refused (when some were queued anyway).
+         *         previews: The applications that preview a pull request.
+         *         job_ids: The jobs the previews queued.
+         */
+        ForwardedEventOut: {
+            /** Ignored */
+            ignored?: components["schemas"]["ForwardedIgnored"][];
+            /** Job Ids */
+            job_ids?: string[];
+            /** Jobs */
+            jobs?: components["schemas"]["ForwardedJob"][];
+            /** Kind */
+            kind: string;
+            /** Previews */
+            previews?: components["schemas"]["ForwardedPreview"][];
+            /**
+             * Refused
+             * @default 0
+             */
+            refused: number;
+            /** Status */
+            status: string;
+        };
+        /**
+         * ForwardedIgnored
+         * @description An application the event concerned and that did not update.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         reason: Why, in a word (``skip``, ``paths``, ``paused``, ``frozen``) or the sentence
+         *             of a tag it does not deploy.
+         *         detail: The sentence, when there is one.
+         */
+        ForwardedIgnored: {
+            /** Detail */
+            detail?: string | null;
+            /** Domain */
+            domain: string;
+            /** Reason */
+            reason: string;
+        };
+        /**
+         * ForwardedJob
+         * @description An update the event queued.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         job_id: The job, which the central follows.
+         *         merged: The update that waited already covers this push: the last push wins.
+         */
+        ForwardedJob: {
+            /** Domain */
+            domain: string;
+            /** Job Id */
+            job_id: string;
+            /**
+             * Merged
+             * @default false
+             */
+            merged: boolean;
+        };
+        /**
+         * ForwardedPreview
+         * @description An application that previews the pull request.
+         *
+         *     Attributes:
+         *         parent: The application previewed.
+         *         number: The pull request.
+         *         action: ``opened``, ``updated`` or ``closed``.
+         */
+        ForwardedPreview: {
+            /** Action */
+            action: string;
+            /** Number */
+            number: number;
+            /** Parent */
+            parent: string;
         };
         /**
          * FrameworkChange
@@ -42685,8 +43656,32 @@ export interface components {
             host?: string | null;
         };
         /**
+         * GitHubSourcesOut
+         * @description The GitHub this central serves its servers with.
+         *
+         *     Attributes:
+         *         configured: Whether this central has an App.
+         *         host: The GitHub host.
+         *         hooks_url: Where GitHub delivers, when this central has a public address for it.
+         *         warnings: What keeps it from working: GitHub has no address to deliver to.
+         */
+        GitHubSourcesOut: {
+            /** Configured */
+            configured: boolean;
+            /** Hooks Url */
+            hooks_url?: string | null;
+            /** Host */
+            host: string;
+            /** Warnings */
+            warnings?: components["schemas"]["SentenceOut"][];
+        };
+        /**
          * GitHubStatusOut
          * @description The GitHub integration of this server.
+         *
+         *     Attributes:
+         *         warnings: What keeps it from working for the servers a central manages: GitHub has no
+         *             address to deliver this central's pushes to.
          */
         GitHubStatusOut: {
             /** App Id */
@@ -42722,6 +43717,11 @@ export interface components {
             settings_url?: string | null;
             /** Slug */
             slug?: string | null;
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: components["schemas"]["SentenceOut"][];
         };
         /**
          * GitLabStatusOut
@@ -43930,8 +44930,10 @@ export interface components {
          *             them); the engine's own image when omitted.
          *         init_scripts: SQL scripts run, in name order, the first time the engine starts
          *             (PostgreSQL, MySQL and MariaDB; at most ten).
-         *         image: An image of your own instead of the catalog's, ``repository[:tag]@sha256:digest``.
-         *             The digest is mandatory (a tag can be moved after you looked) and ``version`` says
+         *         image: An image of your own instead of the catalog's: ``repository:tag`` (registry
+         *             included), which Noust pins by the digest the registry serves for the tag when it makes
+         *             the instance, or ``repository[:tag]@sha256:digest`` when you pin it yourself. A tag can
+         *             be moved after you looked; the instance runs the digest, never the tag. ``version`` says
          *             which version it is. Noust has not tested it; not with ``variant``.
          *         command: The container's whole command, instead of the engine's: a list of words, never
          *             a shell line. Noust adds nothing to it. Not with ``args``.
@@ -43940,6 +44942,10 @@ export interface components {
          *         accept_untested: The operator accepts that Noust has not tested an image, a command or
          *             arguments they chose. Without it, queueing one is a 400 ``confirmation_required``
          *             carrying what is accepted, and nothing is queued.
+         *         unsupported_ok: The operator accepts running a version whose project has stopped fixing
+         *             security problems, or is about to (``GET .../catalog`` says which: ``unsupported``).
+         *             Without it, queueing one is a 400 ``confirmation_required`` on this field carrying
+         *             the date, and nothing is queued.
          */
         InstanceRequest: {
             /**
@@ -43963,6 +44969,11 @@ export interface components {
             name: string;
             /** Port */
             port?: number | null;
+            /**
+             * Unsupported Ok
+             * @default false
+             */
+            unsupported_ok: boolean;
             /** Variant */
             variant?: string | null;
             /** Version */
@@ -45224,6 +46235,97 @@ export interface components {
             username: string;
         };
         /**
+         * LeaseAgainIn
+         * @description Lease again now.
+         *
+         *     Attributes:
+         *         nodes: Only these servers; all of them when omitted.
+         *         force: Replace the leases that are not due.
+         *         repositories: ``owner/repo`` these servers should be able to read although no application
+         *             of theirs deploys from them yet: the console asks before it creates the first one,
+         *             because an application is made by cloning its repository. Needs ``nodes``; kept in
+         *             the lease for half an hour.
+         */
+        LeaseAgainIn: {
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
+            /** Nodes */
+            nodes?: string[] | null;
+            /** Repositories */
+            repositories?: string[] | null;
+        };
+        /**
+         * LeaseIn
+         * @description A token a central leases to this server.
+         *
+         *     Attributes:
+         *         key: The central's name for this lease (host, installation and part); leasing the same
+         *             key again replaces it.
+         *         host: The GitHub host the token is for.
+         *         installation_id: The installation it was issued from.
+         *         repositories: ``owner/repo`` it reads.
+         *         token: The installation token. A secret: kept sealed, never answered back.
+         *         expires_in: Seconds it lives from now; at most two hours.
+         *         permissions: What it may do; only ``{"contents": "read"}`` is accepted.
+         */
+        LeaseIn: {
+            /** Expires In */
+            expires_in: number;
+            /** Host */
+            host: string;
+            /** Installation Id */
+            installation_id: number;
+            /** Key */
+            key: string;
+            /** Permissions */
+            permissions?: {
+                [key: string]: string;
+            } | null;
+            /** Repositories */
+            repositories: string[];
+            /** Token */
+            token: string;
+        };
+        /**
+         * LeasedAgainOut
+         * @description What leasing again came to.
+         *
+         *     Attributes:
+         *         nodes: Each server after the look.
+         */
+        LeasedAgainOut: {
+            /** Nodes */
+            nodes: components["schemas"]["NodeSourcesOut"][];
+        };
+        /**
+         * LeasesDroppedOut
+         * @description The answer to taking leases back.
+         *
+         *     Attributes:
+         *         dropped: How many were forgotten.
+         */
+        LeasesDroppedOut: {
+            /** Dropped */
+            dropped: number;
+        };
+        /**
+         * LeasesOut
+         * @description Every lease this server holds, and the centrals that call it.
+         *
+         *     Attributes:
+         *         items: The leases, by central and key.
+         *         centrals: The centrals that call this server and when each last did.
+         */
+        LeasesOut: {
+            /** Centrals */
+            centrals?: components["schemas"]["CentralCallOut"][];
+            /** Items */
+            items: components["schemas"]["noust__web__api__source_leases__LeaseOut"][];
+        };
+        /**
          * LiftedResponse
          * @description What lifting did.
          */
@@ -45914,8 +47016,11 @@ export interface components {
          *     Attributes:
          *         items: Them, by kind and name, after looking at what this server holds.
          *         kinds: The kinds of setting this server can be managed for.
+         *         centrals: The centrals that call this server, with when each last did.
          */
         ManagedSettingsOut: {
+            /** Centrals */
+            centrals?: components["schemas"]["CentralCallOut"][];
             /** Items */
             items: components["schemas"]["ManagedSettingOut"][];
             /** Kinds */
@@ -45994,6 +47099,11 @@ export interface components {
             post_url: string;
             /** State */
             state: string;
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: components["schemas"]["SentenceOut"][];
         };
         /**
          * ManifestRequest
@@ -47476,6 +48586,37 @@ export interface components {
             node?: components["schemas"]["NodeResponse"] | null;
             /** Step */
             step: string;
+        };
+        /**
+         * NodeSourcesOut
+         * @description Where one server stands on the access to clone with.
+         *
+         *     Attributes:
+         *         node: The server.
+         *         state: ``leased``, ``none`` (it deploys nothing from the App's repositories),
+         *             ``independent``, ``unsupported`` (an older Noust), ``ceiling`` (the server lets its
+         *             central only read), ``unreachable``, ``failed``, ``unknown`` (not looked at since the
+         *             console started and nothing recorded) or ``no_app``.
+         *         leases: Its leases.
+         *         uncovered: The repositories of its applications the App does not reach.
+         *         problems: Why, one for each.
+         *         error: Why the whole server could not be leased.
+         *         checked_at: When it was last looked at; null when the answer is what was recorded.
+         */
+        NodeSourcesOut: {
+            /** Checked At */
+            checked_at?: string | null;
+            error?: components["schemas"]["ProblemOut"] | null;
+            /** Leases */
+            leases?: components["schemas"]["noust__web__api__fleet_sources__LeaseOut"][];
+            /** Node */
+            node: string;
+            /** Problems */
+            problems?: components["schemas"]["ProblemOut"][];
+            /** State */
+            state: string;
+            /** Uncovered */
+            uncovered?: string[];
         };
         /**
          * NodeTeamRequest
@@ -49764,6 +50905,28 @@ export interface components {
             output: string;
         };
         /**
+         * ProblemOut
+         * @description Something that could not be done, and why.
+         *
+         *     Attributes:
+         *         text: The sentence in English.
+         *         hint: How to fix it.
+         *         coded: The same sentence as ``{code, params}``, for the console to translate.
+         *         output: The words of GitHub or of the server, verbatim; never a token.
+         */
+        ProblemOut: {
+            /** Coded */
+            coded: {
+                [key: string]: unknown;
+            };
+            /** Hint */
+            hint?: string | null;
+            /** Output */
+            output?: string | null;
+            /** Text */
+            text: string;
+        };
+        /**
          * ProcessChangeResponse
          * @description What changing a process did.
          */
@@ -51601,8 +52764,16 @@ export interface components {
          *         install_requirements: Install the language runtime and the database
          *             engines the recipe needs and the server lacks, instead of refusing.
          *             Packages installed as root: the server's permission and sudo mode.
+         *         accept_root_equivalent: Confirm a recipe that is root on the server by design (one that
+         *             controls Docker). Refused without it; with it the server's permission and sudo mode
+         *             are needed, and the stack's exception for the compose guard is recorded in your name.
          */
         RecipeInstallRequest: {
+            /**
+             * Accept Root Equivalent
+             * @default false
+             */
+            accept_root_equivalent: boolean;
             /** Database */
             database?: string | null;
             /**
@@ -51755,6 +52926,12 @@ export interface components {
             license?: string | null;
             /** Logo */
             logo?: string | null;
+            /** Logo Icon */
+            logo_icon?: string | null;
+            /** Logo License */
+            logo_license?: string | null;
+            /** Logo Source */
+            logo_source?: string | null;
             /** Min Noust */
             min_noust?: string | null;
             /** Name */
@@ -51781,6 +52958,8 @@ export interface components {
              * @default []
              */
             public_ports: components["schemas"]["RecipePublicPortOut"][];
+            /** Replaced By */
+            replaced_by?: string | null;
             /** Repository */
             repository?: string | null;
             /**
@@ -51793,6 +52972,16 @@ export interface components {
              * @default 1
              */
             revision: number;
+            /** Root Equivalent */
+            root_equivalent?: string | null;
+            /** Root Equivalent Hint */
+            root_equivalent_hint?: string | null;
+            /** Root Equivalent Text */
+            root_equivalent_text?: string | null;
+            /** Root Equivalent Warning */
+            root_equivalent_warning?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Runs In Docker
              * @default false
@@ -51814,10 +53003,24 @@ export interface components {
              * @default []
              */
             tags: string[];
+            /** Tested */
+            tested?: {
+                [key: string]: unknown;
+            } | null;
             /** Title */
             title: string;
+            /** Unavailable */
+            unavailable?: {
+                [key: string]: unknown;
+            } | null;
+            /** Unavailable Code */
+            unavailable_code?: string | null;
+            /** Unavailable Hint */
+            unavailable_hint?: string | null;
             /** Unavailable Reason */
             unavailable_reason?: string | null;
+            /** Unavailable Text */
+            unavailable_text?: string | null;
             /** Updated */
             updated?: string | null;
             /**
@@ -51915,13 +53118,32 @@ export interface components {
          *         category: One of the closed list (``GET /api/recipes/categories``).
          *         tags: Lower-case labels.
          *         logo: Where the logo is served, or None.
+         *         logo_source: ``simple-icons`` (the collection's mark, CC0) or ``asset`` (a file of the
+         *             recipe); None without a logo.
+         *         logo_icon: The simple-icons slug, when the logo is the collection's.
+         *         logo_license: The licence of the mark's file when it is the collection's.
          *         version: The version of the application the recipe pins.
          *         revision: The recipe's own revision of that version.
          *         updated: When the recipe last changed (ISO date).
          *         kind: ``native`` or ``compose``.
          *         runs_in_docker: Whether it runs in containers.
          *         available: Whether this release can deploy it.
-         *         unavailable_reason: Why not, when it cannot.
+         *         unavailable_reason: Why not, when it cannot: the evidence the recipe holds, in English.
+         *         unavailable_code: The reason as a code to filter by (``licence``, ``archived``...).
+         *         unavailable: The reason as a sentence of the server's, a ``code`` and its ``params``,
+         *             for the console to translate; None when it installs.
+         *         unavailable_text: That sentence in English.
+         *         unavailable_hint: What to do about it, in English.
+         *         replaced_by: The recipe that stands in for it, when there is one.
+         *         tested: Whether the recipe was started for real in the harness: the ``version`` that
+         *             was started, the ``date``, the ``seconds`` it took and whether that is the version
+         *             pinned now (``current``); None when no run is recorded.
+         *         root_equivalent: What makes it root on the server by design (``docker_socket``), or None.
+         *             Installing it needs ``accept_root_equivalent``, the server's permission and sudo mode.
+         *         root_equivalent_warning: The warning as a sentence of the server's, a ``code`` and its
+         *             ``params``, for the console to translate; None when it is not root on the server.
+         *         root_equivalent_text: That warning in English.
+         *         root_equivalent_hint: What to weigh before accepting it, in English.
          *         app_type: The deployer that builds it; None when unavailable.
          *         database: The SQL engine it is given, if any.
          *         database_choices: The SQL engines it can run on when the operator chooses at install
@@ -51975,6 +53197,12 @@ export interface components {
             license?: string | null;
             /** Logo */
             logo?: string | null;
+            /** Logo Icon */
+            logo_icon?: string | null;
+            /** Logo License */
+            logo_license?: string | null;
+            /** Logo Source */
+            logo_source?: string | null;
             /** Min Noust */
             min_noust?: string | null;
             /** Name */
@@ -51984,6 +53212,8 @@ export interface components {
              * @default shipped
              */
             origin: string;
+            /** Replaced By */
+            replaced_by?: string | null;
             /** Repository */
             repository?: string | null;
             /**
@@ -51996,6 +53226,16 @@ export interface components {
              * @default 1
              */
             revision: number;
+            /** Root Equivalent */
+            root_equivalent?: string | null;
+            /** Root Equivalent Hint */
+            root_equivalent_hint?: string | null;
+            /** Root Equivalent Text */
+            root_equivalent_text?: string | null;
+            /** Root Equivalent Warning */
+            root_equivalent_warning?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Runs In Docker
              * @default false
@@ -52016,10 +53256,24 @@ export interface components {
              * @default []
              */
             tags: string[];
+            /** Tested */
+            tested?: {
+                [key: string]: unknown;
+            } | null;
             /** Title */
             title: string;
+            /** Unavailable */
+            unavailable?: {
+                [key: string]: unknown;
+            } | null;
+            /** Unavailable Code */
+            unavailable_code?: string | null;
+            /** Unavailable Hint */
+            unavailable_hint?: string | null;
             /** Unavailable Reason */
             unavailable_reason?: string | null;
+            /** Unavailable Text */
+            unavailable_text?: string | null;
             /** Updated */
             updated?: string | null;
             /** Version */
@@ -55753,6 +57007,25 @@ export interface components {
             supported: boolean;
         };
         /**
+         * SentenceOut
+         * @description Something the operator should know, as a sentence with a code.
+         *
+         *     Attributes:
+         *         text: The sentence in English.
+         *         hint: How to fix it.
+         *         coded: The same sentence as ``{code, params}``, for the console to translate.
+         */
+        SentenceOut: {
+            /** Coded */
+            coded: {
+                [key: string]: unknown;
+            };
+            /** Hint */
+            hint?: string | null;
+            /** Text */
+            text: string;
+        };
+        /**
          * SeparationConflict
          * @description A person holding roles that should not go together.
          *
@@ -55836,6 +57109,116 @@ export interface components {
             fingerprint?: string | null;
             /** Public Key */
             public_key?: string | null;
+        };
+        /**
+         * ServerListResponse
+         * @description Every database server of this server.
+         *
+         *     Attributes:
+         *         servers: The servers: the system's engines, then the containers by key.
+         *         problems: What could not be asked (Docker not answering, an engine that refused Noust),
+         *             so a short list is never taken for a server with nothing in it.
+         */
+        ServerListResponse: {
+            /** Problems */
+            problems?: components["schemas"]["ListingProblemResponse"][];
+            /** Servers */
+            servers: components["schemas"]["ServerResponse"][];
+        };
+        /**
+         * ServerResponse
+         * @description One database server.
+         *
+         *     Attributes:
+         *         key: What it is addressed by wherever an engine is named (``mysql`` for the system's,
+         *             ``mysql@legacy`` for a container Noust runs, ``postgresql@shop.db`` for one an
+         *             application's stack runs). It is the ``engine`` of every database on it.
+         *         engine: The engine it speaks: ``postgresql``, ``mysql``, ``redis``, ``mongodb`` or
+         *             ``clickhouse``.
+         *         flavour: What it is: ``mariadb`` is an engine ``mysql``, ``valkey`` an engine ``redis``.
+         *         display_name: The flavour for a person.
+         *         version: Its version: what the engine reports for the system's, the tag it was made
+         *             with for a container Noust runs, null for an application's (its image says it).
+         *         runs_in: ``system``, ``noust_container`` (Noust starts, stops, upgrades and removes it)
+         *             or ``app_container`` (an application's stack does; it is listed and nothing more).
+         *         name: The instance's name for a container Noust runs (``legacy``); null for the others.
+         *             ``/api/databases/instances/{name}`` takes it.
+         *         state: ``running``, ``stopped``, ``creating``, ``upgrading``, ``removing``, or Docker's
+         *             own word for a container that exists and is not running.
+         *         running: It answers.
+         *         port: The port it listens on: 127.0.0.1's for a container Noust runs.
+         *         memory_limit_mb: A container Noust runs is held to this.
+         *         image: The image of a container; null for the system's.
+         *         digest: The digest a container Noust runs is pinned to.
+         *         custom_image: The image is the operator's own, not the catalog's.
+         *         app: The application whose stack runs it, for ``app_container``.
+         *         support: Where its version stands in its project's support: ``supported``,
+         *             ``ending_soon``, ``ended`` or ``unknown`` (no date is published).
+         *         end_of_life: When the support ends or ended; null when none is published.
+         *         created_at: When Noust made it (a container Noust runs).
+         *         databases: How many databases it holds that the caller may see; null when it is not
+         *             running or could not be read (``problems`` says why).
+         *         default: It is the server a new database of its engine is made on.
+         *         default_source: Why: ``chosen`` (an operator did), ``system`` (nobody chose and the
+         *             system has the engine), ``only`` (the one there is) or ``oldest``; null when it is
+         *             not the default.
+         *         actions: What can be done to it now: ``start``, ``stop``, ``set_default``,
+         *             ``clear_default`` (the choice can be taken back), ``other_version`` (make another
+         *             version of its engine in a container: ``GET .../instances/catalog?engine=...``),
+         *             ``upgrade`` and ``remove``. Empty for an application's container and for one being
+         *             made or removed.
+         */
+        ServerResponse: {
+            /** Actions */
+            actions?: string[];
+            /** App */
+            app?: string | null;
+            /** Created At */
+            created_at?: string | null;
+            /**
+             * Custom Image
+             * @default false
+             */
+            custom_image: boolean;
+            /** Databases */
+            databases?: number | null;
+            /**
+             * Default
+             * @default false
+             */
+            default: boolean;
+            /** Default Source */
+            default_source?: string | null;
+            /** Digest */
+            digest?: string | null;
+            /** Display Name */
+            display_name: string;
+            /** End Of Life */
+            end_of_life?: string | null;
+            /** Engine */
+            engine: string;
+            /** Flavour */
+            flavour: string;
+            /** Image */
+            image?: string | null;
+            /** Key */
+            key: string;
+            /** Memory Limit Mb */
+            memory_limit_mb?: number | null;
+            /** Name */
+            name?: string | null;
+            /** Port */
+            port?: number | null;
+            /** Running */
+            running: boolean;
+            /** Runs In */
+            runs_in: string;
+            /** State */
+            state: string;
+            /** Support */
+            support?: string | null;
+            /** Version */
+            version?: string | null;
         };
         /**
          * ServerRoleCreate
@@ -58111,6 +59494,24 @@ export interface components {
              * @default false
              */
             truncated: boolean;
+        };
+        /**
+         * SourcesOut
+         * @description What a central does so that its servers deploy from GitHub.
+         *
+         *     Attributes:
+         *         github: The App and whether GitHub can reach this central.
+         *         nodes: Each server's access to clone with.
+         *         deliveries: How many events are in each state.
+         *         following: How many deployments and previews are followed now.
+         */
+        SourcesOut: {
+            deliveries: components["schemas"]["DeliveryCountsOut"];
+            /** Following */
+            following: number;
+            github: components["schemas"]["GitHubSourcesOut"];
+            /** Nodes */
+            nodes: components["schemas"]["NodeSourcesOut"][];
         };
         /**
          * SparkFigure
@@ -62821,6 +64222,29 @@ export interface components {
             state: string;
         };
         /**
+         * WebserverAppMoveRequest
+         * @description Move one application's site to a web server.
+         *
+         *     Attributes:
+         *         to: The web server to move to; the other one than it is behind now when left out.
+         *         accept_losses: Go ahead although the new site will not do everything the old one did.
+         *         confirm: Go ahead with the move itself.
+         */
+        WebserverAppMoveRequest: {
+            /**
+             * Accept Losses
+             * @default false
+             */
+            accept_losses: boolean;
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+            /** To */
+            to?: ("nginx" | "apache") | null;
+        };
+        /**
          * WebserverConfig
          * @description Web server configuration.
          */
@@ -62830,6 +64254,151 @@ export interface components {
              * @description Web server to use (nginx or apache)
              */
             webserver: string;
+        };
+        /**
+         * WebserverFindingOut
+         * @description Something about the old site that the new one does not carry over as it was.
+         *
+         *     Attributes:
+         *         reason: ``unsupported``, ``protection``, ``included``, ``variable``, ``approximate``,
+         *             ``tuning`` or ``unreadable``.
+         *         severity: ``blocks`` (cannot move until it is fixed), ``loses`` (the new site will not do
+         *             something the old one did; needs ``accept_losses``) or ``notes`` (carried over in
+         *             another form, or a knob that changes no answer).
+         *         directive: The directive as the old web server names it.
+         *         line: Its line in the old file; None for the file as a whole.
+         *         protection: Whether what is lost was a protection (a login, a limit, a firewall).
+         *         code: The key of its sentence.
+         *         params: The values it is said with.
+         *         text: The sentence in English.
+         *         hint: How to fix it in English, when it has a fix.
+         */
+        WebserverFindingOut: {
+            /** Code */
+            code: string;
+            /** Directive */
+            directive: string;
+            /** Hint */
+            hint?: string | null;
+            /** Line */
+            line?: number | null;
+            /** Params */
+            params?: {
+                [key: string]: string | number | boolean;
+            };
+            /** Protection */
+            protection: boolean;
+            /** Reason */
+            reason: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "blocks" | "loses" | "notes";
+            /** Text */
+            text: string;
+        };
+        /**
+         * WebserverMovePlanOut
+         * @description What moving a set of sites to a web server would do.
+         *
+         *     Attributes:
+         *         source: The web server they are behind.
+         *         target: The one they would move to.
+         *         mode: ``live`` when the target is serving (each site moves on its own) or ``handover``
+         *             when it is not (the ports pass from one server to the other, for every site at once).
+         *         source_running: Whether the old server is running.
+         *         target_installed: Whether the new one is installed.
+         *         target_running: Whether the new one is running.
+         *         install_command: How to install the new one when it is not.
+         *         sites: What each site becomes.
+         *         blockers: What stops the move as a whole.
+         *         skipped: Sites asked for that are behind the target already.
+         *         left_behind: Sites of the old server that are not moving and would stop being served.
+         *         blocked: Whether anything stops the move, a site's or the whole's.
+         *         modules: The Apache modules the sites need.
+         *         losses: How many things the new sites will not do that the old ones did.
+         *         confirmation: What the operator agrees to by going ahead.
+         */
+        WebserverMovePlanOut: {
+            /** Blocked */
+            blocked: boolean;
+            /** Blockers */
+            blockers?: components["schemas"]["WebserverSentenceOut"][];
+            confirmation: components["schemas"]["WebserverSentenceOut"];
+            /**
+             * Install Command
+             * @default
+             */
+            install_command: string;
+            /** Left Behind */
+            left_behind?: string[];
+            /** Losses */
+            losses: number;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "live" | "handover";
+            /** Modules */
+            modules?: string[];
+            /** Sites */
+            sites: components["schemas"]["WebserverSitePlanOut"][];
+            /** Skipped */
+            skipped?: string[];
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "nginx" | "apache";
+            /** Source Running */
+            source_running: boolean;
+            /**
+             * Target
+             * @enum {string}
+             */
+            target: "nginx" | "apache";
+            /** Target Installed */
+            target_installed: boolean;
+            /** Target Running */
+            target_running: boolean;
+        };
+        /**
+         * WebserverMoveRequest
+         * @description Move sites to a web server.
+         *
+         *     Attributes:
+         *         to: The web server to move to.
+         *         domains: The sites to move; leave out and use ``all`` for every one behind the other.
+         *         all: Every application and site behind the other web server: what a handover moves.
+         *         accept_losses: Go ahead although the new sites will not do everything the old ones did
+         *             (the plan lists each thing).
+         *         confirm: Go ahead with the move itself. Without it the answer is the confirmation to
+         *             ask for, and nothing changes.
+         */
+        WebserverMoveRequest: {
+            /**
+             * Accept Losses
+             * @default false
+             */
+            accept_losses: boolean;
+            /**
+             * All
+             * @default false
+             */
+            all: boolean;
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+            /** Domains */
+            domains?: string[] | null;
+            /**
+             * To
+             * @enum {string}
+             */
+            to: "nginx" | "apache";
         };
         /**
          * WebserverResponse
@@ -62859,6 +64428,133 @@ export interface components {
             };
             /** Webserver */
             webserver: string;
+        };
+        /**
+         * WebserverSentenceOut
+         * @description A sentence of the server's, as a code and its values, with its English beside it.
+         *
+         *     Attributes:
+         *         code: The key of the sentence in ``serverText``, which the console translates.
+         *         params: The values it is said with.
+         *         text: The sentence in English.
+         *         hint: How to fix it in English, when it has a fix.
+         */
+        WebserverSentenceOut: {
+            /** Code */
+            code: string;
+            /** Hint */
+            hint?: string | null;
+            /** Params */
+            params?: {
+                [key: string]: string | number | boolean;
+            };
+            /** Text */
+            text: string;
+        };
+        /**
+         * WebserverServerOut
+         * @description One web server of the machine.
+         *
+         *     Attributes:
+         *         installed: Whether it is installed.
+         *         running: Whether it is running, which is what holds ports 80 and 443.
+         *         starts_at_boot: Whether it starts at boot.
+         *         version: Its version, when it could be read.
+         *         applications: How many applications are behind it.
+         *         sites: How many sites of no application are behind it.
+         */
+        WebserverServerOut: {
+            /** Applications */
+            applications: number;
+            /** Installed */
+            installed: boolean;
+            /** Running */
+            running: boolean;
+            /** Sites */
+            sites: number;
+            /** Starts At Boot */
+            starts_at_boot: boolean;
+            /** Version */
+            version?: string | null;
+        };
+        /**
+         * WebserverSitePlanOut
+         * @description One site, and what moving it would do.
+         *
+         *     Attributes:
+         *         domain: The application's domain, or the site's.
+         *         kind: ``app`` or ``site`` (one that belongs to no application).
+         *         source: The web server it is behind now.
+         *         target: The one it would move to.
+         *         source_path: Its file now.
+         *         target_path: Where its file would be.
+         *         operator_site: Whether the file now is the operator's, which is never rewritten.
+         *         keeps_operator_site: Whether the operator already wrote its equivalent, which is kept.
+         *         movable: Whether nothing stops it.
+         *         blockers: What stops it.
+         *         findings: What the new site does not carry over as it was.
+         *         modules: The Apache modules the new site needs.
+         *         text: The translated site, when asked for with ``text=true``.
+         */
+        WebserverSitePlanOut: {
+            /** Blockers */
+            blockers?: components["schemas"]["WebserverSentenceOut"][];
+            /** Domain */
+            domain: string;
+            /** Findings */
+            findings?: components["schemas"]["WebserverFindingOut"][];
+            /** Keeps Operator Site */
+            keeps_operator_site: boolean;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "app" | "site";
+            /** Modules */
+            modules?: string[];
+            /** Movable */
+            movable: boolean;
+            /** Operator Site */
+            operator_site: boolean;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "nginx" | "apache";
+            /** Source Path */
+            source_path: string;
+            /**
+             * Target
+             * @enum {string}
+             */
+            target: "nginx" | "apache";
+            /** Target Path */
+            target_path: string;
+            /** Text */
+            text?: string | null;
+        };
+        /**
+         * WebserverStatusOut
+         * @description The web servers of the machine.
+         *
+         *     Attributes:
+         *         webserver: The setting: the one new applications are put behind.
+         *         holds_ports: The one that is running (and so holds ports 80 and 443), None when both or
+         *             neither are.
+         *         servers: Each web server, by name.
+         */
+        WebserverStatusOut: {
+            /** Holds Ports */
+            holds_ports?: ("nginx" | "apache") | null;
+            /** Servers */
+            servers: {
+                [key: string]: components["schemas"]["WebserverServerOut"];
+            };
+            /**
+             * Webserver
+             * @enum {string}
+             */
+            webserver: "nginx" | "apache";
         };
         /**
          * WebserverUpdateResponse
@@ -63967,6 +65663,15 @@ export interface components {
          *         args: The arguments the operator adds, or empty.
          *         requires_confirmation: Making it needs ``accept_untested``: Noust has not tested what
          *             the operator chose.
+         *         unsupported: The version has no security support from its project, or is about to lose it.
+         *         requires_unsupported_ok: Making it needs ``unsupported_ok``.
+         *         support: ``supported``, ``ending_soon``, ``ended`` or ``unknown``.
+         *         end_of_life: When the support ends or ended; null when the project publishes no date.
+         *         unsupported_coded: The sentence the confirmation is made of, as a code and its values for
+         *             the console to translate (``database_servers.unsupported_ended`` or
+         *             ``database_servers.unsupported_ending``); null when none is needed.
+         *         digest_pending: The image was given by registry and tag: ``digest`` is empty and Noust
+         *             reads and pins it when the instance is made.
          */
         noust__web__api__databases__instances__PlanResponse: {
             /** Args */
@@ -63980,8 +65685,15 @@ export interface components {
             custom: boolean;
             /** Digest */
             digest: string;
+            /**
+             * Digest Pending
+             * @default false
+             */
+            digest_pending: boolean;
             /** Display Name */
             display_name: string;
+            /** End Of Life */
+            end_of_life?: string | null;
             /** Engine */
             engine: string;
             /** Flavour */
@@ -64005,8 +65717,21 @@ export interface components {
              * @default false
              */
             requires_confirmation: boolean;
+            /**
+             * Requires Unsupported Ok
+             * @default false
+             */
+            requires_unsupported_ok: boolean;
+            /** Support */
+            support?: string | null;
             /** Tag */
             tag?: string | null;
+            /**
+             * Unsupported
+             * @default false
+             */
+            unsupported: boolean;
+            unsupported_coded?: components["schemas"]["CodedText"] | null;
             /** Variant */
             variant?: string | null;
             /** Version */
@@ -64192,6 +65917,53 @@ export interface components {
         noust__web__api__fleet__ActionOut: {
             job?: components["schemas"]["JobAcceptedResponse"] | null;
             plan: components["schemas"]["FleetPlanOut"];
+        };
+        /**
+         * DeliveriesOut
+         * @description The events handed to the servers.
+         *
+         *     Attributes:
+         *         items: Them, newest first.
+         *         total: How many are listed.
+         *         counts: How many are in each state, all of them.
+         */
+        noust__web__api__fleet_sources__DeliveriesOut: {
+            counts: components["schemas"]["DeliveryCountsOut"];
+            /** Items */
+            items: components["schemas"]["DeliveryOut"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * LeaseOut
+         * @description One lease a server holds, or was meant to.
+         *
+         *     Attributes:
+         *         key: Its name on the server.
+         *         host: The GitHub host.
+         *         installation_id: The installation its token comes from.
+         *         repositories: What it lets the server read.
+         *         state: ``leased``, ``failed``, ``issued`` (made just now) or ``current``.
+         *         expires_at: When the server's token ends.
+         *         expires_in: Seconds left; 0 once it ended.
+         *         error: Why the last try failed.
+         */
+        noust__web__api__fleet_sources__LeaseOut: {
+            error?: components["schemas"]["ProblemOut"] | null;
+            /** Expires At */
+            expires_at?: string | null;
+            /** Expires In */
+            expires_in?: number | null;
+            /** Host */
+            host?: string | null;
+            /** Installation Id */
+            installation_id: number;
+            /** Key */
+            key: string;
+            /** Repositories */
+            repositories: string[];
+            /** State */
+            state: string;
         };
         /**
          * BranchListOut
@@ -64772,6 +66544,46 @@ export interface components {
             title: string;
         };
         /**
+         * LeaseOut
+         * @description A lease this server holds. Never the token.
+         *
+         *     Attributes:
+         *         central: The central that leased it.
+         *         key: Its name.
+         *         host: The GitHub host.
+         *         installation_id: The installation.
+         *         repositories: What it reads, sorted.
+         *         permissions: What it may do.
+         *         received_at: When it arrived.
+         *         expires_at: When it stops being used, on this server's clock.
+         *         expires_in: Seconds left; 0 once it ended.
+         *         ended: Whether it ended: a clone of its repositories fails until the central renews it.
+         */
+        noust__web__api__source_leases__LeaseOut: {
+            /** Central */
+            central: string;
+            /** Ended */
+            ended: boolean;
+            /** Expires At */
+            expires_at: string;
+            /** Expires In */
+            expires_in: number;
+            /** Host */
+            host: string;
+            /** Installation Id */
+            installation_id: number;
+            /** Key */
+            key: string;
+            /** Permissions */
+            permissions: {
+                [key: string]: string;
+            };
+            /** Received At */
+            received_at: string;
+            /** Repositories */
+            repositories: string[];
+        };
+        /**
          * UploadResponse
          * @description An upload in progress.
          */
@@ -64933,6 +66745,41 @@ export interface components {
             slug: string;
             /** Team */
             team: string;
+        };
+        /**
+         * DeliveriesOut
+         * @description The record of deliveries of every server.
+         *
+         *     Attributes:
+         *         counts: For each server that answered (this central's own name for itself), how many
+         *             deliveries its record has in each state (``sent``, ``failed``, ``retrying``,
+         *             ``held``), the whole of it and not only the part listed in ``items``.
+         */
+        noust__web__api__views__DeliveriesOut: {
+            /** Counts */
+            counts?: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
+            /** Fleet */
+            fleet: boolean;
+            /** Generated At */
+            generated_at: string;
+            /** Items */
+            items: {
+                [key: string]: unknown;
+            }[];
+            /** Nodes */
+            nodes: components["schemas"]["ViewNodeOut"][];
+            /** Partial */
+            partial: boolean;
+            /** Refusals */
+            refusals: components["schemas"]["RefusalGroupOut"][];
+            /** Resource */
+            resource: string;
+            /** Servers */
+            servers: components["schemas"]["ViewServerOut"][];
         };
         /**
          * PolicyDestination
@@ -73034,6 +74881,75 @@ export interface operations {
             };
         };
     };
+    post_app_migrate_api_apps__domain__webserver_migrate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["WebserverAppMoveRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_app_plan_api_apps__domain__webserver_plan_get: {
+        parameters: {
+            query?: {
+                to?: ("nginx" | "apache") | null;
+                text?: boolean;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebserverMovePlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_zero_downtime_api_apps__domain__zero_downtime_get: {
         parameters: {
             query?: never;
@@ -79488,6 +81404,38 @@ export interface operations {
             };
         };
     };
+    adopt_database_route_api_databases_databases__engine___name__adopt_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatabaseInfoResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_connect_api_databases_databases__engine___name__connect_get: {
         parameters: {
             query?: {
@@ -81348,7 +83296,10 @@ export interface operations {
     };
     instance_catalog_api_databases_instances_catalog_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only this engine: another version of one already chosen */
+                engine?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -81362,6 +83313,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["noust__web__api__databases__instances__CatalogResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -83012,6 +84972,131 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReplicaTokenResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_servers_api_databases_servers_get: {
+        parameters: {
+            query?: {
+                /** @description Only this engine (a flavour, an alias, or an engine's family) */
+                engine?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_server_api_databases_servers__key__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_default_server_api_databases_servers__key__default_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_default_server_api_databases_servers__key__default_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerResponse"];
                 };
             };
             /** @description Validation Error */
@@ -86026,6 +88111,125 @@ export interface operations {
             };
         };
     };
+    sources_status_api_fleet_sources_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourcesOut"];
+                };
+            };
+        };
+    };
+    sources_deliveries_api_fleet_sources_deliveries_get: {
+        parameters: {
+            query?: {
+                /** @description Only this server's */
+                node?: string | null;
+                /** @description Only in this state */
+                state?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__fleet_sources__DeliveriesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_delivery_api_fleet_sources_deliveries__forward_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                forward_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    lease_again_api_fleet_sources_leases_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaseAgainIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeasedAgainOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     fleet_summary_api_fleet_summary_get: {
         parameters: {
             query?: {
@@ -88723,6 +90927,59 @@ export interface operations {
             };
         };
     };
+    get_console_url_api_notifications_console_url_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleUrlModel"];
+                };
+            };
+        };
+    };
+    set_console_url_api_notifications_console_url_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsoleUrlModel"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleUrlModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_deliveries_api_notifications_deliveries_get: {
         parameters: {
             query?: {
@@ -89320,6 +91577,12 @@ export interface operations {
                 kind?: string | null;
                 /** @description shipped, catalog or operator: where the recipe comes from */
                 origin?: string | null;
+                /** @description true: only what installs; false: only what is listed and does not */
+                available?: boolean | null;
+                /** @description Only the listed recipes left out for this reason */
+                unavailable_code?: string | null;
+                /** @description true: only the recipes started for real; false: only the others */
+                tested?: boolean | null;
             };
             header?: never;
             path?: never;
@@ -94263,6 +96526,124 @@ export interface operations {
             };
         };
     };
+    forward_event_api_sources_events_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForwardedEventIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForwardedEventOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_leases_api_sources_leases_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeasesOut"];
+                };
+            };
+        };
+    };
+    hold_lease_api_sources_leases_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaseIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__source_leases__LeaseOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    drop_leases_api_sources_leases_delete: {
+        parameters: {
+            query?: {
+                /** @description Only this lease */
+                key?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeasesDroppedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_streams_api_streams_get: {
         parameters: {
             query?: never;
@@ -97279,6 +99660,46 @@ export interface operations {
             };
         };
     };
+    view_deliveries_api_views_deliveries_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself. Leave it out for every server */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+                /** @description Only deliveries in this state: sent, retrying, held or failed */
+                state?: string | null;
+                /** @description Only deliveries to this channel */
+                channel?: string | null;
+                /** @description Deliveries per server */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__views__DeliveriesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     view_logs_api_views_logs_get: {
         parameters: {
             query?: {
@@ -97899,6 +100320,93 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InstallResponse"];
+                };
+            };
+        };
+    };
+    post_migrate_api_webserver_migrate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebserverMoveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_migration_plan_api_webserver_migration_plan_get: {
+        parameters: {
+            query: {
+                to: "nginx" | "apache";
+                domain?: string[] | null;
+                all?: boolean;
+                text?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebserverMovePlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_status_api_webserver_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebserverStatusOut"];
                 };
             };
         };

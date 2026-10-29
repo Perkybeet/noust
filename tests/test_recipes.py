@@ -366,7 +366,7 @@ def test_an_unavailable_recipe_is_refused_with_its_reason(store: NoustStore) -> 
     with pytest.raises(RecipeError, match="not available") as failure:
         plan_recipe("vault", DOMAIN, port=None, ssl=True, logger=Logger(verbose=False))
 
-    assert "sealed" in failure.value.details
+    assert "Business Source License" in failure.value.details
 
 
 def test_finishing_links_the_database(store: NoustStore, provisioned: list[dict[str, Any]]) -> None:

@@ -19,7 +19,7 @@ slogan: "The open-source, self-hostable to-do app: tasks, projects, kanban and G
 description: "Organise tasks in lists, kanban boards, Gantt and table views, with teams, reminders, CalDAV and an API. Single container with a SQLite database. Registration is closed; the first account is created from the command line."
 category: productivity
 tags: [tasks, todo, kanban, projects]
-logo: logo.svg
+logo: simple-icons:vikunja
 version: "2.7.0"
 revision: 1
 updated: 2026-10-06

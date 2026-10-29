@@ -35,13 +35,16 @@ from noust.recipes.model import (
     GENERATORS,
     KINDS,
     LAYOUTS,
+    NAME_PATTERN,
     REQUIREMENT_ATTRIBUTES,
     REQUIREMENTS,
     RESERVED_VARIABLES,
+    ROOT_EQUIVALENT_KINDS,
     SCHEMA_VERSION,
     SECRET_GENERATORS,
     SOURCE_KINDS,
     SQL_REQUIREMENTS,
+    UNAVAILABLE_CODES,
     ChangelogEntry,
     Entrypoint,
     PublicPort,
@@ -145,7 +148,16 @@ _V2_NATIVE = frozenset(
         "database_choices",
     }
 )
-_V2_COMPOSE = frozenset({"compose", "files", "digest_verified", "public_ports", "entrypoints"})
+_V2_COMPOSE = frozenset(
+    {
+        "compose",
+        "files",
+        "digest_verified",
+        "public_ports",
+        "entrypoints",
+        "root_equivalent",
+    }
+)
 _ENTRYPOINT_KEYS = frozenset({"title", "description", "domain_variable", "port_variable"})
 #: The extra public addresses a recipe may have: each needs a DNS record and a place in the
 #: certificate, so a recipe that wants more is a different shape of application.
@@ -174,6 +186,8 @@ _V2_UNAVAILABLE = frozenset(
         "license",
         "available",
         "unavailable_reason",
+        "unavailable_code",
+        "replaced_by",
         "needs",
         "changelog",
     }
@@ -682,10 +696,9 @@ def _parse_metadata(
         raise recipe_error(name, "license must be an SPDX expression such as AGPL-3.0-only")
     logo = data.get("logo")
     if logo is not None:
-        from noust.recipes.assets import read_asset
-        from noust.recipes.logos import validate_svg
+        from noust.recipes.logos import check_logo
 
-        validate_svg(name, read_asset(name, checked_asset(name, logo)))
+        logo = check_logo(name, logo)
     return {
         "title": _string(name, data, "title"),
         "slogan": slogan,
@@ -708,6 +721,46 @@ def _parse_metadata(
         "changelog": _parse_changelog(name, data.get("changelog")),
         "notes": () if listed_only else _parse_notes(name, data.get("notes")),
     }
+
+
+def _parse_unavailable_code(name: str, raw: Any) -> str:
+    """
+    Read why a listed recipe cannot be installed, as a code.
+
+    Args:
+        name: The recipe.
+        raw: The ``unavailable_code`` value.
+
+    Returns:
+        The code.
+
+    Raises:
+        RecipeError: It is not one of :data:`~noust.recipes.model.UNAVAILABLE_CODES`.
+    """
+    if raw not in UNAVAILABLE_CODES:
+        raise recipe_error(name, f"unavailable_code must be one of {', '.join(UNAVAILABLE_CODES)}")
+    return str(raw)
+
+
+def _parse_replaced_by(name: str, raw: Any) -> str | None:
+    """
+    Read the recipe that stands in for a listed one.
+
+    Args:
+        name: The recipe.
+        raw: The ``replaced_by`` value, or None.
+
+    Returns:
+        The other recipe's name, or None.
+
+    Raises:
+        RecipeError: It is not a recipe name.
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, str) or not NAME_PATTERN.fullmatch(raw):
+        raise recipe_error(name, "replaced_by must be the name of another recipe")
+    return raw
 
 
 def _parse_min_noust(name: str, raw: Any) -> str | None:
@@ -1422,10 +1475,13 @@ def _parse_v2(name: str, data: dict[str, Any]) -> Recipe:
             kind=kind,
             available=False,
             unavailable_reason=_string(name, data, "unavailable_reason"),
+            unavailable_code=_parse_unavailable_code(name, data.get("unavailable_code")),
+            replaced_by=_parse_replaced_by(name, data.get("replaced_by")),
             **_parse_metadata(name, data, listed_only=True),
         )
-    if "unavailable_reason" in data:
-        raise recipe_error(name, "unavailable_reason is only for an unavailable recipe")
+    for key in ("unavailable_reason", "unavailable_code", "replaced_by"):
+        if key in data:
+            raise recipe_error(name, f"{key} is only for an unavailable recipe")
 
     allowed = _V2_COMMON | (_V2_NATIVE if kind == "native" else _V2_COMPOSE)
     unknown = set(data) - allowed
@@ -1435,7 +1491,9 @@ def _parse_v2(name: str, data: dict[str, Any]) -> Recipe:
         raise recipe_error(name, "name must be the file's name")
     metadata = _parse_metadata(name, data)
     if metadata["logo"] is None:
-        raise recipe_error(name, "logo is required: an SVG under assets/<recipe>/")
+        raise recipe_error(
+            name, "logo is required: an SVG under assets/<recipe>/ or simple-icons:<slug>"
+        )
     metadata["min_noust"] = _parse_min_noust(name, data.get("min_noust"))
     metadata["architectures"] = _parse_architectures(name, kind, data.get("architectures"))
     requires = _parse_requires(name, kind, data.get("requires"))
@@ -1447,6 +1505,11 @@ def _parse_v2(name: str, data: dict[str, Any]) -> Recipe:
         if not isinstance(digest_verified, bool):
             raise recipe_error(name, "digest_verified must be true or false")
         public_ports = _parse_public_ports(name, data.get("public_ports"))
+        root_equivalent = data.get("root_equivalent")
+        if root_equivalent is not None and root_equivalent not in ROOT_EQUIVALENT_KINDS:
+            raise recipe_error(
+                name, f"root_equivalent must be one of {', '.join(ROOT_EQUIVALENT_KINDS)}"
+            )
         declared_names = _declared_names(name, data.get("variables"))
         files, rendered_files, file_modes, file_uses = _parse_files(
             name, data.get("files"), declared_names, kind="compose"
@@ -1458,6 +1521,7 @@ def _parse_v2(name: str, data: dict[str, Any]) -> Recipe:
             public_ports=public_ports,
             files=files,
             declared=declared_names,
+            root_equivalent=root_equivalent,
         )
         variables = _parse_variables(name, data.get("variables"), requires, info, file_uses)
         _check_host_variables(name, variables, info)
@@ -1480,6 +1544,7 @@ def _parse_v2(name: str, data: dict[str, Any]) -> Recipe:
             digest_verified=digest_verified,
             public_ports=public_ports,
             entrypoints=entrypoints,
+            root_equivalent=root_equivalent,
             **metadata,
         )
 

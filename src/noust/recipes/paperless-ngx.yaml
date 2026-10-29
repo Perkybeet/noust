@@ -20,7 +20,7 @@ slogan: A document management system that scans, indexes and archives your paper
 description: Turn scans and PDFs into a searchable archive with OCR, tags, correspondents, document types and full-text search. Runs with its own PostgreSQL and Valkey. Needs about 2 GB of memory while it reads a document.
 category: files
 tags: [documents, ocr, archive, scanner]
-logo: logo.svg
+logo: simple-icons:paperlessngx
 version: "3.3.0"
 revision: 1
 updated: 2026-10-06

@@ -16,7 +16,7 @@ slogan: Send push notifications to your phone or desktop with a plain HTTP call.
 description: "A simple pub-sub notification service: publish with PUT or POST from any script, subscribe from the Android, iOS or web app. Access is closed by default."
 category: communication
 tags: [notifications, push, pubsub, alerts]
-logo: logo.svg
+logo: simple-icons:ntfy
 version: "2.28.0"
 revision: 1
 updated: 2026-10-06

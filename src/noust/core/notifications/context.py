@@ -12,9 +12,11 @@ when unset) and the base of the links (``web.public_url``).
 
 On a fleet each node notifies from its own process, so ``server.name`` must be
 set on the node and the message says which server it is about. A node's
-console is normally reachable only through the central's tunnel; setting the
-node's ``web.public_url`` to ``https://<central>/n/<node>`` (the console
-accepts that form) makes every link in its messages open the right page.
+console is normally reachable only through the central's tunnel, so a central
+that manages the node sets ``notifications.console_url`` on it to the node's
+address inside the central's console (``https://<central>/n/<node>``), and every
+link in its messages opens the right page there. Setting the node's
+``web.public_url`` to that form by hand did the same and still works.
 """
 
 from __future__ import annotations
@@ -88,16 +90,21 @@ class NotificationContext:
         server: The name of the server that raised the event.
         public_url: The console's public base URL without a trailing slash,
             or empty when it has none (then a message carries no link).
+        console_url: Where this server's pages are inside the console of the
+            central that manages it, ``https://<central>/n/<server>`` without a
+            trailing slash; empty when no central set it. It wins over
+            ``public_url`` for a link to a page.
     """
 
     locale: Locale = DEFAULT_LOCALE
     server: str = "server"
     public_url: str = ""
+    console_url: str = ""
 
     @classmethod
     def from_config(cls, config: Any) -> NotificationContext:
         """
-        Read the three values from a configuration.
+        Read the values from a configuration.
 
         Args:
             config: The shared configuration or a snapshot of it.
@@ -109,6 +116,7 @@ class NotificationContext:
             locale=normalize_locale(config.get("notifications.language")),
             server=server_name(config),
             public_url=str(config.get("web.public_url", "") or "").rstrip("/"),
+            console_url=str(config.get("notifications.console_url", "") or "").rstrip("/"),
         )
 
     def output_link(self, path: str) -> Link | None:
@@ -145,6 +153,15 @@ class NotificationContext:
         Returns:
             The console link, or None when no public URL is configured.
         """
+        if self.console_url and node is None:
+            # This server's page, inside the central's console. Every page goes under the
+            # server, also one that is the central's own: the console reads that address as the
+            # central's page and remembers the server, so no list of such pages is kept here.
+            return Link(
+                rel="console",
+                label=message("ui.open_console", self.locale),
+                url=f"{self.console_url}{quote(path, safe='/-._~')}",
+            )
         if not self.public_url:
             return None
         prefix = ""

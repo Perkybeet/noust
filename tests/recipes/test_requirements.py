@@ -169,6 +169,7 @@ class TestLookingAtWhatIsThere:
                 "homepage": "https://example.com",
                 "available": False,
                 "unavailable_reason": "No image.",
+                "unavailable_code": "no_image",
             },
         )
 

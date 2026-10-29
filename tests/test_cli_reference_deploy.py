@@ -62,7 +62,7 @@ def test_the_cli_reference_has_a_section_for_each_deploy_verb(verb: str) -> None
 def test_the_cli_reference_has_a_section_for_deploy_itself() -> None:
     text = generate_reference.cli_page()
 
-    assert "### noust deploy\n" in text
+    assert "## noust deploy\n" in text
     assert "(#noust-deploy-queue)" in text
 
 

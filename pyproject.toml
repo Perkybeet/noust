@@ -129,6 +129,8 @@ noust = [
     # Recipes (2.3): the recipe files, and the files they write into an
     # application (wp-config.php, n8n's package.json).
     "recipes/*.yaml",
+    # Which recipes were started for real (scripts/recipe_tested.py writes it).
+    "recipes/tested.json",
     "recipes/assets/**/*",
     # Committed, not generated: see src/noust/completions/README.md.
     "completions/*",

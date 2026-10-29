@@ -98,6 +98,79 @@ CATALOG: dict[str, str] = {
         "Ask a security officer of each of them for an account with a role that holds it, "
         "or have that permission added to your role there."
     ),
+    # -- The recipe catalogue: why a recipe is listed and cannot be installed ---------------
+    "recipes.unavailable.licence": "Its licence does not let an operator run it for others",
+    "recipes.unavailable.licence.hint": (
+        "If you hold a licence that does, deploy it from its own repository with 'noust create'."
+    ),
+    "recipes.unavailable.not_for_production": (
+        "Its own project says this edition is not for production"
+    ),
+    "recipes.unavailable.not_for_production.hint": (
+        "Use the edition the project supports for production, deployed from its repository."
+    ),
+    "recipes.unavailable.no_image": "The project publishes no container image that could be pinned",
+    "recipes.unavailable.no_image.hint": (
+        "Deploy it from the project's repository with 'noust create', or add a Dockerfile of your "
+        "own."
+    ),
+    "recipes.unavailable.not_an_application": (
+        "It is a framework to build an application with, not an application to install"
+    ),
+    "recipes.unavailable.not_an_application.hint": (
+        "Deploy your own project from its repository with 'noust create'."
+    ),
+    "recipes.unavailable.host_ports": (
+        "It needs ports that the server's web server and mail already hold"
+    ),
+    "recipes.unavailable.host_ports.hint": "Run it on a server of its own.",
+    "recipes.unavailable.archived": "The project is archived and no longer maintained",
+    "recipes.unavailable.archived.hint": (
+        "Use the recipe that replaces it, when the catalogue names one."
+    ),
+    "recipes.unavailable.platform_stack": (
+        "It is a platform of dozens of services with a proxy of its own"
+    ),
+    "recipes.unavailable.platform_stack.hint": (
+        "Run it on a server of its own with the project's installer."
+    ),
+    "recipes.unavailable.no_sign_in": (
+        "Its web interface has no sign-in of its own and holds the keys it works with"
+    ),
+    "recipes.unavailable.no_sign_in.hint": (
+        "Reach it through an SSH tunnel to the server, as its project documents, never through a "
+        "public address."
+    ),
+    "recipes.unavailable.root_equivalent": (
+        "It controls the server's Docker daemon, which is the same as root on the server"
+    ),
+    "recipes.unavailable.root_equivalent.hint": (
+        "Deploy it yourself with 'noust create' if you accept that, on a server that is yours."
+    ),
+    # -- The recipe catalogue: what is root on the server by design ---------------------------
+    "recipes.root_equivalent.docker_socket": (
+        "{title} controls the Docker daemon of this server, which is the same as having root on it"
+    ),
+    "recipes.root_equivalent.docker_socket.hint": (
+        "It can start any container with any part of the server mounted, Noust's applications "
+        "and their data included. Install it only if you would give this application root on the "
+        "server."
+    ),
+    "recipes.root_equivalent.agent": (
+        "{title} is an AI agent that runs commands, and whoever can operate it can make it do "
+        "anything it can do: access to it is the same as access to a shell"
+    ),
+    "recipes.root_equivalent.agent.hint": (
+        "Its own security policy says it is not a boundary between users. Give its sign-in only "
+        "to people you would give a shell on this server, and give it no model key or account "
+        "you would not hand to them."
+    ),
+    "recipes.root_equivalent.confirm_required": (
+        "{title} is root on this server, and installing it needs your confirmation"
+    ),
+    "recipes.root_equivalent.confirm_required.hint": (
+        "If you accept that, confirm it and install again: {command}"
+    ),
     # -- Mail an account is sent (an invitation, a password reset) -------------------------
     "mail.no_transport": "There is no way to send mail from this server",
     "mail.no_transport.hint": (
@@ -319,8 +392,12 @@ CATALOG: dict[str, str] = {
     "fleet_settings.sync_route": "A push of the fleet's settings cannot {method} {path}",
     "fleet_settings.sync_route.hint": (
         "It may only write the settings the fleet manages: channels, alert rules, backup "
-        "destinations, registry logins and shared variables."
+        "destinations, registry logins, shared variables and the address of the central's console."
     ),
+    "fleet_settings.single_name": "There is one {kind} for the fleet and it is called {name}",
+    "fleet_settings.single_name.hint": "Set it as {name}.",
+    "fleet_settings.field_not_text": "The {field} of a {kind} must be text",
+    "fleet_settings.field_not_text.hint": "Send it as a string, such as https://central.example.com.",
     "fleet_settings.sync_required": (
         "Only the central that manages this server can record a setting as the fleet's"
     ),
@@ -348,6 +425,188 @@ CATALOG: dict[str, str] = {
     "fleet_settings.no_such_setting.hint": "List what it has with: GET /api/fleet/settings",
     "fleet_settings.bad_mode": "{mode} is not a way a server can follow the fleet's settings",
     "fleet_settings.bad_mode.hint": "Use 'managed' to follow them, or 'independent' to be left out.",
+    # -- Where a channel of the fleet can be heard (noust.fleet.settings.reach) --------------
+    "fleet_settings.route_invalid": "The route of this channel is not valid: {problem}",
+    "fleet_settings.route_invalid.hint": (
+        "A fleet route takes apps (domains, with * and ?), tags, min_severity, server_events "
+        "and servers (names and patterns of this central's servers)."
+    ),
+    "fleet_settings.route_local": "A channel of the fleet cannot be routed by {list}",
+    "fleet_settings.route_local.hint": (
+        "Projects and environments are each server's own. Route by domain, tag, severity, event "
+        "or server, or make a team's channel on the server that has the project."
+    ),
+    "fleet_settings.out_of_reach.server": (
+        "The route of the {kind} {name} does not name this server, so it is not sent here"
+    ),
+    "fleet_settings.out_of_reach.server.hint": (
+        "Add this server to the servers of the route, or take the list away, to send it here."
+    ),
+    "fleet_settings.out_of_reach.domain": (
+        "The route of the {kind} {name} names domains that no application of this server has, "
+        "so it is not sent here"
+    ),
+    "fleet_settings.out_of_reach.domain.hint": (
+        "It is sent here once an application of this server has a domain the route names: "
+        "apply again after deploying it."
+    ),
+    "fleet_settings.out_of_reach.tag": (
+        "The route of the {kind} {name} names tags that no application of this server carries, "
+        "so it is not sent here"
+    ),
+    "fleet_settings.out_of_reach.tag.hint": (
+        "It is sent here once an application of this server carries a tag the route names "
+        "(together with a domain it names, when the route has both): apply again after tagging it."
+    ),
+    "fleet_settings.reach_unknown": (
+        "The applications of this server could not be read, so it is not known whether the "
+        "{kind} {name} can match anything on it"
+    ),
+    "fleet_settings.reach_unknown.hint": (
+        "Nothing was sent. Apply again when the server answers its applications."
+    ),
+    # -- Database servers: versions without support (4.1, item 103) -----------------------
+    # One sentence for a version whose project has stopped fixing security problems, one for a
+    # version that is about to; both are confirmed with unsupported_ok.
+    "database_servers.unsupported_ended": (
+        "{name} {version} has had no security fixes since {end_of_life}"
+    ),
+    "database_servers.unsupported_ended.hint": (
+        "Run it only for an application that needs it, and leave it off the internet. To go "
+        "ahead, confirm that you accept running it: unsupported_ok in the API, "
+        "--accept-unsupported on the command line."
+    ),
+    "database_servers.unsupported_ending": (
+        "{name} {version} stops getting security fixes on {end_of_life}"
+    ),
+    "database_servers.unsupported_ending.hint": (
+        "A server made today would run for a long time without them. To go ahead, confirm that "
+        "you accept it: unsupported_ok in the API, --accept-unsupported on the command line."
+    ),
+    # -- Database servers: the list, and the default of an engine (4.1, item 103) --------------
+    "database_servers.unknown": "There is no database server {key}",
+    "database_servers.unknown.hint": "List them with: {command}",
+    "database_servers.default_app": (
+        "{key} is the database of an application's stack, so it cannot be the default"
+    ),
+    "database_servers.default_app.hint": (
+        "A default is the system's engine or an instance Noust runs. Make one with: {command}"
+    ),
+    "database_servers.default_not_ready": "{key} is {state}, so it cannot be the default yet",
+    "database_servers.default_not_ready.hint": "Wait for it to finish, then choose it again.",
+    # -- Moving a site to the other web server: what the new site does not carry over (4.1, 105) --
+    "webserver_move.unreadable": "{source} would not read this site: {problem} (line {line})",
+    "webserver_move.unreadable.hint": (
+        "Fix the site where it is, with the editor of its page, then plan the move again."
+    ),
+    "webserver_move.unsupported": "{directive} (line {line}) has no equivalent in {target}",
+    "webserver_move.unsupported.hint": (
+        "The new site will not do what that line did. Check the site after the move, or leave "
+        "the application where it is."
+    ),
+    "webserver_move.protection": (
+        "{directive} (line {line}) protects the site, and {target} has nothing equivalent"
+    ),
+    "webserver_move.protection.hint": (
+        "The new site would not be protected that way. Put another protection in front of it "
+        "first, or leave the application where it is."
+    ),
+    "webserver_move.included": "Line {line} includes {path}, which is not carried over",
+    "webserver_move.included.hint": (
+        "The translation does not read the files a site includes. Copy what that file holds "
+        "into the new site by hand, or leave the application where it is."
+    ),
+    "webserver_move.variable": "{directive} (line {line}) reads {variable}, which {target} cannot give",
+    "webserver_move.variable.hint": (
+        "The new site would send something else in its place. Check it after the move, or leave "
+        "the application where it is."
+    ),
+    "webserver_move.approximate": "{directive} (line {line}) is carried over as {result}",
+    "webserver_move.tuning": "{directive} (line {line}) tunes {source} and is left out",
+    # -- Moving a site to the other web server: what stops the move, and what it needs (4.1, 105) --
+    "webserver_move.target_missing": "{target} is not installed on this server",
+    "webserver_move.target_missing.hint": "Install it first, then plan the move again: {command}",
+    "webserver_move.unknown": "{domain} is neither an application nor a site behind {source}",
+    "webserver_move.unknown.hint": "See what is behind each web server with: {command}",
+    "webserver_move.operator_site": "The site of {domain} is yours, not Noust's ({path})",
+    "webserver_move.operator_site.hint": (
+        "Noust never rewrites a site you wrote. Write its equivalent for {target} at "
+        "{target_path} yourself, then plan the move again: both files are left as they are and "
+        "only the application moves."
+    ),
+    "webserver_move.no_site": "{domain} has no site file on {source}",
+    "webserver_move.no_site.hint": (
+        "There is nothing to translate. Deploy the application again so that it gets a site, "
+        "then plan the move again."
+    ),
+    "webserver_move.compose_only": "{domain} is a Docker Compose application, and those are served by nginx only",
+    "webserver_move.compose_only.hint": "Leave it behind nginx.",
+    "webserver_move.console_site": (
+        "{domain} is the public name of the console, which Noust sets up behind nginx only"
+    ),
+    "webserver_move.console_site.hint": (
+        "Take it off first with {command}, or leave the web server as it is."
+    ),
+    "webserver_move.status_site": (
+        "{domain} is the public name of the status page, which Noust sets up behind nginx only"
+    ),
+    "webserver_move.status_site.hint": (
+        "Take it off first with {command}, or leave the web server as it is."
+    ),
+    "webserver_move.zero_downtime": "{domain} runs in zero-downtime mode, which only nginx supports",
+    "webserver_move.zero_downtime.hint": "Turn the mode off first, then plan the move again: {command}",
+    "webserver_move.partial_handover": (
+        "{target} is not serving: moving {count} of the {total} sites would leave the others "
+        "without a web server"
+    ),
+    "webserver_move.partial_handover.hint": (
+        "Ports 80 and 443 belong to one web server at a time. Move every site together: {command}"
+    ),
+    "webserver_move.left_behind": "{name} is a site of {source} that Noust cannot move",
+    "webserver_move.left_behind.hint": (
+        "{source} would stop serving it. Write its equivalent for {target} at {target_path} "
+        "yourself, or leave the web server as it is."
+    ),
+    "webserver_move.losses_to_accept": (
+        "The new sites will not do {count} thing(s) that the old ones did"
+    ),
+    "webserver_move.losses_to_accept.hint": (
+        "Read them in the plan. To go ahead anyway, accept them: accept_losses in the API, "
+        "--accept-losses on the command line."
+    ),
+    "webserver_move.confirm_handover": (
+        "{target} will take over ports 80 and 443 from {source} for {count} site(s)"
+    ),
+    "webserver_move.confirm_handover.hint": (
+        "Every site is unreachable for the seconds the swap takes, and everything is put back if "
+        "one of them does not answer. To go ahead: confirm in the API, --yes on the command line."
+    ),
+    "webserver_move.confirm_live": "{count} site(s) will move from {source} to {target}, which is serving",
+    "webserver_move.confirm_live.hint": (
+        "Each site is tested by {target} before it is switched, and put back if it does not "
+        "answer. To go ahead: confirm in the API, --yes on the command line."
+    ),
+    "webserver_move.rejected": "{target} did not accept the translated site of {domain}",
+    "webserver_move.rejected.hint": (
+        "Its own message is shown as it was. Nothing was changed: fix what it names in the site "
+        "on {source}, or leave the application where it is."
+    ),
+    "webserver_move.not_serving": "{target} did not start",
+    "webserver_move.not_serving.hint": (
+        "Its own message is shown as it was. {source} was started again and the sites are as they "
+        "were."
+    ),
+    "webserver_move.unanswered": "{domain} did not answer through {target}",
+    "webserver_move.unanswered.hint": (
+        "What was tried and what the application's unit said is shown as it was. Everything was "
+        "put back: {source} serves the sites again."
+    ),
+    "webserver_move.not_restored": "Not everything could be put back",
+    "webserver_move.not_restored.hint": (
+        "What follows says what was left and where it is. The audit log says what was moved."
+    ),
+    # -- A database an engine holds and Noust does not manage yet (4.1) ---------------------
+    "databases.already_added": "The database {name} on {engine} is already added to Noust",
     # -- Which control asks something of a person, and how to stop it asking -----------------
     # (noust.core.compliance.explain decides which one; the words are here.)
     "controls.asked_by_setting": (
@@ -381,6 +640,107 @@ CATALOG: dict[str, str] = {
     "approvals.central_missing": "This needs a second person's approval on the central.",
     "approvals.central_missing.hint": (
         "Ask for it on the central and retry through it once it is approved."
+    ),
+    # -- The GitHub access a central leases to a server, and what an ended one looks like ----
+    "sources.lease_expired_quiet": (
+        "The GitHub access that {central} leased to this server for {repository} ended at "
+        "{ended_at}, and {central} has not called since {last_call}"
+    ),
+    "sources.lease_expired_quiet.hint": (
+        "Anything that starts on this server and reads {repository} (a scheduled update, a "
+        "preview) fails until {central} calls again and leases a new one: check that the central "
+        "is running and reaches this server. A deploy key does not depend on the central; "
+        "see: {command}"
+    ),
+    "sources.no_app": "This central has no GitHub App to lease access with",
+    "sources.no_app.hint": (
+        "Create it in the console (Integrations, GitHub) or with: noust github setup"
+    ),
+    "sources.delivery_not_retryable": (
+        "That event is {state}, and only an event that was given up on can be handed over again"
+    ),
+    "sources.delivery_not_retryable.hint": (
+        "A server that took the event is not sent it twice; one that is still waiting is tried "
+        "again by itself."
+    ),
+    "sources.central_only": (
+        "Only the central that manages this server can lease it access to GitHub"
+    ),
+    "sources.central_only.hint": (
+        "The central makes and renews the lease itself; there is nothing to do on this server. "
+        "To clone with a credential of this server's own, give the application a deploy key."
+    ),
+    "sources.node_unsupported": (
+        "{node} runs a Noust that cannot hold the GitHub access this central leases"
+    ),
+    "sources.node_unsupported.hint": (
+        "Update Noust on {node} to 4.1 or later; the access is leased within a minute of it."
+    ),
+    "sources.node_ceiling": (
+        "{node} lets this central only read, so it cannot be leased access to GitHub"
+    ),
+    "sources.node_ceiling.hint": (
+        "Leasing needs the deploy ceiling or higher. On {node}, as root: {command}"
+    ),
+    "sources.node_unreachable": "{node} could not be reached to lease it access to GitHub",
+    "sources.node_unreachable.hint": (
+        "It is tried again within a minute, and the access it holds ends on its own. Check it "
+        "with: {command}"
+    ),
+    "sources.node_refused": "{node} would not take the access to GitHub: {reason}",
+    "sources.node_refused.hint": (
+        "The server's own words are beside this. It is tried again in a few minutes."
+    ),
+    "sources.webhook_unreachable": (
+        "GitHub cannot reach this central, so a push to a repository its servers deploy deploys "
+        "nothing"
+    ),
+    "sources.webhook_unreachable.hint": (
+        "The servers it manages have no address GitHub could call: the App's webhook is this "
+        "central's. On a server with a web server, give it a name of its own: {command}. Behind a "
+        "proxy of your own, say where it answers: {config_command}"
+    ),
+    "sources.node_independent": (
+        "{node} is independent, so this central hands it nothing from GitHub"
+    ),
+    "sources.node_independent.hint": (
+        "Make it follow the fleet again and the access and the events of its repositories reach "
+        "it. Until then it deploys from its own credentials."
+    ),
+    "sources.forward_gave_up": (
+        "{node} did not take the {kind} of {repository} in {minutes} minutes, and the central "
+        "gave up"
+    ),
+    "sources.forward_gave_up.hint": (
+        "Nothing was deployed on {node} for it. Once it answers again, update the application "
+        "there, or push again."
+    ),
+    "sources.forward_refused": "{node} would not take the {kind} of {repository}: {reason}",
+    "sources.forward_refused.hint": (
+        "The server's own words are beside this. Nothing was deployed on {node} for it."
+    ),
+    "sources.github_refused": "GitHub would not give a token for installation {installation}",
+    "sources.github_refused.hint": (
+        "GitHub's own words are beside this. If the App was removed or its permissions changed, "
+        "accept the new permissions in the App's settings on GitHub, or install it again."
+    ),
+    "sources.no_installation": "No installation of the GitHub App reaches {repository}",
+    "sources.no_installation.hint": (
+        "Install the App on the account {owner} and let it read {repository}: {url}"
+    ),
+    "sources.not_reachable": "The GitHub App cannot read {repository}",
+    "sources.not_reachable.hint": (
+        "Add {repository} to the repositories the App's installation reaches: {url}"
+    ),
+    "sources.lease_expired": (
+        "The GitHub access that {central} leased to this server for {repository} ended at "
+        "{ended_at} and has not been renewed"
+    ),
+    "sources.lease_expired.hint": (
+        "{central} last called at {last_call} and did not lease a new one: it may not reach "
+        "GitHub, or its GitHub App no longer covers {repository}. Until it does, anything that "
+        "starts on this server and reads {repository} fails. A deploy key does not depend on the "
+        "central; see: {command}"
     ),
 }
 

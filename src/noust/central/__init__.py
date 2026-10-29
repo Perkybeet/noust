@@ -13,7 +13,9 @@ says whether it also deploys applications itself (``central.role``):
   small VPS whose only job is the fleet. Applications, sites, certificates,
   databases and the rest of what needs nginx and systemd *here* are refused
   with a message instead of failing half-way on a missing nginx; the
-  console hides them.
+  console hides them. What a hub does keep is the GitHub App (``noust github``):
+  it deploys nothing itself, but it receives the pushes of the repositories its
+  servers deploy and hands them on, and leases those servers the access to clone.
 
 :func:`role` is the one reading of the setting. :func:`require_server_role`
 is the guard a feature calls where it starts, and :func:`central_info` is
@@ -54,7 +56,6 @@ HUB_REFUSED_COMMANDS: dict[str, str] = {
     "recipe": "Recipes",
     "import": "Importing applications",
     "env": "Application environments",
-    "github": "GitHub deploys",
     "site": "Sites",
     "console": "Console exposure",
     "domain": "Domains",

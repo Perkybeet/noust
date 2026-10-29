@@ -21,7 +21,10 @@ from pydantic import BaseModel, Field
 from noust.core.app_tags import validate_tag
 from noust.core.exceptions import ValidationError
 from noust.core.teams import TeamStore, ownership_target, scoped_store
+from noust.managers.database.adoption import adopt_database
+from noust.managers.database.choice import new_database_engine
 from noust.managers.database.registry import DatabaseRegistry
+from noust.managers.database.service import DatabaseView
 from noust.web.api.auth import get_current_session
 from noust.web.api.databases import jobs
 from noust.web.api.databases.common import (
@@ -414,8 +417,11 @@ def create_database(
         permission=Permission.DATABASES_WRITE,
     )
     with ownership_target(target.project_id, target.environment_id):
-        view = service(session).create(
-            request.engine,
+        svc = service(session)
+        view = svc.create(
+            # An engine named by its bare name is made on the server the operator chose as its
+            # default; a key names a server and is kept.
+            new_database_engine(svc, request.engine),
             request.name,
             owner=request.owner,
             encoding=request.encoding,
@@ -439,6 +445,34 @@ def adopt_databases(
         The databases adopted.
     """
     return AdoptResponse(adopted=service(session).adopt(request.engine))
+
+
+@router.post("/databases/{engine}/{name}/adopt", response_model=DatabaseInfoResponse)
+def adopt_database_route(
+    engine: str, name: str, session: Annotated[dict, Depends(get_current_session)]
+) -> DatabaseInfoResponse:
+    """
+    Add one database an engine holds to Noust.
+
+    A database Noust does not manage is not a different kind of database: its ``noust_state``
+    is ``not_added`` and this is the action. From then on it is listed as Noust's, can be
+    linked to an application and is backed up with it.
+
+    Args:
+        engine: The engine, or the key of the server it runs on.
+        name: The database.
+        session: The authenticated session.
+
+    Returns:
+        The database as it is now.
+
+    Raises:
+        DatabaseNotFoundError: 404 when the engine holds no such database.
+        DatabaseExistsError: 409 (``databases.already_added``) when Noust already manages it.
+    """
+    svc = service(session)
+    adopt_database(svc, engine, name)
+    return database_response(svc.get(engine, name))
 
 
 @router.post("/databases/{engine}/{name}/links/detected", response_model=LinkResponse)
@@ -562,7 +596,7 @@ def get_database_overview(
     """
     data: dict[str, Any] = service(session).overview(engine, name)
     return DatabaseOverviewResponse(
-        database=DatabaseInfoResponse(**data["database"]),
+        database=database_response(DatabaseView(**data["database"])),
         display_name=data["display_name"],
         port=data["port"],
         service=data["service"],

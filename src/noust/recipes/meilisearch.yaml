@@ -11,7 +11,7 @@ slogan: A fast, typo-tolerant search engine with a simple API.
 description: "A search engine for your own data: typo-tolerant, fast, with filters and facets, and a REST API. Production mode, with a generated master key."
 category: search
 tags: [search, api, full-text]
-logo: logo.svg
+logo: simple-icons:meilisearch
 version: "1.54.3"
 revision: 1
 updated: 2026-10-06

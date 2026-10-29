@@ -14,7 +14,7 @@ trust.
   your server, masks secrets, and prints it to you; it sends nothing. Sending it is your decision.
 - **No third-party code in the console.** The browser console loads its scripts, styles and fonts
   from your own server (`default-src 'self'`; connect, image and font sources are `'self'` too, see
-  [the browser](security.md#the-browser)). It embeds no analytics, no tag manager, no CDN.
+  [the browser](security-console.md#the-browser)). It embeds no analytics, no tag manager, no CDN.
 - **No dependency whose purpose is to report.** A Sentry, PostHog, Segment, OpenTelemetry or
   similar library is not part of Noust and the build refuses one.
 

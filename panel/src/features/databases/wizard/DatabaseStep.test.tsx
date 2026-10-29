@@ -25,6 +25,7 @@ describe("the wizard's Database step", () => {
 
   it("goes with the create request, so the first build already has it", () => {
     const body: CreateAppBody = {
+      accept_root_equivalent: false,
       domain: "shop.example.com",
       source: "https://github.com/you/shop",
       app_type: "nextjs",

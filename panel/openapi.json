@@ -7786,9 +7786,19 @@
             ],
             "title": "End Of Life"
           },
+          "support": {
+            "default": "unknown",
+            "title": "Support",
+            "type": "string"
+          },
           "tag": {
             "title": "Tag",
             "type": "string"
+          },
+          "unsupported": {
+            "default": false,
+            "title": "Unsupported",
+            "type": "boolean"
           },
           "version": {
             "title": "Version",
@@ -7805,7 +7815,7 @@
         "type": "object"
       },
       "CatalogVersionResponse": {
-        "description": "One version Noust offers: its tag, the digest pinned and when support ends.",
+        "description": "One version Noust offers: its tag, the digest pinned and when support ends.\n\nAttributes:\n    support: Where the version stands in its project's support: ``supported``,\n        ``ending_soon``, ``ended`` or ``unknown`` (the project publishes no date).\n    unsupported: Making it needs ``unsupported_ok``: the project has stopped fixing\n        security problems, or is about to. Offered for the application that needs it, never\n        as the default.\n    platforms: The processors its image is published for (``amd64``, ``arm64``); MySQL 5.7\n        has an amd64 image only.",
         "properties": {
           "default": {
             "title": "Default",
@@ -7825,6 +7835,23 @@
               }
             ],
             "title": "End Of Life"
+          },
+          "platforms": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Platforms",
+            "type": "array"
+          },
+          "support": {
+            "default": "unknown",
+            "title": "Support",
+            "type": "string"
+          },
+          "unsupported": {
+            "default": false,
+            "title": "Unsupported",
+            "type": "boolean"
           },
           "version": {
             "title": "Version",
@@ -7873,6 +7900,51 @@
           "count"
         ],
         "title": "CategoryOut",
+        "type": "object"
+      },
+      "CentralCallOut": {
+        "description": "One central that calls this server, and when it last did.\n\nAttributes:\n    central: The central, as its fleet token names it.\n    first_call_at: When this server first noted a call of it.\n    last_call_at: When it last did (noted to the minute).\n    quiet_for_s: Seconds since then.\n    keeps_watch: It said it keeps watch (its monitor probes every server every half minute),\n        so this server expects to hear from it again and says so when it does not.\n    heartbeat_s: How often it said it calls, when it did.",
+        "properties": {
+          "central": {
+            "title": "Central",
+            "type": "string"
+          },
+          "first_call_at": {
+            "title": "First Call At",
+            "type": "string"
+          },
+          "heartbeat_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heartbeat S"
+          },
+          "keeps_watch": {
+            "title": "Keeps Watch",
+            "type": "boolean"
+          },
+          "last_call_at": {
+            "title": "Last Call At",
+            "type": "string"
+          },
+          "quiet_for_s": {
+            "title": "Quiet For S",
+            "type": "number"
+          }
+        },
+        "required": [
+          "central",
+          "first_call_at",
+          "last_call_at",
+          "quiet_for_s",
+          "keeps_watch"
+        ],
+        "title": "CentralCallOut",
         "type": "object"
       },
       "CentralInfo": {
@@ -11546,6 +11618,18 @@
         "title": "ConnectionUrlResponse",
         "type": "object"
       },
+      "ConsoleUrlModel": {
+        "description": "Where the links of this server's notifications open.\n\nAttributes:\n    url: This server's address inside the console of the central that manages it,\n        ``https://<central>/n/<server>``; empty when none is set, and the links are built\n        from ``web.public_url``.",
+        "properties": {
+          "url": {
+            "default": "",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "title": "ConsoleUrlModel",
+        "type": "object"
+      },
       "ConstraintResponse": {
         "description": "One constraint.\n\nAttributes:\n    type: ``primary_key``, ``foreign_key``, ``unique``, ``check``,\n        ``exclusion``, ``trigger`` or ``other``.",
         "properties": {
@@ -12379,6 +12463,11 @@
       "CreateAppRequest": {
         "description": "Request to deploy a new application.\n\nThe deployer-specific fields carry exactly what the deployers'\n``configure`` methods already accept, no more: ``subdomain_overrides``,\n``workspace_filter`` and ``skip_database`` are read by the monorepo\ndeployer, ``compose_file`` and ``compose_profiles`` by the docker-compose\none, and every deployer ignores the options that do not concern it, which\nis the interface's own contract.",
         "properties": {
+          "accept_root_equivalent": {
+            "default": false,
+            "title": "Accept Root Equivalent",
+            "type": "boolean"
+          },
           "app_type": {
             "default": "auto",
             "description": "Application type. Left on auto with a recipe",
@@ -14071,8 +14160,15 @@
         "type": "object"
       },
       "DatabaseInfoResponse": {
-        "description": "One database, as the engine and the store together describe it.\n\nAttributes:\n    owner: The owning role or account. Null for engines with no such\n        concept: MySQL/MariaDB and Redis have none, and MongoDB grants\n        roles to users rather than owning a database with one.\n    tables: Tables or collections; null when the listing does not count\n        them.\n    keys: Keys in a Redis slot.\n    tracked: Recorded by Noust: backed up with its application, linkable.\n    missing: Recorded by Noust but gone from the engine.\n    unverified: Recorded by Noust, on an engine that could not be read.\n    app: The application it belongs to, whose backups include it.\n    apps: Every application linked to it.\n    detected_apps: Applications whose environment names it, without a\n        recorded link.\n    username: The account Noust provisioned for it.\n    engine_version: The engine's version.\n    last_backup: When its newest dump was taken.\n    team: The slug of the team it belongs to; None for one an engine holds\n        that Noust never recorded, which belongs to nobody.\n    project: The slug of its project.\n    environment: The slug of its environment.\n    tags: Its tags, sorted.",
+        "description": "One database, as the engine and the store together describe it.\n\nAttributes:\n    owner: The owning role or account. Null for engines with no such\n        concept: MySQL/MariaDB and Redis have none, and MongoDB grants\n        roles to users rather than owning a database with one.\n    tables: Tables or collections; null when the listing does not count\n        them.\n    keys: Keys in a Redis slot.\n    tracked: Recorded by Noust: backed up with its application, linkable.\n    missing: Recorded by Noust but gone from the engine.\n    unverified: Recorded by Noust, on an engine that could not be read.\n    app: The application it belongs to, whose backups include it.\n    apps: Every application linked to it.\n    detected_apps: Applications whose environment names it, without a\n        recorded link.\n    username: The account Noust provisioned for it.\n    engine_version: The engine's version.\n    last_backup: When its newest dump was taken.\n    team: The slug of the team it belongs to; None for one an engine holds\n        that Noust never recorded, which belongs to nobody.\n    project: The slug of its project.\n    environment: The slug of its environment.\n    tags: Its tags, sorted.\n    noust_state: What Noust knows of it, apart from where it runs: ``added`` (Noust manages\n        it), ``not_added`` (the engine holds it and Noust does not manage it), ``missing`` or\n        ``unverified`` (see ``missing`` and ``unverified``). ``engine`` is the key of the\n        server it runs on (``GET /api/databases/servers``).\n    actions: What can be done to it now: ``add_to_noust`` for one that is ``not_added``\n        (``POST .../databases/{engine}/{name}/adopt``).",
         "properties": {
+          "actions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
           "app": {
             "anyOf": [
               {
@@ -14164,6 +14260,11 @@
           },
           "name": {
             "title": "Name",
+            "type": "string"
+          },
+          "noust_state": {
+            "default": "added",
+            "title": "Noust State",
             "type": "string"
           },
           "owner": {
@@ -14832,6 +14933,33 @@
         "title": "DeliveryConfig",
         "type": "object"
       },
+      "DeliveryCountsOut": {
+        "description": "How many events are in each state.\n\nAttributes:\n    pending: Waiting for their server.\n    delivered: Taken.\n    failed: Refused for good.\n    expired: Given up on after the server stayed away.",
+        "properties": {
+          "delivered": {
+            "default": 0,
+            "title": "Delivered",
+            "type": "integer"
+          },
+          "expired": {
+            "default": 0,
+            "title": "Expired",
+            "type": "integer"
+          },
+          "failed": {
+            "default": 0,
+            "title": "Failed",
+            "type": "integer"
+          },
+          "pending": {
+            "default": 0,
+            "title": "Pending",
+            "type": "integer"
+          }
+        },
+        "title": "DeliveryCountsOut",
+        "type": "object"
+      },
       "DeliveryListResponse": {
         "description": "The record of deliveries.\n\nAttributes:\n    items: The newest first.\n    counts: How many are in each state.",
         "properties": {
@@ -14957,6 +15085,135 @@
           "updated_at"
         ],
         "title": "DeliveryModel",
+        "type": "object"
+      },
+      "DeliveryOut": {
+        "description": "An event handed, or owed, to a server.\n\nAttributes:\n    id: Its id.\n    delivery: GitHub's id for the delivery.\n    node: The server.\n    kind: ``push``, ``tag`` or ``pull_request``.\n    repository: ``owner/repo``.\n    ref: The branch or tag.\n    number: The pull request.\n    commit: The commit announced.\n    state: ``pending``, ``delivered``, ``failed`` or ``expired``.\n    attempts: How many times it was tried.\n    next_attempt_at: When it is tried next.\n    error: Why the last try did not work.\n    jobs: What the server queued for it (domain and job).\n    follows: What the central follows because of it.\n    created_at: When it was written down.\n    delivered_at: When the server took it.",
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "delivered_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivered At"
+          },
+          "delivery": {
+            "title": "Delivery",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProblemOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "follows": {
+            "items": {
+              "$ref": "#/components/schemas/FollowOut"
+            },
+            "title": "Follows",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "jobs": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Jobs",
+            "type": "array"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "next_attempt_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Attempt At"
+          },
+          "node": {
+            "title": "Node",
+            "type": "string"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
+          },
+          "repository": {
+            "title": "Repository",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "delivery",
+          "node",
+          "kind",
+          "repository",
+          "state",
+          "attempts",
+          "created_at"
+        ],
+        "title": "DeliveryOut",
         "type": "object"
       },
       "DeployKeyCreateRequest": {
@@ -22757,6 +23014,127 @@
         "title": "FleetViewOut",
         "type": "object"
       },
+      "FollowOut": {
+        "description": "A deployment or a preview the central follows.\n\nAttributes:\n    id: Its number.\n    node: The server it is on.\n    domain: The application.\n    kind: ``deployment`` or ``preview``.\n    repository: ``owner/repo``.\n    ref: The commit, branch or tag.\n    job_id: The server's job (a deployment).\n    number: The pull request (a preview).\n    action: What happened to the pull request.\n    last_state: What was last said on GitHub.\n    state: ``active``, ``done`` or ``lost``.\n    detail: How it ended.\n    created_at: When it began.\n    finished_at: When it ended.",
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last State"
+          },
+          "node": {
+            "title": "Node",
+            "type": "string"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
+          },
+          "repository": {
+            "title": "Repository",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "node",
+          "domain",
+          "kind",
+          "repository",
+          "state",
+          "created_at"
+        ],
+        "title": "FollowOut",
+        "type": "object"
+      },
       "FollowTagsResponse": {
         "description": "The tags an application deploys now.\n\nAttributes:\n    domain: The application's domain.\n    follow_tags: The glob it follows, or None when it follows a branch.\n    following: Whether it follows tags.\n    previous: The glob it followed before.",
         "properties": {
@@ -22912,6 +23290,187 @@
           "presets"
         ],
         "title": "ForwardAuthPresets",
+        "type": "object"
+      },
+      "ForwardedEventIn": {
+        "description": "An event a central forwards.\n\nAttributes:\n    kind: ``push``, ``tag`` or ``pull_request``.\n    event: The event as :func:`noust.core.forge_events.event_to_dict` writes it.\n    delivery: The code host's id for the delivery, kept in the jobs' metadata and the\n        applications' delivery logs.\n    host: The GitHub host the repository is on, which decides which sources are it.\n    default_branch: The repository's default branch (a push only), which an application with\n        no branch of its own follows.",
+        "properties": {
+          "default_branch": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Branch"
+          },
+          "delivery": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery"
+          },
+          "event": {
+            "additionalProperties": true,
+            "title": "Event",
+            "type": "object"
+          },
+          "host": {
+            "default": "github.com",
+            "maxLength": 300,
+            "title": "Host",
+            "type": "string"
+          },
+          "kind": {
+            "maxLength": 20,
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "event"
+        ],
+        "title": "ForwardedEventIn",
+        "type": "object"
+      },
+      "ForwardedEventOut": {
+        "description": "What this server did with the event.\n\nAttributes:\n    status: ``queued`` when something was queued, ``ignored`` otherwise.\n    kind: The kind of event.\n    jobs: The updates queued by a push or a tag.\n    ignored: The applications that did not update, with why.\n    refused: How many updates the full queue refused (when some were queued anyway).\n    previews: The applications that preview a pull request.\n    job_ids: The jobs the previews queued.",
+        "properties": {
+          "ignored": {
+            "items": {
+              "$ref": "#/components/schemas/ForwardedIgnored"
+            },
+            "title": "Ignored",
+            "type": "array"
+          },
+          "job_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Job Ids",
+            "type": "array"
+          },
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/ForwardedJob"
+            },
+            "title": "Jobs",
+            "type": "array"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "previews": {
+            "items": {
+              "$ref": "#/components/schemas/ForwardedPreview"
+            },
+            "title": "Previews",
+            "type": "array"
+          },
+          "refused": {
+            "default": 0,
+            "title": "Refused",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "kind"
+        ],
+        "title": "ForwardedEventOut",
+        "type": "object"
+      },
+      "ForwardedIgnored": {
+        "description": "An application the event concerned and that did not update.\n\nAttributes:\n    domain: The application.\n    reason: Why, in a word (``skip``, ``paths``, ``paused``, ``frozen``) or the sentence\n        of a tag it does not deploy.\n    detail: The sentence, when there is one.",
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "reason"
+        ],
+        "title": "ForwardedIgnored",
+        "type": "object"
+      },
+      "ForwardedJob": {
+        "description": "An update the event queued.\n\nAttributes:\n    domain: The application.\n    job_id: The job, which the central follows.\n    merged: The update that waited already covers this push: the last push wins.",
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "merged": {
+            "default": false,
+            "title": "Merged",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "domain",
+          "job_id"
+        ],
+        "title": "ForwardedJob",
+        "type": "object"
+      },
+      "ForwardedPreview": {
+        "description": "An application that previews the pull request.\n\nAttributes:\n    parent: The application previewed.\n    number: The pull request.\n    action: ``opened``, ``updated`` or ``closed``.",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "parent": {
+            "title": "Parent",
+            "type": "string"
+          }
+        },
+        "required": [
+          "parent",
+          "number",
+          "action"
+        ],
+        "title": "ForwardedPreview",
         "type": "object"
       },
       "FrameworkChange": {
@@ -23333,8 +23892,45 @@
         "title": "GitHubHostRequest",
         "type": "object"
       },
+      "GitHubSourcesOut": {
+        "description": "The GitHub this central serves its servers with.\n\nAttributes:\n    configured: Whether this central has an App.\n    host: The GitHub host.\n    hooks_url: Where GitHub delivers, when this central has a public address for it.\n    warnings: What keeps it from working: GitHub has no address to deliver to.",
+        "properties": {
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "hooks_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hooks Url"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/SentenceOut"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "configured",
+          "host"
+        ],
+        "title": "GitHubSourcesOut",
+        "type": "object"
+      },
       "GitHubStatusOut": {
-        "description": "The GitHub integration of this server.",
+        "description": "The GitHub integration of this server.\n\nAttributes:\n    warnings: What keeps it from working for the servers a central manages: GitHub has no\n        address to deliver this central's pushes to.",
         "properties": {
           "app_id": {
             "anyOf": [
@@ -23445,6 +24041,14 @@
               }
             ],
             "title": "Slug"
+          },
+          "warnings": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SentenceOut"
+            },
+            "title": "Warnings",
+            "type": "array"
           }
         },
         "required": [
@@ -25660,7 +26264,7 @@
         "type": "object"
       },
       "InstanceRequest": {
-        "description": "An instance to make.\n\nAttributes:\n    name: What to call it: lower-case letters, digits and single dashes,\n        starting with a letter, up to 24 characters. It is the part of its\n        key after the ``@`` (``postgresql@pg16``).\n    engine: What to run: ``postgresql``, ``mysql``, ``mariadb``, ``redis``,\n        ``valkey`` or ``mongodb`` (``GET /api/databases/instances/catalog``).\n    version: Its version, such as ``16`` or ``8.4``; the catalog's default\n        when omitted. The image is pinned by tag and digest.\n    memory_mb: Its memory limit in megabytes: mandatory, enforced on the\n        container and used to size the engine's own caches.\n    port: The port on 127.0.0.1 it is published on; a free one just above\n        the engine's own when omitted.\n    variant: An image of the engine with something added, such as ``pgvector`` or\n        ``postgis`` for PostgreSQL (``GET /api/databases/instances/catalog`` lists\n        them); the engine's own image when omitted.\n    init_scripts: SQL scripts run, in name order, the first time the engine starts\n        (PostgreSQL, MySQL and MariaDB; at most ten).\n    image: An image of your own instead of the catalog's, ``repository[:tag]@sha256:digest``.\n        The digest is mandatory (a tag can be moved after you looked) and ``version`` says\n        which version it is. Noust has not tested it; not with ``variant``.\n    command: The container's whole command, instead of the engine's: a list of words, never\n        a shell line. Noust adds nothing to it. Not with ``args``.\n    args: Arguments added after the ones Noust passes the engine, a list of words. A\n        password is never one: a command line is visible to every local user.\n    accept_untested: The operator accepts that Noust has not tested an image, a command or\n        arguments they chose. Without it, queueing one is a 400 ``confirmation_required``\n        carrying what is accepted, and nothing is queued.",
+        "description": "An instance to make.\n\nAttributes:\n    name: What to call it: lower-case letters, digits and single dashes,\n        starting with a letter, up to 24 characters. It is the part of its\n        key after the ``@`` (``postgresql@pg16``).\n    engine: What to run: ``postgresql``, ``mysql``, ``mariadb``, ``redis``,\n        ``valkey`` or ``mongodb`` (``GET /api/databases/instances/catalog``).\n    version: Its version, such as ``16`` or ``8.4``; the catalog's default\n        when omitted. The image is pinned by tag and digest.\n    memory_mb: Its memory limit in megabytes: mandatory, enforced on the\n        container and used to size the engine's own caches.\n    port: The port on 127.0.0.1 it is published on; a free one just above\n        the engine's own when omitted.\n    variant: An image of the engine with something added, such as ``pgvector`` or\n        ``postgis`` for PostgreSQL (``GET /api/databases/instances/catalog`` lists\n        them); the engine's own image when omitted.\n    init_scripts: SQL scripts run, in name order, the first time the engine starts\n        (PostgreSQL, MySQL and MariaDB; at most ten).\n    image: An image of your own instead of the catalog's: ``repository:tag`` (registry\n        included), which Noust pins by the digest the registry serves for the tag when it makes\n        the instance, or ``repository[:tag]@sha256:digest`` when you pin it yourself. A tag can\n        be moved after you looked; the instance runs the digest, never the tag. ``version`` says\n        which version it is. Noust has not tested it; not with ``variant``.\n    command: The container's whole command, instead of the engine's: a list of words, never\n        a shell line. Noust adds nothing to it. Not with ``args``.\n    args: Arguments added after the ones Noust passes the engine, a list of words. A\n        password is never one: a command line is visible to every local user.\n    accept_untested: The operator accepts that Noust has not tested an image, a command or\n        arguments they chose. Without it, queueing one is a 400 ``confirmation_required``\n        carrying what is accepted, and nothing is queued.\n    unsupported_ok: The operator accepts running a version whose project has stopped fixing\n        security problems, or is about to (``GET .../catalog`` says which: ``unsupported``).\n        Without it, queueing one is a 400 ``confirmation_required`` on this field carrying\n        the date, and nothing is queued.",
         "properties": {
           "accept_untested": {
             "default": false,
@@ -25752,6 +26356,11 @@
               }
             ],
             "title": "Port"
+          },
+          "unsupported_ok": {
+            "default": false,
+            "title": "Unsupported Ok",
+            "type": "boolean"
           },
           "variant": {
             "anyOf": [
@@ -28122,6 +28731,163 @@
         "title": "LdapLoginRequest",
         "type": "object"
       },
+      "LeaseAgainIn": {
+        "description": "Lease again now.\n\nAttributes:\n    nodes: Only these servers; all of them when omitted.\n    force: Replace the leases that are not due.\n    repositories: ``owner/repo`` these servers should be able to read although no application\n        of theirs deploys from them yet: the console asks before it creates the first one,\n        because an application is made by cloning its repository. Needs ``nodes``; kept in\n        the lease for half an hour.",
+        "properties": {
+          "force": {
+            "default": false,
+            "title": "Force",
+            "type": "boolean"
+          },
+          "nodes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nodes"
+          },
+          "repositories": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 100,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repositories"
+          }
+        },
+        "title": "LeaseAgainIn",
+        "type": "object"
+      },
+      "LeaseIn": {
+        "description": "A token a central leases to this server.\n\nAttributes:\n    key: The central's name for this lease (host, installation and part); leasing the same\n        key again replaces it.\n    host: The GitHub host the token is for.\n    installation_id: The installation it was issued from.\n    repositories: ``owner/repo`` it reads.\n    token: The installation token. A secret: kept sealed, never answered back.\n    expires_in: Seconds it lives from now; at most two hours.\n    permissions: What it may do; only ``{\"contents\": \"read\"}`` is accepted.",
+        "properties": {
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "host": {
+            "maxLength": 300,
+            "title": "Host",
+            "type": "string"
+          },
+          "installation_id": {
+            "title": "Installation Id",
+            "type": "integer"
+          },
+          "key": {
+            "maxLength": 200,
+            "title": "Key",
+            "type": "string"
+          },
+          "permissions": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Permissions"
+          },
+          "repositories": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 2000,
+            "title": "Repositories",
+            "type": "array"
+          },
+          "token": {
+            "maxLength": 2000,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "host",
+          "installation_id",
+          "repositories",
+          "token",
+          "expires_in"
+        ],
+        "title": "LeaseIn",
+        "type": "object"
+      },
+      "LeasedAgainOut": {
+        "description": "What leasing again came to.\n\nAttributes:\n    nodes: Each server after the look.",
+        "properties": {
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/NodeSourcesOut"
+            },
+            "title": "Nodes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "nodes"
+        ],
+        "title": "LeasedAgainOut",
+        "type": "object"
+      },
+      "LeasesDroppedOut": {
+        "description": "The answer to taking leases back.\n\nAttributes:\n    dropped: How many were forgotten.",
+        "properties": {
+          "dropped": {
+            "title": "Dropped",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "dropped"
+        ],
+        "title": "LeasesDroppedOut",
+        "type": "object"
+      },
+      "LeasesOut": {
+        "description": "Every lease this server holds, and the centrals that call it.\n\nAttributes:\n    items: The leases, by central and key.\n    centrals: The centrals that call this server and when each last did.",
+        "properties": {
+          "centrals": {
+            "items": {
+              "$ref": "#/components/schemas/CentralCallOut"
+            },
+            "title": "Centrals",
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/noust__web__api__source_leases__LeaseOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "LeasesOut",
+        "type": "object"
+      },
       "LiftedResponse": {
         "description": "What lifting did.",
         "properties": {
@@ -29403,8 +30169,15 @@
         "type": "object"
       },
       "ManagedSettingsOut": {
-        "description": "Every setting a central manages here.\n\nAttributes:\n    items: Them, by kind and name, after looking at what this server holds.\n    kinds: The kinds of setting this server can be managed for.",
+        "description": "Every setting a central manages here.\n\nAttributes:\n    items: Them, by kind and name, after looking at what this server holds.\n    kinds: The kinds of setting this server can be managed for.\n    centrals: The centrals that call this server, with when each last did.",
         "properties": {
+          "centrals": {
+            "items": {
+              "$ref": "#/components/schemas/CentralCallOut"
+            },
+            "title": "Centrals",
+            "type": "array"
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/ManagedSettingOut"
@@ -29535,6 +30308,14 @@
           "state": {
             "title": "State",
             "type": "string"
+          },
+          "warnings": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SentenceOut"
+            },
+            "title": "Warnings",
+            "type": "array"
           }
         },
         "required": [
@@ -32421,6 +33202,67 @@
           "step"
         ],
         "title": "NodeRotationResponse",
+        "type": "object"
+      },
+      "NodeSourcesOut": {
+        "description": "Where one server stands on the access to clone with.\n\nAttributes:\n    node: The server.\n    state: ``leased``, ``none`` (it deploys nothing from the App's repositories),\n        ``independent``, ``unsupported`` (an older Noust), ``ceiling`` (the server lets its\n        central only read), ``unreachable``, ``failed``, ``unknown`` (not looked at since the\n        console started and nothing recorded) or ``no_app``.\n    leases: Its leases.\n    uncovered: The repositories of its applications the App does not reach.\n    problems: Why, one for each.\n    error: Why the whole server could not be leased.\n    checked_at: When it was last looked at; null when the answer is what was recorded.",
+        "properties": {
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProblemOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "leases": {
+            "items": {
+              "$ref": "#/components/schemas/noust__web__api__fleet_sources__LeaseOut"
+            },
+            "title": "Leases",
+            "type": "array"
+          },
+          "node": {
+            "title": "Node",
+            "type": "string"
+          },
+          "problems": {
+            "items": {
+              "$ref": "#/components/schemas/ProblemOut"
+            },
+            "title": "Problems",
+            "type": "array"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "uncovered": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Uncovered",
+            "type": "array"
+          }
+        },
+        "required": [
+          "node",
+          "state"
+        ],
+        "title": "NodeSourcesOut",
         "type": "object"
       },
       "NodeTeamRequest": {
@@ -36636,6 +37478,48 @@
         "title": "ProbeResult",
         "type": "object"
       },
+      "ProblemOut": {
+        "description": "Something that could not be done, and why.\n\nAttributes:\n    text: The sentence in English.\n    hint: How to fix it.\n    coded: The same sentence as ``{code, params}``, for the console to translate.\n    output: The words of GitHub or of the server, verbatim; never a token.",
+        "properties": {
+          "coded": {
+            "additionalProperties": true,
+            "title": "Coded",
+            "type": "object"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "coded"
+        ],
+        "title": "ProblemOut",
+        "type": "object"
+      },
       "ProcessChangeResponse": {
         "description": "What changing a process did.",
         "properties": {
@@ -40030,8 +40914,13 @@
         "type": "object"
       },
       "RecipeInstallRequest": {
-        "description": "Request to install a recipe on a domain.\n\nAttributes:\n    domain: The domain it is served on.\n    variables: Values for the recipe's variables: the ``required`` ones\n        must be among them, and any other overrides what the recipe sets.\n    port: The port to listen on; a free one near the recipe's when omitted.\n    ssl: Whether to obtain a certificate.\n    include_www: Also answer on ``www.<domain>``, as a redirect.\n    health_path: Path the first health gate probes, over the recipe's.\n    health_expect: Statuses the first health gate accepts, over the recipe's.\n    health_timeout: Seconds the first health gate waits.\n    default_backups: Schedule the daily backups an installed application\n        starts with: its databases dumped and test-restored, its data\n        archived. They stay on this server until a destination is chosen.\n    database: The SQL engine to run it on, among those the recipe offers (``mysql`` or\n        ``mariadb``); the recipe's own by default. Refused for a recipe that offers none.\n    install_requirements: Install the language runtime and the database\n        engines the recipe needs and the server lacks, instead of refusing.\n        Packages installed as root: the server's permission and sudo mode.",
+        "description": "Request to install a recipe on a domain.\n\nAttributes:\n    domain: The domain it is served on.\n    variables: Values for the recipe's variables: the ``required`` ones\n        must be among them, and any other overrides what the recipe sets.\n    port: The port to listen on; a free one near the recipe's when omitted.\n    ssl: Whether to obtain a certificate.\n    include_www: Also answer on ``www.<domain>``, as a redirect.\n    health_path: Path the first health gate probes, over the recipe's.\n    health_expect: Statuses the first health gate accepts, over the recipe's.\n    health_timeout: Seconds the first health gate waits.\n    default_backups: Schedule the daily backups an installed application\n        starts with: its databases dumped and test-restored, its data\n        archived. They stay on this server until a destination is chosen.\n    database: The SQL engine to run it on, among those the recipe offers (``mysql`` or\n        ``mariadb``); the recipe's own by default. Refused for a recipe that offers none.\n    install_requirements: Install the language runtime and the database\n        engines the recipe needs and the server lacks, instead of refusing.\n        Packages installed as root: the server's permission and sudo mode.\n    accept_root_equivalent: Confirm a recipe that is root on the server by design (one that\n        controls Docker). Refused without it; with it the server's permission and sudo mode\n        are needed, and the stack's exception for the compose guard is recorded in your name.",
         "properties": {
+          "accept_root_equivalent": {
+            "default": false,
+            "title": "Accept Root Equivalent",
+            "type": "boolean"
+          },
           "database": {
             "anyOf": [
               {
@@ -40323,6 +41212,39 @@
             ],
             "title": "Logo"
           },
+          "logo_icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Icon"
+          },
+          "logo_license": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo License"
+          },
+          "logo_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Source"
+          },
           "min_noust": {
             "anyOf": [
               {
@@ -40378,6 +41300,17 @@
             "title": "Public Ports",
             "type": "array"
           },
+          "replaced_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaced By"
+          },
           "repository": {
             "anyOf": [
               {
@@ -40401,6 +41334,51 @@
             "default": 1,
             "title": "Revision",
             "type": "integer"
+          },
+          "root_equivalent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Equivalent"
+          },
+          "root_equivalent_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Equivalent Hint"
+          },
+          "root_equivalent_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Equivalent Text"
+          },
+          "root_equivalent_warning": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Equivalent Warning"
           },
           "runs_in_docker": {
             "default": false,
@@ -40435,9 +41413,55 @@
             "title": "Tags",
             "type": "array"
           },
+          "tested": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tested"
+          },
           "title": {
             "title": "Title",
             "type": "string"
+          },
+          "unavailable": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable"
+          },
+          "unavailable_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Code"
+          },
+          "unavailable_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Hint"
           },
           "unavailable_reason": {
             "anyOf": [
@@ -40449,6 +41473,17 @@
               }
             ],
             "title": "Unavailable Reason"
+          },
+          "unavailable_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Text"
           },
           "updated": {
             "anyOf": [
@@ -40622,7 +41657,7 @@
         "type": "object"
       },
       "RecipeSummaryOut": {
-        "description": "One recipe in the catalogue.\n\nAttributes:\n    name: What ``recipe`` takes in ``POST /api/apps``.\n    title: What it is called.\n    slogan: One line for the catalogue card.\n    description: One or two sentences.\n    homepage: The project's site.\n    docs: The project's documentation.\n    repository: The project's source code.\n    license: The project's licence.\n    min_noust: The oldest Noust that can install it, when it asks for one.\n    architectures: What it runs on; empty for any. Checked at install.\n    category: One of the closed list (``GET /api/recipes/categories``).\n    tags: Lower-case labels.\n    logo: Where the logo is served, or None.\n    version: The version of the application the recipe pins.\n    revision: The recipe's own revision of that version.\n    updated: When the recipe last changed (ISO date).\n    kind: ``native`` or ``compose``.\n    runs_in_docker: Whether it runs in containers.\n    available: Whether this release can deploy it.\n    unavailable_reason: Why not, when it cannot.\n    app_type: The deployer that builds it; None when unavailable.\n    database: The SQL engine it is given, if any.\n    database_choices: The SQL engines it can run on when the operator chooses at install\n        (``mysql``, ``mariadb``), its own first; empty when it offers no choice.\n    dependencies: The services it asks Noust to provide.\n    requires: What the server needs, in words.\n    digest_verified: Compose: every image carries a digest read from its\n        registry. None for a native recipe.\n    schema_version: The format version the file is written in.\n    origin: ``shipped`` (the package), ``catalog`` (a signed catalogue\n        package) or ``operator`` (the server's own recipes).",
+        "description": "One recipe in the catalogue.\n\nAttributes:\n    name: What ``recipe`` takes in ``POST /api/apps``.\n    title: What it is called.\n    slogan: One line for the catalogue card.\n    description: One or two sentences.\n    homepage: The project's site.\n    docs: The project's documentation.\n    repository: The project's source code.\n    license: The project's licence.\n    min_noust: The oldest Noust that can install it, when it asks for one.\n    architectures: What it runs on; empty for any. Checked at install.\n    category: One of the closed list (``GET /api/recipes/categories``).\n    tags: Lower-case labels.\n    logo: Where the logo is served, or None.\n    logo_source: ``simple-icons`` (the collection's mark, CC0) or ``asset`` (a file of the\n        recipe); None without a logo.\n    logo_icon: The simple-icons slug, when the logo is the collection's.\n    logo_license: The licence of the mark's file when it is the collection's.\n    version: The version of the application the recipe pins.\n    revision: The recipe's own revision of that version.\n    updated: When the recipe last changed (ISO date).\n    kind: ``native`` or ``compose``.\n    runs_in_docker: Whether it runs in containers.\n    available: Whether this release can deploy it.\n    unavailable_reason: Why not, when it cannot: the evidence the recipe holds, in English.\n    unavailable_code: The reason as a code to filter by (``licence``, ``archived``...).\n    unavailable: The reason as a sentence of the server's, a ``code`` and its ``params``,\n        for the console to translate; None when it installs.\n    unavailable_text: That sentence in English.\n    unavailable_hint: What to do about it, in English.\n    replaced_by: The recipe that stands in for it, when there is one.\n    tested: Whether the recipe was started for real in the harness: the ``version`` that\n        was started, the ``date``, the ``seconds`` it took and whether that is the version\n        pinned now (``current``); None when no run is recorded.\n    root_equivalent: What makes it root on the server by design (``docker_socket``), or None.\n        Installing it needs ``accept_root_equivalent``, the server's permission and sudo mode.\n    root_equivalent_warning: The warning as a sentence of the server's, a ``code`` and its\n        ``params``, for the console to translate; None when it is not root on the server.\n    root_equivalent_text: That warning in English.\n    root_equivalent_hint: What to weigh before accepting it, in English.\n    app_type: The deployer that builds it; None when unavailable.\n    database: The SQL engine it is given, if any.\n    database_choices: The SQL engines it can run on when the operator chooses at install\n        (``mysql``, ``mariadb``), its own first; empty when it offers no choice.\n    dependencies: The services it asks Noust to provide.\n    requires: What the server needs, in words.\n    digest_verified: Compose: every image carries a digest read from its\n        registry. None for a native recipe.\n    schema_version: The format version the file is written in.\n    origin: ``shipped`` (the package), ``catalog`` (a signed catalogue\n        package) or ``operator`` (the server's own recipes).",
         "properties": {
           "app_type": {
             "anyOf": [
@@ -40735,6 +41770,39 @@
             ],
             "title": "Logo"
           },
+          "logo_icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Icon"
+          },
+          "logo_license": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo License"
+          },
+          "logo_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Source"
+          },
           "min_noust": {
             "anyOf": [
               {
@@ -40754,6 +41822,17 @@
             "default": "shipped",
             "title": "Origin",
             "type": "string"
+          },
+          "replaced_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaced By"
           },
           "repository": {
             "anyOf": [
@@ -40779,6 +41858,51 @@
             "title": "Revision",
             "type": "integer"
           },
+          "root_equivalent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Equivalent"
+          },
+          "root_equivalent_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Equivalent Hint"
+          },
+          "root_equivalent_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Equivalent Text"
+          },
+          "root_equivalent_warning": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Equivalent Warning"
+          },
           "runs_in_docker": {
             "default": false,
             "title": "Runs In Docker",
@@ -40802,9 +41926,55 @@
             "title": "Tags",
             "type": "array"
           },
+          "tested": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tested"
+          },
           "title": {
             "title": "Title",
             "type": "string"
+          },
+          "unavailable": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable"
+          },
+          "unavailable_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Code"
+          },
+          "unavailable_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Hint"
           },
           "unavailable_reason": {
             "anyOf": [
@@ -40816,6 +41986,17 @@
               }
             ],
             "title": "Unavailable Reason"
+          },
+          "unavailable_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Text"
           },
           "updated": {
             "anyOf": [
@@ -47713,6 +48894,37 @@
         "title": "SelfUpdateOut",
         "type": "object"
       },
+      "SentenceOut": {
+        "description": "Something the operator should know, as a sentence with a code.\n\nAttributes:\n    text: The sentence in English.\n    hint: How to fix it.\n    coded: The same sentence as ``{code, params}``, for the console to translate.",
+        "properties": {
+          "coded": {
+            "additionalProperties": true,
+            "title": "Coded",
+            "type": "object"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "coded"
+        ],
+        "title": "SentenceOut",
+        "type": "object"
+      },
       "SeparationConflict": {
         "description": "A person holding roles that should not go together.\n\nAttributes:\n    person_ref: The person.\n    accounts: Their accounts, with the role of each.\n    exception: Whether a documented exception covers them.",
         "properties": {
@@ -47852,6 +49064,223 @@
           }
         },
         "title": "ServerKeyResponse",
+        "type": "object"
+      },
+      "ServerListResponse": {
+        "description": "Every database server of this server.\n\nAttributes:\n    servers: The servers: the system's engines, then the containers by key.\n    problems: What could not be asked (Docker not answering, an engine that refused Noust),\n        so a short list is never taken for a server with nothing in it.",
+        "properties": {
+          "problems": {
+            "items": {
+              "$ref": "#/components/schemas/ListingProblemResponse"
+            },
+            "title": "Problems",
+            "type": "array"
+          },
+          "servers": {
+            "items": {
+              "$ref": "#/components/schemas/ServerResponse"
+            },
+            "title": "Servers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "servers"
+        ],
+        "title": "ServerListResponse",
+        "type": "object"
+      },
+      "ServerResponse": {
+        "description": "One database server.\n\nAttributes:\n    key: What it is addressed by wherever an engine is named (``mysql`` for the system's,\n        ``mysql@legacy`` for a container Noust runs, ``postgresql@shop.db`` for one an\n        application's stack runs). It is the ``engine`` of every database on it.\n    engine: The engine it speaks: ``postgresql``, ``mysql``, ``redis``, ``mongodb`` or\n        ``clickhouse``.\n    flavour: What it is: ``mariadb`` is an engine ``mysql``, ``valkey`` an engine ``redis``.\n    display_name: The flavour for a person.\n    version: Its version: what the engine reports for the system's, the tag it was made\n        with for a container Noust runs, null for an application's (its image says it).\n    runs_in: ``system``, ``noust_container`` (Noust starts, stops, upgrades and removes it)\n        or ``app_container`` (an application's stack does; it is listed and nothing more).\n    name: The instance's name for a container Noust runs (``legacy``); null for the others.\n        ``/api/databases/instances/{name}`` takes it.\n    state: ``running``, ``stopped``, ``creating``, ``upgrading``, ``removing``, or Docker's\n        own word for a container that exists and is not running.\n    running: It answers.\n    port: The port it listens on: 127.0.0.1's for a container Noust runs.\n    memory_limit_mb: A container Noust runs is held to this.\n    image: The image of a container; null for the system's.\n    digest: The digest a container Noust runs is pinned to.\n    custom_image: The image is the operator's own, not the catalog's.\n    app: The application whose stack runs it, for ``app_container``.\n    support: Where its version stands in its project's support: ``supported``,\n        ``ending_soon``, ``ended`` or ``unknown`` (no date is published).\n    end_of_life: When the support ends or ended; null when none is published.\n    created_at: When Noust made it (a container Noust runs).\n    databases: How many databases it holds that the caller may see; null when it is not\n        running or could not be read (``problems`` says why).\n    default: It is the server a new database of its engine is made on.\n    default_source: Why: ``chosen`` (an operator did), ``system`` (nobody chose and the\n        system has the engine), ``only`` (the one there is) or ``oldest``; null when it is\n        not the default.\n    actions: What can be done to it now: ``start``, ``stop``, ``set_default``,\n        ``clear_default`` (the choice can be taken back), ``other_version`` (make another\n        version of its engine in a container: ``GET .../instances/catalog?engine=...``),\n        ``upgrade`` and ``remove``. Empty for an application's container and for one being\n        made or removed.",
+        "properties": {
+          "actions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "app": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "custom_image": {
+            "default": false,
+            "title": "Custom Image",
+            "type": "boolean"
+          },
+          "databases": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Databases"
+          },
+          "default": {
+            "default": false,
+            "title": "Default",
+            "type": "boolean"
+          },
+          "default_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Source"
+          },
+          "digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Digest"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "end_of_life": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Of Life"
+          },
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "flavour": {
+            "title": "Flavour",
+            "type": "string"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "memory_limit_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Limit Mb"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "running": {
+            "title": "Running",
+            "type": "boolean"
+          },
+          "runs_in": {
+            "title": "Runs In",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "support": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "key",
+          "engine",
+          "flavour",
+          "display_name",
+          "runs_in",
+          "state",
+          "running"
+        ],
+        "title": "ServerResponse",
         "type": "object"
       },
       "ServerRoleCreate": {
@@ -52225,6 +53654,36 @@
           "state"
         ],
         "title": "SourceStatusOut",
+        "type": "object"
+      },
+      "SourcesOut": {
+        "description": "What a central does so that its servers deploy from GitHub.\n\nAttributes:\n    github: The App and whether GitHub can reach this central.\n    nodes: Each server's access to clone with.\n    deliveries: How many events are in each state.\n    following: How many deployments and previews are followed now.",
+        "properties": {
+          "deliveries": {
+            "$ref": "#/components/schemas/DeliveryCountsOut"
+          },
+          "following": {
+            "title": "Following",
+            "type": "integer"
+          },
+          "github": {
+            "$ref": "#/components/schemas/GitHubSourcesOut"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/NodeSourcesOut"
+            },
+            "title": "Nodes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "github",
+          "nodes",
+          "deliveries",
+          "following"
+        ],
+        "title": "SourcesOut",
         "type": "object"
       },
       "SparkFigure": {
@@ -61335,6 +62794,38 @@
         "title": "WebhookStatusResponse",
         "type": "object"
       },
+      "WebserverAppMoveRequest": {
+        "description": "Move one application's site to a web server.\n\nAttributes:\n    to: The web server to move to; the other one than it is behind now when left out.\n    accept_losses: Go ahead although the new site will not do everything the old one did.\n    confirm: Go ahead with the move itself.",
+        "properties": {
+          "accept_losses": {
+            "default": false,
+            "title": "Accept Losses",
+            "type": "boolean"
+          },
+          "confirm": {
+            "default": false,
+            "title": "Confirm",
+            "type": "boolean"
+          },
+          "to": {
+            "anyOf": [
+              {
+                "enum": [
+                  "nginx",
+                  "apache"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To"
+          }
+        },
+        "title": "WebserverAppMoveRequest",
+        "type": "object"
+      },
       "WebserverConfig": {
         "description": "Web server configuration.",
         "properties": {
@@ -61348,6 +62839,245 @@
           "webserver"
         ],
         "title": "WebserverConfig",
+        "type": "object"
+      },
+      "WebserverFindingOut": {
+        "description": "Something about the old site that the new one does not carry over as it was.\n\nAttributes:\n    reason: ``unsupported``, ``protection``, ``included``, ``variable``, ``approximate``,\n        ``tuning`` or ``unreadable``.\n    severity: ``blocks`` (cannot move until it is fixed), ``loses`` (the new site will not do\n        something the old one did; needs ``accept_losses``) or ``notes`` (carried over in\n        another form, or a knob that changes no answer).\n    directive: The directive as the old web server names it.\n    line: Its line in the old file; None for the file as a whole.\n    protection: Whether what is lost was a protection (a login, a limit, a firewall).\n    code: The key of its sentence.\n    params: The values it is said with.\n    text: The sentence in English.\n    hint: How to fix it in English, when it has a fix.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "directive": {
+            "title": "Directive",
+            "type": "string"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line"
+          },
+          "params": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "title": "Params",
+            "type": "object"
+          },
+          "protection": {
+            "title": "Protection",
+            "type": "boolean"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "blocks",
+              "loses",
+              "notes"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "severity",
+          "directive",
+          "protection",
+          "code",
+          "text"
+        ],
+        "title": "WebserverFindingOut",
+        "type": "object"
+      },
+      "WebserverMovePlanOut": {
+        "description": "What moving a set of sites to a web server would do.\n\nAttributes:\n    source: The web server they are behind.\n    target: The one they would move to.\n    mode: ``live`` when the target is serving (each site moves on its own) or ``handover``\n        when it is not (the ports pass from one server to the other, for every site at once).\n    source_running: Whether the old server is running.\n    target_installed: Whether the new one is installed.\n    target_running: Whether the new one is running.\n    install_command: How to install the new one when it is not.\n    sites: What each site becomes.\n    blockers: What stops the move as a whole.\n    skipped: Sites asked for that are behind the target already.\n    left_behind: Sites of the old server that are not moving and would stop being served.\n    blocked: Whether anything stops the move, a site's or the whole's.\n    modules: The Apache modules the sites need.\n    losses: How many things the new sites will not do that the old ones did.\n    confirmation: What the operator agrees to by going ahead.",
+        "properties": {
+          "blocked": {
+            "title": "Blocked",
+            "type": "boolean"
+          },
+          "blockers": {
+            "items": {
+              "$ref": "#/components/schemas/WebserverSentenceOut"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "confirmation": {
+            "$ref": "#/components/schemas/WebserverSentenceOut"
+          },
+          "install_command": {
+            "default": "",
+            "title": "Install Command",
+            "type": "string"
+          },
+          "left_behind": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Left Behind",
+            "type": "array"
+          },
+          "losses": {
+            "title": "Losses",
+            "type": "integer"
+          },
+          "mode": {
+            "enum": [
+              "live",
+              "handover"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "modules": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Modules",
+            "type": "array"
+          },
+          "sites": {
+            "items": {
+              "$ref": "#/components/schemas/WebserverSitePlanOut"
+            },
+            "title": "Sites",
+            "type": "array"
+          },
+          "skipped": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Skipped",
+            "type": "array"
+          },
+          "source": {
+            "enum": [
+              "nginx",
+              "apache"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "source_running": {
+            "title": "Source Running",
+            "type": "boolean"
+          },
+          "target": {
+            "enum": [
+              "nginx",
+              "apache"
+            ],
+            "title": "Target",
+            "type": "string"
+          },
+          "target_installed": {
+            "title": "Target Installed",
+            "type": "boolean"
+          },
+          "target_running": {
+            "title": "Target Running",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "source",
+          "target",
+          "mode",
+          "source_running",
+          "target_installed",
+          "target_running",
+          "sites",
+          "blocked",
+          "losses",
+          "confirmation"
+        ],
+        "title": "WebserverMovePlanOut",
+        "type": "object"
+      },
+      "WebserverMoveRequest": {
+        "description": "Move sites to a web server.\n\nAttributes:\n    to: The web server to move to.\n    domains: The sites to move; leave out and use ``all`` for every one behind the other.\n    all: Every application and site behind the other web server: what a handover moves.\n    accept_losses: Go ahead although the new sites will not do everything the old ones did\n        (the plan lists each thing).\n    confirm: Go ahead with the move itself. Without it the answer is the confirmation to\n        ask for, and nothing changes.",
+        "properties": {
+          "accept_losses": {
+            "default": false,
+            "title": "Accept Losses",
+            "type": "boolean"
+          },
+          "all": {
+            "default": false,
+            "title": "All",
+            "type": "boolean"
+          },
+          "confirm": {
+            "default": false,
+            "title": "Confirm",
+            "type": "boolean"
+          },
+          "domains": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domains"
+          },
+          "to": {
+            "enum": [
+              "nginx",
+              "apache"
+            ],
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "to"
+        ],
+        "title": "WebserverMoveRequest",
         "type": "object"
       },
       "WebserverResponse": {
@@ -61382,6 +63112,240 @@
           "webserver"
         ],
         "title": "WebserverResponse",
+        "type": "object"
+      },
+      "WebserverSentenceOut": {
+        "description": "A sentence of the server's, as a code and its values, with its English beside it.\n\nAttributes:\n    code: The key of the sentence in ``serverText``, which the console translates.\n    params: The values it is said with.\n    text: The sentence in English.\n    hint: How to fix it in English, when it has a fix.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "params": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "title": "Params",
+            "type": "object"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "text"
+        ],
+        "title": "WebserverSentenceOut",
+        "type": "object"
+      },
+      "WebserverServerOut": {
+        "description": "One web server of the machine.\n\nAttributes:\n    installed: Whether it is installed.\n    running: Whether it is running, which is what holds ports 80 and 443.\n    starts_at_boot: Whether it starts at boot.\n    version: Its version, when it could be read.\n    applications: How many applications are behind it.\n    sites: How many sites of no application are behind it.",
+        "properties": {
+          "applications": {
+            "title": "Applications",
+            "type": "integer"
+          },
+          "installed": {
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "running": {
+            "title": "Running",
+            "type": "boolean"
+          },
+          "sites": {
+            "title": "Sites",
+            "type": "integer"
+          },
+          "starts_at_boot": {
+            "title": "Starts At Boot",
+            "type": "boolean"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "installed",
+          "running",
+          "starts_at_boot",
+          "applications",
+          "sites"
+        ],
+        "title": "WebserverServerOut",
+        "type": "object"
+      },
+      "WebserverSitePlanOut": {
+        "description": "One site, and what moving it would do.\n\nAttributes:\n    domain: The application's domain, or the site's.\n    kind: ``app`` or ``site`` (one that belongs to no application).\n    source: The web server it is behind now.\n    target: The one it would move to.\n    source_path: Its file now.\n    target_path: Where its file would be.\n    operator_site: Whether the file now is the operator's, which is never rewritten.\n    keeps_operator_site: Whether the operator already wrote its equivalent, which is kept.\n    movable: Whether nothing stops it.\n    blockers: What stops it.\n    findings: What the new site does not carry over as it was.\n    modules: The Apache modules the new site needs.\n    text: The translated site, when asked for with ``text=true``.",
+        "properties": {
+          "blockers": {
+            "items": {
+              "$ref": "#/components/schemas/WebserverSentenceOut"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/WebserverFindingOut"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "keeps_operator_site": {
+            "title": "Keeps Operator Site",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "app",
+              "site"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "modules": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Modules",
+            "type": "array"
+          },
+          "movable": {
+            "title": "Movable",
+            "type": "boolean"
+          },
+          "operator_site": {
+            "title": "Operator Site",
+            "type": "boolean"
+          },
+          "source": {
+            "enum": [
+              "nginx",
+              "apache"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "source_path": {
+            "title": "Source Path",
+            "type": "string"
+          },
+          "target": {
+            "enum": [
+              "nginx",
+              "apache"
+            ],
+            "title": "Target",
+            "type": "string"
+          },
+          "target_path": {
+            "title": "Target Path",
+            "type": "string"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "required": [
+          "domain",
+          "kind",
+          "source",
+          "target",
+          "source_path",
+          "target_path",
+          "operator_site",
+          "keeps_operator_site",
+          "movable"
+        ],
+        "title": "WebserverSitePlanOut",
+        "type": "object"
+      },
+      "WebserverStatusOut": {
+        "description": "The web servers of the machine.\n\nAttributes:\n    webserver: The setting: the one new applications are put behind.\n    holds_ports: The one that is running (and so holds ports 80 and 443), None when both or\n        neither are.\n    servers: Each web server, by name.",
+        "properties": {
+          "holds_ports": {
+            "anyOf": [
+              {
+                "enum": [
+                  "nginx",
+                  "apache"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Holds Ports"
+          },
+          "servers": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/WebserverServerOut"
+            },
+            "title": "Servers",
+            "type": "object"
+          },
+          "webserver": {
+            "enum": [
+              "nginx",
+              "apache"
+            ],
+            "title": "Webserver",
+            "type": "string"
+          }
+        },
+        "required": [
+          "webserver",
+          "servers"
+        ],
+        "title": "WebserverStatusOut",
         "type": "object"
       },
       "WebserverUpdateResponse": {
@@ -63288,7 +65252,7 @@
         "type": "object"
       },
       "noust__web__api__databases__instances__PlanResponse": {
-        "description": "What making an instance would do. Nothing was changed.\n\nAttributes:\n    warnings: What the operator should know before going ahead.\n    custom: The image is the operator's own.\n    command: The whole command the operator wrote, or empty.\n    args: The arguments the operator adds, or empty.\n    requires_confirmation: Making it needs ``accept_untested``: Noust has not tested what\n        the operator chose.",
+        "description": "What making an instance would do. Nothing was changed.\n\nAttributes:\n    warnings: What the operator should know before going ahead.\n    custom: The image is the operator's own.\n    command: The whole command the operator wrote, or empty.\n    args: The arguments the operator adds, or empty.\n    requires_confirmation: Making it needs ``accept_untested``: Noust has not tested what\n        the operator chose.\n    unsupported: The version has no security support from its project, or is about to lose it.\n    requires_unsupported_ok: Making it needs ``unsupported_ok``.\n    support: ``supported``, ``ending_soon``, ``ended`` or ``unknown``.\n    end_of_life: When the support ends or ended; null when the project publishes no date.\n    unsupported_coded: The sentence the confirmation is made of, as a code and its values for\n        the console to translate (``database_servers.unsupported_ended`` or\n        ``database_servers.unsupported_ending``); null when none is needed.\n    digest_pending: The image was given by registry and tag: ``digest`` is empty and Noust\n        reads and pins it when the instance is made.",
         "properties": {
           "args": {
             "items": {
@@ -63313,9 +65277,25 @@
             "title": "Digest",
             "type": "string"
           },
+          "digest_pending": {
+            "default": false,
+            "title": "Digest Pending",
+            "type": "boolean"
+          },
           "display_name": {
             "title": "Display Name",
             "type": "string"
+          },
+          "end_of_life": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Of Life"
           },
           "engine": {
             "title": "Engine",
@@ -63361,6 +65341,22 @@
             "title": "Requires Confirmation",
             "type": "boolean"
           },
+          "requires_unsupported_ok": {
+            "default": false,
+            "title": "Requires Unsupported Ok",
+            "type": "boolean"
+          },
+          "support": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support"
+          },
           "tag": {
             "anyOf": [
               {
@@ -63371,6 +65367,21 @@
               }
             ],
             "title": "Tag"
+          },
+          "unsupported": {
+            "default": false,
+            "title": "Unsupported",
+            "type": "boolean"
+          },
+          "unsupported_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "variant": {
             "anyOf": [
@@ -63707,6 +65718,107 @@
           "plan"
         ],
         "title": "ActionOut",
+        "type": "object"
+      },
+      "noust__web__api__fleet_sources__DeliveriesOut": {
+        "description": "The events handed to the servers.\n\nAttributes:\n    items: Them, newest first.\n    total: How many are listed.\n    counts: How many are in each state, all of them.",
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/DeliveryCountsOut"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DeliveryOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "counts"
+        ],
+        "title": "DeliveriesOut",
+        "type": "object"
+      },
+      "noust__web__api__fleet_sources__LeaseOut": {
+        "description": "One lease a server holds, or was meant to.\n\nAttributes:\n    key: Its name on the server.\n    host: The GitHub host.\n    installation_id: The installation its token comes from.\n    repositories: What it lets the server read.\n    state: ``leased``, ``failed``, ``issued`` (made just now) or ``current``.\n    expires_at: When the server's token ends.\n    expires_in: Seconds left; 0 once it ended.\n    error: Why the last try failed.",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProblemOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "expires_in": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires In"
+          },
+          "host": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host"
+          },
+          "installation_id": {
+            "title": "Installation Id",
+            "type": "integer"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "repositories": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Repositories",
+            "type": "array"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "installation_id",
+          "repositories",
+          "state"
+        ],
+        "title": "LeaseOut",
         "type": "object"
       },
       "noust__web__api__gitlab__BranchListOut": {
@@ -64821,6 +66933,71 @@
         "title": "CheckOut",
         "type": "object"
       },
+      "noust__web__api__source_leases__LeaseOut": {
+        "description": "A lease this server holds. Never the token.\n\nAttributes:\n    central: The central that leased it.\n    key: Its name.\n    host: The GitHub host.\n    installation_id: The installation.\n    repositories: What it reads, sorted.\n    permissions: What it may do.\n    received_at: When it arrived.\n    expires_at: When it stops being used, on this server's clock.\n    expires_in: Seconds left; 0 once it ended.\n    ended: Whether it ended: a clone of its repositories fails until the central renews it.",
+        "properties": {
+          "central": {
+            "title": "Central",
+            "type": "string"
+          },
+          "ended": {
+            "title": "Ended",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "installation_id": {
+            "title": "Installation Id",
+            "type": "integer"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "permissions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "object"
+          },
+          "received_at": {
+            "title": "Received At",
+            "type": "string"
+          },
+          "repositories": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Repositories",
+            "type": "array"
+          }
+        },
+        "required": [
+          "central",
+          "key",
+          "host",
+          "installation_id",
+          "repositories",
+          "permissions",
+          "received_at",
+          "expires_at",
+          "expires_in",
+          "ended"
+        ],
+        "title": "LeaseOut",
+        "type": "object"
+      },
       "noust__web__api__source_uploads__UploadResponse": {
         "description": "An upload in progress.",
         "properties": {
@@ -65164,6 +67341,78 @@
           "created_at"
         ],
         "title": "ProjectOut",
+        "type": "object"
+      },
+      "noust__web__api__views__DeliveriesOut": {
+        "description": "The record of deliveries of every server.\n\nAttributes:\n    counts: For each server that answered (this central's own name for itself), how many\n        deliveries its record has in each state (``sent``, ``failed``, ``retrying``,\n        ``held``), the whole of it and not only the part listed in ``items``.",
+        "properties": {
+          "counts": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "fleet": {
+            "title": "Fleet",
+            "type": "boolean"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/ViewNodeOut"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "partial": {
+            "title": "Partial",
+            "type": "boolean"
+          },
+          "refusals": {
+            "items": {
+              "$ref": "#/components/schemas/RefusalGroupOut"
+            },
+            "title": "Refusals",
+            "type": "array"
+          },
+          "resource": {
+            "title": "Resource",
+            "type": "string"
+          },
+          "servers": {
+            "items": {
+              "$ref": "#/components/schemas/ViewServerOut"
+            },
+            "title": "Servers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "resource",
+          "generated_at",
+          "partial",
+          "fleet",
+          "servers",
+          "nodes",
+          "refusals",
+          "items"
+        ],
+        "title": "DeliveriesOut",
         "type": "object"
       },
       "noust__web__api__volume_backups__PolicyDestination": {
@@ -77833,6 +80082,147 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/apps/{domain}/webserver/migrate": {
+      "post": {
+        "description": "Queue the move of one application's site to the other web server.\n\nNeeds sudo mode. The same checks and the same put-back as moving every site; when the web\nserver it moves to is not running the move is refused (409 ``webserver_move``) with the\ncommand that moves them all.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated, elevated session.\n    body: Where to, and what the operator agreed to.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ConfirmationRequired: The losses or the move are not agreed to yet.\n    WebserverMoveError: Something stops it.",
+        "operationId": "post_app_migrate_api_apps__domain__webserver_migrate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/WebserverAppMoveRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post App Migrate",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "root_equivalent",
+        "x-noust-requires-approval": {
+          "action": "root_equivalent",
+          "kind": "infrastructure",
+          "when": "always"
+        },
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/webserver/plan": {
+      "get": {
+        "description": "Show what moving one application's site to the other web server would do. Changes nothing.\n\nWhen the web server it would move to is not running, the plan is blocked and its blocker\nnames the command that moves every site together: ports 80 and 443 belong to one server.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n    to: The web server to move to; the other one than it is behind when left out.\n    text: Include the translated site in the answer.\n\nReturns:\n    The plan.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: The application is behind that web server already.",
+        "operationId": "get_app_plan_api_apps__domain__webserver_plan_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "nginx",
+                    "apache"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "text",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Text",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebserverMovePlanOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get App Plan",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
     "/api/apps/{domain}/zero-downtime": {
       "get": {
         "description": "Show whether an application activates without a cut. Changes nothing.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The mode, both instances when it is on, and whether it could be\n    turned on when it is off.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
@@ -87277,6 +89667,59 @@
         "x-noust-permission": "databases.write"
       }
     },
+    "/api/databases/databases/{engine}/{name}/adopt": {
+      "post": {
+        "description": "Add one database an engine holds to Noust.\n\nA database Noust does not manage is not a different kind of database: its ``noust_state``\nis ``not_added`` and this is the action. From then on it is listed as Noust's, can be\nlinked to an application and is backed up with it.\n\nArgs:\n    engine: The engine, or the key of the server it runs on.\n    name: The database.\n    session: The authenticated session.\n\nReturns:\n    The database as it is now.\n\nRaises:\n    DatabaseNotFoundError: 404 when the engine holds no such database.\n    DatabaseExistsError: 409 (``databases.already_added``) when Noust already manages it.",
+        "operationId": "adopt_database_route_api_databases_databases__engine___name__adopt_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "engine",
+            "required": true,
+            "schema": {
+              "title": "Engine",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseInfoResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Adopt Database Route",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage"
+      }
+    },
     "/api/databases/databases/{engine}/{name}/connect": {
       "get": {
         "description": "Build the Connect tab: from the application, from a computer, exposure.\n\nArgs:\n    engine: Engine name.\n    name: Database name.\n    session: The authenticated session.\n    username: The account; the provisioned one by default.\n    server: This server's address as the operator reaches it.\n    ssh_user: The SSH account.\n    local_port: The local end of the tunnel.\n\nReturns:\n    The connection information. No password is in it.",
@@ -90445,7 +92888,7 @@
         "x-noust-permission": "databases.read"
       },
       "post": {
-        "description": "Queue making an instance, with sudo mode.\n\nIt is planned first, so a request that could not succeed is refused here\nrather than failing in the job. The job pulls the image, writes the\ninstance's files and unit, starts it, and returns once its engine accepts\nthe superuser Noust generated; whatever fails is undone.\n\nArgs:\n    request: What to make.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    ConfirmationRequired: An image, a command or arguments of the operator's own, without\n        ``accept_untested``.",
+        "description": "Queue making an instance, with sudo mode.\n\nIt is planned first, so a request that could not succeed is refused here\nrather than failing in the job. The job pulls the image, writes the\ninstance's files and unit, starts it, and returns once its engine accepts\nthe superuser Noust generated; whatever fails is undone.\n\nArgs:\n    request: What to make.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    ConfirmationRequired: A version without support, without ``unsupported_ok``; an image, a\n        command or arguments of the operator's own, without ``accept_untested``.",
         "operationId": "create_instance_api_databases_instances_post",
         "requestBody": {
           "content": {
@@ -90489,8 +92932,29 @@
     },
     "/api/databases/instances/catalog": {
       "get": {
-        "description": "List what Noust can run as an instance: each engine, and its versions with their digests.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The engines, in the order the console offers them.",
+        "description": "List what Noust can run as an instance: each engine, and its versions with their digests.\n\nThe versions whose project has stopped supporting them are in the list, marked\n``unsupported`` with their end-of-support date: making one needs ``unsupported_ok``.\n\nArgs:\n    session: The authenticated session.\n    engine: Only this engine (a flavour or an alias): what \"another version\" asks with once\n        the engine is chosen.\n\nReturns:\n    The engines, in the order the console offers them.\n\nRaises:\n    ValidationError: 400 when Noust runs no such engine as a container; the hint lists them.",
         "operationId": "instance_catalog_api_databases_instances_catalog_get",
+        "parameters": [
+          {
+            "description": "Only this engine: another version of one already chosen",
+            "in": "query",
+            "name": "engine",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 32,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this engine: another version of one already chosen",
+              "title": "Engine"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -90501,6 +92965,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Instance Catalog",
@@ -92940,6 +95414,189 @@
         ],
         "x-noust-permission": "databases.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/databases/servers": {
+      "get": {
+        "description": "List the database servers: the system's engines and the containers, in one list.\n\nArgs:\n    session: The authenticated session.\n    engine: Only the servers of this engine: ``mysql`` is MySQL and MariaDB, ``mariadb``\n        only MariaDB.\n\nReturns:\n    The servers with their default and their support, and what could not be read.",
+        "operationId": "list_servers_api_databases_servers_get",
+        "parameters": [
+          {
+            "description": "Only this engine (a flavour, an alias, or an engine's family)",
+            "in": "query",
+            "name": "engine",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this engine (a flavour, an alias, or an engine's family)",
+              "title": "Engine"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Servers",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      }
+    },
+    "/api/databases/servers/{key}": {
+      "get": {
+        "description": "Describe one database server.\n\nArgs:\n    key: Its key (``mysql``, ``mysql@legacy``).\n    session: The authenticated session.\n\nReturns:\n    The server.\n\nRaises:\n    DatabaseNotFoundError: 404 ``databaseerror`` with the code ``database_servers.unknown``\n        when no server has that key.\n    ValidationError: 400 when the key cannot be a server's.",
+        "operationId": "get_server_api_databases_servers__key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Server",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      }
+    },
+    "/api/databases/servers/{key}/default": {
+      "delete": {
+        "description": "Take back the choice of a server as the default: its engine returns to the automatic one.\n\nA server that was not the chosen one is left as it is.\n\nArgs:\n    key: The server's key.\n    session: The authenticated session.\n\nReturns:\n    The server as it is now.\n\nRaises:\n    DatabaseNotFoundError: 404 when no server has that key.",
+        "operationId": "clear_default_server_api_databases_servers__key__default_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Clear Default Server",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage"
+      },
+      "put": {
+        "description": "Make a server the one new databases of its engine are made on.\n\nThe system's engine and the containers Noust runs can be it; an application's container\ncannot, nor one still being made. The choice replaces the one before it and is audited.\n\nArgs:\n    key: The server's key.\n    session: The authenticated session.\n\nReturns:\n    The server, now the default of its engine.\n\nRaises:\n    DatabaseNotFoundError: 404 when no server has that key.\n    ValidationError: 400 (``database_servers.default_app``,\n        ``database_servers.default_not_ready``) when it cannot be the default.",
+        "operationId": "set_default_server_api_databases_servers__key__default_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Default Server",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage"
       }
     },
     "/api/databases/users": {
@@ -97483,7 +100140,7 @@
     },
     "/api/fleet/settings/status": {
       "get": {
-        "description": "Say, for each setting, where each server stands.\n\nEvery server is asked what it manages (it looks at what it holds first, so a setting its own\noperator changed shows as such). A server that cannot be read is said so with the reason, not\nguessed at. Nothing secret is read.\n\nArgs:\n    session: The authenticated session.\n    refresh: Ask even a server whose answer is a few seconds old.\n\nReturns:\n    ``servers`` (how each answered, its mode, whether a look is waiting), ``settings`` (each\n    with its fleet row, its exceptions and a cell per server: ``origin`` and ``sync``),\n    ``released`` (what a server still manages that the fleet no longer wants), and\n    ``partial``.",
+        "description": "Say, for each setting, where each server stands.\n\nEvery server is asked what it manages (it looks at what it holds first, so a setting its own\noperator changed shows as such). A server that cannot be read is said so with the reason, not\nguessed at. Nothing secret is read.\n\nArgs:\n    session: The authenticated session.\n    refresh: Ask even a server whose answer is a few seconds old.\n\nReturns:\n    ``servers`` (how each answered, its mode, whether a look is waiting), ``settings`` (each\n    with its fleet row, its exceptions and a cell per server: ``origin``, ``sync`` and\n    ``reach``, whether a channel's route can match anything on that server), ``released``\n    (what a server still manages that the fleet no longer wants), and ``partial``.",
         "operationId": "settings_status_api_fleet_settings_status_get",
         "parameters": [
           {
@@ -97763,6 +100420,201 @@
         ],
         "x-noust-permission": "fleet.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/fleet/sources": {
+      "get": {
+        "description": "Show what this central does so that its servers deploy from GitHub.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The App and whether GitHub can reach this central, each server's access to clone with, how\n    many events are in each state and how many deployments are followed.",
+        "operationId": "sources_status_api_fleet_sources_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourcesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Sources Status",
+        "tags": [
+          "Sources"
+        ],
+        "x-noust-permission": "fleet.read"
+      }
+    },
+    "/api/fleet/sources/deliveries": {
+      "get": {
+        "description": "List the events handed, or owed, to the servers.\n\nArgs:\n    session: The authenticated session.\n    node: Only this server's.\n    state: Only in this state: ``pending``, ``delivered``, ``failed`` or ``expired``.\n    limit: Most events.\n\nReturns:\n    The events, newest first, each with what the server queued and what is followed.\n\nRaises:\n    ValidationError: 400 for a state nobody defined.",
+        "operationId": "sources_deliveries_api_fleet_sources_deliveries_get",
+        "parameters": [
+          {
+            "description": "Only this server's",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this server's",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Only in this state",
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 20,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only in this state",
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__fleet_sources__DeliveriesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sources Deliveries",
+        "tags": [
+          "Sources"
+        ],
+        "x-noust-permission": "fleet.read"
+      }
+    },
+    "/api/fleet/sources/deliveries/{forward_id}/retry": {
+      "post": {
+        "description": "Hand an event over again that the central had given up on.\n\nArgs:\n    forward_id: The event.\n    session: The authenticated session.\n\nReturns:\n    The event, pending and due now; the worker hands it over within seconds.\n\nRaises:\n    HTTPException: 404 when there is no such event; 409 when it is not one that was given up\n        on (one the server took is not sent twice).",
+        "operationId": "retry_delivery_api_fleet_sources_deliveries__forward_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "forward_id",
+            "required": true,
+            "schema": {
+              "title": "Forward Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry Delivery",
+        "tags": [
+          "Sources"
+        ],
+        "x-noust-permission": "fleet.manage"
+      }
+    },
+    "/api/fleet/sources/leases": {
+      "post": {
+        "description": "Look at the servers and lease what each needs, now.\n\nArgs:\n    body: The servers to look at, and whether to replace what is not due.\n    session: The authenticated session.\n\nReturns:\n    Each server after the look.\n\nRaises:\n    HTTPException: 409 ``no_github_app`` when this central has no App to lease with.\n    ValidationError: 400 for repositories without the servers they are for, or a repository\n        that is not one.",
+        "operationId": "lease_again_api_fleet_sources_leases_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaseAgainIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeasedAgainOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lease Again",
+        "tags": [
+          "Sources"
+        ],
+        "x-noust-permission": "fleet.manage"
       }
     },
     "/api/fleet/summary": {
@@ -101813,6 +104665,71 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/notifications/console-url": {
+      "get": {
+        "description": "Read where the links of this server's notifications open.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The address, empty when none is set.",
+        "operationId": "get_console_url_api_notifications_console_url_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsoleUrlModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Console Url",
+        "tags": [
+          "Notifications"
+        ],
+        "x-noust-permission": "settings.read"
+      },
+      "put": {
+        "description": "Set where the links of this server's notifications open.\n\nA central that manages this server sets it (``notifications.console_url``), through the\nsettings of the fleet; it can also be set by hand, and an empty address clears it.\n\nArgs:\n    body: The address.\n    session: The elevated session.\n\nReturns:\n    The address as it is stored.\n\nRaises:\n    ConfigError: 400 for an address that is not an absolute https one, naming the setting.",
+        "operationId": "set_console_url_api_notifications_console_url_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsoleUrlModel"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsoleUrlModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Console Url",
+        "tags": [
+          "Notifications"
+        ],
+        "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/notifications/deliveries": {
       "get": {
         "description": "Read the record of deliveries, newest first.\n\nArgs:\n    session: The authenticated session.\n    state: Only this state.\n    channel: Only this channel.\n    limit: Most rows.\n\nReturns:\n    The deliveries and how many there are in each state.\n\nRaises:\n    ValidationError: 400 for a state that does not exist.",
@@ -102608,7 +105525,7 @@
     },
     "/api/recipes": {
       "get": {
-        "description": "List the recipes, the ones this release can deploy first, and search them.\n\nEvery filter given must hold. ``q`` matches the name, title, slogan,\ndescription, category and tags, and each of its words must be found.\n\nArgs:\n    session: The authenticated session.\n    q: Words to look for.\n    category: One category of the closed list.\n    tag: One tag.\n    kind: ``native`` or ``compose``.\n    origin: Only the recipes from this source.\n\nReturns:\n    The matching recipes, with whether each is available and why not, and\n    the files of the server's own recipes that could not be read.\n\nRaises:\n    RecipeError: ``category``, ``kind`` or ``origin`` is not one of the\n        closed lists (400).",
+        "description": "List the recipes, the ones this release can deploy first, and search them.\n\nEvery filter given must hold. ``q`` matches the name, title, slogan,\ndescription, category and tags, and each of its words must be found.\n\nArgs:\n    session: The authenticated session.\n    q: Words to look for.\n    category: One category of the closed list.\n    tag: One tag.\n    kind: ``native`` or ``compose``.\n    origin: Only the recipes from this source.\n    available: Whether the recipe installs.\n    unavailable_code: Only the listed recipes left out for this reason.\n    tested: Whether the recipe was started for real.\n\nReturns:\n    The matching recipes, with whether each is available and why not, and\n    the files of the server's own recipes that could not be read.\n\nRaises:\n    RecipeError: ``category``, ``kind``, ``origin`` or ``unavailable_code`` is not one\n        of the closed lists (400).",
         "operationId": "get_recipes_api_recipes_get",
         "parameters": [
           {
@@ -102701,6 +105618,60 @@
               ],
               "description": "shipped, catalog or operator: where the recipe comes from",
               "title": "Origin"
+            }
+          },
+          {
+            "description": "true: only what installs; false: only what is listed and does not",
+            "in": "query",
+            "name": "available",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "true: only what installs; false: only what is listed and does not",
+              "title": "Available"
+            }
+          },
+          {
+            "description": "Only the listed recipes left out for this reason",
+            "in": "query",
+            "name": "unavailable_code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only the listed recipes left out for this reason",
+              "title": "Unavailable Code"
+            }
+          },
+          {
+            "description": "true: only the recipes started for real; false: only the others",
+            "in": "query",
+            "name": "tested",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "true: only the recipes started for real; false: only the others",
+              "title": "Tested"
             }
           }
         ],
@@ -110229,6 +113200,165 @@
         "x-noust-permission": "apps.read"
       }
     },
+    "/api/sources/events": {
+      "post": {
+        "description": "Queue what an event of the central's code host asks for on this server.\n\nArgs:\n    body: The event.\n    session: The authenticated session; only a central's.\n\nReturns:\n    What was queued, what declined and why, and what previews the pull request.\n\nRaises:\n    HTTPException: 403 ``central_only`` for anyone but a central.\n    ValidationError: 400 naming the field of an event that is not exactly one.",
+        "operationId": "forward_event_api_sources_events_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForwardedEventIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForwardedEventOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Forward Event",
+        "tags": [
+          "Sources"
+        ],
+        "x-noust-permission": "apps.deploy"
+      }
+    },
+    "/api/sources/leases": {
+      "delete": {
+        "description": "Forget leases of the calling central, one or all.\n\nArgs:\n    session: The authenticated session; only a central's, and only its own leases.\n    key: Only this lease; every one of the central's when omitted.\n\nReturns:\n    How many were forgotten.\n\nRaises:\n    HTTPException: 403 ``central_only`` for anyone but a central.",
+        "operationId": "drop_leases_api_sources_leases_delete",
+        "parameters": [
+          {
+            "description": "Only this lease",
+            "in": "query",
+            "name": "key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this lease",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeasesDroppedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Drop Leases",
+        "tags": [
+          "Sources"
+        ],
+        "x-noust-permission": "apps.deploy"
+      },
+      "get": {
+        "description": "List the GitHub access centrals have leased to this server.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Each lease with when it ends, and the centrals that call this server.",
+        "operationId": "list_leases_api_sources_leases_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeasesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Leases",
+        "tags": [
+          "Sources"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "put": {
+        "description": "Take a token a central leases to this server, replacing the lease of the same key.\n\nArgs:\n    body: The lease.\n    session: The authenticated session; only a central's.\n\nReturns:\n    The lease, without its token.\n\nRaises:\n    HTTPException: 403 ``central_only`` for anyone but a central.\n    ValidationError: 400 when it is not a lease this server will keep.",
+        "operationId": "hold_lease_api_sources_leases_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__source_leases__LeaseOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Hold Lease",
+        "tags": [
+          "Sources"
+        ],
+        "x-noust-permission": "apps.deploy"
+      }
+    },
     "/api/streams": {
       "get": {
         "description": "List the published ports, and say whether nginx here can publish another.\n\nArgs:\n    session: Authenticated session, injected.\n\nReturns:\n    The ports and what nginx offers.",
@@ -115058,6 +118188,124 @@
         "x-noust-permission": "databases.read"
       }
     },
+    "/api/views/deliveries": {
+      "get": {
+        "description": "The record of deliveries of every server, newest first.\n\nEach server delivers its own notifications and keeps its own record, so this is where to look\nafter an outage for whether a message reached the place it was meant for. ``counts`` is each\nserver's whole record by state. A server that does not let the operator read its settings\ncomes grouped in ``refusals``.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n    state: Only this state.\n    channel: Only this channel.\n    limit: Deliveries per server.\n\nReturns:\n    One row per delivery, with its server and the page where it can be sent again, and the\n    counts of each server.\n\nRaises:\n    ValidationError: 400 for a state that does not exist.",
+        "operationId": "view_deliveries_api_views_deliveries_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Only deliveries in this state: sent, retrying, held or failed",
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only deliveries in this state: sent, retrying, held or failed",
+              "title": "State"
+            }
+          },
+          {
+            "description": "Only deliveries to this channel",
+            "in": "query",
+            "name": "channel",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only deliveries to this channel",
+              "title": "Channel"
+            }
+          },
+          {
+            "description": "Deliveries per server",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Deliveries per server",
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__views__DeliveriesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "View Deliveries",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "settings.read"
+      }
+    },
     "/api/views/logs": {
       "get": {
         "description": "Search the logs of the applications of every server at once, newest first.\n\nEach server decides what this operator may read of its logs and judges the query and the\nwindow itself; a server that cannot search is a note on the view, not an error.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n    q: The search.\n    since: Start of the window.\n    until: End of the window.\n    level: The worst level kept.\n    limit: Lines per server.\n\nReturns:\n    One row per line (``type: line``) and one per note (``type: note``).",
@@ -116168,6 +119416,165 @@
         ],
         "x-noust-permission": "server.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/webserver/migrate": {
+      "post": {
+        "description": "Queue the move of sites to a web server.\n\nNeeds sudo mode. Without ``confirm`` the answer is the confirmation to ask the operator for,\nand without ``accept_losses`` the list of what the new sites will not do; neither changes\nanything. The job tests every translated site in the new server, takes over (ports 80 and 443\ntoo, when it is not serving) and asks for every site through it; if one does not answer\neverything is put back.\n\nArgs:\n    body: Where to, which sites, and what the operator agreed to.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    ConfirmationRequired: The losses or the move are not agreed to yet (400 with the warnings).\n    WebserverMoveError: Something stops it (409 ``webserver_move``).\n    ValidationError: Nothing to move, or neither sites nor ``all`` were given.",
+        "operationId": "post_migrate_api_webserver_migrate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebserverMoveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Migrate",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "root_equivalent",
+        "x-noust-requires-approval": {
+          "action": "root_equivalent",
+          "kind": "infrastructure",
+          "when": "always"
+        },
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/webserver/migration/plan": {
+      "get": {
+        "description": "Show what moving sites to a web server would do. Changes nothing.\n\nArgs:\n    session: The authenticated session.\n    to: The web server to move to.\n    domain: The sites to move; repeat the parameter for each.\n    all: Every application and site behind the other web server.\n    text: Include the translated site of each in the answer.\n\nReturns:\n    The plan, from :func:`~noust.deployers.webserver_move_plan.plan_move`.\n\nRaises:\n    ValidationError: Neither sites nor ``all`` were given, or both, or a site is unknown.",
+        "operationId": "get_migration_plan_api_webserver_migration_plan_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "enum": [
+                "nginx",
+                "apache"
+              ],
+              "title": "To",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "domain",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Domain"
+            }
+          },
+          {
+            "in": "query",
+            "name": "all",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "All",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "text",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Text",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebserverMovePlanOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Migration Plan",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/webserver/status": {
+      "get": {
+        "description": "Show the web servers of this machine and what is behind each.\n\n``webserver`` is the one **new** applications are put behind; each application keeps the one\nit was deployed behind. The server that is running holds ports 80 and 443.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The setting, the server that holds the ports and each server's state and counts.",
+        "operationId": "get_status_api_webserver_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebserverStatusOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Status",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "settings.read"
       }
     },
     "/api/workspaces/deploy": {

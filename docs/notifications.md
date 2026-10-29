@@ -292,6 +292,7 @@ goes straight to the channel and shows what it answered.
 | `alert_acknowledged` | Somebody took an alert that is firing | on |
 | `server_rebooted`, `server_back` | A restart nobody asked for, or one asked from Noust ending | on |
 | `node_unreachable`, `node_recovered`, `node_host_key_changed` | A server a central manages | on |
+| `central_silent` | Said by a server about the central that manages it: the central, whose monitor probes the server every half minute, has not called for a quarter of an hour (`notifications.central_silent_minutes`); and once more when it calls again. Only a central that said it keeps watch is missed | on |
 | `approval_requested`, `approval_decided` | A change waits for a second person | on |
 
 `noust notify events` lists them with their state. The events produced by the monitor (the

@@ -15,38 +15,39 @@ const OUTSIDE = new Set(["/login", "/invite", "/reset-password", "/setup", "/wel
 
 describe("helpFor", () => {
   it("finds the page for a path with its variable parts filled in", () => {
-    expect(helpFor("/apps/shop.example.com/settings/build")).toMatchObject({ slug: "build", anchor: "the-build-block" });
-    expect(helpFor("/databases/postgresql/shop/query").slug).toBe("databases");
+    expect(helpFor("/apps/shop.example.com/settings/build")).toMatchObject({ slug: "guides/build", anchor: "the-build-block" });
+    expect(helpFor("/databases/postgresql/shop/query").slug).toBe("guides/databases");
   });
 
   it("takes the most specific entry, not the first", () => {
-    expect(helpFor("/apps/new").slug).toBe("first-application");
+    expect(helpFor("/apps/new").slug).toBe("start/first-application");
     expect(helpFor("/apps/shop.example.com").anchor).toBe("one-application");
-    expect(helpFor("/apps/shop.example.com/domains").slug).toBe("domains");
+    expect(helpFor("/apps/shop.example.com/domains").slug).toBe("guides/domains");
   });
 
   it("answers a path nobody wrote an entry for with the area it is in", () => {
-    expect(helpFor("/apps/shop.example.com/settings/something-new").slug).toBe("releases");
+    expect(helpFor("/apps/shop.example.com/settings/something-new").slug).toBe("guides/releases");
     expect(helpFor("/server/services/nginx/logs").anchor).toBe("server");
   });
 
   it("answers a path of no area with the documentation of the console", () => {
-    expect(helpFor("/nowhere/at/all").slug).toBe("console");
-    expect(helpFor("/").anchor).toBe("overview");
+    // The entry of "/" is a prefix of every path, so it answers one nobody wrote an entry for.
+    expect(helpFor("/nowhere/at/all")).toEqual(helpFor("/"));
+    expect(helpFor("/")).toMatchObject({ source: "docs/console-overview.md", anchor: "overview" });
   });
 
   it("does not take a static segment for a parameter", () => {
     // /apps/new is its own page, not an application called "new".
-    expect(helpFor("/apps/new/anything").slug).toBe("first-application");
+    expect(helpFor("/apps/new/anything").slug).toBe("start/first-application");
   });
 });
 
 describe("helpUrl", () => {
   it("points at the Markdown on GitHub until a documentation site is published", () => {
-    expect(helpUrl({ slug: "build", source: "docs/build.md", anchor: "the-build-block" })).toBe(
+    expect(helpUrl({ slug: "guides/build", source: "docs/build.md", anchor: "the-build-block" })).toBe(
       "https://github.com/Perkybeet/noust/blob/main/docs/build.md#the-build-block",
     );
-    expect(helpUrl({ slug: "console", source: "docs/console.md" })).toBe("https://github.com/Perkybeet/noust/blob/main/docs/console.md");
+    expect(helpUrl({ slug: "reference/console", source: "docs/console.md" })).toBe("https://github.com/Perkybeet/noust/blob/main/docs/console.md");
   });
 });
 

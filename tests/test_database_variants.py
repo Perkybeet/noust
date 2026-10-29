@@ -62,7 +62,9 @@ class TestTheCatalog:
                 assert pin.tag, f"{variant.name} {pin.version} says no tag"
 
     def test_a_variant_offers_the_engines_own_majors(self) -> None:
-        majors = [pin.version for pin in SPECS["postgresql"].pins]
+        # The versions without support are the engine's own image's: a project's variant
+        # image is offered for the majors that are supported.
+        majors = [pin.version for pin in SPECS["postgresql"].pins if not pin.legacy]
 
         for variant in SPECS["postgresql"].variants:
             assert [pin.version for pin in variant.pins] == majors

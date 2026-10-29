@@ -1,0 +1,83 @@
+# Unleash: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/unleash
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: unleash
+kind: compose
+title: "Unleash"
+slogan: "Open-source feature management platform"
+description: "Open-source feature management platform"
+category: utilities
+tags: [feature-flag, feature-management, feature-toggle, remote-configuration, utilities]
+logo: logo.svg
+version: "7.4.0"
+revision: 1
+updated: 2026-10-28
+homepage: https://www.getunleash.io
+docs: https://docs.getunleash.io/
+repository: https://github.com/Unleash/unleash
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  DB_USER:
+    default: "unleash"
+    description: "Setting DB_USER of the application; the template leaves it to the operator."
+  DB_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for db password."
+  DB_NAME:
+    default: "unleash"
+    description: "Setting DB_NAME of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    unleash:
+      image: unleashorg/unleash-server:7.4.0@sha256:4aadfc1a7366f5e7f5f9a4aa591ade7a3d1843ffd53b224ac58bf945442f4356
+      restart: unless-stopped
+      environment:
+        DATABASE_URL: postgres://${DB_USER}:${DB_PASSWORD}@db/${DB_NAME}
+        DATABASE_SSL: 'false'
+        LOG_LEVEL: warn
+      depends_on:
+        db:
+          condition: service_healthy
+      healthcheck:
+        test: wget --no-verbose --tries=1 --spider http://localhost:4242/health || exit 1
+        interval: 1s
+        timeout: 1m
+        retries: 5
+        start_period: 15s
+      ports:
+        - 127.0.0.1:${PORT}:4242
+    db:
+      image: postgres:15@sha256:64b99032e218b66b1d1a6334995056e1aa57f50a0c522cc856e72dff0e4b0d63
+      restart: unless-stopped
+      environment:
+        POSTGRES_DB: ${DB_NAME}
+        POSTGRES_USER: ${DB_USER}
+        POSTGRES_PASSWORD: ${DB_PASSWORD}
+      volumes:
+        - db_data:/var/lib/postgresql/data
+      healthcheck:
+        test:
+          - CMD
+          - pg_isready
+          - --username=${DB_USER}
+          - --host=127.0.0.1
+          - --port=5432
+        interval: 2s
+        timeout: 1m
+        retries: 5
+        start_period: 10s
+  volumes:
+    db_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume db_data of this application: back it up before updating."

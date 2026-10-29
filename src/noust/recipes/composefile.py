@@ -106,6 +106,9 @@ _LOCAL_PORT = re.compile(
 _PUBLIC_PORT = re.compile(
     r"^(?P<host>[0-9]{1,5}):(?P<container>[0-9]{1,5})(?:/(?P<protocol>tcp|udp))?$"
 )
+#: The one host path a recipe that says it is root on the server (``root_equivalent:
+#: docker_socket``) may mount: the daemon's socket, at the same path inside, read-only or not.
+_DOCKER_SOCKET_MOUNT = re.compile(r"/var/run/docker\.sock:/var/run/docker\.sock(?::ro)?")
 _NAMED_VOLUME = re.compile(r"^(?P<name>[a-z][a-z0-9_-]*):(?P<target>/[^:]*)(?::(?:ro|rw))?$")
 _FILE_VOLUME = re.compile(r"^(?P<source>\./[A-Za-z0-9._/-]+):(?P<target>/[^:]*)(?::(?:ro|rw))?$")
 _PATH_VOLUME = re.compile(
@@ -201,6 +204,7 @@ def validate_compose(
     public_ports: Collection[PublicPort],
     files: Collection[str],
     declared: Collection[str],
+    root_equivalent: str | None = None,
 ) -> ComposeInfo:
     """
     Check a recipe's Compose document against the closed schema.
@@ -212,6 +216,8 @@ def validate_compose(
         public_ports: The ports the recipe declares open to the network.
         files: The paths of the files the recipe ships beside the document.
         declared: The variables the recipe declares.
+        root_equivalent: What the recipe says it is (``docker_socket``): the one mount of the
+            Docker socket it may have, and the one root-on-the-host finding it is spared.
 
     Returns:
         What the document says.
@@ -279,7 +285,15 @@ def validate_compose(
                 field="compose",
             )
         _check_security(name, service_name, service)
-        used_volumes |= _check_volumes(name, service_name, service, volumes, files, path_variables)
+        used_volumes |= _check_volumes(
+            name,
+            service_name,
+            service,
+            volumes,
+            files,
+            path_variables,
+            docker_socket=root_equivalent == "docker_socket",
+        )
         _check_ports(
             name,
             service_name,
@@ -325,6 +339,10 @@ def validate_compose(
                     volume
                     for volume in service.get("volumes") or ()
                     if not _PATH_VOLUME.fullmatch(str(volume))
+                    and not (
+                        root_equivalent == "docker_socket"
+                        and _DOCKER_SOCKET_MOUNT.fullmatch(str(volume))
+                    )
                 ],
             }
             for key, service in services.items()
@@ -407,6 +425,8 @@ def _check_volumes(
     declared: set[str],
     files: Collection[str],
     path_variables: set[str],
+    *,
+    docker_socket: bool = False,
 ) -> set[str]:
     """
     Check a service's mounts.
@@ -420,6 +440,8 @@ def _check_volumes(
         path_variables: Collects the variables that name a directory of the
             host (``${MEDIA_PATH}:/media``): the one place a host path may
             enter, and only because the operator is the one who sets it.
+        docker_socket: The recipe says it is root on the server through the Docker socket, so
+            that one mount is accepted.
 
     Returns:
         The named volumes it uses.
@@ -432,6 +454,8 @@ def _check_volumes(
     for entry in data.get("volumes") or ():
         if not isinstance(entry, str):
             raise recipe_error(name, f"service {service}: write volumes as 'name:/path'")
+        if docker_socket and _DOCKER_SOCKET_MOUNT.fullmatch(entry):
+            continue
         from_variable = _PATH_VOLUME.fullmatch(entry)
         if from_variable is not None:
             path_variables.add(from_variable.group("variable"))

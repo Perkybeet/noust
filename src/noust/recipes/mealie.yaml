@@ -18,7 +18,7 @@ slogan: "A recipe manager and meal planner your whole household can use."
 description: "Keep your recipes in one place: import them from any web page, plan the week's meals, make a shopping list and share it with the people at home. Sign-up is closed; the administrator is the one you name."
 category: productivity
 tags: [recipes, meal-planning, cooking, shopping-list]
-logo: logo.svg
+logo: simple-icons:mealie
 version: "3.29.0"
 revision: 1
 updated: 2026-10-20

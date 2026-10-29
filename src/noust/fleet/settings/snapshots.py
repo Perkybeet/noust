@@ -144,6 +144,26 @@ def _variable(
     return {"value": variable.value, "secret": variable.secret, "audience": variable.audience}
 
 
+def _console_link(
+    name: str, store: NoustStore | None, secrets: SecretStore | None
+) -> dict[str, Any] | None:
+    """
+    Args:
+        name: The console link.
+        store: Unused: the address lives in the configuration.
+        secrets: Unused.
+
+    Returns:
+        The address the notification links open at, as stored; None when none is set.
+    """
+    from noust.core.config import Config
+
+    config = Config()
+    config.reload()
+    url = config.get("notifications.console_url")
+    return {"url": str(url)} if url else None
+
+
 #: How a node reads each kind of setting.
 READERS: dict[str, Reader] = {
     "channel": _channel,
@@ -151,6 +171,7 @@ READERS: dict[str, Reader] = {
     "backup_destination": _backup_destination,
     "registry": _registry,
     "variable": _variable,
+    "console_link": _console_link,
 }
 
 

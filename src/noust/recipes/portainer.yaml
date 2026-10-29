@@ -1,16 +1,74 @@
+# Portainer CE from its own image, as the project's installation page documents it
+# (https://docs.portainer.io/start/install-ce/server/docker/linux: the container
+# mounts /var/run/docker.sock and a data volume at /data, and listens on 9000 for
+# HTTP and 9443 for HTTPS). Noust publishes only the HTTP port, on the loopback
+# address; nginx is the way in.
+#
+# Portainer is root on the host by design: the socket it manages Docker through
+# lets it start a container with any part of the server mounted, Noust's own
+# applications and their data included. The recipe says so (root_equivalent), the
+# install asks for a confirmation and sudo mode, and the stack's exception for the
+# compose guard is recorded in the name of whoever confirmed it.
+#
+# The first administrator is created from the environment, not by whoever opens
+# the page first: --admin-password-file reads the password from a file (the
+# project documents it under "Initial administrator password"), which the recipe
+# renders from a generated variable. Portainer locks a new instance five minutes
+# after it starts if nobody has created an administrator, which is the other thing
+# this avoids.
+#
+# Pinned to the release tag and the digest Docker Hub serves for it.
 schema: 2
 name: portainer
 kind: compose
 title: Portainer
 slogan: "Container management for Docker and Kubernetes."
-description: "A web interface to manage containers, images, volumes and stacks. Listed because it is root on the host by design, and Noust runs the containers it would manage."
+description: "A web interface to manage containers, images, volumes, networks and stacks. Root on this server by design: it controls the Docker daemon that runs every container on it, Noust's applications included."
 category: development
 tags: [docker, containers, management]
-logo: logo.svg
-updated: 2026-10-06
+logo: simple-icons:portainer
+version: "2.45.3"
+revision: 1
+updated: 2026-10-28
 homepage: https://www.portainer.io
 docs: https://docs.portainer.io/start/install-ce/server/docker/linux
 repository: https://github.com/portainer/portainer
 license: Zlib
-available: false
-unavailable_reason: "Its installation mounts /var/run/docker.sock into the container (docs.portainer.io, read 2026-10-06), which gives it control of every container on the server, Noust's applications included; a recipe may not mount the Docker socket. Not available in this release."
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 9000
+root_equivalent: docker_socket
+variables:
+  PORTAINER_ADMIN_PASSWORD:
+    generate: password32
+    secret: true
+    description: The password of the administrator Portainer creates, whose user name is admin.
+health:
+  path: /api/system/status
+  expect: "200"
+  timeout: 120
+files:
+  portainer_password:
+    asset: portainer_password
+    render: true
+    mode: "0600"
+compose: |
+  services:
+    portainer:
+      image: portainer/portainer-ce:2.45.3@sha256:3609c307943bca8e5c492f69ddd6965df177208b50678a4cff28391c8dd4e96e
+      restart: unless-stopped
+      command: ["--admin-password-file", "/run/secrets/portainer_password"]
+      volumes:
+        - /var/run/docker.sock:/var/run/docker.sock
+        - portainer-data:/data
+        - ./portainer_password:/run/secrets/portainer_password:ro
+      ports:
+        - "127.0.0.1:${PORT}:9000"
+  volumes:
+    portainer-data:
+notes:
+  - "Sign in at {{ url }} as admin; the password is PORTAINER_ADMIN_PASSWORD (noust env show {{ domain }} --unmask). It only creates the first account: change it in Portainer afterwards, not in the environment."
+  - "Portainer is root on this server: whoever signs in can start a container with any part of the server mounted, Noust's applications and their data included. Give the account to nobody you would not give root, and turn on its two-factor sign-in."
+  - "Do not stop, remove or edit from Portainer the containers of Noust's applications: Noust started them from its own files and puts them back. Manage them with noust."
+  - "Its settings and the environments it manages are in the Docker volume portainer-data of this application: back it up before updating."

@@ -164,6 +164,9 @@ RULES: tuple[Rule, ...] = (
     # An account for a private registry is a credential of the server: choosing which
     # applications use it is the server's, not a team's.
     _rule("/api/apps/{domain}/registry-logins", INSTANCE, methods=("PUT",)),
+    # Which web server serves a site holds ports 80 and 443 for every site of the machine: a
+    # plan names the sites left behind, and a move reloads or hands over the server of all.
+    _rule("/api/apps/{domain}/webserver/**", INSTANCE),
     _rule("/api/apps/{domain}/databases/link", RESOURCE, _APP, _BODY_DATABASE),
     # A release goes from an application to another: both must be visible.
     _rule("/api/apps/{domain}/promote", RESOURCE, _APP, _BODY_TARGET, methods=("POST",)),
@@ -230,6 +233,12 @@ RULES: tuple[Rule, ...] = (
     # on it is a team's, the engine is nobody's. Making, upgrading and removing one is the
     # server's; a team member picks one for its application's database through the choices.
     _rule("/api/databases/instances/**", INSTANCE),
+    # Where databases run: read by every team, like the engines' list it joins with the instances',
+    # with the count of databases filtered to what the caller's teams own. Choosing the default
+    # of an engine decides where every team's next database goes: the server's.
+    _rule("/api/databases/servers", SCOPED, methods=("GET",)),
+    _rule("/api/databases/servers/{key}", SCOPED, methods=("GET",)),
+    _rule("/api/databases/servers/**", INSTANCE),
     # Moving a database to another engine rewrites its applications' variables and uses
     # engines nobody owns: the server's, whoever's database it is.
     _rule("/api/databases/moves/**", INSTANCE),
@@ -348,6 +357,8 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/audit/**", OPEN),
     _rule("/api/openapi.json", OPEN),
     _rule("/api/config/**", OPEN),
+    # The web servers of the machine and moving every site between them (item 105).
+    _rule("/api/webserver/**", INSTANCE),
     # A document looked at runs nothing and belongs to nobody.
     _rule("/api/compose/**", OPEN),
     # The catalogue is nobody's; what was installed from it is an application's.
@@ -394,6 +405,9 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/notifications/**", INSTANCE),
     # What a central manages on this server: the server's, like the settings themselves.
     _rule("/api/managed-settings/**", INSTANCE),
+    # What a central gives this server to deploy from its repositories: a token to clone with and
+    # the events of the repository. Only a central's, which sees every team.
+    _rule("/api/sources/**", INSTANCE),
     _rule("/api/overview", INSTANCE),
     _rule("/api/timeline", INSTANCE),
     _rule("/api/integrations/**", INSTANCE),

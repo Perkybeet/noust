@@ -64,7 +64,7 @@ ones from before keep the shared account until you move them (`noust app identit
 The sandbox is a boundary between a build and the machine, **not** between running applications:
 they share the kernel, the disk and the network of the server.
 
-Detail: [security.md](security.md#builds), [security.md](security.md#threat-model).
+Detail: [security.md](threat-model.md#builds), [security.md](threat-model.md#threat-model).
 
 ## What Noust does, and does not do
 

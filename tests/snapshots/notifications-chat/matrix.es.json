@@ -636,6 +636,20 @@
     "formatted_body": "<b>○ Actualizaciones de recetas disponibles</b><br>2 recetas instaladas tienen una versión más nueva en el catálogo.<ul><li><b>Servidor:</b> web-1</li><li><b>Receta:</b> <code>vault.example.com: 1.37.4 -&gt; 1.38.0</code></li><li><b>Receta:</b> <code>blog.example.com: 5.0.1 -&gt; 5.1.0</code></li><li><b>Actualiza con:</b> <code>noust recipe outdated</code></li></ul><a href=\"https://console.example.com/n/web-1/catalog\">Abrir en la consola</a>",
     "m.mentions": {}
   },
+  "central.silent": {
+    "msgtype": "m.text",
+    "body": "▲ La central ha dejado de llamar · nas\nLa central que gestiona este servidor no lo llama desde hace 17 minutos. Este servidor sigue entregando sus propios avisos.\n\nServidor: web-1\nÚltima llamada: 2026-10-29 09:12 UTC",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ La central ha dejado de llamar · nas</b><br>La central que gestiona este servidor no lo llama desde hace 17 minutos. Este servidor sigue entregando sus propios avisos.<ul><li><b>Servidor:</b> web-1</li><li><b>Última llamada:</b> 2026-10-29 09:12 UTC</li></ul>",
+    "m.mentions": {}
+  },
+  "central.heard": {
+    "msgtype": "m.text",
+    "body": "● La central vuelve a llamar · nas\nEste servidor vuelve a recibir las llamadas de su central.\n\nServidor: web-1\nEstuvo callada durante: 23 min 40 s",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>● La central vuelve a llamar · nas</b><br>Este servidor vuelve a recibir las llamadas de su central.<ul><li><b>Servidor:</b> web-1</li><li><b>Estuvo callada durante:</b> 23 min 40 s</li></ul>",
+    "m.mentions": {}
+  },
   "hostile.deploy_failed": {
     "msgtype": "m.text",
     "body": "✕ Despliegue fallido · shop.example.com\nSe ha detenido por un error antes de que la nueva versión tomara el relevo.\n\nServidor: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nVersión: 20260929-104449\nCommit: a1b2c3d (<b>x</b>&amp;<!channel> @​everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @​here <@​U123> <#C1> red emoji 🚀\nIniciado por: Webhook\nDuración: 1 min 12 s\nRevísalo con: noust diagnose shop.example.com\n\nLo que ha informado el sistema:\n  Release did not pass <its> health & check\n  <urlopen error [Errno 111] Connection refused>\n  ```\n  @​everyone <!channel> <@​U123|admin> &lt;b&gt;\n  red *bold* _italic_ ~strike~ `code`\n  noitcnuf\n  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…\n\nAbrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",

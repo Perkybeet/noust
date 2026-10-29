@@ -36,6 +36,7 @@ def test_the_deployer_reads_what_a_compose_recipe_plans(
         ssl=True,
         env_overrides=required(name),
         logger=Logger(verbose=False),
+        accept_root_equivalent="operator",
     )
     app_path = tmp_path / "apps" / "site-example-com"
     shutil.copytree(plan.source, app_path)

@@ -95,6 +95,8 @@ EVENT_KINDS: tuple[str, ...] = (
     "security_release",
     "container_restart_loop",
     "recipe_outdated",
+    # 4.1, said by a server about the central that manages it: the central went quiet.
+    "central_silent",
 )
 
 #: Kinds that ship switched off: ``deploy_started`` fires once per attempt with

@@ -58,7 +58,9 @@ from noust.managers.database import (
     DatabaseRegistry,
     get_db_manager,
 )
+from noust.managers.database.adoption import adopt_database
 from noust.managers.database.backups import SUPERUSER_WARNING, DatabaseBackups
+from noust.managers.database.choice import new_database_engine
 from noust.managers.database.instances import is_instance_key, parse_instance_key
 from noust.managers.database.service import (
     MAX_QUERY_LENGTH,
@@ -777,7 +779,10 @@ def _create(
         Process exit code.
     """
     try:
-        view = _service(logger).create(engine, name, owner=owner, encoding=encoding, domain=app)
+        service = _service(logger)  # a bare engine name goes to the server chosen as its default
+        view = service.create(
+            new_database_engine(service, engine), name, owner=owner, encoding=encoding, domain=app
+        )
     except NoustError as e:
         return _fail(logger, e)
 
@@ -994,20 +999,23 @@ def _info(name: str, *, engine: str, json_output: bool, logger: Logger) -> int:
     return 0
 
 
-def _adopt(*, engine: str | None, logger: Logger) -> int:
+def _adopt(*, engine: str | None, logger: Logger, name: str | None = None) -> int:
     """
     Record the databases the engines hold and Noust does not track.
 
     Args:
         engine: Only this engine.
         logger: Logger for progress and errors.
+        name: Only this database, of ``engine``.
 
     Returns:
         Process exit code.
     """
     try:
         service = _service(logger)
-        adopted = service.adopt(engine)
+        adopted = (
+            [adopt_database(service, engine, name)] if name and engine else service.adopt(engine)
+        )
     except NoustError as e:
         return _fail(logger, e)
     if not adopted:
@@ -2436,11 +2444,14 @@ def info(ctx: Context, name: str, engine: str) -> None:
 
 
 @cli.command()
+@click.argument("name", required=False)
 @click.option("--engine", "-e", type=ENGINE, help="Only this engine. Defaults to all of them.")
 @pass_context
-def adopt(ctx: Context, engine: str | None) -> None:
-    """Track the databases created outside Noust."""
-    _exit(_adopt(engine=engine, logger=ctx.logger))
+def adopt(ctx: Context, name: str | None, engine: str | None) -> None:
+    """Add to Noust the databases created outside it: all of them, or NAME (with --engine)."""
+    if name and not engine:
+        raise click.UsageError("Say which engine holds it: noust db adopt NAME --engine ENGINE")
+    _exit(_adopt(engine=engine, logger=ctx.logger, name=name))
 
 
 @cli.command()

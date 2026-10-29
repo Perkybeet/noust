@@ -1,0 +1,63 @@
+# ByteStash: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/bytestash
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: bytestash
+kind: compose
+title: "ByteStash"
+slogan: "A code snippet storage solution written in React & node.js"
+description: "ByteStash is a self-hosted web application designed to store, organise, and manage your code snippets efficiently. With support for creating, editing, and filtering snippets, ByteStash helps you keep track of your code in one secure place."
+category: files
+tags: [file-storage, self-hosted, files]
+logo: logo.svg
+version: "1.5.6"
+revision: 1
+updated: 2026-10-28
+homepage: https://github.com/jordan-dalby/ByteStash
+docs: https://github.com/jordan-dalby/ByteStash
+repository: https://github.com/jordan-dalby/ByteStash
+license: GPL-3.0-only
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  TOKEN_EXPIRY:
+    default: "24h"
+    description: "How long a sign-in lasts before it asks again (the application's TOKEN_EXPIRY)."
+  JWT_SECRET:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for jwt secret."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    bytestash:
+      image: ghcr.io/jordan-dalby/bytestash:1.5.6@sha256:077302b2cfa6c38c8ba7a1cb535111b7cc55ca9dec954958342a5063da1d31c8
+      restart: unless-stopped
+      environment:
+        BASE_PATH: ''
+        JWT_SECRET: ${JWT_SECRET}
+        TOKEN_EXPIRY: ${TOKEN_EXPIRY}
+        ALLOW_NEW_ACCOUNTS: 'true'
+        DEBUG: 'true'
+        DISABLE_ACCOUNTS: 'false'
+        DISABLE_INTERNAL_ACCOUNTS: 'false'
+        OIDC_ENABLED: 'false'
+        OIDC_DISPLAY_NAME: ''
+        OIDC_ISSUER_URL: ''
+        OIDC_CLIENT_ID: ''
+        OIDC_CLIENT_SECRET: ''
+        OIDC_SCOPES: ''
+      volumes:
+        - snippets:/data/snippets
+      ports:
+        - 127.0.0.1:${PORT}:5000
+  volumes:
+    snippets:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume snippets of this application: back it up before updating."

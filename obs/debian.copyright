@@ -10,16 +10,36 @@ License: AGPL-3.0-or-later
 Files:
  src/noust/recipes/affine.yaml
  src/noust/recipes/anythingllm.yaml
+ src/noust/recipes/babybuddy.yaml
+ src/noust/recipes/chroma.yaml
+ src/noust/recipes/databasus.yaml
+ src/noust/recipes/docling.yaml
+ src/noust/recipes/documenso.yaml
  src/noust/recipes/docuseal.yaml
+ src/noust/recipes/dokuwiki.yaml
+ src/noust/recipes/dozzle.yaml
+ src/noust/recipes/drizzle-gateway.yaml
  src/noust/recipes/elasticsearch.yaml
+ src/noust/recipes/firefox.yaml
  src/noust/recipes/glance.yaml
  src/noust/recipes/glitchtip.yaml
+ src/noust/recipes/gotenberg.yaml
+ src/noust/recipes/gowa.yaml
+ src/noust/recipes/grocy.yaml
+ src/noust/recipes/heimdall.yaml
  src/noust/recipes/homebox.yaml
  src/noust/recipes/hoppscotch.yaml
+ src/noust/recipes/influxdb.yaml
  src/noust/recipes/karakeep.yaml
  src/noust/recipes/kimai.yaml
+ src/noust/recipes/libretranslate.yaml
  src/noust/recipes/linkwarden.yaml
+ src/noust/recipes/lowcoder.yaml
+ src/noust/recipes/mage-ai.yaml
+ src/noust/recipes/marimo.yaml
  src/noust/recipes/mealie.yaml
+ src/noust/recipes/once-campfire.yaml
+ src/noust/recipes/onedev.yaml
  src/noust/recipes/openobserve.yaml
  src/noust/recipes/outline.yaml
  src/noust/recipes/penpot.yaml
@@ -29,13 +49,79 @@ Files:
  src/noust/recipes/privatebin.yaml
  src/noust/recipes/qdrant.yaml
  src/noust/recipes/rabbitmq.yaml
+ src/noust/recipes/rivet-engine.yaml
  src/noust/recipes/silverbullet.yaml
+ src/noust/recipes/snipe-it.yaml
  src/noust/recipes/weaviate.yaml
 Copyright: 2025 Andras Bacsai
            2026 Yago López Prado
 Comment: Derived in part from the Docker Compose templates of Coolify
  (https://github.com/coollabsio/coolify); each file names its template and what was changed.
 License: Apache-2.0
+
+Files:
+ src/noust/recipes/archivebox.yaml
+ src/noust/recipes/bytestash.yaml
+ src/noust/recipes/calibre.yaml
+ src/noust/recipes/certmate.yaml
+ src/noust/recipes/chatto.yaml
+ src/noust/recipes/commafeed.yaml
+ src/noust/recipes/cookie-cloud.yaml
+ src/noust/recipes/cup.yaml
+ src/noust/recipes/dagu.yaml
+ src/noust/recipes/databasement.yaml
+ src/noust/recipes/directory-lister.yaml
+ src/noust/recipes/discourse.yaml
+ src/noust/recipes/docling-serve.yaml
+ src/noust/recipes/filegator.yaml
+ src/noust/recipes/flaresolverr.yaml
+ src/noust/recipes/flarum.yaml
+ src/noust/recipes/flatnotes.yaml
+ src/noust/recipes/gel.yaml
+ src/noust/recipes/go2rtc.yaml
+ src/noust/recipes/grimoire.yaml
+ src/noust/recipes/jellyseerr.yaml
+ src/noust/recipes/komari-monitor.yaml
+ src/noust/recipes/languagetool.yaml
+ src/noust/recipes/libredb-studio.yaml
+ src/noust/recipes/lubelogger.yaml
+ src/noust/recipes/mazanoke.yaml
+ src/noust/recipes/nginx.yaml
+ src/noust/recipes/omni-tools.yaml
+ src/noust/recipes/open-design.yaml
+ src/noust/recipes/opencode.yaml
+ src/noust/recipes/opengist.yaml
+ src/noust/recipes/openseo.yaml
+ src/noust/recipes/openspeedtest.yaml
+ src/noust/recipes/otterwiki.yaml
+ src/noust/recipes/owncast.yaml
+ src/noust/recipes/paperclip.yaml
+ src/noust/recipes/parseable.yaml
+ src/noust/recipes/postgresus.yaml
+ src/noust/recipes/prometheus.yaml
+ src/noust/recipes/pulse.yaml
+ src/noust/recipes/qui.yaml
+ src/noust/recipes/silex.yaml
+ src/noust/recipes/speedtest-tracker.yaml
+ src/noust/recipes/steedos.yaml
+ src/noust/recipes/trek.yaml
+ src/noust/recipes/unleash.yaml
+ src/noust/recipes/upsnap.yaml
+ src/noust/recipes/versitygw.yaml
+ src/noust/recipes/victoriametrics.yaml
+ src/noust/recipes/yourls.yaml
+ src/noust/recipes/yuvomi.yaml
+Copyright: 2024 Dokploy and Carlos Ortiz
+           2026 Yago López Prado
+Comment: Derived in part from the service templates of Dokploy
+ (https://github.com/Dokploy/templates); each file names its template and what was changed.
+License: Expat
+
+Files: src/noust/recipes/assets/_simple-icons/*.svg
+Copyright: simple-icons contributors
+Comment: Marks copied unchanged from the simple-icons collection
+ (https://github.com/simple-icons/simple-icons). The licence covers the files and not the brands.
+License: CC0-1.0
 
 Files: src/noust/recipes/assets/plausible/clickhouse/*
 Copyright: 2024 Plausible Analytics
@@ -47,6 +133,11 @@ Copyright: 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains
            2020-2024 The Atkinson Hyperlegible Next Project Authors (https://github.com/googlefonts/atkinson-hyperlegible-next)
            2022 The Bricolage Grotesque Project Authors (https://github.com/ateliertriay/bricolage)
 License: OFL-1.1
+
+License: CC0-1.0
+ To the extent possible under law, the contributors have waived all copyright and related or
+ neighboring rights to these marks. On Debian systems, the full text of the CC0 1.0 Universal
+ licence is in /usr/share/common-licenses/CC0-1.0.
 
 License: Expat
  Permission is hereby granted, free of charge, to any person obtaining a copy

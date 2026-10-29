@@ -1,1 +1,0 @@
-import{f as e,sr as t}from"./icons-ChpDr5JB.js";var n={all:[`certs`],details:[`cert`],detail:e=>[`cert`,e]},r=()=>t({queryKey:n.all,queryFn:({signal:t})=>e(`get`,`/api/certs`,{signal:t})});export{r as n,n as t};

@@ -18,7 +18,7 @@ slogan: Continuous file synchronisation between your devices.
 description: Open-source continuous file synchronisation between devices, peer to peer and encrypted. This recipe runs the web interface behind nginx and opens the sync port.
 category: files
 tags: [sync, files, backup, p2p]
-logo: logo.svg
+logo: simple-icons:syncthing
 version: "2.1.6"
 revision: 1
 updated: 2026-10-06

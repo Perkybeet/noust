@@ -3168,6 +3168,63 @@
     },
     "flags": 4096
   },
+  "central.silent": {
+    "embeds": [
+      {
+        "title": "▲ The central stopped calling · nas",
+        "description": "The central that manages this server has not called it for 17 minutes. This server goes on delivering its own notifications.",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Last call",
+            "value": "2026-10-29 09:12 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "central.heard": {
+    "embeds": [
+      {
+        "title": "● The central calls again · nas",
+        "description": "This server is getting the central's calls again.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Was silent for",
+            "value": "23 min 40 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
   "hostile.deploy_failed": {
     "embeds": [
       {

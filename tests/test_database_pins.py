@@ -53,12 +53,21 @@ def registry(
     broken = kwargs.get("broken")
     only_amd64 = kwargs.get("only_amd64")
     # What the catalog says each image is published for, unless a test changes it.
-    published = {
-        f"{variant.repository}:{pin.tag or pin.version}": set(variant.platforms)
-        for spec in SPECS.values()
-        for variant in spec.variants
-        for pin in variant.pins
-    } | kwargs.get("published", {})
+    published = (
+        {
+            f"{variant.repository}:{pin.tag or pin.version}": set(variant.platforms)
+            for spec in SPECS.values()
+            for variant in spec.variants
+            for pin in variant.pins
+        }
+        | {
+            # An image that alone is published for fewer processors than its engine's (MySQL 5.7).
+            f"{spec.repository}:{pin.tag or pin.version}": set(pin.platforms)
+            for spec in SPECS.values()
+            for pin in spec.pins
+            if pin.platforms
+        }
+    ) | kwargs.get("published", {})
 
     def resolve_digest(reference: str) -> str:
         if reference == broken:
@@ -182,3 +191,25 @@ def test_a_restriction_the_project_has_lifted_is_reported_so_the_catalog_can_dro
     (problem,) = tool.check([])["problems"]
 
     assert "postgis/postgis:17-3.5" in problem and "can drop its platform restriction" in problem
+
+
+def test_a_version_published_for_amd64_only_is_not_a_problem_while_it_is(
+    tool: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry(tool, monkeypatch)
+
+    report = tool.check(["mysql"])
+
+    assert report["problems"] == []
+    [old] = [entry for entry in report["images"] if entry["reference"] == "mysql:5.7"]
+    assert old["platforms"] == ["amd64"]
+
+
+def test_a_version_that_gains_arm_is_reported_so_the_catalog_can_drop_its_restriction(
+    tool: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry(tool, monkeypatch, published={"mysql:5.7": {"amd64", "arm64"}})
+
+    (problem,) = tool.check(["mysql"])["problems"]
+
+    assert "mysql:5.7" in problem and "can drop its platform restriction" in problem

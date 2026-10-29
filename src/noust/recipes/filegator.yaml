@@ -1,0 +1,43 @@
+# FileGator: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/filegator
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: filegator
+kind: compose
+title: "FileGator"
+slogan: "Powerful Multi-User File Manager"
+description: "FileGator is a simple self-hosted web file manager with multi-user support."
+category: files
+tags: [files, file-manager, self-hosted]
+logo: logo.svg
+version: "7.14.3"
+revision: 1
+updated: 2026-10-28
+homepage: https://filegator.io
+docs: https://docs.filegator.io/
+repository: https://github.com/filegator/filegator
+license: MIT
+architectures: ["amd64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    filegator:
+      image: filegator/filegator:v7.14.3@sha256:c53a272626e3a02830f0a0abd7dcb0bfceb1a5dd2091171ed1c62bc9af5e8710
+      restart: unless-stopped
+      volumes:
+        - filegator_repository:/var/www/filegator/repository
+        - filegator_private:/var/www/filegator/private
+      ports:
+        - 127.0.0.1:${PORT}:8080
+  volumes:
+    filegator_repository:
+    filegator_private:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes filegator_repository, filegator_private of this application: back them up before updating."

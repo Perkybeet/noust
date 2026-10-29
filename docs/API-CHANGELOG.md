@@ -129,7 +129,7 @@ before 4.0 is still accepted, it is accepted until 5.0 and never written.
   that the server lacks, which needs sudo mode and the server's permission). `GET /api/apps` takes
   `team`, `project`, `environment` and `tag` filters, and an application answers `team`, `project`,
   `environment` and `tags`.
-- The deploy queue ([releases.md](releases.md#the-deploy-queue)): `GET /api/jobs/queue` (`apps.read`)
+- The deploy queue ([releases.md](releases-deploys.md#the-deploy-queue)): `GET /api/jobs/queue` (`apps.read`)
   says what is building and what waits, in order, and the limits (`deploy.max_concurrent_builds`,
   `deploy.queue_limit`). One application builds one thing at a time, an update that is already waiting
   absorbs the same request, and one the queue has no room for is `429`. A job answers `queue_position`,
@@ -325,7 +325,7 @@ before 4.0 is still accepted, it is accepted until 5.0 and never written.
 - `POST /api/apps/{domain}/databases` and `POST /api/apps` (`database`): `instance`, the name of
   an instance to make the database on. A `version` the host does not run is answered by the
   instance that runs it, when exactly one does.
-- Point-in-time recovery of the host's PostgreSQL ([databases.md](databases.md#recovering-postgresql-to-an-instant)):
+- Point-in-time recovery of the host's PostgreSQL ([databases.md](databases-move.md#recovering-postgresql-to-an-instant)):
   `GET /api/databases/pitr` (the window that can be recovered, the base backups, the archiver, the
   timer, warnings), `POST .../pitr/enable/plan` and `.../pitr/restore/plan` (read-only), and, as jobs
   with sudo mode, `POST .../pitr/enable`, `.../disable`, `.../base`, `.../sync`, `.../fetch` and
@@ -465,7 +465,7 @@ before 4.0 is still accepted, it is accepted until 5.0 and never written.
   the others (`fleet.read` and `fleet.manage`), and `POST /api/fleet/placements/{domain}/ship`
   (`fleet.manage`, planned and queued like a rollout) builds on it and runs that build on the
   placement's servers.
-- An application on several servers ([CENTRAL.md](CENTRAL.md#an-application-on-several-servers)):
+- An application on several servers ([CENTRAL.md](central-operate.md#an-application-on-several-servers)):
   `GET /api/fleet/placements`, `GET`, `PUT` and `DELETE /api/fleet/placements/{domain}` (the servers
   compared, and the record of where it runs), `POST .../rollout` and `POST .../copy` (fleet jobs, with
   `plan: true` to see the plan first) and `GET .../upstreams` (the servers written for a load balancer).
@@ -475,11 +475,11 @@ before 4.0 is still accepted, it is accepted until 5.0 and never written.
   inventory, `GET` and `POST /api/nodes/{node}/inventory`, to move a server to another central.
 - `POST` and `DELETE /api/fleet/cloud/servers/{node}/link`: link a server to its machine at a
   provider, or forget it (sudo mode).
-- Servers made at a cloud provider (`/api/fleet/cloud`, [CENTRAL.md](CENTRAL.md#creating-a-server-at-a-cloud-provider)):
+- Servers made at a cloud provider (`/api/fleet/cloud`, [CENTRAL.md](central-servers.md#creating-a-server-at-a-cloud-provider)):
   `providers`, `accounts` (add, replace the token, verify, remove), an account's `catalog`, the cloud-init
   library (`scripts`, `scripts/preview`) and `servers` (list, create as a job, describe, delete, `power-on`).
   Tokens are in a request body once and in no response.
-- Servers behind NAT (`/api/fleet/link`, [CENTRAL.md](CENTRAL.md#servers-behind-nat-or-a-cgnat)): the status,
+- Servers behind NAT (`/api/fleet/link`, [CENTRAL.md](central-servers.md#servers-behind-nat-or-a-cgnat)): the status,
   `invites` (create, cancel) and `accept`. `GET /api/nodes` and `GET /api/nodes/{node}` answer `link` for a
   server that dials in, and its `tunnel` carries `transport: "link"`.
 - `PUT /api/nodes/{node}/monitoring` (pause or resume a server's monitoring), and `monitoring` on a node: how

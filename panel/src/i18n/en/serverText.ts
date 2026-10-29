@@ -20,8 +20,7 @@ export const serverText = {
       hint: "Once approved, send exactly the same call again with the header {header}: {request}, within {minutes} minutes.",
     },
     asked_waiting: {
-      text:
-        "This needs a second person's approval, whoever you are. Request {request} is waiting for an account with one of these roles to decide it: {approvers}.",
+      text: "This needs a second person's approval, whoever you are. Request {request} is waiting for an account with one of these roles to decide it: {approvers}.",
       hint: "Once approved, send exactly the same call again with the header {header}: {request}, within {minutes} minutes.",
     },
     central_missing: {
@@ -35,14 +34,39 @@ export const serverText = {
   },
   controls: {
     asked_by_framework: {
-      text:
-        "The control {control} asks for it, and the framework in force ({frameworks}) asks for that control, so it stays on while the framework is on and cannot be turned off by itself.",
+      text: "The control {control} asks for it, and the framework in force ({frameworks}) asks for that control, so it stays on while the framework is on and cannot be turned off by itself.",
       hint: "To turn the framework off (Settings > Controls):\n  {command}",
     },
     asked_by_setting: {
-      text:
-        "The control {control} asks for it, and it was turned on in Settings > Controls (or with the command line). It applies to everybody, whatever their role.",
+      text: "The control {control} asks for it, and it was turned on in Settings > Controls (or with the command line). It applies to everybody, whatever their role.",
       hint: "To turn it off there, or:\n  {command}",
+    },
+  },
+  database_servers: {
+    default_app: {
+      text: "{key} is the database of an application's stack, so it cannot be the default",
+      hint: "A default is the system's engine or an instance Noust runs. Make one with: {command}",
+    },
+    default_not_ready: {
+      text: "{key} is {state}, so it cannot be the default yet",
+      hint: "Wait for it to finish, then choose it again.",
+    },
+    unknown: {
+      text: "There is no database server {key}",
+      hint: "List them with: {command}",
+    },
+    unsupported_ended: {
+      text: "{name} {version} has had no security fixes since {end_of_life}",
+      hint: "Run it only for an application that needs it, and leave it off the internet. To go ahead, confirm that you accept running it: unsupported_ok in the API, --accept-unsupported on the command line.",
+    },
+    unsupported_ending: {
+      text: "{name} {version} stops getting security fixes on {end_of_life}",
+      hint: "A server made today would run for a long time without them. To go ahead, confirm that you accept it: unsupported_ok in the API, --accept-unsupported on the command line.",
+    },
+  },
+  databases: {
+    already_added: {
+      text: "The database {name} on {engine} is already added to Noust",
     },
   },
   doctor: {
@@ -128,8 +152,7 @@ export const serverText = {
     },
     names: {
       explain: {
-        text:
-          "Nothing here stops working: Noust accepts the old names while they are met. 'noust setup rename' finishes what can be finished without restarting anything.",
+        text: "Nothing here stops working: Noust accepts the old names while they are met. 'noust setup rename' finishes what can be finished without restarting anything.",
       },
     },
     node: {
@@ -174,8 +197,7 @@ export const serverText = {
         text: "Port {port}: held by {holders}, not by the web server",
       },
       held_note: {
-        text:
-          "A certificate is asked for on port 80 and sites are served on 443: the web server cannot start while another program holds them.",
+        text: "A certificate is asked for on port 80 and sites are served on 443: the web server cannot start while another program holds them.",
       },
       web_server: {
         text: "Port {port}: {holders}",
@@ -244,8 +266,7 @@ export const serverText = {
     refused: {
       permission: {
         text: "Your role {role} does not hold the permission {permission} on these servers",
-        hint:
-          "Ask a security officer of each of them for an account with a role that holds it, or have that permission added to your role there.",
+        hint: "Ask a security officer of each of them for an account with a role that holds it, or have that permission added to your role there.",
       },
     },
   },
@@ -261,6 +282,10 @@ export const serverText = {
     bad_scope: {
       text: "{scope} is not a place a setting of the fleet can be set",
       hint: "Use 'fleet' for every server, or 'node:<server>' for one.",
+    },
+    field_not_text: {
+      text: "The {field} of a {kind} must be text",
+      hint: "Send it as a string, such as https://central.example.com.",
     },
     item_conflict: {
       text: "The {kind} {name} already exists on this server and is not the fleet's",
@@ -290,13 +315,43 @@ export const serverText = {
       text: "No central manages the {kind} {name} on this server",
       hint: "Only a setting a central pushed can be asked back.",
     },
+    out_of_reach: {
+      domain: {
+        text: "The route of the {kind} {name} names domains that no application of this server has, so it is not sent here",
+        hint: "It is sent here once an application of this server has a domain the route names: apply again after deploying it.",
+      },
+      server: {
+        text: "The route of the {kind} {name} does not name this server, so it is not sent here",
+        hint: "Add this server to the servers of the route, or take the list away, to send it here.",
+      },
+      tag: {
+        text: "The route of the {kind} {name} names tags that no application of this server carries, so it is not sent here",
+        hint: "It is sent here once an application of this server carries a tag the route names (together with a domain it names, when the route has both): apply again after tagging it.",
+      },
+    },
     permission_missing: {
       text: "Setting a {kind} for the fleet needs the permission {permission}",
       hint: "It is the permission that setting one on a single server asks: ask an administrator for a role that has it.",
     },
+    reach_unknown: {
+      text: "The applications of this server could not be read, so it is not known whether the {kind} {name} can match anything on it",
+      hint: "Nothing was sent. Apply again when the server answers its applications.",
+    },
+    route_invalid: {
+      text: "The route of this channel is not valid: {problem}",
+      hint: "A fleet route takes apps (domains, with * and ?), tags, min_severity, server_events and servers (names and patterns of this central's servers).",
+    },
+    route_local: {
+      text: "A channel of the fleet cannot be routed by {list}",
+      hint: "Projects and environments are each server's own. Route by domain, tag, severity, event or server, or make a team's channel on the server that has the project.",
+    },
     secret_missing: {
       text: "{field} is hidden and nothing is stored for it yet",
       hint: "Type the secret again: it is only shown as {redacted} when one is stored.",
+    },
+    single_name: {
+      text: "There is one {kind} for the fleet and it is called {name}",
+      hint: "Set it as {name}.",
     },
     sync_ceiling: {
       text: "This server lets its central do at most '{level}', and applying the fleet's settings needs 'admin'",
@@ -308,7 +363,7 @@ export const serverText = {
     },
     sync_route: {
       text: "A push of the fleet's settings cannot {method} {path}",
-      hint: "It may only write the settings the fleet manages: channels, alert rules, backup destinations, registry logins and shared variables.",
+      hint: "It may only write the settings the fleet manages: channels, alert rules, backup destinations, registry logins, shared variables and the address of the central's console.",
     },
     unknown_field: {
       text: "A {kind} has no field called {field}",
@@ -359,6 +414,60 @@ export const serverText = {
       },
     },
   },
+  recipes: {
+    root_equivalent: {
+      agent: {
+        text: "{title} is an AI agent that runs commands, and whoever can operate it can make it do anything it can do: access to it is the same as access to a shell",
+        hint: "Its own security policy says it is not a boundary between users. Give its sign-in only to people you would give a shell on this server, and give it no model key or account you would not hand to them.",
+      },
+      confirm_required: {
+        text: "{title} is root on this server, and installing it needs your confirmation",
+        hint: "If you accept that, confirm it and install again: {command}",
+      },
+      docker_socket: {
+        text: "{title} controls the Docker daemon of this server, which is the same as having root on it",
+        hint: "It can start any container with any part of the server mounted, Noust's applications and their data included. Install it only if you would give this application root on the server.",
+      },
+    },
+    unavailable: {
+      archived: {
+        text: "The project is archived and no longer maintained",
+        hint: "Use the recipe that replaces it, when the catalogue names one.",
+      },
+      host_ports: {
+        text: "It needs ports that the server's web server and mail already hold",
+        hint: "Run it on a server of its own.",
+      },
+      licence: {
+        text: "Its licence does not let an operator run it for others",
+        hint: "If you hold a licence that does, deploy it from its own repository with 'noust create'.",
+      },
+      no_image: {
+        text: "The project publishes no container image that could be pinned",
+        hint: "Deploy it from the project's repository with 'noust create', or add a Dockerfile of your own.",
+      },
+      no_sign_in: {
+        text: "Its web interface has no sign-in of its own and holds the keys it works with",
+        hint: "Reach it through an SSH tunnel to the server, as its project documents, never through a public address.",
+      },
+      not_an_application: {
+        text: "It is a framework to build an application with, not an application to install",
+        hint: "Deploy your own project from its repository with 'noust create'.",
+      },
+      not_for_production: {
+        text: "Its own project says this edition is not for production",
+        hint: "Use the edition the project supports for production, deployed from its repository.",
+      },
+      platform_stack: {
+        text: "It is a platform of dozens of services with a proxy of its own",
+        hint: "Run it on a server of its own with the project's installer.",
+      },
+      root_equivalent: {
+        text: "It controls the server's Docker daemon, which is the same as root on the server",
+        hint: "Deploy it yourself with 'noust create' if you accept that, on a server that is yours.",
+      },
+    },
+  },
   roles: {
     auditor_exclusive: {
       text: "{username} is an auditor, who checks everybody and holds nothing more",
@@ -370,8 +479,7 @@ export const serverText = {
     },
     last_owner: {
       text: "{username} is the last account that can use the owner role",
-      hint:
-        "A server always keeps somebody who can do everything. Give the owner role to another account that can sign in first, then this change can go ahead.",
+      hint: "A server always keeps somebody who can do everything. Give the owner role to another account that can sign in first, then this change can go ahead.",
     },
     name_invalid: {
       text: "Invalid role name: {name}",
@@ -379,8 +487,7 @@ export const serverText = {
     },
     name_system: {
       text: "{name} is the name of a built-in role",
-      hint:
-        "Pick another name. The built-in roles can be edited and put back, not redefined under their own name.",
+      hint: "Pick another name. The built-in roles can be edited and put back, not redefined under their own name.",
     },
     name_taken: {
       text: "A role named {name} already exists",
@@ -400,8 +507,7 @@ export const serverText = {
     },
     owner_protected: {
       text: "The owner role cannot be changed or deleted",
-      hint:
-        "It holds every permission there is, so that the server always has somebody who can do everything. To give a person all of it, give them the owner role.",
+      hint: "It holds every permission there is, so that the server always has somebody who can do everything. To give a person all of it, give them the owner role.",
     },
     permissions_many: {
       text: "A role holds at most {max} permissions",
@@ -424,13 +530,11 @@ export const serverText = {
     },
     separation_account: {
       text: "{username} would govern access and run the server at once",
-      hint:
-        "Its roles together hold {governing} (who may run the server) with {running} (running it). Separation of duties keeps them in different hands: give the person a second account for the other duty.",
+      hint: "Its roles together hold {governing} (who may run the server) with {running} (running it). Separation of duties keeps them in different hands: give the person a second account for the other duty.",
     },
     separation_role: {
       text: "{subject} would govern access and run the server at once",
-      hint:
-        "It holds {governing} (who may run the server) together with {running} (running it). Separation of duties keeps them in different hands: split it into two roles.",
+      hint: "It holds {governing} (who may run the server) together with {running} (running it). Separation of duties keeps them in different hands: split it into two roles.",
     },
     too_many: {
       text: "A server keeps at most {max} roles of its own",
@@ -439,6 +543,72 @@ export const serverText = {
     unknown: {
       text: "There is no role named {name}",
       hint: "List the roles with: {command}",
+    },
+  },
+  sources: {
+    central_only: {
+      text: "Only the central that manages this server can lease it access to GitHub",
+      hint: "The central makes and renews the lease itself; there is nothing to do on this server. To clone with a credential of this server's own, give the application a deploy key.",
+    },
+    delivery_not_retryable: {
+      text: "That event is {state}, and only an event that was given up on can be handed over again",
+      hint: "A server that took the event is not sent it twice; one that is still waiting is tried again by itself.",
+    },
+    forward_gave_up: {
+      text: "{node} did not take the {kind} of {repository} in {minutes} minutes, and the central gave up",
+      hint: "Nothing was deployed on {node} for it. Once it answers again, update the application there, or push again.",
+    },
+    forward_refused: {
+      text: "{node} would not take the {kind} of {repository}: {reason}",
+      hint: "The server's own words are beside this. Nothing was deployed on {node} for it.",
+    },
+    github_refused: {
+      text: "GitHub would not give a token for installation {installation}",
+      hint: "GitHub's own words are beside this. If the App was removed or its permissions changed, accept the new permissions in the App's settings on GitHub, or install it again.",
+    },
+    lease_expired: {
+      text: "The GitHub access that {central} leased to this server for {repository} ended at {ended_at} and has not been renewed",
+      hint: "{central} last called at {last_call} and did not lease a new one: it may not reach GitHub, or its GitHub App no longer covers {repository}. Until it does, anything that starts on this server and reads {repository} fails. A deploy key does not depend on the central; see: {command}",
+    },
+    lease_expired_quiet: {
+      text: "The GitHub access that {central} leased to this server for {repository} ended at {ended_at}, and {central} has not called since {last_call}",
+      hint: "Anything that starts on this server and reads {repository} (a scheduled update, a preview) fails until {central} calls again and leases a new one: check that the central is running and reaches this server. A deploy key does not depend on the central; see: {command}",
+    },
+    no_app: {
+      text: "This central has no GitHub App to lease access with",
+      hint: "Create it in the console (Integrations, GitHub) or with: noust github setup",
+    },
+    no_installation: {
+      text: "No installation of the GitHub App reaches {repository}",
+      hint: "Install the App on the account {owner} and let it read {repository}: {url}",
+    },
+    node_ceiling: {
+      text: "{node} lets this central only read, so it cannot be leased access to GitHub",
+      hint: "Leasing needs the deploy ceiling or higher. On {node}, as root: {command}",
+    },
+    node_independent: {
+      text: "{node} is independent, so this central hands it nothing from GitHub",
+      hint: "Make it follow the fleet again and the access and the events of its repositories reach it. Until then it deploys from its own credentials.",
+    },
+    node_refused: {
+      text: "{node} would not take the access to GitHub: {reason}",
+      hint: "The server's own words are beside this. It is tried again in a few minutes.",
+    },
+    node_unreachable: {
+      text: "{node} could not be reached to lease it access to GitHub",
+      hint: "It is tried again within a minute, and the access it holds ends on its own. Check it with: {command}",
+    },
+    node_unsupported: {
+      text: "{node} runs a Noust that cannot hold the GitHub access this central leases",
+      hint: "Update Noust on {node} to 4.1 or later; the access is leased within a minute of it.",
+    },
+    not_reachable: {
+      text: "The GitHub App cannot read {repository}",
+      hint: "Add {repository} to the repositories the App's installation reaches: {url}",
+    },
+    webhook_unreachable: {
+      text: "GitHub cannot reach this central, so a push to a repository its servers deploy deploys nothing",
+      hint: "The servers it manages have no address GitHub could call: the App's webhook is this central's. On a server with a web server, give it a name of its own: {command}. Behind a proxy of your own, say where it answers: {config_command}",
     },
   },
   terminal: {
@@ -459,10 +629,8 @@ export const serverText = {
       hint: "No framework asks for it: it was set in Settings > Controls or with the command line. To allow it: {command}",
     },
     server_framework: {
-      text:
-        "The compliance framework in force ({frameworks}) keeps the terminal on the server itself off (the control {control} is refused)",
-      hint:
-        "A root shell in the browser is the console at its most root-equivalent. To allow it anyway, which is put on record: {command}. Or turn the framework off: {turn_off_command}",
+      text: "The compliance framework in force ({frameworks}) keeps the terminal on the server itself off (the control {control} is refused)",
+      hint: "A root shell in the browser is the console at its most root-equivalent. To allow it anyway, which is put on record: {command}. Or turn the framework off: {turn_off_command}",
     },
     server_off: {
       text: "The terminal on the server itself is off (terminal.server.enabled)",
@@ -472,8 +640,7 @@ export const serverText = {
   tunnels: {
     cloudflared_missing: {
       text: "cloudflared is not installed",
-      hint:
-        "Noust installs it from Cloudflare's own package repository, {url}, with the key Cloudflare signs it with: run 'noust tunnel install-cloudflared', then this command again.",
+      hint: "Noust installs it from Cloudflare's own package repository, {url}, with the key Cloudflare signs it with: run 'noust tunnel install-cloudflared', then this command again.",
     },
     no_account: {
       text: "There is no Cloudflare account to manage a tunnel with",
@@ -481,8 +648,103 @@ export const serverText = {
     },
     store_sealed: {
       text: "The secret store is sealed",
-      hint:
-        "A tunnel's connector reads its token at boot, with nobody to type a passphrase. Run tunnels on a server, not on a sealed central.",
+      hint: "A tunnel's connector reads its token at boot, with nobody to type a passphrase. Run tunnels on a server, not on a sealed central.",
+    },
+  },
+  webserver_move: {
+    approximate: {
+      text: "{directive} (line {line}) is carried over as {result}",
+    },
+    compose_only: {
+      text: "{domain} is a Docker Compose application, and those are served by nginx only",
+      hint: "Leave it behind nginx.",
+    },
+    confirm_handover: {
+      text: "{target} will take over ports 80 and 443 from {source} for {count} site(s)",
+      hint: "Every site is unreachable for the seconds the swap takes, and everything is put back if one of them does not answer. To go ahead: confirm in the API, --yes on the command line.",
+    },
+    confirm_live: {
+      text: "{count} site(s) will move from {source} to {target}, which is serving",
+      hint: "Each site is tested by {target} before it is switched, and put back if it does not answer. To go ahead: confirm in the API, --yes on the command line.",
+    },
+    console_site: {
+      text: "{domain} is the public name of the console, which Noust sets up behind nginx only",
+      hint: "Take it off first with {command}, or leave the web server as it is.",
+    },
+    included: {
+      text: "Line {line} includes {path}, which is not carried over",
+      hint: "The translation does not read the files a site includes. Copy what that file holds into the new site by hand, or leave the application where it is.",
+    },
+    left_behind: {
+      text: "{name} is a site of {source} that Noust cannot move",
+      hint: "{source} would stop serving it. Write its equivalent for {target} at {target_path} yourself, or leave the web server as it is.",
+    },
+    losses_to_accept: {
+      text: "The new sites will not do {count} thing(s) that the old ones did",
+      hint: "Read them in the plan. To go ahead anyway, accept them: accept_losses in the API, --accept-losses on the command line.",
+    },
+    no_site: {
+      text: "{domain} has no site file on {source}",
+      hint: "There is nothing to translate. Deploy the application again so that it gets a site, then plan the move again.",
+    },
+    not_restored: {
+      text: "Not everything could be put back",
+      hint: "What follows says what was left and where it is. The audit log says what was moved.",
+    },
+    not_serving: {
+      text: "{target} did not start",
+      hint: "Its own message is shown as it was. {source} was started again and the sites are as they were.",
+    },
+    operator_site: {
+      text: "The site of {domain} is yours, not Noust's ({path})",
+      hint: "Noust never rewrites a site you wrote. Write its equivalent for {target} at {target_path} yourself, then plan the move again: both files are left as they are and only the application moves.",
+    },
+    partial_handover: {
+      text: "{target} is not serving: moving {count} of the {total} sites would leave the others without a web server",
+      hint: "Ports 80 and 443 belong to one web server at a time. Move every site together: {command}",
+    },
+    protection: {
+      text: "{directive} (line {line}) protects the site, and {target} has nothing equivalent",
+      hint: "The new site would not be protected that way. Put another protection in front of it first, or leave the application where it is.",
+    },
+    rejected: {
+      text: "{target} did not accept the translated site of {domain}",
+      hint: "Its own message is shown as it was. Nothing was changed: fix what it names in the site on {source}, or leave the application where it is.",
+    },
+    status_site: {
+      text: "{domain} is the public name of the status page, which Noust sets up behind nginx only",
+      hint: "Take it off first with {command}, or leave the web server as it is.",
+    },
+    target_missing: {
+      text: "{target} is not installed on this server",
+      hint: "Install it first, then plan the move again: {command}",
+    },
+    tuning: {
+      text: "{directive} (line {line}) tunes {source} and is left out",
+    },
+    unanswered: {
+      text: "{domain} did not answer through {target}",
+      hint: "What was tried and what the application's unit said is shown as it was. Everything was put back: {source} serves the sites again.",
+    },
+    unknown: {
+      text: "{domain} is neither an application nor a site behind {source}",
+      hint: "See what is behind each web server with: {command}",
+    },
+    unreadable: {
+      text: "{source} would not read this site: {problem} (line {line})",
+      hint: "Fix the site where it is, with the editor of its page, then plan the move again.",
+    },
+    unsupported: {
+      text: "{directive} (line {line}) has no equivalent in {target}",
+      hint: "The new site will not do what that line did. Check the site after the move, or leave the application where it is.",
+    },
+    variable: {
+      text: "{directive} (line {line}) reads {variable}, which {target} cannot give",
+      hint: "The new site would send something else in its place. Check it after the move, or leave the application where it is.",
+    },
+    zero_downtime: {
+      text: "{domain} runs in zero-downtime mode, which only nginx supports",
+      hint: "Turn the mode off first, then plan the move again: {command}",
     },
   },
 } as const;

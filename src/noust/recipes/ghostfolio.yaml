@@ -18,7 +18,7 @@ slogan: "An open source wealth management app to track stocks, ETFs and crypto."
 description: "Keep your investments in one place: holdings, performance, allocation, dividends and fees across accounts, with market data from public sources. Sign-in is by a security token it shows once. The first person to sign up becomes the administrator."
 category: business
 tags: [finance, investing, portfolio, wealth]
-logo: logo.svg
+logo: simple-icons:ghostfolio
 version: "3.88.0"
 revision: 1
 updated: 2026-10-20

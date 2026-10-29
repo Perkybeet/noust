@@ -25,7 +25,7 @@ slogan: An open source no-code database and Airtable alternative.
 description: "Build databases in a spreadsheet-like interface with views, forms, a REST API, webhooks and applications on top. Runs the all-in-one image with its own PostgreSQL. The first person to sign up becomes the administrator, so do it right after installing."
 category: productivity
 tags: [database, no-code, spreadsheet, airtable]
-logo: logo.svg
+logo: simple-icons:baserow
 version: "2.4.0"
 revision: 1
 updated: 2026-10-06

@@ -1,0 +1,63 @@
+# Rivet Engine: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/rivet-engine.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: rivet-engine
+kind: compose
+title: "Rivet Engine"
+slogan: "Build and scale stateful workloads with long-lived processes"
+description: "Backend engine for running stateful actors at scale with automatic scaling and distributed state management."
+category: ai
+tags: [stateful, actors, realtime, backend, serverless, postgresql, ai]
+logo: logo.svg
+version: "2.2.0"
+revision: 1
+updated: 2026-10-28
+homepage: https://www.rivet.dev
+docs: https://www.rivet.dev/docs
+repository: https://github.com/rivet-dev/rivet
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_RIVET:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_BASE64_TOKEN:
+    generate: "base64_32"
+    secret: true
+    description: "The secret Noust generated for token."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    rivet-engine:
+      image: rivetdev/engine:2.2.0@sha256:ac5ac95af42ff1a53a41a0750be0fbd8bcbae0a18aa42f55aac72fd0b66ad8d6
+      environment:
+        SERVICE_URL_RIVET: ${SERVICE_URL_RIVET}
+        RIVET__FILE_SYSTEM__PATH: /data
+        RIVET__AUTH__ADMIN_TOKEN: ${SERVICE_BASE64_TOKEN}
+      volumes:
+        - rivet-data:/data
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - -f
+          - http://127.0.0.1:6420/health
+        interval: 2s
+        timeout: 10s
+        retries: 10
+        start_period: 30s
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:6420
+  volumes:
+    rivet-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume rivet-data of this application: back it up before updating."

@@ -21,7 +21,7 @@ slogan: "A full-featured BitTorrent client with a web interface."
 description: "Download and seed torrents on the server and manage them from the browser: queues, categories, RSS rules, a search engine and limits per torrent. The web interface asks for a password; the peer port 6881 is open to the network so that others can connect to you."
 category: utilities
 tags: [torrent, bittorrent, downloads, p2p]
-logo: logo.svg
+logo: simple-icons:qbittorrent
 version: "5.2.4"
 revision: 1
 updated: 2026-10-20

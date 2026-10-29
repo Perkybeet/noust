@@ -13,4 +13,5 @@ docs: https://stalw.art/docs/install/platform/docker
 repository: https://github.com/stalwartlabs/stalwart
 license: AGPL-3.0-only OR LicenseRef-Stalwart-Enterprise-v2
 available: false
+unavailable_code: host_ports
 unavailable_reason: "Its container instructions publish ports 25, 110, 143, 443, 465, 587, 993, 995, 4190 and 8080 of the host (stalw.art, Docker installation, read 2026-10-06): 443 is nginx's, and a mail server also needs MX, SPF, DKIM and reverse-DNS records and a certificate for the mail host name, which a recipe cannot create. Not available in this release."

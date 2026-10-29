@@ -1,0 +1,57 @@
+# Firefox: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/firefox.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: firefox
+kind: compose
+title: "Firefox"
+slogan: "Fast, private, and self-hosted secure browser for browsing without limits."
+description: "Firefox browser in a container."
+category: development
+tags: [browser, web, privacy, development]
+logo: simple-icons:firefox
+version: "26.09.1"
+revision: 1
+updated: 2026-10-28
+homepage: https://github.com/jlesage/docker-firefox
+docs: https://github.com/jlesage/docker-firefox
+repository: https://github.com/jlesage/docker-firefox
+license: MIT
+architectures: ["386", "amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_FIREFOX:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    firefox:
+      image: jlesage/firefox:v26.09.1@sha256:302aa068dcfa46a2d248771c998f67377383554df8940252caef42b99c13eb65
+      environment:
+        SERVICE_URL_FIREFOX: ${SERVICE_URL_FIREFOX}
+      volumes:
+        - firefox_config:/config
+      healthcheck:
+        test:
+          - CMD
+          - wget
+          - -q
+          - --spider
+          - http://127.0.0.1:5800/
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:5800
+  volumes:
+    firefox_config:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume firefox_config of this application: back it up before updating."

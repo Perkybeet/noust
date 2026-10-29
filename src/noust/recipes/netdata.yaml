@@ -17,7 +17,7 @@ slogan: "Real-time performance monitoring with thousands of charts and no setup.
 description: "Per-second metrics and charts for CPU, memory, disks, network and the applications it finds, with alerts and a Prometheus endpoint. Runs as a container, so it sees what a container sees, not the whole host (that needs the host's namespaces and capabilities, which a recipe cannot have). Its dashboard has no sign-in: anybody who reaches it sees the metrics."
 category: monitoring
 tags: [monitoring, metrics, performance, alerts, prometheus]
-logo: logo.svg
+logo: simple-icons:netdata
 version: "2.12.1"
 revision: 1
 updated: 2026-10-20

@@ -266,6 +266,7 @@ describe("the request", () => {
     const form = review({ port: "3002", webserver: "apache", ssl: false, layout: "inplace" });
     form.env = form.env.map((row) => ({ ...row, value: row.name === "LOG_LEVEL" ? "debug" : `${row.name.toLowerCase()}-value` }));
     expect(createAppBody({ source: " https://github.com/you/app.git ", branch: " main " }, { ...form, domain: " Shop.Example.com " })).toEqual({
+      accept_root_equivalent: false,
       domain: "shop.example.com",
       source: "https://github.com/you/app.git",
       branch: "main",

@@ -214,6 +214,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("applications", "get_update_schedule"): ("GET", "/api/apps/{domain}/update-schedule", "apps.read", False),
     ("applications", "put_update_schedule"): ("PUT", "/api/apps/{domain}/update-schedule", "apps.manage", False),
     ("applications", "delete_update_schedule"): ("DELETE", "/api/apps/{domain}/update-schedule", "apps.manage", False),
+    ("applications", "post_app_migrate"): ("POST", "/api/apps/{domain}/webserver/migrate", "root_equivalent", True),
+    ("applications", "get_app_plan"): ("GET", "/api/apps/{domain}/webserver/plan", "apps.read", False),
     ("applications", "get_zero_downtime"): ("GET", "/api/apps/{domain}/zero-downtime", "apps.read", False),
     ("applications", "put_zero_downtime"): ("PUT", "/api/apps/{domain}/zero-downtime", "apps.manage", True),
     ("applications", "deploy_apps"): ("POST", "/api/deploy", "apps.deploy", False),
@@ -438,6 +440,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("databases", "drop_database"): ("DELETE", "/api/databases/databases/{engine}/{name}", "databases.manage", True),
     ("databases", "list_access"): ("GET", "/api/databases/databases/{engine}/{name}/access", "databases.read", False),
     ("databases", "set_profile"): ("PUT", "/api/databases/databases/{engine}/{name}/access/{username}", "databases.write", False),
+    ("databases", "adopt_database_route"): ("POST", "/api/databases/databases/{engine}/{name}/adopt", "databases.manage", False),
     ("databases", "get_connect"): ("GET", "/api/databases/databases/{engine}/{name}/connect", "databases.read", False),
     ("databases", "list_extensions"): ("GET", "/api/databases/databases/{engine}/{name}/extensions", "databases.read", False),
     ("databases", "add_extension"): ("POST", "/api/databases/databases/{engine}/{name}/extensions", "databases.manage", True),
@@ -549,6 +552,10 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("databases", "promote"): ("POST", "/api/databases/replicas/{engine}/promote", "databases.manage", True),
     ("databases", "remove"): ("DELETE", "/api/databases/replicas/{engine}/{name}", "databases.manage", True),
     ("databases", "show_token"): ("POST", "/api/databases/replicas/{engine}/{name}/token", "databases.manage", True),
+    ("databases", "list_servers"): ("GET", "/api/databases/servers", "databases.read", False),
+    ("databases", "get_server"): ("GET", "/api/databases/servers/{key}", "databases.read", False),
+    ("databases", "set_default_server"): ("PUT", "/api/databases/servers/{key}/default", "databases.manage", False),
+    ("databases", "clear_default_server"): ("DELETE", "/api/databases/servers/{key}/default", "databases.manage", False),
     ("databases", "create_user"): ("POST", "/api/databases/users", "databases.write", False),
     ("databases", "grant_privileges"): ("POST", "/api/databases/users/grant", "databases.write", False),
     ("databases", "revoke_privileges"): ("POST", "/api/databases/users/revoke", "databases.write", False),
@@ -658,6 +665,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("fleet", "view_certificates"): ("GET", "/api/views/certificates", "apps.read", False),
     ("fleet", "view_cron"): ("GET", "/api/views/cron", "apps.read", False),
     ("fleet", "view_databases"): ("GET", "/api/views/databases", "databases.read", False),
+    ("fleet", "view_deliveries"): ("GET", "/api/views/deliveries", "settings.read", False),
     ("fleet", "view_logs"): ("GET", "/api/views/logs", "apps.read", False),
     ("fleet", "view_search"): ("GET", "/api/views/search", "apps.read", False),
     ("fleet", "view_sites"): ("GET", "/api/views/sites", "apps.read", False),
@@ -766,6 +774,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("notifications", "list_channels"): ("GET", "/api/notifications/channels", "settings.read", False),
     ("notifications", "save_channel"): ("PUT", "/api/notifications/channels/{name}", "settings.manage", True),
     ("notifications", "remove_channel"): ("DELETE", "/api/notifications/channels/{name}", "settings.manage", True),
+    ("notifications", "get_console_url"): ("GET", "/api/notifications/console-url", "settings.read", False),
+    ("notifications", "set_console_url"): ("PUT", "/api/notifications/console-url", "settings.manage", True),
     ("notifications", "list_deliveries"): ("GET", "/api/notifications/deliveries", "settings.read", False),
     ("notifications", "sweep_deliveries"): ("POST", "/api/notifications/deliveries/sweep", "settings.manage", False),
     ("notifications", "retry_delivery"): ("POST", "/api/notifications/deliveries/{delivery_id}/retry", "settings.manage", False),
@@ -934,6 +944,9 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("server", "restart_outdated_services"): ("POST", "/api/server/updates/restarts", "server.manage", True),
     ("server", "list_runs"): ("GET", "/api/server/updates/runs", "server.read", False),
     ("server", "get_run"): ("GET", "/api/server/updates/runs/{update_id}", "server.read", False),
+    ("server", "post_migrate"): ("POST", "/api/webserver/migrate", "root_equivalent", True),
+    ("server", "get_migration_plan"): ("GET", "/api/webserver/migration/plan", "apps.read", False),
+    ("server", "get_status"): ("GET", "/api/webserver/status", "settings.read", False),
     ("services", "list_services"): ("GET", "/api/services", "server.read", False),
     ("services", "create_service"): ("POST", "/api/services", "root_equivalent", True),
     ("services", "verify_unit"): ("POST", "/api/services/verify", "root_equivalent", False),
@@ -1000,6 +1013,14 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("sites", "get_unknown_hosts"): ("GET", "/api/unknown-hosts", "server.read", False),
     ("sites", "put_unknown_hosts"): ("PUT", "/api/unknown-hosts", "server.manage", True),
     ("sites", "delete_unknown_hosts"): ("DELETE", "/api/unknown-hosts", "server.manage", True),
+    ("sources", "sources_status"): ("GET", "/api/fleet/sources", "fleet.read", False),
+    ("sources", "sources_deliveries"): ("GET", "/api/fleet/sources/deliveries", "fleet.read", False),
+    ("sources", "retry_delivery"): ("POST", "/api/fleet/sources/deliveries/{forward_id}/retry", "fleet.manage", False),
+    ("sources", "lease_again"): ("POST", "/api/fleet/sources/leases", "fleet.manage", False),
+    ("sources", "forward_event"): ("POST", "/api/sources/events", "apps.deploy", False),
+    ("sources", "list_leases"): ("GET", "/api/sources/leases", "apps.read", False),
+    ("sources", "hold_lease"): ("PUT", "/api/sources/leases", "apps.deploy", False),
+    ("sources", "drop_leases"): ("DELETE", "/api/sources/leases", "apps.deploy", False),
     ("streams", "list_streams"): ("GET", "/api/streams", "server.read", False),
     ("streams", "open_stream"): ("POST", "/api/streams", "server.host_access", True),
     ("streams", "plan_stream"): ("POST", "/api/streams/plan", "server.read", False),
@@ -1351,7 +1372,7 @@ class Alerts:
 
 
 class Applications:
-    """Applications: 168 operations."""
+    """Applications: 170 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -2595,6 +2616,22 @@ class Applications:
 
         Needs: permission `apps.manage`."""
         return self._call("DELETE", f"/api/apps/{quote(str(domain), safe='')}/update-schedule", query=None, body=None)
+
+    def post_app_migrate(self, domain: str, *, body: Union["WebserverAppMoveRequest", None] = None) -> "JobAcceptedResponse":
+        """POST /api/apps/{domain}/webserver/migrate
+
+        Post App Migrate
+
+        Needs: permission `root_equivalent`, sudo mode, a second person's approval can be required."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/webserver/migrate", query=None, body=body)
+
+    def get_app_plan(self, domain: str, *, to: Union[Literal["nginx", "apache"], None] = None, text: Union[bool, None] = None) -> "WebserverMovePlanOut":
+        """GET /api/apps/{domain}/webserver/plan
+
+        Get App Plan
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/webserver/plan", query={"to": to, "text": text}, body=None)
 
     def get_zero_downtime(self, domain: str) -> "ZeroDowntimeResponse":
         """GET /api/apps/{domain}/zero-downtime
@@ -4215,7 +4252,7 @@ class DNS:
 
 
 class Databases:
-    """Databases: 154 operations."""
+    """Databases: 159 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -4507,6 +4544,14 @@ class Databases:
 
         Needs: permission `databases.write`."""
         return self._call("PUT", f"/api/databases/databases/{quote(str(engine), safe='')}/{quote(str(name), safe='')}/access/{quote(str(username), safe='')}", query=None, body=body)
+
+    def adopt_database_route(self, engine: str, name: str) -> "DatabaseInfoResponse":
+        """POST /api/databases/databases/{engine}/{name}/adopt
+
+        Adopt Database Route
+
+        Needs: permission `databases.manage`."""
+        return self._call("POST", f"/api/databases/databases/{quote(str(engine), safe='')}/{quote(str(name), safe='')}/adopt", query=None, body=None)
 
     def get_connect(self, engine: str, name: str, *, username: Union[str, None] = None, server: Union[str, None] = None, ssh_user: Union[str, None] = None, local_port: Union[int, None] = None) -> "ConnectResponse":
         """GET /api/databases/databases/{engine}/{name}/connect
@@ -4964,13 +5009,13 @@ class Databases:
         Needs: permission `databases.manage`, sudo mode."""
         return self._call("POST", "/api/databases/instances", query=None, body=body)
 
-    def instance_catalog(self) -> "NoustWebApiDatabasesInstancesCatalogResponse":
+    def instance_catalog(self, *, engine: Union[str, None] = None) -> "NoustWebApiDatabasesInstancesCatalogResponse":
         """GET /api/databases/instances/catalog
 
         Instance Catalog
 
         Needs: permission `databases.read`."""
-        return self._call("GET", "/api/databases/instances/catalog", query=None, body=None)
+        return self._call("GET", "/api/databases/instances/catalog", query={"engine": engine}, body=None)
 
     def migrate_engine(self, body: "NoustWebApiDatabasesMigrationsMigrateRequest") -> "JobAcceptedResponse":
         """POST /api/databases/instances/migrate
@@ -5396,6 +5441,38 @@ class Databases:
         Needs: permission `databases.manage`, sudo mode."""
         return self._call("POST", f"/api/databases/replicas/{quote(str(engine), safe='')}/{quote(str(name), safe='')}/token", query=None, body=None)
 
+    def list_servers(self, *, engine: Union[str, None] = None) -> "ServerListResponse":
+        """GET /api/databases/servers
+
+        List Servers
+
+        Needs: permission `databases.read`."""
+        return self._call("GET", "/api/databases/servers", query={"engine": engine}, body=None)
+
+    def get_server(self, key: str) -> "ServerResponse":
+        """GET /api/databases/servers/{key}
+
+        Get Server
+
+        Needs: permission `databases.read`."""
+        return self._call("GET", f"/api/databases/servers/{quote(str(key), safe='')}", query=None, body=None)
+
+    def set_default_server(self, key: str) -> "ServerResponse":
+        """PUT /api/databases/servers/{key}/default
+
+        Set Default Server
+
+        Needs: permission `databases.manage`."""
+        return self._call("PUT", f"/api/databases/servers/{quote(str(key), safe='')}/default", query=None, body=None)
+
+    def clear_default_server(self, key: str) -> "ServerResponse":
+        """DELETE /api/databases/servers/{key}/default
+
+        Clear Default Server
+
+        Needs: permission `databases.manage`."""
+        return self._call("DELETE", f"/api/databases/servers/{quote(str(key), safe='')}/default", query=None, body=None)
+
     def create_user(self, body: "CreateUserRequest") -> "CreateUserResponse":
         """POST /api/databases/users
 
@@ -5807,7 +5884,7 @@ class Domains:
 
 
 class Fleet:
-    """Fleet: 64 operations."""
+    """Fleet: 65 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -6309,6 +6386,14 @@ class Fleet:
 
         Needs: permission `databases.read`."""
         return self._call("GET", "/api/views/databases", query={"node": node, "refresh": refresh}, body=None)
+
+    def view_deliveries(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None, state: Union[str, None] = None, channel: Union[str, None] = None, limit: Union[int, None] = None) -> "NoustWebApiViewsDeliveriesOut":
+        """GET /api/views/deliveries
+
+        View Deliveries
+
+        Needs: permission `settings.read`."""
+        return self._call("GET", "/api/views/deliveries", query={"node": node, "refresh": refresh, "state": state, "channel": channel, "limit": limit}, body=None)
 
     def view_logs(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None, q: Union[str, None] = None, since: Union[str, None] = None, until: Union[str, None] = None, level: Union[str, None] = None, limit: Union[int, None] = None) -> "ViewOut":
         """GET /api/views/logs
@@ -7249,7 +7334,7 @@ class Nodes:
 
 
 class Notifications:
-    """Notifications: 11 operations."""
+    """Notifications: 13 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -7277,6 +7362,22 @@ class Notifications:
 
         Needs: permission `settings.manage`, sudo mode."""
         return self._call("DELETE", f"/api/notifications/channels/{quote(str(name), safe='')}", query=None, body=None)
+
+    def get_console_url(self) -> "ConsoleUrlModel":
+        """GET /api/notifications/console-url
+
+        Get Console Url
+
+        Needs: permission `settings.read`."""
+        return self._call("GET", "/api/notifications/console-url", query=None, body=None)
+
+    def set_console_url(self, body: "ConsoleUrlModel") -> "ConsoleUrlModel":
+        """PUT /api/notifications/console-url
+
+        Set Console Url
+
+        Needs: permission `settings.manage`, sudo mode."""
+        return self._call("PUT", "/api/notifications/console-url", query=None, body=body)
 
     def list_deliveries(self, *, state: Union[str, None] = None, channel: Union[str, None] = None, limit: Union[int, None] = None) -> "DeliveryListResponse":
         """GET /api/notifications/deliveries
@@ -7710,13 +7811,13 @@ class Recipes:
     def __init__(self, call: Call) -> None:
         self._call = call
 
-    def get_recipes(self, *, q: Union[str, None] = None, category: Union[str, None] = None, tag: Union[str, None] = None, kind: Union[str, None] = None, origin: Union[str, None] = None) -> "RecipeListOut":
+    def get_recipes(self, *, q: Union[str, None] = None, category: Union[str, None] = None, tag: Union[str, None] = None, kind: Union[str, None] = None, origin: Union[str, None] = None, available: Union[bool, None] = None, unavailable_code: Union[str, None] = None, tested: Union[bool, None] = None) -> "RecipeListOut":
         """GET /api/recipes
 
         Get Recipes
 
         Needs: permission `apps.read`."""
-        return self._call("GET", "/api/recipes", query={"q": q, "category": category, "tag": tag, "kind": kind, "origin": origin}, body=None)
+        return self._call("GET", "/api/recipes", query={"q": q, "category": category, "tag": tag, "kind": kind, "origin": origin, "available": available, "unavailable_code": unavailable_code, "tested": tested}, body=None)
 
     def get_catalog_state(self) -> "CatalogStateOut":
         """GET /api/recipes/catalog
@@ -8129,7 +8230,7 @@ class SelfBackup:
 
 
 class Server:
-    """Server: 72 operations."""
+    """Server: 75 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -8710,6 +8811,30 @@ class Server:
         Needs: permission `server.read`."""
         return self._call("GET", f"/api/server/updates/runs/{quote(str(update_id), safe='')}", query=None, body=None)
 
+    def post_migrate(self, body: "WebserverMoveRequest") -> "JobAcceptedResponse":
+        """POST /api/webserver/migrate
+
+        Post Migrate
+
+        Needs: permission `root_equivalent`, sudo mode, a second person's approval can be required."""
+        return self._call("POST", "/api/webserver/migrate", query=None, body=body)
+
+    def get_migration_plan(self, *, to: Literal["nginx", "apache"], domain: Union[list[str], None] = None, all: Union[bool, None] = None, text: Union[bool, None] = None) -> "WebserverMovePlanOut":
+        """GET /api/webserver/migration/plan
+
+        Get Migration Plan
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", "/api/webserver/migration/plan", query={"to": to, "domain": domain, "all": all, "text": text}, body=None)
+
+    def get_status(self) -> "WebserverStatusOut":
+        """GET /api/webserver/status
+
+        Get Status
+
+        Needs: permission `settings.read`."""
+        return self._call("GET", "/api/webserver/status", query=None, body=None)
+
 
 
 class Services:
@@ -9261,6 +9386,78 @@ class Sites:
 
         Needs: permission `server.manage`, sudo mode."""
         return self._call("DELETE", "/api/unknown-hosts", query={"webserver": webserver}, body=None)
+
+
+
+class Sources:
+    """Sources: 8 operations."""
+
+    def __init__(self, call: Call) -> None:
+        self._call = call
+
+    def sources_status(self) -> "SourcesOut":
+        """GET /api/fleet/sources
+
+        Sources Status
+
+        Needs: permission `fleet.read`."""
+        return self._call("GET", "/api/fleet/sources", query=None, body=None)
+
+    def sources_deliveries(self, *, node: Union[str, None] = None, state: Union[str, None] = None, limit: Union[int, None] = None) -> "NoustWebApiFleetSourcesDeliveriesOut":
+        """GET /api/fleet/sources/deliveries
+
+        Sources Deliveries
+
+        Needs: permission `fleet.read`."""
+        return self._call("GET", "/api/fleet/sources/deliveries", query={"node": node, "state": state, "limit": limit}, body=None)
+
+    def retry_delivery(self, forward_id: str) -> "DeliveryOut":
+        """POST /api/fleet/sources/deliveries/{forward_id}/retry
+
+        Retry Delivery
+
+        Needs: permission `fleet.manage`."""
+        return self._call("POST", f"/api/fleet/sources/deliveries/{quote(str(forward_id), safe='')}/retry", query=None, body=None)
+
+    def lease_again(self, body: "LeaseAgainIn") -> "LeasedAgainOut":
+        """POST /api/fleet/sources/leases
+
+        Lease Again
+
+        Needs: permission `fleet.manage`."""
+        return self._call("POST", "/api/fleet/sources/leases", query=None, body=body)
+
+    def forward_event(self, body: "ForwardedEventIn") -> "ForwardedEventOut":
+        """POST /api/sources/events
+
+        Forward Event
+
+        Needs: permission `apps.deploy`."""
+        return self._call("POST", "/api/sources/events", query=None, body=body)
+
+    def list_leases(self) -> "LeasesOut":
+        """GET /api/sources/leases
+
+        List Leases
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", "/api/sources/leases", query=None, body=None)
+
+    def hold_lease(self, body: "LeaseIn") -> "NoustWebApiSourceLeasesLeaseOut":
+        """PUT /api/sources/leases
+
+        Hold Lease
+
+        Needs: permission `apps.deploy`."""
+        return self._call("PUT", "/api/sources/leases", query=None, body=body)
+
+    def drop_leases(self, *, key: Union[str, None] = None) -> "LeasesDroppedOut":
+        """DELETE /api/sources/leases
+
+        Drop Leases
+
+        Needs: permission `apps.deploy`."""
+        return self._call("DELETE", "/api/sources/leases", query={"key": key}, body=None)
 
 
 
@@ -10323,6 +10520,7 @@ class Api:
     services: Services
     single_sign_on: SingleSignOn
     sites: Sites
+    sources: Sources
     streams: Streams
     system: System
     tags: Tags
@@ -10384,6 +10582,7 @@ class Api:
         self.services = Services(call)
         self.single_sign_on = SingleSignOn(call)
         self.sites = Sites(call)
+        self.sources = Sources(call)
         self.streams = Streams(call)
         self.system = System(call)
         self.tags = Tags(call)

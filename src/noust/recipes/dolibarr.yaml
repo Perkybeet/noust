@@ -16,7 +16,7 @@ slogan: "An ERP and CRM for small companies: invoices, stock, contacts, projects
 description: "Manage a small business from the browser: customers and suppliers, quotes and invoices, products and stock, projects, agenda and accounting, with modules you switch on as you need them. Starts with the administrator you name."
 category: business
 tags: [erp, crm, invoicing, accounting]
-logo: logo.svg
+logo: simple-icons:dolibarr
 version: "24.0.2"
 revision: 1
 updated: 2026-10-20

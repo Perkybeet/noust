@@ -19,7 +19,7 @@ slogan: "A bookmark everything app with AI tagging and full-page archives."
 description: "Save links, notes and images in one place, with automatic tags and summaries from a model you choose (OpenAI or Ollama), full-text search, page archives and mobile apps. The first person to register becomes the administrator."
 category: productivity
 tags: [bookmarks, notes, read-it-later, archive, ai]
-logo: logo.svg
+logo: simple-icons:karakeep
 version: "0.34.0"
 revision: 1
 updated: 2026-10-20

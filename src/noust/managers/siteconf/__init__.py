@@ -18,6 +18,9 @@ caller passes in and which decides what may be read.
   bytes of the element they name.
 - :func:`route` says which server and location answer a request, step by
   step, with the web server's own algorithm.
+- :func:`~noust.managers.siteconf.translate.translate` writes a site in the other web server's
+  words (nginx to Apache and back) and says what did not come across. It is not imported here:
+  only a move between web servers asks for it.
 """
 
 from noust.managers.siteconf.edit import EditOp, EditResult, apply_ops, changed_lines

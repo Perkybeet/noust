@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1084 operations.
+1105 operations.
 
 ## Access
 
@@ -202,6 +202,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/apps/{domain}/update-schedule` | Get Update Schedule | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/update-schedule` | Put Update Schedule | `apps.manage` |  |  |
 | DELETE | `/api/apps/{domain}/update-schedule` | Delete Update Schedule | `apps.manage` |  |  |
+| POST | `/api/apps/{domain}/webserver/migrate` | Post App Migrate | `root_equivalent` | yes | yes |
+| GET | `/api/apps/{domain}/webserver/plan` | Get App Plan | `apps.read` |  |  |
 | GET | `/api/apps/{domain}/zero-downtime` | Get Zero Downtime | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/zero-downtime` | Put Zero Downtime | `apps.manage` | yes |  |
 | POST | `/api/deploy` | Deploy Apps | `apps.deploy` |  |  |
@@ -501,6 +503,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | DELETE | `/api/databases/databases/{engine}/{name}` | Drop Database | `databases.manage` | yes |  |
 | GET | `/api/databases/databases/{engine}/{name}/access` | List Access | `databases.read` |  |  |
 | PUT | `/api/databases/databases/{engine}/{name}/access/{username}` | Set Profile | `databases.write` |  |  |
+| POST | `/api/databases/databases/{engine}/{name}/adopt` | Adopt Database Route | `databases.manage` |  |  |
 | GET | `/api/databases/databases/{engine}/{name}/connect` | Get Connect | `databases.read` |  |  |
 | GET | `/api/databases/databases/{engine}/{name}/extensions` | List Extensions | `databases.read` |  |  |
 | POST | `/api/databases/databases/{engine}/{name}/extensions` | Add Extension | `databases.manage` | yes |  |
@@ -612,6 +615,10 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/databases/replicas/{engine}/promote` | Promote | `databases.manage` | yes |  |
 | DELETE | `/api/databases/replicas/{engine}/{name}` | Remove | `databases.manage` | yes |  |
 | POST | `/api/databases/replicas/{engine}/{name}/token` | Show Token | `databases.manage` | yes |  |
+| GET | `/api/databases/servers` | List Servers | `databases.read` |  |  |
+| GET | `/api/databases/servers/{key}` | Get Server | `databases.read` |  |  |
+| PUT | `/api/databases/servers/{key}/default` | Set Default Server | `databases.manage` |  |  |
+| DELETE | `/api/databases/servers/{key}/default` | Clear Default Server | `databases.manage` |  |  |
 | POST | `/api/databases/users` | Create User | `databases.write` |  |  |
 | POST | `/api/databases/users/grant` | Grant Privileges | `databases.write` |  |  |
 | POST | `/api/databases/users/revoke` | Revoke Privileges | `databases.write` |  |  |
@@ -741,6 +748,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/views/certificates` | View Certificates | `apps.read` |  |  |
 | GET | `/api/views/cron` | View Cron | `apps.read` |  |  |
 | GET | `/api/views/databases` | View Databases | `databases.read` |  |  |
+| GET | `/api/views/deliveries` | View Deliveries | `settings.read` |  |  |
 | GET | `/api/views/logs` | View Logs | `apps.read` |  |  |
 | GET | `/api/views/search` | View Search | `apps.read` |  |  |
 | GET | `/api/views/sites` | View Sites | `apps.read` |  |  |
@@ -914,6 +922,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/notifications/channels` | List Channels | `settings.read` |  |  |
 | PUT | `/api/notifications/channels/{name}` | Save Channel | `settings.manage` | yes |  |
 | DELETE | `/api/notifications/channels/{name}` | Remove Channel | `settings.manage` | yes |  |
+| GET | `/api/notifications/console-url` | Get Console Url | `settings.read` |  |  |
+| PUT | `/api/notifications/console-url` | Set Console Url | `settings.manage` | yes |  |
 | GET | `/api/notifications/deliveries` | List Deliveries | `settings.read` |  |  |
 | POST | `/api/notifications/deliveries/sweep` | Sweep Deliveries | `settings.manage` |  |  |
 | POST | `/api/notifications/deliveries/{delivery_id}/retry` | Retry Delivery | `settings.manage` |  |  |
@@ -1137,6 +1147,9 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/server/updates/restarts` | Restart Outdated Services | `server.manage` | yes |  |
 | GET | `/api/server/updates/runs` | List Runs | `server.read` |  |  |
 | GET | `/api/server/updates/runs/{update_id}` | Get Run | `server.read` |  |  |
+| POST | `/api/webserver/migrate` | Post Migrate | `root_equivalent` | yes | yes |
+| GET | `/api/webserver/migration/plan` | Get Migration Plan | `apps.read` |  |  |
+| GET | `/api/webserver/status` | Get Status | `settings.read` |  |  |
 
 ## Services
 
@@ -1218,6 +1231,19 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/unknown-hosts` | Get Unknown Hosts | `server.read` |  |  |
 | PUT | `/api/unknown-hosts` | Put Unknown Hosts | `server.manage` | yes |  |
 | DELETE | `/api/unknown-hosts` | Delete Unknown Hosts | `server.manage` | yes |  |
+
+## Sources
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| GET | `/api/fleet/sources` | Sources Status | `fleet.read` |  |  |
+| GET | `/api/fleet/sources/deliveries` | Sources Deliveries | `fleet.read` |  |  |
+| POST | `/api/fleet/sources/deliveries/{forward_id}/retry` | Retry Delivery | `fleet.manage` |  |  |
+| POST | `/api/fleet/sources/leases` | Lease Again | `fleet.manage` |  |  |
+| POST | `/api/sources/events` | Forward Event | `apps.deploy` |  |  |
+| GET | `/api/sources/leases` | List Leases | `apps.read` |  |  |
+| PUT | `/api/sources/leases` | Hold Lease | `apps.deploy` |  |  |
+| DELETE | `/api/sources/leases` | Drop Leases | `apps.deploy` |  |  |
 
 ## Streams
 

@@ -17,7 +17,7 @@ slogan: Self-hosted audiobook and podcast server.
 description: "Stream and manage your audiobooks and podcasts, with progress sync across devices, chapters, metadata matching and mobile apps. Single container; libraries are directories on this server. The first person to open it creates the root account, so do it right after installing."
 category: media
 tags: [audiobooks, podcasts, books, streaming]
-logo: logo.svg
+logo: simple-icons:audiobookshelf
 version: "2.37.1"
 revision: 1
 updated: 2026-10-06

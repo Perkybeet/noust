@@ -216,24 +216,16 @@ class StatusReporter:
         key = (event.domain, event.deployment_id)
         deployment = self._deployments.get(key)
         if event.kind is DeployEventKind.STARTED or deployment is None:
-            deployment = self._create(app, target, event)
+            deployment = create_deployment(
+                app, target, ref=event.commit or event.branch, domain=event.domain
+            )
             if deployment is None:
                 return
             self._remember(key, deployment)
-        if event.kind is DeployEventKind.STARTED:
-            self._status(app, target, deployment, "in_progress", "Deploying")
-            return
-        if event.kind is DeployEventKind.SUCCEEDED:
-            self._status(app, target, deployment, "success", "Deployed")
-        elif event.kind is DeployEventKind.ROLLED_BACK:
-            self._status(app, target, deployment, "failure", "rolled back")
-        elif event.cancelled:
-            # Not a failure: it never ran. GitHub's own state for a
-            # deployment that is not in effect.
-            self._status(app, target, deployment, "inactive", "Cancelled")
-        else:
-            self._status(app, target, deployment, "failure", _describe_failure(event.error))
-        self._deployments.pop(key, None)
+        state, description = deployment_state(event)
+        post_status(app, target, deployment, state, description)
+        if event.kind is not DeployEventKind.STARTED:
+            self._deployments.pop(key, None)
 
     def _remember(self, key: tuple[str, int | None], deployment: int) -> None:
         """
@@ -247,72 +239,106 @@ class StatusReporter:
         while len(self._deployments) > _REMEMBERED:
             self._deployments.popitem(last=False)
 
-    def _create(self, app: GitHubApp, target: Target, event: DeployEvent) -> int | None:
-        """
-        Create the GitHub deployment for a Noust deployment.
 
-        Args:
-            app: The App.
-            target: Where to report.
-            event: The event that needs it.
+def create_deployment(
+    app: GitHubApp, target: Target, *, ref: str | None, domain: str
+) -> int | None:
+    """
+    Create the GitHub deployment for a Noust deployment.
 
-        Returns:
-            GitHub's deployment id, or None when there is no ref to name or
-            GitHub declined to create one (it answers 202 with a message
-            when it would first have to merge).
-        """
-        ref = event.commit or event.branch
-        if not ref:
-            logger.debug("No commit or branch for %s; no GitHub deployment", event.domain)
-            return None
-        preview = target.environment == "preview"
-        answer = app.as_installation(
-            target.installation_id,
-            "POST",
-            f"{repo_path(target.repository)}/deployments",
-            {
-                "ref": ref,
-                "environment": target.environment,
-                "auto_merge": False,
-                "required_contexts": [],
-                "description": f"Noust deploy of {event.domain}"[:_MAX_DESCRIPTION],
-                "transient_environment": preview,
-                "production_environment": not preview,
-            },
-        )
-        if not isinstance(answer, dict) or answer.get("id") is None:
-            message = answer.get("message") if isinstance(answer, dict) else None
-            logger.info("GitHub created no deployment for %s: %s", event.domain, message)
-            return None
-        return int(answer["id"])
+    The one place a deployment is created, for the events of this server's own deployments and for
+    the ones a central follows on its servers.
 
-    def _status(
-        self, app: GitHubApp, target: Target, deployment: int, state: str, description: str
-    ) -> None:
-        """
-        Set a GitHub deployment's state.
+    Args:
+        app: The App.
+        target: Where to report.
+        ref: The commit, or the branch when the commit is not known.
+        domain: The application deployed.
 
-        Args:
-            app: The App.
-            target: Where to report.
-            deployment: GitHub's deployment id.
-            state: ``in_progress``, ``success``, ``failure`` or ``inactive``.
-            description: Shown next to the state on GitHub.
-        """
-        body: dict[str, Any] = {
-            "state": state,
-            "description": description[:_MAX_DESCRIPTION],
+    Returns:
+        GitHub's deployment id, or None when there is no ref to name or GitHub declined to create
+        one (it answers 202 with a message when it would first have to merge).
+
+    Raises:
+        IntegrationError: GitHub refused or could not be reached.
+    """
+    if not ref:
+        logger.debug("No commit or branch for %s; no GitHub deployment", domain)
+        return None
+    preview = target.environment == "preview"
+    answer = app.as_installation(
+        target.installation_id,
+        "POST",
+        f"{repo_path(target.repository)}/deployments",
+        {
+            "ref": ref,
             "environment": target.environment,
-            "auto_inactive": state == "success",
-        }
-        if state == "success":
-            body["environment_url"] = target.environment_url
-        app.as_installation(
-            target.installation_id,
-            "POST",
-            f"{repo_path(target.repository)}/deployments/{deployment}/statuses",
-            body,
-        )
+            "auto_merge": False,
+            "required_contexts": [],
+            "description": f"Noust deploy of {domain}"[:_MAX_DESCRIPTION],
+            "transient_environment": preview,
+            "production_environment": not preview,
+        },
+    )
+    if not isinstance(answer, dict) or answer.get("id") is None:
+        message = answer.get("message") if isinstance(answer, dict) else None
+        logger.info("GitHub created no deployment for %s: %s", domain, message)
+        return None
+    return int(answer["id"])
+
+
+def post_status(
+    app: GitHubApp, target: Target, deployment: int, state: str, description: str
+) -> None:
+    """
+    Set a GitHub deployment's state.
+
+    Args:
+        app: The App.
+        target: Where to report.
+        deployment: GitHub's deployment id.
+        state: ``queued``, ``in_progress``, ``success``, ``failure``, ``inactive`` or ``error``.
+        description: Shown next to the state on GitHub.
+
+    Raises:
+        IntegrationError: GitHub refused or could not be reached.
+    """
+    body: dict[str, Any] = {
+        "state": state,
+        "description": description[:_MAX_DESCRIPTION],
+        "environment": target.environment,
+        "auto_inactive": state == "success",
+    }
+    if state == "success":
+        body["environment_url"] = target.environment_url
+    app.as_installation(
+        target.installation_id,
+        "POST",
+        f"{repo_path(target.repository)}/deployments/{deployment}/statuses",
+        body,
+    )
+
+
+def deployment_state(event: DeployEvent) -> tuple[str, str]:
+    """
+    Say what state a deployment's event puts its GitHub deployment in.
+
+    Args:
+        event: What happened.
+
+    Returns:
+        GitHub's state and the description shown next to it.
+    """
+    if event.kind is DeployEventKind.STARTED:
+        return "in_progress", "Deploying"
+    if event.kind is DeployEventKind.SUCCEEDED:
+        return "success", "Deployed"
+    if event.kind is DeployEventKind.ROLLED_BACK:
+        return "failure", "rolled back"
+    if event.cancelled:
+        # Not a failure: it never ran. GitHub's own state for a deployment that is not in effect.
+        return "inactive", "Cancelled"
+    return "failure", _describe_failure(event.error)
 
 
 def _describe_failure(error: str | None) -> str:

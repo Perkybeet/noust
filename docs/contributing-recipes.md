@@ -102,12 +102,12 @@ for the operator ("recipes: Gotify, a simple push-notification server"), never w
   say where to sign in, what the first account's password is called, and what to back up.
 - **Nothing is fetched at install** except what a pin names.
 - **The name and the logo.** A project's name and logo are its own: the description does not claim an
-  endorsement, and the logo ships only if the project's licence or brand page allows it ([recipes.md](recipes.md#names-marks-licences-and-logos-of-the-projects)).
+  endorsement, and the logo ships only if the project's licence or brand page allows it ([recipes.md](recipes-format.md#names-marks-licences-and-logos-of-the-projects)).
 - **Whether it can be kept up to date.** The lint runs in CI on every pull request; the pins check is run
   by hand, by you before the request and by the maintainer before a release. When upstream publishes a
   newer version, `noust health` says so on every server that installed the recipe
   ([recipes.md](recipes.md#updating-what-you-installed)), and updating the catalogue is
-  [a short procedure](recipes.md#updating-the-catalogue).
+  [a short procedure](recipes-own.md#updating-the-catalogue).
 
 ## Converting a template from another catalogue
 
@@ -119,3 +119,17 @@ not a recipe: `noust compose import` converts one into a Compose stack
 the project's own documentation instead of the template's guess, and run the smoke test. Both catalogues
 are permissively licensed (Apache-2.0 and MIT); a template's own authors keep their rights in it, so
 cite the template as a source in the recipe's comments, not as the author.
+
+`scripts/recipe_import.py` does the part of that which is a lookup and a rewrite. `survey` reads
+both catalogues from checkouts and each project's repository with `gh api` (read-only), and says
+which templates are eligible by the rules above; `plan` picks one template per project, most starred
+first; `draft` converts it with the same importers, applies the closed schema (labels, networks and
+`container_name` go; a privileged container, a device, a host path, an extra published port and a
+`build:` are reasons to skip, said by name; a credential written as a literal becomes one generated
+variable everywhere it appears), pins every image to a release tag and its digest (a floating tag
+becomes the newest release whose digest is the floating tag's), and loads the result with the
+catalogue's own loader. Its output is a draft in a folder of your own, never in the catalogue: the
+draft is started with `tests/integration/recipes_run.py run NAME` and only one that passes is
+accepted (`recipes_run.py accept NAME`). The health path is `/` accepting `200-399`; when the
+application answers somewhere else the smoke run says where (`suggested_health`) and the draft is
+corrected and run once more.

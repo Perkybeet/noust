@@ -40,7 +40,7 @@ When the new package is installed, and from the next update of each application:
   happens when there is none. If a repository already has a file of that name for some other
   purpose, 3.2 tries to read it as Noust's and refuses a file that is outside its schema,
   naming the field. Rename the other file, or fix this one. See
-  [compose.md](compose.md#noustyaml).
+  [compose.md](compose-hooks.md#noustyaml).
 - **The next update of a Docker Compose stack dumps its databases first**, and **stops if a dump
   fails**. See [Docker Compose projects](#6-docker-compose-projects) for what is dumped, how to see
   it before it matters, and how to turn it off.
@@ -52,7 +52,7 @@ When the new package is installed, and from the next update of each application:
 - **Going back past a deployment that changed the database schema asks first.** Only deployments
   that 3.2 recorded can say so (the column starts at false for everything older), so nothing
   asks about history that predates the upgrade. See [Rolling back past a
-  migration](compose.md#rolling-back-past-a-migration).
+  migration](compose-hooks.md#rolling-back-past-a-migration).
 - **Deleting an application whose directory is outside the apps directory keeps the directory.**
   Such a directory is one an adopted stack lives in, or one you placed there; "delete the files"
   no longer removes it unless you name it: `noust delete DOMAIN --remove-adopted-directory PATH`.
@@ -247,7 +247,7 @@ if a dump fails.
   migration.
 - Disk: each update's backup now carries a compressed dump of each database, and backups are
   rotated by `backup.max_per_app` (10 by default), so the space is up to that many dumps. See
-  [compose.md](compose.md#stack-database-backups-and-restore).
+  [compose.md](compose-backups.md#stack-database-backups-and-restore).
 
 **Move the project's own deploy steps into hooks.** If the project runs its migrations from its
 container's entrypoint or from a script that wraps `docker compose up`, declare them where Noust
@@ -265,8 +265,8 @@ hooks:
 A `pre_deploy` hook runs in a one-off container of the image the update just built, before any
 container is recreated; one that fails stops the update with what served before still serving.
 `migrates: true` is what makes going back past this deployment ask first. See
-[compose.md](compose.md#noustyaml) and, to set hooks without touching the repository,
-[compose.md](compose.md#operator-hooks).
+[compose.md](compose-hooks.md#noustyaml) and, to set hooks without touching the repository,
+[compose.md](compose-hooks.md#operator-hooks).
 
 **Turn on updates without a cut** when the stack qualifies:
 
@@ -279,7 +279,7 @@ file of Noust's. The site Noust wrote is switched to it by the command. **A site
 yourself must include the file**: the command refuses with the exact line, and has already
 written the files so that the line loads. Add it inside the `upstream` block that proxies to the
 service, reload nginx, and run the command again. See
-[compose.md](compose.md#zero-downtime-updates-the-relay). Both versions of a service run side by
+[compose.md](compose-relay.md#zero-downtime-updates-the-relay). Both versions of a service run side by
 side for a few seconds during an update, which a queue consumer in the web process or a job
 scheduled in-process may not tolerate.
 
@@ -292,7 +292,7 @@ noust app adopt shop.example.com --path /opt/shop
 
 The directory must be a git checkout with an `origin` (or pass `--source`), and `docker compose up
 --dry-run` must say nothing would be recreated. Nothing is cloned, rebuilt or restarted. See
-[compose.md](compose.md#adopting-a-running-stack).
+[compose.md](compose-adopt.md#adopting-a-running-stack).
 
 **Workers.** A stack that publishes no port was never a web application. If an earlier version
 registered it with a port and a site (1.x recorded the default port), `noust diagnose` and

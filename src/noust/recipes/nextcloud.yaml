@@ -21,7 +21,7 @@ slogan: Your own file sync and share, calendar, contacts and office suite.
 description: Files, calendar, contacts, talk and collaborative documents on your own server, with web, desktop and mobile clients. Runs with its own PostgreSQL, a cache and the background-jobs container. Installed with the administrator you name.
 category: files
 tags: [files, sync, calendar, collaboration]
-logo: logo.svg
+logo: simple-icons:nextcloud
 version: "35.0.1"
 revision: 1
 updated: 2026-10-06

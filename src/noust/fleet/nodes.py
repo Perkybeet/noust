@@ -582,6 +582,10 @@ class NodeManager:
         Liveness(self.store).forget(name)
         Placements(self.store).forget_node(name)
         FleetSettings(self.store).forget_node(name)
+        # Imported here: the keeper of the leases asks this registry for its servers.
+        from noust.fleet.sources.forget import forget_node
+
+        forget_node(self.store, name)
         return warnings
 
     def _revoke(self, name: str, actor: str) -> builtins.list[str]:

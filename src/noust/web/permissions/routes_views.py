@@ -25,5 +25,6 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/views/logs"): Permission.APPS_READ,
     ("GET", "/api/views/alerts"): Permission.SERVER_READ,
     ("GET", "/api/views/activity"): Permission.AUDIT_READ,
+    ("GET", "/api/views/deliveries"): Permission.SETTINGS_READ,
     ("GET", "/api/views/search"): Permission.APPS_READ,
 }

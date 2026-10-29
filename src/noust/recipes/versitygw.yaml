@@ -1,0 +1,67 @@
+# VersityGW: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/versitygw
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: versitygw
+kind: compose
+title: "VersityGW"
+slogan: "A simple to deploy but feature rich S3 object storage server for your filesystem"
+description: "VersityGW is a high-performance S3-compatible gateway that exposes POSIX filesystems, ScoutFS, Azure Blob, or other S3 servers over the S3 API, with a built-in WebUI for bucket and user management."
+category: files
+tags: [s3, storage, gateway, object-storage, files]
+logo: logo.svg
+version: "1.8.0"
+revision: 1
+updated: 2026-10-28
+homepage: https://www.versity.com/products/versitygw/
+docs: https://github.com/versity/versitygw/wiki
+repository: https://github.com/versity/versitygw
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  ROOT_ACCESS_KEY:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for root access key."
+  ROOT_SECRET_KEY:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for root secret key."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    versitygw:
+      image: versity/versitygw:v1.8.0@sha256:30292fc2eeacc67a36993b01f7a7a5e3361a19cced0e80c1d71cfa2a4b0a2499
+      restart: unless-stopped
+      environment:
+        ROOT_ACCESS_KEY: ${ROOT_ACCESS_KEY}
+        ROOT_SECRET_KEY: ${ROOT_SECRET_KEY}
+        VGW_BACKEND: posix
+        VGW_PORT: :7070
+        VGW_BACKEND_ARGS: /data/s3
+        VGW_IAM_DIR: /data/iam
+        VGW_VERSIONING_DIR: /data/versioning
+        VGW_ADMIN_PORT: :7071
+        VGW_WEBUI_PORT: :8080
+        VGW_WEBUI_NO_TLS: 'true'
+        VGW_WEBUI_GATEWAYS: http://localhost:7070
+        VGW_WEBUI_ADMIN_GATEWAYS: http://localhost:7071
+      volumes:
+        - versitygw_s3:/data/s3
+        - versitygw_versioning:/data/versioning
+        - versitygw_iam:/data/iam
+      ports:
+        - 127.0.0.1:${PORT}:8080
+  volumes:
+    versitygw_s3:
+    versitygw_versioning:
+    versitygw_iam:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes versitygw_s3, versitygw_versioning, versitygw_iam of this application: back them up before updating."

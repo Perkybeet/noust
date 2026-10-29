@@ -23,7 +23,7 @@ slogan: "A workspace for notes, docs, whiteboards and databases that works offli
 description: "A privacy-focused knowledge base that merges documents, whiteboards and tables on one canvas, local-first with real-time collaboration. The community edition is open core: MPL-2.0 for what it ships, with enterprise features sold separately. The first person to sign up becomes the administrator."
 category: productivity
 tags: [notes, whiteboard, docs, workspace, collaboration]
-logo: logo.svg
+logo: simple-icons:affine
 version: "0.27.4"
 revision: 1
 updated: 2026-10-20

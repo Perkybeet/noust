@@ -5,7 +5,7 @@ never deployed: an nginx or Apache site in front of a systemd unit you wrote, a 
 folder of files. Adopting one registers it as an application so that it is in the list, its state and its
 logs are read and its unit is restarted from the same place as the rest, **without rebuilding it and
 without changing a byte of it**. A Docker Compose stack that already runs is adopted with
-`noust app adopt` ([Compose](compose.md#adopting-a-running-stack)); this page is about everything else.
+`noust app adopt` ([Compose](compose-adopt.md#adopting-a-running-stack)); this page is about everything else.
 
 - [What is on the server](#what-is-on-the-server)
 - [Adopting one](#adopting-one)

@@ -20,7 +20,7 @@ on a central **Every server** searches all of them. The API is `GET /api/logs/se
 ## The query
 
 The words are the journal's own: this search, the **Logs** page's System source and an application's Logs tab read one grammar
-([the Logs page](console.md#logs)), so what you learn in one works in the others.
+([the Logs page](console-overview.md#logs)), so what you learn in one works in the others.
 
 | You write | It means |
 |---|---|

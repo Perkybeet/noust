@@ -23,7 +23,7 @@ slogan: "The distributed search and analytics engine, as a single secured node."
 description: "Index and search documents and logs with full-text, structured and vector queries through a REST API. A single node with security on: every request needs the elastic user's password. Licensed under the AGPL (also the Elastic License and the SSPL, at your choice). Needs about 2 GB of memory."
 category: search
 tags: [search, analytics, logs, vector-search]
-logo: logo.svg
+logo: simple-icons:elasticsearch
 version: "9.5.5"
 revision: 1
 updated: 2026-10-20

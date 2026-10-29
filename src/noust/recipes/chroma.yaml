@@ -1,0 +1,58 @@
+# Chroma: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/chroma.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: chroma
+kind: compose
+title: "Chroma"
+slogan: "Chroma is the open-source search and retrieval database for AI applications."
+description: "Chroma is an open-source embedding database for AI applications, with persistent vector storage and a simple HTTP API."
+category: ai
+tags: [ai, vector-database, semantic-search, machine-learning, bm25, embeddings, llm, database]
+logo: logo.svg
+version: "1.0.15"
+revision: 1
+updated: 2026-10-28
+homepage: https://www.trychroma.com/
+docs: https://cookbook.chromadb.dev/
+repository: https://github.com/chroma-core/chroma
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_CHROMA:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+health: {path: /api/v2/heartbeat, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    chromadb:
+      image: chromadb/chroma:1.0.15@sha256:663aa18087cd698aacc3c16c1ea0c1585be9a6392e2fd80c3086c371e2f89363
+      volumes:
+        - chroma-data:/data
+      environment:
+        SERVICE_URL_CHROMA: ${SERVICE_URL_CHROMA}
+        IS_PERSISTENT: 'TRUE'
+        PERSIST_DIRECTORY: /data
+      healthcheck:
+        test:
+          - CMD
+          - /bin/bash
+          - -c
+          - cat < /dev/null > /dev/tcp/localhost/8000
+        interval: 30s
+        timeout: 10s
+        retries: 3
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8000
+  volumes:
+    chroma-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume chroma-data of this application: back it up before updating."

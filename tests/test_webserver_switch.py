@@ -61,6 +61,8 @@ def test_with_applications_behind_the_other_server_the_setting_is_refused_with_t
     details = refused.value.details or ""
     assert "1 application" in details and "apache" in details
     assert "new applications" in details
+    # The way out is a command that runs as it is written (tests/test_cli_webserver.py runs it).
+    assert webserver_switch.suggested_command("apache") in details
     assert config.get("webserver") == "nginx", "nothing was changed"
 
 

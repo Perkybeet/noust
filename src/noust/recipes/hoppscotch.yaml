@@ -27,7 +27,7 @@ slogan: "An open source API development ecosystem: REST, GraphQL, WebSocket and 
 description: "Design and test APIs in the browser with collections, environments, request history and team workspaces, as an open alternative to Postman. Sign-in is by e-mail link or OAuth, which you configure in its admin dashboard on the first visit."
 category: development
 tags: [api, rest, graphql, testing, postman-alternative]
-logo: logo.svg
+logo: simple-icons:hoppscotch
 version: "2026.9.0"
 revision: 1
 updated: 2026-10-20

@@ -1,0 +1,68 @@
+# OpenBao from its own image, the free fork of Vault under the Mozilla Public License
+# (Linux Foundation), as the project's container page documents it
+# (https://openbao.org/docs/install/: the image runs `server`, takes its configuration
+# as JSON in BAO_LOCAL_CONFIG, keeps its integrated Raft storage in /openbao/file and listens
+# on 8200; the `file` storage backend of Vault is not in OpenBao 2.7, which stops with
+# 'unknown storage type file', found by starting it).
+# It replaces the listing for HashiCorp's Vault, which is under the Business Source
+# License.
+#
+# A new OpenBao starts uninitialised and sealed, and what makes it usable (the unseal
+# keys and the root token) is the operator's, not something a recipe generates or hides.
+# So the recipe does not initialise it: the health gate accepts what a server in that
+# state answers (501 not initialised, 503 sealed; /v1/sys/health) and the first note
+# walks the opening with the commands that work as written. The keys are printed once, to
+# the person who runs the command, and kept by nothing here. mlock is disabled in the
+# configuration because the schema gives a container no IPC_LOCK capability; the project
+# documents that for containers.
+#
+# Pinned to the release tag and the digest Docker Hub serves for it (also the digest
+# ghcr.io serves).
+schema: 2
+name: openbao
+kind: compose
+title: OpenBao
+slogan: "Secrets management, encryption as a service and privileged access, the open fork of Vault."
+description: "Stores and hands out API keys, passwords and certificates with leasing, revocation, audit logging and encryption as a service. It starts sealed and empty: the opening ceremony (its unseal keys and root token) is yours, and is walked step by step after the install."
+category: security
+tags: [secrets, encryption, pki, vault-fork]
+logo: simple-icons:openbao
+version: "2.7.2"
+revision: 1
+updated: 2026-10-28
+homepage: https://openbao.org
+docs: https://openbao.org/docs/
+repository: https://github.com/openbao/openbao
+license: MPL-2.0
+architectures: ["amd64", "arm", "arm64", "riscv64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8200
+variables:
+  BAO_API_ADDR:
+    from: url
+    description: The address clients reach OpenBao at; it advertises it to them.
+health:
+  path: /v1/sys/health
+  expect: "200,429,472,473,501,503"
+  timeout: 120
+compose: |
+  services:
+    openbao:
+      image: openbao/openbao:2.7.2@sha256:5046911075e137e154ce49ab051502f4ec7cf367d484ae4a4dce665d9b90561f
+      restart: unless-stopped
+      command: ["server"]
+      environment:
+        BAO_ADDR: "http://127.0.0.1:8200"
+        BAO_LOCAL_CONFIG: '{"ui": true, "disable_mlock": true, "api_addr": "${BAO_API_ADDR}", "cluster_addr": "http://127.0.0.1:8201", "storage": {"raft": {"path": "/openbao/file", "node_id": "noust"}}, "listener": [{"tcp": {"address": "0.0.0.0:8200", "tls_disable": true}}]}'
+      volumes:
+        - openbao-data:/openbao/file
+      ports:
+        - "127.0.0.1:${PORT}:8200"
+  volumes:
+    openbao-data:
+notes:
+  - "OpenBao is installed sealed and empty, and whoever initialises it first holds its keys: do the opening now, on this server, before you share the address. Initialise it: noust app exec {{ domain }} -- bao operator init -key-shares=5 -key-threshold=3. It prints five unseal keys and the root token once; copy them to a password manager or hand each key to a different person. Nothing keeps them for you."
+  - "Unseal it with three different keys, one command each: noust app exec {{ domain }} -- bao operator unseal KEY. Then sign in at {{ url }} with the root token, create the accounts and policies your applications need, and revoke the root token: bao token revoke."
+  - "OpenBao seals itself every time it restarts, an update included, and answers 503 until three keys are given again. Noust still treats it as up (a sealed server is a healthy one); the applications that read from it stop working until it is unsealed."
+  - "Everything it stores is in the Docker volume openbao-data of this application, encrypted with a key only the unseal keys can open: back it up before updating, and keep the unseal keys apart from the backup."

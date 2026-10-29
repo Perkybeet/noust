@@ -25,7 +25,7 @@ slogan: High performance self-hosted photo and video management.
 description: "Back up and browse your photos and videos with face and object recognition, albums, sharing and mobile apps. Runs the server, machine learning, PostgreSQL with vector search and Valkey; needs about 4 GB of memory. The first person to open it creates the administrator, so do it right after installing."
 category: media
 tags: [photos, videos, backup, gallery]
-logo: logo.svg
+logo: simple-icons:immich
 version: "3.2.4"
 revision: 1
 updated: 2026-10-06

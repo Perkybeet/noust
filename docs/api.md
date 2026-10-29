@@ -109,7 +109,7 @@ long as it has to.
 Tokens issued before the server had accounts keep their 3.0 scope and are never asked for sudo
 mode. The first `admin` account adopts them. The master access token is also accepted as a
 bearer credential: the whole console while no account exists, break-glass afterwards (see
-[security.md](security.md#authentication)).
+[security.md](security-sign-in.md#authentication)).
 
 A token carries no session, so it needs no CSRF token. A *session* token presented as a Bearer
 credential (see `bearer` below) is still a session: it needs the CSRF header and sudo mode
@@ -198,7 +198,7 @@ own session, tokens, second factor and passkeys), or one of `apps.read`, `apps.o
 `backups.read`, `backups.run`, `backups.manage`, `fleet.read`, `fleet.manage`, `settings.read`,
 `settings.manage`, `security.manage`, `accounts.read`, `accounts.manage`, `audit.read`,
 `audit.manage`, `compliance.read`, `teams.read`, `teams.manage`. `GET /api/auth/roles` lists
-what each role holds; the table is in [security.md](security.md#roles-and-permissions).
+what each role holds; the table is in [security.md](security-roles.md#roles-and-permissions).
 
 Since 4.0 an account also belongs to **teams** ([teams.md](teams.md)), and the permission of a route
 that names a resource is held *in the resource's team*: a principal that does not see the resource
@@ -228,7 +228,7 @@ Application reads show a credential stored inside a clone URL as `***`.
 Routes that need a session to confirm its operator are marked in the schema with
 `x-noust-requires-elevation`: deleting things, restoring, revealing secrets, writing an `.env`,
 raw units and site configuration, server changes, account management, issuing tokens, and
-the rest listed in [security.md](security.md#sudo-mode). Without a recent confirmation they
+the rest listed in [security.md](security-approvals.md#sudo-mode). Without a recent confirmation they
 answer:
 
 ```json
@@ -326,7 +326,7 @@ plus `deployments`, the ids of those deployments, oldest first, and `fields` nam
 `schema_changed_ok`. Repeat the call with `schema_changed_ok` set to confirm (a query parameter
 on `POST /api/apps/{domain}/releases/{release_id}/activate`, a body field everywhere else), or
 restore the database from the backup taken before the first of them. See
-[releases.md](releases.md#going-back-past-a-schema-change).
+[releases.md](releases-hooks.md#going-back-past-a-schema-change).
 
 | Status | When |
 |---|---|
@@ -612,7 +612,7 @@ curl -s -X DELETE -H "Authorization: Bearer $TOKEN" https://panel.example.com/ap
 "operator"` means it replaces the repository's. Writing hooks is root-equivalent because a hook
 runs with the application's identity and secrets. `repository_error` says why the running code's
 own `noust.yaml` is not valid, when it is not: the next deployment fails with it. See
-[compose.md](compose.md#noustyaml) and [compose.md](compose.md#operator-hooks).
+[compose.md](compose-hooks.md#noustyaml) and [compose.md](compose-hooks.md#operator-hooks).
 
 ### Container applications
 
@@ -709,7 +709,7 @@ that serves the domain, when its name is not the domain's), `port` and `accept_r
 `docker compose up --dry-run` says starting the stack as Noust would create, recreate or remove
 something, the call answers `409` with Compose's own output in `output` and the lines in
 `changes`, and adopts nothing unless `accept_recreate` is true. `dry_run` carries that output
-verbatim on success. See [compose.md](compose.md#adopting-a-running-stack).
+verbatim on success. See [compose.md](compose-adopt.md#adopting-a-running-stack).
 
 The same family: `PATCH /api/apps/{domain}/backup-before-update` with `{"enabled": false}`
 (sudo mode; answers `{domain, backup_before_update, previous}`) switches off the copy of a
@@ -721,8 +721,8 @@ it as a worker (sudo mode); `PATCH /api/apps/{domain}/follow-tags` with `{"patte
 accepts a Compose stack, for which the mode means each web service is updated behind a relay:
 `instances` is empty and `reason` and `hint` say what is missing (a published port, the line an
 operator's own site must include). See
-[compose.md](compose.md#zero-downtime-updates-the-relay),
-[compose.md](compose.md#stack-database-backups-and-restore),
+[compose.md](compose-relay.md#zero-downtime-updates-the-relay),
+[compose.md](compose-backups.md#stack-database-backups-and-restore),
 [compose.md](compose.md#workers-without-a-web-port) and
 [compose.md](compose.md#deploying-by-tag).
 

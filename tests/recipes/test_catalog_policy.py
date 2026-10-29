@@ -4,7 +4,7 @@
 """
 The catalogue's policy on other people's names, marks, licences and logos (checklist D-25).
 
-``docs/recipes.md`` says what a recipe may call, show and ship of a project that is not Noust's.
+``docs/recipes-format.md`` says what a recipe may call, show and ship of a project that is not Noust's.
 These tests are where that is held: a logo is Noust's own monogram unless a notice records the
 project's mark, a file copied from a project's repository carries its licence, a licence that
 is not an open source one is said in the description, and a recipe that is listed instead of
@@ -23,19 +23,17 @@ import pytest
 from noust.recipes import get_recipe, list_recipes, logo_svg
 from noust.recipes.model import Recipe
 
-DOCS = Path(__file__).resolve().parents[2] / "docs" / "recipes.md"
+#: The catalogue as it ships (generated), and the policy and format a contributor follows.
+CATALOG = Path(__file__).resolve().parents[2] / "docs" / "recipes-catalog.md"
+FORMAT = Path(__file__).resolve().parents[2] / "docs" / "recipes-format.md"
 
 #: The recipes this release lists with the reason a person can check, written in the 4.0 wave.
 LISTED_IN_40 = {
     "appwrite",
-    "bookstack",
     "cal-com",
-    "coder",
     "hermes-agent",
     "joplin-server",
     "minio",
-    "openclaw",
-    "portainer",
     "stalwart",
     "strapi",
     "supabase",
@@ -72,11 +70,24 @@ def monogram_letters(svg: str) -> str | None:
     return letters
 
 
+#: Projects whose own guidelines forbid a third party's use of their logo: whatever the
+#: collection holds, the recipe carries the monogram (scripts/recipe_logos.py, FORBIDDEN).
+NO_THIRD_PARTY_LOGO = {"plausible"}
+
+ICONS = Path(str(resources.files("noust.recipes").joinpath("assets").joinpath("_simple-icons")))
+
+
 @pytest.mark.parametrize("recipe", list_recipes(), ids=lambda recipe: recipe.name)
-def test_a_logo_is_noust_s_monogram_unless_a_notice_records_the_project_s_mark(
+def test_a_logo_is_a_mark_of_the_collection_noust_s_monogram_or_a_mark_with_its_notice(
     recipe: Recipe,
 ) -> None:
     """The mark of a project is its trademark: shipping it needs a record of why it may be."""
+    if recipe.logo_icon is not None:
+        assert recipe.name not in NO_THIRD_PARTY_LOGO, f"{recipe.name}'s guidelines forbid it"
+        assert recipe.logo_license == "CC0-1.0"
+        assert (ICONS / f"{recipe.logo_icon}.svg").is_file(), recipe.logo_icon
+        assert "CC0-1.0" in (ICONS / "NOTICE").read_text()
+        return
     letters = monogram_letters(logo_svg(recipe.name))
 
     if letters is None:
@@ -86,6 +97,22 @@ def test_a_logo_is_noust_s_monogram_unless_a_notice_records_the_project_s_mark(
         assert "http" in text and "licen" in text.lower(), "the source and the licence"
     else:
         assert letters.upper() == letters.upper().strip()
+
+
+def test_a_project_that_forbids_a_third_party_s_logo_is_given_the_monogram() -> None:
+    """Plausible's guidelines (plausible.io/trademark, read 2026-10-06) say so."""
+    for name in NO_THIRD_PARTY_LOGO:
+        recipe = get_recipe(name)
+        assert recipe.logo_icon is None
+        assert monogram_letters(logo_svg(name)) is not None
+
+
+def test_no_mark_is_kept_that_no_recipe_names() -> None:
+    """A file nobody asked for is a mark shown for no reason."""
+    named = {recipe.logo_icon for recipe in list_recipes()} - {None}
+    kept = {entry.stem for entry in ICONS.glob("*.svg")}
+
+    assert kept == named
 
 
 def test_the_monogram_check_refuses_a_real_mark() -> None:
@@ -128,7 +155,7 @@ def test_a_licence_that_is_not_open_source_is_said_in_the_description(recipe: Re
 
 
 def test_the_licences_that_are_not_open_source_are_the_ones_the_policy_names() -> None:
-    """The ones the docs name (the Licences paragraph of docs/recipes.md), and no other."""
+    """The ones the docs name (the Licences paragraph of docs/recipes-format.md), and no other."""
     found = {
         recipe.name
         for recipe in list_recipes()
@@ -168,7 +195,7 @@ def test_the_docs_say_how_many_recipes_there_are_and_list_the_ones_that_are_not_
     None
 ):
     """The count and the list are the catalogue's, so they cannot drift from it."""
-    text = DOCS.read_text()
+    text = CATALOG.read_text()
     recipes = list_recipes()
     installable = sum(recipe.available for recipe in recipes)
     listed = [recipe for recipe in recipes if not recipe.available]
@@ -184,7 +211,7 @@ def test_the_docs_say_how_many_recipes_there_are_and_list_the_ones_that_are_not_
 
 def test_the_docs_hold_the_policy_on_names_marks_licences_and_logos() -> None:
     """Checklist D-25: names, logos with attribution, licences, and the criterion of withdrawal."""
-    text = DOCS.read_text()
+    text = FORMAT.read_text()
     section = text.split("## Names, marks, licences and logos of the projects", 1)[1].split(
         "## Contributing a recipe", 1
     )[0]

@@ -33,7 +33,7 @@ from noust.managers.database.managed import ManagedInstances
 from noust.web.api.auth import get_current_session
 from noust.web.api.databases.common import ActionResponse, queue, service
 from noust.web.api.databases.jobs import instance_job
-from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, require_elevated
+from noust.web.api.deps import CodedText, JobAcceptedResponse, NoustErrorRoute, require_elevated
 from noust.web.jobs import JobType
 from noust.web.pydantic_compat import bounded_list
 
@@ -79,8 +79,10 @@ class InstanceRequest(BaseModel):
             them); the engine's own image when omitted.
         init_scripts: SQL scripts run, in name order, the first time the engine starts
             (PostgreSQL, MySQL and MariaDB; at most ten).
-        image: An image of your own instead of the catalog's, ``repository[:tag]@sha256:digest``.
-            The digest is mandatory (a tag can be moved after you looked) and ``version`` says
+        image: An image of your own instead of the catalog's: ``repository:tag`` (registry
+            included), which Noust pins by the digest the registry serves for the tag when it makes
+            the instance, or ``repository[:tag]@sha256:digest`` when you pin it yourself. A tag can
+            be moved after you looked; the instance runs the digest, never the tag. ``version`` says
             which version it is. Noust has not tested it; not with ``variant``.
         command: The container's whole command, instead of the engine's: a list of words, never
             a shell line. Noust adds nothing to it. Not with ``args``.
@@ -89,6 +91,10 @@ class InstanceRequest(BaseModel):
         accept_untested: The operator accepts that Noust has not tested an image, a command or
             arguments they chose. Without it, queueing one is a 400 ``confirmation_required``
             carrying what is accepted, and nothing is queued.
+        unsupported_ok: The operator accepts running a version whose project has stopped fixing
+            security problems, or is about to (``GET .../catalog`` says which: ``unsupported``).
+            Without it, queueing one is a 400 ``confirmation_required`` on this field carrying
+            the date, and nothing is queued.
     """
 
     name: str = Field(..., max_length=24)
@@ -102,6 +108,7 @@ class InstanceRequest(BaseModel):
     command: list[str] | None = Field(default=None, max_length=64)
     args: list[str] | None = Field(default=None, max_length=64)
     accept_untested: bool = False
+    unsupported_ok: bool = False
 
     def scripts(self) -> list[tuple[str, bytes]]:
         """
@@ -230,12 +237,26 @@ class InstanceListResponse(BaseModel):
 
 
 class CatalogVersionResponse(BaseModel):
-    """One version Noust offers: its tag, the digest pinned and when support ends."""
+    """
+    One version Noust offers: its tag, the digest pinned and when support ends.
+
+    Attributes:
+        support: Where the version stands in its project's support: ``supported``,
+            ``ending_soon``, ``ended`` or ``unknown`` (the project publishes no date).
+        unsupported: Making it needs ``unsupported_ok``: the project has stopped fixing
+            security problems, or is about to. Offered for the application that needs it, never
+            as the default.
+        platforms: The processors its image is published for (``amd64``, ``arm64``); MySQL 5.7
+            has an amd64 image only.
+    """
 
     version: str
     digest: str
     default: bool
     end_of_life: str | None = None
+    support: str = "unknown"
+    unsupported: bool = False
+    platforms: list[str] = Field(default_factory=list)
 
 
 class CatalogVariantVersionResponse(BaseModel):
@@ -246,6 +267,8 @@ class CatalogVariantVersionResponse(BaseModel):
     digest: str
     default: bool
     end_of_life: str | None = None
+    support: str = "unknown"
+    unsupported: bool = False
 
 
 class CatalogVariantResponse(BaseModel):
@@ -313,6 +336,15 @@ class PlanResponse(BaseModel):
         args: The arguments the operator adds, or empty.
         requires_confirmation: Making it needs ``accept_untested``: Noust has not tested what
             the operator chose.
+        unsupported: The version has no security support from its project, or is about to lose it.
+        requires_unsupported_ok: Making it needs ``unsupported_ok``.
+        support: ``supported``, ``ending_soon``, ``ended`` or ``unknown``.
+        end_of_life: When the support ends or ended; null when the project publishes no date.
+        unsupported_coded: The sentence the confirmation is made of, as a code and its values for
+            the console to translate (``database_servers.unsupported_ended`` or
+            ``database_servers.unsupported_ending``); null when none is needed.
+        digest_pending: The image was given by registry and tag: ``digest`` is empty and Noust
+            reads and pins it when the instance is made.
     """
 
     name: str
@@ -334,6 +366,12 @@ class PlanResponse(BaseModel):
     command: list[str] = Field(default_factory=list)
     args: list[str] = Field(default_factory=list)
     requires_confirmation: bool = False
+    unsupported: bool = False
+    requires_unsupported_ok: bool = False
+    support: str | None = None
+    end_of_life: str | None = None
+    unsupported_coded: CodedText | None = None
+    digest_pending: bool = False
 
 
 class RemovePlanResponse(BaseModel):
@@ -415,17 +453,31 @@ def list_instances(
 
 
 @router.get("/instances/catalog", response_model=CatalogResponse)
-def instance_catalog(session: Annotated[dict, Depends(get_current_session)]) -> CatalogResponse:
+def instance_catalog(
+    session: Annotated[dict, Depends(get_current_session)],
+    engine: Annotated[
+        str | None,
+        Query(description="Only this engine: another version of one already chosen", max_length=32),
+    ] = None,
+) -> CatalogResponse:
     """
     List what Noust can run as an instance: each engine, and its versions with their digests.
 
+    The versions whose project has stopped supporting them are in the list, marked
+    ``unsupported`` with their end-of-support date: making one needs ``unsupported_ok``.
+
     Args:
         session: The authenticated session.
+        engine: Only this engine (a flavour or an alias): what "another version" asks with once
+            the engine is chosen.
 
     Returns:
         The engines, in the order the console offers them.
+
+    Raises:
+        ValidationError: 400 when Noust runs no such engine as a container; the hint lists them.
     """
-    return CatalogResponse(engines=[CatalogEntryResponse(**entry) for entry in offered()])
+    return CatalogResponse(engines=[CatalogEntryResponse(**entry) for entry in offered(engine)])
 
 
 @router.post("/instances/plan", response_model=PlanResponse)
@@ -481,8 +533,8 @@ def create_instance(
         The queued job.
 
     Raises:
-        ConfirmationRequired: An image, a command or arguments of the operator's own, without
-            ``accept_untested``.
+        ConfirmationRequired: A version without support, without ``unsupported_ok``; an image, a
+            command or arguments of the operator's own, without ``accept_untested``.
     """
     plan = _manager(session).plan(
         request.name,
@@ -496,6 +548,8 @@ def create_instance(
         command=request.command,
         args=request.args,
     )
+    # One answer at a time: first the engine's version, then the image the operator chose.
+    plan.require_unsupported_accepted(request.unsupported_ok)
     plan.require_accepted(request.accept_untested)
     return _job(
         session,
@@ -516,6 +570,7 @@ def create_instance(
         command=request.command,
         args=request.args,
         accept_untested=request.accept_untested,
+        unsupported_ok=request.unsupported_ok,
     )
 
 

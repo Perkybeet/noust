@@ -79,6 +79,10 @@ from the CLI, a browser console and a JSON API.
   and two-factor authentication, sudo mode, four-eyes approvals and a tamper-evident audit log.
 - **The server too**: operating-system updates, SSH, the firewall, fail2ban, disks and swap,
   checked and changed safely from the same console.
+- **A terminal in the browser, on the record.** A shell as an application, in its sandbox and
+  with its environment, and commands run once; for administrators, a root shell on the server,
+  off until it is turned on. Each session asks you to confirm it is you, and is recorded
+  ([docs/terminal.md](docs/terminal.md)).
 
 **It is not**
 
@@ -91,17 +95,10 @@ from the CLI, a browser console and a JSON API.
   runs as an account of its own, so one cannot read another's tree, but they share the kernel
   and the machine; those from before keep the shared service account until `noust app identity
   migrate`. Deploy only code you trust, as you would on any server you administer.
-- **A web terminal.** There is none: the console does not open a shell on the server.
 
 ---
 
 ## Install
-
-Noust needs root: it writes to `/etc`, `/var` and systemd. Run the commands below as root, or
-prefix them with `sudo`. The packages come from the `home:Perkybeet` repository on the
-openSUSE Build Service.
-
-### One line
 
 On a fresh server, as root. The installer is published with every release beside its checksum
 (and the checksum's signature), so check it before you run it:
@@ -117,97 +114,11 @@ It reads the distribution and the architecture and refuses what is not on the
 serves has the fingerprint pinned in the script; installs the `noust` package with `apt`, `dnf`
 or `zypper` (the RHEL family has no package, so it gets a virtual environment with pip); runs
 `noust setup init -y` and `noust web enable`; and prints how to reach the console. It downloads
-no other script. `sh install.sh --dry-run` prints what it would do and changes nothing;
-`--version 3.3.1`, `--no-console`, `--yes` and the `NOUST_*` variables for provisioning scripts
-are in `sh install.sh --help`. The signature, the platforms and what is tested on each are in
-[docs/PLATFORMS.md](docs/PLATFORMS.md).
+no other script. `sh install.sh --dry-run` prints what it would do and changes nothing.
 
-### By hand: Ubuntu and Debian
-
-```bash
-# Add GPG key
-curl -fsSL https://download.opensuse.org/repositories/home:/Perkybeet/xUbuntu_26.04/Release.key | \
-  gpg --dearmor | sudo tee /usr/share/keyrings/noust.gpg > /dev/null
-
-# Add repository
-echo 'deb [signed-by=/usr/share/keyrings/noust.gpg] https://download.opensuse.org/repositories/home:/Perkybeet/xUbuntu_26.04/ /' | \
-  sudo tee /etc/apt/sources.list.d/noust.list
-
-# Install
-sudo apt update
-sudo apt install noust
-```
-
-Replace `xUbuntu_26.04` with your release: `xUbuntu_24.04`, `xUbuntu_22.04`, `Debian_12` or
-`Debian_13`. A server that already has the repository configured needs no new one.
-
-The releases it is built for, and what has been tested on each, are listed in
-[docs/PLATFORMS.md](docs/PLATFORMS.md): Ubuntu 22.04, 24.04 and 26.04 LTS, Debian 12 and 13
-(Raspberry Pi OS 64-bit is Debian 12 or 13).
-
-### By hand: Fedora
-
-```bash
-sudo dnf config-manager --add-repo \
-  https://download.opensuse.org/repositories/home:/Perkybeet/Fedora_42/home:Perkybeet.repo
-sudo dnf install noust
-```
-
-### By hand: openSUSE
-
-```bash
-# Tumbleweed
-sudo zypper ar -f \
-  https://download.opensuse.org/repositories/home:/Perkybeet/openSUSE_Tumbleweed/ \
-  home_Perkybeet
-sudo zypper install noust
-
-# Leap 15.6
-sudo zypper ar -f \
-  https://download.opensuse.org/repositories/home:/Perkybeet/openSUSE_Leap_15.6/ \
-  home_Perkybeet
-sudo zypper install noust
-```
-
-### PyPI
-
-```bash
-pip install noust            # the CLI
-pip install 'noust[web]'     # with the console and the API (passkeys included)
-pip install 'noust[all]'     # with the console, the API and the monitor
-```
-
-### A container, for a central
-
-The image `ghcr.io/perkybeet/noust` runs a central: the console and the connections to your
-servers, and nothing else. It deploys no applications. See [The fleet](#the-fleet).
-
-```bash
-docker run -d --name noust --restart unless-stopped \
-  -p 8443:8443 -v noust-data:/data \
-  --read-only --tmpfs /tmp:size=16m --cap-drop ALL \
-  --security-opt no-new-privileges:true \
-  ghcr.io/perkybeet/noust:latest
-docker logs noust    # the console's sign-in token, once, and the certificate's fingerprint
-```
-
-It serves the console over TLS on `8443` (a self-signed certificate until you mount your own),
-answers only the loopback and private address ranges by default, and keeps everything under
-`/data`. [`packaging/container/compose.yaml`](packaging/container/compose.yaml) is a ready
-example, including for a NAS running UGOS Pro. See [docs/CENTRAL.md](docs/CENTRAL.md).
-
-### From source
-
-```bash
-git clone https://github.com/Perkybeet/noust.git
-cd noust
-pip install -e ".[all]"
-```
-
-The console's Python packages (FastAPI, Uvicorn, psutil) are recommended by the Debian
-package and suggested by the RPM one. If they are missing, `noust web install` installs them.
-Passkeys need `cryptography` (`python3-cryptography`), recommended on Debian and Ubuntu and
-suggested by the RPM package.
+[docs/install.md](docs/install.md) has the whole path to a signed-in console, and the other
+ways: by hand on Ubuntu, Debian, Fedora and openSUSE, from PyPI, from source, and the container
+image that runs a central.
 
 ---
 
@@ -272,7 +183,7 @@ It refuses while any account can sign in without a second factor, when the name 
 application or to a site Noust did not write, when the name does not point at this server, and
 under the ENS profile unless forced (`--force-ens`, which asks, needs `--allow-ip` and is
 audited). There is no plain-HTTP option: until the certificate exists the site answers 404. See
-[docs/console.md](docs/console.md#reaching-it).
+[docs/console.md](docs/console-start.md#reaching-it).
 
 To expose it by hand, serve TLS (`--host 0.0.0.0 --tls-cert ... --tls-key ...`, or `--self-signed`),
 or put it behind a reverse proxy that terminates TLS and declare it with `--trusted-proxy`.
@@ -981,7 +892,7 @@ completions`.
 | `rust` | `Cargo.toml` with a program, and no Dockerfile | `cargo fetch`, then `cargo build --release --offline`; the binary runs as the unit | Yes |
 | `ruby` | `Gemfile` next to `config.ru` or Rails's `config/application.rb`, and no Dockerfile | Bundler in the release, assets precompiled, Puma on `127.0.0.1` | Yes |
 | `static` | `index.html`, and no project manifest | Served by the web server from `public`, `dist`, `build`, `www`, `html` or the root | Yes |
-| `monorepo` | `turbo.json`, pnpm workspaces and at least two apps under `apps/` | pnpm; one unit and one subdomain per workspace. For new work prefer one application per workspace: [docs/workspaces.md](docs/workspaces.md) | In place; releases after `noust app migrate` ([docs/releases.md](docs/releases.md#a-monorepo-on-releases)) |
+| `monorepo` | `turbo.json`, pnpm workspaces and at least two apps under `apps/` | pnpm; one unit and one subdomain per workspace. For new work prefer one application per workspace: [docs/workspaces.md](docs/workspaces.md) | In place; releases after `noust app migrate` ([docs/releases.md](docs/releases-compose.md#a-monorepo-on-releases)) |
 | `docker-compose` | A compose file (`docker-compose.prod.yml` first) | `docker compose` v2 under a systemd unit, nginx in front of published ports; hooks, relay, database copy | In place |
 | `container` | A `Dockerfile` or `Containerfile` with no compose file; `--image` for a registry; `--builder railpack` for any other language | A compose file Noust writes, one container on 127.0.0.1 under a systemd unit, nginx in front; one image per release | Images |
 
@@ -1051,39 +962,51 @@ paths; `noust setup retire-links` removes the ones nothing uses.
 
 ## Documentation
 
-- [docs/CHANGELOG-4.0.md](docs/CHANGELOG-4.0.md): what changed in 4.0
-- [docs/UPGRADING-4.0.md](docs/UPGRADING-4.0.md): upgrading a 3.3 server or fleet to 4.0, where the screens went, and rolling back
-- [docs/API-CHANGELOG.md](docs/API-CHANGELOG.md): what changed in the HTTP API, for people who write against it
-- [docs/CHANGELOG-3.3.md](docs/CHANGELOG-3.3.md): what changed in 3.3
-- [docs/UPGRADING-3.3.md](docs/UPGRADING-3.3.md): upgrading a 3.2 server or fleet to 3.3
-- [docs/build.md](docs/build.md): the `build:` block (commands, base directory, publish directory), pinned runtimes, the Node frameworks and Python servers
-- [docs/databases.md](docs/databases.md): databases on the host and in containers, credentials, detected links, versions and settings
-- [docs/CHANGELOG-3.2.md](docs/CHANGELOG-3.2.md): what changed in 3.2
-- [docs/UPGRADING-3.2.md](docs/UPGRADING-3.2.md): upgrading a 3.1 server or fleet to 3.2, and rolling back
-- [docs/containers.md](docs/containers.md): container applications: a Dockerfile, an image from a registry or Railpack, releases that are images, instant rollback
-- [docs/compose.md](docs/compose.md): Docker Compose projects: `noust.yaml`, hooks, the relay, adopting a stack, database copies, tags
-- [docs/CHANGELOG-3.1.md](docs/CHANGELOG-3.1.md): what changed in 3.1
-- [docs/UPGRADING-3.1.md](docs/UPGRADING-3.1.md): upgrading a 3.0 server or fleet to 3.1, and rolling back
-- [docs/CHANGELOG-3.0.md](docs/CHANGELOG-3.0.md): what changed in 3.0
-- [docs/UPGRADING-3.0.md](docs/UPGRADING-3.0.md): from 2.x, upgrade to 3.3.x first
-- [docs/PLATFORMS.md](docs/PLATFORMS.md): the distributions and processors Noust installs on, what is tested where, and how to verify the installer
-- [docs/CENTRAL.md](docs/CENTRAL.md): running a central, adding a server, fleet views and bulk actions, sealing its secrets
-- [docs/CONFIG.md](docs/CONFIG.md): every setting, and the obsolete ones
-- [docs/console.md](docs/console.md): the console, page by page
-- [docs/releases.md](docs/releases.md): the release layout, health gate, rollback, migration
-- [docs/domains.md](docs/domains.md): aliases, redirects, certificates, DNS checks
-- [docs/api.md](docs/api.md): authentication, errors, events, WebSockets, endpoints
-- [docs/security.md](docs/security.md): threat model, roles and permissions, controls, reporting vulnerabilities
-- [docs/SECURITY-MODEL.md](docs/SECURITY-MODEL.md): the guarantees, their evidence and their limits; verifying a release
-- [docs/PRIVACY.md](docs/PRIVACY.md): what Noust sends off a server (nothing about you), the one request it makes unasked, and how to check it
-- [docs/ENS.md](docs/ENS.md): Spain's Esquema Nacional de Seguridad, category MEDIUM (in Spanish, with an English summary)
-- [docs/DESIGN.md](docs/DESIGN.md): the console's design system
-- [docs/MONITOR.md](docs/MONITOR.md): the resource monitor and the metrics history
-- [docs/UPGRADING-2.0.md](docs/UPGRADING-2.0.md): upgrading from 1.6, and between 2.x releases
-  (the line that carried the product's previous name)
-- Earlier releases, under that name: [2.3](docs/CHANGELOG-2.3.md), [2.2](docs/CHANGELOG-2.2.md),
-  [2.1](docs/CHANGELOG-2.1.md), [2.0](docs/CHANGELOG-2.0.md)
-- `man noust`, and `noust <command> --help`
+The documentation is in [docs/](docs/), arranged by the question you have.
+
+**Start**: what Noust is, how to install it, and a first application from start to finish.
+
+- [What Noust is, and when it is not for you](docs/what-is-noust.md) and
+  [how it works](docs/concepts.md)
+- [Install Noust](docs/install.md), on [the platforms it supports](docs/PLATFORMS.md)
+- Your first application: [deploy it](docs/first-application.md),
+  [put it on your domain](docs/first-domain.md), [give it a database](docs/first-database.md),
+  [back it up](docs/first-backup.md), [roll it back](docs/first-rollback.md),
+  [add a service from the catalog](docs/first-service.md) and
+  [make it safe to leave alone](docs/first-safety.md)
+- [Add a server to your fleet](docs/first-fleet.md), or
+  [move from Coolify or Dokploy](docs/first-move.md)
+- [Next steps, by what you want to do](docs/next-steps.md)
+
+**Something is wrong**: [Troubleshooting](docs/troubleshooting.md), one page per symptom, with
+the messages word for word.
+
+**Guides**: [stacks](docs/frameworks.md), [build](docs/build.md), [sources](docs/sources.md),
+[Docker Compose](docs/compose.md), [containers](docs/containers.md),
+[recipes](docs/recipes.md), [releases and rollback](docs/releases.md),
+[domains](docs/domains.md), [certificates](docs/certificates.md),
+[databases](docs/databases.md), [backups](docs/disaster-recovery.md), [CI](docs/ci.md),
+[the monitor](docs/MONITOR.md), [notifications](docs/notifications.md),
+[the console's security](docs/security.md), [teams](docs/teams.md), [single sign-on](docs/sso.md),
+[a central and its fleet](docs/CENTRAL.md), and [from Coolify](docs/coolify.md),
+[Dokploy](docs/dokploy.md), [CapRover](docs/caprover.md) or [Dokku](docs/dokku.md).
+
+**Concepts**: [the guarantees Noust makes](docs/SECURITY-MODEL.md) and
+[what leaves a server](docs/PRIVACY.md).
+
+**Reference**: [every command](docs/reference-cli.md), [every API operation](docs/reference-api.md)
+and [the API guide](docs/api.md), [every setting](docs/reference-config.md) and
+[what each one does](docs/CONFIG.md), [the console page by page](docs/console.md), `man noust` and
+`noust <command> --help`.
+
+**Releases**: [the release policy](docs/release-policy.md),
+[upgrading to 4.0](docs/UPGRADING-4.0.md), [going back](docs/downgrading.md),
+[what changed in 4.0](docs/CHANGELOG-4.0.md) and in the API ([API changes](docs/API-CHANGELOG.md)).
+Every earlier release has its own changelog and upgrade guide in [docs/](docs/); those of the line
+that carried the product's previous name are [2.3](docs/CHANGELOG-2.3.md), [2.2](docs/CHANGELOG-2.2.md),
+[2.1](docs/CHANGELOG-2.1.md), [2.0](docs/CHANGELOG-2.0.md) and [upgrading to 2.0](docs/UPGRADING-2.0.md).
+
+ENS: [Esquema Nacional de Seguridad, categoría MEDIA](docs/ENS.md) (in Spanish).
 
 ---
 

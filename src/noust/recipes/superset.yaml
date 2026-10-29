@@ -22,7 +22,7 @@ slogan: "A modern data exploration and visualization platform for dashboards and
 description: "Connect your databases, write SQL in the editor or build charts without code, and put them on dashboards with filters, alerts and reports, for a whole organisation with roles and row-level security. Starts with the administrator you name."
 category: analytics
 tags: [dashboards, bi, charts, sql, analytics]
-logo: logo.svg
+logo: simple-icons:apachesuperset
 version: "6.1.0"
 revision: 1
 updated: 2026-10-20

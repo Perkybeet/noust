@@ -120,6 +120,9 @@ export function recipeBody(recipe: Pick<Recipe, "name">, form: RecipeForm): Crea
     skip_database: false,
     default_backups: form.defaultBackups,
     install_requirements: form.installRequirements,
+    // The confirmation a root-equivalent recipe asks for is the catalogue's own screen (O5); until
+    // then the server answers with its coded refusal and the command that confirms.
+    accept_root_equivalent: false,
     ...(form.database !== "" ? { recipe_database: form.database } : {}),
   };
 }

@@ -5,16 +5,12 @@ import type { Catalog } from "../types";
 export const serverText: Catalog<typeof en> = {
   approvals: {
     asked_approved: {
-      text:
-        "Esto necesita la aprobación de una segunda persona, seas quien seas. La solicitud {request} está aprobada: envía la llamada otra vez con ella ahora.",
-      hint:
-        "Una vez aprobada, envía exactamente la misma llamada otra vez con la cabecera {header}: {request}, en menos de {minutes} minutos.",
+      text: "Esto necesita la aprobación de una segunda persona, seas quien seas. La solicitud {request} está aprobada: envía la llamada otra vez con ella ahora.",
+      hint: "Una vez aprobada, envía exactamente la misma llamada otra vez con la cabecera {header}: {request}, en menos de {minutes} minutos.",
     },
     asked_waiting: {
-      text:
-        "Esto necesita la aprobación de una segunda persona, seas quien seas. La solicitud {request} espera a que la decida una cuenta con uno de estos roles: {approvers}.",
-      hint:
-        "Una vez aprobada, envía exactamente la misma llamada otra vez con la cabecera {header}: {request}, en menos de {minutes} minutos.",
+      text: "Esto necesita la aprobación de una segunda persona, seas quien seas. La solicitud {request} espera a que la decida una cuenta con uno de estos roles: {approvers}.",
+      hint: "Una vez aprobada, envía exactamente la misma llamada otra vez con la cabecera {header}: {request}, en menos de {minutes} minutos.",
     },
     central_missing: {
       text: "Esto necesita la aprobación de una segunda persona en la central.",
@@ -27,14 +23,39 @@ export const serverText: Catalog<typeof en> = {
   },
   controls: {
     asked_by_framework: {
-      text:
-        "El control {control} lo pide, y el marco de cumplimiento en vigor ({frameworks}) pide ese control, así que sigue activo mientras el marco lo esté y no se puede desactivar por sí solo.",
+      text: "El control {control} lo pide, y el marco de cumplimiento en vigor ({frameworks}) pide ese control, así que sigue activo mientras el marco lo esté y no se puede desactivar por sí solo.",
       hint: "Para desactivar el marco (Ajustes > Controles):\n  {command}",
     },
     asked_by_setting: {
-      text:
-        "El control {control} lo pide, y se activó en Ajustes > Controles (o con la línea de comandos). Se aplica a todo el mundo, sea cual sea su rol.",
+      text: "El control {control} lo pide, y se activó en Ajustes > Controles (o con la línea de comandos). Se aplica a todo el mundo, sea cual sea su rol.",
       hint: "Para desactivarlo allí, o:\n  {command}",
+    },
+  },
+  database_servers: {
+    default_app: {
+      text: "{key} es la base de datos de la pila de una aplicación, así que no puede ser la predeterminada",
+      hint: "La predeterminada es el motor del sistema o una instancia que Noust ejecuta. Crea una con: {command}",
+    },
+    default_not_ready: {
+      text: "{key} está en estado {state}, así que todavía no puede ser la predeterminada",
+      hint: "Espera a que termine y vuelve a elegirla.",
+    },
+    unknown: {
+      text: "No existe ningún servidor de bases de datos {key}",
+      hint: "Lístalos con: {command}",
+    },
+    unsupported_ended: {
+      text: "{name} {version} no recibe correcciones de seguridad desde {end_of_life}",
+      hint: "Úsala solo para una aplicación que la necesite y no la dejes expuesta a internet. Para continuar, confirma que aceptas ejecutarla: unsupported_ok en la API, --accept-unsupported en la línea de comandos.",
+    },
+    unsupported_ending: {
+      text: "{name} {version} dejará de recibir correcciones de seguridad el {end_of_life}",
+      hint: "Un servidor creado hoy funcionaría mucho tiempo sin ellas. Para continuar, confirma que lo aceptas: unsupported_ok en la API, --accept-unsupported en la línea de comandos.",
+    },
+  },
+  databases: {
+    already_added: {
+      text: "La base de datos {name} de {engine} ya está añadida a Noust",
     },
   },
   doctor: {
@@ -83,8 +104,7 @@ export const serverText: Catalog<typeof en> = {
         text: "Disco libre: {free} libres de {total} en {path}, por debajo de los {minimum} para los que se dimensiona un servidor",
       },
       note: {
-        text:
-          "'noust server cleanup' elimina lo que Noust puede demostrar que no se usa; cada release en disco conserva su código y sus dependencias.",
+        text: "'noust server cleanup' elimina lo que Noust puede demostrar que no se usa; cada release en disco conserva su código y sus dependencias.",
       },
       ok: {
         text: "Disco libre: {free} libres de {total} en {path} (mínimo {minimum})",
@@ -107,8 +127,7 @@ export const serverText: Catalog<typeof en> = {
         text: "Memoria: {amount}, swap {swap}, por debajo de los {minimum} para los que se dimensiona un servidor",
       },
       note: {
-        text:
-          "Las compilaciones son lo que necesita memoria; un archivo de swap deja que una que necesita más de la que tiene el servidor termine despacio en lugar de que la maten.",
+        text: "Las compilaciones son lo que necesita memoria; un archivo de swap deja que una que necesita más de la que tiene el servidor termine despacio en lugar de que la maten.",
       },
       ok: {
         text: "Memoria: {amount} (mínimo {minimum})",
@@ -122,8 +141,7 @@ export const serverText: Catalog<typeof en> = {
     },
     names: {
       explain: {
-        text:
-          "Nada de esto deja de funcionar: Noust acepta los nombres antiguos mientras se sigan usando. 'noust setup rename' termina lo que se puede terminar sin reiniciar nada.",
+        text: "Nada de esto deja de funcionar: Noust acepta los nombres antiguos mientras se sigan usando. 'noust setup rename' termina lo que se puede terminar sin reiniciar nada.",
       },
     },
     node: {
@@ -168,8 +186,7 @@ export const serverText: Catalog<typeof en> = {
         text: "Puerto {port}: ocupado por {holders}, no por el servidor web",
       },
       held_note: {
-        text:
-          "Un certificado se pide por el puerto 80 y los sitios se sirven por el 443: el servidor web no puede arrancar mientras otro programa los ocupe.",
+        text: "Un certificado se pide por el puerto 80 y los sitios se sirven por el 443: el servidor web no puede arrancar mientras otro programa los ocupe.",
       },
       web_server: {
         text: "Puerto {port}: {holders}",
@@ -238,8 +255,7 @@ export const serverText: Catalog<typeof en> = {
     refused: {
       permission: {
         text: "Tu rol {role} no tiene el permiso {permission} en estos servidores",
-        hint:
-          "Pide a un responsable de seguridad de cada uno una cuenta con un rol que lo tenga, o que añadan ese permiso a tu rol allí.",
+        hint: "Pide a un responsable de seguridad de cada uno una cuenta con un rol que lo tenga, o que añadan ese permiso a tu rol allí.",
       },
     },
   },
@@ -255,6 +271,10 @@ export const serverText: Catalog<typeof en> = {
     bad_scope: {
       text: "{scope} no es un lugar donde se pueda fijar un ajuste de la flota",
       hint: "Usa 'fleet' para todos los servidores o 'node:<servidor>' para uno.",
+    },
+    field_not_text: {
+      text: "El campo {field} de un {kind} debe ser texto",
+      hint: "Envíalo como cadena de texto, por ejemplo https://central.example.com.",
     },
     item_conflict: {
       text: "El {kind} {name} ya existe en este servidor y no es de la flota",
@@ -284,13 +304,43 @@ export const serverText: Catalog<typeof en> = {
       text: "Ninguna central gestiona el {kind} {name} en este servidor",
       hint: "Solo se puede pedir que vuelva un ajuste que una central haya empujado.",
     },
+    out_of_reach: {
+      domain: {
+        text: "La ruta del {kind} {name} nombra dominios que ninguna aplicación de este servidor tiene, así que no se envía aquí",
+        hint: "Se envía aquí en cuanto una aplicación de este servidor tenga un dominio que la ruta nombra: aplica de nuevo tras desplegarla.",
+      },
+      server: {
+        text: "La ruta del {kind} {name} no nombra este servidor, así que no se envía aquí",
+        hint: "Añade este servidor a los servidores de la ruta, o quita la lista, para enviarlo aquí.",
+      },
+      tag: {
+        text: "La ruta del {kind} {name} nombra etiquetas que ninguna aplicación de este servidor lleva, así que no se envía aquí",
+        hint: "Se envía aquí en cuanto una aplicación de este servidor lleve una etiqueta que la ruta nombra (junto con un dominio que nombre, si la ruta tiene los dos): aplica de nuevo tras etiquetarla.",
+      },
+    },
     permission_missing: {
       text: "Fijar un {kind} para la flota necesita el permiso {permission}",
       hint: "Es el permiso que pide fijarlo en un solo servidor: pide a un administrador un rol que lo tenga.",
     },
+    reach_unknown: {
+      text: "No se pudieron leer las aplicaciones de este servidor, así que no se sabe si el {kind} {name} puede coincidir con algo en él",
+      hint: "No se envió nada. Aplica de nuevo cuando el servidor responda sus aplicaciones.",
+    },
+    route_invalid: {
+      text: "La ruta de este canal no es válida: {problem}",
+      hint: "Una ruta de flota admite apps (dominios, con * y ?), tags, min_severity, server_events y servers (nombres y patrones de los servidores de esta central).",
+    },
+    route_local: {
+      text: "Un canal de la flota no se puede enrutar por {list}",
+      hint: "Los proyectos y los entornos son de cada servidor. Enruta por dominio, etiqueta, gravedad, evento o servidor, o crea un canal de equipo en el servidor que tiene el proyecto.",
+    },
     secret_missing: {
       text: "{field} está oculto y todavía no hay nada guardado",
       hint: "Escribe el secreto otra vez: solo se muestra como {redacted} cuando hay uno guardado.",
+    },
+    single_name: {
+      text: "Solo hay un {kind} para la flota y se llama {name}",
+      hint: "Fíjalo como {name}.",
     },
     sync_ceiling: {
       text: "Este servidor deja a su central hacer como mucho '{level}', y aplicar los ajustes de la flota necesita 'admin'",
@@ -302,7 +352,7 @@ export const serverText: Catalog<typeof en> = {
     },
     sync_route: {
       text: "Un empuje de los ajustes de la flota no puede hacer {method} {path}",
-      hint: "Solo puede escribir los ajustes que gestiona la flota: canales, reglas de alerta, destinos de copia, accesos a registros y variables compartidas.",
+      hint: "Solo puede escribir los ajustes que gestiona la flota: canales, reglas de alerta, destinos de copia, accesos a registros, variables compartidas y la dirección de la consola de la central.",
     },
     unknown_field: {
       text: "Un {kind} no tiene ningún campo llamado {field}",
@@ -353,6 +403,60 @@ export const serverText: Catalog<typeof en> = {
       },
     },
   },
+  recipes: {
+    root_equivalent: {
+      agent: {
+        text: "{title} es un agente de IA que ejecuta órdenes, y quien pueda manejarlo puede hacerle hacer todo lo que él puede: entrar en él es como entrar en una terminal",
+        hint: "Su propia política de seguridad dice que no separa a unos usuarios de otros. Da su acceso solo a quien darías una terminal en este servidor, y no le pongas ninguna clave de modelo ni cuenta que no les darías a ellos.",
+      },
+      confirm_required: {
+        text: "{title} tiene el poder de root en este servidor, y para instalarlo hace falta que lo confirmes",
+        hint: "Si lo aceptas, confírmalo y vuelve a instalarlo: {command}",
+      },
+      docker_socket: {
+        text: "{title} controla el Docker de este servidor, y eso equivale a tener root en él",
+        hint: "Puede arrancar cualquier contenedor con cualquier parte del servidor montada, también las aplicaciones de Noust y sus datos. Instálalo solo si le darías root en el servidor a esta aplicación.",
+      },
+    },
+    unavailable: {
+      archived: {
+        text: "El proyecto está archivado y ya no se mantiene",
+        hint: "Usa la receta que lo sustituye, si el catálogo nombra una.",
+      },
+      host_ports: {
+        text: "Necesita puertos que ya ocupan el servidor web y el correo del servidor",
+        hint: "Ponlo en un servidor solo para él.",
+      },
+      licence: {
+        text: "Su licencia no permite que alguien lo ponga en marcha para otros",
+        hint: "Si tienes una licencia que lo permita, despliégalo desde su repositorio con 'noust create'.",
+      },
+      no_image: {
+        text: "El proyecto no publica ninguna imagen de contenedor que se pueda fijar",
+        hint: "Despliégalo desde el repositorio del proyecto con 'noust create', o añade un Dockerfile propio.",
+      },
+      no_sign_in: {
+        text: "Su interfaz web no tiene inicio de sesión propio y guarda las claves con las que trabaja",
+        hint: "Entra por un túnel SSH al servidor, como explica su proyecto, nunca por una dirección pública.",
+      },
+      not_an_application: {
+        text: "Es un framework para construir aplicaciones, no una aplicación que instalar",
+        hint: "Despliega tu propio proyecto desde su repositorio con 'noust create'.",
+      },
+      not_for_production: {
+        text: "Su propio proyecto dice que esta edición no es para producción",
+        hint: "Usa la edición que el proyecto mantiene para producción, desplegada desde su repositorio.",
+      },
+      platform_stack: {
+        text: "Es una plataforma de decenas de servicios con su propio proxy",
+        hint: "Ponla en un servidor solo para ella, con el instalador del proyecto.",
+      },
+      root_equivalent: {
+        text: "Controla el Docker del servidor, y eso equivale a ser root en él",
+        hint: "Despliégalo tú con 'noust create' si lo aceptas, en un servidor que sea tuyo.",
+      },
+    },
+  },
   roles: {
     auditor_exclusive: {
       text: "{username} es auditor: revisa a todos y no tiene nada más",
@@ -364,8 +468,7 @@ export const serverText: Catalog<typeof en> = {
     },
     last_owner: {
       text: "{username} es la última cuenta que puede usar el rol de propietario",
-      hint:
-        "Un servidor siempre conserva a alguien que pueda hacerlo todo. Da primero el rol de propietario a otra cuenta que pueda entrar y este cambio podrá seguir.",
+      hint: "Un servidor siempre conserva a alguien que pueda hacerlo todo. Da primero el rol de propietario a otra cuenta que pueda entrar y este cambio podrá seguir.",
     },
     name_invalid: {
       text: "Nombre de rol no válido: {name}",
@@ -373,8 +476,7 @@ export const serverText: Catalog<typeof en> = {
     },
     name_system: {
       text: "{name} es el nombre de un rol integrado",
-      hint:
-        "Elige otro nombre. Los roles que trae Noust se pueden editar y devolver a como vienen, pero no redefinir con su nombre.",
+      hint: "Elige otro nombre. Los roles que trae Noust se pueden editar y devolver a como vienen, pero no redefinir con su nombre.",
     },
     name_taken: {
       text: "Ya existe un rol llamado {name}",
@@ -394,8 +496,7 @@ export const serverText: Catalog<typeof en> = {
     },
     owner_protected: {
       text: "El rol de propietario no se puede cambiar ni eliminar",
-      hint:
-        "Tiene todos los permisos que existen, para que el servidor siempre conserve a alguien que pueda hacerlo todo. Para dar todo eso a una persona, dale el rol de propietario.",
+      hint: "Tiene todos los permisos que existen, para que el servidor siempre conserve a alguien que pueda hacerlo todo. Para dar todo eso a una persona, dale el rol de propietario.",
     },
     permissions_many: {
       text: "Un rol tiene como máximo {max} permisos",
@@ -418,13 +519,11 @@ export const serverText: Catalog<typeof en> = {
     },
     separation_account: {
       text: "{username} gobernaría el acceso y ejecutaría el servidor a la vez",
-      hint:
-        "Sus roles juntos tienen {governing} (quién puede ejecutar el servidor) con {running} (ejecutarlo). La separación de funciones las mantiene en manos distintas: da a la persona una segunda cuenta para la otra función.",
+      hint: "Sus roles juntos tienen {governing} (quién puede ejecutar el servidor) con {running} (ejecutarlo). La separación de funciones las mantiene en manos distintas: da a la persona una segunda cuenta para la otra función.",
     },
     separation_role: {
       text: "{subject} gobernaría el acceso y ejecutaría el servidor a la vez",
-      hint:
-        "Tiene {governing} (quién puede ejecutar el servidor) junto con {running} (ejecutarlo). La separación de funciones las mantiene en manos distintas: divídelo en dos roles.",
+      hint: "Tiene {governing} (quién puede ejecutar el servidor) junto con {running} (ejecutarlo). La separación de funciones las mantiene en manos distintas: divídelo en dos roles.",
     },
     too_many: {
       text: "Un servidor guarda como máximo {max} roles propios",
@@ -433,6 +532,72 @@ export const serverText: Catalog<typeof en> = {
     unknown: {
       text: "No existe ningún rol llamado {name}",
       hint: "Lista los roles con: {command}",
+    },
+  },
+  sources: {
+    central_only: {
+      text: "Solo la central que gestiona este servidor puede cederle acceso a GitHub",
+      hint: "La central hace y renueva la cesión por su cuenta; no hay nada que hacer en este servidor. Para clonar con una credencial propia de este servidor, dale a la aplicación una clave de despliegue.",
+    },
+    delivery_not_retryable: {
+      text: "Ese evento está en estado {state}, y solo se puede entregar otra vez uno que se dio por perdido",
+      hint: "Un servidor que ya tomó el evento no lo recibe dos veces; uno que aún espera lo vuelve a intentar solo.",
+    },
+    forward_gave_up: {
+      text: "{node} no aceptó el {kind} de {repository} en {minutes} minutos, y la central lo dejó",
+      hint: "No se desplegó nada en {node} por ello. Cuando vuelva a responder, actualiza allí la aplicación, o haz push otra vez.",
+    },
+    forward_refused: {
+      text: "{node} no ha querido aceptar el {kind} de {repository}: {reason}",
+      hint: "Las palabras del propio servidor van al lado. No se desplegó nada en {node} por ello.",
+    },
+    github_refused: {
+      text: "GitHub no ha querido dar un token para la instalación {installation}",
+      hint: "Las palabras de GitHub van al lado. Si la App se eliminó o cambiaron sus permisos, acepta los permisos nuevos en los ajustes de la App en GitHub, o instálala otra vez.",
+    },
+    lease_expired: {
+      text: "El acceso a GitHub que {central} cedió a este servidor para {repository} terminó el {ended_at} y no se ha renovado",
+      hint: "{central} llamó por última vez el {last_call} y no cedió uno nuevo: puede que no llegue a GitHub, o que su GitHub App ya no cubra {repository}. Hasta que lo haga, todo lo que arranque en este servidor y lea {repository} falla. Una clave de despliegue no depende de la central; mira: {command}",
+    },
+    lease_expired_quiet: {
+      text: "El acceso a GitHub que {central} cedió a este servidor para {repository} terminó el {ended_at}, y {central} no ha llamado desde el {last_call}",
+      hint: "Todo lo que arranque en este servidor y lea {repository} (una actualización programada, una preview) falla hasta que {central} vuelva a llamar y ceda uno nuevo: comprueba que la central está en marcha y llega a este servidor. Una clave de despliegue no depende de la central; mira: {command}",
+    },
+    no_app: {
+      text: "Esta central no tiene una GitHub App con la que ceder acceso",
+      hint: "Créala en la consola (Integraciones, GitHub) o con: noust github setup",
+    },
+    no_installation: {
+      text: "Ninguna instalación de la GitHub App llega a {repository}",
+      hint: "Instala la App en la cuenta {owner} y deja que lea {repository}: {url}",
+    },
+    node_ceiling: {
+      text: "{node} deja a esta central solo leer, así que no se le puede ceder acceso a GitHub",
+      hint: "Ceder acceso necesita el techo deploy o superior. En {node}, como root: {command}",
+    },
+    node_independent: {
+      text: "{node} es independiente, así que esta central no le pasa nada de GitHub",
+      hint: "Haz que vuelva a seguir la flota y le llegarán el acceso y los eventos de sus repositorios. Hasta entonces despliega con sus propias credenciales.",
+    },
+    node_refused: {
+      text: "{node} no ha querido aceptar el acceso a GitHub: {reason}",
+      hint: "Las palabras del propio servidor van al lado. Se intenta otra vez en unos minutos.",
+    },
+    node_unreachable: {
+      text: "No se ha podido llegar a {node} para cederle acceso a GitHub",
+      hint: "Se intenta otra vez en menos de un minuto, y el acceso que tiene termina solo. Compruébalo con: {command}",
+    },
+    node_unsupported: {
+      text: "{node} ejecuta un Noust que no puede guardar el acceso a GitHub que esta central cede",
+      hint: "Actualiza Noust en {node} a la 4.1 o posterior; el acceso se cede en menos de un minuto después.",
+    },
+    not_reachable: {
+      text: "La GitHub App no puede leer {repository}",
+      hint: "Añade {repository} a los repositorios a los que llega la instalación de la App: {url}",
+    },
+    webhook_unreachable: {
+      text: "GitHub no llega a esta central, así que un push a un repositorio que sus servidores despliegan no despliega nada",
+      hint: "Los servidores que gestiona no tienen una dirección a la que GitHub pueda llamar: el webhook de la App es de esta central. En un servidor con servidor web, dale un nombre propio: {command}. Detrás de un proxy tuyo, di dónde responde: {config_command}",
     },
   },
   terminal: {
@@ -453,10 +618,8 @@ export const serverText: Catalog<typeof en> = {
       hint: "Ningún marco de cumplimiento lo pide: se fijó en Ajustes > Controles o con la línea de comandos. Para permitirlo: {command}",
     },
     server_framework: {
-      text:
-        "El marco de cumplimiento en vigor ({frameworks}) mantiene desactivado el terminal del propio servidor (el control {control} está en refused)",
-      hint:
-        "Una shell de root en el navegador es lo más cercano a root que tiene la consola. Para permitirlo de todos modos, lo cual queda registrado: {command}. O desactiva el marco: {turn_off_command}",
+      text: "El marco de cumplimiento en vigor ({frameworks}) mantiene desactivado el terminal del propio servidor (el control {control} está en refused)",
+      hint: "Una shell de root en el navegador es lo más cercano a root que tiene la consola. Para permitirlo de todos modos, lo cual queda registrado: {command}. O desactiva el marco: {turn_off_command}",
     },
     server_off: {
       text: "El terminal del propio servidor está desactivado (terminal.server.enabled)",
@@ -466,8 +629,7 @@ export const serverText: Catalog<typeof en> = {
   tunnels: {
     cloudflared_missing: {
       text: "cloudflared no está instalado",
-      hint:
-        "Noust lo instala desde el repositorio de paquetes de Cloudflare, {url}, con la clave con la que Cloudflare lo firma: ejecuta 'noust tunnel install-cloudflared' y después este comando otra vez.",
+      hint: "Noust lo instala desde el repositorio de paquetes de Cloudflare, {url}, con la clave con la que Cloudflare lo firma: ejecuta 'noust tunnel install-cloudflared' y después este comando otra vez.",
     },
     no_account: {
       text: "No hay ninguna cuenta de Cloudflare con la que gestionar un túnel",
@@ -475,8 +637,103 @@ export const serverText: Catalog<typeof en> = {
     },
     store_sealed: {
       text: "El almacén de secretos está sellado",
-      hint:
-        "El conector de un túnel lee su token al arrancar, sin nadie que escriba una frase de paso. Usa los túneles en un servidor, no en una central sellada.",
+      hint: "El conector de un túnel lee su token al arrancar, sin nadie que escriba una frase de paso. Usa los túneles en un servidor, no en una central sellada.",
+    },
+  },
+  webserver_move: {
+    approximate: {
+      text: "{directive} (línea {line}) pasa como {result}",
+    },
+    compose_only: {
+      text: "{domain} es una aplicación de Docker Compose, y esas solo las sirve nginx",
+      hint: "Déjala detrás de nginx.",
+    },
+    confirm_handover: {
+      text: "{target} tomará los puertos 80 y 443 de {source} para {count} sitio(s)",
+      hint: "Todos los sitios quedan sin servicio los segundos que dura el cambio, y todo se deja como estaba si alguno no responde. Para seguir: confirma en la API, --yes en la línea de órdenes.",
+    },
+    confirm_live: {
+      text: "{count} sitio(s) pasarán de {source} a {target}, que está sirviendo",
+      hint: "{target} prueba cada sitio antes de activarlo, y se deja como estaba si no responde. Para seguir: confirma en la API, --yes en la línea de órdenes.",
+    },
+    console_site: {
+      text: "{domain} es el nombre público de la consola, que Noust solo monta detrás de nginx",
+      hint: "Quítalo antes con {command}, o deja el servidor web como está.",
+    },
+    included: {
+      text: "La línea {line} incluye {path}, que no se traslada",
+      hint: "La traducción no lee los ficheros que un sitio incluye. Copia a mano lo que contiene ese fichero al sitio nuevo, o deja la aplicación donde está.",
+    },
+    left_behind: {
+      text: "{name} es un sitio de {source} que Noust no puede mover",
+      hint: "{source} dejaría de servirlo. Escribe tú su equivalente para {target} en {target_path}, o deja el servidor web como está.",
+    },
+    losses_to_accept: {
+      text: "Los sitios nuevos no harán {count} cosa(s) que hacían los antiguos",
+      hint: "Léelas en el plan. Para seguir de todos modos, acéptalas: accept_losses en la API, --accept-losses en la línea de órdenes.",
+    },
+    no_site: {
+      text: "{domain} no tiene fichero de sitio en {source}",
+      hint: "No hay nada que traducir. Despliega la aplicación otra vez para que tenga un sitio y planifica el cambio de nuevo.",
+    },
+    not_restored: {
+      text: "No se pudo dejar todo como estaba",
+      hint: "Lo que sigue dice qué quedó y dónde está. El registro de auditoría dice qué se movió.",
+    },
+    not_serving: {
+      text: "{target} no arrancó",
+      hint: "Su propio mensaje se muestra tal cual. {source} volvió a arrancar y los sitios están como estaban.",
+    },
+    operator_site: {
+      text: "El sitio de {domain} es tuyo, no de Noust ({path})",
+      hint: "Noust nunca reescribe un sitio que escribiste tú. Escribe tú su equivalente para {target} en {target_path} y planifica el cambio de nuevo: los dos ficheros se dejan como están y solo se mueve la aplicación.",
+    },
+    partial_handover: {
+      text: "{target} no está sirviendo: mover {count} de los {total} sitios dejaría a los demás sin servidor web",
+      hint: "Los puertos 80 y 443 son de un solo servidor web a la vez. Mueve todos los sitios juntos: {command}",
+    },
+    protection: {
+      text: "{directive} (línea {line}) protege el sitio, y {target} no tiene nada equivalente",
+      hint: "El sitio nuevo no quedaría protegido así. Pon antes otra protección delante, o deja la aplicación donde está.",
+    },
+    rejected: {
+      text: "{target} no aceptó el sitio traducido de {domain}",
+      hint: "Su propio mensaje se muestra tal cual. No se cambió nada: corrige lo que nombra en el sitio de {source}, o deja la aplicación donde está.",
+    },
+    status_site: {
+      text: "{domain} es el nombre público de la página de estado, que Noust solo monta detrás de nginx",
+      hint: "Quítalo antes con {command}, o deja el servidor web como está.",
+    },
+    target_missing: {
+      text: "{target} no está instalado en este servidor",
+      hint: "Instálalo primero y planifica el cambio de nuevo: {command}",
+    },
+    tuning: {
+      text: "{directive} (línea {line}) ajusta {source} y se deja fuera",
+    },
+    unanswered: {
+      text: "{domain} no respondió a través de {target}",
+      hint: "Lo que se probó y lo que dijo la unidad de la aplicación se muestra tal cual. Todo se dejó como estaba: {source} vuelve a servir los sitios.",
+    },
+    unknown: {
+      text: "{domain} no es ni una aplicación ni un sitio detrás de {source}",
+      hint: "Mira qué hay detrás de cada servidor web con: {command}",
+    },
+    unreadable: {
+      text: "{source} no leería este sitio: {problem} (línea {line})",
+      hint: "Corrige el sitio donde está, con el editor de su página, y planifica el cambio de nuevo.",
+    },
+    unsupported: {
+      text: "{directive} (línea {line}) no tiene equivalente en {target}",
+      hint: "El sitio nuevo no hará lo que hacía esa línea. Revisa el sitio después del cambio, o deja la aplicación donde está.",
+    },
+    variable: {
+      text: "{directive} (línea {line}) lee {variable}, que {target} no puede dar",
+      hint: "El sitio nuevo enviaría otra cosa en su lugar. Revísalo después del cambio, o deja la aplicación donde está.",
+    },
+    zero_downtime: {
+      text: "{domain} funciona en modo sin cortes, que solo admite nginx",
+      hint: "Apaga antes el modo y planifica el cambio de nuevo: {command}",
     },
   },
 };

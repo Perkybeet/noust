@@ -15,6 +15,7 @@ recursive-include src *.py
 recursive-include src/noust/templates *.j2
 # Recipes (2.3): the recipe files and the assets they render or copy.
 recursive-include src/noust/recipes *.yaml
+include src/noust/recipes/tested.json
 recursive-include src/noust/recipes/assets *
 recursive-include src/noust/completions *
 # What changed in each release, shown in the console.

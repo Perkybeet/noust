@@ -24,7 +24,7 @@ slogan: Web analytics you own, a privacy-respecting alternative to Google Analyt
 description: "Visitor analytics, goals, e-commerce reports and heatmap-ready data on your own server, with the data owned by you. Runs with its own MariaDB. The first person to open it finishes the installer and creates the super user, so do it right after installing."
 category: analytics
 tags: [analytics, privacy, statistics, tracking]
-logo: logo.svg
+logo: simple-icons:matomo
 version: "5.14.0"
 revision: 2
 updated: 2026-10-21

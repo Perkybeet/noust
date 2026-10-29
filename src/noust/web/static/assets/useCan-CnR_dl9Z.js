@@ -1,1 +1,0 @@
-import{t as e}from"./useQuery-Bb8a_Fsk.js";import{g as t}from"./auth-DfimlDAK.js";function n(n){let{data:r}=e({...t(),select:e=>e.permissions});return r?.includes(n)??!1}export{n as t};

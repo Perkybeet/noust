@@ -1,0 +1,53 @@
+# Calibre: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/calibre
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: calibre
+kind: compose
+title: "Calibre"
+slogan: "The official source code repository for the calibre ebook manager"
+description: "Calibre is a comprehensive e-book management tool designed to organize, convert, and read your e-book collection. It supports most of the major e-book formats and is compatible with various e-book reader devices."
+category: business
+tags: [documents, e-commerce, business]
+logo: logo.svg
+version: "7.26.0"
+revision: 1
+updated: 2026-10-28
+homepage: https://calibre-ebook.com
+docs: https://manual.calibre-ebook.com/
+repository: https://github.com/kovidgoyal/calibre
+license: GPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for password."
+health: {path: /, expect: "200-399,401", timeout: 180}
+compose: |
+  services:
+    calibre:
+      image: linuxserver/calibre:7.26.0@sha256:dc6696456caa980a7c7a5a6654011d0d5c9dd1ff4e8bdf1071f1e3f01da36c7c
+      restart: unless-stopped
+      environment:
+        PASSWORD: ${PASSWORD}
+        TZ: Etc/UTC
+        PUID: '1000'
+        PGID: '1000'
+      volumes:
+        - books:/books
+        - data:/config
+      ports:
+        - 127.0.0.1:${PORT}:8080
+  volumes:
+    books:
+    data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes books, data of this application: back them up before updating."

@@ -1,285 +1,818 @@
-# The documentation site: what is published, in what order, under which stable address.
+# The documentation: what is published, where, in what order, and what kind of page each one is.
 #
-# scripts/build_docs.py turns this and the Markdown it lists into a static site (checklist N-17).
-# Nothing is published by building it. A slug is a route and routes do not change: renaming one
-# means an entry under `redirects`. A Markdown file in docs/ must be listed here or under
-# `exclude` with the reason, so a new page cannot be forgotten.
+# scripts/build_docs.py reads this and the Markdown it lists. `--emit DIR` writes the package a
+# website paints (manifest, Markdown with every link resolved, redirects, llms.txt); without it,
+# a preview to open from disk. Nothing is published by building either.
+#
+# The pages are arranged in five tabs, each the answer to one question, and a footer:
+#   start      What is Noust, and how do I install it?   (tutorials: a path for someone new)
+#   guides     How do I do X?                              (one task per page)
+#   concepts   Why does it work this way?                  (explanation, no steps)
+#   reference  What is the exact option?                   (lists, generated where possible)
+#   releases   What changed, and how do I upgrade?
+#   project    Help, contributing, the security policy     (linked from the foot of every page)
+#
+# Each page has a `type` (tutorial, guide, explanation or reference) and a sentence that says what
+# it is for. A route (slug) starts with its tab and does not change: renaming one means an entry
+# under `redirects`. The files themselves stay flat in docs/, so GitHub shows them as they are; a
+# page cut out of a longer one is a new file listed here. A Markdown file in docs/ must be listed
+# or excluded with the reason, so a new page cannot be forgotten.
 
 title: Noust documentation
 repository: https://github.com/Perkybeet/noust
 branch: main
+base: /docs/
 summary: >
-  Noust deploys web applications on Linux servers. It automates nginx or Apache, certificates,
-  systemd, databases and backups, builds every deploy as a health-gated release with instant
-  rollback, and serves an optional browser console and a JSON API. This is its documentation:
-  installing it, deploying with it, running it, upgrading it, and every command, endpoint and
-  setting.
+  Noust deploys web applications on Linux servers you own. It writes the nginx or Apache site, the
+  certificate and the systemd unit, builds every deploy as a release that only goes live if it
+  answers, and can put the previous one back in seconds. One engine, driven from the command line,
+  a browser console and a JSON API. This is its documentation: installing it, deploying with it,
+  running it, upgrading it, and every command, endpoint and setting.
 
-sections:
-  - title: Start here
-    pages:
-      - source: README.md
-        slug: overview
-        title: Overview and tour
-        summary: What Noust is and is not, how to install it, the first deploy, and a tour of every area.
-      - source: docs/PLATFORMS.md
-        slug: platforms
-        summary: The distributions and processors Noust installs on, what is tested where, and how to verify the installer.
-      - source: docs/requirements.md
-        slug: requirements
-        summary: What a server needs to run Noust (memory, processor, disk), and what Noust itself uses when idle.
-      - source: docs/cloud-init.md
-        slug: cloud-init
-        summary: Install and configure Noust on a new server without logging in, from a cloud-init user-data file or Ansible.
-      - source: docs/concepts.md
-        slug: concepts
-        summary: What an application is on disk, releases and the health gate, who a build runs as, what Noust does not do, and what stays running if you remove it.
-      - source: docs/first-application.md
-        slug: first-application
-        summary: Deploy a first application, a database and a service, from the console and from the command line.
-      - source: docs/frameworks.md
-        slug: frameworks
-        summary: How to deploy Next.js, Nuxt, SvelteKit, Vite, Laravel, Symfony, Django, Rails, Phoenix, Jekyll and other stacks, and what Noust does with each.
-      - source: examples/README.md
-        slug: examples
-        summary: A minimal application for every type Noust deploys, each one deployed for real by the integration harness.
-      - source: docs/troubleshooting.md
-        slug: troubleshooting
-        summary: One page per symptom (502, a certificate that will not issue, a failed build, no sign-in, a failed install) and the diagnosis that finds it.
+# What the landing page of the documentation shows: a promise, the command, three ways in, the
+# tasks people come for, and where to look things up. Every slug is checked to be a route.
+home:
+  promise: Deploy anything on a server you own. A new version only goes live if it answers.
+  install:
+    command: |
+      curl -fsSLO https://github.com/Perkybeet/noust/releases/latest/download/install.sh
+      curl -fsSLO https://github.com/Perkybeet/noust/releases/latest/download/SHA256SUMS
+      sha256sum -c --ignore-missing SHA256SUMS && sh install.sh
+    primary: {title: Deploy your first application, slug: start/first-application}
+    secondary: {title: How Noust works, slug: start/how-noust-works}
+  paths:
+    - title: New to Noust
+      text: What it is, how to install it, and a first application from start to finish.
+      slug: start/what-is-noust
+    - title: Running servers for a team
+      text: Several servers from one console, single sign-on, roles, audit and compliance.
+      slug: guides/fleet
+    - title: Coming from Coolify or Dokploy
+      text: Bring an application across with its settings and its data, and move its domain.
+      slug: start/move-from-coolify-or-dokploy
+  tasks:
+    - {title: A domain with HTTPS, slug: start/domain-and-https}
+    - {title: A database, slug: start/database}
+    - {title: Backups, and getting them back, slug: start/backups}
+    - {title: Roll back a bad deploy, slug: start/roll-back}
+    - {title: Deploy from CI, slug: guides/ci}
+    - {title: A preview for each pull request, slug: guides/previews}
+    - {title: Teammates and single sign-on, slug: guides/teams}
+    - {title: Several servers, slug: start/add-a-server}
+  lookup:
+    - {title: Commands, slug: reference/cli}
+    - {title: API, slug: reference/api}
+    - {title: Settings, slug: reference/configuration/keys}
+    - {title: What changed, slug: releases/changelog-4.0}
+  trouble:
+    title: Something is wrong?
+    text: noust diagnose names the most likely cause first. The frequent failures are here, with their messages.
+    slug: guides/troubleshooting
 
-  - title: Deploying
-    pages:
-      - source: docs/build.md
-        slug: build
-        summary: The build block, pinned runtimes, base and publish directories, the Node frameworks and Python servers.
-      - source: docs/declarative.md
-        slug: declarative
-        summary: "Declaring how an application runs in one file: build, hooks, health check, limits and process types."
-      - source: docs/sources.md
-        slug: sources
-        summary: "Where the code comes from (GitHub, GitLab, SSH, submodules, LFS) and which pushes become deployments."
-      - source: docs/workspaces.md
-        slug: workspaces
-        summary: "A JavaScript monorepo deployed as one application per workspace."
-      - source: docs/ci.md
-        slug: ci
-        summary: "Deploying from a pipeline with a token, the deploy endpoint and the GitHub Action."
-      - source: docs/releases.md
-        slug: releases
-        summary: The release layout, the health gate, instant rollback, migrating an application to releases.
-      - source: docs/delivery.md
-        slug: delivery
-        summary: Pausing what deploys by itself, freezing deploys, history and stop policy, scheduled updates, building now and serving later.
-      - source: docs/containers.md
-        slug: containers
-        summary: Container applications from a Dockerfile, a registry image or Railpack, with releases that are images.
-      - source: docs/compose.md
-        slug: compose
-        summary: Docker Compose projects, noust.yaml hooks, the zero-downtime relay, adopting a running stack.
-      - source: docs/recipes.md
-        slug: recipes
-        summary: The catalog of ready-made services and how a recipe becomes an application.
-      - source: docs/contributing-recipes.md
-        slug: contributing-recipes
-        summary: From a request to a merged recipe, step by step, with the commands that check each rule.
-      - source: docs/domains.md
-        slug: domains
-        summary: Domains, aliases, redirects, certificates and the DNS check.
-      - source: docs/certificates.md
-        slug: certificates
-        summary: "Where certificates come from, how a name is proven, uploaded certificates and what warns before one expires."
-      - source: docs/network.md
-        slug: network
-        summary: "Access control of a site, real client addresses, managed DNS, tunnels and published TCP and UDP ports."
-      - source: docs/databases.md
-        slug: databases
-        summary: Databases on the host and in containers, credentials, detected links, versions and settings.
-      - source: docs/disaster-recovery.md
-        slug: disaster-recovery
-        summary: Backups of applications and databases, destinations, and restoring a whole server.
-      - source: docs/terminal.md
-        slug: terminal
-        summary: The web terminal and one-off commands in an application's context.
-      - source: docs/variables.md
-        slug: variables
-        summary: "Variables, references between them, shared and environment variables, build-only variables and secret managers."
-      - source: docs/previews.md
-        slug: previews
-        summary: "Previews built from a pull request, a branch or a tag, for any application including a Compose stack."
-      - source: docs/runtime.md
-        slug: runtime
-        summary: "What an application is while it runs: side processes, copies, its unit hardening, mounts, health checks and log shipping."
-      - source: docs/adopting.md
-        slug: adopting
-        summary: "Registering a site that already runs on nginx or Apache, a unit you wrote or PHP, without rebuilding it, and what Noust then does and never does to it."
-      - source: docs/leaving.md
-        slug: leaving
-        summary: "What an application is without Noust, how to stop depending on it without stopping anything, and how to take it off the server."
+tabs:
+  - title: Start
+    slug: start
+    summary: What Noust is, how to install it, and a first application from start to finish.
+    groups:
+      - title: Introduction
+        pages:
+          - source: docs/what-is-noust.md
+            slug: start/what-is-noust
+            type: explanation
+            summary: What Noust does for a server you own, what you get, when it fits, and when something else would serve you better.
+          - source: docs/concepts.md
+            slug: start/how-noust-works
+            type: explanation
+            summary: What an application is on disk, releases and the health gate, who a build runs as, what Noust does not do, and what stays running if you remove it.
+      - title: Install
+        pages:
+          - source: docs/requirements.md
+            slug: start/requirements
+            type: reference
+            summary: What a server needs to run Noust (memory, processor, disk), and what Noust itself uses when idle.
+          - source: docs/install.md
+            slug: start/install
+            type: guide
+            summary: Install Noust with one command, open its console through an SSH tunnel, and create the first administrator.
+          - source: docs/PLATFORMS.md
+            slug: start/platforms
+            type: reference
+            summary: The distributions and processors Noust installs on, what is tested where, and how to verify the installer.
+          - source: docs/cloud-init.md
+            slug: start/cloud-init
+            type: guide
+            summary: Install and configure Noust on a new server without logging in, from a cloud-init user-data file or Ansible.
+      - title: Your first application
+        pages:
+          - source: docs/first-application.md
+            slug: start/first-application
+            title: 1. Deploy your first application
+            type: tutorial
+            summary: An application from a Git repository, built, running behind a health check and answering over HTTPS.
+          - source: docs/first-domain.md
+            slug: start/domain-and-https
+            title: 2. Put it on your domain, with HTTPS
+            type: tutorial
+            summary: Point a name at the server, check it, add it to the application, send www to it, and get a certificate that renews itself.
+          - source: docs/first-database.md
+            slug: start/database
+            title: 3. Give it a database
+            type: tutorial
+            summary: A PostgreSQL database with an account of its own, linked as DATABASE_URL, and migrations that run before each version serves.
+          - source: docs/first-backup.md
+            slug: start/backups
+            title: 4. Back it up, and prove the backup comes back
+            type: tutorial
+            summary: A nightly backup with the databases, an encrypted copy off the server, and a rehearsal that shows it restores.
+          - source: docs/first-rollback.md
+            slug: start/roll-back
+            title: 5. Ship a change, and roll it back
+            type: tutorial
+            summary: Deploy a new version behind the health check, put the previous one back in seconds, and deploy on every push.
+          - source: docs/first-service.md
+            slug: start/catalog
+            title: 6. Add a service from the catalog
+            type: tutorial
+            summary: A ready-made application from the catalog, such as a status page, on its own domain, with its secrets and backups.
+          - source: docs/first-safety.md
+            slug: start/leave-it-alone
+            title: 7. Make it safe to leave alone
+            type: tutorial
+            summary: Notifications that reach you, a second factor on your account, and Noust and the system kept up to date.
+      - title: Beyond one server
+        pages:
+          - source: docs/first-fleet.md
+            slug: start/add-a-server
+            type: tutorial
+            summary: Manage a second server from the console of the first, over an SSH tunnel that gives it no shell.
+          - source: docs/first-move.md
+            slug: start/move-from-coolify-or-dokploy
+            type: tutorial
+            summary: Read an application's settings from Coolify or Dokploy, deploy it here with its data, and move its domain without a gap.
+      - title: Where next
+        pages:
+          - source: examples/README.md
+            slug: start/examples
+            type: reference
+            summary: A minimal application for every type Noust deploys, each one deployed for real by the integration harness.
+          - source: docs/next-steps.md
+            slug: start/next-steps
+            type: guide
+            summary: Where each next thing is, by what you want to do.
 
-  - title: Running Noust
-    pages:
-      - source: docs/console.md
-        slug: console
-        summary: The browser console, page by page.
-      - source: docs/CENTRAL.md
-        slug: central
-        summary: Running a central, adding servers, fleet views and bulk actions, sealing its secrets.
-      - source: docs/teams.md
-        slug: teams
-        summary: Teams, projects and environments, and what each role sees.
-      - source: docs/sso.md
-        slug: sso
-        summary: Single sign-on with OpenID Connect or SAML, directories (LDAP, Active Directory) and SCIM provisioning.
-      - source: docs/manifest.md
-        slug: manifest
-        summary: "A server written down in git: plan, apply and export."
-      - source: docs/mcp.md
-        slug: mcp
-        summary: "The MCP endpoint: tools for an editor or a script, as an API token, with the same permissions."
-      - source: docs/remote.md
-        slug: remote
-        summary: "Driving a server from a laptop or a pipeline with a context and a token."
-      - source: docs/sdk.md
-        slug: sdk
-        summary: "A typed Python client of the API, generated from its schema: authentication, errors, jobs."
-      - source: docs/terraform.md
-        slug: terraform
-        summary: "The Terraform and OpenTofu provider: installing it, the token it needs, its resources, and how it is proved."
-      - source: docs/terraform-registry.md
-        slug: terraform-registry
-        summary: "Publishing the provider to the Terraform Registry: the repository, the signing key and the release, for the owner."
-      - source: docs/MONITOR.md
-        slug: monitor
-        summary: The resource monitor and the metrics history.
-      - source: docs/notifications.md
-        slug: notifications
-        summary: "Where Noust tells you what happened: channels, events, routes, quiet hours and alert rules."
-      - source: docs/probes.md
-        slug: probes
-        summary: "Asking an address from outside the application, being told when it stops answering, and a public status page."
-      - source: docs/logs.md
-        slug: logs
-        summary: "Searching the logs of every application and server at once, and how long the journal keeps them."
-      - source: docs/security.md
-        slug: security
-        summary: The threat model, roles and permissions, controls, and how to report a vulnerability.
-      - source: docs/SECURITY-MODEL.md
-        slug: security-model
-        summary: The promises Noust makes about itself, how each can be checked, and the failure each one prevents.
-      - source: docs/code-scanning.md
-        slug: code-scanning
-        summary: How the scanners' findings are decided - fixed in one place, taught to CodeQL as a tested model, or dismissed with a written reason - and the job that fails while one is left open.
-      - source: docs/PRIVACY.md
-        slug: privacy
-        summary: What Noust sends off a server (nothing about you), the one request it makes unasked, and how to check it.
-      - source: docs/reproducible-builds.md
-        slug: reproducible-builds
-        summary: Rebuild the wheel and the source distribution of a release from its tag and compare them byte for byte.
-      - source: docs/ENS.md
-        slug: ens
-        summary: Spain's Esquema Nacional de Seguridad, category medium (in Spanish, with an English summary).
-      - source: docs/COMPLIANCE.md
-        slug: compliance
-        summary: Compliance as controls, and the frameworks (ENS, ISO/IEC 27001, NIS2, CIS, SOC 2, GDPR) that switch them on, the clause each control serves and what stays organisational.
+  - title: Guides
+    slug: guides
+    summary: How to do one thing, one task per page.
+    groups:
+      - title: Something is wrong
+        pages:
+          - source: docs/troubleshooting.md
+            slug: guides/troubleshooting
+            title: Troubleshooting
+            type: guide
+            summary: The diagnosis that finds most causes, the symptoms one page each, and the report to send when you are still stuck.
+          - source: docs/troubleshooting-502.md
+            slug: guides/troubleshooting/502
+            type: guide
+            summary: Each cause noust diagnose names for a site that answers 502 or nothing, in its own words, and the fix.
+          - source: docs/troubleshooting-build.md
+            slug: guides/troubleshooting/build
+            type: guide
+            summary: Where a failed build's output is, and the usual causes in the order they are met, with their messages.
+          - source: docs/troubleshooting-certificate.md
+            slug: guides/troubleshooting/certificate
+            type: guide
+            summary: What certbot's words mean when a certificate is refused, the rate limits, and a certificate about to expire.
+          - source: docs/troubleshooting-dns.md
+            slug: guides/troubleshooting/dns
+            type: guide
+            summary: Each verdict of the DNS check, a stray AAAA record, a server behind NAT and a name behind a CDN.
+          - source: docs/troubleshooting-sign-in.md
+            slug: guides/troubleshooting/sign-in
+            type: guide
+            summary: A locked account, a code refused by the clock, a lost authenticator, no account that can sign in, and the passkey button.
+          - source: docs/troubleshooting-console.md
+            slug: guides/troubleshooting/console
+            type: guide
+            summary: The SSH tunnel to the console, a console that is not running, a local port taken, and publishing it on a name of its own.
+          - source: docs/troubleshooting-install.md
+            slug: guides/troubleshooting/install
+            type: guide
+            summary: Each refusal and failure of the installer, word for word, and what to do about it.
+          - source: docs/troubleshooting-update.md
+            slug: guides/troubleshooting/update
+            type: guide
+            summary: A version that is on the way, a package index that is behind, and an update that stopped before installing anything.
+      - title: Deploy applications
+        pages:
+          - source: docs/frameworks.md
+            slug: guides/frameworks
+            title: Deploy by stack
+            type: guide
+            summary: What is the same for every stack Noust deploys natively, a page for each family (Node.js, PHP, Python, Ruby, Elixir, static, the rest), and where to look when it fails.
+          - source: docs/frameworks-node.md
+            slug: guides/frameworks/node
+            type: guide
+            summary: "Next.js, Nuxt, SvelteKit, Astro, Remix, Angular, Vite and the Node.js servers: what is detected, built and run."
+          - source: docs/frameworks-php.md
+            slug: guides/frameworks/php
+            type: guide
+            summary: Laravel, Symfony, WordPress and other PHP applications, served by PHP-FPM behind nginx or Apache.
+          - source: docs/frameworks-python.md
+            slug: guides/frameworks/python
+            type: guide
+            summary: "Django, Flask and FastAPI: the virtual environment, the server that runs them and their static files."
+          - source: docs/frameworks-ruby-elixir-static.md
+            slug: guides/frameworks/ruby-elixir-and-static
+            type: guide
+            summary: Ruby on Rails, Phoenix and Elixir, and Jekyll, Hugo and other static site generators.
+          - source: docs/frameworks-other.md
+            slug: guides/frameworks/other
+            type: guide
+            summary: Swift, Zig, Crystal and any other stack without a native runtime, deployed as a container from its Dockerfile or with Railpack.
+          - source: docs/sources.md
+            slug: guides/sources
+            title: Connect a repository
+            type: guide
+            summary: "The addresses git understands, submodules and LFS, GitHub, GitLab, Gitea and Bitbucket, the allowed origins, and changing where the code comes from."
+          - source: docs/sources-pushes.md
+            slug: guides/sources/which-pushes-deploy
+            type: guide
+            summary: "The two filters every push goes through before it deploys: skip markers in its commits, and the paths it must touch."
+          - source: docs/sources-push-or-archive.md
+            slug: guides/sources/push-or-archive
+            type: guide
+            summary: Deploy by pushing to a repository on the server itself, or from an archive or a pasted Dockerfile, with no forge at all.
+          - source: docs/build.md
+            slug: guides/build
+            title: Build and start commands
+            type: guide
+            summary: The build block and who wins when it is written twice, the base directory, your own commands, static output, the build cache and how long a build may take.
+          - source: docs/build-runtimes.md
+            slug: guides/build/runtimes
+            type: guide
+            summary: Pinning Node.js, Python or PHP, the Node frameworks and Python servers, the Go, Rust, Ruby, JVM, .NET, Elixir and Deno toolchains, and system packages a build needs.
+          - source: docs/build-processes.md
+            slug: guides/build/processes
+            type: guide
+            summary: Processes beside the web one (a worker, a scheduler) declared as process types, and the limits a build and an application run under.
+          - source: docs/declarative.md
+            slug: guides/declarative
+            type: guide
+            summary: "Declaring how an application runs in one file: build, hooks, health check, limits and process types."
+          - source: docs/workspaces.md
+            slug: guides/monorepos
+            type: guide
+            summary: "A JavaScript monorepo deployed as one application per workspace."
+          - source: docs/variables.md
+            slug: guides/variables
+            type: guide
+            summary: "Variables, references between them, shared and environment variables, build-only variables and secret managers."
+          - source: docs/containers.md
+            slug: guides/containers
+            type: guide
+            summary: Container applications from a Dockerfile, a registry image or Railpack, with releases that are images.
+          - source: docs/compose.md
+            slug: guides/compose
+            title: Deploy a Docker Compose stack
+            type: guide
+            summary: What Noust does with a stack, its file, variables and networks, which service gets the site, routing by path, workers, scheduled tasks and deploying by tag.
+          - source: docs/compose-hooks.md
+            slug: guides/compose/hooks
+            type: guide
+            summary: "A stack's noust.yaml, the hooks that run before and after a deploy, the operator's own hooks, and going back past a migration."
+          - source: docs/compose-relay.md
+            slug: guides/compose/relay
+            type: guide
+            summary: "Updating a stack without a cut: a twin of each web service while it is recreated, and your own site's include."
+          - source: docs/compose-adopt.md
+            slug: guides/compose/adopt
+            type: guide
+            summary: Register a stack that already runs without recreating a container, what it requires, and what updates do afterwards.
+          - source: docs/compose-backups.md
+            slug: guides/compose/backups
+            type: guide
+            summary: The databases of a stack, dumped before every update, and how they are restored.
+          - source: docs/recipes.md
+            slug: guides/recipes
+            title: Install and update a recipe
+            type: guide
+            summary: Installing a ready-made application from the catalogue, updating it, what it needs from the server, its first backups, and a Compose document you paste.
+          - source: docs/recipes-own.md
+            slug: guides/recipes/own
+            type: guide
+            summary: Add your own recipes beside the catalogue, grow it with signed packages, and how its versions are kept current.
+          - source: docs/adopting.md
+            slug: guides/adopting
+            type: guide
+            summary: "Registering a site that already runs on nginx or Apache, a unit you wrote or PHP, without rebuilding it, and what Noust then does and never does to it."
+          - source: docs/previews.md
+            slug: guides/previews
+            type: guide
+            summary: "Previews built from a pull request, a branch or a tag, for any application including a Compose stack."
+          - source: docs/delivery.md
+            slug: guides/delivery
+            type: guide
+            summary: Pausing what deploys by itself, freezing deploys, history and stop policy, scheduled updates, building now and serving later.
+          - source: docs/releases.md
+            slug: guides/releases
+            title: Roll back to a release or a deployment
+            type: guide
+            summary: What happens when a release fails its gate, going back to any release still on disk in seconds, and to an earlier deployment.
+          - source: docs/releases-deploys.md
+            slug: guides/releases/deploys
+            type: guide
+            summary: Zero downtime by default, the deploy queue, cancelling a build, rebuilding a commit, which branch an update builds, and the deploy history.
+          - source: docs/releases-health-check.md
+            slug: guides/releases/health-check
+            type: guide
+            summary: "Tell Noust how to know the application is up: the path, the status it must answer, and how long it may take."
+          - source: docs/releases-hooks.md
+            slug: guides/releases/hooks
+            type: guide
+            summary: Deploy hooks, Prisma migrations, what the history records of a schema change, and going back past one.
+          - source: docs/releases-migrate.md
+            slug: guides/releases/migrate
+            type: guide
+            summary: Move an application deployed in place onto releases, explicitly, and undone exactly if it fails.
+          - source: docs/releases-build-elsewhere.md
+            slug: guides/releases/build-elsewhere
+            type: guide
+            summary: "Build a release on one server and run it on others, behind each one's health gate."
+          - source: docs/releases-compose.md
+            slug: guides/releases/compose-and-monorepos
+            type: guide
+            summary: What releases, rollback and the gate mean for a Docker Compose stack and for a monorepo.
+          - source: docs/runtime.md
+            slug: guides/runtime
+            type: guide
+            summary: "What an application is while it runs: side processes, copies, its unit hardening, mounts, health checks and log shipping."
+          - source: docs/terminal.md
+            slug: guides/terminal
+            type: guide
+            summary: The web terminal and one-off commands in an application's context.
+          - source: docs/leaving.md
+            slug: guides/leaving
+            type: guide
+            summary: "What an application is without Noust, how to stop depending on it without stopping anything, and how to take it off the server."
+      - title: Domains, HTTPS and network
+        pages:
+          - source: docs/domains.md
+            slug: guides/domains
+            type: guide
+            summary: Domains, aliases, redirects, certificates and the DNS check.
+          - source: docs/certificates.md
+            slug: guides/certificates
+            type: guide
+            summary: "Where certificates come from, how a name is proven, uploaded certificates and what warns before one expires."
+          - source: docs/network.md
+            slug: guides/network
+            title: Who may reach a site
+            type: guide
+            summary: "A site's access: a password, addresses, limits and headers, client certificates, names no site serves, and what is kept tidy."
+          - source: docs/network-routes.md
+            slug: guides/network/routes
+            type: guide
+            summary: What happens at a path prefix of a site (another port, a redirect, nothing), and signing in with a service of your own in front of it.
+          - source: docs/network-http3-waf.md
+            slug: guides/network/http3-and-waf
+            type: guide
+            summary: HTTP/3 on a site, and ModSecurity with the Core Rule Set in front of it.
+          - source: docs/network-dns.md
+            slug: guides/network/dns-tunnels-and-ports
+            type: guide
+            summary: DNS accounts and the records Noust keeps, a private network, a Cloudflare Tunnel, and TCP and UDP ports published on purpose.
+          - source: docs/network-webserver.md
+            slug: guides/network/web-server
+            type: guide
+            summary: Moving applications between nginx and Apache, what the new site does not carry over, why every site goes at once when the other server is not serving, and how it is put back.
+      - title: Databases and backups
+        pages:
+          - source: docs/databases.md
+            slug: guides/databases
+            type: guide
+            summary: Where a database lives (the host, a container, an instance), how Noust gets in, which application uses which, and SQLite files.
+          - source: docs/databases-engines.md
+            slug: guides/databases/engines
+            type: guide
+            summary: Install PostgreSQL, MySQL, MariaDB, Redis, Valkey or MongoDB on the host, and create a database on the engine and version you choose.
+          - source: docs/databases-instances.md
+            slug: guides/databases/instances
+            type: guide
+            summary: "Run another version of an engine, or one the host lacks, in a container Noust owns, pinned by digest, beside the host's."
+          - source: docs/databases-import.md
+            slug: guides/databases/import
+            type: guide
+            summary: Load and unload PostgreSQL extensions, and bring in a dump made elsewhere or every database of another server.
+          - source: docs/databases-move.md
+            slug: guides/databases/move
+            type: guide
+            summary: Move a database to another engine, version or server, upgrade an engine, and recover PostgreSQL to an instant.
+          - source: docs/databases-tls.md
+            slug: guides/databases/tls-and-replicas
+            type: guide
+            summary: "Certificates clients can verify, for an instance, a link and the host's engine, and read replicas over TLS."
+          - source: docs/databases-settings.md
+            slug: guides/databases/settings
+            type: guide
+            summary: "An engine's settings and limits on the host, making a database public on purpose, and the ports open beyond the machine."
+          - source: docs/disaster-recovery.md
+            slug: guides/backups
+            title: Back up applications and databases
+            type: guide
+            summary: What Noust backs up and how (databases, application data, its own state), sealing backups on the disk, and proving they come back.
+          - source: docs/backups-destinations.md
+            slug: guides/backups/destinations
+            type: guide
+            summary: Where backups can go, provider by provider, what has been tried against each real service, and how a destination is encrypted and watched.
+          - source: docs/backups-restore-server.md
+            slug: guides/backups/restore-a-server
+            type: guide
+            summary: Bring a whole server back from its backups on a new machine, or move every application to another server.
+      - title: Automate
+        pages:
+          - source: docs/ci.md
+            slug: guides/ci
+            type: guide
+            summary: "Deploying from a pipeline with a token, the deploy endpoint and the GitHub Action."
+          - source: docs/manifest.md
+            slug: guides/manifest
+            type: guide
+            summary: "A server written down in git: plan, apply and export."
+          - source: docs/remote.md
+            slug: guides/remote
+            type: guide
+            summary: "Driving a server from a laptop or a pipeline with a context and a token."
+          - source: docs/sdk.md
+            slug: guides/sdk
+            type: guide
+            summary: "A typed Python client of the API, generated from its schema: authentication, errors, jobs."
+          - source: docs/terraform.md
+            slug: guides/terraform
+            type: guide
+            summary: "The Terraform and OpenTofu provider: installing it, the token it needs, its resources, and how it is proved."
+          - source: docs/mcp.md
+            slug: guides/mcp
+            type: guide
+            summary: "The MCP endpoint: tools for an editor or a script, as an API token, with the same permissions."
+      - title: Operate the server
+        pages:
+          - source: docs/MONITOR.md
+            slug: guides/monitor
+            type: guide
+            summary: The resource monitor and the metrics history.
+          - source: docs/notifications.md
+            slug: guides/notifications
+            type: guide
+            summary: "Where Noust tells you what happened: channels, events, routes, quiet hours and alert rules."
+          - source: docs/probes.md
+            slug: guides/probes
+            type: guide
+            summary: "Asking an address from outside the application, being told when it stops answering, and a public status page."
+          - source: docs/logs.md
+            slug: guides/logs
+            type: guide
+            summary: "Searching the logs of every application and server at once, and how long the journal keeps them."
+      - title: Security and access
+        pages:
+          - source: docs/security.md
+            slug: guides/security
+            title: Security of the console and the server
+            type: guide
+            summary: Where each control of the console is documented, the ENS profile, and how to report a vulnerability.
+          - source: docs/security-console.md
+            slug: guides/security/console
+            type: guide
+            summary: "Publishing the console on a name of its own or keeping it on loopback, the browser's protections, and the streams that stay open."
+          - source: docs/security-sign-in.md
+            slug: guides/security/sign-in
+            title: "Sign-in: passwords, second factors and passkeys"
+            type: guide
+            summary: Accounts and passwords, authenticator apps and passkeys, the access token as break-glass, sessions, lockouts and API tokens.
+          - source: docs/security-roles.md
+            slug: guides/security/roles
+            type: guide
+            summary: The roles and the permissions they hold, teams, why there is no signing in as another person, and how far a central may act.
+          - source: docs/security-approvals.md
+            slug: guides/security/approvals
+            type: guide
+            summary: "Sudo mode before a destructive action, and a second person's approval for the root-equivalent ones."
+          - source: docs/security-audit.md
+            slug: guides/security/audit
+            type: guide
+            summary: The audit log, its chain and where it is shipped, and freezing the evidence of an incident.
+          - source: docs/security-secrets.md
+            slug: guides/security/secrets
+            type: guide
+            summary: "Secrets at rest, the database console's read-only account, and backups as the secrets they hold."
+          - source: docs/teams.md
+            slug: guides/teams
+            type: guide
+            summary: Teams, projects and environments, and what each role sees.
+          - source: docs/sso.md
+            slug: guides/sso
+            type: guide
+            summary: Single sign-on with OpenID Connect or SAML, directories (LDAP, Active Directory) and SCIM provisioning.
+          - source: docs/reproducible-builds.md
+            slug: guides/verify-a-release
+            type: guide
+            summary: Rebuild the wheel and the source distribution of a release from its tag and compare them byte for byte.
+          - source: docs/COMPLIANCE.md
+            slug: guides/compliance
+            type: explanation
+            summary: Compliance as controls, and the frameworks (ENS, ISO/IEC 27001, NIS2, CIS, SOC 2, GDPR) that switch them on, the clause each control serves and what stays organisational.
+          - source: docs/ENS.md
+            slug: guides/ens
+            type: explanation
+            lang: es
+            summary: Spain's Esquema Nacional de Seguridad, category medium (in Spanish, with an English summary).
+      - title: Several servers
+        pages:
+          - source: docs/CENTRAL.md
+            slug: guides/fleet
+            title: Run a central
+            type: guide
+            summary: What a central is and what it cannot do, installing one on a NAS, a Docker host or a VPS, its first accounts and its certificate.
+          - source: docs/central-servers.md
+            slug: guides/fleet/add-servers
+            type: guide
+            summary: Authorize a central on a server, or let it enroll one with a password, create one at a cloud provider, reach one through a bastion or behind NAT, and move servers between centrals.
+          - source: docs/central-operate.md
+            slug: guides/fleet/operate
+            type: guide
+            summary: "See every server at once, act on several, run an application on several, build once for all, move a database, the fleet's settings, versions and updates."
+          - source: docs/central-sources.md
+            slug: guides/fleet/github
+            type: guide
+            summary: "Deploy from GitHub on the servers a central manages: the App stays on the central, which leases each server access to clone, hands it the pushes and writes the status of the commit."
+          - source: docs/central-maintain.md
+            slug: guides/fleet/maintain
+            type: guide
+            summary: "Seal the central's secrets, back it up, rotate a server's key, and what to do when a server does not answer."
+      - title: Coming from another platform
+        pages:
+          - source: docs/coolify.md
+            slug: guides/from-coolify
+            type: guide
+            summary: From Coolify to Noust, a map of concepts, screens and settings, what is not done by design, and moving a server in place.
+          - source: docs/dokploy.md
+            slug: guides/from-dokploy
+            type: guide
+            summary: From Dokploy to Noust, a map of concepts and screens, what is not done by design, the importer and the converter of its templates.
+          - source: docs/caprover.md
+            slug: guides/from-caprover
+            type: guide
+            summary: From CapRover to Noust, a map of concepts and screens, what is not done by design, and the importer.
+          - source: docs/dokku.md
+            slug: guides/from-dokku
+            type: guide
+            summary: From Dokku to Noust, its commands and their counterparts, what is not done by design, and the importer.
 
-  - title: Upgrading
-    pages:
-      - source: docs/release-policy.md
-        slug: release-policy
-        summary: What a patch, a minor and a major release may change, the channels, and how long a line is supported.
-      - source: docs/downgrading.md
-        slug: downgrading
-        summary: Going back to an earlier Noust, and which releases can open which store.
-      - source: docs/UPGRADING-4.0.md
-        slug: upgrading-4.0
-        summary: The names that changed in 4.0, where the screens of the console went, what still works, and noust setup rename.
-      - source: docs/UPGRADING-3.3.md
-        slug: upgrading-3.3
-        summary: Upgrading a 3.2 server or fleet to 3.3.
-      - source: docs/UPGRADING-3.2.md
-        slug: upgrading-3.2
-        summary: Upgrading a 3.1 server or fleet to 3.2, and rolling back.
-      - source: docs/UPGRADING-3.1.md
-        slug: upgrading-3.1
-        summary: Upgrading a 3.0 server or fleet to 3.1, and rolling back.
-      - source: docs/UPGRADING-3.0.md
-        slug: upgrading-3.0
-        summary: From 2.x, upgrade to 3.3.x first.
-
-  - title: Changelog
-    pages:
-      - source: docs/CHANGELOG-4.0.md
-        slug: changelog-4.0
-        summary: What changed in 4.0.
-      - source: docs/CHANGELOG-3.3.md
-        slug: changelog-3.3
-        summary: What changed in 3.3.
-      - source: docs/CHANGELOG-3.2.md
-        slug: changelog-3.2
-        summary: What changed in 3.2.
-      - source: docs/CHANGELOG-3.1.md
-        slug: changelog-3.1
-        summary: What changed in 3.1.
-      - source: docs/CHANGELOG-3.0.md
-        slug: changelog-3.0
-        summary: What changed in 3.0.
-      - source: docs/API-CHANGELOG.md
-        slug: api-changelog
-        summary: Changes to the API, with the breaking ones and the deprecations.
+  - title: Concepts
+    slug: concepts
+    summary: Why Noust works the way it does. Explanation, no steps.
+    groups:
+      - title: How it works
+        pages:
+          - source: docs/how-releases-work.md
+            slug: concepts/releases
+            type: explanation
+            summary: The two layouts, what is on disk, what a deploy does step by step, the health gate, shared paths and how many releases are kept.
+          - source: docs/builds-and-accounts.md
+            slug: concepts/builds-and-accounts
+            type: explanation
+            summary: Why a build runs as an unprivileged account in a systemd sandbox, and which account each application runs as.
+      - title: Security
+        pages:
+          - source: docs/threat-model.md
+            slug: concepts/threat-model
+            type: explanation
+            summary: "What Noust defends against and what it does not: processes, builds and hooks, repositories as untrusted input, outbound requests and the files it keeps."
+          - source: docs/SECURITY-MODEL.md
+            slug: concepts/promises
+            type: reference
+            summary: The promises Noust makes about itself, how each can be checked, and the failure each one prevents.
+          - source: docs/PRIVACY.md
+            slug: concepts/privacy
+            type: explanation
+            summary: What Noust sends off a server (nothing about you), the one request it makes unasked, and how to check it.
+      - title: Several servers
+        pages:
+          - source: docs/fleet-model.md
+            slug: concepts/fleet
+            type: explanation
+            summary: How far a central may go on each server, decided by the server, and what a fleet is not.
 
   - title: Reference
-    pages:
-      - source: docs/reference-cli.md
-        slug: reference-cli
-        summary: Every command and option of the noust command line, generated from the command tree.
-      - source: docs/reference-api.md
-        slug: reference-api
-        summary: Every operation of the HTTP API with its permission, generated from the OpenAPI schema.
-      - source: docs/reference-config.md
-        slug: reference-config
-        summary: Every configuration key with its default, generated from the code.
-      - source: docs/api.md
-        slug: api
-        summary: Authentication, errors, events, WebSockets and the endpoints, explained.
-      - source: docs/CONFIG.md
-        slug: config
-        summary: What each setting does, and the obsolete ones.
+    slug: reference
+    summary: The exact command, endpoint or setting. Generated from the code wherever it can be.
+    groups:
+      - title: Command line
+        pages:
+          - source: docs/reference-cli.md
+            slug: reference/cli
+            type: reference
+            split: 2
+            split_prefix: noust-
+            summary: Every command and option of the noust command line, generated from the command tree.
+      - title: HTTP API
+        pages:
+          - source: docs/api.md
+            slug: reference/api
+            type: reference
+            summary: Authentication, errors, events, WebSockets and the endpoints, explained.
+          - source: docs/reference-api.md
+            slug: reference/api/operations
+            type: reference
+            split: 2
+            summary: Every operation of the HTTP API with its permission, generated from the OpenAPI schema.
+          - source: docs/API-CHANGELOG.md
+            slug: reference/api/changes
+            type: reference
+            summary: Changes to the API, with the breaking ones and the deprecations.
+      - title: Configuration
+        pages:
+          - source: docs/CONFIG.md
+            slug: reference/configuration
+            type: reference
+            summary: What each setting does, and the obsolete ones.
+          - source: docs/reference-config.md
+            slug: reference/configuration/keys
+            type: reference
+            summary: Every configuration key with its default, generated from the code.
+      - title: The console
+        pages:
+          - source: docs/console.md
+            slug: reference/console
+            title: The console, page by page
+            type: reference
+            summary: "The browser console: how it is laid out, the features that are on or off, live updates and themes, and a page for each of its parts."
+          - source: docs/console-start.md
+            slug: reference/console/start
+            type: reference
+            summary: Starting the console, keeping it running, reaching it through a tunnel or on a name of its own, signing in, and sudo mode.
+          - source: docs/console-overview.md
+            slug: reference/console/overview
+            type: reference
+            summary: "The server's overview, its map, the charts, the activity and the logs."
+          - source: docs/console-fleet.md
+            slug: reference/console/fleet
+            type: reference
+            summary: "A central's own pages: every server side by side, and what each one needs."
+          - source: docs/console-applications.md
+            slug: reference/console/applications
+            type: reference
+            summary: "The list of applications, the recipes, one application's pages, the deploy queue, Diagnose, the terminal and cron."
+          - source: docs/console-domains.md
+            slug: reference/console/domains
+            type: reference
+            summary: Domains, certificates and the sites Noust did not write.
+          - source: docs/console-databases.md
+            slug: reference/console/databases
+            type: reference
+            summary: Engines, databases, their tables, the SQL console, backups and users.
+          - source: docs/console-backups.md
+            slug: reference/console/backups
+            type: reference
+            summary: "Backups, schedules, destinations, volumes and Noust's own state."
+          - source: docs/console-server.md
+            slug: reference/console/server
+            type: reference
+            summary: "The server itself: system, services, logs, storage, updates and security."
+          - source: docs/console-settings.md
+            slug: reference/console/settings
+            type: reference
+            summary: "Every settings page: accounts, security, tokens, channels, integrations, the console and About."
+          - source: docs/console-keyboard.md
+            slug: reference/console/keyboard
+            type: reference
+            summary: "The console's keyboard shortcuts and the command palette."
+          - source: docs/console-accessibility.md
+            slug: reference/console/accessibility
+            type: reference
+            summary: What the console does for keyboard, screen reader and low-vision users, and how it is checked.
+      - title: Recipes
+        pages:
+          - source: docs/recipes-catalog.md
+            slug: reference/recipes
+            title: The recipe catalog
+            type: reference
+            summary: Every recipe that ships, with its version, kind and what it runs, and the ones listed with the reason they cannot be installed.
+          - source: docs/recipes-format.md
+            slug: reference/recipes/format
+            type: reference
+            summary: "A recipe's file: the format of both kinds, variables, pinning, logos, other projects' names and licences, and how to contribute one."
 
-  - title: Coming from another platform
-    pages:
-      - source: docs/coolify.md
-        slug: coolify
-        summary: From Coolify to Noust, a map of concepts, screens and settings, what is not done by design, and moving a server in place.
-      - source: docs/dokploy.md
-        slug: dokploy
-        summary: From Dokploy to Noust, a map of concepts and screens, what is not done by design, the importer and the converter of its templates.
-      - source: docs/caprover.md
-        slug: caprover
-        summary: From CapRover to Noust, a map of concepts and screens, what is not done by design, and the importer.
-      - source: docs/dokku.md
-        slug: dokku
-        summary: From Dokku to Noust, its commands and their counterparts, what is not done by design, and the importer.
+  - title: Releases
+    slug: releases
+    summary: What each release changed, how to upgrade, and how to go back.
+    groups:
+      - title: Policy
+        pages:
+          - source: docs/release-policy.md
+            slug: releases/policy
+            type: explanation
+            summary: What a patch, a minor and a major release may change, the channels, and how long a line is supported.
+          - source: docs/downgrading.md
+            slug: releases/downgrading
+            type: guide
+            summary: Going back to an earlier Noust, and which releases can open which store.
+      - title: Upgrading
+        pages:
+          - source: docs/UPGRADING-4.0.md
+            slug: releases/upgrading-4.0
+            type: guide
+            summary: The names that changed in 4.0, where the screens of the console went, what still works, and noust setup rename.
+          - source: docs/UPGRADING-3.3.md
+            slug: releases/upgrading-3.3
+            type: guide
+            summary: Upgrading a 3.2 server or fleet to 3.3.
+          - source: docs/UPGRADING-3.2.md
+            slug: releases/upgrading-3.2
+            type: guide
+            summary: Upgrading a 3.1 server or fleet to 3.2, and rolling back.
+          - source: docs/UPGRADING-3.1.md
+            slug: releases/upgrading-3.1
+            type: guide
+            summary: Upgrading a 3.0 server or fleet to 3.1, and rolling back.
+          - source: docs/UPGRADING-3.0.md
+            slug: releases/upgrading-3.0
+            type: guide
+            summary: From 2.x, upgrade to 3.3.x first.
+      - title: Changelog
+        pages:
+          - source: docs/CHANGELOG-4.0.md
+            slug: releases/changelog-4.0
+            type: reference
+            summary: What changed in 4.0.
+          - source: docs/CHANGELOG-3.3.md
+            slug: releases/changelog-3.3
+            type: reference
+            summary: What changed in 3.3.
+          - source: docs/CHANGELOG-3.2.md
+            slug: releases/changelog-3.2
+            type: reference
+            summary: What changed in 3.2.
+          - source: docs/CHANGELOG-3.1.md
+            slug: releases/changelog-3.1
+            type: reference
+            summary: What changed in 3.1.
+          - source: docs/CHANGELOG-3.0.md
+            slug: releases/changelog-3.0
+            type: reference
+            summary: What changed in 3.0.
 
-  - title: The project
-    pages:
-      - source: docs/SUPPORT.md
-        slug: support
-        summary: Where to ask, what to include in a report, and how issues are triaged.
-      - source: CONTRIBUTING.md
-        slug: contributing
-        summary: The four rules, the architecture and how to work on Noust.
-      - source: SECURITY.md
-        slug: security-policy
-        summary: Supported versions and how to report a vulnerability privately.
-      - source: docs/DESIGN.md
-        slug: design
-        summary: The console's design system.
-      - source: docs/TRANSLATING.md
-        slug: translating
-        summary: Bringing the console to another language with one JSON file, no code, and how it is checked.
-      - source: docs/OBS_SETUP.md
-        slug: obs
-        summary: How the distribution packages are built on the openSUSE Build Service.
+  - title: Project
+    slug: project
+    footer: true
+    summary: Getting help, contributing, and the security policy.
+    groups:
+      - title: Help and contribution
+        pages:
+          - source: docs/SUPPORT.md
+            slug: project/support
+            type: guide
+            summary: Where to ask, what to include in a report, and how issues are triaged.
+          - source: CONTRIBUTING.md
+            slug: project/contributing
+            type: guide
+            summary: The four rules, the architecture and how to work on Noust.
+          - source: SECURITY.md
+            slug: project/security-policy
+            type: reference
+            summary: Supported versions and how to report a vulnerability privately.
+          - source: docs/contributing-recipes.md
+            slug: project/contributing-recipes
+            type: guide
+            summary: From a request to a merged recipe, step by step, with the commands that check each rule.
+          - source: docs/TRANSLATING.md
+            slug: project/translating
+            type: guide
+            summary: Bringing the console to another language with one JSON file, no code, and how it is checked.
+      - title: For maintainers
+        sidebar: false
+        pages:
+          - source: docs/DESIGN.md
+            slug: project/design
+            type: reference
+            summary: The console's design system.
+          - source: docs/OBS_SETUP.md
+            slug: project/obs
+            type: guide
+            summary: How the distribution packages are built on the openSUSE Build Service.
+          - source: docs/code-scanning.md
+            slug: project/code-scanning
+            type: explanation
+            summary: How the scanners' findings are decided - fixed in one place, taught to CodeQL as a tested model, or dismissed with a written reason - and the job that fails while one is left open.
+          - source: docs/terraform-registry.md
+            slug: project/terraform-registry
+            type: guide
+            summary: "Publishing the provider to the Terraform Registry: the repository, the signing key and the release."
+
+# Files that are not pages of the site but whose links are held to the same rules. The README is
+# the repository's front page on GitHub and PyPI; the site has its own way in.
+checked:
+  - source: README.md
 
 # Markdown files of docs/ that are deliberately not on the site, with the reason.
 exclude:
@@ -294,5 +827,85 @@ exclude:
   - source: docs/CHANGELOG-2.0.md
     why: A changelog of the line before the rename; history, kept in the repository.
 
-# Old route -> slug. Add a line whenever a slug is renamed or a page is merged into another.
-redirects: {}
+# Old route -> route. The flat routes are the ones the site had before the tabs.
+redirects:
+  overview: start/what-is-noust
+  platforms: start/platforms
+  requirements: start/requirements
+  cloud-init: start/cloud-init
+  concepts: start/how-noust-works
+  first-application: start/first-application
+  frameworks: guides/frameworks
+  examples: start/examples
+  troubleshooting: guides/troubleshooting
+  build: guides/build
+  declarative: guides/declarative
+  sources: guides/sources
+  workspaces: guides/monorepos
+  ci: guides/ci
+  releases: guides/releases
+  delivery: guides/delivery
+  containers: guides/containers
+  compose: guides/compose
+  recipes: guides/recipes
+  contributing-recipes: project/contributing-recipes
+  domains: guides/domains
+  certificates: guides/certificates
+  network: guides/network
+  databases: guides/databases
+  disaster-recovery: guides/backups
+  terminal: guides/terminal
+  variables: guides/variables
+  previews: guides/previews
+  runtime: guides/runtime
+  adopting: guides/adopting
+  leaving: guides/leaving
+  console: reference/console
+  central: guides/fleet
+  teams: guides/teams
+  sso: guides/sso
+  manifest: guides/manifest
+  mcp: guides/mcp
+  remote: guides/remote
+  sdk: guides/sdk
+  terraform: guides/terraform
+  terraform-registry: project/terraform-registry
+  monitor: guides/monitor
+  notifications: guides/notifications
+  probes: guides/probes
+  logs: guides/logs
+  security: guides/security
+  security-model: concepts/promises
+  code-scanning: project/code-scanning
+  privacy: concepts/privacy
+  reproducible-builds: guides/verify-a-release
+  ens: guides/ens
+  compliance: guides/compliance
+  release-policy: releases/policy
+  downgrading: releases/downgrading
+  upgrading-4.0: releases/upgrading-4.0
+  upgrading-3.3: releases/upgrading-3.3
+  upgrading-3.2: releases/upgrading-3.2
+  upgrading-3.1: releases/upgrading-3.1
+  upgrading-3.0: releases/upgrading-3.0
+  changelog-4.0: releases/changelog-4.0
+  changelog-3.3: releases/changelog-3.3
+  changelog-3.2: releases/changelog-3.2
+  changelog-3.1: releases/changelog-3.1
+  changelog-3.0: releases/changelog-3.0
+  api-changelog: reference/api/changes
+  reference-cli: reference/cli
+  reference-api: reference/api/operations
+  reference-config: reference/configuration/keys
+  api: reference/api
+  config: reference/configuration
+  coolify: guides/from-coolify
+  dokploy: guides/from-dokploy
+  caprover: guides/from-caprover
+  dokku: guides/from-dokku
+  support: project/support
+  contributing: project/contributing
+  security-policy: project/security-policy
+  design: project/design
+  translating: project/translating
+  obs: project/obs

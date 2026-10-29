@@ -77,6 +77,19 @@ def usage(store: NoustStore | None = None) -> WebserverUsage:
     return WebserverUsage(applications, sites)
 
 
+def suggested_command(webserver: str) -> str:
+    """
+    Args:
+        webserver: The web server the setting is being changed to.
+
+    Returns:
+        The command that moves every application and site that is behind the other one to it,
+        which is what makes the change possible. It plans the move, asks, and changes nothing
+        until it is answered.
+    """
+    return f"noust webserver migrate --to {webserver} --all"
+
+
 def _count(number: int, noun: str) -> str:
     return f"{number} {noun}{'' if number == 1 else 's'}"
 
@@ -134,7 +147,8 @@ def refuse_switch(current: str, new: str, store: NoustStore | None = None) -> No
             f"This setting is the web server new applications are put behind; each application "
             f"keeps its own, and nothing here moves one. Changing it to {new} now would send the "
             f"next application to {new} while {behind} holds the ports. Behind {new} today: "
-            f"{ours}. Move what is behind {behind} first, or leave the setting as it is."
+            f"{ours}. Move what is behind {behind} first with: {suggested_command(new)}. Or leave "
+            f"the setting as it is."
         ),
         field="webserver",
     )

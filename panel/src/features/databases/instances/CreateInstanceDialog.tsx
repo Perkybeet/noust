@@ -55,7 +55,9 @@ export function CreateInstanceDialog({ open, onOpenChange, onQueued }: CreateIns
   // An image of the engine with something added (PostgreSQL with pgvector) offers its own versions.
   const variants = chosen?.variants ?? [];
   const variant = variants.find((entry) => entry.name === variantName) ?? null;
-  const versions = variant?.versions ?? chosen?.versions ?? [];
+  // The versions whose project has stopped supporting them are in the catalog and need the operator's
+  // confirmation (`unsupported_ok`), which this dialog does not ask for: it offers the current ones.
+  const versions = (variant?.versions ?? chosen?.versions ?? []).filter((entry) => !entry.unsupported);
   const picked = versions.find((entry) => entry.version === version) ?? versions.find((entry) => entry.default) ?? versions.at(-1) ?? null;
 
   const reset = (): void => {
@@ -80,6 +82,7 @@ export function CreateInstanceDialog({ open, onOpenChange, onQueued }: CreateIns
           ...(variant === null ? {} : { variant: variant.name }),
           memory_mb: Number(memory.trim()),
           accept_untested: false,
+          unsupported_ok: false,
           ...(port.trim() === "" ? {} : { port: Number(port.trim()) }),
           ...(script.trim() === "" || !RUNS_SQL.has(chosen.flavour) ? {} : { init_scripts: [{ name: "init.sql", content: script }] }),
         },

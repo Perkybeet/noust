@@ -20,7 +20,7 @@ slogan: A hierarchical note-taking application with a focus on building large pe
 description: "Notes in a tree with attributes, relations, scripting, a web clipper and sync with desktop and mobile apps. Single container with its data in a volume. The first person to open it chooses the password, so do it right after installing."
 category: productivity
 tags: [notes, knowledge-base, wiki, markdown]
-logo: logo.svg
+logo: simple-icons:trilium
 version: "0.106.0"
 revision: 1
 updated: 2026-10-06

@@ -60,6 +60,7 @@ GATES_JSON: dict[str, str] = {
     "compliance set": "tests/test_cli_json_consent.py::TestComplianceUnderJson",
     "fleet authorize": "tests/test_cli_fleet.py::TestAuthorizeCommand::test_a_second_authorize_asks_under_json_too",
     "fleet link": "tests/test_cli_node_link.py::TestServer::test_a_second_link_asks_under_json_too",
+    "webserver migrate": "tests/test_cli_webserver.py::TestMigrate::test_json_without_yes_prints_the_plan_and_changes_nothing",
 }
 
 
