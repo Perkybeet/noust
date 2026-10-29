@@ -3,7 +3,7 @@
 Part of [Deploying by framework](frameworks.md).
 
 Go, Rust, Java and Kotlin, .NET and Deno are built on the server
-([build.md](build.md#java-and-kotlin-net-elixir-and-deno)) unless the repository commits a
+([build.md](build-runtimes.md#java-and-kotlin-net-elixir-and-deno)) unless the repository commits a
 `Dockerfile`, like [Ruby and Elixir](frameworks-ruby-elixir-static.md). The rest (Swift, Zig, Crystal...), and any of those you want
 packaged, run as **container applications**: from your `Dockerfile`, or without one with Railpack.
 

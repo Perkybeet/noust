@@ -48,7 +48,7 @@ Noust says what it is missing before it builds and gives the command that instal
 (`noust setup doctor`, and the first lines of a deploy's log): [requirements.md](../docs/requirements.md).
 The Node.js frameworks pin their dependencies exactly, with a lock file, and ask for Node.js 22 in
 `.nvmrc`; Noust installs the Node it is asked for for the application when the server's is older
-([build.md](../docs/build.md#runtimes)).
+([build.md](../docs/build-runtimes.md#runtimes)).
 
 ## What is proved
 

@@ -30,7 +30,7 @@ whether it did not start, did not listen, or answered with an error.
 
 The build fails on syntax or a dependency that needs a newer runtime. Pin the version in the
 repository: `runtime: node@22` in the `build:` block of `noust.yaml`, or a `.nvmrc`, a
-`.python-version`, or `require.php` in `composer.json` ([Runtimes](build.md#runtimes)). Or set it
+`.python-version`, or `require.php` in `composer.json` ([Runtimes](build-runtimes.md#runtimes)). Or set it
 for this server only: `noust app build set wrenfield.io --runtime node@22`.
 
 ### A variable the build needs is missing

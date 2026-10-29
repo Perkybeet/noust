@@ -27,7 +27,7 @@ anything.
   application's own account with its `.env`, and a failing `pre_deploy` stops the deploy with what
   served before still serving.
 - Go, Rust, Ruby, Java and Kotlin, .NET, Elixir and Deno are built on the server with its own
-  toolchain: [build.md](build.md#java-and-kotlin-net-elixir-and-deno) (Rails and Phoenix have
+  toolchain: [build.md](build-runtimes.md#java-and-kotlin-net-elixir-and-deno) (Rails and Phoenix have
   [a page of their own](frameworks-ruby-elixir-static.md)). A stack Noust has no native runtime for (Swift, Zig, Crystal...) is deployed from its
   `Dockerfile`, or with Railpack, as a container application: [containers.md](containers.md). Every stack in
   this guide has a minimal example in [`examples/`](../examples/README.md) that deploys as it is.

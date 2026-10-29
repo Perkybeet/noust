@@ -236,8 +236,17 @@ tabs:
             summary: "Where the code comes from (GitHub, GitLab, SSH, submodules, LFS) and which pushes become deployments."
           - source: docs/build.md
             slug: guides/build
+            title: Build and start commands
             type: guide
-            summary: The build block, pinned runtimes, base and publish directories, the Node frameworks and Python servers.
+            summary: The build block and who wins when it is written twice, the base directory, your own commands, static output, the build cache and how long a build may take.
+          - source: docs/build-runtimes.md
+            slug: guides/build/runtimes
+            type: guide
+            summary: Pinning Node.js, Python or PHP, the Node frameworks and Python servers, the Go, Rust, Ruby, JVM, .NET, Elixir and Deno toolchains, and system packages a build needs.
+          - source: docs/build-processes.md
+            slug: guides/build/processes
+            type: guide
+            summary: Processes beside the web one (a worker, a scheduler) declared as process types, and the limits a build and an application run under.
           - source: docs/declarative.md
             slug: guides/declarative
             type: guide

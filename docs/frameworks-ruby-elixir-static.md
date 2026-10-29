@@ -43,7 +43,7 @@ reports a mismatch with the project's `.ruby-version`, and the deploy's log warn
   connection string to `DATABASE_URL`, which Rails reads. Active Storage on the local disk needs
   `--persist storage`.
 - **Background jobs** (Sidekiq, Solid Queue) are a process type: a `Procfile` with a `worker:` line runs
-  beside the web process ([build.md](build.md#process-types)).
+  beside the web process ([build.md](build-processes.md#process-types)).
 - A bare Rack application (a `config.ru` and no Rails) is the same type; `rackup` runs it on the port.
 
 What Noust does not do for Rails: it installs no Ruby for the application.
@@ -84,7 +84,7 @@ that carries the Erlang runtime it was built with. The Elixir and Erlang are the
   packages want (Ubuntu 24.04 has Elixir 1.14 on Erlang/OTP 25, and recent `plug` and `cowlib` need 1.15
   and OTP 26). Mix reports that from inside the dependency; Noust names the dependency and the two
   versions and says to install a newer Elixir system-wide or to pin an older dependency
-  ([build.md](build.md#java-and-kotlin-net-elixir-and-deno)). This is not a corner case for Phoenix:
+  ([build.md](build-runtimes.md#java-and-kotlin-net-elixir-and-deno)). This is not a corner case for Phoenix:
   what `mix phx.new` writes today (Phoenix 1.7.21) stops on Ubuntu 24.04 at `mix assets.setup`, with
   `phoenix_template` asking for Elixir 1.16; with Elixir 1.17 installed system-wide (the precompiled
   build for OTP 25 from `builds.hex.pm`, unpacked into `/usr/local` ahead of the distribution's) the

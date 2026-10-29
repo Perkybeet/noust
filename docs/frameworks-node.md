@@ -15,7 +15,7 @@ Part of [Deploying by framework](frameworks.md).
 
 The package manager (npm, pnpm, Yarn, Bun) is detected from the lockfile; `--pm` forces one. The
 Node version is whatever the project pins (`.nvmrc`, `.node-version`, `engines`, or `runtime:
-node@22` in the `build:` block): [build.md](build.md#runtimes).
+node@22` in the `build:` block): [build.md](build-runtimes.md#runtimes).
 
 ## Next.js
 
