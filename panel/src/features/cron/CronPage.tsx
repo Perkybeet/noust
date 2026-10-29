@@ -88,7 +88,7 @@ export function CronPage({ search, onSearchChange }: CronPageProps) {
   return (
     <ListPage
       // While there is no job the empty state carries the action, so the page has it once.
-      header={{ title: t("cron.page.title"), description: t("cron.page.description"), ...(empty ? {} : { primaryAction: newJobButton("primary") }) }}
+      header={{ title: t("cron.page.title"), ...(empty ? {} : { primaryAction: newJobButton("primary") }) }}
       {...(empty
         ? {}
         : {
