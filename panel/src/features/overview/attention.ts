@@ -2,8 +2,8 @@
  * What needs an operator, beyond what the server lists. The server's own list (`GET /api/overview`,
  * `managers/overview.py`) names the problems it can read from one place: an application that is
  * down, a deployment that failed, a certificate that is expiring, a unit that failed, what the
- * monitor found, an alert that is firing. The console adds what only other reads know - a probe that
- * is down, a request waiting for a second person, a Noust or a recipe with an update - as items of
+ * monitor found, an alert that is firing, a probe that is down. The console adds what only other reads
+ * know - a request waiting for a second person, a Noust or a recipe with an update - as items of
  * the same shape, so the Overview's "Needs attention", the inbox and the sidebar's counters are one
  * definition read three times (NV-16): `mergeAttention` puts them in one list, worst first, and
  * `attentionCounters` is what the sidebar counts from it.
@@ -12,10 +12,8 @@
  */
 
 import type { OverviewAttentionItem, OverviewAttentionReason } from "../../api/queries/overview";
-import type { ProbeList } from "../../api/queries/probes";
 import { parseTimestamp } from "../../lib/format";
 import type { ApprovalList } from "../approvals/api";
-import { selectFailingProbes } from "../settings/probes/data";
 
 /** Days before expiry at which a certificate starts needing attention (spec, Task 3.11). */
 export const CERT_WARNING_DAYS = 21;
@@ -30,24 +28,7 @@ function moment(value: number | string | null | undefined): string | null {
 }
 
 /** The kinds of subject the console adds to the server's list. */
-export type ExtraKind = "probe" | "approval" | "noust" | "recipe";
-
-/** A probe that is down: what it asked and what it got, in the probe's own words. */
-export function probeItems(probes: ProbeList | undefined): OverviewAttentionItem[] {
-  return selectFailingProbes(probes).map((probe): OverviewAttentionItem => {
-    const reason: OverviewAttentionReason = {
-      kind: "probe",
-      severity: "fail",
-      code: "probe_down",
-      params: { probe: probe.name, since: probe.since },
-      detail: probe.lastError,
-      when: moment(probe.since),
-      deployment_id: null,
-      actions: ["open_probes"],
-    };
-    return { id: `probe:${probe.name}`, subject: { kind: "probe", name: probe.name }, title: probe.name, severity: "fail", reasons: [reason] };
-  });
-}
+export type ExtraKind = "approval" | "noust" | "recipe";
 
 /** The requests waiting for this person's decision: only those they may decide. */
 export function approvalItems(list: ApprovalList | undefined): OverviewAttentionItem[] {

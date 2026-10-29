@@ -204,6 +204,27 @@ class TestTheStore:
         assert probes.incidents(saved.id)[0].ended_at is not None
         assert probes.set_enabled("nope", True) is None
 
+    def test_the_probes_that_are_down_are_one_answer_for_every_list_that_counts_them(
+        self, probes: ProbeStore
+    ) -> None:
+        for name, state, since in (
+            ("late", "down", NOW - 60),
+            ("early", "down", NOW - 900),
+            ("fine", "up", NOW - 900),
+            ("paused", "down", NOW - 3000),
+        ):
+            saved = probes.save(probe(name=name))
+            assert saved.id is not None
+            probes.put_state(ProbeState(saved.id, state, since, failures=3))
+        probes.save(probe(name="never-asked"))
+        probes.set_enabled("paused", False)
+
+        # The longest down first; one switched off is not asked, and one never asked is not down.
+        assert [(found.name, state.state) for found, state in probes.down()] == [
+            ("early", "down"),
+            ("late", "down"),
+        ]
+
     def test_removing_a_probe_removes_what_it_kept(
         self, probes: ProbeStore, store: NoustStore
     ) -> None:

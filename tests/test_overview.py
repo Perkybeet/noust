@@ -34,6 +34,7 @@ from fastapi.testclient import TestClient
 from noust.core.alerts.model import AlertRule
 from noust.core.alerts.rules import FIRING, AlertRules, AlertState
 from noust.core.exceptions import NoustError
+from noust.core.probe_store import Probe, ProbeState, ProbeStore
 from noust.core.store import App, BackupScheduleRecord, JobRecord, NoustStore
 from noust.managers import overview as overview_module
 from noust.managers.cert_manager import CertificateInfo
@@ -130,6 +131,7 @@ def collect(store: NoustStore, **collaborators: Any) -> dict[str, Any]:
         "backups": lambda: [],
         "observations": lambda: [],
         "alerts": lambda: [],
+        "probes": lambda: [],
         "metrics": None,
         "updates": None,
         "now": NOW,
@@ -641,6 +643,107 @@ def test_an_alert_is_ranked_with_the_rest_of_the_list_worst_first(store: NoustSt
     items = collect(store, services=lambda: units, alerts=None)["attention"]
 
     assert [i["id"] for i in items] == ["app:shop.example.com", "alert:disk-full:"]
+
+
+def down(
+    probes: ProbeStore,
+    name: str,
+    *,
+    state: str = "down",
+    enabled: bool = True,
+    error: str | None = "connection refused",
+) -> None:
+    """Store a probe and leave it in a state, as the monitor's asking would."""
+    saved = probes.save(Probe(name=name, url=f"https://{name}.example.com/health", enabled=True))
+    assert saved.id is not None
+    probes.put_state(
+        ProbeState(
+            probe_id=saved.id,
+            state=state,
+            since=NOW_EPOCH - 900,
+            failures=3,
+            failing_since=NOW_EPOCH - 900,
+            last_error=error,
+        )
+    )
+    if not enabled:
+        probes.set_enabled(name, False)
+
+
+def test_a_probe_that_is_down_needs_attention_on_the_server_that_asks_it(
+    store: NoustStore,
+) -> None:
+    """
+    A fleet reads each server's own list, and the probes were the one thing only the console that
+    looks at a server added: a node whose probe was down read as one with nothing to do.
+    """
+    down(ProbeStore(store), "shop")
+
+    (item,) = collect(store, probes=None)["attention"]
+
+    assert item["id"] == "probe:shop"
+    assert item["subject"] == {"kind": "probe", "name": "shop"}
+    assert item["title"] == "shop"
+    assert item["severity"] == "fail"
+    (reason,) = item["reasons"]
+    assert (reason["kind"], reason["code"], reason["actions"]) == (
+        "probe",
+        "probe_down",
+        ["open_probes"],
+    )
+    assert reason["params"] == {"probe": "shop", "since": NOW_EPOCH - 900}
+    # What the probe got, in its own words and verbatim.
+    assert reason["detail"] == "connection refused"
+    assert reason["when"] is not None
+
+
+def test_a_probe_that_answers_is_not_asked_about_and_one_switched_off_is_not_down(
+    store: NoustStore,
+) -> None:
+    probes = ProbeStore(store)
+    down(probes, "fine", state="up")
+    down(probes, "never-asked", state="unknown")
+    down(probes, "paused", enabled=False)
+
+    assert collect(store, probes=None)["attention"] == []
+
+
+def test_a_probe_with_no_error_text_still_needs_attention_without_a_detail(
+    store: NoustStore,
+) -> None:
+    down(ProbeStore(store), "shop", error=None)
+
+    (item,) = collect(store, probes=None)["attention"]
+
+    assert item["reasons"][0]["detail"] is None
+
+
+def test_a_probe_down_is_ranked_with_the_rest_and_two_are_listed_longest_first(
+    store: NoustStore,
+) -> None:
+    probes = ProbeStore(store)
+    down(probes, "zeta")
+    down(probes, "alpha")
+    firing(AlertRules(store), "disk-full")
+
+    items = collect(store, probes=None, alerts=None)["attention"]
+
+    # Failures first, by title, then the warning.
+    assert [i["id"] for i in items] == ["probe:alpha", "probe:zeta", "alert:disk-full:"]
+
+
+def test_a_probe_that_cannot_be_read_does_not_hide_the_rest_of_the_list(
+    store: NoustStore,
+) -> None:
+    deploy(store, "shop.example.com")
+    units = [unit("shop-example-com", "shop.example.com", "failed", "failed")]
+
+    def broken() -> list[tuple[Any, Any]]:
+        raise OSError("probes table is locked")
+
+    items = collect(store, services=lambda: units, probes=broken)["attention"]
+
+    assert [i["id"] for i in items] == ["app:shop.example.com"]
 
 
 def test_the_list_is_cut_but_says_how_many_there_were(
