@@ -33,12 +33,14 @@ needs nothing but the standard library, so it also runs inside the integration h
 
 from __future__ import annotations
 
+import argparse
 import base64
 import binascii
 import json
 import re
 import secrets
 import ssl
+import subprocess
 import threading
 import time
 from collections.abc import Callable
@@ -112,9 +114,19 @@ class FakeGitHubApi:
         deployments: ``owner/repo`` to the deployments created in it.
         deployment_statuses: ``(owner/repo, deployment id)`` to its statuses, oldest first.
         comments: ``owner/repo`` to ``{comment id: body}``.
+        token_lifetime: Seconds a token lives (an hour, as GitHub's do; a test of what a lease
+            does when it ends makes it short).
+        api_prefix: What the API is served under: ``/api/v3`` for a GitHub Enterprise Server, none
+            for github.com.
+        git_root: A directory of bare repositories (``owner/repo.git``) to serve through
+            ``git http-backend`` with the same authentication: what the integration harness clones
+            from. None serves only the advertisement of the refs, as a one-line JSON.
     """
 
     app_id: int = 4242
+    token_lifetime: int = TOKEN_LIFETIME
+    api_prefix: str = ""
+    git_root: str | None = None
     clock: Callable[[], float] = time.time
     installations: dict[int, Installation] = field(default_factory=dict)
     tokens: dict[str, Token] = field(default_factory=dict)
@@ -122,6 +134,7 @@ class FakeGitHubApi:
     deployments: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     deployment_statuses: dict[tuple[str, int], list[dict[str, Any]]] = field(default_factory=dict)
     comments: dict[str, dict[int, str]] = field(default_factory=dict)
+    git_log: list[dict[str, Any]] = field(default_factory=list)
     _ids: int = 1000
 
     # -- what a test sets up ---------------------------------------------------------------------
@@ -202,6 +215,10 @@ class FakeGitHubApi:
         """
         self.requests.append(Recorded(method, target, headers, body))
         path = urlsplit(target).path
+        if path == "/__fake/state":
+            return 200, self.state()
+        if self.api_prefix and path.startswith(self.api_prefix + "/"):
+            path = path[len(self.api_prefix) :]
         authorization = headers.get("authorization", "")
         found = re.fullmatch(r"/app/installations/(\d+)/access_tokens", path)
         if found and method == "POST":
@@ -221,6 +238,99 @@ class FakeGitHubApi:
         if not self._reaches(token, full):
             return 404, {"message": "Not Found"}
         return self._repo(method, full, repo.group(3) or "", token, body)
+
+    def state(self) -> dict[str, Any]:
+        """
+        What the fake has recorded, for a harness that cannot reach into it (it runs in another
+        container): the deployments, their statuses and the comments, and what each token that
+        was issued reaches and may do - never the token itself.
+
+        Returns:
+            The record, as plain data.
+        """
+        return {
+            "deployments": self.deployments,
+            "statuses": {
+                f"{repo}#{number}": [dict(item) for item in items]
+                for (repo, number), items in self.deployment_statuses.items()
+            },
+            "comments": {repo: dict(items) for repo, items in self.comments.items()},
+            "tokens": [
+                {
+                    "installation": token.installation,
+                    "repositories": None
+                    if token.repositories is None
+                    else sorted(token.repositories),
+                    "permissions": token.permissions,
+                }
+                for token in self.tokens.values()
+            ],
+            "git_authorizations": list(self.git_log),
+        }
+
+    def serve_git(
+        self, method: str, target: str, headers: dict[str, str], body: bytes
+    ) -> tuple[int, list[tuple[str, str]], bytes] | None:
+        """
+        Answer a request of git's smart HTTP protocol, when it is one and a root is set.
+
+        The same authentication as :meth:`_advertise`: a token that reaches the repository and
+        reads its contents. The protocol itself is ``git http-backend``'s.
+
+        Args:
+            method: The HTTP method.
+            target: Path and query.
+            headers: The request's headers, names in lower case.
+            body: The request body.
+
+        Returns:
+            Status, headers and body; None when this is not a request for a repository served here.
+        """
+        if self.git_root is None:
+            return None
+        path = urlsplit(target).path
+        found = re.fullmatch(r"/([^/]+)/([^/]+)\.git(/.*)", path)
+        if found is None:
+            return None
+        self.requests.append(Recorded(method, target, headers, None))
+        owner, name = found.group(1), found.group(2)
+        status, _answer = self._advertise(owner, name, headers.get("authorization", ""))
+        self.git_log.append({"repository": f"{owner}/{name}".lower(), "status": status})
+        if status != 200:
+            return 401, [("WWW-Authenticate", 'Basic realm="GitHub"')], b""
+        parts = urlsplit(target)
+        environment = {
+            "GIT_PROJECT_ROOT": self.git_root,
+            "GIT_HTTP_EXPORT_ALL": "1",
+            "PATH_INFO": path,
+            "REQUEST_METHOD": method,
+            "QUERY_STRING": parts.query,
+            "CONTENT_TYPE": headers.get("content-type", ""),
+            "CONTENT_LENGTH": str(len(body)),
+            "REMOTE_USER": "x-access-token",
+            "REMOTE_ADDR": "127.0.0.1",
+            "HTTP_CONTENT_ENCODING": headers.get("content-encoding", ""),
+            "HTTP_GIT_PROTOCOL": headers.get("git-protocol", ""),
+            "PATH": "/usr/bin:/bin",
+        }
+        done = subprocess.run(
+            ["/usr/lib/git-core/git-http-backend"],
+            input=body,
+            env=environment,
+            capture_output=True,
+            check=False,
+            timeout=60,
+        )
+        head, _, payload = done.stdout.partition(b"\r\n\r\n")
+        out: list[tuple[str, str]] = []
+        code = 200
+        for line in head.decode("latin-1").splitlines():
+            key, _, value = line.partition(":")
+            if key.lower() == "status":
+                code = int(value.strip().split()[0])
+            elif key:
+                out.append((key, value.strip()))
+        return code, out, payload
 
     def _now(self) -> float:
         return self.clock()
@@ -275,7 +385,7 @@ class FakeGitHubApi:
             permissions.setdefault("metadata", "read")
         scope = None if names is None else frozenset(n.lower() for n in names)
         value = "ghs_" + secrets.token_hex(18)
-        expires = self._now() + TOKEN_LIFETIME
+        expires = self._now() + self.token_lifetime
         self.tokens[value] = Token(installation_id, scope, permissions, expires)
         reached = (
             [owned[n] for n in sorted(scope)]
@@ -465,14 +575,26 @@ def serve(
     """
 
     class Handler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
         def _serve(self) -> None:
             length = int(self.headers.get("Content-Length") or 0)
             raw = self.rfile.read(length) if length else b""
+            headers = {key.lower(): value for key, value in self.headers.items()}
+            repository = fake.serve_git(self.command, self.path, headers, raw)
+            if repository is not None:
+                code, out, payload = repository
+                self.send_response(code)
+                for key, value in out:
+                    self.send_header(key, value)
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+                return
             try:
                 body = json.loads(raw) if raw else None
             except ValueError:
                 body = None
-            headers = {key.lower(): value for key, value in self.headers.items()}
             status, answer = fake.handle(self.command, self.path, headers, body)
             data = json.dumps(answer).encode() if answer is not None else b""
             self.send_response(status)
@@ -497,3 +619,52 @@ def serve(
     thread.start()
     scheme = "https" if tls is not None else "http"
     return server, f"{scheme}://{host}:{server.server_address[1]}"
+
+
+def main(argv: list[str] | None = None) -> None:
+    """
+    Run the fake until it is stopped: what the integration harness starts in a container.
+
+    Args:
+        argv: The arguments; the command line's by default.
+    """
+    parser = argparse.ArgumentParser(description="A GitHub whose API is the one GitHub documents.")
+    parser.add_argument("--host", default="0.0.0.0")  # noqa: S104 - a test double in a container
+    parser.add_argument("--port", type=int, default=8443)
+    parser.add_argument("--cert", help="The certificate to serve HTTPS with.")
+    parser.add_argument("--key", help="Its private key.")
+    parser.add_argument("--app-id", type=int, default=4242)
+    parser.add_argument("--prefix", default="", help="Where the API is served: /api/v3 for GHES.")
+    parser.add_argument("--git-root", help="Bare repositories to serve through git http-backend.")
+    parser.add_argument("--token-lifetime", type=int, default=TOKEN_LIFETIME)
+    parser.add_argument(
+        "--installation",
+        action="append",
+        default=[],
+        metavar="ACCOUNT:ID:REPO,REPO",
+        help="An installation of the App; may be repeated.",
+    )
+    options = parser.parse_args(argv)
+    fake = FakeGitHubApi(
+        app_id=options.app_id,
+        token_lifetime=options.token_lifetime,
+        api_prefix=options.prefix,
+        git_root=options.git_root,
+    )
+    for spec in options.installation:
+        account, number, names = spec.split(":", 2)
+        fake.install(account, [n for n in names.split(",") if n], installation_id=int(number))
+    context = None
+    if options.cert:
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(options.cert, options.key)
+    server, url = serve(fake, options.host, options.port, context)
+    print(f"ready {url}", flush=True)
+    try:
+        threading.Event().wait()
+    except KeyboardInterrupt:
+        server.shutdown()
+
+
+if __name__ == "__main__":
+    main()

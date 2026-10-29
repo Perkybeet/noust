@@ -49,6 +49,7 @@ from noust.fleet.sources.plan import LeaseSpec, make_plan, repositories_of
 from noust.integrations.github.app import GitHubApp, installation_for, load_app
 from noust.integrations.github.client import GitHubAPIError
 from noust.integrations.github.leases import LEASE_PERMISSIONS
+from noust.validators.source import github_repository_parts
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,7 @@ __all__ = [
     "ACTOR",
     "LEASES_PATH",
     "RENEW_BEFORE",
+    "RESERVED_FOR",
     "RETRY_AFTER",
     "LeaseKeeper",
     "LeaseReport",
@@ -79,6 +81,10 @@ RETRY_AFTER = 300
 
 #: Seconds before a repository GitHub would not give a token for is asked for again.
 UNCOVERED_FOR = 600
+
+#: Seconds a repository asked for ahead of its application (:meth:`LeaseKeeper.reserve`) is kept in
+#: the server's lease while no application of the server names it.
+RESERVED_FOR = 1800
 
 #: Seconds between two looks at the servers.
 LOOK_EVERY = 60.0
@@ -196,6 +202,21 @@ class NodeLeases:
         }
 
 
+def _repository(value: str) -> str:
+    """
+    Args:
+        value: A repository a person or the console named.
+
+    Returns:
+        ``owner/repo`` in lower case.
+
+    Raises:
+        ValidationError: When it is not a GitHub repository.
+    """
+    owner, name = github_repository_parts(value)
+    return f"{owner}/{name}".lower()
+
+
 def _scrub(text: str | None, secret: str) -> str | None:
     """
     Args:
@@ -233,6 +254,7 @@ class LeaseKeeper:
         self._settings = settings
         self._reports: dict[str, NodeLeases] = {}
         self._uncovered: dict[tuple[int, str], float] = {}
+        self._reserved: dict[str, dict[str, float]] = {}
         self._lock = threading.Lock()
 
     @property
@@ -259,6 +281,44 @@ class LeaseKeeper:
         """
         with self._lock:
             return dict(self._reports)
+
+    def reserve(self, node: str, repositories: Sequence[str]) -> None:
+        """
+        Ask for access to repositories ahead of the applications that will deploy from them.
+
+        An application is made by cloning its repository, so a server cannot be leased access to
+        it from the applications it has: the first one does not exist yet. The console asks here
+        before it creates one, and the repository stays in the server's lease for
+        :data:`RESERVED_FOR` seconds, which is long enough for the application to exist and to
+        name it itself.
+
+        Args:
+            node: The server.
+            repositories: ``owner/repo``.
+
+        Raises:
+            ValidationError: When one is not a GitHub repository.
+        """
+        until = self._clock() + RESERVED_FOR
+        named = [_repository(r) for r in repositories]
+        with self._lock:
+            held = self._reserved.setdefault(node, {})
+            held.update(dict.fromkeys(named, until))
+
+    def _reserved_for(self, node: str) -> set[str]:
+        """
+        Args:
+            node: The server.
+
+        Returns:
+            The repositories asked for ahead of their application that have not been forgotten.
+        """
+        now = self._clock()
+        with self._lock:
+            held = self._reserved.get(node, {})
+            for name in [name for name, until in held.items() if until <= now]:
+                del held[name]
+            return set(held)
 
     # ---------------------------------------------------------------------------- looking
 
@@ -318,7 +378,8 @@ class LeaseKeeper:
         source = NodeSource(self.manager, record, asker, NODE_TIMEOUT)
         host = configured_host()
         plan = make_plan(
-            repositories_of(item for item in seen.items if item.get("node") == node),
+            repositories_of(item for item in seen.items if item.get("node") == node)
+            | self._reserved_for(node),
             host=host,
             installation_of=installation_for,
         )

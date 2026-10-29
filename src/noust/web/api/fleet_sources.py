@@ -270,10 +270,15 @@ class LeaseAgainIn(BaseModel):
     Attributes:
         nodes: Only these servers; all of them when omitted.
         force: Replace the leases that are not due.
+        repositories: ``owner/repo`` these servers should be able to read although no application
+            of theirs deploys from them yet: the console asks before it creates the first one,
+            because an application is made by cloning its repository. Needs ``nodes``; kept in
+            the lease for half an hour.
     """
 
     nodes: list[str] | None = Field(default=None, max_length=500)
     force: bool = False
+    repositories: list[str] | None = Field(default=None, max_length=100)
 
 
 class LeasedAgainOut(BaseModel):
@@ -535,7 +540,15 @@ async def lease_again(body: LeaseAgainIn, session: Session) -> LeasedAgainOut:
 
     Raises:
         HTTPException: 409 ``no_github_app`` when this central has no App to lease with.
+        ValidationError: 400 for repositories without the servers they are for, or a repository
+            that is not one.
     """
+    if body.repositories and not body.nodes:
+        raise ValidationError(
+            "Name the servers the repositories are for",
+            field="nodes",
+            details="A repository is asked for on the servers that will clone it.",
+        )
     store = get_store()
     if store.get_github_app() is None:
         text = say("sources.no_app")
@@ -551,6 +564,9 @@ async def lease_again(body: LeaseAgainIn, session: Session) -> LeasedAgainOut:
         )
     worker = get_worker()
     now = time.time()
+    for node in body.nodes or []:
+        if body.repositories:
+            worker.keeper.reserve(node, body.repositories)
     done = await run_in_threadpool(worker.keeper.sweep, body.nodes, force=body.force)
     audit.record(
         "sources.lease.refresh",

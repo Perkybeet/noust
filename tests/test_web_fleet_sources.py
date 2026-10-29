@@ -44,6 +44,10 @@ class Keeper:
     def __init__(self) -> None:
         self.found: dict[str, NodeLeases] = {}
         self.swept: list[tuple[Any, bool]] = []
+        self.reserved: list[tuple[str, list[str]]] = []
+
+    def reserve(self, node: str, repositories: list[str]) -> None:
+        self.reserved.append((node, list(repositories)))
 
     def reports(self) -> dict[str, NodeLeases]:
         return dict(self.found)
@@ -393,6 +397,29 @@ class TestLeasingAgain:
         assert response.status_code == 200, response.text
         assert worker.keeper.swept == [(["web-1"], True)]
         assert [n["state"] for n in response.json()["nodes"]] == ["none"]
+
+    def test_a_repository_can_be_asked_for_before_its_first_application_exists(
+        self, client: TestClient, store: NoustStore, worker: Worker
+    ) -> None:
+        an_app(store)
+
+        response = client.post(
+            "/api/fleet/sources/leases",
+            json={"nodes": ["web-1", "web-2"], "repositories": ["you/new"]},
+        )
+
+        assert response.status_code == 200, response.text
+        assert worker.keeper.reserved == [("web-1", ["you/new"]), ("web-2", ["you/new"])]
+
+    def test_a_repository_needs_the_servers_it_is_for(
+        self, client: TestClient, store: NoustStore, worker: Worker
+    ) -> None:
+        an_app(store)
+
+        response = client.post("/api/fleet/sources/leases", json={"repositories": ["you/new"]})
+
+        assert response.status_code == 400
+        assert worker.keeper.reserved == [] and worker.keeper.swept == []
 
 
 class TestEveryRouteIsClassified:

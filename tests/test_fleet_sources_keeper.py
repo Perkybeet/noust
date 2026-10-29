@@ -24,7 +24,7 @@ from noust.core.store import NoustStore
 from noust.fleet.aggregate import set_aggregator
 from noust.fleet.settings.desired import FleetSettings
 from noust.fleet.sources.grants import LeaseGrants
-from noust.fleet.sources.keeper import RENEW_BEFORE, LeaseKeeper
+from noust.fleet.sources.keeper import RENEW_BEFORE, RESERVED_FOR, LeaseKeeper
 from tests.support.fleet_views_support import Central, build_central
 from tests.support.github_api_fake import FakeGitHubApi
 from tests.support.github_api_fixtures import github_world, record_installation
@@ -154,6 +154,65 @@ class TestLeasingWhatAServerServes:
         rows = central.store._get_connection().execute("SELECT * FROM source_lease_grants")
         assert token not in " ".join(str(v) for row in rows.fetchall() for v in tuple(row))
         assert token not in repr(keeper.reports())
+
+
+class TestTheFirstApplicationOfARepository:
+    """Cloning is how an application is made, and it cannot wait for the application to exist."""
+
+    def test_a_repository_can_be_asked_for_before_any_application_deploys_it(
+        self, keeper: LeaseKeeper, nodes: dict[str, SourcesNode], github: FakeGitHubApi
+    ) -> None:
+        deploy(nodes["web-1"], "/srv/x")
+
+        keeper.reserve("web-1", ["You/App"])
+        (report,) = keeper.sweep(["web-1"])
+
+        assert report.state == "leased"
+        assert nodes["web-1"].puts[-1].body["repositories"] == ["you/app"]
+        assert tokens(github) == [{"repositories": ["app"], "permissions": {"contents": "read"}}]
+
+    def test_it_stays_asked_for_while_the_application_is_being_made(
+        self, keeper: LeaseKeeper, nodes: dict[str, SourcesNode], time: Time
+    ) -> None:
+        deploy(nodes["web-1"], "/srv/x")
+        keeper.reserve("web-1", ["you/app"])
+        keeper.sweep(["web-1"])
+
+        time.now += 600
+        keeper.sweep(["web-1"])
+
+        assert len(nodes["web-1"].puts) == 1
+        assert nodes["web-1"].puts[-1].body["repositories"] == ["you/app"]
+
+    def test_it_is_forgotten_after_half_an_hour_if_no_application_came(
+        self, keeper: LeaseKeeper, nodes: dict[str, SourcesNode], time: Time
+    ) -> None:
+        deploy(nodes["web-1"], "/srv/x")
+        keeper.reserve("web-1", ["you/app"])
+        keeper.sweep(["web-1"])
+
+        time.now += RESERVED_FOR + 1
+        (report,) = keeper.sweep(["web-1"])
+
+        assert report.state == "none"
+        assert nodes["web-1"].deletes == ["github.com:77:0"]
+
+    def test_the_application_that_came_keeps_it_for_good(
+        self, keeper: LeaseKeeper, nodes: dict[str, SourcesNode], time: Time
+    ) -> None:
+        deploy(nodes["web-1"], "/srv/x")
+        keeper.reserve("web-1", ["you/app"])
+        keeper.sweep(["web-1"])
+
+        deploy(nodes["web-1"], "github:you/app")
+        time.now += RESERVED_FOR + 1
+        (report,) = keeper.sweep(["web-1"])
+
+        assert report.state == "leased" and report.leases[0].repositories == ("you/app",)
+
+    def test_a_repository_that_is_not_one_is_refused(self, keeper: LeaseKeeper) -> None:
+        with pytest.raises(Exception, match="Not a GitHub repository"):
+            keeper.reserve("web-1", ["../x"])
 
 
 class TestKeepingItFresh:
