@@ -1086,3 +1086,61 @@ class TestTheSettingsOfTheFleet:
         for person, change in ((payload, "c0123456789ab"), ("ana", payload)):
             with pytest.raises(NoustError):
                 SyncSignature(person=person, change=change)
+
+
+# ---------------------------------------------------------------------------
+# What a channel of the fleet is routed by
+# ---------------------------------------------------------------------------
+
+
+class TestTheRouteOfAChannelOfTheFleet:
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_a_server_pattern_is_a_name_and_nothing_a_pattern_cannot_hold(self, value: str) -> None:
+        from noust.fleet.settings.reach import check_route, servers_of
+
+        channel = {"type": "slack", "route": {"servers": [value]}}
+        accepted, _ = verdict(check_route, channel)
+
+        # It is matched against a server's name with fnmatch and is never part of a command.
+        if accepted:
+            for entry in servers_of(channel):
+                assert re.fullmatch(r"[A-Za-z0-9*?._:/@-]{1,253}", entry), entry
+                assert not CONTROL.search(entry)
+
+    @SETTINGS
+    @given(value=HOSTILE, field=st.sampled_from(["apps", "tags", "min_severity", "servers"]))
+    def test_a_route_that_is_accepted_is_decided_without_failing(
+        self, value: str, field: str
+    ) -> None:
+        from noust.fleet.settings.reach import check_route, explain
+
+        channel = {"type": "slack", "route": {field: value if field == "min_severity" else [value]}}
+        accepted, _ = verdict(check_route, channel)
+
+        # Where a route is accepted the decision on any server and any application is a verdict,
+        # not a crash on a pattern nobody expected.
+        if accepted:
+            apps = [{"domain": value, "tags": [value]}]
+            assert explain("channel", channel, "web-1", apps).reaches in (True, False)
+
+    @pytest.mark.parametrize("payload", [p for p in PAYLOADS if p and p.strip()])
+    def test_a_payload_in_a_list_of_a_route_is_refused_or_read_as_the_name_it_trims_to(
+        self, payload: str
+    ) -> None:
+        from noust.core.notifications.routing import Route
+        from noust.fleet.settings.reach import check_route, servers_of
+
+        for field in ("servers", "apps", "tags"):
+            channel = {"type": "slack", "route": {field: [payload]}}
+            accepted, _ = verdict(check_route, channel)
+            if not accepted:
+                continue
+            # A trailing newline is trimmed like any space around a name; nothing else is let in.
+            read = (
+                servers_of(channel)
+                if field == "servers"
+                else getattr(Route.from_mapping(channel["route"]), field)
+            )
+            for entry in read:
+                assert re.fullmatch(r"[A-Za-z0-9*?._:/@-]{1,253}", entry), (field, entry)

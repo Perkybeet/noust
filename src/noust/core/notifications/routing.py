@@ -114,9 +114,12 @@ class Placement:
     tags: frozenset[str] = frozenset()
 
 
-def _entries(value: Any, field_name: str) -> tuple[str, ...]:
+def entries(value: Any, field_name: str) -> tuple[str, ...]:
     """
     Read one list of a route.
+
+    Public because a fleet channel's list of servers (:mod:`noust.fleet.settings.reach`) is
+    judged by the same rule as the lists a server's own route has.
 
     Args:
         value: A list of strings, or one comma-separated string.
@@ -206,7 +209,7 @@ class Route:
         if not isinstance(server_events, bool):
             raise ValueError("route.server_events must be true or false")
         return cls(
-            **{name: _entries(data.get(name), name) for name in _LISTS},
+            **{name: entries(data.get(name), name) for name in _LISTS},
             min_severity=minimum,
             server_events=server_events,
         )

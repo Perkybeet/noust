@@ -284,9 +284,35 @@ export const serverText: Catalog<typeof en> = {
       text: "Ninguna central gestiona el {kind} {name} en este servidor",
       hint: "Solo se puede pedir que vuelva un ajuste que una central haya empujado.",
     },
+    out_of_reach: {
+      domain: {
+        text: "La ruta del {kind} {name} nombra dominios que ninguna aplicación de este servidor tiene, así que no se envía aquí",
+        hint: "Se envía aquí en cuanto una aplicación de este servidor tenga un dominio que la ruta nombra: aplica de nuevo tras desplegarla.",
+      },
+      server: {
+        text: "La ruta del {kind} {name} no nombra este servidor, así que no se envía aquí",
+        hint: "Añade este servidor a los servidores de la ruta, o quita la lista, para enviarlo aquí.",
+      },
+      tag: {
+        text: "La ruta del {kind} {name} nombra etiquetas que ninguna aplicación de este servidor lleva, así que no se envía aquí",
+        hint: "Se envía aquí en cuanto una aplicación de este servidor lleve una etiqueta que la ruta nombra (junto con un dominio que nombre, si la ruta tiene los dos): aplica de nuevo tras etiquetarla.",
+      },
+    },
     permission_missing: {
       text: "Fijar un {kind} para la flota necesita el permiso {permission}",
       hint: "Es el permiso que pide fijarlo en un solo servidor: pide a un administrador un rol que lo tenga.",
+    },
+    reach_unknown: {
+      text: "No se pudieron leer las aplicaciones de este servidor, así que no se sabe si el {kind} {name} puede coincidir con algo en él",
+      hint: "No se envió nada. Aplica de nuevo cuando el servidor responda sus aplicaciones.",
+    },
+    route_invalid: {
+      text: "La ruta de este canal no es válida: {problem}",
+      hint: "Una ruta de flota admite apps (dominios, con * y ?), tags, min_severity, server_events y servers (nombres y patrones de los servidores de esta central).",
+    },
+    route_local: {
+      text: "Un canal de la flota no se puede enrutar por {list}",
+      hint: "Los proyectos y los entornos son de cada servidor. Enruta por dominio, etiqueta, gravedad, evento o servidor, o crea un canal de equipo en el servidor que tiene el proyecto.",
     },
     secret_missing: {
       text: "{field} está oculto y todavía no hay nada guardado",

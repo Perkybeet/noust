@@ -23,6 +23,7 @@ from urllib.parse import quote
 
 from noust.core.exceptions import ValidationError
 from noust.core.server_text import say
+from noust.fleet.settings.reach import node_value
 
 __all__ = ["PushTarget", "find", "push"]
 
@@ -118,6 +119,35 @@ def _put(path: str) -> Callable[[PushTarget, str, dict[str, Any], dict[str, Any]
     return push_one
 
 
+#: The blocks of a channel that its route replaces when they are given and keeps when they are
+#: left out.
+_CHANNEL_BLOCKS = ("events", "route", "quiet", "flood", "summary")
+
+
+def _channel(
+    node: PushTarget, name: str, value: dict[str, Any], found: dict[str, Any] | None
+) -> str:
+    """
+    Args:
+        node: The node.
+        name: The channel.
+        value: Its type, settings and routing, with the central's own list of servers in the route.
+        found: The node's listing of it, when it has it.
+
+    Returns:
+        ``created`` or ``updated``.
+    """
+    body = node_value(value)
+    if found is not None:
+        # The node keeps a block that is not mentioned, so a filter the fleet took away would stay
+        # on the node for ever: say that the block is empty.
+        for block in _CHANNEL_BLOCKS:
+            if block not in body and found.get(block):
+                body[block] = {}
+    node.call("PUT", f"/api/notifications/channels/{quote(name, safe='')}", body=body)
+    return "updated" if found is not None else "created"
+
+
 def _registry(
     node: PushTarget, name: str, value: dict[str, Any], found: dict[str, Any] | None
 ) -> str:
@@ -173,7 +203,7 @@ def _destination(
 
 
 _WRITERS: dict[str, Callable[[PushTarget, str, dict[str, Any], dict[str, Any] | None], str]] = {
-    "channel": _put("/api/notifications/channels/{name}"),
+    "channel": _channel,
     "alert_rule": _put("/api/alerts/rules/{name}"),
     "backup_destination": _destination,
     "registry": _registry,

@@ -29,6 +29,7 @@ from noust.core.config import REDACTED, is_secret_key
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.server_text import say
 from noust.fleet.models import validate_node_name
+from noust.fleet.settings.reach import check_route
 
 __all__ = [
     "AVAILABLE",
@@ -215,6 +216,8 @@ class SettingKind:
             lacks one cannot take this kind (an older Noust).
         name_check: The validator of the object's name.
         secrets: Which paths of a value hold a credential.
+        check: A judgement of the whole value beyond its shape, for what the central itself reads
+            of it (a channel's route decides which servers it is sent to); None for none.
     """
 
     key: str
@@ -225,6 +228,7 @@ class SettingKind:
     operations: tuple[tuple[str, str], ...]
     name_check: Callable[[str], str]
     secrets: Callable[[str, Mapping[str, Any]], tuple[str, ...]]
+    check: Callable[[Mapping[str, Any]], None] | None = None
 
     def check_name(self, name: str) -> str:
         """
@@ -284,6 +288,8 @@ class SettingKind:
                 say("fleet_settings.value_too_large", kind=self.key, limit=MAX_VALUE_BYTES),
                 field="value",
             )
+        if self.check is not None:
+            self.check(value)
         return value
 
     def secret_paths(self, name: str, value: Mapping[str, Any]) -> tuple[str, ...]:
@@ -459,6 +465,7 @@ KINDS: dict[str, SettingKind] = {
             ),
             name_check=_name_of("channel"),
             secrets=_channel_secrets,
+            check=check_route,
         ),
         SettingKind(
             key="alert_rule",

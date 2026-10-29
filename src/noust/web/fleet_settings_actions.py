@@ -24,6 +24,11 @@ own API (rule 3):
 - **It leaves alone** what the server's own operator changed, unless told to put it back, and what
   is the same. What the central no longer wants is let go, never deleted. A setting that is
   already on a server and was not the fleet's is not taken over unless told to.
+- **It sends a channel only where its route can match** (:mod:`noust.fleet.settings.reach`): a
+  server the route does not name, or that has no application with a domain or a tag the route
+  names, is sent nothing, so a credential does not travel to a machine that could never use it.
+  The applications are read from the server only when some route depends on them, and when they
+  cannot be read nothing is sent and the record says so.
 - **A secret is in a request body and nowhere else**: not in the record of the job, not in its
   log, and not in the words a server answers with.
 
@@ -45,9 +50,10 @@ from urllib.parse import quote
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.server_text import ServerText, say
 from noust.fleet.aggregate import Asker, Failure, NodeSource
-from noust.fleet.settings.desired import FleetSettings
+from noust.fleet.settings.desired import DesiredSetting, FleetSettings
 from noust.fleet.settings.kinds import KINDS
 from noust.fleet.settings.push import find, push
+from noust.fleet.settings.reach import explain, needs_apps
 from noust.fleet.settings.reconcile import Step, plan_node
 from noust.fleet.settings.routes import MANAGED_ITEM, MANAGED_LIST, MANAGED_PREFIX
 from noust.fleet.settings.signature import SyncSignature
@@ -72,6 +78,8 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "ACTION",
     "ITEM_STATES",
+    "REACH_EVERY",
+    "RETRY_AFTER",
     "SettingsWatcher",
     "queue_apply",
     "start_watcher",
@@ -79,6 +87,16 @@ __all__ = [
 
 #: The action's name.
 ACTION = "settings_apply"
+
+#: The sentence for each thing that can fail to match on a server (:data:`noust.fleet.settings.reach.REASONS`).
+_OUT_OF_REACH = {
+    "server": "fleet_settings.out_of_reach.server",
+    "domain": "fleet_settings.out_of_reach.domain",
+    "tag": "fleet_settings.out_of_reach.tag",
+}
+
+#: Where a server lists its applications, which decide where a route by domain or tag reaches.
+APPLICATIONS_PATH = "/api/apps"
 
 #: What a setting's item can say on one server.
 ITEM_STATES = (
@@ -88,6 +106,7 @@ ITEM_STATES = (
     "in_sync",
     "overridden",
     "released",
+    "out_of_reach",
     "conflict",
     "unsupported",
     "failed",
@@ -101,6 +120,11 @@ WATCH_EVERY = 30.0
 
 #: Seconds before the watcher tries a server again that it did not manage to get done.
 RETRY_AFTER = 300.0
+
+#: Seconds between two looks at which servers a route by domain or tag can match now. An
+#: application is deployed on a server without the central being told, so this is how a channel
+#: that waited for one reaches it.
+REACH_EVERY = 600.0
 
 #: The shortest secret that is worth hiding from a server's words; shorter ones are not secrets.
 _MIN_SECRET = 4
@@ -269,6 +293,73 @@ def _unsupported(run: NodeRun, resource: str) -> ServerText | None:
     return None
 
 
+def _applications(run: NodeRun) -> list[dict[str, Any]] | None:
+    """
+    Read the applications of a server, for the routes that depend on them.
+
+    Args:
+        run: The server.
+
+    Returns:
+        Each application's listing (``domain`` and ``tags``); None when the server did not give
+        them, which a route that depends on them takes as not knowing.
+    """
+    try:
+        answer = run.call("GET", APPLICATIONS_PATH)
+    except Failure as exc:
+        run.log(f"Could not read the applications: {exc.message}")
+        return None
+    listed = answer.get("apps") if isinstance(answer, dict) else None
+    if not isinstance(listed, list):
+        run.log("The applications came in a shape that is not a list")
+        return None
+    return [app for app in listed if isinstance(app, dict)]
+
+
+def _reach(
+    run: NodeRun, wanted: Sequence[DesiredSetting]
+) -> tuple[dict[tuple[str, str], str], set[tuple[str, str]]]:
+    """
+    Say which settings cannot match anything on a server.
+
+    Args:
+        run: The server.
+        wanted: What the central wants of it.
+
+    Returns:
+        ``(kind, name)`` to what cannot match, and the settings whose reach is not known because
+        the applications that decide it could not be read.
+    """
+    apps: list[dict[str, Any]] | None = None
+    if any(needs_apps(setting.resource, setting.value) for setting in wanted):
+        apps = _applications(run)
+    out: dict[tuple[str, str], str] = {}
+    unknown: set[tuple[str, str]] = set()
+    for setting in wanted:
+        verdict = explain(setting.resource, setting.value, run.name, apps)
+        key = (setting.resource, setting.name)
+        if verdict.reaches is False and verdict.why is not None:
+            out[key] = verdict.why
+        elif verdict.reaches is None:
+            unknown.add(key)
+    return out, unknown
+
+
+def _held_back(step: Step) -> dict[str, Any]:
+    """
+    Args:
+        step: A setting kept because its route cannot be matched here, or not known to.
+
+    Returns:
+        Its item: what could not match, in the catalog's words.
+    """
+    if step.reason == "reach_unknown":
+        text = say("fleet_settings.reach_unknown", kind=step.resource, name=step.name)
+        return _item(step, "failed", code=text.code, **_told(text))
+    text = say(_OUT_OF_REACH[step.why or "server"], kind=step.resource, name=step.name)
+    return _item(step, "out_of_reach", why=step.why, **_told(text))
+
+
 def _apply(
     run: NodeRun, store: FleetSettings, step: Step, options: Mapping[str, Any]
 ) -> dict[str, Any]:
@@ -375,18 +466,24 @@ def _settings_apply(run: NodeRun) -> None:
     me = run.call("GET", "/api/auth/fleet/self")
     managed = run.call("GET", MANAGED_PREFIX)
     rows = managed.get("items") if isinstance(managed, dict) else None
+    wanted = store.effective_for(node)
+    out_of_reach, reach_unknown = _reach(run, wanted)
     steps = plan_node(
-        store.effective_for(node),
+        wanted,
         [row for row in rows or [] if isinstance(row, dict)],
         restore=set(run.options.get("restore") or []),
         restore_all=bool(run.options.get("restore_all")),
         independent=store.mode(node) == "independent",
         central=str(me.get("central")) if isinstance(me, dict) and me.get("central") else None,
+        out_of_reach=out_of_reach,
+        reach_unknown=reach_unknown,
     )
     failures: list[str] = []
     for position, step in enumerate(steps, start=1):
         run.step(f"{step.resource} {step.name} ({position} of {len(steps)})")
-        if step.action == "keep":
+        if step.action == "keep" and step.reason in ("out_of_reach", "reach_unknown"):
+            item = _held_back(step)
+        elif step.action == "keep":
             item = _item(step, step.reason)
         elif step.action == "release":
             item = _release(run, step)
@@ -412,6 +509,7 @@ ACTIONS[ACTION] = ActionSpec(
     "Apply the fleet's settings",
     (
         ("GET", "/api/auth/fleet/self"),
+        ("GET", APPLICATIONS_PATH),
         MANAGED_LIST,
         ("PUT", MANAGED_ITEM),
         ("DELETE", MANAGED_ITEM),
@@ -475,9 +573,16 @@ class SettingsWatcher:
     process, where the jobs are. A server that was not got done is tried again after
     :data:`RETRY_AFTER` seconds, not at every look.
 
+    It also looks, every :data:`REACH_EVERY` seconds and only when some route depends on the
+    applications of a server, for the servers a channel can match on now and has not been sent to
+    (:meth:`look_reach`).
+
     Args:
         queue: Starts the job; :func:`queue_apply`.
         clock: Monotonic clock (tests move it).
+        settings: What the central wants.
+        read: Says where each server stands (:func:`noust.fleet.settings.status.read`), as the
+            automatic reader.
     """
 
     def __init__(
@@ -485,10 +590,13 @@ class SettingsWatcher:
         queue: Callable[..., Job | None] = queue_apply,
         clock: Callable[[], float] = time.monotonic,
         settings: Callable[[], FleetSettings] = FleetSettings,
+        read: Callable[[FleetSettings], dict[str, Any]] | None = None,
     ) -> None:
         self._queue = queue
         self._clock = clock
         self._settings = settings
+        self._read = read or _read_standing
+        self._reach_looked = -REACH_EVERY
         self._tried: dict[str, float] = {}
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -504,6 +612,43 @@ class SettingsWatcher:
         waiting = [
             node
             for node in self._settings().pending_resync()
+            if now - self._tried.get(node, -RETRY_AFTER) >= RETRY_AFTER
+        ]
+        if not waiting:
+            return []
+        for node in waiting:
+            self._tried[node] = now
+        self._queue(waiting)
+        return waiting
+
+    def look_reach(self) -> list[str]:
+        """
+        Queue the servers a channel can be sent to now and has not been.
+
+        Returns:
+            The servers a job was queued for; none before :data:`REACH_EVERY` seconds have passed
+            since the last look, and none when no route depends on the servers' applications.
+
+        Raises:
+            SealError: This central is locked and no server can be asked.
+        """
+        now = self._clock()
+        if now - self._reach_looked < REACH_EVERY:
+            return []
+        self._reach_looked = now
+        settings = self._settings()
+        if not any(needs_apps(s.resource, s.value) for s in settings.list()):
+            return []
+        standing = self._read(settings)
+        behind = {
+            str(cell["node"])
+            for entry in standing.get("settings", [])
+            for cell in entry.get("servers", [])
+            if cell.get("sync") == "pending" and cell.get("reach", {}).get("reaches") is True
+        }
+        waiting = [
+            node
+            for node in sorted(behind)
             if now - self._tried.get(node, -RETRY_AFTER) >= RETRY_AFTER
         ]
         if not waiting:
@@ -534,11 +679,25 @@ class SettingsWatcher:
         while not self._stop.wait(WATCH_EVERY):
             try:
                 self.look()
+                self.look_reach()
             # The boundary of a background thread: what a look can fail with (the store, the
             # registry of servers, the job manager, a sealed central) must not end the thread, and
             # is logged with its traceback; anything else is a bug and is let through.
             except (NoustError, OSError, sqlite3.Error, RuntimeError):
                 logger.exception("The fleet settings watcher failed")
+
+
+def _read_standing(settings: FleetSettings) -> dict[str, Any]:
+    """
+    Args:
+        settings: What the central wants.
+
+    Returns:
+        Where each server stands on each setting, asked as the automatic reader.
+    """
+    from noust.fleet.settings.status import read
+
+    return read(settings, asker=Asker(actor=AUTOMATIC_ACTOR, scope="read"), refresh=True)
 
 
 def start_watcher() -> SettingsWatcher:

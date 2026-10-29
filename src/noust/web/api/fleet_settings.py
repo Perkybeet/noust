@@ -345,8 +345,8 @@ async def settings_status(
 
     Returns:
         ``servers`` (how each answered, its mode, whether a look is waiting), ``settings`` (each
-        with its fleet row, its exceptions and a cell per server: ``origin`` and ``sync``),
-        ``released`` (what a server still manages that the fleet no longer wants), and
+        with its fleet row, its exceptions and a cell per server: ``origin``, ``sync`` and
+        ``reach``, whether a channel's route can match anything on that server), ``released`` (what a server still manages that the fleet no longer wants), and
         ``partial``.
     """
     from noust.fleet.settings.status import read

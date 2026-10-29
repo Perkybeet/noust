@@ -764,6 +764,39 @@ and is not the fleet's is not taken over unless you say so (`adopt`), and one it
 left unless you name it (`restore`) or the operator asked for it back on that server. A server on an
 older Noust (before 4.1) is skipped as `unsupported`.
 
+### Where a channel is heard
+
+Every server delivers its own notifications, so a channel of the fleet is a channel on each server
+it is sent to, and its **route** decides what it says there. A route of the fleet filters by what
+means the same on every server:
+
+| Filter | Field of the route | Matches |
+|---|---|---|
+| Domain | `apps` | an application's domain, with `*` and `?` |
+| Tag | `tags` | a tag the application carries, with `*` and `?` |
+| Severity | `min_severity` | `warning` or `failed` |
+| Event | `events` | the channel's own switch per kind of event |
+| Server | `servers` | a server's name in this central, with `*` and `?` |
+
+Across the lists every one that is set must match; within one list, any entry. `servers` is the
+central's: it is used here to decide where the channel goes and is never sent to a server (a server
+does not know its name in another's registry, and a server before 4.1 would refuse a list it has
+never heard of). Projects, environments and teams are each server's own slugs and ids and are not
+filters of the fleet (a fleet channel that names them is refused when it is saved,
+`fleet_settings.route_local`); a team's channel is made on the server that has the team.
+
+**A channel is sent only where its route can match something.** One that names other servers is
+sent to those and to no other; one that names domains or tags is sent to the servers where an
+application has one, read from the applications each server lists (only when some route depends on
+them). The others are sent nothing, so a credential does not travel to a machine that could never
+use it, and the setting shows there as `out_of_reach` with the reason (`server`, `domain` or `tag`).
+A route that also asks for what is about the server itself (`server_events`) can match on any
+server and goes to all of them. The central looks again every ten minutes, and when a server
+comes back, so a channel waiting for an application reaches it once it is deployed. If a server
+does not list its applications, nothing is sent to it and the job says so (`fleet_settings.reach_unknown`).
+What a server already holds of a channel whose route stopped matching there is left exactly as it
+is: neither let go nor deleted.
+
 ## A fleet on different versions
 
 A 3.1 central drives 3.0 servers, and a 3.0 central drives 3.1 servers. A 3.0 server shows as

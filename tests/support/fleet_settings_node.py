@@ -59,6 +59,9 @@ _CREATES = {
 }
 _MANAGED = re.compile(r"/api/managed-settings/([^/]+)/([^/]+)")
 
+#: The blocks of a channel that a PUT replaces when given and keeps when it leaves them out.
+_CHANNEL_BLOCKS = ("events", "route", "quiet", "flood", "summary")
+
 
 @dataclass
 class Signed:
@@ -145,7 +148,14 @@ class ManagedNode:
             self.node.requests.append(request)
             kind, key = _LISTS[path]
             items = [
-                {"name": n, "default": False, "configured": True, "backend": v.get("backend")}
+                {
+                    "name": n,
+                    "default": False,
+                    "configured": True,
+                    "backend": v.get("backend"),
+                    # A channel lists the blocks it has, as the real route does.
+                    **{b: v[b] for b in _CHANNEL_BLOCKS if b in v},
+                }
                 for (k, n), v in self.held.items()
                 if k == kind
             ]
