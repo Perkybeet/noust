@@ -43,4 +43,6 @@ ROUTES: dict[tuple[str, str], str] = {
     ("PUT", "/api/fleet/builders/{domain}"): Permission.FLEET_MANAGE,
     ("DELETE", "/api/fleet/builders/{domain}"): Permission.FLEET_MANAGE,
     ("POST", "/api/fleet/databases/transfer"): Permission.FLEET_MANAGE,
+    ("POST", "/api/fleet/dns/cluster"): Permission.FLEET_MANAGE,
+    ("GET", "/api/fleet/dns"): Permission.FLEET_READ,
 }

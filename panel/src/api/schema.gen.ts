@@ -17141,6 +17141,488 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dns/noust/server": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Server Status
+         * @description Noust DNS on this server: whether it is installed, its role, its zones and what it takes on.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The state, whether or not the server has been set up.
+         */
+        get: operations["server_status_api_dns_noust_server_get"];
+        put?: never;
+        /**
+         * Setup Server
+         * @description Make this server a primary or a secondary of Noust DNS.
+         *
+         *     Needs sudo mode: it installs a package, writes the name server's configuration, opens port 53
+         *     in the firewall and answers on the addresses given. An error in any step puts the earlier
+         *     ones back. It is an option and never a default: the status lists the two costs of running a
+         *     name server (``warnings``) for the console to show first.
+         *
+         *     Args:
+         *         body: The role, the name, the addresses and, for a secondary, the primary and its key.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The queued job; its log streams the installer.
+         */
+        post: operations["setup_server_api_dns_noust_server_post"];
+        /**
+         * Remove Server
+         * @description Stop the name server and take Noust DNS off this server.
+         *
+         *     The package and the signing keys stay: the keys are the only copy of what the DS record at the
+         *     registrar points at.
+         *
+         *     Args:
+         *         session: The elevated session.
+         *         delete_zones: Also delete the zones and records this server serves; without it a server
+         *             that serves zones is refused.
+         *
+         *     Returns:
+         *         Whether Noust DNS was set up here.
+         *
+         *     Raises:
+         *         ValidationError: The server serves zones and ``delete_zones`` is false (400).
+         */
+        delete: operations["remove_server_api_dns_noust_server_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dns/noust/server/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Install Server
+         * @description Install Knot DNS, the program that answers; configure nothing.
+         *
+         *     Needs sudo mode: it installs a package.
+         *
+         *     Args:
+         *         body: Whether EPEL may be enabled.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["install_server_api_dns_noust_server_install_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dns/noust/server/key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Transfer Key
+         * @description The key this primary signs its transfers with, for the secondary that is being set up.
+         *
+         *     Needs sudo mode: it is a secret. Whoever holds it can ask this primary for its zones, which
+         *     are public data, and nothing else.
+         *
+         *     Args:
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The key.
+         *
+         *     Raises:
+         *         ValidationError: Noust DNS is not set up here (400).
+         */
+        get: operations["transfer_key_api_dns_noust_server_key_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dns/noust/server/secondaries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Secondary
+         * @description Let a server copy this primary's zones, and tell it when they change.
+         *
+         *     Args:
+         *         body: Its address and name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The secondary.
+         *
+         *     Raises:
+         *         ValidationError: This server is not a primary, or a value is not usable (400).
+         */
+        post: operations["add_secondary_api_dns_noust_server_secondaries_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dns/noust/server/secondaries/{address}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Secondary
+         * @description Stop copying this primary's zones to a server.
+         *
+         *     Args:
+         *         address: The secondary's address.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Whether there was one.
+         */
+        delete: operations["remove_secondary_api_dns_noust_server_secondaries__address__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dns/noust/zones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Zones
+         * @description The zones this server serves: a primary's own, or the ones a secondary copied.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The zones.
+         *
+         *     Raises:
+         *         ValidationError: Noust DNS is not set up here (400).
+         */
+        get: operations["list_zones_api_dns_noust_zones_get"];
+        put?: never;
+        /**
+         * Create Zone
+         * @description Make a zone and serve it. The domain answers from here once its registrar delegates it.
+         *
+         *     Args:
+         *         body: The zone and its name servers.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The zone.
+         *
+         *     Raises:
+         *         ValidationError: A value is not usable, the zone exists, or a name server inside it has
+         *             no address (400).
+         */
+        post: operations["create_zone_api_dns_noust_zones_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dns/noust/zones/{zone}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Zone
+         * @description A zone with its records.
+         *
+         *     Args:
+         *         zone: The zone.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The zone.
+         *
+         *     Raises:
+         *         ValidationError: There is no such zone here (400).
+         */
+        get: operations["get_zone_api_dns_noust_zones__zone__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Zone
+         * @description Stop serving a zone and delete it with its records.
+         *
+         *     Needs sudo mode: resolvers that still point at this server stop finding the domain.
+         *
+         *     Args:
+         *         zone: The zone.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         Whether there was one.
+         */
+        delete: operations["delete_zone_api_dns_noust_zones__zone__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Zone
+         * @description Change a zone's name servers, contact or default TTL.
+         *
+         *     Args:
+         *         zone: The zone.
+         *         body: What to change.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The zone.
+         */
+        patch: operations["update_zone_api_dns_noust_zones__zone__patch"];
+        trace?: never;
+    };
+    "/api/dns/noust/zones/{zone}/delegation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Delegation Plan
+         * @description Exactly what to do at the registrar to delegate a domain to this server, in order.
+         *
+         *     Args:
+         *         zone: The zone.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The steps (sentences with a code), the name servers with the addresses the registrar needs
+         *         as glue, the DS records of a signed zone and what would make the delegation fragile.
+         */
+        get: operations["delegation_plan_api_dns_noust_zones__zone__delegation_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dns/noust/zones/{zone}/delegation/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Delegation Check
+         * @description Look at the world and say whether the domain is delegated to this server.
+         *
+         *     It asks each name server directly and the public resolvers; it changes nothing.
+         *
+         *     Args:
+         *         zone: The zone.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         What each name server answered, what resolvers find and what is missing.
+         */
+        get: operations["delegation_check_api_dns_noust_zones__zone__delegation_check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dns/noust/zones/{zone}/dnssec": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Dnssec
+         * @description Whether a zone is signed and, when it is, the DS records the registrar is given.
+         *
+         *     Args:
+         *         zone: The zone.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The state of the signing.
+         */
+        get: operations["get_dnssec_api_dns_noust_zones__zone__dnssec_get"];
+        /**
+         * Set Dnssec
+         * @description Sign a zone, or stop signing it.
+         *
+         *     Needs sudo mode. Unsigning is refused unless ``ds_removed`` says the registrar no longer
+         *     holds the DS: while it does, every validating resolver refuses the domain.
+         *
+         *     Args:
+         *         zone: The zone.
+         *         body: Whether it is signed.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The state of the signing; when it was just turned on, with the DS records.
+         *
+         *     Raises:
+         *         ValidationError: Unsigning without ``ds_removed`` (400).
+         */
+        put: operations["set_dnssec_api_dns_noust_zones__zone__dnssec_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dns/noust/zones/{zone}/dnssec/ds-published": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ds Published
+         * @description Tell the server the registrar now has the DS record.
+         *
+         *     Args:
+         *         zone: The zone.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The state of the signing.
+         *
+         *     Raises:
+         *         ValidationError: The zone is not signed (400).
+         */
+        post: operations["ds_published_api_dns_noust_zones__zone__dnssec_ds_published_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dns/noust/zones/{zone}/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Record
+         * @description Add a record to a zone and serve it.
+         *
+         *     Args:
+         *         zone: The zone.
+         *         body: The record.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The record.
+         *
+         *     Raises:
+         *         ValidationError: A value is not usable, the record is there, or it cannot be at that name
+         *             with what the name has (400).
+         */
+        post: operations["add_record_api_dns_noust_zones__zone__records_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dns/noust/zones/{zone}/records/{record_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Record
+         * @description Remove a record.
+         *
+         *     Args:
+         *         zone: The zone.
+         *         record_id: The record's number.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Whether there was one.
+         */
+        delete: operations["delete_record_api_dns_noust_zones__zone__records__record_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Record
+         * @description Change what a record holds, or its TTL.
+         *
+         *     Args:
+         *         zone: The zone.
+         *         record_id: The record's number.
+         *         body: What to change.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The record.
+         */
+        patch: operations["update_record_api_dns_noust_zones__zone__records__record_id__patch"];
+        trace?: never;
+    };
     "/api/dns/providers": {
         parameters: {
             query?: never;
@@ -18322,6 +18804,75 @@ export interface paths {
          *             invalid.
          */
         post: operations["transfer_database_api_fleet_databases_transfer_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/dns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fleet Dns
+         * @description Noust DNS on every server: whether it is installed, its role, its addresses and its zones.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *
+         *     Returns:
+         *         One row per server: ``role`` (primary, secondary, or null where it is not set up),
+         *         ``hostname``, ``listen``, ``zones``, ``running`` and its page on that server's console.
+         *         A server that runs a Noust without Noust DNS is ``unsupported``.
+         */
+        get: operations["fleet_dns_api_fleet_dns_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/dns/cluster": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Up Cluster
+         * @description Install and set up Noust DNS on a primary and its secondaries.
+         *
+         *     The primary goes first and alone; each secondary then reads the primary's address and key,
+         *     sets itself up and tells the primary where it answers. A server that runs a Noust without
+         *     Noust DNS, or whose ceiling does not let this central change its host, is shown as unable to
+         *     take part in the plan. Planned and queued like a bulk action: sudo mode when a server's schema
+         *     asks for it, a job to follow, a record per server. Once it is set up the servers keep each other
+         *     in step with DNS itself; the central does not stay in the path.
+         *
+         *     Args:
+         *         request: The request.
+         *         body: The primary and the secondaries.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan and, unless ``plan``, the job.
+         *
+         *     Raises:
+         *         ValidationError: A server is not usable, two have one name, or nothing can run (400).
+         */
+        post: operations["set_up_cluster_api_fleet_dns_cluster_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -33256,6 +33807,631 @@ export interface components {
              * @default 0
              */
             total_bytes: number;
+        };
+        /**
+         * AuthDnsAddRecordRequest
+         * @description Add a record.
+         *
+         *     Attributes:
+         *         name: Its name relative to the zone (``www``, ``@``, ``*.apps``).
+         *         type: Its type.
+         *         content: What it holds.
+         *         ttl: Seconds to live; the zone's by default.
+         */
+        AuthDnsAddRecordRequest: {
+            /** Content */
+            content: string;
+            /** Name */
+            name: string;
+            /** Ttl */
+            ttl?: number | null;
+            /** Type */
+            type: string;
+        };
+        /**
+         * AuthDnsAddSecondaryRequest
+         * @description Let a server copy this primary's zones.
+         *
+         *     Attributes:
+         *         address: Where it is reached.
+         *         hostname: The name it has as a name server.
+         */
+        AuthDnsAddSecondaryRequest: {
+            /** Address */
+            address: string;
+            /** Hostname */
+            hostname?: string | null;
+        };
+        /**
+         * AuthDnsClusterIn
+         * @description Set Noust DNS up on several servers.
+         *
+         *     Attributes:
+         *         primary: The server that holds the zones.
+         *         secondaries: The servers that copy them, in other networks.
+         *         epel: Agree to enable EPEL where Knot comes from it (RHEL and its rebuilds).
+         *         plan: Only say what would happen.
+         */
+        AuthDnsClusterIn: {
+            /**
+             * Epel
+             * @default false
+             */
+            epel: boolean;
+            /**
+             * Plan
+             * @default false
+             */
+            plan: boolean;
+            primary: components["schemas"]["AuthDnsClusterServerIn"];
+            /** Secondaries */
+            secondaries?: components["schemas"]["AuthDnsClusterServerIn"][];
+        };
+        /**
+         * AuthDnsClusterServerIn
+         * @description One server of the cluster.
+         *
+         *     Attributes:
+         *         node: The server, as the central knows it.
+         *         hostname: The name it has as a name server (``ns1.example.net``).
+         *         listen: The addresses it answers on; its public addresses by default.
+         */
+        AuthDnsClusterServerIn: {
+            /** Hostname */
+            hostname: string;
+            /** Listen */
+            listen?: string[] | null;
+            /** Node */
+            node: string;
+        };
+        /**
+         * AuthDnsCreateZoneRequest
+         * @description Make a zone and serve it.
+         *
+         *     Attributes:
+         *         name: The zone, ``example.com``.
+         *         nameservers: Its name servers; this server and its secondaries by default.
+         *         contact: The address the SOA names; ``hostmaster@<zone>`` by default.
+         *         default_ttl: The TTL of a record that has none.
+         *         glue: Addresses of name servers that are inside the zone, by name.
+         *         dnssec: Sign it.
+         */
+        AuthDnsCreateZoneRequest: {
+            /** Contact */
+            contact?: string | null;
+            /**
+             * Default Ttl
+             * @default 3600
+             */
+            default_ttl: number;
+            /**
+             * Dnssec
+             * @default false
+             */
+            dnssec: boolean;
+            /** Glue */
+            glue?: {
+                [key: string]: string[];
+            } | null;
+            /** Name */
+            name: string;
+            /** Nameservers */
+            nameservers?: string[] | null;
+        };
+        /**
+         * AuthDnsDelegationCheckModel
+         * @description Whether the delegation is in place.
+         *
+         *     Attributes:
+         *         zone: The zone.
+         *         servers: What each name server answered.
+         *         delegated: Public resolvers find exactly the zone's name servers; null when none answered.
+         *         public_nameservers: The name servers they find.
+         *         ds_published: The parent holds a DS; null when not asked or not answered.
+         *         ds_matches: It is this zone's key.
+         *         problems: What is not as it should be.
+         *         ready: Nothing is wrong and the world sees the delegation.
+         */
+        AuthDnsDelegationCheckModel: {
+            /** Delegated */
+            delegated?: boolean | null;
+            /** Ds Matches */
+            ds_matches?: boolean | null;
+            /** Ds Published */
+            ds_published?: boolean | null;
+            /** Problems */
+            problems: components["schemas"]["AuthDnsSentenceModel"][];
+            /** Public Nameservers */
+            public_nameservers: string[];
+            /** Ready */
+            ready: boolean;
+            /** Servers */
+            servers: components["schemas"]["AuthDnsServerCheckModel"][];
+            /** Zone */
+            zone: string;
+        };
+        /**
+         * AuthDnsDelegationPlanModel
+         * @description What to do at the registrar.
+         *
+         *     Attributes:
+         *         zone: The zone.
+         *         nameservers: Its name servers.
+         *         dnssec: The zone is signed.
+         *         ds: The DS records to give the registrar.
+         *         steps: The steps, in order.
+         *         warnings: What would make the delegation fragile.
+         */
+        AuthDnsDelegationPlanModel: {
+            /** Dnssec */
+            dnssec: boolean;
+            /** Ds */
+            ds: components["schemas"]["AuthDnsDsModel"][];
+            /** Nameservers */
+            nameservers: components["schemas"]["AuthDnsNameServerModel"][];
+            /** Steps */
+            steps: components["schemas"]["AuthDnsSentenceModel"][];
+            /** Warnings */
+            warnings: components["schemas"]["AuthDnsSentenceModel"][];
+            /** Zone */
+            zone: string;
+        };
+        /**
+         * AuthDnsDnssecModel
+         * @description The signing of a zone.
+         *
+         *     Attributes:
+         *         zone: The zone.
+         *         enabled: It is signed.
+         *         algorithm: How.
+         *         ds: The DS records to give the registrar; empty until the key exists.
+         */
+        AuthDnsDnssecModel: {
+            /** Algorithm */
+            algorithm: string;
+            /** Ds */
+            ds: components["schemas"]["AuthDnsDsModel"][];
+            /** Enabled */
+            enabled: boolean;
+            /** Zone */
+            zone: string;
+        };
+        /**
+         * AuthDnsDnssecRequest
+         * @description Sign a zone or stop signing it.
+         *
+         *     Attributes:
+         *         enabled: Whether it is signed.
+         *         ds_removed: The DS record is no longer at the registrar. Unsigning a signed zone is
+         *             refused without it: validating resolvers would refuse the whole domain.
+         */
+        AuthDnsDnssecRequest: {
+            /**
+             * Ds Removed
+             * @default false
+             */
+            ds_removed: boolean;
+            /** Enabled */
+            enabled: boolean;
+        };
+        /**
+         * AuthDnsDsModel
+         * @description A DS record, which the registrar needs.
+         *
+         *     Attributes:
+         *         key_tag: The key's tag.
+         *         algorithm: The signing algorithm's number (13 is ECDSA P-256).
+         *         digest_type: 2 is SHA-256, 4 is SHA-384.
+         *         digest: The digest, hexadecimal.
+         *         text: The record as a registrar's form takes it.
+         */
+        AuthDnsDsModel: {
+            /** Algorithm */
+            algorithm: number;
+            /** Digest */
+            digest: string;
+            /** Digest Type */
+            digest_type: number;
+            /** Key Tag */
+            key_tag: number;
+            /** Text */
+            text: string;
+        };
+        /**
+         * AuthDnsInstallRequest
+         * @description Install the program that answers.
+         *
+         *     Attributes:
+         *         epel: Agree to enable EPEL, where Knot comes from on RHEL and its rebuilds.
+         */
+        AuthDnsInstallRequest: {
+            /**
+             * Epel
+             * @default false
+             */
+            epel: boolean;
+        };
+        /**
+         * AuthDnsNameServerModel
+         * @description A name server of a zone.
+         *
+         *     Attributes:
+         *         name: Its host name.
+         *         addresses: Where it answers; empty when only resolving the name can say.
+         *         glue: The registrar must hold its address (the name is inside the zone).
+         */
+        AuthDnsNameServerModel: {
+            /** Addresses */
+            addresses: string[];
+            /** Glue */
+            glue: boolean;
+            /** Name */
+            name: string;
+        };
+        /**
+         * AuthDnsRecordModel
+         * @description A record of a zone.
+         *
+         *     Attributes:
+         *         id: Its number.
+         *         zone: The zone.
+         *         name: Its name relative to the zone; ``@`` is the zone itself.
+         *         type: ``A``, ``AAAA``, ``CNAME``, ``MX``, ``NS``, ``TXT``, ``SRV``, ``CAA``, ``PTR`` or ``DS``.
+         *         content: What it holds, in canonical form.
+         *         ttl: Seconds to live; null for the zone's.
+         *         created_at: When it was made.
+         *         created_by: Who made it.
+         *         updated_at: When it last changed.
+         *         updated_by: Who changed it.
+         */
+        AuthDnsRecordModel: {
+            /** Content */
+            content: string;
+            /**
+             * Created At
+             * @default
+             */
+            created_at: string;
+            /** Created By */
+            created_by?: string | null;
+            /** Id */
+            id?: number | null;
+            /** Name */
+            name: string;
+            /** Ttl */
+            ttl?: number | null;
+            /** Type */
+            type: string;
+            /**
+             * Updated At
+             * @default
+             */
+            updated_at: string;
+            /** Updated By */
+            updated_by?: string | null;
+            /** Zone */
+            zone: string;
+        };
+        /**
+         * AuthDnsRemovedModel
+         * @description The answer to a removal.
+         *
+         *     Attributes:
+         *         removed: There was something to remove.
+         */
+        AuthDnsRemovedModel: {
+            /** Removed */
+            removed: boolean;
+        };
+        /**
+         * AuthDnsSecondaryModel
+         * @description A server a primary copies its zones to.
+         *
+         *     Attributes:
+         *         address: Where it is reached.
+         *         hostname: The name it has as a name server.
+         *         added_at: When it was added.
+         *         added_by: Who added it.
+         */
+        AuthDnsSecondaryModel: {
+            /**
+             * Added At
+             * @default
+             */
+            added_at: string;
+            /** Added By */
+            added_by?: string | null;
+            /** Address */
+            address: string;
+            /** Hostname */
+            hostname?: string | null;
+        };
+        /**
+         * AuthDnsSentenceModel
+         * @description A sentence for a person, with its English text.
+         *
+         *     Attributes:
+         *         text: The sentence in English, always sent.
+         *         hint: How to fix it in English, when the sentence has a fix.
+         */
+        AuthDnsSentenceModel: {
+            /** Code */
+            code: string;
+            /** Hint */
+            hint?: string | null;
+            /** Params */
+            params?: {
+                [key: string]: boolean | number | string;
+            };
+            /** Text */
+            text: string;
+        };
+        /**
+         * AuthDnsServerCheckModel
+         * @description What one name server said when asked directly.
+         *
+         *     Attributes:
+         *         name: Its host name.
+         *         address: The address asked.
+         *         answers: It answered.
+         *         authoritative: It answered as the authority for the zone.
+         *         serial: The SOA serial it serves.
+         *         refuses_recursion: It refused a question about another domain; null when not asked.
+         */
+        AuthDnsServerCheckModel: {
+            /** Address */
+            address: string;
+            /** Answers */
+            answers: boolean;
+            /** Authoritative */
+            authoritative: boolean;
+            /** Name */
+            name: string;
+            /** Refuses Recursion */
+            refuses_recursion?: boolean | null;
+            /** Serial */
+            serial?: number | null;
+        };
+        /**
+         * AuthDnsServerStatusModel
+         * @description Noust DNS on this server.
+         *
+         *     Attributes:
+         *         engine: The program that answers (``knot``).
+         *         installed: It is on this machine.
+         *         version: Its version.
+         *         running: Its service runs.
+         *         configured: Noust has set this server up.
+         *         role: ``primary`` or ``secondary``.
+         *         hostname: The name it has as a name server.
+         *         listen: The addresses it answers on.
+         *         primary_address: A secondary's primary.
+         *         zones: How many zones it serves.
+         *         secondaries: A primary's secondaries.
+         *         candidates: Addresses it could answer on, while it is not set up.
+         *         firewall: What Noust opened for it.
+         *         foreign_zones: Zones of a Knot somebody else configured, which Noust does not take over.
+         *         warnings: Codes of the sentences that say what running a name server takes on
+         *             (``serverText.<code>``); the console shows them before it is set up.
+         */
+        AuthDnsServerStatusModel: {
+            /** Candidates */
+            candidates?: string[];
+            /** Configured */
+            configured: boolean;
+            /** Engine */
+            engine: string;
+            /** Firewall */
+            firewall?: {
+                [key: string]: unknown;
+            };
+            /** Foreign Zones */
+            foreign_zones?: string[];
+            /** Hostname */
+            hostname?: string | null;
+            /** Installed */
+            installed: boolean;
+            /** Listen */
+            listen?: string[];
+            /** Primary Address */
+            primary_address?: string | null;
+            /** Role */
+            role?: string | null;
+            /** Running */
+            running: boolean;
+            /** Secondaries */
+            secondaries?: components["schemas"]["AuthDnsSecondaryModel"][];
+            /** Version */
+            version?: string | null;
+            /** Warnings */
+            warnings?: string[];
+            /**
+             * Zones
+             * @default 0
+             */
+            zones: number;
+        };
+        /**
+         * AuthDnsSetupRequest
+         * @description Make this server a primary or a secondary.
+         *
+         *     Attributes:
+         *         role: ``primary`` holds the zones; ``secondary`` copies them from a primary.
+         *         hostname: The name it has as a name server.
+         *         listen: The addresses to answer on; the server's public addresses by default.
+         *         primary_address: For a secondary, the primary's address.
+         *         transfer_key: For a secondary, the key the primary signs its transfers with.
+         *         epel: Agree to enable EPEL, where Knot comes from on RHEL and its rebuilds.
+         */
+        AuthDnsSetupRequest: {
+            /**
+             * Epel
+             * @default false
+             */
+            epel: boolean;
+            /** Hostname */
+            hostname?: string | null;
+            /** Listen */
+            listen?: string[] | null;
+            /** Primary Address */
+            primary_address?: string | null;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "primary" | "secondary";
+            transfer_key?: components["schemas"]["AuthDnsTransferKeyIn"] | null;
+        };
+        /**
+         * AuthDnsTransferKeyIn
+         * @description The key a secondary is given.
+         *
+         *     Attributes:
+         *         secret: The key as the primary's ``GET .../server/key`` returned it.
+         */
+        AuthDnsTransferKeyIn: {
+            /** Secret */
+            secret: string;
+        };
+        /**
+         * AuthDnsTransferKeyModel
+         * @description The key a primary and its secondaries sign transfers with.
+         *
+         *     Attributes:
+         *         name: Its name, the same on every server.
+         *         algorithm: ``hmac-sha256``.
+         *         secret: The key, base64. Only in the answer to the call that asks for it.
+         */
+        AuthDnsTransferKeyModel: {
+            /** Algorithm */
+            algorithm: string;
+            /** Name */
+            name: string;
+            /** Secret */
+            secret: string;
+        };
+        /**
+         * AuthDnsUpdateRecordRequest
+         * @description Change a record. A field left out is not changed.
+         *
+         *     Attributes:
+         *         content: What it holds.
+         *         ttl: Seconds to live.
+         *         default_ttl: Go back to the zone's TTL.
+         */
+        AuthDnsUpdateRecordRequest: {
+            /** Content */
+            content?: string | null;
+            /**
+             * Default Ttl
+             * @default false
+             */
+            default_ttl: boolean;
+            /** Ttl */
+            ttl?: number | null;
+        };
+        /**
+         * AuthDnsUpdateZoneRequest
+         * @description Change a zone. A field left out is not changed.
+         *
+         *     Attributes:
+         *         nameservers: Its name servers.
+         *         contact: The address the SOA names.
+         *         default_ttl: The TTL of a record that has none.
+         *         glue: Addresses of name servers that are inside the zone and not yet in it.
+         */
+        AuthDnsUpdateZoneRequest: {
+            /** Contact */
+            contact?: string | null;
+            /** Default Ttl */
+            default_ttl?: number | null;
+            /** Glue */
+            glue?: {
+                [key: string]: string[];
+            } | null;
+            /** Nameservers */
+            nameservers?: string[] | null;
+        };
+        /**
+         * AuthDnsZoneListModel
+         * @description The zones this server serves.
+         *
+         *     Attributes:
+         *         zones: Each one.
+         */
+        AuthDnsZoneListModel: {
+            /** Zones */
+            zones: components["schemas"]["AuthDnsZoneSummaryModel"][];
+        };
+        /**
+         * AuthDnsZoneModel
+         * @description A zone with its records.
+         *
+         *     Attributes:
+         *         name: The zone.
+         *         nameservers: Its name servers, in order.
+         *         contact: The address the SOA names.
+         *         default_ttl: The TTL of a record that has none.
+         *         dnssec: The zone is signed.
+         *         serial: The SOA serial the server serves now.
+         *         records: Its records.
+         *         created_at: When it was made.
+         *         created_by: Who made it.
+         *         updated_at: When it last changed.
+         *         updated_by: Who changed it.
+         */
+        AuthDnsZoneModel: {
+            /** Contact */
+            contact: string;
+            /**
+             * Created At
+             * @default
+             */
+            created_at: string;
+            /** Created By */
+            created_by?: string | null;
+            /** Default Ttl */
+            default_ttl: number;
+            /** Dnssec */
+            dnssec: boolean;
+            /** Name */
+            name: string;
+            /** Nameservers */
+            nameservers: string[];
+            /** Records */
+            records: components["schemas"]["AuthDnsRecordModel"][];
+            /** Serial */
+            serial?: number | null;
+            /**
+             * Updated At
+             * @default
+             */
+            updated_at: string;
+            /** Updated By */
+            updated_by?: string | null;
+        };
+        /**
+         * AuthDnsZoneSummaryModel
+         * @description A zone in a list.
+         *
+         *     Attributes:
+         *         name: The zone.
+         *         records: How many records it holds (a primary's).
+         *         serial: The SOA serial the server serves now.
+         *         dnssec: The zone is signed.
+         *         role: ``master`` where the server holds the zone, ``slave`` where it copies it.
+         */
+        AuthDnsZoneSummaryModel: {
+            /** Dnssec */
+            dnssec: boolean;
+            /** Name */
+            name: string;
+            /** Records */
+            records: number;
+            /** Role */
+            role: string;
+            /** Serial */
+            serial?: number | null;
         };
         /**
          * AutoUpdateChange
@@ -85707,6 +86883,619 @@ export interface operations {
             };
         };
     };
+    server_status_api_dns_noust_server_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthDnsServerStatusModel"];
+                };
+            };
+        };
+    };
+    setup_server_api_dns_noust_server_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthDnsSetupRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_server_api_dns_noust_server_delete: {
+        parameters: {
+            query?: {
+                delete_zones?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthDnsRemovedModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    install_server_api_dns_noust_server_install_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthDnsInstallRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    transfer_key_api_dns_noust_server_key_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthDnsTransferKeyModel"];
+                };
+            };
+        };
+    };
+    add_secondary_api_dns_noust_server_secondaries_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthDnsAddSecondaryRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthDnsSecondaryModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_secondary_api_dns_noust_server_secondaries__address__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                address: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthDnsRemovedModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_zones_api_dns_noust_zones_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthDnsZoneListModel"];
+                };
+            };
+        };
+    };
+    create_zone_api_dns_noust_zones_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthDnsCreateZoneRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthDnsZoneModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_zone_api_dns_noust_zones__zone__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                zone: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthDnsZoneModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_zone_api_dns_noust_zones__zone__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                zone: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthDnsRemovedModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_zone_api_dns_noust_zones__zone__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                zone: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthDnsUpdateZoneRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthDnsZoneModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delegation_plan_api_dns_noust_zones__zone__delegation_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                zone: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthDnsDelegationPlanModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delegation_check_api_dns_noust_zones__zone__delegation_check_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                zone: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthDnsDelegationCheckModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_dnssec_api_dns_noust_zones__zone__dnssec_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                zone: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthDnsDnssecModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_dnssec_api_dns_noust_zones__zone__dnssec_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                zone: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthDnsDnssecRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthDnsDnssecModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ds_published_api_dns_noust_zones__zone__dnssec_ds_published_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                zone: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthDnsDnssecModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_record_api_dns_noust_zones__zone__records_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                zone: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthDnsAddRecordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthDnsRecordModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_record_api_dns_noust_zones__zone__records__record_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                zone: string;
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthDnsRemovedModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_record_api_dns_noust_zones__zone__records__record_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                zone: string;
+                record_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthDnsUpdateRecordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthDnsRecordModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_providers_api_dns_providers_get: {
         parameters: {
             query?: never;
@@ -87106,6 +88895,73 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["DatabaseTransferIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__fleet__ActionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fleet_dns_api_fleet_dns_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_up_cluster_api_fleet_dns_cluster_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthDnsClusterIn"];
             };
         };
         responses: {

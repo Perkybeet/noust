@@ -420,7 +420,8 @@ class ZoneEditor:
             known[server.hostname] = list(server.listen)
         for secondary in self.records.secondaries():
             if secondary.hostname:
-                known[secondary.hostname] = [secondary.address]
+                # A secondary that answers on several addresses is several rows of one name.
+                known.setdefault(secondary.hostname, []).append(secondary.address)
         return known
 
     @staticmethod

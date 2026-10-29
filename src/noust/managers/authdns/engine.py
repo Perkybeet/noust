@@ -73,8 +73,8 @@ READY_PAUSE = 0.5
 
 _VERSION = re.compile(r"Knot DNS (\d+)\.(\d+)(?:\.(\d+))?")
 _DOMAIN_LINE = re.compile(r"^\s*-\s*domain:\s*[\"']?([^\s\"'#]+)", re.MULTILINE)
-_ZONE_STATUS = re.compile(r"^\[(?P<zone>[^\]]+)\]\s*(?P<rest>.*)$")
-_DS = re.compile(r"^(?P<zone>\S+)\s+DS\s+(\d+)\s+(\d+)\s+(\d+)\s+([0-9a-fA-F]+)\s*$")
+_ZONE_STATUS = re.compile(r"\[(?P<zone>[^\]]+)\]\s*(?P<rest>.*)")
+_DS = re.compile(r"(?P<zone>\S+)\s+DS\s+(\d+)\s+(\d+)\s+(\d+)\s+([0-9a-fA-F]+)")
 
 
 class EngineError(ServiceError):
@@ -613,7 +613,7 @@ class KnotEngine:
         if not result.success:
             return found
         for line in result.stdout.splitlines():
-            matched = _ZONE_STATUS.match(line.strip())
+            matched = _ZONE_STATUS.fullmatch(line.strip())
             if matched is None:
                 continue
             fields: dict[str, str] = {}
@@ -641,7 +641,7 @@ class KnotEngine:
         result = self._run(["keymgr", "-c", str(self.config_path), f"{zone}.", "ds"])
         records = []
         for line in result.stdout.splitlines() if result.success else []:
-            matched = _DS.match(line.strip())
+            matched = _DS.fullmatch(line.strip())
             if matched is None:
                 continue
             records.append(

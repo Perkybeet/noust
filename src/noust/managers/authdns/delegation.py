@@ -342,9 +342,10 @@ class DelegationGuide:
             secondaries', else what the name resolves to.
         """
         own = self.editor.records.server()
-        secondaries = {
-            s.hostname: s.address for s in self.editor.records.secondaries() if s.hostname
-        }
+        secondaries: dict[str, list[str]] = {}
+        for s in self.editor.records.secondaries():
+            if s.hostname:
+                secondaries.setdefault(s.hostname, []).append(s.address)
         found: list[tuple[str, tuple[str, ...]]] = []
         for server in servers:
             if server.addresses:
@@ -352,7 +353,7 @@ class DelegationGuide:
             elif own is not None and own.hostname == server.name and own.listen:
                 found.append((server.name, tuple(own.listen)))
             elif server.name in secondaries:
-                found.append((server.name, (secondaries[server.name],)))
+                found.append((server.name, tuple(secondaries[server.name])))
             else:
                 resolved, _asked = self._resolve(server.name)
                 found.append((server.name, tuple(resolved)))

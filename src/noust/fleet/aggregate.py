@@ -1277,6 +1277,41 @@ def _build_cron(view: NodeView) -> builtins.list[dict[str, Any]]:
     return [_row(view, "/cron", job) for job in _list(view.parts.get("cron"), "jobs")]
 
 
+def _build_dns(view: NodeView) -> builtins.list[dict[str, Any]]:
+    """
+    One row per server: its part in Noust DNS.
+
+    Args:
+        view: The server.
+
+    Returns:
+        The row, with the server's page for it. A server that is not set up has ``role`` null.
+    """
+    status = _dict(view.parts.get("dns"))
+    if status is None:
+        return []
+    return [
+        _row(
+            view,
+            "/domains/dns",
+            {
+                "configured": bool(status.get("configured")),
+                "installed": bool(status.get("installed")),
+                "running": bool(status.get("running")),
+                "role": status.get("role"),
+                "hostname": status.get("hostname"),
+                "listen": status.get("listen") or [],
+                "primary_address": status.get("primary_address"),
+                "zones": status.get("zones") or 0,
+                "secondaries": [
+                    s.get("address") for s in status.get("secondaries") or [] if isinstance(s, dict)
+                ],
+                "version": status.get("version"),
+            },
+        )
+    ]
+
+
 def _build_alerts(view: NodeView) -> builtins.list[dict[str, Any]]:
     """
     One row per alert rule, with whether any of its subjects is firing.
@@ -1666,6 +1701,14 @@ RESOURCES: dict[str, Resource] = {
             max_stale=3600.0,
             build=_build_cron,
             sort=_by_node_then("name"),
+        ),
+        Resource(
+            "dns",
+            (Part("dns", "/api/dns/noust/server"),),
+            ttl=15.0,
+            max_stale=300.0,
+            build=_build_dns,
+            sort=_by_node_then("role"),
         ),
         Resource(
             "alerts",

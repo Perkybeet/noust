@@ -288,6 +288,56 @@ class AuthDnsServers:
         self.engine.install(epel=epel, on_output=on_output)
         return self.status()
 
+    def check_setup(
+        self,
+        role: str,
+        *,
+        hostname: str | None = None,
+        listen: list[str] | None = None,
+        primary_address: str | None = None,
+        has_key: bool = False,
+    ) -> tuple[str | None, list[str], str | None]:
+        """
+        Judge a request to set the server up, before anything is queued or changed.
+
+        Args:
+            role: ``primary`` or ``secondary``.
+            hostname: The name it has as a name server.
+            listen: The addresses to answer on; the public addresses by default.
+            primary_address: A secondary's primary.
+            has_key: The request carries the transfer key.
+
+        Returns:
+            The name, the addresses and the primary's address, judged.
+
+        Raises:
+            ValidationError: A value is not usable, a secondary has no primary or no key, or
+                there is no address to answer on.
+        """
+        require_server_role("Noust DNS")
+        if role not in (PRIMARY, SECONDARY):
+            raise ValidationError("A server is a primary or a secondary", field="role")
+        name = None if not hostname else check_hostname(hostname, field="hostname")
+        if name == ".":
+            raise ValidationError("A name server has a name", field="hostname")
+        addresses = self._choose_addresses(listen)
+        source = None
+        if role == SECONDARY:
+            if not primary_address:
+                raise ValidationError(
+                    "A secondary copies its zones from a primary",
+                    details="Give the primary's address.",
+                    field="primary_address",
+                )
+            source = check_address(primary_address, field_name="primary_address")
+            if not has_key and self.secrets.read(KEY_SECRET) is None:
+                raise ValidationError(
+                    "A secondary signs its transfers with the primary's key",
+                    details="Give the key the primary printed: noust dns server key",
+                    field="transfer_key",
+                )
+        return name, addresses, source
+
     def setup(
         self,
         role: str,
@@ -324,23 +374,14 @@ class AuthDnsServers:
             EngineError: Knot, its configuration or its service refused a step; everything
                 done before it is put back.
         """
-        require_server_role("Noust DNS")
-        if role not in (PRIMARY, SECONDARY):
-            raise ValidationError("A server is a primary or a secondary", field="role")
+        name, addresses, source = self.check_setup(
+            role,
+            hostname=hostname,
+            listen=listen,
+            primary_address=primary_address,
+            has_key=transfer_key is not None,
+        )
         previous = self.records.server()
-        name = None if not hostname else check_hostname(hostname, field="hostname")
-        if name == ".":
-            raise ValidationError("A name server has a name", field="hostname")
-        addresses = self._choose_addresses(listen)
-        source = None
-        if role == SECONDARY:
-            if not primary_address:
-                raise ValidationError(
-                    "A secondary copies its zones from a primary",
-                    details="Give the primary's address.",
-                    field="primary_address",
-                )
-            source = check_address(primary_address, field_name="primary_address")
         if previous is not None and previous.role != role:
             if self.records.zones() or self.records.secondaries():
                 raise ValidationError(
@@ -358,12 +399,6 @@ class AuthDnsServers:
                     field="listen",
                     ignore_processes=("knotd",),
                 )
-        if role == SECONDARY and transfer_key is None and self.secrets.read(KEY_SECRET) is None:
-            raise ValidationError(
-                "A secondary signs its transfers with the primary's key",
-                details="Give the key the primary printed: noust dns server key",
-                field="transfer_key",
-            )
         # Nothing on the machine has changed yet but the package, which stays whatever follows.
         self.engine.install(epel=epel, on_output=on_output)
         new_key = False
