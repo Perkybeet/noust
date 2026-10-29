@@ -90,7 +90,7 @@ That is up to the applications, not to Noust. Two things are worth knowing:
   can use well over a gigabyte for a minute or two; this is a property of those tools and varies a
   lot, so it is not a promise. On a server with 1 GB, add swap (`noust server swap create`) so a
   build that needs more memory than the machine has slows down instead of being killed
-  ([troubleshooting.md](troubleshooting.md#a-build-or-a-deploy-failed)).
+  ([A build or a deploy failed](troubleshooting-build.md)).
 - **Every deploy is a release on disk.** A release keeps the code and its installed dependencies;
   Noust keeps a few and removes older ones (`noust releases keep`). `noust server storage` shows what
   takes the disk, and `noust server cleanup` removes what it can prove is unused.

@@ -356,6 +356,7 @@ toolchain the server does not have is built where the toolchain is, as the Jekyl
 
 ## When it did not go right
 
-Read the deployment's log in the console (**Deployments** of the application) or `noust logs
-DOMAIN`. If the application deployed but does not answer, `noust diagnose DOMAIN` says why, most
-likely cause first: [troubleshooting.md](troubleshooting.md).
+Read the deployment's log in the console (**Deployments** of the application) or with `noust app
+deploy-log DOMAIN`; `noust logs DOMAIN` is what the application itself printed once it ran. If the
+application deployed but does not answer, `noust diagnose DOMAIN` says why, most likely cause
+first: [Troubleshooting](troubleshooting.md).

@@ -29,6 +29,46 @@ summary: >
   a browser console and a JSON API. This is its documentation: installing it, deploying with it,
   running it, upgrading it, and every command, endpoint and setting.
 
+# What the landing page of the documentation shows: a promise, the command, three ways in, the
+# tasks people come for, and where to look things up. Every slug is checked to be a route.
+home:
+  promise: Deploy anything on a server you own. A new version only goes live if it answers.
+  install:
+    command: |
+      curl -fsSLO https://github.com/Perkybeet/noust/releases/latest/download/install.sh
+      curl -fsSLO https://github.com/Perkybeet/noust/releases/latest/download/SHA256SUMS
+      sha256sum -c --ignore-missing SHA256SUMS && sh install.sh
+    primary: {title: Deploy your first application, slug: start/first-application}
+    secondary: {title: How Noust works, slug: start/how-noust-works}
+  paths:
+    - title: New to Noust
+      text: What it is, how to install it, and a first application from start to finish.
+      slug: start/what-is-noust
+    - title: Running servers for a team
+      text: Several servers from one console, single sign-on, roles, audit and compliance.
+      slug: guides/fleet
+    - title: Coming from Coolify or Dokploy
+      text: Bring an application across with its settings and its data, and move its domain.
+      slug: start/move-from-coolify-or-dokploy
+  tasks:
+    - {title: A domain with HTTPS, slug: start/domain-and-https}
+    - {title: A database, slug: start/database}
+    - {title: Backups, and getting them back, slug: start/backups}
+    - {title: Roll back a bad deploy, slug: start/roll-back}
+    - {title: Deploy from CI, slug: guides/ci}
+    - {title: A preview for each pull request, slug: guides/previews}
+    - {title: Teammates and single sign-on, slug: guides/teams}
+    - {title: Several servers, slug: start/add-a-server}
+  lookup:
+    - {title: Commands, slug: reference/cli}
+    - {title: API, slug: reference/api}
+    - {title: Settings, slug: reference/configuration/keys}
+    - {title: What changed, slug: releases/changelog-4.0}
+  trouble:
+    title: Something is wrong?
+    text: noust diagnose names the most likely cause first. The frequent failures are here, with their messages.
+    slug: guides/troubleshooting
+
 tabs:
   - title: Start
     slug: start
@@ -36,11 +76,10 @@ tabs:
     groups:
       - title: Introduction
         pages:
-          - source: README.md
-            slug: start/overview
-            title: Overview and tour
+          - source: docs/what-is-noust.md
+            slug: start/what-is-noust
             type: explanation
-            summary: What Noust is and is not, how to install it, the first deploy, and a tour of every area.
+            summary: What Noust does for a server you own, what you get, when it fits, and when something else would serve you better.
           - source: docs/concepts.md
             slug: start/how-noust-works
             type: explanation
@@ -51,6 +90,10 @@ tabs:
             slug: start/requirements
             type: reference
             summary: What a server needs to run Noust (memory, processor, disk), and what Noust itself uses when idle.
+          - source: docs/install.md
+            slug: start/install
+            type: guide
+            summary: Install Noust with one command, open its console through an SSH tunnel, and create the first administrator.
           - source: docs/PLATFORMS.md
             slug: start/platforms
             type: reference
@@ -63,14 +106,59 @@ tabs:
         pages:
           - source: docs/first-application.md
             slug: start/first-application
+            title: 1. Deploy your first application
             type: tutorial
-            summary: Deploy a first application, a database and a service, from the console and from the command line.
-      - title: Try an example
+            summary: An application from a Git repository, built, running behind a health check and answering over HTTPS.
+          - source: docs/first-domain.md
+            slug: start/domain-and-https
+            title: 2. Put it on your domain, with HTTPS
+            type: tutorial
+            summary: Point a name at the server, check it, add it to the application, send www to it, and get a certificate that renews itself.
+          - source: docs/first-database.md
+            slug: start/database
+            title: 3. Give it a database
+            type: tutorial
+            summary: A PostgreSQL database with an account of its own, linked as DATABASE_URL, and migrations that run before each version serves.
+          - source: docs/first-backup.md
+            slug: start/backups
+            title: 4. Back it up, and prove the backup comes back
+            type: tutorial
+            summary: A nightly backup with the databases, an encrypted copy off the server, and a rehearsal that shows it restores.
+          - source: docs/first-rollback.md
+            slug: start/roll-back
+            title: 5. Ship a change, and roll it back
+            type: tutorial
+            summary: Deploy a new version behind the health check, put the previous one back in seconds, and deploy on every push.
+          - source: docs/first-service.md
+            slug: start/catalog
+            title: 6. Add a service from the catalog
+            type: tutorial
+            summary: A ready-made application from the catalog, such as a status page, on its own domain, with its secrets and backups.
+          - source: docs/first-safety.md
+            slug: start/leave-it-alone
+            title: 7. Make it safe to leave alone
+            type: tutorial
+            summary: Notifications that reach you, a second factor on your account, and Noust and the system kept up to date.
+      - title: Beyond one server
+        pages:
+          - source: docs/first-fleet.md
+            slug: start/add-a-server
+            type: tutorial
+            summary: Manage a second server from the console of the first, over an SSH tunnel that gives it no shell.
+          - source: docs/first-move.md
+            slug: start/move-from-coolify-or-dokploy
+            type: tutorial
+            summary: Read an application's settings from Coolify or Dokploy, deploy it here with its data, and move its domain without a gap.
+      - title: Where next
         pages:
           - source: examples/README.md
             slug: start/examples
             type: reference
             summary: A minimal application for every type Noust deploys, each one deployed for real by the integration harness.
+          - source: docs/next-steps.md
+            slug: start/next-steps
+            type: guide
+            summary: Where each next thing is, by what you want to do.
 
   - title: Guides
     slug: guides
@@ -80,8 +168,41 @@ tabs:
         pages:
           - source: docs/troubleshooting.md
             slug: guides/troubleshooting
+            title: Troubleshooting
             type: guide
-            summary: One section per symptom (502, a certificate that will not issue, a failed build, no sign-in, a failed install) and the diagnosis that finds it.
+            summary: The diagnosis that finds most causes, the symptoms one page each, and the report to send when you are still stuck.
+          - source: docs/troubleshooting-502.md
+            slug: guides/troubleshooting/502
+            type: guide
+            summary: Each cause noust diagnose names for a site that answers 502 or nothing, in its own words, and the fix.
+          - source: docs/troubleshooting-build.md
+            slug: guides/troubleshooting/build
+            type: guide
+            summary: Where a failed build's output is, and the usual causes in the order they are met, with their messages.
+          - source: docs/troubleshooting-certificate.md
+            slug: guides/troubleshooting/certificate
+            type: guide
+            summary: What certbot's words mean when a certificate is refused, the rate limits, and a certificate about to expire.
+          - source: docs/troubleshooting-dns.md
+            slug: guides/troubleshooting/dns
+            type: guide
+            summary: Each verdict of the DNS check, a stray AAAA record, a server behind NAT and a name behind a CDN.
+          - source: docs/troubleshooting-sign-in.md
+            slug: guides/troubleshooting/sign-in
+            type: guide
+            summary: A locked account, a code refused by the clock, a lost authenticator, no account that can sign in, and the passkey button.
+          - source: docs/troubleshooting-console.md
+            slug: guides/troubleshooting/console
+            type: guide
+            summary: The SSH tunnel to the console, a console that is not running, a local port taken, and publishing it on a name of its own.
+          - source: docs/troubleshooting-install.md
+            slug: guides/troubleshooting/install
+            type: guide
+            summary: Each refusal and failure of the installer, word for word, and what to do about it.
+          - source: docs/troubleshooting-update.md
+            slug: guides/troubleshooting/update
+            type: guide
+            summary: A version that is on the way, a package index that is behind, and an update that stopped before installing anything.
       - title: Deploy applications
         pages:
           - source: docs/frameworks.md
@@ -433,6 +554,11 @@ tabs:
             type: guide
             summary: "Publishing the provider to the Terraform Registry: the repository, the signing key and the release."
 
+# Files that are not pages of the site but whose links are held to the same rules. The README is
+# the repository's front page on GitHub and PyPI; the site has its own way in.
+checked:
+  - source: README.md
+
 # Markdown files of docs/ that are deliberately not on the site, with the reason.
 exclude:
   - source: docs/UPGRADING-2.0.md
@@ -448,7 +574,7 @@ exclude:
 
 # Old route -> route. The flat routes are the ones the site had before the tabs.
 redirects:
-  overview: start/overview
+  overview: start/what-is-noust
   platforms: start/platforms
   requirements: start/requirements
   cloud-init: start/cloud-init
