@@ -18,7 +18,6 @@ import pytest
 from click.testing import CliRunner, Result
 
 from noust.cli.app import cli as root_cli
-from noust.cli.commands import webserver as webserver_cli
 from noust.core.config import Config
 from noust.core.exceptions import ConfigError
 from noust.core.store import App, get_store
@@ -63,7 +62,7 @@ def servers(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TwoServ
         mine = {"nginx": two.nginx, "apache": two.apache}
         return Managers(mine[source], mine[target])
 
-    monkeypatch.setattr(webserver_cli, "managers_between", managers)
+    monkeypatch.setattr("noust.deployers.webserver_move_plan.managers_between", managers)
     monkeypatch.setattr("noust.deployers.webserver_move.wait_until_healthy", two.probe)
     monkeypatch.setattr("noust.deployers.webserver_move.https_check", two.tls)
     monkeypatch.setattr(

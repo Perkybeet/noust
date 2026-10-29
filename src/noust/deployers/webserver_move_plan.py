@@ -286,6 +286,19 @@ class Managers:
         return cls(make[source](), make[target]())
 
 
+def managers_between(source: str, target: str) -> Managers:
+    """
+    Args:
+        source: ``nginx`` or ``apache``.
+        target: The other.
+
+    Returns:
+        The managers of both, over the process-wide runner and filesystem. The one place they
+        are made, so that a test puts a machine of its own here.
+    """
+    return Managers.between(source, target)
+
+
 def _running(manager: WebServerManager) -> bool:
     try:
         return bool(manager.is_installed() and manager.is_running())
@@ -543,7 +556,7 @@ def plan_move(
     """
     source = other_than(target)
     store = store or get_store()
-    managers = managers or Managers.between(source, target)
+    managers = managers or managers_between(source, target)
     planner = _Planner(store, managers)
 
     apps = {app.domain: app for app in store.list_apps()}

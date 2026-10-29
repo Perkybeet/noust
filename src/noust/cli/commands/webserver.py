@@ -26,9 +26,9 @@ from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.core.config import DEFAULT_CONFIG, Config
 from noust.core.logger import Logger
 from noust.core.webserver_switch import usage
+from noust.deployers import webserver_move_plan as planning
 from noust.deployers.webserver_move import move, require_ready
 from noust.deployers.webserver_move_plan import (
-    Managers,
     MovePlan,
     SitePlan,
     display,
@@ -38,18 +38,6 @@ from noust.deployers.webserver_move_plan import (
 
 #: The two web servers the command takes.
 SERVERS = click.Choice(["nginx", "apache"])
-
-
-def managers_between(source: str, target: str) -> Managers:
-    """
-    Args:
-        source: ``nginx`` or ``apache``.
-        target: The other.
-
-    Returns:
-        The managers of both. A seam: the tests put a machine of their own here.
-    """
-    return Managers.between(source, target)
 
 
 @click.group("webserver", cls=NoustGroup)
@@ -71,7 +59,7 @@ def status_command(ctx: Context) -> None:
     keeps the one it was deployed behind until it is moved with 'noust webserver migrate'. Ports
     80 and 443 belong to the web server that is running.
     """
-    both = managers_between("nginx", "apache")
+    both = planning.managers_between("nginx", "apache")
     counts = usage()
     setting = str(Config().get("webserver", DEFAULT_CONFIG["webserver"]))
     servers: dict[str, dict[str, Any]] = {}
@@ -175,7 +163,7 @@ def _planned(target: str, domains: Sequence[str], everything: bool) -> MovePlan:
     return plan_move(
         target,
         None if everything else list(domains),
-        managers=managers_between(other_than(target), target),
+        managers=planning.managers_between(other_than(target), target),
     )
 
 
@@ -322,7 +310,7 @@ def migrate_command(
         plan,
         accept_losses=accept_losses or ctx.dry_run,
         confirm=True,
-        managers=managers_between(plan.source, plan.target),
+        managers=planning.managers_between(plan.source, plan.target),
         logger=ctx.logger,
     )
     if ctx.json_output:

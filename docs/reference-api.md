@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1092 operations.
+1097 operations.
 
 ## Access
 
@@ -202,6 +202,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/apps/{domain}/update-schedule` | Get Update Schedule | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/update-schedule` | Put Update Schedule | `apps.manage` |  |  |
 | DELETE | `/api/apps/{domain}/update-schedule` | Delete Update Schedule | `apps.manage` |  |  |
+| POST | `/api/apps/{domain}/webserver/migrate` | Post App Migrate | `root_equivalent` | yes | yes |
+| GET | `/api/apps/{domain}/webserver/plan` | Get App Plan | `apps.read` |  |  |
 | GET | `/api/apps/{domain}/zero-downtime` | Get Zero Downtime | `apps.read` |  |  |
 | PUT | `/api/apps/{domain}/zero-downtime` | Put Zero Downtime | `apps.manage` | yes |  |
 | POST | `/api/deploy` | Deploy Apps | `apps.deploy` |  |  |
@@ -1145,6 +1147,9 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/server/updates/restarts` | Restart Outdated Services | `server.manage` | yes |  |
 | GET | `/api/server/updates/runs` | List Runs | `server.read` |  |  |
 | GET | `/api/server/updates/runs/{update_id}` | Get Run | `server.read` |  |  |
+| POST | `/api/webserver/migrate` | Post Migrate | `root_equivalent` | yes | yes |
+| GET | `/api/webserver/migration/plan` | Get Migration Plan | `apps.read` |  |  |
+| GET | `/api/webserver/status` | Get Status | `settings.read` |  |  |
 
 ## Services
 

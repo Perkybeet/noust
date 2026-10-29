@@ -46,6 +46,7 @@ from noust.core.fs import is_rehearsal
 from noust.core.logger import Logger
 from noust.core.server_text import ServerText, say
 from noust.core.store import App, NoustStore, Site, get_store
+from noust.deployers import webserver_move_plan as planning
 from noust.deployers.helpers.health import wait_until_command_succeeds, wait_until_healthy
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate, Probe
 from noust.deployers.helpers.served_probe import https_check
@@ -274,7 +275,7 @@ def move(
             len(plan.losses),
             rehearsed=True,
         )
-    managers = managers or Managers.between(plan.source, plan.target)
+    managers = managers or planning.managers_between(plan.source, plan.target)
     store = store or get_store()
     apps = sorted(site.domain for site in plan.sites if site.kind == "app")
     with ExitStack() as stack:

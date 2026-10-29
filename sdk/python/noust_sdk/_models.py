@@ -10643,8 +10643,52 @@ WebhookStatusResponse = TypedDict("WebhookStatusResponse", {
     "state": Required[str],
 })
 
+WebserverAppMoveRequest = TypedDict("WebserverAppMoveRequest", {
+    "accept_losses": NotRequired[bool],
+    "confirm": NotRequired[bool],
+    "to": NotRequired[Union[Literal["nginx", "apache"], None]],
+})
+
 WebserverConfig = TypedDict("WebserverConfig", {
     "webserver": Required[str],
+})
+
+WebserverFindingOut = TypedDict("WebserverFindingOut", {
+    "code": Required[str],
+    "directive": Required[str],
+    "hint": NotRequired[Union[str, None]],
+    "line": NotRequired[Union[int, None]],
+    "params": NotRequired[dict[str, Union[str, int, float, bool]]],
+    "protection": Required[bool],
+    "reason": Required[str],
+    "severity": Required[Literal["blocks", "loses", "notes"]],
+    "text": Required[str],
+})
+
+WebserverMovePlanOut = TypedDict("WebserverMovePlanOut", {
+    "blocked": Required[bool],
+    "blockers": NotRequired[list["WebserverSentenceOut"]],
+    "confirmation": Required["WebserverSentenceOut"],
+    "install_command": NotRequired[str],
+    "left_behind": NotRequired[list[str]],
+    "losses": Required[int],
+    "mode": Required[Literal["live", "handover"]],
+    "modules": NotRequired[list[str]],
+    "sites": Required[list["WebserverSitePlanOut"]],
+    "skipped": NotRequired[list[str]],
+    "source": Required[Literal["nginx", "apache"]],
+    "source_running": Required[bool],
+    "target": Required[Literal["nginx", "apache"]],
+    "target_installed": Required[bool],
+    "target_running": Required[bool],
+})
+
+WebserverMoveRequest = TypedDict("WebserverMoveRequest", {
+    "accept_losses": NotRequired[bool],
+    "all": NotRequired[bool],
+    "confirm": NotRequired[bool],
+    "domains": NotRequired[Union[list[str], None]],
+    "to": Required[Literal["nginx", "apache"]],
 })
 
 WebserverResponse = TypedDict("WebserverResponse", {
@@ -10652,6 +10696,44 @@ WebserverResponse = TypedDict("WebserverResponse", {
     "applies_to": NotRequired[Literal["new_applications"]],
     "sites": NotRequired[dict[str, int]],
     "webserver": Required[str],
+})
+
+WebserverSentenceOut = TypedDict("WebserverSentenceOut", {
+    "code": Required[str],
+    "hint": NotRequired[Union[str, None]],
+    "params": NotRequired[dict[str, Union[str, int, float, bool]]],
+    "text": Required[str],
+})
+
+WebserverServerOut = TypedDict("WebserverServerOut", {
+    "applications": Required[int],
+    "installed": Required[bool],
+    "running": Required[bool],
+    "sites": Required[int],
+    "starts_at_boot": Required[bool],
+    "version": NotRequired[Union[str, None]],
+})
+
+WebserverSitePlanOut = TypedDict("WebserverSitePlanOut", {
+    "blockers": NotRequired[list["WebserverSentenceOut"]],
+    "domain": Required[str],
+    "findings": NotRequired[list["WebserverFindingOut"]],
+    "keeps_operator_site": Required[bool],
+    "kind": Required[Literal["app", "site"]],
+    "modules": NotRequired[list[str]],
+    "movable": Required[bool],
+    "operator_site": Required[bool],
+    "source": Required[Literal["nginx", "apache"]],
+    "source_path": Required[str],
+    "target": Required[Literal["nginx", "apache"]],
+    "target_path": Required[str],
+    "text": NotRequired[Union[str, None]],
+})
+
+WebserverStatusOut = TypedDict("WebserverStatusOut", {
+    "holds_ports": NotRequired[Union[Literal["nginx", "apache"], None]],
+    "servers": Required[dict[str, "WebserverServerOut"]],
+    "webserver": Required[Literal["nginx", "apache"]],
 })
 
 WebserverUpdateResponse = TypedDict("WebserverUpdateResponse", {
