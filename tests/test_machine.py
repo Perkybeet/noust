@@ -175,7 +175,7 @@ def test_the_snapshot_survives_asdict_and_json_dumps(runner: FakeRunner, store: 
     }
     assert set(payload["memory"]) == {"used", "total", "percent"}
     assert set(payload["disk"]) == {"used", "total", "percent"}
-    assert set(payload["units"]) == {"running", "failed", "stopped"}
+    assert set(payload["units"]) == {"running", "failed", "stopped", "scheduled"}
     assert set(payload["apps"]) == {"running", "failed", "stopped", "static", "unmanaged"}
 
 
@@ -288,6 +288,7 @@ def test_fetch_service_states_is_the_one_call_both_tallies_share(
             "load": "loaded",
             "active": "active",
             "sub": "running",
+            "scheduled": False,
             "managed": True,
             "app": None,
         }
@@ -436,7 +437,7 @@ def test_get_machine_answers_with_the_snapshot(client: TestClient) -> None:
         "units",
         "apps",
     }
-    assert set(body["units"]) == {"running", "failed", "stopped"}
+    assert set(body["units"]) == {"running", "failed", "stopped", "scheduled"}
     assert set(body["apps"]) == {"running", "failed", "stopped", "static", "unmanaged"}
 
 
@@ -453,7 +454,7 @@ def test_get_machine_reports_the_live_unit_tally(client: TestClient, runner: Fak
 
     body = client.get("/api/system/machine").json()
 
-    assert body["units"] == {"running": 1, "failed": 1, "stopped": 0}
+    assert body["units"] == {"running": 1, "failed": 1, "stopped": 0, "scheduled": 0}
 
 
 def test_get_machine_demands_a_session(tmp_path: Path, runner: FakeRunner) -> None:

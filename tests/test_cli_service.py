@@ -405,7 +405,7 @@ def test_list_does_not_reimplement_the_active_state_check() -> None:
     """
     import inspect
 
-    source = inspect.getsource(service_module._list)
+    source = inspect.getsource(service_module._status_word)
 
     assert '== "active"' not in source
     assert "state_is_running" in source
@@ -481,6 +481,7 @@ def test_list_json_before_the_command_name(runner: FakeRunner, unit_dir: Path) -
             "state": "running",
             "managed": True,
             "app": None,
+            "scheduled": False,
             "tags": [],
         }
     ]

@@ -143,6 +143,9 @@ src/noust/
     port_claims.py  who holds a port: applications, the ports a Compose stack publishes, streams,
                     databases, engines, SSH, the console and the kernel; every caller asks it
     app_identity.py the one answer to "which account does this app run as"
+    unit_states.py  the one decision of what state a unit is in: running, failed, stopped, or
+                    scheduled (a service its timer starts, between two runs); the Services page,
+                    the top bar's tally and `noust service list` all read it
     site_topology.py, timeline.py   what a site reaches, live; one timeline over a stretch
     internal_ca.py, ca_trust.py  the server's own authority for names that only resolve inside a
                     private network (`noust cert ca`): name-constrained, one machinery with the

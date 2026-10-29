@@ -473,7 +473,7 @@ stream ends, and the reconnection answers `401`.
 
 | Event | When | Data |
 |---|---|---|
-| `machine` | Every 5 seconds | `{hostname, uptime_s, load: [1m, 5m, 15m], load_history, cpu_percent, memory: {used, total, percent}, disk: {used, total, percent}, units: {running, failed, stopped}, apps: {running, failed, stopped, static}}`. Same object as `GET /api/system/machine`. |
+| `machine` | Every 5 seconds | `{hostname, uptime_s, load: [1m, 5m, 15m], load_history, cpu_percent, memory: {used, total, percent}, disk: {used, total, percent}, units: {running, failed, stopped, scheduled}, apps: {running, failed, stopped, static}}`. `scheduled` counts the services a timer starts (a backup, a cron job) between two runs: waiting, not stopped. Same object as `GET /api/system/machine`. |
 | `metrics` | Every 2 seconds | A flat map of the latest samples: `cpu.percent`, `mem.used_bytes`, `mem.total_bytes`, `swap.used_bytes`, `disk.used_bytes`, `disk.total_bytes`, `net.rx_bytes_s`, `net.tx_bytes_s`, `load.1m`, and per application `app.<domain>.cpu.percent`, `app.<domain>.mem.bytes`. |
 | `job` | On every job transition and log line | The job as `GET /api/jobs/{id}` returns it, with `logs` trimmed to the newest entry, plus `domain`, `message`, `level` and `finished`. |
 | `state` | With every `job` event | `{id, state}` for the job, and again for its domain when it has one. `state` is `busy`, `active`, `failed` or `idle`. |

@@ -19,9 +19,17 @@ import { useConsoleContext, useNode } from "../nodes/useNode";
 import { useStreamStatus } from "../realtime/events";
 import type { StreamStatus } from "../realtime/events";
 
-/** The one sentence that says what the unit tally means, for the tooltip and the link's accessible name alike. */
+/**
+ * The one sentence that says what the unit tally means, for the tooltip and the link's accessible name alike.
+ * The services a timer starts (backups, cron jobs) wait between two runs: they are not stopped, so the strip
+ * does not count them with the stopped ones, and the sentence adds them so it adds up to the Services page.
+ */
 export function unitTallySummary(units: Machine["units"], t: T): string {
-  return t("shell.machine.unitsSummary", { running: units.running, failed: units.failed, stopped: units.stopped });
+  // A node of an older Noust sends no count of them: undefined is not above zero.
+  const { scheduled } = units;
+  return scheduled > 0
+    ? t("shell.machine.unitsSummaryScheduled", { running: units.running, failed: units.failed, stopped: units.stopped, scheduled })
+    : t("shell.machine.unitsSummary", { running: units.running, failed: units.failed, stopped: units.stopped });
 }
 
 /** The recent one-minute load as a line, scaled to its own peak (at least 1). */

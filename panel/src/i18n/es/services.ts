@@ -4,6 +4,7 @@ import type { Catalog } from "../types";
 export const services: Catalog<typeof en> = {
   state: {
     restarting: "Reiniciándose",
+    scheduled: "Programado",
   },
   tabs: {
     label: "Secciones del servicio",
@@ -28,6 +29,7 @@ export const services: Catalog<typeof en> = {
     stateAny: "Cualquier estado",
     stateFailed: "Fallidos",
     stateStopped: "Detenidos",
+    stateScheduled: "Programados",
     count: { one: "{count} servicio", other: "{count} servicios" },
     countFiltered: "{shown} de {total} servicios",
     tableCaption: "Servicios",

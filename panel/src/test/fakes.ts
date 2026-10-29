@@ -72,7 +72,7 @@ export const MACHINE: Machine = {
   cpu_percent: 18.5,
   memory: { used: 3_380_000_000, total: 8_000_000_000, percent: 42.3 },
   disk: { used: 61_000_000_000, total: 78_000_000_000, percent: 78.2 },
-  units: { running: 9, failed: 1, stopped: 2 },
+  units: { running: 9, failed: 1, stopped: 2, scheduled: 0 },
   apps: { running: 4, failed: 1, stopped: 1, static: 1, unmanaged: 0 },
 };
 
@@ -160,7 +160,7 @@ export const APPS = [
 
 /** The services of the fake machine, as GET /api/services lists them. */
 export const SERVICES: ServiceList["services"] = [
-  { name: "shop-web", description: "node /var/www/shop/server.js", active: true, enabled: true, status: "running", pid: 4821, uptime: "Thu 2026-09-25 08:00:00 UTC", memory: "58720256", managed: true },
+  { name: "shop-web", description: "node /var/www/shop/server.js", active: true, enabled: true, status: "running", pid: 4821, uptime: "Thu 2026-09-25 08:00:00 UTC", memory: "58720256", managed: true, scheduled: false },
 ];
 
 /** The cron jobs of the fake machine, as GET /api/cron lists them. */

@@ -78,11 +78,17 @@ class UnitTally:
     not a unit poll. The legacy Jinja fragment still shows it separately; see
     :mod:`noust.web.views.machine`, which keeps that distinction from the same
     :func:`classify_unit` this tally uses.
+
+    A service a timer starts (a backup, a cron job) is neither: between two runs it
+    waits for its timer, and counted as stopped it made a server with eight
+    scheduled backups say "13 stopped" with everything in order. It is
+    ``scheduled``. One that is running now counts as running, one that failed as failed.
     """
 
     running: int
     failed: int
     stopped: int
+    scheduled: int = 0
 
 
 @dataclass
@@ -130,7 +136,7 @@ class MachineState:
     cpu_percent: float = 0.0
     memory: MemorySnapshot = field(default_factory=lambda: MemorySnapshot(0, 0, 0.0))
     disk: DiskSnapshot = field(default_factory=lambda: DiskSnapshot(0, 0, 0.0))
-    units: UnitTally = field(default_factory=lambda: UnitTally(0, 0, 0))
+    units: UnitTally = field(default_factory=lambda: UnitTally(0, 0, 0, 0))
     apps: AppTally = field(default_factory=lambda: AppTally(0, 0, 0, 0))
 
 
@@ -147,11 +153,17 @@ def classify_unit(service: Mapping[str, Any]) -> str:
         service: One entry from :func:`fetch_service_states`.
 
     Returns:
-        ``"active"``, ``"failed"``, ``"busy"`` (systemd is restarting it) or
-        ``"stopped"``.
+        ``"active"``, ``"failed"``, ``"busy"`` (systemd is restarting it),
+        ``"scheduled"`` (a service its timer starts, between two runs) or ``"stopped"``.
     """
     active_state = str(service.get("active", "")).strip()
     sub_state = str(service.get("sub", "")).strip()
+
+    from noust.managers.service_manager import ServiceManager
+
+    phase = ServiceManager.timer_phase(active_state, sub_state, bool(service.get("scheduled")))
+    if phase is not None:
+        return "active" if phase == "running" else "scheduled"
 
     if active_state == "failed" or sub_state == "failed":
         return "failed"
@@ -203,17 +215,19 @@ def _count_units(services: list[dict[str, Any]]) -> UnitTally:
     Returns:
         The tally.
     """
-    running = failed = stopped = 0
+    running = failed = stopped = scheduled = 0
     for service in services:
         bucket = classify_unit(service)
         if bucket == "active":
             running += 1
         elif bucket == "failed":
             failed += 1
+        elif bucket == "scheduled":
+            scheduled += 1
         else:
             # "busy" (mid-restart) folds in here; see UnitTally's docstring.
             stopped += 1
-    return UnitTally(running=running, failed=failed, stopped=stopped)
+    return UnitTally(running=running, failed=failed, stopped=stopped, scheduled=scheduled)
 
 
 #: The states :func:`classify_apps` sorts an application into.

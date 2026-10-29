@@ -104,6 +104,7 @@ export function ServicesPage({ search, onSearchChange }: ServicesPageProps) {
                   { value: "failed", label: t("services.page.stateFailed") },
                   { value: "running", label: t("common.statusPill.running") },
                   { value: "stopped", label: t("services.page.stateStopped") },
+                  { value: "scheduled", label: t("services.page.stateScheduled") },
                 ]}
               />
               {tagNames.length > 0 || search.tag !== undefined ? (

@@ -273,7 +273,7 @@ class TestPartial:
         assert set(outcome.missing) == {"/api/overview", "/api/server/summary"}
         (row,) = result.items
         assert row["apps"] == {"running": 3, "failed": 1, "stopped": 0, "static": 2, "unmanaged": 0}
-        assert row["units"] == {"running": 5, "failed": 1, "stopped": 0}
+        assert row["units"] == {"running": 5, "failed": 1, "stopped": 0, "scheduled": 0}
         # Counted from the certificate list, the older node's way.
         assert row["certificates_expiring"] == 1
         assert row["overview"] is None

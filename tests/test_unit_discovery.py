@@ -237,6 +237,7 @@ def test_a_stopped_disabled_unit_systemd_has_not_loaded_is_still_listed(
             "sub": "dead",
             "managed": True,
             "app": None,
+            "scheduled": False,
         }
     ]
 
@@ -951,3 +952,190 @@ def test_a_unit_owned_by_another_applications_row_is_not_a_workspace(
     marked(unit_dirs, "shop-com-web")
 
     assert ServiceManager().app_units(mono) == ["shop-com-web"]
+
+
+# ------------------------------------------------ units a timer starts
+
+
+def on_a_timer(unit_dirs: dict[str, Path], name: str) -> Path:
+    """
+    Write a unit and the timer that starts it, as the backup and cron templates do.
+
+    Args:
+        unit_dirs: The unit directories.
+        name: Unit name without ``.service``.
+
+    Returns:
+        The service file.
+    """
+    path = marked(unit_dirs, name)
+    (unit_dirs["managed"] / f"{name}.timer").write_text(
+        f"# {UNIT_MARKER}\n[Timer]\nOnCalendar=daily\n[Install]\nWantedBy=timers.target\n"
+    )
+    return path
+
+
+def a_server_with_scheduled_work(
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
+) -> None:
+    """
+    Fifteen applications up, one service stopped on purpose, eight backups and five
+    scheduled tasks between two runs: the server the top bar called "13 stopped".
+    """
+    rows = []
+    for index in range(15):
+        deploy(store, f"app{index}.example.com")
+        marked(unit_dirs, f"app{index}-example-com")
+        rows.append(f"app{index}-example-com loaded active running")
+    marked(unit_dirs, "hand-made")
+    rows.append("hand-made loaded inactive dead")
+    for index in range(8):
+        on_a_timer(unit_dirs, f"noust-backup-app{index}")
+        rows.append(f"noust-backup-app{index} loaded inactive dead")
+    for index in range(5):
+        on_a_timer(unit_dirs, f"noust-cron-task{index}")
+        rows.append(f"noust-cron-task{index} loaded inactive dead")
+    runner.script(LIST_UNITS, stdout=listing(*rows))
+
+
+def test_a_service_between_two_runs_of_its_timer_is_not_stopped(
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
+) -> None:
+    """
+    Eight scheduled backups made a server with everything in order say "13 stopped".
+
+    A backup or a cron job is a one-shot service its timer starts: between two runs it is
+    inactive by design, waiting for the timer, which is not the same as stopped.
+    """
+    a_server_with_scheduled_work(runner, unit_dirs, store)
+
+    units = read_machine(apps_root="/tmp").units
+
+    assert units == UnitTally(running=15, failed=0, stopped=1, scheduled=13)
+
+
+def test_a_scheduled_service_that_failed_is_failed_and_one_that_runs_now_is_running(
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
+) -> None:
+    """A timer does not hide a backup that failed, nor count one that is running as waiting."""
+    on_a_timer(unit_dirs, "noust-backup-failed")
+    on_a_timer(unit_dirs, "noust-backup-running")
+    on_a_timer(unit_dirs, "noust-backup-waiting")
+    runner.script(
+        LIST_UNITS,
+        stdout=listing(
+            "noust-backup-failed loaded failed failed",
+            "noust-backup-running loaded activating start",
+            "noust-backup-waiting loaded inactive dead",
+        ),
+    )
+
+    units = read_machine(apps_root="/tmp").units
+
+    assert units == UnitTally(running=1, failed=1, stopped=0, scheduled=1)
+
+
+def test_a_unit_without_a_timer_that_is_inactive_is_still_stopped(
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
+) -> None:
+    """Only a timer makes inactive a way of waiting."""
+    marked(unit_dirs, "noust-backup-orphan")
+    runner.script(LIST_UNITS, stdout=listing("noust-backup-orphan loaded inactive dead"))
+
+    assert read_machine(apps_root="/tmp").units == UnitTally(running=0, failed=0, stopped=1)
+
+
+def test_the_services_page_lists_what_the_bar_counts_and_says_which_wait_for_a_timer(
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore, api: TestClient
+) -> None:
+    a_server_with_scheduled_work(runner, unit_dirs, store)
+
+    tally = read_machine(apps_root="/tmp").units
+    body = api.get("/api/services").json()
+
+    assert body["total"] == tally.running + tally.failed + tally.stopped + tally.scheduled
+    waiting = {row["name"] for row in body["services"] if row["scheduled"]}
+    assert len(waiting) == 13
+    assert all(name.startswith(("noust-backup-", "noust-cron-")) for name in waiting)
+    assert not any(row["scheduled"] for row in body["services"] if row["name"].startswith("app"))
+
+
+def test_the_state_filters_agree_with_the_tally(
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore, api: TestClient
+) -> None:
+    a_server_with_scheduled_work(runner, unit_dirs, store)
+    manager = ServiceManager()
+
+    by_state = {
+        state: [row["name"] for row in manager.list_services(state=state)]
+        for state in UNIT_STATE_FILTERS
+    }
+
+    assert len(by_state["running"]) == 15
+    assert by_state["stopped"] == ["hand-made"]
+    assert len(by_state["scheduled"]) == 13
+    assert by_state["failed"] == []
+    # The page's own request.
+    asked = api.get("/api/services", params={"state": "scheduled"})
+    assert asked.status_code == 200, asked.text
+    assert asked.json()["total"] == 13
+
+
+@pytest.mark.parametrize(
+    ("active", "sub", "group"),
+    [
+        ("inactive", "dead", "scheduled"),
+        ("activating", "start", "running"),
+        ("active", "exited", "running"),
+        ("failed", "failed", "failed"),
+        # A one-shot a timer starts is not restarted: a loop is still a loop.
+        ("activating", "auto-restart", "failed"),
+    ],
+)
+def test_a_service_a_timer_starts_is_waiting_running_or_failed(
+    active: str, sub: str, group: str
+) -> None:
+    assert ServiceManager.state_group(active, sub, scheduled=True) == group
+
+
+def test_the_cli_lists_a_waiting_service_as_scheduled_not_stopped(
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
+) -> None:
+    from click.testing import CliRunner
+
+    from noust.cli.app import cli as root
+
+    on_a_timer(unit_dirs, "noust-backup-shop")
+    runner.script(LIST_UNITS, stdout=listing("noust-backup-shop loaded inactive dead"))
+
+    table = CliRunner().invoke(root, ["service", "list"], catch_exceptions=False)
+    as_json = CliRunner().invoke(root, ["service", "list", "--json"], catch_exceptions=False)
+
+    assert table.exit_code == 0, table.output
+    assert "scheduled" in table.output and "stopped" not in table.output
+    (row,) = json.loads(as_json.output)
+    assert row["status"] == "scheduled" and row["scheduled"] is True
+
+
+def test_a_waiting_service_is_not_something_that_needs_attention(
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
+) -> None:
+    """A backup running now was listed as a unit "restarting" in the Overview."""
+    from noust.managers.overview import collect_overview
+
+    on_a_timer(unit_dirs, "noust-backup-shop")
+    runner.script(LIST_UNITS, stdout=listing("noust-backup-shop loaded activating start"))
+    services = ServiceManager().list_services()
+
+    overview = collect_overview(
+        store=store,
+        services=lambda: services,
+        certificates=lambda: [],
+        backups=lambda: [],
+        observations=lambda: [],
+        alerts=lambda: [],
+        metrics=None,
+        updates=None,
+    )
+
+    assert overview["attention"] == []

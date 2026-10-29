@@ -125,6 +125,7 @@ export const shell: Catalog<typeof en> = {
   machine: {
     landmark: "Esta máquina",
     unitsSummary: "Servicios de Noust: {running} en marcha, {failed} con fallo, {stopped} detenidos",
+    unitsSummaryScheduled: "Servicios de Noust: {running} en marcha, {failed} con fallo, {stopped} detenidos, {scheduled} a la espera de su temporizador",
     load: "Carga",
     loadAverage: "Carga media: {one} {five} {fifteen}",
     loadDetail: "en un minuto, {five} en cinco, {fifteen} en quince",

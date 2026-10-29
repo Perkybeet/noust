@@ -48073,6 +48073,12 @@ export interface components {
             failed: number;
             /** Running */
             running: number;
+            /**
+             * Scheduled
+             * @description Services a timer starts (a backup, a cron job) that wait for their next run: inactive by design, so neither running nor stopped
+             * @default 0
+             */
+            scheduled: number;
             /** Stopped */
             stopped: number;
         };
@@ -58700,6 +58706,8 @@ export interface components {
          *             ``auto-restart``, ...), the finer-grained half of the same story.
          *         result: Systemd's own ``Result`` for the last run (``success``,
          *             ``exit-code``, ``signal``, ...).
+         *         scheduled: A timer starts this unit (a backup, a cron job). Between two runs it is
+         *             inactive by design: it waits for its timer, and is not stopped.
          *         tags: The unit's tags, sorted.
          */
         ServiceInfo: {
@@ -58724,6 +58732,11 @@ export interface components {
             pid?: number | null;
             /** Result */
             result?: string | null;
+            /**
+             * Scheduled
+             * @default false
+             */
+            scheduled: boolean;
             /** Status */
             status: string;
             /** Sub State */
@@ -97327,8 +97340,8 @@ export interface operations {
                  * @description The name noust_only had before 3.0; read when noust_only is absent
                  */
                 wasm_only?: boolean | null;
-                /** @description Only the units in this state. 'failed' also keeps the ones systemd keeps restarting; the console's Services page filters the same way */
-                state?: ("failed" | "running" | "stopped") | null;
+                /** @description Only the units in this state. 'failed' also keeps the ones systemd keeps restarting, and 'scheduled' the ones a timer starts, between two runs; the console's Services page filters the same way */
+                state?: ("failed" | "running" | "stopped" | "scheduled") | null;
                 /** @description Only the units that carry this tag */
                 tag?: string | null;
             };

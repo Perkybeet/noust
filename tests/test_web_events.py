@@ -661,7 +661,7 @@ def test_the_stream_emits_the_machine_snapshot_as_a_named_json_event(
         "cpu_percent": 42.5,
         "memory": {"used": 1024, "total": 4096, "percent": 25.0},
         "disk": {"used": 2048, "total": 8192, "percent": 25.0},
-        "units": {"running": 3, "failed": 1, "stopped": 2},
+        "units": {"running": 3, "failed": 1, "stopped": 2, "scheduled": 0},
         "apps": {"running": 2, "failed": 1, "stopped": 0, "static": 1, "unmanaged": 0},
     }
 

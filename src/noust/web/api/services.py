@@ -136,6 +136,8 @@ class ServiceInfo(BaseModel):
             ``auto-restart``, ...), the finer-grained half of the same story.
         result: Systemd's own ``Result`` for the last run (``success``,
             ``exit-code``, ``signal``, ...).
+        scheduled: A timer starts this unit (a backup, a cron job). Between two runs it is
+            inactive by design: it waits for its timer, and is not stopped.
         tags: The unit's tags, sorted.
     """
 
@@ -151,6 +153,7 @@ class ServiceInfo(BaseModel):
     active_state: str | None = None
     sub_state: str | None = None
     result: str | None = None
+    scheduled: bool = False
     tags: list[str] = Field(default_factory=list)
 
 
@@ -527,6 +530,7 @@ def _service_info(name: str, description: str | None, live_status: dict) -> Serv
         active_state=live_status.get("active_state") or None,
         sub_state=live_status.get("sub_state") or None,
         result=live_status.get("result") or None,
+        scheduled=bool(live_status.get("scheduled")),
     )
 
 
@@ -543,10 +547,11 @@ def list_services(
         description="The name noust_only had before 3.0; read when noust_only is absent",
     ),
     state: Annotated[
-        Literal["failed", "running", "stopped"] | None,
+        Literal["failed", "running", "stopped", "scheduled"] | None,
         Query(
             description="Only the units in this state. 'failed' also keeps the ones "
-            "systemd keeps restarting; the console's Services page filters the same way"
+            "systemd keeps restarting, and 'scheduled' the ones a timer starts, between two "
+            "runs; the console's Services page filters the same way"
         ),
     ] = None,
     tag: Annotated[str | None, Query(description="Only the units that carry this tag")] = None,

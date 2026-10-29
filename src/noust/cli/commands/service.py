@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import sys
 from argparse import Namespace
+from typing import Any
 
 import click
 
@@ -121,6 +122,24 @@ def _create(
     return 0
 
 
+def _status_word(manager: ServiceManager, svc: dict[str, Any]) -> str:
+    """
+    Say a listed unit's status in the word the table and the JSON use.
+
+    Args:
+        manager: The service manager.
+        svc: One row of its listing.
+
+    Returns:
+        ``scheduled`` for a service its timer starts that is between two runs, else
+        ``running`` or ``stopped``.
+    """
+    phase = manager.timer_phase(str(svc["active"]), str(svc["sub"]), bool(svc.get("scheduled")))
+    if phase == "waiting":
+        return "scheduled"
+    return "running" if manager.state_is_running(svc["active"]) else "stopped"
+
+
 def _list(
     all_services: bool,
     *,
@@ -161,12 +180,11 @@ def _list(
                 [
                     {
                         "name": svc["name"],
-                        "status": "running"
-                        if manager.state_is_running(svc["active"])
-                        else "stopped",
+                        "status": _status_word(manager, svc),
                         "state": svc["sub"],
                         "managed": bool(svc["managed"]),
                         "app": svc.get("app"),
+                        "scheduled": bool(svc.get("scheduled")),
                         "tags": tagged.get(svc["name"], []),
                     }
                     for svc in services
@@ -184,7 +202,7 @@ def _list(
     rows = [
         [
             svc["name"],
-            "running" if manager.state_is_running(svc["active"]) else "stopped",
+            _status_word(manager, svc),
             svc["sub"],
             svc.get("app") or "",
             ", ".join(tagged.get(svc["name"], [])),
@@ -431,7 +449,10 @@ def create_command(
     "--state",
     type=click.Choice(UNIT_STATE_FILTERS),
     default=None,
-    help="Only the units in this state; failed also keeps the ones systemd keeps restarting.",
+    help=(
+        "Only the units in this state; failed also keeps the ones systemd keeps restarting, "
+        "and scheduled the ones a timer starts, between two runs."
+    ),
 )
 @click.option("--tag", default=None, help="Only the units that carry this tag.")
 @json_option("Print the service list as JSON.")

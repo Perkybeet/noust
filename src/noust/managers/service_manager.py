@@ -102,6 +102,7 @@ from noust.core.store import (
 )
 from noust.core.templates import text_environment
 from noust.core.utils import domain_to_app_name
+from noust.managers import unit_states
 from noust.managers.base_manager import BaseManager
 from noust.validators.environment import validate_environment, validate_unit_value
 from noust.validators.names import validate_service_name
@@ -212,11 +213,11 @@ LIST_UNITS_ARGV = (
     "--plain",
 )
 
-#: The states a services listing can be narrowed to. They are the three words the
+#: The states a services listing can be narrowed to. They are the words the
 #: console's Services page filters by, defined once by :meth:`ServiceManager.state_group`
 #: so ``noust service list --state``, ``GET /api/services?state=`` and the page
-#: agree on which unit is "failed".
-UNIT_STATE_FILTERS = ("failed", "running", "stopped")
+#: agree on which unit is "failed". ``scheduled`` is a service a timer starts, between two runs.
+UNIT_STATE_FILTERS = ("failed", "running", "stopped", "scheduled")
 
 #: What a unit is described with when the Services page lists it: the fields
 #: :meth:`ServiceManager.get_status` reports, read for every unit in one
@@ -324,6 +325,9 @@ class ManagedUnit:
         app: Domain of the application this unit runs, or None for a unit
             that is not an application's (the monitor, a cron job, a service
             created by hand).
+        scheduled: A timer starts this unit (a ``<name>.timer`` stands beside its
+            service: a backup, a cron job). Between two runs it is inactive by
+            design, waiting for its timer, which is not the same as stopped.
     """
 
     name: str
@@ -331,6 +335,7 @@ class ManagedUnit:
     active: str
     sub: str
     app: str | None = None
+    scheduled: bool = False
 
     @property
     def unit_file(self) -> str:
@@ -343,7 +348,7 @@ class ManagedUnit:
 
         Returns:
             ``name``, ``load``, ``active`` and ``sub`` as systemd wrote them,
-            ``managed`` (always True here) and ``app``.
+            ``managed`` (always True here), ``app`` and ``scheduled``.
         """
         return {
             "name": self.name,
@@ -352,6 +357,7 @@ class ManagedUnit:
             "sub": self.sub,
             "managed": True,
             "app": self.app,
+            "scheduled": self.scheduled,
         }
 
 
@@ -1734,50 +1740,23 @@ class ServiceManager(BaseManager):
         """
         return self._unit_path(self._resolve_service_name(name)).exists()
 
-    @staticmethod
-    def state_is_running(raw_state: str) -> bool:
-        """
-        Decide whether a systemd active-state string means "running".
+    # The decisions about a unit's state live in unit_states, below this module; they are
+    # methods here because that is where every caller has always asked.
+    state_is_running = staticmethod(unit_states.state_is_running)
+    timer_phase = staticmethod(unit_states.timer_phase)
+    state_group = staticmethod(unit_states.state_group)
 
-        ``systemctl is-active`` and the ACTIVE column ``systemctl
-        list-units`` prints share one vocabulary (``active``, ``inactive``,
-        ``failed``, ``activating``, ``deactivating``, ``reloading``), and
-        exactly one value of it means the unit is up. This is the one place
-        that decides that, so :meth:`get_status` (which the web API reads)
-        and a caller of :meth:`list_services` (``noust service list``) cannot
-        end up answering "is it running" two different ways.
+    def has_timer(self, name: str) -> bool:
+        """
+        Say whether a timer starts a unit (see :func:`~noust.managers.unit_states.has_timer`).
 
         Args:
-            raw_state: The raw string systemd reported.
+            name: Unit name without the ``.service`` suffix.
 
         Returns:
-            True when the state means the unit is running.
+            True when the unit has a timer file beside its service.
         """
-        return raw_state.strip() == "active"
-
-    @staticmethod
-    def state_group(active: str, sub: str) -> str:
-        """
-        Sort a unit into the group a services listing filters by.
-
-        ``failed`` is every unit that is not cleanly up or cleanly down: systemd's
-        own ``failed`` and a unit it is still restarting (``activating``, or
-        ``auto-restart`` between two attempts), which is the crash loop that has
-        not yet settled into ``failed``. The console's Services page decides the
-        same way from the same two columns, so a filter here and a filter there
-        keep the same units.
-
-        Args:
-            active: systemd's ACTIVE column (``ActiveState``).
-            sub: systemd's SUB column (``SubState``).
-
-        Returns:
-            One of :data:`UNIT_STATE_FILTERS`.
-        """
-        active = active.strip().lower()
-        if sub.strip().lower() == "auto-restart" or active in ("activating", "failed"):
-            return "failed"
-        return "running" if ServiceManager.state_is_running(active) else "stopped"
+        return unit_states.has_timer(Path(self.SYSTEMD_DIR), name)
 
     @staticmethod
     def _parse_list_units(stdout: str) -> dict[str, dict[str, str]]:
@@ -1928,6 +1907,7 @@ class ServiceManager(BaseManager):
                     active=row["active"] if row is not None else "inactive",
                     sub=row["sub"] if row is not None else "dead",
                     app=owners.get(name),
+                    scheduled=self.has_timer(name),
                 )
             )
         return units
@@ -1969,7 +1949,12 @@ class ServiceManager(BaseManager):
         if state is None:
             return rows
         return [
-            row for row in rows if self.state_group(str(row["active"]), str(row["sub"])) == state
+            row
+            for row in rows
+            if self.state_group(
+                str(row["active"]), str(row["sub"]), scheduled=bool(row.get("scheduled"))
+            )
+            == state
         ]
 
     def _service_rows(self, all_services: bool) -> list[dict[str, Any]]:
@@ -2117,6 +2102,7 @@ class ServiceManager(BaseManager):
                 properties = {"ActiveState": str(row["active"]), "SubState": str(row["sub"])}
             status = self.status_from_properties(name, properties, managed=bool(row["managed"]))
             status["app"] = row.get("app")
+            status["scheduled"] = bool(row.get("scheduled"))
             statuses.append(status)
         return statuses
 
@@ -2178,6 +2164,7 @@ class ServiceManager(BaseManager):
         )
         status["active"] = is_active
         status["enabled"] = is_enabled
+        status["scheduled"] = self.has_timer(info.unit)
         return status
 
     # Creation -------------------------------------------------------------
