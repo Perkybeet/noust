@@ -1,0 +1,36 @@
+# MAZANOKE: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/mazanoke
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: mazanoke
+kind: compose
+title: "MAZANOKE"
+slogan: "A self-hosted local image optimizer that runs in your browser."
+description: "MAZANOKE is a modern, self-hosted image hosting and sharing platform. Upload, organize, and share your images with a clean and intuitive interface."
+category: media
+tags: [image-hosting, file-sharing, self-hosted, media, gallery]
+logo: logo.svg
+version: "1.1.7"
+revision: 1
+updated: 2026-10-28
+homepage: https://MAZANOKE.com
+docs: https://github.com/civilblur/mazanoke
+repository: https://github.com/civilblur/mazanoke
+license: GPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    mazanoke:
+      image: ghcr.io/civilblur/mazanoke:v1.1.7@sha256:ca83cddd90cd1e4b43102884bf39025731a1c7569f3bbda9d6530de72528cbab
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:80
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."

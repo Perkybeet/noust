@@ -7710,13 +7710,13 @@ class Recipes:
     def __init__(self, call: Call) -> None:
         self._call = call
 
-    def get_recipes(self, *, q: Union[str, None] = None, category: Union[str, None] = None, tag: Union[str, None] = None, kind: Union[str, None] = None, origin: Union[str, None] = None) -> "RecipeListOut":
+    def get_recipes(self, *, q: Union[str, None] = None, category: Union[str, None] = None, tag: Union[str, None] = None, kind: Union[str, None] = None, origin: Union[str, None] = None, available: Union[bool, None] = None, unavailable_code: Union[str, None] = None, tested: Union[bool, None] = None) -> "RecipeListOut":
         """GET /api/recipes
 
         Get Recipes
 
         Needs: permission `apps.read`."""
-        return self._call("GET", "/api/recipes", query={"q": q, "category": category, "tag": tag, "kind": kind, "origin": origin}, body=None)
+        return self._call("GET", "/api/recipes", query={"q": q, "category": category, "tag": tag, "kind": kind, "origin": origin, "available": available, "unavailable_code": unavailable_code, "tested": tested}, body=None)
 
     def get_catalog_state(self) -> "CatalogStateOut":
         """GET /api/recipes/catalog

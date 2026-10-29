@@ -24,7 +24,7 @@ slogan: A publishing platform for blogs, newsletters and paid memberships.
 description: "A modern publishing platform with an editor, themes, newsletters and paid memberships through Stripe. Runs with its own MySQL 8. The first person to open the admin creates the owner account, so do it right after installing."
 category: cms
 tags: [blog, newsletter, publishing, memberships]
-logo: logo.svg
+logo: simple-icons:ghost
 version: "6.67.0"
 revision: 2
 updated: 2026-10-21

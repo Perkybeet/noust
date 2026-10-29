@@ -1,0 +1,47 @@
+# go2rtc: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/go2rtc
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: go2rtc
+kind: compose
+title: "go2rtc"
+slogan: "Ultimate camera streaming application"
+description: "Ultimate camera streaming application with support for dozens formats and protocols."
+category: smart-home
+tags: [streaming, webrtc, video, home-assistant, smart-home]
+logo: logo.svg
+version: "1.9.14"
+revision: 1
+updated: 2026-10-28
+homepage: https://go2rtc.org
+docs: https://go2rtc.org/
+repository: https://github.com/AlexxIT/go2rtc
+license: MIT
+architectures: ["386", "amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  TZ:
+    default: ""
+    description: "Setting TZ of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    go2rtc:
+      image: alexxit/go2rtc:1.9.14@sha256:675c318b23c06fd862a61d262240c9a63436b4050d177ffc68a32710d9e05bae
+      restart: unless-stopped
+      environment:
+        TZ: ${TZ}
+      volumes:
+        - go2rtc-config:/config
+      ports:
+        - 127.0.0.1:${PORT}:1984
+  volumes:
+    go2rtc-config:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume go2rtc-config of this application: back it up before updating."

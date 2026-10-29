@@ -1,0 +1,55 @@
+# Docling: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/docling.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: docling
+kind: compose
+title: "Docling"
+slogan: "Convert documents (PDF, DOCX, PPTX, images, HTML) to Markdown, JSON, and more using AI-powered..."
+description: "Running Docling as an API service"
+category: ai
+tags: [ai, document, pdf, ocr, markdown, extraction, ibm, rag]
+logo: logo.svg
+version: "1.38.2"
+revision: 1
+updated: 2026-10-28
+homepage: https://github.com/docling-project/docling-serve
+docs: https://github.com/DS4SD/docling-serve
+repository: https://github.com/docling-project/docling-serve
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_DOCLING:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    docling-serve:
+      image: ghcr.io/docling-project/docling-serve-cpu:v1.38.2@sha256:7a480a1604fa3b42efeddc7db9527690d9f9bc903226136013e2bfe6b1a4dfb0
+      environment:
+        SERVICE_URL_DOCLING: ${SERVICE_URL_DOCLING}
+        DOCLING_SERVE_ENABLE_UI: ${DOCLING_SERVE_ENABLE_UI:-true}
+        DOCLING_SERVE_LOG_LEVEL: ${DOCLING_SERVE_LOG_LEVEL:-WARNING}
+        DOCLING_NUM_THREADS: ${DOCLING_NUM_THREADS:-4}
+      healthcheck:
+        test:
+          - CMD
+          - wget
+          - -qO-
+          - http://127.0.0.1:5001/health
+        interval: 30s
+        timeout: 30s
+        retries: 10
+        start_period: 120s
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:5001
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."

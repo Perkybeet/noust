@@ -1,0 +1,56 @@
+# ArchiveBox: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/archivebox
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: archivebox
+kind: compose
+title: "ArchiveBox"
+slogan: "🗃 Open source self-hosted web archiving."
+description: "ArchiveBox is a self-hosted internet archiving solution for saving websites, media, and documents."
+category: media
+tags: [archive, bookmarks, web, media]
+logo: logo.svg
+version: "0.9.77"
+revision: 1
+updated: 2026-10-28
+homepage: https://archivebox.io
+docs: https://docs.archivebox.io/
+repository: https://github.com/ArchiveBox/ArchiveBox
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  ALLOWED_HOSTS:
+    default: "*"
+    description: "Setting ALLOWED_HOSTS of the application; the template leaves it to the operator."
+  PUBLIC_INDEX:
+    default: "True"
+    description: "Setting PUBLIC_INDEX of the application; the template leaves it to the operator."
+  PUBLIC_SNAPSHOTS:
+    default: "True"
+    description: "Setting PUBLIC_SNAPSHOTS of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    archivebox:
+      image: archivebox/archivebox:0.9.77@sha256:f63170551ec48d7aa087c71e2d093156dbf4b4ed8680e2f97f22483e3bc71e55
+      restart: unless-stopped
+      command: server --quick-init 0.0.0.0:8000
+      environment:
+        ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+        PUBLIC_INDEX: ${PUBLIC_INDEX}
+        PUBLIC_SNAPSHOTS: ${PUBLIC_SNAPSHOTS}
+      volumes:
+        - archivebox_data:/data
+      ports:
+        - 127.0.0.1:${PORT}:8000
+  volumes:
+    archivebox_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume archivebox_data of this application: back it up before updating."

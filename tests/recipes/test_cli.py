@@ -38,7 +38,7 @@ def test_list_prints_the_catalogue_with_its_docker_badge_and_slogan() -> None:
         line for line in result.output.splitlines() if "Uptime Kuma" in line
     )
     assert "not available in this release" in next(
-        line for line in result.output.splitlines() if "Vault" in line and "Vaultwarden" not in line
+        line for line in result.output.splitlines() if line.strip().startswith("vault:")
     )
 
 
@@ -59,7 +59,7 @@ def test_list_json_carries_the_catalogue_fields_and_filters() -> None:
     assert {item["name"] for item in native["items"]} >= {"wordpress", "n8n"}
     item = found["items"][0]
     assert item["slogan"] and item["category"] == "security" and item["runs_in_docker"] is True
-    assert item["version"] and item["updated"] and item["logo"] == "logo.svg"
+    assert item["version"] and item["updated"] and item["logo"] == "simple-icons:vaultwarden"
 
 
 def test_list_says_when_nothing_matches_and_refuses_a_category_that_does_not_exist() -> None:
@@ -114,7 +114,8 @@ def test_show_of_an_unavailable_recipe_says_why_and_nothing_more() -> None:
     """Listed, not deployable."""
     output = run("recipe", "show", "vault").output
 
-    assert "Available" in output and "No" in output and "sealed" in output
+    assert "Available" in output and "No" in output and "Business Source License" in output
+    assert "noust recipe show openbao" in output
     assert "Install it with" not in output
 
 
@@ -346,3 +347,74 @@ def test_browsing_is_read_only_and_installing_and_updating_are_not() -> None:
 
     assert [read_only(name) for name in ("list", "show", "outdated")] == [True, True, True]
     assert [read_only(name) for name in ("install", "update")] == [False, False]
+
+
+def test_list_can_show_only_what_is_left_out_and_why() -> None:
+    """``--unavailable`` and ``--reason`` are the listing's filter; the line says the reason."""
+    left_out = json.loads(run("recipe", "list", "--json", "--unavailable").output)
+    licence = json.loads(run("recipe", "list", "--json", "--reason", "licence").output)
+    text = run("recipe", "list", "--unavailable").output
+
+    assert left_out["items"] and all(not item["available"] for item in left_out["items"])
+    assert licence["items"] and all(
+        item["unavailable_code"] == "licence" for item in licence["items"]
+    )
+    vault = next(line for line in text.splitlines() if "Vault" in line)
+    assert "does not let an operator run it for others" in vault
+    assert run("recipe", "list", "--reason", "because").exit_code == 2
+
+
+def test_show_of_a_listed_recipe_gives_the_reason_the_fix_and_what_replaces_it() -> None:
+    """The sentence of the server's words, its code, and the next step."""
+    output = run("recipe", "show", "minio").output
+
+    assert "The project is archived and no longer maintained (archived)" in output
+    assert "noust recipe show garage" in output
+
+
+def test_install_takes_the_confirmation_of_a_recipe_that_is_root_on_the_server(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``--accept-root-equivalent`` is what the refusal tells the operator to add."""
+    captured: dict[str, Any] = {}
+    monkeypatch.setattr(
+        "noust.cli.commands.webapp._create_from_recipe",
+        lambda **kwargs: captured.update(kwargs) or 0,
+    )
+
+    without = run("recipe", "install", "memos", "-d", DOMAIN)
+    assert without.exit_code == 0 and captured["accept_root_equivalent"] is False
+    accepted = run("recipe", "install", "memos", "-d", DOMAIN, "--accept-root-equivalent")
+    assert accepted.exit_code == 0 and captured["accept_root_equivalent"] is True
+
+
+def test_the_command_the_refusal_suggests_is_one_the_cli_takes(
+    monkeypatch: pytest.MonkeyPatch, recipe_store: NoustStore
+) -> None:
+    """A command an error suggests must work as written: this one is run."""
+    import shlex
+
+    from noust.core.logger import Logger
+    from noust.recipes import RecipeError, parse_recipe
+    from noust.recipes import deploy as deploy_module
+    from tests.recipes.factory import use_demo_assets
+    from tests.recipes.test_root_equivalent import SOCKET, manager
+
+    use_demo_assets(monkeypatch)
+    recipe = parse_recipe("demo", {**manager(SOCKET), "root_equivalent": "docker_socket"})
+    monkeypatch.setattr(deploy_module, "get_recipe", lambda name: recipe)
+    with pytest.raises(RecipeError) as refused:
+        deploy_module.plan_recipe("demo", DOMAIN, port=8123, ssl=True, logger=Logger(verbose=False))
+    command = refused.value.coded.params["command"]  # type: ignore[union-attr]
+    captured: dict[str, Any] = {}
+    monkeypatch.setattr(
+        "noust.cli.commands.webapp._create_from_recipe",
+        lambda **kwargs: captured.update(kwargs) or 0,
+    )
+
+    words = shlex.split(command)
+    result = CliRunner().invoke(root_cli, words[1:])
+
+    assert words[:3] == ["noust", "recipe", "install"]
+    assert result.exit_code == 0, result.output
+    assert captured["accept_root_equivalent"] is True and captured["domain"] == DOMAIN

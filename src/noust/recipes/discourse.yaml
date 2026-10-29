@@ -1,0 +1,106 @@
+# Discourse: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/discourse
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: discourse
+kind: compose
+title: "Discourse"
+slogan: "A platform for community discussion. Free, open, simple."
+description: "Discourse is forum software for running online communities. Self-host it on your own server with Dokploy, which deploys Discourse as a Docker Compose service in a few clicks."
+category: communication
+tags: [forum, community, discussion, communication]
+logo: simple-icons:discourse
+version: "2026.1.4"
+revision: 1
+updated: 2026-10-28
+homepage: https://www.discourse.org
+docs: https://meta.discourse.org/
+repository: https://github.com/discourse/discourse
+license: GPL-2.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  POSTGRES_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres password."
+  REDIS_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for redis password."
+  DISCOURSE_HOST:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  DISCOURSE_ADMIN_EMAIL:
+    default: "admin@app.example.com"
+    description: "Setting DISCOURSE_ADMIN_EMAIL of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    discourse-db:
+      image: pgvector/pgvector:pg16@sha256:7b822b0aac60967beb1ea5e576b8602c94c300a157d187f385ae3e0da199b90a
+      volumes:
+        - discourse-postgresql-data:/var/lib/postgresql/data
+      environment:
+        POSTGRES_USER: discourse
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        POSTGRES_DB: discourse
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U discourse -d discourse
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      restart: unless-stopped
+    discourse-redis:
+      image: redis:7-alpine@sha256:6ba19c50b56777f5c11c58eff8ddb69d0d5f27ba131cffb63f180ccfd43c66af
+      volumes:
+        - discourse-redis-data:/data
+      command: redis-server --requirepass ${REDIS_PASSWORD}
+      healthcheck:
+        test:
+          - CMD
+          - redis-cli
+          - -a
+          - ${REDIS_PASSWORD}
+          - ping
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      restart: unless-stopped
+    discourse-app:
+      image: discourse/discourse:2026.1.4@sha256:4d1772bf9da395b631e3d3fb000d6fac9757992e9bedf9c5ccb923b65d2762d2
+      volumes:
+        - discourse-data:/shared
+      depends_on:
+        discourse-db:
+          condition: service_healthy
+        discourse-redis:
+          condition: service_healthy
+      environment:
+        DISCOURSE_HOSTNAME: ${DISCOURSE_HOST}
+        DISCOURSE_DB_HOST: discourse-db
+        DISCOURSE_DB_PORT: '5432'
+        DISCOURSE_DB_USERNAME: discourse
+        DISCOURSE_DB_PASSWORD: ${POSTGRES_PASSWORD}
+        DISCOURSE_DB_NAME: discourse
+        DISCOURSE_REDIS_HOST: discourse-redis
+        DISCOURSE_REDIS_PORT: '6379'
+        DISCOURSE_REDIS_PASSWORD: ${REDIS_PASSWORD}
+        DISCOURSE_DEVELOPER_EMAILS: ${DISCOURSE_ADMIN_EMAIL}
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:80
+  volumes:
+    discourse-postgresql-data:
+    discourse-redis-data:
+    discourse-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes discourse-postgresql-data, discourse-redis-data, discourse-data of this application: back them up before updating."

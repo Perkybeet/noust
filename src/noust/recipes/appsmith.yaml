@@ -19,7 +19,7 @@ slogan: "A low-code platform to build internal tools, dashboards and admin panel
 description: "Build internal applications by dragging widgets onto a canvas and connecting them to your databases and APIs with SQL and JavaScript, then share them with your team. Everything runs in one container with its own database; it needs about 4 GB of memory. The first person to open it creates the administrator."
 category: development
 tags: [low-code, internal-tools, dashboards, admin-panel]
-logo: logo.svg
+logo: simple-icons:appsmith
 version: "2.5.0"
 revision: 1
 updated: 2026-10-20

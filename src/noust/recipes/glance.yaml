@@ -17,7 +17,7 @@ slogan: "A self-hosted dashboard that puts your feeds, weather and links in one 
 description: "A lightweight start page for the things you follow: news feeds, Hacker News, Reddit, videos, the weather, a calendar, service monitors and more, in columns you arrange in one file. Starts behind a sign-in."
 category: productivity
 tags: [dashboard, feeds, rss, start-page]
-logo: logo.svg
+logo: simple-icons:glance
 version: "0.8.7"
 revision: 1
 updated: 2026-10-20

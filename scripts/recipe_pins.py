@@ -81,6 +81,29 @@ def split_reference(reference: str) -> tuple[str, str, str]:
     return "docker.io", repository, tag
 
 
+def _endpoint(registry: str, repository: str) -> tuple[str, str | None]:
+    """
+    Choose where to read a registry's manifests from.
+
+    Docker Hub answers an anonymous address 100 manifest reads an hour. ``NOUST_PINS_MIRROR``
+    (``mirror.gcr.io``) names a pull-through mirror of Hub's public images that serves the same
+    digests and needs no token: it is for reading many images in an hour (``recipe_import.py``),
+    never for the check that a pin is what Hub serves, which leaves it unset.
+
+    Args:
+        registry: The registry (``docker.io`` when the reference names none).
+        repository: The repository.
+
+    Returns:
+        The host to ask and the bearer token it wants, if any.
+    """
+    mirror = os.environ.get("NOUST_PINS_MIRROR")
+    if registry == "docker.io" and mirror:
+        return mirror, None
+    host = "registry-1.docker.io" if registry == "docker.io" else registry
+    return host, _token(registry, repository)
+
+
 def _token(registry: str, repository: str) -> str | None:
     """
     Get an anonymous pull token from the registry that asks for one.
@@ -170,8 +193,7 @@ def resolve_digest(reference: str) -> str:
         RuntimeError: The registry did not answer with a digest.
     """
     registry, repository, tag = split_reference(reference)
-    host = "registry-1.docker.io" if registry == "docker.io" else registry
-    bearer = _token(registry, repository)
+    host, bearer = _endpoint(registry, repository)
     headers = {"Accept": _MANIFESTS, **({"Authorization": f"Bearer {bearer}"} if bearer else {})}
     request = urllib.request.Request(
         f"https://{host}/v2/{repository}/manifests/{tag}", headers=headers, method="HEAD"
@@ -206,8 +228,7 @@ def resolve_platforms(reference: str, digest: str) -> set[str]:
         RuntimeError: The registry did not answer.
     """
     registry, repository, _ = split_reference(reference)
-    host = "registry-1.docker.io" if registry == "docker.io" else registry
-    bearer = _token(registry, repository)
+    host, bearer = _endpoint(registry, repository)
     headers = {"Accept": _MANIFESTS, **({"Authorization": f"Bearer {bearer}"} if bearer else {})}
 
     def fetch(path: str) -> Any:

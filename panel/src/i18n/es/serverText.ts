@@ -5,16 +5,12 @@ import type { Catalog } from "../types";
 export const serverText: Catalog<typeof en> = {
   approvals: {
     asked_approved: {
-      text:
-        "Esto necesita la aprobación de una segunda persona, seas quien seas. La solicitud {request} está aprobada: envía la llamada otra vez con ella ahora.",
-      hint:
-        "Una vez aprobada, envía exactamente la misma llamada otra vez con la cabecera {header}: {request}, en menos de {minutes} minutos.",
+      text: "Esto necesita la aprobación de una segunda persona, seas quien seas. La solicitud {request} está aprobada: envía la llamada otra vez con ella ahora.",
+      hint: "Una vez aprobada, envía exactamente la misma llamada otra vez con la cabecera {header}: {request}, en menos de {minutes} minutos.",
     },
     asked_waiting: {
-      text:
-        "Esto necesita la aprobación de una segunda persona, seas quien seas. La solicitud {request} espera a que la decida una cuenta con uno de estos roles: {approvers}.",
-      hint:
-        "Una vez aprobada, envía exactamente la misma llamada otra vez con la cabecera {header}: {request}, en menos de {minutes} minutos.",
+      text: "Esto necesita la aprobación de una segunda persona, seas quien seas. La solicitud {request} espera a que la decida una cuenta con uno de estos roles: {approvers}.",
+      hint: "Una vez aprobada, envía exactamente la misma llamada otra vez con la cabecera {header}: {request}, en menos de {minutes} minutos.",
     },
     central_missing: {
       text: "Esto necesita la aprobación de una segunda persona en la central.",
@@ -27,13 +23,11 @@ export const serverText: Catalog<typeof en> = {
   },
   controls: {
     asked_by_framework: {
-      text:
-        "El control {control} lo pide, y el marco de cumplimiento en vigor ({frameworks}) pide ese control, así que sigue activo mientras el marco lo esté y no se puede desactivar por sí solo.",
+      text: "El control {control} lo pide, y el marco de cumplimiento en vigor ({frameworks}) pide ese control, así que sigue activo mientras el marco lo esté y no se puede desactivar por sí solo.",
       hint: "Para desactivar el marco (Ajustes > Controles):\n  {command}",
     },
     asked_by_setting: {
-      text:
-        "El control {control} lo pide, y se activó en Ajustes > Controles (o con la línea de comandos). Se aplica a todo el mundo, sea cual sea su rol.",
+      text: "El control {control} lo pide, y se activó en Ajustes > Controles (o con la línea de comandos). Se aplica a todo el mundo, sea cual sea su rol.",
       hint: "Para desactivarlo allí, o:\n  {command}",
     },
   },
@@ -83,8 +77,7 @@ export const serverText: Catalog<typeof en> = {
         text: "Disco libre: {free} libres de {total} en {path}, por debajo de los {minimum} para los que se dimensiona un servidor",
       },
       note: {
-        text:
-          "'noust server cleanup' elimina lo que Noust puede demostrar que no se usa; cada release en disco conserva su código y sus dependencias.",
+        text: "'noust server cleanup' elimina lo que Noust puede demostrar que no se usa; cada release en disco conserva su código y sus dependencias.",
       },
       ok: {
         text: "Disco libre: {free} libres de {total} en {path} (mínimo {minimum})",
@@ -107,8 +100,7 @@ export const serverText: Catalog<typeof en> = {
         text: "Memoria: {amount}, swap {swap}, por debajo de los {minimum} para los que se dimensiona un servidor",
       },
       note: {
-        text:
-          "Las compilaciones son lo que necesita memoria; un archivo de swap deja que una que necesita más de la que tiene el servidor termine despacio en lugar de que la maten.",
+        text: "Las compilaciones son lo que necesita memoria; un archivo de swap deja que una que necesita más de la que tiene el servidor termine despacio en lugar de que la maten.",
       },
       ok: {
         text: "Memoria: {amount} (mínimo {minimum})",
@@ -122,8 +114,7 @@ export const serverText: Catalog<typeof en> = {
     },
     names: {
       explain: {
-        text:
-          "Nada de esto deja de funcionar: Noust acepta los nombres antiguos mientras se sigan usando. 'noust setup rename' termina lo que se puede terminar sin reiniciar nada.",
+        text: "Nada de esto deja de funcionar: Noust acepta los nombres antiguos mientras se sigan usando. 'noust setup rename' termina lo que se puede terminar sin reiniciar nada.",
       },
     },
     node: {
@@ -168,8 +159,7 @@ export const serverText: Catalog<typeof en> = {
         text: "Puerto {port}: ocupado por {holders}, no por el servidor web",
       },
       held_note: {
-        text:
-          "Un certificado se pide por el puerto 80 y los sitios se sirven por el 443: el servidor web no puede arrancar mientras otro programa los ocupe.",
+        text: "Un certificado se pide por el puerto 80 y los sitios se sirven por el 443: el servidor web no puede arrancar mientras otro programa los ocupe.",
       },
       web_server: {
         text: "Puerto {port}: {holders}",
@@ -238,8 +228,7 @@ export const serverText: Catalog<typeof en> = {
     refused: {
       permission: {
         text: "Tu rol {role} no tiene el permiso {permission} en estos servidores",
-        hint:
-          "Pide a un responsable de seguridad de cada uno una cuenta con un rol que lo tenga, o que añadan ese permiso a tu rol allí.",
+        hint: "Pide a un responsable de seguridad de cada uno una cuenta con un rol que lo tenga, o que añadan ese permiso a tu rol allí.",
       },
     },
   },
@@ -353,6 +342,60 @@ export const serverText: Catalog<typeof en> = {
       },
     },
   },
+  recipes: {
+    root_equivalent: {
+      agent: {
+        text: "{title} es un agente de IA que ejecuta órdenes, y quien pueda manejarlo puede hacerle hacer todo lo que él puede: entrar en él es como entrar en una terminal",
+        hint: "Su propia política de seguridad dice que no separa a unos usuarios de otros. Da su acceso solo a quien darías una terminal en este servidor, y no le pongas ninguna clave de modelo ni cuenta que no les darías a ellos.",
+      },
+      confirm_required: {
+        text: "{title} tiene el poder de root en este servidor, y para instalarlo hace falta que lo confirmes",
+        hint: "Si lo aceptas, confírmalo y vuelve a instalarlo: {command}",
+      },
+      docker_socket: {
+        text: "{title} controla el Docker de este servidor, y eso equivale a tener root en él",
+        hint: "Puede arrancar cualquier contenedor con cualquier parte del servidor montada, también las aplicaciones de Noust y sus datos. Instálalo solo si le darías root en el servidor a esta aplicación.",
+      },
+    },
+    unavailable: {
+      archived: {
+        text: "El proyecto está archivado y ya no se mantiene",
+        hint: "Usa la receta que lo sustituye, si el catálogo nombra una.",
+      },
+      host_ports: {
+        text: "Necesita puertos que ya ocupan el servidor web y el correo del servidor",
+        hint: "Ponlo en un servidor solo para él.",
+      },
+      licence: {
+        text: "Su licencia no permite que alguien lo ponga en marcha para otros",
+        hint: "Si tienes una licencia que lo permita, despliégalo desde su repositorio con 'noust create'.",
+      },
+      no_image: {
+        text: "El proyecto no publica ninguna imagen de contenedor que se pueda fijar",
+        hint: "Despliégalo desde el repositorio del proyecto con 'noust create', o añade un Dockerfile propio.",
+      },
+      no_sign_in: {
+        text: "Su interfaz web no tiene inicio de sesión propio y guarda las claves con las que trabaja",
+        hint: "Entra por un túnel SSH al servidor, como explica su proyecto, nunca por una dirección pública.",
+      },
+      not_an_application: {
+        text: "Es un framework para construir aplicaciones, no una aplicación que instalar",
+        hint: "Despliega tu propio proyecto desde su repositorio con 'noust create'.",
+      },
+      not_for_production: {
+        text: "Su propio proyecto dice que esta edición no es para producción",
+        hint: "Usa la edición que el proyecto mantiene para producción, desplegada desde su repositorio.",
+      },
+      platform_stack: {
+        text: "Es una plataforma de decenas de servicios con su propio proxy",
+        hint: "Ponla en un servidor solo para ella, con el instalador del proyecto.",
+      },
+      root_equivalent: {
+        text: "Controla el Docker del servidor, y eso equivale a ser root en él",
+        hint: "Despliégalo tú con 'noust create' si lo aceptas, en un servidor que sea tuyo.",
+      },
+    },
+  },
   roles: {
     auditor_exclusive: {
       text: "{username} es auditor: revisa a todos y no tiene nada más",
@@ -364,8 +407,7 @@ export const serverText: Catalog<typeof en> = {
     },
     last_owner: {
       text: "{username} es la última cuenta que puede usar el rol de propietario",
-      hint:
-        "Un servidor siempre conserva a alguien que pueda hacerlo todo. Da primero el rol de propietario a otra cuenta que pueda entrar y este cambio podrá seguir.",
+      hint: "Un servidor siempre conserva a alguien que pueda hacerlo todo. Da primero el rol de propietario a otra cuenta que pueda entrar y este cambio podrá seguir.",
     },
     name_invalid: {
       text: "Nombre de rol no válido: {name}",
@@ -373,8 +415,7 @@ export const serverText: Catalog<typeof en> = {
     },
     name_system: {
       text: "{name} es el nombre de un rol integrado",
-      hint:
-        "Elige otro nombre. Los roles que trae Noust se pueden editar y devolver a como vienen, pero no redefinir con su nombre.",
+      hint: "Elige otro nombre. Los roles que trae Noust se pueden editar y devolver a como vienen, pero no redefinir con su nombre.",
     },
     name_taken: {
       text: "Ya existe un rol llamado {name}",
@@ -394,8 +435,7 @@ export const serverText: Catalog<typeof en> = {
     },
     owner_protected: {
       text: "El rol de propietario no se puede cambiar ni eliminar",
-      hint:
-        "Tiene todos los permisos que existen, para que el servidor siempre conserve a alguien que pueda hacerlo todo. Para dar todo eso a una persona, dale el rol de propietario.",
+      hint: "Tiene todos los permisos que existen, para que el servidor siempre conserve a alguien que pueda hacerlo todo. Para dar todo eso a una persona, dale el rol de propietario.",
     },
     permissions_many: {
       text: "Un rol tiene como máximo {max} permisos",
@@ -418,13 +458,11 @@ export const serverText: Catalog<typeof en> = {
     },
     separation_account: {
       text: "{username} gobernaría el acceso y ejecutaría el servidor a la vez",
-      hint:
-        "Sus roles juntos tienen {governing} (quién puede ejecutar el servidor) con {running} (ejecutarlo). La separación de funciones las mantiene en manos distintas: da a la persona una segunda cuenta para la otra función.",
+      hint: "Sus roles juntos tienen {governing} (quién puede ejecutar el servidor) con {running} (ejecutarlo). La separación de funciones las mantiene en manos distintas: da a la persona una segunda cuenta para la otra función.",
     },
     separation_role: {
       text: "{subject} gobernaría el acceso y ejecutaría el servidor a la vez",
-      hint:
-        "Tiene {governing} (quién puede ejecutar el servidor) junto con {running} (ejecutarlo). La separación de funciones las mantiene en manos distintas: divídelo en dos roles.",
+      hint: "Tiene {governing} (quién puede ejecutar el servidor) junto con {running} (ejecutarlo). La separación de funciones las mantiene en manos distintas: divídelo en dos roles.",
     },
     too_many: {
       text: "Un servidor guarda como máximo {max} roles propios",
@@ -453,10 +491,8 @@ export const serverText: Catalog<typeof en> = {
       hint: "Ningún marco de cumplimiento lo pide: se fijó en Ajustes > Controles o con la línea de comandos. Para permitirlo: {command}",
     },
     server_framework: {
-      text:
-        "El marco de cumplimiento en vigor ({frameworks}) mantiene desactivado el terminal del propio servidor (el control {control} está en refused)",
-      hint:
-        "Una shell de root en el navegador es lo más cercano a root que tiene la consola. Para permitirlo de todos modos, lo cual queda registrado: {command}. O desactiva el marco: {turn_off_command}",
+      text: "El marco de cumplimiento en vigor ({frameworks}) mantiene desactivado el terminal del propio servidor (el control {control} está en refused)",
+      hint: "Una shell de root en el navegador es lo más cercano a root que tiene la consola. Para permitirlo de todos modos, lo cual queda registrado: {command}. O desactiva el marco: {turn_off_command}",
     },
     server_off: {
       text: "El terminal del propio servidor está desactivado (terminal.server.enabled)",
@@ -466,8 +502,7 @@ export const serverText: Catalog<typeof en> = {
   tunnels: {
     cloudflared_missing: {
       text: "cloudflared no está instalado",
-      hint:
-        "Noust lo instala desde el repositorio de paquetes de Cloudflare, {url}, con la clave con la que Cloudflare lo firma: ejecuta 'noust tunnel install-cloudflared' y después este comando otra vez.",
+      hint: "Noust lo instala desde el repositorio de paquetes de Cloudflare, {url}, con la clave con la que Cloudflare lo firma: ejecuta 'noust tunnel install-cloudflared' y después este comando otra vez.",
     },
     no_account: {
       text: "No hay ninguna cuenta de Cloudflare con la que gestionar un túnel",
@@ -475,8 +510,7 @@ export const serverText: Catalog<typeof en> = {
     },
     store_sealed: {
       text: "El almacén de secretos está sellado",
-      hint:
-        "El conector de un túnel lee su token al arrancar, sin nadie que escriba una frase de paso. Usa los túneles en un servidor, no en una central sellada.",
+      hint: "El conector de un túnel lee su token al arrancar, sin nadie que escriba una frase de paso. Usa los túneles en un servidor, no en una central sellada.",
     },
   },
 };

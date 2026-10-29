@@ -43,7 +43,7 @@ The same catalogue is the API's:
 
 | Route | What it does |
 |---|---|
-| `GET /api/recipes?q=&category=&tag=&kind=` | The catalogue, with search and filters |
+| `GET /api/recipes?q=&category=&tag=&kind=&available=&unavailable_code=&tested=` | The catalogue, with search and filters |
 | `GET /api/recipes/categories` | The categories that hold a recipe, with how many |
 | `GET /api/recipes/{name}` | One recipe in full: variables (never their values), images, ports it opens, health check, notes |
 | `GET /api/recipes/{name}/logo` | Its logo, an SVG that needs nothing the console's CSP forbids |
@@ -72,7 +72,8 @@ recipe that needs any of these is not a recipe:
 
 - an image without a tag, with a tag that moves (`latest`, `stable`, `edge`, `main`...), or
   without the `sha256` digest the registry served for it;
-- `privileged`, the Docker socket, the host's namespaces, devices, added capabilities, disabled
+- `privileged`, the Docker socket (one recipe may say it is root on the server, below), the host's
+  namespaces, devices, added capabilities, disabled
   confinement, `build:`, `env_file:`, `extends:`, `container_name:` and every other key outside the
   closed list (`composefile.py`, `_SERVICE_KEYS`);
 - a published port other than `127.0.0.1:${PORT}:<port>` (nginx is the only way in), a loopback
@@ -252,7 +253,7 @@ slogan: A lightweight Bitwarden-compatible password manager server.     # one li
 description: One or two sentences, 400 characters.
 category: security                # a closed list, below
 tags: [passwords, bitwarden]      # up to 8, lower case, [a-z0-9-]
-logo: logo.svg                    # recipes/assets/<name>/logo.svg
+logo: simple-icons:vaultwarden    # the collection's mark, or logo.svg: recipes/assets/<name>/logo.svg
 version: "1.37.4"                 # the upstream version this recipe pins; a quoted string
 revision: 1                       # 1 by default; raised when only the recipe changed
 updated: 2026-10-06               # when the recipe last changed
@@ -295,11 +296,20 @@ A recipe that cannot be deployed with this release is listed, not hidden:
 
 ```yaml
 available: false
-unavailable_reason: Why, in a sentence that says what it waits for.
+unavailable_code: licence          # why, as a code: licence, not_for_production, no_image,
+                                   # not_an_application, host_ports, archived, platform_stack,
+                                   # root_equivalent or no_sign_in
+replaced_by: openbao               # optional: the recipe that stands in for it
+unavailable_reason: The evidence: the file or page read, the day, and what it said.
 ```
 
-It carries only the catalogue fields above, and `noust recipe show` and the console print the
-reason. Excalidraw, PocketBase, Vault and others are listed this way (see the end of this page).
+It carries only the catalogue fields above. The code is what a screen translates and filters by: the
+API answers it as a sentence of the server's words (`unavailable`, with its `code` and `params`, and
+`unavailable_text` and `unavailable_hint` in English), `GET /api/recipes?available=false` lists what
+is left out and `?unavailable_code=licence` narrows it, and `noust recipe list --unavailable
+[--reason CODE]` does the same. `unavailable_reason` stays the evidence, to be folded under the
+sentence. Installing a listed recipe is refused with that sentence. Vault, Excalidraw, PocketBase and
+others are listed this way (see the end of this page).
 
 ### `kind: compose`
 
@@ -406,6 +416,33 @@ An update that brings an entrypoint the installed version lacked asks for its ad
 install does (nothing is touched until it is given), writes the address and the port to the
 `.env`, and adds the name once the update has passed its health gate; one the application already
 answers on is left as it is.
+
+#### A recipe that is root on the server
+
+Some applications are root on the host by design: Portainer and Coder manage the containers of the
+server through the Docker daemon's socket, so whoever signs in can start a container with any part
+of the server mounted, Noust's applications and their data included. A recipe that is one says so,
+and is offered with a warning and a confirmation instead of being left out:
+
+```yaml
+root_equivalent: docker_socket     # the only kind: the stack mounts /var/run/docker.sock
+```
+
+It allows exactly one thing the closed schema refuses, the mount `/var/run/docker.sock:/var/run/docker.sock`
+(`:ro` or not) and nothing else of the host: `privileged`, another path of the daemon and every other
+refusal stand. The catalogue carries the warning in the server's coded words (`root_equivalent`,
+`root_equivalent_warning`, `root_equivalent_text` and `root_equivalent_hint` of `GET /api/recipes`),
+so a screen can say it in its own language before anyone presses install.
+
+Installing one is refused until somebody confirms it, in the one place every way in meets
+(`plan_recipe`): `noust recipe install portainer -d tools.example.com --accept-root-equivalent` on the
+command line, `accept_root_equivalent: true` in `POST /api/recipes/{name}/install` and in
+`POST /api/apps`. Through the API the confirmation also needs the server's permission
+(`server:manage`) and sudo mode, as a package installed as root does. The confirmation records the
+stack's exception for the compose guard in the name of whoever gave it, with the recipe in the
+reason, exactly as `noust app sandbox compose-exception` does (and audited the same way), so the
+deployment that follows is not refused and the exception is listed where every other one is. Without
+the record a stack of another application that mounts the socket is still refused.
 
 ### `kind: native`
 
@@ -577,10 +614,23 @@ attribute or element, no `class`, no event handler, no `href`, no `url(...)`, no
 `foreignObject`, no doctype or entity, a `viewBox`, at most 8 KiB. It is never fetched from
 anywhere.
 
-The logos this release ships are plain monograms drawn for Noust (two letters on a dark tile), not
-the projects' own marks: a project's logo is its trademark, and shipping it needs a licence that
-allows redistribution and a record of it. The policy for a project's real mark, and for everything
-else a recipe says about someone else's software, is in the next section.
+`logo:` is one of two things:
+
+- `simple-icons:<slug>`, the mark the [simple-icons](https://github.com/simple-icons/simple-icons)
+  collection holds for the project (CC0-1.0, files of lower-case letters and digits such as
+  `nextdotjs`). The file is `recipes/assets/_simple-icons/<slug>.svg`, copied unchanged from the
+  collection and shared by every recipe that names the slug; its `NOTICE` says which release of the
+  collection and what the licence covers.
+- `logo.svg`, a file of the recipe: the monogram drawn for Noust (two letters on a dark tile, under
+  Noust's licence), for a project the collection has no mark for or whose guidelines forbid a third
+  party's use of its logo.
+
+The catalogue says which (`logo_source`, `logo_icon` and `logo_license` of `GET /api/recipes`), so
+that a screen can credit a mark as it draws it. `scripts/recipe_logos.py report` lists who has a mark
+and who has the monogram, `apply` writes the marks into the recipes and `check` fails on a slug the
+collection does not have or a file that is not the collection's. A project's logo is its trademark,
+and the collection's licence covers its files and not the brand: the policy for a project's mark, and
+for everything else a recipe says about someone else's software, is in the next section.
 
 ## Names, marks, licences and logos of the projects
 
@@ -598,12 +648,15 @@ compatibility, and forbid suggesting endorsement and using their marks for a hos
 modified offer. A guideline that matters is named in the recipe's header comment with the day it
 was read.
 
-**Logos.** Every recipe ships a Noust monogram: two letters on a dark tile, drawn for Noust and
-under Noust's licence. A project's real mark is added only when its licence or a written permission
-allows redistributing it, with a `LOGO-NOTICE` file beside it that names the project, the source
-URL, the licence or permission and the date. A project whose guidelines do not allow a third
-party's use of its logo (Plausible's) never gets its mark here. `tests/recipes/test_catalog_wave2.py`
-fails on a logo that is not the monogram and has no `LOGO-NOTICE`.
+**Logos.** A recipe's logo is the project's mark from the simple-icons collection (CC0-1.0; its
+`NOTICE`, beside the files, records the release and says the licence covers the files and not the
+brand), or the monogram drawn for Noust: two letters on a dark tile, under Noust's licence. A mark
+from anywhere else is added only when its licence or a written permission allows redistributing it,
+with a `LOGO-NOTICE` file beside it that names the project, the source URL, the licence or
+permission and the date. A project whose guidelines do not allow a third party's use of its logo
+(Plausible's, `plausible.io/trademark`, read 2026-10-06) never gets its mark here, whatever the
+collection holds: it is given the monogram. `tests/recipes/test_catalog_policy.py` fails on a
+logo that is none of these, and on a mark in the package that no recipe names.
 
 **Licences.** `license` is the SPDX expression of the project's code (`LicenseRef-...` where SPDX
 has no identifier). Noust redistributes none of that code: a recipe is configuration and a pointer
@@ -632,6 +685,37 @@ when the project asks for it, when its licence changes to one of the third kind,
 repository is archived (MinIO) or it stops publishing images that can be pinned, or when it needs
 what a recipe may not have (the Docker socket, the host's network). Nothing is deleted without a
 reason a person can read.
+
+## Which recipes have been started for real
+
+A recipe that loads has been read by a closed schema and a lint; whether it starts is only known
+when it runs. `tests/integration/recipes_run.py` starts the catalogue's Compose recipes one at a
+time inside the harness container (its own Docker, never the machine's), with
+`scripts/recipe_smoke.py`: the variables resolved as a deployment resolves them, the stack up as a
+throwaway project, the health gate asked exactly as the gate asks it, the same path asked as nginx
+asks it, every container inspected for a restart loop, an out-of-memory kill and a failed exit. It
+writes what happened to `tests/integration/results/recipes.json` (recipe, version, result, seconds,
+date, and for a failure the problem and the end of the log) before the next recipe starts, and
+removes the images the recipe pulled by name. A recipe counts as tested when its latest result is
+`pass`; a failure is fixed or the recipe is listed with the reason. The harness reads Docker Hub's
+public images through a pull-through mirror (`mirror.gcr.io`, the same digests) because Hub counts
+anonymous pulls per address.
+
+Which recipes the catalogue carries as tested is `recipes/tested.json`, written from that file by
+`scripts/recipe_tested.py` (a test fails while the two disagree): `GET /api/recipes` answers `tested`
+with the version that was started, the day, the seconds it took and whether that is the version the
+recipe pins now, and takes `?tested=true|false`; `noust recipe list --tested|--untested` does the same.
+
+```bash
+tests/integration/recipes_run.py run --next 10 --budget 35   # the next ten, none started after 35 minutes
+tests/integration/recipes_run.py run NAME...                 # these, now
+tests/integration/recipes_run.py status                      # the totals and every recipe that did not pass
+tests/integration/recipes_run.py accept                      # drafts that passed, into the catalogue
+```
+
+It is the machine's one Docker place: it runs through `noust-docker`, one batch at a time, and a
+batch gives the place back after its budget so that the other harnesses get their turn. Look at the
+free space of the drive Docker lives on before a batch; the runner stops under 30 GB.
 
 ## Contributing a recipe
 
@@ -676,9 +760,9 @@ test results.
 
 <!-- recipes:start (generated by scripts/recipe_docs.py; do not edit) -->
 
-The catalogue has 128 recipes you can install and 15 that are listed with the reason.
+The catalogue has 206 recipes you can install and 11 that are listed with the reason.
 
-Of the 128 you can install, 123 run in Docker and 5 are native (a pinned source built by one of Noust's deployers). 105 were written from the project's own documentation, and 23 took part of their wiring from Coolify's service templates (Apache-2.0), credited in the header of their file. Every image is pinned by tag and by digest and every recipe starts closed. `scripts/recipe_smoke.py` starts a recipe in Docker and asks its health check: run it for a recipe you add or change.
+Of the 206 you can install, 201 run in Docker and 5 are native (a pinned source built by one of Noust's deployers). 110 were written from the project's own documentation, 45 took part of their wiring from Coolify's service templates (Apache-2.0) and 51 from Dokploy's (MIT), credited in the header of their file. Every image is pinned by tag and by digest and every recipe starts closed. `scripts/recipe_smoke.py` starts a recipe in Docker and asks its health check: run it for a recipe you add or change.
 
 | Recipe | Version | Kind | Runs |
 |---|---|---|---|
@@ -688,43 +772,78 @@ Of the 128 you can install, 123 run in Docker and 5 are native (a pinned source 
 | AnythingLLM | 1.18.0 | compose | Docker |
 | Apache Superset | 6.1.0 | compose | Docker; PostgreSQL, Valkey |
 | Appsmith | 2.5.0 | compose | Docker |
+| ArchiveBox | 0.9.77 | compose | Docker |
 | Audiobookshelf | 2.37.1 | compose | Docker |
 | authentik | 2026.8.3 | compose | Docker; PostgreSQL |
+| BabyBuddy | 2.11.0 | compose | Docker |
 | Baserow | 2.4.0 | compose | Docker; PostgreSQL with pgvector |
 | Bazarr | 1.6.2 | compose | Docker |
 | Beszel | 0.21.0 | compose | Docker |
+| BookStack | 26.09.2 | compose | Docker; MariaDB |
 | Bugsink | 2.6.1 | compose | Docker; MySQL |
+| ByteStash | 1.5.6 | compose | Docker |
+| Calibre | 7.26.0 | compose | Docker |
+| CertMate | 2.21.3 | compose | Docker |
 | changedetection.io | 0.60.9 | compose | Docker |
+| Chatto (single binary) | 0.4 | compose | Docker |
 | Chatwoot | 4.18.0 | compose | Docker; PostgreSQL with pgvector, Valkey |
+| Chroma | 1.0.15 | compose | Docker |
 | CloudBeaver | 26.2.3 | compose | Docker |
 | code-server | 4.140.0 | compose | Docker |
+| Coder | 2.38.4 | compose | Docker; PostgreSQL |
+| CommaFeed | 7.4.1-h2 | compose | Docker |
 | ConvertX | 0.19.0 | compose | Docker |
+| CookieCloud | 2026.10.23 | compose | Docker |
 | CouchDB | 3.5.3 | compose | Docker |
+| Cup | 3.6.0 | compose | Docker |
 | CyberChef | 11.5.0 | compose | Docker |
+| Dagu | 2.10.7 | compose | Docker |
 | Dashy | 4.8.7 | compose | Docker |
+| Databasement | 1.8.4 | compose | Docker |
+| Databasus | 3.16.2 | compose | Docker |
+| Directory Lister | 5.8.2 | compose | Docker |
 | Directus | 12.4.1 | compose | Docker; PostgreSQL |
+| Discourse | 2026.1.4 | compose | Docker; PostgreSQL with pgvector, Redis |
+| Docling | 1.38.2 | compose | Docker |
+| Docling Serve | 1.38.2 | compose | Docker |
 | Docmost | 0.96.0 | compose | Docker; PostgreSQL, Valkey |
+| Documenso | 1.12.10 | compose | Docker; PostgreSQL |
 | DocuSeal | 3.3.3 | compose | Docker |
+| DokuWiki | 2021.11.28 | compose | Docker |
 | Dolibarr | 24.0.2 | compose | Docker; MariaDB |
+| Dozzle | 11.3.5 | compose | Docker |
 | draw.io | 32.5.5 | compose | Docker |
+| Drizzle Gateway | 1.7.0 | compose | Docker |
 | Elasticsearch | 9.5.5 | compose | Docker |
 | EspoCRM | 10.0.10 | compose | Docker; MariaDB |
 | Etherpad | 3.3.9 | compose | Docker |
+| FileGator | 7.14.3 | compose | Docker |
 | Firefly III | 6.7.9 | compose | Docker; PostgreSQL |
+| Firefox | 26.09.1 | compose | Docker |
+| FlareSolverr | 3.5.2 | compose | Docker |
+| Flarum | 2.0.2 | compose | Docker; MariaDB |
+| Flatnotes | 5.5.5 | compose | Docker |
 | Forgejo | 16.0.5 | compose | Docker; PostgreSQL; opens 2222 tcp |
 | FreshRSS | 1.30.1 | compose | Docker |
 | Garage | 2.4.1 | compose | Docker |
 | Gatus | 5.37.0 | compose | Docker |
+| Gel | 6 | compose | Docker |
 | Ghost | 6.67.0 | compose | Docker; MySQL |
 | Ghostfolio | 3.88.0 | compose | Docker; PostgreSQL, Valkey |
 | Gitea | 28.0.0 | compose | Docker; PostgreSQL; opens 2222 tcp |
 | Glance | 0.8.7 | compose | Docker |
 | GlitchTip | 6.2.6 | compose | Docker; PostgreSQL |
+| go2rtc | 1.9.14 | compose | Docker |
+| Gotenberg | 8.39.0 | compose | Docker |
 | Gotify | 3.1.1 | compose | Docker |
+| GoWa | 9.7.0 | compose | Docker |
 | Grafana | 13.2.3 | compose | Docker |
+| Grimoire | 0.4.4 | compose | Docker |
+| Grocy | 4.6.0 | compose | Docker |
 | Headscale | 0.29.5 | compose | Docker |
 | Healthchecks | 4.4 | compose | Docker |
 | HedgeDoc | 1.12.0 | compose | Docker; PostgreSQL |
+| Heimdall | 2.8.3 | compose | Docker |
 | Hello | 1.0.0 | native | static |
 | Homarr | 2.6.0 | compose | Docker |
 | Home Assistant | 2026.10.2 | compose | Docker; no discovery on the local network: devices by address |
@@ -733,26 +852,37 @@ Of the 128 you can install, 123 run in Docker and 5 are native (a pinned source 
 | Hoppscotch | 2026.9.0 | compose | Docker; PostgreSQL |
 | Immich | 3.2.4 | compose | Docker; Valkey, PostgreSQL with VectorChord |
 | Infisical | 0.166.8 | compose | Docker; PostgreSQL, Valkey |
+| InfluxDB | 2.7-alpine | compose | Docker |
 | Jellyfin | 12.2 | compose | Docker |
+| Jellyseerr | 2.7.3 | compose | Docker |
 | Jenkins | 2.580.1 | compose | Docker |
 | Karakeep | 0.34.0 | compose | Docker; headless Chrome, Meilisearch |
 | Kavita | 0.9.1 | compose | Docker |
 | Keycloak | 26.8.0 | compose | Docker; PostgreSQL |
 | Kimai | 2.70.0 | compose | Docker; MySQL |
+| Komari Monitor | 1.6.1 | compose | Docker |
 | Komga | 1.29.1 | compose | Docker |
 | Langflow | 1.12.5 | compose | Docker; PostgreSQL |
+| LanguageTool | 6.6 | compose | Docker |
 | Leantime | 3.12.0 | compose | Docker; MySQL |
 | LibreChat | 0.8.8 | compose | Docker; MongoDB, Meilisearch |
+| LibreDB Studio | 1.0.0 | compose | Docker |
 | LibreSpeed | 6.3.0 | compose | Docker |
+| Libretranslate | 1.9.6 | compose | Docker |
 | Lidarr | 3.1.0.4875 | compose | Docker |
 | linkding | 1.47.0 | compose | Docker |
 | Linkwarden | 2.16.3 | compose | Docker; PostgreSQL, Meilisearch |
 | listmonk | 6.2.0 | compose | Docker; PostgreSQL |
 | LiteLLM | 1.104.0 | compose | Docker; PostgreSQL |
 | Logto | 1.45.0 | compose | Docker; PostgreSQL; answers on a second address (admin) |
+| Lowcoder | 3.0.0 | compose | Docker |
+| LubeLogger | 1.6.5 | compose | Docker |
+| Mage AI | 0.9.78 | compose | Docker |
 | Mailpit | 1.31.4 | compose | Docker; SMTP on 127.0.0.1 |
+| Marimo | 0.25.2 | compose | Docker |
 | Matomo | 5.14.0 | compose | Docker; MariaDB |
 | Mattermost | 11.11.1 | compose | Docker; PostgreSQL |
+| MAZANOKE | 1.1.7 | compose | Docker |
 | Mealie | 3.29.0 | compose | Docker |
 | Meilisearch | 1.54.3 | compose | Docker |
 | Memos | 0.31.0 | compose | Docker |
@@ -762,54 +892,86 @@ Of the 128 you can install, 123 run in Docker and 5 are native (a pinned source 
 | Navidrome | 0.64.2 | compose | Docker |
 | Netdata | 2.12.1 | compose | Docker |
 | Nextcloud | 35.0.1 | compose | Docker; PostgreSQL, Valkey |
+| Nginx | 1.31.8 | compose | Docker |
 | NocoDB | 2026.09.1 | compose | Docker; PostgreSQL, Valkey |
 | ntfy | 2.28.0 | compose | Docker |
 | Odoo | 20.0.20260926 | compose | Docker; PostgreSQL |
 | Ollama | 0.35.1 | compose | Docker; no authentication of its own |
+| Omni-Tools | 0.7.0 | compose | Docker |
+| Once Campfire | 1.5.6 | compose | Docker |
+| Onedev | 17.0.0 | compose | Docker; PostgreSQL |
+| Open Design | 0.16.1 | compose | Docker |
 | Open WebUI | 0.11.4 | compose | Docker |
+| OpenBao | 2.7.2 | compose | Docker |
+| OpenClaw | 2026.10.8 | compose | Docker |
+| OpenCode | 1.18.32 | compose | Docker |
+| OpenGist | 1 | compose | Docker |
 | OpenObserve | 1.1.1 | compose | Docker |
+| OpenSEO | 0.1.6 | compose | Docker |
+| OpenSpeedTest | 2.0.8 | compose | Docker |
+| Otter Wiki | 2 | compose | Docker |
 | Outline | 1.11.0 | compose | Docker; PostgreSQL, Valkey |
+| Owncast | 0.3.0 | compose | Docker |
 | ownCloud Infinite Scale | 8.2.1 | compose | Docker |
 | PairDrop | 1.11.2 | compose | Docker |
+| Paperclip | 2026.1023.0 | compose | Docker; PostgreSQL |
 | Paperless-ngx | 3.3.0 | compose | Docker; PostgreSQL, Valkey |
+| Parseable | 1.6.0 | compose | Docker |
 | Penpot | 2.18.3 | compose | Docker; PostgreSQL, Valkey |
 | pgAdmin | 9.18.0 | compose | Docker |
 | Plane | 1.4.2 | compose | Docker; PostgreSQL, Valkey |
 | PLANKA | 2.2.1 | compose | Docker; PostgreSQL |
 | Plausible Analytics Community Edition | 3.2.1 | compose | Docker; PostgreSQL, ClickHouse |
 | Pocket ID | 2.18.0 | compose | Docker |
+| Portainer | 2.45.3 | compose | Docker |
+| Postgresus | 2.15.3 | compose | Docker |
 | PrivateBin | 2.1.0 | compose | Docker |
+| Prometheus | 3.15.1 | compose | Docker |
 | Prowlarr | 2.6.5.5623 | compose | Docker |
+| Pulse | 5.1 | compose | Docker |
 | qBittorrent | 5.2.4 | compose | Docker; opens 6881 tcp and udp |
 | Qdrant | 1.19.2 | compose | Docker |
+| qui | 1.33.1 | compose | Docker |
 | RabbitMQ | 4.4.0 | compose | Docker; AMQP on 127.0.0.1 |
 | Radarr | 6.4.4.10685 | compose | Docker |
+| Rivet Engine | 2.2.0 | compose | Docker |
 | Rocket.Chat | 8.9.0 | compose | Docker; MongoDB |
 | Roundcube | 1.7.5 | compose | Docker |
 | SearXNG | 2026.10.4 | compose | Docker; a dated build, the project has no releases |
 | Seerr | 3.5.0 | compose | Docker |
 | SFTPGo | 2.7.6 | compose | Docker; opens 2022 tcp |
 | Shlink | 5.1.7 | compose | Docker |
+| Silex | 3.7.0 | compose | Docker |
 | SilverBullet | 2.12.1 | compose | Docker |
 | SiYuan | 3.8.7 | compose | Docker |
+| Snipe-IT | 8.7.1 | compose | Docker; MariaDB |
 | Sonarr | 4.0.20.3014 | compose | Docker |
+| Speedtest Tracker | 1.15.1 | compose | Docker |
+| Steedos | 3.0.14 | compose | Docker |
 | Stirling PDF | 3.1.0 | compose | Docker |
 | Syncthing | 2.1.6 | compose | Docker; opens 22000 tcp and udp |
 | Tandoor Recipes | 2.6.15 | compose | Docker; PostgreSQL |
 | Transmission | 4.1.3 | compose | Docker; opens 51413 tcp and udp |
+| TREK | 3.3.0 | compose | Docker |
 | Trilium Notes | 0.106.0 | compose | Docker |
 | Twenty | 2.45.6 | compose | Docker; PostgreSQL, Valkey |
 | Typebot | 3.19.0 | compose | Docker; PostgreSQL, Valkey; answers on a second address (viewer) |
 | Typesense | 30.2 | compose | Docker |
 | Umami | 2.20.2 | native | Node.js; PostgreSQL |
+| Unleash | 7.4.0 | compose | Docker; PostgreSQL |
+| Upsnap | 5 | compose | Docker |
 | Uptime Kuma | 1.23.17 | native | Node.js |
 | Vaultwarden | 1.37.4 | compose | Docker |
+| VersityGW | 1.8.0 | compose | Docker |
+| VictoriaMetrics | 1.108.1 | compose | Docker |
 | Vikunja | 2.7.0 | compose | Docker |
 | Wallos | 5.10.0 | compose | Docker |
 | Weaviate | 1.40.1 | compose | Docker |
 | Wekan | 12.56 | compose | Docker; MongoDB |
 | Wiki.js | 2.5.315 | compose | Docker; PostgreSQL |
 | WordPress | 7.1.2 | native | PHP-FPM; MySQL/MariaDB |
+| YOURLS | 1.9.2 | compose | Docker; MySQL |
+| Yuvomi | 1.85.0 | compose | Docker |
 
 <!-- recipes:end -->
 
@@ -819,16 +981,12 @@ from and the day, and `noust recipe show` and the console print it:
 | Recipe | Why |
 |---|---|
 | Appwrite | 40 services, three of which mount the Docker socket |
-| BookStack | no official image, and a new installation has a known administrator account |
 | Cal.com | the open source edition is now Cal.diy, "for personal, non-production use" |
-| Coder | drives the Docker daemon through its socket |
 | Excalidraw | no release tag to pin: only `latest` and per-build `sha-` tags, none of them `latest` itself |
 | Hermes Agent | a single-tenant agent whose own policy says the operating system is its only boundary |
 | Joplin Server | its licence is personal, non-commercial use only |
 | MinIO | the repository is archived and says it is no longer maintained |
-| OpenClaw | its policy says anyone who can operate the agent can make it do anything it can do |
 | PocketBase | a binary with no image, and no deployer in this release that runs one |
-| Portainer | mounts the Docker socket: root on the host by design |
 | Stalwart | publishes 25, 110, 143, 443, 465, 587, 993, 995 and 4190, and needs mail DNS and certificates |
 | Strapi | publishes no image: a project is built from your own code |
 | Supabase | 11 services, a `container_name` Realtime depends on, and nested variable references |

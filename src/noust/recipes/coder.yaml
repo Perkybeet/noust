@@ -1,16 +1,90 @@
+# Coder from its own image and the PostgreSQL it needs, as the project's Docker
+# installation page documents it (https://coder.com/docs/install/docker: the server
+# listens on 7080, keeps its state in PostgreSQL, takes CODER_ACCESS_URL as the
+# address workspaces reach it at, and its Docker templates drive the daemon through
+# /var/run/docker.sock).
+#
+# Coder is root on the host by design: a workspace is a container the server starts
+# through the daemon's socket, so whoever can write a template can start a container
+# with any part of the server mounted, Noust's applications and their data included.
+# The recipe says so (root_equivalent), the install asks for a confirmation and sudo
+# mode, and the stack's exception for the compose guard is recorded in the name of
+# whoever confirmed it.
+#
+# The server runs as root inside its container so that it can use the socket whatever
+# group owns it on this server (the project's page asks for the docker group's number;
+# a recipe cannot know it). Whoever opens the page first creates the first account,
+# which the first note says.
+#
+# Pinned to the release tag and the digest GitHub's registry serves for it.
 schema: 2
 name: coder
 kind: compose
 title: Coder
 slogan: "Secure, remote development environments, in your own cloud."
-description: "Provision workspaces from Terraform templates and connect to them from any editor. Listed because its Docker provider drives the host's daemon."
+description: "Provision workspaces from Terraform templates and connect to them from any editor. Its Docker provider drives this server's daemon: root on this server by design, and the first person to open it creates the owner account."
 category: development
 tags: [workspaces, remote-development, terraform]
-logo: logo.svg
-updated: 2026-10-06
+logo: simple-icons:coder
+version: "2.38.4"
+revision: 1
+updated: 2026-10-28
 homepage: https://coder.com
 docs: https://coder.com/docs/install/docker
 repository: https://github.com/coder/coder
 license: AGPL-3.0-only
-available: false
-unavailable_reason: "Coder creates workspaces by driving Docker (or a cloud API) from the server: its Docker installation needs the daemon's socket, and its troubleshooting names 'Cannot connect to the Docker daemon at unix:///var/run/docker.sock' (coder.com/docs/install/docker, read 2026-10-06); a recipe may not mount the Docker socket. Not available in this release."
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 7080
+root_equivalent: docker_socket
+variables:
+  CODER_ACCESS_URL:
+    from: url
+    description: The address workspaces and people reach Coder at; workspaces connect back to it.
+  POSTGRES_PASSWORD:
+    generate: password32
+    secret: true
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /healthz
+  expect: "200"
+  timeout: 180
+compose: |
+  services:
+    coder:
+      image: ghcr.io/coder/coder:v2.38.4@sha256:e5f4489f3fac3ee6d975552d989458b50882e78f0560d4f91253053f3797a019
+      restart: unless-stopped
+      user: "0:0"
+      depends_on:
+        database:
+          condition: service_healthy
+      environment:
+        CODER_PG_CONNECTION_URL: "postgresql://coder:${POSTGRES_PASSWORD}@database/coder?sslmode=disable"
+        CODER_HTTP_ADDRESS: "0.0.0.0:7080"
+        CODER_ACCESS_URL: "${CODER_ACCESS_URL}"
+      volumes:
+        - /var/run/docker.sock:/var/run/docker.sock
+      ports:
+        - "127.0.0.1:${PORT}:7080"
+    database:
+      image: postgres:17-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: coder
+        POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+        POSTGRES_DB: coder
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U coder -d coder"]
+        interval: 5s
+        timeout: 5s
+        retries: 10
+      volumes:
+        - coder-db:/var/lib/postgresql/data
+  volumes:
+    coder-db:
+notes:
+  - "Open {{ url }} now and create the owner account: until someone does, the first visitor to that page becomes the owner."
+  - "Coder is root on this server: whoever can write a template can start a container with any part of the server mounted, Noust's applications and their data included. Give the owner and template-admin roles to nobody you would not give root."
+  - "Workspaces connect back to {{ url }}, so the name must resolve and be reachable from the containers on this server."
+  - "Its state is in the PostgreSQL of this stack (Docker volume coder-db, dumped by Noust before every update): back it up before updating."

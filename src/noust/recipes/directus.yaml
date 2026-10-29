@@ -25,7 +25,7 @@ slogan: An instant REST and GraphQL API, and an app, on top of any SQL database.
 description: "A headless CMS and data platform: model your data in PostgreSQL, get a REST and GraphQL API and an admin app with roles and flows. Source-available (Monospace Sustainable Core License, GPL-3.0 after four years); free for any use that does not compete with the publisher."
 category: backend
 tags: [headless-cms, api, graphql, database]
-logo: logo.svg
+logo: simple-icons:directus
 version: "12.4.1"
 revision: 1
 updated: 2026-10-06

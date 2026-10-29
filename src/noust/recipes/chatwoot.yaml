@@ -20,7 +20,7 @@ slogan: "Open source customer support: live chat, e-mail and social inboxes in o
 description: "A shared inbox for the conversations with your customers: a live-chat widget for your site, e-mail, WhatsApp, Facebook, Instagram and more, with teams, canned responses, automations and reports. An open core project: MIT for what it ships, with enterprise features sold separately. The first person to open it creates the administrator."
 category: communication
 tags: [customer-support, live-chat, helpdesk, inbox]
-logo: logo.svg
+logo: simple-icons:chatwoot
 version: "4.18.0"
 revision: 1
 updated: 2026-10-20

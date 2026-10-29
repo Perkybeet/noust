@@ -1,0 +1,58 @@
+# Silex: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/silex
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: silex
+kind: compose
+title: "Silex"
+slogan: "Silex is an online tool for visually creating static sites with dynamic data."
+description: "Silex is a free and open-source website builder for professional designers. It lets you create static websites visually with a drag-and-drop editor, custom CSS and JavaScript, and publish them anywhere."
+category: backend
+tags: [website-builder, no-code, static-site, backend]
+logo: logo.svg
+version: "3.7.0"
+revision: 1
+updated: 2026-10-28
+homepage: https://www.silex.me
+docs: https://docs.silex.me
+repository: https://github.com/silexlabs/Silex
+license: AGPL-3.0-only
+architectures: ["amd64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SILEX_URL:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SILEX_SESSION_SECRET:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for silex session secret."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    silex:
+      image: silexlabs/silex:3.7.0@sha256:f130231e7e456c3032dc38f2e66772481a1c5588f3bfc45f3a7b3bbd757d3754
+      restart: unless-stopped
+      environment:
+        SILEX_URL: ${SILEX_URL}
+        SILEX_SESSION_SECRET: ${SILEX_SESSION_SECRET}
+        STORAGE_CONNECTORS: fs
+        HOSTING_CONNECTORS: fs,download
+        SILEX_FS_ROOT: /silex/silex/storage
+        SILEX_FS_HOSTING_ROOT: /silex/silex/hosting
+      volumes:
+        - silex-storage:/silex/silex/storage
+        - silex-hosting:/silex/silex/hosting
+      ports:
+        - 127.0.0.1:${PORT}:6805
+  volumes:
+    silex-storage:
+    silex-hosting:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes silex-storage, silex-hosting of this application: back them up before updating."

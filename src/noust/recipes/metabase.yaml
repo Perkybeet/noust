@@ -21,7 +21,7 @@ slogan: Business intelligence and dashboards for everyone on the team.
 description: Ask questions about your data without SQL, build dashboards, and share them. Connects to PostgreSQL, MySQL, MongoDB and many more. The open source edition (AGPL-3.0), with its own PostgreSQL for application data.
 category: analytics
 tags: [bi, dashboards, sql, reporting]
-logo: logo.svg
+logo: simple-icons:metabase
 version: "0.63.19"
 revision: 1
 updated: 2026-10-06

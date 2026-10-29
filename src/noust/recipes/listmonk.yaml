@@ -19,7 +19,7 @@ slogan: A self-hosted newsletter and mailing list manager.
 description: High-performance newsletter and mailing list manager with a single binary, a campaign editor, templates, subscriber import and bounce handling. Runs with its own PostgreSQL. You bring your own SMTP server.
 category: communication
 tags: [newsletter, mailing-list, email, campaigns]
-logo: logo.svg
+logo: simple-icons:listmonk
 version: "6.2.0"
 revision: 1
 updated: 2026-10-06

@@ -16,7 +16,7 @@ slogan: "A personal finance manager: budgets, accounts, rules and reports."
 description: "Keep track of your money with double-entry accounts, budgets, categories, bills and rules that sort transactions for you, with reports and charts. Import from banks and files through its data importer. The first person to register becomes the owner."
 category: business
 tags: [finance, budget, accounting, personal-finance]
-logo: logo.svg
+logo: simple-icons:fireflyiii
 version: "6.7.9"
 revision: 1
 updated: 2026-10-20

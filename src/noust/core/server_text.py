@@ -98,6 +98,79 @@ CATALOG: dict[str, str] = {
         "Ask a security officer of each of them for an account with a role that holds it, "
         "or have that permission added to your role there."
     ),
+    # -- The recipe catalogue: why a recipe is listed and cannot be installed ---------------
+    "recipes.unavailable.licence": "Its licence does not let an operator run it for others",
+    "recipes.unavailable.licence.hint": (
+        "If you hold a licence that does, deploy it from its own repository with 'noust create'."
+    ),
+    "recipes.unavailable.not_for_production": (
+        "Its own project says this edition is not for production"
+    ),
+    "recipes.unavailable.not_for_production.hint": (
+        "Use the edition the project supports for production, deployed from its repository."
+    ),
+    "recipes.unavailable.no_image": "The project publishes no container image that could be pinned",
+    "recipes.unavailable.no_image.hint": (
+        "Deploy it from the project's repository with 'noust create', or add a Dockerfile of your "
+        "own."
+    ),
+    "recipes.unavailable.not_an_application": (
+        "It is a framework to build an application with, not an application to install"
+    ),
+    "recipes.unavailable.not_an_application.hint": (
+        "Deploy your own project from its repository with 'noust create'."
+    ),
+    "recipes.unavailable.host_ports": (
+        "It needs ports that the server's web server and mail already hold"
+    ),
+    "recipes.unavailable.host_ports.hint": "Run it on a server of its own.",
+    "recipes.unavailable.archived": "The project is archived and no longer maintained",
+    "recipes.unavailable.archived.hint": (
+        "Use the recipe that replaces it, when the catalogue names one."
+    ),
+    "recipes.unavailable.platform_stack": (
+        "It is a platform of dozens of services with a proxy of its own"
+    ),
+    "recipes.unavailable.platform_stack.hint": (
+        "Run it on a server of its own with the project's installer."
+    ),
+    "recipes.unavailable.no_sign_in": (
+        "Its web interface has no sign-in of its own and holds the keys it works with"
+    ),
+    "recipes.unavailable.no_sign_in.hint": (
+        "Reach it through an SSH tunnel to the server, as its project documents, never through a "
+        "public address."
+    ),
+    "recipes.unavailable.root_equivalent": (
+        "It controls the server's Docker daemon, which is the same as root on the server"
+    ),
+    "recipes.unavailable.root_equivalent.hint": (
+        "Deploy it yourself with 'noust create' if you accept that, on a server that is yours."
+    ),
+    # -- The recipe catalogue: what is root on the server by design ---------------------------
+    "recipes.root_equivalent.docker_socket": (
+        "{title} controls the Docker daemon of this server, which is the same as having root on it"
+    ),
+    "recipes.root_equivalent.docker_socket.hint": (
+        "It can start any container with any part of the server mounted, Noust's applications "
+        "and their data included. Install it only if you would give this application root on the "
+        "server."
+    ),
+    "recipes.root_equivalent.agent": (
+        "{title} is an AI agent that runs commands, and whoever can operate it can make it do "
+        "anything it can do: access to it is the same as access to a shell"
+    ),
+    "recipes.root_equivalent.agent.hint": (
+        "Its own security policy says it is not a boundary between users. Give its sign-in only "
+        "to people you would give a shell on this server, and give it no model key or account "
+        "you would not hand to them."
+    ),
+    "recipes.root_equivalent.confirm_required": (
+        "{title} is root on this server, and installing it needs your confirmation"
+    ),
+    "recipes.root_equivalent.confirm_required.hint": (
+        "If you accept that, confirm it and install again: {command}"
+    ),
     # -- Mail an account is sent (an invitation, a password reset) -------------------------
     "mail.no_transport": "There is no way to send mail from this server",
     "mail.no_transport.hint": (

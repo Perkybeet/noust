@@ -19,7 +19,7 @@ slogan: A privacy-respecting metasearch engine that aggregates results from many
 description: "Search the web through dozens of engines without tracking or profiling, with no account. It has no sign-in: whoever reaches it can search through your server, so keep it to people you trust or put it behind access control. The project has no releases; the recipe pins a dated build."
 category: search
 tags: [search, metasearch, privacy, engine]
-logo: logo.svg
+logo: simple-icons:searxng
 version: "2026.10.4"
 revision: 1
 updated: 2026-10-06

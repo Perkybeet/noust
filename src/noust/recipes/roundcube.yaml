@@ -17,7 +17,7 @@ slogan: "A browser-based IMAP client with an application-like user interface."
 description: "Read and write mail from the browser with folders, search, an address book, filters and plug-ins. A webmail client for the mail server you already run: people sign in with their mailbox's address and password, so it has no accounts of its own."
 category: communication
 tags: [webmail, imap, email, client]
-logo: logo.svg
+logo: simple-icons:roundcube
 version: "1.7.5"
 revision: 1
 updated: 2026-10-20

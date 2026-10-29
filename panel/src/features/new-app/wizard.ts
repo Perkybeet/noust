@@ -850,6 +850,7 @@ export function createAppBody(
     }
   }
   return {
+    accept_root_equivalent: false,
     domain: normalizeDomain(form.domain),
     // An image from a registry, and a Compose document, are their own source: the server
     // refuses a source given with either.

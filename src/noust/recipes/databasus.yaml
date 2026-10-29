@@ -1,0 +1,56 @@
+# Databasus: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/databasus.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: databasus
+kind: compose
+title: "Databasus"
+slogan: "Databasus is a free, open source and self-hosted tool to backup PostgreSQL, MySQL, and MongoDB."
+description: "Free, open source and self-hosted tool to backup PostgreSQL, MySQL, MariaDB and MongoDB. Multiple storages (S3, Google Drive, FTP, etc.), notifications and Point-in-Time Recovery. Successor of Postgresus"
+category: files
+tags: [postgres, mysql, mongo, backup, s3, files]
+logo: logo.svg
+version: "3.16.2"
+revision: 1
+updated: 2026-10-28
+homepage: https://databasus.com
+docs: https://databasus.com/installation
+repository: https://github.com/databasus/databasus
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_DATABASUS:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    databasus:
+      image: databasus/databasus:v3.16.2@sha256:e7104e2353c3f7dd40b436c14a8d29b3bbb01ee1f5450d9ef636cb4eac638fbf
+      environment:
+        SERVICE_URL_DATABASUS: ${SERVICE_URL_DATABASUS}
+      volumes:
+        - databasus-data:/databasus-data
+      healthcheck:
+        test:
+          - CMD
+          - wget
+          - -qO-
+          - http://localhost:4005/api/v1/system/health
+        interval: 5s
+        timeout: 10s
+        retries: 5
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:4005
+  volumes:
+    databasus-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume databasus-data of this application: back it up before updating."

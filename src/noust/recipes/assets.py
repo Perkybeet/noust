@@ -149,3 +149,34 @@ def read_asset(name: str, asset: str) -> str:
     if len(text.encode()) > MAX_ASSET_BYTES:
         raise recipe_error(name, f"asset {asset!r} is larger than {MAX_ASSET_BYTES // 1024} KiB")
     return text
+
+
+#: Where the marks a recipe names with ``simple-icons:<slug>`` are, under ``assets/``.
+SIMPLE_ICONS_DIRECTORY = "_simple-icons"
+
+
+def read_simple_icon(slug: str) -> str:
+    """
+    Read a mark of the simple-icons collection the package carries.
+
+    Args:
+        slug: What the recipe's ``simple-icons:`` names; already judged by
+            :func:`noust.recipes.logos.check_logo`.
+
+    Returns:
+        The SVG file.
+
+    Raises:
+        RecipeNotFoundError: The package does not carry that mark (yet).
+    """
+    from noust.recipes.model import RecipeNotFoundError
+
+    resource = (
+        resources.files("noust.recipes")
+        .joinpath("assets")
+        .joinpath(SIMPLE_ICONS_DIRECTORY)
+        .joinpath(f"{slug}.svg")
+    )
+    if not resource.is_file():
+        raise RecipeNotFoundError(f"the package does not carry the simple-icons mark {slug!r}")
+    return str(resource.read_text(encoding="utf-8"))

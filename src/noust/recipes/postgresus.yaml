@@ -1,0 +1,55 @@
+# Postgresus: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/postgresus
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: postgresus
+kind: compose
+title: "Postgresus"
+slogan: "PostgreSQL backup tool with Point-In-Time-Recovery and restore verification"
+description: "Deprecated: the project was renamed to Databasus, use the Databasus template instead. Free, open source and self-hosted solution for automated PostgreSQL backups, frozen at its final release"
+category: files
+tags: [postgres, backup, s3, files]
+logo: logo.svg
+version: "2.15.3"
+revision: 1
+updated: 2026-10-28
+homepage: https://databasus.com
+docs: https://databasus.com
+repository: https://github.com/databasus/databasus
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    postgresus:
+      image: rostislavdugin/postgresus:v2.15.3@sha256:cabf722849a193be5351fe0d189f5baef40fa3b01ddd73d6083600a68a392672
+      volumes:
+        - postgresus-data:/postgresus-data
+      restart: unless-stopped
+      environment:
+        TZ: UTC
+      healthcheck:
+        test:
+          - CMD
+          - wget
+          - --no-verbose
+          - --tries=1
+          - --spider
+          - http://localhost:4005
+        interval: 30s
+        timeout: 10s
+        retries: 3
+        start_period: 40s
+      ports:
+        - 127.0.0.1:${PORT}:4005
+  volumes:
+    postgresus-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume postgresus-data of this application: back it up before updating."

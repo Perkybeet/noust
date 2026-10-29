@@ -13,7 +13,7 @@ slogan: "A diagramming editor for flowcharts, UML, networks and more, in the bro
 description: "The diagrams.net editor served from your own server: flowcharts, UML, network and cloud architecture diagrams with large shape libraries, saved to your device or to a storage service you connect. It keeps nothing on the server and has no sign-in: anybody who reaches it can use the editor."
 category: productivity
 tags: [diagrams, whiteboard, uml, flowchart]
-logo: logo.svg
+logo: simple-icons:diagramsdotnet
 version: "32.5.5"
 revision: 1
 updated: 2026-10-20

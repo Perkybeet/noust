@@ -1,0 +1,75 @@
+# LibreDB Studio: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/libredb-studio
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: libredb-studio
+kind: compose
+title: "LibreDB Studio"
+slogan: "One browser tab for PostgreSQL, MySQL, Oracle, SQL Server, MongoDB, Redis, SQLite, Couchbase..."
+description: "The open-source SQL IDE you host yourself. Query PostgreSQL, MySQL, Oracle, SQL Server, MongoDB, Redis, ClickHouse, Cassandra and more from your browser, twenty-seven drivers reaching fifty-four named engines."
+category: security
+tags: [database, sql, security]
+logo: logo.svg
+version: "1.0.0"
+revision: 1
+updated: 2026-10-28
+homepage: https://libredb.org
+docs: https://libredb.org/
+repository: https://github.com/libredb/libredb-studio
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  ADMIN_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for admin password."
+  USER_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for user password."
+  JWT_SECRET:
+    generate: "password64"
+    secret: true
+    description: "The secret Noust generated for jwt secret."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    libredb-studio:
+      image: ghcr.io/libredb/libredb-studio:1.0.0@sha256:0cb0177dd2789534f2dbfbc6673104ec0ce70ee82815f5fe9bec5efe3d329ce3
+      restart: unless-stopped
+      environment:
+        ADMIN_PASSWORD_RESET: ${ADMIN_PASSWORD_RESET:-}
+        ADMIN_EMAIL: admin@libredb.org
+        ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+        USER_EMAIL: user@libredb.org
+        USER_PASSWORD: ${USER_PASSWORD}
+        JWT_SECRET: ${JWT_SECRET}
+        STORAGE_PROVIDER: sqlite
+        STORAGE_SQLITE_PATH: /app/data/libredb-storage.db
+        AUTH_COOKIE_SECURE: 'false'
+      healthcheck:
+        test:
+          - CMD
+          - node
+          - -e
+          - 'fetch(''http://127.0.0.1:3000/api/db/health'').then(r => process.exit(r.ok ? 0 : 1)).catch(()
+            => process.exit(1))'
+        interval: 30s
+        timeout: 5s
+        retries: 3
+        start_period: 15s
+      volumes:
+        - libredb-data:/app/data
+      ports:
+        - 127.0.0.1:${PORT}:3000
+  volumes:
+    libredb-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume libredb-data of this application: back it up before updating."

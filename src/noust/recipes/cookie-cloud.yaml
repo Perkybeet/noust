@@ -1,0 +1,51 @@
+# CookieCloud: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/cookie-cloud
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: cookie-cloud
+kind: compose
+title: "CookieCloud"
+slogan: "CookieCloud是一个和自架服务器同步浏览器Cookie和LocalStorage的小工具，支持端对端加密，可设定同步时间间隔。本仓库包含了插件和服务器端源码。CookieCloud..."
+description: "CookieCloud lets you sync and manage browser cookies across devices securely using a self-hosted backend."
+category: files
+tags: [cookies, sync, selfhosted, privacy, files]
+logo: logo.svg
+version: "2026.10.23"
+revision: 1
+updated: 2026-10-28
+homepage: https://cc.ft07.com
+docs: https://github.com/easychen/cookiecloud#readme
+repository: https://github.com/easychen/CookieCloud
+license: GPL-3.0-only
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    cookiecloud:
+      image: easychen/cookiecloud:2026.10.23@sha256:7296aa83706a4a0914842a0b3ae7ccdfaf0db55018ae9dd6336c6e4238e2cc47
+      restart: unless-stopped
+      volumes:
+        - cookiecloud-data:/data/api/data
+      healthcheck:
+        test:
+          - CMD
+          - wget
+          - --spider
+          - -q
+          - http://localhost:8088
+        interval: 30s
+        timeout: 10s
+        retries: 3
+      ports:
+        - 127.0.0.1:${PORT}:8088
+  volumes:
+    cookiecloud-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume cookiecloud-data of this application: back it up before updating."

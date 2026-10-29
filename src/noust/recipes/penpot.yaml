@@ -19,7 +19,7 @@ slogan: "The open source design and prototyping platform for product teams."
 description: "Design interfaces and prototypes together in the browser, with real components, flex and grid layout, and design tokens, in a file format built on open web standards (SVG, CSS). A single public address serves the editor, the API and exports. Sign-up is open until you close it."
 category: productivity
 tags: [design, prototyping, figma-alternative, svg]
-logo: logo.svg
+logo: simple-icons:penpot
 version: "2.18.3"
 revision: 1
 updated: 2026-10-20

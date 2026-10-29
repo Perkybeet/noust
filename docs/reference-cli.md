@@ -12373,6 +12373,7 @@ Arguments: `name`
 | `--no-backups` | Do not schedule the daily backups an installed application starts with. |  |
 | `--install-requirements` | Install the language runtime and the database engines the recipe needs and this server lacks, instead of stopping. |  |
 | `--database` | The SQL engine to run it on, for a recipe that offers a choice (WordPress runs on either). |  |
+| `--accept-root-equivalent` | Confirm that you accept a recipe that is root on this server (one that controls Docker): it is refused without it. |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
@@ -12392,9 +12393,11 @@ noust recipe list [OPTIONS]
 | `--category` | Only the recipes of this category. |  |
 | `--tag` | Only the recipes with this tag. |  |
 | `--kind` | Only native or only compose recipes. |  |
+| `--unavailable` | Only the recipes that are listed and cannot be installed, with the reason of each. |  |
+| `--tested`, `--untested` | Only the recipes that were started for real in the harness, or only the others. |  |
+| `--reason` | Only the listed recipes left out for this reason. |  |
 | `--origin` | Only the package's recipes (shipped), a catalogue package's (catalog) or yours (operator). |  |
 | `--json` | Print the recipes as JSON. |  |
-| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust recipe outdated
 

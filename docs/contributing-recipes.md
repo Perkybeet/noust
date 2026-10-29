@@ -119,3 +119,17 @@ not a recipe: `noust compose import` converts one into a Compose stack
 the project's own documentation instead of the template's guess, and run the smoke test. Both catalogues
 are permissively licensed (Apache-2.0 and MIT); a template's own authors keep their rights in it, so
 cite the template as a source in the recipe's comments, not as the author.
+
+`scripts/recipe_import.py` does the part of that which is a lookup and a rewrite. `survey` reads
+both catalogues from checkouts and each project's repository with `gh api` (read-only), and says
+which templates are eligible by the rules above; `plan` picks one template per project, most starred
+first; `draft` converts it with the same importers, applies the closed schema (labels, networks and
+`container_name` go; a privileged container, a device, a host path, an extra published port and a
+`build:` are reasons to skip, said by name; a credential written as a literal becomes one generated
+variable everywhere it appears), pins every image to a release tag and its digest (a floating tag
+becomes the newest release whose digest is the floating tag's), and loads the result with the
+catalogue's own loader. Its output is a draft in a folder of your own, never in the catalogue: the
+draft is started with `tests/integration/recipes_run.py run NAME` and only one that passes is
+accepted (`recipes_run.py accept NAME`). The health path is `/` accepting `200-399`; when the
+application answers somewhere else the smoke run says where (`suggested_health`) and the draft is
+corrected and run once more.

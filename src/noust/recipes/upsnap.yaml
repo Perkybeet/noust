@@ -1,0 +1,76 @@
+# Upsnap: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/upsnap
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: upsnap
+kind: compose
+title: "Upsnap"
+slogan: "A simple wake on lan web app written with SvelteKit, Go and PocketBase."
+description: "Upsnap is a simple network device monitor and dashboard built on PocketBase."
+category: monitoring
+tags: [network, monitoring, dashboard, self-hosted]
+logo: logo.svg
+version: "5"
+revision: 1
+updated: 2026-10-28
+homepage: https://github.com/seriousm4x/UpSnap
+docs: https://github.com/seriousm4x/upsnap#readme
+repository: https://github.com/seriousm4x/UpSnap
+license: MIT
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  TZ:
+    default: "Europe/Berlin"
+    description: "Setting TZ of the application; the template leaves it to the operator."
+  UPSNAP_INTERVAL:
+    default: "*/10 * * * * *"
+    description: "Setting UPSNAP_INTERVAL of the application; the template leaves it to the operator."
+  UPSNAP_SCAN_RANGE:
+    default: "192.168.1.0/24"
+    description: "Setting UPSNAP_SCAN_RANGE of the application; the template leaves it to the operator."
+  UPSNAP_SCAN_TIMEOUT:
+    default: "500ms"
+    description: "Setting UPSNAP_SCAN_TIMEOUT of the application; the template leaves it to the operator."
+  UPSNAP_PING_PRIVILEGED:
+    default: "true"
+    description: "Setting UPSNAP_PING_PRIVILEGED of the application; the template leaves it to the operator."
+  UPSNAP_WEBSITE_TITLE:
+    default: "Upsnap Network Monitor"
+    description: "Setting UPSNAP_WEBSITE_TITLE of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    upsnap:
+      image: ghcr.io/seriousm4x/upsnap:5@sha256:1e7c2345c493f9228a5dc2102be06b5a33331100f303fe0078502f4ef1068724
+      restart: unless-stopped
+      volumes:
+        - upsnap-data:/app/pb_data
+      environment:
+        TZ: ${TZ}
+        UPSNAP_INTERVAL: ${UPSNAP_INTERVAL}
+        UPSNAP_SCAN_RANGE: ${UPSNAP_SCAN_RANGE}
+        UPSNAP_SCAN_TIMEOUT: ${UPSNAP_SCAN_TIMEOUT}
+        UPSNAP_PING_PRIVILEGED: ${UPSNAP_PING_PRIVILEGED}
+        UPSNAP_WEBSITE_TITLE: ${UPSNAP_WEBSITE_TITLE}
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - -fs
+          - http://localhost:8090/api/health
+        interval: 10s
+        timeout: 3s
+        retries: 3
+      ports:
+        - 127.0.0.1:${PORT}:8090
+  volumes:
+    upsnap-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume upsnap-data of this application: back it up before updating."

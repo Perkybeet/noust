@@ -22312,14 +22312,17 @@ export interface paths {
          *         tag: One tag.
          *         kind: ``native`` or ``compose``.
          *         origin: Only the recipes from this source.
+         *         available: Whether the recipe installs.
+         *         unavailable_code: Only the listed recipes left out for this reason.
+         *         tested: Whether the recipe was started for real.
          *
          *     Returns:
          *         The matching recipes, with whether each is available and why not, and
          *         the files of the server's own recipes that could not be read.
          *
          *     Raises:
-         *         RecipeError: ``category``, ``kind`` or ``origin`` is not one of the
-         *             closed lists (400).
+         *         RecipeError: ``category``, ``kind``, ``origin`` or ``unavailable_code`` is not one
+         *             of the closed lists (400).
          */
         get: operations["get_recipes_api_recipes_get"];
         put?: never;
@@ -36809,6 +36812,11 @@ export interface components {
          *     is the interface's own contract.
          */
         CreateAppRequest: {
+            /**
+             * Accept Root Equivalent
+             * @default false
+             */
+            accept_root_equivalent: boolean;
             /**
              * App Type
              * @description Application type. Left on auto with a recipe
@@ -51601,8 +51609,16 @@ export interface components {
          *         install_requirements: Install the language runtime and the database
          *             engines the recipe needs and the server lacks, instead of refusing.
          *             Packages installed as root: the server's permission and sudo mode.
+         *         accept_root_equivalent: Confirm a recipe that is root on the server by design (one that
+         *             controls Docker). Refused without it; with it the server's permission and sudo mode
+         *             are needed, and the stack's exception for the compose guard is recorded in your name.
          */
         RecipeInstallRequest: {
+            /**
+             * Accept Root Equivalent
+             * @default false
+             */
+            accept_root_equivalent: boolean;
             /** Database */
             database?: string | null;
             /**
@@ -51755,6 +51771,12 @@ export interface components {
             license?: string | null;
             /** Logo */
             logo?: string | null;
+            /** Logo Icon */
+            logo_icon?: string | null;
+            /** Logo License */
+            logo_license?: string | null;
+            /** Logo Source */
+            logo_source?: string | null;
             /** Min Noust */
             min_noust?: string | null;
             /** Name */
@@ -51781,6 +51803,8 @@ export interface components {
              * @default []
              */
             public_ports: components["schemas"]["RecipePublicPortOut"][];
+            /** Replaced By */
+            replaced_by?: string | null;
             /** Repository */
             repository?: string | null;
             /**
@@ -51793,6 +51817,16 @@ export interface components {
              * @default 1
              */
             revision: number;
+            /** Root Equivalent */
+            root_equivalent?: string | null;
+            /** Root Equivalent Hint */
+            root_equivalent_hint?: string | null;
+            /** Root Equivalent Text */
+            root_equivalent_text?: string | null;
+            /** Root Equivalent Warning */
+            root_equivalent_warning?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Runs In Docker
              * @default false
@@ -51814,10 +51848,24 @@ export interface components {
              * @default []
              */
             tags: string[];
+            /** Tested */
+            tested?: {
+                [key: string]: unknown;
+            } | null;
             /** Title */
             title: string;
+            /** Unavailable */
+            unavailable?: {
+                [key: string]: unknown;
+            } | null;
+            /** Unavailable Code */
+            unavailable_code?: string | null;
+            /** Unavailable Hint */
+            unavailable_hint?: string | null;
             /** Unavailable Reason */
             unavailable_reason?: string | null;
+            /** Unavailable Text */
+            unavailable_text?: string | null;
             /** Updated */
             updated?: string | null;
             /**
@@ -51915,13 +51963,32 @@ export interface components {
          *         category: One of the closed list (``GET /api/recipes/categories``).
          *         tags: Lower-case labels.
          *         logo: Where the logo is served, or None.
+         *         logo_source: ``simple-icons`` (the collection's mark, CC0) or ``asset`` (a file of the
+         *             recipe); None without a logo.
+         *         logo_icon: The simple-icons slug, when the logo is the collection's.
+         *         logo_license: The licence of the mark's file when it is the collection's.
          *         version: The version of the application the recipe pins.
          *         revision: The recipe's own revision of that version.
          *         updated: When the recipe last changed (ISO date).
          *         kind: ``native`` or ``compose``.
          *         runs_in_docker: Whether it runs in containers.
          *         available: Whether this release can deploy it.
-         *         unavailable_reason: Why not, when it cannot.
+         *         unavailable_reason: Why not, when it cannot: the evidence the recipe holds, in English.
+         *         unavailable_code: The reason as a code to filter by (``licence``, ``archived``...).
+         *         unavailable: The reason as a sentence of the server's, a ``code`` and its ``params``,
+         *             for the console to translate; None when it installs.
+         *         unavailable_text: That sentence in English.
+         *         unavailable_hint: What to do about it, in English.
+         *         replaced_by: The recipe that stands in for it, when there is one.
+         *         tested: Whether the recipe was started for real in the harness: the ``version`` that
+         *             was started, the ``date``, the ``seconds`` it took and whether that is the version
+         *             pinned now (``current``); None when no run is recorded.
+         *         root_equivalent: What makes it root on the server by design (``docker_socket``), or None.
+         *             Installing it needs ``accept_root_equivalent``, the server's permission and sudo mode.
+         *         root_equivalent_warning: The warning as a sentence of the server's, a ``code`` and its
+         *             ``params``, for the console to translate; None when it is not root on the server.
+         *         root_equivalent_text: That warning in English.
+         *         root_equivalent_hint: What to weigh before accepting it, in English.
          *         app_type: The deployer that builds it; None when unavailable.
          *         database: The SQL engine it is given, if any.
          *         database_choices: The SQL engines it can run on when the operator chooses at install
@@ -51975,6 +52042,12 @@ export interface components {
             license?: string | null;
             /** Logo */
             logo?: string | null;
+            /** Logo Icon */
+            logo_icon?: string | null;
+            /** Logo License */
+            logo_license?: string | null;
+            /** Logo Source */
+            logo_source?: string | null;
             /** Min Noust */
             min_noust?: string | null;
             /** Name */
@@ -51984,6 +52057,8 @@ export interface components {
              * @default shipped
              */
             origin: string;
+            /** Replaced By */
+            replaced_by?: string | null;
             /** Repository */
             repository?: string | null;
             /**
@@ -51996,6 +52071,16 @@ export interface components {
              * @default 1
              */
             revision: number;
+            /** Root Equivalent */
+            root_equivalent?: string | null;
+            /** Root Equivalent Hint */
+            root_equivalent_hint?: string | null;
+            /** Root Equivalent Text */
+            root_equivalent_text?: string | null;
+            /** Root Equivalent Warning */
+            root_equivalent_warning?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Runs In Docker
              * @default false
@@ -52016,10 +52101,24 @@ export interface components {
              * @default []
              */
             tags: string[];
+            /** Tested */
+            tested?: {
+                [key: string]: unknown;
+            } | null;
             /** Title */
             title: string;
+            /** Unavailable */
+            unavailable?: {
+                [key: string]: unknown;
+            } | null;
+            /** Unavailable Code */
+            unavailable_code?: string | null;
+            /** Unavailable Hint */
+            unavailable_hint?: string | null;
             /** Unavailable Reason */
             unavailable_reason?: string | null;
+            /** Unavailable Text */
+            unavailable_text?: string | null;
             /** Updated */
             updated?: string | null;
             /** Version */
@@ -89320,6 +89419,12 @@ export interface operations {
                 kind?: string | null;
                 /** @description shipped, catalog or operator: where the recipe comes from */
                 origin?: string | null;
+                /** @description true: only what installs; false: only what is listed and does not */
+                available?: boolean | null;
+                /** @description Only the listed recipes left out for this reason */
+                unavailable_code?: string | null;
+                /** @description true: only the recipes started for real; false: only the others */
+                tested?: boolean | null;
             };
             header?: never;
             path?: never;

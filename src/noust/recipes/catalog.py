@@ -19,11 +19,13 @@ from typing import Any
 import yaml
 
 from noust.recipes import catalog_package
-from noust.recipes.assets import read_asset, set_asset_root
+from noust.recipes.assets import read_asset, read_simple_icon, set_asset_root
+from noust.recipes.logos import simple_icon_slug
 from noust.recipes.model import (
     CATEGORIES,
     KINDS,
     NAME_PATTERN,
+    UNAVAILABLE_CODES,
     Recipe,
     RecipeError,
     RecipeNotFoundError,
@@ -194,6 +196,9 @@ def search_recipes(
     category: str | None = None,
     tag: str | None = None,
     kind: str | None = None,
+    available: bool | None = None,
+    unavailable_code: str | None = None,
+    tested: bool | None = None,
 ) -> list[Recipe]:
     """
     Search the catalogue.
@@ -207,17 +212,23 @@ def search_recipes(
         category: One of :data:`~noust.recipes.model.CATEGORIES`.
         tag: One tag, exactly.
         kind: ``native`` or ``compose``.
+        available: True for the recipes that install, False for the ones that are only listed.
+        unavailable_code: Only the listed recipes whose reason is this one
+            (:data:`~noust.recipes.model.UNAVAILABLE_CODES`).
+        tested: True for the recipes that were started for real, False for the ones that were not.
 
     Returns:
         The matching recipes, in the order :func:`list_recipes` gives.
 
     Raises:
-        RecipeError: The category or the kind is not one of the closed lists.
+        RecipeError: The category, the kind or the reason is not one of the closed lists.
     """
     if category is not None and category not in CATEGORIES:
         raise recipe_error_for_filter("category", category, CATEGORIES)
     if kind is not None and kind not in KINDS:
         raise recipe_error_for_filter("kind", kind, KINDS)
+    if unavailable_code is not None and unavailable_code not in UNAVAILABLE_CODES:
+        raise recipe_error_for_filter("unavailable_code", unavailable_code, UNAVAILABLE_CODES)
     words = (query or "").lower().split()
     wanted_tag = tag.lower() if tag else None
     found = []
@@ -225,6 +236,12 @@ def search_recipes(
         if category is not None and recipe.category != category:
             continue
         if kind is not None and recipe.kind != kind:
+            continue
+        if available is not None and recipe.available != available:
+            continue
+        if unavailable_code is not None and recipe.unavailable_code != unavailable_code:
+            continue
+        if tested is not None and (recipe.summary()["tested"] is not None) != tested:
             continue
         if wanted_tag is not None and wanted_tag not in recipe.tags:
             continue
@@ -248,7 +265,7 @@ def recipe_error_for_filter(field: str, value: str, allowed: tuple[str, ...]) ->
     Build the error for a filter that is not one of a closed list.
 
     Args:
-        field: ``category`` or ``kind``.
+        field: ``category``, ``kind`` or ``unavailable_code``.
         value: What was asked for.
         allowed: The closed list.
 
@@ -292,4 +309,7 @@ def logo_svg(name: str) -> str:
     recipe = get_recipe(name)
     if recipe.logo is None:
         raise RecipeNotFoundError(f"{recipe.title} has no logo")
+    slug = simple_icon_slug(recipe.logo)
+    if slug is not None:
+        return read_simple_icon(slug)
     return read_asset(name, recipe.logo)

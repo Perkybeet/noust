@@ -34,6 +34,49 @@ RESERVED_NAMES = frozenset({"installed", "categories", "private", "catalog"})
 #: document of pinned images, deployed by the Compose deployer behind nginx.
 KINDS = ("native", "compose")
 
+#: Why a recipe is listed and cannot be installed, as a code the console translates and the
+#: catalogue filters by (``recipes.unavailable.<code>`` in :mod:`noust.core.server_text`). The
+#: recipe's own ``unavailable_reason`` stays the evidence: which file or page said it, and when.
+UNAVAILABLE_CODES = (
+    "licence",
+    "not_for_production",
+    "no_image",
+    "not_an_application",
+    "host_ports",
+    "archived",
+    "platform_stack",
+    "root_equivalent",
+    "no_sign_in",
+)
+
+#: The sentence each code is said with. Written out, so that a search for a sentence of the
+#: server's words finds who says it.
+UNAVAILABLE_SENTENCES = {
+    "licence": "recipes.unavailable.licence",
+    "not_for_production": "recipes.unavailable.not_for_production",
+    "no_image": "recipes.unavailable.no_image",
+    "not_an_application": "recipes.unavailable.not_an_application",
+    "host_ports": "recipes.unavailable.host_ports",
+    "archived": "recipes.unavailable.archived",
+    "platform_stack": "recipes.unavailable.platform_stack",
+    "root_equivalent": "recipes.unavailable.root_equivalent",
+    "no_sign_in": "recipes.unavailable.no_sign_in",
+}
+
+#: What an installable recipe can be that is root on the server by design, and says so
+#: (``root_equivalent:``): the console warns before it is installed and the install asks for the
+#: operator's confirmation. ``docker_socket``: the stack mounts the Docker daemon's socket.
+#: ``agent``: an AI agent that runs commands, whose own security policy says that whoever can
+#: operate it can make it do anything its account can; it mounts nothing of the host, and what
+#: it can reach is whatever it is given.
+ROOT_EQUIVALENT_KINDS = ("docker_socket", "agent")
+
+#: The sentence each kind is said with (written out so a search for a sentence finds who says it).
+ROOT_EQUIVALENT_SENTENCES = {
+    "docker_socket": "recipes.root_equivalent.docker_socket",
+    "agent": "recipes.root_equivalent.agent",
+}
+
 #: Where a native recipe's code comes from.
 SOURCE_KINDS = ("git", "archive", "template")
 
@@ -147,6 +190,53 @@ FLOATING_TAGS = frozenset(
         "alpha",
     }
 )
+
+
+#: What a ``logo:`` that names a mark of the simple-icons collection starts with.
+SIMPLE_ICONS_PREFIX = "simple-icons:"
+
+#: The licence the collection publishes its files under.
+SIMPLE_ICONS_LICENSE = "CC0-1.0"
+
+
+def simple_icon_slug(logo: str | None) -> str | None:
+    """
+    Args:
+        logo: A recipe's ``logo:`` as written, or None.
+
+    Returns:
+        The slug when the logo names a mark of the simple-icons collection; None for a file
+        of the recipe and for no logo.
+    """
+    if logo is not None and logo.startswith(SIMPLE_ICONS_PREFIX):
+        return logo[len(SIMPLE_ICONS_PREFIX) :]
+    return None
+
+
+def logo_source(logo: str | None) -> str | None:
+    """
+    Args:
+        logo: A recipe's ``logo:`` as written, or None.
+
+    Returns:
+        ``simple-icons`` for a mark of the collection, ``asset`` for a file of the recipe,
+        None for no logo.
+    """
+    if logo is None:
+        return None
+    return "simple-icons" if simple_icon_slug(logo) is not None else "asset"
+
+
+def logo_license(logo: str | None) -> str | None:
+    """
+    Args:
+        logo: A recipe's ``logo:`` as written, or None.
+
+    Returns:
+        The licence of the mark's file when it is the collection's (CC0-1.0); None for a file
+        of the recipe, whose licence is the recipe's own (the monogram is Noust's).
+    """
+    return SIMPLE_ICONS_LICENSE if simple_icon_slug(logo) is not None else None
 
 
 class RecipeError(ValidationError):
@@ -554,7 +644,12 @@ class Recipe:
         architectures: The architectures it runs on (all its images are
             published for them), empty for any. Checked against the server.
         available: Whether it can be deployed with this release.
-        unavailable_reason: Why not, when it cannot.
+        unavailable_reason: Why not, when it cannot: the evidence (the page or file read, and when).
+        unavailable_code: The reason as one of :data:`UNAVAILABLE_CODES`.
+        replaced_by: The recipe that stands in for it, when the catalogue has one.
+        root_equivalent: What makes it root on the server by design, one of
+            :data:`ROOT_EQUIVALENT_KINDS`, or None. An installable recipe that says so is
+            installed only with the operator's confirmation.
         app_type: The deployer that builds it.
         source: Where a native recipe's code comes from.
         layout: ``releases`` or ``inplace``.
@@ -607,6 +702,9 @@ class Recipe:
     architectures: tuple[str, ...] = ()
     available: bool = True
     unavailable_reason: str | None = None
+    unavailable_code: str | None = None
+    replaced_by: str | None = None
+    root_equivalent: str | None = None
     app_type: str = ""
     source: RecipeSource | None = None
     layout: str = "releases"
@@ -636,6 +734,70 @@ class Recipe:
     def runs_in_docker(self) -> bool:
         """Whether the application runs in containers, which the catalogue says."""
         return self.kind == "compose"
+
+    def _unavailable_view(self) -> dict[str, Any]:
+        """
+        Say why the recipe cannot be installed, in the server's coded words.
+
+        Returns:
+            The code, the sentence as a code and values for the console to translate, the English
+            text and its fix, and the recipe that replaces it; every one None for a recipe that
+            installs.
+        """
+        from noust.core.server_text import say
+
+        said = say(UNAVAILABLE_SENTENCES[self.unavailable_code]) if self.unavailable_code else None
+        return {
+            "unavailable_code": self.unavailable_code,
+            "unavailable": said.to_dict() if said else None,
+            "unavailable_text": said.text if said else None,
+            "unavailable_hint": said.hint if said else None,
+            "replaced_by": self.replaced_by,
+        }
+
+    def _tested_view(self) -> dict[str, Any] | None:
+        """
+        Say whether the recipe was started for real (``noust.recipes.tested``).
+
+        Returns:
+            The version that was started, the day, the seconds it took and whether that is the
+            version pinned now; None when no run is recorded.
+        """
+        from noust.recipes.tested import tested_view
+
+        return tested_view(self.name, self.version, self.origin)
+
+    def _root_equivalent_view(self) -> dict[str, Any]:
+        """
+        Warn, in the server's coded words, that installing the recipe gives it root.
+
+        Returns:
+            The kind, the warning as a code and values for the console to translate, its English
+            text and its fix; every one None for a recipe that is not root on the server.
+        """
+        from noust.core.server_text import say
+
+        said = (
+            say(ROOT_EQUIVALENT_SENTENCES[self.root_equivalent], title=self.title)
+            if self.root_equivalent
+            else None
+        )
+        return {
+            "root_equivalent": self.root_equivalent,
+            "root_equivalent_warning": said.to_dict() if said else None,
+            "root_equivalent_text": said.text if said else None,
+            "root_equivalent_hint": said.hint if said else None,
+        }
+
+    @property
+    def logo_icon(self) -> str | None:
+        """The slug of the simple-icons mark the recipe's logo names, or None."""
+        return simple_icon_slug(self.logo)
+
+    @property
+    def logo_license(self) -> str | None:
+        """The licence of the mark's file when the logo is the collection's, else None."""
+        return logo_license(self.logo)
 
     @property
     def database_engine(self) -> str | None:
@@ -707,6 +869,9 @@ class Recipe:
             "category": self.category,
             "tags": list(self.tags),
             "logo": self.logo,
+            "logo_source": logo_source(self.logo),
+            "logo_icon": self.logo_icon,
+            "logo_license": logo_license(self.logo),
             "version": self.version or None,
             "revision": self.revision,
             "updated": self.updated.isoformat() if self.updated else None,
@@ -714,6 +879,9 @@ class Recipe:
             "runs_in_docker": self.runs_in_docker,
             "available": self.available,
             "unavailable_reason": self.unavailable_reason,
+            **self._unavailable_view(),
+            **self._root_equivalent_view(),
+            "tested": self._tested_view(),
             "app_type": self.app_type or None,
             "database": self.database_engine,
             "database_choices": [ENGINE_OF[choice] for choice in self.database_choices],

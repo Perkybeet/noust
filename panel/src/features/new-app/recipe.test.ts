@@ -144,6 +144,7 @@ describe("a recipe's request", () => {
   it("names the recipe, sends no source, leaves the type on auto, and only the values set", () => {
     const form = { ...initialRecipeForm(WORDPRESS), domain: " Blog.Example.com " };
     expect(recipeBody(WORDPRESS, form)).toEqual({
+      accept_root_equivalent: false,
       domain: "blog.example.com",
       recipe: "wordpress",
       app_type: "auto",

@@ -1,0 +1,36 @@
+# FlareSolverr: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/flaresolverr
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: flaresolverr
+kind: compose
+title: "FlareSolverr"
+slogan: "Proxy server to bypass Cloudflare protection"
+description: "FlareSolverr is a proxy server to bypass Cloudflare and DDoS-GUARD protection."
+category: utilities
+tags: [proxy, cloudflare, bypass, ddos-guard, utilities]
+logo: logo.svg
+version: "3.5.2"
+revision: 1
+updated: 2026-10-28
+homepage: https://github.com/FlareSolverr/FlareSolverr
+docs: https://github.com/FlareSolverr/FlareSolverr
+repository: https://github.com/FlareSolverr/FlareSolverr
+license: MIT
+architectures: ["386", "amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    flaresolverr:
+      image: ghcr.io/flaresolverr/flaresolverr:v3.5.2@sha256:c80ae007ce2ccdcd217a12426e4f039ef763ff90738c808d38810c3e59323767
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8191
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."

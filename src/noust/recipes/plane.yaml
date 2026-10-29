@@ -23,7 +23,7 @@ slogan: "An open source project management tool: issues, cycles, modules and pag
 description: "Plan and track work with issues, sprints (cycles), roadmaps (modules), views and a wiki, as an open alternative to Jira and Linear. A twelve-container stack that needs about 4 GB of memory. The first person to open the instance setup page becomes the instance administrator."
 category: productivity
 tags: [project-management, issues, agile, kanban, jira-alternative]
-logo: logo.svg
+logo: simple-icons:plane
 version: "1.4.2"
 revision: 1
 updated: 2026-10-20

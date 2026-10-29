@@ -1,0 +1,55 @@
+# Gel: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/gel
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: gel
+kind: compose
+title: "Gel"
+slogan: "Gel supercharges Postgres with a modern data model, graph queries, Auth & AI solutions, and much..."
+description: "Gel is a next-generation graph-relational database (formerly EdgeDB) with a built-in migration system, expressive query language, and first-class TypeScript/Python support."
+category: ai
+tags: [database, graph-database, edgedb, typescript, ai]
+logo: logo.svg
+version: "6"
+revision: 1
+updated: 2026-10-28
+homepage: https://geldata.com
+docs: https://docs.geldata.com/
+repository: https://github.com/geldata/gel
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  GEL_SERVER_SECURITY:
+    default: "strict"
+    description: "Setting GEL_SERVER_SECURITY of the application; the template leaves it to the operator."
+  GEL_SERVER_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for gel server password."
+health: {path: /server/status/ready, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    gel:
+      image: geldata/gel:6@sha256:b3a2815a39564f2c69a71886b9acba4e4a0251f352a72ffa20c3318984a901b1
+      restart: unless-stopped
+      environment:
+        GEL_SERVER_SECURITY: ${GEL_SERVER_SECURITY}
+        GEL_SERVER_PASSWORD: ${GEL_SERVER_PASSWORD}
+        GEL_SERVER_TLS_CERT_MODE: generate_self_signed
+        GEL_SERVER_HTTP_ENDPOINT_SECURITY: optional
+        GEL_SERVER_ADMIN_UI: enabled
+      volumes:
+        - gel-data:/var/lib/gel/data
+      ports:
+        - 127.0.0.1:${PORT}:5656
+  volumes:
+    gel-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume gel-data of this application: back it up before updating."

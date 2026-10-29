@@ -1,0 +1,78 @@
+# Once Campfire: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/once-campfire.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: once-campfire
+kind: compose
+title: "Once Campfire"
+slogan: "Super simple group chat, without a subscription."
+description: "Web-based chat application."
+category: communication
+tags: [campfire, chat, communication, rails, once, basecamp, 37signals]
+logo: logo.svg
+version: "1.5.6"
+revision: 1
+updated: 2026-10-28
+homepage: https://once.com/campfire
+docs: https://github.com/basecamp/once-campfire
+repository: https://github.com/basecamp/once-campfire
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_CAMPFIRE:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_BASE64_64_CAMPFIRE:
+    generate: "base64_64"
+    secret: true
+    description: "The secret Noust generated for campfire."
+  VAPID_PUBLIC_KEY:
+    default: ""
+    secret: true
+    description: "Setting VAPID_PUBLIC_KEY of the application; the template leaves it to the operator."
+  VAPID_PRIVATE_KEY:
+    default: ""
+    secret: true
+    description: "Setting VAPID_PRIVATE_KEY of the application; the template leaves it to the operator."
+  SENTRY_DSN:
+    default: ""
+    description: "Setting SENTRY_DSN of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    campfire:
+      image: ghcr.io/basecamp/once-campfire:v1.5.6@sha256:cd6cd7e1d4cb22a70db4c13b9f99fd4284a80a404f52e56fdf64deb4d6ecdcc7
+      restart: unless-stopped
+      volumes:
+        - campfire-storage:/rails/storage
+      environment:
+        SERVICE_URL_CAMPFIRE: ${SERVICE_URL_CAMPFIRE}
+        SECRET_KEY_BASE: ${SERVICE_BASE64_64_CAMPFIRE}
+        VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
+        VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
+        DISABLE_SSL: ${DISABLE_SSL:-true}
+        SSL_DOMAIN: ${SSL_DOMAIN:-false}
+        SKIP_TELEMETRY: ${SKIP_TELEMETRY:-true}
+        SENTRY_DSN: ${SENTRY_DSN}
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - -f
+          - http://localhost/up
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      ports:
+        - 127.0.0.1:${PORT}:80
+  volumes:
+    campfire-storage:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume campfire-storage of this application: back it up before updating."

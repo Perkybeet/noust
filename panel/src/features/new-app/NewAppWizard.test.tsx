@@ -166,6 +166,7 @@ describe("the new-app wizard", () => {
       expect(backend.callsTo("POST /api/apps")).toHaveLength(1);
     });
     expect(backend.callsTo("POST /api/apps")[0]?.body).toEqual({
+      accept_root_equivalent: false,
       domain: "storefront.example.com",
       source: "/var/www/src/storefront",
       app_type: "nextjs",

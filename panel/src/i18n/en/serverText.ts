@@ -20,8 +20,7 @@ export const serverText = {
       hint: "Once approved, send exactly the same call again with the header {header}: {request}, within {minutes} minutes.",
     },
     asked_waiting: {
-      text:
-        "This needs a second person's approval, whoever you are. Request {request} is waiting for an account with one of these roles to decide it: {approvers}.",
+      text: "This needs a second person's approval, whoever you are. Request {request} is waiting for an account with one of these roles to decide it: {approvers}.",
       hint: "Once approved, send exactly the same call again with the header {header}: {request}, within {minutes} minutes.",
     },
     central_missing: {
@@ -35,13 +34,11 @@ export const serverText = {
   },
   controls: {
     asked_by_framework: {
-      text:
-        "The control {control} asks for it, and the framework in force ({frameworks}) asks for that control, so it stays on while the framework is on and cannot be turned off by itself.",
+      text: "The control {control} asks for it, and the framework in force ({frameworks}) asks for that control, so it stays on while the framework is on and cannot be turned off by itself.",
       hint: "To turn the framework off (Settings > Controls):\n  {command}",
     },
     asked_by_setting: {
-      text:
-        "The control {control} asks for it, and it was turned on in Settings > Controls (or with the command line). It applies to everybody, whatever their role.",
+      text: "The control {control} asks for it, and it was turned on in Settings > Controls (or with the command line). It applies to everybody, whatever their role.",
       hint: "To turn it off there, or:\n  {command}",
     },
   },
@@ -128,8 +125,7 @@ export const serverText = {
     },
     names: {
       explain: {
-        text:
-          "Nothing here stops working: Noust accepts the old names while they are met. 'noust setup rename' finishes what can be finished without restarting anything.",
+        text: "Nothing here stops working: Noust accepts the old names while they are met. 'noust setup rename' finishes what can be finished without restarting anything.",
       },
     },
     node: {
@@ -174,8 +170,7 @@ export const serverText = {
         text: "Port {port}: held by {holders}, not by the web server",
       },
       held_note: {
-        text:
-          "A certificate is asked for on port 80 and sites are served on 443: the web server cannot start while another program holds them.",
+        text: "A certificate is asked for on port 80 and sites are served on 443: the web server cannot start while another program holds them.",
       },
       web_server: {
         text: "Port {port}: {holders}",
@@ -244,8 +239,7 @@ export const serverText = {
     refused: {
       permission: {
         text: "Your role {role} does not hold the permission {permission} on these servers",
-        hint:
-          "Ask a security officer of each of them for an account with a role that holds it, or have that permission added to your role there.",
+        hint: "Ask a security officer of each of them for an account with a role that holds it, or have that permission added to your role there.",
       },
     },
   },
@@ -359,6 +353,60 @@ export const serverText = {
       },
     },
   },
+  recipes: {
+    root_equivalent: {
+      agent: {
+        text: "{title} is an AI agent that runs commands, and whoever can operate it can make it do anything it can do: access to it is the same as access to a shell",
+        hint: "Its own security policy says it is not a boundary between users. Give its sign-in only to people you would give a shell on this server, and give it no model key or account you would not hand to them.",
+      },
+      confirm_required: {
+        text: "{title} is root on this server, and installing it needs your confirmation",
+        hint: "If you accept that, confirm it and install again: {command}",
+      },
+      docker_socket: {
+        text: "{title} controls the Docker daemon of this server, which is the same as having root on it",
+        hint: "It can start any container with any part of the server mounted, Noust's applications and their data included. Install it only if you would give this application root on the server.",
+      },
+    },
+    unavailable: {
+      archived: {
+        text: "The project is archived and no longer maintained",
+        hint: "Use the recipe that replaces it, when the catalogue names one.",
+      },
+      host_ports: {
+        text: "It needs ports that the server's web server and mail already hold",
+        hint: "Run it on a server of its own.",
+      },
+      licence: {
+        text: "Its licence does not let an operator run it for others",
+        hint: "If you hold a licence that does, deploy it from its own repository with 'noust create'.",
+      },
+      no_image: {
+        text: "The project publishes no container image that could be pinned",
+        hint: "Deploy it from the project's repository with 'noust create', or add a Dockerfile of your own.",
+      },
+      no_sign_in: {
+        text: "Its web interface has no sign-in of its own and holds the keys it works with",
+        hint: "Reach it through an SSH tunnel to the server, as its project documents, never through a public address.",
+      },
+      not_an_application: {
+        text: "It is a framework to build an application with, not an application to install",
+        hint: "Deploy your own project from its repository with 'noust create'.",
+      },
+      not_for_production: {
+        text: "Its own project says this edition is not for production",
+        hint: "Use the edition the project supports for production, deployed from its repository.",
+      },
+      platform_stack: {
+        text: "It is a platform of dozens of services with a proxy of its own",
+        hint: "Run it on a server of its own with the project's installer.",
+      },
+      root_equivalent: {
+        text: "It controls the server's Docker daemon, which is the same as root on the server",
+        hint: "Deploy it yourself with 'noust create' if you accept that, on a server that is yours.",
+      },
+    },
+  },
   roles: {
     auditor_exclusive: {
       text: "{username} is an auditor, who checks everybody and holds nothing more",
@@ -370,8 +418,7 @@ export const serverText = {
     },
     last_owner: {
       text: "{username} is the last account that can use the owner role",
-      hint:
-        "A server always keeps somebody who can do everything. Give the owner role to another account that can sign in first, then this change can go ahead.",
+      hint: "A server always keeps somebody who can do everything. Give the owner role to another account that can sign in first, then this change can go ahead.",
     },
     name_invalid: {
       text: "Invalid role name: {name}",
@@ -379,8 +426,7 @@ export const serverText = {
     },
     name_system: {
       text: "{name} is the name of a built-in role",
-      hint:
-        "Pick another name. The built-in roles can be edited and put back, not redefined under their own name.",
+      hint: "Pick another name. The built-in roles can be edited and put back, not redefined under their own name.",
     },
     name_taken: {
       text: "A role named {name} already exists",
@@ -400,8 +446,7 @@ export const serverText = {
     },
     owner_protected: {
       text: "The owner role cannot be changed or deleted",
-      hint:
-        "It holds every permission there is, so that the server always has somebody who can do everything. To give a person all of it, give them the owner role.",
+      hint: "It holds every permission there is, so that the server always has somebody who can do everything. To give a person all of it, give them the owner role.",
     },
     permissions_many: {
       text: "A role holds at most {max} permissions",
@@ -424,13 +469,11 @@ export const serverText = {
     },
     separation_account: {
       text: "{username} would govern access and run the server at once",
-      hint:
-        "Its roles together hold {governing} (who may run the server) with {running} (running it). Separation of duties keeps them in different hands: give the person a second account for the other duty.",
+      hint: "Its roles together hold {governing} (who may run the server) with {running} (running it). Separation of duties keeps them in different hands: give the person a second account for the other duty.",
     },
     separation_role: {
       text: "{subject} would govern access and run the server at once",
-      hint:
-        "It holds {governing} (who may run the server) together with {running} (running it). Separation of duties keeps them in different hands: split it into two roles.",
+      hint: "It holds {governing} (who may run the server) together with {running} (running it). Separation of duties keeps them in different hands: split it into two roles.",
     },
     too_many: {
       text: "A server keeps at most {max} roles of its own",
@@ -459,10 +502,8 @@ export const serverText = {
       hint: "No framework asks for it: it was set in Settings > Controls or with the command line. To allow it: {command}",
     },
     server_framework: {
-      text:
-        "The compliance framework in force ({frameworks}) keeps the terminal on the server itself off (the control {control} is refused)",
-      hint:
-        "A root shell in the browser is the console at its most root-equivalent. To allow it anyway, which is put on record: {command}. Or turn the framework off: {turn_off_command}",
+      text: "The compliance framework in force ({frameworks}) keeps the terminal on the server itself off (the control {control} is refused)",
+      hint: "A root shell in the browser is the console at its most root-equivalent. To allow it anyway, which is put on record: {command}. Or turn the framework off: {turn_off_command}",
     },
     server_off: {
       text: "The terminal on the server itself is off (terminal.server.enabled)",
@@ -472,8 +513,7 @@ export const serverText = {
   tunnels: {
     cloudflared_missing: {
       text: "cloudflared is not installed",
-      hint:
-        "Noust installs it from Cloudflare's own package repository, {url}, with the key Cloudflare signs it with: run 'noust tunnel install-cloudflared', then this command again.",
+      hint: "Noust installs it from Cloudflare's own package repository, {url}, with the key Cloudflare signs it with: run 'noust tunnel install-cloudflared', then this command again.",
     },
     no_account: {
       text: "There is no Cloudflare account to manage a tunnel with",
@@ -481,8 +521,7 @@ export const serverText = {
     },
     store_sealed: {
       text: "The secret store is sealed",
-      hint:
-        "A tunnel's connector reads its token at boot, with nobody to type a passphrase. Run tunnels on a server, not on a sealed central.",
+      hint: "A tunnel's connector reads its token at boot, with nobody to type a passphrase. Run tunnels on a server, not on a sealed central.",
     },
   },
 } as const;

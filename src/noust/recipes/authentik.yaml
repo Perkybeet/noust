@@ -22,7 +22,7 @@ slogan: "An open source identity provider: SSO, OIDC, SAML, LDAP and proxy authe
 description: "The authentication glue for your applications: single sign-on over OpenID Connect, OAuth 2, SAML and LDAP, flows you can edit, MFA and user self-service. Runs a server and a worker with their own PostgreSQL. Needs about 2 GB of memory."
 category: security
 tags: [sso, oidc, saml, ldap]
-logo: logo.svg
+logo: simple-icons:authentik
 version: "2026.8.3"
 revision: 1
 updated: 2026-10-06

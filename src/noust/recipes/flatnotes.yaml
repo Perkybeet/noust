@@ -1,0 +1,102 @@
+# Flatnotes: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/flatnotes
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: flatnotes
+kind: compose
+title: "Flatnotes"
+slogan: "A self-hosted, database-less note taking web app that utilises a flat folder of markdown files..."
+description: "A self-hosted, modern note-taking web app that saves your notes as plain text Markdown files."
+category: files
+tags: [notes, productivity, markdown, self-hosted, files]
+logo: logo.svg
+version: "5.5.5"
+revision: 1
+updated: 2026-10-28
+homepage: https://github.com/dullage/flatnotes
+docs: https://github.com/dullage/flatnotes
+repository: https://github.com/dullage/flatnotes
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  PUID:
+    default: "1000"
+    description: "Setting PUID of the application; the template leaves it to the operator."
+  PGID:
+    default: "1000"
+    description: "Setting PGID of the application; the template leaves it to the operator."
+  FLATNOTES_AUTH_TYPE:
+    default: "password"
+    description: "Setting FLATNOTES_AUTH_TYPE of the application; the template leaves it to the operator."
+  FLATNOTES_USERNAME:
+    generate: "user"
+    description: "The user name Noust generated for flatnotes username."
+  FLATNOTES_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for flatnotes password."
+  FLATNOTES_SECRET_KEY:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for flatnotes secret key."
+  FLATNOTES_SESSION_EXPIRY_DAYS:
+    default: "30"
+    description: "Setting FLATNOTES_SESSION_EXPIRY_DAYS of the application; the template leaves it to the operator."
+  FLATNOTES_TOTP_KEY:
+    default: ""
+    secret: true
+    description: "Setting FLATNOTES_TOTP_KEY of the application; the template leaves it to the operator."
+  FLATNOTES_PATH_PREFIX:
+    default: ""
+    description: "Setting FLATNOTES_PATH_PREFIX of the application; the template leaves it to the operator."
+  FLATNOTES_QUICK_ACCESS_HIDE:
+    default: "false"
+    description: "Setting FLATNOTES_QUICK_ACCESS_HIDE of the application; the template leaves it to the operator."
+  FLATNOTES_QUICK_ACCESS_TITLE:
+    default: "RECENTLY MODIFIED"
+    description: "Setting FLATNOTES_QUICK_ACCESS_TITLE of the application; the template leaves it to the operator."
+  FLATNOTES_QUICK_ACCESS_TERM:
+    default: "*"
+    description: "Setting FLATNOTES_QUICK_ACCESS_TERM of the application; the template leaves it to the operator."
+  FLATNOTES_QUICK_ACCESS_SORT:
+    default: "lastModified"
+    description: "Setting FLATNOTES_QUICK_ACCESS_SORT of the application; the template leaves it to the operator."
+  FLATNOTES_QUICK_ACCESS_LIMIT:
+    default: "4"
+    description: "Setting FLATNOTES_QUICK_ACCESS_LIMIT of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    flatnotes:
+      image: dullage/flatnotes:v5.5.5@sha256:ca4b40ee7491aabf6b52bbb20ab140145cb96981d4b3fe96ab1e797ac6cd93e5
+      restart: unless-stopped
+      environment:
+        PUID: ${PUID}
+        PGID: ${PGID}
+        FLATNOTES_AUTH_TYPE: ${FLATNOTES_AUTH_TYPE}
+        FLATNOTES_USERNAME: ${FLATNOTES_USERNAME}
+        FLATNOTES_PASSWORD: ${FLATNOTES_PASSWORD}
+        FLATNOTES_SECRET_KEY: ${FLATNOTES_SECRET_KEY}
+        FLATNOTES_SESSION_EXPIRY_DAYS: ${FLATNOTES_SESSION_EXPIRY_DAYS}
+        FLATNOTES_TOTP_KEY: ${FLATNOTES_TOTP_KEY}
+        FLATNOTES_PATH_PREFIX: ${FLATNOTES_PATH_PREFIX}
+        FLATNOTES_QUICK_ACCESS_HIDE: ${FLATNOTES_QUICK_ACCESS_HIDE}
+        FLATNOTES_QUICK_ACCESS_TITLE: ${FLATNOTES_QUICK_ACCESS_TITLE}
+        FLATNOTES_QUICK_ACCESS_TERM: ${FLATNOTES_QUICK_ACCESS_TERM}
+        FLATNOTES_QUICK_ACCESS_SORT: ${FLATNOTES_QUICK_ACCESS_SORT}
+        FLATNOTES_QUICK_ACCESS_LIMIT: ${FLATNOTES_QUICK_ACCESS_LIMIT}
+      volumes:
+        - flatnotes-data:/data
+      ports:
+        - 127.0.0.1:${PORT}:8080
+  volumes:
+    flatnotes-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume flatnotes-data of this application: back it up before updating."

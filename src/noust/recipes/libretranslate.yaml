@@ -1,0 +1,56 @@
+# Libretranslate: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/libretranslate.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: libretranslate
+kind: compose
+title: "Libretranslate"
+slogan: "Free and open-source machine translation API, entirely self-hosted."
+description: "LibreTranslate is a free and open-source machine translation API, powered by Argos Translate. Self-hosted, no external dependencies, and supports multiple languages."
+category: ai
+tags: [translate, api, translation, nlp, language, ai]
+logo: simple-icons:libretranslate
+version: "1.9.6"
+revision: 1
+updated: 2026-10-28
+homepage: https://libretranslate.com
+docs: https://libretranslate.com/docs/
+repository: https://github.com/LibreTranslate/LibreTranslate
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_LIBRETRANSLATE:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    libretranslate:
+      image: libretranslate/libretranslate:v1.9.6@sha256:1de2d7056bb8ad607a412f4563d9abe324ff632b43b5be9428bcc8e213aebb32
+      environment:
+        SERVICE_URL_LIBRETRANSLATE: ${SERVICE_URL_LIBRETRANSLATE}
+        LT_SSL: ${LT_SSL:-true}
+        LT_UPDATE_MODELS: ${LT_UPDATE_MODELS:-true}
+        LT_LOAD_ONLY: ${LT_LOAD_ONLY:-en,es,fr,de,ja}
+      volumes:
+        - libretranslate-api-keys:/app/db
+        - libretranslate-models:/home/libretranslate/.local
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - ./venv/bin/python scripts/healthcheck.py
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:5000
+  volumes:
+    libretranslate-api-keys:
+    libretranslate-models:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes libretranslate-api-keys, libretranslate-models of this application: back them up before updating."

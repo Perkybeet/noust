@@ -16,7 +16,7 @@ slogan: A modern, lightweight and powerful wiki software.
 description: "A wiki with a visual and a Markdown editor, page history, permissions, search and many storage and sign-in modules. Runs the stable 2.x line with its own PostgreSQL. The first person to open it finishes the setup and becomes the administrator, so do it right after installing."
 category: productivity
 tags: [wiki, documentation, markdown, knowledge-base]
-logo: logo.svg
+logo: simple-icons:wikidotjs
 version: "2.5.315"
 revision: 1
 updated: 2026-10-06

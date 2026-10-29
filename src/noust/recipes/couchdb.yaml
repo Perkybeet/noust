@@ -18,7 +18,7 @@ slogan: "A document database with an HTTP API, built for syncing between devices
 description: "Apache CouchDB: JSON documents, a REST API, replication and a web interface, used as the sync server of apps such as the Obsidian LiveSync plug-in. Starts with an administrator you do not have to choose, as a single node with CORS enabled for Obsidian."
 category: data
 tags: [database, nosql, sync, replication, couchdb]
-logo: logo.svg
+logo: simple-icons:apachecouchdb
 version: "3.5.3"
 revision: 1
 updated: 2026-10-20

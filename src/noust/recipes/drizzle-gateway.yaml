@@ -1,0 +1,54 @@
+# Drizzle Gateway: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/drizzle-gateway.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: drizzle-gateway
+kind: compose
+title: "Drizzle Gateway"
+slogan: "Free self-hosted Drizzle Studio on steroids"
+description: "Drizzle Gateway is a self-hosted database gateway that allows you to connect to your databases from anywhere."
+category: backend
+tags: [drizzle, gateway, self-hosted, open-source, low-code, database, backend]
+logo: logo.svg
+version: "1.7.0"
+revision: 1
+updated: 2026-10-28
+homepage: https://orm.drizzle.team
+docs: https://gateway.drizzle.team/
+repository: https://github.com/drizzle-team/drizzle-orm
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_DRIZZLE:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_PASSWORD_DRIZZLE:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for drizzle."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    drizzle-gateway:
+      image: ghcr.io/drizzle-team/gateway:1.7.0@sha256:3f09490584ad97cb5fa6d2a7335b405b8ac96e3b17a427830930f4ff70fe3993
+      environment:
+        SERVICE_URL_DRIZZLE: ${SERVICE_URL_DRIZZLE}
+        STORE_PATH: /app
+        MASTERPASS: ${SERVICE_PASSWORD_DRIZZLE}
+      volumes:
+        - drizzle-gateway-data:/app
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:4983
+  volumes:
+    drizzle-gateway-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_PASSWORD_DRIZZLE in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume drizzle-gateway-data of this application: back it up before updating."

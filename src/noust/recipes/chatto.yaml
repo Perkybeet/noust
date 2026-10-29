@@ -1,0 +1,76 @@
+# Chatto (single binary): Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/chatto
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: chatto
+kind: compose
+title: "Chatto (single binary)"
+slogan: "A fully-featured team and group chat application that you can easily selfhost."
+description: "A fully-featured real-time chat application for teams and communities. This template deploys the single Chatto binary with embedded NATS. Note: email/password registration requires SMTP to be configured after deployment; voice/video calls are not included in the single-binary setup."
+category: communication
+tags: [chat, communication, messaging, self-hosted]
+logo: logo.svg
+version: "0.4"
+revision: 1
+updated: 2026-10-28
+homepage: https://chatto.run
+docs: https://docs.chatto.run
+repository: https://github.com/chattocorp/chatto
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  CHATTO_HOST:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  CHATTO_COOKIE_SECRET:
+    generate: "hex64"
+    secret: true
+    description: "The secret Noust generated for chatto cookie secret."
+  CHATTO_CORE_SECRET:
+    generate: "hex64"
+    secret: true
+    description: "The secret Noust generated for chatto core secret."
+  CHATTO_ASSETS_SECRET:
+    generate: "hex64"
+    secret: true
+    description: "The secret Noust generated for chatto assets secret."
+  CHATTO_OWNER_EMAIL:
+    default: "admin@app.example.com"
+    description: "Setting CHATTO_OWNER_EMAIL of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    chatto:
+      image: ghcr.io/chattocorp/chatto:0.4@sha256:ae5f288499a6e524d1267962cd7cbdaaec5694503421a1e967e71208ece90bad
+      restart: unless-stopped
+      environment:
+        CHATTO_WEBSERVER_URL: https://${CHATTO_HOST}
+        CHATTO_WEBSERVER_PORT: '4000'
+        CHATTO_WEBSERVER_COOKIE_SIGNING_SECRET: ${CHATTO_COOKIE_SECRET}
+        CHATTO_CORE_SECRET_KEY: ${CHATTO_CORE_SECRET}
+        CHATTO_CORE_ASSETS_SIGNING_SECRET: ${CHATTO_ASSETS_SECRET}
+        CHATTO_NATS_EMBEDDED_ENABLED: 'True'
+        CHATTO_NATS_EMBEDDED_DATA_DIR: /data
+        CHATTO_OWNERS_EMAILS: ${CHATTO_OWNER_EMAIL}
+        CHATTO_SMTP_ENABLED: ${CHATTO_SMTP_ENABLED:-false}
+        CHATTO_SMTP_HOST: ${CHATTO_SMTP_HOST:-}
+        CHATTO_SMTP_PORT: ${CHATTO_SMTP_PORT:-587}
+        CHATTO_SMTP_TLS: ${CHATTO_SMTP_TLS:-mandatory}
+        CHATTO_SMTP_USERNAME: ${CHATTO_SMTP_USERNAME:-}
+        CHATTO_SMTP_PASSWORD: ${CHATTO_SMTP_PASSWORD:-}
+        CHATTO_SMTP_FROM: ${CHATTO_SMTP_FROM:-}
+      volumes:
+        - chatto-data:/data
+      ports:
+        - 127.0.0.1:${PORT}:4000
+  volumes:
+    chatto-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume chatto-data of this application: back it up before updating."

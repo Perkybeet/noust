@@ -1,0 +1,49 @@
+# VictoriaMetrics: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/victoriametrics
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: victoriametrics
+kind: compose
+title: "VictoriaMetrics"
+slogan: "VictoriaMetrics: fast, cost-effective monitoring solution and time series database"
+description: "VictoriaMetrics is a fast, cost-effective, and scalable monitoring solution and time series database. It is a drop-in replacement for Prometheus."
+category: monitoring
+tags: [monitoring, metrics, time-series, prometheus]
+logo: simple-icons:victoriametrics
+version: "1.108.1"
+revision: 1
+updated: 2026-10-28
+homepage: https://victoriametrics.com/
+docs: https://docs.victoriametrics.com/
+repository: https://github.com/VictoriaMetrics/VictoriaMetrics
+license: Apache-2.0
+architectures: ["386", "amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  RETENTION_PERIOD:
+    default: "90d"
+    description: "Setting RETENTION_PERIOD of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    victoriametrics:
+      image: victoriametrics/victoria-metrics:v1.108.1@sha256:f6e5322b315795ae2fec494c1d1c94b2e0325b789fead60ef3a13fccdefcd81e
+      restart: unless-stopped
+      command:
+        - --storageDataPath=/storage
+        - --retentionPeriod=${RETENTION_PERIOD}
+        - --httpListenAddr=:8428
+      volumes:
+        - vm-data:/storage
+      ports:
+        - 127.0.0.1:${PORT}:8428
+  volumes:
+    vm-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume vm-data of this application: back it up before updating."

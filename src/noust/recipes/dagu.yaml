@@ -1,0 +1,56 @@
+# Dagu: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/dagu
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: dagu
+kind: compose
+title: "Dagu"
+slogan: "Self-hostable workflow orchestrator for teams whose main work isn't orchestration."
+description: "Dagu is a self-contained workflow engine with a Web UI. Schedule and orchestrate jobs as DAGs defined in declarative YAML, with no DBMS required."
+category: automation
+tags: [workflow, automation, scheduler, cron, devops]
+logo: logo.svg
+version: "2.10.7"
+revision: 1
+updated: 2026-10-28
+homepage: https://dagu.sh
+docs: https://docs.dagu.sh
+repository: https://github.com/dagucloud/dagu
+license: GPL-3.0-only
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  ADMIN_USERNAME:
+    default: "admin"
+    description: "Setting ADMIN_USERNAME of the application; the template leaves it to the operator."
+  ADMIN_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for admin password."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    dagu:
+      image: ghcr.io/dagucloud/dagu:2.10.7@sha256:5e715705e0c96e462417303f3e2fbbadc7f9cd15d153764c89fd1442e80a1d66
+      command: dagu start-all
+      restart: unless-stopped
+      volumes:
+        - dagu-data:/var/lib/dagu
+      environment:
+        DAGU_HOST: 0.0.0.0
+        DAGU_PORT: '8080'
+        DAGU_AUTH_MODE: basic
+        DAGU_AUTH_BASIC_USERNAME: ${ADMIN_USERNAME}
+        DAGU_AUTH_BASIC_PASSWORD: ${ADMIN_PASSWORD}
+      ports:
+        - 127.0.0.1:${PORT}:8080
+  volumes:
+    dagu-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume dagu-data of this application: back it up before updating."

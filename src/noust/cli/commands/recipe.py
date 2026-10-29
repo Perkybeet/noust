@@ -29,7 +29,7 @@ from noust.recipes import (
     search_recipes,
 )
 from noust.recipes.catalog import catalogue_problems
-from noust.recipes.model import ORIGINS
+from noust.recipes.model import ORIGINS, UNAVAILABLE_CODES
 
 if TYPE_CHECKING:
     from noust.recipes.updates import RecipeUpdateStatus
@@ -85,6 +85,12 @@ def print_recipe(logger: Logger, recipe: Recipe) -> None:
         logger.key_value("Source code", recipe.repository)
     if not recipe.available:
         logger.key_value("Available", "No")
+        view = recipe.summary()
+        if view["unavailable_text"]:
+            logger.key_value("Why", f"{view['unavailable_text']} ({recipe.unavailable_code})")
+            logger.info(view["unavailable_hint"] or "")
+        if recipe.replaced_by:
+            logger.key_value("Instead", f"noust recipe show {recipe.replaced_by}")
         logger.info(recipe.unavailable_reason or "")
         return
     details = recipe.to_dict()
@@ -188,6 +194,24 @@ def cli() -> None:
 @click.option("--tag", help="Only the recipes with this tag.")
 @click.option("--kind", type=click.Choice(KINDS), help="Only native or only compose recipes.")
 @click.option(
+    "--unavailable",
+    "only_unavailable",
+    is_flag=True,
+    help="Only the recipes that are listed and cannot be installed, with the reason of each.",
+)
+@click.option(
+    "--tested/--untested",
+    "tested",
+    default=None,
+    help="Only the recipes that were started for real in the harness, or only the others.",
+)
+@click.option(
+    "--reason",
+    "unavailable_code",
+    type=click.Choice(UNAVAILABLE_CODES),
+    help="Only the listed recipes left out for this reason.",
+)
+@click.option(
     "--origin",
     type=click.Choice(ORIGINS),
     help="Only the package's recipes (shipped), a catalogue package's (catalog) or yours (operator).",
@@ -200,6 +224,9 @@ def list_command(
     category: str | None,
     tag: str | None,
     kind: str | None,
+    only_unavailable: bool,
+    tested: bool | None,
+    unavailable_code: str | None,
     origin: str | None,
 ) -> None:
     """
@@ -211,7 +238,15 @@ def list_command(
     """
     recipes = [
         recipe
-        for recipe in search_recipes(query=query, category=category, tag=tag, kind=kind)
+        for recipe in search_recipes(
+            query=query,
+            category=category,
+            tag=tag,
+            kind=kind,
+            available=False if only_unavailable or unavailable_code else None,
+            unavailable_code=unavailable_code,
+            tested=tested,
+        )
         if origin is None or recipe.origin == origin
     ]
     problems = [problem for problem in catalogue_problems() if origin in (None, problem.origin)]
@@ -229,7 +264,12 @@ def list_command(
     logger = ctx.logger
     for recipe in recipes:
         if not recipe.available:
-            logger.key_value(recipe.name, f"{recipe.title}: not available in this release")
+            said = recipe.summary()["unavailable_text"]
+            logger.key_value(
+                recipe.name,
+                f"{recipe.title}: not available in this release"
+                + (f" ({said.lower()})" if said else ""),
+            )
             continue
         badge = " [Docker]" if recipe.runs_in_docker else ""
         mine = " [yours]" if recipe.origin == "operator" else ""
@@ -303,6 +343,13 @@ def show_command(ctx: Context, name: str) -> None:
     type=click.Choice(["mysql", "mariadb"]),
     help="The SQL engine to run it on, for a recipe that offers a choice (WordPress runs on either).",
 )
+@click.option(
+    "--accept-root-equivalent",
+    "accept_root_equivalent",
+    is_flag=True,
+    help="Confirm that you accept a recipe that is root on this server (one that controls "
+    "Docker): it is refused without it.",
+)
 @global_flags
 @pass_context
 def install_command(
@@ -318,6 +365,7 @@ def install_command(
     no_backups: bool,
     install_requirements: bool,
     database: str | None,
+    accept_root_equivalent: bool,
 ) -> None:
     """
     Install a recipe on a domain.
@@ -337,6 +385,10 @@ def install_command(
     engine) is checked first, before anything is created; ``noust recipe
     requirements NAME`` shows it, and ``--install-requirements`` installs what
     Noust can install.
+
+    A recipe that is root on this server by design (Portainer controls Docker) is
+    refused until you confirm it with ``--accept-root-equivalent``. That records, as
+    any other exception to the compose guard, who accepted it and why.
     """
     # Imported here: the deploy commands load every deployer, which browsing
     # the catalogue has no use for.
@@ -363,6 +415,7 @@ def install_command(
             default_backups=not no_backups,
             install_requirements=install_requirements,
             database=database,
+            accept_root_equivalent=accept_root_equivalent,
         )
     )
 

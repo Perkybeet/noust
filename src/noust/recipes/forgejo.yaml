@@ -18,7 +18,7 @@ slogan: A self-hosted lightweight software forge, a community fork of Gitea.
 description: A community-governed Git forge with code hosting, code review, issues, packages and Actions. Runs rootless with its own PostgreSQL. Opens 2222 for Git over SSH. Registration is closed; the administrator is created from the command line.
 category: development
 tags: [git, forge, code-review, ci]
-logo: logo.svg
+logo: simple-icons:forgejo
 version: "16.0.5"
 revision: 1
 updated: 2026-10-06
