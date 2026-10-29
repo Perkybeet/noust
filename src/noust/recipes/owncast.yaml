@@ -1,0 +1,41 @@
+# Owncast: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/owncast
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: owncast
+kind: compose
+title: "Owncast"
+slogan: "Take control over your live stream video by running it yourself. Streaming + chat out of the box."
+description: "Owncast is a self-hosted live video streaming and chat server for use with existing broadcasting software."
+category: communication
+tags: [streaming, live-video, chat, broadcasting, self-hosted, rtmp, communication]
+logo: logo.svg
+version: "0.3.0"
+revision: 1
+updated: 2026-10-28
+homepage: https://owncast.online
+docs: https://owncast.online/docs/
+repository: https://github.com/owncast/owncast
+license: MIT
+architectures: ["386", "amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    owncast:
+      image: owncast/owncast:0.3.0@sha256:0f35b568b1098d2badbde2dbf3c73a902009c95eb687c647edea04d6da079a78
+      restart: unless-stopped
+      volumes:
+        - owncast-data:/app/data
+      ports:
+        - 127.0.0.1:${PORT}:8080
+  volumes:
+    owncast-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume owncast-data of this application: back it up before updating."

@@ -1,0 +1,44 @@
+# Komari Monitor: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/komari-monitor
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: komari-monitor
+kind: compose
+title: "Komari Monitor"
+slogan: "A simple server monitor tool."
+description: "A lightweight, self-hosted server monitoring tool for tracking server performance."
+category: monitoring
+tags: [monitoring, self-hosted]
+logo: logo.svg
+version: "1.6.1"
+revision: 1
+updated: 2026-10-28
+homepage: https://ss.akz.moe
+docs: https://github.com/komari-monitor/komari#readme
+repository: https://github.com/komari-monitor/komari
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    komari:
+      image: ghcr.io/komari-monitor/komari:1.6.1@sha256:68df57a235d0d9d631f73a6c95466d1acc4220e9cae6ab2c5e009a51318937e0
+      restart: unless-stopped
+      volumes:
+        - komari-data:/app/data
+      environment:
+        ADMIN_USERNAME: ''
+        ADMIN_PASSWORD: ''
+      ports:
+        - 127.0.0.1:${PORT}:25774
+  volumes:
+    komari-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume komari-data of this application: back it up before updating."

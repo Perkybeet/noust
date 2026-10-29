@@ -1,0 +1,41 @@
+# qui: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/qui
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: qui
+kind: compose
+title: "qui"
+slogan: "A fast, single-binary qBittorrent web UI: manage multiple instances, automate torrent workflows..."
+description: "A fast, modern web interface for qBittorrent. Manage multiple qBittorrent instances from a single, lightweight application built by autobrr."
+category: automation
+tags: [torrent, qbittorrent, download, media, self-hosted, automation]
+logo: logo.svg
+version: "1.33.1"
+revision: 1
+updated: 2026-10-28
+homepage: https://getqui.com
+docs: https://getqui.com
+repository: https://github.com/autobrr/qui
+license: GPL-2.0-only
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    qui:
+      image: ghcr.io/autobrr/qui:v1.33.1@sha256:c83ce0370ab372c931ccb3f0ddd0eb1bc850026ce9eafc13ce94443f6f2a2cd3
+      restart: unless-stopped
+      volumes:
+        - qui-config:/config
+      ports:
+        - 127.0.0.1:${PORT}:7476
+  volumes:
+    qui-config:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume qui-config of this application: back it up before updating."

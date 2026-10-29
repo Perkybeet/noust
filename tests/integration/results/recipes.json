@@ -1,10 +1,10 @@
 {
   "measured": "tests/integration/recipes_run.py: scripts/recipe_smoke.py in the harness container, one recipe at a time",
   "harness": "Ubuntu 24.04 with systemd and a Docker of its own (Dockerfile.systemd)",
-  "updated": "2026-10-29T01:58:40Z",
+  "updated": "2026-10-29T02:40:19Z",
   "totals": {
-    "pass": 145,
-    "fail": 11
+    "pass": 174,
+    "fail": 13
   },
   "results": [
     {
@@ -121,6 +121,21 @@
       "error_lines": 80,
       "rate_limited": false,
       "images_removed": 2
+    },
+    {
+      "recipe": "babybuddy",
+      "version": "2.11.0",
+      "date": "2026-10-29T02:36:04Z",
+      "source": "coolify",
+      "seconds": 53,
+      "result": "pass",
+      "gate": "/ -> 302 after 5s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
     },
     {
       "recipe": "baserow",
@@ -322,6 +337,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "commafeed",
+      "version": "7.4.1-h2",
+      "date": "2026-10-29T02:30:49Z",
+      "source": "dokploy",
+      "seconds": 42,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "convertx",
       "version": "0.19.0",
       "date": "2026-10-28T21:13:51Z",
@@ -331,6 +361,21 @@
       "gate": "/ -> 302 after 5s",
       "gate_status": "302",
       "error_lines": 0,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "cookie-cloud",
+      "version": "2026.10.23",
+      "date": "2026-10-29T02:32:52Z",
+      "source": "dokploy",
+      "seconds": 40,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -382,6 +427,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "dagu",
+      "version": "2.10.7",
+      "date": "2026-10-29T02:26:06Z",
+      "source": "dokploy",
+      "seconds": 46,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "dashy",
       "version": "4.8.7",
       "date": "2026-10-28T22:22:15Z",
@@ -392,6 +452,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "databasus",
+      "version": "3.16.2",
+      "date": "2026-10-29T02:11:16Z",
+      "source": "coolify",
+      "seconds": 54,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 1,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -447,6 +522,21 @@
       "gate_status": "302",
       "unsteady": false,
       "error_lines": 0,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "dokuwiki",
+      "version": "2021.11.28",
+      "date": "2026-10-29T02:24:40Z",
+      "source": "coolify",
+      "seconds": 49,
+      "result": "pass",
+      "gate": "/ -> 200 after 10s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -523,6 +613,26 @@
       "images_removed": 1
     },
     {
+      "recipe": "electricsql",
+      "version": "1.4.2",
+      "date": "2026-10-29T02:08:59Z",
+      "source": "coolify",
+      "seconds": 40,
+      "result": "fail",
+      "gate": "/ -> conn:URLError after 30s",
+      "gate_status": "conn:URLError",
+      "unsteady": true,
+      "problems": [
+        "noust-test-recetas-electricsql-electric-1 restarted 8 times",
+        "the health gate's request to / got conn:URLError, the recipe expects 200-399"
+      ],
+      "log_tail": "ASE_URL using custom function: invalid URL scheme: nil\nelectric-1  |     (electric 1.4.2) lib/electric/config.ex:331: Electric.Config.parse_postgresql_uri!/1\nelectric-1  |     (dotenvy 1.1.0) lib/dotenvy.ex:149: Dotenvy.env!/2\nelectric-1  |     /app/releases/1.4.2/runtime.exs:43: (file)\nelectric-1  |     (elixir 1.19.1) src/elixir.erl:365: :elixir.eval_external_handler/3\nelectric-1  |     (stdlib 7.1) erl_eval.erl:924: :erl_eval.do_apply/7\nelectric-1  |     (stdlib 7.1) erl_eval.erl:668: :erl_eval.expr/6\nelectric-1  |     (stdlib 7.1) erl_eval.erl:276: :erl_eval.exprs/6\nelectric-1  |     (elixir 1.19.1) src/elixir.erl:343: :elixir.eval_forms/4\nelectric-1  | \nelectric-1  | Runtime terminating during boot ({#{message=><<\"Error converting variable DATABASE_URL using custom function: invalid URL scheme: nil\">>,'__struct__'=>'Elixir.RuntimeError','__exception__'=>true},[{'Elixir.Electric.Config','parse_postgresql_uri!',1,[{file,\"lib/electric/config.ex\"},{line,331}]},{'Elixir.Dotenvy','env!',2,[{file,\"lib/dotenvy.ex\"},{line,149}]},{elixir_eval,'__FILE__',1,[{file,\"/app/releases/1.4.2/runtime.exs\"},{line,43}]},{elixir,eval_external_handler,3,[{file,\"src/elixir.erl\"},{line,365}]},{erl_eval,do_apply,7,[{file,\"erl_eval.erl\"},{line,924}]},{erl_eval,expr,6,[{file,\"erl_eval.erl\"},{line,668}]},{erl_eval,exprs,6,[{file,\"erl_eval.erl\"},{line,276}]},{elixir,eval_forms,4,[{file,\"src/elixir.erl\"},{line,343}]}]})\nelectric-1  | \nelectric-1  | Crash dump is being written to: erl_crash.dump...done\n",
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "erpnext",
       "version": "version-15",
       "date": "2026-10-29T01:16:46Z",
@@ -571,6 +681,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "filegator",
+      "version": "7.14.3",
+      "date": "2026-10-29T02:33:33Z",
+      "source": "dokploy",
+      "seconds": 50,
+      "result": "pass",
+      "gate": "/ -> 200 after 0s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "firefly-iii",
       "version": "6.7.9",
       "date": "2026-10-28T22:44:08Z",
@@ -590,6 +715,21 @@
       "date": "2026-10-29T01:48:05Z",
       "source": "dokploy",
       "seconds": 56,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "flatnotes",
+      "version": "5.5.5",
+      "date": "2026-10-29T02:32:10Z",
+      "source": "dokploy",
+      "seconds": 40,
       "result": "pass",
       "gate": "/ -> 200 after 5s",
       "gate_status": "200",
@@ -781,6 +921,23 @@
       "images_removed": 1
     },
     {
+      "recipe": "gotenberg",
+      "version": "8.39.0",
+      "date": "2026-10-29T02:05:15Z",
+      "source": "coolify",
+      "seconds": 60,
+      "result": "pass",
+      "gate": "/health -> 200 after 0s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1,
+      "attempts": 2,
+      "first_attempt": "the health gate's request to / got 401, the recipe expects 200-399"
+    },
+    {
       "recipe": "gotify",
       "version": "3.1.1",
       "date": "2026-10-28T20:38:48Z",
@@ -790,6 +947,23 @@
       "error_lines": 0,
       "rate_limited": false,
       "images_removed": 1
+    },
+    {
+      "recipe": "gowa",
+      "version": "9.7.0",
+      "date": "2026-10-29T02:22:58Z",
+      "source": "coolify",
+      "seconds": 39,
+      "result": "pass",
+      "gate": "/health -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1,
+      "attempts": 2,
+      "first_attempt": "the health gate's request to / got 401, the recipe expects 200-399"
     },
     {
       "recipe": "grafana",
@@ -802,6 +976,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "grocy",
+      "version": "4.6.0",
+      "date": "2026-10-29T02:09:40Z",
+      "source": "coolify",
+      "seconds": 48,
+      "result": "pass",
+      "gate": "/ -> 302 after 6s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -844,6 +1033,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "heimdall",
+      "version": "2.8.3",
+      "date": "2026-10-29T02:10:30Z",
+      "source": "coolify",
+      "seconds": 45,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -978,6 +1182,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "jellyseerr",
+      "version": "2.7.3",
+      "date": "2026-10-29T02:06:16Z",
+      "source": "dokploy",
+      "seconds": 84,
+      "result": "pass",
+      "gate": "/ -> 307 after 5s",
+      "gate_status": "307",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "jenkins",
       "version": "2.580.1",
       "date": "2026-10-28T23:15:11Z",
@@ -1044,6 +1263,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 1,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "komari-monitor",
+      "version": "1.6.1",
+      "date": "2026-10-29T02:17:05Z",
+      "source": "dokploy",
+      "seconds": 34,
+      "result": "pass",
+      "gate": "/ -> 307 after 5s",
+      "gate_status": "307",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -1232,6 +1466,36 @@
       "gate_status": "204",
       "unsteady": false,
       "error_lines": 0,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "lubelogger",
+      "version": "1.6.5",
+      "date": "2026-10-29T02:39:38Z",
+      "source": "dokploy",
+      "seconds": 40,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "mage-ai",
+      "version": "0.9.78",
+      "date": "2026-10-29T02:13:05Z",
+      "source": "coolify",
+      "seconds": 116,
+      "result": "pass",
+      "gate": "/ -> 200 after 9s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -1479,6 +1743,36 @@
       "images_removed": 1
     },
     {
+      "recipe": "omni-tools",
+      "version": "0.7.0",
+      "date": "2026-10-29T02:08:22Z",
+      "source": "dokploy",
+      "seconds": 36,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "once-campfire",
+      "version": "1.5.6",
+      "date": "2026-10-29T02:23:38Z",
+      "source": "coolify",
+      "seconds": 61,
+      "result": "pass",
+      "gate": "/ -> 302 after 5s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "open-design",
       "version": "0.16.1",
       "date": "2026-10-28T21:47:07Z",
@@ -1550,6 +1844,21 @@
       "first_attempt": "the health gate's request to / got 401, the recipe expects 200-399"
     },
     {
+      "recipe": "opengist",
+      "version": "1",
+      "date": "2026-10-29T02:31:31Z",
+      "source": "dokploy",
+      "seconds": 38,
+      "result": "pass",
+      "gate": "/ -> 302 after 5s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "openobserve",
       "version": "1.1.1",
       "date": "2026-10-29T00:12:00Z",
@@ -1579,6 +1888,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "openspeedtest",
+      "version": "2.0.8",
+      "date": "2026-10-29T02:30:02Z",
+      "source": "dokploy",
+      "seconds": 46,
+      "result": "pass",
+      "gate": "/ -> 200 after 0s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "outline",
       "version": "1.11.0",
       "date": "2026-10-29T00:12:52Z",
@@ -1589,6 +1913,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 2,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "owncast",
+      "version": "0.3.0",
+      "date": "2026-10-29T02:07:42Z",
+      "source": "dokploy",
+      "seconds": 39,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -1747,6 +2086,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "postgresus",
+      "version": "2.15.3",
+      "date": "2026-10-29T02:12:11Z",
+      "source": "dokploy",
+      "seconds": 53,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 1,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "privatebin",
       "version": "2.1.0",
       "date": "2026-10-29T00:25:25Z",
@@ -1791,6 +2145,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "pulse",
+      "version": "5.1",
+      "date": "2026-10-29T02:15:04Z",
+      "source": "dokploy",
+      "seconds": 120,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "qbittorrent",
       "version": "5.2.4",
       "date": "2026-10-29T00:26:11Z",
@@ -1819,6 +2188,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "qui",
+      "version": "1.33.1",
+      "date": "2026-10-29T02:25:30Z",
+      "source": "dokploy",
+      "seconds": 35,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -1868,6 +2252,21 @@
       "transient": false,
       "rate_limited": false,
       "images_removed": 3
+    },
+    {
+      "recipe": "rivet-engine",
+      "version": "2.2.0",
+      "date": "2026-10-29T02:17:40Z",
+      "source": "coolify",
+      "seconds": 41,
+      "result": "pass",
+      "gate": "/ -> 308 after 5s",
+      "gate_status": "308",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
     },
     {
       "recipe": "rocketchat",
@@ -1954,6 +2353,40 @@
       "images_removed": 1
     },
     {
+      "recipe": "silex",
+      "version": "3.7.0",
+      "date": "2026-10-29T02:34:56Z",
+      "source": "dokploy",
+      "seconds": 67,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "silo",
+      "version": "RELEASE.2026-08-06T00-00-00Z",
+      "date": "2026-10-29T02:26:53Z",
+      "source": "dokploy",
+      "seconds": 188,
+      "result": "fail",
+      "gate": "/ -> 403 after 180s",
+      "gate_status": "403",
+      "unsteady": false,
+      "problems": [
+        "the health gate's request to / got 403, the recipe expects 200-399"
+      ],
+      "log_tail": "silo-1  | INFO: Formatting 1st pool, 1 set(s), 1 drives per set.\nsilo-1  | INFO: WARNING: Host local has more than 0 drives of set. A host failure will result in data becoming unavailable.\nsilo-1  | Silo Object Storage Server\nsilo-1  | Copyright: 2015-2025 MinIO, Inc.\nsilo-1  | Modifications: Copyright 2025-2026 PGSTY\nsilo-1  | License: GNU AGPLv3 - https://www.gnu.org/licenses/agpl-3.0.html\nsilo-1  | Version: RELEASE.2026-08-06T00-00-00Z (go1.26.5 linux/amd64)\nsilo-1  | \nsilo-1  | API: http://172.19.0.2:9000  http://127.0.0.1:9000 \nsilo-1  | WebUI: http://172.19.0.2:9001 http://127.0.0.1:9001  \nsilo-1  | \nsilo-1  | Docs: https://silo.pgsty.com/docs/\n",
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "silverbullet",
       "version": "2.12.1",
       "date": "2026-10-29T00:34:12Z",
@@ -1992,6 +2425,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 2,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "speedtest-tracker",
+      "version": "1.15.1",
+      "date": "2026-10-29T02:18:59Z",
+      "source": "dokploy",
+      "seconds": 47,
+      "result": "pass",
+      "gate": "/ -> 302 after 5s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -2144,6 +2592,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "upsnap",
+      "version": "5",
+      "date": "2026-10-29T02:18:22Z",
+      "source": "dokploy",
+      "seconds": 36,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "vaultwarden",
       "version": "1.37.4",
       "date": "2026-10-29T00:54:13Z",
@@ -2151,6 +2614,21 @@
       "seconds": 38,
       "result": "pass",
       "gate": "/alive -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "versitygw",
+      "version": "1.8.0",
+      "date": "2026-10-29T02:34:24Z",
+      "source": "dokploy",
+      "seconds": 30,
+      "result": "pass",
+      "gate": "/ -> 200 after 0s",
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,

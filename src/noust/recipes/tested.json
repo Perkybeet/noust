@@ -36,6 +36,11 @@
    "seconds": 198,
    "version": "2026.8.3"
   },
+  "babybuddy": {
+   "date": "2026-10-29",
+   "seconds": 53,
+   "version": "2.11.0"
+  },
   "baserow": {
    "date": "2026-10-28",
    "seconds": 217,
@@ -91,10 +96,20 @@
    "seconds": 63,
    "version": "2.38.4"
   },
+  "commafeed": {
+   "date": "2026-10-29",
+   "seconds": 42,
+   "version": "7.4.1-h2"
+  },
   "convertx": {
    "date": "2026-10-28",
    "seconds": 207,
    "version": "0.19.0"
+  },
+  "cookie-cloud": {
+   "date": "2026-10-29",
+   "seconds": 40,
+   "version": "2026.10.23"
   },
   "couchdb": {
    "date": "2026-10-28",
@@ -106,10 +121,20 @@
    "seconds": 37,
    "version": "11.5.0"
   },
+  "dagu": {
+   "date": "2026-10-29",
+   "seconds": 46,
+   "version": "2.10.7"
+  },
   "dashy": {
    "date": "2026-10-28",
    "seconds": 44,
    "version": "4.8.7"
+  },
+  "databasus": {
+   "date": "2026-10-29",
+   "seconds": 54,
+   "version": "3.16.2"
   },
   "directus": {
    "date": "2026-10-28",
@@ -130,6 +155,11 @@
    "date": "2026-10-28",
    "seconds": 50,
    "version": "3.3.3"
+  },
+  "dokuwiki": {
+   "date": "2026-10-29",
+   "seconds": 49,
+   "version": "2021.11.28"
   },
   "dolibarr": {
    "date": "2026-10-28",
@@ -166,6 +196,11 @@
    "seconds": 65,
    "version": "3.3.9"
   },
+  "filegator": {
+   "date": "2026-10-29",
+   "seconds": 50,
+   "version": "7.14.3"
+  },
   "firefly-iii": {
    "date": "2026-10-28",
    "seconds": 79,
@@ -175,6 +210,11 @@
    "date": "2026-10-29",
    "seconds": 56,
    "version": "3.5.2"
+  },
+  "flatnotes": {
+   "date": "2026-10-29",
+   "seconds": 40,
+   "version": "5.5.5"
   },
   "forgejo": {
    "date": "2026-10-28",
@@ -226,15 +266,30 @@
    "seconds": 35,
    "version": "1.9.14"
   },
+  "gotenberg": {
+   "date": "2026-10-29",
+   "seconds": 60,
+   "version": "8.39.0"
+  },
   "gotify": {
    "date": "2026-10-28",
    "seconds": 37,
    "version": "3.1.1"
   },
+  "gowa": {
+   "date": "2026-10-29",
+   "seconds": 39,
+   "version": "9.7.0"
+  },
   "grafana": {
    "date": "2026-10-28",
    "seconds": 73,
    "version": "13.2.3"
+  },
+  "grocy": {
+   "date": "2026-10-29",
+   "seconds": 48,
+   "version": "4.6.0"
   },
   "headscale": {
    "date": "2026-10-28",
@@ -250,6 +305,11 @@
    "date": "2026-10-28",
    "seconds": 71,
    "version": "1.12.0"
+  },
+  "heimdall": {
+   "date": "2026-10-29",
+   "seconds": 45,
+   "version": "2.8.3"
   },
   "homarr": {
    "date": "2026-10-28",
@@ -296,6 +356,11 @@
    "seconds": 68,
    "version": "12.2"
   },
+  "jellyseerr": {
+   "date": "2026-10-29",
+   "seconds": 84,
+   "version": "2.7.3"
+  },
   "jenkins": {
    "date": "2026-10-28",
    "seconds": 43,
@@ -320,6 +385,11 @@
    "date": "2026-10-28",
    "seconds": 95,
    "version": "2.70.0"
+  },
+  "komari-monitor": {
+   "date": "2026-10-29",
+   "seconds": 34,
+   "version": "1.6.1"
   },
   "komga": {
    "date": "2026-10-28",
@@ -380,6 +450,11 @@
    "date": "2026-10-28",
    "seconds": 91,
    "version": "1.45.0"
+  },
+  "mage-ai": {
+   "date": "2026-10-29",
+   "seconds": 116,
+   "version": "0.9.78"
   },
   "mailpit": {
    "date": "2026-10-28",
@@ -466,6 +541,16 @@
    "seconds": 332,
    "version": "0.35.1"
   },
+  "omni-tools": {
+   "date": "2026-10-29",
+   "seconds": 36,
+   "version": "0.7.0"
+  },
+  "once-campfire": {
+   "date": "2026-10-29",
+   "seconds": 61,
+   "version": "1.5.6"
+  },
   "open-design": {
    "date": "2026-10-28",
    "seconds": 50,
@@ -491,6 +576,11 @@
    "seconds": 57,
    "version": "1.18.32"
   },
+  "opengist": {
+   "date": "2026-10-29",
+   "seconds": 38,
+   "version": "1"
+  },
   "openobserve": {
    "date": "2026-10-29",
    "seconds": 51,
@@ -501,10 +591,20 @@
    "seconds": 165,
    "version": "0.1.6"
   },
+  "openspeedtest": {
+   "date": "2026-10-29",
+   "seconds": 46,
+   "version": "2.0.8"
+  },
   "outline": {
    "date": "2026-10-29",
    "seconds": 93,
    "version": "1.11.0"
+  },
+  "owncast": {
+   "date": "2026-10-29",
+   "seconds": 39,
+   "version": "0.3.0"
   },
   "owncloud-ocis": {
    "date": "2026-10-29",
@@ -561,6 +661,11 @@
    "seconds": 37,
    "version": "2.45.3"
   },
+  "postgresus": {
+   "date": "2026-10-29",
+   "seconds": 53,
+   "version": "2.15.3"
+  },
   "privatebin": {
    "date": "2026-10-29",
    "seconds": 40,
@@ -576,10 +681,20 @@
    "seconds": 43,
    "version": "2.6.5.5623"
   },
+  "pulse": {
+   "date": "2026-10-29",
+   "seconds": 120,
+   "version": "5.1"
+  },
   "qdrant": {
    "date": "2026-10-29",
    "seconds": 38,
    "version": "1.19.2"
+  },
+  "qui": {
+   "date": "2026-10-29",
+   "seconds": 35,
+   "version": "1.33.1"
   },
   "rabbitmq": {
    "date": "2026-10-29",
@@ -590,6 +705,11 @@
    "date": "2026-10-29",
    "seconds": 44,
    "version": "6.4.4.10685"
+  },
+  "rivet-engine": {
+   "date": "2026-10-29",
+   "seconds": 41,
+   "version": "2.2.0"
   },
   "rocketchat": {
    "date": "2026-10-29",
@@ -621,6 +741,11 @@
    "seconds": 51,
    "version": "5.1.7"
   },
+  "silex": {
+   "date": "2026-10-29",
+   "seconds": 67,
+   "version": "3.7.0"
+  },
   "silverbullet": {
    "date": "2026-10-29",
    "seconds": 53,
@@ -635,6 +760,11 @@
    "date": "2026-10-29",
    "seconds": 43,
    "version": "4.0.20.3014"
+  },
+  "speedtest-tracker": {
+   "date": "2026-10-29",
+   "seconds": 47,
+   "version": "1.15.1"
   },
   "stirling-pdf": {
    "date": "2026-10-29",
@@ -686,10 +816,20 @@
    "seconds": 53,
    "version": "30.2"
   },
+  "upsnap": {
+   "date": "2026-10-29",
+   "seconds": 36,
+   "version": "5"
+  },
   "vaultwarden": {
    "date": "2026-10-29",
    "seconds": 38,
    "version": "1.37.4"
+  },
+  "versitygw": {
+   "date": "2026-10-29",
+   "seconds": 30,
+   "version": "1.8.0"
   },
   "victoriametrics": {
    "date": "2026-10-29",

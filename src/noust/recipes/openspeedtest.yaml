@@ -1,0 +1,36 @@
+# OpenSpeedTest: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/openspeedtest
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: openspeedtest
+kind: compose
+title: "OpenSpeedTest"
+slogan: "SpeedTest by OpenSpeedTest™ is a Free and Open-Source HTML5 Network Performance Estimation Tool..."
+description: "OpenSpeedTest is a 100% browser-based HTML5 network performance estimation tool for accurately measuring network speed."
+category: monitoring
+tags: [network, testing, performance, monitoring, bandwidth]
+logo: logo.svg
+version: "2.0.8"
+revision: 1
+updated: 2026-10-28
+homepage: https://openspeedtest.com
+docs: https://github.com/openspeedtest/Speed-Test/wiki
+repository: https://github.com/openspeedtest/Speed-Test
+license: MIT
+architectures: ["386", "amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    openspeedtest:
+      image: openspeedtest/latest:v2.0.8@sha256:1127de0693c36bcf8c297c73d09891df8ec243680d027a6b6fab13fa0954ff46
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:3000
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."

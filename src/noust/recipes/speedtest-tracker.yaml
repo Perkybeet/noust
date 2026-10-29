@@ -1,0 +1,57 @@
+# Speedtest Tracker: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/speedtest-tracker
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: speedtest-tracker
+kind: compose
+title: "Speedtest Tracker"
+slogan: "Speedtest Tracker is a self-hosted application that monitors the performance and uptime of your..."
+description: "Speedtest Tracker runs scheduled internet speed tests and stores the results in a self-hosted dashboard."
+category: monitoring
+tags: [monitoring, network, speedtest]
+logo: logo.svg
+version: "1.15.1"
+revision: 1
+updated: 2026-10-28
+homepage: https://speedtest-tracker.dev/
+docs: https://docs.speedtest-tracker.dev/
+repository: https://github.com/alexjustesen/speedtest-tracker
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  PUID:
+    default: "1000"
+    description: "Setting PUID of the application; the template leaves it to the operator."
+  PGID:
+    default: "1000"
+    description: "Setting PGID of the application; the template leaves it to the operator."
+  APP_KEY:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for app key."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    speedtest-tracker:
+      image: lscr.io/linuxserver/speedtest-tracker:1.15.1@sha256:8d3c2826b708c18be7fb46c1afebc6bb3b1ab7c519473df1be89f5ecaa8bb31f
+      restart: unless-stopped
+      environment:
+        PUID: ${PUID}
+        PGID: ${PGID}
+        APP_KEY: ${APP_KEY}
+        DB_CONNECTION: sqlite
+      volumes:
+        - speedtest_config:/config
+      ports:
+        - 127.0.0.1:${PORT}:80
+  volumes:
+    speedtest_config:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume speedtest_config of this application: back it up before updating."

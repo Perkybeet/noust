@@ -1,0 +1,70 @@
+# GoWa: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/gowa.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: gowa
+kind: compose
+title: "GoWa"
+slogan: "Golang WhatsApp - Built with Go for efficient memory use"
+description: "Golang WhatsApp - Built with Go for efficient memory use."
+category: development
+tags: [whatsapp, golang, multidevice, api, go-whatsapp, development]
+logo: logo.svg
+version: "9.7.0"
+revision: 1
+updated: 2026-10-28
+homepage: https://gowa-docs.mintlify.site/
+docs: https://github.com/aldinokemal/go-whatsapp-web-multidevice
+repository: https://github.com/aldinokemal/go-whatsapp-web-multidevice
+license: MIT
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_GOWA:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_USER_GOWA:
+    generate: "user"
+    description: "The user name Noust generated for gowa."
+  SERVICE_PASSWORD_GOWA:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for gowa."
+  WHATSAPP_WEBHOOK:
+    default: ""
+    description: "Setting WHATSAPP_WEBHOOK of the application; the template leaves it to the operator."
+  WHATSAPP_WEBHOOK_SECRET:
+    default: ""
+    secret: true
+    description: "Setting WHATSAPP_WEBHOOK_SECRET of the application; the template leaves it to the operator."
+health: {path: /health, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    gowa:
+      image: aldinokemal2104/go-whatsapp-web-multidevice:v9.7.0@sha256:f48200a5ed799fc802cc65426f34c75ce2d5e69fc5d7a0a6e3852d2ac00d79ca
+      environment:
+        SERVICE_URL_GOWA: ${SERVICE_URL_GOWA}
+        SERVICE_USER_GOWA: ''
+        SERVICE_PASSWORD_GOWA: ''
+        APP_BASIC_AUTH: ${SERVICE_USER_GOWA}:${SERVICE_PASSWORD_GOWA}
+        APP_PORT: '3000'
+        APP_DEBUG: ${APP_DEBUG:-false}
+        APP_ACCOUNT_VALIDATION: ${APP_ACCOUNT_VALIDATION:-false}
+        WHATSAPP_WEBHOOK: ${WHATSAPP_WEBHOOK}
+        WHATSAPP_WEBHOOK_SECRET: ${WHATSAPP_WEBHOOK_SECRET}
+      volumes:
+        - gowa_data:/app/storages
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:3000
+  volumes:
+    gowa_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_USER_GOWA and SERVICE_PASSWORD_GOWA in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume gowa_data of this application: back it up before updating."
