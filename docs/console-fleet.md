@@ -42,7 +42,7 @@ node's console follows a job that runs in a transient systemd unit again after i
 
 **On several servers** is the second tab of Applications (on **All servers**), for an application that
 runs on more than one server
-([CENTRAL.md](CENTRAL.md#an-application-on-several-servers)): each application is a card with its servers
+([CENTRAL.md](central-operate.md#an-application-on-several-servers)): each application is a card with its servers
 side by side - the commit each serves, when, and whether it is current, differs, is missing or did not
 answer - and a line that says whether the fleet is in sync or which commit most servers run. Its menu
 **rolls a commit, a tag or an image tag out** (the plan first: who goes first and alone, the batches, what

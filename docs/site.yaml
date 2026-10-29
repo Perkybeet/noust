@@ -443,8 +443,21 @@ tabs:
         pages:
           - source: docs/CENTRAL.md
             slug: guides/fleet
+            title: Run a central
             type: guide
-            summary: Running a central, adding servers, fleet views and bulk actions, sealing its secrets.
+            summary: What a central is and what it cannot do, installing one on a NAS, a Docker host or a VPS, its first accounts and its certificate.
+          - source: docs/central-servers.md
+            slug: guides/fleet/add-servers
+            type: guide
+            summary: Authorize a central on a server, or let it enroll one with a password, create one at a cloud provider, reach one through a bastion or behind NAT, and move servers between centrals.
+          - source: docs/central-operate.md
+            slug: guides/fleet/operate
+            type: guide
+            summary: "See every server at once, act on several, run an application on several, build once for all, move a database, the fleet's settings, versions and updates."
+          - source: docs/central-maintain.md
+            slug: guides/fleet/maintain
+            type: guide
+            summary: "Seal the central's secrets, back it up, rotate a server's key, and what to do when a server does not answer."
       - title: Coming from another platform
         pages:
           - source: docs/coolify.md
@@ -492,6 +505,12 @@ tabs:
             slug: concepts/privacy
             type: explanation
             summary: What Noust sends off a server (nothing about you), the one request it makes unasked, and how to check it.
+      - title: Several servers
+        pages:
+          - source: docs/fleet-model.md
+            slug: concepts/fleet
+            type: explanation
+            summary: How far a central may go on each server, decided by the server, and what a fleet is not.
 
   - title: Reference
     slug: reference

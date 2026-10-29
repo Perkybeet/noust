@@ -465,7 +465,7 @@ before 4.0 is still accepted, it is accepted until 5.0 and never written.
   the others (`fleet.read` and `fleet.manage`), and `POST /api/fleet/placements/{domain}/ship`
   (`fleet.manage`, planned and queued like a rollout) builds on it and runs that build on the
   placement's servers.
-- An application on several servers ([CENTRAL.md](CENTRAL.md#an-application-on-several-servers)):
+- An application on several servers ([CENTRAL.md](central-operate.md#an-application-on-several-servers)):
   `GET /api/fleet/placements`, `GET`, `PUT` and `DELETE /api/fleet/placements/{domain}` (the servers
   compared, and the record of where it runs), `POST .../rollout` and `POST .../copy` (fleet jobs, with
   `plan: true` to see the plan first) and `GET .../upstreams` (the servers written for a load balancer).
@@ -475,11 +475,11 @@ before 4.0 is still accepted, it is accepted until 5.0 and never written.
   inventory, `GET` and `POST /api/nodes/{node}/inventory`, to move a server to another central.
 - `POST` and `DELETE /api/fleet/cloud/servers/{node}/link`: link a server to its machine at a
   provider, or forget it (sudo mode).
-- Servers made at a cloud provider (`/api/fleet/cloud`, [CENTRAL.md](CENTRAL.md#creating-a-server-at-a-cloud-provider)):
+- Servers made at a cloud provider (`/api/fleet/cloud`, [CENTRAL.md](central-servers.md#creating-a-server-at-a-cloud-provider)):
   `providers`, `accounts` (add, replace the token, verify, remove), an account's `catalog`, the cloud-init
   library (`scripts`, `scripts/preview`) and `servers` (list, create as a job, describe, delete, `power-on`).
   Tokens are in a request body once and in no response.
-- Servers behind NAT (`/api/fleet/link`, [CENTRAL.md](CENTRAL.md#servers-behind-nat-or-a-cgnat)): the status,
+- Servers behind NAT (`/api/fleet/link`, [CENTRAL.md](central-servers.md#servers-behind-nat-or-a-cgnat)): the status,
   `invites` (create, cancel) and `accept`. `GET /api/nodes` and `GET /api/nodes/{node}` answer `link` for a
   server that dials in, and its `tunnel` carries `transport: "link"`.
 - `PUT /api/nodes/{node}/monitoring` (pause or resume a server's monitoring), and `monitoring` on a node: how

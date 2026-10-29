@@ -60,7 +60,7 @@ to a newer version*, and the Engines page lists the moves with the way back. The
 `--drop-source` to drop it from the first server after a last dump). The source dumps it, the central carries
 the dump in chunks that resume and keeps none of it, and the target loads it with its own import, as the
 database's owner and never as the superuser. How it works, what is checked before anything is dumped and what
-becomes of the accounts' passwords: [CENTRAL.md](CENTRAL.md#moving-a-database-to-another-server).
+becomes of the accounts' passwords: [CENTRAL.md](central-operate.md#moving-a-database-to-another-server).
 
 ## Recovering PostgreSQL to an instant
 

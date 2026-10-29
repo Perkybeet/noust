@@ -50,7 +50,7 @@ noust releases receive shop.example.com shop.noust-release.tar.gz --sha256 4b1c.
 
 A central can drive both ends: it picks the builder, asks it for the bundle and carries it to the
 servers that run the application over the fleet's own tunnels, in chunks, with the same checksum and
-the same health gate. That is [building on one server and running on others](CENTRAL.md#building-on-one-server-and-running-on-others)
+the same health gate. That is [building on one server and running on others](central-operate.md#building-on-one-server-and-running-on-others)
 (`noust fleet placement ship`, `/api/fleet/placements/{domain}/ship` and Fleet > Applications > On several servers).
 The file is still the whole interface when no central is involved, so anything that moves a file
 (scp, a CI artifact store) carries it as well.

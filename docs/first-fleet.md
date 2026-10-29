@@ -98,8 +98,8 @@ only through the tunnel. The password is used for those few connections and kept
   reaches `203.0.113.24` on port 22, and that sshd on `ams-3` is OpenSSH 7.8 or later.
 - **`noust fleet authorize` says a setting differs:** another sshd file or `Match` block overrides
   the restriction it wrote. It put the change back; the message names the setting and the file.
-- **A server behind NAT, or reached through a bastion:** [Running a central](CENTRAL.md) covers
-  both, and running the central in a container on a NAS.
+- **A server behind NAT, or reached through a bastion:** [Add servers to a central](central-servers.md)
+  covers both. [Run a central](CENTRAL.md) covers running it in a container on a NAS.
 
 ## Next
 

@@ -332,7 +332,7 @@ docker logs noust                        # no new token; the new certificate's f
 ```
 
 Pin the version in `compose.yaml` (`ghcr.io/perkybeet/noust:3.1.0`) to upgrade when you choose.
-Take a copy of the volume first (see [CENTRAL.md](CENTRAL.md#backups)); from 3.1 on,
+Take a copy of the volume first (see [CENTRAL.md](central-maintain.md#backups)); from 3.1 on,
 `noust central backup` makes an encrypted one while it runs.
 
 Then check, from the central:
@@ -390,7 +390,7 @@ reaches the server as `noust-tunnel`.
 
 If sshd refuses the account (usually an `AllowUsers` or `AllowGroups` without `noust-tunnel`),
 `authorize` lists the reasons and changes nothing; see
-[CENTRAL.md](CENTRAL.md#troubleshooting).
+[CENTRAL.md](central-maintain.md#troubleshooting).
 
 ### 4. Labels and bulk actions
 
