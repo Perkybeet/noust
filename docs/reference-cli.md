@@ -8317,13 +8317,13 @@ Arguments: `domain`
 
 ## noust dns
 
-DNS accounts, the records Noust manages in them, and the DNS-01 challenge.
+DNS accounts, the DNS-01 challenge, and Noust DNS: a name server of your own.
 
 ```bash
 noust dns [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`check`](#noust-dns-check), [`ensure`](#noust-dns-ensure), [`provider`](#noust-dns-provider), [`records`](#noust-dns-records), [`release`](#noust-dns-release), [`sweep`](#noust-dns-sweep)
+Subcommands: [`check`](#noust-dns-check), [`ensure`](#noust-dns-ensure), [`provider`](#noust-dns-provider), [`records`](#noust-dns-records), [`release`](#noust-dns-release), [`server`](#noust-dns-server), [`sweep`](#noust-dns-sweep), [`zone`](#noust-dns-zone)
 
 ### noust dns check
 
@@ -8492,6 +8492,118 @@ Arguments: `app_domain`, `hostname`
 | `--json` | Print the outcomes as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
+### noust dns server
+
+Noust DNS on this server: install it, make it a primary or a secondary, and remove it.
+
+```bash
+noust dns server [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`add-secondary`](#noust-dns-server-add-secondary), [`install`](#noust-dns-server-install), [`key`](#noust-dns-server-key), [`remove`](#noust-dns-server-remove), [`remove-secondary`](#noust-dns-server-remove-secondary), [`setup`](#noust-dns-server-setup), [`status`](#noust-dns-server-status)
+
+### noust dns server add-secondary
+
+Let a server copy this primary's zones, and tell it when they change.
+
+```bash
+noust dns server add-secondary [OPTIONS] ADDRESS
+```
+
+Arguments: `address`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--hostname` | The name it has as a name server. |  |
+| `--json` | Print the secondary as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust dns server install
+
+Install Knot DNS, the program that answers; configure nothing.
+
+```bash
+noust dns server install [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--epel` | Agree to enable EPEL, where Knot comes from on RHEL. |  |
+| `--json` | Print the state as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust dns server key
+
+Print the key a primary signs its transfers with, for a secondary's --key-stdin.
+
+```bash
+noust dns server key [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the key as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust dns server remove
+
+Stop the name server and take Noust DNS off this server.
+
+```bash
+noust dns server remove [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--delete-zones` | Also delete the zones and records this server serves. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust dns server remove-secondary
+
+Stop copying this primary's zones to a server.
+
+```bash
+noust dns server remove-secondary [OPTIONS] ADDRESS
+```
+
+Arguments: `address`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust dns server setup
+
+Make this server a primary or a secondary of Noust DNS.
+
+```bash
+noust dns server setup [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--role` | A primary holds the zones; a secondary copies them from a primary. |  |
+| `--hostname` | The name this server has as a name server. |  |
+| `--listen` | An address to answer on. Repeatable. The server's public addresses by default. |  |
+| `--primary` | A secondary: the primary. |  |
+| `--key-stdin` | A secondary: read the primary's transfer key from one line of standard input. |  |
+| `--epel` | Agree to enable EPEL, where Knot comes from on RHEL. |  |
+| `--json` | Print the state as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust dns server status
+
+Show Noust DNS on this server: whether it is installed, its role and its zones.
+
+```bash
+noust dns server status [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the state as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
 ### noust dns sweep
 
 Release the records nobody has used for an hour. The monitor does this every hour.
@@ -8503,6 +8615,205 @@ noust dns sweep [OPTIONS]
 | Option | What it does | Default |
 |---|---|---|
 | `--json` | Print the outcomes as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust dns zone
+
+The zones Noust DNS serves: records, DNSSEC, and how to delegate a domain to them.
+
+```bash
+noust dns zone [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`check`](#noust-dns-zone-check), [`create`](#noust-dns-zone-create), [`delegation`](#noust-dns-zone-delegation), [`delete`](#noust-dns-zone-delete), [`dnssec`](#noust-dns-zone-dnssec), [`list`](#noust-dns-zone-list), [`record`](#noust-dns-zone-record), [`set`](#noust-dns-zone-set), [`show`](#noust-dns-zone-show)
+
+### noust dns zone check
+
+Look at the world and say whether the domain is delegated to this server.
+
+```bash
+noust dns zone check [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the result as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust dns zone create
+
+Make a zone and serve it.
+
+```bash
+noust dns zone create [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--nameserver` | A name server of the zone. Repeatable. This server and its secondaries by default. |  |
+| `--contact` | The address the SOA names. hostmaster@ZONE by default. |  |
+| `--ttl` | The default TTL. | `3600` |
+| `--glue` | The address of a name server inside the zone. Repeatable. |  |
+| `--dnssec` | Sign the zone. |  |
+| `--json` | Print the zone as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust dns zone delegation
+
+Say exactly what to do at the registrar to delegate a domain to this server.
+
+```bash
+noust dns zone delegation [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the steps as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust dns zone delete
+
+Stop serving a zone and delete it with all its records.
+
+```bash
+noust dns zone delete [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--yes` | Do not ask. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust dns zone dnssec
+
+Show a zone's signing, or turn it on or off.
+
+```bash
+noust dns zone dnssec [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--enable` | Sign the zone. |  |
+| `--disable` | Stop signing the zone. |  |
+| `--ds-removed` | With --disable: the DS record is already gone from the registrar. |  |
+| `--ds-published` | Tell the server the registrar now has the DS record. |  |
+| `--json` | Print the state as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust dns zone list
+
+List the zones this server serves.
+
+```bash
+noust dns zone list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the zones as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust dns zone record
+
+The records of a zone.
+
+```bash
+noust dns zone record [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`add`](#noust-dns-zone-record-add), [`remove`](#noust-dns-zone-record-remove), [`set`](#noust-dns-zone-record-set)
+
+### noust dns zone record add
+
+Add a record: NAME is relative to the zone (www, @ for the zone itself, *.apps).
+
+```bash
+noust dns zone record add [OPTIONS] ZONE NAME TYPE CONTENT
+```
+
+Arguments: `zone_name`, `name`, `record_type`, `content`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--ttl` | Seconds to live. The zone's by default. |  |
+| `--json` | Print the record as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust dns zone record remove
+
+Remove a record. Its number is in ``noust dns zone show``.
+
+```bash
+noust dns zone record remove [OPTIONS] ZONE ID
+```
+
+Arguments: `zone_name`, `record_id`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust dns zone record set
+
+Change what a record holds, or its TTL.
+
+```bash
+noust dns zone record set [OPTIONS] ZONE ID
+```
+
+Arguments: `zone_name`, `record_id`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--content` | What the record holds. |  |
+| `--ttl` | Seconds to live. |  |
+| `--default-ttl` | Go back to the zone's TTL. |  |
+| `--json` | Print the record as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust dns zone set
+
+Change a zone's name servers, contact or default TTL.
+
+```bash
+noust dns zone set [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--nameserver` | Replace the name servers. Repeatable. |  |
+| `--contact` | The address the SOA names. |  |
+| `--ttl` | The default TTL. |  |
+| `--glue` | The address of a name server inside the zone. |  |
+| `--json` | Print the zone as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust dns zone show
+
+Show a zone and its records.
+
+```bash
+noust dns zone show [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the zone as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ## noust domain

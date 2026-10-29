@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-``noust dns``: DNS accounts, the records Noust manages in them, and the DNS-01 challenge.
+``noust dns``: DNS accounts, the records Noust manages in them, the DNS-01 challenge, and
+Noust DNS (``server`` and ``zone``: a name server of your own for your domains).
 
 A presentation layer over :mod:`noust.managers.dns`, which ``/api/dns`` calls too.
 An account is a provider and a credential; the credential is proven when it is added
@@ -26,6 +27,8 @@ from typing import Any
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.cli.commands.dns_server import server as server_group
+from noust.cli.commands.dns_zone import zone as zone_group
 from noust.core.exceptions import ValidationError
 from noust.deployers.domains import check_dns
 from noust.managers.dns.accounts import DnsAccounts
@@ -37,7 +40,7 @@ from noust.validators.domain import validate_domain
 
 @click.group("dns", cls=NoustGroup)
 def cli() -> None:
-    """DNS accounts, the records Noust manages in them, and the DNS-01 challenge."""
+    """DNS accounts, the DNS-01 challenge, and Noust DNS: a name server of your own."""
 
 
 @cli.group("provider", cls=NoustGroup)
@@ -552,3 +555,7 @@ def auth_command(ctx: Context, account: str) -> None:
 def cleanup_command(ctx: Context, account: str) -> None:
     """Remove the record this order published."""
     _hook("cleanup", account)
+
+
+cli.add_command(server_group)
+cli.add_command(zone_group)

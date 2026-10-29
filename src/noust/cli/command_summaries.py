@@ -142,7 +142,7 @@ SUMMARIES: dict[str, tuple[bool, bool | str, str, str]] = {
         False,
         False,
         "",
-        "DNS accounts, the records Noust manages in them, and the DNS-01 challenge.",
+        "DNS accounts, the DNS-01 challenge, and Noust DNS: a name server of your own.",
     ),
     "domain": (
         False,
