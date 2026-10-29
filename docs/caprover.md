@@ -55,7 +55,7 @@ What follows from that:
 | Persistent directories | Persistent paths (`--persist`), mounts | `noust app mount`. |
 | Port mapping | A published TCP or UDP port through nginx | `noust stream` ([network.md](network.md)). |
 | Number of instances | Not applicable | One process per application; zero-downtime updates are blue/green (`noust app zero-downtime`). |
-| Pre-deploy script | A `pre_deploy` hook | `noust.yaml` ([compose.md](compose.md#noustyaml)); it runs before any traffic moves, and a failing one aborts the deploy. |
+| Pre-deploy script | A `pre_deploy` hook | `noust.yaml` ([compose.md](compose-hooks.md#noustyaml)); it runs before any traffic moves, and a failing one aborts the deploy. |
 | Custom nginx config | The site, edited | As text, as a structure or as a diagram ([domains.md](domains.md#operator-sites)); Noust never rewrites a site it did not write. |
 | HTTP basic auth | The site policy | `noust app policy set DOMAIN --password`. |
 | Networks | Not applicable | Applications are processes on the server's loopback address. |

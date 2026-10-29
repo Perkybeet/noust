@@ -102,12 +102,12 @@ for the operator ("recipes: Gotify, a simple push-notification server"), never w
   say where to sign in, what the first account's password is called, and what to back up.
 - **Nothing is fetched at install** except what a pin names.
 - **The name and the logo.** A project's name and logo are its own: the description does not claim an
-  endorsement, and the logo ships only if the project's licence or brand page allows it ([recipes.md](recipes.md#names-marks-licences-and-logos-of-the-projects)).
+  endorsement, and the logo ships only if the project's licence or brand page allows it ([recipes.md](recipes-format.md#names-marks-licences-and-logos-of-the-projects)).
 - **Whether it can be kept up to date.** The lint runs in CI on every pull request; the pins check is run
   by hand, by you before the request and by the maintainer before a release. When upstream publishes a
   newer version, `noust health` says so on every server that installed the recipe
   ([recipes.md](recipes.md#updating-what-you-installed)), and updating the catalogue is
-  [a short procedure](recipes.md#updating-the-catalogue).
+  [a short procedure](recipes-own.md#updating-the-catalogue).
 
 ## Converting a template from another catalogue
 

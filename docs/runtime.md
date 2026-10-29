@@ -8,7 +8,7 @@ changed but not applied yet. Deploying and going back are in [releases.md](relea
 Every command here takes `--reason` (recorded in the audit log, required under the ENS
 profile) and, where it changes something, `--dry-run`. Every one has a route in the API
 ([api.md](api.md)) and a place in the console, which is a client of that API. Over the API
-and in the console every change needs [sudo mode](security.md#sudo-mode), and so does reading
+and in the console every change needs [sudo mode](security-approvals.md#sudo-mode), and so does reading
 what may be a secret: the text of a file, of a mount, or a download.
 
 - [Processes](#processes)
@@ -51,7 +51,7 @@ sandbox of its unit, and each copy has its own limits (`--memory`, `--cpu`, `--t
   of `noust service`: a generic unit that nothing ties to a release is the other tool.
 - `--instances 0` defines a process and keeps it stopped.
 - **A repository can declare them.** The `worker:` of a `Procfile` or of `processes:` in
-  `noust.yaml` ([build.md](build.md#process-types)) becomes a process whose source is the
+  `noust.yaml` ([build.md](build-processes.md#process-types)) becomes a process whose source is the
   repository (`noust app process list` says so). Every deployment makes the repository's processes
   what it declares, with the release that serves, and the number of copies stays what you set. A
   process you define under the same name is yours and the repository's is not used.
@@ -78,11 +78,11 @@ noust app replicas shop.example.com 1          # alone again
 
 nginx shares the traffic among the copies (`least_conn`, and a copy that fails twice is left out
 for a few seconds). A new copy has to answer the application's [health
-check](releases.md#configuring-the-health-check) on its own port before nginx is told about it;
+check](releases-health-check.md#configuring-the-health-check) on its own port before nginx is told about it;
 one that does not leaves everything as it was. A release reaches the copies the way it reaches
 the unit: they are restarted one after another behind the same gate.
 
-Scaling out is one release in several copies; [zero-downtime mode](releases.md#zero-downtime-by-default)
+Scaling out is one release in several copies; [zero-downtime mode](releases-deploys.md#zero-downtime-by-default)
 is two releases side by side. They exclude each other. What cannot run twice (a static site, a
 Compose stack, a monorepo, a site with routes of its own, Apache) is refused with the reason.
 The ports are Noust's to pick and keep, so scaling down and up brings the same ones back.
@@ -125,7 +125,7 @@ Moving an application to an account of its own is the other half of this:
 `noust app identity migrate --all` moves every application that can have one, one after the
 other, and reports the ones that fail without stopping. While an application still runs as the
 shared account, the server health card says so under **Application accounts**.
-See [releases.md](releases.md#the-account-an-application-runs-as).
+See [releases.md](builds-and-accounts.md#the-account-an-application-runs-as).
 
 Over the API: `GET /api/apps/{domain}/hardening` (`apps.read`) and `PUT` (`apps.manage`). In the
 console it is **Service security** in the application's settings.
@@ -533,7 +533,7 @@ each is its own choice:
   uses, stays, and the deletion says so with the command that would drop it.
 - **The certificate** goes with the application unless `--keep-certificate` says otherwise.
 - **The directory** goes unless `--keep-files`; one outside Noust's apps directory (an adopted
-  stack) stays unless it is named ([compose.md](compose.md#deleting-an-adopted-stack)).
+  stack) stays unless it is named ([compose.md](compose-adopt.md#deleting-an-adopted-stack)).
 
 The command asks for the application's **name to be typed**, not a `y`; `-y` skips it for scripts.
 Over the API, `DELETE /api/apps/{domain}` takes the same choices as query parameters

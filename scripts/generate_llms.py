@@ -5,9 +5,11 @@
 """
 Generate ``docs/llms.txt`` (and, on request, ``docs/llms-full.txt``) from the documentation.
 
-Noust has no documentation website by the owner's decision, so the documents an
-client should read are the ones in ``docs/``. ``llms.txt`` is their index in the
-https://llmstxt.org format (a title, a summary and links with a sentence each).
+This is the index of the documents in ``docs/`` as GitHub serves them, for a client
+that reads the repository. The documentation site has its own ``llms.txt``, written by
+``scripts/build_docs.py --emit`` from the same pages with the site's routes; this one is
+retired when the site is published. ``llms.txt`` is in the https://llmstxt.org format (a
+title, a summary and links with a sentence each).
 It is generated, never edited: CI runs this with ``--check`` and fails when the
 committed copy is stale. It changes only when a document is added or retitled.
 

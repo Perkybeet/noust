@@ -1641,7 +1641,7 @@ class SecurityMiddleware:
                     ws_code=WS_CLOSE_FORBIDDEN,
                     detail=f"The request body is larger than this endpoint accepts ({limit} bytes).",
                     error="payload_too_large",
-                    hint="Send a smaller body. The limits are in docs/security.md.",
+                    hint="Send a smaller body. The limits are in docs/security-console.md.",
                 )
                 return
 

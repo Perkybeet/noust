@@ -4,7 +4,7 @@
 """
 Looking at what a person sees without becoming them (checklist I-15).
 
-Noust has no "sign in as" button on purpose (docs/security.md, Acting as another person). What a
+Noust has no "sign in as" button on purpose (docs/security-roles.md, Acting as another person). What a
 support question needs is a read-only, short-lived credential that acts for the person and nothing
 more, and is plainly somebody else's in the audit trail. That is a token issued with `--owner`, and
 this holds the documentation's claims about it to the code.

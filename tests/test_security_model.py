@@ -169,9 +169,11 @@ class TestPromisesMadeInProse:
         }
 
         assert anchor.lstrip("#") in headings
+        # The security guide is several pages: docs/security.md and the ones cut from it.
         referrers = [
             ROOT / "SECURITY.md",
-            ROOT / "docs" / "security.md",
+            *sorted((ROOT / "docs").glob("security*.md")),
+            ROOT / "docs" / "threat-model.md",
         ]
         assert any(anchor in path.read_text(encoding="utf-8") for path in referrers)
 

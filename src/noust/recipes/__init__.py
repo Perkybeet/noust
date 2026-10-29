@@ -19,7 +19,7 @@ error, not something ignored - and every shipped recipe is loaded by the
 tests, so a typo cannot reach an operator. A file without ``schema`` is the 2.3
 format (version 1) and still loads, as a native recipe.
 
-The format (``docs/recipes.md`` is the contributor's guide)::
+The format (``docs/recipes-format.md`` is the contributor's guide)::
 
     schema: 2
     name: vaultwarden                # the file's own name

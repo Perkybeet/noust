@@ -34,7 +34,7 @@ describe("documentation for this page", () => {
     const menu = await sessionMenu(user);
     const link = within(menu).getByRole("link", { name: /Documentation for this page/ });
 
-    expect(link).toHaveAttribute("href", "https://github.com/Perkybeet/noust/blob/main/docs/security.md#authentication");
+    expect(link).toHaveAttribute("href", "https://github.com/Perkybeet/noust/blob/main/docs/security-sign-in.md#authentication");
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", expect.stringContaining("noopener"));
   });
@@ -48,7 +48,7 @@ describe("documentation for this page", () => {
 
     expect(within(menu).getByRole("link", { name: /Documentation for this page/ })).toHaveAttribute(
       "href",
-      "https://github.com/Perkybeet/noust/blob/main/README.md#cron",
+      "https://github.com/Perkybeet/noust/blob/main/docs/runtime.md#scheduled-tasks-what-ran-and-what-did-not",
     );
   });
 

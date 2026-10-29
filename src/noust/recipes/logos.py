@@ -27,7 +27,7 @@ things (``logo:`` in the recipe):
 A project's mark is the project's trademark, and the collection's CC0 licence
 covers its files and not anybody's rights in the brand: a project whose own
 guidelines forbid a third party's use of its logo (Plausible's) is given the
-monogram, never its mark. ``docs/recipes.md`` says what a contributor may add.
+monogram, never its mark. ``docs/recipes-format.md`` says what a contributor may add.
 """
 
 from __future__ import annotations

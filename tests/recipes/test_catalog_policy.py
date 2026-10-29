@@ -4,7 +4,7 @@
 """
 The catalogue's policy on other people's names, marks, licences and logos (checklist D-25).
 
-``docs/recipes.md`` says what a recipe may call, show and ship of a project that is not Noust's.
+``docs/recipes-format.md`` says what a recipe may call, show and ship of a project that is not Noust's.
 These tests are where that is held: a logo is Noust's own monogram unless a notice records the
 project's mark, a file copied from a project's repository carries its licence, a licence that
 is not an open source one is said in the description, and a recipe that is listed instead of
@@ -23,7 +23,9 @@ import pytest
 from noust.recipes import get_recipe, list_recipes, logo_svg
 from noust.recipes.model import Recipe
 
-DOCS = Path(__file__).resolve().parents[2] / "docs" / "recipes.md"
+#: The catalogue as it ships (generated), and the policy and format a contributor follows.
+CATALOG = Path(__file__).resolve().parents[2] / "docs" / "recipes-catalog.md"
+FORMAT = Path(__file__).resolve().parents[2] / "docs" / "recipes-format.md"
 
 #: The recipes this release lists with the reason a person can check, written in the 4.0 wave.
 LISTED_IN_40 = {
@@ -153,7 +155,7 @@ def test_a_licence_that_is_not_open_source_is_said_in_the_description(recipe: Re
 
 
 def test_the_licences_that_are_not_open_source_are_the_ones_the_policy_names() -> None:
-    """The ones the docs name (the Licences paragraph of docs/recipes.md), and no other."""
+    """The ones the docs name (the Licences paragraph of docs/recipes-format.md), and no other."""
     found = {
         recipe.name
         for recipe in list_recipes()
@@ -193,7 +195,7 @@ def test_the_docs_say_how_many_recipes_there_are_and_list_the_ones_that_are_not_
     None
 ):
     """The count and the list are the catalogue's, so they cannot drift from it."""
-    text = DOCS.read_text()
+    text = CATALOG.read_text()
     recipes = list_recipes()
     installable = sum(recipe.available for recipe in recipes)
     listed = [recipe for recipe in recipes if not recipe.available]
@@ -209,7 +211,7 @@ def test_the_docs_say_how_many_recipes_there_are_and_list_the_ones_that_are_not_
 
 def test_the_docs_hold_the_policy_on_names_marks_licences_and_logos() -> None:
     """Checklist D-25: names, logos with attribution, licences, and the criterion of withdrawal."""
-    text = DOCS.read_text()
+    text = FORMAT.read_text()
     section = text.split("## Names, marks, licences and logos of the projects", 1)[1].split(
         "## Contributing a recipe", 1
     )[0]

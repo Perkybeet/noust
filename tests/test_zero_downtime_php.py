@@ -10,7 +10,7 @@ release is one rename of ``current`` and a graceful reload of FPM (the
 requests in flight finish on the old workers), never a stop or a restart. So
 the zero-downtime mode, which exists to start a process beside the one that
 serves, has nothing to add. These tests hold that to the code
-(``docs/releases.md`` says it).
+(``docs/releases-deploys.md`` says it).
 """
 
 from __future__ import annotations

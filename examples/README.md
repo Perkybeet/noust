@@ -48,7 +48,7 @@ Noust says what it is missing before it builds and gives the command that instal
 (`noust setup doctor`, and the first lines of a deploy's log): [requirements.md](../docs/requirements.md).
 The Node.js frameworks pin their dependencies exactly, with a lock file, and ask for Node.js 22 in
 `.nvmrc`; Noust installs the Node it is asked for for the application when the server's is older
-([build.md](../docs/build.md#runtimes)).
+([build.md](../docs/build-runtimes.md#runtimes)).
 
 ## What is proved
 
@@ -63,7 +63,7 @@ Rails, Phoenix and Jekyll are not folders here: their generators write the proje
 `mix phx.new`, `jekyll new`), so the harness runs the generator in the container and deploys what it
 wrote (`--example rails`, `--example phoenix`, `--example jekyll`). What `mix phx.new` writes today needs
 an Elixir newer than Ubuntu 24.04's, so the harness installs one first, the way
-[frameworks.md](../docs/frameworks.md#phoenix-and-elixir) says. `--example from_a_directory` deploys the
+[frameworks.md](../docs/frameworks-ruby-elixir-static.md#phoenix-and-elixir) says. `--example from_a_directory` deploys the
 first example from a plain directory, the form shown at the top of this page.
 
 ```bash
