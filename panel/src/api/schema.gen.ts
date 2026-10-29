@@ -33606,8 +33606,9 @@ export interface components {
          *         id: Stable across refreshes.
          *         subject: What it is about: ``{"kind": "app", "domain": ...}``,
          *             ``{"kind": "certificate", "domain": ...}``, ``{"kind": "unit",
-         *             "name": ...}`` or ``{"kind": "monitor", "process": ..., "pid": ...}``.
-         *         title: A domain, a unit, a process.
+         *             "name": ...}``, ``{"kind": "monitor", "process": ..., "pid": ...}`` or
+         *             ``{"kind": "alert", "rule": ..., "subject": ...}``.
+         *         title: A domain, a unit, a process, a rule (and the application it fires for).
          *         severity: The worst of its reasons.
          *         reasons: Each reason, with its own severity.
          */
@@ -33630,20 +33631,22 @@ export interface components {
          * @description One reason an item needs attention.
          *
          *     Attributes:
-         *         kind: ``state``, ``deploy``, ``certificate``, ``unit`` or ``monitor``.
+         *         kind: ``state``, ``deploy``, ``certificate``, ``unit``, ``monitor`` or ``alert``.
          *         severity: ``fail`` or ``warn``.
          *         code: Machine-readable and stable; the console words it. ``service_failed``,
          *             ``service_restarting``, ``running_outside_unit``, ``deploy_failed``, ``deploy_rolled_back``,
          *             ``certificate_expired``, ``certificate_expires_today``,
          *             ``certificate_expires_in``, ``unit_failed``, ``unit_restarting``,
-         *             ``monitor_finding``.
+         *             ``monitor_finding``, ``alert_firing`` (nobody has taken it) and ``alert_taken``
+         *             (somebody has; it still fires).
          *         params: Values for the console's sentence (days, a signal).
          *         detail: The system's own words, verbatim.
          *         when: When it happened.
          *         deployment_id: A deployment to open for the full story.
          *         actions: What can be done, as identifiers the console maps to buttons:
          *             ``view_log``, ``diagnose``, ``view_deployment``,
-         *             ``renew_certificate``, ``open_service``, ``open_observation``.
+         *             ``renew_certificate``, ``open_service``, ``open_observation``,
+         *             ``acknowledge_alert``, ``reopen_alert``.
          */
         AttentionReason: {
             /** Actions */

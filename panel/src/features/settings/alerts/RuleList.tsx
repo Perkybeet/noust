@@ -7,7 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCheck, Pencil } from "lucide-react";
 import { useState } from "react";
 
-import { acknowledgeAlert, alertKeys, alertRulesQuery, handBackAlert, removeAlertRule, switchAlertRule } from "../../../api/queries/alerts";
+import { acknowledgeAlert, alertRulesQuery, handBackAlert, refreshAlerts, removeAlertRule, switchAlertRule } from "../../../api/queries/alerts";
 import type { AlertMetric, AlertRule, AlertRuleList } from "../../../api/queries/alerts";
 import { QueryState } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
@@ -52,7 +52,7 @@ function FiringLine({ rule, entry, unit }: { rule: AlertRule; entry: NonNullable
   const acknowledged = acknowledgement(entry);
   const change = useMutation({
     mutationFn: () => (acknowledged !== null ? handBackAlert(rule.name, entry.subject) : acknowledgeAlert(rule.name, entry.subject)),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: alertKeys.rules }),
+    onSuccess: () => refreshAlerts(queryClient),
     onError: (error) => {
       reportActionError(t(acknowledged !== null ? "alerts.rules.ack.reopenFailed" : "alerts.rules.ack.failed"), error);
     },
@@ -102,7 +102,7 @@ function RuleRow({ rule, metrics }: { rule: AlertRule; metrics: readonly AlertMe
 
   const toggle = useMutation({
     mutationFn: (next: boolean) => switchAlertRule(rule.name, next),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: alertKeys.rules }),
+    onSuccess: () => refreshAlerts(queryClient),
     onError: (error) => {
       reportActionError(t("alerts.rules.switchFailed"), error);
     },
@@ -176,7 +176,7 @@ function RuleRow({ rule, metrics }: { rule: AlertRule; metrics: readonly AlertMe
         destructive
         onConfirm={async () => {
           await removeAlertRule(rule.name);
-          await queryClient.invalidateQueries({ queryKey: alertKeys.rules });
+          await refreshAlerts(queryClient);
         }}
       />
     </RowList.Item>

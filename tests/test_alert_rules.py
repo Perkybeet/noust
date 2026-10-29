@@ -288,6 +288,44 @@ class TestStoring:
         assert rules.state(saved.id, "shop.example.com") is None
 
 
+class TestWhichAlertsFire:
+    """The one answer every list that counts them reads."""
+
+    def test_only_the_subjects_past_their_limit_on_an_enabled_rule(
+        self, rules: AlertRules, clock: Clock
+    ) -> None:
+        busy = rules.save(rule(name="busy", metric="app_cpu"))
+        quiet = rules.save(rule(name="quiet"))
+        off = rules.save(rule(name="off"))
+        assert busy.id is not None and quiet.id is not None and off.id is not None
+        rules.put_state(AlertState(busy.id, "shop.example.com", FIRING, clock.now - 60, 95.0))
+        rules.put_state(AlertState(busy.id, "blog.example.com", "ok", clock.now - 60, 10.0))
+        rules.put_state(AlertState(quiet.id, "", "ok", clock.now - 60, 10.0))
+        rules.put_state(AlertState(off.id, "", FIRING, clock.now - 60, 95.0))
+        # Switching a rule off forgets what it had decided, and a state written under it later
+        # (by a monitor that had not heard yet) is not an alert either.
+        rules.set_enabled("off", False)
+        rules.put_state(AlertState(off.id, "", FIRING, clock.now - 60, 95.0))
+
+        assert [(r.name, s.subject) for r, s in rules.firing()] == [("busy", "shop.example.com")]
+
+    def test_the_ones_nobody_took_come_first_and_then_the_longest_firing(
+        self, rules: AlertRules, clock: Clock
+    ) -> None:
+        saved = rules.save(rule(name="cpu", metric="app_cpu"))
+        assert saved.id is not None
+        rules.put_state(AlertState(saved.id, "old.example.com", FIRING, clock.now - 900, 95.0))
+        rules.put_state(AlertState(saved.id, "new.example.com", FIRING, clock.now - 60, 95.0))
+        rules.put_state(AlertState(saved.id, "taken.example.com", FIRING, clock.now - 3000, 95.0))
+        rules.acknowledge("cpu", "taken.example.com", by="marta")
+
+        assert [s.subject for _, s in rules.firing()] == [
+            "old.example.com",
+            "new.example.com",
+            "taken.example.com",
+        ]
+
+
 class TestAcknowledging:
     def firing(self, rules: AlertRules, clock: Clock, subject: str = "") -> int:
         saved = rules.save(rule())

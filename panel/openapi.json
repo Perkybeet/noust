@@ -4330,7 +4330,7 @@
         "type": "object"
       },
       "AttentionItem": {
-        "description": "Something that needs an operator.\n\nAttributes:\n    id: Stable across refreshes.\n    subject: What it is about: ``{\"kind\": \"app\", \"domain\": ...}``,\n        ``{\"kind\": \"certificate\", \"domain\": ...}``, ``{\"kind\": \"unit\",\n        \"name\": ...}`` or ``{\"kind\": \"monitor\", \"process\": ..., \"pid\": ...}``.\n    title: A domain, a unit, a process.\n    severity: The worst of its reasons.\n    reasons: Each reason, with its own severity.",
+        "description": "Something that needs an operator.\n\nAttributes:\n    id: Stable across refreshes.\n    subject: What it is about: ``{\"kind\": \"app\", \"domain\": ...}``,\n        ``{\"kind\": \"certificate\", \"domain\": ...}``, ``{\"kind\": \"unit\",\n        \"name\": ...}``, ``{\"kind\": \"monitor\", \"process\": ..., \"pid\": ...}`` or\n        ``{\"kind\": \"alert\", \"rule\": ..., \"subject\": ...}``.\n    title: A domain, a unit, a process, a rule (and the application it fires for).\n    severity: The worst of its reasons.\n    reasons: Each reason, with its own severity.",
         "properties": {
           "id": {
             "title": "Id",
@@ -4368,7 +4368,7 @@
         "type": "object"
       },
       "AttentionReason": {
-        "description": "One reason an item needs attention.\n\nAttributes:\n    kind: ``state``, ``deploy``, ``certificate``, ``unit`` or ``monitor``.\n    severity: ``fail`` or ``warn``.\n    code: Machine-readable and stable; the console words it. ``service_failed``,\n        ``service_restarting``, ``running_outside_unit``, ``deploy_failed``, ``deploy_rolled_back``,\n        ``certificate_expired``, ``certificate_expires_today``,\n        ``certificate_expires_in``, ``unit_failed``, ``unit_restarting``,\n        ``monitor_finding``.\n    params: Values for the console's sentence (days, a signal).\n    detail: The system's own words, verbatim.\n    when: When it happened.\n    deployment_id: A deployment to open for the full story.\n    actions: What can be done, as identifiers the console maps to buttons:\n        ``view_log``, ``diagnose``, ``view_deployment``,\n        ``renew_certificate``, ``open_service``, ``open_observation``.",
+        "description": "One reason an item needs attention.\n\nAttributes:\n    kind: ``state``, ``deploy``, ``certificate``, ``unit``, ``monitor`` or ``alert``.\n    severity: ``fail`` or ``warn``.\n    code: Machine-readable and stable; the console words it. ``service_failed``,\n        ``service_restarting``, ``running_outside_unit``, ``deploy_failed``, ``deploy_rolled_back``,\n        ``certificate_expired``, ``certificate_expires_today``,\n        ``certificate_expires_in``, ``unit_failed``, ``unit_restarting``,\n        ``monitor_finding``, ``alert_firing`` (nobody has taken it) and ``alert_taken``\n        (somebody has; it still fires).\n    params: Values for the console's sentence (days, a signal).\n    detail: The system's own words, verbatim.\n    when: When it happened.\n    deployment_id: A deployment to open for the full story.\n    actions: What can be done, as identifiers the console maps to buttons:\n        ``view_log``, ``diagnose``, ``view_deployment``,\n        ``renew_certificate``, ``open_service``, ``open_observation``,\n        ``acknowledge_alert``, ``reopen_alert``.",
         "properties": {
           "actions": {
             "items": {

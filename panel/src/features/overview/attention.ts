@@ -2,7 +2,7 @@
  * What needs an operator, beyond what the server lists. The server's own list (`GET /api/overview`,
  * `managers/overview.py`) names the problems it can read from one place: an application that is
  * down, a deployment that failed, a certificate that is expiring, a unit that failed, what the
- * monitor found. The console adds what only other reads know - an alert that is firing, a probe that
+ * monitor found, an alert that is firing. The console adds what only other reads know - a probe that
  * is down, a request waiting for a second person, a Noust or a recipe with an update - as items of
  * the same shape, so the Overview's "Needs attention", the inbox and the sidebar's counters are one
  * definition read three times (NV-16): `mergeAttention` puts them in one list, worst first, and
@@ -11,12 +11,10 @@
  * Pure, so every rule is tested without a page. The reads that feed it are `features/inbox/useAttention`.
  */
 
-import type { AlertRuleList } from "../../api/queries/alerts";
 import type { OverviewAttentionItem, OverviewAttentionReason } from "../../api/queries/overview";
 import type { ProbeList } from "../../api/queries/probes";
 import { parseTimestamp } from "../../lib/format";
 import type { ApprovalList } from "../approvals/api";
-import { selectFiringAlerts } from "../settings/alerts/data";
 import { selectFailingProbes } from "../settings/probes/data";
 
 /** Days before expiry at which a certificate starts needing attention (spec, Task 3.11). */
@@ -32,33 +30,7 @@ function moment(value: number | string | null | undefined): string | null {
 }
 
 /** The kinds of subject the console adds to the server's list. */
-export type ExtraKind = "alert" | "probe" | "approval" | "noust" | "recipe";
-
-/** A firing alert, as the rules list says it: one item per rule and subject, taken or not. */
-export function alertItems(rules: AlertRuleList | undefined): OverviewAttentionItem[] {
-  // Which alerts fire is the settings page's definition, read here and on that page alike (AL-1).
-  return selectFiringAlerts(rules).map((alert): OverviewAttentionItem => {
-    const severity: Severity = alert.severity === "failed" ? "fail" : "warn";
-    const taken = alert.acknowledgement;
-    const reason: OverviewAttentionReason = {
-      kind: "alert",
-      severity,
-      code: taken === null ? "alert_firing" : "alert_taken",
-      params: { rule: alert.rule, subject: alert.subject, since: alert.since, ...(taken === null ? {} : { by: taken.by, at: taken.at }) },
-      detail: null,
-      when: moment(alert.since),
-      deployment_id: null,
-      actions: [taken === null ? "acknowledge_alert" : "reopen_alert"],
-    };
-    return {
-      id: `alert:${alert.rule}:${alert.subject}`,
-      subject: { kind: "alert", rule: alert.rule, subject: alert.subject },
-      title: alert.subject === "" ? alert.rule : `${alert.rule} · ${alert.subject}`,
-      severity,
-      reasons: [reason],
-    };
-  });
-}
+export type ExtraKind = "probe" | "approval" | "noust" | "recipe";
 
 /** A probe that is down: what it asked and what it got, in the probe's own words. */
 export function probeItems(probes: ProbeList | undefined): OverviewAttentionItem[] {

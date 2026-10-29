@@ -139,6 +139,7 @@ def collect_overview(
     certificates: Callable[[], list[Any]] | None = None,
     backups: Callable[[], list[Any]] | None = None,
     observations: Callable[[], list[dict[str, Any]]] | None = None,
+    alerts: Callable[[], list[tuple[Any, Any]]] | None = None,
     metrics: Any | None = None,
     updates: Callable[[], dict[str, Any] | None] | None = None,
     recording: Callable[[], Any] | None = None,
@@ -158,6 +159,8 @@ def collect_overview(
         certificates: Lists certificates as :class:`CertificateInfo` records.
         backups: Lists backups, newest first, as :class:`BackupMetadata`.
         observations: Lists the monitor's open observations.
+        alerts: Lists the alerts firing, as ``(rule, state)`` pairs
+            (:meth:`~noust.core.alerts.rules.AlertRules.firing`).
         metrics: The metrics store, for the disk forecast and the spark.
         updates: Returns the server area's summary (``updates`` and ``reboot``
             sections), or None when this Noust has none. The integration point
@@ -193,7 +196,7 @@ def collect_overview(
         "disk": _section("disk", lambda: _disk(metrics, moment)),
         "updates": _updates(updates),
     }
-    items, total = _attention(store, units, certificates, observations, apps)
+    items, total = _attention(store, units, certificates, observations, alerts, apps)
     overview["attention"] = items
     overview["attention_total"] = total
     overview["activity"] = _section("activity", lambda: _activity(store))
@@ -599,6 +602,7 @@ def _attention(
     services: list[dict[str, Any]],
     certificates: Callable[[], list[Any]] | None,
     observations: Callable[[], list[dict[str, Any]]] | None,
+    alerts: Callable[[], list[tuple[Any, Any]]] | None,
     apps: list[Any],
 ) -> tuple[list[dict[str, Any]], int]:
     """
@@ -608,14 +612,20 @@ def _attention(
     computed where the data is: an application whose service failed or is
     restarting, one whose newest deployment failed or was rolled back, a
     certificate about to expire or expired, a unit Noust manages that failed
-    beyond the applications' own, and an open monitor observation. A source that
-    cannot be read is skipped and logged; what remains is still worth showing.
+    beyond the applications' own, an open monitor observation and an alert that is
+    firing. A source that cannot be read is skipped and logged; what remains is still
+    worth showing.
+
+    The alerts are here, and not added by the console, because a fleet reads each
+    server's own list: what only the console that looks at a server adds is what the
+    fleet never sees.
 
     Args:
         store: The Noust store.
         services: Noust's systemd units.
         certificates: Lists certificates.
         observations: Lists open observations.
+        alerts: Lists the alerts that are firing.
         apps: The deployed applications.
 
     Returns:
@@ -676,6 +686,7 @@ def _attention(
     _add_certificates(certificates, domains, add)
     _add_units(services, add)
     _add_observations(observations, add)
+    _add_alerts(alerts, add)
 
     ordered = sorted(items.values(), key=lambda i: (_RANK[i["severity"]], i["title"].lower()))
     return ordered[:ATTENTION_LIMIT], len(ordered)
@@ -898,6 +909,53 @@ def _add_observations(
                 detail=row.get("detail") or None,
                 when=to_iso_offset(row.get("observed_at")),
                 actions=["open_observation"],
+            ),
+        )
+
+
+def _add_alerts(read: Callable[[], list[tuple[Any, Any]]] | None, add: Callable[..., None]) -> None:
+    """
+    Add the alerts that are firing, one item per rule and subject.
+
+    An alert somebody took still fires, so it still counts; it is listed as taken, and what
+    can be done about it is handing it back. This is the one place that says which firing
+    alerts need an operator (rule 3): the Overview, the inbox, the sidebar's counters and a
+    fleet's "Needs attention" all read it from here.
+
+    Args:
+        read: Lists ``(rule, state)`` pairs; the rules' own ``firing`` by default.
+        add: Adds a reason to an item.
+    """
+    try:
+        if read is not None:
+            pairs = read()
+        else:
+            from noust.core.alerts.rules import AlertRules
+
+            pairs = AlertRules().firing()
+    except _SECTION_ERRORS as exc:
+        log.warning("The attention list could not read the alerts: %s", exc)
+        return
+    for rule, state in pairs:
+        subject = state.subject
+        severity = "fail" if rule.severity == "failed" else "warn"
+        taken = bool(state.acknowledged_by) and state.acknowledged_at is not None
+        params: dict[str, Any] = {"rule": rule.name, "subject": subject, "since": state.since}
+        if taken:
+            params.update(by=state.acknowledged_by, at=state.acknowledged_at)
+        add(
+            f"alert:{rule.name}:{subject}",
+            {"kind": "alert", "rule": rule.name, "subject": subject},
+            f"{rule.name} \u00b7 {subject}" if subject else rule.name,
+            _reason(
+                "alert",
+                severity,
+                "alert_taken" if taken else "alert_firing",
+                params=params,
+                when=datetime.fromtimestamp(state.since, tz=timezone.utc).isoformat(
+                    timespec="seconds"
+                ),
+                actions=["reopen_alert" if taken else "acknowledge_alert"],
             ),
         )
 

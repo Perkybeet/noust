@@ -1,49 +1,29 @@
 import { describe, expect, it } from "vitest";
 
-import type { AlertRuleList } from "../../api/queries/alerts";
 import type { OverviewAttentionItem } from "../../api/queries/overview";
 import type { ProbeList } from "../../api/queries/probes";
 import type { ApprovalList } from "../approvals/api";
-import { alertItems, approvalItems, attentionCounters, mergeAttention, noustItems, probeItems, recipeItems } from "./attention";
+import { approvalItems, attentionCounters, mergeAttention, noustItems, probeItems, recipeItems } from "./attention";
 import { attentionAction, attentionTarget } from "./attentionTarget";
 
 const SINCE = 1_790_000_000;
-
-function rules(states: object[], over: object = {}): AlertRuleList {
-  return { items: [{ name: "disk-high", enabled: true, severity: "failed", states, ...over }], metrics: [], firing: states.length } as unknown as AlertRuleList;
-}
 
 function item(id: string, kind: string, severity: "fail" | "warn", title: string, reasons: object[] = []): OverviewAttentionItem {
   return { id, subject: { kind, domain: title, name: title }, title, severity, reasons: reasons as OverviewAttentionItem["reasons"] };
 }
 
-describe("alertItems", () => {
-  it("names each firing subject of an enabled rule, in the rule's severity, with when it began", () => {
-    const [first] = alertItems(rules([{ subject: "shop.example.com", state: "firing", since: SINCE, acknowledged_by: null }]));
-    expect(first).toMatchObject({
-      id: "alert:disk-high:shop.example.com",
-      severity: "fail",
-      subject: { kind: "alert", rule: "disk-high", subject: "shop.example.com" },
-      reasons: [{ kind: "alert", code: "alert_firing", actions: ["acknowledge_alert"] }],
-    });
-    expect(first?.reasons[0]?.when).toBe(new Date(SINCE * 1000).toISOString());
+describe("an alert in the server's list", () => {
+  // The server says which alerts fire (`managers/overview.py`); the console only offers what to do.
+  const firing = (code: string, actions: string[], extra: object = {}) =>
+    item("alert:disk-high:", "alert", "warn", "disk-high", [{ kind: "alert", severity: "warn", code, params: { rule: "disk-high", subject: "", since: SINCE, ...extra }, actions }]);
+
+  it("offers to take an alert that fires", () => {
+    expect(attentionAction({ ...firing("alert_firing", ["acknowledge_alert"]), subject: { kind: "alert", rule: "disk-high", subject: "" } })).toMatchObject({ mode: "alert", kind: "acknowledge", rule: "disk-high" });
   });
 
-  it("says a rule with a warning severity is a warning, and the server's own subject is the rule's name alone", () => {
-    const [first] = alertItems(rules([{ subject: "", state: "firing", since: SINCE }], { severity: "warning" }));
-    expect(first).toMatchObject({ severity: "warn", title: "disk-high" });
-  });
-
-  it("keeps an alert somebody took, and offers to reopen it, because it is still firing", () => {
-    const [taken] = alertItems(rules([{ subject: "", state: "firing", since: SINCE, acknowledged_by: "alice", acknowledged_at: SINCE + 60 }]));
-    expect(taken?.reasons[0]).toMatchObject({ code: "alert_taken", params: { by: "alice" }, actions: ["reopen_alert"] });
-    expect(taken === undefined ? null : attentionAction(taken)).toMatchObject({ mode: "alert", kind: "reopen", rule: "disk-high" });
-  });
-
-  it("leaves out what is quiet, a rule that is off and a missing answer", () => {
-    expect(alertItems(rules([{ subject: "", state: "ok", since: SINCE }]))).toEqual([]);
-    expect(alertItems(rules([{ subject: "", state: "firing", since: SINCE }], { enabled: false }))).toEqual([]);
-    expect(alertItems(undefined)).toEqual([]);
+  it("offers to hand back one somebody took, because it is still firing", () => {
+    const taken = { ...firing("alert_taken", ["reopen_alert"], { by: "alice", at: SINCE + 60 }), subject: { kind: "alert", rule: "disk-high", subject: "" } };
+    expect(attentionAction(taken)).toMatchObject({ mode: "alert", kind: "reopen", rule: "disk-high" });
   });
 });
 

@@ -1,7 +1,9 @@
 import { queryOptions } from "@tanstack/react-query";
+import type { QueryClient } from "@tanstack/react-query";
 
 import { request } from "../client";
 import type { BodyOf, ResponseOf } from "../client";
+import { overviewKeys } from "./overview";
 
 export type AlertRuleList = ResponseOf<"/api/alerts/rules", "get">;
 export type AlertRule = AlertRuleList["items"][number];
@@ -11,6 +13,14 @@ export type AlertRuleBody = BodyOf<"/api/alerts/rules/{name}", "put">;
 export const alertKeys = {
   rules: ["alerts", "rules"] as const,
 };
+
+/**
+ * Reads again what a change to an alert reaches: the rules, and the Overview, which lists the
+ * alerts that fire among what needs attention (the server says so, `managers/overview.py`).
+ */
+export function refreshAlerts(queryClient: QueryClient): Promise<unknown> {
+  return Promise.all([alertKeys.rules, overviewKeys.all].map((queryKey) => queryClient.invalidateQueries({ queryKey })));
+}
 
 /** The rules, what each one watches, and where each stands. Read again while the page is open. */
 export const alertRulesQuery = () =>

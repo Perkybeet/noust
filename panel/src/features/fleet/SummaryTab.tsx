@@ -63,6 +63,7 @@ function subjectPath(item: AttentionEntry): string {
   if (kind === "app" && domain !== null) return `/apps/${encodeURIComponent(domain)}`;
   if (kind === "certificate") return "/domains";
   if (kind === "unit" && name !== null) return `/server/services/${encodeURIComponent(name)}`;
+  if (kind === "alert") return "/alerts";
   return "/server";
 }
 

@@ -317,6 +317,23 @@ class AlertRules:
                 )
             return [_state(row) for row in cursor.fetchall()]
 
+    def firing(self) -> list[tuple[AlertRule, AlertState]]:
+        """
+        The one answer to "which alerts are firing", for every list that counts them.
+
+        Returns:
+            Each subject that is past its limit for an enabled rule, with its rule, the ones
+            nobody has taken first and then the longest firing. A rule that is switched off
+            decides nothing, so what it last decided is not listed.
+        """
+        by_id = {rule.id: rule for rule in self.rules() if rule.enabled}
+        found = [
+            (by_id[state.rule_id], state)
+            for state in self.states()
+            if state.state == FIRING and state.rule_id in by_id
+        ]
+        return sorted(found, key=lambda pair: (pair[1].acknowledged_at is not None, pair[1].since))
+
     def state(self, rule_id: int, subject: str) -> AlertState | None:
         """
         Args:
