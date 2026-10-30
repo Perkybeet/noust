@@ -12,7 +12,7 @@
     },
     "settings-registries": { "path": "/settings/registries", "height": 246 },
     "settings-deploy-keys": { "path": "/settings/deploy-keys", "height": 721 },
-    "settings-fleet": { "path": "/settings/fleet", "height": 520 },
+    "settings-fleet": { "path": "/settings/fleet", "height": 565 },
     "settings-variables": { "path": "/settings/variables", "height": 330 },
     "settings-secret-managers": { "path": "/settings/secret-managers", "height": 430 },
     "settings-console": { "path": "/settings/console", "height": 460 },

@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
-import { answerOffers, createRole, roleKeys, updateRole } from "../../../api/queries/roles";
+import { answerOffers, createRole, rolesChanged, updateRole } from "../../../api/queries/roles";
 import type { Role, RolesList } from "../../../api/queries/roles";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Subsection } from "../../../components/page/Subsection";
@@ -39,7 +39,7 @@ function Offers({ role, onDone }: { role: Role; onDone: () => void }) {
   const answer = useMutation({
     mutationFn: (taking: boolean) => answerOffers(role.name, taking ? { accept: role.offers ?? [] } : { dismiss: role.offers ?? [] }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: roleKeys.list });
+      rolesChanged(queryClient);
       onDone();
     },
   });
@@ -98,7 +98,7 @@ export function RoleEditor({ role, catalog, onClose }: RoleEditorProps) {
       return creating ? createRole({ name: name.trim(), ...body }) : updateRole(role.name, body);
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: roleKeys.list });
+      rolesChanged(queryClient);
       void queryClient.invalidateQueries({ queryKey: accountKeys.list });
       onClose();
     },

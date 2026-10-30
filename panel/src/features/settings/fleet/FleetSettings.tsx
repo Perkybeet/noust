@@ -65,7 +65,14 @@ function Servers({ t, servers, canManage }: { t: T; servers: readonly StatusServ
       reportActionError(t("fleetSettings.servers.switchFailed", { name: node }), error);
     },
   });
-  if (servers.length === 0) return <EmptyState variant="inline" title={t("fleetSettings.servers.noneTitle")} description={t("fleetSettings.servers.noneDescription")} />;
+  // As tall as the skeleton that was there while it loaded, so the list under it does not move when the answer is "none".
+  if (servers.length === 0) {
+    return (
+      <div className="flex min-h-24 items-center">
+        <EmptyState variant="inline" title={t("fleetSettings.servers.noneTitle")} description={t("fleetSettings.servers.noneDescription")} />
+      </div>
+    );
+  }
   return (
     <RowList aria-label={t("fleetSettings.servers.caption")}>
       {servers.map((server) => {

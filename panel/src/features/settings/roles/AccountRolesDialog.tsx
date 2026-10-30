@@ -3,7 +3,7 @@ import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
 import { ApprovalPendingError } from "../../../api/errors";
-import { rolesQuery, setAccountRoles } from "../../../api/queries/roles";
+import { rolesChanged, rolesQuery, setAccountRoles } from "../../../api/queries/roles";
 import { ErrorBlock, QueryState } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Checkbox } from "../../../components/ui/Checkbox";
@@ -40,7 +40,7 @@ export function AccountRolesDialog({ account, onClose }: { account: Account; onC
     mutationFn: () => setAccountRoles(account.username, chosen.length > 0 ? [...chosen] : [...held], held),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: accountKeys.list });
-      void queryClient.invalidateQueries({ queryKey: ["roles"] });
+      rolesChanged(queryClient);
       onClose();
     },
     onError: (error) => {

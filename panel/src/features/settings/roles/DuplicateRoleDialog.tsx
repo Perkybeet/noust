@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
-import { duplicateRole, roleKeys } from "../../../api/queries/roles";
+import { duplicateRole, rolesChanged } from "../../../api/queries/roles";
 import type { Role } from "../../../api/queries/roles";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
@@ -28,7 +28,7 @@ export function DuplicateRoleDialog({ role, onClose }: { role: Role; onClose: ()
   const copy = useMutation({
     mutationFn: () => duplicateRole(role.name, { name: name.trim() }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: roleKeys.list });
+      rolesChanged(queryClient);
       onClose();
     },
   });

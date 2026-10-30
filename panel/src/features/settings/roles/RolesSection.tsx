@@ -3,7 +3,7 @@ import { Copy, Eye, Pencil, RotateCcw } from "lucide-react";
 import { useState } from "react";
 
 import { sessionQuery } from "../../../api/queries/auth";
-import { deleteRole, resetRole, roleKeys, rolesQuery } from "../../../api/queries/roles";
+import { deleteRole, resetRole, rolesChanged, rolesQuery } from "../../../api/queries/roles";
 import type { Role } from "../../../api/queries/roles";
 import { QueryState } from "../../../components/page/QueryState";
 import { RowMenu } from "../../../components/page/RowMenu";
@@ -94,7 +94,7 @@ export function RolesSection() {
   const [open, setOpen] = useState<Open>(null);
   const columns = columnsFor(t);
   const refresh = (): void => {
-    void queryClient.invalidateQueries({ queryKey: roleKeys.list });
+    rolesChanged(queryClient);
   };
 
   return (

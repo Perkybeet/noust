@@ -6,9 +6,11 @@
  */
 
 import { queryOptions } from "@tanstack/react-query";
+import type { QueryClient } from "@tanstack/react-query";
 
 import { request } from "../client";
 import type { BodyOf, ResponseOf } from "../client";
+import { accessKeys } from "./access";
 
 export type RolesList = ResponseOf<"/api/roles", "get">;
 export type Role = RolesList["roles"][number];
@@ -22,6 +24,15 @@ export const roleKeys = {
   list: ["roles"] as const,
   review: ["roles", "review"] as const,
 };
+
+/**
+ * A role was made, changed, copied, put back or deleted: the list, and the list the dialog that grants a role on a
+ * project reads (`/api/access/roles`), are read again, so a role made a moment ago is one that can be granted.
+ */
+export function rolesChanged(queryClient: QueryClient): void {
+  void queryClient.invalidateQueries({ queryKey: roleKeys.list });
+  void queryClient.invalidateQueries({ queryKey: accessKeys.roles });
+}
 
 /** Every role and every permission there is, with what each allows. */
 export const rolesQuery = () =>
