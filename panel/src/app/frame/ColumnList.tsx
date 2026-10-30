@@ -35,7 +35,7 @@ export interface ListGroup {
 // The current section is the raised piece under it (SlidingIndicator), which slides to the one chosen;
 // the others rise when the pointer is over them.
 const ITEM =
-  "group elev-lift relative flex h-8 items-center gap-2.5 rounded-control px-2.5 text-13 text-fg-muted " +
+  "group elev-lift relative flex min-h-8 items-center gap-2.5 rounded-control px-2.5 py-1 text-13 leading-snug text-fg-muted " +
   "hover:bg-surface-raised hover:text-fg focus-visible:-outline-offset-2 " +
   "aria-[current=page]:bg-transparent aria-[current=page]:text-fg aria-[current=page]:hover:transform-none aria-[current=page]:hover:shadow-none";
 
@@ -85,7 +85,8 @@ export function ColumnList({ label, groups, currentKey }: { label: string; group
                     ) : item.icon !== undefined ? (
                       <item.icon aria-hidden="true" className="size-icon-md shrink-0 text-fg-faint group-hover:text-fg-muted group-aria-[current=page]:text-accent-fg" />
                     ) : null}
-                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    {/* A name that does not fit takes a second line: Spanish runs longer than the column, and a cut name is another name. */}
+                    <span className="min-w-0 flex-1">{item.label}</span>
                     {item.count !== undefined ? (
                       <span className={cx("mono min-w-5 rounded-chip bg-bg-sunken px-1 text-center text-12 text-fg-muted", item.count === null && "invisible")}>{item.count ?? 0}</span>
                     ) : null}

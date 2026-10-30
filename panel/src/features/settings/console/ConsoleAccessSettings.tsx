@@ -19,7 +19,7 @@ import { ExternalLink } from "../../../components/ui/ExternalLink";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
-import { StatusPill } from "../../../components/ui/StatusPill";
+import { StatusGlyph, StatusPill } from "../../../components/ui/StatusPill";
 import { TextLink } from "../../../components/ui/TextLink";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
@@ -46,7 +46,11 @@ function Prerequisites({ exposure, lacking }: { exposure: ConsoleExposure; lacki
             <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
               <p className="text-13 font-medium text-fg">{t("consoleAccess.prerequisites.twoFactor")}</p>
               {lacking === null ? null : lacking.length === 0 ? (
-                <StatusPill appearance="inline" size="sm" state="running" label={t("consoleAccess.prerequisites.twoFactorOk")} />
+                // A whole sentence is not a state word: it wraps beside its glyph instead of holding the row open past the screen.
+                <span className="flex min-w-0 items-start gap-1 text-12 font-medium text-ok">
+                  <StatusGlyph state="running" size={10} className="mt-1 shrink-0" />
+                  {t("consoleAccess.prerequisites.twoFactorOk")}
+                </span>
               ) : (
                 <StatusPill appearance="inline" size="sm" state="failed" label={t("consoleAccess.prerequisites.twoFactorLacking", { count: lacking.length })} />
               )}

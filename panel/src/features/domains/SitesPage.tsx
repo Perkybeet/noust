@@ -280,11 +280,13 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
               />
             ),
           })}
-      {...(empty ? {} : { footer: <CommandHint command="noust site list" label={t("common.words.fromTerminal")} /> })}
+      // Neither the footer nor the card under the list is drawn until the sites are known: an empty server answers with an empty state
+      // in their place, and what was there and is gone is what moves.
+      {...(empty || sites.data === undefined ? {} : { footer: <CommandHint command="noust site list" label={t("common.words.fromTerminal")} /> })}
     >
       {content}
       {/* After the list: what answers an unknown name is read once in a while, and must not push the sites down. */}
-      {empty || !server ? null : <UnknownHostsCard />}
+      {empty || !server || sites.data === undefined ? null : <UnknownHostsCard />}
 
       <CreateSiteDialog
         open={creating}

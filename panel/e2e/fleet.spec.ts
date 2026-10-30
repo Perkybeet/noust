@@ -184,6 +184,25 @@ withFleet("the selector says which of the three contexts the console is in, and 
   await expect(main.getByRole("link", { name: "Applications" })).toHaveAttribute("href", `/n/${NODE_NAME}/apps`);
 });
 
+withFleet("the fleet's pages fit a phone, in Spanish: the selector gives way to the buttons at its right", async ({ page, consoleServer }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("noust.locale", "es");
+  });
+  await signIn(page, consoleServer, "/fleet");
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const path of ["/fleet", "/fleet/servers", "/fleet/apps", "/fleet/activity"]) {
+    await page.goto(path);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await settle(page);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, `${path} scrolls sideways by ${String(overflow)}px at 390`).toBeLessThanOrEqual(0);
+    // The session's button is on screen: the top bar kept the buttons at its right.
+    const session = page.getByRole("banner").getByRole("button", { name: "Sesión y preferencias" });
+    await expect(session).toBeVisible();
+    expect((await session.boundingBox())?.x ?? 999).toBeLessThan(390 - 30);
+  }
+});
+
 withFleet("a node's own settings stay on the node; the central's say whose they are and how to manage the node's", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/n/${NODE_NAME}/settings/notifications`);
   await expect(page).toHaveURL(new RegExp(`/n/${NODE_NAME}/settings/notifications$`));

@@ -24,6 +24,11 @@ export interface KeyValueListProps {
   items: readonly KeyValueItem[];
   /** Shown for a value that is null, undefined or empty. */
   empty?: string;
+  /**
+   * Let a value take the lines it needs, broken anywhere, instead of ending in an ellipsis: for a card too
+   * narrow to hold a host name or a kernel on one line, where a cut name cannot be told from another.
+   */
+  wrap?: boolean;
   className?: string;
 }
 
@@ -33,10 +38,11 @@ function isBlank(value: ReactNode): boolean {
 
 /**
  * Facts about one thing, one per row: a dense definition list. System values are set in mono
- * and truncated to one line with the full text on hover; the copy button appears on hover and
- * on keyboard focus (and always, on touch screens).
+ * and truncated to one line with the full text on hover (a value that is a sentence, `mono: false`,
+ * is never cut: it wraps); the copy button appears on hover and on keyboard focus (and always, on
+ * touch screens).
  */
-export function KeyValueList({ items, empty, className }: KeyValueListProps) {
+export function KeyValueList({ items, empty, wrap = false, className }: KeyValueListProps) {
   const t = useT();
   const emptyText = empty ?? t("common.keyValueList.empty");
   return (
@@ -60,7 +66,12 @@ export function KeyValueList({ items, empty, className }: KeyValueListProps) {
                   <span
                     translate={mono ? "no" : undefined}
                     title={text ?? undefined}
-                    className={cx("min-w-0 truncate text-13 text-fg", mono && "mono text-12")}
+                    className={cx(
+                      "min-w-0 text-13 text-fg",
+                      // A system value is cut at the end of its line (the whole is its title); a sentence is read whole, and takes the lines it needs.
+                      wrap ? "break-all" : mono ? "truncate" : "text-pretty",
+                      mono && "mono text-12",
+                    )}
                   >
                     {item.value}
                   </span>

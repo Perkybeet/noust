@@ -1158,7 +1158,9 @@ state, right after the title (not in `actions`). `leading` is a real logo (`Logo
 outside the text so that it spans the title and the line under it; `tone` (`warning` or `failed`) takes the
 ground and edge of the state of what the card holds, only when it is not well (a database server whose
 support is ending or ended, a thing that needs attention on Home), so that only what is wrong has colour
-behind it, and the state is also said in words and a glyph inside, never by the ground alone.
+behind it, and the state is also said in words and a glyph inside, never by the ground alone. The
+header keeps 12rem for its text and the `actions` go under it when they would take them, so a phone
+never reads a description one word to a line beside a wide button.
 
 **`Notice`** (`tone` `info | success | warning | error`, `variant` `inline | banner`, `title`,
 `action`, `onDismiss`, `live`). A persistent message beside what it concerns (inline) or the
@@ -1248,8 +1250,10 @@ apart. The `primaryAction` is wrapped so that it steps aside while a `SaveBar` h
 (`DemotePrimary`): a `Dialog`, a `Drawer` and a `ConfirmDialog` reset it, since a dialog has a
 primary of its own.
 
-**`KeyValueList`**. Facts about one thing, one per row; system values in mono and copyable. Not
-tabular data.
+**`KeyValueList`**. Facts about one thing, one per row; system values in mono and copyable, cut at the
+end of their line with the whole as their title. A value that is a sentence (`mono: false`) is never
+cut: it takes the lines it needs, and `wrap` gives a card too narrow for a host name or a kernel the
+same for its system values. Not tabular data.
 
 **`StatTile`** (`loading`). One key figure with a line of context, in a dashboard's figures band.
 On a phone, two to a row, its label, value and context wrap instead of being cut. While the
