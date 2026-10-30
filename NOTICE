@@ -13,6 +13,7 @@ header which template it comes from and what was changed:
 
   src/noust/recipes/affine.yaml
   src/noust/recipes/anythingllm.yaml
+  src/noust/recipes/apprise-api.yaml
   src/noust/recipes/babybuddy.yaml
   src/noust/recipes/checkmate.yaml
   src/noust/recipes/chroma.yaml
@@ -119,10 +120,12 @@ brand. The files, by licence:
     src/noust/recipes/assets/chroma/logo.svg
     src/noust/recipes/assets/cloudbeaver/logo.svg
     src/noust/recipes/assets/commafeed/logo.svg
+    src/noust/recipes/assets/copyparty/logo.svg
     src/noust/recipes/assets/cyberchef/logo.svg
     src/noust/recipes/assets/databasus/logo.svg
     src/noust/recipes/assets/documenso/logo.svg
     src/noust/recipes/assets/dokuwiki/logo.svg
+    src/noust/recipes/assets/enclosed/logo.svg
     src/noust/recipes/assets/etherpad/logo.svg
     src/noust/recipes/assets/filegator/logo.svg
     src/noust/recipes/assets/flarum/logo.svg
@@ -134,6 +137,8 @@ brand. The files, by licence:
     src/noust/recipes/assets/homer/logo.svg
     src/noust/recipes/assets/infisical/logo.svg
     src/noust/recipes/assets/jellyseerr/logo.svg
+    src/noust/recipes/assets/jotty/logo.svg
+    src/noust/recipes/assets/kestra/logo.svg
     src/noust/recipes/assets/kimai/logo.svg
     src/noust/recipes/assets/koillection/logo.svg
     src/noust/recipes/assets/librespeed/logo.svg
@@ -142,10 +147,12 @@ brand. The files, by licence:
     src/noust/recipes/assets/mage-ai/logo.svg
     src/noust/recipes/assets/marimo/logo.svg
     src/noust/recipes/assets/miniflux/logo.svg
+    src/noust/recipes/assets/moodist/logo.svg
     src/noust/recipes/assets/myspeed/logo.svg
     src/noust/recipes/assets/nocodb/logo.svg
     src/noust/recipes/assets/open-design/logo.svg
     src/noust/recipes/assets/open-webui/logo.svg
+    src/noust/recipes/assets/openlist/logo.svg
     src/noust/recipes/assets/openspeedtest/logo.svg
     src/noust/recipes/assets/papra/logo.svg
     src/noust/recipes/assets/parseable/logo.svg
@@ -158,6 +165,9 @@ brand. The files, by licence:
     src/noust/recipes/assets/semaphore/logo.svg
     src/noust/recipes/assets/shaarli/logo.svg
     src/noust/recipes/assets/shlink/logo.svg
+    src/noust/recipes/assets/spliit/logo.svg
+    src/noust/recipes/assets/spoolman/logo.svg
+    src/noust/recipes/assets/sshwifty/logo.svg
     src/noust/recipes/assets/stirling-pdf/logo.svg
     src/noust/recipes/assets/tautulli/logo.svg
     src/noust/recipes/assets/thelounge/logo.svg
@@ -273,6 +283,8 @@ licensed under the MIT License. Each of these files says in its header which tem
 and what was changed:
 
   src/noust/recipes/ackee.yaml
+  src/noust/recipes/ampache.yaml
+  src/noust/recipes/answer.yaml
   src/noust/recipes/archivebox.yaml
   src/noust/recipes/blinko.yaml
   src/noust/recipes/bytestash.yaml
@@ -296,10 +308,12 @@ and what was changed:
   src/noust/recipes/gel.yaml
   src/noust/recipes/go2rtc.yaml
   src/noust/recipes/grimoire.yaml
+  src/noust/recipes/imgproxy.yaml
   src/noust/recipes/jellyseerr.yaml
   src/noust/recipes/joomla.yaml
   src/noust/recipes/kaneo.yaml
   src/noust/recipes/kener.yaml
+  src/noust/recipes/kestra.yaml
   src/noust/recipes/komari-monitor.yaml
   src/noust/recipes/languagetool.yaml
   src/noust/recipes/libredb-studio.yaml
@@ -322,9 +336,12 @@ and what was changed:
   src/noust/recipes/pulse.yaml
   src/noust/recipes/qui.yaml
   src/noust/recipes/silex.yaml
+  src/noust/recipes/silo.yaml
   src/noust/recipes/speedtest-tracker.yaml
+  src/noust/recipes/spliit.yaml
   src/noust/recipes/steedos.yaml
   src/noust/recipes/trek.yaml
+  src/noust/recipes/tuwunel.yaml
   src/noust/recipes/unleash.yaml
   src/noust/recipes/upsnap.yaml
   src/noust/recipes/versitygw.yaml

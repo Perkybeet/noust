@@ -1,0 +1,47 @@
+# Ampache: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/ampache
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: ampache
+kind: compose
+title: "Ampache"
+slogan: "A web based audio/video streaming application and file manager allowing you to access your music..."
+description: "Ampache is a web-based audio/video streaming application and file manager allowing you to access your music & videos from anywhere, using almost any internet enabled device."
+category: communication
+tags: [media, music, streaming, communication]
+logo: logo.svg
+version: "8.3.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://github.com/ampache/ampache
+docs: https://github.com/ampache/ampache/wiki
+repository: https://github.com/ampache/ampache
+license: AGPL-3.0-only
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    ampache:
+      image: ampache/ampache:8.3.0@sha256:806948d8c9bd54923ae40fb4b4a64d5238e0c6be8655a43ea47a398cd32d0ef7
+      restart: unless-stopped
+      volumes:
+        - config:/var/www/config
+        - log:/var/log/ampache
+        - mysql:/var/lib/mysql
+        - ampache-media:/media
+      ports:
+        - 127.0.0.1:${PORT}:80
+  volumes:
+    config:
+    log:
+    mysql:
+    ampache-media:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes config, log, mysql, ampache-media of this application: back them up before updating."

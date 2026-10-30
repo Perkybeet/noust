@@ -1,0 +1,37 @@
+# Enclosed from the image the project publishes (corentinth/enclosed), with the data folder its documentation names (github.com/CorentinTh/enclosed, docs: Docker).
+schema: 2
+name: enclosed
+kind: compose
+title: "Enclosed"
+slogan: "Send private and secure notes."
+description: "Sends end-to-end encrypted notes and files that can be protected by a password, expire, or burn after reading: the server only holds ciphertext. Anyone who reaches the page can write a note."
+category: security
+tags: [notes, encryption, secrets, sharing]
+logo: logo.svg
+version: "1.16.1-rootless"
+revision: 1
+updated: 2026-10-30
+homepage: https://enclosed.cc
+docs: https://enclosed.cc
+repository: https://github.com/CorentinTh/enclosed
+license: Apache-2.0
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8787
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    enclosed:
+      image: corentinth/enclosed:1.16.1-rootless@sha256:26cfc00ba76f20b9ed7c5f867d241eddb02379c39090e9ad88c08c671d31d5e9
+      restart: unless-stopped
+      volumes:
+        - enclosed-data:/app/.data
+      ports:
+        - 127.0.0.1:${PORT}:8787
+      user: 0:0
+  volumes:
+    enclosed-data:
+notes:
+  - "Open {{ url }}. Nothing to set up: write a note, and share the link it makes. Anyone who reaches the page can create notes; put an allow-list in front of it if that is not what you want."
+  - "Its data is in the Docker volume enclosed-data of this application: back it up before updating."

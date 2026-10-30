@@ -1,0 +1,40 @@
+# NextChat from the image the project publishes (yidadaa/chatgpt-next-web), with the variables its documentation names (github.com/ChatGPTNextWeb/NextChat, README: Environment Variables and Docker deployment).
+schema: 2
+name: nextchat
+kind: compose
+title: "NextChat"
+slogan: "A cross-platform ChatGPT/Gemini UI (Web / PWA / Linux / Win / MacOS)."
+description: "A chat interface for language models: conversations, prompt templates, plugins and a mask library, using the API keys you give it (OpenAI, Gemini, a local server). Protected by an access code Noust generates."
+category: ai
+tags: [chat, llm, openai, gemini]
+logo: logo.svg
+version: "2.16.1"
+revision: 1
+updated: 2026-10-30
+homepage: https://nextchat.club
+docs: https://nextchat.club
+repository: https://github.com/ChatGPTNextWeb/NextChat
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  ACCESS_CODE:
+    generate: "password32"
+    description: "The access code people type to use the page (and so spend your API keys)."
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    nextchat:
+      image: yidadaa/chatgpt-next-web:v2.16.1@sha256:eaaa469ddeeb5fa58fb35f8767e9e096a2f1c8468c54b6703323624bf3071c5a
+      restart: unless-stopped
+      environment:
+        CODE: ${ACCESS_CODE}
+        OPENAI_API_KEY:
+        GOOGLE_API_KEY:
+        BASE_URL:
+      ports:
+        - 127.0.0.1:${PORT}:3000
+notes:
+  - "Open {{ url }}. People are asked for the access code in ACCESS_CODE (noust env show {{ domain }} --unmask). The model providers' keys are set in the application's environment (OPENAI_API_KEY, GOOGLE_API_KEY, BASE_URL) and the application restarted."

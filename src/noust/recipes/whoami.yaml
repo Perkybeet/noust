@@ -1,0 +1,31 @@
+# whoami from the image the project publishes (traefik/whoami), as its documentation describes the container (github.com/traefik/whoami, README).
+schema: 2
+name: whoami
+kind: compose
+title: "whoami"
+slogan: "Tiny Go webserver that prints OS information and HTTP request to output."
+description: "A tiny web service that answers with the request it received: the headers, the client address and the host name. It is the usual way to check that a domain, a certificate and a proxy reach the right place."
+category: development
+tags: [diagnostics, http, headers, testing]
+logo: logo.svg
+version: "1.12.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://traefik.io
+docs: https://traefik.io
+repository: https://github.com/traefik/whoami
+license: Apache-2.0
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /health, expect: "200", timeout: 120}
+compose: |
+  services:
+    whoami:
+      image: traefik/whoami:v1.12.0@sha256:c4717a8d1f0134a7444e24f881160e033991f23027c6c5a9a3f8fd22e70d1d44
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:80
+notes:
+  - "Open {{ url }}. It shows the request it got: the headers a proxy adds, the client address and the host."

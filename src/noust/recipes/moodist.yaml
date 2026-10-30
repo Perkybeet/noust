@@ -1,0 +1,32 @@
+# Moodist from the image the project publishes (ghcr.io/remvze/moodist), as its documentation describes the container (github.com/remvze/moodist, README: Self-hosting).
+# Licence: LICENSE of remvze/moodist, read 2026-10-30: MIT License
+schema: 2
+name: moodist
+kind: compose
+title: "Moodist"
+slogan: "Ambient sounds for focus and relaxation."
+description: "A page of ambient sounds (rain, fire, a cafe, noise) that you mix, with a timer and presets, working offline once loaded. Static: nothing is stored on the server."
+category: utilities
+tags: [ambient, sounds, focus, pwa]
+logo: logo.svg
+version: "3.1.1"
+revision: 1
+updated: 2026-10-30
+homepage: https://moodist.mvze.net
+docs: https://moodist.mvze.net
+repository: https://github.com/remvze/moodist
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8080
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    moodist:
+      image: ghcr.io/remvze/moodist:v3.1.1@sha256:44367c9ca0f1ec93a28dd3715ad39fa8e69e25cb64931ab655f86954c2ee4b93
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8080
+notes:
+  - "Open {{ url }}. Nothing to set up: open it and press play."

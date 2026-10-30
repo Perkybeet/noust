@@ -1,0 +1,57 @@
+# Apprise API: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/apprise-api.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: apprise-api
+kind: compose
+title: "Apprise API"
+slogan: "Push Notifications API"
+description: "Apprise API provides a simple interface for sending notifications to almost all of the most popular notification services available to us today."
+category: communication
+tags: [api, apprise, notifications, communication]
+logo: logo.svg
+version: "2.0.2"
+revision: 1
+updated: 2026-10-30
+homepage: https://hub.docker.com/r/caronc/apprise
+docs: https://docs.linuxserver.io/images/docker-apprise-api/
+repository: https://github.com/caronc/apprise-api
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_APPRISE:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    apprise-api:
+      image: linuxserver/apprise-api:2.0.2@sha256:43bd5d9912aae31341b33cec9a08f137241ef2468f67f04dac2e41870ddfbeed
+      environment:
+        SERVICE_URL_APPRISE: ${SERVICE_URL_APPRISE}
+        PUID: '1000'
+        PGID: '1000'
+        TZ: UTC
+      volumes:
+        - apprise-api-config:/config
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - wget -qO- http://127.0.0.1:8000/
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8000
+  volumes:
+    apprise-api-config:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume apprise-api-config of this application: back it up before updating."

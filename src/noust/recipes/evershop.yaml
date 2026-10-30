@@ -27,8 +27,9 @@ variables:
     default: "5432"
     description: "Setting DB_PORT of the application; the template leaves it to the operator."
   DB_PASSWORD:
-    default: "postgres"
-    description: "Setting DB_PASSWORD of the application; the template leaves it to the operator."
+    generate: "password32"
+    secret: true
+    description: "The password of the stack's PostgreSQL account."
   DB_USER:
     default: "postgres"
     description: "Setting DB_USER of the application; the template leaves it to the operator."

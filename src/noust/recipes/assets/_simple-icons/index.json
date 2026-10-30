@@ -14,6 +14,12 @@
    "license": "CC0-1.0",
    "source": "https://affine.pro"
   },
+  "answer": {
+   "title": "Answer",
+   "hex": "0033FF",
+   "license": "CC0-1.0",
+   "source": "https://answer.dev"
+  },
   "apachecouchdb": {
    "title": "Apache CouchDB",
    "hex": "E42528",
@@ -95,6 +101,13 @@
    "license": "CC0-1.0",
    "source": "https://coder.com/brand#3-logos",
    "guidelines": "https://coder.com/brand"
+  },
+  "dash": {
+   "title": "Dash",
+   "hex": "008DE4",
+   "license": "CC0-1.0",
+   "source": "https://www.dash.org/brand-assets/",
+   "guidelines": "https://www.dash.org/brand-guidelines/"
   },
   "diagramsdotnet": {
    "title": "diagrams.net",
@@ -432,6 +445,13 @@
    "hex": "000000",
    "license": "CC0-1.0",
    "source": "https://github.com/anomalyco/opencode/blob/1251a870cb384543c150c4a72fb101b55eec971b/packages/identity/mark.svg"
+  },
+  "openhab": {
+   "title": "openHAB",
+   "hex": "E64A19",
+   "license": "CC0-1.0",
+   "source": "https://www.openhab.org/artwork.html",
+   "guidelines": "https://www.openhab.org/about/trademark.html"
   },
   "outline": {
    "title": "Outline",

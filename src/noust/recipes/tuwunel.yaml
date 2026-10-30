@@ -1,0 +1,55 @@
+# Tuwunel: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/tuwunel
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: tuwunel
+kind: compose
+title: "Tuwunel"
+slogan: "Official successor to conduwuit"
+description: "High performance Matrix homeserver written in Rust. Official successor to conduwuit - a scalable, low-cost, enterprise-ready alternative to Synapse."
+category: communication
+tags: [matrix, chat, messaging, rust, communication]
+logo: logo.svg
+version: "1.5.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://tuwunel.chat
+docs: https://matrix-construct.github.io/tuwunel/
+repository: https://github.com/matrix-construct/tuwunel
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  TUWUNEL_SERVER_NAME:
+    from: "fqdn"
+    description: "The address people use to reach the application, as the template builds it."
+  TUWUNEL_REGISTRATION_TOKEN:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for tuwunel registration token."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    tuwunel:
+      image: ghcr.io/matrix-construct/tuwunel:v1.5.0@sha256:bed6e32c47cc27697b043a8f5dbf1df9aef296310cf0ddcf86efec625960cc3a
+      restart: unless-stopped
+      environment:
+        TUWUNEL_SERVER_NAME: ${TUWUNEL_SERVER_NAME:-matrix.local}
+        TUWUNEL_ALLOW_REGISTRATION: ${TUWUNEL_ALLOW_REGISTRATION:-false}
+        TUWUNEL_REGISTRATION_TOKEN: ${TUWUNEL_REGISTRATION_TOKEN}
+        TUWUNEL_ADDRESS: ${TUWUNEL_ADDRESS:-0.0.0.0}
+        TUWUNEL_PORT: ${TUWUNEL_PORT:-6167}
+      volumes:
+        - tuwunel-data:/var/lib/tuwunel/
+      ports:
+        - 127.0.0.1:${PORT}:6167
+  volumes:
+    tuwunel-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume tuwunel-data of this application: back it up before updating."

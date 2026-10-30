@@ -1,0 +1,43 @@
+# copyparty from the image the project publishes (ghcr.io/9001/copyparty-ac), with the configuration folder its documentation names (github.com/9001/copyparty, docs/examples/docker).
+schema: 2
+name: copyparty
+kind: compose
+title: "copyparty"
+slogan: "Portable file server with accelerated resumable uploads, deduplication, WebDAV, FTP, zeroconf..."
+description: "Serves a folder over the browser, WebDAV and FTP with resumable uploads, search, thumbnails and sharing. Nothing is public: the account admin owns the volume and its password is generated."
+category: files
+tags: [files, webdav, upload, share]
+logo: logo.svg
+version: "1.20.26"
+revision: 1
+updated: 2026-10-30
+homepage: https://github.com/9001/copyparty
+docs: https://github.com/9001/copyparty
+repository: https://github.com/9001/copyparty
+license: MIT
+architectures: ["386", "amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3923
+variables:
+  ADMIN_PASSWORD:
+    generate: "password32"
+    description: "The password of the account admin."
+health: {path: /, expect: "200-399,401,403", timeout: 120}
+files:
+  copyparty.conf: {asset: copyparty.conf, render: true, mode: "0640"}
+compose: |
+  services:
+    copyparty:
+      image: ghcr.io/9001/copyparty-ac:1.20.26@sha256:7f77459160a4bf34fdca79f2965dff4f0c1d7069a3d9cdfb3632acb041dd2f6a
+      restart: unless-stopped
+      volumes:
+        - copyparty-files:/w
+        - ./copyparty.conf:/cfg/copyparty.conf
+      ports:
+        - 127.0.0.1:${PORT}:3923
+  volumes:
+    copyparty-files:
+notes:
+  - "Open {{ url }}. Sign in as admin with the password in ADMIN_PASSWORD (noust env show {{ domain }} --unmask). To share a folder without an account, add a volume to the file copyparty.conf in this application's folder."
+  - "Its data is in the Docker volume copyparty-files of this application: back it up before updating."

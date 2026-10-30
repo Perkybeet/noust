@@ -1,0 +1,32 @@
+# Swagger Editor from the image the project publishes (swaggerapi/swagger-editor), as its documentation describes the container (github.com/swagger-api/swagger-editor, README: Docker).
+# Licence: NOTICE of swagger-api/swagger-editor, read 2026-10-30: SwaggerEditor is licensed under the Apache License 2.0
+schema: 2
+name: swagger-editor
+kind: compose
+title: "Swagger Editor"
+slogan: "Edit OpenAPI definitions in the browser, with a live preview."
+description: "An editor for OpenAPI definitions with validation as you type and a rendered preview beside it. Static: what you write stays in the browser."
+category: development
+tags: [openapi, api, editor, swagger]
+logo: logo.svg
+version: "5.10.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://editor.swagger.io
+docs: https://editor.swagger.io
+repository: https://github.com/swagger-api/swagger-editor
+license: Apache-2.0
+architectures: ["386", "amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8080
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    swagger-editor:
+      image: swaggerapi/swagger-editor:v5.10.0@sha256:489bc58d742ee273db8e3e70ae8c9f9a3281e519169e1d8b98a75b09a23ab8d6
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:80
+notes:
+  - "Open {{ url }}. Nothing to set up on the server: the editor keeps what you write in the browser."

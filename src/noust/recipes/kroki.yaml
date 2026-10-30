@@ -1,0 +1,31 @@
+# Kroki from the image the project publishes (yuzutech/kroki), as its documentation describes the container (docs.kroki.io/kroki/setup/install, Docker).
+schema: 2
+name: kroki
+kind: compose
+title: "Kroki"
+slogan: "Creates diagrams from textual descriptions."
+description: "An HTTP service that turns diagram descriptions (PlantUML, Mermaid, GraphViz, D2, Vega and more) into images. It is an API with no pages and no accounts: put it behind a network you trust."
+category: development
+tags: [diagrams, plantuml, graphviz, api]
+logo: logo.svg
+version: "0.34.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://kroki.io
+docs: https://kroki.io
+repository: https://github.com/yuzutech/kroki
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8000
+health: {path: /health, expect: "200", timeout: 120}
+compose: |
+  services:
+    kroki:
+      image: yuzutech/kroki:0.34.0@sha256:1314e60e6dd813cd00c90cb22007a05fdb92edf43259dfae71abbe89429ea36a
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8000
+notes:
+  - "Open {{ url }}. There is no page to sign into: POST a diagram to {{ url }}/ (the documentation lists the formats)."

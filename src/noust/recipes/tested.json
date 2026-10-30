@@ -31,10 +31,25 @@
    "seconds": 66,
    "version": "3.13.1"
   },
+  "ampache": {
+   "date": "2026-10-30",
+   "seconds": 90,
+   "version": "8.3.0"
+  },
+  "answer": {
+   "date": "2026-10-30",
+   "seconds": 64,
+   "version": "2.0.3"
+  },
   "anythingllm": {
    "date": "2026-10-28",
    "seconds": 126,
    "version": "1.18.0"
+  },
+  "apprise-api": {
+   "date": "2026-10-30",
+   "seconds": 46,
+   "version": "2.0.2"
   },
   "appsmith": {
    "date": "2026-10-30",
@@ -122,8 +137,8 @@
    "version": "0.60.9"
   },
   "chatto": {
-   "date": "2026-10-29",
-   "seconds": 41,
+   "date": "2026-10-30",
+   "seconds": 42,
    "version": "0.4"
   },
   "chatwoot": {
@@ -176,6 +191,11 @@
    "seconds": 40,
    "version": "2026.10.23"
   },
+  "copyparty": {
+   "date": "2026-10-30",
+   "seconds": 37,
+   "version": "1.20.26"
+  },
   "couchdb": {
    "date": "2026-10-28",
    "seconds": 47,
@@ -200,6 +220,11 @@
    "date": "2026-10-29",
    "seconds": 46,
    "version": "2.10.7"
+  },
+  "dashdot": {
+   "date": "2026-10-30",
+   "seconds": 49,
+   "version": "6.3.4"
   },
   "dashy": {
    "date": "2026-10-28",
@@ -227,8 +252,8 @@
    "version": "12.4.1"
   },
   "discourse": {
-   "date": "2026-10-28",
-   "seconds": 298,
+   "date": "2026-10-30",
+   "seconds": 311,
    "version": "2026.1.4"
   },
   "docling": {
@@ -291,6 +316,11 @@
    "seconds": 40,
    "version": "1.12.33"
   },
+  "enclosed": {
+   "date": "2026-10-30",
+   "seconds": 49,
+   "version": "1.16.1-rootless"
+  },
   "engram": {
    "date": "2026-10-30",
    "seconds": 56,
@@ -308,7 +338,7 @@
   },
   "evershop": {
    "date": "2026-10-30",
-   "seconds": 82,
+   "seconds": 78,
    "version": "2.3.0"
   },
   "filegator": {
@@ -516,6 +546,11 @@
    "seconds": 67,
    "version": "2026.9.0"
   },
+  "imgproxy": {
+   "date": "2026-10-30",
+   "seconds": 38,
+   "version": "1.31.8-alpine"
+  },
   "immich": {
    "date": "2026-10-28",
    "seconds": 122,
@@ -548,8 +583,13 @@
   },
   "joomla": {
    "date": "2026-10-30",
-   "seconds": 84,
+   "seconds": 73,
    "version": "6.1.0-apache"
+  },
+  "jotty": {
+   "date": "2026-10-30",
+   "seconds": 56,
+   "version": "1.29.2"
   },
   "kaneo": {
    "date": "2026-10-30",
@@ -570,6 +610,11 @@
    "date": "2026-10-30",
    "seconds": 76,
    "version": "4.1.1"
+  },
+  "kestra": {
+   "date": "2026-10-30",
+   "seconds": 302,
+   "version": "2.0.8"
   },
   "keycloak": {
    "date": "2026-10-28",
@@ -595,6 +640,11 @@
    "date": "2026-10-28",
    "seconds": 52,
    "version": "1.29.1"
+  },
+  "kroki": {
+   "date": "2026-10-30",
+   "seconds": 99,
+   "version": "0.34.0"
   },
   "langflow": {
    "date": "2026-10-28",
@@ -660,6 +710,11 @@
    "date": "2026-10-28",
    "seconds": 84,
    "version": "1.104.0"
+  },
+  "lldap": {
+   "date": "2026-10-30",
+   "seconds": 36,
+   "version": "0.6.3"
   },
   "logto": {
    "date": "2026-10-28",
@@ -746,6 +801,11 @@
    "seconds": 50,
    "version": "2.3.3"
   },
+  "moodist": {
+   "date": "2026-10-30",
+   "seconds": 38,
+   "version": "3.1.1"
+  },
   "moodle": {
    "date": "2026-10-30",
    "seconds": 154,
@@ -780,6 +840,11 @@
    "date": "2026-10-28",
    "seconds": 58,
    "version": "2.12.1"
+  },
+  "nextchat": {
+   "date": "2026-10-30",
+   "seconds": 39,
+   "version": "2.16.1"
   },
   "nextcloud": {
    "date": "2026-10-28",
@@ -856,6 +921,16 @@
    "seconds": 38,
    "version": "1"
   },
+  "openhab": {
+   "date": "2026-10-30",
+   "seconds": 89,
+   "version": "5.2.3"
+  },
+  "openlist": {
+   "date": "2026-10-30",
+   "seconds": 39,
+   "version": "4.2.9"
+  },
   "openobserve": {
    "date": "2026-10-29",
    "seconds": 51,
@@ -930,6 +1005,11 @@
    "date": "2026-10-29",
    "seconds": 65,
    "version": "9.18.0"
+  },
+  "photoprism": {
+   "date": "2026-10-30",
+   "seconds": 109,
+   "version": "261029"
   },
   "plane": {
    "date": "2026-10-29",
@@ -1066,6 +1146,11 @@
    "seconds": 67,
    "version": "3.7.0"
   },
+  "silo": {
+   "date": "2026-10-30",
+   "seconds": 37,
+   "version": "RELEASE.2026-08-06T00-00-00Z"
+  },
   "silverbullet": {
    "date": "2026-10-29",
    "seconds": 53,
@@ -1091,6 +1176,21 @@
    "seconds": 47,
    "version": "1.15.1"
   },
+  "spliit": {
+   "date": "2026-10-30",
+   "seconds": 79,
+   "version": "1.19.0"
+  },
+  "spoolman": {
+   "date": "2026-10-30",
+   "seconds": 41,
+   "version": "0.27.0"
+  },
+  "sshwifty": {
+   "date": "2026-10-30",
+   "seconds": 54,
+   "version": "0.4.12-beta-release"
+  },
   "stalwart": {
    "date": "2026-10-30",
    "seconds": 41,
@@ -1106,6 +1206,11 @@
    "seconds": 95,
    "version": "3.1.0"
   },
+  "stump": {
+   "date": "2026-10-30",
+   "seconds": 50,
+   "version": "0.1.11"
+  },
   "super-productivity": {
    "date": "2026-10-30",
    "seconds": 41,
@@ -1115,6 +1220,16 @@
    "date": "2026-10-29",
    "seconds": 101,
    "version": "6.1.0"
+  },
+  "swagger-editor": {
+   "date": "2026-10-30",
+   "seconds": 35,
+   "version": "5.10.0"
+  },
+  "swagger-ui": {
+   "date": "2026-10-30",
+   "seconds": 39,
+   "version": "5.34.1"
   },
   "synapse": {
    "date": "2026-10-30",
@@ -1147,14 +1262,19 @@
    "version": "4.1.3"
   },
   "trek": {
-   "date": "2026-10-29",
-   "seconds": 86,
+   "date": "2026-10-30",
+   "seconds": 79,
    "version": "3.3.0"
   },
   "trilium": {
    "date": "2026-10-29",
    "seconds": 42,
    "version": "0.106.0"
+  },
+  "tuwunel": {
+   "date": "2026-10-30",
+   "seconds": 35,
+   "version": "1.5.0"
   },
   "twenty": {
    "date": "2026-10-29",
@@ -1220,6 +1340,11 @@
    "date": "2026-10-29",
    "seconds": 76,
    "version": "12.56"
+  },
+  "whoami": {
+   "date": "2026-10-30",
+   "seconds": 29,
+   "version": "1.12.0"
   },
   "whoogle": {
    "date": "2026-10-30",
