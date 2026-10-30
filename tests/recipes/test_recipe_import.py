@@ -751,6 +751,67 @@ def test_a_database_that_has_its_own_health_check_keeps_it(tool: ModuleType) -> 
     assert draft.services["db"]["healthcheck"] == own
 
 
+def test_the_stack_s_env_file_becomes_the_variables_the_service_takes(tool: ModuleType) -> None:
+    """`env_file: .env` is every variable of the stack; the recipe has no file, so it names them."""
+    draft = draft_of(
+        tool,
+        {
+            "web": {
+                "image": "o/app:1.0",
+                "env_file": [{"path": ".env", "required": False}],
+                "environment": {"ONE": "own"},
+                "ports": ["127.0.0.1:${PORT}:80"],
+            },
+            "worker": {"image": "o/app:1.0", "env_file": ".env"},
+        },
+        ("web", 80),
+    )
+    draft.values = {"ONE": "x", "TWO": "y", "bad-name": "z"}
+
+    tool.clean_services(draft)
+
+    assert draft.services["web"]["environment"] == {"ONE": "own", "TWO": "${TWO}"}
+    assert draft.services["worker"]["environment"] == {"ONE": "${ONE}", "TWO": "${TWO}"}
+    assert "env_file" not in draft.services["web"] and "env_file" not in draft.services["worker"]
+
+
+def test_another_env_file_is_still_a_reason_to_skip(tool: ModuleType) -> None:
+    """A file the recipe does not ship cannot be read."""
+    draft = draft_of(
+        tool, {"web": {"image": "o/app:1.0", "env_file": ["./secrets.env"]}}, ("web", 80)
+    )
+
+    with pytest.raises(tool.Skip) as caught:
+        tool.clean_services(draft)
+
+    assert caught.value.code == "service-keys"
+
+
+def test_a_dollar_the_container_s_shell_reads_is_written_the_way_compose_passes_it_on(
+    tool: ModuleType,
+) -> None:
+    """A command with $(...) or $VAR is the shell's; Compose would read it as its own variable."""
+    shell = "export K=$(cat /run/k) && exec app --key $K --home $${HOME} ${REAL}"
+    draft = draft_of(
+        tool,
+        {
+            "web": {
+                "image": "o/app:1.0",
+                "command": ["sh", "-c", shell],
+                "healthcheck": {"test": ["CMD-SHELL", "curl -f http://localhost:$PORT/"]},
+            }
+        },
+        ("web", 80),
+    )
+
+    tool.clean_services(draft)
+
+    assert draft.services["web"]["command"][2] == (
+        "export K=$$(cat /run/k) && exec app --key $$K --home $${HOME} ${REAL}"
+    )
+    assert draft.services["web"]["healthcheck"]["test"][1] == "curl -f http://localhost:$$PORT/"
+
+
 # -- the long tail: ports a stack opens on purpose --------------------------------------------------
 
 

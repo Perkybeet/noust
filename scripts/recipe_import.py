@@ -689,6 +689,69 @@ _PUBLIC_PORT = re.compile(
 SERVER_PORTS = frozenset({22, 53, 80, 443, 3306, 5432, 6379, 27017})
 
 
+def use_stack_env(draft: Draft, spec: dict[str, Any]) -> None:
+    """
+    Turn ``env_file: .env`` into the variables of the stack, named in the service's environment.
+
+    The stack's ``.env`` is every variable the recipe declares, so a service that reads it is a
+    service whose environment lists them. Any other file is one the recipe does not ship and is
+    left for the closed schema to refuse.
+
+    Args:
+        draft: The draft, whose ``values`` are the stack's variables.
+        spec: One service, changed in place.
+    """
+    if "env_file" not in spec:
+        return
+    entries = spec["env_file"] if isinstance(spec["env_file"], list) else [spec["env_file"]]
+    paths = [str(e.get("path", "")) if isinstance(e, dict) else str(e) for e in entries]
+    if any(path not in (".env", "./.env") for path in paths):
+        return
+    del spec["env_file"]
+    environment = as_environment(spec.get("environment"))
+    for name in draft.values:
+        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name) and name not in environment:
+            environment[name] = f"${{{name}}}"
+    spec["environment"] = environment
+
+
+_SHELL_DOLLAR = re.compile(r"(?<!\$)\$(?![{$])")
+
+
+def _escaped(text: str) -> str:
+    """
+    Args:
+        text: A command, or a part of one.
+
+    Returns:
+        It with every ``$`` that is neither ``${`` nor already ``$$`` doubled.
+    """
+    return _SHELL_DOLLAR.sub(lambda _match: "$$", text)
+
+
+def shell_dollars(spec: dict[str, Any]) -> None:
+    """
+    Write a ``$`` the container's shell reads the way Compose passes it on: ``$$``.
+
+    A command such as ``export K=$(cat /run/k)`` is the shell's, and Compose would take ``$(``
+    and ``$K`` for variables of its own (and the recipe's loader refuses a bare ``$NAME``).
+
+    Args:
+        spec: One service, changed in place.
+    """
+    for key in ("command", "entrypoint"):
+        value = spec.get(key)
+        if isinstance(value, str):
+            spec[key] = _escaped(value)
+        elif isinstance(value, list):
+            spec[key] = [_escaped(item) if isinstance(item, str) else item for item in value]
+    check = spec.get("healthcheck")
+    if isinstance(check, dict) and isinstance(check.get("test"), list):
+        check["test"] = [_escaped(item) if isinstance(item, str) else item for item in check["test"]]
+    elif isinstance(check, dict) and isinstance(check.get("test"), str):
+        check["test"] = _escaped(check["test"])
+
+
 def clean_services(draft: Draft) -> None:
     """
     Rewrite the services into what a recipe's schema accepts.
@@ -713,6 +776,8 @@ def clean_services(draft: Draft) -> None:
                 raise Skip(f"uses-{banned}", f"service {key}")
         for dropped in DROPPED_KEYS & spec.keys():
             del spec[dropped]
+        use_stack_env(draft, spec)
+        shell_dollars(spec)
         unknown = set(spec) - KEPT_KEYS
         if unknown:
             raise Skip("service-keys", f"service {key}: {', '.join(sorted(unknown))}")
