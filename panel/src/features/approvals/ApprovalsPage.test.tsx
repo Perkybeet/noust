@@ -90,6 +90,32 @@ describe("the approvals inbox", () => {
     });
   });
 
+  it("says in plain words which role grant each request is, not the server's English", { timeout: 20_000 }, async () => {
+    const grants: [string, string][] = [
+      ["access.grant", "Give an account a role on the server, a team or a project"],
+      ["team.member", "Add an account to a team, or give a member a higher role"],
+      ["access.role_widen", "Give a role more permissions, for everyone who holds it"],
+      ["auth.source_roles", "Change the roles a single sign-on provider gives"],
+    ];
+    fakeBackend({
+      ...signedInRoutes(DECIDER),
+      "GET /api/approvals/policy": () => json(200, { enabled: true, approvers: ["security"], request_hours: 24, execute_minutes: 30, reason_required: false, rules: [] }),
+      "GET /api/approvals": () =>
+        json(200, {
+          approvals: grants.map(([action], index) => request(20 + index, { action, kind: "role_change", description: `The server's own sentence for ${action}` })),
+          pending: grants.length,
+        }),
+    });
+    renderConsole("/settings/approvals");
+    const table = await findLoadedRegion("Approval requests");
+    for (const [action, words] of grants) {
+      expect(await within(table).findByText(words)).toBeInTheDocument();
+      expect(within(table).queryByText(`The server's own sentence for ${action}`)).not.toBeInTheDocument();
+    }
+    // Not the sentence of an action this console has never heard of.
+    expect(within(table).queryByText("A change to who may do what")).not.toBeInTheDocument();
+  });
+
   it("lets the requester run an approved call from here, sent exactly as it was", { timeout: 20_000 }, async () => {
     const backend = fakeBackend({
       ...signedInRoutes(DECIDER),

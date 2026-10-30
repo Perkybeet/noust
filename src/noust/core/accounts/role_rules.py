@@ -18,7 +18,7 @@ asks wherever it writes them (rule 4: none of the callers repeats one).
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 
 from noust.core.access.builtin import ROLE_OWNER
 from noust.core.access.model import AccessError
@@ -26,6 +26,38 @@ from noust.core.access.roles import USABLE_STATUSES, RoleStore
 from noust.core.accounts.model import Account
 from noust.core.exceptions import ValidationError
 from noust.core.server_text import say
+
+
+def normalised(given: Iterable[object]) -> list[str]:
+    """
+    Write role names the way the list keeps them.
+
+    The one reading of what a caller typed, shared by what writes the roles and by what asks
+    whether a call would change them (:mod:`noust.core.accounts.approval_roles`), so the two
+    cannot disagree on whether ``" Admin "`` is ``admin``.
+
+    Args:
+        given: Role names as typed.
+
+    Returns:
+        Them lower-cased and stripped, without repeats, in the order given. Nothing is checked:
+        an empty name stays one.
+    """
+    return list(dict.fromkeys((str(name) or "").strip().lower() for name in given))
+
+
+def with_first_role(current: Sequence[str], first: str) -> list[str]:
+    """
+    The roles an account holds once the one it is known by is replaced.
+
+    Args:
+        current: Its roles now, in order.
+        first: The role that takes the first place.
+
+    Returns:
+        ``first`` and, after it, the other roles it holds, as they were.
+    """
+    return [first, *(name for name in current[1:] if name != first)]
 
 
 def validated(roles: RoleStore, role: str | None, wanted: Sequence[str] | None) -> list[str]:
@@ -44,7 +76,7 @@ def validated(roles: RoleStore, role: str | None, wanted: Sequence[str] | None) 
         ValidationError: When there are none, or one is not in the list.
     """
     given = list(wanted) if wanted else ([role] if role else [])
-    names = list(dict.fromkeys((str(name) or "").strip().lower() for name in given))
+    names = normalised(given)
     if not names or not all(names):
         raise ValidationError.from_text(say("roles.no_roles"), field="roles")
     known = set(roles.names())

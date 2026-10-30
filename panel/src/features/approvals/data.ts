@@ -20,6 +20,10 @@ const ACTIONS: Readonly<Record<string, PlainKey>> = {
   "user.role_change": "approvals.actions.userRoleChange",
   "user.create": "approvals.actions.userCreate",
   "user.invite": "approvals.actions.userInvite",
+  "access.grant": "approvals.actions.accessGrant",
+  "team.member": "approvals.actions.teamMember",
+  "access.role_widen": "approvals.actions.accessRoleWiden",
+  "auth.source_roles": "approvals.actions.authSourceRoles",
 };
 
 /**

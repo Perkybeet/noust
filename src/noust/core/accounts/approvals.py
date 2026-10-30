@@ -10,8 +10,11 @@ person cannot abuse their rights alone. Sudo mode is the same person again;
 turns it on (``approval.enabled``), the actions of :func:`rule_for` - raw
 units, cron commands, backup hooks, raw site configuration, SQL that writes
 (row edits and ``EXPLAIN ANALYZE`` included), deploying from a directory of
-this server, adding and removing nodes, and role grants (a role change, a new
-account, a recovery invitation) - become requests another person decides.
+this server, adding and removing nodes, and role grants (the roles of an
+account however they are set, a new account, a recovery invitation, a role on
+a team, a permission added to a role, what a sign-in source hands out; see
+:mod:`~noust.core.accounts.approval_roles` for where that line is drawn) -
+become requests another person decides.
 
 The mechanism is a guard at the chokepoint, like sudo mode
 (:func:`noust.web.api.approvals.require_approval`, on every API route): the
@@ -51,6 +54,16 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, cast
 
+from noust.core.accounts.approval_roles import (
+    BodyCheck,
+    accepts_offers,
+    adds_or_raises_member,
+    changes_account_roles,
+    raises_member,
+    restores_permissions,
+    source_changes_roles,
+    widens_role,
+)
 from noust.core.accounts.model import ROLE_ADMIN, ROLE_SECURITY
 from noust.core.exceptions import PermissionError as NoustPermissionError
 from noust.core.exceptions import SecurityError
@@ -441,17 +454,38 @@ def _accounts_exist(_body: Any, _params: Mapping[str, str]) -> bool:
     return AccountManager().any_exist()
 
 
-def _changes_role(body: Any, params: Mapping[str, str]) -> bool:
-    if not isinstance(body, Mapping) or not isinstance(body.get("role"), str):
-        return False
-    from noust.core.accounts.manager import AccountManager
+#: Every way to set the roles of an account is the same decision, so they share one rule.
+_ROLE_CHANGE = ApprovalRule("user.role_change", KIND_ROLE_CHANGE, "Changing an account's role.")
 
-    account = AccountManager().find(str(params.get("username") or ""))
-    return account is not None and account.role != body["role"].strip().lower()
+#: A role at a scope and a built-in role on a whole team are the same grant through two doors.
+_ACCESS_GRANT = ApprovalRule(
+    "access.grant",
+    KIND_ROLE_CHANGE,
+    "Giving an account a role on the server, a team, a project or an environment.",
+)
 
+_TEAM_MEMBER = ApprovalRule(
+    "team.member",
+    KIND_ROLE_CHANGE,
+    "Adding an account to a team, or giving a member a higher role there.",
+)
+
+#: What a role holds, every account that holds it holds at its next request.
+_ROLE_WIDEN = ApprovalRule(
+    "access.role_widen",
+    KIND_ROLE_CHANGE,
+    "Giving a role permissions it does not hold, to every account that holds it.",
+)
+
+_SOURCE_ROLES = ApprovalRule(
+    "auth.source_roles",
+    KIND_ROLE_CHANGE,
+    "Changing the roles a sign-in source hands out to the people who arrive through it: its "
+    "default role and team, what its groups mean, provisioning and linking by e-mail address.",
+)
 
 #: Routes that need one by what their body asks.
-BODY_RULES: dict[tuple[str, str], tuple[ApprovalRule, Callable[[Any, Mapping[str, str]], bool]]] = {
+BODY_RULES: dict[tuple[str, str], tuple[ApprovalRule, BodyCheck]] = {
     ("POST", "/api/databases/query"): (
         ApprovalRule("db.query.write", KIND_INFRASTRUCTURE, "A SQL statement that may write."),
         _writes_sql,
@@ -472,24 +506,22 @@ BODY_RULES: dict[tuple[str, str], tuple[ApprovalRule, Callable[[Any, Mapping[str
         ),
         _analyzes,
     ),
-    ("PATCH", "/api/auth/accounts/{username}"): (
-        ApprovalRule("user.role_change", KIND_ROLE_CHANGE, "Changing an account's role."),
-        _changes_role,
-    ),
+    ("PATCH", "/api/auth/accounts/{username}"): (_ROLE_CHANGE, changes_account_roles),
+    ("PUT", "/api/auth/accounts/{username}/roles"): (_ROLE_CHANGE, changes_account_roles),
     ("POST", "/api/auth/accounts"): (
         ApprovalRule(
             "user.create", KIND_ROLE_CHANGE, "Creating an account, with the role it is given."
         ),
         _accounts_exist,
     ),
-    ("POST", "/api/access/bindings"): (
-        ApprovalRule(
-            "access.grant",
-            KIND_ROLE_CHANGE,
-            "Giving an account a role on the server, a team, a project or an environment.",
-        ),
-        _accounts_exist,
-    ),
+    ("POST", "/api/access/bindings"): (_ACCESS_GRANT, _accounts_exist),
+    ("POST", "/api/teams/{team}/access"): (_ACCESS_GRANT, _accounts_exist),
+    ("POST", "/api/teams/{team}/members"): (_TEAM_MEMBER, adds_or_raises_member),
+    ("PATCH", "/api/teams/{team}/members/{username}"): (_TEAM_MEMBER, raises_member),
+    ("PATCH", "/api/access/roles/{role}"): (_ROLE_WIDEN, widens_role),
+    ("PATCH", "/api/roles/{name}"): (_ROLE_WIDEN, widens_role),
+    ("POST", "/api/roles/{name}/reset"): (_ROLE_WIDEN, restores_permissions),
+    ("POST", "/api/roles/{name}/offers"): (_ROLE_WIDEN, accepts_offers),
     ("POST", "/api/auth/invitations"): (
         ApprovalRule(
             "user.invite",
@@ -498,6 +530,22 @@ BODY_RULES: dict[tuple[str, str], tuple[ApprovalRule, Callable[[Any, Mapping[str
             "holds the code gets the account and its role.",
         ),
         _accounts_exist,
+    ),
+    ("PUT", "/api/auth/oidc/config/{provider}"): (
+        _SOURCE_ROLES,
+        source_changes_roles("oidc", "provider"),
+    ),
+    ("PUT", "/api/auth/saml/config/{provider}"): (
+        _SOURCE_ROLES,
+        source_changes_roles("saml", "provider"),
+    ),
+    ("PUT", "/api/auth/ldap/directories/{name}"): (
+        _SOURCE_ROLES,
+        source_changes_roles("ldap", "name"),
+    ),
+    ("PUT", "/api/auth/scim/sources/{name}"): (
+        _SOURCE_ROLES,
+        source_changes_roles("scim", "name"),
     ),
 }
 
@@ -565,11 +613,14 @@ def rule_for(
 _CONDITIONS: dict[str, str] = {
     "db.query.write": "mode is 'write'",
     "apps.local_source": "source is a directory of this server",
-    "user.role_change": "role differs from the account's",
+    "user.role_change": "role or roles differ from the account's",
     "db.query.analyze": "analyze is true",
     "user.create": "an account already exists",
     "user.invite": "an account already exists",
     "access.grant": "an account already exists",
+    "team.member": "the account is not a member yet, or the role is above the one it has",
+    "access.role_widen": "the role would hold a permission it does not hold now",
+    "auth.source_roles": "the source is new, or would hand out different roles than it does",
 }
 
 

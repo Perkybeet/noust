@@ -223,6 +223,54 @@ class TestWhatNeedsApproval:
         )
 
 
+class TestTheQuestionsASecondPersonIsAskedNeverFailOnWhatTheyAreGiven:
+    """
+    A rule that raises is a guard that answers 500 instead of 202: the body is the caller's, the
+    handler is the one that says what is wrong with it.
+    """
+
+    PARAMS = {
+        "username": "maria",
+        "team": "acme",
+        "name": "operator",
+        "role": "operator",
+        "provider": "corp",
+    }
+    JUNK: list[Any] = [
+        None,
+        [],
+        "admin",
+        7,
+        {},
+        {"role": 1},
+        {"role": ["admin"]},
+        {"roles": "admin"},
+        {"roles": [1, None]},
+        {"roles": [" "]},
+        {"permissions": "apps.read"},
+        {"permissions": [1]},
+        {"accept": "x", "dismiss": [2]},
+        {"username": ["maria"], "role": "viewer"},
+        {"default_role": 3, "group_mappings": "ops=admin", "group_sync": "yes"},
+        {"group_mappings": [{"group": "ops"}, 5, None]},
+        {"provisioning": 5, "default_team": ["x"], "default_team_role": 5, "link_by_email": []},
+    ]
+
+    def test_every_question_answers_yes_or_no(self, store: NoustStore) -> None:
+        from noust.core.accounts.approvals import BODY_RULES
+        from noust.core.accounts.oidc_store import OidcProvider, OidcStore
+
+        AccountManager(store).create("maria", "operator", password=PASSWORD)
+        # The source exists, so the settings it is given are worked out against it.
+        OidcStore(store).save_provider(
+            OidcProvider("corp", "Corp", "https://idp.example.com", "noust")
+        )
+        for (method, template), (_rule, applies) in BODY_RULES.items():
+            for body in self.JUNK:
+                assert isinstance(applies(body, self.PARAMS), bool), (method, template, body)
+                assert isinstance(applies(body, {}), bool), (method, template, body)
+
+
 class TestPolicy:
     def test_off_by_default_and_on_under_the_ens_profile(self) -> None:
         assert not build_approval_policy({}).enabled

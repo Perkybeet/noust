@@ -61,6 +61,12 @@ once in `noust.web.permissions.roles`:
   control, which a framework can ask for). All of it is checked in one place
   (`noust.web.permissions.access`), whoever asks: the console, the API or `noust access`. See
   [Roles where they are needed](teams.md#roles-where-they-are-needed).
+- **The owner holds every permission and is handed on only by an owner.** It cannot be edited, put
+  back or deleted, and giving or taking it (setting the roles of an account, making or inviting one
+  with it, recovering an owner's account, a role on the server) is refused to an account that is not
+  an owner, by whichever route; root at the terminal and the master token are the way back for a
+  server that lost its owners. Where approvals are on, the same changes also wait for a second
+  person ([Four-eyes approvals](security-approvals.md#four-eyes-approvals)).
 - **Passwords can be turned off for single sign-on** (`auth.local_login.enabled`): only the accounts
   kept as the way back sign in with a password or a passkey, and the change is refused while it would
   leave nobody able to administer. See [Single sign-on](sso.md#turning-passwords-and-passkeys-off).
