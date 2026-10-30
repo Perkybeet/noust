@@ -7,6 +7,7 @@ import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { fakeBackend, json } from "../../../test/fakes";
 import { TAB_DOMAIN, appRoutes, screenWidth } from "../testRoutes";
+import { giveElementsASize } from "../../../test/layout";
 
 const DEPLOYMENT = {
   id: 30,
@@ -38,9 +39,8 @@ afterEach(() => {
 
 async function open() {
   screenWidth(1440);
-  // The virtualizer sizes its window from offsetHeight, which jsdom reports as 0.
-  vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(400);
-  vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(800);
+  // jsdom has no layout: a virtualized list's window is as big as the size it is given.
+  giveElementsASize();
   const backend = fakeBackend(
     appRoutes(
       {},
@@ -105,8 +105,7 @@ describe("reading a deploy's log", { timeout: 20_000 }, () => {
 
   it("holds the share button's place while the log is read, so it does not push the viewer down when it comes", async () => {
     screenWidth(1440);
-    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(400);
-    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(800);
+    giveElementsASize();
     let answer: (response: Response) => void = () => undefined;
     const slow = new Promise<Response>((resolve) => {
       answer = resolve;

@@ -6,6 +6,7 @@ import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { Combobox } from "./Combobox";
 import { Field } from "./Field";
+import { giveElementsASize } from "../../test/layout";
 
 interface Zone {
   value: string;
@@ -158,8 +159,7 @@ describe("Combobox", () => {
 
   describe("virtualized", () => {
     it("renders only a window of a long list, and still finds and chooses any item", async () => {
-      vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(288);
-      vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(320);
+      giveElementsASize(288, 320);
       const user = userEvent.setup();
       const onValueChange = vi.fn();
       render(<Combobox aria-label="Time zone" items={MANY} groupBy={byRegion} virtualized onValueChange={onValueChange} />);
@@ -179,7 +179,7 @@ describe("Combobox", () => {
     });
 
     it("tells every option its place in the whole list", async () => {
-      vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(288);
+      giveElementsASize(288, 320);
       const user = userEvent.setup();
       render(<Combobox aria-label="Time zone" items={MANY} virtualized />);
       await user.click(screen.getByRole("combobox", { name: "Time zone" }));
@@ -199,7 +199,7 @@ describe("Combobox", () => {
   });
 
   it("has no accessibility violations when virtualized and open", async () => {
-    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(288);
+    giveElementsASize(288, 320);
     const user = userEvent.setup();
     render(<Combobox aria-label="Time zone" items={MANY} groupBy={byRegion} virtualized />);
     await user.click(screen.getByRole("combobox", { name: "Time zone" }));

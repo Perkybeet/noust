@@ -11,6 +11,7 @@ import { TAB_DOMAIN, appRoutes, screenWidth } from "../app/testRoutes";
 import { onDesktop, serverRoutes } from "../server/testing";
 import { installFakeCanvas } from "../../components/ui/terminal/testing";
 import { FakeTerminalSocket, STATUS_BODY, readyFrame, terminalRoutes, ticketBody } from "./testing";
+import { giveElementsASize } from "../../test/layout";
 
 /** The server's shell when the control server_terminal is set to refused and no framework asks for it. */
 const CONTROL_REFUSES = {
@@ -34,8 +35,7 @@ beforeEach(() => {
   // jsdom lays nothing out: a box for the screen and for the log viewer's window.
   vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(800);
   vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(340);
-  vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(400);
-  vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(800);
+  giveElementsASize();
   class Made extends FakeTerminalSocket {
     constructor(url: string) {
       super(url);

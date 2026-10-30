@@ -46,20 +46,21 @@ afterEach(() => {
 // functions, not mocks, so that restoreMocks between tests cannot strip them.
 const noop = (): void => undefined;
 
+// A list of media queries without the deprecated addListener and removeListener: no library the
+// console loads calls them, and a stub that declares them is flagged by no-deprecated.
+type MediaQueryStub = Omit<MediaQueryList, "addListener" | "removeListener">;
+
 if (typeof window.matchMedia !== "function") {
   Object.defineProperty(window, "matchMedia", {
     writable: true,
-    value: (query: string): MediaQueryList =>
-      ({
-        matches: false,
-        media: query,
-        onchange: null,
-        addEventListener: noop,
-        removeEventListener: noop,
-        addListener: noop,
-        removeListener: noop,
-        dispatchEvent: () => false,
-      }) as MediaQueryList,
+    value: (query: string): MediaQueryStub => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: noop,
+      removeEventListener: noop,
+      dispatchEvent: () => false,
+    }),
   });
 }
 

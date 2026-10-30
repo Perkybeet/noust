@@ -12,6 +12,7 @@ import { outcomeLines } from "./NodeJobDrawer";
 import { useT } from "../../i18n";
 import { bindT } from "../../i18n/useT";
 import { render } from "@testing-library/react";
+import { giveElementsASize } from "../../test/layout";
 
 const NOW = new Date().toISOString();
 const STARTED = new Date(Date.now() - 125_000).toISOString();
@@ -65,8 +66,8 @@ const NODE_JOB = {
 const LOG = "[INFO] apt-get -y upgrade openssl libssl3 nginx\nSetting up openssl (3.0.13-0ubuntu3.4) ...\n[INFO] Update finished";
 
 function page(job: object, extra: Record<string, RouteHandler> = {}) {
-  // The log viewer sizes its window from offsetHeight, which jsdom reports as 0.
-  vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(400);
+  // jsdom has no layout: a virtualized list's window is as big as the size it is given.
+  giveElementsASize();
   const backend = fakeBackend({
     ...fleetRoutes(),
     "GET /api/fleet/jobs/fj-9": () => json(200, job),

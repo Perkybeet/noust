@@ -8,6 +8,7 @@ import { FakeWebSocket, fakeBackend, json } from "../../../test/fakes";
 import { TAB_DOMAIN, appRoutes } from "../testRoutes";
 import { journalLine } from "./journalLines";
 import { siteLineLevel } from "./LogsTab";
+import { giveElementsASize } from "../../../test/layout";
 
 /** What the API answers for a site's log: the end of the file, already masked. */
 function siteLog(kind: string, lines: string[], extra: Record<string, unknown> = {}) {
@@ -22,9 +23,8 @@ const ACCESS = [
 
 async function logsAt(app: Record<string, unknown> = {}, routes: Parameters<typeof fakeBackend>[0] = {}) {
   vi.stubGlobal("WebSocket", FakeWebSocket);
-  // The virtualizer sizes its window from offsetHeight, which jsdom reports as 0.
-  vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(400);
-  vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(800);
+  // jsdom has no layout: a virtualized list's window is as big as the size it is given.
+  giveElementsASize();
   const backend = fakeBackend(appRoutes(app, { "POST /api/auth/ws-ticket": () => json(200, { ticket: "t1" }), ...routes }));
   const harness = renderConsole(`/apps/${TAB_DOMAIN}/logs`);
   await screen.findByRole("heading", { level: 1, name: TAB_DOMAIN });
@@ -203,8 +203,7 @@ describe("the logs tab", { timeout: 20_000 }, () => {
 
   it("reads everything since the last deploy started, and marks where it started", async () => {
     vi.stubGlobal("WebSocket", FakeWebSocket);
-    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(400);
-    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(800);
+    giveElementsASize();
     const backend = fakeBackend(
       appRoutes(
         {},
@@ -258,8 +257,7 @@ describe("the logs tab", { timeout: 20_000 }, () => {
 
   it("filters the end of a web server's log with the same query", async () => {
     vi.stubGlobal("WebSocket", FakeWebSocket);
-    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(400);
-    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(800);
+    giveElementsASize();
     fakeBackend(appRoutes({}, { [`GET /api/apps/${TAB_DOMAIN}/site-logs`]: () => json(200, siteLog("access", ACCESS)) }));
     renderConsole(`/apps/${TAB_DOMAIN}/logs?source=access&q=missing`);
     const log = await screen.findByRole("region", { name: `Web server access log of ${TAB_DOMAIN}` });

@@ -8,6 +8,7 @@ import { APPS, SESSION, fakeBackend, json, problem, signedInRoutes } from "../..
 import type { RouteHandler } from "../../../test/fakes";
 import { viewerSession } from "../../teams/testFixtures";
 import { previewName } from "./previews";
+import { giveElementsASize } from "../../../test/layout";
 
 vi.setConfig({ testTimeout: 20_000 });
 beforeAll(() => {
@@ -308,10 +309,9 @@ describe("making a preview by hand", () => {
 });
 
 describe("managing one preview at a time", () => {
-  // jsdom has no layout: the log viewer sizes its window from offsetHeight, which it reports as 0.
+  // jsdom has no layout: a virtualized list's window is as big as the size it is given.
   beforeEach(() => {
-    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(400);
-    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(800);
+    giveElementsASize();
   });
 
   it("builds it again from its row", async () => {

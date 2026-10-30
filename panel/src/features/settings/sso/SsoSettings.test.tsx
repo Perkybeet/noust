@@ -524,6 +524,10 @@ describe("Settings > Single sign-on", () => {
       await user.type(within(drawer).getByLabelText(/^Label/), "Acme directory");
       await user.type(within(drawer).getByLabelText(/^Server/), "ldap.acme.test");
       await user.type(within(drawer).getByLabelText(/^Search from/), "ou=people,dc=acme,dc=test");
+      // The account that searches is folded away while a directory is being added, so its password is
+      // typed after opening it, as a person has to. Since jsdom 30.1.2 a click no longer focuses a field
+      // that display hides, and the text went on into the field typed before.
+      await user.click(within(drawer).getByRole("button", { name: "The account that searches" }));
       await user.type(within(drawer).getByLabelText(/^Password/), "service password");
       await user.click(within(drawer).getByRole("button", { name: "Add directory" }));
 

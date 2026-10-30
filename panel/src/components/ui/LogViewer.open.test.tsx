@@ -12,6 +12,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { expectNoAxeViolations } from "../../test/axe";
 import { LogViewer } from "./LogViewer";
 import type { LogLine } from "./LogViewer";
+import { giveElementsASize } from "../../test/layout";
 
 const LINES: LogLine[] = [
   { id: 1, text: "nginx started", ref: "c1" },
@@ -20,8 +21,7 @@ const LINES: LogLine[] = [
 ];
 
 beforeEach(() => {
-  vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(400);
-  vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(800);
+  giveElementsASize();
 });
 
 function viewer(onOpenLine = vi.fn(), lines: LogLine[] = LINES) {
