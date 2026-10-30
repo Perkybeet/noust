@@ -73,7 +73,7 @@ export function rowActor(row: ActivityRow): string | null {
 }
 
 /** The accounts Noust makes for its own work (the fleet's sync): somebody to name in a log, not a person to ask about. */
-const INTERNAL_ACCOUNT = /^noust-/;
+const INTERNAL_ACCOUNT_PREFIX = "noust-";
 
 /**
  * The person behind an event: the account's name, the same whether they acted in the console of the
@@ -84,7 +84,7 @@ export function personOf(entry: AuditEntry): string | null {
   const who = entry.who;
   if (who !== null && who !== undefined) {
     const named = (who.kind === "user" || who.kind === "fleet") && who.name !== null && who.name !== undefined && who.name !== "" ? who.name : null;
-    return named === null || INTERNAL_ACCOUNT.test(named) ? null : named;
+    return named === null || named.startsWith(INTERNAL_ACCOUNT_PREFIX) ? null : named;
   }
   return fleetActor(entry.actor)?.person ?? null;
 }

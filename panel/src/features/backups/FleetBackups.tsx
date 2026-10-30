@@ -34,8 +34,9 @@ export const OLD_BACKUP_DAYS = 7;
 
 export type FleetCoverage = "none" | "failed" | "old" | "unverified" | "ok";
 
+// Never backed up is the same warning here as on the server's own page: one page, one colour for one fact.
 const COVERAGE_VIEW: Readonly<Record<FleetCoverage, { state: Status; label: PlainKey }>> = {
-  none: { state: "failed", label: "fleet.backups.coverage.none" },
+  none: { state: "warning", label: "fleet.backups.coverage.none" },
   failed: { state: "failed", label: "fleet.backups.coverage.failed" },
   old: { state: "warning", label: "fleet.backups.coverage.old" },
   unverified: { state: "warning", label: "fleet.backups.coverage.unverified" },

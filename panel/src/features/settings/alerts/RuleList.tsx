@@ -200,7 +200,7 @@ function Rules({ data, onCreate }: { data: AlertRuleList; onCreate: () => void }
           description={t("alerts.rules.emptyDescription")}
           // With no rule the header has no button: the empty state's is the one way to add the first.
           action={
-            <Button size="sm" variant="secondary" icon={<ICONS.add aria-hidden="true" />} onClick={onCreate}>
+            <Button size="sm" variant="primary" icon={<ICONS.add aria-hidden="true" />} onClick={onCreate}>
               {t("alerts.rules.new")}
             </Button>
           }
