@@ -9,6 +9,7 @@ import { SettingsLayout } from "../../components/page/SettingsLayout";
 import { Notice } from "../../components/ui/Notice";
 import { useT } from "../../i18n";
 import { useReturnServer } from "../../nodes/servers";
+import { SETTINGS_SCREENS } from "../nav/settings";
 import { PrimarySlot } from "./SettingsPrimaryAction";
 import { useSettingsItems } from "./useSettingsItems";
 
@@ -42,13 +43,16 @@ export function SettingsShell({ children }: { children: ReactNode }) {
   const carried = useColumnCarries("settings");
   const hub = leaf === undefined || HUB_ROUTES.includes(leaf);
   const current = items.find((item) => item.to === leaf);
+  // A section the list does not offer here (fleet settings on a server that is not a central, reached by its address)
+  // is still called what it is, not "Settings".
+  const named = SETTINGS_SCREENS.find((screen) => screen.to === leaf);
 
   return (
     // T3 under the title of the section (the T2 header, with no tabs): the header is the layout's, the
     // same on every section, and the section is its title.
     <DetailPage
       header={{
-        title: hub ? t("settings.page.title") : (current?.label ?? t("settings.page.title")),
+        title: hub ? t("settings.page.title") : (current?.label ?? (named !== undefined ? t(named.label) : t("settings.page.title"))),
         // Empty (and boxless) unless the section on screen puts its primary action here.
         primaryAction: <span ref={setSlot} className="contents" />,
       }}
