@@ -336,10 +336,11 @@ test.describe("the raised piece of the current item", () => {
     // The room of the bar is the page's column, with an application's second column taking 264px of it: the search box and
     // the theme give way to the trail, not the other way round. The domain of the video's recording, as long as the seed has.
     const domain = "clientes.example.com";
+    await openAt(page, consoleServer, 1440, `/apps/${domain}`);
+    const newest = ((await (await page.request.get(`/api/deployments?domain=${domain}&limit=1`)).json()) as { items: { id: number }[] }).items[0];
+    if (newest === undefined) throw new Error(`the seed has no deployment of ${domain}`);
     for (const width of [1440, 1366]) {
-      await openAt(page, consoleServer, width, `/apps/${domain}`);
-      const newest = ((await (await page.request.get(`/api/deployments?domain=${domain}&limit=1`)).json()) as { items: { id: number }[] }).items[0];
-      if (newest === undefined) throw new Error(`the seed has no deployment of ${domain}`);
+      await page.setViewportSize({ width, height: 900 });
       await page.goto(`/apps/${domain}/deployments/${String(newest.id)}`);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       await settle(page);

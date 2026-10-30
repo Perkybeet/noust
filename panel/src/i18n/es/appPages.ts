@@ -13,7 +13,6 @@ export const appPages: Catalog<typeof en> = {
 
   job: {
     steps: {
-      deploying: "Desplegando",
       preparing: "Preparando el despliegue",
       registering: "Registrando la aplicación",
       permissions: "Ajustando los permisos",

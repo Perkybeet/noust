@@ -16,7 +16,6 @@ export const appPages = {
   job: {
     /** What a deploy is doing, said in the console's language: the steps its server names in English (`stepWords`). */
     steps: {
-      deploying: "Deploying",
       preparing: "Preparing the deployment",
       registering: "Registering the application",
       permissions: "Setting permissions",

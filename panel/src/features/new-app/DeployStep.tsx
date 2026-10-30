@@ -11,7 +11,7 @@ import { Disclosure } from "../../components/ui/Disclosure";
 import { textLinkClassName } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
-import { stepWords } from "../app/useAppJob";
+import { stepWords } from "../app/stepWords";
 import { containerSummary } from "../container/summary";
 import { normalizeDomain } from "../domains/names";
 import { JobOutcome } from "./JobOutcome";
@@ -193,7 +193,7 @@ function Landing({ target, followedJob, onGone }: { target: LandingTarget; follo
     <JobProgress
       state={followedJob.job?.status === "pending" ? "queued" : "running"}
       title={t("newApp.deploy.deploying", { domain: target.domain })}
-      step={followedJob.job === null || followedJob.job === undefined ? null : stepWords(followedJob.job.type, followedJob.job.current_step, t.locale)}
+      step={followedJob.job === null ? null : stepWords(followedJob.job.type, followedJob.job.current_step, t.locale)}
       description={t("newApp.deploy.buildLogSoon")}
     />
   );

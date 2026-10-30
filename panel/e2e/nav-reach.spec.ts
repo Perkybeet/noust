@@ -367,7 +367,7 @@ withFleet.describe("a fleet", () => {
       await page.keyboard.press("Control+k");
       await search.fill(entry.text);
       await page.keyboard.press("Enter");
-      await expect(page.getByRole("dialog", { name: "Search the console" })).toBeHidden();
+      await expect(page.getByRole("dialog", { name: "Search the console" }), `the palette is still open after Enter on "${entry.text}" (${entry.id})`).toBeHidden();
       const landed = new URL(page.url()).pathname.replace(/\/$/, "") || "/";
       if (landed !== placeOf(entry.to)) missed.push(`"${entry.text}" went to ${landed}, not ${placeOf(entry.to)} (${entry.id})`);
     }

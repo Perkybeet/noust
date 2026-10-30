@@ -84,7 +84,7 @@ withFleet("a recorded placement is compared on the page, and its servers are wri
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Applications" }).click();
   await page.getByRole("navigation", { name: "Fleet application views" }).getByRole("link", { name: "On several servers" }).click();
   await expect(page).toHaveURL(/\/fleet\/placements$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Fleet");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Applications");
   await expect(page.getByRole("heading", { level: 3, name: NODE_APP })).toBeVisible();
   // A desktop's width: the servers are a table (a phone's are card rows, a list).
   const servers = page.getByRole("table", { name: `${NODE_APP} on each of its servers` });

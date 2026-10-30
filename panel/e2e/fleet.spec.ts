@@ -131,7 +131,8 @@ withFleet("the Fleet's views show this server and the node, each row naming its 
   // The fleet in courses: a row for each server, this one and the node, each named and opening its own page.
   const courses = page.getByRole("list", { name: "Servers and their applications" });
   await expect(courses.getByRole("link", { name: NODE_NAME, exact: true })).toHaveAttribute("href", new RegExp(`^/n/${NODE_NAME}/server$`));
-  await expect(courses.getByRole("link", { name: NODE_APP, exact: false }).first()).toBeVisible();
+  // A crowded server shows what is wrong with it and says the rest as "+N running": the node's own application is on the Applications page below.
+  await expect(courses.getByText(/^\+\d+ running$/).first()).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "Home, over the fleet");
 
