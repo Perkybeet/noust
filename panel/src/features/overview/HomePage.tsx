@@ -152,7 +152,7 @@ function Home({ scope, home, charts }: { scope: HomeScope; home: HomeData; chart
           }
         : {})}
       {...(charts !== undefined && loaded ? { charts } : {})}
-      footer={footer}
+      {...(loaded ? { footer } : {})}
     />
   );
 }

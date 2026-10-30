@@ -55,14 +55,17 @@ import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 function Facts({ app, address, t }: { app: App; address: Address; t: T }) {
   const typeName = useTypeName();
   const type = typeName(app.app_type);
+  // One line that never wraps: beside the logo the text has less room, and an address that dropped to a second
+  // line when the facts arrived moved the whole page. The address, which the title above already says, is what
+  // gives way, cut with an ellipsis.
   return (
-    <>
-      {type !== null ? <span>{type}</span> : null}
-      {app.port ? <span>{t.rich("appPages.layout.portFact", { port: <Mono>{app.port}</Mono> })}</span> : null}
-      <ExternalLink href={`${address.secure ? "https" : "http"}://${address.name}`} label={t("appPages.layout.liveSite", { domain: address.name })}>
+    <span className="flex max-w-full min-w-0 items-center gap-x-3">
+      {type !== null ? <span className="shrink-0">{type}</span> : null}
+      {app.port ? <span className="shrink-0 whitespace-nowrap">{t.rich("appPages.layout.portFact", { port: <Mono>{app.port}</Mono> })}</span> : null}
+      <ExternalLink className="min-w-0" href={`${address.secure ? "https" : "http"}://${address.name}`} label={t("appPages.layout.liveSite", { domain: address.name })}>
         <span translate="no">{address.name}</span>
       </ExternalLink>
-    </>
+    </span>
   );
 }
 
