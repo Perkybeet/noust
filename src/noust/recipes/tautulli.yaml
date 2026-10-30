@@ -1,0 +1,36 @@
+# Tautulli from the image the project publishes (ghcr.io/tautulli/tautulli), with the /config volume its container instructions document (github.com/Tautulli/Tautulli, Docker section).
+schema: 2
+name: tautulli
+kind: compose
+title: "Tautulli"
+slogan: "Monitoring and tracking for your Plex Media Server."
+description: "Watches a Plex Media Server: who is watching what, history, statistics, notifications and newsletters. It reads from your Plex server; it does not replace it."
+category: monitoring
+tags: [plex, media, statistics, monitoring]
+logo: logo.svg
+version: "2.18.2"
+revision: 1
+updated: 2026-10-30
+homepage: https://tautulli.com
+docs: https://tautulli.com
+repository: https://github.com/Tautulli/Tautulli
+license: GPL-3.0-only
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8181
+health: {path: /status, expect: "200", timeout: 120}
+compose: |
+  services:
+    tautulli:
+      image: ghcr.io/tautulli/tautulli:v2.18.2@sha256:1b5875fe3193d450a62e7b438eb6701195c841f14f3dcb962e545eda42d3696f
+      restart: unless-stopped
+      volumes:
+        - tautulli-config:/config
+      ports:
+        - 127.0.0.1:${PORT}:8181
+  volumes:
+    tautulli-config:
+notes:
+  - "Open {{ url }}. Its setup asks for a Plex sign-in and for the address of the Plex server; whoever opens it first sets that up, so do it right after installing."
+  - "Its data is in the Docker volume tautulli-config of this application: back it up before updating."

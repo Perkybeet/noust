@@ -1,0 +1,56 @@
+# MCSManager: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/mcsmanager
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: mcsmanager
+kind: compose
+title: "MCSManager"
+slogan: "Quick deployment, distributed, multi-user, modern management panel for Minecraft and Steam game..."
+description: "A modern dashboard for managing Minecraft servers. Primarily focused on Minecraft, but also supports other games and features a UI that's easy for beginners to use and supports i18n."
+category: data
+tags: [minecraft, game-server, management, dashboard, data]
+logo: logo.svg
+version: "10.22.0"
+revision: 1
+updated: 2026-10-28
+homepage: https://mcsmanager.com
+docs: https://github.com/MCSManager/MCSManager#readme
+repository: https://github.com/MCSManager/MCSManager
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /, expect: "200-399", timeout: 180}
+root_equivalent: docker_socket
+compose: |
+  services:
+    web:
+      image: githubyumao/mcsmanager-web:v10.22.0@sha256:c3de64da162927a2386f9b036791f2eaeb610129d8742395fed4baad24678c64
+      restart: unless-stopped
+      volumes:
+        - mcsmanager-web-data:/opt/mcsmanager/web/data
+        - mcsmanager-web-logs:/opt/mcsmanager/web/logs
+      ports:
+        - 127.0.0.1:${PORT}:23333
+    daemon:
+      image: githubyumao/mcsmanager-daemon:v10.22.0@sha256:f6fd2facb03029a12b86c6c836d37f57b1608c68d8dc8abbc8e1539e5d12fae3
+      restart: unless-stopped
+      environment:
+        MCSM_DOCKER_WORKSPACE_PATH: /opt/mcsmanager/daemon/data/InstanceData
+      volumes:
+        - mcsmanager-daemon-data:/opt/mcsmanager/daemon/data
+        - mcsmanager-daemon-logs:/opt/mcsmanager/daemon/logs
+        - /var/run/docker.sock:/var/run/docker.sock
+  volumes:
+    mcsmanager-web-data:
+    mcsmanager-web-logs:
+    mcsmanager-daemon-data:
+    mcsmanager-daemon-logs:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "MCSManager controls the Docker daemon of this server, which is the same as root on it: it can start any container with any part of the server mounted, Noust's applications included. Give its sign-in only to people you would give root."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes mcsmanager-web-data, mcsmanager-web-logs, mcsmanager-daemon-data, mcsmanager-daemon-logs of this application: back them up before updating."

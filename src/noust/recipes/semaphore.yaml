@@ -1,0 +1,82 @@
+# Semaphore UI from the image the project publishes (semaphoreui/semaphore), with the settings its documentation names (semaphoreui.com/docs/admin-guide/installation/docker and docs/admin-guide/configuration).
+schema: 2
+name: semaphore
+kind: compose
+title: "Semaphore UI"
+slogan: "Modern UI and powerful API for Ansible, Terraform, OpenTofu, Bash and more."
+description: "A web interface to run Ansible playbooks, Terraform and OpenTofu plans and scripts: inventories, keys, schedules, logs and notifications. Runs with its own PostgreSQL. Signs in as the administrator Noust generates."
+category: automation
+tags: [ansible, terraform, devops, automation]
+logo: logo.svg
+version: "2.19.17"
+revision: 1
+updated: 2026-10-30
+homepage: https://semaphoreui.com
+docs: https://semaphoreui.com
+repository: https://github.com/semaphoreui/semaphore
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  DB_PASSWORD:
+    generate: "password32"
+    description: "The password of the stack's PostgreSQL account."
+  ADMIN_PASSWORD:
+    generate: "password32"
+    description: "The password of the administrator, admin."
+  ACCESS_KEY_ENCRYPTION:
+    generate: "base64_32"
+    description: "Encrypts the keys and secrets Semaphore stores; keep a copy."
+health: {path: /api/ping, expect: "200", timeout: 120}
+compose: |
+  services:
+    semaphore:
+      image: semaphoreui/semaphore:v2.19.17@sha256:008dacd9f1adbd92e8a048f1786ae1dd9bed2a352aca2eb30b9837de5706e7f7
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        SEMAPHORE_DB_DIALECT: postgres
+        SEMAPHORE_DB_HOST: db
+        SEMAPHORE_DB_PORT: '5432'
+        SEMAPHORE_DB_USER: semaphore
+        SEMAPHORE_DB_PASS: ${DB_PASSWORD}
+        SEMAPHORE_DB: semaphore
+        SEMAPHORE_ADMIN: admin
+        SEMAPHORE_ADMIN_NAME: Administrator
+        SEMAPHORE_ADMIN_EMAIL: admin@localhost
+        SEMAPHORE_ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+        SEMAPHORE_ACCESS_KEY_ENCRYPTION: ${ACCESS_KEY_ENCRYPTION}
+      volumes:
+        - semaphore-data:/var/lib/semaphore
+        - semaphore-config:/etc/semaphore
+      ports:
+        - 127.0.0.1:${PORT}:3000
+    db:
+      image: postgres:17.11-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: semaphore
+        POSTGRES_DB: semaphore
+        POSTGRES_PASSWORD: ${DB_PASSWORD}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U semaphore -d semaphore
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - semaphore-db:/var/lib/postgresql/data
+  volumes:
+    semaphore-data:
+    semaphore-config:
+    semaphore-db:
+notes:
+  - "Open {{ url }}. Sign in as admin with the password in ADMIN_PASSWORD (noust env show {{ domain }} --unmask)."
+  - "Semaphore runs the playbooks and scripts you give it inside its own container, with the keys you store in it: give its sign-in only to people you would let run commands on your servers."
+  - "Its data is in the Docker volumes semaphore-data, semaphore-config, semaphore-db of this application, the databases dumped by Noust before every update: back them up before updating."

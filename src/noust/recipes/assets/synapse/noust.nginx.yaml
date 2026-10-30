@@ -1,0 +1,5 @@
+# How nginx proxies this application. Media uploads go through the client API (the default limit is 50 MB), and a client holds a long-polling /sync request open for 30 seconds or more.
+max_body_size: 50m
+routes:
+  - path: /
+    read_timeout: 600

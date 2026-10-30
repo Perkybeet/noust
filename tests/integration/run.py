@@ -3116,9 +3116,6 @@ RECIPE_TIMEOUT = 1500
 KUMA_DOMAIN = "kuma.test"
 KUMA_ROOT = "/var/www/apps/kuma-test"
 
-N8N_DOMAIN = "n8n.test"
-N8N_ROOT = "/var/www/apps/n8n-test"
-
 UMAMI_DOMAIN = "umami.test"
 UMAMI_ROOT = "/var/www/apps/umami-test"
 
@@ -3371,57 +3368,6 @@ def env_value(sc: Scenario, domain: str, name: str, label: str) -> str:
         return str(json.loads(out)["variables"].get(name, ""))
     except (ValueError, KeyError):
         return ""
-
-
-@scenario("recipe_n8n")
-def scenario_recipe_n8n(sc: Scenario) -> None:
-    """
-    n8n from its recipe: a pinned npm package, on loopback only, its data in shared/.
-
-    The health check answers through nginx, the process listens on 127.0.0.1
-    and nothing else, the encryption key it generated is in the application's
-    environment and survives an update, and so does the folder n8n keeps its
-    SQLite database in.
-    """
-    require_network(sc, "https://registry.npmjs.org/n8n", "n8n")
-    create = f"noust recipe install n8n -d {N8N_DOMAIN} --no-ssl --no-backups"
-    sc.run(create, timeout=RECIPE_TIMEOUT, label=create)
-    try:
-        code, _ = http_status(sc, N8N_DOMAIN, "/healthz", f"curl -H 'Host: {N8N_DOMAIN}' /healthz")
-        sc.check(code == "200", f"/healthz answered {code}")
-        port = sc.run(
-            store_query("SELECT port FROM apps WHERE domain = 'n8n.test'"),
-            timeout=15,
-            label=f"the port the store records for {N8N_DOMAIN}",
-        ).stdout.strip()
-        listeners = sc.run(
-            f"ss -ltnH '( sport = :{port} )' | awk '{{print $4}}'",
-            timeout=15,
-            label=f"ss -ltn sport = :{port}",
-        ).stdout.split()
-        sc.check(listeners == [f"127.0.0.1:{port}"], f"port {port} is bound on {listeners!r}")
-
-        key = env_value(sc, N8N_DOMAIN, "N8N_ENCRYPTION_KEY", "the encryption key n8n was given")
-        sc.check(len(key) >= 32, "n8n was not given an encryption key of its own")
-        sc.run(
-            f"test -d {N8N_ROOT}/shared/data", timeout=15, label=f"test -d {N8N_ROOT}/shared/data"
-        )
-        sc.run(
-            f"noust update {N8N_DOMAIN}",
-            timeout=RECIPE_TIMEOUT,
-            label=f"noust update {N8N_DOMAIN}",
-        )
-        after = env_value(
-            sc, N8N_DOMAIN, "N8N_ENCRYPTION_KEY", "the encryption key after the update"
-        )
-        sc.check(after == key, "the update changed n8n's encryption key")
-        code, _ = http_status(
-            sc, N8N_DOMAIN, "/healthz", f"curl -H 'Host: {N8N_DOMAIN}' /healthz (after)"
-        )
-        sc.check(code == "200", f"/healthz answered {code} after the update")
-    finally:
-        journal_tail(sc, "-u n8n-test", "journalctl -u n8n-test (tail)")
-        sc.run(f"noust delete {N8N_DOMAIN} --force", timeout=180, check=False, label="cleanup")
 
 
 @scenario("recipe_umami")

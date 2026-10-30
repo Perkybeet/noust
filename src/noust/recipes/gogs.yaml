@@ -1,0 +1,37 @@
+# Gogs from the image the project publishes (gogs/gogs), with the data directory /data the image documents (github.com/gogs/gogs/tree/main/docker).
+schema: 2
+name: gogs
+kind: compose
+title: "Gogs"
+slogan: "A painless self-hosted Git service."
+description: "A lightweight Git service: repositories, issues, pull requests, wikis and webhooks, in one small Go binary, with SQLite by default."
+category: development
+tags: [git, forge, code-hosting]
+logo: logo.svg
+version: "0.14.3"
+revision: 1
+updated: 2026-10-30
+homepage: https://gogs.io
+docs: https://gogs.io
+repository: https://github.com/gogs/gogs
+license: MIT
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    gogs:
+      image: gogs/gogs:0.14.3@sha256:3c7dbdf05a64471296eddf510312589aa8f478c795387993fabcf5d54c68e5cd
+      restart: unless-stopped
+      volumes:
+        - gogs-data:/data
+      ports:
+        - 127.0.0.1:${PORT}:3000
+  volumes:
+    gogs-data:
+notes:
+  - "Open {{ url }}. The first visit opens the installer, where whoever gets there first picks the database and makes the administrator, so do it right after installing; choose SQLite3 unless you have a database to point it at, and set the domain and the SSH port as the installer asks."
+  - "Gogs' installer wants the application URL: use {{ url }}/ . Git over SSH needs a port Noust does not open for this stack: clone over HTTPS."
+  - "Its data is in the Docker volume gogs-data of this application: back it up before updating."

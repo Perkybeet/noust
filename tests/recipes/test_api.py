@@ -79,7 +79,8 @@ def test_the_list_carries_what_a_catalogue_card_shows(client: TestClient) -> Non
         "mysql"
     ]
     assert items["wordpress"]["requires"][0].startswith("PHP-FPM")
-    assert items["vault"]["available"] is False and items["vault"]["unavailable_reason"]
+    assert items["joplin-server"]["available"] is False
+    assert items["joplin-server"]["unavailable_reason"]
 
 
 def test_available_recipes_come_first(client: TestClient) -> None:
@@ -101,7 +102,7 @@ def test_search_and_filters_narrow_the_list(client: TestClient) -> None:
     assert names(q="DASHBOARD") >= {"grafana", "homepage"}
     assert names(category="media") >= {"jellyfin", "navidrome"}
     assert names(category="media", tag="subsonic") == {"navidrome"}
-    assert names(kind="native") >= {"wordpress", "n8n", "umami", "uptime-kuma"}
+    assert names(kind="native") >= {"wordpress", "umami", "uptime-kuma"}
     assert not names(kind="native") & {"vaultwarden", "memos"}
     assert names(q="zzzz") == set()
     assert client.get("/api/recipes", params={"q": "memos"}).json()["total"] == 1
@@ -359,7 +360,7 @@ def test_installing_without_a_required_variable_is_a_400_naming_it_and_queues_no
 @pytest.mark.parametrize(
     ("path", "body", "status"),
     [
-        ("/api/recipes/vault/install", {"domain": DOMAIN}, 400),
+        ("/api/recipes/joplin-server/install", {"domain": DOMAIN}, 400),
         ("/api/recipes/drupal/install", {"domain": DOMAIN}, 404),
         ("/api/recipes/memos/install", {}, 422),
         ("/api/recipes/memos/install", {"domain": "not a domain"}, 400),
@@ -544,12 +545,12 @@ def test_a_listed_recipe_gives_its_reason_as_a_code_a_sentence_and_a_filter(
 ) -> None:
     """The console draws the reason in its own language and filters the listing by it."""
     everything = {i["name"]: i for i in client.get("/api/recipes").json()["items"]}
-    vault = everything["vault"]
+    joplin = everything["joplin-server"]
 
-    assert vault["unavailable_code"] == "licence"
-    assert vault["unavailable"] == {"code": "recipes.unavailable.licence", "params": {}}
-    assert vault["unavailable_text"] and vault["unavailable_hint"]
-    assert vault["unavailable_reason"]
+    assert joplin["unavailable_code"] == "licence"
+    assert joplin["unavailable"] == {"code": "recipes.unavailable.licence", "params": {}}
+    assert joplin["unavailable_text"] and joplin["unavailable_hint"]
+    assert joplin["unavailable_reason"]
     installed = everything["vaultwarden"]
     assert installed["unavailable_code"] is None and installed["unavailable"] is None
 
@@ -557,7 +558,7 @@ def test_a_listed_recipe_gives_its_reason_as_a_code_a_sentence_and_a_filter(
     assert out and all(item["available"] is False for item in out)
     assert all(i["available"] for i in client.get("/api/recipes?available=true").json()["items"])
     licence = client.get("/api/recipes", params={"unavailable_code": "licence"}).json()["items"]
-    assert "vault" in {item["name"] for item in licence}
+    assert "joplin-server" in {item["name"] for item in licence}
     assert all(item["unavailable_code"] == "licence" for item in licence)
     refused = client.get("/api/recipes", params={"unavailable_code": "because"})
     assert refused.status_code == 400 and "unavailable_code" in refused.text

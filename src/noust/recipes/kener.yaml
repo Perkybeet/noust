@@ -1,0 +1,92 @@
+# Kener: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/kener
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: kener
+kind: compose
+title: "Kener"
+slogan: "Stunning status pages, batteries included!"
+description: "Kener is an open-source status page system for monitoring and alerting. It provides a modern interface for tracking service uptime and sending notifications."
+category: monitoring
+tags: [monitoring, status-page, alerting, self-hosted]
+logo: logo.svg
+version: "4.1.1"
+revision: 1
+updated: 2026-10-28
+homepage: https://kener.ing/
+docs: https://kener.ing/docs/
+repository: https://github.com/rajnandan1/kener
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  TZ:
+    default: "Etc/UTC"
+    description: "Setting TZ of the application; the template leaves it to the operator."
+  KENER_SECRET_KEY:
+    generate: "password64"
+    secret: true
+    description: "The secret Noust generated for kener secret key."
+  ORIGIN:
+    default: "http://localhost:3000"
+    description: "Setting ORIGIN of the application; the template leaves it to the operator."
+  REDIS_URL:
+    default: "redis://redis:6379"
+    description: "Setting REDIS_URL of the application; the template leaves it to the operator."
+  DATABASE_URL:
+    default: "sqlite://./database/kener.sqlite.db"
+    description: "Setting DATABASE_URL of the application; the template leaves it to the operator."
+  RESEND_API_KEY:
+    default: ""
+    secret: true
+    description: "Setting RESEND_API_KEY of the application; the template leaves it to the operator."
+  RESEND_SENDER_EMAIL:
+    default: ""
+    description: "Setting RESEND_SENDER_EMAIL of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    redis:
+      image: redis:7-alpine@sha256:6ba19c50b56777f5c11c58eff8ddb69d0d5f27ba131cffb63f180ccfd43c66af
+      restart: unless-stopped
+      volumes:
+        - redis_data:/data
+      healthcheck:
+        test:
+          - CMD
+          - redis-cli
+          - ping
+        interval: 10s
+        timeout: 5s
+        retries: 5
+    kener:
+      image: rajnandan1/kener:4.1.1@sha256:35ac1688b6113eb63eae4688e505f8e2e8cc65a3be4cb2685d3abd37679a7f1c
+      environment:
+        TZ: ${TZ}
+        KENER_SECRET_KEY: ${KENER_SECRET_KEY}
+        ORIGIN: ${ORIGIN}
+        REDIS_URL: ${REDIS_URL}
+        DATABASE_URL: ${DATABASE_URL}
+        RESEND_API_KEY: ${RESEND_API_KEY}
+        RESEND_SENDER_EMAIL: ${RESEND_SENDER_EMAIL}
+      volumes:
+        - data:/app/database
+        - kener-uploads:/app/uploads
+      depends_on:
+        redis:
+          condition: service_healthy
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:3000
+  volumes:
+    redis_data:
+    data:
+    kener-uploads:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes redis_data, data, kener-uploads of this application: back them up before updating."

@@ -155,14 +155,24 @@ def test_check_exits_non_zero_and_writes_the_evidence(
 def test_the_npm_version_a_template_pins_must_exist(
     pins: ModuleType, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """n8n is a package.json that depends on one version of one package."""
+    """A template source is a package.json that depends on one version of one package."""
+    from types import SimpleNamespace
+
+    recipe = SimpleNamespace(
+        name="demo", source=SimpleNamespace(files={"package.json": "package.json"})
+    )
+    monkeypatch.setattr(
+        "noust.recipes.read_asset",
+        lambda name, asset: json.dumps({"dependencies": {"left-pad": "1.3.0"}}),
+    )
     monkeypatch.setattr(pins, "npm_version_integrity", lambda package, version: "sha512-abc")
-    held = pins.check_recipe("n8n")
-    assert held["problems"] == []
-    assert held["source"] == {"npm": {f"n8n@{get_recipe('n8n').version}": "sha512-abc"}}
+    problems: list[str] = []
+    assert pins.check_npm_pins(recipe, problems) == {"left-pad@1.3.0": "sha512-abc"}
+    assert problems == []
 
     monkeypatch.setattr(pins, "npm_version_integrity", lambda package, version: None)
-    assert pins.check_recipe("n8n")["problems"] == [f"npm has no n8n@{get_recipe('n8n').version}"]
+    assert pins.check_npm_pins(recipe, problems) == {"left-pad@1.3.0": None}
+    assert problems == ["npm has no left-pad@1.3.0"]
 
 
 def test_only_https_archives_are_read(pins: ModuleType) -> None:

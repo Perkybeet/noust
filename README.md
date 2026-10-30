@@ -420,7 +420,7 @@ noust recipe outdated                               # installed recipes the cata
 noust recipe update vault.example.com               # through the one update: backup, health gate, way back
 ```
 
-128 applications: WordPress (PHP-FPM and MariaDB), Uptime Kuma, Umami (PostgreSQL), n8n and a
+128 applications: WordPress (PHP-FPM and MariaDB), Uptime Kuma, Umami (PostgreSQL) and a
 one-page demo (Hello) run natively from a source pinned to a tag or checked against a published
 checksum; the other 123 run in Docker, as a Compose stack behind nginx whose images are pinned by tag and by
 digest. Some are one container (Vaultwarden, Memos, Syncthing, Grafana, Jellyfin, ntfy, Actual

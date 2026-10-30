@@ -1,0 +1,67 @@
+# Ackee: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/ackee
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: ackee
+kind: compose
+title: "Ackee"
+slogan: "Self-hosted, Node.js based analytics tool for those who care about privacy."
+description: "Ackee is a self-hosted analytics tool for your website."
+category: analytics
+tags: [analytics, self-hosted]
+logo: logo.svg
+version: "3.4.2"
+revision: 1
+updated: 2026-10-28
+homepage: https://ackee.electerious.com
+docs: https://docs.ackee.electerious.com/
+repository: https://github.com/electerious/Ackee
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  ACKEE_USERNAME:
+    default: "default"
+    description: "Setting ACKEE_USERNAME of the application; the template leaves it to the operator."
+  ACKEE_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for ackee password."
+  MONGO_INITDB_ROOT_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for mongo initdb root password."
+  ACKEE_MONGODB:
+    value: "mongodb://mongo:${MONGO_INITDB_ROOT_PASSWORD}@mongo:27017"
+    secret: true
+    description: "Setting ACKEE_MONGODB of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    ackee:
+      image: electerious/ackee:3.4.2@sha256:55558f35dee1d0a1a0aa83fc8c766cff2c9c28a93f400cdd390cef38f48a6c25
+      environment:
+        ACKEE_USERNAME: ${ACKEE_USERNAME}
+        ACKEE_PASSWORD: ${ACKEE_PASSWORD}
+        ACKEE_MONGODB: ${ACKEE_MONGODB}
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:3000
+    mongo:
+      image: mongo:4@sha256:52c42cbab240b3c5b1748582cc13ef46d521ddacae002bbbda645cebed270ec0
+      environment:
+        MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+        MONGO_INITDB_ROOT_USERNAME: mongo
+      volumes:
+        - mongo-data:/data/db
+      restart: unless-stopped
+  volumes:
+    mongo-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume mongo-data of this application: back it up before updating."

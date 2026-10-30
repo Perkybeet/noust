@@ -1,0 +1,13 @@
+{
+  "default_server_config": {
+    "m.homeserver": {
+      "base_url": "${HOMESERVER_URL}",
+      "server_name": "${SERVER_NAME}"
+    }
+  },
+  "disable_custom_urls": false,
+  "disable_guests": true,
+  "disable_3pid_login": false,
+  "brand": "Element",
+  "default_theme": "light"
+}

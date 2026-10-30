@@ -83,6 +83,12 @@
    "license": "CC0-1.0",
    "source": "https://www.chatwoot.com"
   },
+  "cinny": {
+   "title": "Cinny",
+   "hex": "000000",
+   "license": "CC0-1.0",
+   "source": "https://cinny.in/assets/cinny.svg"
+  },
   "coder": {
    "title": "Coder",
    "hex": "090B0B",
@@ -195,6 +201,12 @@
    "license": "CC0-1.0",
    "source": "https://github.com/grocy/grocy/blob/9e1020b7f8994e2d3e3e890da64ceba9903b2fb2/public/img/icon.svg"
   },
+  "hasura": {
+   "title": "Hasura",
+   "hex": "1EB4D4",
+   "license": "CC0-1.0",
+   "source": "https://github.com/hasura/graphql-engine/blob/5e2f5d470cdc2a7e59db7a3d5e94475a00bb2ac6/docs/static/img/logo.svg"
+  },
   "hedgedoc": {
    "title": "HedgeDoc",
    "hex": "B51F08",
@@ -254,6 +266,13 @@
    "source": "https://get.jenkins.io/art/",
    "guidelines": "https://www.jenkins.io/press/"
   },
+  "joomla": {
+   "title": "Joomla",
+   "hex": "5091CD",
+   "license": "CC0-1.0",
+   "source": "https://docs.joomla.org/Joomla:Brand_Identity_Elements/Official_Logo",
+   "guidelines": "https://docs.joomla.org/Joomla:Brand_Identity_Elements"
+  },
   "karakeep": {
    "title": "Karakeep",
    "hex": "000000",
@@ -297,6 +316,12 @@
    "license": "CC0-1.0",
    "source": "https://matomo.org/media/"
   },
+  "matrix": {
+   "title": "Matrix",
+   "hex": "000000",
+   "license": "CC0-1.0",
+   "source": "https://matrix.org"
+  },
   "mattermost": {
    "title": "Mattermost",
    "hex": "0058CC",
@@ -328,6 +353,13 @@
    "license": "CC0-1.0",
    "source": "https://min.io",
    "guidelines": "https://min.io/logo"
+  },
+  "moodle": {
+   "title": "Moodle",
+   "hex": "F98012",
+   "license": "CC0-1.0",
+   "source": "https://moodle.com/trademarks",
+   "guidelines": "https://moodle.com/trademarks"
   },
   "n8n": {
    "title": "n8n",

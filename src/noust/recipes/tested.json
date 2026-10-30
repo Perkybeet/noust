@@ -1,6 +1,16 @@
 {
  "measured": "tests/integration/recipes_run.py: scripts/recipe_smoke.py in the harness container, one recipe at a time",
  "recipes": {
+  "2fauth": {
+   "date": "2026-10-30",
+   "seconds": 57,
+   "version": "9.0.0"
+  },
+  "ackee": {
+   "date": "2026-10-30",
+   "seconds": 48,
+   "version": "3.4.2"
+  },
   "activepieces": {
    "date": "2026-10-28",
    "seconds": 89,
@@ -26,6 +36,11 @@
    "seconds": 117,
    "version": "0.9.77"
   },
+  "atuin": {
+   "date": "2026-10-30",
+   "seconds": 46,
+   "version": "18.24.4"
+  },
   "audiobookshelf": {
    "date": "2026-10-28",
    "seconds": 47,
@@ -35,6 +50,11 @@
    "date": "2026-10-28",
    "seconds": 198,
    "version": "2026.8.3"
+  },
+  "autobrr": {
+   "date": "2026-10-30",
+   "seconds": 36,
+   "version": "1.89.0"
   },
   "babybuddy": {
    "date": "2026-10-29",
@@ -55,6 +75,11 @@
    "date": "2026-10-28",
    "seconds": 35,
    "version": "0.21.0"
+  },
+  "blinko": {
+   "date": "2026-10-30",
+   "seconds": 87,
+   "version": "1.6.3"
   },
   "bookstack": {
    "date": "2026-10-28",
@@ -96,10 +121,20 @@
    "seconds": 110,
    "version": "4.18.0"
   },
+  "checkmate": {
+   "date": "2026-10-30",
+   "seconds": 79,
+   "version": "3.2.0"
+  },
   "chroma": {
    "date": "2026-10-29",
    "seconds": 44,
    "version": "1.0.15"
+  },
+  "cinny": {
+   "date": "2026-10-30",
+   "seconds": 34,
+   "version": "4.12.8"
   },
   "cloudbeaver": {
    "date": "2026-10-28",
@@ -135,6 +170,11 @@
    "date": "2026-10-28",
    "seconds": 47,
    "version": "3.5.3"
+  },
+  "ctfd": {
+   "date": "2026-10-30",
+   "seconds": 74,
+   "version": "3.8.9"
   },
   "cup": {
    "date": "2026-10-29",
@@ -236,6 +276,16 @@
    "seconds": 128,
    "version": "9.5.5"
   },
+  "element-web": {
+   "date": "2026-10-30",
+   "seconds": 40,
+   "version": "1.12.33"
+  },
+  "engram": {
+   "date": "2026-10-30",
+   "seconds": 56,
+   "version": "1.20.0"
+  },
   "espocrm": {
    "date": "2026-10-28",
    "seconds": 73,
@@ -245,6 +295,11 @@
    "date": "2026-10-28",
    "seconds": 65,
    "version": "3.3.9"
+  },
+  "evershop": {
+   "date": "2026-10-30",
+   "seconds": 82,
+   "version": "2.3.0"
   },
   "filegator": {
    "date": "2026-10-29",
@@ -260,6 +315,11 @@
    "date": "2026-10-29",
    "seconds": 62,
    "version": "26.09.1"
+  },
+  "fireshare": {
+   "date": "2026-10-30",
+   "seconds": 166,
+   "version": "1.9.0"
   },
   "flaresolverr": {
    "date": "2026-10-29",
@@ -331,6 +391,16 @@
    "seconds": 35,
    "version": "1.9.14"
   },
+  "gogs": {
+   "date": "2026-10-30",
+   "seconds": 37,
+   "version": "0.14.3"
+  },
+  "gokapi": {
+   "date": "2026-10-30",
+   "seconds": 31,
+   "version": "2.2.4"
+  },
   "gotenberg": {
    "date": "2026-10-29",
    "seconds": 60,
@@ -340,6 +410,11 @@
    "date": "2026-10-28",
    "seconds": 37,
    "version": "3.1.1"
+  },
+  "gotosocial": {
+   "date": "2026-10-30",
+   "seconds": 43,
+   "version": "0.22.3"
   },
   "gowa": {
    "date": "2026-10-29",
@@ -351,6 +426,11 @@
    "seconds": 73,
    "version": "13.2.3"
   },
+  "grimmory": {
+   "date": "2026-10-30",
+   "seconds": 105,
+   "version": "3.5.0"
+  },
   "grimoire": {
    "date": "2026-10-29",
    "seconds": 72,
@@ -360,6 +440,16 @@
    "date": "2026-10-29",
    "seconds": 48,
    "version": "4.6.0"
+  },
+  "halo": {
+   "date": "2026-10-30",
+   "seconds": 56,
+   "version": "2.27.1"
+  },
+  "hasura": {
+   "date": "2026-10-30",
+   "seconds": 66,
+   "version": "2.51.3"
   },
   "headscale": {
    "date": "2026-10-28",
@@ -401,6 +491,11 @@
    "seconds": 53,
    "version": "2.4.0"
   },
+  "homer": {
+   "date": "2026-10-30",
+   "seconds": 30,
+   "version": "26.08.3"
+  },
   "hoppscotch": {
    "date": "2026-10-28",
    "seconds": 67,
@@ -436,6 +531,16 @@
    "seconds": 43,
    "version": "2.580.1"
   },
+  "joomla": {
+   "date": "2026-10-30",
+   "seconds": 84,
+   "version": "6.1.0-apache"
+  },
+  "kaneo": {
+   "date": "2026-10-30",
+   "seconds": 76,
+   "version": "2.35.0"
+  },
   "karakeep": {
    "date": "2026-10-28",
    "seconds": 94,
@@ -446,6 +551,11 @@
    "seconds": 58,
    "version": "0.9.1"
   },
+  "kener": {
+   "date": "2026-10-30",
+   "seconds": 76,
+   "version": "4.1.1"
+  },
   "keycloak": {
    "date": "2026-10-28",
    "seconds": 83,
@@ -455,6 +565,11 @@
    "date": "2026-10-28",
    "seconds": 95,
    "version": "2.70.0"
+  },
+  "koillection": {
+   "date": "2026-10-30",
+   "seconds": 100,
+   "version": "1.8.5"
   },
   "komari-monitor": {
    "date": "2026-10-29",
@@ -571,6 +686,11 @@
    "seconds": 34,
    "version": "1.1.7"
   },
+  "mcsmanager": {
+   "date": "2026-10-30",
+   "seconds": 74,
+   "version": "10.22.0"
+  },
   "mealie": {
    "date": "2026-10-28",
    "seconds": 63,
@@ -595,6 +715,21 @@
    "date": "2026-10-28",
    "seconds": 50,
    "version": "2.3.3"
+  },
+  "moodle": {
+   "date": "2026-10-30",
+   "seconds": 154,
+   "version": "4.3"
+  },
+  "n8n": {
+   "date": "2026-10-30",
+   "seconds": 115,
+   "version": "2.45.7"
+  },
+  "n8n-queue": {
+   "date": "2026-10-30",
+   "seconds": 123,
+   "version": "2.45.7"
   },
   "navidrome": {
    "date": "2026-10-28",
@@ -816,6 +951,11 @@
    "seconds": 44,
    "version": "6.4.4.10685"
   },
+  "rallly": {
+   "date": "2026-10-30",
+   "seconds": 92,
+   "version": "4.16.3"
+  },
   "rivet-engine": {
    "date": "2026-10-29",
    "seconds": 41,
@@ -825,6 +965,11 @@
    "date": "2026-10-29",
    "seconds": 99,
    "version": "8.9.0"
+  },
+  "romm": {
+   "date": "2026-10-30",
+   "seconds": 117,
+   "version": "5.4.1"
   },
   "roundcube": {
    "date": "2026-10-29",
@@ -841,10 +986,20 @@
    "seconds": 62,
    "version": "3.5.0"
   },
+  "semaphore": {
+   "date": "2026-10-30",
+   "seconds": 78,
+   "version": "2.19.17"
+  },
   "sftpgo": {
    "date": "2026-10-29",
    "seconds": 38,
    "version": "2.7.6"
+  },
+  "shaarli": {
+   "date": "2026-10-30",
+   "seconds": 34,
+   "version": "0.16.10"
   },
   "shlink": {
    "date": "2026-10-29",
@@ -896,6 +1051,11 @@
    "seconds": 101,
    "version": "6.1.0"
   },
+  "synapse": {
+   "date": "2026-10-30",
+   "seconds": 61,
+   "version": "1.164.1"
+  },
   "syncthing": {
    "date": "2026-10-29",
    "seconds": 35,
@@ -905,6 +1065,11 @@
    "date": "2026-10-29",
    "seconds": 97,
    "version": "2.6.15"
+  },
+  "tautulli": {
+   "date": "2026-10-30",
+   "seconds": 42,
+   "version": "2.18.2"
   },
   "transmission": {
    "date": "2026-10-29",
@@ -946,6 +1111,11 @@
    "seconds": 36,
    "version": "5"
   },
+  "vault": {
+   "date": "2026-10-30",
+   "seconds": 67,
+   "version": "2.2.1"
+  },
   "vaultwarden": {
    "date": "2026-10-29",
    "seconds": 38,
@@ -981,10 +1151,20 @@
    "seconds": 76,
    "version": "12.56"
   },
+  "whoogle": {
+   "date": "2026-10-30",
+   "seconds": 52,
+   "version": "1.2.4"
+  },
   "wikijs": {
    "date": "2026-10-29",
    "seconds": 64,
    "version": "2.5.315"
+  },
+  "wizarr": {
+   "date": "2026-10-30",
+   "seconds": 51,
+   "version": "2026.10.1"
   },
   "yourls": {
    "date": "2026-10-29",

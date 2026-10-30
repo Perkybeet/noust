@@ -1,0 +1,60 @@
+# Fireshare from the image the project publishes (shaneisrael/fireshare), with the settings its documentation names (github.com/ShaneIsrael/fireshare, README, Docker).
+schema: 2
+name: fireshare
+kind: compose
+title: "Fireshare"
+slogan: "Self host your media and share with unique links."
+description: "A place for the game clips and videos you want to share by link: uploads, a library scanned from a folder, thumbnails, and a public or private view. Signs in as the administrator Noust generates."
+category: media
+tags: [video, clips, sharing, gaming]
+logo: logo.svg
+version: "1.9.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://fireshare.net
+docs: https://fireshare.net
+repository: https://github.com/fireshare-app/fireshare
+license: GPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  FQDN:
+    from: "fqdn"
+    description: "The host name people use."
+  ADMIN_PASSWORD:
+    generate: "password32"
+    description: "The password of the administrator, admin."
+  SECRET_KEY:
+    generate: "hex64"
+    description: "Signs sessions."
+health: {path: /, expect: "200-399", timeout: 120}
+files:
+  noust.nginx.yaml: noust.nginx.yaml
+compose: |
+  services:
+    fireshare:
+      image: shaneisrael/fireshare:1.9.0@sha256:92c62078cf703d7860814ae594bd21f09a6fe632398286ca5f35e0c08ee23642
+      restart: unless-stopped
+      environment:
+        ADMIN_USERNAME: admin
+        ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+        SECRET_KEY: ${SECRET_KEY}
+        DOMAIN: ${FQDN}
+        MINUTES_BETWEEN_VIDEO_SCANS: '5'
+        PUID: '1000'
+        PGID: '1000'
+      volumes:
+        - fireshare-data:/data
+        - fireshare-processed:/processed
+        - fireshare-videos:/videos
+      ports:
+        - 127.0.0.1:${PORT}:80
+  volumes:
+    fireshare-data:
+    fireshare-processed:
+    fireshare-videos:
+notes:
+  - "Open {{ url }}. Sign in as admin with the password in ADMIN_PASSWORD (noust env show {{ domain }} --unmask)."
+  - "Its data is in the Docker volumes fireshare-data, fireshare-processed, fireshare-videos of this application: back them up before updating."

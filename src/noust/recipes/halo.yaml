@@ -1,0 +1,49 @@
+# Halo from the image the project publishes (halohub/halo), with the settings its documentation names (docs.halo.run/getting-started/install/docker-compose and /getting-started/config).
+schema: 2
+name: halo
+kind: compose
+title: "Halo"
+slogan: "Powerful and easy-to-use open source website building tool."
+description: "A website builder and blog: themes, plugins, an editor, attachments and comments, with an admin console. Uses an embedded database in its data folder. Signs in as the administrator Noust generates."
+category: cms
+tags: [cms, blog, website, java]
+logo: logo.svg
+version: "2.27.1"
+revision: 1
+updated: 2026-10-30
+homepage: https://www.halo.run
+docs: https://www.halo.run
+repository: https://github.com/halo-dev/halo
+license: GPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8090
+variables:
+  PUBLIC_URL:
+    from: "url"
+    description: "The address people use to reach the site."
+  ADMIN_PASSWORD:
+    generate: "password32"
+    description: "The password of the super administrator, admin."
+health: {path: /actuator/health/readiness, expect: "200", timeout: 240}
+files:
+  noust.nginx.yaml: noust.nginx.yaml
+compose: |
+  services:
+    halo:
+      image: halohub/halo:2.27.1@sha256:cc28f8bab142b79bf1bc5bdb07c2e0746821af5c814705e72b5beda6e9cabbc9
+      restart: unless-stopped
+      environment:
+        HALO_EXTERNAL_URL: ${PUBLIC_URL}/
+        HALO_SECURITY_INITIALIZER_SUPERADMINUSERNAME: admin
+        HALO_SECURITY_INITIALIZER_SUPERADMINPASSWORD: ${ADMIN_PASSWORD}
+      volumes:
+        - halo-data:/root/.halo2
+      ports:
+        - 127.0.0.1:${PORT}:8090
+  volumes:
+    halo-data:
+notes:
+  - "Open {{ url }}. Sign in at {{ url }}/console as admin with the password in ADMIN_PASSWORD (noust env show {{ domain }} --unmask), and change it."
+  - "Its data is in the Docker volume halo-data of this application: back it up before updating."

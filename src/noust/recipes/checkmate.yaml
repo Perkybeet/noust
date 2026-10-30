@@ -1,0 +1,87 @@
+# Checkmate: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/checkmate.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: checkmate
+kind: compose
+title: "Checkmate"
+slogan: "An open source server and websites monitoring application"
+description: "Checkmate is an open-source, self-hosted tool designed to track and monitor server hardware, uptime, response times, and incidents in real-time with beautiful visualizations."
+category: monitoring
+tags: [monitoring, server, uptime, healthcheck, self-hosted]
+logo: logo.svg
+version: "3.2.0"
+revision: 1
+updated: 2026-10-28
+homepage: https://checkmate.so/
+docs: https://docs.checkmate.so/
+repository: https://github.com/bluewave-labs/Checkmate
+license: AGPL-3.0-only
+architectures: ["amd64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_CHECKMATE:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_PASSWORD_64_JWT:
+    generate: "password64"
+    secret: true
+    description: "The secret Noust generated for jwt."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    checkmate:
+      image: ghcr.io/bluewave-labs/checkmate-backend-mono-multiarch:v3.2.0@sha256:88b895642ab0c4d3055a2fb4a017312c9398c7477aa22325b6f5b3d5ff0de7e6
+      environment:
+        SERVICE_URL_CHECKMATE: ${SERVICE_URL_CHECKMATE}
+        UPTIME_APP_API_BASE_URL: ${SERVICE_URL_CHECKMATE}/api/v1
+        UPTIME_APP_CLIENT_HOST: ${SERVICE_URL_CHECKMATE}
+        DB_CONNECTION_STRING: mongodb://mongodb:27017/uptime_db
+        CLIENT_HOST: ${SERVICE_URL_CHECKMATE}
+        JWT_SECRET: ${SERVICE_PASSWORD_64_JWT}
+      depends_on:
+        mongodb:
+          condition: service_healthy
+      healthcheck:
+        test:
+          - CMD
+          - node
+          - -e
+          - 'require(''http'').get(''http://127.0.0.1:52345/health'', r => process.exit(r.statusCode ===
+            200 ? 0 : 1)).on(''error'', () => process.exit(1))'
+        interval: 30s
+        timeout: 5s
+        retries: 3
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:52345
+    mongodb:
+      image: ghcr.io/bluewave-labs/checkmate-mongo:v3.2.0@sha256:32e1f3953e1da3d4a09981a5314e1966c6c970747ee10e75b8df28cee8d2dab5
+      command:
+        - mongod
+        - --quiet
+        - --bind_ip_all
+      volumes:
+        - checkmate-mongo:/data/db
+      healthcheck:
+        test:
+          - CMD
+          - mongosh
+          - --eval
+          - db.adminCommand('ping')
+          - --quiet
+        interval: 5s
+        timeout: 30s
+        start_period: 10s
+      restart: unless-stopped
+  volumes:
+    checkmate-mongo:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_PASSWORD_64_JWT in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume checkmate-mongo of this application: back it up before updating."

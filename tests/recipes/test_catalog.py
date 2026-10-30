@@ -30,7 +30,7 @@ from noust.recipes.model import Recipe
 from noust.recipes.variables import DeploymentContext, resolve_variables
 
 #: The recipes of the 2.3 catalogue, now in the 4.0 format.
-MIGRATED = {"wordpress", "uptime-kuma", "umami", "n8n"}
+MIGRATED = {"wordpress", "uptime-kuma", "umami"}
 #: Listed, not deployable, with the reason.
 UNAVAILABLE = {
     "appwrite",
@@ -43,7 +43,6 @@ UNAVAILABLE = {
     "stalwart",
     "strapi",
     "supabase",
-    "vault",
 }
 #: Wave one (checklist D-29) that ship as Docker recipes.
 WAVE_ONE = {
@@ -185,7 +184,8 @@ def test_every_svg_in_the_package_is_valid_even_if_no_recipe_names_it() -> None:
             elif entry.name == "logo.png":
                 validate_png(directory.name, entry.read_bytes())
                 found += 1
-    assert found >= len(shipped())
+    # Two recipes of one project (n8n and n8n with workers) share the collection's one mark.
+    assert found >= len({recipe.logo_icon or recipe.name for recipe in shipped()})
 
 
 # ---------------------------------------------------------------------------
@@ -295,18 +295,6 @@ def test_the_migrated_recipes_set_the_variables_they_always_did() -> None:
         },
         "uptime-kuma": {"UPTIME_KUMA_HOST"},
         "umami": {"DATABASE_URL", "APP_SECRET", "DISABLE_TELEMETRY"},
-        "n8n": {
-            "N8N_PORT",
-            "N8N_LISTEN_ADDRESS",
-            "N8N_HOST",
-            "N8N_PROTOCOL",
-            "N8N_EDITOR_BASE_URL",
-            "WEBHOOK_URL",
-            "N8N_SECURE_COOKIE",
-            "N8N_USER_FOLDER",
-            "N8N_ENCRYPTION_KEY",
-            "N8N_DIAGNOSTICS_ENABLED",
-        },
     }
 
     for name, names in expected.items():
@@ -315,41 +303,38 @@ def test_the_migrated_recipes_set_the_variables_they_always_did() -> None:
 
 def test_the_migrated_recipes_keep_their_database_source_and_settings() -> None:
     """Only the format changed."""
-    wordpress, umami, kuma, n8n = (
-        get_recipe(name) for name in ("wordpress", "umami", "uptime-kuma", "n8n")
-    )
+    wordpress, umami, kuma = (get_recipe(name) for name in ("wordpress", "umami", "uptime-kuma"))
 
     assert (wordpress.app_type, wordpress.database_engine) == ("php-fpm", "mysql")
     assert wordpress.php["shared_from_release"] == ["wp-content"]
     assert (umami.app_type, umami.database_engine) == ("nodejs", "postgresql")
     assert umami.source is not None and umami.source.ref == "v2.20.2"
     assert kuma.source is not None and kuma.source.ref == "1.23.17"
-    assert kuma.persistent_paths == ("data",) and n8n.persistent_paths == ("data",)
-    assert n8n.source is not None and n8n.source.kind == "template"
+    assert kuma.persistent_paths == ("data",)
 
 
-def test_the_n8n_recipe_version_is_the_version_its_package_json_installs() -> None:
-    """One number in two places would be two numbers one day."""
-    package = json.loads(read_asset("n8n", "package.json"))
-
-    assert package["dependencies"]["n8n"] == get_recipe("n8n").version
-
-
-def test_n8n_pins_node_22_because_isolated_vm_does_not_build_on_the_node_20_of_a_server() -> None:
-    """
-    n8n 1.123.82 depends on isolated-vm 6, which asks for Node 22 and does not compile on 20.
-
-    The recipe declared ``>=20.19 <=24.x``, which the server's own Node 20 meets, so Noust used it and
-    the install failed in the middle (profleet, 2026-10-26). The recipe test that passed ran on an
-    image whose Node 18 did not meet the range, so Noust had fetched its own: the path of a Node
-    inside the range was never run. Pinning the runtime makes both paths the same.
-    """
+def test_n8n_runs_from_the_image_the_project_publishes_with_its_own_postgresql() -> None:
+    """It was a package built on the server and never started in a test; now it is a stack that is."""
     n8n = get_recipe("n8n")
 
-    assert n8n.build is not None and n8n.build.runtime == "node@22"
-    package = json.loads(read_asset("n8n", "package.json"))
-    assert package["engines"]["node"] == ">=22 <=24.x"
-    assert any("Node.js 22" in need for need in n8n.needs)
+    assert (n8n.kind, n8n.available) == ("compose", True)
+    assert {image.repository for image in n8n.images} == {"n8nio/n8n", "postgres"}
+    assert all(image.digest for image in n8n.images)
+    assert n8n.health is not None and n8n.health.path == "/healthz"
+    assert "N8N_ENCRYPTION_KEY" in {variable.name for variable in n8n.variables}
+
+
+def test_the_queue_mode_of_n8n_runs_the_same_image_for_the_editor_and_the_worker() -> None:
+    """One image, one encryption key: a worker that could not read the credentials is no worker."""
+    single, queue = get_recipe("n8n"), get_recipe("n8n-queue")
+
+    assert {i.repository: i.tag for i in single.images if i.repository == "n8nio/n8n"} == {
+        i.repository: i.tag for i in queue.images if i.repository == "n8nio/n8n"
+    }
+    assert {image.service for image in queue.images} == {"n8n", "worker", "db", "redis"}
+    assert "N8N_ENCRYPTION_KEY" in {variable.name for variable in queue.variables}
+    assert queue.compose is not None and "EXECUTIONS_MODE: queue" in queue.compose
+    assert queue.compose.count("${N8N_ENCRYPTION_KEY}") == 2
 
 
 def _native_template_recipes() -> list[str]:

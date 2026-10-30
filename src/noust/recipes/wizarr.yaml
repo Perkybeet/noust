@@ -1,0 +1,38 @@
+# Wizarr from the image the project publishes (ghcr.io/wizarrrr/wizarr), with the /data/database volume its documentation names (docs.wizarr.dev, Docker installation).
+schema: 2
+name: wizarr
+kind: compose
+title: "Wizarr"
+slogan: "Invite and onboard users to Plex, Jellyfin and Emby."
+description: "Sends people an invitation link that creates their account on your media server, with a short guide to the apps. Keeps its invitations and users in its own database."
+category: media
+tags: [invitations, plex, jellyfin, emby, users]
+logo: logo.svg
+version: "2026.10.1"
+revision: 1
+updated: 2026-10-30
+homepage: https://docs.wizarr.dev
+docs: https://docs.wizarr.dev
+repository: https://github.com/wizarrrr/wizarr
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 5690
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    wizarr:
+      image: ghcr.io/wizarrrr/wizarr:v2026.10.1@sha256:08f2c6de534ec7d36d39a4f55b7c5c379021ca881dc519c702aad0ddafbdc67a
+      restart: unless-stopped
+      environment:
+        TZ: UTC
+      volumes:
+        - wizarr-data:/data/database
+      ports:
+        - 127.0.0.1:${PORT}:5690
+  volumes:
+    wizarr-data:
+notes:
+  - "Open {{ url }}. The first visit runs its setup and makes the administrator, so do it right after installing."
+  - "Its data is in the Docker volume wizarr-data of this application: back it up before updating."

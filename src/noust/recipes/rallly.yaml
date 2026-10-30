@@ -1,0 +1,120 @@
+# Rallly: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/rallly.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: rallly
+kind: compose
+title: "Rallly"
+slogan: "Rallly is an open-source scheduling and collaboration tool designed to make organizing events..."
+description: "Rallly is an open-source scheduling and collaboration tool for organizing events and meetings."
+category: productivity
+tags: [scheduling, rallly, events, meeting, doodle, polls, collaboration, productivity]
+logo: logo.svg
+version: "4.16.3"
+revision: 1
+updated: 2026-10-28
+homepage: https://rallly.co
+docs: https://support.rallly.co/self-hosting/introduction
+repository: https://github.com/lukevella/rallly
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_PASSWORD_POSTGRES:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres."
+  SERVICE_USER_POSTGRES:
+    generate: "user"
+    description: "The user name Noust generated for postgres."
+  SERVICE_URL_RALLLY:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_PASSWORD_64_RALLLY:
+    generate: "password64"
+    secret: true
+    description: "The secret Noust generated for rallly."
+  INITIAL_ADMIN_EMAIL:
+    required: true
+    description: "Needed to start the application; the installation asks for it."
+  ALLOWED_EMAILS:
+    default: ""
+    description: "Setting ALLOWED_EMAILS of the application; the template leaves it to the operator."
+  SUPPORT_EMAIL:
+    required: true
+    description: "Needed to start the application; the installation asks for it."
+  SMTP_HOST:
+    default: ""
+    description: "Setting SMTP_HOST of the application; the template leaves it to the operator."
+  SMTP_PORT:
+    default: ""
+    description: "Setting SMTP_PORT of the application; the template leaves it to the operator."
+  SMTP_USER:
+    default: ""
+    description: "Setting SMTP_USER of the application; the template leaves it to the operator."
+  SMTP_PWD:
+    default: ""
+    secret: true
+    description: "Setting SMTP_PWD of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    rallly_db:
+      image: postgres:18@sha256:979bccfde35445db618c65107d27d08c6c21339d8dc3ad4c830c6633947be0e4
+      volumes:
+        - postgres-data:/var/lib/postgresql
+      environment:
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+        POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+        POSTGRES_DB: ${POSTGRES_DB:-rallly}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}
+        interval: 2s
+        timeout: 10s
+        retries: 15
+      restart: unless-stopped
+    rallly:
+      image: lukevella/rallly:4.16.3@sha256:7837f8148cc6db5e3e9a8df199912950adaee66898ebad4949d9dbb2f30aa02b
+      environment:
+        SERVICE_URL_RALLLY: ${SERVICE_URL_RALLLY}
+        PROXY_MODE: external
+        DATABASE_URL: postgres://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@rallly_db:5432/${POSTGRES_DB:-rallly}
+        SECRET_PASSWORD: ${SERVICE_PASSWORD_64_RALLLY}
+        NEXT_PUBLIC_BASE_URL: ${SERVICE_URL_RALLLY}
+        REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-true}
+        INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL:?}
+        ALLOWED_EMAILS: ${ALLOWED_EMAILS}
+        SUPPORT_EMAIL: ${SUPPORT_EMAIL:?}
+        SMTP_HOST: ${SMTP_HOST}
+        SMTP_PORT: ${SMTP_PORT}
+        SMTP_SECURE: ${SMTP_SECURE:-false}
+        SMTP_USER: ${SMTP_USER}
+        SMTP_PWD: ${SMTP_PWD}
+        SMTP_TLS_ENABLED: ${SMTP_TLS_ENABLED:-false}
+        BETTER_AUTH_TRUSTED_ORIGINS: ${SERVICE_URL_RALLLY}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - bash -c ':> /dev/tcp/127.0.0.1/3000' || exit 1
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      depends_on:
+        rallly_db:
+          condition: service_healthy
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:3000
+  volumes:
+    postgres-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_PASSWORD_POSTGRES and SERVICE_USER_POSTGRES and SERVICE_PASSWORD_64_RALLLY in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume postgres-data of this application: back it up before updating."

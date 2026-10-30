@@ -11,6 +11,7 @@ Files:
  src/noust/recipes/affine.yaml
  src/noust/recipes/anythingllm.yaml
  src/noust/recipes/babybuddy.yaml
+ src/noust/recipes/checkmate.yaml
  src/noust/recipes/chroma.yaml
  src/noust/recipes/databasus.yaml
  src/noust/recipes/docling.yaml
@@ -20,11 +21,13 @@ Files:
  src/noust/recipes/dozzle.yaml
  src/noust/recipes/drizzle-gateway.yaml
  src/noust/recipes/elasticsearch.yaml
+ src/noust/recipes/engram.yaml
  src/noust/recipes/firefox.yaml
  src/noust/recipes/glance.yaml
  src/noust/recipes/glitchtip.yaml
  src/noust/recipes/gotenberg.yaml
  src/noust/recipes/gowa.yaml
+ src/noust/recipes/grimmory.yaml
  src/noust/recipes/grocy.yaml
  src/noust/recipes/heimdall.yaml
  src/noust/recipes/homebox.yaml
@@ -38,6 +41,7 @@ Files:
  src/noust/recipes/mage-ai.yaml
  src/noust/recipes/marimo.yaml
  src/noust/recipes/mealie.yaml
+ src/noust/recipes/moodle.yaml
  src/noust/recipes/once-campfire.yaml
  src/noust/recipes/onedev.yaml
  src/noust/recipes/openobserve.yaml
@@ -49,6 +53,7 @@ Files:
  src/noust/recipes/privatebin.yaml
  src/noust/recipes/qdrant.yaml
  src/noust/recipes/rabbitmq.yaml
+ src/noust/recipes/rallly.yaml
  src/noust/recipes/rivet-engine.yaml
  src/noust/recipes/silverbullet.yaml
  src/noust/recipes/snipe-it.yaml
@@ -60,7 +65,9 @@ Comment: Derived in part from the Docker Compose templates of Coolify
 License: Apache-2.0
 
 Files:
+ src/noust/recipes/ackee.yaml
  src/noust/recipes/archivebox.yaml
+ src/noust/recipes/blinko.yaml
  src/noust/recipes/bytestash.yaml
  src/noust/recipes/calibre.yaml
  src/noust/recipes/certmate.yaml
@@ -73,6 +80,7 @@ Files:
  src/noust/recipes/directory-lister.yaml
  src/noust/recipes/discourse.yaml
  src/noust/recipes/docling-serve.yaml
+ src/noust/recipes/evershop.yaml
  src/noust/recipes/filegator.yaml
  src/noust/recipes/flaresolverr.yaml
  src/noust/recipes/flarum.yaml
@@ -81,11 +89,15 @@ Files:
  src/noust/recipes/go2rtc.yaml
  src/noust/recipes/grimoire.yaml
  src/noust/recipes/jellyseerr.yaml
+ src/noust/recipes/joomla.yaml
+ src/noust/recipes/kaneo.yaml
+ src/noust/recipes/kener.yaml
  src/noust/recipes/komari-monitor.yaml
  src/noust/recipes/languagetool.yaml
  src/noust/recipes/libredb-studio.yaml
  src/noust/recipes/lubelogger.yaml
  src/noust/recipes/mazanoke.yaml
+ src/noust/recipes/mcsmanager.yaml
  src/noust/recipes/nginx.yaml
  src/noust/recipes/omni-tools.yaml
  src/noust/recipes/open-design.yaml

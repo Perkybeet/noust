@@ -1,0 +1,59 @@
+# GoToSocial from the image the project publishes (superseriousbusiness/gotosocial), with the settings its documentation names (docs.gotosocial.org/en/latest/getting_started/installation/container and /configuration/).
+# Licence: LICENSE of superseriousbusiness/gotosocial on Codeberg, read 2026-10-30: the GNU AGPL version 3
+schema: 2
+name: gotosocial
+kind: compose
+title: "GoToSocial"
+slogan: "Fast, fun, ActivityPub server, powered by Go."
+description: "A small ActivityPub social network server that federates with Mastodon and the rest of the fediverse: microblogging, follows, boosts, media and a web client of your choice. SQLite by default, light on memory."
+category: communication
+tags: [fediverse, activitypub, microblogging, mastodon]
+logo: logo.svg
+version: "0.22.3"
+revision: 1
+updated: 2026-10-30
+homepage: https://docs.gotosocial.org
+docs: https://docs.gotosocial.org
+repository: https://codeberg.org/superseriousbusiness/gotosocial
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8080
+variables:
+  FQDN:
+    from: "fqdn"
+    description: "The host name of this server. It cannot change after the first start."
+  SCHEME:
+    from: "scheme"
+    description: "http or https, as the address is served."
+health: {path: /readyz, expect: "200", timeout: 120}
+files:
+  noust.nginx.yaml: noust.nginx.yaml
+compose: |
+  services:
+    gotosocial:
+      image: superseriousbusiness/gotosocial:0.22.3@sha256:3f36dcf14a4f2e5562122e4783117c48a219d67988f841181b5c2ecaa65d5581
+      restart: unless-stopped
+      environment:
+        GTS_HOST: ${FQDN}
+        GTS_PROTOCOL: ${SCHEME}
+        GTS_DB_TYPE: sqlite
+        GTS_DB_ADDRESS: /gotosocial/storage/sqlite.db
+        GTS_STORAGE_LOCAL_BASE_PATH: /gotosocial/storage
+        GTS_LETSENCRYPT_ENABLED: 'false'
+        GTS_TRUSTED_PROXIES: 127.0.0.1/32,172.16.0.0/12,10.0.0.0/8,192.168.0.0/16
+        GTS_WAZERO_COMPILATION_CACHE: /gotosocial/.cache
+        TZ: UTC
+      volumes:
+        - gotosocial-data:/gotosocial/storage
+        - gotosocial-cache:/gotosocial/.cache
+      ports:
+        - 127.0.0.1:${PORT}:8080
+  volumes:
+    gotosocial-data:
+    gotosocial-cache:
+notes:
+  - "Open {{ url }}. Nobody can sign in yet: make the first account and give it admin rights with `noust app exec {{ domain }} -- /gotosocial/gotosocial admin account create --username NAME --email EMAIL --password PASSWORD`, then `... admin account promote --username NAME`."
+  - "The host name {{ domain }} is part of every account's address and cannot change after the first start."
+  - "Its data is in the Docker volumes gotosocial-data, gotosocial-cache of this application: back them up before updating."

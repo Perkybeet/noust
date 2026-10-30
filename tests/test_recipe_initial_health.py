@@ -185,4 +185,4 @@ def test_wasm_create_recipe_hands_the_recipe_health_to_the_first_deploy(
     result = CliRunner().invoke(root_cli, ["create", "--recipe", "n8n", "-d", DOMAIN, "--no-ssl"])
 
     assert result.exit_code == 0, result.output
-    assert configured["initial_health"] == ("/healthz", "200", None)
+    assert configured["initial_health"] == ("/healthz", "200", 120)

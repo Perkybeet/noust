@@ -144,15 +144,14 @@ def test_git_recipes_pin_a_tag() -> None:
     assert re.match(r"^v2\.\d+\.\d+$", umami.ref or "")
 
 
-def test_n8n_is_a_pinned_package_rendered_from_the_recipe() -> None:
-    """n8n is not built from its repository: a package.json names the version."""
-    recipe = get_recipe("n8n")
+def test_hello_is_a_page_the_recipe_ships_and_not_a_repository() -> None:
+    """The one native recipe whose source is a template: the page is the recipe's own file."""
+    recipe = get_recipe("hello")
     assert recipe.source is not None and recipe.source.kind == "template"
 
-    package = json.loads(read_asset("n8n", "package.json"))
+    page = read_asset("hello", "index.html")
 
-    assert re.match(r"^\d+\.\d+\.\d+$", package["dependencies"]["n8n"])
-    assert package["scripts"]["start"] == "n8n start"
+    assert "<html" in page.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -331,20 +330,15 @@ def test_an_override_wins_over_a_generated_value(
     assert plan.branch == "v2.20.2"
 
 
-def test_n8n_renders_its_package_json_beside_the_store(
+def test_hello_renders_its_page_beside_the_store(
     store: NoustStore, provisioned: list[dict[str, Any]]
 ) -> None:
-    """A local source every later update copies from, and its variables from the domain."""
-    plan = plan_recipe("n8n", DOMAIN, port=5680, ssl=False, logger=Logger(verbose=False))
+    """A local source every later update copies from."""
+    plan = plan_recipe("hello", DOMAIN, port=5680, ssl=False, logger=Logger(verbose=False))
 
     directory = recipe_source_dir("site-example-com", store)
     assert plan.source == str(directory)
-    assert json.loads((directory / "package.json").read_text())["dependencies"]["n8n"]
-    assert plan.env_vars["N8N_PORT"] == "5680"
-    assert plan.env_vars["N8N_PROTOCOL"] == "http"
-    assert plan.env_vars["N8N_SECURE_COOKIE"] == "false"
-    assert plan.env_vars["WEBHOOK_URL"] == f"http://{DOMAIN}/"
-    assert plan.env_vars["N8N_USER_FOLDER"].endswith("/site-example-com/shared/data")
+    assert (directory / "index.html").is_file()
     assert provisioned == []
     assert validate_source(plan.source)[0] == "local"
 
@@ -364,9 +358,9 @@ def test_a_recipe_does_not_redeploy_an_existing_application(
 def test_an_unavailable_recipe_is_refused_with_its_reason(store: NoustStore) -> None:
     """Before anything happens."""
     with pytest.raises(RecipeError, match="not available") as failure:
-        plan_recipe("vault", DOMAIN, port=None, ssl=True, logger=Logger(verbose=False))
+        plan_recipe("joplin-server", DOMAIN, port=None, ssl=True, logger=Logger(verbose=False))
 
-    assert "Business Source License" in failure.value.details
+    assert "Personal Use License" in failure.value.details
 
 
 def test_finishing_links_the_database(store: NoustStore, provisioned: list[dict[str, Any]]) -> None:
@@ -449,7 +443,7 @@ def test_recipe_list_json_lists_every_recipe_with_its_availability() -> None:
     assert result.exit_code == 0, result.output
     items = {item["name"]: item for item in json.loads(result.output)["items"]}
     assert SHIPPED <= set(items)
-    assert items["vault"]["available"] is False
+    assert items["joplin-server"]["available"] is False
     assert items["wordpress"]["app_type"] == "php-fpm"
 
 
@@ -633,7 +627,7 @@ def test_post_apps_with_a_recipe_queues_it_with_the_recipe_type(
     [
         {"recipe": "wordpress", "source": "https://github.com/o/r.git"},
         {"recipe": "wordpress", "app_type": "nextjs"},
-        {"recipe": "vault"},
+        {"recipe": "joplin-server"},
         {"recipe": "drupal"},
         {},
     ],
