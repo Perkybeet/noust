@@ -447,6 +447,77 @@ def test_the_docker_socket_makes_the_recipe_root_on_the_server_and_nothing_else_
         assert skipped.value.code == "host-mount"
 
 
+@pytest.mark.parametrize(
+    ("volume", "kept"),
+    [
+        ("${DB_DATA_LOCATION}:/var/lib/postgresql/data", "web-data:/var/lib/postgresql/data"),
+        ("${VOLUME_US:-./metadata}:/var/lib/postgresql/data", "web-data:/var/lib/postgresql/data"),
+        ("/apprise-api/config:/config", "web-config:/config"),
+        ("/tmp/kestra-wd:/tmp/kestra-wd", "web-kestra-wd:/tmp/kestra-wd"),
+        ("${MEDIA_PATH}:/media:ro", "web-media:/media:ro"),
+    ],
+)
+def test_a_folder_of_the_host_that_holds_a_service_s_data_becomes_a_named_volume(
+    tool: ModuleType, volume: str, kept: str
+) -> None:
+    """A template written for one person's server mounted the folder; the stack keeps it in a volume."""
+    draft = tool.Draft(name="demo")
+
+    assert tool.rewrite_mount(draft, "web", volume) == kept
+    assert kept.split(":", 1)[0] in draft.volumes
+
+
+@pytest.mark.parametrize(
+    "volume",
+    [
+        "/:/userdata:ro",
+        "/etc/nginx:/etc/nginx",
+        "/var/lib/docker/containers/:/var/lib/docker/containers/",
+        "/var/log:/logs",
+        "/etc/resolv.conf:/etc/resolv.conf:ro",
+        "/data/app.db:/app.db",
+        "/data:/etc/app.conf",
+        "/var/run/docker.sock:/docker.sock",
+    ],
+)
+def test_a_path_that_is_the_server_s_own_or_a_file_is_still_not_a_volume(
+    tool: ModuleType, volume: str
+) -> None:
+    """The system's folders, the root and single files stay a reason to skip."""
+    draft = tool.Draft(name="demo")
+
+    with pytest.raises(tool.Skip) as skipped:
+        tool.rewrite_mount(draft, "web", volume)
+
+    assert skipped.value.code == "host-mount"
+
+
+def test_a_postgresql_18_volume_is_mounted_on_the_parent_of_the_data_folder(
+    tool: ModuleType,
+) -> None:
+    """The 18 image refuses a volume at `/var/lib/postgresql/data`: Kestra's database kept failing."""
+    services = {
+        "db": {
+            "image": "postgres:18.6@sha256:" + "a" * 64,
+            "volumes": ["data:/var/lib/postgresql/data"],
+        },
+        "vectors": {
+            "image": "pgvector/pgvector:pg18",
+            "volumes": ["v:/var/lib/postgresql/data:rw"],
+        },
+        "old": {"image": "postgres:17.11-alpine", "volumes": ["o:/var/lib/postgresql/data"]},
+        "web": {"image": "o/app:18.1", "volumes": ["w:/var/lib/postgresql/data"]},
+    }
+
+    moved = tool.fix_postgres_data_directory(services)
+
+    assert moved == ["db", "vectors"]
+    assert services["db"]["volumes"] == ["data:/var/lib/postgresql"]
+    assert services["vectors"]["volumes"] == ["v:/var/lib/postgresql:rw"]
+    assert services["old"]["volumes"] == ["o:/var/lib/postgresql/data"]
+    assert services["web"]["volumes"] == ["w:/var/lib/postgresql/data"]
+
+
 def test_a_file_of_the_template_becomes_a_file_the_recipe_ships(tool: ModuleType) -> None:
     """Dokploy's ``./files/x`` is the recipe's asset, and a folder takes its files with it."""
     draft = tool.Draft(name="demo")
@@ -1180,6 +1251,33 @@ def test_a_default_that_names_the_sample_domain_follows_the_deployment_s_domain(
 
     assert declared["ADMIN_EMAIL"]["value"] == "admin@${APP_DOMAIN}"
     assert declared["APP_DOMAIN"]["from"] == "fqdn"
+
+
+def test_a_setting_made_of_other_variables_is_a_value_filled_in_at_the_install(
+    tool: ModuleType,
+) -> None:
+    """Spliit's database address names the user, the password and the database it was given."""
+    draft = draft_of(tool, {"web": {"image": "o/app:1.0"}}, ("web", 80))
+    draft.variables = {
+        "DB_PASSWORD": {"origin": "generated", "secret": True, "value": "x" * 32},
+        "DB_NAME": {"origin": "template", "secret": False, "value": "app"},
+        "DB_URL": {
+            "origin": "template",
+            "secret": False,
+            "value": "postgresql://app:${DB_PASSWORD}@db:5432/${DB_NAME}",
+        },
+        "LOG_FORMAT": {"origin": "template", "secret": False, "value": "${DB_NAME}-log"},
+    }
+    draft.values = {name: entry["value"] for name, entry in draft.variables.items()}
+
+    declared = tool.declare_variables(
+        draft, "a: ${DB_PASSWORD}\nb: ${DB_NAME}\nc: ${DB_URL}\nd: ${LOG_FORMAT}\n"
+    )
+
+    assert declared["DB_URL"]["value"] == "postgresql://app:${DB_PASSWORD}@db:5432/${DB_NAME}"
+    assert declared["DB_URL"]["secret"] is True
+    assert declared["LOG_FORMAT"]["value"] == "${DB_NAME}-log"
+    assert "secret" not in declared["LOG_FORMAT"]
 
 
 def test_what_follows_a_hash_in_a_template_s_env_line_is_its_comment_not_the_default(

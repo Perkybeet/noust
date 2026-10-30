@@ -930,6 +930,55 @@ CLOCK_FILES = frozenset({"/etc/localtime", "/etc/timezone"})
 #: The one mount of the Docker socket a recipe may make once it says it is root on the server.
 DOCKER_SOCKET = re.compile(r"/var/run/docker\.sock:/var/run/docker\.sock(?::ro)?")
 
+#: Places of the host that are the server's own and never a folder a service keeps its data in.
+HOST_SYSTEM_PATHS = (
+    "/boot",
+    "/dev",
+    "/etc",
+    "/home",
+    "/lib",
+    "/opt",
+    "/proc",
+    "/root",
+    "/run",
+    "/sys",
+    "/usr",
+    "/var/lib/docker",
+    "/var/log",
+    "/var/run",
+)
+
+_HOST_FOLDER = re.compile(r"(?P<source>\$\{[^}]*\}|/[^:]*):(?P<target>/.+)")
+
+
+def host_data_folder(volume: str) -> tuple[str, str] | None:
+    """
+    Tell a mount of a folder of the host that a service keeps its data in.
+
+    A template written for one person's server mounts `/jupyter` or `${DB_DATA_LOCATION}` from the
+    host. A folder that is no part of the server itself becomes a named volume of the stack, which
+    holds the same data and is backed up by Noust.
+
+    Args:
+        volume: The mount as the template wrote it.
+
+    Returns:
+        The source and the target (with its options), or None when the mount is not one.
+    """
+    found = _HOST_FOLDER.fullmatch(volume)
+    if found is None:
+        return None
+    source, target = found.group("source"), found.group("target")
+    if not source.startswith("$"):
+        path = source.rstrip("/")
+        if not path or "." in path.rsplit("/", 1)[-1]:
+            return None  # the root, or a file
+        if any(path == system or path.startswith(system + "/") for system in HOST_SYSTEM_PATHS):
+            return None
+    if "." in target.split(":", 1)[0].rsplit("/", 1)[-1] or "docker.sock" in target:
+        return None  # the service reads a file there, not a folder
+    return source, target
+
 
 def rewrite_mount(draft: Draft, service: str, volume: str) -> str | None:
     """
@@ -960,6 +1009,14 @@ def rewrite_mount(draft: Draft, service: str, volume: str) -> str | None:
         return volume
     if not source.startswith(("/", ".", "~", "$")):
         return volume
+    data_folder = host_data_folder(volume)
+    if data_folder is not None:
+        source_path, target = data_folder
+        folder = target.split(":", 1)[0].rstrip("/").rsplit("/", 1)[-1] or "data"
+        name = re.sub(r"[^a-z0-9]+", "-", f"{service}-{folder}".lower()).strip("-")
+        if name not in draft.volumes:
+            draft.volumes.append(name)
+        return f"{name}:{target}"
     if not source.startswith("./"):
         raise Skip("host-mount", f"service {service}: {volume}")
     relative = source[2:].rstrip("/")
@@ -1371,6 +1428,16 @@ def declare_variables(draft: Draft, text: str) -> dict[str, dict[str, Any]]:
             elif text and SECRET_NAME.search(name) and not NOT_A_CREDENTIAL.match(text):
                 # A default credential is what the recipe never ships: the install makes one.
                 entry = {"generate": "password32"}
+            elif "${" in text:
+                # A setting made of other variables (a database address) is filled in at the install.
+                names = re.findall(r"\$\{(\w+)", text)
+                entry = {"value": text}
+                if any(
+                    draft.variables.get(other, {}).get("origin") == "generated"
+                    or SECRET_NAME.search(other)
+                    for other in names
+                ):
+                    entry["secret"] = True
             else:
                 entry = {"default": text}
         elif reference.operator in ("-", ":-"):
@@ -1810,6 +1877,46 @@ def icon_slug(name: str, title: str, icons: Path) -> str | None:
     return None
 
 
+def fix_postgres_data_directory(services: Mapping[str, dict[str, Any]]) -> list[str]:
+    """
+    Mount a PostgreSQL 18 volume where the image keeps its cluster.
+
+    From version 18 the image keeps the cluster in a folder named after the major version below
+    `/var/lib/postgresql`, and refuses to start on a volume mounted at `/var/lib/postgresql/data`
+    (the layout of every template written before): the volume belongs on the parent.
+
+    Args:
+        services: The services, pinned to a tag; changed in place.
+
+    Returns:
+        The names of the services whose mount moved.
+    """
+    from noust.managers.database.instances import image_engine
+
+    moved = []
+    for key, spec in services.items():
+        image = str(spec.get("image", "")).split("@", 1)[0]
+        engine = image_engine(image)
+        if engine is None or engine.flavour != "postgres":
+            continue
+        tag = image.rpartition(":")[2] if ":" in image.rsplit("/", 1)[-1] else ""
+        found = re.match(r"(?:pg)?(\d+)", tag)
+        if found is None or int(found.group(1)) < 18:
+            continue
+        mounts = []
+        for volume in spec.get("volumes") or ():
+            source, _, rest = str(volume).partition(":")
+            if rest == "/var/lib/postgresql/data" or rest.startswith("/var/lib/postgresql/data:"):
+                volume = f"{source}:/var/lib/postgresql" + rest.removeprefix(
+                    "/var/lib/postgresql/data"
+                )
+                moved.append(key)
+            mounts.append(volume)
+        if mounts:
+            spec["volumes"] = mounts
+    return moved
+
+
 def draft_recipe(
     source: Source,
     facts: Mapping[str, Any],
@@ -1837,6 +1944,7 @@ def draft_recipe(
     secret_literals(draft)
     one_default_each(draft)
     archs = pin_images(draft)
+    fix_postgres_data_directory(draft.services)
     align_routed_port(draft)
     page = front_matter(source.docs)
     meta = dokploy_meta(source.dokploy)
