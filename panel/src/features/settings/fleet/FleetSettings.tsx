@@ -127,7 +127,7 @@ function CellFor({ t, setting, node, canManage }: { t: T; setting: StatusSetting
   );
   if (cell === undefined) {
     return (
-      <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+      <span className="inline-flex min-w-0 align-middle flex-wrap items-center gap-x-2 gap-y-1">
         {name}
         <span className="text-13 text-fg-muted">{t("fleetSettings.cell.unknown")}</span>
       </span>
@@ -135,7 +135,7 @@ function CellFor({ t, setting, node, canManage }: { t: T; setting: StatusSetting
   }
   const view = cellView(cell);
   return (
-    <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+    <span className="inline-flex min-w-0 align-middle flex-wrap items-center gap-x-2 gap-y-1">
       {name}
       {view.state === null ? (
         view.level === "exception" ? (

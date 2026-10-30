@@ -74,7 +74,7 @@ function RoleChips({ t, account, byName }: { t: T; account: Account; byName: Rea
     return known === undefined ? roleLabel(t, role) : shownRole(t, known);
   };
   return (
-    <span className="flex flex-wrap items-center gap-1">
+    <span className="inline-flex flex-wrap items-center gap-1 align-middle">
       {held.slice(0, ROLES_SHOWN).map((role) => (
         <Badge key={role}>{name(role)}</Badge>
       ))}
