@@ -6,6 +6,7 @@ import { getLocale } from "../../app/locale";
 import type { Locale } from "../../app/locale";
 import { translate } from "../../i18n";
 import type { MessageKey } from "../../i18n";
+import { phaseOf, stepOf } from "./deployments/phases";
 
 /** How a job on an app is named while it runs and when it ends (the backend's JobType). */
 const JOB_KEYS: Readonly<Record<string, { running: MessageKey; title: MessageKey; failed: MessageKey }>> = {
@@ -49,6 +50,49 @@ const RUNNING = new Set(["pending", "running"]);
  * leaves the app as it was, so it never turns the header into "Working" or stops its verbs.
  */
 const NOT_A_STATE = new Set(["app_exec", "disk"]);
+
+/** The jobs whose steps are the deploy pipeline's, which the console knows by name. */
+const DEPLOY_JOBS = new Set(["deploy", "update", "rollback", "push", "zero_downtime", "migrate"]);
+
+/** The steps of a deploy that are not one of its five phases, as the deployer names them, and their words. */
+const FIXED_STEPS: readonly (readonly [RegExp, MessageKey])[] = [
+  [/^deploying$/i, "appPages.job.steps.deploying"],
+  [/^preparing deployment$/i, "appPages.job.steps.preparing"],
+  [/^registering application$/i, "appPages.job.steps.registering"],
+  [/^setting permissions$/i, "appPages.job.steps.permissions"],
+  [/^creating site configuration$/i, "appPages.job.steps.site"],
+  [/^creating systemd service$/i, "appPages.job.steps.service"],
+  [/^obtaining ssl certificate$/i, "appPages.job.steps.certificate"],
+  [/^enabling updates without downtime$/i, "appPages.job.steps.zeroDowntime"],
+];
+
+const PHASE_DOING = {
+  fetch: "appPages.deployments.phases.fetch.doing",
+  install: "appPages.deployments.phases.install.doing",
+  build: "appPages.deployments.phases.build.doing",
+  activate: "appPages.deployments.phases.activate.doing",
+  health: "appPages.deployments.phases.health.doing",
+} as const satisfies Record<string, MessageKey>;
+
+/**
+ * What a deploy is doing, in the console's language. The server names its steps in English ("Deploying",
+ * "[7/7] Activating release...") and sends no code for them, so the ones a deploy takes are known here by
+ * name: the five phases the deployment page draws, and the few steps around them. A step the console does not
+ * know, and any step of a job that is not a deploy, is shown as the server said it. In English the server's own
+ * words are shown whatever they are.
+ *
+ * @param type The job's type (the backend's JobType).
+ * @param step What the job is doing, as the server says it: its current step or its newest line.
+ * @param locale The console's language.
+ */
+export function stepWords(type: string, step: string | null | undefined, locale: Locale = getLocale()): string | null {
+  if (step === null || step === undefined || step.trim() === "") return null;
+  if (locale === "en" || !DEPLOY_JOBS.has(type)) return step;
+  const name = (stepOf(step) ?? step).trim().replace(/(?:\.{3}|…)$/, "");
+  for (const [pattern, key] of FIXED_STEPS) if (pattern.test(name)) return translate(locale, key);
+  const phase = phaseOf(name);
+  return phase === null ? step : `${translate(locale, PHASE_DOING[phase])}…`;
+}
 
 /** The newest line the job logged, which is what it is doing now. */
 export function jobStep(job: Job): string | null {

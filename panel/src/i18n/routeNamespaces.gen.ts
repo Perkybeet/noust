@@ -47,7 +47,7 @@ export const ROUTE_NAMESPACES: Readonly<Record<string, readonly Namespace[]>> = 
   "/_console/apps/$domain/settings/security": ["appPages", "appSettings", "apps", "common", "queue", "runtime"],
   "/_console/apps/$domain/settings/source": ["appPages", "appSettings", "apps", "archiveUpload", "changeSource", "common", "queue", "sourceOptions", "sources"],
   "/_console/apps/$domain/terminal": ["appPages", "apps", "common", "queue", "server", "serverText", "terminal"],
-  "/_console/apps/new": ["appSettings", "apps", "archiveUpload", "catalog", "common", "containers", "databases", "domains", "fleet", "gitlab", "network", "newApp", "pasteDockerfile", "probes", "provisioning", "remoteImport", "runtime", "serverText", "settings", "teams", "workspaces"],
+  "/_console/apps/new": ["appPages", "appSettings", "apps", "archiveUpload", "catalog", "common", "containers", "databases", "domains", "fleet", "gitlab", "network", "newApp", "pasteDockerfile", "probes", "provisioning", "remoteImport", "runtime", "serverText", "settings", "teams", "workspaces"],
   "/_console/backups/": ["appPages", "apps", "backups", "common", "cron", "databases", "nav", "queue", "selfBackup", "time", "volumeBackups"],
   "/_console/backups/destinations": ["appPages", "apps", "backups", "common", "nav", "notifyRouting", "queue", "runtime", "selfBackup", "settings", "volumeBackups"],
   "/_console/backups/noust": ["backups", "common", "cron", "databases", "nav", "selfBackup", "volumeBackups"],

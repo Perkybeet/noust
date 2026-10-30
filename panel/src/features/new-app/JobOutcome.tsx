@@ -14,6 +14,7 @@ import { ICONS } from "../../components/ui/icons";
 import { Mono } from "../../components/ui/Mono";
 import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
+import { stepWords } from "../app/useAppJob";
 import { JobOutputDrawer } from "../databases/jobs";
 import { NoteText } from "./NoteText";
 import { useDeploymentLanding } from "./useDeploymentLanding";
@@ -162,7 +163,7 @@ export function JobOutcome({ kind, target, followedJob }: JobOutcomeProps) {
       <JobProgress
         state={job?.status === "pending" ? "queued" : "running"}
         title={t(kind === "import" ? "newApp.deploy.importing" : "newApp.deploy.deploying", { domain: target.domain })}
-        step={job?.current_step ?? null}
+        step={job === undefined || job === null ? null : stepWords(job.type, job.current_step, t.locale)}
         description={t("newApp.deploy.stays")}
         {...(log !== undefined ? { action: log } : {})}
       />

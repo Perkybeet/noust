@@ -842,6 +842,45 @@ describe("the job in hand", () => {
     expect(within(tabs).getByRole("link", { name: /^Deployments\s*1$/ })).toBeInTheDocument();
   });
 
+  it("opens the deployment a push started as soon as its deploy moves on, without reading the page again", async () => {
+    // The deployment is written by the deployer a moment after the job starts; no event says so, the next step does.
+    let items: unknown[] = [];
+    await appAt({
+      "GET /api/jobs/active": () => json(200, { jobs: [RUNNING_JOB], total: 1, active: 1 }),
+      "GET /api/deployments": () => json(200, { items, total: items.length, next_before_id: null }),
+    });
+    expect(await screen.findByRole("button", { name: "View log" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "View log" })).not.toBeInTheDocument();
+
+    // The job is known to the page, running, before the deployer has written its deployment.
+    act(() => {
+      FakeEventSource.latest().open();
+      FakeEventSource.latest().emit("job", RUNNING_JOB);
+    });
+    expect(await screen.findByRole("button", { name: "View log" })).toBeInTheDocument();
+
+    items = [{ id: 14, domain: DOMAIN, status: "running", triggered_by: "webhook", job_id: JOB.id, git_commit: "c0ffee1", git_branch: "main", has_log: true, started_at: "2026-09-25T19:21:15" }];
+    act(() => {
+      FakeEventSource.latest().emit("job", { ...RUNNING_JOB, current_step: "Fetching source into a new release" });
+    });
+    expect(await screen.findByRole("link", { name: "View log" })).toHaveAttribute("href", `/apps/${DOMAIN}/deployments/14`);
+    expect(screen.queryByRole("button", { name: "View log" })).not.toBeInTheDocument();
+    // The Deployments tab counts it too.
+    const tabs = screen.getByRole("navigation", { name: "Application sections" });
+    expect(await within(tabs).findByRole("link", { name: /^Deployments\s*1$/ })).toBeInTheDocument();
+  });
+
+  it("says what a deploy is doing in Spanish, whatever the deployer wrote", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    await appAt({
+      "GET /api/jobs/active": () => json(200, { jobs: [{ ...RUNNING_JOB, type: "deploy", logs: [{ timestamp: "2026-09-25T19:21:14", level: "info", message: "[7/7] 🚀 Activating release...", step: 7 }] }], total: 1, active: 1 }),
+    });
+    expect(await screen.findByText("Arrancando la versión nueva…")).toBeInTheDocument();
+    expect(screen.queryByText(/Activating release/)).not.toBeInTheDocument();
+  });
+
   it("opens the job's own output beside the page while it has no deployment yet", async () => {
     // The log viewer sizes its window from offsetHeight, which jsdom reports as 0.
     vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(400);

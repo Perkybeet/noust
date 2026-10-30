@@ -14,6 +14,17 @@ export const appPages = {
 
   /** What is being done to an app right now, by job type (the backend's JobType). */
   job: {
+    /** What a deploy is doing, said in the console's language: the steps its server names in English (`stepWords`). */
+    steps: {
+      deploying: "Deploying",
+      preparing: "Preparing the deployment",
+      registering: "Registering the application",
+      permissions: "Setting permissions",
+      site: "Creating the site configuration",
+      service: "Creating the service",
+      certificate: "Obtaining the certificate",
+      zeroDowntime: "Enabling updates without downtime",
+    },
     deploy: { title: "Deploying {domain}", failed: "Deploy of {domain} failed" },
     update: { running: "Updating", title: "Updating {domain}", failed: "Update of {domain} failed" },
     rollback: { running: "Rolling back", title: "Rolling {domain} back", failed: "Rollback of {domain} failed" },

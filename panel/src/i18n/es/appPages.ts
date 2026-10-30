@@ -12,6 +12,16 @@ export const appPages: Catalog<typeof en> = {
   },
 
   job: {
+    steps: {
+      deploying: "Desplegando",
+      preparing: "Preparando el despliegue",
+      registering: "Registrando la aplicación",
+      permissions: "Ajustando los permisos",
+      site: "Creando la configuración del sitio",
+      service: "Creando el servicio",
+      certificate: "Obteniendo el certificado",
+      zeroDowntime: "Activando las actualizaciones sin cortes",
+    },
     deploy: { title: "Desplegando {domain}", failed: "El despliegue de {domain} falló" },
     update: { running: "Actualizando", title: "Actualizando {domain}", failed: "La actualización de {domain} falló" },
     rollback: { running: "Volviendo atrás", title: "Volviendo atrás {domain}", failed: "La vuelta atrás de {domain} falló" },

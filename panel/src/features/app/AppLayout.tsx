@@ -42,7 +42,7 @@ import { displayAddress } from "./displayAddress";
 import type { Address } from "./displayAddress";
 import { isAdopted } from "./adopted";
 import { appTabs } from "./tabs";
-import { jobStep, jobWords, useAppJob } from "./useAppJob";
+import { jobStep, jobWords, stepWords, useAppJob } from "./useAppJob";
 import type { AppJob } from "./useAppJob";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
@@ -114,7 +114,7 @@ function Job({ job, domain, t }: { job: AppJob; domain: string; t: T }) {
           announce={false}
           state={waiting ? "queued" : "running"}
           title={words.title}
-          step={jobStep(running)}
+          step={stepWords(running.type, jobStep(running), t.locale)}
           {...(details.length > 0
             ? {
                 description: (
