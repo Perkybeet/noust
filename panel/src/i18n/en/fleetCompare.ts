@@ -31,7 +31,6 @@ export const fleetCompare = {
   logs: {
     scopeLabel: "Which servers",
     thisServer: "This server",
-    everyServer: "Every server",
     label: "the logs of every server",
     summary: { one: "{count} matching line from {servers} servers.", other: "{count} matching lines from {servers} servers." },
     nothing: "No server has a line that matches.",

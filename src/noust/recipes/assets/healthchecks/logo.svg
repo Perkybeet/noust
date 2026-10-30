@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Healthchecks">
-  <title>Healthchecks</title>
-  <rect width="64" height="64" rx="14" fill="#24292f"/>
-  <text x="32" y="41" text-anchor="middle" font-family="sans-serif" font-size="26" font-weight="700" fill="#ffffff">HC</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" role="img" viewBox="0 0 400 400"><title>Healthchecks</title><g transform="translate(0,-652.362)"><path d="m238.7 845.12-32.37-.02 29.6 176.2 32.91 0 17.13-101.96 50.06 0 3.5-33.37-81.79 0-5.35 31.87z" clip-rule="nonzero" opacity="1" fill="#5cb85f" fill-opacity="1" fill-rule="evenodd" stroke="#5cb85f" stroke-width="30" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" stroke-dasharray="none" stroke-dashoffset="0" stroke-opacity="1"/><path d="m174.17 681.2-33.97 202.21-73.36 0-5 33.37 53.07 0 10.31 61.34 32.91 0 14.76-82.73 16.25-96.73 37.66-.1-19.72-117.37z" clip-rule="nonzero" opacity="1" fill="#33333f" fill-opacity="1" fill-rule="evenodd" stroke="#33333f" stroke-width="30" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" stroke-dasharray="none" stroke-dashoffset="0" stroke-opacity="1"/></g></svg>

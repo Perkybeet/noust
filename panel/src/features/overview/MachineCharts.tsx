@@ -85,6 +85,8 @@ function machineCharts(t: T): readonly MachineChartSpec[] {
 export interface MachineChartsProps {
   range: MetricRange;
   onRangeChange: (range: MetricRange) => void;
+  /** Only these charts; all six when absent. */
+  only?: readonly MachineChartSpec["id"][];
   className?: string;
 }
 
@@ -106,9 +108,9 @@ function RangeControl({ range, onRangeChange }: Pick<MachineChartsProps, "range"
  * with a sentence that says what is shown, a crosshair shared by all, and a word when history is
  * not being recorded (and the command that fixes it).
  */
-export function MachineCharts({ range, onRangeChange, className }: MachineChartsProps) {
+export function MachineCharts({ range, onRangeChange, only, className }: MachineChartsProps) {
   const t = useT();
-  const charts = useMemo(() => machineCharts(t), [t]);
+  const charts = useMemo(() => machineCharts(t).filter((spec) => only === undefined || only.includes(spec.id)), [t, only]);
   const read = useMetricsRead(MACHINE_METRICS, range);
   const prepared = useMemo(() => (read.data === undefined ? undefined : prepareRead(read.data, t)), [read.data, t]);
   const control = <RangeControl range={range} onRangeChange={onRangeChange} />;

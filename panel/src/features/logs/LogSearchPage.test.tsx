@@ -197,12 +197,14 @@ describe("Logs", () => {
     it("searches every server at once, naming the one each line came from and what a server left out", { timeout: 40_000 }, async () => {
       const { user, backend, location } = await central();
       await screen.findByText("3 of 5 matching lines shown, out of 340 examined.");
-      expect(backend.callsTo("GET /api/fleet/logs")).toHaveLength(0);
+      expect(backend.callsTo("GET /api/views/logs")).toHaveLength(0);
 
-      await user.click(screen.getByRole("radio", { name: "Every server" }));
+      await user.click(screen.getByRole("combobox", { name: "Which servers" }));
+      await user.click(await screen.findByRole("option", { name: "All servers" }));
 
       expect(await screen.findByText(/2 matching lines from 4 servers\. Up to 100 lines from each server\./)).toBeInTheDocument();
-      const call = backend.callsTo("GET /api/fleet/logs")[0];
+      const call = backend.callsTo("GET /api/views/logs")[0];
+      expect(call?.search.getAll("node")).toEqual([]);
       expect(call?.search.get("q")).toBe("");
       expect(call?.search.get("since")).toBe("1h");
       expect(call?.search.get("limit")).toBe("100");
@@ -218,11 +220,23 @@ describe("Logs", () => {
     it("opens on every server from the address and goes back to this one", { timeout: 40_000 }, async () => {
       const { user, location } = await central("/logs?scope=fleet&q=refused");
       expect(await screen.findByText(/2 matching lines from 4 servers/)).toBeInTheDocument();
-      expect(screen.getByRole("radio", { name: "Every server" })).toBeChecked();
-      await user.click(screen.getByRole("radio", { name: "This server" }));
+      expect(screen.getByRole("combobox", { name: "Which servers" })).toHaveTextContent("All servers");
+      await user.click(screen.getByRole("combobox", { name: "Which servers" }));
+      await user.click(await screen.findByRole("option", { name: /this central$/ }));
       await waitFor(() => {
         expect(location().search).toEqual({ q: "refused" });
       });
+    });
+
+    it("narrows the search to one server by asking the central for it", { timeout: 40_000 }, async () => {
+      const { user, backend, location } = await central("/logs?scope=fleet");
+      expect(await screen.findByText(/2 matching lines from 4 servers/)).toBeInTheDocument();
+      await user.click(screen.getByRole("combobox", { name: "Which servers" }));
+      await user.click(await screen.findByRole("option", { name: "web-2" }));
+      await waitFor(() => {
+        expect(backend.callsTo("GET /api/views/logs").some((call) => call.search.getAll("node").join() === "web-2")).toBe(true);
+      });
+      expect(location().search).toEqual({ scope: "fleet", server: "web-2" });
     });
   });
 

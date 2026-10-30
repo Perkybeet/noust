@@ -19,6 +19,12 @@ import { AddServer } from "./enroll/AddServer";
 import { FleetActionsProvider } from "./BulkActionDialog";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
+/**
+ * The faces of an area that is a page of its own (Activity, Backups, Alerts): the same page as the area's, with
+ * its own header, a title of its own and the server filter, so the fleet's header is not drawn over it.
+ */
+const OWN_HEADER: ReadonlySet<string> = new Set(["/fleet/activity", "/fleet/backups", "/fleet/alerts"]);
+
 export interface FleetLayoutProps {
   /** Set when a hub was asked for one of the pages it does not have. */
   hub?: HubArea | "overview" | undefined;
@@ -46,12 +52,12 @@ export function FleetLayout({ hub, adding: addingProp, onAddingChange }: FleetLa
   };
   const Add = ICONS.add;
   const empty = servers.loaded && servers.nodes.length === 0;
-  // Home and the applications across the fleet have their own templates, header and all: this layout only
-  // keeps what is the fleet's to say above them.
+  // Home and the applications across the fleet have their own templates, header and all.
   const ownsPage = useRouterState({ select: (state) => ["/fleet", "/fleet/", "/fleet/apps"].includes(state.location.pathname) });
   const onAppsViews = useRouterState({ select: (state) => state.location.pathname === "/fleet/apps" || state.location.pathname === "/fleet/placements" });
   const onServers = useRouterState({ select: (state) => state.location.pathname === "/fleet/servers" });
   const onServersViews = useRouterState({ select: (state) => state.location.pathname === "/fleet/servers" || state.location.pathname === "/fleet/updates" });
+  const ownHeader = useRouterState({ select: (state) => OWN_HEADER.has(state.location.pathname) });
 
   const add = (
     <Button
@@ -83,7 +89,9 @@ export function FleetLayout({ hub, adding: addingProp, onAddingChange }: FleetLa
       </div>
     ) : null;
 
-  if (ownsPage && !empty) {
+  // A page with a header of its own (Home, the applications, an area's face): this layout keeps only what is the
+  // fleet's to say above it.
+  if ((ownsPage || ownHeader) && !empty) {
     return (
       <FleetActionsProvider>
         <div className="flex min-w-0 flex-col gap-6">

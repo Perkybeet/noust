@@ -695,10 +695,12 @@ def _parse_metadata(
     ):
         raise recipe_error(name, "license must be an SPDX expression such as AGPL-3.0-only")
     logo = data.get("logo")
+    credit = None
     if logo is not None:
-        from noust.recipes.logos import check_logo
+        from noust.recipes.logos import check_logo, logo_credit
 
         logo = check_logo(name, logo)
+        credit = logo_credit(name, logo)
     return {
         "title": _string(name, data, "title"),
         "slogan": slogan,
@@ -712,6 +714,7 @@ def _parse_metadata(
         "category": category,
         "tags": tags,
         "logo": logo,
+        "logo_credit": credit,
         "version": version,
         "revision": revision,
         "updated": None

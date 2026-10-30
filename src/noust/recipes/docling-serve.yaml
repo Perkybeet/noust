@@ -10,7 +10,7 @@ slogan: "Running Docling as an API service"
 description: "Running Docling as an API service for document processing and conversion with AI-powered capabilities."
 category: ai
 tags: [document-processing, api, ai, conversion, pdf, office]
-logo: logo.svg
+logo: logo.png
 version: "1.38.2"
 revision: 1
 updated: 2026-10-28

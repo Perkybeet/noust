@@ -149,7 +149,7 @@ withFleet("the Fleet's views show this server and the node, each row naming its 
     ["Servers", "Servers of this fleet"],
     ["Domains", "Certificates on every server"],
     ["Backups", "Backups of every application"],
-    ["Activity", "What happened lately on every server"],
+    ["Activity", "Activity"],
   ] as const) {
     await views.getByRole("link", { name: tab, exact: true }).click();
     await expect(page.getByRole("region", { name: caption })).toBeVisible();
@@ -296,7 +296,7 @@ withFleet(
     await create.getByRole("button", { name: "Add destination" }).click();
     await confirmItsYou(page, consoleServer);
     await expect(create).toBeHidden();
-    await expect(toasts(page).getByText(`Backup destination created: ${name}`, { exact: true })).toBeVisible();
+    await expect(page.getByTestId("announcer-polite")).toHaveText(`Backup destination created: ${name}`);
     // A destination is encrypted unless the box is unticked: its key is shown once, and the dialog
     // closes only after the operator says it is somewhere safe.
     const key = page.getByRole("dialog", { name: `Encryption key for ${name}` });

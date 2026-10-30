@@ -273,9 +273,9 @@ describe("the Backups tab", () => {
     await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
     await user.click(within(confirm).getByRole("button", { name: "Continue" }));
 
-    await waitFor(() => {
-      expect([...document.querySelectorAll(".toast")].some((toast) => toast.textContent.includes("Backup deleted: b-3"))).toBe(true);
-    });
+    // Nothing pops up for what the list shows at once; the change is said to a screen reader.
+    expect(await screen.findByText("Backup deleted: b-3")).toBeInTheDocument();
+    expect(document.querySelectorAll(".toast")).toHaveLength(0);
   });
 
   it("copies a backup to a destination as a background job", async () => {
@@ -317,9 +317,9 @@ describe("the Backups tab", () => {
 
     const dialog = await screen.findByRole("alertdialog", { name: "Restore a backup of shop.example.com" });
     expect(within(dialog).getByText("b-new")).toBeInTheDocument();
-    const restore = within(dialog).getByRole("button", { name: "Restore" });
+    const restore = within(dialog).getByRole("button", { name: "Restore over shop.example.com" });
     expect(restore).toBeDisabled();
-    expect(within(dialog).getByLabelText("Restore into")).toHaveValue("shop.example.com");
+    expect(within(dialog).getByRole("combobox", { name: "Restore into" })).toHaveTextContent("shop.example.com, replacing what it runs now");
     // What destroys more starts unchecked: the .env files there now are kept unless asked.
     expect(within(dialog).getByRole("checkbox", { name: /Restore \.env files/ })).not.toBeChecked();
     expect(within(dialog).getByRole("checkbox", { name: /Check its integrity first/ })).toBeChecked();
@@ -334,6 +334,30 @@ describe("the Backups tab", () => {
       expect(backend.callsTo("POST /api/backups/b-new/restore")).toHaveLength(1);
     });
     expect(backend.callsTo("POST /api/backups/b-new/restore")[0]?.body).toEqual({ target_domain: null, restore_env: false, verify: true, schema_changed_ok: false });
+  });
+
+  it("tests a restore from the row: the newest backup is put into temporary databases, and the job is queued", async () => {
+    const backend = fakeBackend(
+      backupsRoutes([backup({ backup_id: "b-new", timestamp: ago(HOUR) })], {
+        "GET /api/apps/shop.example.com/restore-drills": () => json(200, { items: [], drill_days: 7 }),
+        "POST /api/apps/shop.example.com/restore-drills": () => json(202, { job_id: "j-drill", status: "pending", message: "Restore test queued", job: {} }),
+      }),
+    );
+    const { user } = renderConsole("/backups");
+    await user.click(within(await appRow("shop.example.com")).getByRole("button", { name: "Actions for shop.example.com" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Test a restore" }));
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/apps/shop.example.com/restore-drills")).toHaveLength(1);
+    });
+    expect(backend.callsTo("POST /api/apps/shop.example.com/restore-drills")[0]?.body).toEqual({ backup_id: null });
+  });
+
+  it("offers no restore test for an application that has nothing backed up yet", async () => {
+    fakeBackend(backupsRoutes([]));
+    const { user } = renderConsole("/backups");
+    await user.click(within(await appRow("admin.example.com")).getByRole("button", { name: "Actions for admin.example.com" }));
+    await screen.findByRole("menuitem", { name: "Back up now" });
+    expect(screen.queryByRole("menuitem", { name: "Test a restore" })).not.toBeInTheDocument();
   });
 
   it("backs one application up from its row, the application already chosen", async () => {

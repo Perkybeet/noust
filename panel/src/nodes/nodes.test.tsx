@@ -317,7 +317,7 @@ describe("the three contexts", () => {
       "/n/web-2/cron",
       "/fleet/certificates",
       "/n/web-2/logs",
-      "/n/web-2/alerts",
+      "/fleet/alerts",
       "/fleet/activity",
       "/fleet/backups",
       "/fleet/servers",

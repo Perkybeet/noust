@@ -80,6 +80,7 @@ export const backups = {
     actions: {
       viewBackups: "View backups",
       restoreLatest: "Restore the latest…",
+      testRestore: "Test a restore",
       schedule: "Schedule backups…",
       editSchedule: "Edit schedule…",
     },
@@ -206,16 +207,21 @@ export const backups = {
 
   restoreDialog: {
     title: "Restore a backup of {domain}",
-    description: "Replaces the application's files, and its databases if the backup has them, with what the backup holds. Anything written since is lost.",
+    replaceNote: "Replaces the application's files, and its databases if the backup has them, with what the backup holds. What is there now is kept until the restore has worked. Anything written since the backup is lost.",
     source: "Backup {id}, made {when}.",
-    submit: "Restore",
-    restoreInto: "Restore into",
-    restoreIntoDescription: "Another domain restores a copy there and leaves this one alone.",
+    into: "Restore into",
+    intoNew: "Another domain",
+    intoNewHint: "Restores a copy there and leaves this one alone.",
+    intoReplace: "{domain}, replacing what it runs now",
+    intoReplaceHint: "Its files are set aside first and put back if the restore fails.",
+    newName: "Domain to restore into",
+    newNameHelp: "The domain of the application that receives the copy.",
+    nameInvalid: "That is not a domain, such as shop.example.com.",
+    actionReplace: "Restore over {domain}",
+    actionNew: "Restore a copy",
     restoreEnv: "Restore .env files",
     envFromArchive: "From the backup, replacing the ones there now.",
     verifyFirst: { label: "Check its integrity first", description: "Refuses to restore a damaged or tampered backup." },
-    envKept: "The .env files there now are kept.",
-    envReplaced: "The .env files there now are replaced too.",
   },
 
   restoreFromDestination: {

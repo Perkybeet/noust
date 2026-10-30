@@ -12,7 +12,7 @@ is the one update ``noust update`` runs; neither is a second implementation.
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
@@ -23,7 +23,7 @@ from noust.recipes import (
     RecipeNotFoundError,
     categories,
     get_recipe,
-    logo_svg,
+    logo_file,
     search_recipes,
 )
 from noust.recipes.catalog import catalogue_problems
@@ -85,10 +85,12 @@ class RecipeSummaryOut(BaseModel):
         category: One of the closed list (``GET /api/recipes/categories``).
         tags: Lower-case labels.
         logo: Where the logo is served, or None.
-        logo_source: ``simple-icons`` (the collection's mark, CC0) or ``asset`` (a file of the
-            recipe); None without a logo.
+        logo_source: ``simple-icons`` (the collection's mark) or ``asset`` (a file of the
+            recipe: the project's mark with its notice, or Noust's monogram); None without a logo.
         logo_icon: The simple-icons slug, when the logo is the collection's.
-        logo_license: The licence of the mark's file when it is the collection's.
+        logo_license: The licence of the mark's file (an SPDX expression), or None for the monogram,
+            which is Noust's own.
+        logo_origin: The address the mark was taken from, at its commit or release, or None.
         version: The version of the application the recipe pins.
         revision: The recipe's own revision of that version.
         updated: When the recipe last changed (ISO date).
@@ -140,6 +142,7 @@ class RecipeSummaryOut(BaseModel):
     logo_source: str | None = None
     logo_icon: str | None = None
     logo_license: str | None = None
+    logo_origin: str | None = None
     version: str | None = None
     revision: int = 1
     updated: str | None = None
@@ -1059,34 +1062,49 @@ def get_recipe_detail(
     response_class=Response,
     responses={
         200: {
-            "description": "The recipe's logo, an SVG",
-            "content": {"image/svg+xml": {"schema": {"type": "string"}}},
+            "description": "The recipe's logo: an SVG, or a PNG where the project has no SVG",
+            "content": {
+                "image/svg+xml": {"schema": {"type": "string"}},
+                "image/png": {"schema": {"type": "string", "format": "binary"}},
+            },
         }
     },
 )
-def get_recipe_logo(name: str, session: Annotated[dict, Depends(get_current_session)]) -> Response:
+def get_recipe_logo(
+    name: str,
+    session: Annotated[dict, Depends(get_current_session)],
+    scheme: Annotated[
+        Literal["light", "dark"],
+        Query(
+            description="The theme the logo will be drawn on: a mark that would not read on it is recoloured."
+        ),
+    ] = "light",
+) -> Response:
     """
     Serve a recipe's logo.
 
-    The file is validated when the recipe loads (no script, no style, no link:
-    :mod:`noust.recipes.logos`), so it needs nothing the console's CSP forbids,
-    wherever it is shown, and it is sent ``nosniff``.
+    The file is judged by the console's policy (no script, no style, no link outside itself:
+    :mod:`noust.recipes.logos`) when the recipe loads and again as it is read, so it needs
+    nothing the console's CSP forbids, wherever it is shown, and it is sent ``nosniff``. The
+    theme the console shows decides the colours of a mark that would be lost on it
+    (:mod:`noust.recipes.logo_paint`).
 
     Args:
         name: The recipe.
         session: The authenticated session.
+        scheme: ``light`` or ``dark``.
 
     Returns:
-        The SVG.
+        The SVG, or the PNG of a project that has no SVG.
 
     Raises:
         HTTPException: 404 when no recipe has that name, or it has no logo.
     """
     try:
-        svg = logo_svg(name)
+        found = logo_file(name, scheme=scheme)
     except RecipeNotFoundError as exc:
         raise HTTPException(status_code=404, detail=exc.message) from exc
-    return Response(content=svg, media_type="image/svg+xml", headers=_LOGO_HEADERS)
+    return Response(content=found.content, media_type=found.media_type, headers=_LOGO_HEADERS)
 
 
 @router.post("/{name}/install", response_model=JobAcceptedResponse, status_code=202)

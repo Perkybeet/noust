@@ -1,0 +1,7 @@
+Mark of: Lidarr
+Source: https://github.com/Lidarr/Lidarr/blob/e6709030a7826959cfc0e827f998897a4cfae6f6/frontend/src/Content/Images/logo.svg
+Licence: GPL-3.0-only
+Copyright: Copyright (C) 2007 Free Software Foundation, Inc. <http://fsf.org/>
+Terms: no rule on the project's logo was found in its repository, its documents or its site (checked 2026-10-29)
+Retrieved: 2026-10-29
+Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged

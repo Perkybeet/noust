@@ -5364,6 +5364,7 @@ MachineMemory = TypedDict("MachineMemory", {
 MachineUnits = TypedDict("MachineUnits", {
     "failed": Required[int],
     "running": Required[int],
+    "scheduled": NotRequired[int],
     "stopped": Required[int],
 })
 
@@ -7308,6 +7309,7 @@ RecipeOut = TypedDict("RecipeOut", {
     "logo": NotRequired[Union[str, None]],
     "logo_icon": NotRequired[Union[str, None]],
     "logo_license": NotRequired[Union[str, None]],
+    "logo_origin": NotRequired[Union[str, None]],
     "logo_source": NotRequired[Union[str, None]],
     "min_noust": NotRequired[Union[str, None]],
     "name": Required[str],
@@ -7381,6 +7383,7 @@ RecipeSummaryOut = TypedDict("RecipeSummaryOut", {
     "logo": NotRequired[Union[str, None]],
     "logo_icon": NotRequired[Union[str, None]],
     "logo_license": NotRequired[Union[str, None]],
+    "logo_origin": NotRequired[Union[str, None]],
     "logo_source": NotRequired[Union[str, None]],
     "min_noust": NotRequired[Union[str, None]],
     "name": Required[str],
@@ -8769,6 +8772,7 @@ ServiceInfo = TypedDict("ServiceInfo", {
     "name": Required[str],
     "pid": NotRequired[Union[int, None]],
     "result": NotRequired[Union[str, None]],
+    "scheduled": NotRequired[bool],
     "status": Required[str],
     "sub_state": NotRequired[Union[str, None]],
     "tags": NotRequired[list[str]],

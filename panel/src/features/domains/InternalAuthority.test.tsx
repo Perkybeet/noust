@@ -65,7 +65,7 @@ function page(routes: Record<string, RouteHandler> = {}) {
     "GET /api/certs/ca/trust": () => json(200, GUIDES),
     ...routes,
   });
-  const harness = renderConsole("/domains");
+  const harness = renderConsole("/domains/certificates");
   return { ...harness, backend };
 }
 

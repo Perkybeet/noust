@@ -5,13 +5,18 @@ import { INTENT_ORDER, appColumn, columnKindOf, currentItem, serverColumn } from
 const everything = { staged: true } as const;
 
 describe("which resource has a second column", () => {
-  it("is an application's page, the server's, and Settings: and nothing else", () => {
+  it("is an application's page, the server's, Databases and Settings: and nothing else", () => {
     expect(columnKindOf("/apps/shop.example.net")).toBe("app");
     expect(columnKindOf("/apps/shop.example.net/settings/source")).toBe("app");
     expect(columnKindOf("/server")).toBe("server");
     expect(columnKindOf("/server/services/noust-web")).toBe("server");
     expect(columnKindOf("/settings/tokens")).toBe("settings");
-    for (const path of ["/", "/apps", "/apps/new", "/databases", "/domains/sites", "/fleet/apps", "/alerts", "/account"]) expect(columnKindOf(path), path).toBeNull();
+    for (const path of ["/", "/apps", "/apps/new", "/domains/sites", "/fleet/apps", "/alerts", "/account"]) expect(columnKindOf(path), path).toBeNull();
+  });
+
+  it("has Databases' list, its database servers and one server's settings, and not a database's own page, which has its tabs", () => {
+    for (const path of ["/databases", "/databases/", "/databases/servers", "/databases/engines/postgresql/settings"]) expect(columnKindOf(path), path).toBe("databases");
+    for (const path of ["/databases/postgresql/shop", "/databases/postgresql/shop/connect", "/databases/postgresql@pg16/shop/data"]) expect(columnKindOf(path), path).toBeNull();
   });
 
   it("does not take the wizard that makes an application for one", () => {

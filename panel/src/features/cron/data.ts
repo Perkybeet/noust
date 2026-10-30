@@ -62,21 +62,21 @@ export function runStatus(result: string | null | undefined, locale: Locale = ge
   return { state: "failed", label: translate(locale, "common.words.failedFeminine"), detail: word };
 }
 
-const SYSTEMD_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+export const SYSTEMD_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 const TIME = "(\\d{1,2}):(\\d{2})(?::00)?";
-const EVERY_HOUR = /^\*-\*-\* \*:00(?::00)?$/;
+export const EVERY_HOUR = /^\*-\*-\* \*:00(?::00)?$/;
 const EVERY_MINUTES = /^\*-\*-\* \*:0{0,2}\/(\d{1,2})(?::00)?$/;
-const EVERY_DAY = new RegExp(`^\\*-\\*-\\* ${TIME}$`);
+export const EVERY_DAY = new RegExp(`^\\*-\\*-\\* ${TIME}$`);
 const WORKDAYS = new RegExp(`^Mon\\.\\.Fri \\*-\\*-\\* ${TIME}$`);
-const ONE_DAY = new RegExp(`^(${SYSTEMD_DAYS.join("|")}) \\*-\\*-\\* ${TIME}$`);
-const MONTHLY = new RegExp(`^\\*-\\*-(\\d{1,2}) ${TIME}$`);
+export const ONE_DAY = new RegExp(`^(${SYSTEMD_DAYS.join("|")}) \\*-\\*-\\* ${TIME}$`);
+export const MONTHLY = new RegExp(`^\\*-\\*-(\\d{1,2}) ${TIME}$`);
 
 function clock(hours: string | undefined, minutes: string | undefined): string {
   return `${(hours ?? "").padStart(2, "0")}:${minutes ?? "00"}`;
 }
 
 /** A systemd day name ("Mon") as the language writes it in a sentence ("Monday", "lunes"). */
-function weekdayName(day: string, locale: Locale): string {
+export function weekdayName(day: string, locale: Locale): string {
   // 2024-01-01 was a Monday: the index into the week is the offset from it.
   const date = new Date(Date.UTC(2024, 0, 1 + SYSTEMD_DAYS.indexOf(day as (typeof SYSTEMD_DAYS)[number])));
   return new Intl.DateTimeFormat(locale, { weekday: "long", timeZone: "UTC" }).format(date);

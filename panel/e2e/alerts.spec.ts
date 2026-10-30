@@ -36,9 +36,9 @@ test("a rule is two clicks from the list, says what it watches, and goes when it
   problems.expect(/status of 400 .* \/api\/alerts\/rules\/disk-full$/);
   await signIn(page, consoleServer, "/alerts");
   await expect(page.getByText("No alert rules yet")).toBeVisible();
-  await expect(page.getByRole("button", { name: "New rule" })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "New alert" })).toHaveCount(1);
 
-  // The two clicks: New rule, Save rule. What is typed is not a click.
+  // The two clicks: New alert, Save alert. What is typed is not a click.
   await page.evaluate(() => {
     (window as unknown as { __clicks: number }).__clicks = 0;
     document.addEventListener(
@@ -49,18 +49,18 @@ test("a rule is two clicks from the list, says what it watches, and goes when it
       true,
     );
   });
-  await page.getByRole("button", { name: "New rule" }).first().click();
-  const drawer = page.getByRole("dialog", { name: "New alert rule" });
+  await page.getByRole("button", { name: "New alert" }).first().click();
+  const drawer = page.getByRole("dialog", { name: "New alert" });
   await drawer.getByLabel("Name").fill("disk-full");
   await drawer.getByLabel("Limit").fill("plenty");
   await stillness(page);
   await expectNoA11yViolations(page, "the new alert rule drawer");
   // A limit that is not a number: the server's words, beside the field.
-  await drawer.getByRole("button", { name: "Save rule" }).click();
+  await drawer.getByRole("button", { name: "Save alert" }).click();
   await expect(drawer.getByText("Not a limit: 'plenty'")).toBeVisible();
   await expect(drawer.getByLabel("Limit")).toHaveAttribute("aria-invalid", "true");
   await drawer.getByLabel("Limit").fill("85%");
-  await drawer.getByRole("button", { name: "Save rule" }).click();
+  await drawer.getByRole("button", { name: "Save alert" }).click();
   await expect(drawer).toBeHidden();
   // One to open it, and one to save it, each time it was tried.
   expect(await page.evaluate(() => (window as unknown as { __clicks: number }).__clicks)).toBeLessThanOrEqual(4);
@@ -93,7 +93,7 @@ test("a rule is two clicks from the list, says what it watches, and goes when it
 test("the built-in checks are one form: only what changed is written, and the bar says so", async ({ page, consoleServer, problems }) => {
   problems.expect(/status of 403 .* \/api\/config$/);
   problems.expect(/status of 400 .* \/api\/config$/);
-  await signIn(page, consoleServer, "/alerts");
+  await signIn(page, consoleServer, "/alerts/checks");
   const disk = page.getByLabel("Almost full at (%)");
   await expect(disk).toHaveValue("90");
   await expect(page.getByLabel("Days before they expire")).toHaveValue("14");

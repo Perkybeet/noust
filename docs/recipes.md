@@ -46,7 +46,7 @@ The same catalogue is the API's:
 | `GET /api/recipes?q=&category=&tag=&kind=&available=&unavailable_code=&tested=` | The catalogue, with search and filters |
 | `GET /api/recipes/categories` | The categories that hold a recipe, with how many |
 | `GET /api/recipes/{name}` | One recipe in full: variables (never their values), images, ports it opens, health check, notes |
-| `GET /api/recipes/{name}/logo` | Its logo, an SVG that needs nothing the console's CSP forbids |
+| `GET /api/recipes/{name}/logo?scheme=light\|dark` | Its logo, drawn for the theme the console shows: an SVG that needs nothing the console's CSP forbids, or a PNG where the project has no SVG |
 | `POST /api/recipes/{name}/install` | Queue an install: `{domain, variables, port, ssl, ...}` |
 | `GET /api/recipes/installed` | What was installed from a recipe, at which version, and whether it is behind |
 | `POST /api/recipes/installed/{domain}/update` | Queue the update to the catalogue's version |

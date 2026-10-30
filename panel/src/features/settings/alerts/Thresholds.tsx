@@ -11,12 +11,10 @@
 
 import { useState } from "react";
 
-import { Section } from "../../../components/page/Section";
 import { Card } from "../../../components/ui/Card";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
-import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 import { useT } from "../../../i18n";
 import { cx } from "../../../lib/cx";
 import type { PlainKey } from "../../../i18n";
@@ -235,7 +233,7 @@ export function Thresholds({ form }: { form: SettingsForm<Record<string, string>
   // What a check held when it was ticked off, so ticking it again does not forget the number.
   const [kept, setKept] = useState<Readonly<Record<string, string>>>({});
   return (
-    <Section icon={OBJECT_ICONS.alert} title={t("alerts.thresholds.title")} description={t("alerts.thresholds.description")}>
+    <div className="flex min-w-0 flex-col gap-4">
       <FormFailure error={form.formError} title={t("alerts.thresholds.errorTitle")} />
       <Card padding="none">
         <div className="flex flex-col divide-y divide-border">
@@ -252,6 +250,6 @@ export function Thresholds({ form }: { form: SettingsForm<Record<string, string>
           ))}
         </div>
       </Card>
-    </Section>
+    </div>
   );
 }

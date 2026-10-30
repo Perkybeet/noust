@@ -1,5 +1,3 @@
-import { useState } from "react";
-
 import { cx } from "../../lib/cx";
 import { LOGOS } from "./logos/logoData";
 import type { LogoSlug } from "./logos/logoData";
@@ -38,7 +36,6 @@ function brandColour(logo: LogoSlug): string {
  * The tile is not a button. A logo that is chosen sits inside what is (a recipe card).
  */
 export function LogoTile({ logo, size = "md", label = false, className }: LogoTileProps) {
-  const data = LOGOS[logo];
   const sizes = SIZES[size];
   return (
     <span
@@ -46,50 +43,38 @@ export function LogoTile({ logo, size = "md", label = false, className }: LogoTi
       data-logo={logo}
       className={cx("elev-carved-fine inline-flex shrink-0 items-center justify-center bg-bg-sunken", sizes.tile, className)}
     >
-      <svg
-        viewBox="0 0 24 24"
-        focusable="false"
-        className={sizes.mark}
-        // The brand's colour is data of the logo (logoData.ts), not a token: it is set through the CSSOM, which the policy allows.
-        style={{ color: brandColour(logo) }}
-        {...(label ? { role: "img", "aria-label": data.title } : { "aria-hidden": true })}
-      >
-        <path d={data.path} fill="currentColor" />
-      </svg>
+      <LogoMark logo={logo} label={label} className={sizes.mark} />
     </span>
   );
 }
 
-export interface ImageLogoTileProps {
-  /** Where the logo is served from (a recipe's `logo`), or null when it has none: the letters stand in. */
-  src: string | null;
-  /** Two letters of the thing's name, for when there is no logo or it did not load. */
-  fallback: string;
-  size?: "sm" | "md" | "lg";
+export interface LogoMarkProps {
+  logo: LogoSlug;
+  /** Names the logo when it says what the thing is and no text beside it does. Without it the logo is decoration. */
+  label?: boolean;
+  /** The size: a `size-icon-*` utility, which a line of text or a list's rows are measured in. */
   className?: string;
 }
 
 /**
- * The logo of an application the console does not package (a recipe's, served as a file of its own by the
- * server, an SVG held to a closed list of elements or a PNG) in the same carved tile as a packaged mark. It is
- * shown through `<img>`, never inlined, so it needs nothing the Content Security Policy forbids. Decoration:
- * the name of what it is is always beside it. When there is no logo, or it fails to load, two letters stand in,
- * in the same box, so a card never changes size and nothing is drawn that is not a real mark or an honest gap.
+ * A real logo with no tile, in its brand's colour: for the line of a list that is about an engine or an
+ * application (the side column's engines), where a tile of 32px would be taller than its row. It is the
+ * mark of `LogoTile` and nothing else: an icon of the console's own is never drawn with this.
  */
-export function ImageLogoTile({ src, fallback, size = "md", className }: ImageLogoTileProps) {
-  const sizes = SIZES[size];
-  // The address a failure was seen for: a different logo in the same place gets its own try.
-  const [failedFor, setFailedFor] = useState<string | null>(null);
-  const drawn = src !== null && failedFor !== src;
+export function LogoMark({ logo, label = false, className }: LogoMarkProps) {
+  const data = LOGOS[logo];
   return (
-    <span data-slot="logo-tile" className={cx("elev-carved-fine inline-flex shrink-0 items-center justify-center bg-bg-sunken", sizes.tile, className)}>
-      {drawn ? (
-        <img src={src} alt="" loading="lazy" decoding="async" onError={() => setFailedFor(src)} className={cx("object-contain", sizes.mark)} />
-      ) : (
-        <span aria-hidden="true" translate="no" className="text-13 font-medium text-fg-muted">
-          {fallback}
-        </span>
-      )}
-    </span>
+    <svg
+      viewBox="0 0 24 24"
+      focusable="false"
+      data-slot="logo-mark"
+      data-logo={logo}
+      className={cx("shrink-0", className)}
+      // The brand's colour is data of the logo (logoData.ts), not a token: it is set through the CSSOM, which the policy allows.
+      style={{ color: brandColour(logo) }}
+      {...(label ? { role: "img", "aria-label": data.title } : { "aria-hidden": true })}
+    >
+      <path d={data.path} fill="currentColor" />
+    </svg>
   );
 }

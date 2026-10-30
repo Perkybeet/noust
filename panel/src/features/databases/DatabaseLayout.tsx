@@ -12,6 +12,7 @@ import type { PageHeaderProps } from "../../app/PageHeader";
 import { DetailPage } from "../../components/page/DetailPage";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Button, buttonClassName } from "../../components/ui/Button";
+import { CopyConnection } from "./CopyConnection";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { MenuItem, MenuSeparator } from "../../components/ui/Menu";
@@ -182,6 +183,8 @@ function LayoutBody({ engine, name }: LayoutBodyProps) {
           ...header,
           status: state !== null ? <StatusPill state={state.state} label={state.label} /> : <Skeleton className="h-6 w-24 rounded-pill" />,
           meta: data !== undefined ? <Facts overview={data} t={t} /> : <FactsSkeleton />,
+          // Where a person who has just made a database for an application looks for its connection: beside the name it is the connection of.
+          ...(links.length > 0 && database?.missing !== true ? { secondaryActions: <CopyConnection engine={engine} name={name} variant="secondary" size="md" /> } : {}),
           ...(dumps
             ? {
                 primaryAction: (

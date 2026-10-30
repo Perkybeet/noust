@@ -10,7 +10,7 @@ slogan: "Free self-hosted Drizzle Studio on steroids"
 description: "Drizzle Gateway is a self-hosted database gateway that allows you to connect to your databases from anywhere."
 category: backend
 tags: [drizzle, gateway, self-hosted, open-source, low-code, database, backend]
-logo: logo.svg
+logo: simple-icons:drizzle
 version: "1.7.0"
 revision: 1
 updated: 2026-10-28

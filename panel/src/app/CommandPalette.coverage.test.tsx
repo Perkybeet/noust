@@ -85,7 +85,7 @@ describe("the palette over the register", () => {
   it("says where each result lives, to the right, when its name alone does not", () => {
     // A screen with a phrase of its own says its place beside it; one named by its place does not repeat it.
     const probes = commands.find((command) => command.id === "page:/alerts/probes");
-    expect(probes).toMatchObject({ label: "Probes and status page settings", detail: "Alerts › Probes and status page" });
+    expect(probes).toMatchObject({ label: "Probes", detail: "Alerts › Probes" });
     const updates = commands.find((command) => command.id === "page:/server/updates");
     // The area the machine's screens are under is called Servers now (4.1), and a screen named by its place says it.
     expect(updates).toMatchObject({ label: "Servers › System updates" });

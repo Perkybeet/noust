@@ -351,7 +351,7 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
   }
 
   return (
-    <DomainsListPage
+    <DomainsListPage section="certificates"
       {...(empty
         ? {}
         : {

@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Cloud, KeyRound, Lock, Pencil } from "lucide-react";
 import { useState } from "react";
 
+import { announce } from "../../app/Announcer";
 import { isApiError } from "../../api/client";
 import type { Destination } from "../../api/queries/backupDestinations";
 import { backupDestinationsQuery } from "../../api/queries/backupDestinations";
@@ -176,8 +177,12 @@ export function DestinationsPage() {
     test.mutate(name, {
       onSuccess: (result) => {
         setTestStates((current) => ({ ...current, [name]: { checking: false, ok: result.ok } }));
+        // The row says it is reachable; the folders found there are what the row does not say.
         const entries = result.entries?.join(", ") ?? "";
-        if (result.ok) toast.success(t("backups.destinations.toast.reachable", { name }), entries !== "" ? { detail: entries } : {});
+        if (result.ok) {
+          if (entries !== "") toast.info(t("backups.destinations.toast.reachable", { name }), { detail: entries });
+          else announce(t("backups.destinations.toast.reachable", { name }));
+        }
         else toast.error(t("backups.destinations.toast.unreachable", { name }));
       },
       onError: (error) => {

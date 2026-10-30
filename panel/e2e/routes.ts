@@ -79,7 +79,7 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "settings-variables", path: "/settings/variables" },
   { name: "settings-secret-managers", path: "/settings/secret-managers" },
   { name: "databases", path: "/databases" },
-  { name: "databases-engines", path: "/databases/engines" },
+  { name: "databases-servers", path: "/databases/servers" },
   { name: "database-engine-settings", path: "/databases/engines/postgresql/settings" },
   { name: "database", path: "/databases/postgresql/example_production" },
   { name: "database-data", path: "/databases/postgresql/example_production/data?schema=public&table=orders" },
@@ -96,8 +96,10 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "cron", path: "/cron" },
   { name: "domains", path: "/domains" },
   { name: "domains-sites", path: "/domains/sites" },
+  { name: "domains-certificates", path: "/domains/certificates" },
   { name: "domains-site", path: "/domains/sites/example.net" },
   { name: "domains-dns", path: "/domains/dns" },
+  { name: "domains-noust-dns", path: "/domains/dns/noust" },
   { name: "domains-tunnels", path: "/domains/tunnels" },
   { name: "domains-ports", path: "/domains/ports" },
   { name: "backups", path: "/backups" },
@@ -134,6 +136,10 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "settings-log-shipping", path: "/settings/log-shipping" },
   // 3.4: addresses asked from outside the application, and the public status page.
   { name: "alerts-probes", path: "/alerts/probes" },
+  // 4.1: the limits of the checks the monitor makes by itself, the status page the probes make up, and the measurements.
+  { name: "alerts-checks", path: "/alerts/checks" },
+  { name: "alerts-status", path: "/alerts/status" },
+  { name: "alerts-metrics", path: "/alerts/metrics" },
   // 3.4: roles where they are needed, single sign-on, the MCP endpoint, a manifest and the API.
   { name: "settings-access", path: "/settings/access" },
   { name: "settings-sso", path: "/settings/sso" },

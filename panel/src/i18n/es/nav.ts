@@ -99,6 +99,7 @@ export const nav: Catalog<typeof en> = {
     backups: { label: "Copias de seguridad" },
     updates: { label: "Actualizaciones", goTo: "Ir a las actualizaciones de la flota" },
     activity: { label: "Actividad" },
+    alerts: { label: "Alertas" },
   },
   appTabs: {
     overview: { label: "Resumen" },
@@ -126,9 +127,24 @@ export const nav: Catalog<typeof en> = {
       command: "Ajustes de canales",
     },
     alerts: {
-      label: "Reglas de alerta",
+      label: "Alertas",
       keywords: "alertas reglas de alerta umbral cpu memoria disco activa monitor cuándo avisar alerts",
-      command: "Ajustes de reglas de alerta",
+      command: "Reglas de alerta",
+    },
+    checks: {
+      label: "Comprobaciones",
+      keywords: "comprobaciones umbrales disco lleno caducidad certificado copia que falta token de api actualizaciones del sistema monitor límites checks built-in",
+      command: "Comprobaciones que hace el monitor",
+    },
+    statusPage: {
+      label: "Página de estado",
+      keywords: "página de estado pública disponibilidad componentes publicar incidencia status page",
+      command: "Página de estado",
+    },
+    metrics: {
+      label: "Métricas",
+      keywords: "métricas cpu memoria disco red carga swap consumo uso gráficas historial comparar servidores metrics",
+      command: "Métricas de los servidores",
     },
     integrations: {
       label: "Integraciones",
@@ -136,9 +152,9 @@ export const nav: Catalog<typeof en> = {
       command: "Ajustes de integraciones",
     },
     probes: {
-      label: "Sondas y estado",
+      label: "Sondas",
       keywords: "sondas disponibilidad monitor página de estado comprobación externa dirección http caída ping sitio web probes uptime status page",
-      command: "Ajustes de sondas y página de estado",
+      command: "Sondas",
     },
     logShipping: {
       label: "Registros y métricas",
@@ -191,12 +207,14 @@ export const nav: Catalog<typeof en> = {
   renamed: {
     overview: "Resumen",
     cron: "Cron",
+    engines: "Motores",
     backups: "Copias de seguridad",
     server: "Servidor",
     recipes: "Recetas",
     recipesInstalled: "Recetas instaladas",
     projects: "Proyectos",
     domains: "Dominios y certificados",
+    webServerSites: "Sitios del servidor web",
     notifications: "Notificaciones",
     alerts: "Alertas",
     console: "Acceso a la consola",

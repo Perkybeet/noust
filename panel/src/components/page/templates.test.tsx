@@ -58,6 +58,18 @@ describe("ListPage (T1)", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Backups" }).closest("header")).not.toHaveClass("mb-8");
   });
 
+  it("keeps the blocks of the list apart: two children of the content are a column with a gap, not one stuck to the other", async () => {
+    const { container } = await renderRouted(
+      <ListPage header={{ title: "Sites" }}>
+        <section aria-label="Names no site serves">a card</section>
+        <table aria-label="Sites" />
+      </ListPage>,
+    );
+    const content = container.querySelector('[data-slot="content"]');
+    expect(content).toHaveClass("flex", "flex-col", "gap-4");
+    expect(content?.children).toHaveLength(2);
+  });
+
   it("has no accessibility violations", async () => {
     const { container } = await renderRouted(
       <ListPage header={{ title: "Backups" }} filters={<div role="search" aria-label="Filter backups" />}>

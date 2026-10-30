@@ -405,7 +405,7 @@ class TestFleetStatus:
         up, down = summaries
         assert up["reachable"] and up["status"] == "reachable"
         assert up["apps"] == {"running": 3, "failed": 1, "stopped": 0, "static": 2, "unmanaged": 0}
-        assert up["units"] == {"running": 5, "failed": 1, "stopped": 0}
+        assert up["units"] == {"running": 5, "failed": 1, "stopped": 0, "scheduled": 0}
         assert up["certificates_expiring"] == 1
         assert up["warnings"] == []
         assert not down["reachable"] and down["status"] == "unreachable"

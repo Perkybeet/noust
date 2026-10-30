@@ -10,6 +10,7 @@ import { useT } from "../../i18n";
 import { parseTimestamp } from "../../lib/format";
 import type { CronJob } from "./data";
 import { calendarWords, runStatus } from "./data";
+import { choiceOf } from "./schedule";
 
 export interface CronJobsTableProps {
   jobs: readonly CronJob[];
@@ -68,10 +69,12 @@ export function CronJobsTable({ jobs, caption, loading = false, empty, onRowActi
       cell: (row) => (
         <span className="inline-flex min-w-0 flex-col align-top">
           <span className="text-fg">{calendarWords(row.schedule, row.on_calendar, t.locale)}</span>
-          {/* The expression as written, beside its words on a desktop; a phone's card keeps the words. */}
-          <Mono tone="faint" truncate className="text-12 max-sm:hidden">
-            {row.on_calendar}
-          </Mono>
+          {/* The expression as written only when the words cannot say it (a custom schedule); a phone's card keeps the words. */}
+          {choiceOf(row).frequency === "custom" ? (
+            <Mono tone="faint" truncate className="text-12 max-sm:hidden">
+              {row.on_calendar}
+            </Mono>
+          ) : null}
         </span>
       ),
       sortValue: (row) => row.schedule,

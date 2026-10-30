@@ -392,7 +392,9 @@ def test_the_overview_lists_it_as_a_warning(runner: FakeRunner, store: NoustStor
         {"name": "converter-example-org", "active": "inactive", "sub": "dead", "app": CONVERTER}
     ]
 
-    items, _total = overview._attention(store, services, lambda: [], lambda: [], [stack()])
+    items, _total = overview._attention(
+        store, services, lambda: [], lambda: [], lambda: [], lambda: [], [stack()]
+    )
     figure = overview._apps_figure(machine.classify_apps(services))
 
     (item,) = [item for item in items if item["id"] == f"app:{CONVERTER}"]

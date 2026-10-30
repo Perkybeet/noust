@@ -9,6 +9,7 @@ import {
   formatCount,
   formatDate,
   formatDateTime,
+  formatMonth,
   formatDuration,
   formatPercent,
   formatUptime,
@@ -176,6 +177,15 @@ describe("formatRelative", () => {
 describe("formatDateTime", () => {
   it("prints the moment the way logs do", () => {
     expect(formatDateTime(new Date(2026, 8, 5, 7, 3, 9))).toMatch(/^2026-09-05 07:03:09( \S+)?$/);
+  });
+});
+
+describe("formatMonth", () => {
+  it("says the month and the year, on the day the calendar date is written, whatever the zone", () => {
+    // The last second of a month in UTC is already the next one a few hours east of it.
+    const lastSecond = new Date(Date.UTC(2029, 10, 30, 23, 59, 59));
+    expect(formatMonth(lastSecond, "en")).toBe("Nov 2029");
+    expect(formatMonth(lastSecond, "es")).toMatch(/^nov\.? 2029$/);
   });
 });
 

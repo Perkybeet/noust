@@ -235,6 +235,14 @@ export function formatDate(date: Date, { year = true }: { year?: boolean } = {},
   return dateFormat(locale, year ? { year: "numeric", month: "short", day: "numeric" } : { month: "short", day: "numeric" }).format(date);
 }
 
+/**
+ * A month and its year, "Nov 2029" ("nov 2029" in Spanish): the precision a date in the future of
+ * a project's support is given in. Read in UTC, so the day a calendar date is written on is the one drawn.
+ */
+export function formatMonth(date: Date, locale: Locale = getLocale()): string {
+  return dateFormat(locale, { year: "numeric", month: "short", timeZone: "UTC" }).format(date);
+}
+
 /** A 24-hour clock, "14:05": the way server logs print time, and short enough for an axis. */
 export function formatClock(date: Date, locale: Locale = getLocale()): string {
   return dateFormat(locale, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(date);

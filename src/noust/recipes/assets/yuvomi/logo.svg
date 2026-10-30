@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Yuvomi">
-  <title>Yuvomi</title>
-  <rect width="64" height="64" rx="14" fill="#24292f"/>
-  <text x="32" y="41" text-anchor="middle" font-family="sans-serif" font-size="26" font-weight="700" fill="#ffffff">YU</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" role="img" viewBox="0 0 160 160" fill="none"><title>Yuvomi</title><defs><linearGradient id="yuvomi-1" x1="0" y1="0" x2="160" y2="160" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#8b5cf6"/><stop offset="100%" stop-color="#6c3aed"/></linearGradient><linearGradient id="yuvomi-2" x1="0" y1="0" x2="0" y2="160" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffffff" stop-opacity=".14"/><stop offset=".55" stop-color="#ffffff" stop-opacity="0"/></linearGradient></defs><rect width="160" height="160" rx="36" fill="url(#yuvomi-1)"/><rect width="160" height="160" rx="36" fill="url(#yuvomi-2)"/><g fill="#ffffff" fill-opacity=".82"><circle cx="64" cy="72" r="27"/><circle cx="100" cy="78" r="25"/><circle cx="80" cy="106" r="24"/></g></svg>

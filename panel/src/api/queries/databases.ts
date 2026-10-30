@@ -14,6 +14,9 @@ import { queryOptions } from "@tanstack/react-query";
 import { request } from "../client";
 import type { BodyOf, QueryOf, ResponseOf } from "../client";
 
+export type ServerList = ResponseOf<"/api/databases/servers", "get">;
+/** A database server: what a database runs on (the system's engine, or a container of Noust's, or an application's own). */
+export type DbServer = ServerList["servers"][number];
 export type EngineList = ResponseOf<"/api/databases/engines", "get">;
 export type Engine = EngineList["engines"][number];
 export type SupportNotice = NonNullable<Engine["support"]>;
@@ -73,6 +76,8 @@ export type SqliteCheck = ResponseOf<"/api/apps/{domain}/sqlite/check", "post">;
 
 export const databaseKeys = {
   all: ["databases"] as const,
+  /** The database servers, in one list: the system's engines and the containers. */
+  servers: ["databases", "servers"] as const,
   engines: ["databases", "engines"] as const,
   engineLogs: (engine: string) => ["databases", "engines", engine, "logs"] as const,
   engineSettings: (engine: string) => ["databases", "engines", engine, "settings"] as const,
@@ -111,6 +116,17 @@ export const databaseKeys = {
   appSqlite: (domain: string) => ["databases", "app", domain, "sqlite"] as const,
   plan: (domain: string, engine: string) => ["databases", "plan", domain, engine] as const,
 };
+
+/**
+ * Every database server of this machine with its default and where its version stands in its project's
+ * support. A node older than 4.1 does not have it: the page asks `useNodeCapability` first and draws the
+ * servers from `enginesQuery` there (`features/databases/servers.ts`, `serversFromEngines`).
+ */
+export const serversQuery = () =>
+  queryOptions({
+    queryKey: databaseKeys.servers,
+    queryFn: ({ signal }) => request("get", "/api/databases/servers", { signal }),
+  });
 
 export const enginesQuery = () =>
   queryOptions({

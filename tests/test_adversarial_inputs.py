@@ -39,6 +39,7 @@ from hypothesis import strategies as st
 from noust.core import domain_certificates, outbound
 from noust.core.exceptions import NoustError, SecurityError, ValidationError
 from noust.managers import site_routes
+from noust.recipes import logo_paint, logo_png, logo_sanitize, logos
 from noust.validators import (
     container,
     domain,
@@ -1448,3 +1449,161 @@ class TestTheRecordsOfAZoneOfNoustDns:
         verdict(dns_zone.check_record_type, data)
         verdict(dns_zone.check_record_name, data, "example.com")
         verdict(dns_zone.check_record, "TXT", data)
+
+
+# ---------------------------------------------------------------------------
+# A logo a project drew, served to a browser from the console's own origin
+# ---------------------------------------------------------------------------
+
+SVG_HEAD = '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24"'
+SVG_FRAGMENTS = [
+    "<script>alert(1)</script>",
+    '<script xlink:href="https://evil.example/x.js"/>',
+    '<foreignObject width="9" height="9"><div xmlns="http://www.w3.org/1999/xhtml">x</div></foreignObject>',
+    '<image href="https://evil.example/x.png" width="9" height="9"/>',
+    '<image xlink:href="data:image/png;base64,iVBORw0KGgo=" width="9" height="9"/>',
+    '<use href="https://evil.example/sprite.svg#a"/>',
+    '<use xlink:href="data:image/svg+xml;base64,PHN2Zy8+"/>',
+    '<a xlink:href="javascript:alert(1)"><path d="M0 0h9v9z"/></a>',
+    "<style>@import url(https://evil.example/x.css);path{fill:url(http://evil.example/p.svg#p)}</style>",
+    '<path d="M0 0h9v9z" onload="alert(1)" onclick="alert(2)" onerror="alert(3)"/>',
+    '<path d="M0 0h9v9z" style="fill:url(https://evil.example/a.svg#x);stroke:expression(alert(1))"/>',
+    '<path d="M0 0h9v9z" fill="url(//evil.example/a.svg#x)" stroke="url(file:///etc/passwd)"/>',
+    '<path d="M0 0h9v9z" fill="java&#115;cript:alert(1)"/>',
+    '<path d="M0 0h9v9z" fill="url(#missing)" clip-path="url(#missing)"/>',
+    '<set attributeName="href" to="javascript:alert(1)"/>',
+    '<animate attributeName="fill" values="url(https://evil.example/a)" dur="1s"/>',
+    '<mask id="m"><rect width="9" height="9"/></mask><path d="M0 0h9v9z" mask="url(#m)"/>',
+    '<pattern id="p" width="2" height="2"><rect width="1" height="1"/></pattern><path d="M0 0h9v9z" fill="url(#p)"/>',
+    '<text x="1" y="1">x</text>',
+    '<path d="M0 0h9v9z"/>',
+    '<g id="a"><use href="#a"/></g><use href="#a"/>',
+    '<svg><path d="M0 0h9v9z"/></svg>',
+    "<!-- a comment --><?xml-stylesheet href='https://evil.example/a.css'?>",
+    '<path d="M0 0 L' + "1 " * 4000 + 'z"/>',
+    '<path d="' + "M0 0 " * 10 + 'e1e999 z"/>',
+    '<path d="M0 0a1 1 0 011 1" transform="matrix(1e308,0,0,1e308,0,0)"/>',
+]
+SVG_DOCTYPES = [
+    "",
+    '<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">',
+    '<!DOCTYPE svg [<!ENTITY a "aaaaaaaaaa"><!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;">]>',
+    '<!DOCTYPE svg [<!ENTITY x SYSTEM "file:///etc/passwd">]>',
+]
+HOSTILE_SVG = st.builds(
+    lambda doctype, attributes, fragments: doctype
+    + SVG_HEAD
+    + attributes
+    + ">"
+    + "".join(fragments)
+    + "</svg>",
+    st.sampled_from(SVG_DOCTYPES),
+    st.sampled_from(
+        [
+            "",
+            ' onload="alert(1)"',
+            ' style="fill:url(https://evil.example/a)"',
+            ' xml:base="https://evil.example/"',
+        ]
+    ),
+    st.lists(st.sampled_from(SVG_FRAGMENTS), max_size=6),
+)
+#: What nothing served from the console's origin may contain, however the file got there.
+ACTIVE_SVG = re.compile(
+    r"<script|<foreignObject|<style|<image|<use|<a[ >]|<animate|<set[ />]|\bon[a-z]+=|href=|javascript:|data:|"
+    r"expression\s*\(|@import|<!ENTITY|<!DOCTYPE|url\((?!#)",
+    re.IGNORECASE,
+)
+
+
+class TestALogoThatIsServedFromTheConsolesOwnOrigin:
+    @SETTINGS
+    @given(
+        text=st.one_of(HOSTILE_SVG, st.text(max_size=300), st.text(alphabet=NASTY, max_size=120))
+    )
+    def test_what_the_sanitizer_writes_runs_nothing_and_reaches_nowhere(self, text: str) -> None:
+        accepted, result = verdict(logo_sanitize.sanitize_svg, "demo", text)
+
+        if not accepted:
+            return
+        assert not ACTIVE_SVG.search(result), result
+        assert logos.validate_svg("demo", result) == result
+        assert len(result.encode()) <= logos.MAX_LOGO_BYTES
+
+    @SETTINGS
+    @given(text=st.one_of(HOSTILE_SVG, st.text(max_size=300)))
+    def test_the_guard_accepts_nothing_the_sanitizer_would_have_removed(self, text: str) -> None:
+        accepted, _ = verdict(logos.validate_svg, "demo", text)
+
+        if accepted:
+            assert not ACTIVE_SVG.search(text), text
+
+    @SETTINGS
+    @given(
+        text=HOSTILE_SVG,
+        scheme=st.sampled_from(["light", "dark"]),
+        brand=st.one_of(st.none(), st.just("336699")),
+    )
+    def test_a_file_recoloured_for_a_theme_is_still_one_the_guard_accepts(
+        self, text: str, scheme: str, brand: str | None
+    ) -> None:
+        accepted, clean = verdict(logo_sanitize.sanitize_svg, "demo", text)
+        if not accepted:
+            return
+        painted = logo_paint.adapt_to_scheme("demo", clean, scheme, brand)
+
+        assert logos.validate_svg("demo", painted) == painted
+        assert not ACTIVE_SVG.search(painted)
+
+    @pytest.mark.parametrize(
+        "scheme", ["", "sepia", "LIGHT", "dark\n", "light dark", "../dark", "dark;x"]
+    )
+    def test_a_theme_is_light_or_dark_and_nothing_else(self, scheme: str) -> None:
+        with pytest.raises(ValueError, match="scheme"):
+            logo_paint.adapt_to_scheme("demo", f'{SVG_HEAD}><path d="M0 0h9v9z"/></svg>', scheme)
+
+    @SETTINGS
+    @given(data=st.binary(max_size=400))
+    def test_bytes_that_are_not_a_picture_are_refused_cleanly(self, data: bytes) -> None:
+        for function in (logo_png.sanitize_png, logo_png.validate_png):
+            accepted, _ = verdict(function, "demo", data)
+            assert not accepted
+
+    @SETTINGS
+    @given(
+        position=st.integers(min_value=0, max_value=600),
+        replacement=st.binary(min_size=0, max_size=12),
+        kind=st.sampled_from([b"tEXt", b"iTXt", b"eXIf", b"iCCP", b"acTL", b"zzzz"]),
+    )
+    def test_a_picture_that_is_damaged_or_carries_something_is_refused_or_stripped_to_pixels(
+        self, position: int, replacement: bytes, kind: bytes
+    ) -> None:
+        import struct
+        import zlib
+
+        def chunk(name: bytes, body: bytes) -> bytes:
+            return (
+                struct.pack(">I", len(body))
+                + name
+                + body
+                + struct.pack(">I", zlib.crc32(name + body))
+            )
+
+        base = (
+            logo_png.PNG_SIGNATURE
+            + chunk(b"IHDR", struct.pack(">IIBBBBB", 256, 256, 8, 6, 0, 0, 0))
+            + chunk(kind, b"<script>alert(1)</script>")
+            + chunk(b"IDAT", zlib.compress((b"\x00" + b"\x28\x5a\xa0\xff" * 256) * 256))
+            + chunk(b"IEND", b"")
+        )
+        damaged = base[:position] + replacement + base[position + len(replacement) :]
+        accepted, result = verdict(logo_png.sanitize_png, "demo", damaged)
+
+        if accepted:
+            assert b"script" not in result and logo_png.validate_png("demo", result) == result
+            offset, kinds = len(logo_png.PNG_SIGNATURE), []
+            while offset < len(result):
+                (length,) = struct.unpack(">I", result[offset : offset + 4])
+                kinds.append(result[offset + 4 : offset + 8])
+                offset += 12 + length
+            assert set(kinds) <= {b"IHDR", b"PLTE", b"tRNS", b"sRGB", b"IDAT", b"IEND"}

@@ -192,7 +192,7 @@ describe("3. the budgets", () => {
 
   it("opens an area at its fleet face from the fleet's pages, where it has one, and every face is a screen of the fleet", () => {
     const faces = DESTS.filter((entry) => entry.faceOf !== undefined);
-    expect(faces.map((entry) => entry.to).sort()).toEqual(["/fleet", "/fleet/activity", "/fleet/apps", "/fleet/backups", "/fleet/certificates", "/fleet/servers"]);
+    expect(faces.map((entry) => entry.to).sort()).toEqual(["/fleet", "/fleet/activity", "/fleet/alerts", "/fleet/apps", "/fleet/backups", "/fleet/certificates", "/fleet/servers"]);
     for (const area of sidebarFor().flat()) {
       if (area.fleetTo === undefined) continue;
       const face = DESTS.find((entry) => entry.to === area.fleetTo);
@@ -364,7 +364,7 @@ describe("5. the shortcuts", () => {
       ["g", "c", "/cron"],
       ["g", "n", "/fleet/certificates"],
       ["g", "l", "/logs"],
-      ["g", "e", "/alerts"],
+      ["g", "e", "/fleet/alerts"],
       ["g", "y", "/fleet/activity"],
       ["g", "k", "/fleet/backups"],
       ["g", "v", "/fleet/servers"],
@@ -411,7 +411,7 @@ describe("6. the palette finds every screen", () => {
   it("says where each one lives, in words", () => {
     const byId = new Map(entries.map((entry) => [entry.id, entry.path]));
     expect(byId.get("server.updates")).toBe("Servers › System updates");
-    expect(byId.get("alerts.probes")).toBe("Alerts › Probes and status page");
+    expect(byId.get("alerts.probes")).toBe("Alerts › Probes");
     expect(byId.get("settings.notifications")).toBe("Settings › Channels");
     expect(byId.get("backups.schedules")).toBe("Backups › Schedules");
     expect(byId.get("server.terminal")).toBe("Servers › Terminal");
@@ -460,7 +460,7 @@ describe("7. what a role cannot see is not found", () => {
   });
 
   it("leaves a tab out of its strip, rather than disabling it", () => {
-    expect(tabsById("domains", { can: () => false }).map((tab) => tab.to)).toEqual(["/domains", "/domains/sites"]);
+    expect(tabsById("domains", { can: () => false }).map((tab) => tab.to)).toEqual(["/domains", "/domains/sites", "/domains/certificates"]);
     expect(tabsById("domains", { can: () => true }).map((tab) => tab.to)).toContain("/domains/dns");
   });
 
@@ -573,17 +573,17 @@ describe("what the pages draw from the register", () => {
     expect(paths(tabsOf(FLEET_SERVERS_SCREENS))).toEqual(["/fleet/servers", "/fleet/updates"]);
     expect(paths(tabsById("server"))).toEqual(["/server", "/server/updates", "/server/security", "/server/storage", "/server/services", "/server/system"]);
     expect(paths(tabsById("backups"))).toEqual(["/backups", "/backups/schedules", "/backups/volumes", "/backups/noust", "/backups/destinations"]);
-    expect(paths(tabsById("domains"))).toEqual(["/domains", "/domains/sites", "/domains/dns", "/domains/tunnels", "/domains/ports"]);
+    expect(paths(tabsById("domains"))).toEqual(["/domains", "/domains/sites", "/domains/certificates", "/domains/dns", "/domains/tunnels", "/domains/ports"]);
     expect(paths(tabsById("apps"))).toEqual(["/apps", "/projects"]);
     expect(paths(tabsById("catalog"))).toEqual(["/catalog", "/catalog/installed"]);
-    expect(paths(tabsById("alerts"))).toEqual(["/alerts", "/alerts/probes"]);
-    expect(paths(tabsById("databases"))).toEqual(["/databases", "/databases/engines"]);
+    expect(paths(tabsById("alerts"))).toEqual(["/alerts", "/alerts/checks", "/alerts/probes", "/alerts/status", "/alerts/metrics"]);
+    expect(paths(tabsById("databases"))).toEqual(["/databases", "/databases/servers"]);
     expect(paths(tabsById("service"))).toEqual(["/server/services/$name", "/server/services/$name/logs"]);
   });
 
   it("keeps the exact tabs that must not stay lit beneath them", () => {
     const exact = (tabs: readonly { to: string; exact?: boolean }[]) => tabs.filter((tab) => tab.exact === true).map((tab) => tab.to);
-    expect(exact(tabsById("domains"))).toEqual(["/domains", "/domains/sites", "/domains/dns", "/domains/tunnels", "/domains/ports"]);
+    expect(exact(tabsById("domains"))).toEqual(["/domains", "/domains/sites", "/domains/certificates", "/domains/tunnels", "/domains/ports"]);
     expect(exact(tabsById("backups"))).toEqual(["/backups"]);
     expect(exact(tabsById("database"))).toEqual(["/databases/$engine/$name"]);
   });

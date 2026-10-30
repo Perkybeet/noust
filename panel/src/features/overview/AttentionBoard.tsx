@@ -85,7 +85,7 @@ function Entry({ t, entry, showServer }: { t: T; entry: HomeAttention; showServe
   // What opens a screen opens it on the server the item is on; what is the console's own opens its own.
   const node = server === null ? undefined : server.node;
   return (
-    <Card as="li" tone={fail ? "fail" : "warn"} padding="sm">
+    <Card as="li" tone={fail ? "failed" : "warning"} padding="sm">
       <div className="flex min-w-0 flex-wrap items-start gap-x-3 gap-y-3">
         <div className="flex min-w-0 flex-1 basis-56 items-start gap-3">
           <span className={cx("flex h-5 shrink-0 items-center", stateTextClass(state))}>

@@ -19,8 +19,10 @@ from typing import Any
 import yaml
 
 from noust.recipes import catalog_package
-from noust.recipes.assets import read_asset, read_simple_icon, set_asset_root
-from noust.recipes.logos import simple_icon_slug
+from noust.recipes.assets import read_asset, read_asset_bytes, read_simple_icon, set_asset_root
+from noust.recipes.logo_paint import adapt_to_scheme
+from noust.recipes.logo_png import validate_png
+from noust.recipes.logos import simple_icon_brand, simple_icon_slug, validate_svg
 from noust.recipes.model import (
     CATEGORIES,
     KINDS,
@@ -293,23 +295,73 @@ def categories() -> list[dict[str, Any]]:
     return [{"category": entry, "count": counts[entry]} for entry in CATEGORIES if entry in counts]
 
 
-def logo_svg(name: str) -> str:
+@dataclasses.dataclass(frozen=True)
+class LogoFile:
     """
-    Read a recipe's logo.
+    A logo as it leaves the package.
+
+    Attributes:
+        content: The file's bytes.
+        media_type: ``image/svg+xml``, or ``image/png`` for a mark that only exists as a picture.
+    """
+
+    content: bytes
+    media_type: str
+
+
+def logo_file(name: str, scheme: str | None = None) -> LogoFile:
+    """
+    Read a recipe's logo, as it leaves the package.
+
+    Every logo is judged by the console's policy again here, whatever put the file where it is:
+    the one place a logo reaches a browser. A black mark is no use on the dark theme, so the
+    console asks for the theme it shows and the colours of an SVG that would not read on it are
+    changed; a picture is sent as it is.
 
     Args:
         name: The recipe.
+        scheme: ``light`` or ``dark``, the theme the logo will be drawn on; None for the file as
+            the package holds it.
+
+    Returns:
+        The file and its media type.
+
+    Raises:
+        RecipeNotFoundError: No recipe has that name, or it has no logo.
+        RecipeError: The file does not pass the policy.
+        ValueError: ``scheme`` is neither ``light`` nor ``dark``.
+    """
+    recipe = get_recipe(name)
+    if recipe.logo is None:
+        raise RecipeNotFoundError(f"{recipe.title} has no logo")
+    if recipe.logo.endswith(".png"):
+        data = validate_png(name, read_asset_bytes(name, recipe.logo))
+        return LogoFile(data, "image/png")
+    slug = simple_icon_slug(recipe.logo)
+    text = read_simple_icon(slug) if slug is not None else read_asset(name, recipe.logo)
+    validate_svg(name, text)
+    if scheme is not None:
+        text = adapt_to_scheme(name, text, scheme, brand=simple_icon_brand(slug) if slug else None)
+    return LogoFile(text.encode("utf-8"), "image/svg+xml")
+
+
+def logo_svg(name: str, scheme: str | None = None) -> str:
+    """
+    Read a recipe's logo when it is an SVG.
+
+    Args:
+        name: The recipe.
+        scheme: ``light`` or ``dark``, or None for the file as the package holds it.
 
     Returns:
         The SVG file.
 
     Raises:
-        RecipeNotFoundError: No recipe has that name, or it has no logo.
+        RecipeNotFoundError: No recipe has that name, it has no logo, or its logo is a picture.
+        RecipeError: The file does not pass the policy.
+        ValueError: ``scheme`` is neither ``light`` nor ``dark``.
     """
-    recipe = get_recipe(name)
-    if recipe.logo is None:
-        raise RecipeNotFoundError(f"{recipe.title} has no logo")
-    slug = simple_icon_slug(recipe.logo)
-    if slug is not None:
-        return read_simple_icon(slug)
-    return read_asset(name, recipe.logo)
+    found = logo_file(name, scheme)
+    if found.media_type != "image/svg+xml":
+        raise RecipeNotFoundError(f"the logo of {name} is a picture, not an SVG")
+    return found.content.decode("utf-8")

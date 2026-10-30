@@ -232,7 +232,7 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void, onV
         keywords: t("shell.commands.issueCertificateKeywords"),
         kind: "navigate",
         run: () => {
-          void navigate({ to: "/domains", search: { new: true } as never });
+          void navigate({ to: "/domains/certificates", search: { new: true } as never });
         },
       },
       ...(mayOrganise

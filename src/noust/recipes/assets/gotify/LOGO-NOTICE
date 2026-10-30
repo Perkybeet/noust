@@ -1,0 +1,7 @@
+Mark of: Gotify
+Source: https://github.com/homarr-labs/dashboard-icons/blob/83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/gotify.svg
+Licence: CC-BY-4.0
+Copyright: the Gotify logo, by the Gotify project (https://github.com/gotify/server)
+Terms: LICENSE of gotify/server, read 2026-10-29: 'The Gotify logo is licensed under the Creative Commons Attribution 4.0 International Public License'; the collection's copy is the logo
+Retrieved: 2026-10-29
+Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged

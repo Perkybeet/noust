@@ -2,10 +2,16 @@
 
 Part of [The console, page by page](console.md).
 
-Two tabs: **Databases**, every database on every running engine with its size, application and
-backups, and the ones created outside Noust to track; and **Engines**, each engine with its state,
-version and end of life (install, start, stop, restart, uninstall). Database ports open beyond
-the machine are flagged here.
+Two parts of one page: **Your databases**, every database on every running server with the engine and
+version it runs on, its application, its size and when it was last backed up, with **Add to Noust** on the ones
+an engine holds and Noust does not (they are not a kind of database: the button is the whole difference) and a
+button to copy the connection an application uses; and **Database servers**, each server as a slab with its
+engine and version, where it stands in its project's support (a server whose support is ending or ended is
+tinted, says so in words and offers **Upgrade version**), whether it is the default of its engine (a new
+database is made there unless you choose another), where it runs and how many databases it holds. The side
+column has the two sections and one view per engine. **Another version** makes a new server, in a container, of
+the engine and version you choose; a version that no longer gets security fixes is made only after you say you
+know it. Database ports open beyond the machine are flagged here.
 
 One database's page has tabs: **Overview** (size, owner, application, backups, health),
 **Data** (tables and rows, read-only, paged and filtered, with the columns' types; Redis keys;
@@ -16,11 +22,12 @@ database or over this one after a safety copy), **Users** (with owner, read-writ
 profiles, and password rotation), **Connect** (an SSH tunnel from your computer, and **Public
 access**, below) and **Metrics**.
 
-**Engines** also lists the **instances Noust runs**: another version of an engine, or one the server
-lacks, as a container from the engine's image pinned by digest, on 127.0.0.1 and held to a memory limit
-(**New instance**, with the plan before the sudo-mode job; for PostgreSQL the **Image** chooses the
-engine's own or a variant with PostGIS or pgvector installed). An instance's menu moves it to the newest
-image of its version, **Move to a newer version** (every database goes to a new instance of the newer
+A **database server** that Noust runs is another version of an engine, or one the machine lacks, as a
+container from the engine's image pinned by digest, on 127.0.0.1 and held to a memory limit
+(**Another version**, with the plan before the sudo-mode job; under **More options**, for PostgreSQL, the
+**Image** chooses the engine's own or a variant with PostGIS or pgvector installed). The menu of its slab
+makes it the default of its engine, moves it to the newest image of its version, **Upgrade version** (every
+database goes to a new server of the newer
 major version, with the plan first and a way back listed under **Moves to a newer version**), **TLS**
 (the mode, the certificate and the authority applications trust, with the applications that lose their
 connection while the engine restarts shown before it is applied; renew the certificate), **Limits and

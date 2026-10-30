@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { OverviewAttentionItem } from "../../api/queries/overview";
-import type { ProbeList } from "../../api/queries/probes";
 import type { ApprovalList } from "../approvals/api";
-import { approvalItems, attentionCounters, mergeAttention, noustItems, probeItems, recipeItems } from "./attention";
+import { approvalItems, attentionCounters, mergeAttention, noustItems, recipeItems } from "./attention";
 import { attentionAction, attentionTarget } from "./attentionTarget";
 
 const SINCE = 1_790_000_000;
@@ -24,20 +23,6 @@ describe("an alert in the server's list", () => {
   it("offers to hand back one somebody took, because it is still firing", () => {
     const taken = { ...firing("alert_taken", ["reopen_alert"], { by: "alice", at: SINCE + 60 }), subject: { kind: "alert", rule: "disk-high", subject: "" } };
     expect(attentionAction(taken)).toMatchObject({ mode: "alert", kind: "reopen", rule: "disk-high" });
-  });
-});
-
-describe("probeItems", () => {
-  it("lists the probes that are down, with the probe's own words about why", () => {
-    const list = {
-      items: [
-        { name: "shop", enabled: true, status: { state: "up", since: SINCE, last_error: null } },
-        { name: "blog", enabled: true, status: { state: "down", since: SINCE, last_error: "HTTP 503 Service Unavailable" } },
-        // A probe that is switched off is not asked, so its last answer is not a thing that needs anybody.
-        { name: "old", enabled: false, status: { state: "down", since: SINCE, last_error: "timeout" } },
-      ],
-    } as unknown as ProbeList;
-    expect(probeItems(list)).toMatchObject([{ id: "probe:blog", severity: "fail", reasons: [{ code: "probe_down", detail: "HTTP 503 Service Unavailable" }] }]);
   });
 });
 

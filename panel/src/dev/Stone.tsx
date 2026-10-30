@@ -13,7 +13,7 @@ import {
   IconButton,
   Illustration,
   Input,
-  ImageLogoTile,
+  LogoMark,
   LogoTile,
   Menu,
   MenuItem,
@@ -347,11 +347,11 @@ function Surfaces() {
                 <Skeleton className="h-control-md w-full" />
               </div>
             </Card>
-            <Card tone="fail" padding="sm" as="div">
+            <Card tone="failed" padding="sm" as="div">
               <p className="title text-14 text-fg">api.net</p>
               <p className="text-13 text-fg">The service has failed</p>
             </Card>
-            <Card tone="warn" padding="sm" as="div">
+            <Card tone="warning" padding="sm" as="div">
               <p className="title text-14 text-fg">portal.net</p>
               <p className="text-13 text-fg">The certificate expires in 6 days</p>
             </Card>
@@ -447,13 +447,11 @@ function Logos() {
               <LogoTile logo="nextcloud" size={size} />
             </Item>
           ))}
-        </Row>
-        <Row>
-          <Item label="a served logo (a recipe's), in the same tile">
-            <ImageLogoTile src="/favicon.svg" fallback="NO" size="lg" />
-          </Item>
-          <Item label="no logo, or it did not load: two letters, the same box">
-            <ImageLogoTile src={null} fallback="OW" size="lg" />
+          <Item label="LogoMark: the line of a list, no tile">
+            <span className="flex items-center gap-2 text-13 text-fg-muted">
+              <LogoMark logo="postgresql" className="size-icon-md" />
+              PostgreSQL
+            </span>
           </Item>
         </Row>
         <ul className="grid grid-cols-3 gap-x-4 gap-y-3 sm:grid-cols-4">

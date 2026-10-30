@@ -143,10 +143,26 @@ export interface QueryLike<T> {
   refetch?: () => unknown;
 }
 
-export interface QueryStateProps<T> {
+/**
+ * What a loading screen says. A `label` completes the console's own sentences ("Loading {label}",
+ * "Could not load {label}"), which is right in English and wrong in a language whose article, gender
+ * or order the noun changes; `sentences` are the three said whole, in the catalog of the screen, and
+ * are what a new screen writes.
+ */
+export type QueryStateWords =
+  | {
+      /** What is being loaded, completing "Loading ..." and "Could not load ...": "applications". */
+      label: string;
+      sentences?: never;
+    }
+  | {
+      label?: never;
+      /** Whole sentences: "Loading the alerts", "Could not load the alerts", "Could not refresh the alerts". */
+      sentences: { loading: string; failed: string; refreshFailed: string };
+    };
+
+export type QueryStateProps<T> = QueryStateWords & {
   query: QueryLike<T>;
-  /** What is being loaded, completing "Loading ..." and "Could not load ...": "applications". */
-  label: string;
   /** The loading shape: skeletons laid out like the content that will replace them. */
   skeleton: ReactNode;
   /** True when the data holds nothing to show. */
@@ -157,7 +173,7 @@ export interface QueryStateProps<T> {
   errorHint?: string;
   children: (data: T) => ReactNode;
   className?: string;
-}
+};
 
 /**
  * One wrapper for the four states of anything loaded: a skeleton shaped like the content, the
@@ -167,6 +183,7 @@ export interface QueryStateProps<T> {
 export function QueryState<T>({
   query,
   label,
+  sentences,
   skeleton,
   isEmpty,
   empty,
@@ -175,6 +192,11 @@ export function QueryState<T>({
   className,
 }: QueryStateProps<T>) {
   const t = useT();
+  const words = {
+    loading: sentences?.loading ?? t("common.queryState.loading", { label: label ?? "" }),
+    failed: sentences?.failed ?? t("common.queryState.couldNotLoad", { label: label ?? "" }),
+    refreshFailed: sentences?.refreshFailed ?? t("common.queryState.couldNotRefresh", { label: label ?? "" }),
+  };
   const retry = query.refetch ? () => void query.refetch?.() : undefined;
 
   if (query.data === undefined) {
@@ -182,7 +204,7 @@ export function QueryState<T>({
       return (
         <ErrorBlock
           error={query.error}
-          title={t("common.queryState.couldNotLoad", { label })}
+          title={words.failed}
           {...(errorHint !== undefined ? { hint: errorHint } : {})}
           {...(retry ? { onRetry: retry } : {})}
           retrying={query.isRefetching ?? false}
@@ -191,7 +213,7 @@ export function QueryState<T>({
       );
     }
     return (
-      <LoadingRegion label={t("common.queryState.loading", { label })} {...(className !== undefined ? { className } : {})}>
+      <LoadingRegion label={words.loading} {...(className !== undefined ? { className } : {})}>
         {skeleton}
       </LoadingRegion>
     );
@@ -206,7 +228,7 @@ export function QueryState<T>({
       <ErrorBlock
         compact
         error={query.error}
-        title={t("common.queryState.couldNotRefresh", { label })}
+        title={words.refreshFailed}
         {...(errorHint !== undefined ? { hint: errorHint } : {})}
         {...(retry ? { onRetry: retry } : {})}
         retrying={query.isRefetching ?? false}

@@ -1,22 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { inPlace } from "../../../app/searchNavigation";
-import { validateFleetSearch } from "../../../features/fleet/filters";
-import { ActivityTab } from "../../../features/fleet/ActivityTab";
+import { ActivityPage } from "../../../features/activity/ActivityPage";
+import { validateActivitySearch } from "../../../features/activity/data";
 
-/** Fleet > Activity: what happened lately on every server. */
+/** Activity on every server: the same page as the server's, over what each server's audit log lets the operator read. */
 export const Route = createFileRoute("/_console/fleet/activity")({
-  validateSearch: validateFleetSearch,
+  validateSearch: validateActivitySearch,
   component: FleetView,
 });
 
 function FleetView() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
-  return (
-    <ActivityTab
-      search={{ ...(search.q !== undefined ? { q: search.q } : {}), ...(search.server !== undefined ? { server: search.server } : {}), ...(search.state !== undefined ? { state: search.state } : {}) }}
-      onSearchChange={(next, options) => void navigate({ search: next, ...inPlace(options) })}
-    />
-  );
+  return <ActivityPage scope="fleet" search={search} onSearchChange={(next, options) => void navigate({ search: next, ...inPlace(options) })} />;
 }

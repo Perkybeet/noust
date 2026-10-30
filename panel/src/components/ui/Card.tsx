@@ -26,12 +26,6 @@ export interface CardProps {
    * to edge.
    */
   padding?: "none" | "sm" | "md";
-  /**
-   * A card that carries a problem takes the state's ground and border (C-2), and nothing else of it:
-   * what is well stays stone, so a board of twenty cards has colour only where something is wrong.
-   * The state is also its glyph and its word, which the content draws (docs/DESIGN.md, 2.1).
-   */
-  tone?: "fail" | "warn";
   /** The element: `section` for a panel with a title, `div` or `li` for a card in a list. */
   as?: "section" | "div" | "li" | "article";
   /** For a card that is itself a target (a whole-card link): its border answers the pointer. */
@@ -42,8 +36,27 @@ export interface CardProps {
    * parts hold the placeholders.
    */
   loading?: boolean;
+  /**
+   * The state of what the card holds, when it is not well: its ground and its edge take the
+   * state's (a database server whose support is ending is amber, one whose support ended is red;
+   * a thing that needs attention on Home is amber or red). A card that is well stays stone, so a
+   * board of twenty has colour only where something is wrong and the one that has it is the one
+   * that is found. The state is also said in words and a glyph inside the card, never by the
+   * ground alone. It is also the card's `data-tone`.
+   */
+  tone?: "warning" | "failed";
+  /**
+   * A real logo (`LogoTile`) at the start of the header, outside the text so it spans the title and the
+   * line under it. Only a logo goes here: the icon of an object is `icon`, and it stands bare.
+   */
+  leading?: ReactNode;
   className?: string;
 }
+
+const TONES = {
+  warning: "border-warn-border bg-warn-soft",
+  failed: "border-fail-border bg-fail-soft",
+} as const;
 
 const PADDING = {
   md: { alone: "p-5", underHeader: "px-5 pb-5", header: "px-5 pt-4 pb-3", footer: "px-5 py-3" },
@@ -70,6 +83,7 @@ export function Card({
   interactive = false,
   loading = false,
   tone,
+  leading,
   className,
 }: CardProps) {
   const Heading = `h${level}` as const;
@@ -78,9 +92,10 @@ export function Card({
   return (
     <Element
       {...(loading ? { "aria-busy": true } : {})}
+      {...(tone !== undefined ? { "data-tone": tone } : {})}
       className={cx(
         "elev-seated flex min-w-0 flex-col rounded-card border",
-        tone === "fail" ? "border-fail-border bg-fail-soft" : tone === "warn" ? "border-warn-border bg-warn-soft" : "border-border bg-surface",
+        tone === undefined ? "border-border bg-surface" : TONES[tone],
         // A panel that is read does not move. One that opens something changes its tone, flat.
         interactive && "transition-colors duration-(--duration-press) ease-out hover:bg-surface-hover",
         className,
@@ -88,7 +103,8 @@ export function Card({
     >
       {hasHeader ? (
         <header className={cx("flex items-start justify-between gap-4", space.header)}>
-          <div className="min-w-0">
+          {leading}
+          <div className="min-w-0 flex-1">
             {status !== undefined ? (
               <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                 {Icon !== undefined ? <Icon aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" /> : null}
@@ -107,7 +123,7 @@ export function Card({
             ) : null}
             {description !== undefined ? <p className="mt-0.5 text-13 text-pretty text-fg-muted">{description}</p> : null}
           </div>
-          {actions !== undefined ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+          {actions !== undefined ? <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
         </header>
       ) : null}
       {children !== undefined ? (

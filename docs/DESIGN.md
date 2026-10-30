@@ -558,7 +558,7 @@ stylesheets are scanned for the same.
 | `--width-drawer-md / lg` | 480 / 720px | Forms and a row's detail / logs |
 | `--width-search` | 288px | Every `FilterBar` search box |
 | `--width-rail`, `--width-rail-folded` | 208 / 68px | The main bar of the double bar, unfolded and folded to icons |
-| `--width-column` | 256px | The second column of an application, the server and Settings |
+| `--width-column` | 256px | The second column of an application, the server, Databases and Settings |
 | `--width-sidebar` | 264px | The one bar |
 | `--measure`, `--measure-help` | 68ch, 52ch | Prose, help |
 
@@ -1016,6 +1016,13 @@ target). An action the operator held is not a failure (`lib/held.ts`, used here,
 open and says nothing, a request left waiting for approval closes it with a neutral "Waiting
 for approval" toast that leads to Approvals.
 
+**`RestoreDialog`** (`existing`, `defaultTarget`, `replaceOnly`, `suggestion`, `isValidName`, `words`,
+`options`, `onRestore`). The one confirmation of a restore, for whatever is backed up (an application, a
+database): a new place by default where that touches nothing, with one question; over what exists, a
+`ConfirmDialog friction="type"` that says what is replaced and what is kept first and asks for the name. It
+knows neither word: the caller's `words` name the choices, and its own options are the children (a function of
+where the restore goes). Not for anything that is not a restore.
+
 **`Drawer`** (`size` `md | lg`). Detail with the page still behind it: a log, a unit file, a
 certificate, a channel's form.
 
@@ -1142,14 +1149,16 @@ violet means pressed). Never a state: a state, including "this feature is on", i
   `text-danger`, fails: Tailwind drops it silently and the text is painted without its colour).
 
 **`Card`** (`padding` `md | sm | none`, `as`, `interactive`, `loading`, `title`, `icon`,
-`description`, `status`, `actions`, `footer`, `level`). Every panel of the console: a seated slab (14px
+`description`, `status`, `actions`, `footer`, `level`, `tone`, `leading`). Every panel of the console: a seated slab (14px
 corners, a light edge on top and a joint beneath), which does not react to the pointer unless it opens
 something, and then only changes its tone. A feature MUST
 NOT write `rounded-card border bg-surface` by hand. `icon` is the object the card is about, a
 component of `OBJECT_ICONS` (I-7). `status` is the `StatusPill size="sm"` of a feature with a
-state, right after the title (not in `actions`). `tone` (`fail | warn`) is for a card that says what needs
-attention (Home's): the ground and the border of that state, and stone when it has none, so only what is
-wrong has colour behind it.
+state, right after the title (not in `actions`). `leading` is a real logo (`LogoTile`) at the start of the header,
+outside the text so that it spans the title and the line under it; `tone` (`warning` or `failed`) takes the
+ground and edge of the state of what the card holds, only when it is not well (a database server whose
+support is ending or ended, a thing that needs attention on Home), so that only what is wrong has colour
+behind it, and the state is also said in words and a glyph inside, never by the ground alone.
 
 **`Notice`** (`tone` `info | success | warning | error`, `variant` `inline | banner`, `title`,
 `action`, `onDismiss`, `live`). A persistent message beside what it concerns (inline) or the
@@ -1205,9 +1214,9 @@ at most a bare icon, with no tile.
 
 **`LogoTile`** (`logo`, `size` `sm | md | lg`, `label`). The logo of a real application or engine in a carved
 tile, in its brand's colour, from packaged marks (IL-2). Used by the catalog, the recipes and the database
-engines, and by nothing that is not a logo. `ImageLogoTile` (`src`, `fallback`, `size`) is the same tile
-around an image the server serves (a recipe's logo): the image is never drawn inline, and while it loads or
-when it fails the monogram holds its place, so a card never changes size.
+engines, and by nothing that is not a logo. **`LogoMark`** is the same mark with no tile, for a line of a list that is
+about an engine or an application (the engines of the side column of Databases, a row of its table), where a tile
+would be taller than its row.
 
 **`FleetCourses`** (`label`, `courses`, `columns`, `linkFor`; `planCourse`, `isWell`). The fleet as courses of
 stone: one course (a row) per server, with its name, its place and its disk on the left and its
@@ -1329,7 +1338,9 @@ system's own and is never translated.
 **`ErrorBlock`** (`onRetry`, `action`), **`QueryState`**. A failure the way the console always
 shows one, and the four states of anything loaded (see 6.5 and 6.6). `action` is one follow-up
 beside Try again, after the system's words ("View output"); `JobProgress` passes its own
-`action` to it when the job failed.
+`action` to it when the job failed. `QueryState` takes `label` (a noun that completes "Loading ...",
+"Could not load ...", right in English and wrong where the article or the order changes) or, for a new
+screen, `sentences`: the three said whole in the screen's own catalog.
 
 **`DangerZone`**, **`DangerAction`**. Irreversible actions, last, each saying what it destroys.
 
@@ -1651,11 +1662,12 @@ Four questions, answered in four places: **where am I** (the scope selector, and
   page never adds a second "Live" or "Follow" switch. *Enforced by:* ratchet `live-switch`.
 - **AL-1** A firing alert or a failing probe is shown where the operator looks (the inbox,
   Overview's "Needs attention", the sidebar counter, the affected application's header) with its
-  acknowledgement in place, not only in Settings. *Enforced by:* `attention.test.ts` (the kinds
-  `alert` and `probe`); `e2e/inbox.spec.ts`.
+  acknowledgement in place, not only in Alerts. The server lists both among what needs attention
+  (`managers/overview.py`), so a fleet reading each server's list counts them too. *Enforced by:*
+  `attention.test.ts` (the kinds `alert` and `probe`); `tests/test_overview.py`; `e2e/inbox.spec.ts`.
 - **AL-2** Acknowledging is called "Acknowledge" and "Reopen", shows who and when, and stops the
   reminders; it never resolves. *Enforced by:* `i18n/verbs.test.ts`.
-- **DB-1** A restore goes to a new database by default; over an existing one it takes a safety copy
+- **DB-1** A restore goes to a new database by default (`RestoreDialog`); over an existing one it takes a safety copy
   first, names it, asks for the name and shows what it will replace before it runs. *Enforced by:*
   `e2e/databases.spec.ts`; one `RestoreDialog` for applications and databases.
 - **DB-2** A data-gap message under a chart or a log ("not recorded yet") is one line under its

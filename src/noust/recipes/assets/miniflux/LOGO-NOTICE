@@ -1,0 +1,7 @@
+Mark of: Miniflux
+Source: https://github.com/miniflux/v2/blob/229035a4df6e60107d1117eb50696b23e08cb4b8/internal/ui/static/bin/icon.svg
+Licence: Apache-2.0
+Copyright: the contributors of miniflux/v2
+Terms: no rule on the project's logo was found in its repository, its documents or its site (checked 2026-10-29)
+Retrieved: 2026-10-29
+Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged

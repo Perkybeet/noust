@@ -392,11 +392,10 @@ describe("the Destinations tab", () => {
 
     const confirm = await screen.findByRole("alertdialog", { name: "Restore from offsite" });
     expect(within(confirm).getByText("shop-example-com_20260101_000000")).toBeInTheDocument();
-    // The folder is named after the application; the target offered is its domain.
-    const target = within(confirm).getByLabelText("Restore into");
-    await waitFor(() => expect(target).toHaveValue("shop.example.com"));
+    // The folder is named after the application; the target offered is its domain, replacing what it runs.
+    await waitFor(() => expect(within(confirm).getByRole("combobox", { name: "Restore into" })).toHaveTextContent("shop.example.com, replacing what it runs now"));
     await user.type(within(confirm).getByLabelText(/Type/), "shop.example.com");
-    await user.click(within(confirm).getByRole("button", { name: "Restore" }));
+    await user.click(within(confirm).getByRole("button", { name: "Restore over shop.example.com" }));
 
     await waitFor(() => {
       expect(backend.callsTo("POST /api/backup-destinations/offsite/backups/shop-example-com_20260101_000000/restore")).toHaveLength(1);

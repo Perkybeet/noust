@@ -6,6 +6,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { announce } from "../../app/Announcer";
 import { ElevationCancelledError, request } from "../../api/client";
 import { backupKeys } from "../../api/queries/backups";
 import { jobKeys } from "../../api/queries/jobs";
@@ -142,7 +143,7 @@ export function useBackupActions() {
   const remove = useMutation({
     mutationFn: (backupId: string) => request("delete", "/api/backups/{backup_id}", { params: { backup_id: backupId } }),
     onSuccess: (result) => {
-      toast.success(result.message);
+      announce(result.message);
       refreshList();
     },
     onError: (error) => {
@@ -183,7 +184,7 @@ export function useBackupActions() {
   const createSchedule = useMutation({
     mutationFn: (input: CreateScheduleInput) => request("post", "/api/backup-schedules", { body: scheduleBody(input) }),
     onSuccess: (result) => {
-      toast.success(result.message);
+      announce(result.message);
       void queryClient.invalidateQueries({ queryKey: backupKeys.schedules });
     },
   });
@@ -205,7 +206,7 @@ export function useBackupActions() {
       return inputs.length;
     },
     onSuccess: (count) => {
-      toast.success(t("backups.toast.scheduledMany", { count }));
+      announce(t("backups.toast.scheduledMany", { count }));
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: backupKeys.schedules });
@@ -216,7 +217,7 @@ export function useBackupActions() {
     mutationFn: (input: CreateScheduleInput) =>
       request("put", "/api/backup-schedules/{domain}", { params: { domain: input.domain }, body: scheduleBody(input) }),
     onSuccess: (result) => {
-      toast.success(result.message);
+      announce(result.message);
       void queryClient.invalidateQueries({ queryKey: backupKeys.schedules });
     },
   });
@@ -224,7 +225,7 @@ export function useBackupActions() {
   const deleteSchedule = useMutation({
     mutationFn: (domain: string) => request("delete", "/api/backup-schedules/{domain}", { params: { domain } }),
     onSuccess: (result) => {
-      toast.success(result.message);
+      announce(result.message);
       void queryClient.invalidateQueries({ queryKey: backupKeys.schedules });
     },
     onError: (error) => {

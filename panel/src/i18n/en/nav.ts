@@ -92,6 +92,7 @@ export const nav = {
     backups: { label: "Backups" },
     updates: { label: "Updates", goTo: "Go to the fleet's updates" },
     activity: { label: "Activity" },
+    alerts: { label: "Alerts" },
   },
   appTabs: {
     overview: { label: "Overview" },
@@ -116,9 +117,24 @@ export const nav = {
       command: "Channels settings",
     },
     alerts: {
-      label: "Alert rules",
+      label: "Alerts",
       keywords: "alerts alert rules threshold cpu memory disk firing monitor when to warn",
-      command: "Alert rules settings",
+      command: "Alert rules",
+    },
+    checks: {
+      label: "Checks",
+      keywords: "checks built-in thresholds disk full certificate expiry missing backup api token system updates monitor limits",
+      command: "Checks the monitor makes",
+    },
+    statusPage: {
+      label: "Status page",
+      keywords: "status page public uptime components publish incident",
+      command: "Status page",
+    },
+    metrics: {
+      label: "Metrics",
+      keywords: "metrics cpu memory disk network load swap usage consumption charts history compare servers",
+      command: "Metrics of the servers",
     },
     integrations: {
       label: "Integrations",
@@ -126,9 +142,9 @@ export const nav = {
       command: "Integrations settings",
     },
     probes: {
-      label: "Probes and status page",
+      label: "Probes",
       keywords: "probes uptime monitor status page external check address http outage ping website down",
-      command: "Probes and status page settings",
+      command: "Probes",
     },
     logShipping: {
       label: "Logs and metrics export",
@@ -179,12 +195,14 @@ export const nav = {
   renamed: {
     overview: "Overview",
     cron: "Cron",
+    engines: "Engines",
     backups: "Backups",
     server: "Server",
     recipes: "Recipes",
     recipesInstalled: "Installed recipes",
     projects: "Projects",
     domains: "Domains and certificates",
+    webServerSites: "Web server sites",
     notifications: "Notifications",
     alerts: "Alerts",
     console: "Console access",

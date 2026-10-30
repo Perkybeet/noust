@@ -1,0 +1,1 @@
+function e(e){return e.installed?e.configured?e.running?e.role===`secondary`?`secondary`:`primary`:`stopped`:`notSetUp`:`notInstalled`}var t={notInstalled:`stopped`,notSetUp:`queued`,primary:`running`,secondary:`running`,stopped:`failed`};function n(e,t){return e(t===`stopped`?`common.statusPill.stopped`:`noustDns.card.${t}`)}export{e as n,n as r,t};

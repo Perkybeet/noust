@@ -7,23 +7,23 @@ import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, test, to
 
 test("lists the seeded jobs with their schedule and next run, and passes axe", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/cron");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Cron");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Scheduled tasks");
 
-  const table = page.getByRole("region", { name: /^Cron jobs/ });
+  const table = page.getByRole("region", { name: /^Scheduled tasks/ });
   await expect(table.getByText("sitemap", { exact: true })).toBeVisible();
   await expect(table.getByText("cleanup-tmp", { exact: true })).toBeVisible();
 
   await settle(page);
-  await expectNoA11yViolations(page, "the cron jobs list");
+  await expectNoA11yViolations(page, "the scheduled tasks list");
 });
 
-test("creates a job with a daily preset and sees it listed with a next run", async ({ page, consoleServer, problems }) => {
+test("creates a task that runs every day and sees it listed with a next run", async ({ page, consoleServer, problems }) => {
   // A cron job runs as root on a schedule: creating one needs sudo mode, asked for on submit.
   problems.expect(/status of 403 .* \/api\/cron$/);
   await signIn(page, consoleServer, "/cron");
-  await page.getByRole("button", { name: "New job" }).click();
-  const dialog = page.getByRole("dialog", { name: "New cron job" });
-  await expectNoA11yViolations(page, "the new job dialog");
+  await page.getByRole("button", { name: "New task" }).click();
+  const dialog = page.getByRole("dialog", { name: "New scheduled task" });
+  await expectNoA11yViolations(page, "the new task dialog");
 
   await dialog.getByLabel("Name", { exact: true }).fill("e2e-report");
   await dialog.getByLabel("Command", { exact: true }).fill("/usr/bin/noust backup create example.com");
@@ -31,7 +31,7 @@ test("creates a job with a daily preset and sees it listed with a next run", asy
   const created = page.waitForResponse(
     (response) => response.url().endsWith("/api/cron") && response.request().method() === "POST" && response.status() !== 403,
   );
-  await dialog.getByRole("button", { name: "Create job" }).click();
+  await dialog.getByRole("button", { name: "Create task" }).click();
   await confirmItsYou(page, consoleServer);
   const response = await created;
   expect(response.status()).toBe(201);
@@ -49,25 +49,25 @@ test("previews the schedule live before saving: normalised calendar, next runs, 
   // check, expected here the same way an elevation-gated save's first, refused attempt is.
   problems.expect(/status of 422 .*\/api\/cron\/preview$/);
   await signIn(page, consoleServer, "/cron");
-  await page.getByRole("button", { name: "New job" }).click();
-  const dialog = page.getByRole("dialog", { name: "New cron job" });
+  await page.getByRole("button", { name: "New task" }).click();
+  const dialog = page.getByRole("dialog", { name: "New scheduled task" });
 
   // Daily is the default preset; the preview fires without anything else being filled in.
   await expect(dialog.getByText("*-*-* 02:00:00", { exact: true })).toBeVisible();
   await expect(dialog.getByRole("listitem")).toHaveCount(5);
-  await expectNoA11yViolations(page, "the new job dialog with a schedule preview");
+  await expectNoA11yViolations(page, "the new task dialog with a schedule preview");
 
-  await dialog.getByRole("combobox", { name: "Schedule" }).click();
+  await dialog.getByRole("combobox", { name: "Repeats" }).click();
   await page.getByRole("option", { name: "Every hour" }).click();
   await expect(dialog.getByText("*-*-* *:00:00", { exact: true })).toBeVisible();
 
-  await dialog.getByRole("combobox", { name: "Schedule" }).click();
-  await page.getByRole("option", { name: "Custom calendar expression" }).click();
+  await dialog.getByRole("combobox", { name: "Repeats" }).click();
+  await page.getByRole("option", { name: "Custom" }).click();
   // Character-set validation, not systemd's own: refused before it is ever asked to parse it.
   await dialog.getByLabel("Calendar expression", { exact: true }).fill("bogus!");
   await expect(dialog.getByText(/Invalid cron schedule/)).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "Create job" })).toBeVisible();
-  await expectNoA11yViolations(page, "the new job dialog with an invalid schedule");
+  await expect(dialog.getByRole("button", { name: "Create task" })).toBeVisible();
+  await expectNoA11yViolations(page, "the new task dialog with an invalid schedule");
 });
 
 test("runs a job now, and its history opens with the run", async ({ page, consoleServer }) => {

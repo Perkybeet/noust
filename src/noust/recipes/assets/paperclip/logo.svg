@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Paperclip">
-  <title>Paperclip</title>
-  <rect width="64" height="64" rx="14" fill="#24292f"/>
-  <text x="32" y="41" text-anchor="middle" font-family="sans-serif" font-size="26" font-weight="700" fill="#ffffff">PA</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" role="img" viewBox="-4 -4 32 32" fill="none" stroke-linecap="round" stroke-linejoin="round"><title>Paperclip</title><rect x="-4" y="-4" width="32" height="32" rx="6" fill="#2563EB"/><path stroke="#ffffff" stroke-width="2" d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"/></svg>

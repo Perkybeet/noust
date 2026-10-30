@@ -12,10 +12,10 @@ import { ElevationCancelledError } from "../../../api/client";
 import { isJobFinished, jobKeys, useFollowedJob } from "../../../api/queries/jobs";
 import { probeKeys, probesQuery, publishStatusPage, saveStatusPage, unpublishStatusPage, writeStatusPage } from "../../../api/queries/probes";
 import type { StatusPage } from "../../../api/queries/probes";
-import { ErrorBlock } from "../../../components/page/QueryState";
-import { Section } from "../../../components/page/Section";
+import { ErrorBlock, QueryState } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
+import { SkeletonCard } from "../../../components/ui/Skeleton";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { Dialog } from "../../../components/ui/Dialog";
 import { ExternalLink } from "../../../components/ui/ExternalLink";
@@ -354,14 +354,17 @@ function PageCard({ page }: { page: StatusPage }) {
   );
 }
 
-/** The status page section: whether it is kept, its title and where it is published. */
+/** The status page: whether it is kept, its title and where it is published. */
 export function StatusPageSection() {
   const t = useT();
   const query = useQuery(probesQuery());
-  if (query.data === undefined) return null;
   return (
-    <Section icon={OBJECT_ICONS.site} title={t("probes.page.title")} description={t("probes.page.description")}>
-      <PageCard page={query.data.status_page} />
-    </Section>
+    <QueryState
+      query={query}
+      sentences={{ loading: t("probes.page.loading"), failed: t("probes.page.loadFailed"), refreshFailed: t("probes.page.refreshFailed") }}
+      skeleton={<SkeletonCard lines={4} />}
+    >
+      {(data) => <PageCard page={data.status_page} />}
+    </QueryState>
   );
 }

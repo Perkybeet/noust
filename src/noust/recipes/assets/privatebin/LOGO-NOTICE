@@ -1,0 +1,7 @@
+Mark of: PrivateBin
+Source: https://github.com/PrivateBin/PrivateBin/blob/2bfa00f0d4308d47b7c65ea2f508cbaff86d7f6b/img/icon.svg
+Licence: CC-BY-4.0
+Copyright: rugk, for PrivateBin (https://github.com/PrivateBin/assets)
+Terms: LICENSE.md of PrivateBin/PrivateBin, read 2026-10-29: its favicons, icons and logos are licensed CC BY 4.0, which asks for the author's credit and a note of changes
+Retrieved: 2026-10-29
+Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged

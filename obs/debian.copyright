@@ -123,6 +123,272 @@ Comment: Marks copied unchanged from the simple-icons collection
  (https://github.com/simple-icons/simple-icons). The licence covers the files and not the brands.
 License: CC0-1.0
 
+# marks: begin (written by scripts/recipe_notice.py)
+Files:
+ src/noust/recipes/assets/chatto/logo.svg
+ src/noust/recipes/assets/convertx/logo.svg
+ src/noust/recipes/assets/cup/logo.svg
+ src/noust/recipes/assets/docuseal/logo.svg
+ src/noust/recipes/assets/espocrm/logo.svg
+ src/noust/recipes/assets/homebox/logo.svg
+ src/noust/recipes/assets/opengist/logo.svg
+ src/noust/recipes/assets/openobserve/logo.svg
+ src/noust/recipes/assets/silex/logo.svg
+ src/noust/recipes/assets/steedos/logo.svg
+ src/noust/recipes/assets/unleash/logo.svg
+Copyright: the authors each mark's LOGO-NOTICE names (src/noust/recipes/assets/<recipe>/LOGO-NOTICE)
+Comment: A mark of a project, taken from its repository, its brand kit or a collection of the
+ logos of self-hosted software. The licence covers the file and not the brand: the LOGO-NOTICE
+ says where the file comes from and what the project's own rules on its logo say.
+License: AGPL-3
+
+Files:
+ src/noust/recipes/assets/tandoor/logo.svg
+Copyright: the authors each mark's LOGO-NOTICE names (src/noust/recipes/assets/<recipe>/LOGO-NOTICE)
+Comment: A mark of a project, taken from its repository, its brand kit or a collection of the
+ logos of self-hosted software. The licence covers the file and not the brand: the LOGO-NOTICE
+ says where the file comes from and what the project's own rules on its logo say.
+License: AGPL-3 and custom-commons-clause
+
+Files:
+ src/noust/recipes/assets/_simple-icons/hedgedoc.svg
+ src/noust/recipes/assets/hello/logo.svg
+Copyright: the authors each mark's LOGO-NOTICE names (src/noust/recipes/assets/<recipe>/LOGO-NOTICE)
+Comment: A mark of a project, taken from its repository, its brand kit or a collection of the
+ logos of self-hosted software. The licence covers the file and not the brand: the LOGO-NOTICE
+ says where the file comes from and what the project's own rules on its logo say.
+License: AGPL-3+
+
+Files:
+ src/noust/recipes/assets/_simple-icons/apachecouchdb.svg
+ src/noust/recipes/assets/_simple-icons/apachesuperset.svg
+ src/noust/recipes/assets/bazarr/logo.svg
+ src/noust/recipes/assets/bytestash/logo.svg
+ src/noust/recipes/assets/chroma/logo.svg
+ src/noust/recipes/assets/cloudbeaver/logo.svg
+ src/noust/recipes/assets/commafeed/logo.svg
+ src/noust/recipes/assets/cyberchef/logo.svg
+ src/noust/recipes/assets/databasus/logo.svg
+ src/noust/recipes/assets/documenso/logo.svg
+ src/noust/recipes/assets/dokuwiki/logo.svg
+ src/noust/recipes/assets/etherpad/logo.svg
+ src/noust/recipes/assets/filegator/logo.svg
+ src/noust/recipes/assets/flarum/logo.svg
+ src/noust/recipes/assets/flatnotes/logo.svg
+ src/noust/recipes/assets/garage/logo.svg
+ src/noust/recipes/assets/gatus/logo.svg
+ src/noust/recipes/assets/glitchtip/logo.svg
+ src/noust/recipes/assets/infisical/logo.svg
+ src/noust/recipes/assets/jellyseerr/logo.svg
+ src/noust/recipes/assets/kimai/logo.svg
+ src/noust/recipes/assets/librespeed/logo.svg
+ src/noust/recipes/assets/logto/logo.svg
+ src/noust/recipes/assets/mage-ai/logo.svg
+ src/noust/recipes/assets/marimo/logo.svg
+ src/noust/recipes/assets/miniflux/logo.svg
+ src/noust/recipes/assets/nocodb/logo.svg
+ src/noust/recipes/assets/open-design/logo.svg
+ src/noust/recipes/assets/open-webui/logo.svg
+ src/noust/recipes/assets/openspeedtest/logo.svg
+ src/noust/recipes/assets/parseable/logo.svg
+ src/noust/recipes/assets/pgadmin/logo.svg
+ src/noust/recipes/assets/planka/logo.svg
+ src/noust/recipes/assets/postgresus/logo.svg
+ src/noust/recipes/assets/rivet-engine/logo.svg
+ src/noust/recipes/assets/shlink/logo.svg
+ src/noust/recipes/assets/stirling-pdf/logo.svg
+ src/noust/recipes/assets/versitygw/logo.svg
+Copyright: the authors each mark's LOGO-NOTICE names (src/noust/recipes/assets/<recipe>/LOGO-NOTICE)
+Comment: A mark of a project, taken from its repository, its brand kit or a collection of the
+ logos of self-hosted software. The licence covers the file and not the brand: the LOGO-NOTICE
+ says where the file comes from and what the project's own rules on its logo say.
+License: Apache-2.0
+
+Files:
+ src/noust/recipes/assets/babybuddy/logo.svg
+ src/noust/recipes/assets/pocket-id/logo.svg
+Copyright: the authors each mark's LOGO-NOTICE names (src/noust/recipes/assets/<recipe>/LOGO-NOTICE)
+Comment: A mark of a project, taken from its repository, its brand kit or a collection of the
+ logos of self-hosted software. The licence covers the file and not the brand: the LOGO-NOTICE
+ says where the file comes from and what the project's own rules on its logo say.
+License: BSD-2-clause
+
+Files:
+ src/noust/recipes/assets/headscale/logo.svg
+ src/noust/recipes/assets/healthchecks/logo.svg
+Copyright: the authors each mark's LOGO-NOTICE names (src/noust/recipes/assets/<recipe>/LOGO-NOTICE)
+Comment: A mark of a project, taken from its repository, its brand kit or a collection of the
+ logos of self-hosted software. The licence covers the file and not the brand: the LOGO-NOTICE
+ says where the file comes from and what the project's own rules on its logo say.
+License: BSD-3-clause
+
+Files:
+ src/noust/recipes/assets/otterwiki/logo.svg
+Copyright: the authors each mark's LOGO-NOTICE names (src/noust/recipes/assets/<recipe>/LOGO-NOTICE)
+Comment: A mark of a project, taken from its repository, its brand kit or a collection of the
+ logos of self-hosted software. The licence covers the file and not the brand: the LOGO-NOTICE
+ says where the file comes from and what the project's own rules on its logo say.
+License: CC-BY-3.0
+
+Files:
+ src/noust/recipes/assets/archivebox/logo.svg
+ src/noust/recipes/assets/calibre/logo.svg
+ src/noust/recipes/assets/dagu/logo.svg
+ src/noust/recipes/assets/docmost/logo.svg
+ src/noust/recipes/assets/go2rtc/logo.svg
+ src/noust/recipes/assets/gotify/logo.svg
+ src/noust/recipes/assets/hermes-agent/logo.svg
+ src/noust/recipes/assets/linkwarden/logo.svg
+ src/noust/recipes/assets/lowcoder/logo.svg
+ src/noust/recipes/assets/mazanoke/logo.svg
+ src/noust/recipes/assets/pairdrop/logo.svg
+ src/noust/recipes/assets/privatebin/logo.svg
+ src/noust/recipes/assets/qui/logo.svg
+ src/noust/recipes/assets/sftpgo/logo.svg
+ src/noust/recipes/assets/speedtest-tracker/logo.svg
+ src/noust/recipes/assets/stalwart/logo.svg
+ src/noust/recipes/assets/typesense/logo.svg
+ src/noust/recipes/assets/upsnap/logo.svg
+ src/noust/recipes/assets/wallos/logo.svg
+ src/noust/recipes/assets/weaviate/logo.svg
+Copyright: the authors each mark's LOGO-NOTICE names (src/noust/recipes/assets/<recipe>/LOGO-NOTICE)
+Comment: A mark of a project, taken from its repository, its brand kit or a collection of the
+ logos of self-hosted software. The licence covers the file and not the brand: the LOGO-NOTICE
+ says where the file comes from and what the project's own rules on its logo say.
+License: CC-BY-4.0
+
+Files:
+ src/noust/recipes/assets/_simple-icons/jenkins.svg
+Copyright: the authors each mark's LOGO-NOTICE names (src/noust/recipes/assets/<recipe>/LOGO-NOTICE)
+Comment: A mark of a project, taken from its repository, its brand kit or a collection of the
+ logos of self-hosted software. The licence covers the file and not the brand: the LOGO-NOTICE
+ says where the file comes from and what the project's own rules on its logo say.
+License: CC-BY-SA-3.0
+
+Files:
+ src/noust/recipes/assets/_simple-icons/dolibarr.svg
+ src/noust/recipes/assets/_simple-icons/forgejo.svg
+ src/noust/recipes/assets/_simple-icons/openbao.svg
+Copyright: the authors each mark's LOGO-NOTICE names (src/noust/recipes/assets/<recipe>/LOGO-NOTICE)
+Comment: A mark of a project, taken from its repository, its brand kit or a collection of the
+ logos of self-hosted software. The licence covers the file and not the brand: the LOGO-NOTICE
+ says where the file comes from and what the project's own rules on its logo say.
+License: CC-BY-SA-4.0
+
+Files:
+ src/noust/recipes/assets/cookie-cloud/logo.png
+ src/noust/recipes/assets/kavita/logo.svg
+ src/noust/recipes/assets/lidarr/logo.svg
+ src/noust/recipes/assets/prowlarr/logo.svg
+Copyright: the authors each mark's LOGO-NOTICE names (src/noust/recipes/assets/<recipe>/LOGO-NOTICE)
+Comment: A mark of a project, taken from its repository, its brand kit or a collection of the
+ logos of self-hosted software. The licence covers the file and not the brand: the LOGO-NOTICE
+ says where the file comes from and what the project's own rules on its logo say.
+License: GPL-3
+
+Files:
+ src/noust/recipes/assets/anythingllm/logo.svg
+ src/noust/recipes/assets/litellm/logo.svg
+Copyright: the authors each mark's LOGO-NOTICE names (src/noust/recipes/assets/<recipe>/LOGO-NOTICE)
+Comment: A mark of a project, taken from its repository, its brand kit or a collection of the
+ logos of self-hosted software. The licence covers the file and not the brand: the LOGO-NOTICE
+ says where the file comes from and what the project's own rules on its logo say.
+License: custom-brand-kit
+
+Files:
+ src/noust/recipes/assets/navidrome/logo.svg
+Copyright: the authors each mark's LOGO-NOTICE names (src/noust/recipes/assets/<recipe>/LOGO-NOTICE)
+Comment: A mark of a project, taken from its repository, its brand kit or a collection of the
+ logos of self-hosted software. The licence covers the file and not the brand: the LOGO-NOTICE
+ says where the file comes from and what the project's own rules on its logo say.
+License: custom-brand-page
+
+Files:
+ src/noust/recipes/assets/_simple-icons/keycloak.svg
+Copyright: the authors each mark's LOGO-NOTICE names (src/noust/recipes/assets/<recipe>/LOGO-NOTICE)
+Comment: A mark of a project, taken from its repository, its brand kit or a collection of the
+ logos of self-hosted software. The licence covers the file and not the brand: the LOGO-NOTICE
+ says where the file comes from and what the project's own rules on its logo say.
+License: custom-custom
+
+Files:
+ src/noust/recipes/assets/_simple-icons/umami.svg
+ src/noust/recipes/assets/activepieces/logo.svg
+ src/noust/recipes/assets/beszel/logo.svg
+ src/noust/recipes/assets/certmate/logo.png
+ src/noust/recipes/assets/code-server/logo.svg
+ src/noust/recipes/assets/dashy/logo.png
+ src/noust/recipes/assets/databasement/logo.svg
+ src/noust/recipes/assets/docling-serve/logo.png
+ src/noust/recipes/assets/docling/logo.png
+ src/noust/recipes/assets/dozzle/logo.svg
+ src/noust/recipes/assets/flaresolverr/logo.svg
+ src/noust/recipes/assets/heimdall/logo.svg
+ src/noust/recipes/assets/komga/logo.svg
+ src/noust/recipes/assets/librechat/logo.svg
+ src/noust/recipes/assets/libredb-studio/logo.svg
+ src/noust/recipes/assets/linkding/logo.svg
+ src/noust/recipes/assets/mailpit/logo.svg
+ src/noust/recipes/assets/memos/logo.svg
+ src/noust/recipes/assets/onedev/logo.svg
+ src/noust/recipes/assets/openclaw/logo.svg
+ src/noust/recipes/assets/openseo/logo.svg
+ src/noust/recipes/assets/paperclip/logo.svg
+ src/noust/recipes/assets/pulse/logo.svg
+ src/noust/recipes/assets/seerr/logo.svg
+ src/noust/recipes/assets/wekan/logo.svg
+ src/noust/recipes/assets/yourls/logo.svg
+ src/noust/recipes/assets/yuvomi/logo.svg
+Copyright: the authors each mark's LOGO-NOTICE names (src/noust/recipes/assets/<recipe>/LOGO-NOTICE)
+Comment: A mark of a project, taken from its repository, its brand kit or a collection of the
+ logos of self-hosted software. The licence covers the file and not the brand: the LOGO-NOTICE
+ says where the file comes from and what the project's own rules on its logo say.
+License: Expat
+
+License: AGPL-3
+ On Debian systems, the full text of the licence is in /usr/share/common-licenses/AGPL-3.
+
+License: custom-commons-clause
+ Terms the project publishes for third parties' use of its logo (commons-clause); the LOGO-NOTICE of
+ each file says where they were read.
+
+License: AGPL-3+
+ The text of the licence is at https://spdx.org/licenses/AGPL-3+.html.
+
+License: BSD-2-clause
+ The text of the licence is at https://spdx.org/licenses/BSD-2-clause.html.
+
+License: BSD-3-clause
+ The text of the licence is at https://spdx.org/licenses/BSD-3-clause.html.
+
+License: CC-BY-3.0
+ The text of the licence is at https://spdx.org/licenses/CC-BY-3.0.html.
+
+License: CC-BY-4.0
+ The text of the licence is at https://spdx.org/licenses/CC-BY-4.0.html.
+
+License: CC-BY-SA-3.0
+ The text of the licence is at https://spdx.org/licenses/CC-BY-SA-3.0.html.
+
+License: CC-BY-SA-4.0
+ The text of the licence is at https://spdx.org/licenses/CC-BY-SA-4.0.html.
+
+License: GPL-3
+ On Debian systems, the full text of the licence is in /usr/share/common-licenses/GPL-3.
+
+License: custom-brand-kit
+ Terms the project publishes for third parties' use of its logo (brand-kit); the LOGO-NOTICE of
+ each file says where they were read.
+
+License: custom-brand-page
+ Terms the project publishes for third parties' use of its logo (brand-page); the LOGO-NOTICE of
+ each file says where they were read.
+
+License: custom-custom
+ Terms the project publishes for third parties' use of its logo (custom); the LOGO-NOTICE of
+ each file says where they were read.
+# marks: end
+
 Files: src/noust/recipes/assets/plausible/clickhouse/*
 Copyright: 2024 Plausible Analytics
 Comment: Copied unchanged from https://github.com/plausible/community-edition (v3.2.1).

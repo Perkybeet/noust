@@ -29,7 +29,6 @@ export const fleetCompare: Catalog<typeof en> = {
   logs: {
     scopeLabel: "Qué servidores",
     thisServer: "Este servidor",
-    everyServer: "Todos los servidores",
     label: "los registros de todos los servidores",
     summary: { one: "{count} línea que coincide, de {servers} servidores.", other: "{count} líneas que coinciden, de {servers} servidores." },
     nothing: "Ningún servidor tiene una línea que coincida.",

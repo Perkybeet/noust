@@ -23,7 +23,7 @@ import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { formatBytes } from "../../lib/format";
 import { appNameOf } from "../apps/data";
-import { RestoreDialog } from "./RestoreDialog";
+import { AppRestoreDialog } from "./AppRestoreDialog";
 import { useDestinationActions } from "./useDestinationActions";
 
 /**
@@ -49,15 +49,15 @@ function RestoreFromDestinationDialog({
   const knownDomain = apps?.apps.find((app) => appNameOf(app.domain) === backup.app_name)?.domain;
   const { restoreFromDestination } = useDestinationActions();
   return (
-    <RestoreDialog
-      // A new proposal once the applications arrive: the field starts from the known domain.
+    <AppRestoreDialog
+      // A new proposal once the applications arrive: the dialog starts from the known domain.
       key={knownDomain ?? ""}
       open={open}
       onOpenChange={onOpenChange}
       title={t("backups.restoreFromDestination.title", { destination })}
-      description={t("backups.restoreFromDestination.description", { destination })}
+      replaceNote={t("backups.restoreFromDestination.description", { destination })}
       source={t.rich("backups.restoreFromDestination.source", { id: <Mono tone="default">{backup.backup_id}</Mono>, app: <Mono tone="default">{backup.app_name}</Mono> })}
-      domain={knownDomain ?? ""}
+      domain={knownDomain ?? null}
       offerVerify={false}
       envDescription={t("backups.restoreFromDestination.envFromDownload")}
       onRestore={async ({ targetDomain, restoreEnv }) => {

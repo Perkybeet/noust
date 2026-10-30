@@ -88,6 +88,7 @@ from noust.recipes.catalog import (
     categories,
     get_recipe,
     list_recipes,
+    logo_file,
     logo_svg,
     search_recipes,
 )
@@ -129,6 +130,7 @@ __all__ = [
     "categories",
     "get_recipe",
     "list_recipes",
+    "logo_file",
     "logo_svg",
     "parse_recipe",
     "read_asset",

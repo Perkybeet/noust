@@ -27,6 +27,9 @@ export const CENTRAL_API_PREFIXES: readonly string[] = [
   "/api/auth",
   "/api/nodes",
   "/api/fleet",
+  // One resource across the servers (`/api/views/activity`): the central asks each of them, so a page
+  // never sends it to the node it happens to be on.
+  "/api/views",
   "/api/central",
   // The same list on every server at once (apps, sites, certificates...): the central asks each server itself and says which answered.
   "/api/views",
@@ -38,7 +41,7 @@ export const CENTRAL_API_PREFIXES: readonly string[] = [
  * First elements of query keys whose data is the central's own (see CENTRAL_API_PREFIXES):
  * their entries are shared by every server the console shows, never partitioned.
  */
-export const CENTRAL_QUERY_ROOTS: ReadonlySet<string> = new Set(["auth", "nodes", "fleet", "servers", "central", "approvals", "views"]);
+export const CENTRAL_QUERY_ROOTS: ReadonlySet<string> = new Set(["auth", "nodes", "fleet", "views", "servers", "central", "approvals"]);
 
 function under(path: string, prefix: string): boolean {
   return path === prefix || path.startsWith(`${prefix}/`);

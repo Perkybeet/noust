@@ -49,7 +49,7 @@ describe("the catalog page", () => {
     const vault = await cardOf("Vaultwarden");
     // Its logo is the one the server serves, as an image and never inline.
     const logo = vault.querySelector("img");
-    expect(logo).toHaveAttribute("src", "/api/recipes/vaultwarden/logo");
+    expect(logo).toHaveAttribute("src", "/api/recipes/vaultwarden/logo?scheme=light");
     expect(within(vault).getByText("A lightweight Bitwarden-compatible password manager server.")).toBeInTheDocument();
     expect(within(vault).getByRole("button", { name: "Use Vaultwarden" })).toBeEnabled();
     // What a person scans a catalogue for is not buried under badges, tags and links.

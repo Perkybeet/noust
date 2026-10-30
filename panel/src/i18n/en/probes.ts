@@ -5,9 +5,9 @@
  */
 export const probes = {
   documentTitle: "Probes",
-  loadingLabel: "the probes",
-  title: "Probes",
-  description: "Addresses Noust asks on a clock, from where it runs: does the name resolve, does the certificate hold, does the page say what it should. One that stops answering is told through the notification channels.",
+  loading: "Loading the probes",
+  loadFailed: "Could not load the probes",
+  refreshFailed: "Could not refresh the probes",
   allUp: "Everything answers.",
   downCount: { one: "{count} address is not answering", other: "{count} addresses are not answering" },
   new: "New probe",
@@ -71,8 +71,10 @@ export const probes = {
     failAfterDescription: "What makes it down: 1 to 10.",
   },
   page: {
-    title: "Status page",
-    description: "The probes marked public as one static page that any web server can serve. It shows names and bars, never addresses or reasons.",
+    documentTitle: "Status page",
+    loading: "Loading the status page",
+    loadFailed: "Could not load the status page",
+    refreshFailed: "Could not refresh the status page",
     enabledLabel: "Keep the page's files up to date",
     files: { one: "Written to {directory}: {count} component.", other: "Written to {directory}: {count} components." },
     titleLabel: "Page title",

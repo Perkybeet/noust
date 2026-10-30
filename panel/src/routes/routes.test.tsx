@@ -37,10 +37,11 @@ const PAGES: [path: string, heading: string, content: string][] = [
   ["/databases", "Databases", "Databases"],
   ["/databases/postgresql/example_production", "example_production", "Used by"],
   ["/backups", "Backups", "Applications and their backups"],
-  ["/domains", "Domains", "Certificates"],
+  ["/domains", "Domains", "No domains yet"],
+  ["/domains/certificates", "Certificates", "Certificates"],
   ["/services", "Server", "Services"],
   ["/services/shop-web", "shop-web", "How it runs"],
-  ["/cron", "Cron", "Cron jobs"],
+  ["/cron", "Scheduled tasks", "Scheduled tasks"],
   ["/activity", "Activity", "Activity"],
   ["/server", "Server", "Needs attention"],
   ["/server/services", "Server", "Services"],
@@ -97,6 +98,8 @@ describe("the route tree", () => {
     const backend = fakeBackend(databaseRoutes());
     backend.on("GET /api/integrations/github", () => json(200, NO_GITHUB_APP));
     backend.on("GET /api/nodes", () => json(200, { items: [] }));
+    // The Domains list is made of the sites and the certificates: no site, no domain.
+    backend.on("GET /api/sites", () => json(200, { sites: [], total: 0, webserver: "nginx" }));
     // An app's tab is shown once the app is read, by when a 404 of its own data has arrived
     // too: the environment answers, and the metrics stay on their loading frame.
     backend.on("GET /api/apps/shop.example.com/env", () =>

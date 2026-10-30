@@ -23649,16 +23649,19 @@ export interface paths {
          * Get Recipe Logo
          * @description Serve a recipe's logo.
          *
-         *     The file is validated when the recipe loads (no script, no style, no link:
-         *     :mod:`noust.recipes.logos`), so it needs nothing the console's CSP forbids,
-         *     wherever it is shown, and it is sent ``nosniff``.
+         *     The file is judged by the console's policy (no script, no style, no link outside itself:
+         *     :mod:`noust.recipes.logos`) when the recipe loads and again as it is read, so it needs
+         *     nothing the console's CSP forbids, wherever it is shown, and it is sent ``nosniff``. The
+         *     theme the console shows decides the colours of a mark that would be lost on it
+         *     (:mod:`noust.recipes.logo_paint`).
          *
          *     Args:
          *         name: The recipe.
          *         session: The authenticated session.
+         *         scheme: ``light`` or ``dark``.
          *
          *     Returns:
-         *         The SVG.
+         *         The SVG, or the PNG of a project that has no SVG.
          *
          *     Raises:
          *         HTTPException: 404 when no recipe has that name, or it has no logo.
@@ -33606,8 +33609,9 @@ export interface components {
          *         id: Stable across refreshes.
          *         subject: What it is about: ``{"kind": "app", "domain": ...}``,
          *             ``{"kind": "certificate", "domain": ...}``, ``{"kind": "unit",
-         *             "name": ...}``, ``{"kind": "monitor", "process": ..., "pid": ...}`` or
-         *             ``{"kind": "alert", "rule": ..., "subject": ...}``.
+         *             "name": ...}``, ``{"kind": "monitor", "process": ..., "pid": ...}``,
+         *             ``{"kind": "alert", "rule": ..., "subject": ...}`` or
+         *             ``{"kind": "probe", "name": ...}``.
          *         title: A domain, a unit, a process, a rule (and the application it fires for).
          *         severity: The worst of its reasons.
          *         reasons: Each reason, with its own severity.
@@ -33631,13 +33635,14 @@ export interface components {
          * @description One reason an item needs attention.
          *
          *     Attributes:
-         *         kind: ``state``, ``deploy``, ``certificate``, ``unit``, ``monitor`` or ``alert``.
+         *         kind: ``state``, ``deploy``, ``certificate``, ``unit``, ``monitor``, ``alert`` or
+         *             ``probe``.
          *         severity: ``fail`` or ``warn``.
          *         code: Machine-readable and stable; the console words it. ``service_failed``,
          *             ``service_restarting``, ``running_outside_unit``, ``deploy_failed``, ``deploy_rolled_back``,
          *             ``certificate_expired``, ``certificate_expires_today``,
          *             ``certificate_expires_in``, ``unit_failed``, ``unit_restarting``,
-         *             ``monitor_finding``, ``alert_firing`` (nobody has taken it) and ``alert_taken``
+         *             ``monitor_finding``, ``probe_down``, ``alert_firing`` (nobody has taken it) and ``alert_taken``
          *             (somebody has; it still fires).
          *         params: Values for the console's sentence (days, a signal).
          *         detail: The system's own words, verbatim.
@@ -33646,7 +33651,7 @@ export interface components {
          *         actions: What can be done, as identifiers the console maps to buttons:
          *             ``view_log``, ``diagnose``, ``view_deployment``,
          *             ``renew_certificate``, ``open_service``, ``open_observation``,
-         *             ``acknowledge_alert``, ``reopen_alert``.
+         *             ``acknowledge_alert``, ``reopen_alert``, ``open_probes``.
          */
         AttentionReason: {
             /** Actions */
@@ -54116,6 +54121,8 @@ export interface components {
             logo_icon?: string | null;
             /** Logo License */
             logo_license?: string | null;
+            /** Logo Origin */
+            logo_origin?: string | null;
             /** Logo Source */
             logo_source?: string | null;
             /** Min Noust */
@@ -54304,10 +54311,12 @@ export interface components {
          *         category: One of the closed list (``GET /api/recipes/categories``).
          *         tags: Lower-case labels.
          *         logo: Where the logo is served, or None.
-         *         logo_source: ``simple-icons`` (the collection's mark, CC0) or ``asset`` (a file of the
-         *             recipe); None without a logo.
+         *         logo_source: ``simple-icons`` (the collection's mark) or ``asset`` (a file of the
+         *             recipe: the project's mark with its notice, or Noust's monogram); None without a logo.
          *         logo_icon: The simple-icons slug, when the logo is the collection's.
-         *         logo_license: The licence of the mark's file when it is the collection's.
+         *         logo_license: The licence of the mark's file (an SPDX expression), or None for the monogram,
+         *             which is Noust's own.
+         *         logo_origin: The address the mark was taken from, at its commit or release, or None.
          *         version: The version of the application the recipe pins.
          *         revision: The recipe's own revision of that version.
          *         updated: When the recipe last changed (ISO date).
@@ -54387,6 +54396,8 @@ export interface components {
             logo_icon?: string | null;
             /** Logo License */
             logo_license?: string | null;
+            /** Logo Origin */
+            logo_origin?: string | null;
             /** Logo Source */
             logo_source?: string | null;
             /** Min Noust */
@@ -93823,7 +93834,10 @@ export interface operations {
     };
     get_recipe_logo_api_recipes__name__logo_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The theme the logo will be drawn on: a mark that would not read on it is recoloured. */
+                scheme?: "light" | "dark";
+            };
             header?: never;
             path: {
                 name: string;
@@ -93832,12 +93846,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The recipe's logo, an SVG */
+            /** @description The recipe's logo: an SVG, or a PNG where the project has no SVG */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
+                    "image/png": string;
                     "image/svg+xml": string;
                 };
             };

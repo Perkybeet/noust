@@ -72,7 +72,7 @@ describe("create mode", () => {
 
     expect(await screen.findByRole("dialog", { name: "Issue a certificate" })).toBeInTheDocument();
     await waitFor(() => expect(router.state.location.search).not.toHaveProperty("new"));
-    expect(router.state.location.pathname).toBe("/domains");
+    expect(router.state.location.pathname).toBe("/domains/certificates");
   });
 
   it("opens each dialog when its page is reached by a link with ?new, once", async () => {

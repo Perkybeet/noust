@@ -245,7 +245,7 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
   }
 
   return (
-    <DomainsListPage
+    <DomainsListPage section="sites"
       {...(empty
         ? {}
         : {
@@ -282,8 +282,9 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
           })}
       {...(empty ? {} : { footer: <CommandHint command="noust site list" label={t("common.words.fromTerminal")} /> })}
     >
-      {empty || !server ? null : <UnknownHostsCard />}
       {content}
+      {/* After the list: what answers an unknown name is read once in a while, and must not push the sites down. */}
+      {empty || !server ? null : <UnknownHostsCard />}
 
       <CreateSiteDialog
         open={creating}

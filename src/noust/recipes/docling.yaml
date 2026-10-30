@@ -10,7 +10,7 @@ slogan: "Convert documents (PDF, DOCX, PPTX, images, HTML) to Markdown, JSON, an
 description: "Running Docling as an API service"
 category: ai
 tags: [ai, document, pdf, ocr, markdown, extraction, ibm, rag]
-logo: logo.svg
+logo: logo.png
 version: "1.38.2"
 revision: 1
 updated: 2026-10-28
