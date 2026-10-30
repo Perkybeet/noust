@@ -204,6 +204,18 @@ describe("3. the budgets", () => {
     expect(areaTarget(dest("databases"), "fleet")).toBe("/databases");
   });
 
+  it("opens the list of servers from anywhere where there is a fleet, and nothing else changes with one", () => {
+    const servers = dest("server");
+    expect(areaTarget(servers, "server", true)).toBe("/fleet/servers");
+    expect(areaTarget(servers, "fleet", true)).toBe("/fleet/servers");
+    // Without a fleet it is the machine's own page, as before.
+    expect(areaTarget(servers, "server", false)).toBe("/server");
+    expect(areaTarget(servers, "server")).toBe("/server");
+    // The other areas keep to the scope the page is in.
+    expect(areaTarget(dest("apps"), "server", true)).toBe("/apps");
+    expect(areaTarget(dest("domains"), "fleet", true)).toBe("/fleet/certificates");
+  });
+
   it("knows which area a path is under, the longest start of it, and the fleet's faces are their area's", () => {
     const area = (path: string): string | undefined => areaOf(path)?.id;
     expect(area("/")).toBe("overview");
@@ -287,7 +299,7 @@ describe("4. the names", () => {
   it("gives a screen that is only a tab the icon of its area in the palette", () => {
     const entries = paletteEntries({ t: (key) => key, can: () => true, when: { organised: true, fleet: true } });
     const server = entries.find((entry) => entry.id === "server");
-    const updates = entries.find((entry) => entry.id === "server.updates");
+    const updates = entries.find((entry) => entry.id === "server.system");
     expect(updates?.icon).toBe(server?.icon);
     const channels = entries.find((entry) => entry.id === "settings.notifications");
     expect(channels?.icon).not.toBe(entries.find((entry) => entry.id === "settings")?.icon);
@@ -410,7 +422,7 @@ describe("6. the palette finds every screen", () => {
 
   it("says where each one lives, in words", () => {
     const byId = new Map(entries.map((entry) => [entry.id, entry.path]));
-    expect(byId.get("server.updates")).toBe("Servers › System updates");
+    expect(byId.get("server.system")).toBe("Servers › System and updates");
     expect(byId.get("alerts.probes")).toBe("Alerts › Probes and status page");
     expect(byId.get("settings.notifications")).toBe("Settings › Channels");
     expect(byId.get("backups.schedules")).toBe("Backups › Schedules");

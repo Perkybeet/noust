@@ -79,7 +79,7 @@ export const server: Catalog<typeof en> = {
     title: "Noust",
     running: "Este servidor ejecuta Noust {version}.",
     upToDate: "Al día",
-    available: "Disponible la {version}",
+    available: "Versión {version} disponible",
     securityAvailable: "Hay una actualización de seguridad",
     update: "Actualizar Noust",
     notFromHere: "Esta instalación no se actualiza desde la consola.",

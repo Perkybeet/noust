@@ -13,6 +13,14 @@ describe("the breadcrumbs the register gives a page", () => {
     }
   });
 
+  it("makes the Servers step the list of servers where there is a fleet, and the machine's own page where there is none", () => {
+    expect(crumbsFor("/server/network", "server", true)[0]?.to).toBe("/fleet/servers");
+    expect(crumbsFor("/server/network", "server", false)[0]?.to).toBe("/server");
+    expect(crumbsFor("/server/network", "server")[0]?.to).toBe("/server");
+    // Only that area: an application's step is where it was.
+    expect(crumbsFor("/apps/$domain/deployments", "server", true)[0]?.to).toBe("/apps");
+  });
+
   it("says the area, the application by its domain, and the section, for an application's page", () => {
     expect(ids("/apps/$domain/deployments")).toEqual(["apps", "app", "app.deployments"]);
     const steps = crumbsFor("/apps/$domain/deployments", "server");

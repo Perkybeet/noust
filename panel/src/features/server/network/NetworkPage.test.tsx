@@ -114,9 +114,17 @@ describe("Network and ports", () => {
     expect(await screen.findByText("No network interface was reported.")).toBeInTheDocument();
   });
 
-  it("opens the firewall where the Security tab had it, and the ports where Domains had them", async () => {
+  it("opens the firewall where the Security tab had it", async () => {
     network("/server/security?view=firewall");
     expect(await screen.findByRole("radio", { name: "Firewall", checked: true })).toBeInTheDocument();
+  });
+
+  it("shows what the firewall does about each port that listens, and says what Docker published around it", async () => {
+    network("/server/network?view=firewall");
+
+    expect(await screen.findByText("Docker publishes 1 port around the firewall")).toBeInTheDocument();
+    expect(screen.getByText(/^active · incoming traffic/)).toHaveAttribute("data-state", "running");
+    await expectNoAxeViolations(screen.getByRole("main"));
   });
 
   it("has no accessibility violations", async () => {
