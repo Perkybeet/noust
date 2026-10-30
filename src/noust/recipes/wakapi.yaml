@@ -1,0 +1,126 @@
+# Wakapi: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/wakapi.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: wakapi
+kind: compose
+title: "Wakapi"
+slogan: "A minimalist, self-hosted WakaTime-compatible backend for coding statistics"
+description: "Wakapi is a self-hosted WakaTime-compatible backend for tracking coding activity and developer statistics."
+category: analytics
+tags: [productivity, self-hosted, developer-tools, time-tracker, wakatime, wakatime-api, coding-statistics, statistics]
+logo: logo.svg
+version: "2.18.2"
+revision: 1
+updated: 2026-10-30
+homepage: https://wakapi.dev
+docs: https://wakapi.dev/
+repository: https://github.com/muety/wakapi
+license: MIT
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_WAKAPI:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_BASE64_64_PASSWORDSALT:
+    generate: "base64_64"
+    secret: true
+    description: "The secret Noust generated for passwordsalt."
+  SERVICE_USER_DATABASE:
+    generate: "user"
+    description: "The user name Noust generated for database."
+  SERVICE_PASSWORD_DATABASE:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for database."
+  WAKAPI_MAIL_SENDER:
+    default: ""
+    description: "Setting WAKAPI_MAIL_SENDER of the application; the template leaves it to the operator."
+  WAKAPI_MAIL_SMTP_HOST:
+    default: ""
+    description: "Setting WAKAPI_MAIL_SMTP_HOST of the application; the template leaves it to the operator."
+  WAKAPI_MAIL_SMTP_USERNAME:
+    default: ""
+    description: "Setting WAKAPI_MAIL_SMTP_USERNAME of the application; the template leaves it to the operator."
+  WAKAPI_MAIL_SMTP_PASSWORD:
+    default: ""
+    secret: true
+    description: "Setting WAKAPI_MAIL_SMTP_PASSWORD of the application; the template leaves it to the operator."
+  WAKAPI_PUBLIC_URL:
+    default: ""
+    description: "Setting WAKAPI_PUBLIC_URL of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    wakapi:
+      image: ghcr.io/muety/wakapi:2.18.2@sha256:7a14217db1b6a47816c8d8d0590cc40fa12fd409dfed6c194bbb4cd50f43d913
+      environment:
+        SERVICE_URL_WAKAPI: ${SERVICE_URL_WAKAPI}
+        TZ: ${TIMEZONE:-Europe/Berlin}
+        WAKAPI_SERVER_LISTEN_IPV6: '"-"'
+        WAKAPI_ENV: ${WAKAPI_ENVIRONMENT:-production}
+        WAKAPI_SECURITY_PASSWORD_SALT: ${SERVICE_BASE64_64_PASSWORDSALT}
+        WAKAPI_SECURITY_EXPOSE_METRICS: ${WAKAPI_SECURITY_EXPOSE_METRICS:-false}
+        WAKAPI_DB_TYPE: postgres
+        WAKAPI_DB_NAME: ${WAKAPI_DB_NAME:-wakapi}
+        WAKAPI_DB_USER: ${SERVICE_USER_DATABASE}
+        WAKAPI_DB_PASSWORD: ${SERVICE_PASSWORD_DATABASE}
+        WAKAPI_DB_HOST: ${WAKAPI_DB_HOST:-postgres}
+        WAKAPI_DB_PORT: ${WAKAPI_DB_PORT:-5432}
+        WAKAPI_MAIL_ENABLED: ${WAKAPI_MAIL_ENABLED:-false}
+        WAKAPI_MAIL_PROVIDER: smtp
+        WAKAPI_MAIL_SENDER: ${WAKAPI_MAIL_SENDER}
+        WAKAPI_MAIL_SMTP_HOST: ${WAKAPI_MAIL_SMTP_HOST}
+        WAKAPI_MAIL_SMTP_PORT: ${WAKAPI_MAIL_SMTP_PORT:-587}
+        WAKAPI_MAIL_SMTP_USER: ${WAKAPI_MAIL_SMTP_USERNAME}
+        WAKAPI_MAIL_SMTP_PASS: ${WAKAPI_MAIL_SMTP_PASSWORD}
+        WAKAPI_MAIL_SMTP_TLS: ${WAKAPI_MAIL_SMTP_TLS:-true}
+        WAKAPI_ALLOW_SIGNUP: ${WAKAPI_ALLOW_SIGNUP:-true}
+        WAKAPI_LEADERBOARD_ENABLED: ${WAKAPI_LEADERBOARD_ENABLED:-true}
+        WAKAPI_DISABLE_FRONTPAGE: ${WAKAPI_DISABLE_FRONTPAGE:-true}
+        WAKAPI_PUBLIC_URL: ${WAKAPI_PUBLIC_URL}
+      volumes:
+        - wakapi-data:/data
+      depends_on:
+        postgres:
+          condition: service_healthy
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - wget -qO- http://127.0.0.1:3000/
+        interval: 2s
+        timeout: 10s
+        retries: 15
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:3000
+    postgres:
+      image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
+      volumes:
+        - wakapi-postgres-data:/var/lib/postgresql/data
+      environment:
+        POSTGRES_USER: ${SERVICE_USER_DATABASE}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_DATABASE}
+        POSTGRES_DB: ${WAKAPI_DB_NAME:-wakapi}
+        POSTGRES_PORT: ${WAKAPI_DB_PORT:-5432}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+  volumes:
+    wakapi-data:
+    wakapi-postgres-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_USER_DATABASE and SERVICE_PASSWORD_DATABASE in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes wakapi-data, wakapi-postgres-data of this application: back them up before updating."

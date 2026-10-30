@@ -1,10 +1,10 @@
 {
   "measured": "tests/integration/recipes_run.py: scripts/recipe_smoke.py in the harness container, one recipe at a time",
   "harness": "Ubuntu 24.04 with systemd and a Docker of its own (Dockerfile.systemd)",
-  "updated": "2026-10-30T15:51:52Z",
+  "updated": "2026-10-30T16:48:11Z",
   "totals": {
-    "pass": 306,
-    "fail": 4
+    "pass": 331,
+    "fail": 3
   },
   "results": [
     {
@@ -133,21 +133,21 @@
     {
       "recipe": "anubis",
       "version": "1.28.2",
-      "date": "2026-10-30T13:24:42Z",
-      "source": "dokploy",
-      "seconds": 187,
+      "date": "2026-10-30T16:17:34Z",
+      "source": "own",
+      "seconds": 127,
       "result": "fail",
-      "gate": "/ -> 500 after 181s",
+      "gate": "/ -> 500 after 120s",
       "gate_status": "500",
       "unsteady": false,
       "problems": [
         "the health gate's request to / got 500, the recipe expects 200-399"
       ],
-      "log_tail": ",\"x-forwarded-for\":\"\",\"x-real-ip\":\"\",\"err\":\"[misconfiguration] X-Real-IP header is not set\"}\nanubis-1  | {\"time\":\"2026-10-30T13:27:33.814306024Z\",\"level\":\"ERROR\",\"source\":{\"function\":\"github.com/TecharoHQ/anubis/lib.(*Server).maybeReverseProxy\",\"file\":\"github.com/TecharoHQ/anubis/lib/anubis.go\",\"line\":339},\"msg\":\"check failed\",\"subsystem\":\"anubis\",\"host\":\"127.0.0.1:18080\",\"method\":\"GET\",\"path\":\"/\",\"user_agent\":\"Python-urllib/3.12\",\"accept_language\":\"\",\"priority\":\"\",\"x-forwarded-for\":\"\",\"x-real-ip\":\"\",\"err\":\"[misconfiguration] X-Real-IP header is not set\"}\nanubis-1  | {\"time\":\"2026-10-30T13:27:38.826845083Z\",\"level\":\"ERROR\",\"source\":{\"function\":\"github.com/TecharoHQ/anubis/lib.(*Server).maybeReverseProxy\",\"file\":\"github.com/TecharoHQ/anubis/lib/anubis.go\",\"line\":339},\"msg\":\"check failed\",\"subsystem\":\"anubis\",\"host\":\"127.0.0.1:18080\",\"method\":\"GET\",\"path\":\"/\",\"user_agent\":\"Python-urllib/3.12\",\"accept_language\":\"\",\"priority\":\"\",\"x-forwarded-for\":\"\",\"x-real-ip\":\"\",\"err\":\"[misconfiguration] X-Real-IP header is not set\"}\nanubis-1  | {\"time\":\"2026-10-30T13:27:43.843402891Z\",\"level\":\"ERROR\",\"source\":{\"function\":\"github.com/TecharoHQ/anubis/lib.(*Server).maybeReverseProxy\",\"file\":\"github.com/TecharoHQ/anubis/lib/anubis.go\",\"line\":339},\"msg\":\"check failed\",\"subsystem\":\"anubis\",\"host\":\"127.0.0.1:18080\",\"method\":\"GET\",\"path\":\"/\",\"user_agent\":\"Python-urllib/3.12\",\"accept_language\":\"\",\"priority\":\"\",\"x-forwarded-for\":\"\",\"x-real-ip\":\"\",\"err\":\"[misconfiguration] X-Real-IP header is not set\"}\n",
+      "log_tail": "rwarded-for\":\"\",\"x-real-ip\":\"\",\"err\":\"[misconfiguration] X-Real-IP header is not set\"}\nanubis-1    | {\"time\":\"2026-10-30T16:19:26.067344363Z\",\"level\":\"ERROR\",\"source\":{\"function\":\"github.com/TecharoHQ/anubis/lib.(*Server).maybeReverseProxy\",\"file\":\"github.com/TecharoHQ/anubis/lib/anubis.go\",\"line\":339},\"msg\":\"check failed\",\"subsystem\":\"anubis\",\"host\":\"127.0.0.1:18080\",\"method\":\"GET\",\"path\":\"/\",\"user_agent\":\"Python-urllib/3.12\",\"accept_language\":\"\",\"priority\":\"\",\"x-forwarded-for\":\"\",\"x-real-ip\":\"\",\"err\":\"[misconfiguration] X-Real-IP header is not set\"}\nanubis-1    | {\"time\":\"2026-10-30T16:19:31.082570931Z\",\"level\":\"ERROR\",\"source\":{\"function\":\"github.com/TecharoHQ/anubis/lib.(*Server).maybeReverseProxy\",\"file\":\"github.com/TecharoHQ/anubis/lib/anubis.go\",\"line\":339},\"msg\":\"check failed\",\"subsystem\":\"anubis\",\"host\":\"127.0.0.1:18080\",\"method\":\"GET\",\"path\":\"/\",\"user_agent\":\"Python-urllib/3.12\",\"accept_language\":\"\",\"priority\":\"\",\"x-forwarded-for\":\"\",\"x-real-ip\":\"\",\"err\":\"[misconfiguration] X-Real-IP header is not set\"}\nanubis-1    | {\"time\":\"2026-10-30T16:19:36.096898604Z\",\"level\":\"ERROR\",\"source\":{\"function\":\"github.com/TecharoHQ/anubis/lib.(*Server).maybeReverseProxy\",\"file\":\"github.com/TecharoHQ/anubis/lib/anubis.go\",\"line\":339},\"msg\":\"check failed\",\"subsystem\":\"anubis\",\"host\":\"127.0.0.1:18080\",\"method\":\"GET\",\"path\":\"/\",\"user_agent\":\"Python-urllib/3.12\",\"accept_language\":\"\",\"priority\":\"\",\"x-forwarded-for\":\"\",\"x-real-ip\":\"\",\"err\":\"[misconfiguration] X-Real-IP header is not set\"}\n",
       "error_lines": 0,
       "transient": false,
       "rate_limited": false,
-      "images_removed": 1
+      "images_removed": 2
     },
     {
       "recipe": "anythingllm",
@@ -253,6 +253,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "azuracast",
+      "version": "0.24.0",
+      "date": "2026-10-30T16:27:12Z",
+      "source": "dokploy",
+      "seconds": 149,
+      "result": "pass",
+      "gate": "/ -> 302 after 45s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 3,
       "transient": false,
       "rate_limited": false,
       "images_removed": 1
@@ -402,6 +417,21 @@
       "transient": false,
       "rate_limited": false,
       "images_removed": 1
+    },
+    {
+      "recipe": "calibre-web-automated-book-downloader",
+      "version": "4.0.8",
+      "date": "2026-10-30T16:22:43Z",
+      "source": "coolify",
+      "seconds": 111,
+      "result": "pass",
+      "gate": "/ -> 302 after 15s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 4,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 2
     },
     {
       "recipe": "certmate",
@@ -664,23 +694,17 @@
     {
       "recipe": "crawl4ai",
       "version": "0.9.5",
-      "date": "2026-10-30T12:56:54Z",
+      "date": "2026-10-30T16:25:27Z",
       "source": "dokploy",
-      "seconds": 779,
-      "result": "fail",
-      "gate": "/ -> conn:ConnectionResetError after 604s",
-      "gate_status": "conn:ConnectionResetError",
+      "seconds": 33,
+      "result": "pass",
+      "gate": "/health -> 200 after 5s",
+      "gate_status": "200",
       "unsteady": false,
-      "problems": [
-        "the health gate's request to / got conn:ConnectionResetError, the recipe expects 200-399"
-      ],
-      "log_tail": "seModel\"\ncrawl4ai-1  |   class LlmJobPayload(BaseModel):\ncrawl4ai-1  | WARNING:crawl4ai.security:CRAWL4AI_API_TOKEN is not set. All API endpoints are unauthenticated. Set CRAWL4AI_API_TOKEN environment variable to enable authentication.\ncrawl4ai-1  | /app/server.py:1106: FastAPIDeprecationWarning: `regex` has been deprecated, please use `pattern` instead\ncrawl4ai-1  |   context_type: str = Query(\"all\", regex=\"^(code|doc|all)$\"),\ncrawl4ai-1  | MCP server running on 127.0.0.1:11235\ncrawl4ai-1  | [2026-10-30 12:59:51 +0000] [15] [INFO] Started server process [15]\ncrawl4ai-1  | [2026-10-30 12:59:51 +0000] [15] [INFO] Waiting for application startup.\ncrawl4ai-1  | WARNING:server:No CRAWL4AI_API_TOKEN set; generated an ephemeral token for this loopback session:    CRAWL4AI_API_TOKEN=398cd80e28a6214ebffafe6140e0b3ae6b724edf3dc35c47529f0b1f9534808d\ncrawl4ai-1  | [INIT].... → Crawl4AI 0.9.5 \ncrawl4ai-1  | ========================================================================\ncrawl4ai-1  |   Crawl4AI Cloud is live: the same crawler, hosted.\ncrawl4ai-1  |   Free credit to start, no card. Soft launch: prices can change, what you buy stays yours.\ncrawl4ai-1  |   Get a key in 10 seconds:  https://crawl4ai.com/?ref=pip\ncrawl4ai-1  |   The library stays open source, forever.   Hide this banner: CRAWL4AI_NO_CLOUD_NOTICE=1\ncrawl4ai-1  | ========================================================================\ncrawl4ai-1  | [2026-10-30 12:59:52 +0000] [15] [INFO] Application startup complete.\n",
       "error_lines": 0,
       "transient": false,
       "rate_limited": false,
-      "images_removed": 1,
-      "attempts": 2,
-      "first_attempt": "the health gate's request to / got conn:ConnectionResetError, the recipe expects 200-399"
+      "images_removed": 1
     },
     {
       "recipe": "ctfd",
@@ -1036,6 +1060,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "easyappointments",
+      "version": "1.6.1",
+      "date": "2026-10-30T16:21:11Z",
+      "source": "coolify",
+      "seconds": 90,
+      "result": "pass",
+      "gate": "/ -> 307 after 0s",
+      "gate_status": "307",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "elasticsearch",
       "version": "9.5.5",
       "date": "2026-10-28T22:39:38Z",
@@ -1065,21 +1104,16 @@
       "images_removed": 1
     },
     {
-      "recipe": "electricsql",
+      "recipe": "electric",
       "version": "1.8.1",
-      "date": "2026-10-30T13:38:29Z",
-      "source": "coolify",
-      "seconds": 40,
-      "result": "fail",
-      "gate": "/ -> conn:URLError after 30s",
-      "gate_status": "conn:URLError",
-      "unsteady": true,
-      "problems": [
-        "noust-test-recetas400-electricsql-electric-1 restarted 8 times",
-        "the health gate's request to / got conn:URLError, the recipe expects 200-399"
-      ],
-      "log_tail": "ABASE_URL using custom function: invalid URL scheme: nil\nelectric-1  |     (electric 1.8.1) lib/electric/config.ex:407: Electric.Config.parse_postgresql_uri!/1\nelectric-1  |     (dotenvy 1.1.1) lib/dotenvy.ex:149: Dotenvy.env!/2\nelectric-1  |     releases/1.8.1/runtime.exs:49: (file)\nelectric-1  |     (elixir 1.20.2) src/elixir.erl:382: :elixir.eval_external_handler/3\nelectric-1  |     (stdlib 8.0.1) erl_eval.erl:1048: :erl_eval.do_apply/7\nelectric-1  |     (stdlib 8.0.1) erl_eval.erl:792: :erl_eval.expr/6\nelectric-1  |     (stdlib 8.0.1) erl_eval.erl:276: :erl_eval.exprs/6\nelectric-1  |     (elixir 1.20.2) src/elixir.erl:365: :elixir.erl_eval/3\nelectric-1  | \nelectric-1  | Runtime terminating during boot ({#{message=><<\"Error converting variable DATABASE_URL using custom function: invalid URL scheme: nil\">>,'__struct__'=>'Elixir.RuntimeError','__exception__'=>true},[{'Elixir.Electric.Config','parse_postgresql_uri!',1,[{file,\"lib/electric/config.ex\"},{line,407}]},{'Elixir.Dotenvy','env!',2,[{file,\"lib/dotenvy.ex\"},{line,149}]},{elixir_compiler,'__FILE__',1,[{file,\"releases/1.8.1/runtime.exs\"},{line,49}]},{elixir,eval_external_handler,3,[{file,\"src/elixir.erl\"},{line,382}]},{erl_eval,do_apply,7,[{file,\"erl_eval.erl\"},{line,1048}]},{erl_eval,expr,6,[{file,\"erl_eval.erl\"},{line,792}]},{erl_eval,exprs,6,[{file,\"erl_eval.erl\"},{line,276}]},{elixir,erl_eval,3,[{file,\"src/elixir.erl\"},{line,365}]}]})\nelectric-1  | \nelectric-1  | Crash dump is being written to: erl_crash.dump...done\n",
-      "error_lines": 0,
+      "date": "2026-10-30T16:09:29Z",
+      "source": "own",
+      "seconds": 50,
+      "result": "pass",
+      "gate": "/v1/health -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 1,
       "transient": false,
       "rate_limited": false,
       "images_removed": 1
@@ -1185,6 +1219,51 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 2,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "ezbookkeeping",
+      "version": "2.1.1",
+      "date": "2026-10-30T16:14:11Z",
+      "source": "dokploy",
+      "seconds": 83,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "feishin",
+      "version": "1.17.0",
+      "date": "2026-10-30T16:44:45Z",
+      "source": "own",
+      "seconds": 34,
+      "result": "pass",
+      "gate": "/ -> 200 after 0s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "fider",
+      "version": "0.38.2",
+      "date": "2026-10-30T16:34:50Z",
+      "source": "coolify",
+      "seconds": 70,
+      "result": "pass",
+      "gate": "/ -> 307 after 5s",
+      "gate_status": "307",
+      "unsteady": false,
+      "error_lines": 55,
       "transient": false,
       "rate_limited": false,
       "images_removed": 1
@@ -1535,6 +1614,21 @@
       "result": "pass",
       "gate": "/ -> 200 after 0s",
       "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "gonic",
+      "version": "0.23.0",
+      "date": "2026-10-30T16:00:25Z",
+      "source": "own",
+      "seconds": 46,
+      "result": "pass",
+      "gate": "/ -> 303 after 5s",
+      "gate_status": "303",
       "unsteady": false,
       "error_lines": 0,
       "transient": false,
@@ -1894,6 +1988,25 @@
       "images_removed": 1
     },
     {
+      "recipe": "isso",
+      "version": "0.14.0",
+      "date": "2026-10-30T16:45:59Z",
+      "source": "own",
+      "seconds": 131,
+      "result": "fail",
+      "gate": "/ -> 400 after 121s",
+      "gate_status": "400",
+      "unsteady": false,
+      "problems": [
+        "the health gate's request to / got 400, the recipe expects 200-399,404"
+      ],
+      "log_tail": "isso-1  | 2026-10-30 16:46:08,784:INFO: Loading Mistune with plugins: ['strikethrough', 'subscript', 'superscript'] and parameters: ['escape', 'hard_wrap']\nisso-1  | 2026-10-30 16:46:08,785:INFO: Using Mistune as Markdown rendering engine\nisso-1  | 2026-10-30 16:46:08,796:INFO: Using database at '/db/comments.db'\nisso-1  | 2026-10-30 16:46:08,871:WARNING: unable to connect to your website, Isso will probably not work correctly. Please make sure, Isso can reach your website via HTTP(S).\nisso-1  | [2026-10-30 16:46:08 +0000] [1] [INFO] Starting gunicorn 25.2.0\nisso-1  | [2026-10-30 16:46:08 +0000] [1] [INFO] Listening at: http://0.0.0.0:8080 (1)\nisso-1  | [2026-10-30 16:46:08 +0000] [1] [INFO] Using worker: sync\nisso-1  | [2026-10-30 16:46:08 +0000] [7] [INFO] Booting worker with pid: 7\nisso-1  | [2026-10-30 16:46:08 +0000] [8] [INFO] Booting worker with pid: 8\nisso-1  | [2026-10-30 16:46:09 +0000] [9] [INFO] Booting worker with pid: 9\nisso-1  | [2026-10-30 16:46:09 +0000] [10] [INFO] Booting worker with pid: 10\nisso-1  | [2026-10-30 16:46:09 +0000] [1] [INFO] Control socket listening at /root/.gunicorn/gunicorn.ctl\n",
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "jaeger",
       "version": "2.22.0",
       "date": "2026-10-30T15:19:32Z",
@@ -2128,6 +2241,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "kitchenowl",
+      "version": "0.7.10",
+      "date": "2026-10-30T16:30:21Z",
+      "source": "dokploy",
+      "seconds": 124,
+      "result": "pass",
+      "gate": "/ -> 200 after 40s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "koillection",
       "version": "1.8.5",
       "date": "2026-10-30T12:47:23Z",
@@ -2216,6 +2344,21 @@
       "images_removed": 1,
       "attempts": 2,
       "first_attempt": "the health gate's request to / got 400, the recipe expects 200-399"
+    },
+    {
+      "recipe": "leafwiki",
+      "version": "0.14.2",
+      "date": "2026-10-30T16:05:03Z",
+      "source": "own",
+      "seconds": 37,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
     },
     {
       "recipe": "leantime",
@@ -2329,6 +2472,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "linkstack",
+      "version": "4.8.8",
+      "date": "2026-10-30T16:36:02Z",
+      "source": "dokploy",
+      "seconds": 80,
+      "result": "pass",
+      "gate": "/ -> 200 after 0s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -2947,6 +3105,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "onetimesecret",
+      "version": "0.26.19",
+      "date": "2026-10-30T16:42:23Z",
+      "source": "coolify",
+      "seconds": 84,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 1,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "onlyoffice",
       "version": "10.0.0.1",
       "date": "2026-10-30T15:12:57Z",
@@ -3237,6 +3410,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "parse-server",
+      "version": "9.10.7",
+      "date": "2026-10-30T16:10:20Z",
+      "source": "own",
+      "seconds": 78,
+      "result": "pass",
+      "gate": "/parse/health -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 4,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "parseable",
       "version": "1.6.0",
       "date": "2026-10-29T02:46:21Z",
@@ -3245,6 +3433,21 @@
       "result": "pass",
       "gate": "/ -> 200 after 5s",
       "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "passbolt",
+      "version": "5.17.0",
+      "date": "2026-10-30T16:12:39Z",
+      "source": "coolify",
+      "seconds": 89,
+      "result": "pass",
+      "gate": "/ -> 302 after 15s",
+      "gate_status": "302",
       "unsteady": false,
       "error_lines": 0,
       "transient": false,
@@ -3425,6 +3628,24 @@
       "images_removed": 1
     },
     {
+      "recipe": "prestashop",
+      "version": "9.2.0",
+      "date": "2026-10-30T16:01:12Z",
+      "source": "own",
+      "seconds": 182,
+      "result": "pass",
+      "gate": "/ -> 302 after 50s",
+      "gate_status": "302",
+      "unsteady": true,
+      "notes": [
+        "noust-test-recetas400-prestashop-prestashop-1 restarted once, leaving with status 0"
+      ],
+      "error_lines": 1,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "privatebin",
       "version": "2.1.0",
       "date": "2026-10-29T00:25:25Z",
@@ -3586,6 +3807,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "readeck",
+      "version": "0.23.5",
+      "date": "2026-10-30T16:19:43Z",
+      "source": "own",
+      "seconds": 36,
+      "result": "pass",
+      "gate": "/ -> 303 after 5s",
+      "gate_status": "303",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "redoc",
       "version": "3.0.1",
       "date": "2026-10-30T15:47:10Z",
@@ -3593,6 +3829,21 @@
       "seconds": 34,
       "result": "pass",
       "gate": "/ -> 200 after 0s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "remark42",
+      "version": "1.18.0",
+      "date": "2026-10-30T16:45:21Z",
+      "source": "own",
+      "seconds": 37,
+      "result": "pass",
+      "gate": "/ping -> 200 after 5s",
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
@@ -3655,6 +3906,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "ryot",
+      "version": "10.5.5",
+      "date": "2026-10-30T16:37:24Z",
+      "source": "coolify",
+      "seconds": 93,
+      "result": "pass",
+      "gate": "/ -> 302 after 5s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -4133,6 +4399,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "tianji",
+      "version": "1.33.13",
+      "date": "2026-10-30T16:40:35Z",
+      "source": "dokploy",
+      "seconds": 105,
+      "result": "pass",
+      "gate": "/ -> 200 after 10s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "transmission",
       "version": "4.1.3",
       "date": "2026-10-29T00:45:30Z",
@@ -4170,6 +4451,21 @@
       "seconds": 42,
       "result": "pass",
       "gate": "/api/health-check -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "trip",
+      "version": "1.50.1",
+      "date": "2026-10-30T16:04:18Z",
+      "source": "own",
+      "seconds": 44,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
@@ -4359,6 +4655,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "wakapi",
+      "version": "2.18.2",
+      "date": "2026-10-30T16:20:19Z",
+      "source": "coolify",
+      "seconds": 50,
+      "result": "pass",
+      "gate": "/ -> 302 after 5s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 6,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "wallos",
       "version": "5.10.0",
       "date": "2026-10-29T00:55:31Z",
@@ -4494,6 +4805,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "yamtrack",
+      "version": "0.26.3",
+      "date": "2026-10-30T16:32:28Z",
+      "source": "coolify",
+      "seconds": 86,
+      "result": "pass",
+      "gate": "/ -> 302 after 25s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "yopass",
       "version": "16.0.1",
       "date": "2026-10-30T15:06:09Z",
@@ -4551,6 +4877,36 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "zipline",
+      "version": "4.8.2",
+      "date": "2026-10-30T16:39:00Z",
+      "source": "coolify",
+      "seconds": 93,
+      "result": "pass",
+      "gate": "/ -> 301 after 5s",
+      "gate_status": "301",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "zitadel",
+      "version": "4.16.0",
+      "date": "2026-10-30T16:11:40Z",
+      "source": "dokploy",
+      "seconds": 57,
+      "result": "pass",
+      "gate": "/ -> 302 after 10s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 2,
       "transient": false,
       "rate_limited": false,
       "images_removed": 1

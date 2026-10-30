@@ -6,7 +6,7 @@ schema: 2
 name: rallly
 kind: compose
 title: "Rallly"
-slogan: "Rallly is an open-source scheduling and collaboration tool designed to make organizing events..."
+slogan: "An open-source scheduling and collaboration tool that makes organising events easy."
 description: "Rallly is an open-source scheduling and collaboration tool for organizing events and meetings."
 category: productivity
 tags: [scheduling, rallly, events, meeting, doodle, polls, collaboration, productivity]

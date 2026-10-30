@@ -3,7 +3,7 @@ schema: 2
 name: copyparty
 kind: compose
 title: "copyparty"
-slogan: "Portable file server with accelerated resumable uploads, deduplication, WebDAV, FTP, zeroconf..."
+slogan: "Portable file server with resumable uploads, deduplication, WebDAV and FTP."
 description: "Serves a folder over the browser, WebDAV and FTP with resumable uploads, search, thumbnails and sharing. Nothing is public: the account admin owns the volume and its password is generated."
 category: files
 tags: [files, webdav, upload, share]

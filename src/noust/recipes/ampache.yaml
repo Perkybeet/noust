@@ -6,7 +6,7 @@ schema: 2
 name: ampache
 kind: compose
 title: "Ampache"
-slogan: "A web based audio/video streaming application and file manager allowing you to access your music..."
+slogan: "A web-based audio and video streaming application and file manager for your music."
 description: "Ampache is a web-based audio/video streaming application and file manager allowing you to access your music & videos from anywhere, using almost any internet enabled device."
 category: communication
 tags: [media, music, streaming, communication]

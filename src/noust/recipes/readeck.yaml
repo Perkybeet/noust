@@ -1,0 +1,37 @@
+# Readeck from the image the project publishes (codeberg.org/readeck/readeck), with the folder its documentation names (readeck.org/en/docs/install, Docker).
+# Licence: LICENSE of readeck/readeck on codeberg.org, read 2026-10-30: GNU Affero General Public License, version 3
+schema: 2
+name: readeck
+kind: compose
+title: "Readeck"
+slogan: "Save the readable content of the web pages you want to keep."
+description: "Saves the readable part of the pages you want to keep, free of ads and scripts, with highlights, labels, collections, full-text search and e-book export, from the browser and from phone apps. Accounts are made by the first visit."
+category: productivity
+tags: [bookmarks, read-later, archive, reader]
+logo: logo.svg
+version: "0.23.5"
+revision: 1
+updated: 2026-10-30
+homepage: https://readeck.org/
+docs: https://readeck.org/
+repository: https://codeberg.org/readeck/readeck
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8000
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    readeck:
+      image: codeberg.org/readeck/readeck:0.23.5@sha256:17dea468f4f713930338062f58a3a5e0d04e37d2961ddb827792e223f3db91b4
+      restart: unless-stopped
+      volumes:
+        - readeck-data:/readeck
+      ports:
+        - 127.0.0.1:${PORT}:8000
+  volumes:
+    readeck-data:
+notes:
+  - "Open {{ url }}. The first visit creates the first account: do it right after installing."
+  - "Its data is in the Docker volume readeck-data of this application: back it up before updating."

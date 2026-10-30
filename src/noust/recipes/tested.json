@@ -86,6 +86,11 @@
    "seconds": 36,
    "version": "1.89.0"
   },
+  "azuracast": {
+   "date": "2026-10-30",
+   "seconds": 149,
+   "version": "0.24.0"
+  },
   "babybuddy": {
    "date": "2026-10-29",
    "seconds": 53,
@@ -130,6 +135,11 @@
    "date": "2026-10-29",
    "seconds": 111,
    "version": "7.26.0"
+  },
+  "calibre-web-automated-book-downloader": {
+   "date": "2026-10-30",
+   "seconds": 111,
+   "version": "4.0.8"
   },
   "certmate": {
    "date": "2026-10-29",
@@ -215,6 +225,11 @@
    "date": "2026-10-28",
    "seconds": 47,
    "version": "3.5.3"
+  },
+  "crawl4ai": {
+   "date": "2026-10-30",
+   "seconds": 33,
+   "version": "0.9.5"
   },
   "ctfd": {
    "date": "2026-10-30",
@@ -336,6 +351,11 @@
    "seconds": 30,
    "version": "0.47.0"
   },
+  "easyappointments": {
+   "date": "2026-10-30",
+   "seconds": 90,
+   "version": "1.6.1"
+  },
   "elasticsearch": {
    "date": "2026-10-28",
    "seconds": 128,
@@ -345,6 +365,11 @@
    "date": "2026-10-30",
    "seconds": 32,
    "version": "1.17.0"
+  },
+  "electric": {
+   "date": "2026-10-30",
+   "seconds": 50,
+   "version": "1.8.1"
   },
   "element-web": {
    "date": "2026-10-30",
@@ -380,6 +405,16 @@
    "date": "2026-10-30",
    "seconds": 78,
    "version": "2.3.0"
+  },
+  "ezbookkeeping": {
+   "date": "2026-10-30",
+   "seconds": 83,
+   "version": "2.1.1"
+  },
+  "fider": {
+   "date": "2026-10-30",
+   "seconds": 70,
+   "version": "0.38.2"
   },
   "filebrowser-quantum": {
    "date": "2026-10-30",
@@ -500,6 +535,11 @@
    "date": "2026-10-30",
    "seconds": 31,
    "version": "2.2.4"
+  },
+  "gonic": {
+   "date": "2026-10-30",
+   "seconds": 46,
+   "version": "0.23.0"
   },
   "gotenberg": {
    "date": "2026-10-29",
@@ -701,6 +741,11 @@
    "seconds": 95,
    "version": "2.70.0"
   },
+  "kitchenowl": {
+   "date": "2026-10-30",
+   "seconds": 124,
+   "version": "0.7.10"
+  },
   "koillection": {
    "date": "2026-10-30",
    "seconds": 100,
@@ -730,6 +775,11 @@
    "date": "2026-10-29",
    "seconds": 66,
    "version": "6.6"
+  },
+  "leafwiki": {
+   "date": "2026-10-30",
+   "seconds": 37,
+   "version": "0.14.2"
   },
   "leantime": {
    "date": "2026-10-28",
@@ -770,6 +820,11 @@
    "date": "2026-10-28",
    "seconds": 45,
    "version": "1.47.0"
+  },
+  "linkstack": {
+   "date": "2026-10-30",
+   "seconds": 80,
+   "version": "4.8.8"
   },
   "linkwarden": {
    "date": "2026-10-28",
@@ -1081,10 +1136,20 @@
    "seconds": 68,
    "version": "26.7.1-root"
   },
+  "parse-server": {
+   "date": "2026-10-30",
+   "seconds": 78,
+   "version": "9.10.7"
+  },
   "parseable": {
    "date": "2026-10-29",
    "seconds": 42,
    "version": "1.6.0"
+  },
+  "passbolt": {
+   "date": "2026-10-30",
+   "seconds": 89,
+   "version": "5.17.0"
   },
   "penpot": {
    "date": "2026-10-29",
@@ -1146,6 +1211,11 @@
    "seconds": 53,
    "version": "2.15.3"
   },
+  "prestashop": {
+   "date": "2026-10-30",
+   "seconds": 182,
+   "version": "9.2.0"
+  },
   "privatebin": {
    "date": "2026-10-29",
    "seconds": 40,
@@ -1201,6 +1271,11 @@
    "seconds": 92,
    "version": "4.16.3"
   },
+  "readeck": {
+   "date": "2026-10-30",
+   "seconds": 36,
+   "version": "0.23.5"
+  },
   "redoc": {
    "date": "2026-10-30",
    "seconds": 34,
@@ -1225,6 +1300,11 @@
    "date": "2026-10-29",
    "seconds": 51,
    "version": "1.7.5"
+  },
+  "ryot": {
+   "date": "2026-10-30",
+   "seconds": 93,
+   "version": "10.5.5"
   },
   "searxng": {
    "date": "2026-10-29",
@@ -1351,6 +1431,11 @@
    "seconds": 39,
    "version": "5.34.1"
   },
+  "swingmusic": {
+   "date": "2026-10-30",
+   "seconds": 78,
+   "version": "3.0.0"
+  },
   "synapse": {
    "date": "2026-10-30",
    "seconds": 61,
@@ -1381,6 +1466,11 @@
    "seconds": 45,
    "version": "4.5.2"
   },
+  "tianji": {
+   "date": "2026-10-30",
+   "seconds": 105,
+   "version": "1.33.13"
+  },
   "transmission": {
    "date": "2026-10-29",
    "seconds": 42,
@@ -1395,6 +1485,11 @@
    "date": "2026-10-29",
    "seconds": 42,
    "version": "0.106.0"
+  },
+  "trip": {
+   "date": "2026-10-30",
+   "seconds": 44,
+   "version": "1.50.1"
   },
   "tuwunel": {
    "date": "2026-10-30",
@@ -1456,6 +1551,11 @@
    "seconds": 37,
    "version": "2.7.0"
   },
+  "wakapi": {
+   "date": "2026-10-30",
+   "seconds": 50,
+   "version": "2.18.2"
+  },
   "wallos": {
    "date": "2026-10-29",
    "seconds": 41,
@@ -1465,6 +1565,11 @@
    "date": "2026-10-30",
    "seconds": 35,
    "version": "3.9.0"
+  },
+  "wbo": {
+   "date": "2026-10-30",
+   "seconds": 52,
+   "version": "2.18.31"
   },
   "weaviate": {
    "date": "2026-10-29",
@@ -1496,6 +1601,11 @@
    "seconds": 51,
    "version": "2026.10.1"
   },
+  "yamtrack": {
+   "date": "2026-10-30",
+   "seconds": 86,
+   "version": "0.26.3"
+  },
   "yopass": {
    "date": "2026-10-30",
    "seconds": 35,
@@ -1515,6 +1625,16 @@
    "date": "2026-10-30",
    "seconds": 44,
    "version": "3.6.1"
+  },
+  "zipline": {
+   "date": "2026-10-30",
+   "seconds": 93,
+   "version": "4.8.2"
+  },
+  "zitadel": {
+   "date": "2026-10-30",
+   "seconds": 57,
+   "version": "4.16.0"
   }
  }
 }

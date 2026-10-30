@@ -3,7 +3,7 @@ schema: 2
 name: gitness
 kind: compose
 title: "Gitness"
-slogan: "Gitness is an Open Source developer platform with Source Control management, Continuous..."
+slogan: "An open-source developer platform with source control, continuous integration and delivery."
 description: "Hosts Git repositories with pull requests and code review, and runs pipelines on them, in one small program with a web console. The first account to sign up is the administrator. Pipelines that run in Docker need the Docker socket, which this recipe does not give it."
 category: development
 tags: [git, ci, code-review, devops]

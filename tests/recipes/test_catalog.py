@@ -407,7 +407,7 @@ def test_filters_combine_and_the_closed_lists_are_enforced() -> None:
     """category, tag and kind each narrow the result; a made-up value is an error."""
     media = {recipe.name for recipe in search_recipes(category="media")}
     assert {"jellyfin", "navidrome"} <= media
-    assert {recipe.name for recipe in search_recipes(category="media", tag="subsonic")} == {
+    assert {recipe.name for recipe in search_recipes(category="media", tag="audio")} == {
         "navidrome"
     }
     assert all(recipe.kind == "native" for recipe in search_recipes(kind="native"))

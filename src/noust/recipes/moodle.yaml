@@ -6,7 +6,7 @@ schema: 2
 name: moodle
 kind: compose
 title: "Moodle"
-slogan: "Moodle is the world’s most customisable and trusted eLearning solution that empowers educators..."
+slogan: "A customisable open-source learning platform for educators and students."
 description: "Open-source learning platform."
 category: cms
 tags: [moodle, elearning, education, lms, cms, open, source, low]

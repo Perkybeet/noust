@@ -613,6 +613,10 @@ def smoke(
         lines = project.run("logs", "--no-color", "--tail", "400").stdout.splitlines()
         errors = [line[:240] for line in lines if ERROR_LINE.search(line)]
         report.error_lines = {"count": len(errors), "first": errors[:5]}
+        if report.problems:
+            # A restart loop answers the gate and fails afterwards: the evidence needs the logs
+            # that say why, as it has them when the gate itself fails.
+            report.log_tail = project.run("logs", "--no-color", "--tail", "60").stdout[-6000:]
         return report
     finally:
         if keep:

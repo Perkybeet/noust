@@ -48,7 +48,7 @@ def test_list_json_carries_the_catalogue_fields_and_filters() -> None:
     found = json.loads(run("recipe", "list", "--json", "-q", "bitwarden manager").output)
     media = json.loads(run("recipe", "list", "--json", "--category", "media").output)
     tagged = json.loads(
-        run("recipe", "list", "--json", "--category", "media", "--tag", "subsonic").output
+        run("recipe", "list", "--json", "--category", "media", "--tag", "audio").output
     )
     native = json.loads(run("recipe", "list", "--json", "--kind", "native").output)
 

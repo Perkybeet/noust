@@ -101,7 +101,7 @@ def test_search_and_filters_narrow_the_list(client: TestClient) -> None:
     assert names(q="bitwarden manager") == {"vaultwarden"}
     assert names(q="DASHBOARD") >= {"grafana", "homepage"}
     assert names(category="media") >= {"jellyfin", "navidrome"}
-    assert names(category="media", tag="subsonic") == {"navidrome"}
+    assert names(category="media", tag="audio") == {"navidrome"}
     assert names(kind="native") >= {"wordpress", "umami", "uptime-kuma"}
     assert not names(kind="native") & {"vaultwarden", "memos"}
     assert names(q="zzzz") == set()

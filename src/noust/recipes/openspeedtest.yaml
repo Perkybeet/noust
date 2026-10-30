@@ -6,7 +6,7 @@ schema: 2
 name: openspeedtest
 kind: compose
 title: "OpenSpeedTest"
-slogan: "SpeedTest by OpenSpeedTest™ is a Free and Open-Source HTML5 Network Performance Estimation Tool..."
+slogan: "A free and open-source HTML5 network performance estimation tool."
 description: "OpenSpeedTest is a 100% browser-based HTML5 network performance estimation tool for accurately measuring network speed."
 category: monitoring
 tags: [network, testing, performance, monitoring, bandwidth]

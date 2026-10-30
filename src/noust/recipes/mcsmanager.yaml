@@ -6,7 +6,7 @@ schema: 2
 name: mcsmanager
 kind: compose
 title: "MCSManager"
-slogan: "Quick deployment, distributed, multi-user, modern management panel for Minecraft and Steam game..."
+slogan: "A quick-to-deploy, distributed, multi-user management panel for Minecraft and Steam game servers."
 description: "A modern dashboard for managing Minecraft servers. Primarily focused on Minecraft, but also supports other games and features a UI that's easy for beginners to use and supports i18n."
 category: data
 tags: [minecraft, game-server, management, dashboard, data]

@@ -6,7 +6,7 @@ schema: 2
 name: libredb-studio
 kind: compose
 title: "LibreDB Studio"
-slogan: "One browser tab for PostgreSQL, MySQL, Oracle, SQL Server, MongoDB, Redis, SQLite, Couchbase..."
+slogan: "One browser tab for PostgreSQL, MySQL, Oracle, SQL Server, MongoDB, Redis and more."
 description: "The open-source SQL IDE you host yourself. Query PostgreSQL, MySQL, Oracle, SQL Server, MongoDB, Redis, ClickHouse, Cassandra and more from your browser, twenty-seven drivers reaching fifty-four named engines."
 category: security
 tags: [database, sql, security]

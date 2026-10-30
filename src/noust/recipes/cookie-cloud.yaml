@@ -6,7 +6,7 @@ schema: 2
 name: cookie-cloud
 kind: compose
 title: "CookieCloud"
-slogan: "CookieCloud是一个和自架服务器同步浏览器Cookie和LocalStorage的小工具，支持端对端加密，可设定同步时间间隔。本仓库包含了插件和服务器端源码。CookieCloud..."
+slogan: "Syncs your browser cookies and LocalStorage with your own server, end-to-end encrypted."
 description: "CookieCloud lets you sync and manage browser cookies across devices securely using a self-hosted backend."
 category: files
 tags: [cookies, sync, selfhosted, privacy, files]

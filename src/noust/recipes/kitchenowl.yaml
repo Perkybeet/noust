@@ -1,0 +1,84 @@
+# KitchenOwl: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/kitchenowl
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: kitchenowl
+kind: compose
+title: "KitchenOwl"
+slogan: "KitchenOwl is a self-hosted grocery list and recipe manager."
+description: "KitchenOwl is a self-hosted grocery list and recipe manager."
+category: backend
+tags: [self-hosted, recipes, grocery, personal, backend]
+logo: logo.svg
+version: "0.7.10"
+revision: 1
+updated: 2026-10-30
+homepage: https://kitchenowl.org/
+docs: https://github.com/TomBursch/kitchenowl/wiki
+repository: https://github.com/TomBursch/kitchenowl
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  JWT_SECRET_KEY:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for jwt secret key."
+  DB_NAME:
+    default: "kitchenowl"
+    description: "Setting DB_NAME of the application; the template leaves it to the operator."
+  DB_USER:
+    default: "kitchenowl"
+    description: "Setting DB_USER of the application; the template leaves it to the operator."
+  DB_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for db password."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    web:
+      image: tombursch/kitchenowl:v0.7.10@sha256:bd821a41b8cb27fd7fcf429acd1fc67e9f889485a2cd1193d68c2d804a8e1bef
+      restart: unless-stopped
+      environment:
+        JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+        DB_DRIVER: postgresql
+        DB_HOST: db
+        DB_NAME: ${DB_NAME}
+        DB_USER: ${DB_USER}
+        DB_PASSWORD: ${DB_PASSWORD}
+      volumes:
+        - kitchenowl_files:/data
+      depends_on:
+        db:
+          condition: service_healthy
+      ports:
+        - 127.0.0.1:${PORT}:8080
+    db:
+      image: postgres:17@sha256:31ba9c94a03ada9988f2bb493a22a75eef3a185884533e5cdbcd498ea835b08f
+      restart: unless-stopped
+      environment:
+        POSTGRES_DB: ${DB_NAME}
+        POSTGRES_USER: ${DB_USER}
+        POSTGRES_PASSWORD: ${DB_PASSWORD}
+      volumes:
+        - kitchenowl_db:/var/lib/postgresql/data
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}
+        interval: 30s
+        timeout: 60s
+        retries: 5
+        start_period: 80s
+  volumes:
+    kitchenowl_files:
+    kitchenowl_db:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes kitchenowl_files, kitchenowl_db of this application: back them up before updating."

@@ -6,7 +6,7 @@ schema: 2
 name: docling
 kind: compose
 title: "Docling"
-slogan: "Convert documents (PDF, DOCX, PPTX, images, HTML) to Markdown, JSON, and more using AI-powered..."
+slogan: "Converts documents (PDF, DOCX, PPTX, images, HTML) to Markdown, JSON and more."
 description: "Running Docling as an API service"
 category: ai
 tags: [ai, document, pdf, ocr, markdown, extraction, ibm, rag]

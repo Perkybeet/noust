@@ -1,0 +1,87 @@
+# Crawl4AI: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/crawl4ai
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: crawl4ai
+kind: compose
+title: "Crawl4AI"
+slogan: "An open-source web crawler and scraper that turns any website into clean, LLM-ready Markdown."
+description: "Crawl4AI is a modern AI-powered web crawler with support for screenshots, PDFs, JavaScript execution, and LLM-based extraction. Includes an interactive playground and MCP (Model Context Protocol) integration."
+category: ai
+tags: [crawler, scraping, ai, llm, api]
+logo: logo.svg
+version: "0.9.5"
+revision: 1
+updated: 2026-10-30
+homepage: https://crawl4ai.com
+docs: https://github.com/unclecode/crawl4ai#readme
+repository: https://github.com/unclecode/crawl4ai
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  LLM_PROVIDER:
+    default: "openai/gpt-4o-mini"
+    description: "Setting LLM_PROVIDER of the application; the template leaves it to the operator."
+  API_TOKEN:
+    generate: "password64"
+    secret: true
+    description: "The token that every request to the API must carry (Authorization: Bearer ...). Without one the server listens on its own loopback only."
+  OPENAI_API_KEY:
+    default: ""
+    secret: true
+    description: "Your OpenAI key, when the LLM extraction strategies use OpenAI."
+  DEEPSEEK_API_KEY:
+    default: ""
+    secret: true
+    description: "Setting DEEPSEEK_API_KEY of the application; the template leaves it to the operator."
+  GROQ_API_KEY:
+    default: ""
+    secret: true
+    description: "Setting GROQ_API_KEY of the application; the template leaves it to the operator."
+  TOGETHER_API_KEY:
+    default: ""
+    secret: true
+    description: "Setting TOGETHER_API_KEY of the application; the template leaves it to the operator."
+  MISTRAL_API_KEY:
+    default: ""
+    secret: true
+    description: "Setting MISTRAL_API_KEY of the application; the template leaves it to the operator."
+  GEMINI_API_TOKEN:
+    default: ""
+    secret: true
+    description: "Setting GEMINI_API_TOKEN of the application; the template leaves it to the operator."
+health: {path: /health, expect: "200-399,401", timeout: 180}
+compose: |
+  services:
+    crawl4ai:
+      image: unclecode/crawl4ai:0.9.5@sha256:0b05666882bfb67f45d559a5b827839c54127b74aedd723f8ab338a3571b5fc9
+      restart: unless-stopped
+      shm_size: 1g
+      environment:
+        CRAWL4AI_API_TOKEN: ${API_TOKEN}
+        LLM_PROVIDER: ${LLM_PROVIDER}
+        OPENAI_API_KEY: ${OPENAI_API_KEY}
+        DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+        GROQ_API_KEY: ${GROQ_API_KEY}
+        TOGETHER_API_KEY: ${TOGETHER_API_KEY}
+        MISTRAL_API_KEY: ${MISTRAL_API_KEY}
+        GEMINI_API_TOKEN: ${GEMINI_API_TOKEN}
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - -f
+          - http://localhost:11235/health
+        interval: 30s
+        timeout: 10s
+        retries: 3
+      ports:
+        - 127.0.0.1:${PORT}:11235
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "Every request to the API carries the token in API_TOKEN (noust env show {{ domain }} --unmask) as Authorization: Bearer. The playground is at {{ url }}/playground."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."

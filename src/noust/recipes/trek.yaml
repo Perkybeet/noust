@@ -6,7 +6,7 @@ schema: 2
 name: trek
 kind: compose
 title: "TREK"
-slogan: "A self-hosted travel/trip planner with real-time collaboration, interactive maps, PWA support..."
+slogan: "A self-hosted trip planner with real-time collaboration, interactive maps and PWA support."
 description: "A minimalist, self-hosted trip planner with Kanban-style task boards, budgets, packing lists, interactive maps, real-time collaboration, and OIDC single sign-on."
 category: security
 tags: [travel, planning, productivity, security]

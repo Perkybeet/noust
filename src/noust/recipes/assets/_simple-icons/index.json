@@ -508,6 +508,13 @@
    "license": "CC0-1.0",
    "source": "https://github.com/paperless-ngx/paperless-ngx/blob/e16645b146da24f07004eb772a455450354a37a7/resources/logo/web/svg/square.svg"
   },
+  "passbolt": {
+   "title": "Passbolt",
+   "hex": "D40101",
+   "license": "CC0-1.0",
+   "source": "https://www.passbolt.com/credits/press-kit",
+   "guidelines": "https://www.passbolt.com/credits/brand-guidelines"
+  },
   "penpot": {
    "title": "Penpot",
    "hex": "000000",
@@ -538,6 +545,12 @@
    "hex": "13BEF9",
    "license": "CC0-1.0",
    "source": "https://www.portainer.io"
+  },
+  "prestashop": {
+   "title": "PrestaShop",
+   "hex": "DF0067",
+   "license": "CC0-1.0",
+   "source": "https://prestashop.com/brand-book"
   },
   "prometheus": {
    "title": "Prometheus",
