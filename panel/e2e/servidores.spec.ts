@@ -230,6 +230,7 @@ withFleet("@screens a server's sections, the list of servers and the permissions
     { name: "server-system", to: "/n/fleet-node/server/system" },
     { name: "server-security", to: "/n/fleet-node/server/security?view=ssh" },
     { name: "server-network", to: "/n/fleet-node/server/network" },
+    { name: "domains-published-ports", to: "/domains/ports" },
     { name: "server-webserver", to: "/n/fleet-node/server/webserver" },
     { name: "server-files", to: "/n/fleet-node/server/files" },
     { name: "server-central", to: "/n/fleet-node/server/central" },
