@@ -96,7 +96,7 @@ export function PageHeader({
   return (
     <header className={cx("flex flex-wrap items-end justify-between gap-x-6 gap-y-4", !flush && "mb-8")}>
       {/* 240px before the actions wrap under: a phone keeps a lone menu button beside the title. */}
-      <div className={cx("min-w-0 flex-1 basis-60", mark !== undefined && "flex items-center gap-4")}>
+      <div className={cx("min-w-0 flex-1 basis-60", mark !== undefined && "flex items-center gap-3")}>
         {mark !== undefined ? <div className="shrink-0">{mark}</div> : null}
         <div className="min-w-0 flex-1">
           {place !== undefined && place.length > 0 ? (

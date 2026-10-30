@@ -28,7 +28,7 @@ export function typeLogo(type: string | null | undefined): LogoSlug | null {
  * console's own icon of an application, bare, in the same box so a column of names lines up whether or not
  * each has a logo. Decoration: the type is also said in words in the column or the header beside it.
  */
-export function AppTypeMark({ type, size = "sm" }: { type: string | null | undefined; size?: "sm" | "lg" }) {
+export function AppTypeMark({ type, size = "sm" }: { type: string | null | undefined; size?: "sm" | "md" | "lg" }) {
   const logo = typeLogo(type);
   if (logo !== null) return <LogoTile logo={logo} size={size} />;
   return (

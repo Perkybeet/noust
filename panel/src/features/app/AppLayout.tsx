@@ -246,9 +246,9 @@ function AppPage({ domain, app, job }: { domain: string; app: UseQueryResult<App
     title: domain,
     mono: true,
     ...(app.isPending
-      ? { mark: <Skeleton className="size-14 rounded-card" /> }
+      ? { mark: <Skeleton className="size-10 rounded-control" /> }
       : app.data !== undefined && typeLogo(app.data.app_type) !== null
-        ? { mark: <AppTypeMark type={app.data.app_type} size="lg" /> }
+        ? { mark: <AppTypeMark type={app.data.app_type} size="md" /> }
         : {}),
   };
 
@@ -288,7 +288,7 @@ function AppPage({ domain, app, job }: { domain: string; app: UseQueryResult<App
       <DetailPage
         header={{
           ...header,
-          status: loaded ? <StatusPill state={view.state} label={view.label} /> : <Skeleton className="h-6 w-24 rounded-pill" />,
+          status: loaded ? <StatusPill state={view.state} label={view.label} /> : <Skeleton className="h-6 w-28 rounded-pill" />,
           ...(extras !== undefined ? { statusExtras: extras } : {}),
           meta: loaded ? <Facts app={loaded} address={displayAddress(domain, names.data?.domains, certs.data)} t={t} /> : <FactsSkeleton />,
           ...actions,
