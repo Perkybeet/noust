@@ -406,7 +406,13 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
                 </Mono>
               </span>
             </>
-          ) : undefined
+          ) : (
+            // The line is there from the first frame, as tall as it will be: it arrives with the configuration and the
+            // editor under it used to move down by it.
+            <span aria-hidden="true" className="flex h-5 items-center">
+              <Skeleton className="h-3 w-48" />
+            </span>
+          )
         }
         bar={{
           changes: dirty ? changedLines(saved, text) : 0,

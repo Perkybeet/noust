@@ -85,6 +85,9 @@ for (const language of ["en", "es"] as const) {
       await settle(page);
       await page.screenshot({ path: path.join(dir, "dialog-install.png") });
       await page.keyboard.press("Escape");
+      // The reboot is the header's of the server's Status page (on System it is a card's, "Reboot...", beside the shutdown).
+      await page.goto("/server");
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       await page.getByRole("button", { name: language === "es" ? "Reiniciar" : "Reboot", exact: true }).click();
       await expect(page.getByRole("dialog")).toBeVisible();
       await settle(page);
