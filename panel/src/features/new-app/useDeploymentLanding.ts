@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 
 import { deploymentsQuery } from "../../api/queries/deployments";
 import type { FollowedJob } from "../../api/queries/jobs";
@@ -41,10 +42,27 @@ export function useDeploymentLanding(target: LandingTarget | null, followedJob: 
     },
   });
 
+  // A job that is over before the history is read again (a static site is built in a moment) is looked for once more, after it
+  // ended: the poll above stops when the job does, and the row it wrote was one read away.
+  const [lookedAfterEnd, setLookedAfterEnd] = useState(false);
+  const refetch = deployments.refetch;
+  const jobId = target?.jobId ?? null;
+  useEffect(() => {
+    if (!finished || jobId === null) return;
+    let live = true;
+    void refetch().finally(() => {
+      if (live) setLookedAfterEnd(true);
+    });
+    return () => {
+      live = false;
+    };
+  }, [finished, jobId, refetch]);
+
   if (target === null) return null;
   const arrived = deployments.data?.items.find((item) => item.job_id === target.jobId);
   if (arrived !== undefined) return { kind: "deployment", id: arrived.id };
   if (!finished) return { kind: "waiting" };
   if (job.deployment_id != null) return { kind: "deployment", id: job.deployment_id };
+  if (!lookedAfterEnd) return { kind: "waiting" };
   return job.status === "completed" ? { kind: "app" } : { kind: "failed" };
 }
