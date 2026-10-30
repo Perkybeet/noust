@@ -81,7 +81,7 @@ async function servicesAt(path = "/server/services", extra: Record<string, Route
     ...extra,
   });
   const harness = renderConsole(path);
-  await screen.findByRole("heading", { level: 1, name: "Server" });
+  await screen.findByRole("heading", { level: 1, name: "web-01" });
   const table = await findLoadedRegion(/Services/);
   return { ...harness, backend, table };
 }
@@ -105,7 +105,7 @@ describe("the services tab", () => {
   it("is a tab of the Server area, with the old address sending there", async () => {
     fakeBackend({ ...signedInRoutes(), ...serverRoutes(), "GET /api/services": () => json(200, { services: SERVICES, total: SERVICES.length }) });
     const { location } = renderConsole("/services?q=shop");
-    await screen.findByRole("heading", { level: 1, name: "Server" });
+    await screen.findByRole("heading", { level: 1, name: "web-01" });
     await waitFor(() => {
       expect(location().pathname).toBe("/server/services");
     });
@@ -327,7 +327,7 @@ describe("the services tab, in Spanish", () => {
       "GET /api/services": () => json(200, { services: SERVICES, total: SERVICES.length }),
     });
     renderConsole("/server/services");
-    await screen.findByRole("heading", { level: 1, name: "Servidor" });
+    await screen.findByRole("heading", { level: 1, name: "web-01" });
     const table = await findLoadedRegion(/Servicios/);
     const running = await within(table).findByText("shop-example-com");
     const row = running.closest("tr");

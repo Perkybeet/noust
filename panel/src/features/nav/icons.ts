@@ -98,12 +98,14 @@ const COLUMN_OBJECT: Readonly<Record<string, ObjectName>> = {
   "app.terminal": "terminal",
   "app.files": "file",
   server: "server",
-  "server.updates": "update",
+  "server.system": "update",
   "server.security": "serviceSecurity",
-  "server.storage": "disk",
+  "server.network": "port",
   "server.services": "service",
-  "server.system": "node",
+  "server.webserver": "site",
   "server.terminal": "terminal",
+  "server.files": "file",
+  "server.central": "central",
 };
 
 /** The ids this table draws: a test holds them to the areas and the sections of the register, in both directions. */

@@ -152,7 +152,7 @@ describe("tags on services", () => {
       ...extra,
     });
     const harness = renderConsole("/server/services");
-    await screen.findByRole("heading", { level: 1, name: "Server" });
+    await screen.findByRole("heading", { level: 1, name: "web-01" });
     // A list replaces its skeleton: the region to look in is the loaded one.
     const table = await findLoadedRegion(/Services/);
     return { ...harness, backend, table };

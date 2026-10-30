@@ -111,15 +111,18 @@ test("the catalog pages at the operator's size and remembers it, with the recipe
   const next = paging.getByRole("button", { name: "Next page" });
   await next.click();
   await expect(paging.getByText(/^Showing 21–\d+ of \d+$/)).toBeVisible();
-  // The deployable recipes come first: the ones this release cannot run are on the last page
-  // (or the last two), listed with the server's reason and no way to use them.
+  // The pages hold the recipes that can be deployed; the ones this release cannot run are listed after them,
+  // apart, with the server's reason and no way to use them.
   for (let shown = 2; shown < Math.ceil(total / 20); shown++) {
     await next.click();
     await expect(paging.getByText(new RegExp(`^Showing ${String(shown * 20 + 1)}–\\d+ of \\d+$`))).toBeVisible();
   }
-  const unavailable = recipes(page).getByRole("listitem").filter({ hasText: "Not available in this release" }).first();
+  const unavailable = page.getByRole("list", { name: "Not available here" }).getByRole("listitem").filter({ hasText: "Not available in this release" }).first();
   await expect(unavailable).toBeVisible();
-  await expect(unavailable.getByRole("button")).toHaveCount(0);
+  await expect(recipes(page).getByRole("listitem").filter({ hasText: "Not available in this release" })).toHaveCount(0);
+  // No way to use it: the only button is the one that unfolds what the check found.
+  await expect(unavailable.getByRole("button", { name: /^Use / })).toHaveCount(0);
+  await expect(unavailable.getByRole("button", { name: "What was checked" })).toHaveCount(1);
   await expect(unavailable.locator("p").last()).not.toBeEmpty();
 
   await paging.getByRole("combobox", { name: "Rows per page" }).click();

@@ -8,6 +8,7 @@ import { useT } from "../i18n";
 import { NodeNotice } from "../nodes/NodeNotice";
 import { PageServerContext } from "../nodes/pageServer";
 import { useHasFleet } from "../nodes/servers";
+import { useNode } from "../nodes/useNode";
 import { useServerEvents } from "../realtime/events";
 import { cx } from "../lib/cx";
 import { columnKindOf } from "./columns";
@@ -90,6 +91,7 @@ export function Shell() {
   useServerEvents();
   const pageServer = usePageServerName();
   const hasFleet = useHasFleet();
+  const { node: onNode } = useNode();
   const scope = useNavScope();
   const layout = useNavLayout();
   const { width } = usePreferences();
@@ -140,7 +142,7 @@ export function Shell() {
       void navigate({ to });
     };
     // The letters of the scope on screen: `g a` is the server's Applications on a server and the fleet's on the fleet.
-    const navShortcuts = registeredShortcuts(scope).map((entry) => ({ keys: entry.keys, description: t(entry.description), run: go(entry.to) }));
+    const navShortcuts = registeredShortcuts(scope, hasFleet && onNode === null).map((entry) => ({ keys: entry.keys, description: t(entry.description), run: go(entry.to) }));
     return [
       ...navShortcuts,
       // The fleet is a scope, not a destination of a server's bar: one key leads to it from a server.
@@ -169,7 +171,7 @@ export function Shell() {
       },
       { keys: ["?"], description: t("shell.shortcuts.showShortcuts"), run: openShortcuts },
     ];
-  }, [navigate, router, openPalette, openShortcuts, t, scope, hasFleet]);
+  }, [navigate, router, openPalette, openShortcuts, t, scope, hasFleet, onNode]);
 
   useKeyboardShortcuts(bindings);
 

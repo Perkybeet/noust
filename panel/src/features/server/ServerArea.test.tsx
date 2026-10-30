@@ -49,10 +49,11 @@ const JOB = {
 };
 
 describe("the Server area", () => {
-  it("names the machine, judges it, and counts what is pending on its tabs", async () => {
+  it("names the machine, judges it, and counts what is pending on its sections", async () => {
     server("/server");
+    // The page is the machine's own name (item 92): the one header that says it.
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Server" }),
+      await screen.findByRole("heading", { level: 1, name: "web-01" }),
     ).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getAllByText("Critical").length).toBeGreaterThan(0);
@@ -64,12 +65,13 @@ describe("the Server area", () => {
         .getAllByRole("link")
         .map((link) => link.textContent),
     ).toEqual([
-      "Overview",
-      "System updates23",
-      "Security3",
-      "Storage",
+      "Status",
+      "System and updates23",
+      "Security and SSH3",
+      "Network and ports",
       "Services",
-      "System",
+      "Web server",
+      "Files",
     ]);
     // Automatic updates on, at a glance (item 56), and which ones under it.
     const auto = screen.getByText("Automatic updates").closest("div");
@@ -87,9 +89,9 @@ describe("the Server area", () => {
     if (first === undefined || second === undefined) throw new Error("fewer than two rows");
     // The critical finding first; pending security updates are a warning, as on the Overview.
     expect(first).toHaveTextContent("Docker publishes ports around the firewall");
-    expect(within(first).getByRole("link", { name: "Review" })).toHaveAttribute("href", "/server/security?view=firewall");
+    expect(within(first).getByRole("link", { name: "Review" })).toHaveAttribute("href", "/server/network?view=firewall");
     expect(second).toHaveTextContent("4 security updates are pending.");
-    expect(within(second).getByRole("link", { name: "Install" })).toHaveAttribute("href", "/server/updates");
+    expect(within(second).getByRole("link", { name: "Install" })).toHaveAttribute("href", "/server/system");
     expect(within(second).getByText("Warning")).toHaveClass("sr-only");
     await expectNoAxeViolations(screen.getByRole("main"));
   });
@@ -181,8 +183,10 @@ describe("the Server area", () => {
     });
     server("/server");
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Servidor" }),
+      await screen.findByRole("heading", { level: 1, name: "web-01" }),
     ).toBeInTheDocument();
+    // The page is titled by the server; the section nav is the part that speaks the language.
+    expect(screen.getByRole("navigation", { name: "Secciones del servidor" })).toBeInTheDocument();
     const list = await screen.findByRole("list", {
       name: "Lo que requiere atención",
     });
@@ -527,12 +531,6 @@ describe("the Security tab", () => {
     await user.click(screen.getByRole("radio", { name: "SSH" }));
     await screen.findByRole("region", { name: "Authorized SSH keys" });
     await expectNoAxeViolations(screen.getByRole("main"));
-    await user.click(screen.getByRole("radio", { name: "Firewall and ports" }));
-    expect(
-      await screen.findByText("Docker publishes 1 port around the firewall"),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/^active · incoming traffic/)).toHaveAttribute("data-state", "running");
-    await expectNoAxeViolations(screen.getByRole("main"));
     await user.click(screen.getByRole("radio", { name: "Brute force" }));
     expect(
       await screen.findByText("fail2ban is not installed."),
@@ -598,7 +596,7 @@ describe("fail2ban watching nginx", () => {
   });
 });
 
-describe("the Storage and System tabs", () => {
+describe("the Files and System sections", () => {
   it("show the disks and what takes space, and pass axe", async () => {
     server("/server/storage");
     expect(
@@ -620,7 +618,7 @@ describe("the Storage and System tabs", () => {
       memory_mb: 10,
       command: `worker-${pid}`,
     });
-    const { user, backend } = server("/server/system", {
+    const { user, backend } = server("/server/system?view=processes", {
       "GET /api/server/processes": (request) => {
         const limit = Number(request.search.get("limit"));
         return json(200, {
@@ -653,7 +651,7 @@ describe("the Storage and System tabs", () => {
   });
 
   it("show the clock, the name, the system and the power, and pass axe", async () => {
-    server("/server/system");
+    server("/server/system?view=machine");
     expect(await screen.findByText("Europe/Madrid")).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getAllByText("Ubuntu 24.04.1 LTS").length).toBeGreaterThan(

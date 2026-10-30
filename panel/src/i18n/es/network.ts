@@ -487,6 +487,7 @@ export const network: Catalog<typeof en> = {
   },
   ports: {
     publishAction: "Publicar un puerto",
+    whatListens: "Qué escucha en cada puerto de este servidor y qué deja pasar el cortafuegos está en {link}.",
     unavailable: "nginx no puede publicar un puerto aquí",
     listFailed: "No se pudieron listar los puertos publicados",
     emptyTitle: "No hay puertos TCP ni UDP publicados",

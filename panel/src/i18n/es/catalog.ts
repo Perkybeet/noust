@@ -116,8 +116,14 @@ export const catalog: Catalog<typeof en> = {
     docsOf: "Documentación de {title}",
     details: "Detalles",
     updated: "Actualizada el {date}",
+    useInstead: "Usar {name} en su lugar",
+    evidence: "Lo que se comprobó",
     yours: "Tuya",
     package: "De un paquete",
+  },
+  unavailable: {
+    title: "No disponibles aquí",
+    description: "Se enseñan y no se esconden: cada una dice por qué no se puede instalar en este servidor y qué hacer en su lugar.",
   },
   filters: {
     label: "Filtrar el catálogo",

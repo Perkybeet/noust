@@ -94,10 +94,46 @@ export const GHOST = summary("ghost", "Ghost", {
   version: null,
   updated: null,
   available: false,
+  unavailable_code: "not_for_production",
+  unavailable: { code: "recipes.unavailable.not_for_production", params: {} },
+  unavailable_text: "Its own project says this edition is not for production",
+  unavailable_hint: "Use the edition the project supports for production, deployed from its own repository.",
   unavailable_reason: "Ghost supports only MySQL 8 in production, not MariaDB. Not available in this release.",
   app_type: null,
   kind: "native",
   runs_in_docker: false,
+  requires: [],
+});
+
+/** A recipe that is the same as root on the server: it drives Docker's socket. It can be installed, after saying so. */
+export const PORTAINER = summary("portainer", "Portainer", {
+  slogan: "Container management for Docker and Kubernetes.",
+  homepage: "https://www.portainer.io",
+  category: "development",
+  tags: ["docker", "containers"],
+  version: "2.21.0",
+  root_equivalent: "docker_socket",
+  root_equivalent_warning: { code: "recipes.root_equivalent.docker_socket", params: { title: "Portainer" } },
+  root_equivalent_text: "Portainer controls the Docker daemon of this server, which is the same as having root on it",
+  root_equivalent_hint: "Install it only if you would give a person root on this server.",
+});
+
+/** A recipe that is archived upstream and has a replacement in the catalogue. */
+export const MINIO = summary("minio", "MinIO", {
+  slogan: "A high-performance, S3 compatible object store.",
+  homepage: "https://min.io",
+  category: "files",
+  tags: ["s3"],
+  version: null,
+  updated: null,
+  available: false,
+  unavailable_code: "archived",
+  unavailable: { code: "recipes.unavailable.archived", params: {} },
+  unavailable_text: "The project is archived and no longer maintained",
+  unavailable_hint: "Use the recipe that replaces it, when the catalogue names one.",
+  replaced_by: "garage",
+  unavailable_reason: "The upstream repository is archived and its README says so.",
+  app_type: null,
   requires: [],
 });
 

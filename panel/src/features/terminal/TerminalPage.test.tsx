@@ -495,7 +495,7 @@ describe("the server's terminal page", () => {
       "POST /api/server/terminal": () => json(200, ticketBody({ domain: null })),
     });
     const harness = renderConsole("/server/terminal");
-    await screen.findByRole("heading", { level: 1, name: "Server" });
+    await screen.findByRole("heading", { level: 1, name: "web-01" });
     return { ...harness, backend };
   }
 

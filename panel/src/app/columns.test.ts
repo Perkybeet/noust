@@ -61,12 +61,30 @@ describe("an application's sections, grouped by what they are for", () => {
 });
 
 describe("the machine's sections", () => {
-  it("are one list with no titles: its overview first, its tabs, then Terminal", () => {
+  it("are one list with no titles: its status first, then the sections in the order a machine is gone through", () => {
     const [group, ...rest] = serverColumn(everything);
     expect(rest).toEqual([]);
     expect(group?.titled).toBe(false);
-    expect(group?.items.map((item) => item.to)).toEqual(["/server", "/server/updates", "/server/security", "/server/storage", "/server/services", "/server/system", "/server/terminal"]);
+    expect(group?.items.map((item) => item.to)).toEqual([
+      "/server",
+      "/server/system",
+      "/server/security",
+      "/server/network",
+      "/server/services",
+      "/server/webserver",
+      "/server/terminal",
+      "/server/files",
+      "/server/central",
+    ]);
     expect(group?.items[0]?.exact).toBe(true);
+  });
+
+  it("offers the central's permissions only where a central manages the server", () => {
+    const paths = (fleet: boolean) => serverColumn({ can: () => true, when: { fleet } }).flatMap((group) => group.items.map((item) => item.to));
+
+    expect(paths(true)).toContain("/server/central");
+    expect(paths(false)).not.toContain("/server/central");
+    expect(paths(false)).toContain("/server/files");
   });
 
   it("leaves Terminal out for whoever may not open it", () => {

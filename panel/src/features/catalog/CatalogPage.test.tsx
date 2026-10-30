@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, signedInRoutes } from "../../test/fakes";
-import { catalogueRoutes, recipesRoute } from "./testFixtures";
+import { MINIO, PORTAINER, VAULTWARDEN, catalogueRoutes, recipesRoute } from "./testFixtures";
 
 function catalogue(extra: Parameters<typeof fakeBackend>[0] = {}) {
   const backend = fakeBackend({
@@ -77,17 +77,50 @@ describe("the catalog page", () => {
     expect(await screen.findByRole("heading", { level: 2, name: "Vaultwarden" })).toBeInTheDocument();
   });
 
-  it("lists a recipe this release cannot deploy with the reason, and no way to use it", { timeout: 20_000 }, async () => {
+  it("lists a recipe this release cannot deploy in a section of its own, not hidden on a page, with the reason and no way to use it", { timeout: 20_000 }, async () => {
     const { harness } = catalogue();
     const { user } = harness;
     await cardOf("Vaultwarden");
-    // 25 recipes, the deployable ones first: the ones this release cannot run are on the last page.
-    await user.click(screen.getByRole("button", { name: "Next page" }));
-    const ghost = await cardOf("Ghost");
+    // The ones that can be installed are the pages; the ones that cannot are listed after them, whatever the page.
+    const section = await screen.findByRole("region", { name: "Not available here" });
+    const ghost = within(section).getByRole("heading", { name: "Ghost" }).closest("li");
+    if (ghost === null) throw new Error("no card for Ghost");
     expect(within(ghost).getByText("Not available in this release")).toBeInTheDocument();
+    // The reason is in the console's words, and what the check found is one press away, verbatim.
+    expect(within(ghost).getByText("Its own project says this edition is not for production")).toBeInTheDocument();
+    expect(within(ghost).getByText(/Use the edition the project supports for production/)).toBeInTheDocument();
+    await user.click(within(ghost).getByRole("button", { name: "What was checked" }));
     expect(within(ghost).getByText(/supports only MySQL 8 in production/)).toBeInTheDocument();
-    expect(within(ghost).queryByRole("button")).not.toBeInTheDocument();
+    expect(within(ghost).queryByRole("button", { name: /^Use/ })).not.toBeInTheDocument();
+    expect(within(section).getByText("Listed, not hidden: each says why it cannot be installed on this server and what to do instead.")).toBeInTheDocument();
     await expectNoAxeViolations(harness.container);
+  });
+
+  it("says what replaces an archived recipe as a link, and does not say it twice", { timeout: 20_000 }, async () => {
+    catalogue({ "GET /api/recipes": () => json(200, { items: [VAULTWARDEN, MINIO], total: 2 }) });
+
+    const section = await screen.findByRole("region", { name: "Not available here" });
+    expect(within(section).getByText("The project is archived and no longer maintained")).toBeInTheDocument();
+    expect(within(section).getByRole("link", { name: "Use garage instead" })).toHaveAttribute("href", "/catalog/garage");
+    expect(within(section).queryByText(/when the catalogue names one/)).not.toBeInTheDocument();
+  });
+
+  it("says on the tile itself that a recipe is the same as root on the server, and still lets it be chosen", { timeout: 20_000 }, async () => {
+    catalogue({ "GET /api/recipes": () => json(200, { items: [VAULTWARDEN, PORTAINER], total: 2 }) });
+
+    const portainer = await cardOf("Portainer");
+    expect(within(portainer).getByText("Portainer controls the Docker daemon of this server, which is the same as having root on it")).toBeInTheDocument();
+    expect(within(portainer).getByRole("button", { name: "Use Portainer" })).toBeEnabled();
+    // Another recipe says nothing of the kind.
+    expect(within(await cardOf("Vaultwarden")).queryByText(/same as having root/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Not available here" })).not.toBeInTheDocument();
+  });
+
+  it("has no section of unavailable recipes when every recipe can be installed", { timeout: 20_000 }, async () => {
+    catalogue({ "GET /api/recipes": () => json(200, { items: [VAULTWARDEN], total: 1 }) });
+
+    await cardOf("Vaultwarden");
+    expect(screen.queryByRole("region", { name: "Not available here" })).not.toBeInTheDocument();
   });
 
   it("searches with the server's own search, keeps it in the address, and counts what it keeps", { timeout: 20_000 }, async () => {
@@ -155,15 +188,16 @@ describe("the catalog page", () => {
     const { user } = harness;
     const list = await screen.findByRole("list", { name: "Recipes" });
     expect(within(list).getAllByRole("heading")).toHaveLength(20);
-    expect(screen.getByText(/Showing 1–20 of 25/)).toBeInTheDocument();
+    // The 25th recipe (Ghost) cannot be installed here: it is listed apart, after the pages, not inside them.
+    expect(screen.getByText(/Showing 1–20 of 24/)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Next page" }));
-    await waitFor(() => expect(grid().getAllByRole("heading")).toHaveLength(5));
-    expect(screen.getByText(/Showing 21–25 of 25/)).toBeInTheDocument();
+    await waitFor(() => expect(grid().getAllByRole("heading")).toHaveLength(4));
+    expect(screen.getByText(/Showing 21–24 of 24/)).toBeInTheDocument();
 
     await user.click(screen.getByRole("combobox", { name: "Rows per page" }));
     await user.click(await screen.findByRole("option", { name: "All" }));
-    await waitFor(() => expect(grid().getAllByRole("heading")).toHaveLength(25));
+    await waitFor(() => expect(grid().getAllByRole("heading")).toHaveLength(24));
     expect(window.localStorage.getItem("noust.pageSize.recipes")).toBe("all");
   });
 

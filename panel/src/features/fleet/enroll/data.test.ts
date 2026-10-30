@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { EMPTY_ENROLL, enrollBody, firstProblem, hostKeyBody, looksLikePrivateKey, validPort, withoutCredential } from "./data";
+import { EMPTY_ENROLL, enrollBody, firstProblem, hostKeyBody, looksLikePrivateKey, suggestName, validPort, withoutCredential } from "./data";
 import type { EnrollForm } from "./data";
 
 const FILLED: EnrollForm = { ...EMPTY_ENROLL, name: "web-2", host: "203.0.113.9", password: "hunter2-but-longer" };
@@ -67,5 +67,29 @@ describe("the request that enrolls", () => {
 
   it("is emptied of every part of the credential once sent", () => {
     expect(withoutCredential({ ...FILLED, credential: "key", privateKey: KEY, passphrase: "open sesame" })).toMatchObject({ password: "", privateKey: "", passphrase: "", name: "web-2", host: "203.0.113.9" });
+  });
+});
+
+describe("the name suggested from the address", () => {
+  it("is the first label of a host name, so that the person only types the address", () => {
+    expect(suggestName("web2.example.com")).toBe("web2");
+    expect(suggestName("  Web-2.Example.COM ")).toBe("web-2");
+  });
+
+  it("is server- and the last number of an IPv4 address", () => {
+    expect(suggestName("203.0.113.9")).toBe("server-9");
+  });
+
+  it("is nothing when the address says nothing, so the field asks", () => {
+    expect(suggestName("")).toBe("");
+    expect(suggestName("2001:db8::1")).toBe("");
+    expect(suggestName("---")).toBe("");
+  });
+
+  it("always passes the name check, or is empty", () => {
+    for (const host of ["a_b.example.com", "-x.example.com", "x".repeat(60) + ".example.com", "server.example.com."]) {
+      const name = suggestName(host);
+      expect(name === "" || firstProblem({ ...FILLED, name }) === null).toBe(true);
+    }
   });
 });

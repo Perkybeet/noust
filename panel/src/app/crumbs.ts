@@ -8,7 +8,7 @@
  */
 
 import type { PlainKey } from "../i18n";
-import { DESTS, EXCEPTION_CRUMBS, crumbsOf, dest } from "./nav";
+import { DESTS, EXCEPTION_CRUMBS, areaTarget, crumbsOf, dest } from "./nav";
 import type { ConsolePath, Dest, Scope } from "./nav";
 
 /** What names a step: a catalog key, or a parameter of the route (the resource's name, which is never translated). */
@@ -46,7 +46,7 @@ function standIn(entry: Dest): Dest {
  * The steps of the page at `route` (the matched route's path, `fullPath`, parameters included). `scope`
  * is whose pages these are: an area opens at its fleet face from the fleet's pages.
  */
-export function crumbsFor(route: string, scope: Scope): CrumbStep[] {
+export function crumbsFor(route: string, scope: Scope, hasFleet = false): CrumbStep[] {
   const path = route.length > 1 ? route.replace(/\/+$/, "") : route;
   const found = entryOf(path);
   if (found === undefined) return [];
@@ -60,7 +60,7 @@ export function crumbsFor(route: string, scope: Scope): CrumbStep[] {
     steps.push({
       id: entry.id,
       name: resource ? { param } : { key: entry.label },
-      to: entry.kind === "area" && scope === "fleet" ? (entry.fleetTo ?? entry.to) : entry.to,
+      to: entry.kind === "area" ? areaTarget(entry, scope, hasFleet) : entry.to,
       resource,
       entry,
     });

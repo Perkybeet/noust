@@ -203,6 +203,25 @@ describe("3. the budgets", () => {
     expect(areaTarget(dest("databases"), "fleet")).toBe("/databases");
   });
 
+  it("opens the list of servers from anywhere where there is a fleet, and nothing else changes with one", () => {
+    const servers = dest("server");
+    expect(areaTarget(servers, "server", true)).toBe("/fleet/servers");
+    expect(areaTarget(servers, "fleet", true)).toBe("/fleet/servers");
+    // Without a fleet it is the machine's own page, as before.
+    expect(areaTarget(servers, "server", false)).toBe("/server");
+    expect(areaTarget(servers, "server")).toBe("/server");
+    // The other areas keep to the scope the page is in.
+    expect(areaTarget(dest("apps"), "server", true)).toBe("/apps");
+    expect(areaTarget(dest("domains"), "fleet", true)).toBe("/fleet/certificates");
+  });
+
+  it("lets the keys of Servers lead where its item of the bar does", () => {
+    const keyed = (hasFleet: boolean) => shortcuts("server", hasFleet).find((entry) => entry.id === "server")?.to;
+
+    expect(keyed(true)).toBe("/fleet/servers");
+    expect(keyed(false)).toBe("/server");
+  });
+
   it("knows which area a path is under, the longest start of it, and the fleet's faces are their area's", () => {
     const area = (path: string): string | undefined => areaOf(path)?.id;
     expect(area("/")).toBe("overview");
@@ -286,7 +305,7 @@ describe("4. the names", () => {
   it("gives a screen that is only a tab the icon of its area in the palette", () => {
     const entries = paletteEntries({ t: (key) => key, can: () => true, when: { organised: true, fleet: true } });
     const server = entries.find((entry) => entry.id === "server");
-    const updates = entries.find((entry) => entry.id === "server.updates");
+    const updates = entries.find((entry) => entry.id === "server.system");
     expect(updates?.icon).toBe(server?.icon);
     const channels = entries.find((entry) => entry.id === "settings.notifications");
     expect(channels?.icon).not.toBe(entries.find((entry) => entry.id === "settings")?.icon);
@@ -409,7 +428,7 @@ describe("6. the palette finds every screen", () => {
 
   it("says where each one lives, in words", () => {
     const byId = new Map(entries.map((entry) => [entry.id, entry.path]));
-    expect(byId.get("server.updates")).toBe("Servers › System updates");
+    expect(byId.get("server.system")).toBe("Servers › System and updates");
     expect(byId.get("alerts.probes")).toBe("Alerts › Probes");
     expect(byId.get("settings.notifications")).toBe("Settings › Channels");
     expect(byId.get("backups.schedules")).toBe("Backups › Schedules");
@@ -580,7 +599,7 @@ describe("what the pages draw from the register", () => {
     expect(paths(TEAM_TABS)).toEqual(["/teams/$team", "/teams/$team/members", "/teams/$team/variables", "/teams/$team/notifications", "/teams/$team/settings"]);
     expect(paths(tabsOf(FLEET_APPS_SCREENS))).toEqual(["/fleet/apps", "/fleet/placements"]);
     expect(paths(tabsOf(FLEET_SERVERS_SCREENS))).toEqual(["/fleet/servers", "/fleet/updates"]);
-    expect(paths(tabsById("server"))).toEqual(["/server", "/server/updates", "/server/security", "/server/storage", "/server/services", "/server/system"]);
+    expect(paths(tabsById("server"))).toEqual(["/server", "/server/system", "/server/security", "/server/network", "/server/services", "/server/webserver", "/server/files", "/server/central"]);
     expect(paths(tabsById("backups"))).toEqual(["/backups", "/backups/schedules", "/backups/volumes", "/backups/noust", "/backups/destinations"]);
     expect(paths(tabsById("domains"))).toEqual(["/domains", "/domains/sites", "/domains/certificates", "/domains/dns", "/domains/tunnels", "/domains/ports"]);
     expect(paths(tabsById("apps"))).toEqual(["/apps", "/projects"]);

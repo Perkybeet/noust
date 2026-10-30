@@ -22,17 +22,20 @@ const SIZES: readonly { suffix: string; size: { width: number; height: number } 
 
 const PAGES: readonly { name: string; path: string }[] = [
   { name: "server-overview", path: "/server" },
-  { name: "server-updates", path: "/server/updates" },
+  { name: "server-system", path: "/server/system" },
+  { name: "server-system-machine", path: "/server/system?view=machine" },
+  { name: "server-system-monitor", path: "/server/system?view=monitor" },
   { name: "server-security", path: "/server/security" },
   { name: "server-security-ssh", path: "/server/security?view=ssh" },
-  { name: "server-security-firewall", path: "/server/security?view=firewall" },
   { name: "server-security-bans", path: "/server/security?view=bans" },
-  { name: "server-storage", path: "/server/storage" },
+  { name: "server-network", path: "/server/network" },
+  { name: "server-network-firewall", path: "/server/network?view=firewall" },
+  { name: "server-network-published", path: "/server/network?view=published" },
+  { name: "server-network-interfaces", path: "/server/network?view=interfaces" },
   { name: "server-services", path: "/server/services" },
+  { name: "server-webserver", path: "/server/webserver" },
+  { name: "server-files", path: "/server/files" },
   { name: "server-logs", path: "/server/logs" },
-  { name: "server-system", path: "/server/system" },
-  { name: "server-system-network", path: "/server/system?view=network" },
-  { name: "server-system-monitor", path: "/server/system?view=monitor" },
   { name: "service", path: "/server/services/shop-example-net" },
   { name: "service-logs", path: "/server/services/shop-example-net/logs" },
   { name: "service-unit", path: "/server/services/shop-example-net/unit" },
@@ -76,7 +79,7 @@ for (const language of ["en", "es"] as const) {
       const dir = path.join(OUT, testInfo.project.name, language);
       await page.setViewportSize({ width: 1440, height: 900 });
       if (language === "es") await useSpanish(page);
-      await signInDirect(page, consoleServer, "/server/updates");
+      await signInDirect(page, consoleServer, "/server/system");
       await page.getByRole("button", { name: language === "es" ? /^Instalar las de seguridad/ : /^Install security updates/ }).click();
       await expect(page.getByRole("dialog")).toBeVisible();
       await settle(page);

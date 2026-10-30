@@ -415,6 +415,23 @@ class TestAccessCommand:
         )
         assert store.get_fleet_access()["updated_by"].startswith("cli:")
 
+    @pytest.mark.parametrize(
+        ("command", "expected"),
+        [
+            ("noust fleet access --level read --host-access off", FleetAccess("read", False)),
+            ("noust fleet access --level deploy --host-access off", FleetAccess("deploy", False)),
+            ("noust fleet access --level admin --host-access off", FleetAccess("admin", False)),
+            ("noust fleet access --level admin --host-access on", FleetAccess("admin", True)),
+        ],
+    )
+    def test_the_commands_the_console_shows_run_as_they_are_written(self, store, command, expected):
+        # panel/src/features/server/central/data.ts builds these exact strings for the console's
+        # "Central's permissions" section (panel/.../central/data.test.ts holds the other side).
+        result = CliRunner().invoke(root_cli, command.split()[1:])
+
+        assert result.exit_code == 0, result.output
+        assert current_access(store) == expected
+
     def test_host_access(self, store):
         CliRunner().invoke(root_cli, ["fleet", "access", "--host-access", "on"])
         assert current_access(store) == FleetAccess("admin", True)

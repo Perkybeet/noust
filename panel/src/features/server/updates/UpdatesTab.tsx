@@ -496,8 +496,8 @@ function UpdatesBody({ data }: { data: Updates }) {
         </Notice>
       ) : null}
       <Reboot updates={data} />
-      <div className="grid min-w-0 items-start gap-6 xl:grid-cols-3">
-        <div className="flex min-w-0 flex-col gap-4 xl:col-span-2">
+      <div className="grid min-w-0 items-start gap-6 2xl:grid-cols-3">
+        <div className="flex min-w-0 flex-col gap-4 2xl:col-span-2">
           {data.supported && data.pending === 0 ? (
             <EmptyState variant="inline" title={t("server.updates.nothingPending")} />
           ) : data.supported ? (

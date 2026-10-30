@@ -58,10 +58,10 @@ export const domains: Catalog<typeof en> = {
       keywords: "cloudflare cloudflared nat servidor de casa",
     },
     ports: {
-      tab: "Puertos",
-      title: "Puertos",
+      tab: "Puertos publicados",
+      title: "Puertos publicados",
       description: "Los puertos TCP y UDP que publica nginx, para lo que no es una página web.",
-      keywords: "tcp udp stream cortafuegos servidor de juegos abrir un puerto quién usa un puerto",
+      keywords: "tcp udp stream servidor de juegos minecraft publicar un puerto llegar a una aplicación por un puerto",
     },
   },
 

@@ -114,6 +114,12 @@ export const catalog = {
     updated: "Updated {date}",
     yours: "Yours",
     package: "From a package",
+    useInstead: "Use {name} instead",
+    evidence: "What was checked",
+  },
+  unavailable: {
+    title: "Not available here",
+    description: "Listed, not hidden: each says why it cannot be installed on this server and what to do instead.",
   },
   filters: {
     label: "Filter the catalog",

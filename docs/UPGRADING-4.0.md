@@ -93,6 +93,7 @@ console draws them in English.
 | In 3.3 | In 4.0 | The old address |
 |---|---|---|
 | **Settings > Security**: your password, authenticator app, passkeys and sessions, and the server's sign-in policy | **Account** (profile and password) and **Account > Sign-in security** (authenticator app, passkeys, sessions) in the avatar menu; the security profile and the sign-in policy are **Settings > Controls** | `/settings/security` redirects to `/account/security` |
+| **Server > Updates**, **Server > Storage**, the firewall of **Server > Security**, and the interfaces of **Server > System** (4.1) | **Server > System and updates**, **Server > Files**, **Server > Network and ports** (Firewall, Interfaces) | `/server/updates`, `/server/storage`, `/server/security?view=firewall` and `/server/system?view=network` redirect to them. **Domains > Ports** is now called **Domains > Published ports** and keeps its address |
 | **Settings > Servers** | **Fleet > Servers**, the one list of servers (pause monitoring, create at a provider, **Add a server**) | `/settings/servers` redirects to `/fleet/servers`, keeping filters and the **Add a server** flow |
 | **Settings > Notifications** | **Settings > Channels** | `/settings/notifications`, unchanged |
 | **Settings > Compliance** | **Settings > ENS report**; the compliance frameworks and controls are in **Settings > Controls** | `/settings/compliance`, unchanged |

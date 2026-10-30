@@ -237,8 +237,13 @@ export function CatalogResults({ catalog, search, onClear, onChoose, opening = n
     );
   }
 
-  const slice = pageWindow(items.length, pageSize, page);
-  const shown = paged ? pageOf(items, slice.from, slice.to) : items;
+  // What cannot be installed here is listed on its own, after the ones that can, with its reason: not paged, not hidden.
+  // The same level as the recipes' own names: a page's tiles are h2, a wizard step's are h3.
+  const Heading = level === 2 ? "h2" : "h3";
+  const ready = items.filter((recipe) => recipe.available);
+  const notAvailable = items.filter((recipe) => !recipe.available);
+  const slice = pageWindow(ready.length, pageSize, page);
+  const shown = paged ? pageOf(ready, slice.from, slice.to) : ready;
   return (
     <div className="flex flex-col gap-4">
       {notice}
@@ -255,9 +260,9 @@ export function CatalogResults({ catalog, search, onClear, onChoose, opening = n
           />
         ))}
       </ul>
-      {paged && items.length > 20 ? (
+      {paged && ready.length > 20 ? (
         <TablePagination
-          total={items.length}
+          total={ready.length}
           page={slice.page}
           pageSize={pageSize}
           onPageChange={(next) => setAt({ key: searchKey, page: next })}
@@ -266,6 +271,22 @@ export function CatalogResults({ catalog, search, onClear, onChoose, opening = n
             setAt({ key: searchKey, page: 0 });
           }}
         />
+      ) : null}
+      {notAvailable.length > 0 ? (
+        <section aria-label={t("catalog.unavailable.title")} className="flex min-w-0 flex-col gap-3 pt-2">
+          <div className="flex flex-col gap-1">
+            <Heading className="title flex items-baseline gap-2 text-16 text-fg">
+              {t("catalog.unavailable.title")}
+              <span className="text-13 font-normal text-fg-muted">{notAvailable.length}</span>
+            </Heading>
+            <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("catalog.unavailable.description")}</p>
+          </div>
+          <ul aria-label={t("catalog.unavailable.title")} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {notAvailable.map((recipe) => (
+              <RecipeCard key={recipe.name} recipe={recipe} detail={detail} level={3} />
+            ))}
+          </ul>
+        </section>
       ) : null}
     </div>
   );

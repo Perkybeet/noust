@@ -107,6 +107,8 @@ describe("adding a server from an address and a credential", () => {
       nodes,
     );
     await fill(user, dialog);
+    // The account, the port and what the central may do are behind one line: most servers take the defaults.
+    await user.click(within(dialog).getByRole("button", { name: "Account, port and permissions" }));
     await user.click(within(dialog).getByRole("combobox", { name: /This central may/ }));
     await user.click(await screen.findByRole("option", { name: /Operate and update/ }));
     await user.click(within(dialog).getByRole("button", { name: "Check the host key" }));
@@ -146,7 +148,7 @@ describe("adding a server from an address and a credential", () => {
     await user.click(within(dialog).getByLabelText(/^Private key/));
     await user.paste(KEY);
     await user.type(within(dialog).getByLabelText(/^Key passphrase/), "open sesame");
-    await user.click(within(dialog).getByRole("button", { name: "More options" }));
+    await user.click(within(dialog).getByRole("button", { name: "Account, port and permissions" }));
     await user.click(within(dialog).getByRole("checkbox", { name: /Also manage the server itself/ }));
     await user.click(within(dialog).getByRole("button", { name: "Check the host key" }));
     await within(dialog).findByText(FINGERPRINT);

@@ -74,7 +74,7 @@ from noust.core.store import App, NoustStore, get_store
 from noust.core.teams import ScopedStore
 from noust.core.utils import domain_to_app_name
 from noust.managers.source_manager import SourceManager
-from noust.validators.ssh import get_public_key, is_ssh_url, ssh_key_exists
+from noust.validators.ssh import generate_ssh_key, get_public_key, is_ssh_url, ssh_key_exists
 
 logger = logging.getLogger(__name__)
 
@@ -532,6 +532,44 @@ class DeployKeyManager:
         except ValidationError:
             return line, None
         return line, parsed.fingerprint
+
+    def create_server_key(self) -> tuple[str, str | None, bool]:
+        """
+        Make the server-wide SSH key when the server has none (``noust setup ssh --generate``).
+
+        It is the key the source fetch signs in with for a repository that has no deploy key of
+        its own, so a person starting a private repository over ssh can have the line to add at
+        the code host without leaving the console. A key that exists is never replaced or
+        rewritten: asking again answers with it, and says it was already there.
+
+        Returns:
+            Its public line, its fingerprint, and whether it was made now.
+
+        Raises:
+            SourceError: ``ssh-keygen`` could not make the key (the reason is its own).
+        """
+        public_key, fingerprint = self.server_key()
+        if public_key is not None:
+            return public_key, fingerprint, False
+        ok, path, message = generate_ssh_key("ed25519", comment="noust")
+        if not ok:
+            raise SourceError(
+                "The server's SSH key could not be made",
+                details=f"{message}. Run `noust setup ssh --generate` on the server to see why.",
+            )
+        public_key, fingerprint = self.server_key()
+        if public_key is None:
+            raise SourceError(
+                "The server's SSH key was made but its public half cannot be read",
+                details=f"Look at {path}.pub; `noust setup ssh --show` prints it.",
+            )
+        audit.record(
+            "apps.deploy_key.server_generate",
+            actor=self.actor,
+            target="deploy-key:server",
+            details={"fingerprint": fingerprint},
+        )
+        return public_key, fingerprint, True
 
     def _narrowed(self, key: DeployKey | None) -> DeployKey | None:
         """

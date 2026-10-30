@@ -42,7 +42,7 @@ export function ServerCell({ origin, outcome }: { origin: RowOrigin; outcome?: N
     <span className="flex min-w-0 flex-col items-start gap-0.5">
       <ServerLink
         node={origin.local ? null : origin.node}
-        path="/"
+        path="/server"
         className={NAME_LINK}
         aria-label={t("fleet.server.open", { name: origin.node })}
       >

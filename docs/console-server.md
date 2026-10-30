@@ -2,18 +2,25 @@
 
 Part of [The console, page by page](console.md).
 
-Six tabs, each with its URL (the system's journal is in [Logs](console-overview.md#logs)):
+The page of a server is its name, and ten sections in the second column of the bar (the tabs under the
+header on one bar), each with its URL. The system's journal is in [Logs](console-overview.md#logs).
 
-| Tab | What it has |
+| Section | What it has |
 |---|---|
-| Overview | What needs attention, then the machine at a glance; fits one screen |
-| Updates | Pending updates, security first; apply all or only security; refresh; "a reboot is due" and why; services on replaced libraries; automatic updates; the history of runs |
-| Security | Hardening checks with their fix or exact steps, accepted risks; SSH (effective settings, keys, safe fixes that revert unless confirmed); the firewall against the ports that really answer; fail2ban |
-| Storage | Real filesystems, what takes their space, clean-ups, swap; **Automatic cleanup**, the policy this server runs by itself (schedule, how full a disk must be, which actions) with a Run now, and the history of every cleanup |
+| Status | What needs attention, then the machine at a glance; fits one screen |
+| System and updates | Four views. **Updates**: Noust's own update (which Noust runs here, whether a newer one is out, **Update Noust** as a job) above the pending system updates, security first; apply all or only security; refresh; "a reboot is due" and why; services on replaced libraries; automatic updates; the history of runs. **This server**: time and synchronisation, host name, the operating system and its end of life, reboot and shut down (now or scheduled). **Processes**. **Resource monitor** |
+| Security and SSH | Hardening checks with their fix or exact steps, accepted risks; SSH (effective settings, keys, safe fixes that revert unless confirmed, and **the server's SSH key**: the key Noust signs in to code hosts with, made from here when the server has none and shown whole to copy); fail2ban |
+| Network and ports | Three views. **Listening ports**: every port with what holds it in the product's words (an application, a published port, a database, the web server, SSH), who can reach it, a search that answers "who uses port 5432?" and **Open a port**. **Firewall**: the firewall against the ports that really answer, with its rules. **Interfaces**. A line leads to **Domains > Published ports**, where an application is put on a port of its own (the TCP and UDP ports nginx carries for a service that is not a website): that is a way to reach it, so it stays with the names, and its page leads back here |
 | Services | Every systemd unit Noust manages ("Show all units" lists the rest, read-only); a service's page has its live journal, controls and a unit editor checked with `systemd-analyze verify`. A unit carries tags like an application (**Edit tags...** in its menu, a Tag filter, chips under its name) |
-| System | Time and synchronisation, host name, the operating system and its end of life, processes, network, reboot and shut down (now or scheduled), and the resource monitor |
+| Web server | Which of nginx and Apache answers on ports 80 and 443 and what is behind each; the one new applications are put behind (it moves none of the ones already there); and **Move to Apache** (or nginx): the plan first (what happens, what stops it, what the new sites will not do, protections first), the agreement it asks for, and the job that does it, put back if a site does not answer. See [Moving to the other web server](network-webserver.md) |
+| Terminal | A shell on the server, for whoever holds its permission |
+| Files | Real filesystems, what takes their space, clean-ups, swap; **Kept between deployments**, the folders and files each application keeps beside its releases, with where they are and how big, each linking to that application's Storage; **Automatic cleanup**, the policy this server runs by itself (schedule, how full a disk must be, which actions) with a Run now, and the history of every cleanup |
+| Central's permissions | On a fleet, for a server a central manages: what the central may do there (read only, operate and update, everything, and whether it may also change how the server is reached), as the server publishes it. Only the server can change it: the page builds the `noust fleet access` command for the level chosen, and **Check again** reads the server's answer |
 
-`/services` redirects to Server > Services.
+The 4.0 addresses go to where each thing is now: `/server/updates` to System and updates, `/server/storage` to Files,
+`/server/security?view=firewall` to Network and ports (Firewall), `/server/system?view=network` to
+Network and ports (Interfaces), and `/services` to Services. `/domains/ports` stays where it was, now called Published ports. A database server on the machine is a
+[Databases](console-databases.md) page filtered by server, not a section here.
 
 **Searching the logs.** The search box of Logs takes a query, judged by the server against what
 the journal returns (`GET /api/server/logs/search`, `noust server logs -Q`): nothing typed is part of a
@@ -55,7 +62,7 @@ the server, each column in its natural direction (CPU and Memory busiest first, 
 and the CPU and Memory headers sort the view grouped by service. The button under the table says how many there are ("Show the first 50 of 213") and keeps
 the rows already listed while the longer list loads. The console never signals a process.
 
-**Automatic cleanup.** The Storage tab's **Automatic cleanup** card sets what this server cleans by
+**Automatic cleanup.** The Files section's **Automatic cleanup** card sets what this server cleans by
 itself: a schedule (a systemd timer, `noust-storage-clean.timer`), a threshold (it runs only when the
 fullest writable disk is at least that full, 80% by default; 0 runs it every time) and the actions, from
 the same closed list as a manual cleanup: the journal, the package cache, the old deploys kept for

@@ -103,7 +103,7 @@ describe("the DNS tab", () => {
     const tabs = screen.getByRole("navigation", { name: "Domains sections" });
     expect(within(tabs).getByRole("link", { name: /^DNS/ })).toHaveAttribute("aria-current", "page");
     expect(within(tabs).getByRole("link", { name: /^Tunnels/ })).toBeInTheDocument();
-    expect(within(tabs).getByRole("link", { name: /^Ports/ })).toBeInTheDocument();
+    expect(within(tabs).getByRole("link", { name: /^Published ports/ })).toBeInTheDocument();
     await expectNoAxeViolations(document.body);
   });
 
