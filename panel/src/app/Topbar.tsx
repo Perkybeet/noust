@@ -185,7 +185,7 @@ function ThemeToggle() {
         setTheme(dark ? "light" : "dark");
       }}
       tooltip={false}
-      className="max-sm:hidden"
+      className="max-sm:hidden @max-[64rem]:hidden"
     />
   );
 }
@@ -201,7 +201,10 @@ export function Topbar({ onOpenPalette, onOpenShortcuts, searchTriggerRef }: Top
   const mod = modKeyLabel();
   const { phone } = useNavLayout();
   return (
-    <header className="sticky top-0 z-sticky flex h-14 shrink-0 items-center gap-3 bg-bg px-4 sm:px-6 lg:px-8">
+    // A container of its own: what the bar shows at the right is decided by the room the bar has, which is the page's
+    // column (a second column beside the page takes 264px of it), not the window's. The trail comes before the search
+    // box and the theme: they give way to it, and both are one press from the session's panel and the palette's key.
+    <header className="@container sticky top-0 z-sticky flex h-14 shrink-0 items-center gap-3 bg-bg px-4 sm:px-6 lg:px-8">
       {phone ? (
         <Link to="/" aria-label={t("nav.overview.label")} className="-ml-1 flex shrink-0 items-center rounded-control p-1">
           {/* The mark alone: the machine's name beside it is what a phone has no room to lose. */}
@@ -223,7 +226,7 @@ export function Topbar({ onOpenPalette, onOpenShortcuts, searchTriggerRef }: Top
           onClick={onOpenPalette}
           aria-haspopup="dialog"
           aria-keyshortcuts="Control+K Meta+K"
-          className="flex h-control-md w-52 cursor-pointer items-center gap-2 rounded-control bg-bg-sunken pr-1.5 pl-2.5 text-13 text-fg-muted elev-carved transition-colors duration-(--duration-fast) ease-out hover:bg-bg-sunken-deep hover:text-fg max-md:hidden lg:w-44 xl:w-60"
+          className="hidden h-control-md w-44 cursor-pointer items-center gap-2 rounded-control bg-bg-sunken pr-1.5 pl-2.5 text-13 text-fg-muted elev-carved transition-colors duration-(--duration-fast) ease-out hover:bg-bg-sunken-deep hover:text-fg @min-[66rem]:flex @min-[80rem]:w-60"
         >
           <Search aria-hidden="true" className="size-4 shrink-0" />
           <span className="flex-1 text-left">{t("shell.search.label")}</span>
@@ -232,7 +235,7 @@ export function Topbar({ onOpenPalette, onOpenShortcuts, searchTriggerRef }: Top
             <Kbd>K</Kbd>
           </span>
         </button>
-        <IconButton label={t("shell.search.label")} icon={<Search />} onClick={onOpenPalette} tooltip={false} className="md:hidden" />
+        <IconButton label={t("shell.search.label")} icon={<Search />} onClick={onOpenPalette} tooltip={false} className="@min-[66rem]:hidden" />
         <ThemeToggle />
         <InboxButton />
         <SessionPanel onOpenShortcuts={onOpenShortcuts} />
