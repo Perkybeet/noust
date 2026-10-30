@@ -81,7 +81,8 @@ test("a name that does not point here is added, and the failed order is shown in
 
   const failure = page.getByText("The certificate was not extended");
   await expect(failure).toBeVisible({ timeout: 20_000 });
-  await expect(page.locator("pre").filter({ hasText: `DNS problem: NXDOMAIN looking up A for ${name}` })).toBeVisible();
+  // The order's output is in the banner of the page and, in front of it, in the result of adding the name: the banner's is the one asked about.
+  await expect(page.getByRole("region", { name: "The certificate was not extended: what the system said" })).toContainText(`DNS problem: NXDOMAIN looking up A for ${name}`);
   const redirect = page.getByRole("region", { name: `Domains of ${app}` }).getByRole("row").filter({ hasText: name });
   await expect(redirect).toContainText("Redirect");
   await expect(redirect).toContainText("No HTTPS");

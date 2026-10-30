@@ -272,6 +272,16 @@ export async function expectNoA11yViolations(page: Page, label?: string): Promis
     await stillness(page);
     results = await measure();
   }
+  if (results.violations.some((violation) => violation.id === "target-size")) {
+    // The bar at the top of the page is sticky: where an earlier step of the test left the page scrolled (a menu's button
+    // that took focus), a row can sit half under it, and axe reads that as a target it cannot reach. The page is judged
+    // again from its top, where nothing is under the bar; a control that is under something there is still reported.
+    await page.evaluate(() => {
+      window.scrollTo(0, 0);
+    });
+    await stillness(page);
+    results = await measure();
+  }
   const report = results.violations.map((violation) => {
     const nodes = violation.nodes
       .slice(0, 5)
