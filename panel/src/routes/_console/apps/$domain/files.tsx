@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { inPlace } from "../../../../app/searchNavigation";
-import { FilesPage, validateFilesSearch } from "../../../../features/app/files/FilesPage";
+import { FilesPage } from "../../../../features/app/files/FilesPage";
+import { validateFilesSearch } from "../../../../features/app/files/search";
 
 /** An application's files, a folder at a time. The folder is a search param: `/apps/shop.example.com/files?path=config`. */
 export const Route = createFileRoute("/_console/apps/$domain/files")({

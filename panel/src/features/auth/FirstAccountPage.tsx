@@ -23,7 +23,7 @@ import type { Account } from "../settings/accounts/api";
 import { takeAccessToken } from "./accessProof";
 import { AuthFrame } from "./AuthFrame";
 import { SecondFactor } from "./GatePage";
-import { pendingChecks } from "./SessionGate";
+import { pendingChecks } from "./requireSession";
 import { useSignOut } from "./useSignOut";
 
 type Step = "admin" | "security" | "protect";

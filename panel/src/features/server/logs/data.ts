@@ -5,8 +5,8 @@
  */
 
 import type { LogLine } from "../../../components/ui/LogViewer";
-import { validateLogsSearch } from "../../logs/data";
-import type { LogsSearch } from "../../logs/data";
+import { validateLogsSearch } from "../../logs/search";
+import type { LogsSearch } from "../../logs/search";
 import type { JournalContext, JournalSearch } from "../queries";
 
 /** What the old address could carry. */

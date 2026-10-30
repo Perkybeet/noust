@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { inPlace } from "../../../app/searchNavigation";
 import { DatabasesPage } from "../../../features/databases/DatabasesPage";
-import { validateDatabasesSearch } from "../../../features/databases/filters";
+import { validateDatabasesSearch } from "../../../features/databases/search";
 
 /** Every database on the machine. Filters are search params: `/databases?engine=postgresql`. */
 export const Route = createFileRoute("/_console/databases/")({

@@ -1,4 +1,4 @@
-import { Check, CircleAlert, CircleCheck, Copy, Ellipsis, ExternalLink, Info, KeyRound, LockKeyhole, Plus, Search, ShieldCheck, Trash2, TriangleAlert, X } from "lucide-react";
+import { Check, CircleAlert, CircleCheck, Copy, Ellipsis, ExternalLink, Info, KeyRound, LockKeyhole, Plus, Search, Share2, ShieldCheck, Trash2, TriangleAlert, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /**
@@ -36,6 +36,8 @@ export const ICONS = {
   copy: Copy,
   /** The confirmation after copying. */
   copied: Check,
+  /** Hands out a copy that is safe to pass on (a log with its credentials masked). */
+  share: Share2,
   add: Plus,
   search: Search,
   /** Dismisses a message: the same drawing as close, a different verb for the label. */

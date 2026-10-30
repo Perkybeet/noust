@@ -7,7 +7,8 @@ import { renderConsole } from "../../../test/console";
 import { SESSION, fakeBackend, json, problem } from "../../../test/fakes";
 import type { RecordedCall, RouteHandler } from "../../../test/fakes";
 import { TAB_DOMAIN, appRoutes, screenWidth } from "../testRoutes";
-import { cleanFolder, joinPath, parentOf, validateFilesSearch } from "./FilesPage";
+import { joinPath, parentOf } from "./FilesPage";
+import { cleanFolder, validateFilesSearch } from "./search";
 
 const ELEVATED = { ...SESSION, elevated_until: "2999-01-01T00:00:00+00:00" };
 

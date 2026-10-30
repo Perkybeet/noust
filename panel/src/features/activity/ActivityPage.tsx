@@ -26,8 +26,10 @@ import { originOf } from "../fleet/data";
 import { QueuePanelView } from "../queue/QueuePanel";
 import { ActivityTable } from "./ActivityTable";
 import { JobLogDrawer } from "./JobLogDrawer";
-import { AUDIT_RESULTS, JOB_STATUSES, actionWords, actorWords, auditCategoriesFor, fleetTimeline, inKind, isFiltered, matchesText, mergeActivity, peopleIn, resultOptions, resultValidFor } from "./data";
-import type { ActivityJob, ActivityRow, ActivitySearch, AuditEntry } from "./data";
+import { actionWords, actorWords, auditCategoriesFor, fleetTimeline, inKind, matchesText, mergeActivity, peopleIn, resultOptions } from "./data";
+import type { ActivityJob, ActivityRow, AuditEntry } from "./data";
+import { AUDIT_RESULTS, JOB_STATUSES, isFiltered, resultValidFor } from "./search";
+import type { ActivitySearch } from "./search";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import type { NodeOutcome } from "../fleet/data";
 

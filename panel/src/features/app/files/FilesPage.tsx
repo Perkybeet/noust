@@ -30,6 +30,7 @@ import { useT } from "../../../i18n";
 import { formatBytes } from "../../../lib/format";
 import { reportActionError } from "../../apps/useAppActions";
 import { downloadFile } from "./download";
+import { cleanFolder } from "./search";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
 
 /** Joins a folder and a name the way the API reads a path: relative, no leading slash. */
@@ -41,27 +42,6 @@ export function joinPath(folder: string, name: string): string {
 export function parentOf(path: string): string {
   const index = path.lastIndexOf("/");
   return index === -1 ? "" : path.slice(0, index);
-}
-
-/** A path cleaned for use as a search parameter: no leading or trailing slash, no empty parts. */
-export function cleanFolder(path: unknown): string {
-  if (typeof path !== "string") return "";
-  return path
-    .split("/")
-    .filter((part) => part !== "" && part !== "." && part !== "..")
-    .join("/")
-    .slice(0, 1024);
-}
-
-export interface FilesSearch {
-  path?: string;
-}
-
-export function validateFilesSearch(
-  search: Record<string, unknown>,
-): FilesSearch {
-  const path = cleanFolder(search["path"]);
-  return path === "" ? {} : { path };
 }
 
 function refresh(

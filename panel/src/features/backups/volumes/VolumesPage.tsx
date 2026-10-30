@@ -31,17 +31,8 @@ import { STATE_RANK, scheduleWords, totalBytes, viewOf, volumeRows } from "./dat
 import type { VolumeRow } from "./data";
 import { VolumeDetailDrawer, coversWords } from "./VolumeDetailDrawer";
 import { VolumePolicyDrawer } from "./VolumePolicyDrawer";
+import type { VolumesSearch } from "./search";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
-
-export interface VolumesSearch {
-  /** The application whose data is open in the drawer. */
-  domain?: string;
-}
-
-export function validateVolumesSearch(search: Record<string, unknown>): VolumesSearch {
-  const domain = typeof search["domain"] === "string" && search["domain"] !== "" ? search["domain"].slice(0, 253) : undefined;
-  return domain !== undefined ? { domain } : {};
-}
 
 export interface VolumesPageProps {
   search: VolumesSearch;

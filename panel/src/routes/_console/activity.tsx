@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { inPlace } from "../../app/searchNavigation";
 import { ActivityPage } from "../../features/activity/ActivityPage";
-import { validateActivitySearch } from "../../features/activity/data";
+import { validateActivitySearch } from "../../features/activity/search";
 
 /** The jobs timeline. Filters are search params: `/activity?status=failed&type=deploy`. */
 export const Route = createFileRoute("/_console/activity")({

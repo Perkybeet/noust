@@ -1,9 +1,9 @@
 import { useMutation } from "@tanstack/react-query";
-import { Check, Share2 } from "lucide-react";
 import { useId } from "react";
 
 import { request } from "../../../api/client";
 import { Button } from "../../../components/ui/Button";
+import { ICONS } from "../../../components/ui/icons";
 import { useCopyState } from "../../../components/ui/useCopyState";
 import { useT } from "../../../i18n";
 import { reportActionError } from "../../apps/useAppActions";
@@ -39,7 +39,7 @@ export function ShareLog({ deploymentId, disabled = false }: { deploymentId: num
         variant="ghost"
         loading={share.isPending}
         disabled={disabled}
-        icon={state === "copied" ? <Check aria-hidden="true" className="text-ok" /> : <Share2 aria-hidden="true" />}
+        icon={state === "copied" ? <ICONS.copied aria-hidden="true" className="text-ok" /> : <ICONS.share aria-hidden="true" />}
         aria-describedby={describedBy}
         onClick={() => share.mutate()}
       >

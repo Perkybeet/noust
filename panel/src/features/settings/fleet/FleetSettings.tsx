@@ -4,6 +4,7 @@ import { useState } from "react";
 import { sessionQuery } from "../../../api/queries/auth";
 import { useDocumentTitle } from "../../../app/documentTitle";
 import { CommandHint } from "../../../components/page/CommandHint";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock, QueryState } from "../../../components/page/QueryState";
 import { RowMenu } from "../../../components/page/RowMenu";
 import { Section, Sections } from "../../../components/page/Section";
@@ -262,9 +263,9 @@ export function FleetSettings() {
           <ErrorBlock compact error={list.error} title={t("fleetSettings.loading")} onRetry={() => void list.refetch()} />
         ) : status.isError ? null : status.data === undefined || list.data === undefined ? (
           // The height of the table with nothing in it (its header and the line that says so), the common first answer.
-          <div aria-busy="true">
+          <LoadingRegion label={t("fleetSettings.loading")}>
             <Skeleton className="h-28 w-full rounded-card" />
-          </div>
+          </LoadingRegion>
         ) : (
           <DataTable
             caption={t("fleetSettings.table.caption")}
