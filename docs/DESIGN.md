@@ -1244,7 +1244,10 @@ templates render it from their `header` prop. `description` is one sentence of p
 in `meta`; a `mark` is drawn before the title (the logo of an application's type, in a `LogoTile`) and holds
 its room with a skeleton while the page is read; `actions` is the 3.0 form, kept for pages not yet migrated. `statusExtras` are chips
 after the state that open what they count ("3 not applied", "Deploys paused"), instead of a banner
-on every tab, and keep their room while they load; `place` is the line above the title that says
+on every tab, and keep their room while they load; `statusBelow` draws the state and its chips on a line of
+their own under the title, from the first frame, for a resource whose actions arrive after the page and would
+otherwise take the room beside the title (an application's, a site's): a state that wrapped under the title when
+the actions came moved the page; `place` is the line above the title that says
 where a resource lives (team, project, environment), drawn only where there is something to tell
 apart. The `primaryAction` is wrapped so that it steps aside while a `SaveBar` holds changes
 (`DemotePrimary`): a `Dialog`, a `Drawer` and a `ConfirmDialog` reset it, since a dialog has a
