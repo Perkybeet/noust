@@ -144,7 +144,7 @@ export const sources = {
     notChanged: "The credential of {domain} was not changed",
   },
   server: {
-    title: "Deploy keys",
+    title: "Keys of this server",
     description: "The SSH keys this server signs in to repositories with, one for each repository, and the host keys it has pinned.",
     label: "the deploy keys",
     caption: "Deploy keys of this server",
