@@ -743,8 +743,6 @@
   "appPages.sourceLink.opensInNewTab": "(s'ouvre dans un nouvel onglet)",
   "appPages.overview.liveNow": "En production maintenant",
   "appPages.overview.lastServed": "Dernière release servie",
-  "appPages.overview.nothingLive": "Aucun déploiement de cette application n'a encore réussi.",
-  "appPages.overview.builtIn": "Compilé en {duration}",
   "appPages.overview.lastDeployments": "Derniers déploiements",
   "appPages.overview.deploymentsLabel": "Derniers déploiements de {domain}",
   "appPages.overview.viewAll": "Tout voir",
@@ -1984,7 +1982,6 @@
   "approvals.drawer.cannotReplay": "Cet appel contenait un secret, que la console ne conserve pas. Refaites-le depuis l'endroit où vous l'avez lancé : le serveur l'exécute sous cette approbation.",
   "apps.newApplication": "Nouvelle application",
   "apps.page.title": "Applications",
-  "apps.page.description": "Tout ce que ce serveur exécute, et l'état dans lequel cela se trouve.",
   "apps.page.couldNotLoad": "Impossible de charger les applications",
   "apps.page.emptyTitle": "Aucune application pour l'instant",
   "apps.page.emptyDescription": "Déployez-en une depuis un dépôt Git, un répertoire de ce serveur, une recette ou un export. Noust l'exécute comme un service et la sert en HTTPS.",
@@ -4397,7 +4394,6 @@
   "containers.registry.clear": "Retirer le compte du registre",
   "containers.registry.willClear": "Le compte et son mot de passe sont retirés à l'enregistrement.",
   "containers.source.image": "Image",
-  "containers.source.imageDescription": "name[:tag][@sha256:digest], par exemple ghcr.io/owner/app:1.4 ou nginx:1.27-alpine. Docker la récupère au déploiement et de nouveau à chaque mise à jour.",
   "containers.source.privateRegistry": "Le compte d'un registre privé est demandé à l'étape de configuration. Rien n'est récupéré avant le déploiement.",
   "containers.source.intro": "Une image d'un registre s'exécute comme une application conteneur : Noust écrit le fichier Compose, le service et le site, et conserve chaque release comme une image à laquelle il peut revenir aussitôt.",
   "containers.source.pulledEvery": "Récupérée de nouveau à chaque mise à jour.",
@@ -6719,18 +6715,10 @@
   "fleet.column.server": "Serveur",
   "fleet.column.state": "État",
   "fleet.column.version": "Version",
-  "fleet.column.apps": "Applications",
-  "fleet.column.attention": "Requiert de l'attention",
-  "fleet.column.cpu": "CPU",
-  "fleet.column.memory": "Mémoire",
-  "fleet.column.disk": "Disque",
   "fleet.column.labels": "Étiquettes",
   "fleet.column.access": "Accès",
   "fleet.column.lastSeen": "Dernière vue",
   "fleet.column.app": "Application",
-  "fleet.column.type": "Type",
-  "fleet.column.lastDeploy": "Dernier déploiement",
-  "fleet.column.port": "Port",
   "fleet.column.certificate": "Certificat",
   "fleet.column.expiry": "Expiration",
   "fleet.column.expiresOn": "Expire le",
@@ -6790,95 +6778,6 @@
   "fleet.commands.addServer": "Ajouter un serveur à la flotte",
   "fleet.commands.addServerKeywords": "flotte nœud code de jonction autoriser fleet node join code authorize",
   "fleet.summary.notRead": "Non lu",
-  "fleet.summary.olderNoust": "Son Noust est trop ancien pour le dire",
-  "fleet.summary.noAttention": "Rien",
-  "fleet.summary.attentionCount": {
-    "one": "{count} requiert de l'attention",
-    "other": "{count} requièrent de l'attention"
-  },
-  "fleet.summary.appsRunning": {
-    "one": "{count} en cours d'exécution",
-    "other": "{count} en cours d'exécution"
-  },
-  "fleet.summary.appsFailed": {
-    "one": "{count} en échec",
-    "other": "{count} en échec"
-  },
-  "fleet.summary.appsUnmanaged": {
-    "one": "{count} hors de Noust",
-    "other": "{count} hors de Noust"
-  },
-  "fleet.summary.figures.servers": "Serveurs qui répondent",
-  "fleet.summary.figures.serversValue": "{answering} sur {total}",
-  "fleet.summary.figures.serversAll": "Tous les serveurs ont répondu",
-  "fleet.summary.figures.serversDown": {
-    "one": "{count} ne répond pas",
-    "other": "{count} ne répondent pas"
-  },
-  "fleet.summary.figures.apps": "Applications",
-  "fleet.summary.figures.appsTotal": {
-    "one": "{count} au total",
-    "other": "{count} au total"
-  },
-  "fleet.summary.figures.appsRunningNoneFailed": {
-    "one": "{count} en cours d'exécution, aucune en échec",
-    "other": "{count} en cours d'exécution, aucune en échec"
-  },
-  "fleet.summary.figures.noneFailed": "Aucune en échec",
-  "fleet.summary.figures.services": "Services",
-  "fleet.summary.figures.servicesFailed": {
-    "one": "{count} en échec",
-    "other": "{count} en échec"
-  },
-  "fleet.summary.figures.servicesDetail": "Sur chaque serveur",
-  "fleet.summary.figures.certificates": "Certificats",
-  "fleet.summary.figures.certificatesExpiring": {
-    "one": "{count} arrive à expiration",
-    "other": "{count} arrivent à expiration"
-  },
-  "fleet.summary.figures.certificatesNone": "Aucun n'arrive à expiration",
-  "fleet.summary.figures.certificatesDetail": "À échéance sous 30 jours",
-  "fleet.summary.figures.updates": "Mises à jour de Noust",
-  "fleet.summary.figures.updatesAvailable": {
-    "one": "{count} à mettre à jour",
-    "other": "{count} à mettre à jour"
-  },
-  "fleet.summary.figures.updatesNone": "Tous à jour",
-  "fleet.summary.figures.reboots": {
-    "one": "{count} attend un redémarrage",
-    "other": "{count} attendent un redémarrage"
-  },
-  "fleet.summary.figures.noReboots": "Aucun redémarrage en attente",
-  "fleet.summary.figures.attention": "Requiert de l'attention",
-  "fleet.summary.figures.attentionDetail": "Selon ce que voit chaque serveur",
-  "fleet.summary.figures.attentionValue": {
-    "one": "{count} élément",
-    "other": "{count} éléments"
-  },
-  "fleet.summary.attention.title": "Requiert de l'attention",
-  "fleet.summary.attention.description": "Sur chaque serveur, le pire d'abord. Chacun s'ouvre là où il se règle, sur son propre serveur.",
-  "fleet.summary.attention.loading": "Vérification de chaque serveur",
-  "fleet.summary.attention.empty": {
-    "one": "Rien ne requiert d'attention sur le serveur qui a répondu ({count}).",
-    "other": "Rien ne requiert d'attention sur aucun des {count} serveurs qui ont répondu."
-  },
-  "fleet.summary.attention.on": "sur {server}",
-  "fleet.summary.attention.failure": "Échec :",
-  "fleet.summary.attention.warning": "Avertissement :",
-  "fleet.summary.attention.showAll": "Tout afficher ({count})",
-  "fleet.summary.attention.showFewer": "Afficher moins",
-  "fleet.summary.actions.title": "Actions récentes",
-  "fleet.summary.actions.description": "Ce qui s'est exécuté sur plusieurs serveurs à la fois.",
-  "fleet.summary.actions.loading": "Chargement des actions récentes",
-  "fleet.summary.actions.loadFailed": "Impossible de charger les actions récentes",
-  "fleet.summary.actions.empty": "Aucune action n'a encore été exécutée sur la flotte.",
-  "fleet.summary.actions.servers": {
-    "one": "{count} serveur",
-    "other": "{count} serveurs"
-  },
-  "fleet.summary.servers.title": "Serveurs",
-  "fleet.summary.servers.description": "Une ligne par serveur ; chacun s'ouvre séparément.",
-  "fleet.summary.servers.caption": "Les serveurs de la flotte en un coup d'œil",
   "fleet.servers.caption": "Serveurs de cette flotte",
   "fleet.servers.filterLabel": "Filtrer les serveurs",
   "fleet.servers.searchLabel": "Rechercher des serveurs",
@@ -8617,15 +8516,9 @@
   "newApp.steps.setup": "Adresse et variables",
   "newApp.steps.deploy": "Déployer",
   "newApp.steps.announce": "Étape {number} sur {total} : {label}",
-  "newApp.modes.label": "Où se trouve le code",
-  "newApp.modes.github": "Depuis GitHub",
-  "newApp.modes.manual": "URL ou chemin",
-  "newApp.modes.image": "Une image Docker",
   "newApp.modes.compose": "Compose",
-  "newApp.modes.recipe": "Depuis une recette",
   "newApp.modes.import": "Importer une application",
   "newApp.modes.adopt": "Déjà en cours d'exécution",
-  "newApp.modes.more": "Autres moyens",
   "newApp.address.legend": "Où elle répond",
   "newApp.address.temporary": "Adresse temporaire, pour essayer",
   "newApp.address.temporaryDescription": "Prête en un instant, sans DNS à configurer. Ajoutez votre propre domaine quand vous voulez.",
@@ -9423,117 +9316,14 @@
   "notifyRouting.deliveries.lastError": "Ce qu'a dit {channel}",
   "notifyRouting.deliveries.to": "vers {channel}",
   "overview.title": "Vue d'ensemble",
-  "overview.description": "Comment va ce serveur, ce qui requiert votre attention et ce qui s'est passé récemment.",
-  "overview.version": "Noust {version}",
   "overview.newApplication": "Nouvelle application",
-  "overview.tabsLabel": "Sections de la vue d'ensemble",
   "overview.couldNotLoad": "Impossible de charger la vue d'ensemble",
   "overview.range.1h": "Dernière heure",
   "overview.range.24h": "Dernières 24 heures",
   "overview.range.7d": "7 derniers jours",
   "overview.range.30d": "30 derniers jours",
-  "overview.quickActions.renewCertificates": "Renouveler les certificats",
-  "overview.quickActions.checkUpdates": "Rechercher les mises à jour du système",
   "overview.quickActions.backUp": "Sauvegarder une application",
-  "overview.quickActions.activity": "Toute l'activité",
   "overview.quickActions.addServer": "Ajouter un serveur",
-  "overview.figures.label": "Chiffres clés",
-  "overview.figures.couldNotRead": "Lecture impossible",
-  "overview.figures.apps.label": "Applications",
-  "overview.figures.apps.running": "{count} actives",
-  "overview.figures.apps.noneYet": "Aucune",
-  "overview.figures.apps.failed": {
-    "one": "{count} en échec",
-    "other": "{count} en échec"
-  },
-  "overview.figures.apps.stopped": {
-    "one": "{count} arrêtée",
-    "other": "{count} arrêtées"
-  },
-  "overview.figures.apps.static": "{count} statiques",
-  "overview.figures.apps.allRunning": "Toutes actives",
-  "overview.figures.apps.aria": "Applications : {running} en cours d'exécution, {failed} en échec, {stopped} arrêtées, {static} statiques",
-  "overview.figures.apps.unmanaged": {
-    "one": "{count} hors de Noust",
-    "other": "{count} hors de Noust"
-  },
-  "overview.figures.apps.ariaUnmanaged": "Applications : {running} en cours d'exécution, {failed} en échec, {stopped} arrêtées, {static} statiques, {unmanaged} en cours d'exécution hors de Noust",
-  "overview.figures.deploys.label": "Déploiements aujourd'hui",
-  "overview.figures.deploys.none": "Aucun",
-  "overview.figures.deploys.succeeded": {
-    "one": "{count} réussi",
-    "other": "{count} réussis"
-  },
-  "overview.figures.deploys.failed": {
-    "one": "{count} en échec",
-    "other": "{count} en échec"
-  },
-  "overview.figures.deploys.running": "{count} en cours",
-  "overview.figures.deploys.last": "Dernier {time}",
-  "overview.figures.deploys.aria": "Déploiements aujourd'hui : {total}, {succeeded} réussis, {failed} en échec",
-  "overview.figures.certificates.label": "Certificats",
-  "overview.figures.certificates.allValid": "Tous valides",
-  "overview.figures.certificates.none": "Aucun",
-  "overview.figures.certificates.expiring": {
-    "one": "{count} à échéance",
-    "other": "{count} à échéance"
-  },
-  "overview.figures.certificates.expired": {
-    "one": "{count} expiré",
-    "other": "{count} expirés"
-  },
-  "overview.figures.certificates.nextIn": {
-    "one": "Prochaine expiration dans {count} jour",
-    "other": "Prochaine expiration dans {count} jours"
-  },
-  "overview.figures.certificates.total": {
-    "one": "{count} certificat",
-    "other": "{count} certificats"
-  },
-  "overview.figures.certificates.noneDetail": "Aucun site n'a encore HTTPS",
-  "overview.figures.certificates.aria": "Certificats : {total}, {expiring} bientôt expirés, {expired} expirés",
-  "overview.figures.backups.label": "Sauvegardes, 24 h",
-  "overview.figures.backups.ofApps": "{done} applications sur {total}",
-  "overview.figures.backups.notScheduled": "Non planifiées",
-  "overview.figures.backups.notScheduledDetail": "Aucune application n'a de planification",
-  "overview.figures.backups.unprotected": {
-    "one": "{count} application planifiée l'a manquée",
-    "other": "{count} applications planifiées l'ont manquée"
-  },
-  "overview.figures.backups.failed": {
-    "one": "{count} en échec",
-    "other": "{count} en échec"
-  },
-  "overview.figures.backups.last": "Dernière {time}",
-  "overview.figures.backups.never": "Aucune sauvegarde pour l'instant",
-  "overview.figures.backups.aria": "Sauvegardes des dernières 24 heures : {done} applications sur {total}, {failed} en échec",
-  "overview.figures.disk.label": "Disque",
-  "overview.figures.disk.free": "{percent} libre",
-  "overview.figures.disk.fullIn": {
-    "one": "Plein dans environ {count} jour, d'après l'estimation",
-    "other": "Plein dans environ {count} jours, d'après l'estimation"
-  },
-  "overview.figures.disk.notGrowing": "Ne se remplit pas",
-  "overview.figures.disk.used": "{used} utilisés sur {total}",
-  "overview.figures.disk.high": "Élevé",
-  "overview.figures.disk.critical": "Critique",
-  "overview.figures.disk.aria": "Disque : {percent} libre, {used} utilisés sur {total}",
-  "overview.figures.updates.label": "Mises à jour du système",
-  "overview.figures.updates.pending": {
-    "one": "{count} en attente",
-    "other": "{count} en attente"
-  },
-  "overview.figures.updates.upToDate": "À jour",
-  "overview.figures.updates.notChecked": "Non vérifiées",
-  "overview.figures.updates.unsupported": "Non disponible",
-  "overview.figures.updates.unsupportedDetail": "Non pris en charge sur ce système",
-  "overview.figures.updates.security": {
-    "one": "{count} mise à jour de sécurité",
-    "other": "{count} mises à jour de sécurité"
-  },
-  "overview.figures.updates.reboot": "Redémarrage nécessaire",
-  "overview.figures.updates.checked": "Vérifié {time}",
-  "overview.figures.updates.aria": "Mises à jour du système d'exploitation : {state}",
   "overview.attention.title": "Requiert votre attention",
   "overview.attention.itemsSr": "Éléments : ",
   "overview.attention.checking": "Examen du serveur",
@@ -9550,8 +9340,6 @@
   "overview.attention.showFewer": "Afficher moins",
   "overview.attention.viewLog": "Voir le journal",
   "overview.attention.viewLogAria": "Voir le journal du déploiement de {domain}",
-  "overview.attention.appLog": "Journaux",
-  "overview.attention.appLogAria": "Journaux de {domain}",
   "overview.attention.diagnose": "Diagnostiquer",
   "overview.attention.diagnoseAria": "Diagnostiquer {domain}",
   "overview.attention.certificate": "Certificat",
@@ -9585,8 +9373,6 @@
   "overview.activity.all": "Toute l'activité",
   "overview.activity.emptyTitle": "Rien ne s'est encore passé",
   "overview.activity.emptyDescription": "Les déploiements, mises à jour, sauvegardes et restaurations apparaissent ici au fil de leur exécution.",
-  "overview.activity.today": "Aujourd'hui",
-  "overview.activity.yesterday": "Hier",
   "overview.activity.listLabel": "Activité récente, du plus récent au plus ancien",
   "overview.machine.title": "Machine",
   "overview.machine.rangeLabel": "Plage de temps",
@@ -9646,32 +9432,6 @@
   "overview.firstSteps.twoFactor.description": "Un code de votre téléphone en plus du jeton d'accès, pour qu'un jeton divulgué ne suffise pas à se connecter.",
   "overview.firstSteps.twoFactor.action": "Sécurité",
   "overview.fleet.title": "Flotte",
-  "overview.fleet.servers": {
-    "one": "{count} serveur",
-    "other": "{count} serveurs"
-  },
-  "overview.fleet.reachable": "{count} joignables",
-  "overview.fleet.unreachable": {
-    "one": "{count} injoignable",
-    "other": "{count} injoignables"
-  },
-  "overview.fleet.open": "Ouvrir la flotte",
-  "overview.fleet.caption": "Serveurs de cette flotte",
-  "overview.fleet.server": "Serveur",
-  "overview.fleet.state": "État",
-  "overview.fleet.version": "Version",
-  "overview.fleet.apps": "Applications",
-  "overview.fleet.attention": "Requiert votre attention",
-  "overview.fleet.thisServer": "Ce serveur",
-  "overview.fleet.appsValue": "{running} en cours d'exécution, {failed} en échec",
-  "overview.fleet.noAttention": "Rien",
-  "overview.fleet.attentionCount": {
-    "one": "{count} élément",
-    "other": "{count} éléments"
-  },
-  "overview.fleet.unknownState": "Pas encore vérifié",
-  "overview.fleet.couldNotLoad": "Impossible de lire la flotte",
-  "overview.fleet.olderVersion": "Aucun résumé : ce serveur exécute une version plus ancienne de Noust",
   "pasteDockerfile.open": "Ou collez un Dockerfile",
   "pasteDockerfile.label": "Dockerfile",
   "pasteDockerfile.help": "Le build n'a que ce fichier : un COPY ne trouve donc rien. Le Dockerfile récupère lui-même ce dont il a besoin (ADD d'une URL, RUN git clone, ou une image de base qui contient le programme).",

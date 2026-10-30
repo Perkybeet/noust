@@ -27,6 +27,8 @@ export interface RecipeForm extends AddressChoice {
   installRequirements: boolean;
   /** The SQL engine to run it on, among the ones the recipe offers; empty keeps the recipe's own. */
   database: string;
+  /** The operator knows a recipe that is root on the server by design (it mounts the Docker socket) is that: asked before it is installed. */
+  acceptRoot: boolean;
 }
 
 /**
@@ -75,6 +77,8 @@ export function initialRecipeForm(
     defaultBackups: previous?.defaultBackups ?? true,
     // What the server lacks is another recipe's business: never carried to the next one.
     installRequirements: false,
+    // Never carried to the next recipe either: each root-equivalent one is confirmed on its own.
+    acceptRoot: false,
     // A choice the next recipe also offers is kept; any other is not.
     database: previous !== null && previous !== undefined && (recipe.database_choices ?? []).includes(previous.database) ? previous.database : "",
   };
@@ -89,13 +93,14 @@ export function recipeVariableField(name: string): string {
  * What is wrong with a recipe's form: the domain, then each required variable that has no value,
  * each on its own field so the step can point at it.
  */
-export function recipeProblems(form: RecipeForm, deployed: ReadonlySet<string>, required: readonly string[] = []): Record<string, string> {
+export function recipeProblems(form: RecipeForm, deployed: ReadonlySet<string>, required: readonly string[] = [], rootEquivalent = false): Record<string, string> {
   const errors: Record<string, string> = {};
   const domain = domainError(form.domain, deployed);
   if (domain !== null) errors["domain"] = domain;
   for (const name of required) {
     if ((form.env[name] ?? "").trim() === "") errors[recipeVariableField(name)] = translate(getLocale(), "newApp.recipes.envRequired");
   }
+  if (rootEquivalent && !form.acceptRoot) errors["acceptRoot"] = translate(getLocale(), "newApp.recipes.rootRequired");
   return errors;
 }
 
@@ -120,9 +125,9 @@ export function recipeBody(recipe: Pick<Recipe, "name">, form: RecipeForm): Crea
     skip_database: false,
     default_backups: form.defaultBackups,
     install_requirements: form.installRequirements,
-    // The confirmation a root-equivalent recipe asks for is the catalogue's own screen (O5); until
-    // then the server answers with its coded refusal and the command that confirms.
-    accept_root_equivalent: false,
+    // A recipe that is root on the server by design is confirmed in the form; the server asks again (sudo mode,
+    // the permission) and refuses without it, with the command that confirms.
+    accept_root_equivalent: form.acceptRoot,
     ...(form.database !== "" ? { recipe_database: form.database } : {}),
   };
 }

@@ -6,6 +6,10 @@ export const remoteImport: Catalog<typeof en> = {
   title: "Desde otra plataforma",
   description: "Noust lee una aplicación por la API del otro servidor con un token de solo lectura y propone cómo se ejecuta aquí. No se escribe nada en el otro servidor. El token se usa en esta petición y no se guarda.",
   platform: "Plataforma",
+  urlMissing: "Escribe la dirección del otro servidor.",
+  tokenMissing: "Escribe el token con el que leerlo.",
+  passwordMissing: "Escribe la contraseña con la que leerlo.",
+  chooseMissing: "Elige la aplicación que leer.",
   platforms: {
     coolify: "Coolify",
     dokploy: "Dokploy",

@@ -3,7 +3,6 @@ export const apps = {
   newApplication: "New application",
   page: {
     title: "Applications",
-    description: "Everything this server runs, and the state it is in.",
     couldNotLoad: "Could not load applications",
     emptyTitle: "No applications yet",
     emptyDescription:
@@ -25,6 +24,7 @@ export const apps = {
   table: {
     columnState: "State",
     columnApplication: "Application",
+    columnServer: "Server",
     columnType: "Type",
     columnLastDeploy: "Last deploy",
     columnCpu: "CPU",

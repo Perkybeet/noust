@@ -31,6 +31,8 @@ export const CENTRAL_API_PREFIXES: readonly string[] = [
   // never sends it to the node it happens to be on.
   "/api/views",
   "/api/central",
+  // The same list on every server at once (apps, sites, certificates...): the central asks each server itself and says which answered.
+  "/api/views",
   // A node's call that needs a second person is decided where the accounts live: the central.
   "/api/approvals",
 ];

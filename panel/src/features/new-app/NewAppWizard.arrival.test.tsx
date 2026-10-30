@@ -84,7 +84,7 @@ describe("a pasted source", () => {
     // The way it used to be asked for is gone.
     expect(screen.queryByRole("button", { name: "Inspect source" })).not.toBeInTheDocument();
 
-    await user.click(screen.getByLabelText("Repository or directory"));
+    await user.click(screen.getByLabelText("What to deploy"));
     await user.paste("https://github.com/acme/api.git");
 
     const found = await screen.findByText("Detected: Next.js with npm. Port 3000. 2 variables to fill in.", {}, { timeout: 5_000 });
@@ -98,7 +98,7 @@ describe("a pasted source", () => {
     const { backend, harness } = emptyServer(NEXT);
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    await user.click(screen.getByLabelText("Repository or directory"));
+    await user.click(screen.getByLabelText("What to deploy"));
     await user.paste("/srv/apps/api");
     await new Promise((resolve) => setTimeout(resolve, 300));
     expect(backend.callsTo("POST /api/apps/inspect")).toHaveLength(0);
@@ -114,7 +114,7 @@ describe("the first application of a server without a domain", () => {
     const { backend, harness } = emptyServer(NEXT);
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    await user.click(screen.getByLabelText("Repository or directory"));
+    await user.click(screen.getByLabelText("What to deploy"));
     await user.paste("https://github.com/acme/api.git");
     await screen.findByText(/Detected: Next\.js with npm/);
 
@@ -148,7 +148,7 @@ describe("the first application of a server without a domain", () => {
     const { backend, harness } = emptyServer({ ...NEXT, env_keys: [] });
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    await user.click(screen.getByLabelText("Repository or directory"));
+    await user.click(screen.getByLabelText("What to deploy"));
     await user.paste("https://github.com/acme/api.git");
     await screen.findByText(/Detected: Next\.js with npm/);
     await user.click(screen.getByRole("button", { name: "Continue" }));
@@ -182,7 +182,7 @@ describe("the first application of a server without a domain", () => {
     );
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    await user.click(screen.getByLabelText("Repository or directory"));
+    await user.click(screen.getByLabelText("What to deploy"));
     await user.paste("https://github.com/acme/api.git");
     await screen.findByText(/Detected: Next\.js with npm/);
     await user.click(screen.getByRole("button", { name: "Continue" }));
@@ -212,7 +212,7 @@ describe("a private repository over SSH", () => {
     const { backend, harness } = refusingServer({ public_key: KEY, fingerprint: "SHA256:abc" });
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    await user.click(screen.getByLabelText("Repository or directory"));
+    await user.click(screen.getByLabelText("What to deploy"));
     await user.paste("git@github.com:acme/private.git");
 
     // Git's words stay exactly as it printed them.
@@ -234,7 +234,7 @@ describe("a private repository over SSH", () => {
     const { harness } = refusingServer({ public_key: null, fingerprint: null });
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    await user.click(screen.getByLabelText("Repository or directory"));
+    await user.click(screen.getByLabelText("What to deploy"));
     await user.paste("git@git.example.org:team/private.git");
     expect(await screen.findByText(/This server has no SSH key yet/, {}, { timeout: 5_000 })).toBeInTheDocument();
     expect(screen.getByText("noust setup ssh --generate")).toBeInTheDocument();
@@ -248,7 +248,7 @@ describe("a private repository over SSH", () => {
     });
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    await user.click(screen.getByLabelText("Repository or directory"));
+    await user.click(screen.getByLabelText("What to deploy"));
     await user.paste("https://github.com/acme/private.git");
     expect(await screen.findByText(/could not read Username/, {}, { timeout: 5_000 })).toBeInTheDocument();
     expect(screen.queryByText("This server's SSH key")).not.toBeInTheDocument();
@@ -299,16 +299,17 @@ describe("Try a demo", () => {
 });
 
 describe("the ways in", () => {
-  it("keeps the common ones on the row and the rest behind More ways", { timeout: 30_000 }, async () => {
+  it("opens on one box for what to deploy, with the other ways folded away", { timeout: 30_000 }, async () => {
     const { harness } = emptyServer(NEXT);
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    const ways = screen.getByRole("radiogroup", { name: "Where the code is" });
-    expect(within(ways).getByRole("radio", { name: "URL or path" })).toBeChecked();
-    expect(within(ways).queryByRole("radio", { name: "Compose" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "More ways" }));
-    for (const name of ["Compose", "Import an application", "Already running", "From a recipe"]) {
-      expect(await screen.findByRole("menuitem", { name })).toBeInTheDocument();
+    // A link, an image, a folder or the name of something to install: one place to put it, not four doors.
+    expect(await screen.findByLabelText("What to deploy")).toHaveValue("");
+    expect(screen.queryByRole("radiogroup", { name: "Where the code is" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Compose" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Other ways to start" }));
+    for (const name of ["Compose", "Import an application", "Already running"]) {
+      expect(await screen.findByRole("button", { name })).toBeInTheDocument();
     }
   });
 });

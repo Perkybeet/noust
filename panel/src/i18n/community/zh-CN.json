@@ -737,8 +737,6 @@
   "appPages.sourceLink.opensInNewTab": "（在新标签页中打开）",
   "appPages.overview.liveNow": "当前线上",
   "appPages.overview.lastServed": "上一个提供服务的版本",
-  "appPages.overview.nothingLive": "这个应用还没有成功的部署。",
-  "appPages.overview.builtIn": "构建用时 {duration}",
   "appPages.overview.lastDeployments": "最近的部署",
   "appPages.overview.deploymentsLabel": "{domain} 最近的部署",
   "appPages.overview.viewAll": "查看全部",
@@ -1944,7 +1942,6 @@
   "approvals.drawer.cannotReplay": "这次调用带有机密，控制台不会保存它。请从你发起的地方重新进行一次：服务器会在这个审批下运行它。",
   "apps.newApplication": "新建应用",
   "apps.page.title": "应用",
-  "apps.page.description": "这台服务器运行的一切，以及它们的状态。",
   "apps.page.couldNotLoad": "无法加载应用",
   "apps.page.emptyTitle": "还没有应用",
   "apps.page.emptyDescription": "从 Git 仓库、这台服务器上的目录、配方或导出文件部署一个。Noust 会把它作为服务运行，并通过 HTTPS 提供。",
@@ -4302,7 +4299,6 @@
   "containers.registry.clear": "移除镜像仓库账户",
   "containers.registry.willClear": "保存时会移除该账户及其密码。",
   "containers.source.image": "镜像",
-  "containers.source.imageDescription": "name[:tag][@sha256:digest]，例如 ghcr.io/owner/app:1.4 或 nginx:1.27-alpine。Docker 在部署时拉取它，此后每次更新再拉取一次。",
   "containers.source.privateRegistry": "私有镜像仓库的账户在配置步骤中填写。部署之前不会拉取任何内容。",
   "containers.source.intro": "来自镜像仓库的镜像会作为容器应用运行：Noust 会写入 Compose 文件、服务和站点，并把每个发布都保留为镜像，随时可以立即回到它。",
   "containers.source.pulledEvery": "每次更新都会重新拉取。",
@@ -6571,18 +6567,10 @@
   "fleet.column.server": "服务器",
   "fleet.column.state": "状态",
   "fleet.column.version": "版本",
-  "fleet.column.apps": "应用",
-  "fleet.column.attention": "需要关注",
-  "fleet.column.cpu": "CPU",
-  "fleet.column.memory": "内存",
-  "fleet.column.disk": "磁盘",
   "fleet.column.labels": "标签",
   "fleet.column.access": "访问权限",
   "fleet.column.lastSeen": "上次响应",
   "fleet.column.app": "应用",
-  "fleet.column.type": "类型",
-  "fleet.column.lastDeploy": "上次部署",
-  "fleet.column.port": "端口",
   "fleet.column.certificate": "证书",
   "fleet.column.expiry": "到期",
   "fleet.column.expiresOn": "到期日期",
@@ -6641,81 +6629,6 @@
   "fleet.commands.addServer": "向服务器群添加服务器",
   "fleet.commands.addServerKeywords": "服务器群 节点 加入码 授权 fleet node join code authorize",
   "fleet.summary.notRead": "未读取",
-  "fleet.summary.olderNoust": "它的 Noust 版本过旧，无法提供",
-  "fleet.summary.noAttention": "无",
-  "fleet.summary.attentionCount": {
-    "other": "{count} 项需要关注"
-  },
-  "fleet.summary.appsRunning": {
-    "other": "{count} 个运行中"
-  },
-  "fleet.summary.appsFailed": {
-    "other": "{count} 个失败"
-  },
-  "fleet.summary.appsUnmanaged": {
-    "other": "{count} 个在 Noust 之外运行"
-  },
-  "fleet.summary.figures.servers": "有响应的服务器",
-  "fleet.summary.figures.serversValue": "{total} 台中有 {answering} 台",
-  "fleet.summary.figures.serversAll": "每台服务器都有响应",
-  "fleet.summary.figures.serversDown": {
-    "other": "{count} 台没有响应"
-  },
-  "fleet.summary.figures.apps": "应用",
-  "fleet.summary.figures.appsTotal": {
-    "other": "共 {count} 个"
-  },
-  "fleet.summary.figures.appsRunningNoneFailed": {
-    "other": "{count} 个运行中，无失败"
-  },
-  "fleet.summary.figures.noneFailed": "无失败",
-  "fleet.summary.figures.services": "服务",
-  "fleet.summary.figures.servicesFailed": {
-    "other": "{count} 个失败"
-  },
-  "fleet.summary.figures.servicesDetail": "在每台服务器上",
-  "fleet.summary.figures.certificates": "证书",
-  "fleet.summary.figures.certificatesExpiring": {
-    "other": "{count} 张即将到期"
-  },
-  "fleet.summary.figures.certificatesNone": "没有即将到期的",
-  "fleet.summary.figures.certificatesDetail": "30 天内到期",
-  "fleet.summary.figures.updates": "Noust 更新",
-  "fleet.summary.figures.updatesAvailable": {
-    "other": "{count} 台待更新"
-  },
-  "fleet.summary.figures.updatesNone": "全部最新",
-  "fleet.summary.figures.reboots": {
-    "other": "{count} 台等待重启"
-  },
-  "fleet.summary.figures.noReboots": "没有待处理的重启",
-  "fleet.summary.figures.attention": "需要关注",
-  "fleet.summary.figures.attentionDetail": "按每台服务器自己的判断",
-  "fleet.summary.figures.attentionValue": {
-    "other": "{count} 项"
-  },
-  "fleet.summary.attention.title": "需要关注",
-  "fleet.summary.attention.description": "来自每台服务器，最严重的在前。每一项都会跳转到它所在服务器上可以解决它的地方。",
-  "fleet.summary.attention.loading": "正在检查每台服务器",
-  "fleet.summary.attention.empty": {
-    "other": "有响应的 {count} 台服务器上，都没有需要关注的事项。"
-  },
-  "fleet.summary.attention.on": "在 {server} 上",
-  "fleet.summary.attention.failure": "失败：",
-  "fleet.summary.attention.warning": "警告：",
-  "fleet.summary.attention.showAll": "显示全部 {count} 项",
-  "fleet.summary.attention.showFewer": "收起",
-  "fleet.summary.actions.title": "最近的操作",
-  "fleet.summary.actions.description": "同时在多台服务器上运行过的操作。",
-  "fleet.summary.actions.loading": "正在加载最近的操作",
-  "fleet.summary.actions.loadFailed": "无法加载最近的操作",
-  "fleet.summary.actions.empty": "服务器群上还没有运行过任何操作。",
-  "fleet.summary.actions.servers": {
-    "other": "{count} 台服务器"
-  },
-  "fleet.summary.servers.title": "服务器",
-  "fleet.summary.servers.description": "每台服务器一行；每一行都会单独打开。",
-  "fleet.summary.servers.caption": "服务器群的服务器概览",
   "fleet.servers.caption": "此服务器群的服务器",
   "fleet.servers.filterLabel": "筛选服务器",
   "fleet.servers.searchLabel": "搜索服务器",
@@ -8408,15 +8321,9 @@
   "newApp.steps.setup": "地址和变量",
   "newApp.steps.deploy": "部署",
   "newApp.steps.announce": "第 {number} 步，共 {total} 步：{label}",
-  "newApp.modes.label": "代码来源",
-  "newApp.modes.github": "从 GitHub",
-  "newApp.modes.manual": "URL 或路径",
-  "newApp.modes.image": "Docker 镜像",
   "newApp.modes.compose": "Compose",
-  "newApp.modes.recipe": "从配方",
   "newApp.modes.import": "导入应用",
   "newApp.modes.adopt": "已在运行",
-  "newApp.modes.more": "更多方式",
   "newApp.address.legend": "响应的地址",
   "newApp.address.temporary": "临时地址，用于试用",
   "newApp.address.temporaryDescription": "稍等片刻即可使用，无需配置 DNS。想用自己的域名时随时可以添加。",
@@ -9193,103 +9100,14 @@
   "notifyRouting.deliveries.lastError": "{channel} 返回的内容",
   "notifyRouting.deliveries.to": "发往 {channel}",
   "overview.title": "概览",
-  "overview.description": "这台服务器的状况如何，有什么需要你处理，以及最近发生了什么。",
-  "overview.version": "Noust {version}",
   "overview.newApplication": "新建应用",
-  "overview.tabsLabel": "概览分区",
   "overview.couldNotLoad": "无法加载概览",
   "overview.range.1h": "最近一小时",
   "overview.range.24h": "最近 24 小时",
   "overview.range.7d": "最近 7 天",
   "overview.range.30d": "最近 30 天",
-  "overview.quickActions.renewCertificates": "续期证书",
-  "overview.quickActions.checkUpdates": "检查系统更新",
   "overview.quickActions.backUp": "备份应用",
-  "overview.quickActions.activity": "所有活动",
   "overview.quickActions.addServer": "添加服务器",
-  "overview.figures.label": "关键数据",
-  "overview.figures.couldNotRead": "无法读取",
-  "overview.figures.apps.label": "应用",
-  "overview.figures.apps.running": "{count} 个运行中",
-  "overview.figures.apps.noneYet": "暂无",
-  "overview.figures.apps.failed": {
-    "other": "{count} 个失败"
-  },
-  "overview.figures.apps.stopped": {
-    "other": "{count} 个已停止"
-  },
-  "overview.figures.apps.static": "{count} 个静态",
-  "overview.figures.apps.allRunning": "全部运行中",
-  "overview.figures.apps.aria": "应用：{running} 个运行中，{failed} 个失败，{stopped} 个已停止，{static} 个静态",
-  "overview.figures.apps.unmanaged": {
-    "other": "{count} 个在 Noust 之外"
-  },
-  "overview.figures.apps.ariaUnmanaged": "应用：{running} 个运行中，{failed} 个失败，{stopped} 个已停止，{static} 个静态，{unmanaged} 个在 Noust 之外运行",
-  "overview.figures.deploys.label": "今日部署",
-  "overview.figures.deploys.none": "今天没有",
-  "overview.figures.deploys.succeeded": {
-    "other": "{count} 次成功"
-  },
-  "overview.figures.deploys.failed": {
-    "other": "{count} 次失败"
-  },
-  "overview.figures.deploys.running": "{count} 次进行中",
-  "overview.figures.deploys.last": "上次 {time}",
-  "overview.figures.deploys.aria": "今日部署：{total} 次，{succeeded} 次成功，{failed} 次失败",
-  "overview.figures.certificates.label": "证书",
-  "overview.figures.certificates.allValid": "全部有效",
-  "overview.figures.certificates.none": "无",
-  "overview.figures.certificates.expiring": {
-    "other": "{count} 个即将到期"
-  },
-  "overview.figures.certificates.expired": {
-    "other": "{count} 个已过期"
-  },
-  "overview.figures.certificates.nextIn": {
-    "other": "下一个将在 {count} 天后到期"
-  },
-  "overview.figures.certificates.total": {
-    "other": "{count} 个证书"
-  },
-  "overview.figures.certificates.noneDetail": "还没有站点启用 HTTPS",
-  "overview.figures.certificates.aria": "证书：{total} 个，{expiring} 个即将到期，{expired} 个已过期",
-  "overview.figures.backups.label": "备份，最近 24 小时",
-  "overview.figures.backups.ofApps": "{done} / {total} 个应用",
-  "overview.figures.backups.notScheduled": "未设置计划",
-  "overview.figures.backups.notScheduledDetail": "没有应用设置了计划",
-  "overview.figures.backups.unprotected": {
-    "other": "{count} 个已计划的应用漏了备份"
-  },
-  "overview.figures.backups.failed": {
-    "other": "{count} 个失败"
-  },
-  "overview.figures.backups.last": "上次 {time}",
-  "overview.figures.backups.never": "还没有备份",
-  "overview.figures.backups.aria": "最近 24 小时的备份：{total} 个应用中的 {done} 个，{failed} 个失败",
-  "overview.figures.disk.label": "磁盘",
-  "overview.figures.disk.free": "剩余 {percent}",
-  "overview.figures.disk.fullIn": {
-    "other": "预计约 {count} 天后写满"
-  },
-  "overview.figures.disk.notGrowing": "不会写满",
-  "overview.figures.disk.used": "已用 {used}，共 {total}",
-  "overview.figures.disk.high": "偏高",
-  "overview.figures.disk.critical": "严重",
-  "overview.figures.disk.aria": "磁盘：剩余 {percent}，已用 {used}，共 {total}",
-  "overview.figures.updates.label": "系统更新",
-  "overview.figures.updates.pending": {
-    "other": "{count} 个待处理"
-  },
-  "overview.figures.updates.upToDate": "已是最新",
-  "overview.figures.updates.notChecked": "尚未检查",
-  "overview.figures.updates.unsupported": "不可用",
-  "overview.figures.updates.unsupportedDetail": "此系统不支持",
-  "overview.figures.updates.security": {
-    "other": "{count} 个安全更新"
-  },
-  "overview.figures.updates.reboot": "需要重启服务器",
-  "overview.figures.updates.checked": "检查于 {time}",
-  "overview.figures.updates.aria": "操作系统更新：{state}",
   "overview.attention.title": "需要关注",
   "overview.attention.itemsSr": "项目：",
   "overview.attention.checking": "正在检查服务器",
@@ -9305,8 +9123,6 @@
   "overview.attention.showFewer": "显示更少",
   "overview.attention.viewLog": "查看日志",
   "overview.attention.viewLogAria": "查看 {domain} 的部署日志",
-  "overview.attention.appLog": "日志",
-  "overview.attention.appLogAria": "{domain} 的日志",
   "overview.attention.diagnose": "诊断",
   "overview.attention.diagnoseAria": "诊断 {domain}",
   "overview.attention.certificate": "证书",
@@ -9339,8 +9155,6 @@
   "overview.activity.all": "所有活动",
   "overview.activity.emptyTitle": "还没有发生任何事",
   "overview.activity.emptyDescription": "部署、更新、备份和恢复在运行时会显示在这里。",
-  "overview.activity.today": "今天",
-  "overview.activity.yesterday": "昨天",
   "overview.activity.listLabel": "最近的活动，最新的在前",
   "overview.machine.title": "机器",
   "overview.machine.rangeLabel": "时间范围",
@@ -9399,29 +9213,6 @@
   "overview.firstSteps.twoFactor.description": "在访问令牌之外再加上手机上的验证码，这样仅凭泄露的令牌无法登录。",
   "overview.firstSteps.twoFactor.action": "安全",
   "overview.fleet.title": "服务器群",
-  "overview.fleet.servers": {
-    "other": "{count} 台服务器"
-  },
-  "overview.fleet.reachable": "{count} 台可访问",
-  "overview.fleet.unreachable": {
-    "other": "{count} 台无法访问"
-  },
-  "overview.fleet.open": "打开服务器群",
-  "overview.fleet.caption": "这个服务器群的服务器",
-  "overview.fleet.server": "服务器",
-  "overview.fleet.state": "状态",
-  "overview.fleet.version": "版本",
-  "overview.fleet.apps": "应用",
-  "overview.fleet.attention": "需要关注",
-  "overview.fleet.thisServer": "这台服务器",
-  "overview.fleet.appsValue": "{running} 个运行中，{failed} 个失败",
-  "overview.fleet.noAttention": "无",
-  "overview.fleet.attentionCount": {
-    "other": "{count} 项"
-  },
-  "overview.fleet.unknownState": "尚未检查",
-  "overview.fleet.couldNotLoad": "无法读取服务器群",
-  "overview.fleet.olderVersion": "没有摘要：这台服务器运行的是较旧的 Noust",
   "pasteDockerfile.open": "或粘贴 Dockerfile",
   "pasteDockerfile.label": "Dockerfile",
   "pasteDockerfile.help": "构建过程中除了这个文件什么都没有，所以 COPY 找不到任何内容：Dockerfile 需要自己获取所需的东西（ADD 一个 URL、RUN git clone，或使用已包含该程序的基础镜像）。",

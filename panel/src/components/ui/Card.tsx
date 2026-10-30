@@ -38,9 +38,11 @@ export interface CardProps {
   loading?: boolean;
   /**
    * The state of what the card holds, when it is not well: its ground and its edge take the
-   * state's (a database server whose support is ending is amber, one whose support ended is red).
-   * A card that is well stays stone, so the one that has colour is the one that is found. The
-   * state is also said in words and a glyph inside the card, never by the ground alone.
+   * state's (a database server whose support is ending is amber, one whose support ended is red;
+   * a thing that needs attention on Home is amber or red). A card that is well stays stone, so a
+   * board of twenty has colour only where something is wrong and the one that has it is the one
+   * that is found. The state is also said in words and a glyph inside the card, never by the
+   * ground alone. It is also the card's `data-tone`.
    */
   tone?: "warning" | "failed";
   /**

@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
-import { appQuery, webhookDeliveriesQuery } from "../../api/queries/apps";
+import { appLogsQuery, appQuery, webhookDeliveriesQuery } from "../../api/queries/apps";
 import type { App } from "../../api/queries/apps";
 import { certsQuery } from "../../api/queries/certs";
 import type { Cert } from "../../api/queries/certs";
@@ -10,6 +10,7 @@ import { deploymentsQuery } from "../../api/queries/deployments";
 import { appDomainsQuery } from "../../api/queries/domains";
 import { previewsQuery } from "../../api/queries/previews";
 import type { Preview } from "../../api/queries/previews";
+
 import { useDocumentTitle } from "../../app/documentTitle";
 import { DeployStatePill } from "../../components/page/AppStatePill";
 import { CommandHint } from "../../components/page/CommandHint";
@@ -18,6 +19,7 @@ import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { ResourceMeter } from "../../components/page/ResourceMeter";
 import { Section } from "../../components/page/Section";
+import { StatTile } from "../../components/page/StatTile";
 import { useNow } from "../../components/page/clock";
 import { appStatus } from "../../components/page/status";
 import { Card } from "../../components/ui/Card";
@@ -26,6 +28,7 @@ import { ExternalLink } from "../../components/ui/ExternalLink";
 import { ICONS } from "../../components/ui/icons";
 import { Mono } from "../../components/ui/Mono";
 import { RowList } from "../../components/ui/RowList";
+import { SystemOutput } from "../../components/ui/SystemOutput";
 import { Button } from "../../components/ui/Button";
 import { InlineMessage } from "../../components/ui/InlineMessage";
 import {
@@ -53,12 +56,14 @@ import { previewName, previewStatus } from "./settings/previews";
 import { AdoptedOverview } from "./AdoptedOverview";
 import { isAdopted } from "./adopted";
 import { RECENT_APP_DEPLOYS } from "./AppBanner";
-import { LiveRow } from "./LiveRow";
 import { deploymentStatusWord, shortCommit } from "./deployments/words";
 import { keptServing, servingDeployment } from "./rollback";
 import { findCertificate } from "./lookups";
 import { displayAddress } from "./displayAddress";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
+
+/** How many of the last lines the application printed the overview shows. */
+const RECENT_LOG_LINES = 8;
 
 /** The deployments the overview reads: the store keeps twenty, and the live one may be older than the newest five. */
 const HISTORY = 20;
@@ -146,7 +151,7 @@ function DeploymentLine({
   );
 }
 
-/** What serves now and the last few deploys, from the history the page reads once. */
+/** The last few deploys, from the history the page reads once; what serves now is the first of the highlights. */
 function Deploys({ app, t }: { app: App; t: T }) {
   const domain = app.domain;
   const history = useQuery(deploymentsQuery({ domain, limit: HISTORY }));
@@ -162,11 +167,7 @@ function Deploys({ app, t }: { app: App; t: T }) {
   }
   if (history.data === undefined) {
     return (
-      <LoadingRegion
-        label={t("appPages.overview.loadingDeploys")}
-        className="flex flex-col gap-8"
-      >
-        <SkeletonSection rows={2} />
+      <LoadingRegion label={t("appPages.overview.loadingDeploys")} className="flex flex-col gap-8">
         <SkeletonSection rows={RECENT_APP_DEPLOYS} />
       </LoadingRegion>
     );
@@ -177,60 +178,83 @@ function Deploys({ app, t }: { app: App; t: T }) {
   // With its service down nothing is live: the version is the last that served, and says so.
   const down = ["failed", "stopped"].includes(appStatus(app.status).state);
   return (
-    <>
-      <Section
-        title={
-          down
-            ? t("appPages.overview.lastServed")
-            : t("appPages.overview.liveNow")
+    <Section
+      title={t("appPages.overview.lastDeployments")}
+      icon={OBJECT_ICONS.deployment}
+      actions={
+        <TextLink to="/apps/$domain/deployments" params={{ domain }} size="ui">
+          {t("appPages.overview.viewAll")}
+        </TextLink>
+      }
+    >
+      {recent.length === 0 ? (
+        <EmptyState variant="inline" title={t("appPages.overview.deploysAppearHere")} />
+      ) : (
+        <RowList aria-label={t("appPages.overview.deploymentsLabel", { domain })}>
+          {recent.map((deployment) => (
+            <DeploymentLine key={deployment.id} domain={domain} deployment={deployment} live={!down && serving?.id === deployment.id} kept={keptServing(items, deployment)} t={t} />
+          ))}
+        </RowList>
+      )}
+    </Section>
+  );
+}
+
+// ---------------------------------------------------------------------------------------
+// The highlights
+
+/**
+ * Three figures that answer "how is it" before the details do: the version that serves (and what changed in
+ * it), and the memory and the CPU it uses against the most it may. A static site has no process to measure, so
+ * it has the version alone.
+ */
+function Highlights({ app, t }: { app: App; t: T }) {
+  const domain = app.domain;
+  const history = useQuery(deploymentsQuery({ domain, limit: HISTORY }));
+  const { reading, limits, missing } = useReadings(app, t);
+  const staticSite = appStatus(app.status).state === "static";
+  const down = ["failed", "stopped"].includes(appStatus(app.status).state);
+  const serving = history.data === undefined ? null : servingDeployment(history.data.items);
+  const message = serving?.commit_message ?? null;
+  const version =
+    history.data === undefined ? (
+      <Skeleton className="h-5 w-16" />
+    ) : serving === null ? (
+      <span className="title text-18 text-fg-muted">{t("appPages.overview.nothingLiveShort")}</span>
+    ) : (
+      <TextLink to="/apps/$domain/deployments/$id" params={{ domain, id: String(serving.id) }} variant="row" className="title text-18">
+        {`#${String(serving.id)}`}
+      </TextLink>
+    );
+  return (
+    <section aria-label={t("appPages.overview.highlightsLabel", { domain })} className={cx("grid min-w-0 gap-4", !staticSite && "sm:grid-cols-3")}>
+      <StatTile
+        label={down ? t("appPages.overview.lastServed") : t("appPages.overview.liveNow")}
+        value={version}
+        loading={history.data === undefined}
+        detailLines={2}
+        detail={
+          serving === null ? undefined : (
+            <>
+              {shortCommit(serving.git_commit) !== null ? <Mono tone="muted">{shortCommit(serving.git_commit)}</Mono> : null}{" "}
+              {message !== null ? <span title={message}>{message}</span> : null}{" "}
+              <RelativeTime value={serving.finished_at ?? serving.started_at} />
+            </>
+          )
         }
-        icon={OBJECT_ICONS.deployment}
-      >
-        {serving !== null ? (
-          <LiveRow deployment={serving} down={down} />
-        ) : (
-          <EmptyState
-            variant="inline"
-            title={t("appPages.overview.nothingLive")}
-          />
-        )}
-      </Section>
-      <Section
-        title={t("appPages.overview.lastDeployments")}
-        icon={OBJECT_ICONS.deployment}
-        actions={
-          <TextLink
-            to="/apps/$domain/deployments"
-            params={{ domain }}
-            size="ui"
-          >
-            {t("appPages.overview.viewAll")}
-          </TextLink>
-        }
-      >
-        {recent.length === 0 ? (
-          <EmptyState
-            variant="inline"
-            title={t("appPages.overview.deploysAppearHere")}
-          />
-        ) : (
-          <RowList
-            aria-label={t("appPages.overview.deploymentsLabel", { domain })}
-          >
-            {recent.map((deployment) => (
-              <DeploymentLine
-                key={deployment.id}
-                domain={domain}
-                deployment={deployment}
-                live={!down && serving?.id === deployment.id}
-                kept={keptServing(items, deployment)}
-                t={t}
-              />
-            ))}
-          </RowList>
-        )}
-      </Section>
-    </>
+      />
+      {staticSite ? null : (
+        <>
+          <Card padding="sm">
+            <ResourceMeter label={t("appPages.common.memory")} value={reading.memory} limit={limits.memory} format={(value) => formatBytes(value, t.locale)} missing={missing} />
+          </Card>
+          <Card padding="sm">
+            <ResourceMeter label={t("appPages.common.cpu")} value={reading.cpu} limit={limits.cpu} format={(value) => formatPercent(value, t.locale)} missing={missing} />
+            {limits.tasks !== null ? <p className="mt-2 text-12 text-fg-muted">{t("appPages.overview.tasksLimit", { value: formatCount(limits.tasks, t.locale) })}</p> : null}
+          </Card>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -316,13 +340,11 @@ function useReadings(app: App, t: T) {
 }
 
 /**
- * How the app is doing in one row: how long it has been up, what its certificate has left, and
- * its CPU and memory against their limits, with the way to change them. A static site has no
- * process to measure, so its row is the first two.
+ * How the app is doing in two facts: how long it has been up and what its certificate has left, with the way
+ * to change its limits. Its CPU and memory are the highlights', against those limits.
  */
 function Health({ app, t }: { app: App; t: T }) {
   const certs = useQuery(certsQuery());
-  const { reading, limits, missing } = useReadings(app, t);
   const staticSite = appStatus(app.status).state === "static";
   // Running now and not enabled at boot: after a restart of the server it stays stopped.
   const service = app.unit ? app.unit.replace(/\.service$/, "") : null;
@@ -333,69 +355,23 @@ function Health({ app, t }: { app: App; t: T }) {
       icon={OBJECT_ICONS.startupCheck}
       actions={
         staticSite ? undefined : (
-          <TextLink
-            to="/apps/$domain/settings/resources"
-            params={{ domain: app.domain }}
-            size="ui"
-          >
+          <TextLink to="/apps/$domain/settings/resources" params={{ domain: app.domain }} size="ui">
             {t("appPages.overview.editLimits")}
           </TextLink>
         )
       }
     >
       <Card padding="sm">
-        <div
-          className={cx(
-            "grid grid-cols-2 gap-x-8 gap-y-4",
-            !staticSite && "lg:grid-cols-4",
-          )}
-        >
-          <Fact label={t("appPages.overview.uptimeLabel")}>
-            {uptimeFact(app, t)}
-          </Fact>
-          <Fact label={t("appPages.overview.certificateLabel")}>
-            {certificateFact(
-              findCertificate(certs.data, app.domain),
-              certs.error,
-              t,
-            )}
-          </Fact>
-          {staticSite ? null : (
-            <>
-              <ResourceMeter
-                label={t("appPages.common.cpu")}
-                value={reading.cpu}
-                limit={limits.cpu}
-                format={(value) => formatPercent(value, t.locale)}
-                missing={missing}
-              />
-              <ResourceMeter
-                label={t("appPages.common.memory")}
-                value={reading.memory}
-                limit={limits.memory}
-                format={(value) => formatBytes(value, t.locale)}
-                missing={missing}
-              />
-            </>
-          )}
+        <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+          <Fact label={t("appPages.overview.uptimeLabel")}>{uptimeFact(app, t)}</Fact>
+          <Fact label={t("appPages.overview.certificateLabel")}>{certificateFact(findCertificate(certs.data, app.domain), certs.error, t)}</Fact>
         </div>
-        {!staticSite && limits.tasks !== null ? (
-          <p className="mt-3 text-12 text-fg-muted">
-            {t("appPages.overview.tasksLimit", {
-              value: formatCount(limits.tasks, t.locale),
-            })}
-          </p>
-        ) : null}
         {noBoot ? (
           <InlineMessage
             className="mt-3"
             trailing={
               service !== null ? (
-                <TextLink
-                  to="/services/$name"
-                  params={{ name: service }}
-                  size="ui"
-                >
+                <TextLink to="/services/$name" params={{ name: service }} size="ui">
                   {t("appPages.overview.openService")}
                 </TextLink>
               ) : undefined
@@ -664,20 +640,54 @@ function Reach({ app, t }: { app: App; t: T }) {
   );
 }
 
+/** The last lines the application printed, verbatim, with the way to all of them. */
+function RecentLogs({ domain, t }: { domain: string; t: T }) {
+  const logs = useQuery({ ...appLogsQuery(domain, { lines: RECENT_LOG_LINES }), retry: false });
+  const text = (logs.data?.logs ?? "").trim();
+  return (
+    <Section
+      title={t("appPages.overview.recentLogs")}
+      icon={OBJECT_ICONS.log}
+      loading={logs.isPending}
+      actions={
+        <TextLink to="/apps/$domain/logs" params={{ domain }} size="ui">
+          {t("appPages.overview.openLogs")}
+        </TextLink>
+      }
+    >
+      {logs.isPending ? (
+        <LoadingRegion label={t("appPages.overview.loadingLogs")}>
+          <SkeletonRows rows={3} />
+        </LoadingRegion>
+      ) : logs.isError ? (
+        <ErrorBlock compact error={logs.error} title={t("appPages.overview.logsLoadError")} onRetry={() => void logs.refetch()} retrying={logs.isRefetching} />
+      ) : text === "" ? (
+        <EmptyState variant="inline" title={t("appPages.overview.noLogs")} />
+      ) : (
+        <Card padding="sm">
+          <SystemOutput label={t("appPages.overview.recentLogsOutput", { domain })} maxHeight="max-h-40">
+            {text}
+          </SystemOutput>
+        </Card>
+      )}
+    </Section>
+  );
+}
+
 /**
- * The loaded page's shape: what serves, the last deploys, and the row of health, in the order
- * and at the height they are drawn.
+ * The loaded page's shape: the highlights, the last deploys beside how it is doing, and the last lines
+ * it printed, in the order and at the height they are drawn.
  */
 function OverviewSkeleton({ t }: { t: T }) {
   return (
-    <LoadingRegion
-      label={t("appPages.overview.loadingApplication")}
-      className="flex flex-col gap-8"
-    >
-      <SkeletonSection rows={2} />
+    <LoadingRegion label={t("appPages.overview.loadingApplication")} className="flex flex-col gap-8">
+      <div aria-hidden="true" className="grid gap-4 sm:grid-cols-3">
+        <Skeleton className="h-28 rounded-card" />
+        <Skeleton className="h-28 rounded-card" />
+        <Skeleton className="h-28 rounded-card" />
+      </div>
       <SkeletonSection rows={RECENT_APP_DEPLOYS} />
       <SkeletonSection rows={2} />
-      <SkeletonRows rows={2} />
     </LoadingRegion>
   );
 }
@@ -710,10 +720,18 @@ export function AppOverview({ domain }: { domain: string }) {
 
   return (
     <div className="flex flex-col gap-8">
-      <Deploys app={app.data} t={t} />
-      <Health app={app.data} t={t} />
-      <Previews domain={domain} t={t} />
-      <Reach app={app.data} t={t} />
+      <Highlights app={app.data} t={t} />
+      <div className="grid min-w-0 gap-8 lg:grid-cols-3">
+        <div className="flex min-w-0 flex-col gap-8 lg:col-span-2">
+          <Deploys app={app.data} t={t} />
+          <Reach app={app.data} t={t} />
+          <Previews domain={domain} t={t} />
+        </div>
+        <div className="flex min-w-0 flex-col gap-8">
+          <Health app={app.data} t={t} />
+        </div>
+      </div>
+      <RecentLogs domain={domain} t={t} />
       <CommandHint
         command={`noust status ${domain}`}
         label={t("common.words.fromTerminal")}

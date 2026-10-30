@@ -402,8 +402,10 @@ describe("an application's page", () => {
   describe("its overview", () => {
     it("says what serves now and what changed, then the last deploys, and which version kept serving through a failure", async () => {
       await appAt();
-      const live = await screen.findByRole("region", { name: "Live now" });
-      expect(await within(live).findByText("9f2c41a")).toBeInTheDocument();
+      const highlights = await screen.findByRole("region", { name: `Highlights of ${DOMAIN}` });
+      expect(within(highlights).getByText("Live now")).toBeInTheDocument();
+      expect(await within(highlights).findByText("9f2c41a")).toBeInTheDocument();
+      expect(within(highlights).getByRole("link", { name: "#11" })).toHaveAttribute("href", `/apps/${DOMAIN}/deployments/11`);
       const list = await screen.findByRole("list", { name: `Last deployments of ${DOMAIN}` });
       const rows = within(list).getAllByRole("listitem");
       expect(rows).toHaveLength(2);
@@ -412,35 +414,44 @@ describe("an application's page", () => {
       // The live one says so in words and a shape, not only in green.
       expect(within(item(rows, 1)).getByText("Live")).toHaveAttribute("data-state", "running");
       expect(within(list).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([`/apps/${DOMAIN}/deployments/12`, `/apps/${DOMAIN}/deployments/11`]);
-      expect(within(live).queryByRole("button")).not.toBeInTheDocument();
+      expect(within(highlights).queryByRole("button")).not.toBeInTheDocument();
     });
 
     it("says the last version that served, and marks none Live, while the app's service is down", async () => {
       const app = { domain: DOMAIN, name: "shop", app_type: "nextjs", status: "failed", active: false, enabled: true, port: 3000, layout: "inplace" };
       await appAt({ [`GET /api/apps/${DOMAIN}`]: () => json(200, app) });
-      const last = await screen.findByRole("region", { name: "Last version that served" });
-      expect(await within(last).findByText("9f2c41a")).toBeInTheDocument();
-      expect(screen.queryByRole("region", { name: "Live now" })).not.toBeInTheDocument();
+      const highlights = await screen.findByRole("region", { name: `Highlights of ${DOMAIN}` });
+      expect(within(highlights).getByText("Last version that served")).toBeInTheDocument();
+      expect(await within(highlights).findByText("9f2c41a")).toBeInTheDocument();
+      expect(within(highlights).queryByText("Live now")).not.toBeInTheDocument();
       const list = await screen.findByRole("list", { name: `Last deployments of ${DOMAIN}` });
       expect(within(list).queryByText("Live")).not.toBeInTheDocument();
     });
 
     it("leaves what the configuration says to Settings: nothing of how it runs is repeated here", async () => {
       await appAt();
-      await screen.findByRole("region", { name: "Live now" });
+      await screen.findByRole("region", { name: `Highlights of ${DOMAIN}` });
       expect(screen.queryByRole("region", { name: "How it runs" })).not.toBeInTheDocument();
       expect(screen.queryByText("Process ID")).not.toBeInTheDocument();
       expect(screen.queryByRole("list", { name: /^Last \d+ deploys, oldest first$/ })).not.toBeInTheDocument();
     });
 
-    it("reads its health in one place: uptime, certificate, CPU and memory, with the way to change the limits", async () => {
+    it("tells how it is doing in two places: its CPU and memory first, then its uptime and certificate with the way to change the limits", async () => {
       await appAt();
+      const highlights = await screen.findByRole("region", { name: `Highlights of ${DOMAIN}` });
+      expect(within(highlights).getByText("CPU")).toBeInTheDocument();
+      expect(within(highlights).getByText("Memory")).toBeInTheDocument();
       const health = await screen.findByRole("region", { name: "Health" });
       expect(await within(health).findByText("29 days left")).toBeInTheDocument();
       expect(within(health).getByText("Uptime")).toBeInTheDocument();
-      expect(within(health).getByText("CPU")).toBeInTheDocument();
-      expect(within(health).getByText("Memory")).toBeInTheDocument();
       expect(within(health).getByRole("link", { name: "Edit limits" })).toHaveAttribute("href", `/apps/${DOMAIN}/settings/resources`);
+    });
+
+    it("shows the last lines it printed, verbatim, with the way to all of them", async () => {
+      await appAt({ [`GET /api/apps/${DOMAIN}/logs`]: () => json(200, { logs: "ready - started server on 0.0.0.0:3000\nGET /cart 200 in 52ms", services: [] }) });
+      const recent = await screen.findByRole("region", { name: "Recent logs" });
+      expect(await within(recent).findByText(/ready - started server on 0\.0\.0\.0:3000/)).toBeInTheDocument();
+      expect(within(recent).getByRole("link", { name: "Open logs" })).toHaveAttribute("href", `/apps/${DOMAIN}/logs`);
     });
 
     it("says where it answers and whether a push deploys it, each with its way on", async () => {
@@ -507,7 +518,7 @@ describe("an application's page", () => {
 
     it("has no section of previews when there are none", async () => {
       await appAt({ [`GET /api/apps/${DOMAIN}/previews`]: () => json(200, { settings: null, previews: [] }) });
-      await screen.findByRole("region", { name: "Live now" });
+      await screen.findByRole("region", { name: `Highlights of ${DOMAIN}` });
       expect(screen.queryByRole("region", { name: "Previews" })).not.toBeInTheDocument();
     });
 
@@ -554,8 +565,9 @@ describe("in Spanish", () => {
     expect(screen.getByRole("navigation", { name: "Secciones de la aplicación" })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Actualizar" })).toBeInTheDocument();
     expect(await screen.findByText("Quedan 29 días")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Ahora en producción" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: `Lo principal de ${DOMAIN}` })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Salud" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Registros recientes" })).toBeInTheDocument();
     // The last deploys, each named by its number and, when it failed, by the version that kept serving.
     const list = await screen.findByRole("list", { name: `Últimos despliegues de ${DOMAIN}` });
     expect(within(list).getByText("La versión #11 siguió sirviendo")).toBeInTheDocument();
@@ -709,7 +721,10 @@ describe("a Compose stack running outside its unit", { timeout: 20_000 }, () => 
     expect(await within(dialog).findByText("Starting the unit would recreate containers")).toBeInTheDocument();
     expect(within(dialog).getByText((_, element) => element?.tagName === "PRE" && element.textContent === output)).toBeInTheDocument();
     const go = within(dialog).getByRole("button", { name: "Hand it back" });
-    expect(go).toBeDisabled();
+    // Pressed before the recreation is accepted, it says what is missing and asks nothing of the server.
+    await user.click(go);
+    expect(await within(dialog).findByText(/Tick the box to hand it back/)).toBeInTheDocument();
+    expect(backend.callsTo(`POST /api/apps/${DOMAIN}/reclaim`).every((call) => (call.body as { preview: boolean }).preview)).toBe(true);
 
     await user.click(within(dialog).getByRole("checkbox", { name: /Hand it back anyway/ }));
     await user.click(go);
@@ -825,6 +840,45 @@ describe("the job in hand", () => {
     // The Deployments tab counts what is building.
     const tabs = screen.getByRole("navigation", { name: "Application sections" });
     expect(within(tabs).getByRole("link", { name: /^Deployments\s*1$/ })).toBeInTheDocument();
+  });
+
+  it("opens the deployment a push started as soon as its deploy moves on, without reading the page again", async () => {
+    // The deployment is written by the deployer a moment after the job starts; no event says so, the next step does.
+    let items: unknown[] = [];
+    await appAt({
+      "GET /api/jobs/active": () => json(200, { jobs: [RUNNING_JOB], total: 1, active: 1 }),
+      "GET /api/deployments": () => json(200, { items, total: items.length, next_before_id: null }),
+    });
+    expect(await screen.findByRole("button", { name: "View log" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "View log" })).not.toBeInTheDocument();
+
+    // The job is known to the page, running, before the deployer has written its deployment.
+    act(() => {
+      FakeEventSource.latest().open();
+      FakeEventSource.latest().emit("job", RUNNING_JOB);
+    });
+    expect(await screen.findByRole("button", { name: "View log" })).toBeInTheDocument();
+
+    items = [{ id: 14, domain: DOMAIN, status: "running", triggered_by: "webhook", job_id: JOB.id, git_commit: "c0ffee1", git_branch: "main", has_log: true, started_at: "2026-09-25T19:21:15" }];
+    act(() => {
+      FakeEventSource.latest().emit("job", { ...RUNNING_JOB, current_step: "Fetching source into a new release" });
+    });
+    expect(await screen.findByRole("link", { name: "View log" })).toHaveAttribute("href", `/apps/${DOMAIN}/deployments/14`);
+    expect(screen.queryByRole("button", { name: "View log" })).not.toBeInTheDocument();
+    // The Deployments tab counts it too.
+    const tabs = screen.getByRole("navigation", { name: "Application sections" });
+    expect(await within(tabs).findByRole("link", { name: /^Deployments\s*1$/ })).toBeInTheDocument();
+  });
+
+  it("says what a deploy is doing in Spanish, whatever the deployer wrote", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    await appAt({
+      "GET /api/jobs/active": () => json(200, { jobs: [{ ...RUNNING_JOB, type: "deploy", logs: [{ timestamp: "2026-09-25T19:21:14", level: "info", message: "[7/7] 🚀 Activating release...", step: 7 }] }], total: 1, active: 1 }),
+    });
+    expect(await screen.findByText("Arrancando la versión nueva…")).toBeInTheDocument();
+    expect(screen.queryByText(/Activating release/)).not.toBeInTheDocument();
   });
 
   it("opens the job's own output beside the page while it has no deployment yet", async () => {

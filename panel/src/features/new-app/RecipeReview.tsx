@@ -14,13 +14,16 @@ import { ExternalLink } from "../../components/ui/ExternalLink";
 import { Field } from "../../components/ui/Field";
 import { IconButton } from "../../components/ui/IconButton";
 import { Input } from "../../components/ui/Input";
+import { InlineMessage } from "../../components/ui/InlineMessage";
 import { Mono } from "../../components/ui/Mono";
+import { Notice } from "../../components/ui/Notice";
+import { ServerText } from "../../components/ui/ServerText";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { categoryWords, dependencyWords } from "../catalog/RecipeCard";
 import { RecipeLogo } from "../catalog/RecipeLogo";
 import { RecipeRequirements } from "../catalog/RecipeRequirements";
-import { versionLabel } from "../catalog/model";
+import { codedOf, versionLabel } from "../catalog/model";
 import { addressItem } from "./DeployStep";
 import type { Summary } from "./DeployStep";
 import { editableVariables, generatedVariables, recipeVariableField, requiredVariables, variableNamed } from "./recipe";
@@ -261,6 +264,27 @@ export function RecipeVariables({ recipe, form, onChange, errors = {} }: RecipeV
   const optional = editableVariables(recipe).filter((name) => !required.includes(name));
   return (
     <div className="flex flex-col gap-6">
+      {recipe.root_equivalent != null ? (
+        // First, before anything is typed: what installing it gives it, said in those words, and the confirmation it takes.
+        <Notice tone="warning" title={t("newApp.recipes.rootTitle", { title: recipe.title })}>
+          <div className="flex flex-col gap-3">
+            <p>
+              <ServerText coded={codedOf(recipe.root_equivalent_warning)} text={recipe.root_equivalent_text} />
+            </p>
+            {recipe.root_equivalent_hint ? (
+              <p className="text-fg-muted">
+                <ServerText coded={codedOf(recipe.root_equivalent_warning)} text={recipe.root_equivalent_hint} part="hint" />
+              </p>
+            ) : null}
+            <Checkbox
+              label={t("newApp.recipes.rootAccept", { title: recipe.title })}
+              checked={form.acceptRoot}
+              onCheckedChange={(checked) => onChange({ ...form, acceptRoot: checked })}
+            />
+            {errors["acceptRoot"] !== undefined ? <InlineMessage tone="error" live>{errors["acceptRoot"]}</InlineMessage> : null}
+          </div>
+        </Notice>
+      ) : null}
       {required.length > 0 ? (
         <Subsection title={t("newApp.recipes.required")} description={t("newApp.recipes.requiredDescription", { title: recipe.title })}>
           <div className="flex flex-col gap-5">

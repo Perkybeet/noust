@@ -14,6 +14,16 @@ export const appPages = {
 
   /** What is being done to an app right now, by job type (the backend's JobType). */
   job: {
+    /** What a deploy is doing, said in the console's language: the steps its server names in English (`stepWords`). */
+    steps: {
+      preparing: "Preparing the deployment",
+      registering: "Registering the application",
+      permissions: "Setting permissions",
+      site: "Creating the site configuration",
+      service: "Creating the service",
+      certificate: "Obtaining the certificate",
+      zeroDowntime: "Enabling updates without downtime",
+    },
     deploy: { title: "Deploying {domain}", failed: "Deploy of {domain} failed" },
     update: { running: "Updating", title: "Updating {domain}", failed: "Update of {domain} failed" },
     rollback: { running: "Rolling back", title: "Rolling {domain} back", failed: "Rollback of {domain} failed" },
@@ -81,6 +91,7 @@ export const appPages = {
     dryRunEmpty: "Docker Compose printed nothing.",
     wouldRecreateTitle: "Starting the unit would recreate containers",
     acceptRecreate: "Hand it back anyway, recreating what Docker Compose lists",
+    acceptMissing: "Tick the box to hand it back, or cancel and fix what Compose would recreate.",
     acceptRecreateDescription: "The running containers differ from the compose file. A recreated container loses whatever it keeps outside its volumes.",
     couldNotCheck: "Could not check what starting the unit would change",
     failed: "Could not hand {domain} back to Noust",
@@ -175,9 +186,15 @@ export const appPages = {
 
   overview: {
     liveNow: "Live now",
+    nothingLiveShort: "None yet",
+    highlightsLabel: "Highlights of {domain}",
+    recentLogs: "Recent logs",
+    openLogs: "Open logs",
+    loadingLogs: "Loading the logs …",
+    logsLoadError: "Could not load the logs",
+    noLogs: "It has not printed anything yet",
+    recentLogsOutput: "The last lines {domain} printed",
     lastServed: "Last version that served",
-    nothingLive: "No deploy of this app has succeeded yet.",
-    builtIn: "Built in {duration}",
     lastDeployments: "Last deployments",
     deploymentsLabel: "Last deployments of {domain}",
     viewAll: "View all",

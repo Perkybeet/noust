@@ -78,10 +78,9 @@ describe("the new-app wizard in Spanish", () => {
 
     await screen.findByRole("heading", { level: 1, name: "Nueva aplicación" });
     expect(screen.getByRole("heading", { level: 2, name: "Origen" })).toBeInTheDocument();
-    const modes = screen.getByRole("radiogroup", { name: "Dónde está el código" });
-    expect(within(modes).getByRole("radio", { name: "URL o ruta" })).toBeChecked();
+    expect(screen.getByLabelText("Qué desplegar")).toHaveValue("");
     // The rest of the ways are one button away.
-    expect(screen.getByRole("button", { name: "Más formas" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Otras formas de empezar" })).toBeInTheDocument();
     const steps = screen.getByRole("list", { name: "Pasos" });
     expect(within(steps).getByText("Configuración: sin empezar")).toBeInTheDocument();
 
@@ -90,7 +89,7 @@ describe("the new-app wizard in Spanish", () => {
     expect(await screen.findAllByText("Escribe una URL de Git o una ruta de este servidor.")).toHaveLength(2);
     await expectNoAxeViolations(screen.getByRole("main"));
 
-    await user.type(screen.getByLabelText("Repositorio o directorio"), "/var/www/src/storefront");
+    await user.type(screen.getByLabelText("Qué desplegar"), "/var/www/src/storefront");
     await user.click(screen.getByRole("button", { name: "Continuar" }));
     expect(await screen.findByRole("heading", { level: 2, name: "Dirección" })).toHaveFocus();
     await user.type(screen.getByLabelText("Dominio"), "storefront.example.com");

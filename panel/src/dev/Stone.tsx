@@ -288,6 +288,13 @@ const FLEET: FleetCourse[] = [
     ],
   },
   { id: "web-03", name: "web-03", place: "Singapore", diskPercent: 7, apps: [] },
+  {
+    id: "datos-01",
+    name: "datos-01",
+    place: "Ashburn",
+    problem: { state: "failed", label: "Not answering" },
+    apps: ["radio", "tienda"].map((name) => ({ id: name, name: `${name}.org`, state: "running" as const, stateLabel: "Running" })),
+  },
 ];
 
 function Surfaces() {
@@ -339,6 +346,14 @@ function Surfaces() {
                 <Skeleton className="h-4 w-1/2" />
                 <Skeleton className="h-control-md w-full" />
               </div>
+            </Card>
+            <Card tone="failed" padding="sm" as="div">
+              <p className="title text-14 text-fg">api.net</p>
+              <p className="text-13 text-fg">The service has failed</p>
+            </Card>
+            <Card tone="warning" padding="sm" as="div">
+              <p className="title text-14 text-fg">portal.net</p>
+              <p className="text-13 text-fg">The certificate expires in 6 days</p>
             </Card>
           </div>
           <Item label="a sentence of the server in the console's language (ServerText), with its fix, in a notice">

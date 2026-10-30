@@ -45,11 +45,9 @@ describe("the verbs of the console", () => {
     expect(new Set(words).size).toBe(words.length);
   });
 
-  it("call the operating system's updates system updates wherever they are a destination or a figure", () => {
+  it("call the operating system's updates system updates wherever they are a destination", () => {
     expect(en.server.tabs.system).toMatch(/system/i);
-    expect(en.overview.figures.updates.label).toMatch(/system/i);
     expect(es.server.tabs.system).toMatch(/sistema/i);
-    expect(es.overview.figures.updates.label).toMatch(/sistema/i);
   });
 
   it("call the fleet's updates view what it holds: Noust and the system", () => {

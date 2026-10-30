@@ -65,6 +65,16 @@ describe("DashboardPage with tabs", () => {
     expect(slots(container)).toEqual(["header", "tabs", "firstSteps"]);
   });
 
+  it("draws the attention at the full width, then the fleet and what accompanies it, in that order", async () => {
+    const { container } = await renderRouted(
+      <DashboardPage header={{ title: "Home" }} tabs={tabs} attention={<p>attention</p>} fleet={<p>the fleet</p>} side={<p>activity</p>} />,
+    );
+    expect(slots(container)).toEqual(["header", "tabs", "attention", "fleet", "side"]);
+    // The fleet is two thirds and the side one third, from 1024px.
+    expect(container.querySelector("[data-slot='fleet']")?.className).toContain("lg:col-span-2");
+    expect(container.querySelector("[data-slot='fleet']")?.parentElement?.className).toContain("lg:grid-cols-3");
+  });
+
   it("is as it was without tabs", async () => {
     const { container } = await renderRouted(<DashboardPage header={{ title: "Overview" }} figures={<p>figures</p>} />);
     expect(slots(container)).toEqual(["header", "figures"]);

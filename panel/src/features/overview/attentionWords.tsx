@@ -1,0 +1,90 @@
+/**
+ * What an item that needs attention says, in the console's words: one sentence for each reason the
+ * server (or the console) gives, a certificate's expiry and the glyph of its severity. The Home
+ * board, the inbox and the fleet read these, so a reason is told one way wherever it is shown.
+ */
+
+import type { OverviewAttentionReason } from "../../api/queries/overview";
+import { StatusGlyph } from "../../components/ui/StatusPill";
+import type { T } from "../../i18n";
+import { formatDate, parseTimestamp } from "../../lib/format";
+import { namedActor } from "../activity/data";
+import type { Severity } from "./attention";
+
+/**
+ * What the monitor saw, in words, by its signal (`src/noust/monitor/models.py`) and severity
+ * (a warning asks more firmly than a notice); a signal this console does not know, by name.
+ */
+function monitorText(t: T, severity: string, signal: string): string {
+  const warning = severity === "warning";
+  switch (signal) {
+    case "name-pattern":
+      return warning ? t("overview.attention.monitor.nameWarning") : t("overview.attention.monitor.nameNotice");
+    case "resource-usage":
+      return warning ? t("overview.attention.monitor.usageWarning") : t("overview.attention.monitor.usageNotice");
+    default:
+      return t("overview.attention.monitor.other", { signal });
+  }
+}
+
+/** A certificate's expiry, translated and in the console's date format. */
+export function validUntilText(t: T, value: string): string {
+  const date = parseTimestamp(value);
+  return t("overview.attention.certValidUntil", { date: date ? formatDate(date, {}, t.locale) : value });
+}
+
+export function SeverityGlyph({ severity }: { severity: Severity }) {
+  return <StatusGlyph state={severity === "fail" ? "failed" : "warning"} size={14} className={severity === "fail" ? "text-fail" : "text-warn"} />;
+}
+
+function text(value: unknown): string | null {
+  return typeof value === "string" && value.trim() !== "" ? value : null;
+}
+
+/** What the server says is wrong, as a sentence of the console's; a code it does not know, verbatim. */
+export function reasonText(t: T, reason: OverviewAttentionReason): string {
+  const params = reason.params ?? {};
+  switch (reason.code) {
+    case "service_failed":
+      return t("overview.attention.serviceFailed");
+    case "service_restarting":
+      return t("overview.attention.serviceRestarting");
+    case "running_outside_unit":
+      return t("overview.attention.runningOutsideUnit");
+    case "no_answer":
+      return t("overview.attention.noAnswer");
+    case "deploy_failed":
+      return t("overview.attention.deployFailed");
+    case "deploy_rolled_back":
+      return t("overview.attention.deployRolledBack");
+    case "certificate_expired":
+      return t("overview.attention.certExpired");
+    case "certificate_expires_today":
+      return t("overview.attention.certExpiresToday");
+    case "certificate_expires_in":
+      return t("overview.attention.certExpiresIn", { count: Number(params["days"] ?? 0) });
+    case "unit_failed":
+      return t("overview.attention.unitFailed");
+    case "unit_restarting":
+      return t("overview.attention.unitRestarting");
+    case "monitor_finding":
+      return monitorText(t, text(params["severity"]) ?? "", text(params["signal"]) ?? "");
+    case "alert_firing":
+      return t("inbox.reasons.alertFiring");
+    case "alert_taken":
+      return t("inbox.reasons.alertTaken", { by: namedActor(t, text(params["by"]) ?? "") });
+    // What the console adds to the server's list (features/overview/attention.ts).
+    case "probe_down":
+      return t("inbox.reasons.probeDown");
+    case "approval_waiting":
+      return t("inbox.reasons.approvalWaiting", { by: text(params["by"]) ?? "" });
+    case "noust_update":
+      return t("inbox.reasons.noustUpdate", { version: text(params["version"]) ?? "", current: text(params["current"]) ?? "" });
+    case "noust_security_update":
+      return t("inbox.reasons.noustSecurityUpdate", { version: text(params["version"]) ?? "", current: text(params["current"]) ?? "" });
+    case "recipe_update":
+      return t("inbox.reasons.recipeUpdate", { recipe: text(params["recipe"]) ?? "", version: text(params["version"]) ?? "", current: text(params["current"]) ?? "" });
+    default:
+      return reason.code;
+  }
+}

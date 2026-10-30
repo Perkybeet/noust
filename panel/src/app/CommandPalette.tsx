@@ -255,14 +255,24 @@ function PaletteBody({
   onRun,
   inputRef,
   scope,
+  onQueryChange,
 }: {
   commands: readonly Command[];
   onRun: (command: Command) => void;
   inputRef: RefObject<HTMLInputElement | null>;
   scope?: PaletteScope | undefined;
+  onQueryChange?: ((text: string) => void) | undefined;
 }) {
   const t = useT();
   const [query, setQuery] = useState("");
+  // What is being looked for, for whoever searches the servers beyond this one: the words, not a mode's prefix.
+  const searched = parseQuery(query);
+  const words = searched.mode === "all" ? searched.text : "";
+  useEffect(() => {
+    onQueryChange?.(words);
+    // Closed, it looks for nothing: the body is unmounted with the dialog.
+    return () => onQueryChange?.("");
+  }, [words, onQueryChange]);
   const [active, setActive] = useState(0);
   const base = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const listId = `${base}-results`;
@@ -428,6 +438,8 @@ export interface CommandPaletteProps {
   scope?: PaletteScope | undefined;
   /** Where focus returns when the palette closes without opening a page. */
   returnFocus?: () => HTMLElement | null;
+  /** Told the words typed (nothing once a mode's prefix is used or the palette closes): what asks the servers beyond this one reads it. */
+  onQueryChange?: ((text: string) => void) | undefined;
 }
 
 /**
@@ -435,7 +447,7 @@ export interface CommandPaletteProps {
  * combobox: focus stays in the input while the arrow keys move a highlighted option, which
  * is announced through aria-activedescendant.
  */
-export function CommandPalette({ open, onOpenChange, commands, scope, returnFocus }: CommandPaletteProps) {
+export function CommandPalette({ open, onOpenChange, commands, scope, returnFocus, onQueryChange }: CommandPaletteProps) {
   const t = useT();
   const inputRef = useRef<HTMLInputElement>(null);
   const lastRun = useRef<Command["kind"] | null>(null);
@@ -476,7 +488,7 @@ export function CommandPalette({ open, onOpenChange, commands, scope, returnFocu
             className={cx(MODAL_POPUP, "sm:max-w-[640px]")}
           >
             <BaseDialog.Title className="sr-only">{t("shell.search.dialogTitle")}</BaseDialog.Title>
-            <PaletteBody commands={commands} onRun={run} inputRef={inputRef} scope={scope} />
+            <PaletteBody commands={commands} onRun={run} inputRef={inputRef} scope={scope} onQueryChange={onQueryChange} />
           </BaseDialog.Popup>
         </BaseDialog.Viewport>
       </BaseDialog.Portal>

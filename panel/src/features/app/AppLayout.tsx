@@ -27,6 +27,7 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { AppTypeMark, typeLogo } from "../apps/AppTypeMark";
 import { useTypeName } from "../apps/data";
 import { CancelJobButton } from "../queue/CancelJobButton";
 import { useCancelJob } from "../queue/useCancelJob";
@@ -41,6 +42,7 @@ import { displayAddress } from "./displayAddress";
 import type { Address } from "./displayAddress";
 import { isAdopted } from "./adopted";
 import { appTabs } from "./tabs";
+import { stepWords } from "./stepWords";
 import { jobStep, jobWords, useAppJob } from "./useAppJob";
 import type { AppJob } from "./useAppJob";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
@@ -54,14 +56,17 @@ import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 function Facts({ app, address, t }: { app: App; address: Address; t: T }) {
   const typeName = useTypeName();
   const type = typeName(app.app_type);
+  // One line that never wraps: beside the logo the text has less room, and an address that dropped to a second
+  // line when the facts arrived moved the whole page. The address, which the title above already says, is what
+  // gives way, cut with an ellipsis.
   return (
-    <>
-      {type !== null ? <span>{type}</span> : null}
-      {app.port ? <span>{t.rich("appPages.layout.portFact", { port: <Mono>{app.port}</Mono> })}</span> : null}
-      <ExternalLink href={`${address.secure ? "https" : "http"}://${address.name}`} label={t("appPages.layout.liveSite", { domain: address.name })}>
+    <span className="flex max-w-full min-w-0 items-center gap-x-3">
+      {type !== null ? <span className="shrink-0">{type}</span> : null}
+      {app.port ? <span className="shrink-0 whitespace-nowrap">{t.rich("appPages.layout.portFact", { port: <Mono>{app.port}</Mono> })}</span> : null}
+      <ExternalLink className="min-w-0" href={`${address.secure ? "https" : "http"}://${address.name}`} label={t("appPages.layout.liveSite", { domain: address.name })}>
         <span translate="no">{address.name}</span>
       </ExternalLink>
-    </>
+    </span>
   );
 }
 
@@ -110,7 +115,7 @@ function Job({ job, domain, t }: { job: AppJob; domain: string; t: T }) {
           announce={false}
           state={waiting ? "queued" : "running"}
           title={words.title}
-          step={jobStep(running)}
+          step={stepWords(running.type, jobStep(running), t.locale)}
           {...(details.length > 0
             ? {
                 description: (
@@ -236,7 +241,17 @@ function AppPage({ domain, app, job }: { domain: string; app: UseQueryResult<App
   useAnnounceChange(app.data ? view.label : null, `${domain}: ${view.label}`, view.state === "failed" ? "assertive" : "polite");
 
   // Where the page is in the tree is the top bar's (breadcrumbs generated from the register), not the header's.
-  const header: PageHeaderProps = { title: domain, mono: true };
+  // Only an application whose type has a real logo wears it: nothing is drawn in its place (the tile is for logos).
+  // While the app is read the mark's room is held (most types wear a logo), so the title does not slide when it arrives.
+  const header: PageHeaderProps = {
+    title: domain,
+    mono: true,
+    ...(app.isPending
+      ? { mark: <Skeleton className="size-10 rounded-control" /> }
+      : app.data !== undefined && typeLogo(app.data.app_type) !== null
+        ? { mark: <AppTypeMark type={app.data.app_type} size="md" /> }
+        : {}),
+  };
 
   if (app.isError && isApiError(app.error) && app.error.status === 404) return <NotFound domain={domain} header={header} t={t} />;
 
@@ -274,7 +289,7 @@ function AppPage({ domain, app, job }: { domain: string; app: UseQueryResult<App
       <DetailPage
         header={{
           ...header,
-          status: loaded ? <StatusPill state={view.state} label={view.label} /> : <Skeleton className="h-6 w-24 rounded-pill" />,
+          status: loaded ? <StatusPill state={view.state} label={view.label} /> : <Skeleton className="h-6 w-28 rounded-pill" />,
           ...(extras !== undefined ? { statusExtras: extras } : {}),
           meta: loaded ? <Facts app={loaded} address={displayAddress(domain, names.data?.domains, certs.data)} t={t} /> : <FactsSkeleton />,
           ...actions,

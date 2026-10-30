@@ -6,7 +6,6 @@ import type { ReactNode } from "react";
 import { sessionQuery } from "../../api/queries/auth";
 import { backupDestinationsQuery } from "../../api/queries/backupDestinations";
 import { configQuery } from "../../api/queries/config";
-import type { Overview } from "../../api/queries/overview";
 import { recipesQuery } from "../../api/queries/recipes";
 import { installCheckQuery } from "../../api/queries/system";
 import { buttonClassName } from "../../components/ui/Button";
@@ -60,7 +59,7 @@ interface SafeStep {
  * button; the second is folded, because backups and notifications are for after the first deploy
  * and nobody needs them to see a page come up.
  */
-export function FirstSteps({ overview }: { overview: Overview }) {
+export function FirstSteps({ backupsScheduled }: { backupsScheduled: boolean }) {
   const t = useT();
   const session = useQuery(sessionQuery());
   const config = useQuery(configQuery());
@@ -78,7 +77,7 @@ export function FirstSteps({ overview }: { overview: Overview }) {
       description: "overview.firstSteps.backups.description",
       action: "overview.firstSteps.backups.action",
       to: "/backups",
-      done: overview.backups.scheduled > 0,
+      done: backupsScheduled,
     },
     {
       key: "destination",

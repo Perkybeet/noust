@@ -48,7 +48,7 @@ describe("a sealed central", () => {
     expect(screen.getByText(/a passphrase that is not stored anywhere/)).toBeInTheDocument();
     // The machine is named first, so a passphrase is never typed into the wrong one.
     expect(screen.getByText("web-01")).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { level: 1, name: "Overview" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 1, name: "Home" })).not.toBeInTheDocument();
     await expectNoAxeViolations(container, { page: true });
 
     const field = screen.getByLabelText("Passphrase");
@@ -67,7 +67,7 @@ describe("a sealed central", () => {
     await user.clear(field);
     await user.type(field, "correct horse");
     await user.click(screen.getByRole("button", { name: "Unlock" }));
-    expect(await screen.findByRole("heading", { level: 1, name: "Overview" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Home" })).toBeInTheDocument();
     expect(backend.callsTo("POST /api/central/unlock").map((call) => call.body)).toEqual([
       { passphrase: "wrong one" },
       { passphrase: "wrong one" },
@@ -94,7 +94,7 @@ describe("a sealed central", () => {
     sealedCentral();
     const { user } = renderConsole("/fleet");
     await user.click(await screen.findByRole("button", { name: "Continue without unlocking" }));
-    expect(await screen.findByRole("heading", { level: 1, name: "Fleet" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Home" })).toBeInTheDocument();
     expect(screen.getByText("Its servers are out of reach until you unlock its sealed secrets.")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Unlock" }));
@@ -105,7 +105,7 @@ describe("a sealed central", () => {
     await waitFor(() => {
       expect(screen.queryByText("Its servers are out of reach until you unlock its sealed secrets.")).not.toBeInTheDocument();
     });
-    const servers = await screen.findByRole("list", { name: "The fleet's servers at a glance" });
+    const servers = await screen.findByRole("list", { name: "Servers and their applications" });
     expect(await within(servers).findByText("web-2")).toBeInTheDocument();
   });
 

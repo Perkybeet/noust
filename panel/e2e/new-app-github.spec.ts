@@ -20,8 +20,8 @@ test("a repository and branch chosen from GitHub reach the inspection and the de
   await signIn(page, consoleServer, "/apps/new");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("New application");
 
-  const where = page.getByRole("radiogroup", { name: "Where the code is" });
-  await expect(where.getByRole("radio", { name: "From GitHub" })).toBeChecked();
+  // The step opens on its one box, and under it the repositories of the connected GitHub.
+  await expect(page.getByLabel("What to deploy")).toBeVisible();
   const search = page.getByRole("combobox", { name: "Repository" });
   const repositories = page.getByRole("listbox", { name: "Repositories" }).getByRole("option");
   await expect(repositories).toHaveCount(5);
@@ -92,20 +92,27 @@ test("a repository and branch chosen from GitHub reach the inspection and the de
   await forgetApp(page, consoleServer, domain);
 });
 
-test("the typed source is one choice away; each choice starts its source afresh", async ({ page, consoleServer }) => {
+test("a link typed in the box replaces the repository chosen; emptying the box brings the repositories back", async ({ page, consoleServer, problems }) => {
+  // The link is read when the box is left, and the sandbox reaches no other host: the refusal (or the sudo mode's
+  // first one) is the answer, and it is what this test is not about.
+  problems.expect(/status of (400|403) .* \/api\/apps\/inspect$/);
   await signIn(page, consoleServer, "/apps/new");
-  const where = page.getByRole("radiogroup", { name: "Where the code is" });
-  await expect(where.getByRole("radio", { name: "From GitHub" })).toBeChecked();
   await page.getByRole("listbox", { name: "Repositories" }).getByRole("option", { name: /yago-lopez\/portfolio/ }).click();
   await expect(page.getByText("yago-lopez/portfolio", { exact: true })).toBeVisible();
 
-  await where.getByRole("radio", { name: "URL or path" }).click();
-  await expect(page.getByLabel("Repository or directory")).toBeVisible();
+  // A link is a source of its own: the repository chosen before is not carried over, and the list gives way to it.
+  const box = page.getByLabel("What to deploy");
+  const read = page.waitForResponse((response) => response.url().endsWith("/api/apps/inspect"));
+  await box.fill("https://git.example.com/acme/shop.git");
+  await box.blur();
+  await read;
+  await expect(page.getByRole("combobox", { name: "Repository" })).toHaveCount(0);
+  await expect(page.getByLabel("Branch")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the typed source beside a connected GitHub App");
 
-  // Another source altogether: the repository chosen before is not carried over.
-  await where.getByRole("radio", { name: "From GitHub" }).click();
+  // Emptied, the step starts afresh: the repositories again, with none chosen.
+  await box.fill("");
   const options = page.getByRole("listbox", { name: "Repositories" }).getByRole("option");
   await expect(options).toHaveCount(5);
   await options.filter({ hasText: "yago-lopez/portfolio" }).click();

@@ -77,6 +77,26 @@ describe("SegmentedControl", () => {
     await expectNoAxeViolations(group);
   });
 
+  it("says how many things an option holds, after its name and as part of it", async () => {
+    render(
+      <SegmentedControl
+        label="Server"
+        value="all"
+        onValueChange={() => undefined}
+        options={[
+          { value: "all", label: "Whole fleet", count: 30 },
+          { value: "web-02", label: "web-02", count: 8, icon: <svg data-testid="failed" /> },
+          { value: "web-03", label: "web-03", count: 0 },
+        ]}
+      />,
+    );
+    expect(screen.getByRole("radio", { name: "Whole fleet 30" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "web-02 8" })).toContainElement(screen.getByTestId("failed"));
+    // A server with nothing on it still says so: zero is a count.
+    expect(screen.getByRole("radio", { name: "web-03 0" })).toBeInTheDocument();
+    await expectNoAxeViolations(screen.getByRole("radiogroup", { name: "Server" }));
+  });
+
   it("has no accessibility violations", async () => {
     const { container } = render(<Picker />);
     await expectNoAxeViolations(container);

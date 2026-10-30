@@ -332,6 +332,32 @@ test.describe("the raised piece of the current item", () => {
     expectSameBox(await boxOf(piece), await boxOf(target));
   });
 
+  test("the trail of a deployment's page is read whole at 1440 and at 1366, beside the machine's name and the search", async ({ page, consoleServer }) => {
+    // The room of the bar is the page's column, with an application's second column taking 264px of it: the search box and
+    // the theme give way to the trail, not the other way round. The domain of the video's recording, as long as the seed has.
+    const domain = "clientes.example.com";
+    await openAt(page, consoleServer, 1440, `/apps/${domain}`);
+    const newest = ((await (await page.request.get(`/api/deployments?domain=${domain}&limit=1`)).json()) as { items: { id: number }[] }).items[0];
+    if (newest === undefined) throw new Error(`the seed has no deployment of ${domain}`);
+    for (const width of [1440, 1366]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`/apps/${domain}/deployments/${String(newest.id)}`);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await settle(page);
+      const crumbs = page.getByRole("banner").getByRole("navigation", { name: "Breadcrumb" });
+      await expect(crumbs.getByRole("link", { name: "Deployments" })).toBeVisible();
+      // No step of the trail is cut: every one shows the whole of its text.
+      const cut = await crumbs.locator("li a, li span").evaluateAll((nodes) =>
+        nodes.filter((node) => node instanceof HTMLElement && node.scrollWidth > node.clientWidth + 1).map((node) => node.textContent),
+      );
+      expect(cut, `the trail is cut at ${String(width)}px`).toEqual([]);
+      // And the machine's name is still read whole beside it.
+      const name = page.getByRole("banner").locator('a[href="/server"]').first();
+      await expect(name).toBeVisible();
+      expect((await name.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(72);
+    }
+  });
+
   test("a long trail gives way before the machine's name does", async ({ page, consoleServer }) => {
     await openAt(page, consoleServer, 1280, "/apps/tienda.example.org/settings/access");
     const name = page.getByRole("banner").locator('a[href="/server"]').first();

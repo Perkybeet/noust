@@ -99,7 +99,6 @@ export const containers = {
   },
   source: {
     image: "Image",
-    imageDescription: "name[:tag][@sha256:digest], such as ghcr.io/owner/app:1.4 or nginx:1.27-alpine. Docker pulls it when it is deployed and again on every update.",
     privateRegistry: "A private registry's account is asked for on the configuration step. Nothing is pulled until you deploy.",
     intro: "An image from a registry runs as a container application: Noust writes the Compose file, the service and the site, and keeps every release as an image it can go back to at once.",
     pulledEvery: "Pulled again on every update.",

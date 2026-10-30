@@ -52,7 +52,8 @@ export function FleetLayout({ hub, adding: addingProp, onAddingChange }: FleetLa
   };
   const Add = ICONS.add;
   const empty = servers.loaded && servers.nodes.length === 0;
-  const onApps = useRouterState({ select: (state) => state.location.pathname === "/fleet/apps" });
+  // Home and the applications across the fleet have their own templates, header and all.
+  const ownsPage = useRouterState({ select: (state) => ["/fleet", "/fleet/", "/fleet/apps"].includes(state.location.pathname) });
   const onAppsViews = useRouterState({ select: (state) => state.location.pathname === "/fleet/apps" || state.location.pathname === "/fleet/placements" });
   const onServers = useRouterState({ select: (state) => state.location.pathname === "/fleet/servers" });
   const onServersViews = useRouterState({ select: (state) => state.location.pathname === "/fleet/servers" || state.location.pathname === "/fleet/updates" });
@@ -78,10 +79,25 @@ export function FleetLayout({ hub, adding: addingProp, onAddingChange }: FleetLa
     </Link>
   );
 
-  if (ownHeader && !empty) {
+  const notices =
+    central.locked || hub !== undefined || central.role === "hub" ? (
+      <div className="flex flex-col gap-3">
+        <CentralLockedNotice />
+        {hub !== undefined || central.role === "hub" ? (
+          <Notice title={t("servers.fleet.hub.title")}>{empty ? t("servers.fleet.hub.noServers") : t("servers.fleet.hub.description")}</Notice>
+        ) : null}
+      </div>
+    ) : null;
+
+  // A page with a header of its own (Home, the applications, an area's face): this layout keeps only what is the
+  // fleet's to say above it.
+  if ((ownsPage || ownHeader) && !empty) {
     return (
       <FleetActionsProvider>
-        <Outlet />
+        <div className="flex min-w-0 flex-col gap-6">
+          {notices}
+          <Outlet />
+        </div>
         <AddServer
           open={adding}
           onClose={() => {
@@ -96,34 +112,17 @@ export function FleetLayout({ hub, adding: addingProp, onAddingChange }: FleetLa
     <FleetActionsProvider>
       <DetailPage
         header={{
-          title: onServersViews ? t("fleet.page.serversTitle") : t("fleet.page.title"),
-          description: onServersViews ? t("fleet.page.serversDescription") : t("fleet.page.description"),
+          // The applications' second view is the same area as their list: the same title.
+          title: onAppsViews ? t("apps.page.title") : onServersViews ? t("fleet.page.serversTitle") : t("fleet.page.title"),
+          ...(onAppsViews ? {} : { description: onServersViews ? t("fleet.page.serversDescription") : t("fleet.page.description") }),
           ...(empty
             ? {}
             : {
                 ...(onServers ? { secondaryActions: create } : {}),
-                primaryAction: onApps ? (
-                  <Link to="/apps/new" search={{ node: undefined }} className={buttonClassName("primary")}>
-                    <Add aria-hidden="true" />
-                    {t("fleet.apps.newApplication")}
-                  </Link>
-                ) : (
-                  add
-                ),
+                primaryAction: add,
               }),
         }}
-        {...(central.locked || hub !== undefined || central.role === "hub"
-          ? {
-              banner: (
-                <div className="flex flex-col gap-3">
-                  <CentralLockedNotice />
-                  {hub !== undefined || central.role === "hub" ? (
-                    <Notice title={t("servers.fleet.hub.title")}>{empty ? t("servers.fleet.hub.noServers") : t("servers.fleet.hub.description")}</Notice>
-                  ) : null}
-                </div>
-              ),
-            }
-          : {})}
+        {...(notices !== null ? { banner: notices } : {})}
         {...(empty || !(onAppsViews || onServersViews)
           ? {}
           : {

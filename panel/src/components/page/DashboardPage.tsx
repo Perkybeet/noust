@@ -19,6 +19,13 @@ export interface DashboardPageProps {
   attention?: ReactNode;
   /** Recent activity as a timeline, beside the attention list. */
   activity?: ReactNode;
+  /**
+   * The subject of the page, two thirds wide under the attention cards: Home's fleet in courses. With
+   * `side` beside it, from 1024px; below that, one under the other.
+   */
+  fleet?: ReactNode;
+  /** What accompanies the fleet, a third wide: the activity and the quick actions. */
+  side?: ReactNode;
   /** The charts (Chart), after everything that asks for a decision. */
   charts?: ReactNode;
   /**
@@ -37,12 +44,12 @@ export interface DashboardPageProps {
 }
 
 /**
- * T4, a dashboard (Overview, Fleet, a server's summary): it summarises and links, never
- * repeats a whole list. Key figures first, then what needs attention beside what happened
- * recently, then the charts: at 1440px the first two rows are above the fold. With `tabs` it
- * holds more than one view of the same subject (the Overview and its Map).
+ * T4, a dashboard (Home, a server's summary): it summarises and links, never repeats a whole
+ * list. What needs attention first, at the full width, then the subject of the page (Home's fleet
+ * in courses) with what accompanies it beside it, then any charts: at 1440px the first two are above
+ * the fold. With `tabs` it holds more than one view of the same subject (Home and its Map).
  */
-export function DashboardPage({ header, tabs, figures, attention, activity, charts, firstSteps, children, footer, className }: DashboardPageProps) {
+export function DashboardPage({ header, tabs, figures, attention, activity, fleet, side, charts, firstSteps, children, footer, className }: DashboardPageProps) {
   const both = attention !== undefined && activity !== undefined;
   return (
     <div data-template="dashboard" className={cx("flex min-w-0 flex-col", className)}>
@@ -79,6 +86,20 @@ export function DashboardPage({ header, tabs, figures, attention, activity, char
               {activity !== undefined ? (
                 <div data-slot="activity" className="min-w-0">
                   {activity}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          {fleet !== undefined || side !== undefined ? (
+            <div className="grid min-w-0 gap-8 lg:grid-cols-3">
+              {fleet !== undefined ? (
+                <div data-slot="fleet" className="min-w-0 lg:col-span-2">
+                  {fleet}
+                </div>
+              ) : null}
+              {side !== undefined ? (
+                <div data-slot="side" className="flex min-w-0 flex-col gap-8">
+                  {side}
                 </div>
               ) : null}
             </div>

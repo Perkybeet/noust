@@ -158,7 +158,7 @@ serial("the first administrator is made from the console in one form, signed in,
   const saved = await codes.allTextContents();
   await page.getByRole("checkbox", { name: "I have saved these codes somewhere safe" }).click();
   await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Home" })).toBeVisible();
   people.set("ana", { username: "ana", password: "violet harbor lantern 91", secret, codes: saved.map((code) => code.trim()) });
   await settle(page);
 });

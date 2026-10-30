@@ -96,7 +96,7 @@ function wizard(extra: Record<string, RouteHandler> = {}) {
 
 async function inspect(user: ReturnType<typeof renderConsole>["user"], source = "/var/www/src/storefront") {
   await screen.findByRole("heading", { level: 1, name: "New application" });
-  await user.type(screen.getByLabelText("Repository or directory"), source);
+  await user.type(screen.getByLabelText("What to deploy"), source);
   await user.click(screen.getByRole("button", { name: "Continue" }));
   return screen.findByRole("heading", { level: 2, name: "Address" });
 }
@@ -128,7 +128,7 @@ describe("the new-app wizard", () => {
     expect(within(steps).getByText("Source: done")).toBeInTheDocument();
     expect(within(steps).getByText("Address: current step")).toBeInTheDocument();
     // The source is not asked again.
-    expect(screen.queryByLabelText("Repository or directory")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("What to deploy")).not.toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Domain"), "storefront.example.com");
     // Where it points, checked as it is typed.
@@ -203,10 +203,10 @@ describe("the new-app wizard", () => {
     await user.click(next);
     expect(await screen.findAllByText("Enter a Git URL or a path on this server.")).toHaveLength(2);
     await waitFor(() => {
-      expect(screen.getByLabelText("Repository or directory")).toHaveFocus();
+      expect(screen.getByLabelText("What to deploy")).toHaveFocus();
     });
 
-    await user.type(screen.getByLabelText("Repository or directory"), "/var/www/src/storefront");
+    await user.type(screen.getByLabelText("What to deploy"), "/var/www/src/storefront");
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("heading", { level: 2, name: "Address" });
     await user.type(screen.getByLabelText("Domain"), "shop.example.com");
@@ -257,7 +257,7 @@ describe("the new-app wizard", () => {
     });
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    await user.type(screen.getByLabelText("Repository or directory"), "/srv/odd");
+    await user.type(screen.getByLabelText("What to deploy"), "/srv/odd");
     await user.click(screen.getByRole("button", { name: "Continue" }));
     const detail = await screen.findByText("Could not identify the application type at /srv/odd");
     expect(detail.closest("[role=alert]")).not.toBeNull();
@@ -327,7 +327,7 @@ describe("the new-app wizard", () => {
     });
     const { user, container } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    await user.type(screen.getByLabelText("Repository or directory"), "https://github.com/acme/api.git");
+    await user.type(screen.getByLabelText("What to deploy"), "https://github.com/acme/api.git");
     await user.click(screen.getByRole("button", { name: "Continue" }));
     const detail = await screen.findByText("The repository has a Dockerfile but no Compose file.");
     expect(detail.closest("[role=status]")).not.toBeNull();
@@ -337,7 +337,7 @@ describe("the new-app wizard", () => {
     expect(file).toBeInTheDocument();
     expect(screen.getByText(/with the port the image listens on/)).toBeInTheDocument();
     // Not a fetch failure: the source field is not marked.
-    expect(screen.getByLabelText("Repository or directory")).not.toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("What to deploy")).not.toHaveAttribute("aria-invalid", "true");
     await expectNoAxeViolations(container);
     await user.click(screen.getByRole("button", { name: "Choose the type yourself" }));
     expect(await screen.findByRole("heading", { level: 2, name: "Address" })).toBeInTheDocument();
@@ -347,6 +347,25 @@ describe("the new-app wizard", () => {
     const { harness } = wizard();
     let aborted = false;
     let reads = 0;
+    // The timers of the settle (80ms): which were set, which were taken back and which ran.
+    const scheduled = new Set<number>();
+    const cleared = new Set<number>();
+    const ran = new Set<number>();
+    const realSet = window.setTimeout.bind(window);
+    const realClear = window.clearTimeout.bind(window);
+    vi.spyOn(window, "setTimeout").mockImplementation(((handler: TimerHandler, delay?: number, ...args: unknown[]) => {
+      if (delay !== 80 || typeof handler !== "function") return realSet(handler, delay, ...args);
+      const id: number = realSet(() => {
+        ran.add(id);
+        (handler as (...rest: unknown[]) => void)(...args);
+      }, delay);
+      scheduled.add(id);
+      return id;
+    }) as typeof window.setTimeout);
+    vi.spyOn(window, "clearTimeout").mockImplementation((id?: number) => {
+      if (id !== undefined) cleared.add(id);
+      realClear(id);
+    });
     const inner = globalThis.fetch;
     vi.stubGlobal("fetch", (input: RequestInfo | URL, init: RequestInit = {}) => {
       const href = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
@@ -362,7 +381,7 @@ describe("the new-app wizard", () => {
     });
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    await user.type(screen.getByLabelText("Repository or directory"), "https://github.com/acme/shop.git");
+    await user.type(screen.getByLabelText("What to deploy"), "https://github.com/acme/shop.git");
     await user.click(screen.getByRole("button", { name: "Continue" }));
     const reading = await screen.findByText("Loading the repository…");
     expect(reading.closest("[role=status]")).not.toBeNull();
@@ -379,12 +398,11 @@ describe("the new-app wizard", () => {
     await waitFor(() => {
       expect(screen.queryByText("Loading the repository…")).not.toBeInTheDocument();
     });
-    // Pressing Continue blurred the field, which schedules a read 80ms ahead; the press and the
-    // Cancel both took that read back. Left to fire, it began a second one after the Cancel, and
-    // whether it did depended on how fast the test got from the press to the Cancel (a flake in one
-    // run of fifty). Said by waiting past those 80ms and counting what went out: nothing can be
-    // observed to not happen sooner.
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    // Pressing Continue blurred the field, which schedules a read 80ms ahead; the press and the Cancel both took
+    // that read back. Left to fire, it began a second one after the Cancel. Said without waiting for any time
+    // to pass: every timer of that read was either cleared or had already run (and then it counted among the
+    // reads), so none is left that could start another.
+    expect([...scheduled].filter((id) => !cleared.has(id) && !ran.has(id))).toEqual([]);
     expect(reads).toBe(1);
     expect(screen.queryByText("Loading the repository…")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
@@ -399,10 +417,10 @@ describe("the new-app wizard", () => {
     });
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    await user.type(screen.getByLabelText("Repository or directory"), "https://example.com/app.tar.gz");
+    await user.type(screen.getByLabelText("What to deploy"), "https://example.com/app.tar.gz");
     await user.click(screen.getByRole("button", { name: "Continue" }));
     expect(await screen.findByText("Download failed: https://example.com/app.tar.gz")).toBeInTheDocument();
-    expect(screen.getByLabelText("Repository or directory")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("What to deploy")).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByText("Name or service not known")).toBeInTheDocument();
   });
 
@@ -416,7 +434,7 @@ describe("the new-app wizard", () => {
     });
     const { user, container } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    await user.type(screen.getByLabelText("Repository or directory"), "git@github.com:acme/storefront.git");
+    await user.type(screen.getByLabelText("What to deploy"), "git@github.com:acme/storefront.git");
     await user.click(screen.getByRole("button", { name: "Continue" }));
     // The short sentence is on the field, where the operator is already looking.
     expect(await screen.findByText("Could not access git@github.com:acme/storefront.git")).toBeInTheDocument();

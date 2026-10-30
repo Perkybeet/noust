@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
+import { openOtherWays } from "../../test/ways";
 import { SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import { workspaceKey } from "./WorkspacesDialog";
@@ -39,7 +40,8 @@ function wizard(extra: Record<string, RouteHandler> = {}) {
 }
 
 async function openIt(user: ReturnType<typeof renderConsole>["user"]) {
-  await user.type(await screen.findByLabelText("Repository or directory"), "https://github.com/acme/monorepo.git");
+  await user.type(await screen.findByLabelText("What to deploy"), "https://github.com/acme/monorepo.git");
+  await openOtherWays(user);
   await user.click(screen.getByRole("button", { name: "Deploy the workspaces of a monorepo" }));
   const dialog = await screen.findByRole("dialog", { name: "Deploy the workspaces of a monorepo" });
   // The source the wizard had is where it starts.
@@ -67,7 +69,10 @@ describe("deploying the workspaces of a monorepo", () => {
     expect(within(dialog).queryByRole("checkbox", { name: /ui/ })).not.toBeInTheDocument();
     expect(within(dialog).getByText(/It has no start script, so it is a library/)).toBeInTheDocument();
     expect(within(dialog).getByText("packages/old has a package.json that is not valid JSON")).toBeInTheDocument();
-    expect(within(dialog).getByRole("button", { name: "Deploy 0 applications" })).toBeDisabled();
+    // Pressed before anything is chosen, it says what is missing where the choice is made, and sends nothing.
+    await harness.user.click(within(dialog).getByRole("button", { name: "Deploy 0 applications" }));
+    expect(await within(dialog).findByText("Choose at least one application to deploy.")).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/workspaces/deploy")).toHaveLength(0);
     await expectNoAxeViolations(document.body);
   });
 
@@ -87,7 +92,9 @@ describe("deploying the workspaces of a monorepo", () => {
     await user.click(within(dialog).getByRole("checkbox", { name: /^Deploy api/ }));
     // A chosen workspace shows what makes it deploy, and Deploy waits for every domain.
     expect(within(dialog).getByText("packages/ui")).toBeInTheDocument();
-    expect(within(dialog).getByRole("button", { name: "Deploy 2 applications" })).toBeDisabled();
+    await user.click(within(dialog).getByRole("button", { name: "Deploy 2 applications" }));
+    expect(await within(dialog).findByText("Give each application you chose a domain.")).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/workspaces/deploy")).toHaveLength(0);
     await user.type(within(dialog).getByLabelText(/^Domain for web/), "www.example.com");
     await user.type(within(dialog).getByLabelText(/^Domain for api/), "api.example.com");
     await user.click(within(dialog).getByRole("button", { name: "Deploy 2 applications" }));

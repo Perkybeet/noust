@@ -19,7 +19,7 @@ function card(): HTMLElement {
 async function summary(extra: Record<string, RouteHandler> = {}) {
   const backend = fakeBackend({ ...fleetRoutes(), ...extra });
   const harness = renderConsole("/fleet");
-  await screen.findByRole("heading", { level: 1, name: "Fleet" });
+  await screen.findByRole("heading", { level: 1, name: "Home" });
   return { ...harness, backend };
 }
 
@@ -27,7 +27,7 @@ describe("comparing the servers of a fleet", () => {
   it("puts one metric of every server side by side, the busiest first, and says how many did not answer", { timeout: 30_000 }, async () => {
     const { backend } = await summary();
     const table = await screen.findByRole("list", { name: "CPU of every server, last 24 hours" });
-    const items = within(table).getAllByRole("listitem");
+    const items = await within(table).findAllByRole("listitem");
     // web-01 is at 72.5%, web-2 at 7.5%: the busiest leads.
     expect(items[0]).toHaveTextContent("web-01");
     expect(items[0]).toHaveTextContent("73%");

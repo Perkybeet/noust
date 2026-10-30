@@ -19,6 +19,14 @@ import type { Labels, Scope } from "../teams/organization";
 import type { AppInfo, Deployment, LastDeployment } from "./data";
 import { appReading, deployMoment, lastDeployOf, previewParentOf, readsApps, useTypeName } from "./data";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
+import type { NodeOutcome } from "../fleet/data";
+import { linkOfHref } from "../fleet/links";
+import { ServerCell } from "../fleet/parts";
+import { AppTypeMark } from "./AppTypeMark";
+
+function isFleetApp(app: AppInfo | FleetApp): app is FleetApp {
+  return "node" in app && typeof app.node === "string";
+}
 
 /**
  * A deployment's outcome as a glyph and when it happened, for dense rows. A deploy an operator
@@ -40,18 +48,21 @@ export function DeployMoment({ deploy }: { deploy: Pick<Deployment, "status" | "
  * The app's domain, a link to its page; a pull request preview says whose it is underneath, so
  * a list with previews in it still reads as the apps the operator deployed.
  */
-export function AppName({ t, app }: { t: T; app: AppInfo }) {
+export function AppName({ t, app, href }: { t: T; app: AppInfo; href?: string }) {
   const parent = previewParentOf(app);
-  const link = (
-    <Link
-      to="/apps/$domain"
-      params={{ domain: app.domain }}
-      title={app.domain}
-      className="-mx-1 block max-w-full truncate rounded-chip px-1 py-0.5 font-medium text-fg hover:underline hover:underline-offset-2"
-    >
-      {app.domain}
-    </Link>
-  );
+  const className = "-mx-1 block max-w-full truncate rounded-chip px-1 py-0.5 font-medium text-fg hover:underline hover:underline-offset-2";
+  // A row of the fleet opens the application on the server it runs on (`/n/web-2/apps/shop.example.com`).
+  const there = href === undefined ? null : linkOfHref(href);
+  const link =
+    there === null ? (
+      <Link to="/apps/$domain" params={{ domain: app.domain }} title={app.domain} className={className}>
+        {app.domain}
+      </Link>
+    ) : (
+      <Link to={there.to} search={there.search as never} title={app.domain} className={className}>
+        {app.domain}
+      </Link>
+    );
   if (parent === null) return link;
   return (
     <span className="flex max-w-full min-w-0 flex-col items-start">
@@ -65,14 +76,17 @@ export function AppName({ t, app }: { t: T; app: AppInfo }) {
 }
 
 interface Row {
-  app: AppInfo;
+  app: AppInfo | FleetApp;
   deploy: LastDeployment | Deployment | null;
   cpu: number | null;
   memory: number | null;
 }
 
+/** An application of the fleet's list: the server's own row, and which server it is and where its page is. */
+export type FleetApp = AppInfo & { node: string; local: boolean; href: string };
+
 export interface AppsTableProps {
-  apps: readonly AppInfo[];
+  apps: readonly (AppInfo | FleetApp)[];
   /** The newest deploy of each domain (latestDeployByDomain), when the page read the history. */
   deploys: ReadonlyMap<string, Deployment>;
   metrics: MetricsSnapshot | undefined;
@@ -86,6 +100,11 @@ export interface AppsTableProps {
   rowActions?: (app: AppInfo) => ReactNode;
   /** Says where each application lives, when more than one place is in view (teams, projects, environments). */
   owner?: { scope: Scope; labels: Labels };
+  /**
+   * The list is the fleet's: each row names its server, opens on it, and the server's answer (old, down) is said
+   * under its name. The rows are `FleetApp`s.
+   */
+  fleet?: { outcomes: ReadonlyMap<string, NodeOutcome> };
   /** The applications chosen for an action on several (checklist M-08): a checkbox on each row. */
   selection?: { selected: ReadonlySet<string>; onSelect: (domain: string, checked: boolean) => void };
   className?: string;
@@ -97,7 +116,7 @@ export interface AppsTableProps {
  * the collector reads them, its CPU and memory now. On a phone each row is a card with its
  * actions always in view.
  */
-export function AppsTable({ apps, deploys, metrics, caption, loading = false, skeletonRows, empty, rowActions, owner, selection, className }: AppsTableProps) {
+export function AppsTable({ apps, deploys, metrics, caption, loading = false, skeletonRows, empty, rowActions, owner, fleet, selection, className }: AppsTableProps) {
   const t = useT();
   const typeName = useTypeName();
   const rows: Row[] = apps.map((app) => ({ app, deploy: lastDeployOf(app, deploys), ...appReading(metrics, app.domain) }));
@@ -130,9 +149,29 @@ export function AppsTable({ apps, deploys, metrics, caption, loading = false, sk
       // Named: the first column is the title of a card by default, and with the selection column before it this one was
       // drawn as a value at the end of a line, cut to a dozen characters, under an empty title.
       card: "title",
-      cell: (row) => <AppName t={t} app={row.app} />,
+      cell: (row) => (
+        <span className="flex min-w-0 items-center gap-3">
+          <AppTypeMark type={row.app.app_type} />
+          <AppName t={t} app={row.app} {...(isFleetApp(row.app) ? { href: row.app.href } : {})} />
+        </span>
+      ),
       sortValue: (row) => row.app.domain,
     },
+    ...(fleet !== undefined
+      ? ([
+          {
+            id: "server",
+            header: t("apps.table.columnServer"),
+            width: "w-44",
+            card: "meta",
+            sortValue: (row) => (isFleetApp(row.app) ? row.app.node : ""),
+            cell: (row) =>
+              isFleetApp(row.app) ? (
+                <ServerCell origin={{ node: row.app.node, local: row.app.local, href: row.app.href }} outcome={fleet.outcomes.get(row.app.node)} />
+              ) : null,
+          },
+        ] satisfies Column<Row>[])
+      : []),
     {
       id: "state",
       header: t("apps.table.columnState"),
@@ -195,12 +234,12 @@ export function AppsTable({ apps, deploys, metrics, caption, loading = false, sk
     <DataTable
       columns={columns}
       rows={rows}
-      getRowId={(row) => row.app.domain}
       caption={caption}
       loading={loading}
       {...(skeletonRows !== undefined ? { skeletonRows } : {})}
       {...(empty !== undefined ? { empty } : {})}
       {...(rowActions ? { rowActions: (row: Row) => rowActions(row.app) } : {})}
+      getRowId={(row) => (isFleetApp(row.app) ? `${row.app.node}:${row.app.domain}` : row.app.domain)}
       defaultSort={{ column: "domain", direction: "ascending" }}
       pagination="apps"
       {...(className !== undefined ? { className } : {})}

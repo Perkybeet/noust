@@ -125,21 +125,23 @@ withFleet("a deep link to a node's application works on reload", async ({ page, 
 
 withFleet("the Fleet's views show this server and the node, each row naming its server", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/fleet");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Fleet");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Home");
   await expect(page.getByRole("button", { name: "Server: all servers" })).toBeVisible();
 
-  const table = page.getByRole("region", { name: "The fleet's servers at a glance" });
-  await expect(table.getByText("This central")).toBeVisible();
-  await expect(table.getByRole("link", { name: `Open ${NODE_NAME}` })).toBeVisible();
+  // The fleet in courses: a row for each server, this one and the node, each named and opening its own page.
+  const courses = page.getByRole("list", { name: "Servers and their applications" });
+  await expect(courses.getByRole("link", { name: NODE_NAME, exact: true })).toHaveAttribute("href", new RegExp(`^/n/${NODE_NAME}/server$`));
+  // A crowded server shows what is wrong with it and says the rest as "+N running": the node's own application is on the Applications page below.
+  await expect(courses.getByText(/^\+\d+ running$/).first()).toBeVisible();
   await settle(page);
-  await expectNoA11yViolations(page, "the Fleet's summary");
+  await expectNoA11yViolations(page, "Home, over the fleet");
 
   // The main bar is the way between the fleet's views, each the face of an area; the page draws no strip of them.
   await expect(page.getByRole("navigation", { name: "Fleet views" })).toHaveCount(0);
   const views = page.getByRole("navigation", { name: "Main" });
   await views.getByRole("link", { name: "Applications" }).click();
-  const apps = page.getByRole("region", { name: "Applications on every server" });
-  await expect(apps.getByRole("link", { name: NODE_APP, exact: true })).toHaveAttribute("href", `/n/${NODE_NAME}/apps/${NODE_APP}`);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Applications");
+  await expect(page.getByRole("link", { name: NODE_APP, exact: true })).toHaveAttribute("href", `/n/${NODE_NAME}/apps/${NODE_APP}`);
   await settle(page);
   await expectNoA11yViolations(page, "the Fleet's applications");
 
@@ -529,7 +531,7 @@ test("a sealed central shows the lock screen, and opens with the right passphras
     await page.getByRole("button", { name: "Unlock", exact: true }).click();
     await confirmItsYou(page, central);
     await expect(toasts(page).getByText("Unlocked: the servers are within reach again")).toBeVisible();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Overview");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Home");
   } finally {
     await page.close();
     await central.stop();
@@ -647,7 +649,7 @@ withPartialFleet("a node that is down and one on an older Noust: the views answe
   // web-2 answered: its application is there, even though db-1 did not. Four servers' worth
   // is more than one page of the list, so it is looked for as an operator would.
   await page.getByRole("searchbox", { name: "Search applications" }).fill(NODE_APP);
-  await expect(page.getByRole("region", { name: "Applications on every server" }).getByRole("link", { name: NODE_APP, exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: NODE_APP, exact: true })).toBeVisible();
 
   // Updates is the second view of the fleet's Servers, a tab of that page and no longer a link of the bar.
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Servers", exact: true }).click();

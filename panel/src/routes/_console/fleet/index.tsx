@@ -1,8 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { SummaryTab } from "../../../features/fleet/SummaryTab";
+import { HomePage } from "../../../features/overview/HomePage";
 
-/** Fleet > Summary: the fleet at a glance. */
+/** Home across every server: the same page as a server's own, over the fleet. */
 export const Route = createFileRoute("/_console/fleet/")({
-  component: SummaryTab,
+  component: FleetHomeRoute,
 });
+
+function FleetHomeRoute() {
+  return <HomePage scope="fleet" />;
+}

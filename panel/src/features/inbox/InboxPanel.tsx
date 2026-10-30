@@ -19,7 +19,7 @@ import { useHasFleet } from "../../nodes/servers";
 import { useNode } from "../../nodes/useNode";
 import { useRecentNotices } from "../../realtime/notices";
 import type { NoticeState, RecentNotice } from "../../realtime/notices";
-import { SeverityGlyph, reasonText, validUntilText } from "../overview/NeedsAttention";
+import { SeverityGlyph, reasonText, validUntilText } from "../overview/attentionWords";
 import { attentionTarget } from "../overview/attentionTarget";
 import { AttentionActionButton } from "./AttentionActionButton";
 import { attentionIcon } from "./attentionIcons";

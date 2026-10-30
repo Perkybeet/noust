@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { bindT, loadCatalog } from "../../i18n";
-import { reasonText } from "./NeedsAttention";
+import { reasonText } from "./attentionWords";
 
 const en = bindT("en");
 

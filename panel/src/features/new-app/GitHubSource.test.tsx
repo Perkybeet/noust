@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { GitHubRepository, GitHubStatus } from "../../api/queries/github";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
+import { chooseWay, openOtherWays } from "../../test/ways";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import { filterRepositories } from "./GitHubSource";
@@ -170,7 +171,8 @@ describe("the new-app wizard, from GitHub", () => {
       const search = await screen.findByRole("combobox", {
         name: "Repository",
       });
-      expect(screen.getByRole("radio", { name: "From GitHub" })).toBeChecked();
+      // The step opens on the box and, under it, the repositories of the App: no choice to make first.
+      expect(screen.getByLabelText("What to deploy")).toHaveValue("");
       const list = screen.getByRole("listbox", { name: "Repositories" });
       const options = within(list).getAllByRole("option");
       expect(options.map((option) => option.textContent)).toEqual([
@@ -285,7 +287,7 @@ describe("the new-app wizard, from GitHub", () => {
   });
 
   it(
-    "keeps the typed source one choice away, without an installation",
+    "keeps the typed source one paste away, without an installation",
     { timeout: 20_000 },
     async () => {
       const { backend, harness } = wizard(STATUS);
@@ -293,9 +295,8 @@ describe("the new-app wizard, from GitHub", () => {
       await user.click(
         await screen.findByRole("option", { name: /acme\/api/ }),
       );
-      await user.click(screen.getByRole("radio", { name: "URL or path" }));
-      const field = screen.getByLabelText("Repository or directory");
-      // Switching starts clean: what was chosen on GitHub does not linger as a typed source.
+      const field = screen.getByLabelText("What to deploy");
+      // Typing a source after choosing a repository starts clean: what was chosen does not linger.
       expect(field).toHaveValue("");
       await user.type(field, "https://gitlab.com/acme/api.git");
       await user.click(screen.getByRole("button", { name: "Continue" }));
@@ -333,41 +334,39 @@ describe("the new-app wizard, from GitHub", () => {
     ).toHaveAttribute("href", STATUS.install_url);
   });
 
-  it("offers From GitHub where no App is connected, and keeps the typed source until it is chosen", async () => {
-    wizard({
+  it("offers Connect GitHub among the other ways where no App is connected, and keeps the box until it is chosen", async () => {
+    const { user } = wizard({
       configured: false,
       warnings: [],
       installations: [],
       hooks_url: null,
       hooks_active: false,
       host: "github.com",
-    });
+    }).harness;
     expect(
-      await screen.findByLabelText("Repository or directory"),
+      await screen.findByLabelText("What to deploy"),
     ).toBeInTheDocument();
-    const modes = screen.getByRole("radiogroup", { name: "Where the code is" });
-    expect(
-      within(modes).getByRole("radio", { name: "URL or path" }),
-    ).toBeChecked();
-    expect(
-      await within(modes).findByRole("radio", { name: "From GitHub" }),
-    ).not.toBeChecked();
+    // Folded away until asked for: nobody who pastes a link is shown a connection to make.
+    expect(screen.queryByRole("button", { name: "Connect GitHub" })).not.toBeInTheDocument();
+    await openOtherWays(user);
+    expect(await screen.findByRole("button", { name: "Connect GitHub" })).toBeInTheDocument();
     // The way to Settings is gone: connecting is done here.
     expect(
       screen.queryByRole("link", { name: "Connect a GitHub App" }),
     ).not.toBeInTheDocument();
   });
 
-  it("stays on the typed source when the integration cannot be read", async () => {
-    const { backend } = wizard(null);
+  it("stays on the box when the integration cannot be read", async () => {
+    const { backend, harness } = wizard(null);
     expect(
-      await screen.findByLabelText("Repository or directory"),
+      await screen.findByLabelText("What to deploy"),
     ).toBeInTheDocument();
     await waitFor(() => {
       expect(backend.callsTo("GET /api/integrations/github")).toHaveLength(1);
     });
+    await openOtherWays(harness.user);
     expect(
-      screen.queryByRole("radio", { name: "From GitHub" }),
+      screen.queryByRole("button", { name: "Connect GitHub" }),
     ).not.toBeInTheDocument();
   });
 });
@@ -387,7 +386,7 @@ afterEach(() => {
 
 describe("connecting GitHub without leaving the wizard", () => {
   it(
-    "is a card on From GitHub that keeps the draft when the browser goes to GitHub, and nothing the operator filled in",
+    "is a card of its own that keeps the draft when the browser goes to GitHub, and nothing the operator filled in",
     { timeout: 30_000 },
     async () => {
       const { user, backend } = (() => {
@@ -401,9 +400,7 @@ describe("connecting GitHub without leaving the wizard", () => {
         });
         return { user: made.harness.user, backend: made.backend };
       })();
-      await user.click(
-        await screen.findByRole("radio", { name: "From GitHub" }),
-      );
+      await chooseWay(user, "Connect GitHub");
       const connect = await screen.findByRole(
         "button",
         { name: "Connect GitHub" },
@@ -433,9 +430,7 @@ describe("connecting GitHub without leaving the wizard", () => {
     { timeout: 30_000 },
     async () => {
       const { user } = wizard(NO_APP).harness;
-      await user.click(
-        await screen.findByRole("radio", { name: "From GitHub" }),
-      );
+      await chooseWay(user, "Connect GitHub");
       await screen.findByRole(
         "button",
         { name: "Connect GitHub" },
@@ -479,7 +474,6 @@ describe("connecting GitHub without leaving the wizard", () => {
       expect(
         await screen.findByRole("combobox", { name: "Repository" }),
       ).toBeInTheDocument();
-      expect(screen.getByRole("radio", { name: "From GitHub" })).toBeChecked();
       await waitFor(() => {
         expect(harness.location().search).not.toContain("resume");
       });

@@ -175,7 +175,7 @@ describe("sign-in with an account", () => {
     await user.clear(code);
     await user.type(code, CODE);
     await user.click(screen.getByRole("button", { name: "Verify" }));
-    await screen.findByRole("heading", { level: 1, name: "Overview" });
+    await screen.findByRole("heading", { level: 1, name: "Home" });
     expect(backend.callsTo("POST /api/auth/login")).toHaveLength(1);
   });
 
@@ -527,7 +527,7 @@ describe("the access token", () => {
     const { user, location } = renderConsole("/login?with=token&next=%2F%2Fevil.example%2Fphish");
     await user.type(await screen.findByLabelText("Access token"), TOKEN);
     await user.click(screen.getByRole("button", { name: "Sign in" }));
-    await screen.findByRole("heading", { level: 1, name: "Overview" });
+    await screen.findByRole("heading", { level: 1, name: "Home" });
     expect(location().pathname).toBe("/");
   });
 

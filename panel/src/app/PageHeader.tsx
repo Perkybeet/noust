@@ -49,6 +49,12 @@ export interface PageHeaderProps {
    * above a title (docs/DESIGN.md, NV-15 and 6.11).
    */
   place?: readonly PlaceStep[];
+  /**
+   * What the resource is, drawn before its title: the logo of its application in a `LogoTile`. Only a real
+   * logo goes here (docs/DESIGN.md, IL-2): a page without one gives none, and a tile behind an icon of the
+   * console's own is never drawn.
+   */
+  mark?: ReactNode;
   /** The title is a system identifier (a domain, a unit, a database, a site): it is not translated. It is set like any title, in the display voice, and no longer in mono. */
   mono?: boolean;
   /** Facts about the resource on one line under the title: "Next.js · :3001 · shop.example.com". */
@@ -75,6 +81,7 @@ export function PageHeader({
   statusExtras,
   place,
   mono = false,
+  mark,
   meta,
   secondaryActions,
   primaryAction,
@@ -89,48 +96,51 @@ export function PageHeader({
   return (
     <header className={cx("flex flex-wrap items-end justify-between gap-x-6 gap-y-4", !flush && "mb-8")}>
       {/* 240px before the actions wrap under: a phone keeps a lone menu button beside the title. */}
-      <div className="min-w-0 flex-1 basis-60">
-        {place !== undefined && place.length > 0 ? (
-          <p className="mb-1 text-12 text-fg-muted">
-            <span aria-label={t("common.pageHeader.place")} role="group" className="inline">
-              {place.map((step, index) => (
-                <Fragment key={`${step.to}-${step.label}`}>
-                  {index > 0 ? <span aria-hidden="true"> / </span> : null}
-                  <Link
-                    to={step.to}
-                    {...(step.search !== undefined ? { search: step.search as never } : {})}
-                    className="rounded-chip hover:text-fg hover:underline hover:underline-offset-2"
-                  >
-                    <Mono tone="default">{step.label}</Mono>
-                  </Link>
-                </Fragment>
-              ))}
-            </span>
-          </p>
-        ) : null}
-        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-          <h1
-            tabIndex={-1}
-            data-page-title=""
-            {...(mono ? { translate: "no" as const } : {})}
-            className={cx(
-              "min-w-0 break-words text-fg outline-none focus-visible:rounded-chip focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus",
-              // A resource's own name (a domain, a server) is not translated and is set like every other title: in
-              // the display voice. Mono is for logs, commands and code (docs/DESIGN.md Y-4).
-              "display text-32",
-            )}
-          >
-            {title}
-          </h1>
-          {status}
-          {statusExtras}
+      <div className={cx("min-w-0 flex-1 basis-60", mark !== undefined && "flex items-center gap-3")}>
+        {mark !== undefined ? <div className="shrink-0">{mark}</div> : null}
+        <div className="min-w-0 flex-1">
+          {place !== undefined && place.length > 0 ? (
+            <p className="mb-1 text-12 text-fg-muted">
+              <span aria-label={t("common.pageHeader.place")} role="group" className="inline">
+                {place.map((step, index) => (
+                  <Fragment key={`${step.to}-${step.label}`}>
+                    {index > 0 ? <span aria-hidden="true"> / </span> : null}
+                    <Link
+                      to={step.to}
+                      {...(step.search !== undefined ? { search: step.search as never } : {})}
+                      className="rounded-chip hover:text-fg hover:underline hover:underline-offset-2"
+                    >
+                      <Mono tone="default">{step.label}</Mono>
+                    </Link>
+                  </Fragment>
+                ))}
+              </span>
+            </p>
+          ) : null}
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+            <h1
+              tabIndex={-1}
+              data-page-title=""
+              {...(mono ? { translate: "no" as const } : {})}
+              className={cx(
+                "min-w-0 break-words text-fg outline-none focus-visible:rounded-chip focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus",
+                // A resource's own name (a domain, a server) is not translated and is set like every other title: in
+                // the display voice. Mono is for logs, commands and code (docs/DESIGN.md Y-4).
+                "display text-32",
+              )}
+            >
+              {title}
+            </h1>
+            {status}
+            {statusExtras}
+          </div>
+          {meta !== undefined ? (
+            <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-13 text-fg-muted">{meta}</div>
+          ) : null}
+          {description !== undefined ? (
+            <p className="mt-1.5 max-w-measure text-14 text-pretty text-fg-muted">{description}</p>
+          ) : null}
         </div>
-        {meta !== undefined ? (
-          <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-13 text-fg-muted">{meta}</div>
-        ) : null}
-        {description !== undefined ? (
-          <p className="mt-1.5 max-w-measure text-14 text-pretty text-fg-muted">{description}</p>
-        ) : null}
       </div>
       {hasActions ? (
         <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2">

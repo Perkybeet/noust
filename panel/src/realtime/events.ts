@@ -188,6 +188,22 @@ function queueMoved(previous: Job, next: Job): boolean {
  */
 const RESOURCE_LIST_KEYS = [databaseKeys.lists, siteKeys.all, certKeys.all, serviceKeys.all] as const;
 
+/** The longest a failure's title is: a toast is a notice, not the page. */
+const FAILURE_TITLE_MAX = 120;
+
+/**
+ * A failure's words as a toast shows them. A failed deploy's notice carries what the tool printed, whole (an
+ * npm error is a screenful), and a toast that held all of it covered the page. The first line is the title and,
+ * when there is more, all of it is beside it, verbatim, in a box that scrolls: the toast stays the size of a
+ * notice, it is closed with its own button, and nothing is lost.
+ */
+export function failureWords(text: string): { title: string; detail?: string } {
+  const whole = text.trim();
+  const first = (whole.split("\n")[0] ?? "").trim();
+  const title = first.length > FAILURE_TITLE_MAX ? `${first.slice(0, FAILURE_TITLE_MAX - 1).trimEnd()}…` : first;
+  return title === whole ? { title } : { title, detail: whole };
+}
+
 /**
  * Writes one server event into the query cache. Pure over the client passed in, so every
  * cache effect of the stream is tested without a stream.
@@ -205,6 +221,8 @@ export function applyServerEvent(queryClient: QueryClient, name: ServerEventName
       const { domain, ...changes } = data;
       if (typeof domain !== "string") return;
       void queryClient.invalidateQueries({ queryKey: appKeys.list, exact: true });
+      // An application that changed state may have a deployment it did not have: its history is read again.
+      void queryClient.invalidateQueries({ queryKey: deploymentKeys.all });
       // What needs the operator is read from the Overview (the inbox and the bar's counters): an application that changed may have started or stopped needing it.
       void queryClient.invalidateQueries({ queryKey: overviewKeys.all });
       queryClient.setQueryData(appKeys.detail(domain), (current: unknown) =>
@@ -222,6 +240,12 @@ export function applyServerEvent(queryClient: QueryClient, name: ServerEventName
       if (previous?.status === job.status && queueMoved(previous, job)) {
         void queryClient.invalidateQueries({ queryKey: queueKeys.all });
         void queryClient.invalidateQueries({ queryKey: jobKeys.active });
+      }
+      // The deployment a job records is written a moment after the job starts, by the deployer, and no event says
+      // so: a deploy a push started would otherwise be missing from the application's history until the page was
+      // read again. Each step the job moves to (a few in a deploy, never a log line) reads the history once more.
+      if (typeof job.metadata?.["domain"] === "string" && previous?.current_step !== job.current_step) {
+        void queryClient.invalidateQueries({ queryKey: deploymentKeys.all });
       }
       // Progress and log lines arrive as job events too; only a change of status changes a
       // list, so only that refetches one.
@@ -247,7 +271,11 @@ export function applyServerEvent(queryClient: QueryClient, name: ServerEventName
       if (text === null) return;
       // The toast is gone in seconds; the inbox keeps the last thirty (NV-17).
       recordNotice(text, data["state"] === "failed" || data["state"] === "active" || data["state"] === "busy" ? data["state"] : "idle", activeNode());
-      if (data["state"] === "failed") toast.error(text);
+      if (data["state"] === "failed") {
+        const { title, detail } = failureWords(text);
+        if (detail === undefined) toast.error(title);
+        else toast.error(title, { detail });
+      }
       // design-exception: toast-success a notice the server sends is, by definition, something that is not on this screen
       else if (data["state"] === "active") toast.success(text);
       else toast.info(text);

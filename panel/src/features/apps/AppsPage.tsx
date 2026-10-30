@@ -156,7 +156,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
       <ListPage header={header}>
         <EmptyState
           variant="firstUse"
-          icon={<OBJECT_ICONS.app />}
+          illustration="first-steps"
           title={t("apps.page.emptyTitle")}
           description={t("apps.page.emptyDescription")}
           action={

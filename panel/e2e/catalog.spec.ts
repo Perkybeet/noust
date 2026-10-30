@@ -358,8 +358,9 @@ withCatalogApps("the container settings, the build commands, the installed recip
   await expectNoEnglishLeftovers(page, "installed recipes");
 
   await page.goto("/apps/new");
-  await page.getByRole("radiogroup", { name: spanish.newApp.modes.label }).getByRole("radio", { name: spanish.newApp.modes.image }).click();
-  await expect(page.getByLabel(spanish.containers.source.image, { exact: true })).toBeVisible();
+  // An image is typed in the one box, and Noust says it took it for one (a registry's account is asked for later).
+  await page.getByLabel(spanish.newApp.box.label).fill("ghcr.io/owner/app:1.4");
+  await expect(page.getByText(spanish.containers.source.privateRegistry)).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the image start (es)");
   await expectNoEnglishLeftovers(page, "the image start");

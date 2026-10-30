@@ -6,7 +6,7 @@
 export const fleetCompare = {
   metrics: {
     title: "Compare servers",
-    description: "One measurement of every server over the same window, from each server's own history. Memory, swap and disk are the share of what each server has.",
+    description: "Memory, swap and disk are the share each server has.",
     metricLabel: "What to compare",
     windowLabel: "How far back",
     metric: {

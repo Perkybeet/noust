@@ -5,6 +5,7 @@ import { configureApi } from "../api/client";
 import { appKeys } from "../api/queries/apps";
 import { certKeys } from "../api/queries/certs";
 import { databaseKeys } from "../api/queries/databases";
+import { deploymentKeys } from "../api/queries/deployments";
 import { jobKeys } from "../api/queries/jobs";
 import { queueKeys } from "../api/queries/queue";
 import { serviceKeys } from "../api/queries/services";
@@ -13,7 +14,7 @@ import { systemKeys } from "../api/queries/system";
 import { toast } from "../components/ui/toast";
 import { ANONYMOUS, FakeEventSource, MACHINE, fakeBackend, json } from "../test/fakes";
 import { RECONNECT, reconnectDelay } from "./backoff";
-import { EventStream, applyServerEvent } from "./events";
+import { EventStream, applyServerEvent, failureWords } from "./events";
 
 describe("applyServerEvent", () => {
   it("patches the app's own entry and invalidates the list on an app event", () => {
@@ -52,6 +53,41 @@ describe("applyServerEvent", () => {
     applyServerEvent(client, "job", { ...job, progress: 40 });
     expect(client.getQueryData(jobKeys.detail("j1"))).toMatchObject({ progress: 40 });
     expect(client.getQueryState(jobKeys.list({}))?.isInvalidated).toBe(false);
+  });
+
+  it("reads an application's deployments again as its deploy moves from step to step, so one a push started appears on its own", () => {
+    const client = new QueryClient();
+    const history = deploymentKeys.list({ domain: "shop.example.com" });
+    const fresh = (): void => {
+      client.setQueryData(history, { items: [], total: 0, next_before_id: null });
+    };
+    const deploy = { id: "j1", status: "running", progress: 10, current_step: "Fetching source into a new release", metadata: { domain: "shop.example.com" } };
+    fresh();
+    applyServerEvent(client, "job", deploy);
+    expect(client.getQueryState(history)?.isInvalidated).toBe(true);
+
+    // The same step again (a log line, a tick of progress) reads nothing.
+    fresh();
+    applyServerEvent(client, "job", { ...deploy, progress: 30 });
+    expect(client.getQueryState(history)?.isInvalidated).toBe(false);
+
+    // The next step, with the status as it was: the row the deployer has written by now is read.
+    applyServerEvent(client, "job", { ...deploy, current_step: "Building the release", progress: 40 });
+    expect(client.getQueryState(history)?.isInvalidated).toBe(true);
+
+    // A job that is not about an application has no history to refresh.
+    applyServerEvent(client, "job", { id: "j2", status: "running", current_step: "Counting", metadata: {} });
+    fresh();
+    applyServerEvent(client, "job", { id: "j2", status: "running", current_step: "Counting more", metadata: {} });
+    expect(client.getQueryState(history)?.isInvalidated).toBe(false);
+  });
+
+  it("reads an application's deployments again when the application changes state", () => {
+    const client = new QueryClient();
+    const history = deploymentKeys.list({ domain: "shop.example.com" });
+    client.setQueryData(history, { items: [], total: 0, next_before_id: null });
+    applyServerEvent(client, "app", { domain: "shop.example.com", status: "deploying" });
+    expect(client.getQueryState(history)?.isInvalidated).toBe(true);
   });
 
   it("reads the queue again when a waiting job moves up the line or is asked to stop, not on every tick", () => {
@@ -116,6 +152,24 @@ describe("applyServerEvent", () => {
     applyServerEvent(new QueryClient(), "notice", { text: "Deploy shop.example.com", state: "active" });
     expect(error).toHaveBeenCalledWith("npm ERR! missing script: build");
     expect(success).toHaveBeenCalledWith("Deploy shop.example.com");
+  });
+
+  it("keeps a failed deploy's notice the size of a notice: its first line, and all of it beside, to scroll", () => {
+    const error = vi.spyOn(toast, "error");
+    const npm = ["npm ERR! code ELIFECYCLE", "npm ERR! errno 1", "npm ERR! app@1.4.2 build: `next build`", "npm ERR! Exit status 1"].join("\n");
+    applyServerEvent(new QueryClient(), "notice", { text: npm, state: "failed" });
+    expect(error).toHaveBeenLastCalledWith("npm ERR! code ELIFECYCLE", { detail: npm });
+    // One short line is the whole of it: nothing to scroll.
+    applyServerEvent(new QueryClient(), "notice", { text: "Application not found: shop.example.com", state: "failed" });
+    expect(error).toHaveBeenLastCalledWith("Application not found: shop.example.com");
+  });
+
+  it("clips a title that is one very long line, and still keeps every word", () => {
+    const line = `The build failed: ${"x".repeat(300)}`;
+    const words = failureWords(line);
+    expect(words.title.length).toBeLessThanOrEqual(120);
+    expect(words.title.endsWith("…")).toBe(true);
+    expect(words.detail).toBe(line);
   });
 
   it("ignores payloads that are not the shape it expects", () => {
