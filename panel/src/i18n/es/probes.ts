@@ -3,10 +3,9 @@ import type { Catalog } from "../types";
 
 export const probes: Catalog<typeof en> = {
   documentTitle: "Sondas",
-  loadingLabel: "las sondas",
-  title: "Sondas",
-  description:
-    "Direcciones que Noust consulta con un reloj, desde donde se ejecuta: si el nombre resuelve, si el certificado vale, si la página dice lo que debe. Si una deja de responder, se avisa por los canales de notificación.",
+  loading: "Cargando las sondas",
+  loadFailed: "No se pudieron cargar las sondas",
+  refreshFailed: "No se pudieron actualizar las sondas",
   allUp: "Todo responde.",
   downCount: { one: "{count} dirección no responde", other: "{count} direcciones no responden" },
   new: "Nueva sonda",
@@ -70,8 +69,10 @@ export const probes: Catalog<typeof en> = {
     failAfterDescription: "Lo que la da por caída: de 1 a 10.",
   },
   page: {
-    title: "Página de estado",
-    description: "Las sondas marcadas como públicas en una sola página estática que sirve cualquier servidor web. Muestra nombres y barras, nunca direcciones ni motivos.",
+    documentTitle: "Página de estado",
+    loading: "Cargando la página de estado",
+    loadFailed: "No se pudo cargar la página de estado",
+    refreshFailed: "No se pudo actualizar la página de estado",
     enabledLabel: "Mantener al día los archivos de la página",
     files: { one: "Escrita en {directory}: {count} componente.", other: "Escrita en {directory}: {count} componentes." },
     titleLabel: "Título de la página",

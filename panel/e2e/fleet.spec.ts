@@ -147,7 +147,7 @@ withFleet("the Fleet's views show this server and the node, each row naming its 
     ["Servers", "Servers of this fleet"],
     ["Domains", "Certificates on every server"],
     ["Backups", "Backups of every application"],
-    ["Activity", "What happened lately on every server"],
+    ["Activity", "Activity"],
   ] as const) {
     await views.getByRole("link", { name: tab, exact: true }).click();
     await expect(page.getByRole("region", { name: caption })).toBeVisible();

@@ -5,9 +5,30 @@
 export const alerts = {
   documentTitle: "Alerts settings",
   page: {
-    description: "What warns you before a person does: rules on the measurements, and addresses asked from outside.",
+    alerts: "Tell me when a measurement stays past a limit. Acknowledging stops the reminders, never the alert.",
+    checks: "When the monitor speaks up by itself, with no rule of yours: a disk filling, a certificate ageing, a backup that does not come.",
+    probes: "Addresses Noust asks every minute, from outside the application. One that stops answering goes through the channels.",
+    status: "The probes you mark public, as one page any web server can serve. It shows names and bars, never addresses.",
+    metrics: "What the server measures, over the window you choose.",
+    fleet: "The rules of every server, the ones firing first.",
   },
-  loadingLabel: "the alert rules",
+  reach: {
+    title: "Nothing will tell you about these alerts",
+    body: "Notifications are off, so an alert fires and nobody hears it. Each message names the server it comes from.",
+    action: "Turn on notifications",
+  },
+  checksPage: { documentTitle: "Checks", loading: "Loading the checks", loadFailed: "Could not load the checks", refreshFailed: "Could not refresh the checks" },
+  metricsPage: { documentTitle: "Metrics" },
+  fleet: {
+    caption: "Alert rules of every server",
+    filterLabel: "Filter alerts",
+    searchLabel: "Search alerts",
+    searchPlaceholder: "Rule, application or server",
+    loadFailed: "Could not load the alerts of the servers",
+    nothingFiring: "Nothing firing",
+    takenBy: "Acknowledged by {who}",
+    column: { rule: "Alert", now: "Now" },
+  },
   notSaved: "The alert settings were not saved",
   metrics: {
     cpu: "CPU",
@@ -28,9 +49,10 @@ export const alerts = {
     appNetTx: "Application network sent",
   },
   rules: {
-    title: "Alert rules",
-    description: "Tell me when a measurement stays past a limit. Acknowledging a firing alert stops its reminders; it never resolves it.",
-    new: "New rule",
+    loading: "Loading the alerts",
+    loadFailed: "Could not load the alerts",
+    refreshFailed: "Could not refresh the alerts",
+    new: "New alert",
     listLabel: "Alert rules",
     emptyTitle: "No alert rules yet",
     emptyDescription: "Write one for what matters to you: an application's memory, the server's disk, server errors per minute.",
@@ -75,8 +97,8 @@ export const alerts = {
     metricHintApp: "Of an application",
     appLabel: "Application",
     appDescription: "The application's domain. Empty watches every application.",
-    comparatorLabel: "Fires when it is",
-    comparator: { gt: "above", gte: "at or above", lt: "below", lte: "at or below" },
+    comparatorLabel: "Fires when the measurement is",
+    comparator: { gt: "above the limit", gte: "at or above the limit", lt: "below the limit", lte: "at or below the limit" },
     limitLabel: "Limit",
     limitHint: {
       percent: "A percentage: 90 or 90%.",
@@ -103,8 +125,6 @@ export const alerts = {
     more: "More options",
   },
   thresholds: {
-    title: "Built-in checks",
-    description: "What the monitor announces without a rule of yours.",
     errorTitle: "Could not save the checks",
     disks: {
       title: "Disks",

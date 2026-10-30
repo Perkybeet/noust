@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Cloud, KeyRound, Lock, Pencil } from "lucide-react";
 import { useState } from "react";
 
+import { announce } from "../../app/Announcer";
 import { isApiError } from "../../api/client";
 import type { Destination } from "../../api/queries/backupDestinations";
 import { backupDestinationsQuery } from "../../api/queries/backupDestinations";
@@ -176,8 +177,7 @@ export function DestinationsPage() {
     test.mutate(name, {
       onSuccess: (result) => {
         setTestStates((current) => ({ ...current, [name]: { checking: false, ok: result.ok } }));
-        const entries = result.entries?.join(", ") ?? "";
-        if (result.ok) toast.success(t("backups.destinations.toast.reachable", { name }), entries !== "" ? { detail: entries } : {});
+        if (result.ok) announce(t("backups.destinations.toast.reachable", { name }));
         else toast.error(t("backups.destinations.toast.unreachable", { name }));
       },
       onError: (error) => {

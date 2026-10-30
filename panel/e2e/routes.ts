@@ -134,6 +134,10 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "settings-log-shipping", path: "/settings/log-shipping" },
   // 3.4: addresses asked from outside the application, and the public status page.
   { name: "alerts-probes", path: "/alerts/probes" },
+  // 4.1: the limits of the checks the monitor makes by itself, the status page the probes make up, and the measurements.
+  { name: "alerts-checks", path: "/alerts/checks" },
+  { name: "alerts-status", path: "/alerts/status" },
+  { name: "alerts-metrics", path: "/alerts/metrics" },
   // 3.4: roles where they are needed, single sign-on, the MCP endpoint, a manifest and the API.
   { name: "settings-access", path: "/settings/access" },
   { name: "settings-sso", path: "/settings/sso" },

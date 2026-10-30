@@ -79,6 +79,7 @@ export const fleet = {
       backups: "Backups on every server",
       updates: "Noust and system updates on every server",
       activity: "Activity on every server",
+      alerts: "Alerts on every server",
     },
     keywords: {
       servers: "fleet nodes labels access version",
@@ -87,6 +88,7 @@ export const fleet = {
       backups: "fleet backups gaps restore verify",
       updates: "fleet upgrade noust packages reboot",
       activity: "fleet audit log history events",
+      alerts: "fleet alert rules firing thresholds monitor",
     },
   },
   page: {

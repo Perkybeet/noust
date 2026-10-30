@@ -6,6 +6,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { announce } from "../../app/Announcer";
 import { request } from "../../api/client";
 import { backupDestinationKeys } from "../../api/queries/backupDestinations";
 import { jobKeys } from "../../api/queries/jobs";
@@ -61,7 +62,7 @@ export function useDestinationActions() {
         },
       }),
     onSuccess: (result) => {
-      toast.success(result.message);
+      announce(result.message);
       refreshList();
     },
   });
@@ -73,7 +74,7 @@ export function useDestinationActions() {
         body: { fields: input.fields, encrypted: input.encrypted, ...(input.verify === false ? { verify: false } : {}) },
       }),
     onSuccess: (result) => {
-      toast.success(result.message);
+      announce(result.message);
       refreshList();
     },
   });
@@ -82,7 +83,7 @@ export function useDestinationActions() {
     mutationFn: ({ name, force = false, keySaved = false }: { name: string; force?: boolean; keySaved?: boolean }) =>
       request("delete", "/api/backup-destinations/{name}", { params: { name }, query: { force, key_saved: keySaved } }),
     onSuccess: (result) => {
-      toast.success(result.message);
+      announce(result.message);
       refreshList();
     },
     onError: (error) => {
@@ -93,7 +94,7 @@ export function useDestinationActions() {
   const protect = useMutation({
     mutationFn: () => request("post", "/api/backup-destinations/protect"),
     onSuccess: (result) => {
-      if (result.protected.length > 0) toast.success(t("backups.destinations.credentials.done", { names: result.protected.join(", ") }));
+      if (result.protected.length > 0) announce(t("backups.destinations.credentials.done", { names: result.protected.join(", ") }));
       else toast.info(t("backups.destinations.credentials.nothing"));
       refreshList();
     },

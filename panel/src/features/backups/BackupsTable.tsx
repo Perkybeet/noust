@@ -2,6 +2,7 @@ import { FileCheck, RotateCcw, UploadCloud } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 
+import { announce } from "../../app/Announcer";
 import type { BackupList } from "../../api/queries/backups";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { RowMenu } from "../../components/page/RowMenu";
@@ -116,7 +117,7 @@ export function BackupsTable({ backups, caption, loading = false, skeletonRows, 
       onSuccess: (result) => {
         settle(backup.backup_id);
         if (result.valid) {
-          toast.success(t("backups.history.toast.verified", { id: backup.backup_id }));
+          announce(t("backups.history.toast.verified", { id: backup.backup_id }));
         } else {
           toast.error(t("backups.history.toast.verifyFailed", { id: backup.backup_id }), {
             detail: [...(result.errors ?? []), ...(result.warnings ?? [])].join("\n"),

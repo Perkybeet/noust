@@ -4,9 +4,30 @@ import type { Catalog } from "../types";
 export const alerts: Catalog<typeof en> = {
   documentTitle: "Ajustes de alertas",
   page: {
-    description: "Lo que te avisa antes que una persona: reglas sobre las mediciones y direcciones preguntadas desde fuera.",
+    alerts: "Avísame cuando una medida se mantiene más allá de un límite. Reconocer detiene los recordatorios, no la alerta.",
+    checks: "Cuándo avisa el monitor por sí solo, sin una regla tuya: un disco que se llena, un certificado que envejece, una copia que no llega.",
+    probes: "Direcciones que Noust pregunta cada minuto, desde fuera de la aplicación. La que deja de responder se avisa por los canales.",
+    status: "Las sondas que marques como públicas, en una página que sirve cualquier servidor web. Muestra nombres y barras, nunca direcciones.",
+    metrics: "Lo que mide el servidor, en la ventana que elijas.",
+    fleet: "Las reglas de cada servidor, las que se han disparado primero.",
   },
-  loadingLabel: "las reglas de alerta",
+  reach: {
+    title: "Nada te avisará de estas alertas",
+    body: "Las notificaciones están apagadas, así que una alerta se activa y nadie la oye. Cada mensaje dice de qué servidor viene.",
+    action: "Activar las notificaciones",
+  },
+  checksPage: { documentTitle: "Comprobaciones", loading: "Cargando las comprobaciones", loadFailed: "No se pudieron cargar las comprobaciones", refreshFailed: "No se pudieron actualizar las comprobaciones" },
+  metricsPage: { documentTitle: "Métricas" },
+  fleet: {
+    caption: "Reglas de alerta de todos los servidores",
+    filterLabel: "Filtrar alertas",
+    searchLabel: "Buscar alertas",
+    searchPlaceholder: "Regla, aplicación o servidor",
+    loadFailed: "No se pudieron cargar las alertas de los servidores",
+    nothingFiring: "Nada disparado",
+    takenBy: "Reconocida por {who}",
+    column: { rule: "Alerta", now: "Ahora" },
+  },
   notSaved: "No se guardaron los ajustes de alertas",
   metrics: {
     cpu: "CPU",
@@ -27,9 +48,10 @@ export const alerts: Catalog<typeof en> = {
     appNetTx: "Red enviada por la aplicación",
   },
   rules: {
-    title: "Reglas de alerta",
-    description: "Avísame cuando una medición se mantiene más allá de un límite. Reconocer una alerta activa detiene sus recordatorios; nunca la resuelve.",
-    new: "Nueva regla",
+    loading: "Cargando las alertas",
+    loadFailed: "No se pudieron cargar las alertas",
+    refreshFailed: "No se pudieron actualizar las alertas",
+    new: "Nueva alerta",
     listLabel: "Reglas de alerta",
     emptyTitle: "Todavía no hay reglas de alerta",
     emptyDescription: "Escribe una para lo que te importe: la memoria de una aplicación, el disco del servidor, los errores del servidor por minuto.",
@@ -74,8 +96,8 @@ export const alerts: Catalog<typeof en> = {
     metricHintApp: "De una aplicación",
     appLabel: "Aplicación",
     appDescription: "El dominio de la aplicación. Vacío vigila todas las aplicaciones.",
-    comparatorLabel: "Se activa cuando está",
-    comparator: { gt: "por encima de", gte: "en o por encima de", lt: "por debajo de", lte: "en o por debajo de" },
+    comparatorLabel: "Se activa cuando la medida está",
+    comparator: { gt: "por encima del límite", gte: "en el límite o por encima", lt: "por debajo del límite", lte: "en el límite o por debajo" },
     limitLabel: "Límite",
     limitHint: {
       percent: "Un porcentaje: 90 o 90%.",
@@ -102,8 +124,6 @@ export const alerts: Catalog<typeof en> = {
     more: "Más opciones",
   },
   thresholds: {
-    title: "Comprobaciones incluidas",
-    description: "Lo que el monitor anuncia sin una regla tuya.",
     errorTitle: "No se pudieron guardar las comprobaciones",
     disks: {
       title: "Discos",

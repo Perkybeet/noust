@@ -9,7 +9,7 @@ import type { SessionInfo } from "../../api/queries/auth";
 import { MACHINE, SESSION, json, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import type { CentralInfo } from "../central/central";
-import { ACTIVITY_ITEMS, BACKUPS_ITEMS, envelope } from "../operation/testFixtures";
+import { ACTIVITY_ITEMS, BACKUPS_ITEMS, SERVERS, envelope } from "../operation/testFixtures";
 
 export const SSH_TIMEOUT = "ssh: connect to host db1.example.com port 22: Connection timed out";
 
@@ -297,9 +297,10 @@ export function fleetRoutes(session: SessionInfo = centralSession(), nodes: unkn
     "GET /api/fleet/certificates": () => json(200, CERTIFICATES_VIEW),
     "GET /api/fleet/updates": () => json(200, UPDATES_VIEW),
     "GET /api/fleet/metrics": () => json(200, METRICS_VIEW),
-    "GET /api/fleet/logs": () => json(200, LOGS_VIEW),
     "GET /api/views/activity": () => json(200, envelope("activity", ACTIVITY_ITEMS)),
     "GET /api/views/backups": () => json(200, envelope("backups", BACKUPS_ITEMS)),
+    // A search over the logs of four servers: two lines, a note from old-1, db-1 from its last answer.
+    "GET /api/views/logs": () => json(200, { ...LOGS_VIEW, fleet: true, servers: SERVERS, refusals: [] }),
     "GET /api/fleet/actions": () => json(200, ACTIONS),
     "GET /api/fleet/jobs": () => json(200, { jobs: [{ ...JOB, nodes: null }] }),
     "GET /api/fleet/jobs/fj-1": () => json(200, JOB),

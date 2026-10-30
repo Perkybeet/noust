@@ -25,6 +25,7 @@ import { CreateBackupDialog } from "./CreateBackupDialog";
 import { MisplacedBackupsNotice, useMisplacedBackups } from "./MisplacedBackupsNotice";
 import { PushBackupDialog } from "./PushBackupDialog";
 import { RestoreBackupDialog } from "./RestoreBackupDialog";
+import { useRunRestoreDrill } from "./RestoreDrills";
 import { ScheduleDialog } from "./ScheduleDialog";
 import { useBackupActions } from "./useBackupActions";
 import { useBackupRefresh } from "./useBackupRefresh";
@@ -62,6 +63,7 @@ export function BackupsPage({ search, onSearchChange }: BackupsPageProps) {
   const schedules = useQuery(backupSchedulesQuery());
   const misplaced = useMisplacedBackups();
   const { remove } = useBackupActions();
+  const testRestore = useRunRestoreDrill();
   const [open, setOpen] = useState<Open>(null);
 
   const rows = useMemo(
@@ -145,6 +147,7 @@ export function BackupsPage({ search, onSearchChange }: BackupsPageProps) {
         onBackUp={(domain) => setOpen({ kind: "create", domain })}
         onRestore={(backup) => setOpen({ kind: "restore", backup })}
         onSchedule={openSchedule}
+        onTestRestore={(domain) => testRestore.mutate(domain)}
       />
     );
   }

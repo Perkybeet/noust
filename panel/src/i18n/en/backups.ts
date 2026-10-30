@@ -80,6 +80,7 @@ export const backups = {
     actions: {
       viewBackups: "View backups",
       restoreLatest: "Restore the latest…",
+      testRestore: "Test a restore",
       schedule: "Schedule backups…",
       editSchedule: "Edit schedule…",
     },
@@ -215,7 +216,7 @@ export const backups = {
     intoReplaceHint: "Its files are set aside first and put back if the restore fails.",
     newName: "Domain to restore into",
     newNameHelp: "The domain of the application that receives the copy.",
-    nameInvalid: "That is not a domain, like shop.example.com.",
+    nameInvalid: "That is not a domain, such as shop.example.com.",
     actionReplace: "Restore over {domain}",
     actionNew: "Restore a copy",
     restoreEnv: "Restore .env files",

@@ -111,12 +111,12 @@ export function ServerErrorBlock({ error, title, ...rest }: ErrorBlockProps) {
 export function ServerQueryState<T>(props: QueryStateProps<T>) {
   const t = useT();
   const { node } = useNode();
-  const { query, label } = props;
+  const { query, label, sentences } = props;
   if (query.data === undefined && isHostAccessRefusal(query.error, node)) {
     return (
       <ServerErrorBlock
         error={query.error}
-        title={t("common.queryState.couldNotLoad", { label })}
+        title={sentences?.failed ?? t("common.queryState.couldNotLoad", { label: label ?? "" })}
         {...(query.refetch ? { onRetry: () => void query.refetch?.() } : {})}
         retrying={query.isRefetching ?? false}
       />

@@ -20,10 +20,10 @@ import { FleetActionsProvider } from "./BulkActionDialog";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /**
- * The faces of an area that is a page of its own (Activity, Backups): the same page as the area's, with
+ * The faces of an area that is a page of its own (Activity, Backups, Alerts): the same page as the area's, with
  * its own header, a title of its own and the server filter, so the fleet's header is not drawn over it.
  */
-const OWN_HEADER: ReadonlySet<string> = new Set(["/fleet/activity", "/fleet/backups"]);
+const OWN_HEADER: ReadonlySet<string> = new Set(["/fleet/activity", "/fleet/backups", "/fleet/alerts"]);
 
 export interface FleetLayoutProps {
   /** Set when a hub was asked for one of the pages it does not have. */

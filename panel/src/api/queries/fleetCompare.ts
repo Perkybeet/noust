@@ -1,7 +1,7 @@
 /**
- * Two views a central puts together from its servers' own answers: one metric of every server
- * over the same window (to compare them), and one search over the logs of every server. Each
- * server answers from what it holds; a server that is down is a row of the answer, never an error
+ * A view a central puts together from its servers' own answers: one metric of every server
+ * over the same window (to compare them). (The search over the logs of every server is
+ * `/api/views/logs`: `features/operation/views.ts`.) Each server answers from what it holds; a server that is down is a row of the answer, never an error
  * of the page (see features/fleet/data.ts).
  */
 
@@ -19,7 +19,6 @@ export type CompareWindow = (typeof COMPARE_WINDOWS)[number];
 
 export const fleetCompareKeys = {
   metrics: (metric: CompareMetric, window: CompareWindow) => ["fleet", "compare", "metrics", metric, window] as const,
-  logs: (q: string, since: string, level: string | undefined) => ["fleet", "compare", "logs", q, since, level ?? ""] as const,
 };
 
 /** One metric of every server over a window. The last answer stays while another is read. */
@@ -29,18 +28,5 @@ export const fleetMetricsQuery = (metric: CompareMetric, window: CompareWindow) 
     queryFn: ({ signal }) => request("get", "/api/fleet/metrics", { query: { metric, window }, signal }),
     placeholderData: keepPreviousData,
     refetchInterval: 60_000,
-    retry: false,
-  });
-
-/** The logs of every server's applications that match a search, newest first. */
-export const fleetLogsQuery = (params: { q: string; since: string; level: string | undefined; limit: number }) =>
-  queryOptions({
-    queryKey: fleetCompareKeys.logs(params.q, params.since, params.level),
-    queryFn: ({ signal }) =>
-      request("get", "/api/fleet/logs", {
-        query: { q: params.q, since: params.since, ...(params.level !== undefined ? { level: params.level } : {}), limit: params.limit },
-        signal,
-      }),
-    placeholderData: keepPreviousData,
     retry: false,
   });

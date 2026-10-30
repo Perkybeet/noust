@@ -364,7 +364,6 @@
   "activity.jobLog.truncated": "只显示最后 5,000 行。",
   "activity.jobLog.logOf": "{name} 的日志",
   "alerts.documentTitle": "告警设置",
-  "alerts.loadingLabel": "告警规则",
   "alerts.notSaved": "告警设置未保存",
   "alerts.metrics.cpu": "CPU",
   "alerts.metrics.memory": "内存",
@@ -382,8 +381,6 @@
   "alerts.metrics.appDiskWrite": "应用磁盘写入",
   "alerts.metrics.appNetRx": "应用网络接收",
   "alerts.metrics.appNetTx": "应用网络发送",
-  "alerts.rules.title": "告警规则",
-  "alerts.rules.description": "当某项测量值持续超出限值时通知我。确认一条触发中的告警会停止它的提醒；但不会解除它。",
   "alerts.rules.new": "新建规则",
   "alerts.rules.listLabel": "告警规则",
   "alerts.rules.emptyTitle": "还没有告警规则",
@@ -453,8 +450,6 @@
   "alerts.form.save": "保存规则",
   "alerts.form.saveErrorTitle": "无法保存规则",
   "alerts.form.more": "更多选项",
-  "alerts.thresholds.title": "内置检查",
-  "alerts.thresholds.description": "监控在没有你的规则时也会通知的内容。",
   "alerts.thresholds.errorTitle": "无法保存检查",
   "alerts.thresholds.disks.title": "磁盘",
   "alerts.thresholds.disks.description": "磁盘的使用率超过限值时会通知。",
@@ -7326,7 +7321,6 @@
   "fleetCompare.metrics.loadFailed": "无法比较服务器",
   "fleetCompare.logs.scopeLabel": "哪些服务器",
   "fleetCompare.logs.thisServer": "此服务器",
-  "fleetCompare.logs.everyServer": "所有服务器",
   "fleetCompare.logs.label": "所有服务器的日志",
   "fleetCompare.logs.summary": {
     "other": "来自 {servers} 台服务器的 {count} 行匹配日志。"
@@ -9932,9 +9926,6 @@
   "previewHand.create.failed": "预览没有创建",
   "previewHand.create.queued": "正在构建 {name} 的预览",
   "probes.documentTitle": "探针",
-  "probes.loadingLabel": "探针",
-  "probes.title": "探针",
-  "probes.description": "Noust 按计划从它所在的位置询问的地址：名称能否解析、证书是否有效、页面内容是否符合预期。一个不再响应的地址会通过通知渠道告知。",
   "probes.allUp": "一切都有响应。",
   "probes.downCount": {
     "other": "{count} 个地址没有响应"
@@ -9997,8 +9988,6 @@
   "probes.form.timeoutDescription": "小于间隔。",
   "probes.form.failAfterLabel": "连续不正常响应的次数",
   "probes.form.failAfterDescription": "达到多少次判定为已停机：1 到 10。",
-  "probes.page.title": "状态页",
-  "probes.page.description": "标记为公开的探针，整合成任何 Web 服务器都能提供的一个静态页面。它显示名称和进度条，从不显示地址或原因。",
   "probes.page.enabledLabel": "保持页面的文件为最新",
   "probes.page.files": {
     "other": "已写入 {directory}：{count} 个组件。"

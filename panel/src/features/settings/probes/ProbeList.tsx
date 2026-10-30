@@ -13,7 +13,6 @@ import type { Probe, ProbeCheck, ProbeList as ProbeListData } from "../../../api
 import { QueryState } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { RowMenu } from "../../../components/page/RowMenu";
-import { Section } from "../../../components/page/Section";
 import { Button } from "../../../components/ui/Button";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { EmptyState } from "../../../components/ui/EmptyState";
@@ -26,6 +25,7 @@ import { Skeleton, SkeletonRows } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { Switch } from "../../../components/ui/Switch";
 import { useT } from "../../../i18n";
+import { SettingsPrimaryAction } from "../SettingsPrimaryAction";
 import { reportActionError } from "../../apps/useAppActions";
 import { UPTIME_WINDOWS, lastAnswer, probeBody, probeFormFrom, standing, stretch, uptimeText } from "./data";
 import { ProbeDrawer } from "./ProbeDrawer";
@@ -273,17 +273,16 @@ function Probes({ data, onCreate }: { data: ProbeListData; onCreate: () => void 
   );
 }
 
-/** The probes section: its title, the way to add one, and the list. */
+/** The probes: the way to add one, which sits in the page's header, and the list. */
 export function ProbeList() {
   const t = useT();
   const query = useQuery(probesQuery());
   const [creating, setCreating] = useState(false);
   return (
-    <Section
-      title={t("probes.title")}
-      description={t("probes.description")}
-      actions={
-        query.data === undefined || query.data.items.length === 0 ? undefined : (
+    <div className="flex min-w-0 flex-col gap-4">
+      {/* The page's one primary, in its header, where every view has its primary. */}
+      {query.data === undefined || query.data.items.length === 0 ? null : (
+        <SettingsPrimaryAction>
           <Button
             variant="primary"
             icon={<ICONS.add aria-hidden="true" />}
@@ -293,10 +292,13 @@ export function ProbeList() {
           >
             {t("probes.new")}
           </Button>
-        )
-      }
-    >
-      <QueryState query={query} label={t("probes.loadingLabel")} skeleton={<SkeletonRows rows={2} />}>
+        </SettingsPrimaryAction>
+      )}
+      <QueryState
+        query={query}
+        sentences={{ loading: t("probes.loading"), failed: t("probes.loadFailed"), refreshFailed: t("probes.refreshFailed") }}
+        skeleton={<SkeletonRows rows={2} />}
+      >
         {(data) => (
           <>
             <Probes
@@ -309,6 +311,6 @@ export function ProbeList() {
           </>
         )}
       </QueryState>
-    </Section>
+    </div>
   );
 }

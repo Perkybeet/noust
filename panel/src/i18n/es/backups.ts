@@ -80,6 +80,7 @@ export const backups: Catalog<typeof en> = {
     actions: {
       viewBackups: "Ver copias",
       restoreLatest: "Restaurar la última…",
+      testRestore: "Probar una restauración",
       schedule: "Programar copias…",
       editSchedule: "Editar programación…",
     },
@@ -215,7 +216,7 @@ export const backups: Catalog<typeof en> = {
     intoReplaceHint: "Sus archivos se apartan antes y se devuelven si la restauración falla.",
     newName: "Dominio donde restaurar",
     newNameHelp: "El dominio de la aplicación que recibe la copia.",
-    nameInvalid: "Eso no es un dominio, como tienda.example.com.",
+    nameInvalid: "Eso no es un dominio, por ejemplo tienda.example.com.",
     actionReplace: "Restaurar sobre {domain}",
     actionNew: "Restaurar una copia",
     restoreEnv: "Restaurar archivos .env",

@@ -12,7 +12,6 @@ import type { AlertMetric, AlertRule, AlertRuleList } from "../../../api/queries
 import { QueryState } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { RowMenu } from "../../../components/page/RowMenu";
-import { Section } from "../../../components/page/Section";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
@@ -34,7 +33,7 @@ import { appliesTo, formatReading, ruleSentence } from "./rules";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 import { fleetActor, namedActor } from "../../activity/data";
 
-function stateOf(rule: AlertRule): { status: Status; key: "firing" | "ok" | "off" } {
+export function stateOf(rule: AlertRule): { status: Status; key: "firing" | "ok" | "off" } {
   if (!rule.enabled) return { status: "stopped", key: "off" };
   const firing = (rule.states ?? []).some((state) => state.state === "firing");
   if (!firing) return { status: "running", key: "ok" };
@@ -62,7 +61,8 @@ function FiringLine({ rule, entry, unit }: { rule: AlertRule; entry: NonNullable
     <li className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
       <span className="min-w-0">
         {t.rich("alerts.rules.firingLine", {
-          subject: <Mono key="subject">{subject}</Mono>,
+          // The server is a word, an application a value: only the value is set as one.
+          subject: entry.subject === "" ? subject : <Mono key="subject">{subject}</Mono>,
           value: entry.last_value === null || entry.last_value === undefined ? "-" : formatReading(unit, entry.last_value, t.locale),
           since: <RelativeTime key="since" value={entry.since} />,
         })}
@@ -222,7 +222,7 @@ export function RuleList() {
   const query = useQuery(alertRulesQuery());
   const [creating, setCreating] = useState(false);
   return (
-    <Section title={t("alerts.rules.title")} description={t("alerts.rules.description")}>
+    <div className="flex min-w-0 flex-col gap-4">
       {/* The page's one primary, in its header, where the save bar's Save takes it over while there are changes (FM-2). */}
       {query.data === undefined || query.data.items.length === 0 ? null : (
         <SettingsPrimaryAction>
@@ -237,7 +237,11 @@ export function RuleList() {
           </Button>
         </SettingsPrimaryAction>
       )}
-      <QueryState query={query} label={t("alerts.loadingLabel")} skeleton={<SkeletonRows rows={2} />}>
+      <QueryState
+        query={query}
+        sentences={{ loading: t("alerts.rules.loading"), failed: t("alerts.rules.loadFailed"), refreshFailed: t("alerts.rules.refreshFailed") }}
+        skeleton={<SkeletonRows rows={2} />}
+      >
         {(data) => (
           <>
             <Rules
@@ -250,6 +254,6 @@ export function RuleList() {
           </>
         )}
       </QueryState>
-    </Section>
+    </div>
   );
 }

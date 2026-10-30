@@ -165,7 +165,7 @@ describe("Alerts", () => {
     expect(within(firing).queryByText(/Acknowledged by/)).toBeNull();
     expect(within(ruleRow("cpu-high")).queryByRole("button", { name: /Acknowledge the alert/ })).toBeNull();
     // The page says once what acknowledging does and does not do.
-    expect(screen.getByText(/Acknowledging a firing alert stops its reminders; it never resolves it/)).toBeInTheDocument();
+    expect(screen.getByText(/Acknowledging stops the reminders, never the alert/)).toBeInTheDocument();
 
     await user.click(within(firing).getByRole("button", { name: "Acknowledge the alert for shop.example.com" }));
 
@@ -202,14 +202,14 @@ describe("Alerts", () => {
     expect(await screen.findByText("No alert rules yet")).toBeInTheDocument();
     // Nothing to say about what is firing while there is nothing to fire, and one button to write the first rule.
     expect(screen.queryByText("No alert is firing.")).not.toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "New rule" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "New alert" })).toHaveLength(1);
   });
 
   it("creates a rule from the drawer, with the limit as typed and the time in minutes", { timeout: 30_000 }, async () => {
     const backend = alertsBackend();
     const { user } = renderConsole("/alerts");
     await screen.findByRole("list", { name: "Alert rules" });
-    await user.click(screen.getByRole("button", { name: "New rule" }));
+    await user.click(screen.getByRole("button", { name: "New alert" }));
     const drawer = await screen.findByRole("dialog", { name: "New alert rule" });
     const save = within(drawer).getByRole("button", { name: "Save rule" });
     // The button is never disabled for what is left out: pressing it says what, and goes there.
@@ -252,8 +252,8 @@ describe("Alerts", () => {
     const { user } = renderConsole("/alerts");
     await screen.findByText("No alert rules yet");
     // The header's button and the empty state's: either opens the drawer.
-    const [header] = screen.getAllByRole("button", { name: "New rule" });
-    if (header === undefined) throw new Error("no New rule button");
+    const [header] = screen.getAllByRole("button", { name: "New alert" });
+    if (header === undefined) throw new Error("no New alert button");
     await user.click(header);
     const drawer = await screen.findByRole("dialog", { name: "New alert rule" });
     await user.type(within(drawer).getByLabelText("Name"), "cpu-high");
@@ -303,7 +303,7 @@ describe("Alerts", () => {
 
   it("writes only the built-in checks that changed, and puts a refusal beside its field", { timeout: 30_000 }, async () => {
     const backend = alertsBackend();
-    const { user } = renderConsole("/alerts");
+    const { user } = renderConsole("/alerts/checks");
     const disk = await screen.findByLabelText("Almost full at (%)");
     // The values arrive with the configuration; until then the fields hold their place, empty.
     await waitFor(() => {
@@ -325,7 +325,7 @@ describe("Alerts", () => {
 
   it("turns a check off with its own box and not with a zero, and brings back what it held when it is ticked again", { timeout: 30_000 }, async () => {
     const backend = alertsBackend();
-    const { user } = renderConsole("/alerts");
+    const { user } = renderConsole("/alerts/checks");
     const box = await screen.findByRole("checkbox", { name: /Missing backups/ });
     await waitFor(() => {
       expect(screen.getByLabelText("Days without a new one")).toHaveValue("2");
@@ -359,7 +359,7 @@ describe("Alerts", () => {
     const config = configBody();
     config.config.monitor.token_warning_days = 0;
     const backend = alertsBackend(undefined, { "GET /api/config": () => json(200, config) });
-    const { user } = renderConsole("/alerts");
+    const { user } = renderConsole("/alerts/checks");
     const box = await screen.findByRole("checkbox", { name: /API tokens/ });
     await waitFor(() => {
       expect(box).not.toBeChecked();
@@ -396,7 +396,7 @@ describe("Alerts", () => {
     const { container } = renderConsole("/alerts");
     expect(await screen.findByRole("list", { name: "Reglas de alerta" })).toBeInTheDocument();
     expect(screen.getByText("1 alerta está activa")).toBeInTheDocument();
-    expect(screen.getByText("Comprobaciones incluidas")).toBeInTheDocument();
+    expect(screen.getByText(/Avísame cuando una medida se mantiene más allá de un límite/)).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 });

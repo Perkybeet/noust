@@ -71,6 +71,7 @@ export const fleet: Catalog<typeof en> = {
       backups: "Copias de seguridad de todos los servidores",
       updates: "Actualizaciones de Noust y del sistema de todos los servidores",
       activity: "Actividad de todos los servidores",
+      alerts: "Alertas de todos los servidores",
     },
     keywords: {
       servers: "flota nodos etiquetas acceso versión fleet nodes labels",
@@ -79,6 +80,7 @@ export const fleet: Catalog<typeof en> = {
       backups: "flota copias huecos restaurar verificar backups",
       updates: "flota actualizar noust paquetes reinicio updates",
       activity: "flota auditoría registro historial eventos activity",
+      alerts: "flota alertas reglas disparadas umbrales monitor alerts",
     },
   },
   page: {

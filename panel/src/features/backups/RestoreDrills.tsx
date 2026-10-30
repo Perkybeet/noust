@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { request } from "../../api/client";
-import { restoreDrillsQuery } from "../../api/queries/backups";
+import { backupKeys, restoreDrillsQuery } from "../../api/queries/backups";
 import type { RestoreDrill } from "../../api/queries/backups";
 import { jobKeys } from "../../api/queries/jobs";
 import type { Job } from "../../api/queries/jobs";
@@ -66,29 +66,38 @@ function Drill({ drill }: { drill: RestoreDrill }) {
 }
 
 /**
- * The restore tests of one application, in its backups drawer: a button to run one now (a job,
- * which loads the newest backup's databases into temporary databases and drops them) and what
- * the last ones found. A scheduled backup runs one on its own every few days; this says how often.
+ * Starts a restore test of an application: a job that loads the newest backup's databases into temporary
+ * databases and drops them. The drawer's button and the row's menu are the same action, so it is made once.
+ */
+export function useRunRestoreDrill() {
+  const t = useT();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (domain: string) => request("post", "/api/apps/{domain}/restore-drills", { params: { domain }, body: { backup_id: null } }),
+    onSuccess: (result, domain) => {
+      queryClient.setQueryData<Job>(jobKeys.detail(result.job_id), (current) => current ?? (result.job as Job));
+      void queryClient.invalidateQueries({ queryKey: jobKeys.active });
+      void queryClient.invalidateQueries({ queryKey: backupKeys.drills(domain) });
+      toast.info(t("backups.drills.queued", { domain }), { description: t("backups.drills.queuedDescription") });
+    },
+    onError: (error, domain) => reportActionError(t("backups.drills.notQueued", { domain }), error),
+  });
+}
+
+/**
+ * The restore tests of one application, in its backups drawer: a button to run one now and what the
+ * last ones found. A scheduled backup runs one on its own every few days; this says how often.
  */
 export function RestoreDrillsSection({ domain }: { domain: string }) {
   const t = useT();
-  const queryClient = useQueryClient();
   const query = useQuery(restoreDrillsQuery(domain));
-  const run = useMutation({
-    mutationFn: () => request("post", "/api/apps/{domain}/restore-drills", { params: { domain }, body: { backup_id: null } }),
-    onSuccess: (result) => {
-      queryClient.setQueryData<Job>(jobKeys.detail(result.job_id), (current) => current ?? (result.job as Job));
-      void queryClient.invalidateQueries({ queryKey: jobKeys.active });
-      toast.info(t("backups.drills.queued", { domain }), { description: t("backups.drills.queuedDescription") });
-    },
-    onError: (error) => reportActionError(t("backups.drills.notQueued", { domain }), error),
-  });
+  const run = useRunRestoreDrill();
   const title = t("backups.drills.title");
 
   // A server older than 4.0 has no restore tests: nothing to offer.
   if (query.isError && olderServer(query.error)) return null;
   const action = (
-    <Button size="sm" icon={<VERB_ICONS.test aria-hidden="true" />} loading={run.isPending} onClick={() => run.mutate()}>
+    <Button size="sm" icon={<VERB_ICONS.test aria-hidden="true" />} loading={run.isPending} onClick={() => run.mutate(domain)}>
       {t("backups.drills.run")}
     </Button>
   );

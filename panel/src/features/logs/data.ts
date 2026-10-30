@@ -62,6 +62,8 @@ export interface LogsSearch {
   /** System: which service (or `kernel`). */
   unit?: string;
   scope?: LogsScope;
+  /** With `scope` set: only this server's lines (`@central` is this central itself); absent, every server's. */
+  server?: string;
   /** Absent means the last hour. */
   since?: Exclude<LogRange, "1h">;
   level?: LogLevel;
@@ -97,6 +99,7 @@ export function validateLogsSearch(search: Record<string, unknown>): LogsSearch 
   const app = text(search["app"], 253);
   const unit = text(search["unit"], 200);
   const line = text(search["line"], 400);
+  const server = text(search["server"], 64);
   const since = search["since"];
   const level = search["level"];
   const from = seconds(search["from"]);
@@ -108,7 +111,7 @@ export function validateLogsSearch(search: Record<string, unknown>): LogsSearch 
     ...(q !== undefined ? { q } : {}),
     ...(app !== undefined ? { app } : {}),
     ...(unit !== undefined ? { unit } : {}),
-    ...(search["scope"] === "fleet" ? { scope: "fleet" as const } : {}),
+    ...(search["scope"] === "fleet" ? { scope: "fleet" as const, ...(server !== undefined ? { server } : {}) } : {}),
     ...(typeof since === "string" && since !== DEFAULT_RANGE && (RANGES as readonly string[]).includes(since) ? { since: since as Exclude<LogRange, "1h"> } : {}),
     ...(typeof level === "string" && (LEVELS as readonly string[]).includes(level) ? { level: level as LogLevel } : {}),
     ...(stretch ? { from, to } : {}),

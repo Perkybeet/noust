@@ -28,7 +28,10 @@ import { Route as ConsoleSettingsRouteImport } from "./routes/_console/settings"
 import { Route as ConsoleAccountIndexRouteImport } from "./routes/_console/account/index"
 import { Route as ConsoleAccountSecurityRouteImport } from "./routes/_console/account/security"
 import { Route as ConsoleAlertsIndexRouteImport } from "./routes/_console/alerts/index"
+import { Route as ConsoleAlertsChecksRouteImport } from "./routes/_console/alerts/checks"
+import { Route as ConsoleAlertsMetricsRouteImport } from "./routes/_console/alerts/metrics"
 import { Route as ConsoleAlertsProbesRouteImport } from "./routes/_console/alerts/probes"
+import { Route as ConsoleAlertsStatusRouteImport } from "./routes/_console/alerts/status"
 import { Route as ConsoleAppsIndexRouteImport } from "./routes/_console/apps/index"
 import { Route as ConsoleAppsDomainRouteImport } from "./routes/_console/apps/$domain"
 import { Route as ConsoleAppsNewRouteImport } from "./routes/_console/apps/new"
@@ -48,6 +51,7 @@ import { Route as ConsoleDomainsPortsRouteImport } from "./routes/_console/domai
 import { Route as ConsoleDomainsTunnelsRouteImport } from "./routes/_console/domains/tunnels"
 import { Route as ConsoleFleetIndexRouteImport } from "./routes/_console/fleet/index"
 import { Route as ConsoleFleetActivityRouteImport } from "./routes/_console/fleet/activity"
+import { Route as ConsoleFleetAlertsRouteImport } from "./routes/_console/fleet/alerts"
 import { Route as ConsoleFleetAppsRouteImport } from "./routes/_console/fleet/apps"
 import { Route as ConsoleFleetBackupsRouteImport } from "./routes/_console/fleet/backups"
 import { Route as ConsoleFleetCertificatesRouteImport } from "./routes/_console/fleet/certificates"
@@ -244,9 +248,24 @@ const ConsoleAlertsIndexRoute = ConsoleAlertsIndexRouteImport.update({
   path: "/",
   getParentRoute: () => ConsoleAlertsRoute,
 } as any)
+const ConsoleAlertsChecksRoute = ConsoleAlertsChecksRouteImport.update({
+  id: "/checks",
+  path: "/checks",
+  getParentRoute: () => ConsoleAlertsRoute,
+} as any)
+const ConsoleAlertsMetricsRoute = ConsoleAlertsMetricsRouteImport.update({
+  id: "/metrics",
+  path: "/metrics",
+  getParentRoute: () => ConsoleAlertsRoute,
+} as any)
 const ConsoleAlertsProbesRoute = ConsoleAlertsProbesRouteImport.update({
   id: "/probes",
   path: "/probes",
+  getParentRoute: () => ConsoleAlertsRoute,
+} as any)
+const ConsoleAlertsStatusRoute = ConsoleAlertsStatusRouteImport.update({
+  id: "/status",
+  path: "/status",
   getParentRoute: () => ConsoleAlertsRoute,
 } as any)
 const ConsoleAppsIndexRoute = ConsoleAppsIndexRouteImport.update({
@@ -343,6 +362,11 @@ const ConsoleFleetIndexRoute = ConsoleFleetIndexRouteImport.update({
 const ConsoleFleetActivityRoute = ConsoleFleetActivityRouteImport.update({
   id: "/activity",
   path: "/activity",
+  getParentRoute: () => ConsoleFleetRoute,
+} as any)
+const ConsoleFleetAlertsRoute = ConsoleFleetAlertsRouteImport.update({
+  id: "/alerts",
+  path: "/alerts",
   getParentRoute: () => ConsoleFleetRoute,
 } as any)
 const ConsoleFleetAppsRoute = ConsoleFleetAppsRouteImport.update({
@@ -925,7 +949,10 @@ export interface FileRoutesByFullPath {
   "/server": typeof ConsoleServerRouteWithChildren
   "/settings": typeof ConsoleSettingsRouteWithChildren
   "/account/security": typeof ConsoleAccountSecurityRoute
+  "/alerts/checks": typeof ConsoleAlertsChecksRoute
+  "/alerts/metrics": typeof ConsoleAlertsMetricsRoute
   "/alerts/probes": typeof ConsoleAlertsProbesRoute
+  "/alerts/status": typeof ConsoleAlertsStatusRoute
   "/apps/$domain": typeof ConsoleAppsDomainRouteWithChildren
   "/apps/new": typeof ConsoleAppsNewRoute
   "/backups/destinations": typeof ConsoleBackupsDestinationsRoute
@@ -939,6 +966,7 @@ export interface FileRoutesByFullPath {
   "/domains/ports": typeof ConsoleDomainsPortsRoute
   "/domains/tunnels": typeof ConsoleDomainsTunnelsRoute
   "/fleet/activity": typeof ConsoleFleetActivityRoute
+  "/fleet/alerts": typeof ConsoleFleetAlertsRoute
   "/fleet/apps": typeof ConsoleFleetAppsRoute
   "/fleet/backups": typeof ConsoleFleetBackupsRoute
   "/fleet/certificates": typeof ConsoleFleetCertificatesRoute
@@ -1061,7 +1089,10 @@ export interface FileRoutesByTo {
   "/map": typeof ConsoleMapRoute
   "/": typeof ConsoleIndexRoute
   "/account/security": typeof ConsoleAccountSecurityRoute
+  "/alerts/checks": typeof ConsoleAlertsChecksRoute
+  "/alerts/metrics": typeof ConsoleAlertsMetricsRoute
   "/alerts/probes": typeof ConsoleAlertsProbesRoute
+  "/alerts/status": typeof ConsoleAlertsStatusRoute
   "/apps/new": typeof ConsoleAppsNewRoute
   "/backups/destinations": typeof ConsoleBackupsDestinationsRoute
   "/backups/noust": typeof ConsoleBackupsNoustRoute
@@ -1074,6 +1105,7 @@ export interface FileRoutesByTo {
   "/domains/ports": typeof ConsoleDomainsPortsRoute
   "/domains/tunnels": typeof ConsoleDomainsTunnelsRoute
   "/fleet/activity": typeof ConsoleFleetActivityRoute
+  "/fleet/alerts": typeof ConsoleFleetAlertsRoute
   "/fleet/apps": typeof ConsoleFleetAppsRoute
   "/fleet/backups": typeof ConsoleFleetBackupsRoute
   "/fleet/certificates": typeof ConsoleFleetCertificatesRoute
@@ -1199,7 +1231,10 @@ export interface FileRoutesById {
   "/_console/settings": typeof ConsoleSettingsRouteWithChildren
   "/_console/": typeof ConsoleIndexRoute
   "/_console/account/security": typeof ConsoleAccountSecurityRoute
+  "/_console/alerts/checks": typeof ConsoleAlertsChecksRoute
+  "/_console/alerts/metrics": typeof ConsoleAlertsMetricsRoute
   "/_console/alerts/probes": typeof ConsoleAlertsProbesRoute
+  "/_console/alerts/status": typeof ConsoleAlertsStatusRoute
   "/_console/apps/$domain": typeof ConsoleAppsDomainRouteWithChildren
   "/_console/apps/new": typeof ConsoleAppsNewRoute
   "/_console/backups/destinations": typeof ConsoleBackupsDestinationsRoute
@@ -1213,6 +1248,7 @@ export interface FileRoutesById {
   "/_console/domains/ports": typeof ConsoleDomainsPortsRoute
   "/_console/domains/tunnels": typeof ConsoleDomainsTunnelsRoute
   "/_console/fleet/activity": typeof ConsoleFleetActivityRoute
+  "/_console/fleet/alerts": typeof ConsoleFleetAlertsRoute
   "/_console/fleet/apps": typeof ConsoleFleetAppsRoute
   "/_console/fleet/backups": typeof ConsoleFleetBackupsRoute
   "/_console/fleet/certificates": typeof ConsoleFleetCertificatesRoute
@@ -1342,7 +1378,10 @@ export interface FileRouteTypes {
     | "/server"
     | "/settings"
     | "/account/security"
+    | "/alerts/checks"
+    | "/alerts/metrics"
     | "/alerts/probes"
+    | "/alerts/status"
     | "/apps/$domain"
     | "/apps/new"
     | "/backups/destinations"
@@ -1356,6 +1395,7 @@ export interface FileRouteTypes {
     | "/domains/ports"
     | "/domains/tunnels"
     | "/fleet/activity"
+    | "/fleet/alerts"
     | "/fleet/apps"
     | "/fleet/backups"
     | "/fleet/certificates"
@@ -1478,7 +1518,10 @@ export interface FileRouteTypes {
     | "/map"
     | "/"
     | "/account/security"
+    | "/alerts/checks"
+    | "/alerts/metrics"
     | "/alerts/probes"
+    | "/alerts/status"
     | "/apps/new"
     | "/backups/destinations"
     | "/backups/noust"
@@ -1491,6 +1534,7 @@ export interface FileRouteTypes {
     | "/domains/ports"
     | "/domains/tunnels"
     | "/fleet/activity"
+    | "/fleet/alerts"
     | "/fleet/apps"
     | "/fleet/backups"
     | "/fleet/certificates"
@@ -1615,7 +1659,10 @@ export interface FileRouteTypes {
     | "/_console/settings"
     | "/_console/"
     | "/_console/account/security"
+    | "/_console/alerts/checks"
+    | "/_console/alerts/metrics"
     | "/_console/alerts/probes"
+    | "/_console/alerts/status"
     | "/_console/apps/$domain"
     | "/_console/apps/new"
     | "/_console/backups/destinations"
@@ -1629,6 +1676,7 @@ export interface FileRouteTypes {
     | "/_console/domains/ports"
     | "/_console/domains/tunnels"
     | "/_console/fleet/activity"
+    | "/_console/fleet/alerts"
     | "/_console/fleet/apps"
     | "/_console/fleet/backups"
     | "/_console/fleet/certificates"
@@ -1884,11 +1932,32 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleAlertsIndexRouteImport
       parentRoute: typeof ConsoleAlertsRoute
     }
+    "/_console/alerts/checks": {
+      id: "/_console/alerts/checks"
+      path: "/checks"
+      fullPath: "/alerts/checks"
+      preLoaderRoute: typeof ConsoleAlertsChecksRouteImport
+      parentRoute: typeof ConsoleAlertsRoute
+    }
+    "/_console/alerts/metrics": {
+      id: "/_console/alerts/metrics"
+      path: "/metrics"
+      fullPath: "/alerts/metrics"
+      preLoaderRoute: typeof ConsoleAlertsMetricsRouteImport
+      parentRoute: typeof ConsoleAlertsRoute
+    }
     "/_console/alerts/probes": {
       id: "/_console/alerts/probes"
       path: "/probes"
       fullPath: "/alerts/probes"
       preLoaderRoute: typeof ConsoleAlertsProbesRouteImport
+      parentRoute: typeof ConsoleAlertsRoute
+    }
+    "/_console/alerts/status": {
+      id: "/_console/alerts/status"
+      path: "/status"
+      fullPath: "/alerts/status"
+      preLoaderRoute: typeof ConsoleAlertsStatusRouteImport
       parentRoute: typeof ConsoleAlertsRoute
     }
     "/_console/apps/": {
@@ -2022,6 +2091,13 @@ declare module "@tanstack/react-router" {
       path: "/activity"
       fullPath: "/fleet/activity"
       preLoaderRoute: typeof ConsoleFleetActivityRouteImport
+      parentRoute: typeof ConsoleFleetRoute
+    }
+    "/_console/fleet/alerts": {
+      id: "/_console/fleet/alerts"
+      path: "/alerts"
+      fullPath: "/fleet/alerts"
+      preLoaderRoute: typeof ConsoleFleetAlertsRouteImport
       parentRoute: typeof ConsoleFleetRoute
     }
     "/_console/fleet/apps": {
@@ -2749,12 +2825,18 @@ const ConsoleAccountRouteWithChildren = ConsoleAccountRoute._addFileChildren(
 )
 
 interface ConsoleAlertsRouteChildren {
+  ConsoleAlertsChecksRoute: typeof ConsoleAlertsChecksRoute
+  ConsoleAlertsMetricsRoute: typeof ConsoleAlertsMetricsRoute
   ConsoleAlertsProbesRoute: typeof ConsoleAlertsProbesRoute
+  ConsoleAlertsStatusRoute: typeof ConsoleAlertsStatusRoute
   ConsoleAlertsIndexRoute: typeof ConsoleAlertsIndexRoute
 }
 
 const ConsoleAlertsRouteChildren: ConsoleAlertsRouteChildren = {
+  ConsoleAlertsChecksRoute: ConsoleAlertsChecksRoute,
+  ConsoleAlertsMetricsRoute: ConsoleAlertsMetricsRoute,
   ConsoleAlertsProbesRoute: ConsoleAlertsProbesRoute,
+  ConsoleAlertsStatusRoute: ConsoleAlertsStatusRoute,
   ConsoleAlertsIndexRoute: ConsoleAlertsIndexRoute,
 }
 
@@ -2764,6 +2846,7 @@ const ConsoleAlertsRouteWithChildren = ConsoleAlertsRoute._addFileChildren(
 
 interface ConsoleFleetRouteChildren {
   ConsoleFleetActivityRoute: typeof ConsoleFleetActivityRoute
+  ConsoleFleetAlertsRoute: typeof ConsoleFleetAlertsRoute
   ConsoleFleetAppsRoute: typeof ConsoleFleetAppsRoute
   ConsoleFleetBackupsRoute: typeof ConsoleFleetBackupsRoute
   ConsoleFleetCertificatesRoute: typeof ConsoleFleetCertificatesRoute
@@ -2775,6 +2858,7 @@ interface ConsoleFleetRouteChildren {
 
 const ConsoleFleetRouteChildren: ConsoleFleetRouteChildren = {
   ConsoleFleetActivityRoute: ConsoleFleetActivityRoute,
+  ConsoleFleetAlertsRoute: ConsoleFleetAlertsRoute,
   ConsoleFleetAppsRoute: ConsoleFleetAppsRoute,
   ConsoleFleetBackupsRoute: ConsoleFleetBackupsRoute,
   ConsoleFleetCertificatesRoute: ConsoleFleetCertificatesRoute,

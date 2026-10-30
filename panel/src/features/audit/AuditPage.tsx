@@ -2,6 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import { Download } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 
+import { announce } from "../../app/Announcer";
 import { auditPagesQuery } from "../../api/queries/audit";
 import type { AuditEntry } from "../../api/queries/audit";
 import { useDocumentTitle } from "../../app/documentTitle";
@@ -27,7 +28,6 @@ import { Select } from "../../components/ui/Select";
 import { StatusGlyph, StatusPill, stateTextClass } from "../../components/ui/StatusPill";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { Textarea } from "../../components/ui/Textarea";
-import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { formatCount } from "../../lib/format";
@@ -240,7 +240,7 @@ function ReviewDialog({ onClose }: { onClose: () => void }) {
     mutationFn: () => recordReview({ period_start: start, period_end: end, notes: notes.trim() }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: trailKeys.reviews });
-      toast.success(t("audit.review.recordedToast"));
+      announce(t("audit.review.recordedToast"));
       onClose();
     },
   });

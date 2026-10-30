@@ -10,20 +10,19 @@ import { useMemo } from "react";
 
 import { isApiError } from "../../api/client";
 import { appsQuery } from "../../api/queries/apps";
-import { fleetLogsQuery } from "../../api/queries/fleetCompare";
 import { logSearchQuery } from "../../api/queries/logSearch";
 import { ErrorBlock, QueryState } from "../../components/page/QueryState";
-import { SegmentedControl } from "../../components/page/SegmentedControl";
 import { Button } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { ICONS } from "../../components/ui/icons";
 import { LogViewer } from "../../components/ui/LogViewer";
 import { Select } from "../../components/ui/Select";
 import { useT } from "../../i18n";
-import { useHasFleet } from "../../nodes/servers";
-import { PartialNotice } from "../fleet/parts";
+import { useHasFleet, useServerList } from "../../nodes/servers";
+import { ViewNotices } from "../operation/ViewNotices";
+import { useView } from "../operation/views";
 import { LIVE_MS, fleetViewerLines, isLive, paramsOf, rangeOf, viewerLines } from "./data";
-import type { LogsScope, LogsSearch } from "./data";
+import type { LogsSearch } from "./data";
 import { LogToolbar } from "./LogToolbar";
 import { patched, rangeChoices, sourceChoices, switchedTo } from "./sources";
 import type { Patch } from "./sources";
@@ -31,6 +30,9 @@ import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** Select's value for "no filter": an option needs a value. */
 const ALL = "__all";
+/** The scope select's values that are not a server's name (a name is never `@`-prefixed). */
+const THIS_SERVER = "@this";
+const EVERY_SERVER = "@all";
 
 /** Lines asked of each server when every server is searched. */
 const FLEET_LINES = 100;
@@ -52,16 +54,17 @@ function LoadingViewer({ label }: { label: string }) {
 export function AppsLogs({ search, onSearchChange }: AppsLogsProps) {
   const t = useT();
   const hasFleet = useHasFleet();
+  const servers = useServerList();
   const fleet = hasFleet && search.scope === "fleet";
   const live = isLive(search);
   const apps = useQuery(appsQuery());
   const params = paramsOf(search);
   const result = useQuery({ ...logSearchQuery(params), enabled: !fleet, refetchInterval: live ? LIVE_MS : false });
-  const across = useQuery({
-    ...fleetLogsQuery({ q: params.q, since: params.since, level: params.level, limit: FLEET_LINES }),
-    enabled: fleet,
-    refetchInterval: live ? LIVE_MS : false,
-  });
+  const across = useView(
+    "logs",
+    { nodes: search.server !== undefined ? [search.server] : [], q: params.q, since: params.since, ...(params.level !== undefined ? { level: params.level } : {}), limit: FLEET_LINES },
+    { live: live ? LIVE_MS : false, enabled: fleet },
+  );
   // Newest first from the server; a viewer reads oldest first and follows the end.
   const lines = useMemo(() => (result.data === undefined ? [] : viewerLines([...result.data.lines].reverse())), [result.data]);
   const fleetLines = useMemo(() => (across.data === undefined ? [] : fleetViewerLines(across.data.items)), [across.data]);
@@ -82,6 +85,13 @@ export function AppsLogs({ search, onSearchChange }: AppsLogsProps) {
   const refused = isApiError(result.error) && result.error.status === 400;
   const found = result.data;
   const filtered = search.q !== undefined || search.app !== undefined || search.level !== undefined || search.since !== undefined || search.scope !== undefined;
+  // Which servers the search reads: this one, all of them or one by name, said in one control.
+  const scopeValue = !fleet ? THIS_SERVER : (search.server ?? EVERY_SERVER);
+  const scopeOptions = [
+    { value: THIS_SERVER, label: servers.hostname === null ? t("fleetCompare.logs.thisServer") : t("operation.scope.central", { name: servers.hostname }) },
+    { value: EVERY_SERVER, label: t("operation.scope.all") },
+    ...servers.nodes.map((node) => ({ value: node.name, label: node.name })),
+  ];
 
   const toolbar = (
     <LogToolbar
@@ -105,17 +115,16 @@ export function AppsLogs({ search, onSearchChange }: AppsLogsProps) {
       picker={
         <>
           {hasFleet ? (
-            <SegmentedControl<"server" | LogsScope>
-              label={t("fleetCompare.logs.scopeLabel")}
-              value={fleet ? "fleet" : "server"}
-              onValueChange={(scope) => {
+            <Select
+              aria-label={t("fleetCompare.logs.scopeLabel")}
+              value={scopeValue}
+              onValueChange={(next) => {
                 // The servers' answer is not narrowed to one application: the choice goes with the scope.
-                set({ scope: scope === "fleet" ? "fleet" : undefined, ...(scope === "fleet" ? { app: undefined } : {}) });
+                if (next === THIS_SERVER) set({ scope: undefined, server: undefined });
+                else set({ scope: "fleet", server: next === EVERY_SERVER ? undefined : next, app: undefined });
               }}
-              options={[
-                { value: "server", label: t("fleetCompare.logs.thisServer") },
-                { value: "fleet", label: t("fleetCompare.logs.everyServer") },
-              ]}
+              options={scopeOptions}
+              className="min-w-44"
             />
           ) : null}
           <Select
@@ -147,7 +156,7 @@ export function AppsLogs({ search, onSearchChange }: AppsLogsProps) {
     return (
       <div className="flex min-w-0 flex-col gap-4">
         {toolbar}
-        <PartialNotice view={across.data} />
+        <ViewNotices view={across.data} resource="logs" />
         <QueryState
           query={across}
           label={t("fleetCompare.logs.label")}
