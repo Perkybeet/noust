@@ -201,6 +201,8 @@ export const RENAMED: Readonly<Record<string, readonly PlainKey[]>> = {
   "databases.servers": ["nav.renamed.engines"],
   backups: ["nav.renamed.backups"],
   server: ["nav.renamed.server"],
+  // The updates of 4.0 are a part of System now; "System updates" typed whole still opens it, ahead of the alert rule that names them.
+  "server.system": ["nav.renamed.systemUpdates"],
   domains: ["nav.renamed.domains"],
   "domains.sites": ["nav.renamed.webServerSites"],
   catalog: ["nav.renamed.recipes"],
