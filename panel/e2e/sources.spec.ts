@@ -169,7 +169,7 @@ test("the server lists its deploy keys and pinned host keys, and forgets a host 
   const made = await page.request.post(`/api/apps/${SSH_APP}/deploy-key`, { data: {}, headers: await csrf(page) });
   expect(made.ok(), await made.text()).toBe(true);
   try {
-    await page.goto("/settings/integrations");
+    await page.goto("/settings/deploy-keys");
     const keys = page.getByRole("heading", { level: 2, name: "Deploy keys" }).locator("xpath=ancestor::section[1]");
     const table = keys.getByRole("table", { name: "Deploy keys of this server" });
     const row = table.getByRole("row").filter({ hasText: "taller-example-com" });

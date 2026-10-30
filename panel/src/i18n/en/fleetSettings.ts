@@ -26,6 +26,8 @@ export const fleetSettings = {
     followHelp: "Turn it off to leave the server out: the central pushes it nothing and it keeps what it has as its own.",
     switchFailed: "Could not change how {name} follows the fleet",
     unreadable: "Could not read it",
+    noneTitle: "No servers yet",
+    noneDescription: "Add a server and it follows the fleet from the start.",
   },
   table: {
     title: "What the fleet shares",

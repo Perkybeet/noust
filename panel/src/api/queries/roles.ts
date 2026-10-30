@@ -63,7 +63,17 @@ export function answerOffers(name: string, body: RoleOffers) {
   return request("post", "/api/roles/{name}/offers", { params: { name }, body });
 }
 
-/** Sets every role an account holds; at least one, the one it is known by first. */
-export function setAccountRoles(username: string, roles: string[]) {
+/**
+ * Sets every role an account holds; at least one, the one it is known by first.
+ *
+ * A person who holds one role and is given another goes through the account's own PATCH: that is the call a
+ * second person is asked to approve when four-eyes approvals are on, and the roles route is not on the server's
+ * list of calls that wait for one. The roles route is what several roles need, and nothing else is used for them.
+ */
+export function setAccountRoles(username: string, roles: string[], held: readonly string[]) {
+  const [only] = roles;
+  if (roles.length === 1 && held.length === 1 && only !== undefined) {
+    return request("patch", "/api/auth/accounts/{username}", { params: { username }, body: { role: only } });
+  }
   return request("put", "/api/auth/accounts/{username}/roles", { params: { username }, body: { roles } });
 }

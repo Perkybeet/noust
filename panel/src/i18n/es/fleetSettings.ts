@@ -23,6 +23,8 @@ export const fleetSettings: Catalog<typeof en> = {
     followHelp: "Apágalo para dejar fuera al servidor: la central no le envía nada y conserva lo que tiene como suyo.",
     switchFailed: "No se pudo cambiar cómo sigue {name} a la flota",
     unreadable: "No se pudo leer",
+    noneTitle: "Aún no hay servidores",
+    noneDescription: "Añade un servidor y seguirá a la flota desde el principio.",
   },
   table: {
     title: "Lo que comparte la flota",

@@ -65,6 +65,7 @@ function Servers({ t, servers, canManage }: { t: T; servers: readonly StatusServ
       reportActionError(t("fleetSettings.servers.switchFailed", { name: node }), error);
     },
   });
+  if (servers.length === 0) return <EmptyState variant="inline" title={t("fleetSettings.servers.noneTitle")} description={t("fleetSettings.servers.noneDescription")} />;
   return (
     <RowList aria-label={t("fleetSettings.servers.caption")}>
       {servers.map((server) => {
@@ -258,7 +259,7 @@ export function FleetSettings() {
             columns={columns}
             rows={status.data === undefined || list.data === undefined ? undefined : rows}
             getRowId={(setting) => `${setting.resource}/${setting.name}`}
-            skeletonRows={3}
+            skeletonRows={2}
             empty={<EmptyState variant="inline" title={t("fleetSettings.empty.title")} description={t("fleetSettings.empty.description")} />}
             {...(canManage
               ? {

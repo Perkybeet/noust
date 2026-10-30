@@ -165,9 +165,9 @@ Rules:
   something that is not pressed: a badge that says "Default" is stone (2.12). The hull in an
   illustration is the one drawn violet that is not interactive, because it is the brand's.
 - **C-5** Text has three grades, each 4.5:1 or more on every surface: `text` for content,
-  `text-muted` for secondary text, `text-faint` for meta. Opacity MUST NOT be used to fade text;
-  the one thing that fades is a section that is switched off (`SwitchedRegion`), because an inactive
-  thing is the case WCAG exempts.
+  `text-muted` for secondary text, `text-faint` for meta. Opacity MUST NOT be used to fade text,
+  not even a section that is switched off (`SwitchedRegion` steps its content text down to
+  `text-muted` instead): axe measures an opacity, and exempts only what is disabled or inert.
 - **C-6** Surfaces go from `bg-rail` (the darkest stone) to `surface-raised` (the lightest) in
   light, and the other way in dark: `bg-rail` < `bg-column` < `bg` < `bg-sunken` < `surface` <
   `surface-raised`, plus `bg-sunken-deep` and the interaction steps `surface-hover` and
@@ -949,8 +949,9 @@ at any character, never cut, with its `CopyButton`. Not for a fact among facts (
 
 **`SectionSwitch`** and **`SwitchedRegion`** (owner item 106). The master switch of a whole section
 ("Alerts", "Backups"): one `Switch` with its name beside it in the header of the page, next to the
-page's action, and the list it governs wrapped in a `SwitchedRegion`, which is dimmed when the section
-is off so that a page of rules that do nothing does not look as if it did. The name never changes with
+page's action, and the list it governs wrapped in a `SwitchedRegion`, which draws its content text in the
+muted tone when the section is off so that a page of rules that do nothing does not look as if it did
+(a change of tone, never an opacity: the page must stay 4.5:1 and stay reachable). The name never changes with
 the state (SW-3); a switch that cannot be moved says why beside it (`disabled` requires `reason`).
 
 **`Switch`** applies at once. Its track is carved and its thumb is a raised piece that slides across it

@@ -13,7 +13,8 @@ test("the sections are in seven groups that say what they are for, in the order 
   await signIn(page, consoleServer, "/settings/general");
   const list = page.getByRole("navigation", { name: "Settings sections" });
   await expect(list).toBeVisible();
-  for (const group of GROUPS) await expect(list.getByText(group, { exact: true })).toBeVisible();
+  // A group and one of its sections can share a name ("Connections"): the titles are the paragraphs.
+  for (const group of GROUPS) await expect(list.locator("p").getByText(group, { exact: true })).toBeVisible();
   const headings = await list.locator("p").allTextContents();
   expect(headings.map((text) => text.trim())).toEqual(GROUPS);
   // Within a group, the order an operator sets a server up in.

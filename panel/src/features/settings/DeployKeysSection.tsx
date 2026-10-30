@@ -179,7 +179,7 @@ function PinnedHosts() {
       <QueryState
         query={hosts}
         label={t("sources.server.hosts.label")}
-        skeleton={<Skeleton className="h-16 w-full rounded-card" />}
+        skeleton={<Skeleton className="h-24 w-full rounded-card" />}
         isEmpty={(data) => data.hosts.length === 0}
         empty={<EmptyState variant="inline" title={t("sources.server.hosts.empty")} />}
       >
@@ -243,7 +243,7 @@ export function DeployKeysSection() {
       <QueryState
         query={keys}
         label={t("sources.server.label")}
-        skeleton={<Skeleton className="h-24 w-full rounded-card" />}
+        skeleton={<Skeleton className="h-16 w-full rounded-card" />}
         isEmpty={(data) => data.keys.length === 0}
         empty={<EmptyState variant="inline" title={t("sources.server.emptyTitle")} description={t("sources.server.emptyDescription")} />}
       >

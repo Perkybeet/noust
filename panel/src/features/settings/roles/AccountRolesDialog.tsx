@@ -37,7 +37,7 @@ export function AccountRolesDialog({ account, onClose }: { account: Account; onC
   const [tried, setTried] = useState(false);
 
   const save = useMutation({
-    mutationFn: () => setAccountRoles(account.username, chosen.length > 0 ? [...chosen] : held),
+    mutationFn: () => setAccountRoles(account.username, chosen.length > 0 ? [...chosen] : [...held], held),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: accountKeys.list });
       void queryClient.invalidateQueries({ queryKey: ["roles"] });

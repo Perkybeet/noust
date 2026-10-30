@@ -57,10 +57,10 @@ const GITLAB_CONNECTION = {
   last_error: null,
 };
 
-test("registry accounts are added, edited, listed and removed from Integrations", async ({ page, consoleServer }, testInfo) => {
+test("registry accounts are added, edited, listed and removed from Image registries", async ({ page, consoleServer }, testInfo) => {
   // One account per theme project: both may run against the same server.
   const name = `e2e-hub-${testInfo.project.name}`;
-  await signIn(page, consoleServer, "/settings/integrations");
+  await signIn(page, consoleServer, "/settings/registries");
   await elevate(page, consoleServer);
   const section = page.getByRole("region", { name: "Container registries" });
   await expect(section).toBeVisible();
