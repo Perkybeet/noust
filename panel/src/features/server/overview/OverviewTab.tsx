@@ -156,7 +156,7 @@ function NeedsAttention({ items, loading }: { items: readonly AttentionItem[]; l
     <Card level={2}
       title={t("server.attention.title")} icon={OBJECT_ICONS.alert}
       padding="none"
-      className="lg:col-span-2"
+      className="lg:col-span-3"
       actions={
         items.length > SHOWN ? (
           <Button size="sm" variant="ghost" onClick={() => setAll((current) => !current)}>
@@ -218,7 +218,7 @@ function Facts({ summary }: { summary: ServerSummary | undefined }) {
   const t = useT();
   if (summary === undefined) {
     return (
-      <Card level={2} title={t("server.overview.factsTitle")} icon={OBJECT_ICONS.server} padding="sm">
+      <Card level={2} title={t("server.overview.factsTitle")} icon={OBJECT_ICONS.server} padding="sm" className="lg:col-span-2">
         <LoadingRegion label={t("server.overview.loading")}>
           <KeyValueListSkeleton rows={6} />
         </LoadingRegion>
@@ -264,7 +264,7 @@ function Facts({ summary }: { summary: ServerSummary | undefined }) {
     },
   ];
   return (
-    <Card level={2} title={t("server.overview.factsTitle")} icon={OBJECT_ICONS.server} padding="sm">
+    <Card level={2} title={t("server.overview.factsTitle")} icon={OBJECT_ICONS.server} padding="sm" className="lg:col-span-2">
       <KeyValueList items={items} wrap />
     </Card>
   );
@@ -376,7 +376,7 @@ function OverviewLayout({ summary, security }: { summary: ServerSummary | undefi
   const items = attentionItems(summary, security);
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      <div className="grid min-w-0 items-start gap-6 lg:grid-cols-3">
+      <div className="grid min-w-0 items-start gap-6 lg:grid-cols-5">
         <NeedsAttention items={items} loading={summary === undefined} />
         <Facts summary={summary} />
       </div>

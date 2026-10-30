@@ -69,7 +69,7 @@ export function KeyValueList({ items, empty, wrap = false, className }: KeyValue
                     className={cx(
                       "min-w-0 text-13 text-fg",
                       // A system value is cut at the end of its line (the whole is its title); a sentence is read whole, and takes the lines it needs.
-                      wrap ? "break-all" : mono ? "truncate" : "text-pretty",
+                      wrap ? "break-words" : mono ? "truncate" : "text-pretty",
                       mono && "mono text-12",
                     )}
                   >

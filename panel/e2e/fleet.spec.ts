@@ -185,10 +185,11 @@ withFleet("the selector says which of the three contexts the console is in, and 
 });
 
 withFleet("the fleet's pages fit a phone, in Spanish: the selector gives way to the buttons at its right", async ({ page, consoleServer }) => {
-  await page.addInitScript(() => {
+  await signIn(page, consoleServer, "/fleet");
+  // Signed in in English, then the language the console is read in, which the next load starts with.
+  await page.evaluate(() => {
     window.localStorage.setItem("noust.locale", "es");
   });
-  await signIn(page, consoleServer, "/fleet");
   await page.setViewportSize({ width: 390, height: 844 });
   for (const path of ["/fleet", "/fleet/servers", "/fleet/apps", "/fleet/activity"]) {
     await page.goto(path);

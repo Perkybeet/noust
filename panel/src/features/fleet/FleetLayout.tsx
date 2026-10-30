@@ -123,10 +123,14 @@ export function FleetLayout({ hub, adding: addingProp, onAddingChange }: FleetLa
               }),
         }}
         {...(notices !== null ? { banner: notices } : {})}
-        {...(empty || !(onAppsViews || onServersViews)
+        {...(!(onAppsViews || onServersViews)
           ? {}
           : {
-              tabs: onAppsViews ? (
+              // A fleet with no server draws no views, but keeps their room: whether it is empty is known after the first frame,
+              // and a strip that vanished then moved the page under it.
+              tabs: empty ? (
+                <div aria-hidden="true" className="h-10" />
+              ) : onAppsViews ? (
                 <LinkTabs label={t("fleet.page.tabsLabel")} tabs={tabsOf(FLEET_APPS_SCREENS)} />
               ) : (
                 <LinkTabs label={t("fleet.page.serversTabsLabel")} tabs={tabsOf(FLEET_SERVERS_SCREENS)} />

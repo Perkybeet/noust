@@ -140,7 +140,8 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
   let line: ReactNode;
   if (context.kind === "fleet") {
     icon = <OBJECT_ICONS.node aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />;
-    name = <span className="min-w-0 truncate font-medium">{t("fleet.selector.all")}</span>;
+    // On a phone the icon says "servers" and the name is for a screen reader: "Todos..." was all that fitted.
+    name = <span className={cx("min-w-0 truncate font-medium", !side && "max-sm:sr-only")}>{t("fleet.selector.all")}</span>;
     line = (
       <>
         <span>{t("fleet.selector.lineServers", { count: total })}</span>

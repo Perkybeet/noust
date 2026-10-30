@@ -306,7 +306,10 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
         header={{
           title: site,
           mono: true,
-          ...(info.data ? { status: <SiteState enabled={info.data.enabled} size="md" /> } : {}),
+          // The state has its line under the title from the first frame, whichever the actions turn out to be: beside the
+          // title it wrapped under it when they arrived, in Spanish, and moved the editor.
+          statusBelow: true,
+          status: info.data ? <SiteState enabled={info.data.enabled} size="md" /> : <Skeleton className="h-6 w-24 rounded-pill" />,
           meta: info.data ? (
             <>
               <Mono tone="muted">{info.data.webserver}</Mono>
