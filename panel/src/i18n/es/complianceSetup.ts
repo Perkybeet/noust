@@ -4,7 +4,7 @@ import type { Catalog } from "../types";
 export const complianceSetup: Catalog<typeof en> = {
   title: "Cumplimiento",
   description:
-    "Las normativas activan los controles que ayudan a cumplir una norma. Nada está activo hasta que la eliges, y pueden estar varias a la vez: cada control toma el valor más estricto que pida cualquiera de ellas.",
+    "Nada está activo hasta que lo eliges. Pueden estar varias normativas a la vez, y cada control toma el valor más estricto que pida cualquiera de ellas.",
   honest:
     "Una normativa activa controles técnicos. No hace que un servidor cumpla: lo organizativo es tuyo, y solo un auditor puede decir el resto.",
   loadFailed: "No se pudo leer la configuración de cumplimiento",
@@ -79,7 +79,7 @@ export const complianceSetup: Catalog<typeof en> = {
   controls: {
     title: "Controles",
     description:
-      "Cada control tiene su propio ajuste. Una normativa activa bloquea los controles que pide en su valor o en uno más estricto; siempre puedes endurecer uno más.",
+      "Cada control tiene su propio ajuste. Una normativa activa bloquea los que pide; siempre puedes endurecer uno más.",
     lockedBy: "Lo exige {names}",
     change: "Cambiar…",
     noPermission: "Tu rol no puede cambiar los ajustes de seguridad.",
