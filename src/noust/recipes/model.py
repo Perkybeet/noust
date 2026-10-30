@@ -798,8 +798,12 @@ class Recipe:
 
     @property
     def free_software(self) -> bool:
-        """Whether the project's licence is a free software one; False means source-available or open core."""
-        return is_free_software(self.license)
+        """
+        Whether the project's licence is a free software one; False means source-available or open core.
+
+        A recipe that declares no licence claims nothing, so it is not labelled.
+        """
+        return not self.license or is_free_software(self.license)
 
     @property
     def logo_icon(self) -> str | None:

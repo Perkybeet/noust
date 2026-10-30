@@ -65,6 +65,15 @@ def test_the_summary_of_a_recipe_says_whether_its_licence_is_free() -> None:
     assert get_recipe("n8n").summary()["free_software"] is False
 
 
+def test_a_recipe_that_declares_no_licence_is_not_labelled_as_not_free() -> None:
+    """Nothing is claimed, so nothing is said against the project."""
+    import dataclasses
+
+    bare = dataclasses.replace(get_recipe("hello"), license=None)
+
+    assert bare.free_software is True and bare.summary()["free_software"] is True
+
+
 def test_every_recipe_that_is_not_free_software_says_so_in_its_description() -> None:
     """The contribution rule (docs/recipes-format.md): source-available or open core, in words."""
     said = []
