@@ -94,7 +94,7 @@ function Home({ scope, home, charts }: { scope: HomeScope; home: HomeData; chart
   );
   const header = { title: t("overview.title"), primaryAction: <NewAppLink scope={scope} /> };
   // Home and its Map are two views of the same server: one strip, as on every other area.
-  const tabs = scope === "server" ? <LinkTabs label={t("overview.tabsLabel")} tabs={tabsOf(OVERVIEW_SCREENS)} /> : undefined;
+  const tabs = scope === "server" ? <LinkTabs label={t("nav.landmarks.overviewSections")} tabs={tabsOf(OVERVIEW_SCREENS)} /> : undefined;
   const footer = <CommandHint label={t("common.words.fromTerminal")} command={home.empty ? "noust create --temporary -s https://github.com/you/app" : scope === "fleet" ? "noust fleet apps" : "noust health"} />;
 
   if (home.error !== null) {
@@ -123,6 +123,9 @@ function Home({ scope, home, charts }: { scope: HomeScope; home: HomeData; chart
     );
   }
 
+  // What stands beside the fleet and under it is drawn when the fleet is: the fleet's own skeleton holds the
+  // place of its courses, and nothing below it is there to be moved down when they arrive.
+  const loaded = home.servers !== undefined;
   return (
     <DashboardPage
       header={header}
@@ -141,13 +144,17 @@ function Home({ scope, home, charts }: { scope: HomeScope; home: HomeData; chart
           {scope === "fleet" && home.several ? <FleetMetricsCard /> : null}
         </div>
       }
-      side={
-        <>
-          <HomeActivity lines={home.lines} />
-          <QuickActions />
-        </>
-      }
-      {...(charts !== undefined ? { charts } : {})}
+      {...(loaded
+        ? {
+            side: (
+              <>
+                <HomeActivity lines={home.lines} />
+                <QuickActions />
+              </>
+            ),
+          }
+        : {})}
+      {...(charts !== undefined && loaded ? { charts } : {})}
       footer={footer}
     />
   );

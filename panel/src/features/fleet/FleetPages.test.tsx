@@ -55,7 +55,7 @@ describe("the fleet's Home", () => {
 
     // What needs attention on a server is a card that names the server and opens the fix there.
     const attention = await board();
-    expect(within(attention).getByRole("link", { name: "api.example.com" })).toHaveAttribute("href", "/n/web-2/apps/api.example.com/diagnose");
+    expect(within(attention).getByRole("link", { name: "api.example.com" })).toHaveAttribute("href", "/n/web-2/apps/api.example.com");
     expect(within(attention).getByText("web-2")).toBeInTheDocument();
 
     // The fleet in courses: a course for each server, each name opening that server, and the one that does not answer says so.

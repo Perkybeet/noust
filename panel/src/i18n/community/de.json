@@ -9567,7 +9567,6 @@
   "notifyRouting.deliveries.to": "an {channel}",
   "overview.title": "Übersicht",
   "overview.newApplication": "Neue Anwendung",
-  "overview.tabsLabel": "Bereiche der Übersicht",
   "overview.couldNotLoad": "Die Übersicht konnte nicht geladen werden",
   "overview.range.1h": "Letzte Stunde",
   "overview.range.24h": "Letzte 24 Stunden",

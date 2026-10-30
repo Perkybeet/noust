@@ -4,7 +4,6 @@ import type { Catalog } from "../types";
 export const overview: Catalog<typeof en> = {
   title: "Inicio",
   newApplication: "Nueva aplicación",
-  tabsLabel: "Secciones de Inicio",
   couldNotLoad: "No se ha podido cargar Inicio",
   range: {
     "1h": "Última hora",

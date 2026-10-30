@@ -67,7 +67,7 @@ describe("the map", () => {
   it("is the second view of the Overview: its header, its tabs, the map as the body", async () => {
     map();
     await screen.findByRole("heading", { level: 1, name: "Home" });
-    const tabs = await screen.findByRole("navigation", { name: "Overview sections" });
+    const tabs = await screen.findByRole("navigation", { name: "Home sections" });
     expect(within(tabs).getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
     expect(within(tabs).getByRole("link", { name: "Map" })).toHaveAttribute("aria-current", "page");
     expect(await screen.findByRole("figure", { name: "How this server fits together" })).toBeInTheDocument();

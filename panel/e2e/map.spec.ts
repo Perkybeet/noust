@@ -15,7 +15,7 @@ test("the server's applications, databases and scheduled work are drawn in colum
   await signIn(page, consoleServer, "/map");
   // The map is the second view of the Overview: its title, its tabs, the map as the body (NV-2).
   await expect(page.getByRole("heading", { level: 1, name: "Home" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Overview sections" }).getByRole("link", { name: "Map" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("navigation", { name: "Home sections" }).getByRole("link", { name: "Map" })).toHaveAttribute("aria-current", "page");
   const figure = page.getByRole("figure", { name: "How this server fits together" });
   await expect(figure).toBeVisible();
   const domains = await seededApps(page);
@@ -72,6 +72,6 @@ test("the map is found from the palette and from the Overview's tabs", async ({ 
   await expect(page.getByRole("heading", { level: 1, name: "Home" })).toBeVisible();
 
   await page.goto("/");
-  await page.getByRole("navigation", { name: "Overview sections" }).getByRole("link", { name: "Map" }).click();
+  await page.getByRole("navigation", { name: "Home sections" }).getByRole("link", { name: "Map" }).click();
   await expect(page).toHaveURL(/\/map$/);
 });

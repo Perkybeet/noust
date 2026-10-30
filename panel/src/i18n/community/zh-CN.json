@@ -9344,7 +9344,6 @@
   "notifyRouting.deliveries.to": "发往 {channel}",
   "overview.title": "概览",
   "overview.newApplication": "新建应用",
-  "overview.tabsLabel": "概览分区",
   "overview.couldNotLoad": "无法加载概览",
   "overview.range.1h": "最近一小时",
   "overview.range.24h": "最近 24 小时",

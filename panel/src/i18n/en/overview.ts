@@ -2,7 +2,6 @@
 export const overview = {
   title: "Home",
   newApplication: "New application",
-  tabsLabel: "Home sections",
   couldNotLoad: "Could not load Home",
   range: {
     "1h": "Last hour",

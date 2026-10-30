@@ -20,6 +20,7 @@ import { cx } from "../../lib/cx";
 import { AttentionActionButton } from "../inbox/AttentionActionButton";
 import { validUntilText, reasonText } from "./attentionWords";
 import { attentionTarget } from "./attentionTarget";
+import type { AttentionTarget } from "./attentionTarget";
 import type { HomeAttention } from "./homeData";
 import { sinceOf } from "./homeData";
 
@@ -28,6 +29,16 @@ export const ATTENTION_SHOWN = 6;
 
 function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() !== "" ? value : null;
+}
+
+/**
+ * Where the name of a card leads: an application's own page, so that the card's button can be the deployment's log or
+ * the diagnosis without the name and the button opening the same screen; anything else, where it is dealt with.
+ */
+function nameTarget(item: OverviewAttentionItem): AttentionTarget | null {
+  const domain = text(item.subject["domain"]);
+  if (item.subject["kind"] === "app" && domain !== null) return { to: "/apps/$domain", params: { domain } };
+  return attentionTarget(item);
 }
 
 /** What names the item: an application or a certificate's domain is a name, a unit or a rule a system value. */
@@ -47,7 +58,7 @@ function Subject({ t, item, node }: { t: T; item: OverviewAttentionItem; node: s
       ) : null}
     </>
   );
-  const target = attentionTarget(item);
+  const target = nameTarget(item);
   if (target === null) return <span className="min-w-0 text-13 font-medium break-words text-fg">{label}</span>;
   return (
     <Link

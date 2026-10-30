@@ -79,7 +79,7 @@ export function HomeFleet({ servers, courses, allServers = false }: HomeFleetPro
     >
       {courses === undefined ? (
         <LoadingRegion label={t("overview.fleet.loading")}>
-          <Skeleton className="h-64 rounded-card" />
+          <Skeleton className="h-80 rounded-card" />
         </LoadingRegion>
       ) : courses.length === 0 ? (
         <EmptyState variant="inline" title={t("overview.fleet.none")} />

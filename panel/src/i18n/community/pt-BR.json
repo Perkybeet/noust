@@ -9567,7 +9567,6 @@
   "notifyRouting.deliveries.to": "para {channel}",
   "overview.title": "Visão geral",
   "overview.newApplication": "Nova aplicação",
-  "overview.tabsLabel": "Seções da visão geral",
   "overview.couldNotLoad": "Não foi possível carregar a visão geral",
   "overview.range.1h": "Última hora",
   "overview.range.24h": "Últimas 24 horas",

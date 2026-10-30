@@ -11,7 +11,7 @@ export const nav: Catalog<typeof en> = {
     teamSections: "Secciones del equipo",
     accountSections: "Secciones de la cuenta",
     projectSections: "Secciones de proyectos",
-    overviewSections: "Secciones del inicio",
+    overviewSections: "Secciones de Inicio",
     serverSections: "Secciones del servidor",
     alertsSections: "Secciones de alertas",
     catalogSections: "Secciones del catálogo",

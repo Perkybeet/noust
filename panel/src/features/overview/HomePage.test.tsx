@@ -127,7 +127,7 @@ describe("Home", () => {
     await home();
     const attention = await board();
     const app = await within(attention).findByRole("link", { name: "admin.example.com" });
-    expect(app).toHaveAttribute("href", "/apps/admin.example.com/deployments/12");
+    expect(app).toHaveAttribute("href", "/apps/admin.example.com");
     expect(within(attention).getAllByText("The service has failed")).toHaveLength(2);
     expect(within(attention).getByText("Last deploy failed")).toBeInTheDocument();
     // The system's own words, verbatim, under the sentence.
