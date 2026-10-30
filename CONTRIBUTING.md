@@ -793,6 +793,13 @@ outside a render never waits or throws (`panel/src/i18n/README.md`, "How the tex
 browser"). Nothing but `catalogs.ts` imports a catalog; a test fails on the next
 `import * as en from "./en"`.
 
+A route's options are loaded with the first page and its component is not. What `validateSearch` and
+`beforeLoad` import must reach no component: the reader of a page's address is a `search.ts` beside the
+page (which the page imports too), never an export of the page's own module, because one import brings
+the whole module (the volumes' drawers and the log viewer were 110 kB of the first load that way).
+`src/routes/route-options.test.ts` fails on a route that does it, and `npm run check:bundle` holds the
+weight of what remains.
+
 A system error is never paraphrased. Show nginx's or systemd's own output verbatim in mono,
 with the suggested fix above it.
 
