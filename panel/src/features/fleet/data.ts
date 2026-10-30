@@ -443,6 +443,17 @@ export const ACTION_WORDS: Readonly<Record<KnownAction, { label: PlainKey; descr
   placement_ship: { label: "fleet.actions.placement_ship.label", description: "fleet.actions.placement_ship.description" },
 };
 
+/**
+ * What a fleet job is called: this console's words for an action it knows, for applying the fleet's settings (which
+ * is started from Settings and is not one of the bulk actions), and the server's own title for any other. The
+ * server's title is English, and a job in the list of a console in Spanish must not be.
+ */
+export function actionTitle(t: (key: PlainKey) => string, action: string, serverTitle: string): string {
+  if (isKnownAction(action)) return t(ACTION_WORDS[action].label);
+  if (action === "settings_apply") return t("fleetSettings.applyDialog.title");
+  return serverTitle;
+}
+
 /** A Noust version as the update asks for it: two to four numbers. */
 export const TARGET_VERSION = /^\d+(?:\.\d+){1,3}$/;
 

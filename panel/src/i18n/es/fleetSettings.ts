@@ -115,7 +115,7 @@ export const fleetSettings: Catalog<typeof en> = {
     result: {
       created: "Creado",
       updated: "Actualizado",
-      restored: "Devuelto",
+      restored: "Restablecido",
       in_sync: "Ya era igual",
       overridden: "Se dejó, cambiado en el servidor",
       released: "Soltado",

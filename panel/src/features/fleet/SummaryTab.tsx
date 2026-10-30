@@ -28,11 +28,10 @@ import { reasonText } from "../overview/NeedsAttention";
 import { useFleetActions } from "./BulkActionDialog";
 import { FleetMetricsCard } from "./FleetMetricsCard";
 import {
-  ACTION_WORDS,
+  actionTitle,
   attentionOf,
   countsOf,
   fleetJobsQuery,
-  isKnownAction,
   jobStatusView,
   noustOf,
   noustUpdatable,
@@ -201,7 +200,7 @@ function RecentActions({ t }: { t: T }) {
       <ul className="divide-y divide-border">
         {jobs.data.jobs.map((job) => {
           const view = jobStatusView(job.status);
-          const label = isKnownAction(job.action) ? t(ACTION_WORDS[job.action].label) : job.title;
+          const label = actionTitle(t, job.action, job.title);
           return (
             <li key={job.job_id} className="flex min-w-0 items-center justify-between gap-3 px-4 py-2.5">
               <div className="flex min-w-0 flex-col gap-0.5">
