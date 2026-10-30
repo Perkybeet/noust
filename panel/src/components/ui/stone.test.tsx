@@ -39,6 +39,14 @@ describe("planCourse: which slabs a course draws", () => {
     expect(plan.grouped).toBe(9);
   });
 
+  it("draws every application when told not to group: a fleet of one server has nothing to compare with", () => {
+    const well = Array.from({ length: 9 }, (_, index) => app(`w${String(index)}`, "running"));
+    const plan = planCourse([...well, app("f", "failed")], 4, true);
+    expect(plan.grouped).toBe(0);
+    expect(plan.slabs).toHaveLength(10);
+    expect(plan.slabs[0]?.id).toBe("f");
+  });
+
   it("keeps a course of exactly two rows as it is", () => {
     const eight = Array.from({ length: 8 }, (_, index) => app(`w${String(index)}`, "running"));
     expect(planCourse(eight, 4).grouped).toBe(0);
@@ -93,6 +101,27 @@ describe("FleetCourses", () => {
     expect(disk.className).toContain("text-warn");
     expect(disk.querySelector("svg")).not.toBeNull();
     expect(screen.getByText("Disk 52 %").className).not.toContain("text-warn");
+  });
+
+  it("puts what is wrong with a server at the head of its course, tinted, and still draws its applications", () => {
+    render(
+      <FleetCourses
+        label="Fleet"
+        courses={[{ id: "ams-3", name: "ams-3", problem: { state: "failed", label: "Not answering" }, apps: [app("a", "running")] }]}
+      />,
+    );
+    const slab = screen.getByText("Not answering");
+    expect(slab.closest("div")?.className).toContain("bg-fail-soft");
+    expect(slab.querySelector("svg")).not.toBeNull();
+    // A problem is not what hides the rest: the last answer's applications are drawn after it.
+    expect(screen.getByText("a.example.com")).toBeInTheDocument();
+    expect(screen.queryByText("No applications")).toBeNull();
+  });
+
+  it("does not say a server with a problem and nothing on it has no applications", () => {
+    render(<FleetCourses label="Fleet" courses={[{ id: "ams-3", name: "ams-3", problem: { state: "failed", label: "Not answering" }, apps: [] }]} />);
+    expect(screen.getByText("Not answering")).toBeVisible();
+    expect(screen.queryByText("No applications")).toBeNull();
   });
 
   it("raises the slabs that open a page, and seats the ones that do not", () => {

@@ -13,6 +13,7 @@ import {
   IconButton,
   Illustration,
   Input,
+  ImageLogoTile,
   LogoTile,
   Menu,
   MenuItem,
@@ -287,6 +288,13 @@ const FLEET: FleetCourse[] = [
     ],
   },
   { id: "web-03", name: "web-03", place: "Singapore", diskPercent: 7, apps: [] },
+  {
+    id: "datos-01",
+    name: "datos-01",
+    place: "Ashburn",
+    problem: { state: "failed", label: "Not answering" },
+    apps: ["radio", "tienda"].map((name) => ({ id: name, name: `${name}.org`, state: "running" as const, stateLabel: "Running" })),
+  },
 ];
 
 function Surfaces() {
@@ -338,6 +346,14 @@ function Surfaces() {
                 <Skeleton className="h-4 w-1/2" />
                 <Skeleton className="h-control-md w-full" />
               </div>
+            </Card>
+            <Card tone="fail" padding="sm" as="div">
+              <p className="title text-14 text-fg">api.net</p>
+              <p className="text-13 text-fg">The service has failed</p>
+            </Card>
+            <Card tone="warn" padding="sm" as="div">
+              <p className="title text-14 text-fg">portal.net</p>
+              <p className="text-13 text-fg">The certificate expires in 6 days</p>
             </Card>
           </div>
           <Item label="a sentence of the server in the console's language (ServerText), with its fix, in a notice">
@@ -431,6 +447,14 @@ function Logos() {
               <LogoTile logo="nextcloud" size={size} />
             </Item>
           ))}
+        </Row>
+        <Row>
+          <Item label="a served logo (a recipe's), in the same tile">
+            <ImageLogoTile src="/favicon.svg" fallback="NO" size="lg" />
+          </Item>
+          <Item label="no logo, or it did not load: two letters, the same box">
+            <ImageLogoTile src={null} fallback="OW" size="lg" />
+          </Item>
         </Row>
         <ul className="grid grid-cols-3 gap-x-4 gap-y-3 sm:grid-cols-4">
           {slugs.map((slug) => (

@@ -114,6 +114,31 @@ describe("Card", () => {
     expect(screen.getByRole("heading", { name: "Resources" }).nextElementSibling).toBeNull();
   });
 
+  it("takes the ground and the border of the state it carries, and is stone when it carries none", () => {
+    render(
+      <div>
+        <Card as="div" tone="fail" padding="sm">
+          <p>Failed</p>
+        </Card>
+        <Card as="div" tone="warn" padding="sm">
+          <p>Expiring</p>
+        </Card>
+        <Card as="div" padding="sm">
+          <p>Well</p>
+        </Card>
+      </div>,
+    );
+    const card = (text: string): HTMLElement => {
+      const found = screen.getByText(text).closest<HTMLElement>(".elev-seated");
+      if (found === null) throw new Error(`no card around ${text}`);
+      return found;
+    };
+    expect(card("Failed")).toHaveClass("bg-fail-soft", "border-fail-border");
+    expect(card("Expiring")).toHaveClass("bg-warn-soft", "border-warn-border");
+    expect(card("Well")).toHaveClass("bg-surface", "border-border");
+    expect(card("Well")).not.toHaveClass("bg-fail-soft", "bg-warn-soft");
+  });
+
   it("has no accessibility violations", async () => {
     const { container } = render(
       <main>

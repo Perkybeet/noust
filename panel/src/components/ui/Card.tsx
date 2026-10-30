@@ -26,6 +26,12 @@ export interface CardProps {
    * to edge.
    */
   padding?: "none" | "sm" | "md";
+  /**
+   * A card that carries a problem takes the state's ground and border (C-2), and nothing else of it:
+   * what is well stays stone, so a board of twenty cards has colour only where something is wrong.
+   * The state is also its glyph and its word, which the content draws (docs/DESIGN.md, 2.1).
+   */
+  tone?: "fail" | "warn";
   /** The element: `section` for a panel with a title, `div` or `li` for a card in a list. */
   as?: "section" | "div" | "li" | "article";
   /** For a card that is itself a target (a whole-card link): its border answers the pointer. */
@@ -63,6 +69,7 @@ export function Card({
   as: Element = "section",
   interactive = false,
   loading = false,
+  tone,
   className,
 }: CardProps) {
   const Heading = `h${level}` as const;
@@ -72,7 +79,8 @@ export function Card({
     <Element
       {...(loading ? { "aria-busy": true } : {})}
       className={cx(
-        "elev-seated flex min-w-0 flex-col rounded-card border border-border bg-surface",
+        "elev-seated flex min-w-0 flex-col rounded-card border",
+        tone === "fail" ? "border-fail-border bg-fail-soft" : tone === "warn" ? "border-warn-border bg-warn-soft" : "border-border bg-surface",
         // A panel that is read does not move. One that opens something changes its tone, flat.
         interactive && "transition-colors duration-(--duration-press) ease-out hover:bg-surface-hover",
         className,

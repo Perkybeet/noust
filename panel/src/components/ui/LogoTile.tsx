@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import { cx } from "../../lib/cx";
 import { LOGOS } from "./logos/logoData";
 import type { LogoSlug } from "./logos/logoData";
@@ -54,6 +56,40 @@ export function LogoTile({ logo, size = "md", label = false, className }: LogoTi
       >
         <path d={data.path} fill="currentColor" />
       </svg>
+    </span>
+  );
+}
+
+export interface ImageLogoTileProps {
+  /** Where the logo is served from (a recipe's `logo`), or null when it has none: the letters stand in. */
+  src: string | null;
+  /** Two letters of the thing's name, for when there is no logo or it did not load. */
+  fallback: string;
+  size?: "sm" | "md" | "lg";
+  className?: string;
+}
+
+/**
+ * The logo of an application the console does not package (a recipe's, served as a file of its own by the
+ * server, an SVG held to a closed list of elements or a PNG) in the same carved tile as a packaged mark. It is
+ * shown through `<img>`, never inlined, so it needs nothing the Content Security Policy forbids. Decoration:
+ * the name of what it is is always beside it. When there is no logo, or it fails to load, two letters stand in,
+ * in the same box, so a card never changes size and nothing is drawn that is not a real mark or an honest gap.
+ */
+export function ImageLogoTile({ src, fallback, size = "md", className }: ImageLogoTileProps) {
+  const sizes = SIZES[size];
+  // The address a failure was seen for: a different logo in the same place gets its own try.
+  const [failedFor, setFailedFor] = useState<string | null>(null);
+  const drawn = src !== null && failedFor !== src;
+  return (
+    <span data-slot="logo-tile" className={cx("elev-carved-fine inline-flex shrink-0 items-center justify-center bg-bg-sunken", sizes.tile, className)}>
+      {drawn ? (
+        <img src={src} alt="" loading="lazy" decoding="async" onError={() => setFailedFor(src)} className={cx("object-contain", sizes.mark)} />
+      ) : (
+        <span aria-hidden="true" translate="no" className="text-13 font-medium text-fg-muted">
+          {fallback}
+        </span>
+      )}
     </span>
   );
 }

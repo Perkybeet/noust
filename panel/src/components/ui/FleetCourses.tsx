@@ -22,6 +22,12 @@ export interface FleetCourse {
   place?: string;
   /** How full its disk is, 0 to 100. */
   diskPercent?: number;
+  /**
+   * What is wrong with the server itself rather than with one of its applications ("Not answering"):
+   * a slab at the head of its course, tinted with its state, glyph and word. Its applications are
+   * still drawn after it, as the last answer knew them, because a problem is never what hides the rest.
+   */
+  problem?: { state: Status; label: string };
   apps: readonly FleetCourseApp[];
 }
 
@@ -34,6 +40,12 @@ export interface FleetCoursesProps {
   courses: readonly FleetCourse[];
   /** How many slabs sit across a course. Two on a phone, always. Defaults to four. */
   columns?: 3 | 4 | 6;
+  /**
+   * Draw every application of every course, however many: for a fleet of one server, where there is no other
+   * course to compare with and "+9 running" would hide the names a person came to find. The default says the
+   * well ones of a crowded server as one slab.
+   */
+  ungrouped?: boolean;
   /**
    * Wraps a server's name or an application's slab in a link to its page: the kit does not know
    * the router's routes. Return the element given `className` and `children`; without it the slabs
@@ -72,9 +84,9 @@ export interface CoursePlan {
  * not, the problems stay one by one (a problem is never hidden) and the well ones become a single
  * "+N running" slab: twenty applications that are well say less than the one that is not.
  */
-export function planCourse(apps: readonly FleetCourseApp[], columns: number): CoursePlan {
+export function planCourse(apps: readonly FleetCourseApp[], columns: number, ungrouped = false): CoursePlan {
   const ordered = [...apps].sort((a, b) => URGENCY[a.state] - URGENCY[b.state] || a.name.localeCompare(b.name, "en"));
-  if (ordered.length <= columns * 2) return { slabs: ordered, grouped: 0 };
+  if (ungrouped || ordered.length <= columns * 2) return { slabs: ordered, grouped: 0 };
   const problems = ordered.filter((app) => !isWell(app.state));
   return { slabs: problems, grouped: ordered.length - problems.length };
 }
@@ -126,12 +138,12 @@ function Slab({ app, linkFor, server }: { app: FleetCourseApp; linkFor: FleetCou
  * with nothing on it shows an empty slot. Twenty applications are read at a glance because the
  * grid is always the same and only the problem has colour.
  */
-export function FleetCourses({ label, courses, columns = 4, linkFor, className }: FleetCoursesProps) {
+export function FleetCourses({ label, courses, columns = 4, ungrouped = false, linkFor, className }: FleetCoursesProps) {
   const t = useT();
   return (
     <ul aria-label={label} className={cx("elev-seated flex flex-col divide-y divide-border rounded-card border border-border bg-surface", className)}>
       {courses.map((course) => {
-        const plan = planCourse(course.apps, columns);
+        const plan = planCourse(course.apps, columns, ungrouped);
         const high = course.diskPercent !== undefined && course.diskPercent >= 85;
         const heading = <span className="title min-w-0 truncate text-16">{course.name}</span>;
         return (
@@ -153,7 +165,7 @@ export function FleetCourses({ label, courses, columns = 4, linkFor, className }
                 </span>
               ) : null}
             </div>
-            {course.apps.length === 0 ? (
+            {course.apps.length === 0 && course.problem === undefined ? (
               <div className={cx("min-w-0 flex-1", "grid gap-1.5", GRID[columns])}>
                 <div className="col-span-2 flex h-10 items-center justify-center rounded-chip bg-bg-sunken text-12 text-fg-muted">
                   {t("common.fleetCourses.noApplications")}
@@ -161,6 +173,16 @@ export function FleetCourses({ label, courses, columns = 4, linkFor, className }
               </div>
             ) : (
               <ul className={cx("grid min-w-0 flex-1 gap-1.5", GRID[columns])}>
+                {course.problem !== undefined ? (
+                  <li className="col-span-2 min-w-0">
+                    <div className={cx(SLAB, "elev-seated", SLAB_GROUND[course.problem.state])}>
+                      <span className={cx("flex min-w-0 items-center gap-1.5 text-12 leading-tight font-semibold", stateTextClass(course.problem.state))}>
+                        <StatusGlyph state={course.problem.state} size={12} />
+                        {course.problem.label}
+                      </span>
+                    </div>
+                  </li>
+                ) : null}
                 {plan.slabs.map((app) => (
                   <li key={app.id} className="min-w-0">
                     <Slab app={app} linkFor={linkFor} server={course.id} />

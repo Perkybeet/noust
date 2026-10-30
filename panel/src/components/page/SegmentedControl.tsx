@@ -10,6 +10,8 @@ export interface SegmentedOption<V extends string> {
   label: string;
   /** A drawing of what the option is, before its name: decoration (`aria-hidden`), in the colour of the text. */
   icon?: ReactNode;
+  /** How many things the option holds (the applications of a server), after its name, in the quiet colour; part of its accessible name. */
+  count?: number;
 }
 
 export interface SegmentedControlProps<V extends string> {
@@ -62,6 +64,12 @@ export function SegmentedControl<V extends string>({ label, options, value, onVa
             </span>
           ) : null}
           <span className={fill ? "max-w-full truncate" : undefined}>{option.label}</span>
+          {option.count !== undefined ? (
+            <>
+              {" "}
+              <span className="mono ml-1 text-fg-faint tabular-nums">{option.count}</span>
+            </>
+          ) : null}
         </Radio.Root>
       ))}
     </RadioGroup>
