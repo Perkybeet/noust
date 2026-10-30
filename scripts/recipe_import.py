@@ -69,6 +69,7 @@ import recipe_pins  # noqa: E402
 
 from noust.core.compose_yaml import load_compose  # noqa: E402
 from noust.recipes import coolify, dokploy  # noqa: E402
+from noust.recipes.licensing import is_free_software  # noqa: E402
 from noust.recipes.model import CATEGORIES, FLOATING_TAGS, RecipeError  # noqa: E402
 from noust.recipes.schema import parse_recipe  # noqa: E402
 from noust.recipes.variables import scan_references  # noqa: E402
@@ -381,16 +382,20 @@ _GITHUB = re.compile(r"https://github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)")
 NOT_A_PROJECT = frozenset({"coollabsio", "Dokploy", "sponsors", "orgs", "topics", "marketplace"})
 
 
-def find_repository(source: Source) -> str | None:
+def find_repository(source: Source, repositories: Mapping[str, str] | None = None) -> str | None:
     """
     Find the GitHub repository of the project a candidate is.
 
     Args:
         source: The candidate.
+        repositories: Repositories a person found for templates that name none, by the
+            template's normalised name; they win over what the template says.
 
     Returns:
         ``owner/name``, or None when none of the places that name it do.
     """
+    if repositories and source.key in repositories:
+        return repositories[source.key]
     meta = dokploy_meta(source.dokploy)
     links = meta.get("links") if isinstance(meta.get("links"), dict) else {}
     texts = [str(links.get("github", ""))]
@@ -462,12 +467,53 @@ def repository_facts(slug: str, cache: dict[str, Any]) -> dict[str, Any] | None:
     return facts
 
 
-def not_eligible(facts: Mapping[str, Any] | None) -> Skip | None:
+def with_licence(
+    facts: Mapping[str, Any] | None, licences: Mapping[str, Mapping[str, Any]] | None
+) -> dict[str, Any] | None:
+    """
+    Put a person's reading of a repository's licence over what GitHub could say of it.
+
+    GitHub names a licence only when the file is a standard text; a repository with its own terms
+    (``NOASSERTION``) is read by a person, who records the SPDX expression to use, whether the terms
+    let an operator run it for others, and what was read and where.
+
+    Args:
+        facts: What :func:`repository_facts` read.
+        licences: Readings by repository (``owner/name``, any case): ``license`` (the expression),
+            ``accept`` (whether an operator may run it), ``name`` (how the terms are called) and
+            ``evidence`` (the file read and the day).
+
+    Returns:
+        The facts with ``license``, ``licence_name``, ``licence_evidence`` and ``licence_accepted``
+        set when a reading exists, else the facts as they were.
+    """
+    if facts is None:
+        return None
+    if not licences:
+        return dict(facts)
+    wanted = str(facts["repository"]).lower()
+    for slug, reading in licences.items():
+        if slug.lower() != wanted:
+            continue
+        return {
+            **facts,
+            "license": reading.get("license", facts.get("license")),
+            "licence_name": reading.get("name", ""),
+            "licence_evidence": reading.get("evidence", ""),
+            "licence_accepted": bool(reading.get("accept")),
+            "licence_refused": reading.get("accept") is False,
+        }
+    return dict(facts)
+
+
+def not_eligible(facts: Mapping[str, Any] | None, *, min_stars: int = MIN_STARS) -> Skip | None:
     """
     Judge a repository against docs/contributing-recipes.md.
 
     Args:
-        facts: What :func:`repository_facts` read.
+        facts: What :func:`repository_facts` read, as :func:`with_licence` may have changed it.
+        min_stars: The fewest stars a project may have; the catalogue's rule is 1,000 and a run
+            that looks for the long tail lowers it for projects that are alive and publish an image.
 
     Returns:
         Why not, or None when it is eligible.
@@ -476,7 +522,7 @@ def not_eligible(facts: Mapping[str, Any] | None) -> Skip | None:
         return Skip("no-repository", "the repository could not be read")
     if facts["archived"]:
         return Skip("archived", facts["repository"])
-    if facts["stars"] < MIN_STARS:
+    if facts["stars"] < min_stars:
         return Skip("stars", f"{facts['repository']} has {facts['stars']}")
     latest = facts.get("released") or facts.get("pushed")
     if latest is None:
@@ -485,7 +531,9 @@ def not_eligible(facts: Mapping[str, Any] | None) -> Skip | None:
     if age > MAX_AGE_DAYS:
         return Skip("stale", f"{facts['repository']}: last release or push {age} days ago")
     licence = facts.get("license")
-    if licence not in OPEN_LICENSES:
+    if facts.get("licence_refused"):
+        return Skip("licence", f"{facts['repository']}: {facts.get('licence_evidence') or licence}")
+    if licence not in OPEN_LICENSES and not facts.get("licence_accepted"):
         return Skip("licence", f"{facts['repository']}: {licence}")
     return None
 
@@ -524,6 +572,7 @@ class Draft:
     secret_files: set[str] = field(default_factory=set)
     root_equivalent: str | None = None
     shipped: dict[str, str] = field(default_factory=dict)
+    public_ports: list[dict[str, Any]] = field(default_factory=list)
 
 
 def convert_template(source: Source) -> tuple[Draft, str]:
@@ -608,6 +657,38 @@ def as_environment(raw: Any) -> dict[str, str]:
     return {}
 
 
+#: How each engine says it answers, for a template that left its database without a check: an
+#: application that starts before its database answers restarts until it does, which the smoke test
+#: counts as a restart loop. The commands read the account from the container's own environment.
+_HEALTH_TIMING = {"interval": "10s", "timeout": "5s", "retries": 10, "start_period": "20s"}
+ENGINE_HEALTH_CHECKS: dict[str, dict[str, Any]] = {
+    "postgres": {
+        "test": ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER:-postgres}" -q'],
+        **_HEALTH_TIMING,
+    },
+    "mariadb": {
+        "test": ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"],
+        **_HEALTH_TIMING,
+    },
+    "mysql": {"test": ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 --silent"], **_HEALTH_TIMING},
+    "redis": {"test": ["CMD", "redis-cli", "ping"], **_HEALTH_TIMING},
+    "valkey": {"test": ["CMD", "valkey-cli", "ping"], **_HEALTH_TIMING},
+    "mongo": {
+        "test": ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"],
+        **_HEALTH_TIMING,
+    },
+}
+
+#: A port a stack opens on purpose, as the template writes it: numbers, and a protocol.
+_PUBLIC_PORT = re.compile(
+    r"(?P<host>[0-9]{1,5}):(?P<container>[0-9]{1,5})(?:/(?P<protocol>tcp|udp))?"
+)
+
+#: Ports the server itself (or the usual database beside it) holds: a recipe that opened one would
+#: not start next to them, so the template is left for a person to adapt.
+SERVER_PORTS = frozenset({22, 53, 80, 443, 3306, 5432, 6379, 27017})
+
+
 def clean_services(draft: Draft) -> None:
     """
     Rewrite the services into what a recipe's schema accepts.
@@ -652,7 +733,18 @@ def clean_services(draft: Draft) -> None:
             ):
                 ports.append(f"127.0.0.1:${{PORT}}:{routed_port}")
             else:
-                raise Skip("extra-port", f"service {key} publishes {text}")
+                opened = _PUBLIC_PORT.fullmatch(text)
+                if opened is None or int(opened["host"]) in SERVER_PORTS:
+                    raise Skip("extra-port", f"service {key} publishes {text}")
+                protocol = opened["protocol"] or "tcp"
+                ports.append(text)
+                draft.public_ports.append(
+                    {
+                        "port": int(opened["host"]),
+                        "protocol": protocol,
+                        "purpose": f"{key}: {opened['container']}/{protocol}, which the template opens.",
+                    }
+                )
         if ports:
             spec["ports"] = ports
         else:
@@ -681,6 +773,11 @@ def clean_services(draft: Draft) -> None:
                     condition = "service_healthy"
                 waits[str(target)] = {"condition": condition}
             spec["depends_on"] = waits
+    for spec in draft.services.values():
+        if not spec.get("healthcheck"):
+            engine = image_engine(str(spec.get("image", "")))
+            if engine is not None and engine.flavour in ENGINE_HEALTH_CHECKS:
+                spec["healthcheck"] = dict(ENGINE_HEALTH_CHECKS[engine.flavour])
     for key, spec in draft.services.items():
         for target in spec.get("depends_on") or ():
             if target not in draft.services:
@@ -984,8 +1081,23 @@ def declare_variables(draft: Draft, text: str) -> dict[str, dict[str, Any]]:
             entry = {"from": "fqdn" if name.startswith("SERVICE_FQDN") else "url"}
         elif known is not None and known["origin"] == "generated":
             composed = compose_value(draft, name, found)
+            twin = next(
+                (
+                    other
+                    for other, made in found.items()
+                    if "generate" in made
+                    and known["value"]
+                    and len(str(known["value"])) >= 8
+                    and draft.values.get(other) == known["value"]
+                ),
+                None,
+            )
             if composed is not None:
                 entry = {"value": composed, "secret": True}
+            elif twin is not None:
+                # The template wrote one secret (`db_pass`) and used it twice: the database's and the
+                # application's must stay the same value, not two random ones.
+                entry = {"value": f"${{{twin}}}", "secret": True}
             elif known["secret"]:
                 entry = {"generate": generator_for(name, known["value"])}
             else:
@@ -1249,6 +1361,22 @@ def build_text(
     tag = image.split("@", 1)[0].rsplit(":", 1)[-1]
     version = re.sub(r"^v(?=\d)", "", tag)[:39] if re.match(r"^v?\d", tag) else tag[:39]
     licence = SPDX_ALIASES.get(facts["license"], facts["license"])
+    if not is_free_software(licence):
+        # The catalogue says so where the operator chooses (tests/recipes/test_licensing.py): the
+        # software may be run for one's own use, and it is not free software.
+        called = facts.get("licence_name") or "its own licence"
+        lead = (
+            f"Open core ({called}), its enterprise features need a licence. "
+            if re.search(r"-and-(EE|proprietary)$", licence or "")
+            else f"Source-available ({called}), for your own use. "
+        )
+        description = sentence(
+            lead
+            + str(
+                meta.get("description") or page.get("description") or facts["description"] or slogan
+            ),
+            400,
+        )
     homepage = (
         facts["homepage"] if str(facts["homepage"]).startswith("https://") else facts["html_url"]
     )
@@ -1309,6 +1437,7 @@ def build_text(
         f"# ({licence_of_origin}), changed into a recipe: every image pinned to a release and the",
         "# digest its registry serves, the web port on the loopback address, credentials generated,",
         "# and nothing the closed schema refuses. The template's authors keep their rights in it.",
+        *([f"# Licence: {facts['licence_evidence']}"] if facts.get("licence_evidence") else []),
         "schema: 2",
         f"name: {source.name}",
         "kind: compose",
@@ -1343,6 +1472,13 @@ def build_text(
     )
     if draft.root_equivalent:
         lines.append(f"root_equivalent: {draft.root_equivalent}")
+    if draft.public_ports:
+        lines.append("public_ports:")
+        for opened in draft.public_ports:
+            lines.append(
+                f"  - {{port: {opened['port']}, protocol: {opened['protocol']}, "
+                f"purpose: {quote(opened['purpose'])}}}"
+            )
     if draft.shipped:
         lines.append("files:")
         for shipped in draft.shipped:
@@ -1626,6 +1762,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--dokploy", type=Path, default=DEFAULTS["dokploy"])
     parser.add_argument("--icons", type=Path, default=DEFAULTS["icons"])
     parser.add_argument("--cache", type=Path, default=work / "github-cache.json")
+    parser.add_argument(
+        "--min-stars",
+        type=int,
+        default=MIN_STARS,
+        help="the fewest stars a project may have (the catalogue's rule is 1,000)",
+    )
+    parser.add_argument(
+        "--overrides",
+        type=Path,
+        help="a JSON file with what a person found: `repositories` (template name -> owner/name) "
+        "and `licences` (owner/name -> license, accept, name, evidence)",
+    )
     commands = parser.add_subparsers(dest="command", required=True)
     survey = commands.add_parser("survey")
     survey.add_argument("--out", type=Path, default=work / "survey.json")
@@ -1646,6 +1794,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     sources = read_sources(args.coolify, args.dokploy, args.coolify_docs)
     cache = load_cache(args.cache)
     existing = {norm(p.stem) for p in RECIPES.glob("*.yaml")}
+    found_by_hand: dict[str, Any] = (
+        json.loads(args.overrides.read_text(encoding="utf-8")) if args.overrides else {}
+    )
+    repositories: dict[str, str] = {
+        norm(key): slug for key, slug in (found_by_hand.get("repositories") or {}).items()
+    }
+    licences: dict[str, Any] = found_by_hand.get("licences") or {}
     try:
         if args.command == "survey":
             rows = []
@@ -1657,10 +1812,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                 if key in existing:
                     rows.append(row)
                     continue
-                slug = find_repository(source)
+                slug = find_repository(source, repositories)
                 row["repository"] = slug
-                facts = repository_facts(slug, cache) if slug else None
-                verdict = Skip("no-repository") if slug is None else not_eligible(facts)
+                facts = with_licence(repository_facts(slug, cache) if slug else None, licences)
+                verdict = (
+                    Skip("no-repository")
+                    if slug is None
+                    else not_eligible(facts, min_stars=args.min_stars)
+                )
                 row["facts"] = facts
                 row["skip"] = str(verdict) if verdict else None
                 reasons[verdict.code if verdict else "eligible"] += 1
@@ -1704,9 +1863,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print(f"{name}: skip the catalogue already has it")
                 failed += 1
                 continue
-            slug = find_repository(source)
-            facts = repository_facts(slug, cache) if slug else None
-            verdict = not_eligible(facts) if slug else Skip("no-repository")
+            slug = find_repository(source, repositories)
+            facts = with_licence(repository_facts(slug, cache) if slug else None, licences)
+            verdict = (
+                not_eligible(facts, min_stars=args.min_stars) if slug else Skip("no-repository")
+            )
             if verdict is not None or facts is None:
                 print(f"{name}: skip {verdict}")
                 log[name] = {"status": "skip", "reason": str(verdict)}

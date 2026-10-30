@@ -158,7 +158,7 @@ def test_what_waits_for_a_service_with_a_health_check_waits_for_it_to_answer(
         {
             "web": {"image": "o/app:1.0", "depends_on": ["db", "cache"]},
             "db": {"image": "postgres:16", "healthcheck": {"test": ["CMD", "pg_isready"]}},
-            "cache": {"image": "redis:7"},
+            "cache": {"image": "o/cache:7"},
         },
         ("web", 8080),
     )
@@ -675,3 +675,235 @@ def test_a_setting_whose_name_looks_like_a_secret_but_holds_a_duration_becomes_a
     assert draft.variables["TOKEN_EXPIRY"]["value"] == "24h"
     declared = tool.declare_variables(draft, "x: ${TOKEN_EXPIRY}")
     assert declared["TOKEN_EXPIRY"]["default"] == "24h"
+
+
+def test_two_variables_the_converter_gave_one_random_value_stay_one_secret(
+    tool: ModuleType,
+) -> None:
+    """Dokploy expands one `db_pass` into the database's and the application's variable alike."""
+    draft = draft_of(
+        tool,
+        {
+            "db": {"image": "o/db:1", "environment": {"DB_PASSWORD": "${DB_PASSWORD}"}},
+            "web": {"image": "o/app:1", "environment": {"APP_DB_PASSWORD": "${APP_DB_PASSWORD}"}},
+        },
+        ("web", 80),
+    )
+    value = "A" * 32
+    draft.variables = {
+        "DB_PASSWORD": {"origin": "generated", "secret": True, "value": value},
+        "APP_DB_PASSWORD": {"origin": "generated", "secret": True, "value": value},
+    }
+    draft.values = {"DB_PASSWORD": value, "APP_DB_PASSWORD": value}
+
+    declared = tool.declare_variables(draft, "a: ${DB_PASSWORD}\nb: ${APP_DB_PASSWORD}\n")
+
+    assert declared["DB_PASSWORD"]["generate"] == "password32"
+    assert declared["APP_DB_PASSWORD"]["value"] == "${DB_PASSWORD}"
+    assert declared["APP_DB_PASSWORD"]["secret"] is True
+
+
+@pytest.mark.parametrize(
+    ("image", "needle"),
+    [
+        ("postgres:17", "pg_isready"),
+        ("mariadb:11", "healthcheck.sh"),
+        ("mysql:8.4", "mysqladmin ping"),
+        ("valkey/valkey:9", "valkey-cli"),
+        ("redis:7", "redis-cli"),
+        ("mongo:8", "mongosh"),
+    ],
+)
+def test_a_database_without_a_health_check_gets_one_and_what_uses_it_waits_for_it(
+    tool: ModuleType, image: str, needle: str
+) -> None:
+    """Without it the application starts before the engine answers and restarts until it does."""
+    draft = draft_of(
+        tool,
+        {
+            "web": {"image": "o/app:1.0", "ports": ["127.0.0.1:${PORT}:80"], "depends_on": ["db"]},
+            "db": {"image": image},
+        },
+        ("web", 80),
+    )
+
+    tool.clean_services(draft)
+
+    check = draft.services["db"]["healthcheck"]
+    assert needle in " ".join(check["test"])
+    assert draft.services["web"]["depends_on"] == {"db": {"condition": "service_healthy"}}
+
+
+def test_a_database_that_has_its_own_health_check_keeps_it(tool: ModuleType) -> None:
+    """What a template wrote is what its authors tested."""
+    own = {"test": ["CMD", "true"], "interval": "5s"}
+    draft = draft_of(
+        tool,
+        {
+            "web": {"image": "o/app:1.0", "ports": ["127.0.0.1:${PORT}:80"], "depends_on": ["db"]},
+            "db": {"image": "postgres:17", "healthcheck": own},
+        },
+        ("web", 80),
+    )
+
+    tool.clean_services(draft)
+
+    assert draft.services["db"]["healthcheck"] == own
+
+
+# -- the long tail: ports a stack opens on purpose --------------------------------------------------
+
+
+def test_a_port_a_template_opens_to_the_network_is_declared_not_a_reason_to_skip_it(
+    tool: ModuleType,
+) -> None:
+    """The format has `public_ports` for what a stack opens on purpose (a WebRTC media port)."""
+    draft = draft_of(
+        tool,
+        {
+            "web": {
+                "image": "o/app:1.0",
+                "ports": ["127.0.0.1:${PORT}:80", "10000:10000/udp", "4443:4443"],
+            }
+        },
+        ("web", 80),
+    )
+
+    tool.clean_services(draft)
+
+    assert draft.services["web"]["ports"] == [
+        "127.0.0.1:${PORT}:80",
+        "10000:10000/udp",
+        "4443:4443",
+    ]
+    assert [(p["port"], p["protocol"]) for p in draft.public_ports] == [
+        (10000, "udp"),
+        (4443, "tcp"),
+    ]
+    assert all("web" in p["purpose"] for p in draft.public_ports)
+
+
+@pytest.mark.parametrize("port", ["53:53/udp", "80:8080", "443:8443", "22:22", "5432:5432"])
+def test_a_port_the_server_itself_uses_is_still_a_reason_to_skip(
+    tool: ModuleType, port: str
+) -> None:
+    """A recipe that takes the host's DNS, web, SSH or database port would not start beside them."""
+    draft = draft_of(
+        tool,
+        {"web": {"image": "o/app:1.0", "ports": ["127.0.0.1:${PORT}:80", port]}},
+        ("web", 80),
+    )
+
+    with pytest.raises(tool.Skip) as caught:
+        tool.clean_services(draft)
+
+    assert caught.value.code == "extra-port"
+
+
+def test_a_port_with_a_variable_or_a_range_is_not_declared(tool: ModuleType) -> None:
+    """`public_ports` names a number; a template's variable or range is for a person to read."""
+    for odd in (
+        "${MEDIA_PORT}:${MEDIA_PORT}",
+        "50000-50100:50000-50100/udp",
+        "127.0.0.1:9000:9000",
+    ):
+        draft = draft_of(tool, {"web": {"image": "o/app:1.0", "ports": [odd]}}, ("web", 80))
+
+        with pytest.raises(tool.Skip) as caught:
+            tool.clean_services(draft)
+
+        assert caught.value.code == "extra-port", odd
+
+
+# -- the long tail: a lower floor of stars, licences a person read, repositories a person found -----
+
+
+def test_the_floor_of_stars_is_the_catalogue_s_unless_a_run_lowers_it(tool: ModuleType) -> None:
+    """1,000 stars is the rule; a run that looks for the long tail lowers it, and only the stars."""
+    small = facts(stars=300)
+
+    assert tool.not_eligible(small).code == "stars"
+    assert tool.not_eligible(small, min_stars=150) is None
+    assert tool.not_eligible(facts(stars=300, archived=True), min_stars=150).code == "archived"
+    stale = facts(stars=300, released="2020-01-01T00:00:00Z")
+    assert tool.not_eligible(stale, min_stars=150).code == "stale"
+
+
+def test_a_licence_a_person_read_makes_a_project_eligible_or_names_why_it_is_not(
+    tool: ModuleType,
+) -> None:
+    """GitHub says NOASSERTION for terms of a project's own; the reading is what the importer trusts."""
+    unknown = facts(license="NOASSERTION", repository="O/App")
+    readings = {
+        "o/app": {
+            "license": "LicenseRef-App-Community",
+            "accept": True,
+            "name": "App Community License",
+            "evidence": "LICENSE of o/app, read 2026-10-30: use for your own organisation is free",
+        }
+    }
+
+    accepted = tool.with_licence(unknown, readings)
+
+    assert tool.not_eligible(accepted) is None
+    assert accepted["license"] == "LicenseRef-App-Community"
+    assert accepted["licence_name"] == "App Community License"
+    refused = tool.with_licence(
+        unknown,
+        {"o/app": {"license": "LicenseRef-App", "accept": False, "evidence": "personal use only"}},
+    )
+    verdict = tool.not_eligible(refused)
+    assert verdict is not None and verdict.code == "licence" and "personal use only" in str(verdict)
+    assert tool.not_eligible(tool.with_licence(unknown, {})).code == "licence"
+    assert tool.with_licence(None, readings) is None
+
+
+def test_a_repository_a_person_found_wins_over_what_the_template_says(
+    tool: ModuleType, tmp_path: Path
+) -> None:
+    """Templates that name no repository are not left out for it."""
+    template = tmp_path / "demo.yaml"
+    template.write_text("# documentation: https://example.com/docs\nservices: {}\n")
+    source = tool.Source(key="demo", name="demo", coolify=template)
+
+    assert tool.find_repository(source) is None
+    assert tool.find_repository(source, {"demo": "owner/demo"}) == "owner/demo"
+    assert tool.find_repository(source, {"other": "owner/other"}) is None
+
+
+def test_a_recipe_of_a_source_available_project_says_so_and_cites_the_reading(
+    tool: ModuleType,
+) -> None:
+    """The label is in the description and the evidence is in the header, for a person to check."""
+    draft = draft_of(
+        tool,
+        {"web": {"image": "o/app:1.0@sha256:" + "a" * 64, "ports": ["127.0.0.1:${PORT}:3000"]}},
+        ("web", 3000),
+    )
+    draft.origin = "Dokploy"
+    draft.template = "blueprints/app"
+    source = tool.Source(key="app", name="app")
+    reading = tool.with_licence(
+        facts(
+            license="NOASSERTION",
+            repository="o/app",
+            description="Does a thing.",
+            homepage="",
+            html_url="https://github.com/o/app",
+        ),
+        {
+            "o/app": {
+                "license": "LicenseRef-App-Community",
+                "accept": True,
+                "name": "App Community License",
+                "evidence": "LICENSE of o/app, read 2026-10-30",
+            }
+        },
+    )
+    health = {"path": "/", "expect": "200", "timeout": 60}
+
+    text = tool.build_text(draft, source, reading, ["amd64"], logo="logo.svg", health=health)
+
+    assert "# Licence: LICENSE of o/app, read 2026-10-30" in text
+    assert "license: LicenseRef-App-Community" in text
+    assert "Source-available (App Community License), for your own use. Does a thing." in text

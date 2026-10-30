@@ -72,7 +72,7 @@ API answers it as a sentence of the server's words (`unavailable`, with its `cod
 `unavailable_text` and `unavailable_hint` in English), `GET /api/recipes?available=false` lists what
 is left out and `?unavailable_code=licence` narrows it, and `noust recipe list --unavailable
 [--reason CODE]` does the same. `unavailable_reason` stays the evidence, to be folded under the
-sentence. Installing a listed recipe is refused with that sentence. Vault, Excalidraw, PocketBase and
+sentence. Installing a listed recipe is refused with that sentence. Excalidraw, PocketBase, Joplin Server and
 others are listed this way (see the end of [the catalog](recipes-catalog.md)).
 
 ### `kind: compose`
@@ -458,17 +458,26 @@ to the image the project publishes, pinned by its digest. Three cases:
 - An open source licence: the recipe is installable.
 - A source-available licence that lets an organisation run the software for itself (n8n's and
   NocoDB's Sustainable Use License, Directus's Monospace Sustainable Core License, Open WebUI's
-  branding clause, PLANKA's Community License, Tandoor's AGPL with the Commons Clause, Outline's
-  Business Source License, Typebot's Functional Source License and Bugsink's PolyForm Shield
-  License), or an open core whose
+  branding clause, PLANKA's Community License, Tandoor's AGPL with the Commons Clause, a Business
+  Source License whose grant allows production use of your own (Outline's, HashiCorp Vault's), the
+  Functional Source License, the Server Side Public License used for your own needs, Typebot's
+  Functional Source License and Bugsink's PolyForm Shield License), or an open core whose
   repository holds some files under a proprietary licence (Stirling PDF, AFFiNE, Chatwoot,
   Infisical): the recipe is installable, its description says "source-available" or "open core",
   and a note names the restriction that matters (not offering it to others as a service, no
-  competing use, keeping a name and logo).
+  competing use, keeping a name and logo). Such a recipe is **not free software**, and the catalogue
+  says so wherever it is shown, with the licence's name: `GET /api/recipes` answers
+  `free_software: false`, `noust recipe list` marks the line `[not free software]` and
+  `noust recipe show` says it beside the licence. The decision is one function,
+  `noust.recipes.licensing.is_free_software`, over the SPDX expression: a licence of the families
+  the OSI and the FSF approve is free, anything else (a name the project wrote, BUSL, FSL, SSPL) is
+  not, and an unknown identifier is never read in the recipe's favour.
 - A licence that forbids what an operator of a server does (personal use only, no access for
-  others), a community edition its own project declares not for production, or terms that cannot
-  be told from the file: the recipe is listed as unavailable with the file or page named and the
-  day it was read (Joplin Server's licence, Cal.diy's README, Vault's Business Source License).
+  others, a ceiling on users or devices that an ordinary installation passes), a community edition
+  its own project declares not for production, or terms that cannot be told from the file or that
+  their owner may change by announcing it: the recipe is listed as unavailable with the file or
+  page named and the day it was read (Joplin Server's licence, Cal.diy's README, Akaunting's
+  ceiling of two users, ThingsBoard's of 1,000 devices, NocoBase's agreement).
 
 A file copied from a project's repository (Plausible's ClickHouse settings) is shipped unchanged
 with that repository's licence text in a `NOTICE` file in the recipe's assets.
@@ -518,7 +527,10 @@ testing it on your own Docker and sending it. What follows is the rule it is jud
 The rule of eligibility: the upstream project has at least 1,000 stars on GitHub (or on the forge
 that hosts it: Codeberg for Forgejo), has made a release in the last year and is not archived, and
 its licence allows running it for others (the licence goes in `license`; a source-available one is
-said so in the description). A project that publishes a build per commit and no release (SearXNG)
+said so in the description). The floor of stars is lower, 100, for a project that is alive (a release
+or a push in the last year) and publishes an image of its own that can be pinned: a long tail of
+applications people run is smaller than a thousand stars, and what matters is that someone maintains
+what the recipe installs. A project that publishes a build per commit and no release (SearXNG)
 is pinned to the newest dated build by tag and digest, and its recipe says so.
 
 A recipe is accepted when:

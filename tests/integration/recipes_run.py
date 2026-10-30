@@ -506,45 +506,74 @@ def check_bookstack(project: str, directory: str) -> list[str]:
     return problems
 
 
+def check_opening(project: str, service: str, cli: str) -> list[str]:
+    """
+    Walk the opening ceremony a secrets server's first notes describe, on the running stack.
+
+    A new OpenBao or Vault is uninitialised and sealed and the gate accepts that. The notes tell the
+    operator to initialise it and unseal it with ``<cli> operator init`` and ``<cli> operator unseal
+    KEY`` (run through ``noust app exec``, which runs them in the service's container with its
+    environment): this runs the same commands in the same container and asks whether the server
+    ends up unsealed.
+
+    Args:
+        project: The Compose project of the stack kept running.
+        service: The service that holds the server.
+        cli: The command line client of the project (``bao`` or ``vault``).
+
+    Returns:
+        What is wrong; empty when the server initialises, unseals with the key it printed and
+        answers as unsealed.
+    """
+    container = f"{project}-{service}-1"
+    started = inside(
+        f"docker exec {container} {cli} operator init -key-shares=1 -key-threshold=1 -format=json",
+        check=False,
+    )
+    try:
+        key = json.loads(started.stdout)["unseal_keys_b64"][0]
+    except (ValueError, KeyError, IndexError):
+        return [f"{cli} operator init, as the notes say, printed no key: {started.stdout[-300:]!r}"]
+    inside(f"docker exec {container} {cli} operator unseal {shlex.quote(key)}", check=False)
+    status = inside(f"docker exec {container} {cli} status -format=json", check=False).stdout
+    try:
+        sealed = json.loads(status)["sealed"]
+    except (ValueError, KeyError):
+        return [f"{cli} status answered {status[-300:]!r}"]
+    return [] if sealed is False else ["the server is still sealed after the key the notes use"]
+
+
 def check_openbao(project: str, directory: str) -> list[str]:
     """
-    Walk the opening ceremony the recipe's first notes describe, on the running stack.
-
-    A new OpenBao is uninitialised and sealed and the gate accepts that. The notes tell the operator
-    to initialise it and unseal it with the commands ``bao operator init`` and ``bao operator
-    unseal KEY`` (run through ``noust app exec``, which runs them in the service's container with
-    its environment): this runs the same commands in the same container and asks whether the server
-    ends up unsealed.
+    Walk OpenBao's opening ceremony (see :func:`check_opening`).
 
     Args:
         project: The Compose project of the stack kept running.
         directory: Where its ``.env`` is, inside the harness container (unused).
 
     Returns:
-        What is wrong; empty when the server initialises, unseals with the key it printed and
-        answers as unsealed.
+        What is wrong; empty when it opens as the notes say.
     """
-    container = f"{project}-openbao-1"
-    started = inside(
-        f"docker exec {container} bao operator init -key-shares=1 -key-threshold=1 -format=json",
-        check=False,
-    )
-    try:
-        key = json.loads(started.stdout)["unseal_keys_b64"][0]
-    except (ValueError, KeyError, IndexError):
-        return [f"bao operator init, as the notes say, printed no key: {started.stdout[-300:]!r}"]
-    inside(f"docker exec {container} bao operator unseal {shlex.quote(key)}", check=False)
-    status = inside(f"docker exec {container} bao status -format=json", check=False).stdout
-    try:
-        sealed = json.loads(status)["sealed"]
-    except (ValueError, KeyError):
-        return [f"bao status answered {status[-300:]!r}"]
-    return [] if sealed is False else ["the server is still sealed after the key the notes use"]
+    return check_opening(project, "openbao", "bao")
+
+
+def check_vault(project: str, directory: str) -> list[str]:
+    """
+    Walk Vault's opening ceremony (see :func:`check_opening`).
+
+    Args:
+        project: The Compose project of the stack kept running.
+        directory: Where its ``.env`` is, inside the harness container (unused).
+
+    Returns:
+        What is wrong; empty when it opens as the notes say.
+    """
+    return check_opening(project, "vault", "vault")
 
 
 #: Checks beyond the gate, for a recipe that promises something the gate cannot see: they run on
 #: the stack while it is still up (``recipe_smoke.py --keep``) and the stack is removed after.
-CHECKS = {"bookstack": check_bookstack, "openbao": check_openbao}
+CHECKS = {"bookstack": check_bookstack, "openbao": check_openbao, "vault": check_vault}
 
 #: What ``recipe_smoke.py --keep`` prints when it leaves a stack up.
 KEPT = re.compile(r"kept: (?P<directory>\S+) \(project (?P<project>\S+)\)")
@@ -844,6 +873,11 @@ def accept(names: list[str]) -> list[str]:
     moved: list[str] = []
     for name in names or sorted(p.stem for p in DRAFTS.glob("*.yaml")):
         if name not in passed or not is_draft(name):
+            continue
+        # A draft whose recipe the catalogue already has is not "accepted" by a bare `accept`: the
+        # catalogue's file may have a mark and a notice the draft never had. Replacing a recipe is
+        # asked for by name.
+        if not names and (REPO_ROOT / "src/noust/recipes" / f"{name}.yaml").is_file():
             continue
         if importer().FORBIDDEN_WORDS.search((DRAFTS / f"{name}.yaml").read_text(encoding="utf-8")):
             print(f"{name}: not accepted, it names a word the history may not carry")
