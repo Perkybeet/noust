@@ -43,6 +43,19 @@ export const EMPTY_ENROLL: EnrollForm = {
   replaceToken: false,
 };
 
+/**
+ * A name for a server from the address typed, so that the person only has to type the address: the
+ * first label of a host name (`web2.example.com` is `web2`), or `server-` and the last number of an
+ * IPv4 address. Empty when the address says nothing (an IPv6 address): the field then asks.
+ */
+export function suggestName(host: string): string {
+  const text = host.trim().toLowerCase();
+  if (text === "" || text.includes(":")) return "";
+  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(text)) return `server-${text.split(".")[3] ?? ""}`;
+  const label = (text.split(".")[0] ?? "").replace(/[^a-z0-9-]/g, "-").replace(/^-+/, "").slice(0, 32).replace(/-+$/, "");
+  return NODE_NAME.test(label) ? label : "";
+}
+
 export type Problem = "name" | "host" | "port" | "user" | "password" | "key" | "keyShape";
 
 /** A private key's text starts with its BEGIN line, whatever the kind of key. */

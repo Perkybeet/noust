@@ -42,6 +42,7 @@ import { useServerJob } from "../serverJob";
 import { TabToolbar } from "../TabToolbar";
 import { CleanupHistory } from "./CleanupHistory";
 import { CleanupScheduleCard } from "./CleanupScheduleCard";
+import { KeptFolders } from "./KeptFolders";
 import { SwapCard } from "./SwapCard";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
@@ -412,6 +413,7 @@ function StorageView() {
         }
       />
       <Mounts mounts={data?.mounts} />
+      <KeptFolders />
       <div className="grid min-w-0 items-start gap-6 xl:grid-cols-3">
         <div className="flex min-w-0 flex-col gap-2 xl:col-span-2">
           <Candidates storage={data} open={setOpened} />

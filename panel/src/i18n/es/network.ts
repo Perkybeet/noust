@@ -433,7 +433,6 @@ export const network: Catalog<typeof en> = {
   tabs: {
     dns: "DNS",
     tunnels: "Túneles",
-    ports: "Puertos",
   },
   dns: {
     add: "Añadir cuenta",
@@ -491,6 +490,7 @@ export const network: Catalog<typeof en> = {
     sweepFailed: "No se pudieron liberar los registros sin uso",
   },
   ports: {
+    viewDescription: "Los puertos TCP y UDP que nginx publica delante de un servicio que no es una web.",
     publishAction: "Publicar un puerto",
     unavailable: "nginx no puede publicar un puerto aquí",
     listFailed: "No se pudieron listar los puertos publicados",

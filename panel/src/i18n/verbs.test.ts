@@ -46,9 +46,9 @@ describe("the verbs of the console", () => {
   });
 
   it("call the operating system's updates system updates wherever they are a destination or a figure", () => {
-    expect(en.server.tabs.updates).toMatch(/system/i);
+    expect(en.server.tabs.system).toMatch(/system/i);
     expect(en.overview.figures.updates.label).toMatch(/system/i);
-    expect(es.server.tabs.updates).toMatch(/sistema/i);
+    expect(es.server.tabs.system).toMatch(/sistema/i);
     expect(es.overview.figures.updates.label).toMatch(/sistema/i);
   });
 

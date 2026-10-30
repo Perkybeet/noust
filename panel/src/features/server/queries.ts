@@ -45,6 +45,7 @@ export type Firewall = ResponseOf<"/api/server/security/firewall", "get">;
 export type FirewallRule = Firewall["firewall"]["rules"][number];
 export type ListeningPort = Firewall["ports"][number];
 export type Fail2ban = ResponseOf<"/api/server/security/fail2ban", "get">;
+export type PortClaim = ResponseOf<"/api/server/ports", "get">["claims"][number];
 export type PendingChange = ResponseOf<"/api/server/security/changes", "get">[number];
 
 /** The capability every Server tab but Services needs from the server on screen (a 3.0 node lacks it). */
@@ -93,6 +94,7 @@ export const serverKeys = {
   sshFix: (fix: string) => ["server", "security", "ssh", "fix", fix] as const,
   sshKeys: ["server", "security", "ssh", "keys"] as const,
   firewall: ["server", "security", "firewall"] as const,
+  ports: ["server", "ports"] as const,
   fail2ban: ["server", "security", "fail2ban"] as const,
   changes: ["server", "security", "changes"] as const,
 };
@@ -316,6 +318,13 @@ export const firewallQuery = () =>
   queryOptions({
     queryKey: serverKeys.firewall,
     queryFn: ({ signal }) => request("get", "/api/server/security/firewall", { signal }),
+  });
+
+/** Who holds each port, in the product's words: an application, a published port, a database, the web server. */
+export const portsQuery = () =>
+  queryOptions({
+    queryKey: serverKeys.ports,
+    queryFn: ({ signal }) => request("get", "/api/server/ports", { signal }),
   });
 
 export const fail2banQuery = () =>

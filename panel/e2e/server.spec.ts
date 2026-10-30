@@ -39,7 +39,7 @@ test("schedules a reboot with its pre-checks in view, shows it on every tab and 
   await expect(dialog).toBeHidden();
 
   await expect(page.getByText(/^Reboot scheduled for/).first()).toBeVisible();
-  await page.getByRole("navigation", { name: "Server sections" }).getByRole("link", { name: "Storage" }).click();
+  await page.getByRole("navigation", { name: "Server sections" }).getByRole("link", { name: "Files" }).click();
   const banner = page.getByText(/^Reboot scheduled for/).first();
   await expect(banner).toBeVisible();
   const cancelled = page.waitForResponse((response) => response.url().endsWith("/api/server/power/scheduled"));
@@ -49,7 +49,7 @@ test("schedules a reboot with its pre-checks in view, shows it on every tab and 
 });
 
 test("the updates tab lists security updates first and shows the plan before installing", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/server/updates");
+  await signIn(page, consoleServer, "/server/system");
   const table = page.getByRole("region", { name: "Pending updates" });
   const first = table.getByRole("row").nth(1);
   await expect(first).toContainText("linux-image-6.8.0-47-generic");
@@ -99,7 +99,9 @@ test("the security tab shows its findings, SSH as it runs, the firewall against 
   await settle(page);
   await expectNoA11yViolations(page, "the SSH view");
 
-  await page.getByRole("radio", { name: "Firewall and ports" }).click();
+  // The firewall is Network and ports' since 4.1: its old address (a view of this tab) opens it where it is.
+  await page.goto("/server/security?view=firewall");
+  await expect(page).toHaveURL(/\/server\/network\?view=firewall/);
   const ports = page.getByRole("region", { name: "Ports that listen" });
   await expect(ports.getByRole("row").filter({ hasText: "5432/tcp" }).getByText("Exposed")).toBeVisible();
   await expect(page.getByText("1 internal service is reachable from the internet")).toBeVisible();
@@ -113,7 +115,7 @@ test("the security tab shows its findings, SSH as it runs, the firewall against 
 });
 
 test("the storage, logs and system tabs show the machine", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/server/storage");
+  await signIn(page, consoleServer, "/server/files");
   await expect(page.getByRole("list", { name: "Filesystems" }).getByText("/srv")).toBeVisible();
   await expect(page.getByRole("region", { name: "What takes space" }).getByText("System logs")).toBeVisible();
   await settle(page);
@@ -124,7 +126,7 @@ test("the storage, logs and system tabs show the machine", async ({ page, consol
   await settle(page);
   await expectNoA11yViolations(page, "the logs tab");
 
-  await page.goto("/server/system");
+  await page.goto("/server/system?view=machine");
   await expect(page.getByText("Europe/Madrid")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Reboot and shutdown" })).toBeVisible();
   await settle(page);

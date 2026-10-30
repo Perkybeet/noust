@@ -75,8 +75,8 @@ export function FleetLayout({ hub, adding: addingProp, onAddingChange }: FleetLa
     <FleetActionsProvider>
       <DetailPage
         header={{
-          title: t("fleet.page.title"),
-          description: t("fleet.page.description"),
+          title: onServersViews ? t("fleet.page.serversTitle") : t("fleet.page.title"),
+          description: onServersViews ? t("fleet.page.serversDescription") : t("fleet.page.description"),
           ...(empty
             ? {}
             : {

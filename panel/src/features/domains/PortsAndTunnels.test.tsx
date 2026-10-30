@@ -5,6 +5,7 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
+import { serverRoutes } from "../server/testing";
 
 beforeEach(() => {
   vi.stubGlobal("matchMedia", (query: string) => ({
@@ -63,6 +64,7 @@ const HOME = {
 function network(path: string, routes: Record<string, RouteHandler>) {
   const backend = fakeBackend({
     ...signedInRoutes(),
+    ...serverRoutes(),
     "GET /api/certs": () => json(200, { certificates: [], total: 0 }),
     "GET /api/sites": () => json(200, { sites: [], total: 0, webserver: "nginx" }),
     "GET /api/jobs/active": () => json(200, { jobs: [], total: 0, active: 0 }),
@@ -75,9 +77,10 @@ function network(path: string, routes: Record<string, RouteHandler>) {
   return { ...harness, backend };
 }
 
-describe("the Ports tab", () => {
+// 4.1: the ports a server publishes are Network and ports' (a view of that section), and /domains/ports goes there.
+describe("the published ports view", () => {
   it("lists what is published, from where, and the state of each", { timeout: 20_000 }, async () => {
-    network("/domains/ports", { "GET /api/streams": () => json(200, { exposures: [MINECRAFT], support: STREAM_SUPPORT }) });
+    network("/server/network?view=published", { "GET /api/streams": () => json(200, { exposures: [MINECRAFT], support: STREAM_SUPPORT }) });
 
     const table = await screen.findByRole("region", { name: "Published TCP and UDP ports" });
     const row = (await within(table).findByText("minecraft")).closest("tr");
@@ -90,14 +93,14 @@ describe("the Ports tab", () => {
   });
 
   it("says what a port is for when none is published", async () => {
-    network("/domains/ports", {});
+    network("/server/network?view=published", {});
 
     expect(await screen.findByText("No TCP or UDP ports published")).toBeInTheDocument();
     expect(screen.getByText("noust stream add minecraft --port 25565 --to 25565")).toBeInTheDocument();
   });
 
   it("shows what is missing, in the server's words, and offers no way to publish until it is there", async () => {
-    network("/domains/ports", {
+    network("/server/network?view=published", {
       "GET /api/streams": () =>
         json(200, {
           exposures: [],
@@ -121,7 +124,7 @@ describe("the Ports tab", () => {
       warnings: ["Nothing listens on 127.0.0.1:25565 yet"],
       firewall: [{ port: 25565, proto: "tcp", source: "203.0.113.0/24" }],
     };
-    const { user, backend } = network("/domains/ports", {
+    const { user, backend } = network("/server/network?view=published", {
       "GET /api/streams": () => json(200, { exposures: published, support: STREAM_SUPPORT }),
       "POST /api/streams/plan": () => json(200, plan),
       "POST /api/streams": () => {
@@ -162,7 +165,7 @@ describe("the Ports tab", () => {
   });
 
   it("changing a field after the check asks again instead of publishing what was not checked", async () => {
-    const { user, backend } = network("/domains/ports", {
+    const { user, backend } = network("/server/network?view=published", {
       "POST /api/streams/plan": () =>
         json(200, { exposure: MINECRAFT, config: "", file: "/x.conf", loader: "present", support: STREAM_SUPPORT, warnings: [], firewall: [] }),
     });
@@ -183,7 +186,7 @@ describe("the Ports tab", () => {
   });
 
   it("shows a port that cannot be had beside the field, in the server's words", async () => {
-    const { user } = network("/domains/ports", {
+    const { user } = network("/server/network?view=published", {
       "POST /api/streams/plan": () => problem(400, "validation_error", "Port 443 is the web server's", { fields: { listen_port: "Port 443 is the web server's" } }),
     });
 
@@ -198,7 +201,7 @@ describe("the Ports tab", () => {
   });
 
   it("shows nginx's own words when it refuses the configuration", async () => {
-    const { user } = network("/domains/ports", {
+    const { user } = network("/server/network?view=published", {
       "POST /api/streams/plan": () =>
         json(200, { exposure: MINECRAFT, config: "", file: "/x.conf", loader: "present", support: STREAM_SUPPORT, warnings: [], firewall: [] }),
       "POST /api/streams": () =>
@@ -220,7 +223,7 @@ describe("the Ports tab", () => {
   });
 
   it("closes a port after asking, and says the rules that were already there stay", async () => {
-    const { user, backend } = network("/domains/ports", {
+    const { user, backend } = network("/server/network?view=published", {
       "GET /api/streams": () => json(200, { exposures: [MINECRAFT], support: STREAM_SUPPORT }),
       "DELETE /api/streams/minecraft": () => json(200, { exposure: MINECRAFT, warnings: [], firewall: "" }),
     });

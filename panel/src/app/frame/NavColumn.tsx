@@ -19,6 +19,7 @@ import { useSettingsItems } from "../../features/settings/useSettingsItems";
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { useNodeCapability } from "../../nodes/capability";
+import { useHasFleet } from "../../nodes/servers";
 import { useNode } from "../../nodes/useNode";
 import { appColumn, currentItem, serverColumn } from "../columns";
 import type { ColumnGroup, ColumnKind } from "../columns";
@@ -181,17 +182,18 @@ function ServerColumn() {
   const t = useT();
   const can = useCan();
   const { node } = useNode();
+  const hasFleet = useHasFleet();
   const { data: hostname } = useQuery({ ...sessionQuery(), select: (session) => session.hostname });
   const capability = useNodeCapability(SERVER_CAPABILITY);
   const available = capability.status === "available" || capability.status === "unknown";
   const summary = useQuery({ ...summaryQuery(), enabled: available });
   const security = useQuery({ ...securityOverviewQuery(), enabled: available });
   const found = security.data?.counts;
-  const counts = available ? { "/server/updates": summary.data?.updates.pending ?? null, "/server/security": found ? found.critical + found.warning : null } : {};
+  const counts = available ? { "/server/system": summary.data?.updates.pending ?? null, "/server/security": found ? found.critical + found.warning : null } : {};
   return (
     <>
-      <ColumnHead area={t("nav.server.label")} to="/server" name={node ?? hostname ?? ""} />
-      <ColumnList label={t("nav.landmarks.serverSections")} groups={toListGroups(serverColumn({ can }), t, undefined, counts)} />
+      <ColumnHead area={t("nav.server.label")} to={hasFleet ? "/fleet/servers" : "/server"} name={node ?? hostname ?? ""} />
+      <ColumnList label={t("nav.landmarks.serverSections")} groups={toListGroups(serverColumn({ can, when: { fleet: node !== null } }), t, undefined, counts)} />
     </>
   );
 }

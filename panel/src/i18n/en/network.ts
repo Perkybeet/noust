@@ -437,7 +437,6 @@ export const network = {
   tabs: {
     dns: "DNS",
     tunnels: "Tunnels",
-    ports: "Ports",
   },
   dns: {
     add: "Add account",
@@ -493,6 +492,7 @@ export const network = {
     sweepFailed: "Could not release the unused records",
   },
   ports: {
+    viewDescription: "The TCP and UDP ports nginx publishes in front of a service that is not a website.",
     publishAction: "Publish a port",
     unavailable: "nginx cannot publish a port here",
     listFailed: "Could not list the published ports",

@@ -16,7 +16,7 @@ import { useAttention } from "../../features/inbox/useAttention";
 import { iconOf } from "../../features/nav/icons";
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
-import { useReturnServer } from "../../nodes/servers";
+import { useHasFleet, useReturnServer } from "../../nodes/servers";
 import { useConsoleContext } from "../../nodes/useNode";
 import { areaOf, areaTarget, dest, sidebarFor } from "../nav";
 import type { ConsolePath, Dest, Scope } from "../nav";
@@ -78,6 +78,7 @@ export function useAreas(): Areas {
   const { role } = useCentral();
   const back = useReturnServer();
   const scope = useNavScope();
+  const hasFleet = useHasFleet();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const counts = useCounts(scope === "server");
   const onHub = role === "hub" && context.kind === "server" && context.node === null;
@@ -89,7 +90,7 @@ export function useAreas(): Areas {
     const face = scope === "fleet" && entry.fleetTo !== undefined;
     return {
       entry,
-      to: areaTarget(entry, scope),
+      to: areaTarget(entry, scope, hasFleet),
       ...(scope === "fleet" && !face && node !== undefined ? { node } : {}),
       Icon: iconOf(entry),
       current: current?.id === entry.id,

@@ -104,7 +104,7 @@ function columnsFor(t: T, mixed: boolean, memory: boolean, appOf: ((service: Ser
     {
       id: "enabled",
       header: t("services.table.boot"),
-      width: "w-28",
+      width: "w-36",
       hideBelow: "sm",
       // Whether it starts at boot is an on/off, told at a glance like a state (item 56).
       cell: (row) => (

@@ -51435,8 +51435,8 @@ export interface components {
          *             stack's published port), ``stream`` (a port published through nginx), ``database``
          *             (made reachable), ``instance`` (a database engine Noust runs), ``dns`` or
          *             ``process`` (what the kernel reports, whoever it is).
-         *         owner: Whose it is: the web server or SSH, an application's domain, the stream's name,
-         *             or the process.
+         *         owner: Whose it is: ``web``, ``ssh`` or ``console`` for the machine's own services, an
+         *             application's domain, the stream's name, or the process.
          *         address: The address it is bound to; None for every address.
          *         detail: Where the claim comes from ("its copy", "zero-downtime"), when that says more.
          *         processes: For a socket the kernel reports, the processes holding it.

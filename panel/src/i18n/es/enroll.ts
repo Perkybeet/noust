@@ -28,7 +28,7 @@ export const enroll: Catalog<typeof en> = {
       "Esta central envía su propia copia del instalador por la conexión: el servidor no descarga ningún script. Desactivado, se rechaza un servidor sin Noust.",
     replaceToken: "Reemplazar el token que esta central ya tiene ahí",
     replaceTokenHelp: "Para un servidor que se añadió antes y perdió su registro aquí: se emite un token nuevo y se revoca el antiguo.",
-    more: "Más opciones",
+    more: "Cuenta, puerto y permisos",
     credential: "Cómo entrar",
     credentialPassword: "Una contraseña",
     credentialPasswordHelp: "Entra con la contraseña de la cuenta.",

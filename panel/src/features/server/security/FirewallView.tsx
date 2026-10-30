@@ -55,7 +55,7 @@ export function sortPorts(ports: readonly ListeningPort[]): ListeningPort[] {
 }
 
 /** What the firewall does about a port: coloured only when it is a problem. */
-function verdictView(t: T, port: ListeningPort): { state: Status | null; label: string } {
+export function verdictView(t: T, port: ListeningPort): { state: Status | null; label: string } {
   if (port.verdict === "docker_bypass") return { state: "failed", label: t("server.firewall.verdict.dockerBypass") };
   if (port.risky !== "" && port.reachable) return { state: "failed", label: t("server.firewall.verdict.exposed") };
   switch (port.verdict) {
@@ -74,7 +74,7 @@ function verdictView(t: T, port: ListeningPort): { state: Status | null; label: 
   }
 }
 
-function portText(port: Pick<ListeningPort, "port" | "proto">): string {
+export function portText(port: Pick<ListeningPort, "port" | "proto">): string {
   return `${String(port.port)}/${port.proto}`;
 }
 
@@ -200,7 +200,79 @@ function Protected({ firewall }: { firewall: Firewall }) {
   );
 }
 
-/** The firewall view of the Security tab. */
+/**
+ * "Open a port": an allow or deny rule for a port, with who it is for. Every change undoes itself
+ * unless it is confirmed from a new SSH login, and the guard refuses any that would close SSH or a
+ * public console. Shared by the firewall view and by Network and ports' header: one form for it.
+ */
+export function AddRuleDialog({ onClose, port = "" }: { onClose: () => void; port?: string }) {
+  const t = useT();
+  const confirmation = useServerConfirm();
+  const jobs = useServerJob();
+  const [rule, setRule] = useState({ action: "allow", port, proto: "tcp", source: "any", comment: "" });
+  const run = async (call: () => Promise<{ job_id: string }>): Promise<void> => {
+    const accepted = await call();
+    jobs.track(accepted.job_id, "security");
+  };
+  return (
+    <ConfirmDialog
+      {...confirmation}
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      friction="simple"
+      destructive={false}
+      size="md"
+      title={t("server.firewall.addTitle")}
+      description={t("server.firewall.addDescription")}
+      actionLabel={t("server.firewall.addAction")}
+      onConfirm={() =>
+        run(() =>
+          request("post", "/api/server/security/firewall/rules", {
+            body: { action: rule.action, port: Number(rule.port), proto: rule.proto, source: rule.source.trim() === "" ? "any" : rule.source.trim(), comment: rule.comment },
+          }),
+        )
+      }
+    >
+      <div className="grid gap-5 sm:grid-cols-2">
+        <Field label={t("server.firewall.form.action")} nativeLabel={false}>
+          <Select
+            value={rule.action}
+            onValueChange={(action) => setRule((current) => ({ ...current, action }))}
+            options={[
+              { value: "allow", label: t("server.firewall.rules.allow") },
+              { value: "deny", label: t("server.firewall.rules.deny") },
+            ]}
+          />
+        </Field>
+        <Field label={t("server.firewall.form.protocol")} nativeLabel={false}>
+          <Select
+            value={rule.proto}
+            mono
+            onValueChange={(proto) => setRule((current) => ({ ...current, proto }))}
+            options={[
+              { value: "tcp", label: "tcp" },
+              { value: "udp", label: "udp" },
+            ]}
+          />
+        </Field>
+        <Field label={t("server.firewall.form.port")}>
+          <Input mono inputMode="numeric" value={rule.port} onValueChange={(port: string) => setRule((current) => ({ ...current, port }))} autoComplete="off" />
+        </Field>
+        <Field label={t("server.firewall.form.source")} description={t("server.firewall.form.sourceHelp")}>
+          <Input mono value={rule.source} onValueChange={(source: string) => setRule((current) => ({ ...current, source }))} autoComplete="off" spellCheck={false} />
+        </Field>
+      </div>
+      <Field label={t("server.firewall.form.comment")} optional>
+        <Input value={rule.comment} onValueChange={(comment: string) => setRule((current) => ({ ...current, comment }))} autoComplete="off" />
+      </Field>
+      <p className="text-13 text-fg-muted">{t("server.firewall.reverts")}</p>
+    </ConfirmDialog>
+  );
+}
+
+/** The firewall view of Network and ports. */
 export function FirewallView() {
   const t = useT();
   const query = useQuery(firewallQuery());
@@ -218,7 +290,6 @@ function FirewallPanel({ data }: { data: Firewall }) {
   const identity = useQuery(identityQuery());
   const hostname = identity.data?.hostname.hostname ?? "";
   const [opened, setOpened] = useState<Opened>(null);
-  const [rule, setRule] = useState({ action: "allow", port: "", proto: "tcp", source: "any", comment: "" });
 
   const state = data.firewall;
   const bypass = data.ports.filter((port) => port.verdict === "docker_bypass");
@@ -346,62 +417,7 @@ function FirewallPanel({ data }: { data: Firewall }) {
           <p className="text-13 text-fg-muted">{t("server.firewall.reverts")}</p>
         </ConfirmDialog>
       ) : null}
-      {opened?.kind === "add" ? (
-        <ConfirmDialog
-          {...confirmation}
-          open
-          onOpenChange={(open) => {
-            if (!open) setOpened(null);
-          }}
-          friction="simple"
-          destructive={false}
-          size="md"
-          title={t("server.firewall.addTitle")}
-          description={t("server.firewall.addDescription")}
-          actionLabel={t("server.firewall.addAction")}
-          onConfirm={() =>
-            run(() =>
-              request("post", "/api/server/security/firewall/rules", {
-                body: { action: rule.action, port: Number(rule.port), proto: rule.proto, source: rule.source.trim() === "" ? "any" : rule.source.trim(), comment: rule.comment },
-              }),
-            )
-          }
-        >
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Field label={t("server.firewall.form.action")} nativeLabel={false}>
-              <Select
-                value={rule.action}
-                onValueChange={(action) => setRule((current) => ({ ...current, action }))}
-                options={[
-                  { value: "allow", label: t("server.firewall.rules.allow") },
-                  { value: "deny", label: t("server.firewall.rules.deny") },
-                ]}
-              />
-            </Field>
-            <Field label={t("server.firewall.form.protocol")} nativeLabel={false}>
-              <Select
-                value={rule.proto}
-                mono
-                onValueChange={(proto) => setRule((current) => ({ ...current, proto }))}
-                options={[
-                  { value: "tcp", label: "tcp" },
-                  { value: "udp", label: "udp" },
-                ]}
-              />
-            </Field>
-            <Field label={t("server.firewall.form.port")}>
-              <Input mono inputMode="numeric" value={rule.port} onValueChange={(port: string) => setRule((current) => ({ ...current, port }))} autoComplete="off" />
-            </Field>
-            <Field label={t("server.firewall.form.source")} description={t("server.firewall.form.sourceHelp")}>
-              <Input mono value={rule.source} onValueChange={(source: string) => setRule((current) => ({ ...current, source }))} autoComplete="off" spellCheck={false} />
-            </Field>
-          </div>
-          <Field label={t("server.firewall.form.comment")} optional>
-            <Input value={rule.comment} onValueChange={(comment: string) => setRule((current) => ({ ...current, comment }))} autoComplete="off" />
-          </Field>
-          <p className="text-13 text-fg-muted">{t("server.firewall.reverts")}</p>
-        </ConfirmDialog>
-      ) : null}
+      {opened?.kind === "add" ? <AddRuleDialog onClose={() => setOpened(null)} /> : null}
     </div>
   );
 }

@@ -18,7 +18,7 @@ export type Severity = "critical" | "warning";
 
 /** Where an item's action takes the operator: a tab, or the reboot dialog. */
 export type AttentionAction =
-  | { kind: "tab"; to: "/server/updates" | "/server/storage" | "/server/system" | "/server/security"; view?: string }
+  | { kind: "tab"; to: "/server/system" | "/server/files" | "/server/security" | "/server/network"; view?: string }
   | { kind: "services"; state: "failed" }
   | { kind: "reboot" };
 
@@ -53,7 +53,7 @@ function fromSummary(summary: ServerSummary): AttentionItem[] {
   const items: AttentionItem[] = [];
   const updates = summary.updates;
   if (updates.broken === true) {
-    items.push({ id: "packages-broken", kind: "packagesBroken", severity: "critical", action: { kind: "tab", to: "/server/updates" } });
+    items.push({ id: "packages-broken", kind: "packagesBroken", severity: "critical", action: { kind: "tab", to: "/server/system" } });
   }
   if ((updates.security ?? 0) > 0) {
     items.push({
@@ -62,7 +62,7 @@ function fromSummary(summary: ServerSummary): AttentionItem[] {
       count: updates.security ?? 0,
       // A warning, as the Overview's tile says it: the server marks no update critical.
       severity: "warning",
-      action: { kind: "tab", to: "/server/updates" },
+      action: { kind: "tab", to: "/server/system" },
     });
   }
   const eol = summary.os.eol;
@@ -88,7 +88,7 @@ function fromSummary(summary: ServerSummary): AttentionItem[] {
       percent: disk.worst_percent,
       free: disk.free_bytes ?? null,
       severity: disk.status === "critical" ? "critical" : "warning",
-      action: { kind: "tab", to: "/server/storage" },
+      action: { kind: "tab", to: "/server/files" },
     });
   }
   if (summary.reboot.required === true) {
@@ -105,7 +105,7 @@ function fromSummary(summary: ServerSummary): AttentionItem[] {
     items.push({ id: "clock", kind: "clockUnsynced", timezone: summary.time.timezone ?? null, severity: "warning", action: { kind: "tab", to: "/server/system" } });
   }
   if (summary.swap.recommended === true && (summary.swap.total_bytes ?? 0) === 0) {
-    items.push({ id: "swap", kind: "noSwap", severity: "warning", action: { kind: "tab", to: "/server/storage" } });
+    items.push({ id: "swap", kind: "noSwap", severity: "warning", action: { kind: "tab", to: "/server/files" } });
   }
   const failed = summary.system.failed_units ?? [];
   if (failed.length > 0) {
@@ -140,7 +140,10 @@ function fromChecks(security: SecurityOverview): AttentionItem[] {
   return security.attention.flatMap((check): AttentionItem[] => {
     const severity = checkSeverity(check);
     if (severity === null || COVERED_BY_SUMMARY.has(check.id)) return [];
-    return [{ id: `check:${check.id}`, kind: "check", check, severity, action: { kind: "tab", to: "/server/security", view: checkView(check.group) } }];
+    // The firewall is Network and ports' since 4.1: its findings are fixed there.
+    const action: Extract<AttentionItem["action"], { kind: "tab" }> =
+      check.group === "firewall" ? { kind: "tab", to: "/server/network", view: "firewall" } : { kind: "tab", to: "/server/security", view: checkView(check.group) };
+    return [{ id: `check:${check.id}`, kind: "check", check, severity, action }];
   });
 }
 

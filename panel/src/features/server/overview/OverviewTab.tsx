@@ -120,6 +120,10 @@ function AttentionAction({ item }: { item: AttentionItem }) {
         <Link to="/server/security" search={item.action.view !== undefined && item.action.view !== "checks" ? { view: item.action.view as "ssh" } : {}} className={className}>
           {label}
         </Link>
+      ) : item.action.to === "/server/network" ? (
+        <Link to="/server/network" search={{ view: "firewall" }} className={className}>
+          {label}
+        </Link>
       ) : (
         <Link to={item.action.to} className={className}>
           {label}

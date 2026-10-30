@@ -27,11 +27,13 @@ test("the DNS, Tunnels and Ports tabs are one click from the certificates, and e
   await settle(page);
   await expectNoA11yViolations(page, "the Tunnels tab");
 
-  await tabs.getByRole("link", { name: /^Ports/ }).click();
-  await expect(page).toHaveURL(/\/domains\/ports$/);
+  // The ports are the server's: Network and ports, where the old address of this tab leads.
+  await page.goto("/domains/ports");
+  await expect(page).toHaveURL(/\/server\/network$/);
+  await page.getByRole("radio", { name: "Published ports" }).click();
   await expect(page.getByRole("button", { name: "Publish a port" }).first()).toBeVisible();
   await settle(page);
-  await expectNoA11yViolations(page, "the Ports tab");
+  await expectNoA11yViolations(page, "the published ports");
 });
 
 test("an application's Access settings are two clicks from its Settings", async ({ page, consoleServer }) => {

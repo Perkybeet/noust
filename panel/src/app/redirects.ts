@@ -25,6 +25,12 @@ export const REDIRECT_ROWS = [
   { from: "/settings/security", to: "/account/security", state: "live", plain: true },
   { from: "/settings/servers", to: "/fleet/servers", state: "live" },
   { from: "/apps/$domain/settings/builds", to: "/apps/$domain/settings/build", state: "live" },
+  // 4.1: a server's page is ten sections. The updates joined the system, storage is files, and the
+  // firewall and the published ports are Network and ports (the firewall's old address is a view of the
+  // Security tab, `?view=firewall`, which the route sends on with its search).
+  { from: "/server/updates", to: "/server/system", state: "live", plain: true },
+  { from: "/server/storage", to: "/server/files", state: "live", plain: true },
+  { from: "/domains/ports", to: "/server/network", state: "live", plain: true },
   // 4.1: what warns an operator is an area of the bar.
   // The page of Alerts has no filters to carry: what the old address carried is dropped.
   { from: "/settings/alerts", to: "/alerts", state: "live", plain: true },

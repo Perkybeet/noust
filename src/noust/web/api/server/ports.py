@@ -39,8 +39,8 @@ class PortClaimOut(BaseModel):
             stack's published port), ``stream`` (a port published through nginx), ``database``
             (made reachable), ``instance`` (a database engine Noust runs), ``dns`` or
             ``process`` (what the kernel reports, whoever it is).
-        owner: Whose it is: the web server or SSH, an application's domain, the stream's name,
-            or the process.
+        owner: Whose it is: ``web``, ``ssh`` or ``console`` for the machine's own services, an
+            application's domain, the stream's name, or the process.
         address: The address it is bound to; None for every address.
         detail: Where the claim comes from ("its copy", "zero-downtime"), when that says more.
         processes: For a socket the kernel reports, the processes holding it.
@@ -71,12 +71,18 @@ class PortsOut(BaseModel):
 _PROCESS_LAST = {"process": 1}
 
 
+#: The machine's own services as the registry words them inside a sentence ("Port 80 is the web
+#: server's") and as a page needs them: one stable word each, which the console translates.
+_SYSTEM_OWNERS = {"the web server's": "web", "SSH's": "ssh", "the console's": "console"}
+
+
 def _out(claim: PortClaim) -> PortClaimOut:
+    owner = _SYSTEM_OWNERS.get(claim.owner, claim.owner) if claim.kind == "system" else claim.owner
     return PortClaimOut(
         port=claim.port,
         protocol=claim.protocol,
         kind=claim.kind,
-        owner=claim.owner,
+        owner=owner,
         address=claim.address,
         detail=claim.detail,
         processes=list(claim.processes),

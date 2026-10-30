@@ -184,8 +184,13 @@ export function sidebarFor(ctx: NavContext = {}): Dest[][] {
   return [...groups.values()];
 }
 
-/** Where an area opens: its fleet face from the fleet's pages, where it has one, and its own page otherwise. */
-export function areaTarget(entry: Dest, scope: Scope): ConsolePath {
+/**
+ * Where an area opens: its fleet face from the fleet's pages, where it has one, and its own page otherwise.
+ * Servers is the exception that makes a fleet usable: where the console holds one, it opens the list of
+ * servers from anywhere (`hasFleet`), because choosing a server is picking a row of it, not a scope to be in.
+ */
+export function areaTarget(entry: Dest, scope: Scope, hasFleet = false): ConsolePath {
+  if (entry.id === "server" && hasFleet) return entry.fleetTo ?? entry.to;
   return scope === "fleet" ? (entry.fleetTo ?? entry.to) : entry.to;
 }
 

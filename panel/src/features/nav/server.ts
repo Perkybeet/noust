@@ -1,9 +1,15 @@
 import { area, hidden, strip, tab } from "../../app/navCore";
 
 /**
- * The machine, which is Servers on the bar: its tabs, and Terminal, which is reached from "More
- * actions". Where the console holds a fleet the area opens the list of servers (`fleetTo`), and
- * each server has its page, this one. The register is app/nav.ts; this is one group of it.
+ * The machine, which is Servers on the bar: its sections (4.1, the page of each server), and Terminal,
+ * which is reached from "More actions" on one bar. Where the console holds a fleet the area opens the
+ * list of servers (`fleetTo`), and each server has its page, this one. The register is app/nav.ts;
+ * this is one group of it.
+ *
+ * The order is the one an operator goes through a machine in: how it is, the system and what it
+ * waits to be updated with, who may get in, what is open to the network, what runs on it, the web
+ * server in front of it, a shell, where its files are, and what the central may do there. Bases de
+ * datos del servidor is Databases filtered by this server, not a section of its own.
  */
 export const SERVER_SCREENS = strip(
   area("server", "/server", "nav.server.label", {
@@ -16,17 +22,19 @@ export const SERVER_SCREENS = strip(
     rootLabel: "server.tabs.overview",
   }),
   (server) => [
-    tab(server, "updates", "server.tabs.updates"),
-    tab(server, "security", "server.tabs.security"),
-    tab(server, "storage", "server.tabs.storage"),
+    tab(server, "system", "server.tabs.system", { keywords: "server.tabs.systemKeywords" }),
+    tab(server, "security", "server.tabs.security", { keywords: "server.tabs.securityKeywords" }),
+    tab(server, "network", "server.tabs.network", { keywords: "server.tabs.networkKeywords", permission: "server.read" }),
     tab(server, "services", "server.tabs.services"),
-    tab(server, "system", "server.tabs.system"),
+    tab(server, "webserver", "server.tabs.webserver", { keywords: "server.tabs.webserverKeywords", permission: "server.read" }),
     hidden("server.terminal", "/server/terminal", "terminal.page.title", "server", {
       parent: "server",
       permission: "server.terminal",
       intent: "fix",
       keywords: "nav.screens.terminal.keywords",
     }),
+    tab(server, "files", "server.tabs.files", { keywords: "server.tabs.filesKeywords" }),
+    tab(server, "central", "server.tabs.central", { keywords: "server.tabs.centralKeywords", when: "fleet" }),
   ],
 );
 

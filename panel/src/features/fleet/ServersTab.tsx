@@ -19,7 +19,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { InlineMessage } from "../../components/ui/InlineMessage";
 import { MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
-import { TextLink } from "../../components/ui/TextLink";
+import { TextLink, textLinkClassName } from "../../components/ui/TextLink";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
@@ -36,6 +36,7 @@ import type { FleetRow, NodeOutcome } from "./data";
 import { isFiltered, matchesQuery, patchSearch } from "./filters";
 import type { FleetSearch, FleetSearchPatch } from "./filters";
 import { LabelsDialog } from "./LabelsDialog";
+import { ServerLink } from "./links";
 import { NodeTeamDialog, RekeyDialog } from "./NodeAccessDialogs";
 import { ConnectionDialog, InventoryDialog, LinkMachineDialog } from "./NodeToolsDialogs";
 import { fetchInventory } from "./nodeTools";
@@ -62,7 +63,9 @@ function AccessCell({ t, row }: { t: T; row: FleetRow }) {
   if (access === null) return <EmptyCell reason={t("fleet.access.unknown")} />;
   return (
     <span className="flex min-w-0 flex-col">
-      <span className="text-13 text-fg">{t(`fleet.access.level.${access.level}`)}</span>
+      <ServerLink node={origin.node} path="/server/central" className={textLinkClassName("inline", "min-w-0", "row")}>
+        {t(`fleet.access.level.${access.level}`)}
+      </ServerLink>
       <span className="text-12 text-fg-muted">{access.hostAccess ? t("fleet.access.hostAccessOn") : t("fleet.access.hostAccessOff")}</span>
     </span>
   );

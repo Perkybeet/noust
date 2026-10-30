@@ -3,34 +3,33 @@ import { Plus, Radio } from "lucide-react";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
-import { isApiError, request } from "../../api/client";
-import { networkKeys, streamsQuery } from "../../api/queries/network";
-import type { StreamBody, StreamExposure, StreamPlan } from "../../api/queries/network";
-import { CommandHint } from "../../components/page/CommandHint";
-import { KeyValueList } from "../../components/page/KeyValueList";
-import { ErrorBlock } from "../../components/page/QueryState";
-import { RowMenu } from "../../components/page/RowMenu";
-import { Button } from "../../components/ui/Button";
-import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
-import type { Column } from "../../components/ui/DataTable";
-import { DataTable } from "../../components/ui/DataTable";
-import { Dialog } from "../../components/ui/Dialog";
-import { EmptyState } from "../../components/ui/EmptyState";
-import { Field } from "../../components/ui/Field";
-import { Input } from "../../components/ui/Input";
-import { MenuItem } from "../../components/ui/Menu";
-import { Mono } from "../../components/ui/Mono";
-import { Notice } from "../../components/ui/Notice";
-import { Select } from "../../components/ui/Select";
-import { StatusPill } from "../../components/ui/StatusPill";
-import { SystemOutput } from "../../components/ui/SystemOutput";
-import { Textarea } from "../../components/ui/Textarea";
-import { toast } from "../../components/ui/toast";
-import { useT } from "../../i18n";
-import { useNode } from "../../nodes/useNode";
-import { listOf } from "../app/settings/access";
-import { DomainsListPage } from "./DomainsListPage";
-import { ICONS } from "../../components/ui/icons";
+import { isApiError, request } from "../../../api/client";
+import { networkKeys, streamsQuery } from "../../../api/queries/network";
+import type { StreamBody, StreamExposure, StreamPlan } from "../../../api/queries/network";
+import { CommandHint } from "../../../components/page/CommandHint";
+import { KeyValueList } from "../../../components/page/KeyValueList";
+import { ErrorBlock } from "../../../components/page/QueryState";
+import { RowMenu } from "../../../components/page/RowMenu";
+import { Button } from "../../../components/ui/Button";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
+import type { Column } from "../../../components/ui/DataTable";
+import { DataTable } from "../../../components/ui/DataTable";
+import { Dialog } from "../../../components/ui/Dialog";
+import { EmptyState } from "../../../components/ui/EmptyState";
+import { Field } from "../../../components/ui/Field";
+import { Input } from "../../../components/ui/Input";
+import { MenuItem } from "../../../components/ui/Menu";
+import { Mono } from "../../../components/ui/Mono";
+import { Notice } from "../../../components/ui/Notice";
+import { Select } from "../../../components/ui/Select";
+import { StatusPill } from "../../../components/ui/StatusPill";
+import { SystemOutput } from "../../../components/ui/SystemOutput";
+import { Textarea } from "../../../components/ui/Textarea";
+import { toast } from "../../../components/ui/toast";
+import { useT } from "../../../i18n";
+import { useNode } from "../../../nodes/useNode";
+import { listOf } from "../../app/settings/access";
+import { ICONS } from "../../../components/ui/icons";
 
 const NAME = /^[a-z0-9][a-z0-9-]{0,39}$/;
 const WHOLE = /^\d+$/;
@@ -212,12 +211,12 @@ function stateOf(exposure: StreamExposure): "running" | "deploying" | "warning" 
 }
 
 /**
- * The Ports tab: the TCP and UDP ports nginx publishes in front of a backend, for the services
+ * Published ports: the TCP and UDP ports nginx publishes in front of a backend, for the services
  * that are not HTTP (a game server, a broker, a WireGuard endpoint). Publishing asks first what it
  * would do - the file, the firewall rules, what to look out for - and only then does it; closing
  * removes the firewall rules Noust made and nothing else.
  */
-export function StreamsPage() {
+export function PublishedPorts() {
   const t = useT();
   const queryClient = useQueryClient();
   const { node } = useNode();
@@ -247,23 +246,18 @@ export function StreamsPage() {
   ];
 
   return (
-    <DomainsListPage
-      primaryAction={
-        <Button variant="primary" icon={<Plus aria-hidden="true" />} onClick={() => setPublishing(true)} disabled={support !== undefined && !support.available}>
+    <div className="flex min-w-0 flex-col gap-4">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <p className="max-w-measure text-14 text-pretty text-fg-muted">{t("network.ports.viewDescription")}</p>
+        <Button icon={<Plus aria-hidden="true" />} onClick={() => setPublishing(true)} disabled={support !== undefined && !support.available}>
           {t("network.ports.publishAction")}
         </Button>
-      }
-      {...(support !== undefined && !support.available
-        ? {
-            notice: (
-              <Notice tone="warning" title={support.problem ?? t("network.ports.unavailable")}>
-                {support.hint ? <SystemOutput label={t("network.ports.unavailable")}>{support.hint}</SystemOutput> : null}
-              </Notice>
-            ),
-          }
-        : {})}
-      footer={<CommandHint command="noust stream list" label={t("common.words.fromTerminal")} />}
-    >
+      </div>
+      {support !== undefined && !support.available ? (
+        <Notice tone="warning" title={support.problem ?? t("network.ports.unavailable")}>
+          {support.hint ? <SystemOutput label={t("network.ports.unavailable")}>{support.hint}</SystemOutput> : null}
+        </Notice>
+      ) : null}
       {/* design-exception: hand-error-ternary the table draws its own skeleton rows; the failure replaces only what it would have listed */}
       {streams.isError && streams.data === undefined ? (
         <ErrorBlock error={streams.error} title={t("network.ports.listFailed")} onRetry={() => void streams.refetch()} retrying={streams.isRefetching} />
@@ -273,15 +267,6 @@ export function StreamsPage() {
           icon={<Radio />}
           title={t("network.ports.emptyTitle")}
           description={t("network.ports.emptyDescription")}
-          {...(support?.available === false
-            ? {}
-            : {
-                action: (
-                  <Button icon={<Plus aria-hidden="true" />} onClick={() => setPublishing(true)}>
-                    {t("network.ports.publishAction")}
-                  </Button>
-                ),
-              })}
           command="noust stream add minecraft --port 25565 --to 25565"
         />
       ) : (
@@ -300,6 +285,7 @@ export function StreamsPage() {
           )}
         />
       )}
+      <CommandHint command="noust stream list" label={t("common.words.fromTerminal")} />
       <PublishDialog open={publishing} onClose={() => setPublishing(false)} />
       <ConfirmDialog
         open={closing !== null}
@@ -319,6 +305,6 @@ export function StreamsPage() {
           toast.success(t("network.ports.closedToast", { name: closing.name }));
         }}
       />
-    </DomainsListPage>
+    </div>
   );
 }

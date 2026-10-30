@@ -30,7 +30,7 @@ import { serverKeys } from "./queries";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** What a job of this area does, which names it while it runs and once it ends. */
-export type ServerJobKind = "update" | "refresh" | "repair" | "auto" | "cleanup" | "analyze" | "swap" | "security" | "checks" | "restarts";
+export type ServerJobKind = "update" | "refresh" | "repair" | "auto" | "cleanup" | "analyze" | "swap" | "security" | "checks" | "restarts" | "noust";
 
 /** The backend's job types that belong to the Server area (web/api/server). */
 const KIND_BY_TYPE: Readonly<Record<string, ServerJobKind>> = {
@@ -41,6 +41,7 @@ const KIND_BY_TYPE: Readonly<Record<string, ServerJobKind>> = {
   swap: "swap",
   server_action: "auto",
   server_security: "security",
+  self_update: "noust",
 };
 
 export function jobKindOf(type: string): ServerJobKind | null {
@@ -76,6 +77,8 @@ export function jobWords(t: T, kind: ServerJobKind): JobWords {
       return { running: t("server.job.checks.running"), succeeded: t("server.job.checks.succeeded"), failed: t("server.job.checks.failed") };
     case "restarts":
       return { running: t("server.job.restarts.running"), succeeded: t("server.job.restarts.succeeded"), failed: t("server.job.restarts.failed") };
+    case "noust":
+      return { running: t("server.job.noust.running"), succeeded: t("server.job.noust.succeeded"), failed: t("server.job.noust.failed") };
   }
 }
 

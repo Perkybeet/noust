@@ -1,14 +1,13 @@
 /**
- * The machine itself: four cards (the clock, the host name, the operating system, the power)
- * and, below them, one of three views chosen in the URL: the processes (read only: nothing here
- * signals a process), the network interfaces, or Noust's resource monitor.
+ * System and updates: one of four views chosen in the URL. What is waiting to be updated comes first,
+ * the system and Noust's own update (the task most people come for); then the machine itself (the
+ * clock, the host name, the operating system, the power), what runs on it (read only: nothing here
+ * signals a process) and what it uses, Noust's resource monitor. The network is Network and ports'.
  */
 
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { networkQuery } from "../../../api/queries/system";
-import type { NetworkInfo } from "../../../api/queries/system";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { SegmentedControl } from "../../../components/page/SegmentedControl";
 import { Button } from "../../../components/ui/Button";
@@ -19,7 +18,6 @@ import type { Column, SortState } from "../../../components/ui/DataTable";
 import { EmptyCell } from "../../../components/ui/EmptyCell";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Mono } from "../../../components/ui/Mono";
-import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import { formatBytes, formatPercent } from "../../../lib/format";
 import { NodeCapabilityGate } from "../../../nodes/capability";
@@ -27,7 +25,9 @@ import { ServerQueryState } from "../errors";
 import { MonitorCard } from "../MonitorCard";
 import { SERVER_CAPABILITY, processesQuery } from "../queries";
 import type { ProcessSort, Processes } from "../queries";
+import { UpdatesTab } from "../updates/UpdatesTab";
 import { ClockCard, HostnameCard, PowerCard, SystemCard } from "./SystemCards";
+import { NoustUpdate } from "./NoustUpdate";
 import type { SystemView } from "./data";
 import { SkeletonCard } from "../../../components/ui/Skeleton";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
@@ -54,7 +54,7 @@ function isProcessSort(column: string): column is ProcessSort {
 type ProcessRow = Processes["processes"][number];
 type UnitRow = Processes["units"][number];
 
-function ProcessesView() {
+export function ProcessesView() {
   const t = useT();
   const [sort, setSort] = useState<ProcessSort>("cpu");
   const [byUnit, setByUnit] = useState(false);
@@ -147,90 +147,58 @@ function ProcessesView() {
   );
 }
 
-type Interface = NetworkInfo["interfaces"][number];
-
-function NetworkView() {
-  const t = useT();
-  const network = useQuery(networkQuery());
-  const columns: Column<Interface>[] = [
-    { id: "name", header: t("server.network.interface"), card: "title", cell: (row) => <Mono>{row.name}</Mono> },
-    {
-      id: "state",
-      header: t("server.network.state"),
-      width: "w-28",
-      card: "status",
-      cell: (row) => <StatusPill state={row.is_up ? "running" : "stopped"} label={row.is_up ? t("server.network.up") : t("server.network.down")} appearance="inline" size="sm" />,
-    },
-    {
-      id: "addresses",
-      header: t("server.network.addresses"),
-      cell: (row) =>
-        (row.addresses?.length ?? 0) > 0 ? (
-          <span className="flex min-w-0 flex-col">
-            {(row.addresses ?? []).map((address) => (
-              <Mono key={address.address} tone="muted" truncate>
-                {address.address}
-              </Mono>
-            ))}
-          </span>
-        ) : (
-          <EmptyCell reason={t("server.network.noAddress")} />
-        ),
-    },
-    { id: "sent", header: t("server.network.sent"), align: "end", hideBelow: "md", mono: true, cell: (row) => formatBytes(row.bytes_sent, t.locale) },
-    { id: "received", header: t("server.network.received"), align: "end", hideBelow: "md", mono: true, cell: (row) => formatBytes(row.bytes_recv, t.locale) },
-  ];
-  return (
-    <ServerQueryState query={network} label={t("server.network.label")} skeleton={<SkeletonCard lines={2} />}>
-      {(data) => (
-        <Card level={2} title={t("server.network.title")} padding="none">
-          <DataTable
-            columns={columns}
-            rows={data.interfaces}
-            getRowId={(row) => row.name}
-            caption={t("server.network.caption")}
-            density="compact"
-            empty={<EmptyState variant="inline" title={t("server.network.none")} />}
-          />
-        </Card>
-      )}
-    </ServerQueryState>
-  );
-}
-
 export interface SystemTabProps {
   view: SystemView;
   onViewChange: (view: SystemView) => void;
+}
+
+function MachineView() {
+  return (
+    <div className="grid min-w-0 items-start gap-6 lg:grid-cols-2 2xl:grid-cols-4">
+      <ClockCard />
+      <HostnameCard />
+      <SystemCard />
+      <PowerCard />
+    </div>
+  );
 }
 
 function System({ view, onViewChange }: SystemTabProps) {
   const t = useT();
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      <div className="grid min-w-0 items-start gap-6 lg:grid-cols-2 2xl:grid-cols-4">
-        <ClockCard />
-        <HostnameCard />
-        <SystemCard />
-        <PowerCard />
-      </div>
       <SegmentedControl<SystemView>
         label={t("server.system.viewsLabel")}
         value={view}
         onValueChange={onViewChange}
         options={[
+          { value: "updates", label: t("server.system.views.updates") },
+          { value: "machine", label: t("server.system.views.machine") },
           { value: "processes", label: t("server.system.views.processes") },
-          { value: "network", label: t("server.system.views.network") },
           { value: "monitor", label: t("server.system.views.monitor") },
         ]}
         className="self-start"
       />
-      {view === "network" ? <NetworkView /> : view === "monitor" ? <MonitorCard /> : <ProcessesView />}
-      <CommandHint command="noust server time status" label={t("common.words.fromTerminal")} />
+      {view === "updates" ? (
+        <>
+          <NoustUpdate />
+          <UpdatesTab />
+        </>
+      ) : view === "machine" ? (
+        <>
+          <MachineView />
+          <CommandHint command="noust server time status" label={t("common.words.fromTerminal")} />
+        </>
+      ) : view === "monitor" ? (
+        <MonitorCard />
+      ) : (
+        <ProcessesView />
+      )}
     </div>
   );
 }
 
-/** The System tab. */
+/** The System and updates section. */
 export function SystemTab(props: SystemTabProps) {
   return (
     <NodeCapabilityGate capability={SERVER_CAPABILITY}>

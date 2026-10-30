@@ -82,6 +82,18 @@ def test_the_web_server_and_ssh_hold_their_ports_over_both_protocols(client: Tes
     assert (22, "tcp", "system") in held
 
 
+def test_the_machines_own_services_are_one_stable_word_each(client: TestClient) -> None:
+    system = {
+        (claim["port"], claim["protocol"]): claim["owner"]
+        for claim in claims_of(client)
+        if claim["kind"] == "system"
+    }
+
+    assert system[(443, "tcp")] == "web"
+    assert system[(22, "tcp")] == "ssh"
+    assert system[(8080, "tcp")] == "console"
+
+
 def test_what_the_kernel_says_listens_is_a_process_and_names_it(client: TestClient) -> None:
     listening = {
         (claim["port"], claim["protocol"]): claim

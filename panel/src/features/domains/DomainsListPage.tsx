@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
 import { certsQuery } from "../../api/queries/certs";
-import { dnsAccountsQuery, streamsQuery, tunnelsQuery } from "../../api/queries/network";
+import { dnsAccountsQuery, tunnelsQuery } from "../../api/queries/network";
 import { sitesQuery } from "../../api/queries/sites";
 import { LinkTabs } from "../../app/LinkTabs";
 import type { LinkTab } from "../../app/LinkTabs";
@@ -40,14 +40,12 @@ export function DomainsListPage({ secondaryActions, primaryAction, overflow, not
   const sites = useQuery(sitesQuery());
   const accounts = useQuery({ ...dnsAccountsQuery(), enabled: server });
   const tunnels = useQuery({ ...tunnelsQuery(), enabled: server });
-  const streams = useQuery({ ...streamsQuery(), enabled: server });
   // The server's own network (DNS, tunnels, ports) is the server's to manage: the register leaves those tabs out for whoever cannot.
   const tabs: LinkTab[] = withCounts(tabsOf(DOMAINS_SCREENS, { can: org.can }),{
     "/domains": certs.data?.total ?? null,
     "/domains/sites": sites.data?.total ?? null,
     "/domains/dns": accounts.data?.accounts.length ?? null,
     "/domains/tunnels": tunnels.data?.tunnels.length ?? null,
-    "/domains/ports": streams.data?.exposures.length ?? null,
   });
   return (
     <ListPage

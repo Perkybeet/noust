@@ -30,7 +30,7 @@ export const enroll = {
     installHelp: "This central sends its own copy of the installer over the connection: the server downloads no script. Off, a server without Noust is refused.",
     replaceToken: "Replace the token this central already holds there",
     replaceTokenHelp: "For a server that was added before and lost its record here: a new token is issued and the old one is revoked.",
-    more: "More options",
+    more: "Account, port and permissions",
     credential: "How to get in",
     credentialPassword: "A password",
     credentialPasswordHelp: "Sign in with the account's password.",

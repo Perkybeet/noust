@@ -105,5 +105,8 @@ Going back is the same command with `--to nginx`. The setting of new application
 | `POST /api/webserver/migrate` | Queues the move as a job. Without `confirm` the answer is the confirmation to ask for; without `accept_losses`, what the new sites will not do. |
 | `GET /api/apps/{domain}/webserver/plan`, `POST /api/apps/{domain}/webserver/migrate` | The same for one application. |
 
+The console has it as **Server > Web server**: both servers and what is behind each, the setting of new applications, and the
+move, which reads the plan first and asks to accept what the new sites will not do before it starts the job.
+
 Every route needs the whole server (a team's role cannot) and the moving ones need sudo mode.
 Refusals are `409 webserver_move`, and every sentence carries a code the console translates.
