@@ -8,7 +8,7 @@ export const serverCentral: Catalog<typeof en> = {
   descriptionOf: "Es lo máximo que la central {central} puede hacer en este servidor, sea lo que sea lo que puedan hacer sus propias personas.",
   summary: "{node} deja a la central: {level}.",
   summaryUnknown: "{node} no dice qué deja hacer a la central.",
-  check: "Volver a comprobar",
+  check: "Comprobar de nuevo",
   choose: "Lo que {node} deja hacer a la central",
   now: "Ahora",
   hostAccess: "Cambiar también cómo se llega al servidor",

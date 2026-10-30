@@ -32,10 +32,10 @@ import { ServerQueryState } from "../errors";
 import { serverKeys } from "../queries";
 import { canMove, display, groupFindings, needsAcceptance, orderSites, planNumbers } from "./data";
 import { movePlanQuery, startMove, webserverKeys } from "./queries";
-import type { Finding, MovePlan, SitePlan, WebServerName } from "./queries";
+import type { MovePlan, Sentence, SitePlan, WebServerName } from "./queries";
 
-/** One finding: the sentence in the console's words, the directive and line it is about, and its fix under it. */
-function FindingRow({ finding }: { finding: Finding }) {
+/** One finding or blocker: the sentence in the console's words and its fix under it. */
+function FindingRow({ finding }: { finding: Sentence }) {
   const coded = { code: finding.code, params: finding.params ?? {} };
   return (
     <li className="flex min-w-0 flex-col gap-0.5 py-1.5 first:pt-0 last:pb-0">
@@ -51,17 +51,17 @@ function FindingRow({ finding }: { finding: Finding }) {
   );
 }
 
-function FindingList({ title, tone, findings }: { title: string; tone: "failed" | "warning" | "unknown"; findings: readonly Finding[] }) {
+function FindingList({ title, tone, findings }: { title: string; tone: "failed" | "warning" | "unknown"; findings: readonly Sentence[] }) {
   if (findings.length === 0) return null;
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
-      <p className={`flex items-center gap-1.5 text-13 font-semibold ${stateTextClass(tone)}`}>
+      <p className={`flex items-center gap-1.5 text-13 font-medium ${stateTextClass(tone)}`}>
         <StatusGlyph state={tone} size={12} />
         {title}
       </p>
       <ul className="flex flex-col divide-y divide-border pl-5">
         {findings.map((finding, index) => (
-          <FindingRow key={`${finding.directive}:${String(finding.line ?? "")}:${String(index)}`} finding={finding} />
+          <FindingRow key={`${finding.code}:${String(index)}`} finding={finding} />
         ))}
       </ul>
     </div>
@@ -77,17 +77,7 @@ function SiteRow({ t, site }: { t: T; site: SitePlan }) {
     <li className="min-w-0">
       <Disclosure variant="card" defaultOpen={open} label={site.domain} {...(summary !== undefined ? { summary } : {})}>
         <div className="flex min-w-0 flex-col gap-3 pb-1">
-          {site.blockers?.map((blocker) => (
-            <Notice key={blocker.code} tone="error" title={undefined}>
-              <ServerText coded={{ code: blocker.code, params: blocker.params ?? {} }} text={blocker.text} />
-              {blocker.hint !== null && blocker.hint !== undefined ? (
-                <span className="mt-1 block text-fg-muted">
-                  <ServerText coded={{ code: blocker.code, params: blocker.params ?? {} }} text={blocker.hint} part="hint" />
-                </span>
-              ) : null}
-            </Notice>
-          ))}
-          <FindingList title={t("serverWeb.move.blocks")} tone="failed" findings={found.blocks} />
+          <FindingList title={t("serverWeb.move.blocks")} tone="failed" findings={[...(site.blockers ?? []), ...found.blocks]} />
           <FindingList title={t("serverWeb.move.protections")} tone="warning" findings={found.protections} />
           <FindingList title={t("serverWeb.move.loses")} tone="warning" findings={found.loses} />
           <FindingList title={t("serverWeb.move.notes")} tone="unknown" findings={found.notes} />
@@ -139,7 +129,7 @@ function Plan({ t, plan, accepted, onAccepted }: { t: T; plan: MovePlan; accepte
         </Notice>
       ) : null}
       <div className="flex min-w-0 flex-col gap-2">
-        <p className="text-13 font-semibold text-fg">{t("serverWeb.move.sitesTitle", { movable: numbers.movable, total: numbers.sites })}</p>
+        <p className="text-13 font-medium text-fg">{t("serverWeb.move.sitesTitle", { movable: numbers.movable, total: numbers.sites })}</p>
         <ul className="flex flex-col gap-2">
           {orderSites(plan.sites).map((site) => (
             <SiteRow key={site.domain} t={t} site={site} />

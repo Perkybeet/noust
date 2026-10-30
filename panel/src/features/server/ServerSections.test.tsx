@@ -67,7 +67,7 @@ describe("the central's permissions", () => {
     await screen.findByText("web-2 lets the central: Operate and update.");
     await user.click(screen.getByRole("radio", { name: /Read only/ }));
 
-    expect(screen.getByRole("checkbox", { name: /Also change how the server is reached/ })).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: /Also change how the server is reached/ })).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByText("Only with the level that allows everything.")).toBeInTheDocument();
   });
 
@@ -172,7 +172,8 @@ describe("what the applications keep between deployments", () => {
     });
 
     const table = await screen.findByRole("table", { name: "Folders and files the applications keep between deployments" });
-    expect(await within(table).findByText("queue_data")).toBeInTheDocument();
+    // The volume is named in the folder column and again as the place it is stored.
+    expect((await within(table).findAllByText("queue_data")).length).toBeGreaterThan(0);
     expect(backend.callsTo("GET /api/apps/shop.example.net/mounts")).toHaveLength(1);
     expect(backend.callsTo("GET /api/apps/queue.example.net/mounts")).toHaveLength(0);
     expect(backend.callsTo("GET /api/apps/docs.example.net/mounts")).toHaveLength(0);
@@ -250,7 +251,8 @@ describe("Noust's own update, beside the system's", () => {
       "GET /api/system/update": () => json(200, METHOD),
       "POST /api/system/update": () => json(202, { job_id: "j9", message: "queued", status: "pending" }),
     });
-    expect(await screen.findByText("This server runs Noust 3.3.1.")).toBeInTheDocument();
+    // The version is set in mono inside the sentence, so the sentence is read from the paragraph.
+    expect(await screen.findByText((_, element) => element?.tagName === "P" && element.textContent === "This server runs Noust 3.3.1.")).toBeInTheDocument();
     expect(screen.getByText("4.0.0 available")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Update Noust" }));

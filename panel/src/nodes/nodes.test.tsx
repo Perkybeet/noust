@@ -56,13 +56,29 @@ describe("a page on a node", () => {
     expect(screen.getAllByRole("link", { name: "Settings" })[0]).toHaveAttribute("href", "/n/web-2/settings");
 
     fireEvent.click(within(nav).getByRole("link", { name: /^Servers/ }));
-    await screen.findByRole("heading", { level: 1, name: "Server" });
+    // A server's page is titled by the server: on a node, the node.
+    await screen.findByRole("heading", { level: 1, name: "web-2" });
     // Services live under Server now: the sidebar opens Server, on the node.
     await waitFor(() => {
       expect(history.location.pathname).toBe("/n/web-2/server");
     });
     expect(location().pathname).toBe("/server");
     expect(location().search).toMatchObject({ node: "web-2" });
+  });
+
+  it("opens the list of servers from the bar on the central, where picking a server is a row of it", async () => {
+    const { location } = await consoleAt("/apps");
+    const nav = screen.getByRole("navigation", { name: "Main" });
+    // The servers are read after the first frame: the bar holds a fleet once they have answered.
+    await waitFor(() => {
+      expect(within(nav).getByRole("link", { name: /^Servers/ })).toHaveAttribute("href", "/fleet/servers");
+    });
+
+    fireEvent.click(within(nav).getByRole("link", { name: /^Servers/ }));
+    await waitFor(() => {
+      expect(location().pathname).toBe("/fleet/servers");
+    });
+    expect(await screen.findByRole("heading", { level: 1, name: "Servers" })).toBeInTheDocument();
   });
 
   it("opens a shared link to a node's application tab, titled with the node", async () => {
@@ -227,7 +243,7 @@ describe("the server selector", () => {
     });
     // Focus goes to the new page, not to a control that was replaced.
     await waitFor(() => {
-      expect(screen.getByRole("heading", { level: 1, name: "Server" })).toHaveFocus();
+      expect(screen.getByRole("heading", { level: 1, name: "web-2" })).toHaveFocus();
     });
   });
 

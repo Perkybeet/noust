@@ -188,15 +188,16 @@ describe("the catalog page", () => {
     const { user } = harness;
     const list = await screen.findByRole("list", { name: "Recipes" });
     expect(within(list).getAllByRole("heading")).toHaveLength(20);
-    expect(screen.getByText(/Showing 1–20 of 25/)).toBeInTheDocument();
+    // The 25th recipe (Ghost) cannot be installed here: it is listed apart, after the pages, not inside them.
+    expect(screen.getByText(/Showing 1–20 of 24/)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Next page" }));
-    await waitFor(() => expect(grid().getAllByRole("heading")).toHaveLength(5));
-    expect(screen.getByText(/Showing 21–25 of 25/)).toBeInTheDocument();
+    await waitFor(() => expect(grid().getAllByRole("heading")).toHaveLength(4));
+    expect(screen.getByText(/Showing 21–24 of 24/)).toBeInTheDocument();
 
     await user.click(screen.getByRole("combobox", { name: "Rows per page" }));
     await user.click(await screen.findByRole("option", { name: "All" }));
-    await waitFor(() => expect(grid().getAllByRole("heading")).toHaveLength(25));
+    await waitFor(() => expect(grid().getAllByRole("heading")).toHaveLength(24));
     expect(window.localStorage.getItem("noust.pageSize.recipes")).toBe("all");
   });
 

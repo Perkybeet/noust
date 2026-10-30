@@ -74,6 +74,7 @@ export const server: Catalog<typeof en> = {
     column: { app: "Aplicación", folder: "Carpeta o fichero", where: "Guardado en", size: "Tamaño" },
     notYet: "Aún sin crear",
     none: "Ninguna aplicación conserva una carpeta todavía. Añade una en los ajustes de una aplicación.",
+    loading: "Mirando lo que conservan las aplicaciones",
   },
   noust: {
     title: "Noust",

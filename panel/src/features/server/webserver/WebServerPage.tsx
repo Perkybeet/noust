@@ -20,7 +20,6 @@ import { Mono } from "../../../components/ui/Mono";
 import { Select } from "../../../components/ui/Select";
 import { SkeletonCard } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
-import { toast } from "../../../components/ui/toast";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
@@ -49,7 +48,7 @@ function ServerCard({ t, name, row, holds }: { t: T; name: WebServerName; row: S
         <StatusPill
           state={state}
           size="sm"
-          label={!installed ? t("serverWeb.state.notInstalled") : serving ? t("serverWeb.state.serving") : t("serverWeb.state.stopped")}
+          label={!installed ? t("serverWeb.state.notInstalled") : serving ? t("serverWeb.state.serving") : t("common.statusPill.stopped")}
         />
       }
       description={holds ? t("serverWeb.holdsPorts") : undefined}
@@ -76,13 +75,12 @@ function NewApplications({ t, status }: { t: T; status: WebserverStatus }) {
   const setting = useQuery(webserverQuery());
   const choose = useMutation({
     mutationFn: (value: string) => saveWebserver({ webserver: value }),
-    onSuccess: (_saved, value) => {
-      void queryClient.invalidateQueries({ queryKey: configKeys.section("webserver") });
-      void queryClient.invalidateQueries({ queryKey: webserverKeys.status });
-      toast.success(t("serverWeb.newApps.saved", { name: display(value) }));
+    // Held until the setting is read again, so the select never goes back to the old value before it shows the new one.
+    onSuccess: async () => {
+      await Promise.all([queryClient.invalidateQueries({ queryKey: configKeys.section("webserver") }), queryClient.invalidateQueries({ queryKey: webserverKeys.status })]);
     },
   });
-  const current = setting.data?.webserver ?? status.webserver;
+  const current = choose.isPending ? choose.variables : (setting.data?.webserver ?? status.webserver);
   return (
     <Card level={2} title={t("serverWeb.newApps.title")} description={t("serverWeb.newApps.description")} padding="sm">
       <div className="flex min-w-0 flex-col gap-3">

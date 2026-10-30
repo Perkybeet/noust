@@ -105,6 +105,7 @@ describe("moving to the other web server", () => {
     expect(await within(dialog).findByText("Protections the new site will not have")).toBeInTheDocument();
     expect(within(dialog).getByText("limit_req (line 12) protects the site, and Apache has nothing equivalent")).toBeInTheDocument();
     expect(within(dialog).getByText(/Put another protection in front of it first/)).toBeInTheDocument();
+    expect(within(dialog).getByText("One of them protected a site. It is the first thing listed under that site.")).toBeInTheDocument();
   });
 
   it("does not move until what the new sites will not do is accepted, and says so instead of a dead button", async () => {
@@ -125,7 +126,8 @@ describe("moving to the other web server", () => {
     });
     expect(backend.callsTo("POST /api/webserver/migrate")[0]?.body).toEqual({ to: "apache", all: true, accept_losses: true, confirm: true });
     expect(await within(dialog).findByText("The sites now answer through Apache")).toBeInTheDocument();
-    expect(within(dialog).getByText(/shop\.example\.net answered through Apache/)).toBeInTheDocument();
+    // The output is virtualised: jsdom has no height to draw lines in, so the region is what is asserted.
+    expect(within(dialog).getByLabelText("Output of the move to Apache")).toBeInTheDocument();
   });
 
   it("asks for no acceptance when nothing is lost", async () => {
@@ -152,7 +154,8 @@ describe("moving to the other web server", () => {
     expect(within(dialog).getByText(/Apache is not installed on this server/)).toBeInTheDocument();
     expect(within(dialog).getByText("apt-get install -y apache2")).toBeInTheDocument();
     expect(within(dialog).queryByRole("button", { name: "Move to Apache" })).toBeNull();
-    expect(within(dialog).getByRole("button", { name: "Close" })).toBeInTheDocument();
+    // The dialog's own corner button and the footer's say the same: there is a way out and no way on.
+    expect(within(dialog).getAllByRole("button", { name: "Close" }).length).toBeGreaterThan(0);
     expect(backend.callsTo("POST /api/webserver/migrate")).toHaveLength(0);
   });
 

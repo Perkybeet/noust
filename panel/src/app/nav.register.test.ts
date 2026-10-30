@@ -590,9 +590,9 @@ describe("what the pages draw from the register", () => {
     expect(paths(TEAM_TABS)).toEqual(["/teams/$team", "/teams/$team/members", "/teams/$team/variables", "/teams/$team/notifications", "/teams/$team/settings"]);
     expect(paths(tabsOf(FLEET_APPS_SCREENS))).toEqual(["/fleet/apps", "/fleet/placements"]);
     expect(paths(tabsOf(FLEET_SERVERS_SCREENS))).toEqual(["/fleet/servers", "/fleet/updates"]);
-    expect(paths(tabsById("server"))).toEqual(["/server", "/server/updates", "/server/security", "/server/storage", "/server/services", "/server/system"]);
+    expect(paths(tabsById("server"))).toEqual(["/server", "/server/system", "/server/security", "/server/network", "/server/services", "/server/webserver", "/server/files", "/server/central"]);
     expect(paths(tabsById("backups"))).toEqual(["/backups", "/backups/schedules", "/backups/volumes", "/backups/noust", "/backups/destinations"]);
-    expect(paths(tabsById("domains"))).toEqual(["/domains", "/domains/sites", "/domains/dns", "/domains/tunnels", "/domains/ports"]);
+    expect(paths(tabsById("domains"))).toEqual(["/domains", "/domains/sites", "/domains/dns", "/domains/tunnels"]);
     expect(paths(tabsById("apps"))).toEqual(["/apps", "/projects"]);
     expect(paths(tabsById("catalog"))).toEqual(["/catalog", "/catalog/installed"]);
     expect(paths(tabsById("alerts"))).toEqual(["/alerts", "/alerts/probes"]);
@@ -602,7 +602,7 @@ describe("what the pages draw from the register", () => {
 
   it("keeps the exact tabs that must not stay lit beneath them", () => {
     const exact = (tabs: readonly { to: string; exact?: boolean }[]) => tabs.filter((tab) => tab.exact === true).map((tab) => tab.to);
-    expect(exact(tabsById("domains"))).toEqual(["/domains", "/domains/sites", "/domains/dns", "/domains/tunnels", "/domains/ports"]);
+    expect(exact(tabsById("domains"))).toEqual(["/domains", "/domains/sites", "/domains/dns", "/domains/tunnels"]);
     expect(exact(tabsById("backups"))).toEqual(["/backups"]);
     expect(exact(tabsById("database"))).toEqual(["/databases/$engine/$name"]);
   });

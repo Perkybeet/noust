@@ -8,7 +8,6 @@ export const serverWeb: Catalog<typeof en> = {
   holdsPorts: "Atiende los puertos 80 y 443",
   state: {
     serving: "Sirviendo",
-    stopped: "Detenido",
     notInstalled: "No instalado",
   },
   version: "Versión",
@@ -20,7 +19,6 @@ export const serverWeb: Catalog<typeof en> = {
     title: "Aplicaciones nuevas",
     description: "Detrás de qué servidor web se pone una aplicación nueva. No mueve ninguna de las que ya están.",
     label: "Las aplicaciones nuevas van detrás de",
-    saved: "Las aplicaciones nuevas van ahora detrás de {name}",
     failed: "No se pudo cambiar",
   },
   move: {
@@ -53,8 +51,8 @@ export const serverWeb: Catalog<typeof en> = {
       other: "Acepto que los sitios nuevos no hagan {count} cosas que hacían los anteriores",
     },
     acceptProtections: {
-      one: "Una de ellas protegía el sitio. Pon antes otra protección delante si la necesitas.",
-      other: "{count} de ellas protegían un sitio. Pon antes otra protección delante si la necesitas.",
+      one: "Una de ellas protegía un sitio. Es lo primero que aparece en la lista de ese sitio.",
+      other: "{count} de ellas protegían un sitio. Cada una es lo primero que aparece en la lista de su sitio.",
     },
     acceptHelp: "Cada una está en la lista de su sitio.",
     acceptFirst: "Acepta lo que los sitios nuevos no harán, o deja los sitios donde están.",

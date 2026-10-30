@@ -6,7 +6,6 @@ export const serverWeb = {
   holdsPorts: "Answers on ports 80 and 443",
   state: {
     serving: "Serving",
-    stopped: "Stopped",
     notInstalled: "Not installed",
   },
   version: "Version",
@@ -18,7 +17,6 @@ export const serverWeb = {
     title: "New applications",
     description: "Which web server a new application is put behind. It moves none of the ones already here.",
     label: "New applications go behind",
-    saved: "New applications now go behind {name}",
     failed: "Could not change it",
   },
   move: {
@@ -51,8 +49,8 @@ export const serverWeb = {
       other: "I accept that the new sites will not do {count} things the old ones did",
     },
     acceptProtections: {
-      one: "One of them protected the site. Put another protection in front of it first if you need one.",
-      other: "{count} of them protected a site. Put another protection in front of it first if you need one.",
+      one: "One of them protected a site. It is the first thing listed under that site.",
+      other: "{count} of them protected a site. Each is the first thing listed under its site.",
     },
     acceptHelp: "Each one is listed under its site.",
     acceptFirst: "Accept what the new sites will not do, or choose to leave them where they are.",

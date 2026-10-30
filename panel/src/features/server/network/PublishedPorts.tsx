@@ -83,6 +83,7 @@ function PublishDialog({ open, onClose }: { open: boolean; onClose: () => void }
     mutationFn: (body: StreamBody) => request("post", "/api/streams", { body }),
     onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: networkKeys.streams });
+      // design-exception: toast-success the toast says what the firewall was told, which no row of the page shows
       toast.success(t("network.ports.publishedToast", { name: result.exposure.name }), { description: result.firewall });
       close(true);
     },
@@ -301,8 +302,8 @@ export function PublishedPorts() {
         onConfirm={async () => {
           if (closing === null) return;
           await request("delete", "/api/streams/{name}", { params: { name: closing.name } });
-          void queryClient.invalidateQueries({ queryKey: networkKeys.streams });
-          toast.success(t("network.ports.closedToast", { name: closing.name }));
+          // The dialog closes when the row is gone: with no toast, the row leaving is the whole acknowledgement.
+          await queryClient.invalidateQueries({ queryKey: networkKeys.streams });
         }}
       />
     </div>

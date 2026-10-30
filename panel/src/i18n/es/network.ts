@@ -506,7 +506,6 @@ export const network: Catalog<typeof en> = {
     close: "Cerrar el puerto",
     closeTitle: "Cerrar {name}",
     closeDescription: "El puerto deja de publicarse y se quitan las reglas del cortafuegos que Noust hizo para él. Una regla que ya estaba se queda.",
-    closedToast: "Se cerró {name}",
     publishTitle: "Publicar un puerto",
     publishDescription: "Primero comprueba qué haría, y solo después lo hace. nginx prueba toda la configuración, y si la rechaza sus propias palabras son el error.",
     check: "Comprobar",

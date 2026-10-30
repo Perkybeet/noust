@@ -508,7 +508,6 @@ export const network = {
     close: "Close the port",
     closeTitle: "Close {name}",
     closeDescription: "The port stops being published and the firewall rules Noust made for it are removed. A rule that was already there stays.",
-    closedToast: "Closed {name}",
     publishTitle: "Publish a port",
     publishDescription: "Checks first what it would do, and only then does it. nginx tests the whole configuration, and its own words are the error if it refuses.",
     check: "Check",

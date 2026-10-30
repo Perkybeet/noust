@@ -183,8 +183,10 @@ describe("the Server area", () => {
     });
     server("/server");
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Servidor" }),
+      await screen.findByRole("heading", { level: 1, name: "web-01" }),
     ).toBeInTheDocument();
+    // The page is titled by the server; the section nav is the part that speaks the language.
+    expect(screen.getByRole("navigation", { name: "Secciones del servidor" })).toBeInTheDocument();
     const list = await screen.findByRole("list", {
       name: "Lo que requiere atención",
     });

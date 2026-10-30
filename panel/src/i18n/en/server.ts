@@ -64,6 +64,7 @@ export const server = {
     column: { app: "Application", folder: "Folder or file", where: "Stored at", size: "Size" },
     notYet: "Not created yet",
     none: "No application keeps a folder yet. Add one in the settings of an application.",
+    loading: "Looking at what the applications keep",
   },
   noust: {
     title: "Noust",

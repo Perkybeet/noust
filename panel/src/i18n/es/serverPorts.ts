@@ -17,7 +17,7 @@ export const serverPorts: Catalog<typeof en> = {
   notListening: "Todavía no escucha nada",
   column: {
     port: "Puerto",
-    holder: "Lo usa",
+    holder: "Usado por",
     reach: "Quién puede llegar",
   },
   holder: {

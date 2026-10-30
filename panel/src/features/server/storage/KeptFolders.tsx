@@ -13,6 +13,7 @@ import { Link } from "@tanstack/react-router";
 import { appsQuery } from "../../../api/queries/apps";
 import { mountsQuery } from "../../../api/queries/runtime";
 import { volumeTargetsQuery } from "../../../api/queries/volumeBackups";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { Card } from "../../../components/ui/Card";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
@@ -100,7 +101,13 @@ export function KeptFolders() {
       cell: (row) => (row.exists ? (row.size !== null ? formatBytes(row.size, t.locale) : "-") : t("server.kept.notYet")),
     },
   ];
-  if (loading && rows.length === 0) return <SkeletonCard lines={3} />;
+  if (loading && rows.length === 0) {
+    return (
+      <LoadingRegion label={t("server.kept.loading")}>
+        <SkeletonCard lines={3} />
+      </LoadingRegion>
+    );
+  }
   return (
     <Card level={2} title={t("server.kept.title")} icon={OBJECT_ICONS.mounts} description={t("server.kept.description")} padding="none">
       <DataTable

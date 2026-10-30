@@ -125,7 +125,6 @@
       "features/fleet/FleetJobPage.tsx": 2,
       "features/fleet/SummaryTab.tsx": 1,
       "features/freeze/FreezeCard.tsx": 2,
-      "features/overview/attention.ts": 1,
       "features/overview/FleetSummary.tsx": 1,
       "features/overview/KeyFigures.tsx": 1,
       "features/server/security/FirewallView.tsx": 1,

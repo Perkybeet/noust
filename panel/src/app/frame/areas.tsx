@@ -17,7 +17,7 @@ import { iconOf } from "../../features/nav/icons";
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { useHasFleet, useReturnServer } from "../../nodes/servers";
-import { useConsoleContext } from "../../nodes/useNode";
+import { useConsoleContext, useNode } from "../../nodes/useNode";
 import { areaOf, areaTarget, dest, sidebarFor } from "../nav";
 import type { ConsolePath, Dest, Scope } from "../nav";
 import { useNavScope } from "../useNavScope";
@@ -79,6 +79,7 @@ export function useAreas(): Areas {
   const back = useReturnServer();
   const scope = useNavScope();
   const hasFleet = useHasFleet();
+  const { node: onNode } = useNode();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const counts = useCounts(scope === "server");
   const onHub = role === "hub" && context.kind === "server" && context.node === null;
@@ -90,7 +91,8 @@ export function useAreas(): Areas {
     const face = scope === "fleet" && entry.fleetTo !== undefined;
     return {
       entry,
-      to: areaTarget(entry, scope, hasFleet),
+      // On a server of the fleet the bar keeps to that server, like every other entry; the list is the central's.
+      to: areaTarget(entry, scope, hasFleet && onNode === null),
       ...(scope === "fleet" && !face && node !== undefined ? { node } : {}),
       Icon: iconOf(entry),
       current: current?.id === entry.id,
