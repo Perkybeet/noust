@@ -614,6 +614,582 @@ class TestSeveralRolesWaitForASecondPerson:
             assert "roles" in by_route[route]["when"]
 
 
+def audit_count(action: str) -> int:
+    return len([entry for entry in audit_actions() if entry["action"] == action])
+
+
+def approve_and_resend(
+    asker: Person, decider: Person, send: Any, asked: Any, *args: Any, **kwargs: Any
+) -> Any:
+    """Have a second person approve what was asked, and send the call again under it."""
+    assert asked.status_code == 202, asked.text
+    approval_id = asked.headers["X-Noust-Approval-Request"]
+    decider.elevate()
+    assert decider.post(f"/api/approvals/{approval_id}/approve", {}).status_code == 200
+    return send(*args, **kwargs, **{"X-Noust-Approval": approval_id})
+
+
+class TestTeamGrantsWaitForASecondPerson:
+    """
+    A role on a team has two doors, the access bindings and the team's own members and access.
+
+    ``POST /api/access/bindings`` waited; the team's routes, which make the same grants through the
+    same store calls, did not.
+    """
+
+    @pytest.fixture(autouse=True)
+    def acme(self, app: Any) -> None:
+        from noust.core.teams import TeamStore
+
+        TeamStore().create_team("Acme", slug="acme")
+        get_token_manager().accounts.create(
+            "maria", "operator", password=PASSWORD, join_default_team=False
+        )
+
+    @staticmethod
+    def role_of_maria() -> str | None:
+        from noust.core.teams import TeamStore
+
+        members = {member.username: member.role for member in TeamStore().list_members("acme")}
+        return members.get("maria")
+
+    def test_adding_a_member_waits_for_another_person_and_runs_once(
+        self, app: Any, policy: dict[str, Any]
+    ) -> None:
+        alice = Person(app, "alice", "admin")
+        sam = Person(app, "sam", "security")
+        alice.elevate()
+        body = {"username": "maria", "role": "operator"}
+
+        asked = alice.post("/api/teams/acme/members", body)
+        assert asked.status_code == 202, asked.text
+        assert self.role_of_maria() is None
+        request = alice.client.get(f"/api/approvals/{asked.headers['X-Noust-Approval-Request']}")
+        assert request.json()["action"] == "team.member"
+        assert request.json()["kind"] == "role_change"
+
+        done = approve_and_resend(alice, sam, alice.post, asked, "/api/teams/acme/members", body)
+        assert done.status_code == 201, done.text
+        assert self.role_of_maria() == "operator"
+        assert audit_count("team.member.add") == 1
+
+    def test_the_approval_is_for_that_role_and_no_other(
+        self, app: Any, policy: dict[str, Any]
+    ) -> None:
+        alice = Person(app, "alice", "admin")
+        sam = Person(app, "sam", "security")
+        alice.elevate()
+        asked = alice.post("/api/teams/acme/members", {"username": "maria", "role": "viewer"})
+        swapped = approve_and_resend(
+            alice,
+            sam,
+            alice.post,
+            asked,
+            "/api/teams/acme/members",
+            {"username": "maria", "role": "owner"},
+        )
+        assert swapped.status_code == 409 and swapped.json()["error"] == "approval_mismatch"
+        assert self.role_of_maria() is None
+
+    def test_raising_a_member_waits_and_lowering_one_does_not(
+        self, app: Any, policy: dict[str, Any]
+    ) -> None:
+        from noust.core.teams import TeamStore
+
+        TeamStore().add_member("acme", "maria", "operator")
+        alice = Person(app, "alice", "admin")
+        sam = Person(app, "sam", "security")
+        alice.elevate()
+        member = "/api/teams/acme/members/maria"
+
+        raised = alice.patch(member, {"role": "admin"})
+        assert raised.status_code == 202, raised.text
+        upsert = alice.post("/api/teams/acme/members", {"username": "maria", "role": "owner"})
+        assert upsert.status_code == 202, upsert.text
+        assert self.role_of_maria() == "operator"
+
+        done = approve_and_resend(alice, sam, alice.patch, raised, member, {"role": "admin"})
+        assert done.status_code == 200, done.text
+        assert self.role_of_maria() == "admin"
+
+        # Taking power away, or saying what is already so, asks nobody.
+        assert alice.patch(member, {"role": "viewer"}).status_code == 200
+        assert alice.patch(member, {"role": "viewer"}).status_code == 200
+        assert (
+            alice.post(
+                "/api/teams/acme/members", {"username": "maria", "role": "viewer"}
+            ).status_code
+            == 201
+        )
+        assert self.role_of_maria() == "viewer"
+
+    def test_taking_a_member_out_asks_nobody(self, app: Any, policy: dict[str, Any]) -> None:
+        from noust.core.teams import TeamStore
+
+        TeamStore().add_member("acme", "maria", "admin")
+        alice = Person(app, "alice", "admin")
+        alice.elevate()
+        assert alice.delete("/api/teams/acme/members/maria").status_code == 200
+        assert self.role_of_maria() is None
+
+    def test_what_the_handler_would_refuse_is_not_filed(
+        self, app: Any, policy: dict[str, Any]
+    ) -> None:
+        alice = Person(app, "alice", "admin")
+        alice.elevate()
+        for path, body, status in (
+            ("/api/teams/nowhere/members", {"username": "maria", "role": "viewer"}, 404),
+            ("/api/teams/acme/members", {"username": "nobody", "role": "viewer"}, 404),
+            ("/api/teams/acme/members", {"username": "maria", "role": "emperor"}, 400),
+        ):
+            refused = alice.post(path, body)
+            assert refused.status_code == status, (path, refused.text)
+        not_a_member = alice.patch("/api/teams/acme/members/maria", {"role": "owner"})
+        assert not_a_member.status_code == 404, not_a_member.text
+        assert alice.client.get("/api/approvals").json()["approvals"] == []
+
+    def test_a_role_on_a_team_or_below_it_waits_like_the_access_route_does(
+        self, app: Any, policy: dict[str, Any]
+    ) -> None:
+        from noust.web.permissions.access import AccessManager
+
+        alice = Person(app, "alice", "admin")
+        sam = Person(app, "sam", "security")
+        alice.elevate()
+        for body in (
+            {"username": "maria", "role": "admin"},
+            {"username": "maria", "role": "viewer", "project": "default"},
+        ):
+            asked = alice.post("/api/teams/acme/access", body)
+            assert asked.status_code == 202, (body, asked.text)
+        assert AccessManager().list_bindings("maria") == []
+        assert self.role_of_maria() is None
+
+        body = {"username": "maria", "role": "viewer", "project": "default"}
+        asked = alice.post("/api/teams/acme/access", body)
+        done = approve_and_resend(alice, sam, alice.post, asked, "/api/teams/acme/access", body)
+        assert done.status_code == 201, done.text
+        assert [binding.role for binding in AccessManager().list_bindings("maria")] == ["viewer"]
+        assert audit_count("access.bind") == 1
+
+    def test_taking_a_role_away_asks_nobody(self, app: Any, policy: dict[str, Any]) -> None:
+        from noust.web.permissions.access import AccessManager
+
+        binding = AccessManager().bind("maria", "viewer", team="acme", project="default")
+        alice = Person(app, "alice", "admin")
+        sam = Person(app, "sam", "security")
+        alice.elevate()
+        sam.elevate()
+        assert alice.delete(f"/api/teams/acme/access/{binding.id}").status_code == 200
+        again = AccessManager().bind("maria", "viewer", team="acme", project="default")
+        assert sam.delete(f"/api/access/bindings/{again.id}").status_code == 200
+        assert sam.client.get("/api/approvals").json()["approvals"] == []
+
+    def test_the_policy_names_every_door(self, app: Any, policy: dict[str, Any]) -> None:
+        viewer = Person(app, "vera", "viewer")
+        rules = viewer.client.get("/api/approvals/policy").json()["rules"]
+        by_route = {(rule["method"], rule["template"]): rule for rule in rules}
+        assert by_route[("POST", "/api/teams/{team}/access")]["action"] == "access.grant"
+        assert by_route[("POST", "/api/teams/{team}/members")]["action"] == "team.member"
+        assert by_route[("PATCH", "/api/teams/{team}/members/{username}")]["kind"] == "role_change"
+
+
+class TestWhatARoleHoldsWaitsForASecondPersonWhenItGrowsAndNotWhenItShrinks:
+    """
+    A role is held by everyone who has it, from their next request: adding a permission to it is
+    granting that permission to each of them.
+    """
+
+    HOLDS = ["apps.read", "apps.operate"]
+    MORE = ["apps.read", "apps.operate", "apps.deploy"]
+
+    @pytest.fixture(autouse=True)
+    def release_manager(self, app: Any) -> None:
+        from noust.core.access.role_manager import RoleManager
+
+        RoleManager().create("release-manager", self.HOLDS)
+        get_token_manager().accounts.create("maria", "operator", password=PASSWORD)
+        get_token_manager().accounts.set_roles("maria", ["operator", "release-manager"])
+
+    @staticmethod
+    def held(name: str = "release-manager") -> set[str]:
+        from noust.core.access.roles import RoleStore
+
+        return set(RoleStore().require(name).held) - {"self"}
+
+    @pytest.mark.parametrize(
+        "path", ["/api/roles/release-manager", "/api/access/roles/release-manager"]
+    )
+    def test_adding_a_permission_waits_for_another_person_and_runs_once(
+        self, app: Any, policy: dict[str, Any], path: str
+    ) -> None:
+        sam = Person(app, "sam", "security")
+        tess = Person(app, "tess", "security")
+        sam.elevate()
+        body = {"permissions": self.MORE}
+
+        asked = sam.patch(path, body)
+        assert asked.status_code == 202, asked.text
+        assert self.held() == set(self.HOLDS)
+        request = sam.client.get(f"/api/approvals/{asked.headers['X-Noust-Approval-Request']}")
+        assert request.json()["action"] == "access.role_widen"
+        assert request.json()["kind"] == "role_change"
+
+        done = approve_and_resend(sam, tess, sam.patch, asked, path, body)
+        assert done.status_code == 200, done.text
+        assert self.held() == set(self.MORE)
+        assert audit_count("access.role.update") == 1
+
+    def test_the_approval_is_for_those_permissions_and_no_others(
+        self, app: Any, policy: dict[str, Any]
+    ) -> None:
+        sam = Person(app, "sam", "security")
+        tess = Person(app, "tess", "security")
+        sam.elevate()
+        path = "/api/roles/release-manager"
+        asked = sam.patch(path, {"permissions": self.MORE})
+        swapped = approve_and_resend(
+            sam, tess, sam.patch, asked, path, {"permissions": [*self.MORE, "apps.manage"]}
+        )
+        assert swapped.status_code == 409 and swapped.json()["error"] == "approval_mismatch"
+        assert self.held() == set(self.HOLDS)
+
+    def test_a_role_nobody_holds_yet_cannot_be_widened_after_the_grant_was_approved(
+        self, app: Any, policy: dict[str, Any]
+    ) -> None:
+        from noust.core.access.role_manager import RoleManager
+
+        RoleManager().create("unused", ["apps.read"])
+        sam = Person(app, "sam", "security")
+        sam.elevate()
+        asked = sam.patch("/api/roles/unused", {"permissions": ["apps.read", "apps.manage"]})
+        assert asked.status_code == 202, asked.text
+        assert self.held("unused") == {"apps.read"}
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {"permissions": ["apps.read"]},
+            {"permissions": ["apps.read", "apps.operate"]},
+            {"permissions": ["apps.operate", "apps.read", "self"]},
+            {"label": "Release manager", "description": "Ships what is ready."},
+        ],
+    )
+    def test_a_role_that_holds_the_same_or_less_asks_nothing(
+        self, app: Any, policy: dict[str, Any], body: dict[str, Any]
+    ) -> None:
+        sam = Person(app, "sam", "security")
+        sam.elevate()
+        for path in ("/api/roles/release-manager", "/api/access/roles/release-manager"):
+            changed = sam.patch(path, body)
+            assert changed.status_code == 200, (path, changed.text)
+        assert sam.client.get("/api/approvals").json()["approvals"] == []
+
+    def test_a_role_noust_ships_is_widened_through_a_second_person_too(
+        self, app: Any, policy: dict[str, Any]
+    ) -> None:
+        from noust.core.access.builtin import OPERATOR
+
+        sam = Person(app, "sam", "security")
+        sam.elevate()
+        body = {"permissions": sorted(OPERATOR | {"apps.manage"})}
+        asked = sam.patch("/api/roles/operator", body)
+        assert asked.status_code == 202, asked.text
+        assert "apps.manage" not in self.held("operator")
+
+    def test_what_the_handler_would_refuse_is_not_filed(
+        self, app: Any, policy: dict[str, Any]
+    ) -> None:
+        sam = Person(app, "sam", "security")
+        sam.elevate()
+        for path, body, status in (
+            ("/api/roles/release-manager", {"permissions": [*self.HOLDS, "root.everything"]}, 400),
+            ("/api/roles/owner", {"permissions": ["apps.read"]}, 400),
+            ("/api/roles/nowhere", {"permissions": ["apps.read", "apps.manage"]}, 404),
+        ):
+            refused = sam.patch(path, body)
+            assert refused.status_code == status, (path, refused.text)
+        assert sam.client.get("/api/approvals").json()["approvals"] == []
+
+    def test_putting_a_role_back_waits_when_it_gives_permissions_back(
+        self, app: Any, policy: dict[str, Any]
+    ) -> None:
+        from noust.core.access.builtin import OPERATOR
+        from noust.core.access.role_manager import RoleManager
+
+        RoleManager().update("operator", permissions=["apps.read", "apps.operate"])
+        sam = Person(app, "sam", "security")
+        tess = Person(app, "tess", "security")
+        sam.elevate()
+        asked = sam.post("/api/roles/operator/reset")
+        assert asked.status_code == 202, asked.text
+        assert self.held("operator") == {"apps.read", "apps.operate"}
+
+        done = approve_and_resend(sam, tess, sam.post, asked, "/api/roles/operator/reset")
+        assert done.status_code == 200, done.text
+        assert self.held("operator") == set(OPERATOR) - {"self"}
+        assert audit_count("access.role.reset") == 1
+
+    def test_putting_a_role_back_asks_nothing_when_it_only_takes_permissions_away(
+        self, app: Any, policy: dict[str, Any]
+    ) -> None:
+        from noust.core.access.builtin import OPERATOR
+        from noust.core.access.role_manager import RoleManager
+
+        RoleManager().update("operator", permissions=sorted(OPERATOR | {"backups.manage"}))
+        sam = Person(app, "sam", "security")
+        sam.elevate()
+        assert sam.post("/api/roles/operator/reset").status_code == 200
+        assert sam.post("/api/roles/viewer/reset").status_code == 200
+        assert sam.client.get("/api/approvals").json()["approvals"] == []
+
+    def test_taking_what_a_newer_release_offers_waits_and_leaving_it_does_not(
+        self, app: Any, policy: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from noust.core.access import builtin
+        from noust.core.access.role_manager import RoleManager
+
+        RoleManager().update("operator", permissions=["apps.read", "apps.operate"])
+        shipped = builtin.SHIPPED["operator"]
+        monkeypatch.setitem(
+            builtin.SHIPPED,
+            "operator",
+            builtin.Shipped(
+                "operator",
+                shipped.label,
+                shipped.description,
+                shipped.permissions | {"backups.manage", "databases.manage"},
+            ),
+        )
+        sam = Person(app, "sam", "security")
+        tess = Person(app, "tess", "security")
+        sam.elevate()
+        path = "/api/roles/operator/offers"
+
+        asked = sam.post(path, {"accept": ["backups.manage"]})
+        assert asked.status_code == 202, asked.text
+        assert "backups.manage" not in self.held("operator")
+        not_offered = sam.post(path, {"accept": ["apps.manage"]})
+        assert not_offered.status_code == 400, not_offered.text
+
+        done = approve_and_resend(sam, tess, sam.post, asked, path, {"accept": ["backups.manage"]})
+        assert done.status_code == 200, done.text
+        assert "backups.manage" in self.held("operator")
+        left = sam.post(path, {"dismiss": ["databases.manage"]})
+        assert left.status_code == 200, left.text
+        assert "databases.manage" not in self.held("operator")
+
+    def test_making_copying_and_deleting_a_role_nobody_holds_ask_nobody(
+        self, app: Any, policy: dict[str, Any]
+    ) -> None:
+        # Nothing changes for anybody until somebody is given the role, which is where the second
+        # person is asked; so the owner's permissions copied into a new role are inert too.
+        sam = Person(app, "sam", "security")
+        sam.elevate()
+        assert (
+            sam.post("/api/roles", {"name": "fresh", "permissions": ["apps.manage"]}).status_code
+            == 201
+        )
+        assert (
+            sam.post(
+                "/api/access/roles", {"name": "second", "permissions": ["apps.read"]}
+            ).status_code
+            == 201
+        )
+        assert sam.post("/api/roles/owner/duplicate", {"name": "everything"}).status_code == 201
+        assert sam.delete("/api/roles/fresh").status_code == 200
+        assert sam.delete("/api/access/roles/second").status_code == 200
+        assert sam.client.get("/api/approvals").json()["approvals"] == []
+
+        # ...and giving that role to somebody is what is asked.
+        give = sam.put("/api/auth/accounts/maria/roles", {"roles": ["operator", "everything"]})
+        assert give.status_code == 202, give.text
+
+    def test_the_policy_names_every_route(self, app: Any, policy: dict[str, Any]) -> None:
+        viewer = Person(app, "vera", "viewer")
+        rules = viewer.client.get("/api/approvals/policy").json()["rules"]
+        by_route = {(rule["method"], rule["template"]): rule for rule in rules}
+        for route in (
+            ("PATCH", "/api/roles/{name}"),
+            ("PATCH", "/api/access/roles/{role}"),
+            ("POST", "/api/roles/{name}/reset"),
+            ("POST", "/api/roles/{name}/offers"),
+        ):
+            assert by_route[route]["action"] == "access.role_widen", route
+            assert "permission" in by_route[route]["when"]
+
+
+def seed_source(protocol: str, **settings: Any) -> None:
+    """A sign-in source of each kind, as it would be after an earlier set-up."""
+    if protocol == "oidc":
+        from noust.core.accounts.oidc_store import OidcProvider, OidcStore
+
+        OidcStore().save_provider(
+            OidcProvider("corp", "Corp", "https://idp.example.com", "noust", **settings)
+        )
+    elif protocol == "saml":
+        from noust.core.accounts.saml_store import SamlProvider, SamlStore
+        from tests.support.saml_support import make_identity
+
+        _key, pem = make_identity()
+        SamlStore().save_provider(
+            SamlProvider(
+                "corp",
+                "Corp",
+                "https://idp.example.com",
+                "https://idp.example.com/sso",
+                certificates=(pem,),
+                **settings,
+            )
+        )
+    elif protocol == "ldap":
+        from noust.core.accounts.directory_store import DirectoryStore, LdapDirectory
+
+        DirectoryStore().save_directory(
+            LdapDirectory(
+                "corp",
+                "Corp",
+                "ldap.example.com",
+                "ou=people,dc=example,dc=com",
+                "(uid={username})",
+                **settings,
+            )
+        )
+    else:
+        from noust.core.accounts.scim_store import ScimSource, ScimStore
+
+        ScimStore().save_source(ScimSource("corp", "Corp", "0" * 64, "abcd", 0.0, **settings))
+
+
+SOURCE_PATHS = {
+    "oidc": "/api/auth/oidc/config/corp",
+    "saml": "/api/auth/saml/config/corp",
+    "ldap": "/api/auth/ldap/directories/corp",
+    "scim": "/api/auth/scim/sources/corp",
+}
+
+
+def stored_source(protocol: str) -> Any:
+    if protocol == "oidc":
+        from noust.core.accounts.oidc_store import OidcStore
+
+        return OidcStore().get_provider("corp")
+    if protocol == "saml":
+        from noust.core.accounts.saml_store import SamlStore
+
+        return SamlStore().get_provider("corp")
+    if protocol == "ldap":
+        from noust.core.accounts.directory_store import DirectoryStore
+
+        return DirectoryStore().get_directory("corp")
+    from noust.core.accounts.scim_store import ScimStore
+
+    return ScimStore().get_source("corp")
+
+
+@pytest.mark.parametrize("protocol", ["oidc", "saml", "ldap", "scim"])
+class TestWhatASourceHandsOutWaitsForASecondPerson:
+    """
+    An identity provider decides which roles the people it sends get: the role grant of creating
+    an account, made once for everyone it will ever send.
+    """
+
+    def test_a_default_role_waits_for_another_person_and_runs_once(
+        self, app: Any, policy: dict[str, Any], protocol: str
+    ) -> None:
+        seed_source(protocol)
+        path = SOURCE_PATHS[protocol]
+        sam = Person(app, "sam", "security")
+        tess = Person(app, "tess", "security")
+        sam.elevate()
+        body = {"default_role": "operator"}
+
+        asked = sam.put(path, body)
+        assert asked.status_code == 202, asked.text
+        assert stored_source(protocol).default_role == "viewer"
+        request = sam.client.get(f"/api/approvals/{asked.headers['X-Noust-Approval-Request']}")
+        assert request.json()["action"] == "auth.source_roles"
+        assert request.json()["kind"] == "role_change"
+
+        done = approve_and_resend(sam, tess, sam.put, asked, path, body)
+        assert done.status_code == 200, done.text
+        assert stored_source(protocol).default_role == "operator"
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {"group_sync": True},
+            {"group_mappings": [{"group": "ops", "role": "admin"}]},
+            {"link_by_email": True},
+            {"default_team": "acme"},
+            {"label": "Corp", "default_role": "admin"},
+        ],
+    )
+    def test_each_thing_it_decides_about_roles_waits(
+        self, app: Any, policy: dict[str, Any], protocol: str, body: dict[str, Any]
+    ) -> None:
+        from noust.core.teams import TeamStore
+
+        TeamStore().create_team("Acme", slug="acme")
+        seed_source(protocol)
+        sam = Person(app, "sam", "security")
+        sam.elevate()
+        asked = sam.put(SOURCE_PATHS[protocol], body)
+        assert asked.status_code == 202, (body, asked.text)
+        assert stored_source(protocol).label == "Corp"
+
+    def test_saying_again_what_it_already_does_asks_nothing(
+        self, app: Any, policy: dict[str, Any], protocol: str
+    ) -> None:
+        seed_source(protocol, default_role="operator")
+        sam = Person(app, "sam", "security")
+        sam.elevate()
+        for body in (
+            {"default_role": "operator"},
+            {"default_role": " Operator ", "group_mappings": [], "link_by_email": False},
+            {"label": "Corporate", "enabled": True},
+            {},
+        ):
+            sent = sam.put(SOURCE_PATHS[protocol], body)
+            assert sent.status_code == 200, (body, sent.text)
+        assert sam.client.get("/api/approvals").json()["approvals"] == []
+        assert stored_source(protocol).default_role == "operator"
+
+    def test_a_source_that_does_not_exist_yet_waits(
+        self, app: Any, policy: dict[str, Any], protocol: str
+    ) -> None:
+        # Its defaults are roles too: a SCIM source creates the accounts it is told about.
+        sam = Person(app, "sam", "security")
+        sam.elevate()
+        asked = sam.put(SOURCE_PATHS[protocol], {"label": "New"})
+        assert asked.status_code == 202, asked.text
+        assert stored_source(protocol) is None
+
+    def test_a_value_the_handler_refuses_is_not_filed(
+        self, app: Any, policy: dict[str, Any], protocol: str
+    ) -> None:
+        seed_source(protocol)
+        sam = Person(app, "sam", "security")
+        sam.elevate()
+        refused = sam.put(SOURCE_PATHS[protocol], {"default_role": "emperor"})
+        assert refused.status_code == 400, refused.text
+        owner = sam.put(
+            SOURCE_PATHS[protocol], {"group_mappings": [{"group": "ops", "role": "owner"}]}
+        )
+        assert owner.status_code == 400, owner.text
+        assert sam.client.get("/api/approvals").json()["approvals"] == []
+
+    def test_taking_the_source_away_or_off_asks_nobody(
+        self, app: Any, policy: dict[str, Any], protocol: str
+    ) -> None:
+        seed_source(protocol, default_role="operator")
+        sam = Person(app, "sam", "security")
+        sam.elevate()
+        assert sam.put(SOURCE_PATHS[protocol], {"enabled": False}).status_code == 200
+        assert sam.delete(SOURCE_PATHS[protocol]).status_code == 200
+        assert stored_source(protocol) is None
+
+
 class TestTheAnswerSaysWhichControlAsks:
     """
     The owner, holding every permission, was asked for an approval and for a reason and read it as a

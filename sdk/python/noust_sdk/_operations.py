@@ -1222,7 +1222,7 @@ class Access:
 
         Update Role
 
-        Needs: permission `accounts.manage`, sudo mode."""
+        Needs: permission `accounts.manage`, sudo mode, a second person's approval can be required."""
         return self._call("PATCH", f"/api/access/roles/{quote(str(role), safe='')}", query=None, body=body)
 
     def delete_role(self, role: str) -> "NoustWebApiAccessActionResponse":
@@ -1270,7 +1270,7 @@ class Access:
 
         Update Role
 
-        Needs: permission `accounts.manage`, sudo mode."""
+        Needs: permission `accounts.manage`, sudo mode, a second person's approval can be required."""
         return self._call("PATCH", f"/api/roles/{quote(str(name), safe='')}", query=None, body=body)
 
     def delete_role_delete(self, name: str) -> "RoleActionResponse":
@@ -1294,7 +1294,7 @@ class Access:
 
         Settle Offers
 
-        Needs: permission `accounts.manage`, sudo mode."""
+        Needs: permission `accounts.manage`, sudo mode, a second person's approval can be required."""
         return self._call("POST", f"/api/roles/{quote(str(name), safe='')}/offers", query=None, body=body)
 
     def reset_role(self, name: str) -> "ServerRoleOut":
@@ -1302,7 +1302,7 @@ class Access:
 
         Reset Role
 
-        Needs: permission `accounts.manage`, sudo mode."""
+        Needs: permission `accounts.manage`, sudo mode, a second person's approval can be required."""
         return self._call("POST", f"/api/roles/{quote(str(name), safe='')}/reset", query=None, body=None)
 
     def list_team_access(self, team: str) -> "BindingsResponse":
@@ -1318,7 +1318,7 @@ class Access:
 
         Bind In Team
 
-        Needs: permission `teams.manage`, sudo mode."""
+        Needs: permission `teams.manage`, sudo mode, a second person's approval can be required."""
         return self._call("POST", f"/api/teams/{quote(str(team), safe='')}/access", query=None, body=body)
 
     def unbind_in_team(self, team: str, binding_id: int | str) -> "NoustWebApiAccessActionResponse":
@@ -2990,7 +2990,7 @@ class Authentication:
 
         Set Account Roles
 
-        Needs: permission `accounts.manage`, sudo mode."""
+        Needs: permission `accounts.manage`, sudo mode, a second person's approval can be required."""
         return self._call("PUT", f"/api/auth/accounts/{quote(str(username), safe='')}/roles", query=None, body=body)
 
     def unlock_account(self, username: str) -> "AccountActionResponse":
@@ -9200,7 +9200,7 @@ class SingleSignOn:
 
         Put Directory
 
-        Needs: permission `accounts.manage`, sudo mode."""
+        Needs: permission `accounts.manage`, sudo mode, a second person's approval can be required."""
         return self._call("PUT", f"/api/auth/ldap/directories/{quote(str(name), safe='')}", query=None, body=body)
 
     def delete_directory(self, name: str) -> "DirectoryRemoved":
@@ -9256,7 +9256,7 @@ class SingleSignOn:
 
         Put Provider
 
-        Needs: permission `accounts.manage`, sudo mode."""
+        Needs: permission `accounts.manage`, sudo mode, a second person's approval can be required."""
         return self._call("PUT", f"/api/auth/oidc/config/{quote(str(provider), safe='')}", query=None, body=body)
 
     def delete_provider(self, provider: str) -> "RemovedResponse":
@@ -9352,7 +9352,7 @@ class SingleSignOn:
 
         Put Provider
 
-        Needs: permission `accounts.manage`, sudo mode."""
+        Needs: permission `accounts.manage`, sudo mode, a second person's approval can be required."""
         return self._call("PUT", f"/api/auth/saml/config/{quote(str(provider), safe='')}", query=None, body=body)
 
     def delete_provider_delete(self, provider: str) -> "SamlRemoved":
@@ -9400,7 +9400,7 @@ class SingleSignOn:
 
         Put Source
 
-        Needs: permission `accounts.manage`, sudo mode."""
+        Needs: permission `accounts.manage`, sudo mode, a second person's approval can be required."""
         return self._call("PUT", f"/api/auth/scim/sources/{quote(str(name), safe='')}", query=None, body=body)
 
     def delete_source(self, name: str) -> "ScimRemoved":
@@ -10016,7 +10016,7 @@ class Teams:
 
         Add Member
 
-        Needs: permission `teams.manage`, sudo mode."""
+        Needs: permission `teams.manage`, sudo mode, a second person's approval can be required."""
         return self._call("POST", f"/api/teams/{quote(str(team), safe='')}/members", query=None, body=body)
 
     def set_member_role(self, team: str, username: str, body: "SetRoleRequest") -> "MemberOut":
@@ -10024,7 +10024,7 @@ class Teams:
 
         Set Member Role
 
-        Needs: permission `teams.manage`, sudo mode."""
+        Needs: permission `teams.manage`, sudo mode, a second person's approval can be required."""
         return self._call("PATCH", f"/api/teams/{quote(str(team), safe='')}/members/{quote(str(username), safe='')}", query=None, body=body)
 
     def remove_member(self, team: str, username: str) -> "NoustWebApiTeamsActionResponse":

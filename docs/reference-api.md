@@ -16,19 +16,19 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/access/roles` | List Roles | `teams.read` |  |  |
 | POST | `/api/access/roles` | Create Role | `accounts.manage` | yes |  |
 | GET | `/api/access/roles/{role}` | Get Role | `teams.read` |  |  |
-| PATCH | `/api/access/roles/{role}` | Update Role | `accounts.manage` | yes |  |
+| PATCH | `/api/access/roles/{role}` | Update Role | `accounts.manage` | yes | yes |
 | DELETE | `/api/access/roles/{role}` | Delete Role | `accounts.manage` | yes |  |
 | GET | `/api/roles` | List Roles | `accounts.read` |  |  |
 | POST | `/api/roles` | Create Role | `accounts.manage` | yes |  |
 | GET | `/api/roles/review` | Review | `accounts.read` |  |  |
 | GET | `/api/roles/{name}` | Get Role | `accounts.read` |  |  |
-| PATCH | `/api/roles/{name}` | Update Role | `accounts.manage` | yes |  |
+| PATCH | `/api/roles/{name}` | Update Role | `accounts.manage` | yes | yes |
 | DELETE | `/api/roles/{name}` | Delete Role | `accounts.manage` | yes |  |
 | POST | `/api/roles/{name}/duplicate` | Duplicate Role | `accounts.manage` | yes |  |
-| POST | `/api/roles/{name}/offers` | Settle Offers | `accounts.manage` | yes |  |
-| POST | `/api/roles/{name}/reset` | Reset Role | `accounts.manage` | yes |  |
+| POST | `/api/roles/{name}/offers` | Settle Offers | `accounts.manage` | yes | yes |
+| POST | `/api/roles/{name}/reset` | Reset Role | `accounts.manage` | yes | yes |
 | GET | `/api/teams/{team}/access` | List Team Access | `teams.read` |  |  |
-| POST | `/api/teams/{team}/access` | Bind In Team | `teams.manage` | yes |  |
+| POST | `/api/teams/{team}/access` | Bind In Team | `teams.manage` | yes | yes |
 | DELETE | `/api/teams/{team}/access/{binding_id}` | Unbind In Team | `teams.manage` | yes |  |
 
 ## Alerts
@@ -257,7 +257,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/auth/accounts/{username}/disable` | Disable Account | `accounts.manage` | yes |  |
 | POST | `/api/auth/accounts/{username}/enable` | Enable Account | `accounts.manage` | yes |  |
 | POST | `/api/auth/accounts/{username}/reset-mfa` | Reset Account Mfa | `accounts.manage` | yes |  |
-| PUT | `/api/auth/accounts/{username}/roles` | Set Account Roles | `accounts.manage` | yes |  |
+| PUT | `/api/auth/accounts/{username}/roles` | Set Account Roles | `accounts.manage` | yes | yes |
 | POST | `/api/auth/accounts/{username}/unlock` | Unlock Account | `accounts.manage` | yes |  |
 | POST | `/api/auth/elevate` | Elevate | `self` |  |  |
 | GET | `/api/auth/exceptions` | List Exceptions | `accounts.read` |  |  |
@@ -1200,14 +1200,14 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | Method | Path | What it does | Permission | Sudo | Approval |
 |---|---|---|---|---|---|
 | GET | `/api/auth/ldap/directories` | List Directories | `accounts.read` |  |  |
-| PUT | `/api/auth/ldap/directories/{name}` | Put Directory | `accounts.manage` | yes |  |
+| PUT | `/api/auth/ldap/directories/{name}` | Put Directory | `accounts.manage` | yes | yes |
 | DELETE | `/api/auth/ldap/directories/{name}` | Delete Directory | `accounts.manage` | yes |  |
 | POST | `/api/auth/ldap/directories/{name}/test` | Test Directory | `accounts.manage` |  |  |
 | POST | `/api/auth/ldap/login` | Login | `public` |  |  |
 | GET | `/api/auth/oidc/callback` | Callback | `public` |  |  |
 | POST | `/api/auth/oidc/complete` | Complete | `public` |  |  |
 | GET | `/api/auth/oidc/config` | List Providers | `accounts.read` |  |  |
-| PUT | `/api/auth/oidc/config/{provider}` | Put Provider | `accounts.manage` | yes |  |
+| PUT | `/api/auth/oidc/config/{provider}` | Put Provider | `accounts.manage` | yes | yes |
 | DELETE | `/api/auth/oidc/config/{provider}` | Delete Provider | `accounts.manage` | yes |  |
 | POST | `/api/auth/oidc/config/{provider}/test` | Try Provider | `accounts.manage` |  |  |
 | GET | `/api/auth/oidc/identities` | List Identities | `accounts.read` |  |  |
@@ -1219,13 +1219,13 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/auth/oidc/start` | Start | `public` |  |  |
 | POST | `/api/auth/saml/acs` | Assertion Consumer Service | `public` |  |  |
 | GET | `/api/auth/saml/config` | List Providers | `accounts.read` |  |  |
-| PUT | `/api/auth/saml/config/{provider}` | Put Provider | `accounts.manage` | yes |  |
+| PUT | `/api/auth/saml/config/{provider}` | Put Provider | `accounts.manage` | yes | yes |
 | DELETE | `/api/auth/saml/config/{provider}` | Delete Provider | `accounts.manage` | yes |  |
 | POST | `/api/auth/saml/config/{provider}/test` | Try Provider | `accounts.manage` |  |  |
 | GET | `/api/auth/saml/metadata/{provider}` | Metadata | `public` |  |  |
 | GET | `/api/auth/saml/start` | Start | `public` |  |  |
 | GET | `/api/auth/scim/sources` | List Sources | `accounts.read` |  |  |
-| PUT | `/api/auth/scim/sources/{name}` | Put Source | `accounts.manage` | yes |  |
+| PUT | `/api/auth/scim/sources/{name}` | Put Source | `accounts.manage` | yes | yes |
 | DELETE | `/api/auth/scim/sources/{name}` | Delete Source | `accounts.manage` | yes |  |
 | GET | `/api/auth/scim/sources/{name}/users` | List Users | `accounts.read` |  |  |
 
@@ -1326,8 +1326,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | PATCH | `/api/teams/{team}` | Rename Team | `teams.manage` |  |  |
 | DELETE | `/api/teams/{team}` | Delete Team | `teams.manage` | yes |  |
 | GET | `/api/teams/{team}/members` | List Members | `teams.read` |  |  |
-| POST | `/api/teams/{team}/members` | Add Member | `teams.manage` | yes |  |
-| PATCH | `/api/teams/{team}/members/{username}` | Set Member Role | `teams.manage` | yes |  |
+| POST | `/api/teams/{team}/members` | Add Member | `teams.manage` | yes | yes |
+| PATCH | `/api/teams/{team}/members/{username}` | Set Member Role | `teams.manage` | yes | yes |
 | DELETE | `/api/teams/{team}/members/{username}` | Remove Member | `teams.manage` | yes |  |
 | GET | `/api/teams/{team}/projects` | List Team Projects | `teams.read` |  |  |
 | POST | `/api/teams/{team}/projects` | Create Project | `teams.manage` |  |  |
