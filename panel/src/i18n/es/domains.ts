@@ -77,6 +77,7 @@ export const domains: Catalog<typeof en> = {
     emptyTitle: "Aún no hay dominios",
     emptyDescription: "Un dominio es un nombre en el que responde tu aplicación. Añade uno y Noust comprueba a dónde apunta y le consigue el certificado.",
     couldNotList: "No se han podido listar los dominios",
+    certificatesFailed: "No se han podido leer los certificados, así que no se muestra el HTTPS",
     tableCaption: "Dominios",
     tableCaptionFiltered: "Dominios que coinciden con la búsqueda",
     noMatch: "Ningún dominio coincide",

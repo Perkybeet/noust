@@ -147,7 +147,7 @@ describe("Noust DNS set up", () => {
     expect(await screen.findByText("ns2.example.net")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Add zone" }).length).toBeGreaterThan(0);
     await expectNoAxeViolations(document.body);
-    await user.click(within(zones).getByRole("link", { name: "Open the zone example.com" }));
+    await user.click(within(zones).getByRole("button", { name: "example.com" }));
     expect(await screen.findByRole("heading", { level: 1, name: "example.com" })).toBeInTheDocument();
   });
 

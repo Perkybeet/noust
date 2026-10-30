@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
-import { fakeBackend, json, signedInRoutes } from "../../test/fakes";
+import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 
 beforeEach(() => {
@@ -111,6 +111,13 @@ describe("the Domains section", () => {
     await user.click(within(dialog).getByRole("button", { name: "Add domain" }));
     await waitFor(() => expect(backend.callsTo("POST /api/apps/blog.example.com/domains").length).toBeGreaterThanOrEqual(1));
     expect(backend.callsTo("POST /api/apps/blog.example.com/domains")[0]?.body).toMatchObject({ domain: "shop.blog.example.com", kind: "alias" });
+  });
+
+  it("still lists the names when the certificates cannot be read, and says HTTPS is not shown", async () => {
+    domains("/domains", { "GET /api/certs": () => problem(500, "internal_error", "certbot did not answer") });
+    expect(await screen.findByText("Could not read the certificates, so HTTPS is not shown")).toBeInTheDocument();
+    const table = await screen.findByRole("region", { name: "Domains" });
+    expect((await within(table).findAllByText("blog.example.com")).length).toBeGreaterThan(0);
   });
 
   it("offers the first domain when there is none, once", async () => {

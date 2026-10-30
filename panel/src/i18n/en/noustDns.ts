@@ -89,7 +89,6 @@ export const noustDns = {
     emptyTitle: "No zones yet",
     emptyDescription: "A zone is a domain this server answers for. Add one, then point the domain's name servers at your servers.",
     loadFailed: "Could not list the zones",
-    openAria: "Open the zone {name}",
   },
   addZone: {
     title: "Add a zone",

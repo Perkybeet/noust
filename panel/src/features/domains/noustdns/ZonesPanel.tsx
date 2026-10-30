@@ -19,7 +19,6 @@ import { ICONS } from "../../../components/ui/icons";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
 import { StatusPill } from "../../../components/ui/StatusPill";
-import { TextLink } from "../../../components/ui/TextLink";
 import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 
@@ -151,11 +150,7 @@ export function ZonesPanel({ canEdit, adding, onAddingChange }: { canEdit: boole
     {
       id: "name",
       header: t("noustDns.zones.nameColumn"),
-      cell: (zone) => (
-        <TextLink variant="row" to="/domains/dns/zones/$zone" params={{ zone: zone.name }} translate="no" aria-label={t("noustDns.zones.openAria", { name: zone.name })}>
-          {zone.name}
-        </TextLink>
-      ),
+      cell: (zone) => <span translate="no">{zone.name}</span>,
       sortValue: (zone) => zone.name,
     },
     {

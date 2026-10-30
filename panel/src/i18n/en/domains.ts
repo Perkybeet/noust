@@ -79,6 +79,7 @@ export const domains = {
     emptyTitle: "No domains yet",
     emptyDescription: "A domain is a name your application answers on. Add one and Noust checks where it points and gets its certificate.",
     couldNotList: "Could not list the domains",
+    certificatesFailed: "Could not read the certificates, so HTTPS is not shown",
     tableCaption: "Domains",
     tableCaptionFiltered: "Domains that match the search",
     noMatch: "No domain matches",

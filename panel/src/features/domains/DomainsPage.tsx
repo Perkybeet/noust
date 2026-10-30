@@ -72,13 +72,14 @@ export function DomainsPage({ search, onSearchChange }: DomainsPageProps) {
     onSearchChange(spendNew(search), { replace: true });
   });
 
-  const rows = useMemo(() => (sites.data === undefined || certs.data === undefined ? [] : domainRows(sites.data.sites, certs.data.certificates)), [sites.data, certs.data]);
+  const rows = useMemo(() => (sites.data === undefined ? [] : domainRows(sites.data.sites, certs.data?.certificates ?? [])), [sites.data, certs.data]);
   const shown = rows.filter((row) => matchesDomain(row, search.q ?? ""));
   const filtered = (search.q ?? "") !== "";
-  const loaded = sites.data !== undefined && certs.data !== undefined;
+  // The certificates only add each name's HTTPS: a list that cannot read them still lists the names, and says so.
+  const loaded = sites.data !== undefined && (certs.data !== undefined || certs.isError);
   const empty = loaded && rows.length === 0;
   // design-exception: hand-error-ternary the table draws its own skeleton rows; the failure replaces only what it would have listed
-  const failed = (sites.isError && sites.data === undefined) || (certs.isError && certs.data === undefined);
+  const failed = sites.isError && sites.data === undefined;
 
   const open = (row: DomainRow): void => {
     if (row.app !== null) void navigate({ to: "/apps/$domain/domains", params: { domain: row.app } });
@@ -134,8 +135,7 @@ export function DomainsPage({ search, onSearchChange }: DomainsPageProps) {
 
   let content;
   if (failed) {
-    const error = sites.isError ? sites.error : certs.error;
-    content = <ErrorBlock error={error} title={t("domains.domainsTab.couldNotList")} onRetry={() => void Promise.all([sites.refetch(), certs.refetch()])} retrying={sites.isRefetching || certs.isRefetching} />;
+    content = <ErrorBlock error={sites.error} title={t("domains.domainsTab.couldNotList")} onRetry={() => void sites.refetch()} retrying={sites.isRefetching} />;
   } else if (empty) {
     content = (
       <EmptyState
@@ -149,6 +149,8 @@ export function DomainsPage({ search, onSearchChange }: DomainsPageProps) {
     );
   } else {
     content = (
+      <>
+        {certs.isError ? <ErrorBlock compact error={certs.error} title={t("domains.domainsTab.certificatesFailed")} onRetry={() => void certs.refetch()} retrying={certs.isRefetching} /> : null}
       <DataTable
         pagination="domains"
         caption={filtered ? t("domains.domainsTab.tableCaptionFiltered") : t("domains.domainsTab.tableCaption")}
@@ -181,6 +183,7 @@ export function DomainsPage({ search, onSearchChange }: DomainsPageProps) {
           </RowMenu>
         )}
       />
+      </>
     );
   }
 

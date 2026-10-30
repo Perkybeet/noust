@@ -115,7 +115,7 @@ export function ClusterDialog({ open, onOpenChange }: { open: boolean; onOpenCha
         <FieldGroup legend={t("noustDns.cluster.primary")} description={t("noustDns.cluster.primaryHelp")} error={problem}>
           <div className="grid gap-3 sm:grid-cols-2">
             <Select aria-label={t("noustDns.cluster.server")} value={primary.node} placeholder={t("noustDns.cluster.choose")} onValueChange={(node) => setPrimary((previous) => ({ ...previous, node }))} options={options} />
-            <Input aria-label={t("noustDns.setup.hostnameLabel")} mono value={primary.hostname} onValueChange={(hostname: string) => setPrimary((previous) => ({ ...previous, hostname }))} placeholder="ns1.example.net" autoComplete="off" autoCapitalize="off" spellCheck={false} />
+            <Input mono aria-label={t("noustDns.setup.hostnameLabel")} value={primary.hostname} onValueChange={(hostname: string) => setPrimary((previous) => ({ ...previous, hostname }))} placeholder="ns1.example.net" autoComplete="off" autoCapitalize="off" spellCheck={false} />
           </div>
         </FieldGroup>
         <FieldGroup legend={t("noustDns.cluster.secondaries")} description={t("noustDns.cluster.secondariesHelp")} error={fields?.["secondaries"] ?? null}>
@@ -123,7 +123,7 @@ export function ClusterDialog({ open, onOpenChange }: { open: boolean; onOpenCha
             {secondaries.map((part, index) => (
               <div key={index} className="grid gap-3 sm:grid-cols-2">
                 <Select aria-label={t("noustDns.cluster.secondaryServer", { number: index + 1 })} value={part.node} placeholder={t("noustDns.cluster.choose")} onValueChange={(node) => change(index, { node })} options={options} />
-                <Input aria-label={t("noustDns.cluster.secondaryName", { number: index + 1 })} mono value={part.hostname} onValueChange={(hostname: string) => change(index, { hostname })} placeholder="ns2.example.net" autoComplete="off" autoCapitalize="off" spellCheck={false} />
+                <Input mono aria-label={t("noustDns.cluster.secondaryName", { number: index + 1 })} value={part.hostname} onValueChange={(hostname: string) => change(index, { hostname })} placeholder="ns2.example.net" autoComplete="off" autoCapitalize="off" spellCheck={false} />
               </div>
             ))}
             {secondaries.length < MOST_SECONDARIES ? (

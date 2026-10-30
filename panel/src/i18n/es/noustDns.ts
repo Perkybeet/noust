@@ -87,7 +87,6 @@ export const noustDns: Catalog<typeof en> = {
     emptyTitle: "Aún no hay zonas",
     emptyDescription: "Una zona es un dominio por el que responde este servidor. Añade una y apunta los servidores de nombres del dominio a los tuyos.",
     loadFailed: "No se han podido listar las zonas",
-    openAria: "Abrir la zona {name}",
   },
   addZone: {
     title: "Añadir una zona",
