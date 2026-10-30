@@ -23,6 +23,9 @@
   <a href="https://pypi.org/project/noust/">
     <img src="https://img.shields.io/pypi/v/noust?color=blue&logo=pypi&logoColor=white" alt="PyPI Version">
   </a>
+  <a href="https://pepy.tech/projects/noust">
+    <img src="https://img.shields.io/pepy/dt/noust?color=blue&logo=pypi&logoColor=white&label=downloads" alt="Total downloads from PyPI">
+  </a>
   <a href="https://pypi.org/project/noust/">
     <img src="https://img.shields.io/pypi/pyversions/noust?logo=python&logoColor=white" alt="Python Version">
   </a>
