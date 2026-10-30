@@ -70,7 +70,7 @@ import recipe_pins  # noqa: E402
 from noust.core.compose_yaml import load_compose  # noqa: E402
 from noust.recipes import coolify, dokploy  # noqa: E402
 from noust.recipes.licensing import is_free_software  # noqa: E402
-from noust.recipes.model import CATEGORIES, FLOATING_TAGS, RecipeError  # noqa: E402
+from noust.recipes.model import CATEGORIES, FLOATING_TAGS, NAME_PATTERN, RecipeError  # noqa: E402
 from noust.recipes.schema import parse_recipe  # noqa: E402
 from noust.recipes.variables import scan_references  # noqa: E402
 
@@ -293,6 +293,21 @@ def norm(text: str) -> str:
     return re.sub(r"[^a-z0-9]", "", text.lower())
 
 
+#: What a recipe's name may be (``noust.recipes.model.NAME_PATTERN``).
+NAME_OK = NAME_PATTERN
+
+
+def recipe_name(text: str) -> str:
+    """
+    Args:
+        text: The name a template has (``open_notebook``, ``bolt.diy``).
+
+    Returns:
+        The recipe's name: lower case letters, digits and dashes, which is all a recipe's name may be.
+    """
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:40].strip("-")
+
+
 def read_sources(coolify_dir: Path, dokploy_dir: Path, docs_dir: Path) -> dict[str, Source]:
     """
     List the candidates both catalogues describe.
@@ -309,10 +324,10 @@ def read_sources(coolify_dir: Path, dokploy_dir: Path, docs_dir: Path) -> dict[s
     for path in sorted(dokploy_dir.iterdir()) if dokploy_dir.is_dir() else ():
         if path.is_dir() and (path / "docker-compose.yml").is_file():
             key = norm(path.name)
-            found[key] = Source(key, path.name, dokploy=path)
+            found[key] = Source(key, recipe_name(path.name), dokploy=path)
     for path in sorted(coolify_dir.glob("*.y*ml")) if coolify_dir.is_dir() else ():
         key = norm(path.stem)
-        source = found.setdefault(key, Source(key, path.stem))
+        source = found.setdefault(key, Source(key, recipe_name(path.stem)))
         source.coolify = path
         page = docs_dir / f"{path.stem}.mdx"
         source.docs = page if page.is_file() else None
@@ -573,6 +588,40 @@ class Draft:
     root_equivalent: str | None = None
     shipped: dict[str, str] = field(default_factory=dict)
     public_ports: list[dict[str, Any]] = field(default_factory=list)
+    rendered: dict[str, str] = field(default_factory=dict)
+    left_out_ssh: list[str] = field(default_factory=list)
+
+
+#: Web services a person chose for templates that name none, by the template's normalised name
+#: (``--overrides``, ``routes``): ``(service, container port)``.
+ROUTES: dict[str, tuple[str, int]] = {}
+
+
+def inline_files(draft: Draft) -> None:
+    """
+    Make the files a Coolify template writes inline into files of the draft.
+
+    A bind volume with ``content:`` is a file whose text the template carries; the volume becomes
+    the mount of a file under ``files/<service>/``, which the usual mount handling then ships or
+    renders.
+
+    Args:
+        draft: Changed in place.
+    """
+    for key, spec in draft.services.items():
+        mounts = []
+        for volume in spec.get("volumes") or ():
+            if isinstance(volume, dict) and "content" in volume and volume.get("target"):
+                name = Path(str(volume.get("source") or volume["target"])).name
+                path = f"files/{key}/{name}"
+                draft.files[path] = str(volume["content"])
+                mounts.append(
+                    f"./{path}:{volume['target']}" + (":ro" if volume.get("read_only") else "")
+                )
+            else:
+                mounts.append(volume)
+        if "volumes" in spec:
+            spec["volumes"] = mounts
 
 
 def convert_template(source: Source) -> tuple[Draft, str]:
@@ -616,9 +665,15 @@ def convert_template(source: Source) -> tuple[Draft, str]:
         raise Skip("conversion", str(exc)[:160]) from exc
     if result.warnings:
         draft.warnings.extend(result.warnings)
-        blocking = [w for w in result.warnings if "inline" in w or "content" in w]
+        blocking = [
+            w
+            for w in result.warnings
+            if ("inline" in w or "content" in w) and "inline file content" not in w
+        ]
         if blocking:
             raise Skip("template-files", blocking[0][:160])
+    if result.routed is None and source.key in ROUTES:
+        result.routed = ROUTES[source.key]
     if result.routed is None:
         raise Skip("no-web-service", "the template names no service for the domain")
     draft.routed = result.routed
@@ -629,6 +684,7 @@ def convert_template(source: Source) -> tuple[Draft, str]:
     for key, spec in (document.get("services") or {}).items():
         draft.services[str(key)] = dict(spec or {})
     draft.volumes = [str(v) for v in (document.get("volumes") or {})]
+    inline_files(draft)
     for variable in result.variables:
         draft.variables[variable.name] = {
             "origin": variable.origin,
@@ -747,9 +803,15 @@ def shell_dollars(spec: dict[str, Any]) -> None:
             spec[key] = [_escaped(item) if isinstance(item, str) else item for item in value]
     check = spec.get("healthcheck")
     if isinstance(check, dict) and isinstance(check.get("test"), list):
-        check["test"] = [_escaped(item) if isinstance(item, str) else item for item in check["test"]]
+        check["test"] = [
+            _escaped(item) if isinstance(item, str) else item for item in check["test"]
+        ]
     elif isinstance(check, dict) and isinstance(check.get("test"), str):
         check["test"] = _escaped(check["test"])
+
+
+#: The stack's own PORT (the host's port nginx proxies to) as a template hands it to an application.
+_CONTAINER_PORT = re.compile(r"\$\{PORT(?::?-[0-9]+)?\}")
 
 
 def clean_services(draft: Draft) -> None:
@@ -786,7 +848,7 @@ def clean_services(draft: Draft) -> None:
         spec["restart"] = "unless-stopped"
         if "environment" in spec:
             spec["environment"] = {
-                name: value
+                name: _CONTAINER_PORT.sub(str(routed_port), value) if routed_port else value
                 for name, value in as_environment(spec["environment"]).items()
                 if not FORBIDDEN_WORDS.search(name)
             }
@@ -801,6 +863,13 @@ def clean_services(draft: Draft) -> None:
                 opened = _PUBLIC_PORT.fullmatch(text)
                 if opened is None or int(opened["host"]) in SERVER_PORTS:
                     raise Skip("extra-port", f"service {key} publishes {text}")
+                if opened["host"] != opened["container"]:
+                    # A recipe opens the same port on both sides; SSH on another host port is a
+                    # convenience of a git forge (clone over HTTPS instead), anything else needs it.
+                    if opened["container"] != "22":
+                        raise Skip("extra-port", f"service {key} publishes {text}")
+                    draft.left_out_ssh.append(key)
+                    continue
                 protocol = opened["protocol"] or "tcp"
                 ports.append(text)
                 draft.public_ports.append(
@@ -810,6 +879,8 @@ def clean_services(draft: Draft) -> None:
                         "purpose": f"{key}: {opened['container']}/{protocol}, which the template opens.",
                     }
                 )
+        if key == routed_service and not any("${PORT}" in port for port in ports):
+            ports.append(f"127.0.0.1:${{PORT}}:{routed_port}")
         if ports:
             spec["ports"] = ports
         else:
@@ -900,16 +971,83 @@ def rewrite_mount(draft: Draft, service: str, volume: str) -> str | None:
     if held:
         for path, body in held.items():
             if path in draft.secret_files or "${" in body or "$" in body:
-                raise Skip("template-files", f"{path} holds a secret or a reference")
-            draft.shipped[path] = body
+                made = render_body(draft, body, secret=path in draft.secret_files)
+                if made is None:
+                    raise Skip("template-files", f"{path} holds a secret or a reference")
+                draft.rendered[path] = made
+            else:
+                draft.shipped[path] = body
         return f"./{relative}:{target}"
-    if relative.startswith(("files/", "volumes/")) and "." not in relative.rsplit("/", 1)[-1]:
+    last = relative.rsplit("/", 1)[-1]
+    if (
+        ".." not in relative
+        and "." not in last
+        and (relative.startswith(("files/", "volumes/")) or DATA_FOLDER.fullmatch(last))
+    ):
         name = re.sub(r"[^a-z0-9]+", "-", f"{service}-{relative.rsplit('/', 1)[-1]}".lower())
         if name not in draft.volumes:
             draft.volumes.append(name)
         return f"{name}:{target}"
     raise Skip("host-mount", f"service {service}: {volume}")
 
+
+#: What a file's text can say with a dollar: ``$$``, ``${NAME}``, ``$NAME`` or a lone ``$``.
+_FILE_DOLLAR = re.compile(r"\$\$|\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)|\$")
+
+
+def render_body(draft: Draft, body: str, *, secret: bool) -> str | None:
+    """
+    Make a file of the template into one the recipe renders, with the stack's variables in it.
+
+    The converter expanded the template's helpers into values (a password, the sample domain); the
+    file is shipped with the variables where those values were, so that each installation gets its
+    own, and a ``$`` of the file's own is written ``$$``.
+
+    Args:
+        draft: The draft, whose generated values are looked for in the file.
+        body: The file as the converter wrote it.
+        secret: Whether the converter flagged the file as holding a secret it made.
+
+    Returns:
+        The text to render, or None when the file is flagged as holding a secret and none of the
+        stack's variables is in it (a secret nobody can name is not shipped).
+    """
+    declared = set(draft.variables)
+
+    def reference(found: re.Match[str]) -> str:
+        name = found.group(1) or found.group(2)
+        if name and name in declared:
+            return "${" + name + "}"
+        # Anything else with a dollar is for the program that reads the file, and the renderer
+        # reads `$$` as one dollar.
+        return found.group(0).replace("$", "$$")
+
+    text = _FILE_DOLLAR.sub(reference, body)
+    named = False
+    known = [
+        (name, str(draft.values.get(name) or ""))
+        for name, entry in draft.variables.items()
+        if entry["origin"] == "generated"
+    ]
+    for name, value in sorted(known, key=lambda pair: -len(pair[1])):
+        if len(value) >= 8 and value in text:
+            text = text.replace(value, f"${{{name}}}")
+            named = True
+    for scheme in ("https", "http"):
+        text = text.replace(f"{scheme}://{DOMAIN}", "${APP_URL}")
+    text = text.replace(DOMAIN, "${APP_DOMAIN}")
+    if secret and not named:
+        return None
+    return text
+
+
+#: Folders a template mounts from its own directory that are where the service keeps what it makes, not
+#: configuration the operator wrote: they become named volumes. A folder named `conf` is left to a person.
+DATA_FOLDER = re.compile(
+    r"(?:data|db|database|uploads?|storage|ssl|certs?|logs?|cache|tmp|media|files|backups?|downloads?"
+    r"|library|content|custom|html|www|plugins|themes|assets)",
+    re.IGNORECASE,
+)
 
 _DEFAULTED = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*):?-([^${}]*)\}")
 
@@ -1142,8 +1280,16 @@ def declare_variables(draft: Draft, text: str) -> dict[str, dict[str, Any]]:
             continue
         known = draft.variables.get(name)
         entry: dict[str, Any]
-        if known is not None and known["origin"] == "domain":
-            entry = {"from": "fqdn" if name.startswith("SERVICE_FQDN") else "url"}
+        if name == "APP_URL" and known is None:
+            entry = {"from": "url"}
+        elif name == "APP_DOMAIN" and known is None:
+            entry = {"from": "fqdn"}
+        elif known is not None and known["origin"] == "domain":
+            # What the converter made of the template's helper tells which it is: a bare host name
+            # (`matrix.local`, `SERVER_NAME`) wants the domain, an address with its scheme the URL.
+            value = str(known["value"] or "")
+            bare = bool(value) and not value.startswith(("http://", "https://"))
+            entry = {"from": "fqdn" if name.startswith("SERVICE_FQDN") or bare else "url"}
         elif known is not None and known["origin"] == "generated":
             composed = compose_value(draft, name, found)
             twin = next(
@@ -1449,7 +1595,9 @@ def build_text(
     if not docs_url.startswith("https://"):
         docs_url = homepage
     volumes = unique_volumes(draft.services)
-    variables = declare_variables(draft, dump({"services": draft.services}))
+    variables = declare_variables(
+        draft, dump({"services": draft.services}) + "\n".join(draft.rendered.values())
+    )
     compose_text = dump(
         {
             "services": draft.services,
@@ -1479,6 +1627,12 @@ def build_text(
             "The user name and the password Noust generated for the application are "
             f"{' and '.join(account)} in its environment (noust env show {{{{ domain }}}} "
             "--unmask); the application's own sign-in may use them or ask you to create an account.",
+        )
+    if draft.left_out_ssh:
+        notes.append(
+            "The template also opened SSH on another port of the server; this recipe does not "
+            "(a recipe opens a port only as the same number on both sides), so use the web "
+            "address, over HTTPS."
         )
     if volumes:
         notes.append(
@@ -1544,11 +1698,16 @@ def build_text(
                 f"  - {{port: {opened['port']}, protocol: {opened['protocol']}, "
                 f"purpose: {quote(opened['purpose'])}}}"
             )
-    if draft.shipped:
+    if draft.shipped or draft.rendered:
         lines.append("files:")
         for shipped in draft.shipped:
             lines.append(f"  {shipped}:")
             lines.append(f"    asset: {shipped}")
+            lines.append('    mode: "0644"')
+        for rendered in draft.rendered:
+            lines.append(f"  {rendered}:")
+            lines.append(f"    asset: {rendered}")
+            lines.append("    render: true")
             lines.append('    mode: "0644"')
     lines.append("compose: |")
     lines.extend(f"  {row}" if row else "" for row in compose_text.rstrip().splitlines())
@@ -1633,6 +1792,7 @@ def draft_recipe(
         logo = "logo.svg"
         assets["logo.svg"] = monogram(title)
     assets.update(draft.shipped)
+    assets.update(draft.rendered)
     chosen = dict(health or {"path": "/", "expect": "200-399", "timeout": 180})
     text = build_text(draft, source, facts, archs, logo=logo, health=chosen)
     if FORBIDDEN_WORDS.search(text):
@@ -1866,6 +2026,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         norm(key): slug for key, slug in (found_by_hand.get("repositories") or {}).items()
     }
     licences: dict[str, Any] = found_by_hand.get("licences") or {}
+    for template, pair in (found_by_hand.get("routes") or {}).items():
+        ROUTES[norm(template)] = (str(pair[0]), int(pair[1]))
     try:
         if args.command == "survey":
             rows = []

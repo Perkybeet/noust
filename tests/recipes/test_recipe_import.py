@@ -461,22 +461,61 @@ def test_a_file_of_the_template_becomes_a_file_the_recipe_ships(tool: ModuleType
     assert set(draft.shipped) == {"files/app.conf", "files/conf/a.yml", "files/conf/b.yml"}
 
 
-@pytest.mark.parametrize(
-    "body",
-    ["token = abc\n", "home = ${HOME}\n", "echo $USER\n"],
-)
-def test_a_file_that_holds_a_secret_or_a_reference_is_not_shipped(
-    tool: ModuleType, body: str
-) -> None:
-    """A recipe's file is the same for every install: nothing in it may be an install's own."""
+def test_a_file_that_holds_a_secret_nobody_named_is_not_shipped(tool: ModuleType) -> None:
+    """A recipe's file is the same for every install: a secret in it must come from a variable."""
     draft = tool.Draft(name="demo")
-    draft.files = {"files/app.conf": body}
-    draft.secret_files = {"files/app.conf"} if "token" in body else set()
+    draft.files = {"files/app.conf": "token = abc\n"}
+    draft.secret_files = {"files/app.conf"}
 
     with pytest.raises(tool.Skip) as skipped:
         tool.rewrite_mount(draft, "web", "./files/app.conf:/conf/app.conf")
 
     assert skipped.value.code == "template-files"
+
+
+@pytest.mark.parametrize(
+    ("body", "rendered"),
+    [("home = ${HOME}\n", "home = $${HOME}\n"), ("echo $USER\n", "echo $$USER\n")],
+)
+def test_a_dollar_of_a_file_s_own_is_written_for_the_renderer_and_the_file_is_rendered(
+    tool: ModuleType, body: str, rendered: str
+) -> None:
+    """The renderer reads `${NAME}` as a variable of the stack, so the file's own are doubled."""
+    draft = tool.Draft(name="demo")
+    draft.files = {"files/app.conf": body}
+
+    tool.rewrite_mount(draft, "web", "./files/app.conf:/conf/app.conf")
+
+    assert draft.rendered == {"files/app.conf": rendered} and draft.shipped == {}
+
+
+@pytest.mark.parametrize("folder", ["./nginx/ssl", "./data", "./kutt/custom", "./backups"])
+def test_a_folder_named_like_data_beside_the_template_is_the_service_s_to_keep_what_it_makes(
+    tool: ModuleType, folder: str
+) -> None:
+    """Dify mounts `./nginx/ssl`, which the template holds nothing in: a named volume is that folder."""
+    draft = tool.Draft(name="demo")
+
+    kept = tool.rewrite_mount(draft, "web", f"{folder}:/srv/x")
+
+    assert (
+        kept.endswith(":/srv/x")
+        and not kept.startswith("./")
+        and kept.split(":")[0] in draft.volumes
+    )
+
+
+@pytest.mark.parametrize("folder", ["./conf", "./config", "./../data"])
+def test_a_folder_that_is_configuration_or_leaves_the_template_is_left_to_a_person(
+    tool: ModuleType, folder: str
+) -> None:
+    """What the operator would have written, or a path out of the template's directory."""
+    draft = tool.Draft(name="demo")
+
+    with pytest.raises(tool.Skip) as skipped:
+        tool.rewrite_mount(draft, "web", f"{folder}:/srv/x")
+
+    assert skipped.value.code == "host-mount"
 
 
 def test_a_folder_the_template_meant_as_data_becomes_a_named_volume(tool: ModuleType) -> None:
@@ -812,6 +851,61 @@ def test_a_dollar_the_container_s_shell_reads_is_written_the_way_compose_passes_
     assert draft.services["web"]["healthcheck"]["test"][1] == "curl -f http://localhost:$$PORT/"
 
 
+def test_a_file_with_a_secret_the_template_made_is_shipped_to_be_rendered(
+    tool: ModuleType,
+) -> None:
+    """The secret in the file is the variable's, filled in when the file is written, never typed in it."""
+    secret = "Q" * 32
+    draft = draft_of(
+        tool,
+        {"web": {"image": "o/app:1.0", "volumes": ["./files/app.conf:/etc/app.conf"]}},
+        ("web", 80),
+    )
+    draft.variables = {"APP_SECRET": {"origin": "generated", "secret": True, "value": secret}}
+    draft.values = {"APP_SECRET": secret}
+    body = f"secret = {secret}\nurl = https://app.example.com\nhost = app.example.com\nprice = $5\n"
+    draft.files = {"files/app.conf": body}
+    draft.secret_files = {"files/app.conf"}
+
+    tool.clean_services(draft)
+
+    assert draft.services["web"]["volumes"] == ["./files/app.conf:/etc/app.conf"]
+    assert draft.shipped == {}
+    assert draft.rendered["files/app.conf"] == (
+        "secret = ${APP_SECRET}\nurl = ${APP_URL}\nhost = ${APP_DOMAIN}\nprice = $$5\n"
+    )
+
+
+def test_a_file_that_holds_a_secret_nobody_can_name_is_still_a_reason_to_skip(
+    tool: ModuleType,
+) -> None:
+    """A file flagged as secret in which no variable of the stack appears cannot be made safe."""
+    draft = draft_of(
+        tool,
+        {"web": {"image": "o/app:1.0", "volumes": ["./files/app.conf:/etc/app.conf"]}},
+        ("web", 80),
+    )
+    draft.files = {"files/app.conf": "token = abcdef0123456789\n"}
+    draft.secret_files = {"files/app.conf"}
+
+    with pytest.raises(tool.Skip) as caught:
+        tool.clean_services(draft)
+
+    assert caught.value.code == "template-files"
+
+
+def test_the_variables_a_rendered_file_names_are_declared_and_the_file_is_listed_to_render(
+    tool: ModuleType,
+) -> None:
+    """The loader checks every name a rendered file uses against the recipe's variables."""
+    draft = draft_of(tool, {"web": {"image": "o/app:1.0"}}, ("web", 80))
+    draft.rendered = {"files/app.conf": "a = ${APP_URL}\nb = ${APP_DOMAIN}\n"}
+
+    declared = tool.declare_variables(draft, "x: 1\n" + "\n".join(draft.rendered.values()))
+
+    assert declared["APP_URL"]["from"] == "url" and declared["APP_DOMAIN"]["from"] == "fqdn"
+
+
 # -- the long tail: ports a stack opens on purpose --------------------------------------------------
 
 
@@ -842,6 +936,165 @@ def test_a_port_a_template_opens_to_the_network_is_declared_not_a_reason_to_skip
         (4443, "tcp"),
     ]
     assert all("web" in p["purpose"] for p in draft.public_ports)
+
+
+def test_the_port_a_template_hands_to_the_application_is_the_port_it_listens_on(
+    tool: ModuleType,
+) -> None:
+    """Coolify's `PORT: ${PORT}` is the host's port; inside the container the application listens on its own."""
+    draft = draft_of(
+        tool,
+        {
+            "web": {
+                "image": "o/app:1.0",
+                "ports": ["127.0.0.1:${PORT:-3000}:3001"],
+                "environment": {"PORT": "${PORT}", "PUBLIC": "http://localhost:${PORT:-3000}/"},
+            }
+        },
+        ("web", 3001),
+    )
+
+    tool.clean_services(draft)
+
+    assert draft.services["web"]["environment"] == {
+        "PORT": "3001",
+        "PUBLIC": "http://localhost:3001/",
+    }
+    assert draft.services["web"]["ports"] == ["127.0.0.1:${PORT}:3001"]
+
+
+def test_a_template_that_names_no_web_service_can_be_given_one_by_a_person(
+    tool: ModuleType, tmp_path: Path
+) -> None:
+    """The console of an object store is the web service nobody told the template about."""
+    template = tmp_path / "demo.yaml"
+    template.write_text(
+        "# slogan: A store\nservices:\n  store:\n    image: o/store:1.0\n    ports:\n      - '9001'\n"
+    )
+    source = tool.Source(key="demo", name="demo", coolify=template)
+
+    tool.ROUTES["demo"] = ("store", 9001)
+    try:
+        draft, _ = tool.convert_template(source)
+    finally:
+        del tool.ROUTES["demo"]
+
+    assert draft.routed == ("store", 9001)
+
+
+def test_the_web_service_a_person_chose_gets_its_loopback_port(tool: ModuleType) -> None:
+    """The template never published it, so the recipe does."""
+    draft = draft_of(tool, {"store": {"image": "o/store:1.0"}}, ("store", 9001))
+
+    tool.clean_services(draft)
+
+    assert draft.services["store"]["ports"] == ["127.0.0.1:${PORT}:9001"]
+
+
+@pytest.mark.parametrize(
+    ("template", "name"),
+    [("open_notebook", "open-notebook"), ("bolt.diy", "bolt-diy"), ("Plain-Name", "plain-name")],
+)
+def test_a_template_s_name_becomes_one_a_recipe_may_have(
+    tool: ModuleType, template: str, name: str
+) -> None:
+    """A recipe's name is letters, digits and dashes: `open_notebook` was drafted, run, and refused."""
+    assert tool.recipe_name(template) == name
+    assert tool.NAME_OK.fullmatch(name)
+
+
+@pytest.mark.parametrize(
+    ("value", "source"), [("app.example.com", "fqdn"), ("https://app.example.com", "url")]
+)
+def test_a_variable_that_holds_a_bare_host_name_is_the_domain_and_one_with_a_scheme_is_the_url(
+    tool: ModuleType, value: str, source: str
+) -> None:
+    """Tuwunel's SERVER_NAME was given `https://domain` and refused to start."""
+    draft = draft_of(tool, {"web": {"image": "o/app:1.0"}}, ("web", 80))
+    draft.variables = {"SERVER_NAME": {"origin": "domain", "secret": False, "value": value}}
+    draft.values = {"SERVER_NAME": value}
+
+    declared = tool.declare_variables(draft, "a: ${SERVER_NAME}\n")
+
+    assert declared["SERVER_NAME"]["from"] == source
+
+
+def test_a_file_a_coolify_template_writes_inline_becomes_a_file_the_recipe_ships(
+    tool: ModuleType, tmp_path: Path
+) -> None:
+    """`content:` of a bind volume is the file's text: it is shipped, and its references are the recipe's variables."""
+    template = tmp_path / "demo.yaml"
+    template.write_text(
+        "# slogan: A demo\n"
+        "services:\n"
+        "  web:\n"
+        "    image: o/app:1.0\n"
+        "    environment:\n"
+        "      - SERVICE_URL_WEB_80\n"
+        "      - DB_PASSWORD=$SERVICE_PASSWORD_DB\n"
+        "    volumes:\n"
+        "      - type: bind\n"
+        "        source: ./app.conf\n"
+        "        target: /etc/app.conf\n"
+        "        read_only: true\n"
+        "        content: |\n"
+        "          password = ${SERVICE_PASSWORD_DB}\n"
+        "          host $host;\n"
+    )
+    source = tool.Source(key="demo", name="demo", coolify=template)
+
+    draft, _ = tool.convert_template(source)
+    tool.clean_services(draft)
+
+    assert draft.services["web"]["volumes"] == ["./files/web/app.conf:/etc/app.conf:ro"]
+    assert (
+        draft.rendered["files/web/app.conf"]
+        == "password = ${SERVICE_PASSWORD_DB}\nhost $${host};\n"
+    )
+
+
+def test_in_a_rendered_file_only_a_variable_the_recipe_declares_stays_a_reference(
+    tool: ModuleType,
+) -> None:
+    """Everything else with a dollar is text for the program that reads the file."""
+    draft = tool.Draft(name="demo")
+    draft.variables = {"KNOWN": {"origin": "generated", "secret": True, "value": None}}
+
+    made = tool.render_body(
+        draft, "a=${KNOWN} b=$KNOWN c=${OTHER} d=$other e=$$ f=$(cmd) g=$", secret=False
+    )
+
+    assert made == "a=${KNOWN} b=${KNOWN} c=$${OTHER} d=$$other e=$$$$ f=$$(cmd) g=$$"
+
+
+def test_a_ssh_port_mapped_to_another_host_port_is_left_out_and_said(tool: ModuleType) -> None:
+    """Git over SSH on 2222 is a convenience; a recipe's public port is the same on both sides."""
+    draft = draft_of(
+        tool,
+        {"web": {"image": "o/app:1.0", "ports": ["127.0.0.1:${PORT}:80", "2222:22"]}},
+        ("web", 80),
+    )
+
+    tool.clean_services(draft)
+
+    assert draft.services["web"]["ports"] == ["127.0.0.1:${PORT}:80"]
+    assert draft.public_ports == [] and draft.left_out_ssh == ["web"]
+
+
+def test_another_port_mapped_to_a_different_host_port_is_still_a_reason_to_skip(
+    tool: ModuleType,
+) -> None:
+    """A recipe's public port is the same on both sides, and a service whose port moved needs it."""
+    draft = draft_of(
+        tool,
+        {"web": {"image": "o/app:1.0", "ports": ["127.0.0.1:${PORT}:80", "9000:9001"]}},
+        ("web", 80),
+    )
+
+    with pytest.raises(tool.Skip) as caught:
+        tool.clean_services(draft)
+
+    assert caught.value.code == "extra-port"
 
 
 @pytest.mark.parametrize("port", ["53:53/udp", "80:8080", "443:8443", "22:22", "5432:5432"])
