@@ -91,8 +91,8 @@ async function cronAt(path = "/cron", extra: Record<string, RouteHandler> = {}) 
     ...extra,
   });
   const harness = renderConsole(path);
-  await screen.findByRole("heading", { level: 1, name: "Cron" });
-  const table = await findLoadedRegion(/Cron jobs/);
+  await screen.findByRole("heading", { level: 1, name: "Scheduled tasks" });
+  const table = await findLoadedRegion(/Scheduled tasks/);
   return { ...harness, backend, table };
 }
 
@@ -111,7 +111,7 @@ describe("the cron jobs list", () => {
     expect(within(disabledRow).getByText("Disabled")).toHaveAttribute("data-state", "stopped");
     expect(within(disabledRow).getByText("Never run")).toBeInTheDocument();
     expect(within(disabledRow).getByText("Every hour, on the hour")).toBeInTheDocument();
-    expect(screen.getByText("2 jobs")).toBeInTheDocument();
+    expect(screen.getByText("2 tasks")).toBeInTheDocument();
     expect(screen.getByText("noust cron list")).toBeInTheDocument();
   });
 
@@ -195,12 +195,12 @@ describe("the cron jobs list", () => {
   it("says what is missing when a job is saved without a name or command, instead of a disabled button", async () => {
     const { user, backend, table } = await cronAt();
     await within(table).findByText("nightly-backup");
-    await user.click(screen.getByRole("button", { name: "New job" }));
-    const dialog = await screen.findByRole("dialog", { name: "New cron job" });
-    const create = within(dialog).getByRole("button", { name: "Create job" });
+    await user.click(screen.getByRole("button", { name: "New task" }));
+    const dialog = await screen.findByRole("dialog", { name: "New scheduled task" });
+    const create = within(dialog).getByRole("button", { name: "Create task" });
     expect(create).toBeEnabled();
     await user.click(create);
-    expect(await within(dialog).findByText("Enter a name for the job.")).toBeInTheDocument();
+    expect(await within(dialog).findByText("Enter a name for the task.")).toBeInTheDocument();
     expect(within(dialog).getByText("Enter the command to run.")).toBeInTheDocument();
     expect(backend.callsTo("POST /api/cron")).toHaveLength(0);
   });
@@ -209,7 +209,7 @@ describe("the cron jobs list", () => {
     const { table, location } = await cronAt();
     await within(table).findByText("nightly-backup");
     const user = (await import("@testing-library/user-event")).default.setup();
-    await user.type(screen.getByRole("searchbox", { name: "Search cron jobs" }), "hourly");
+    await user.type(screen.getByRole("searchbox", { name: "Search scheduled tasks" }), "hourly");
     await waitFor(() => {
       expect(location().search).toEqual({ q: "hourly" });
     });
@@ -226,18 +226,74 @@ describe("the cron jobs list", () => {
         }),
     });
     await within(table).findByText("nightly-backup");
-    await user.click(screen.getByRole("button", { name: "New job" }));
-    const dialog = await screen.findByRole("dialog", { name: "New cron job" });
+    await user.click(screen.getByRole("button", { name: "New task" }));
+    const dialog = await screen.findByRole("dialog", { name: "New scheduled task" });
     await user.type(within(dialog).getByLabelText("Name", { exact: true }), "e2e-report");
     await user.type(within(dialog).getByLabelText("Command", { exact: true }), "/usr/bin/noust backup create example.com");
-    await user.click(within(dialog).getByRole("button", { name: "Create job" }));
+    await user.click(within(dialog).getByRole("button", { name: "Create task" }));
     await waitFor(() => {
       expect(backend.callsTo("POST /api/cron")).toHaveLength(1);
     });
-    // The alias travels as-is (CronManager expands it server-side): one implementation of
-    // what "daily" means, and the dialog's own preview is what shows the operator the result.
-    expect(backend.callsTo("POST /api/cron")[0]?.body).toMatchObject({ name: "e2e-report", schedule: "daily" });
+    // Every day at 02:00 is what the dialog opens on: the console writes the calendar, and the preview above
+    // the button is what shows the operator what it means.
+    expect(backend.callsTo("POST /api/cron")[0]?.body).toMatchObject({ name: "e2e-report", schedule: "*-*-* 02:00:00" });
     expect(await screen.findByText("Created e2e-report")).toBeInTheDocument();
+  });
+
+  it("schedules a task the way a person says it: how often, and at what time", async () => {
+    const { user, backend } = await cronAt("/cron", {
+      "POST /api/cron": () => json(201, { success: true, message: "created", job: JOBS[0] }),
+    });
+    await user.click(screen.getByRole("button", { name: "New task" }));
+    const dialog = await screen.findByRole("dialog", { name: "New scheduled task" });
+    await user.type(within(dialog).getByLabelText("Name", { exact: true }), "report");
+    await user.type(within(dialog).getByLabelText("Command", { exact: true }), "/usr/bin/report");
+    await user.click(within(dialog).getByRole("combobox", { name: "Repeats" }));
+    await user.click(await screen.findByRole("option", { name: "Every week" }));
+    await user.click(within(dialog).getByRole("combobox", { name: "Day of the week" }));
+    await user.click(await screen.findByRole("option", { name: "Friday" }));
+    const time = within(dialog).getByLabelText("At");
+    await user.clear(time);
+    await user.type(time, "18:05");
+    // The preview reads what the console wrote: the server says what it means.
+    expect(await within(dialog).findByText("Fri *-*-* 18:05:00", {}, { timeout: 2000 })).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Create task" }));
+    await waitFor(() => expect(backend.callsTo("POST /api/cron")).toHaveLength(1));
+    expect(backend.callsTo("POST /api/cron")[0]?.body).toMatchObject({ schedule: "Fri *-*-* 18:05:00" });
+  });
+
+  it("says a time that is not one where it is typed, instead of sending it", async () => {
+    const { user, backend } = await cronAt();
+    await user.click(screen.getByRole("button", { name: "New task" }));
+    const dialog = await screen.findByRole("dialog", { name: "New scheduled task" });
+    await user.type(within(dialog).getByLabelText("Name", { exact: true }), "report");
+    await user.type(within(dialog).getByLabelText("Command", { exact: true }), "/usr/bin/report");
+    await user.clear(within(dialog).getByLabelText("At"));
+    await user.click(within(dialog).getByRole("button", { name: "Create task" }));
+    expect(await within(dialog).findByText("Give a time such as 03:30.")).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/cron")).toHaveLength(0);
+  });
+
+  it("opens a task on the choice its calendar says, and keeps a calendar it cannot say as the person wrote it", async () => {
+    const weekly = { ...JOBS[0], name: "weekly", schedule: "custom", on_calendar: "Wed *-*-* 18:05:00" };
+    const odd = { ...JOBS[0], name: "odd", schedule: "custom", on_calendar: "Mon..Fri *-*-* 09:00:00" };
+    const { user, table } = await cronAt("/cron", { "GET /api/cron": () => json(200, { jobs: [weekly, odd], total: 2 }) });
+    const row = (await within(table).findByText("weekly")).closest("tr");
+    if (!row) throw new Error("no row");
+    await user.click(within(row).getByRole("button", { name: "Actions for weekly" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Edit" }));
+    const dialog = await screen.findByRole("dialog", { name: "Edit weekly" });
+    expect(within(dialog).getByRole("combobox", { name: "Repeats" })).toHaveTextContent("Every week");
+    expect(within(dialog).getByRole("combobox", { name: "Day of the week" })).toHaveTextContent("Wednesday");
+    expect(within(dialog).getByLabelText("At")).toHaveValue("18:05");
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    const oddRow = (await within(table).findByText("odd")).closest("tr");
+    if (!oddRow) throw new Error("no row");
+    await user.click(within(oddRow).getByRole("button", { name: "Actions for odd" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Edit" }));
+    const custom = await screen.findByRole("dialog", { name: "Edit odd" });
+    expect(within(custom).getByRole("combobox", { name: "Repeats" })).toHaveTextContent("Custom");
+    expect(within(custom).getByRole("textbox", { name: "Calendar expression" })).toHaveValue("Mon..Fri *-*-* 09:00:00");
   });
 
   it("edits the command as the operator typed it and saves it back unchanged", async () => {
@@ -255,7 +311,7 @@ describe("the cron jobs list", () => {
     await user.click(await screen.findByRole("menuitem", { name: "Edit" }));
     const dialog = await screen.findByRole("dialog", { name: "Edit report" });
     expect(within(dialog).getByLabelText("Command", { exact: true })).toHaveValue(typed);
-    await user.click(within(dialog).getByRole("button", { name: "Save job" }));
+    await user.click(within(dialog).getByRole("button", { name: "Save task" }));
     await waitFor(() => {
       expect(backend.callsTo("POST /api/cron")).toHaveLength(1);
     });
@@ -274,23 +330,30 @@ describe("the cron jobs list", () => {
     await user.click(within(row).getByRole("button", { name: `Actions for ${job.name}` }));
     await user.click(await screen.findByRole("menuitem", { name: "Edit" }));
     const dialog = await screen.findByRole("dialog", { name: `Edit ${job.name}` });
-    await user.click(within(dialog).getByRole("button", { name: "Save job" }));
+    await user.click(within(dialog).getByRole("button", { name: "Save task" }));
     await waitFor(() => {
       expect(backend.callsTo("POST /api/cron")).toHaveLength(1);
     });
     expect(backend.callsTo("POST /api/cron")[0]?.body).toMatchObject({ app_domain: "shop.example.com" });
   });
 
-  it("gives a job the longest it may run, and sends it as seconds", async () => {
+  it("has no time limit until a person chooses one, and then sends it as seconds", async () => {
     const { user, backend } = await cronAt("/cron", {
       "POST /api/cron": () => json(201, { success: true, message: "created", job: JOBS[1] }),
     });
-    await user.click(screen.getByRole("button", { name: "New job" }));
-    const dialog = await screen.findByRole("dialog", { name: "New cron job" });
+    await user.click(screen.getByRole("button", { name: "New task" }));
+    const dialog = await screen.findByRole("dialog", { name: "New scheduled task" });
     await user.type(within(dialog).getByLabelText("Name", { exact: true }), "report");
     await user.type(within(dialog).getByLabelText("Command", { exact: true }), "/usr/bin/report");
-    await user.type(within(dialog).getByRole("textbox", { name: /Longest it may run/ }), "900");
-    await user.click(within(dialog).getByRole("button", { name: "Create job" }));
+    await user.click(within(dialog).getByRole("button", { name: "More options" }));
+    // A limit is a choice, not an empty box that means none: the number appears when it is chosen.
+    expect(within(dialog).queryByRole("textbox", { name: /Longest it may run/ })).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("checkbox", { name: /Stop it if it runs too long/ }));
+    const limit = within(dialog).getByRole("textbox", { name: /Longest it may run/ });
+    expect(limit).toHaveValue("3600");
+    await user.clear(limit);
+    await user.type(limit, "900");
+    await user.click(within(dialog).getByRole("button", { name: "Create task" }));
     await waitFor(() => {
       expect(backend.callsTo("POST /api/cron")).toHaveLength(1);
     });
@@ -298,15 +361,32 @@ describe("the cron jobs list", () => {
     expect(backend.callsTo("POST /api/cron")[0]?.body).not.toHaveProperty("service");
   });
 
-  it("refuses a time limit that is not seconds from 1 to 86400 where it is typed", async () => {
-    const { user, backend } = await cronAt();
-    await user.click(screen.getByRole("button", { name: "New job" }));
-    const dialog = await screen.findByRole("dialog", { name: "New cron job" });
+  it("sends no limit when none was chosen", async () => {
+    const { user, backend } = await cronAt("/cron", {
+      "POST /api/cron": () => json(201, { success: true, message: "created", job: JOBS[1] }),
+    });
+    await user.click(screen.getByRole("button", { name: "New task" }));
+    const dialog = await screen.findByRole("dialog", { name: "New scheduled task" });
     await user.type(within(dialog).getByLabelText("Name", { exact: true }), "report");
     await user.type(within(dialog).getByLabelText("Command", { exact: true }), "/usr/bin/report");
-    await user.type(within(dialog).getByRole("textbox", { name: /Longest it may run/ }), "90000");
-    await user.click(within(dialog).getByRole("button", { name: "Create job" }));
-    expect(await within(dialog).findByText("Give a whole number of seconds from 1 to 86400, or leave it blank.")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Create task" }));
+    await waitFor(() => expect(backend.callsTo("POST /api/cron")).toHaveLength(1));
+    expect(backend.callsTo("POST /api/cron")[0]?.body).not.toHaveProperty("timeout");
+  });
+
+  it("refuses a time limit that is not seconds from 1 to 86400 where it is typed", async () => {
+    const { user, backend } = await cronAt();
+    await user.click(screen.getByRole("button", { name: "New task" }));
+    const dialog = await screen.findByRole("dialog", { name: "New scheduled task" });
+    await user.type(within(dialog).getByLabelText("Name", { exact: true }), "report");
+    await user.type(within(dialog).getByLabelText("Command", { exact: true }), "/usr/bin/report");
+    await user.click(within(dialog).getByRole("button", { name: "More options" }));
+    await user.click(within(dialog).getByRole("checkbox", { name: /Stop it if it runs too long/ }));
+    const limit = within(dialog).getByRole("textbox", { name: /Longest it may run/ });
+    await user.clear(limit);
+    await user.type(limit, "90000");
+    await user.click(within(dialog).getByRole("button", { name: "Create task" }));
+    expect(await within(dialog).findByText("Give a whole number of seconds from 1 to 86400.")).toBeInTheDocument();
     expect(backend.callsTo("POST /api/cron")).toHaveLength(0);
   });
 
@@ -323,9 +403,11 @@ describe("the cron jobs list", () => {
     await user.click(within(row).getByRole("button", { name: `Actions for ${job.name}` }));
     await user.click(await screen.findByRole("menuitem", { name: "Edit" }));
     const dialog = await screen.findByRole("dialog", { name: `Edit ${job.name}` });
+    // What differs from the defaults is open from the start: nobody has to look for it.
     expect(within(dialog).getByRole("textbox", { name: /^Service/ })).toHaveValue("web");
+    expect(within(dialog).getByRole("checkbox", { name: /Stop it if it runs too long/ })).toBeChecked();
     expect(within(dialog).getByRole("textbox", { name: /Longest it may run/ })).toHaveValue("60");
-    await user.click(within(dialog).getByRole("button", { name: "Save job" }));
+    await user.click(within(dialog).getByRole("button", { name: "Save task" }));
     await waitFor(() => {
       expect(backend.callsTo("POST /api/cron")).toHaveLength(1);
     });
@@ -334,15 +416,16 @@ describe("the cron jobs list", () => {
 
   it("does not offer a service to a job that belongs to no application", async () => {
     const { user } = await cronAt();
-    await user.click(screen.getByRole("button", { name: "New job" }));
-    const dialog = await screen.findByRole("dialog", { name: "New cron job" });
+    await user.click(screen.getByRole("button", { name: "New task" }));
+    const dialog = await screen.findByRole("dialog", { name: "New scheduled task" });
+    await user.click(within(dialog).getByRole("button", { name: "More options" }));
     expect(within(dialog).queryByRole("textbox", { name: /^Service/ })).not.toBeInTheDocument();
   });
 
   it("invites the first job on a machine with none scheduled", async () => {
     fakeBackend({ ...signedInRoutes(), "GET /api/cron": () => json(200, { jobs: [], total: 0 }) });
     renderConsole("/cron");
-    expect(await screen.findByRole("heading", { level: 2, name: "Schedule your first job" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "Schedule your first task" })).toBeInTheDocument();
   });
 
   it("has no accessibility violations", async () => {
@@ -356,14 +439,14 @@ describe("the new job dialog's schedule preview", () => {
   it("previews the normalised calendar and next runs, debounced, as a preset is chosen", async () => {
     const { user, table } = await cronAt();
     await within(table).findByText("nightly-backup");
-    await user.click(screen.getByRole("button", { name: "New job" }));
-    const dialog = await screen.findByRole("dialog", { name: "New cron job" });
+    await user.click(screen.getByRole("button", { name: "New task" }));
+    const dialog = await screen.findByRole("dialog", { name: "New scheduled task" });
 
     // Daily is the dialog's default preset.
     expect(await within(dialog).findByText("*-*-* 02:00:00", {}, { timeout: 2000 })).toBeInTheDocument();
     expect(within(dialog).getAllByRole("listitem")).toHaveLength(2);
 
-    await user.click(within(dialog).getByRole("combobox", { name: "Schedule" }));
+    await user.click(within(dialog).getByRole("combobox", { name: "Repeats" }));
     await user.click(await screen.findByRole("option", { name: "Every hour" }));
 
     await waitFor(
@@ -377,11 +460,11 @@ describe("the new job dialog's schedule preview", () => {
   it("shows systemd's own refusal inline beside the field for an invalid custom expression, without a toast", async () => {
     const { user, table } = await cronAt();
     await within(table).findByText("nightly-backup");
-    await user.click(screen.getByRole("button", { name: "New job" }));
-    const dialog = await screen.findByRole("dialog", { name: "New cron job" });
+    await user.click(screen.getByRole("button", { name: "New task" }));
+    const dialog = await screen.findByRole("dialog", { name: "New scheduled task" });
 
-    await user.click(within(dialog).getByRole("combobox", { name: "Schedule" }));
-    await user.click(await screen.findByRole("option", { name: "Custom calendar expression" }));
+    await user.click(within(dialog).getByRole("combobox", { name: "Repeats" }));
+    await user.click(await screen.findByRole("option", { name: "Custom" }));
     await user.type(within(dialog).getByRole("textbox", { name: "Calendar expression" }), "bogus!");
 
     expect(await within(dialog).findByText(/Invalid cron schedule/, {}, { timeout: 2000 })).toBeInTheDocument();
@@ -392,11 +475,11 @@ describe("the new job dialog's schedule preview", () => {
   it("never shows a stale preview: only the most recently typed schedule's result is on screen", async () => {
     const { user, table } = await cronAt();
     await within(table).findByText("nightly-backup");
-    await user.click(screen.getByRole("button", { name: "New job" }));
-    const dialog = await screen.findByRole("dialog", { name: "New cron job" });
+    await user.click(screen.getByRole("button", { name: "New task" }));
+    const dialog = await screen.findByRole("dialog", { name: "New scheduled task" });
 
-    await user.click(within(dialog).getByRole("combobox", { name: "Schedule" }));
-    await user.click(await screen.findByRole("option", { name: "Custom calendar expression" }));
+    await user.click(within(dialog).getByRole("combobox", { name: "Repeats" }));
+    await user.click(await screen.findByRole("option", { name: "Custom" }));
     const calendar = within(dialog).getByRole("textbox", { name: "Calendar expression" });
     await user.type(calendar, "weekly-ish");
     await user.clear(calendar);
@@ -414,8 +497,8 @@ describe("the new job dialog's schedule preview", () => {
   it("has no accessibility violations with the preview shown", async () => {
     const { user, table } = await cronAt();
     await within(table).findByText("nightly-backup");
-    await user.click(screen.getByRole("button", { name: "New job" }));
-    const dialog = await screen.findByRole("dialog", { name: "New cron job" });
+    await user.click(screen.getByRole("button", { name: "New task" }));
+    const dialog = await screen.findByRole("dialog", { name: "New scheduled task" });
     await within(dialog).findByText("*-*-* 02:00:00", {}, { timeout: 2000 });
     await expectNoAxeViolations(dialog);
   });
@@ -426,7 +509,7 @@ describe("the cron jobs list in Spanish", () => {
     await act(() => setLocale("es"));
     fakeBackend({ ...signedInRoutes(), "GET /api/cron": () => json(200, { jobs: JOBS, total: JOBS.length }), "POST /api/cron/preview": previewRoute });
     const { user, container } = renderConsole("/cron");
-    await screen.findByRole("heading", { level: 1, name: "Cron" });
+    await screen.findByRole("heading", { level: 1, name: "Tareas programadas" });
     const table = await findLoadedRegion(/Tareas programadas/);
     const enabledRow = (await within(table).findByText("nightly-backup")).closest("tr");
     if (!enabledRow) throw new Error("no row");

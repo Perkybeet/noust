@@ -82,6 +82,7 @@ const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/databases/$engine/$name/users", "/databases/postgresql/example_production/users"],
   ["/databases/engines", "/databases/engines"],
   ["/databases/engines/$engine/settings", "/databases/engines/postgresql/settings"],
+  ["/databases/servers", "/databases/servers"],
   ["/domains", "/domains"],
   ["/domains/certificates", "/domains/certificates"],
   ["/domains/dns", "/domains/dns"],

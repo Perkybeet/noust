@@ -222,7 +222,9 @@ describe("importing a dump from the browser", () => {
     const server = serverRoutes(10);
     const backend = fakeBackend(databaseRoutes({ ...server.routes }));
     const { user } = renderConsole("/databases");
-    await user.click(await screen.findByRole("button", { name: "Import a dump…" }));
+    // A dump from elsewhere is rarer than the first database: it is in the page's menu, not beside the primary action.
+    await user.click(await screen.findByRole("button", { name: "More actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Import a dump…" }));
     const dialog = await screen.findByRole("dialog", { name: "Import a dump" });
     await user.click(await within(dialog).findByRole("combobox", { name: "Engine" }));
     await user.click(await screen.findByRole("option", { name: /^PostgreSQL/ }));

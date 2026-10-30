@@ -42,7 +42,7 @@ describe("documentation for this page", () => {
   it("follows the operator to another page", async () => {
     const { user, router } = await open("/settings/about");
     await router.navigate({ to: "/cron" });
-    await screen.findByRole("heading", { level: 1, name: /Cron/i });
+    await screen.findByRole("heading", { level: 1, name: /Scheduled tasks/i });
 
     const menu = await sessionMenu(user);
 

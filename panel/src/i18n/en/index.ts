@@ -36,6 +36,7 @@ export { consoleAccess } from "./consoleAccess";
 export { containers } from "./containers";
 export { cron } from "./cron";
 export { databases } from "./databases";
+export { dbServers } from "./dbServers";
 export { declaration } from "./declaration";
 export { domains } from "./domains";
 export { dumpImport } from "./dumpImport";

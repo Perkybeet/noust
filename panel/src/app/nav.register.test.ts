@@ -577,7 +577,7 @@ describe("what the pages draw from the register", () => {
     expect(paths(tabsById("apps"))).toEqual(["/apps", "/projects"]);
     expect(paths(tabsById("catalog"))).toEqual(["/catalog", "/catalog/installed"]);
     expect(paths(tabsById("alerts"))).toEqual(["/alerts", "/alerts/checks", "/alerts/probes", "/alerts/status", "/alerts/metrics"]);
-    expect(paths(tabsById("databases"))).toEqual(["/databases", "/databases/engines"]);
+    expect(paths(tabsById("databases"))).toEqual(["/databases", "/databases/servers"]);
     expect(paths(tabsById("service"))).toEqual(["/server/services/$name", "/server/services/$name/logs"]);
   });
 

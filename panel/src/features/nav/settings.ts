@@ -175,6 +175,7 @@ export const RENAMED: Readonly<Record<string, readonly PlainKey[]>> = {
   // The areas of the bar that 4.1 renamed or moved: what they were called in 4.0.
   overview: ["nav.renamed.overview"],
   cron: ["nav.renamed.cron"],
+  "databases.servers": ["nav.renamed.engines"],
   backups: ["nav.renamed.backups"],
   server: ["nav.renamed.server"],
   domains: ["nav.renamed.domains"],

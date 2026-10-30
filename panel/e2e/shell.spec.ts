@@ -18,7 +18,7 @@ const DESTINATIONS: readonly { link: string; path: string; title: string }[] = [
   { link: "Home", path: "/", title: "Overview" },
   { link: "Applications", path: "/apps", title: "Applications" },
   { link: "Databases", path: "/databases", title: "Databases" },
-  { link: "Scheduled tasks", path: "/cron", title: "Cron" },
+  { link: "Scheduled tasks", path: "/cron", title: "Scheduled tasks" },
   { link: "Domains", path: "/domains", title: "Domains" },
   { link: "Logs", path: "/logs", title: "Logs" },
   { link: "Alerts", path: "/alerts", title: "Alerts" },
@@ -160,7 +160,7 @@ test("the command palette opens with Ctrl+K, filters, navigates on Enter and clo
   await page.keyboard.press("Enter");
   await expect(palette).toBeHidden();
   await expect(page).toHaveURL(/\/cron$/);
-  await expect(heading(page)).toHaveText("Cron");
+  await expect(heading(page)).toHaveText("Scheduled tasks");
 
   // Applications come from the API: the seeded machine's apps are searchable.
   await page.keyboard.press("Control+k");

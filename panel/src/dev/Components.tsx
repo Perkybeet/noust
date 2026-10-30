@@ -24,6 +24,7 @@ import {
   IconButton,
   Input,
   Kbd,
+  LogoTile,
   LogViewer,
   Menu,
   MenuGroup,
@@ -756,6 +757,17 @@ function Cards() {
               suffix={<CopyButton value="https://example.dev/hooks/github/shop" label="Copy payload URL" />}
             />
           </Field>
+        </Card>
+      </div>
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card padding="sm" leading={<LogoTile logo="postgresql" size="md" />} title="PostgreSQL 17" description="Support until Nov 2029">
+          <p className="text-13 text-fg-muted">A slab that is well stays stone. `leading` is a real logo, outside the text.</p>
+        </Card>
+        <Card padding="sm" tone="warning" leading={<LogoTile logo="postgresql" size="md" />} title="PostgreSQL 14" description="Support until Nov 2026, 1 month left">
+          <p className="text-13 text-fg-muted">`tone="warning"`: the ground and edge of what is in progress or about to be a problem.</p>
+        </Card>
+        <Card padding="sm" tone="failed" leading={<LogoTile logo="mysql" size="md" />} title="MySQL 8.0" description="No support since Apr 2026">
+          <p className="text-13 text-fg-muted">`tone="failed"`: the same for what is a problem now. The words say it too, never the ground alone.</p>
         </Card>
       </div>
       <Card

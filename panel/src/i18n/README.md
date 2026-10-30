@@ -183,7 +183,9 @@ Spanish docs and of most developer tools): "Comprueba la conexión", not "Compru
 | unit (systemd) | unidad | A label says "Service" ("servicio", the unit name in mono): "Unit" and "Systemd unit" are jargon (DESIGN 7). "Unidad" stays where the unit file itself is meant |
 | service | servicio | |
 | job | tarea | background jobs |
-| cron job | tarea programada | the page stays "Cron" |
+| scheduled task (was "cron job") | tarea programada | The page is "Scheduled tasks" and a title never says "cron"; the old name is a palette keyword (`nav.renamed.cron`). `cron` stays in the CLI (`noust cron`) |
+| database server | servidor de bases de datos | What a database runs on: the system's own engine or a container of Noust's, in a version of its own, with one default for each engine. Never "engine" for the place (an engine is PostgreSQL, MySQL: the kind), nor "instance" or "container" as its name; where it runs is said after it ("in a Noust container") |
+| add to Noust (a database) | añadir a Noust | A database an engine holds and Noust does not manage is not another kind of database: the row offers "Add to Noust". Never "track" or "register" |
 | backup | copia de seguridad | plural "copias de seguridad" |
 | restore | restaurar | |
 | preview (PR preview) | vista previa | |

@@ -189,11 +189,11 @@ test("one backup policy for every database of an engine, with what it leaves out
   await expect(card.getByText("databases shop_wp")).toBeVisible();
   await expect(card.getByText("tables sessions, logs_*")).toBeVisible();
 
-  // The list agrees: the database it covers is backed up, the one it leaves out is not.
+  // The list agrees: the database it covers has a schedule that has not run yet, the one it leaves out has none.
   await page.goto("/databases");
   const table = page.getByRole("region", { name: "Databases" });
-  await expect(table.getByRole("row", { name: /example_shop/ }).getByText("Backed up")).toBeVisible();
-  await expect(table.getByRole("row", { name: /shop_wp/ }).getByText("No backups scheduled")).toBeVisible();
+  await expect(table.getByRole("row", { name: /example_shop/ }).getByText("Scheduled")).toBeVisible();
+  await expect(table.getByRole("row", { name: /shop_wp/ }).getByText("No backup")).toBeVisible();
 
   // Leaving no trace for what runs after this in the same server.
   await page.goto("/databases/mysql/example_shop/backups");
@@ -215,7 +215,9 @@ function sqlDump(bytes: number): Buffer {
 test("import a dump into a new database: uploaded, recognised, loaded as a job whose log is followed", async ({ page, consoleServer, problems }) => {
   problems.expect(/status of 403 .*\/api\/databases\/imports$/);
   await signIn(page, consoleServer, "/databases");
-  await page.getByRole("button", { name: "Import a dump…" }).click();
+  // A dump from elsewhere is rarer than the first database: it is in the page's menu, not beside the primary action.
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: "Import a dump…" }).click();
   const dialog = page.getByRole("dialog", { name: "Import a dump" });
   await dialog.getByRole("combobox", { name: "Engine" }).click();
   await page.getByRole("option", { name: "PostgreSQL", exact: true }).click();

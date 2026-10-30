@@ -13,6 +13,7 @@ import {
   IconButton,
   Illustration,
   Input,
+  LogoMark,
   LogoTile,
   Menu,
   MenuItem,
@@ -431,6 +432,12 @@ function Logos() {
               <LogoTile logo="nextcloud" size={size} />
             </Item>
           ))}
+          <Item label="LogoMark: the line of a list, no tile">
+            <span className="flex items-center gap-2 text-13 text-fg-muted">
+              <LogoMark logo="postgresql" className="size-icon-md" />
+              PostgreSQL
+            </span>
+          </Item>
         </Row>
         <ul className="grid grid-cols-3 gap-x-4 gap-y-3 sm:grid-cols-4">
           {slugs.map((slug) => (

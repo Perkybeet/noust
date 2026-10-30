@@ -3,10 +3,11 @@
  * so a filtered view can be bookmarked, shared and reached with the back button.
  */
 
-import type { BackupPolicy, Database } from "../../api/queries/databases";
+import type { BackupPolicy, Database, DbServer } from "../../api/queries/databases";
 import { ownerSearch } from "../teams/search";
 import type { OwnerSearch } from "../teams/search";
 import { databaseId, databaseProtection } from "./protection";
+import { matchesEngine } from "./servers";
 
 /** "Needs attention": a database whose backups are missing, failing or paused. */
 export const BACKUP_FILTERS = ["attention"] as const;
@@ -69,10 +70,12 @@ export function filterDatabases(
   databases: readonly Database[],
   search: DatabasesSearch,
   policies: ReadonlyMap<string, BackupPolicy>,
+  servers: readonly Pick<DbServer, "key" | "flavour">[] = [],
 ): Database[] {
   const needle = search.q?.toLowerCase();
   return databases.filter((database) => {
-    if (search.engine !== undefined && database.engine !== search.engine) return false;
+    // The engine is a flavour (`mariadb`) or, in an address from before, the key of a server.
+    if (!matchesEngine(search.engine, database.engine, servers)) return false;
     if (search.tag !== undefined && !(database.tags ?? []).includes(search.tag)) return false;
     if (search.backups === "attention") {
       const { protection } = databaseProtection(database, policies.get(databaseId(database.engine, database.name)));

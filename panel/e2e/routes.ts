@@ -79,7 +79,7 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "settings-variables", path: "/settings/variables" },
   { name: "settings-secret-managers", path: "/settings/secret-managers" },
   { name: "databases", path: "/databases" },
-  { name: "databases-engines", path: "/databases/engines" },
+  { name: "databases-servers", path: "/databases/servers" },
   { name: "database-engine-settings", path: "/databases/engines/postgresql/settings" },
   { name: "database", path: "/databases/postgresql/example_production" },
   { name: "database-data", path: "/databases/postgresql/example_production/data?schema=public&table=orders" },

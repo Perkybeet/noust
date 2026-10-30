@@ -2,8 +2,6 @@ import type { cron as en } from "../en/cron";
 import type { Catalog } from "../types";
 
 export const cron: Catalog<typeof en> = {
-
-
   status: {
     succeeded: "Correcta",
     neverRun: "Nunca se ejecutó",
@@ -17,6 +15,14 @@ export const cron: Catalog<typeof en> = {
     custom: "Expresión de calendario propia",
   },
 
+  frequency: {
+    hourly: "Cada hora",
+    daily: "Cada día",
+    weekly: "Cada semana",
+    monthly: "Cada mes",
+    custom: "Personalizada",
+  },
+
   words: {
     everyHour: "Cada hora, en punto",
     everyMinutes: { one: "Cada minuto", other: "Cada {count} minutos" },
@@ -28,8 +34,7 @@ export const cron: Catalog<typeof en> = {
   },
 
   page: {
-    title: "Cron",
-    description: "Comandos que el servidor ejecuta según un horario.",
+    title: "Tareas programadas",
     newJob: "Nueva tarea",
     what: "las tareas programadas",
     filterAria: "Filtrar tareas programadas",
@@ -39,7 +44,7 @@ export const cron: Catalog<typeof en> = {
     jobsCountFiltered: "{shown} de {total} tareas",
     empty: {
       title: "Programa tu primera tarea",
-      description: "Una tarea programada ejecuta un comando por sí sola: cada hora, cada noche o a las horas que escribas.",
+      description: "Una tarea programada ejecuta un comando por sí sola: cada hora, cada noche o a las horas que elijas.",
     },
     noMatch: "Ninguna tarea coincide con esta búsqueda.",
   },
@@ -70,9 +75,9 @@ export const cron: Catalog<typeof en> = {
 
   dialog: {
     titleNew: "Nueva tarea programada",
-    description: "Ejecuta un comando en este servidor por sí solo, según un horario.",
     createJob: "Crear tarea",
     saveJob: "Guardar tarea",
+    more: "Más opciones",
     previewCheckError: "No se pudo comprobar la programación.",
     checkingSchedule: "Comprobando la programación",
     noFutureRun: "Esta programación no tiene ninguna ejecución futura.",
@@ -91,19 +96,24 @@ export const cron: Catalog<typeof en> = {
     command: "Comando",
     commandDescription: "Se ejecuta directamente, sin shell: no funcionan tuberías, && ni $VARIABLES.",
     commandMissing: "Escribe el comando que se ejecutará.",
-    schedule: "Programación",
+    schedule: "Se repite",
+    weekday: "Día de la semana",
+    day: "Día del mes",
+    time: "A las",
+    timeInvalid: "Escribe una hora como 03:30.",
     calendarLabel: "Expresión de calendario",
     calendarDescription: "Con la sintaxis de calendario de systemd, en el reloj del servidor: Mon..Fri *-*-* 09:00:00 es de lunes a viernes a las 09:00; *-*-* *:0/15 es cada 15 minutos.",
     calendarMissing: "Escribe una expresión de calendario, como *-*-* 03:30:00.",
     user: "Usuario",
-    userDescription: "En blanco se ejecuta con el usuario de servicio de los ajustes.",
+    userDescription: "Si lo dejas vacío, el usuario de servicio de los ajustes.",
     workingDirectory: "Directorio de trabajo",
-    workingDirectoryDescription: "En blanco usa la carpeta de su aplicación, si tiene una.",
+    workingDirectoryDescription: "La carpeta de su aplicación, si tiene una.",
+    limit: "Detenerla si tarda demasiado",
+    limitDescription: "Una tarea que no acaba impide que el temporizador lance la siguiente ejecución.",
     timeout: "Duración máxima",
-    timeoutDescription: "Segundos, de 1 a 86400. Si dura más, se detiene. En blanco: lo que tarde.",
-    timeoutRange: "Escribe un número entero de segundos de 1 a 86400, o déjalo en blanco.",
+    timeoutRange: "Escribe un número entero de segundos de 1 a 86400.",
     service: "Servicio",
-    serviceDescription: "El servicio de la pila de la aplicación en el que se ejecuta el comando. En blanco lo ejecuta en este servidor.",
+    serviceDescription: "El servicio de la pila de la aplicación en el que se ejecuta el comando. Este servidor si lo dejas vacío.",
   },
 
   runsDrawer: {

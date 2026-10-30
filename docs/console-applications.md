@@ -249,7 +249,9 @@ a canvas, with a text view for screen readers; Escape, then Tab, leaves it with 
 
 ## Cron
 
-Scheduled commands as systemd timers: create or edit with a preview of the next runs, run
-now, enable, disable, and each job's recent runs with their output and exit status. A job can be
-given the longest it may run and, for an application that is a Compose stack, the service of the
-stack it runs in (see [compose.md](compose.md#scheduled-tasks-of-a-stack)).
+Scheduled tasks (Cron before 4.1), as systemd timers: create or edit one by choosing how often it
+repeats (every hour, day, week or month, at the time you say, or a calendar expression of your own)
+with a preview of the next runs, run it now, enable, disable, and see each task's recent runs with their
+output and exit status. Under **More options** a task can be stopped if it runs longer than a limit you
+choose and, for an application that is a Compose stack, run in a service of the stack (see
+[compose.md](compose.md#scheduled-tasks-of-a-stack)).

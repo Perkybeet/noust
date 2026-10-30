@@ -45,6 +45,7 @@ import { Route as ConsoleCatalogNameRouteImport } from "./routes/_console/catalo
 import { Route as ConsoleCatalogInstalledRouteImport } from "./routes/_console/catalog/installed"
 import { Route as ConsoleDatabasesIndexRouteImport } from "./routes/_console/databases/index"
 import { Route as ConsoleDatabasesEnginesRouteImport } from "./routes/_console/databases/engines"
+import { Route as ConsoleDatabasesServersRouteImport } from "./routes/_console/databases/servers"
 import { Route as ConsoleDomainsIndexRouteImport } from "./routes/_console/domains/index"
 import { Route as ConsoleDomainsCertificatesRouteImport } from "./routes/_console/domains/certificates"
 import { Route as ConsoleDomainsPortsRouteImport } from "./routes/_console/domains/ports"
@@ -335,6 +336,11 @@ const ConsoleDatabasesIndexRoute = ConsoleDatabasesIndexRouteImport.update({
 const ConsoleDatabasesEnginesRoute = ConsoleDatabasesEnginesRouteImport.update({
   id: "/databases/engines",
   path: "/databases/engines",
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleDatabasesServersRoute = ConsoleDatabasesServersRouteImport.update({
+  id: "/databases/servers",
+  path: "/databases/servers",
   getParentRoute: () => ConsoleRoute,
 } as any)
 const ConsoleDomainsIndexRoute = ConsoleDomainsIndexRouteImport.update({
@@ -982,6 +988,7 @@ export interface FileRoutesByFullPath {
   "/catalog/$name": typeof ConsoleCatalogNameRoute
   "/catalog/installed": typeof ConsoleCatalogInstalledRoute
   "/databases/engines": typeof ConsoleDatabasesEnginesRoute
+  "/databases/servers": typeof ConsoleDatabasesServersRoute
   "/domains/certificates": typeof ConsoleDomainsCertificatesRoute
   "/domains/ports": typeof ConsoleDomainsPortsRoute
   "/domains/tunnels": typeof ConsoleDomainsTunnelsRoute
@@ -1124,6 +1131,7 @@ export interface FileRoutesByTo {
   "/catalog/$name": typeof ConsoleCatalogNameRoute
   "/catalog/installed": typeof ConsoleCatalogInstalledRoute
   "/databases/engines": typeof ConsoleDatabasesEnginesRoute
+  "/databases/servers": typeof ConsoleDatabasesServersRoute
   "/domains/certificates": typeof ConsoleDomainsCertificatesRoute
   "/domains/ports": typeof ConsoleDomainsPortsRoute
   "/domains/tunnels": typeof ConsoleDomainsTunnelsRoute
@@ -1270,6 +1278,7 @@ export interface FileRoutesById {
   "/_console/catalog/$name": typeof ConsoleCatalogNameRoute
   "/_console/catalog/installed": typeof ConsoleCatalogInstalledRoute
   "/_console/databases/engines": typeof ConsoleDatabasesEnginesRoute
+  "/_console/databases/servers": typeof ConsoleDatabasesServersRoute
   "/_console/domains/certificates": typeof ConsoleDomainsCertificatesRoute
   "/_console/domains/ports": typeof ConsoleDomainsPortsRoute
   "/_console/domains/tunnels": typeof ConsoleDomainsTunnelsRoute
@@ -1420,6 +1429,7 @@ export interface FileRouteTypes {
     | "/catalog/$name"
     | "/catalog/installed"
     | "/databases/engines"
+    | "/databases/servers"
     | "/domains/certificates"
     | "/domains/ports"
     | "/domains/tunnels"
@@ -1562,6 +1572,7 @@ export interface FileRouteTypes {
     | "/catalog/$name"
     | "/catalog/installed"
     | "/databases/engines"
+    | "/databases/servers"
     | "/domains/certificates"
     | "/domains/ports"
     | "/domains/tunnels"
@@ -1707,6 +1718,7 @@ export interface FileRouteTypes {
     | "/_console/catalog/$name"
     | "/_console/catalog/installed"
     | "/_console/databases/engines"
+    | "/_console/databases/servers"
     | "/_console/domains/certificates"
     | "/_console/domains/ports"
     | "/_console/domains/tunnels"
@@ -2087,6 +2099,13 @@ declare module "@tanstack/react-router" {
       path: "/databases/engines"
       fullPath: "/databases/engines"
       preLoaderRoute: typeof ConsoleDatabasesEnginesRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    "/_console/databases/servers": {
+      id: "/_console/databases/servers"
+      path: "/databases/servers"
+      fullPath: "/databases/servers"
+      preLoaderRoute: typeof ConsoleDatabasesServersRouteImport
       parentRoute: typeof ConsoleRoute
     }
     "/_console/domains/": {
@@ -3197,6 +3216,7 @@ interface ConsoleRouteChildren {
   ConsoleCatalogNameRoute: typeof ConsoleCatalogNameRoute
   ConsoleCatalogInstalledRoute: typeof ConsoleCatalogInstalledRoute
   ConsoleDatabasesEnginesRoute: typeof ConsoleDatabasesEnginesRoute
+  ConsoleDatabasesServersRoute: typeof ConsoleDatabasesServersRoute
   ConsoleDomainsCertificatesRoute: typeof ConsoleDomainsCertificatesRoute
   ConsoleDomainsPortsRoute: typeof ConsoleDomainsPortsRoute
   ConsoleDomainsTunnelsRoute: typeof ConsoleDomainsTunnelsRoute
@@ -3246,6 +3266,7 @@ const ConsoleRouteChildren: ConsoleRouteChildren = {
   ConsoleCatalogNameRoute: ConsoleCatalogNameRoute,
   ConsoleCatalogInstalledRoute: ConsoleCatalogInstalledRoute,
   ConsoleDatabasesEnginesRoute: ConsoleDatabasesEnginesRoute,
+  ConsoleDatabasesServersRoute: ConsoleDatabasesServersRoute,
   ConsoleDomainsCertificatesRoute: ConsoleDomainsCertificatesRoute,
   ConsoleDomainsPortsRoute: ConsoleDomainsPortsRoute,
   ConsoleDomainsTunnelsRoute: ConsoleDomainsTunnelsRoute,

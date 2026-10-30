@@ -195,6 +195,7 @@ export const nav = {
   renamed: {
     overview: "Overview",
     cron: "Cron",
+    engines: "Engines",
     backups: "Backups",
     server: "Server",
     recipes: "Recipes",

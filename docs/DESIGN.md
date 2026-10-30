@@ -558,7 +558,7 @@ stylesheets are scanned for the same.
 | `--width-drawer-md / lg` | 480 / 720px | Forms and a row's detail / logs |
 | `--width-search` | 288px | Every `FilterBar` search box |
 | `--width-rail`, `--width-rail-folded` | 208 / 68px | The main bar of the double bar, unfolded and folded to icons |
-| `--width-column` | 256px | The second column of an application, the server and Settings |
+| `--width-column` | 256px | The second column of an application, the server, Databases and Settings |
 | `--width-sidebar` | 264px | The one bar |
 | `--measure`, `--measure-help` | 68ch, 52ch | Prose, help |
 
@@ -1147,12 +1147,15 @@ violet means pressed). Never a state: a state, including "this feature is on", i
   `text-danger`, fails: Tailwind drops it silently and the text is painted without its colour).
 
 **`Card`** (`padding` `md | sm | none`, `as`, `interactive`, `loading`, `title`, `icon`,
-`description`, `status`, `actions`, `footer`, `level`). Every panel of the console: a seated slab (14px
+`description`, `status`, `actions`, `footer`, `level`, `tone`, `leading`). Every panel of the console: a seated slab (14px
 corners, a light edge on top and a joint beneath), which does not react to the pointer unless it opens
 something, and then only changes its tone. A feature MUST
 NOT write `rounded-card border bg-surface` by hand. `icon` is the object the card is about, a
 component of `OBJECT_ICONS` (I-7). `status` is the `StatusPill size="sm"` of a feature with a
-state, right after the title (not in `actions`).
+state, right after the title (not in `actions`). `leading` is a real logo (`LogoTile`) at the start of the header,
+outside the text so that it spans the title and the line under it; `tone` (`warning` or `failed`) takes the
+ground and edge of the state of what the card holds, only when it is not well (a database server whose
+support is ending or ended), and the state is also said in words and a glyph inside, never by the ground alone.
 
 **`Notice`** (`tone` `info | success | warning | error`, `variant` `inline | banner`, `title`,
 `action`, `onDismiss`, `live`). A persistent message beside what it concerns (inline) or the
@@ -1208,7 +1211,9 @@ at most a bare icon, with no tile.
 
 **`LogoTile`** (`logo`, `size` `sm | md | lg`, `label`). The logo of a real application or engine in a carved
 tile, in its brand's colour, from packaged marks (IL-2). Used by the catalog, the recipes and the database
-engines, and by nothing that is not a logo.
+engines, and by nothing that is not a logo. **`LogoMark`** is the same mark with no tile, for a line of a list that is
+about an engine or an application (the engines of the side column of Databases, a row of its table), where a tile
+would be taller than its row.
 
 **`FleetCourses`** (`label`, `courses`, `columns`, `linkFor`; `planCourse`, `isWell`). The fleet as courses of
 stone: one course (a row) per server, with its name, its place and its disk on the left and its

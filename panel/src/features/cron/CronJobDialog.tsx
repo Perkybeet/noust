@@ -6,7 +6,9 @@ import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { Button } from "../../components/ui/Button";
+import { Checkbox } from "../../components/ui/Checkbox";
 import { Dialog } from "../../components/ui/Dialog";
+import { Disclosure } from "../../components/ui/Disclosure";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
@@ -14,19 +16,25 @@ import { Select } from "../../components/ui/Select";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { useT } from "../../i18n";
-import type { CronJob, Schedule } from "./data";
-import { calendarWords, runTimes, schedulePresets } from "./data";
+import type { CronJob } from "./data";
+import { SYSTEMD_DAYS, calendarWords, runTimes, weekdayName } from "./data";
+import { choiceOf, scheduleOf, timeProblem } from "./schedule";
+import type { Frequency, ScheduleChoice, Weekday } from "./schedule";
 import type { CreateCronJobBody } from "./useCronActions";
 import { useCronActions } from "./useCronActions";
 import { useCronPreview } from "./useCronPreview";
 
 /** The longest a task may run, in seconds: the API's own bound. */
 const TIMEOUT_MAX = 86_400;
+/** What the limit starts at when a person turns it on: an hour is long for most tasks and short for none that matter. */
+const TIMEOUT_START = "3600";
 
-/** Why a time limit is not one the API takes, or null when it is, or is left blank. */
+const FREQUENCIES: readonly Frequency[] = ["hourly", "daily", "weekly", "monthly", "custom"];
+const DAYS_OF_MONTH = Array.from({ length: 28 }, (_, index) => index + 1);
+
+/** Why a time limit is not one the API takes, or null when it is. */
 function timeoutProblem(text: string, message: string): string | null {
   const trimmed = text.trim();
-  if (trimmed === "") return null;
   const seconds = /^\d+$/.test(trimmed) ? Number.parseInt(trimmed, 10) : Number.NaN;
   return seconds >= 1 && seconds <= TIMEOUT_MAX ? null : message;
 }
@@ -34,7 +42,7 @@ function timeoutProblem(text: string, message: string): string | null {
 export interface CronJobDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Present to rewrite an existing job; absent to create one. */
+  /** Present to rewrite an existing task; absent to create one. */
   job?: CronJob;
 }
 
@@ -121,11 +129,13 @@ function SchedulePreview({ schedule }: { schedule: string }) {
 }
 
 /**
- * Creates a cron job, or rewrites one Noust already owns - `POST /api/cron` does both. The
- * schedule previews live through `POST /api/cron/preview` as it is typed or a preset is
- * chosen (`SchedulePreview`, debounced by `useCronPreview`): in words and on both clocks when
- * it validates, systemd's own refusal when it does not. A missing name or command is said
- * where it is missing when the operator tries to save, rather than by a disabled button.
+ * Creates a scheduled task, or rewrites one Noust already owns - `POST /api/cron` does both. How often it runs
+ * is chosen the way a person says it (every day, at 03:30), and the console writes the calendar expression;
+ * what the choices cannot say is a custom expression. The schedule previews live through `POST /api/cron/preview`
+ * as it is chosen (`SchedulePreview`, debounced by `useCronPreview`): in words and on both clocks when it
+ * validates, systemd's own refusal when it does not. A missing name or command is said where it is missing when
+ * the operator tries to save, rather than by a disabled button. What most tasks never change (who runs it,
+ * where, for how long) is folded under "More options".
  */
 export function CronJobDialog({ open, onOpenChange, job }: CronJobDialogProps) {
   const t = useT();
@@ -133,11 +143,12 @@ export function CronJobDialog({ open, onOpenChange, job }: CronJobDialogProps) {
   const { create } = useCronActions();
   const [name, setName] = useState(job?.name ?? "");
   const [command, setCommand] = useState(job?.command ?? "");
-  const [preset, setPreset] = useState<Schedule>((job?.schedule as Schedule | undefined) ?? "daily");
-  const [calendar, setCalendar] = useState(job?.on_calendar ?? "");
+  const [choice, setChoice] = useState<ScheduleChoice>(() => choiceOf(job ?? { schedule: "daily", on_calendar: "" }));
   const [user, setUser] = useState(job?.user ?? "");
   const [workingDirectory, setWorkingDirectory] = useState(job?.working_directory ?? "");
-  const [timeout, setTimeoutText] = useState(job?.timeout == null ? "" : String(job.timeout));
+  // A limit is a choice to make, not a number that means "none" when it is left empty.
+  const [limited, setLimited] = useState(job?.timeout != null);
+  const [timeout, setTimeoutText] = useState(job?.timeout == null ? TIMEOUT_START : String(job.timeout));
   const [service, setService] = useState(job?.service ?? "");
   const [submitted, setSubmitted] = useState(false);
   const formId = useId();
@@ -148,16 +159,16 @@ export function CronJobDialog({ open, onOpenChange, job }: CronJobDialogProps) {
     if (!next) create.reset();
   };
 
-  // The alias travels as-is: CronManager expands hourly/daily/weekly/monthly itself
-  // (SCHEDULE_ALIASES), so the dialog does not keep its own copy of what each one means.
-  const schedule = preset === "custom" ? calendar.trim() : preset;
+  const set = (patch: Partial<ScheduleChoice>): void => setChoice((current) => ({ ...current, ...patch }));
+  const schedule = scheduleOf(choice);
   const missing = {
     name: name.trim() === "" ? t("cron.fields.nameMissing") : null,
     command: command.trim() === "" ? t("cron.fields.commandMissing") : null,
-    calendar: preset === "custom" && schedule === "" ? t("cron.fields.calendarMissing") : null,
-    timeout: timeoutProblem(timeout, t("cron.fields.timeoutRange")),
+    calendar: choice.frequency === "custom" && schedule === "" ? t("cron.fields.calendarMissing") : null,
+    time: choice.frequency !== "hourly" && choice.frequency !== "custom" && timeProblem(choice.time) ? t("cron.fields.timeInvalid") : null,
+    timeout: limited ? timeoutProblem(timeout, t("cron.fields.timeoutRange")) : null,
   };
-  const valid = missing.name === null && missing.command === null && missing.calendar === null && missing.timeout === null;
+  const valid = Object.values(missing).every((problem) => problem === null);
   const serverError = (field: string): string | undefined => (isApiError(create.error) ? create.error.fields?.[field] : undefined);
 
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
@@ -170,22 +181,24 @@ export function CronJobDialog({ open, onOpenChange, job }: CronJobDialogProps) {
       schedule,
       ...(user.trim() !== "" ? { user: user.trim() } : {}),
       ...(workingDirectory.trim() !== "" ? { working_directory: workingDirectory.trim() } : {}),
-      ...(timeout.trim() !== "" ? { timeout: Number.parseInt(timeout.trim(), 10) } : {}),
+      ...(limited ? { timeout: Number.parseInt(timeout.trim(), 10) } : {}),
       ...(service.trim() !== "" ? { service: service.trim() } : {}),
-      // Saving an existing job rewrites it: without its application it would lose the link
+      // Saving an existing task rewrites it: without its application it would lose the link
       // (and the working directory default that follows the app's layout).
       ...(job?.app_domain ? { app_domain: job.app_domain } : {}),
     };
     create.mutate(body, { onSuccess: () => close(false) });
   };
 
+  const weekdays = SYSTEMD_DAYS.map((day) => ({ value: day, label: weekdayName(day, t.locale) }));
+  const showTime = choice.frequency === "daily" || choice.frequency === "weekly" || choice.frequency === "monthly";
+  const optionsDiffer = user !== "" || workingDirectory !== "" || limited || service !== "";
   return (
     <Dialog
       open={open}
       onOpenChange={close}
       size="md"
       title={editing ? t("common.words.editNamed", { name: job.name }) : t("cron.dialog.titleNew")}
-      description={t("cron.dialog.description")}
       footer={
         <>
           <Button disabled={create.isPending} onClick={() => close(false)}>
@@ -204,40 +217,59 @@ export function CronJobDialog({ open, onOpenChange, job }: CronJobDialogProps) {
         <Field label={t("cron.fields.command")} name="command" description={t("cron.fields.commandDescription")} error={(submitted ? missing.command : null) ?? serverError("command")}>
           <Input value={command} onValueChange={setCommand} mono placeholder="/usr/bin/noust backup create example.com" autoComplete="off" spellCheck={false} />
         </Field>
-        <Field label={t("cron.fields.schedule")} name="schedule" nativeLabel={false}>
-          <Select value={preset} onValueChange={setPreset} options={schedulePresets(t.locale)} />
-        </Field>
-        {preset === "custom" ? (
-          <Field label={t("cron.fields.calendarLabel")} name="calendar" description={t("cron.fields.calendarDescription")} error={submitted ? missing.calendar : null}>
-            <Input value={calendar} onValueChange={setCalendar} mono placeholder="Mon..Fri *-*-* 09:00:00" autoComplete="off" spellCheck={false} />
+        <div className="flex flex-wrap items-start gap-4">
+          <Field label={t("cron.fields.schedule")} name="schedule" nativeLabel={false} className="w-44">
+            <Select value={choice.frequency} onValueChange={(frequency) => set({ frequency })} options={FREQUENCIES.map((value) => ({ value, label: t(`cron.frequency.${value}`) }))} />
           </Field>
-        ) : null}
-        <SchedulePreview schedule={schedule} />
-        <div className="grid gap-5 sm:grid-cols-2">
-          <Field label={t("cron.fields.user")} name="user" optional description={t("cron.fields.userDescription")}>
-            <Input value={user} onValueChange={setUser} mono autoComplete="off" spellCheck={false} />
-          </Field>
-          <Field label={t("cron.fields.workingDirectory")} name="working_directory" optional description={t("cron.fields.workingDirectoryDescription")}>
-            <Input value={workingDirectory} onValueChange={setWorkingDirectory} mono autoComplete="off" spellCheck={false} />
-          </Field>
-        </div>
-        <div className="grid gap-5 sm:grid-cols-2">
-          <Field
-            label={t("cron.fields.timeout")}
-            name="timeout"
-            optional
-            description={t("cron.fields.timeoutDescription")}
-            error={(submitted ? missing.timeout : null) ?? serverError("timeout")}
-          >
-            <Input value={timeout} onValueChange={setTimeoutText} mono inputMode="numeric" suffix="s" autoComplete="off" spellCheck={false} />
-          </Field>
-          {/* Only a job of an application can run in a service of its stack. */}
-          {job?.app_domain ? (
-            <Field label={t("cron.fields.service")} name="service" optional description={t("cron.fields.serviceDescription")} error={serverError("service")}>
-              <Input value={service} onValueChange={setService} mono placeholder="web" autoComplete="off" spellCheck={false} />
+          {choice.frequency === "weekly" ? (
+            <Field label={t("cron.fields.weekday")} name="weekday" nativeLabel={false} className="w-40">
+              <Select value={choice.weekday} onValueChange={(weekday: Weekday) => set({ weekday })} options={weekdays} />
+            </Field>
+          ) : null}
+          {choice.frequency === "monthly" ? (
+            <Field label={t("cron.fields.day")} name="day" nativeLabel={false} className="w-28">
+              <Select value={String(choice.day)} onValueChange={(day) => set({ day: Number(day) })} options={DAYS_OF_MONTH.map((day) => ({ value: String(day), label: String(day) }))} />
+            </Field>
+          ) : null}
+          {showTime ? (
+            <Field label={t("cron.fields.time")} name="time" error={submitted ? missing.time : null} className="w-32">
+              {/* Written as the console writes every hour, 24 hours and two digits: a browser's own time field would say AM and PM in one language and not in another. */}
+              <Input value={choice.time} onValueChange={(time) => set({ time })} mono inputMode="numeric" maxLength={5} placeholder="03:30" autoComplete="off" spellCheck={false} />
             </Field>
           ) : null}
         </div>
+        {choice.frequency === "custom" ? (
+          <Field label={t("cron.fields.calendarLabel")} name="calendar" description={t("cron.fields.calendarDescription")} error={submitted ? missing.calendar : null}>
+            <Input value={choice.calendar} onValueChange={(calendar) => set({ calendar })} mono placeholder="Mon..Fri *-*-* 09:00:00" autoComplete="off" spellCheck={false} />
+          </Field>
+        ) : null}
+        <SchedulePreview schedule={schedule} />
+        <Disclosure label={t("cron.dialog.more")} defaultOpen={optionsDiffer}>
+          <div className="flex flex-col gap-5 pt-2">
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Field label={t("cron.fields.user")} name="user" optional description={t("cron.fields.userDescription")}>
+                <Input value={user} onValueChange={setUser} mono autoComplete="off" spellCheck={false} />
+              </Field>
+              <Field label={t("cron.fields.workingDirectory")} name="working_directory" optional description={t("cron.fields.workingDirectoryDescription")}>
+                <Input value={workingDirectory} onValueChange={setWorkingDirectory} mono autoComplete="off" spellCheck={false} />
+              </Field>
+            </div>
+            <div className="flex flex-col gap-3">
+              <Checkbox label={t("cron.fields.limit")} description={t("cron.fields.limitDescription")} checked={limited} onCheckedChange={setLimited} />
+              {limited ? (
+                <Field label={t("cron.fields.timeout")} name="timeout" error={(submitted ? missing.timeout : null) ?? serverError("timeout")} className="w-44">
+                  <Input value={timeout} onValueChange={setTimeoutText} mono inputMode="numeric" suffix="s" autoComplete="off" spellCheck={false} />
+                </Field>
+              ) : null}
+            </div>
+            {/* Only a task of an application can run in a service of its stack. */}
+            {job?.app_domain ? (
+              <Field label={t("cron.fields.service")} name="service" optional description={t("cron.fields.serviceDescription")} error={serverError("service")}>
+                <Input value={service} onValueChange={setService} mono placeholder="web" autoComplete="off" spellCheck={false} />
+              </Field>
+            ) : null}
+          </div>
+        </Disclosure>
         {create.isError ? (
           <ErrorBlock live compact error={create.error} title={editing ? t("cron.dialog.errorSave") : t("cron.dialog.errorCreate")} />
         ) : null}

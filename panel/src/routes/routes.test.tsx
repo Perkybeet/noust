@@ -41,7 +41,7 @@ const PAGES: [path: string, heading: string, content: string][] = [
   ["/domains/certificates", "Certificates", "Certificates"],
   ["/services", "Server", "Services"],
   ["/services/shop-web", "shop-web", "How it runs"],
-  ["/cron", "Cron", "Cron jobs"],
+  ["/cron", "Scheduled tasks", "Scheduled tasks"],
   ["/activity", "Activity", "Activity"],
   ["/server", "Server", "Needs attention"],
   ["/server/services", "Server", "Services"],

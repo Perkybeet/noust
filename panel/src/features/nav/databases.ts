@@ -1,6 +1,10 @@
 import { area, hidden, strip, tab } from "../../app/navCore";
 
-/** Databases and its Engines tab. The register is app/nav.ts; this is one group of it. */
+/**
+ * Databases and its database servers: what the databases are, and where they run (an engine of the
+ * system, or a container of Noust's, in a version of its own). The register is app/nav.ts; this is one
+ * group of it.
+ */
 export const DATABASES_SCREENS = strip(
   area("databases", "/databases", "nav.databases.label", {
     scope: "both",
@@ -8,9 +12,9 @@ export const DATABASES_SCREENS = strip(
     shortcut: ["g", "b"],
     goTo: "nav.databases.goTo",
     keywords: "nav.databases.keywords",
-    rootLabel: "databases.tabs.databases",
+    rootLabel: "dbServers.column.databases",
   }),
-  (databases) => [tab(databases, "engines", "databases.tabs.engines")],
+  (databases) => [tab(databases, "servers", "dbServers.title", { exact: true })],
 );
 
 /** A database: the tabs its engine can do, never decided by its name (features/databases/tabs.ts). */
