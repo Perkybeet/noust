@@ -756,7 +756,9 @@ grow).
 
 ### T4 Dashboard: `DashboardPage`
 
-For: Overview, Fleet, a server's summary.
+For: Home (one server's and the fleet's), a server's summary. `fleet` is the subject of the page, two thirds
+wide under the attention cards, and `side` what accompanies it a third wide; what stands under or beside the
+subject is not drawn before it, so its arriving moves nothing.
 
 ```
 Overview                                                   [1h 24h 7d 30d] [+ New application]
@@ -1145,7 +1147,9 @@ corners, a light edge on top and a joint beneath), which does not react to the p
 something, and then only changes its tone. A feature MUST
 NOT write `rounded-card border bg-surface` by hand. `icon` is the object the card is about, a
 component of `OBJECT_ICONS` (I-7). `status` is the `StatusPill size="sm"` of a feature with a
-state, right after the title (not in `actions`).
+state, right after the title (not in `actions`). `tone` (`fail | warn`) is for a card that says what needs
+attention (Home's): the ground and the border of that state, and stone when it has none, so only what is
+wrong has colour behind it.
 
 **`Notice`** (`tone` `info | success | warning | error`, `variant` `inline | banner`, `title`,
 `action`, `onDismiss`, `live`). A persistent message beside what it concerns (inline) or the
@@ -1201,7 +1205,9 @@ at most a bare icon, with no tile.
 
 **`LogoTile`** (`logo`, `size` `sm | md | lg`, `label`). The logo of a real application or engine in a carved
 tile, in its brand's colour, from packaged marks (IL-2). Used by the catalog, the recipes and the database
-engines, and by nothing that is not a logo.
+engines, and by nothing that is not a logo. `ImageLogoTile` (`src`, `fallback`, `size`) is the same tile
+around an image the server serves (a recipe's logo): the image is never drawn inline, and while it loads or
+when it fails the monogram holds its place, so a card never changes size.
 
 **`FleetCourses`** (`label`, `courses`, `columns`, `linkFor`; `planCourse`, `isWell`). The fleet as courses of
 stone: one course (a row) per server, with its name, its place and its disk on the left and its
@@ -1211,7 +1217,9 @@ stone and, when a server has more than two rows of them, are said as one slab ("
 problem is never hidden and twenty that are well say less than the one that is not. A server with nothing
 on it shows an empty slot. A slab that opens a page is raised (it takes `linkFor`, since the kit does not
 know the routes); without it the slabs are seated. A server is named as the operator named it (`web-01`),
-never with a name that has to be decoded.
+never with a name that has to be decoded. A course takes a `problem` (`state`, `label`): a server that does not
+answer says so on a slab at the head of its course, with the applications it last ran drawn after it. `ungrouped`
+draws every application of a fleet of one, where "+9 running" would hide what the page is about.
 
 **`Section`** (`loading`, `icon`), **`Sections`**, **`Subsection`**. A page's subjects (`h2`, 32px
 apart) and their parts (`h3`, or `h4` inside a card). Headings are never written by hand in a
@@ -1222,7 +1230,8 @@ colour: I-4, I-6 and I-7).
 **`PageHeader`** (`title`, `mono`, `status`, `statusExtras`, `meta`, `description`, `breadcrumbs`,
 `place`, `secondaryActions`, `primaryAction`, `overflow`, `server`, `flush`). The start of every page;
 templates render it from their `header` prop. `description` is one sentence of prose; facts go
-in `meta`; `actions` is the 3.0 form, kept for pages not yet migrated. `statusExtras` are chips
+in `meta`; a `mark` is drawn before the title (the logo of an application's type, in a `LogoTile`) and holds
+its room with a skeleton while the page is read; `actions` is the 3.0 form, kept for pages not yet migrated. `statusExtras` are chips
 after the state that open what they count ("3 not applied", "Deploys paused"), instead of a banner
 on every tab, and keep their room while they load; `place` is the line above the title that says
 where a resource lives (team, project, environment), drawn only where there is something to tell
@@ -1302,7 +1311,9 @@ opens it, a click that ends a text selection opens nothing, and `highlightId` ma
 context is about), **`SystemOutput`**: the system's output,
 verbatim, copyable. **`Mono`**: a system value. **`ServerText`** (`coded`, `text`, `part`): a sentence the server says as a code, in the console's language, with a command set in `Mono` and the server's English when the console has no entry; it draws no element of its own, so it takes the type of the paragraph it is in (a notice, a field's error, a row's help), never a box of its own, and a system error is still shown verbatim beside it (Principle 5). **`Kbd`**: a key. **`CommandHint`**: the CLI
 equivalent. **`RelativeTime`**: "3 min ago" with the exact moment in a tooltip.
-**`SegmentedControl`**: one of a few exclusive views (a chart range).
+**`SegmentedControl`**: one of a few exclusive views (a chart range). An option may carry a `count` (a number
+after its name, in its own text so the name a screen reader reads has a space before it): the servers of a
+fleet's list, with how many applications each has.
 
 **`TerminalScreen`**. A shell drawn on a canvas, from an emulator that is the console's own
 (`lib/terminal`): a library that injects a `<style>` element cannot run under the content security
