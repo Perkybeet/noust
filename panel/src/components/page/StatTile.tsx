@@ -52,7 +52,7 @@ export function StatTile({ label, value, detail, detailLines = 1, mono = false, 
         )}
       </div>
       {detail !== undefined ? (
-        <div data-slot="detail" className={cx("text-12 text-fg-faint", detailLines === 2 ? "min-h-8 break-words text-pretty sm:line-clamp-2" : "break-words text-pretty sm:truncate")}>
+        <div data-slot="detail" className={cx("text-12 text-fg-faint", detailLines === 2 ? "min-h-8 break-words text-pretty sm:line-clamp-2" : "min-h-4 break-words text-pretty sm:truncate")}>
           {detail}
         </div>
       ) : null}
