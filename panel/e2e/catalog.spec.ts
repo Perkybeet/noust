@@ -120,7 +120,9 @@ test("the catalog pages at the operator's size and remembers it, with the recipe
   const unavailable = page.getByRole("list", { name: "Not available here" }).getByRole("listitem").filter({ hasText: "Not available in this release" }).first();
   await expect(unavailable).toBeVisible();
   await expect(recipes(page).getByRole("listitem").filter({ hasText: "Not available in this release" })).toHaveCount(0);
-  await expect(unavailable.getByRole("button")).toHaveCount(0);
+  // No way to use it: the only button is the one that unfolds what the check found.
+  await expect(unavailable.getByRole("button", { name: /^Use / })).toHaveCount(0);
+  await expect(unavailable.getByRole("button", { name: "What was checked" })).toHaveCount(1);
   await expect(unavailable.locator("p").last()).not.toBeEmpty();
 
   await paging.getByRole("combobox", { name: "Rows per page" }).click();
