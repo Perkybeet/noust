@@ -54189,6 +54189,11 @@ export interface components {
              * @default []
              */
             env: components["schemas"]["RecipeEnvOut"][];
+            /**
+             * Free Software
+             * @default true
+             */
+            free_software: boolean;
             health?: components["schemas"]["RecipeHealthOut"] | null;
             /** Homepage */
             homepage: string;
@@ -54400,6 +54405,8 @@ export interface components {
          *         docs: The project's documentation.
          *         repository: The project's source code.
          *         license: The project's licence.
+         *         free_software: Whether that licence is a free software one; False means the software
+         *             is source-available or open core, which the console says beside the licence.
          *         min_noust: The oldest Noust that can install it, when it asks for one.
          *         architectures: What it runs on; empty for any. Checked at install.
          *         category: One of the closed list (``GET /api/recipes/categories``).
@@ -54475,6 +54482,11 @@ export interface components {
             digest_verified?: boolean | null;
             /** Docs */
             docs?: string | null;
+            /**
+             * Free Software
+             * @default true
+             */
+            free_software: boolean;
             /** Homepage */
             homepage: string;
             /**

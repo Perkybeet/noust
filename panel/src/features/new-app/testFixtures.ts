@@ -40,8 +40,9 @@ export const EXPORT: AppExportDocument = {
 
 
 /** What every recipe of the catalogue carries besides its name and what it runs: the same for each of these tests. */
-const CATALOGUE: Pick<RecipeSummary, "architectures" | "dependencies" | "kind" | "origin" | "revision" | "runs_in_docker" | "schema_version" | "tags"> = {
+const CATALOGUE: Pick<RecipeSummary, "architectures" | "dependencies" | "free_software" | "kind" | "origin" | "revision" | "runs_in_docker" | "schema_version" | "tags"> = {
   architectures: [],
+  free_software: true,
   origin: "shipped",
   dependencies: [],
   kind: "native",

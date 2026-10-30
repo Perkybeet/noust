@@ -33,6 +33,17 @@ function recipePage(name: string) {
 }
 
 describe("a recipe's page", () => {
+  it("says beside the licence when the project's software is not free software", { timeout: 30_000 }, async () => {
+    const { harness } = recipePage("n8n");
+    expect(await screen.findByRole("heading", { level: 1, name: "n8n" })).toBeInTheDocument();
+
+    const about = await screen.findByRole("region", { name: "About" });
+    expect(
+      within(about).getByText("LicenseRef-n8n-Sustainable-Use (not free software: source-available or open core)"),
+    ).toBeInTheDocument();
+    await expectNoAxeViolations(harness.container);
+  });
+
   it("says what the recipe runs, asks, opens and tells, and shows no secret", { timeout: 30_000 }, async () => {
     const { harness } = recipePage("vaultwarden");
     expect(await screen.findByRole("heading", { level: 1, name: "Vaultwarden" })).toBeInTheDocument();

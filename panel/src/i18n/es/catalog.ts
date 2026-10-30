@@ -109,6 +109,7 @@ export const catalog: Catalog<typeof en> = {
   card: {
     use: "Usar",
     docker: "Se ejecuta en Docker",
+    notFree: "No es software libre",
     tags: "Etiquetas",
     moreTags: "+{count}",
     website: "Sitio web",
@@ -198,6 +199,7 @@ export const catalog: Catalog<typeof en> = {
     updated: "Receta actualizada",
     category: "Categoría",
     license: "Licencia",
+    notFree: "{license} (no es software libre: código disponible o núcleo abierto)",
     architectures: "Funciona en",
     minNoust: "Requiere Noust",
     runs: "Qué ejecuta",
