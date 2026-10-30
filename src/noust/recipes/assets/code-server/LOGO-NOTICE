@@ -2,6 +2,7 @@ Mark of: code-server
 Source: https://github.com/coder/code-server/blob/68810a6bd6f34356dc579214bc75a30b699500c4/src/browser/media/favicon.svg
 Licence: MIT
 Copyright: Copyright (c) 2019 Coder Technologies Inc.
-Terms: coder.com/brand, read 2026-10-29: Coder's brand guidelines; the file is shown unmodified
+Terms: coder.com/brand, read 2026-10-30: the brand guidelines use the logo only in its white or its black version and name non-approved colours a misuse; the console draws it in pure black on the light stone and pure white on the dark one, and no shape of the file is touched
+Repaint: white-black
 Retrieved: 2026-10-29
 Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged

@@ -1,7 +1,7 @@
 Mark of: Chatto (single binary)
 Source: https://github.com/chattocorp/chatto/blob/be8bb55cc0bb4fa744c256bbf8392e235ab3f00a/apps/docs-website/public/favicon.svg
 Licence: AGPL-3.0-only
-Copyright: Copyright (C) 2007 Free Software Foundation, Inc. <http://fsf.org/>
+Copyright: the Chatto (single binary) contributors
 Terms: NOTICE of chattocorp/chatto, read 2026-10-29: the licences do not give permission to use the Chatto logos except as the law permits; shown here to identify the software a recipe installs
 Retrieved: 2026-10-29
 Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged

@@ -22,7 +22,7 @@ from noust.recipes import catalog_package
 from noust.recipes.assets import read_asset, read_asset_bytes, read_simple_icon, set_asset_root
 from noust.recipes.logo_paint import adapt_to_scheme
 from noust.recipes.logo_png import validate_png
-from noust.recipes.logos import simple_icon_brand, simple_icon_slug, validate_svg
+from noust.recipes.logos import logo_repaint, simple_icon_brand, simple_icon_slug, validate_svg
 from noust.recipes.model import (
     CATEGORIES,
     KINDS,
@@ -341,7 +341,13 @@ def logo_file(name: str, scheme: str | None = None) -> LogoFile:
     text = read_simple_icon(slug) if slug is not None else read_asset(name, recipe.logo)
     validate_svg(name, text)
     if scheme is not None:
-        text = adapt_to_scheme(name, text, scheme, brand=simple_icon_brand(slug) if slug else None)
+        text = adapt_to_scheme(
+            name,
+            text,
+            scheme,
+            brand=simple_icon_brand(slug) if slug else None,
+            repaint=logo_repaint(name, recipe.logo),
+        )
     return LogoFile(text.encode("utf-8"), "image/svg+xml")
 
 

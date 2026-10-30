@@ -372,13 +372,22 @@ event handlers, every `href` that does not point inside the file, animation, fil
 recipe's own, rounds the numbers, gives the file a `viewBox` and no fixed size) and then holds the result
 to the check above, and writes the `LOGO-NOTICE`. A file that needs something the policy cannot carry (a
 raster picture, a mask, a pattern, text that needs a font) is refused with the reason, and another file
-is chosen.
+is chosen. A file whose picture is far larger than its figure (a banner, a poster: Headscale's three dots on a
+1280 by 640 canvas) is given the figure's own frame (`noust.recipes.logo_bounds`) and the notice says so, and a figure
+more than two and a half times wider than tall is reported, because at 32 pixels it is a strip: look for the
+symbol without the name, or a square icon (VersityGW's is the company's symbol, not its 150 by 53 banner).
 
 The `LOGO-NOTICE` is one `Field: value` per line: `Mark of` (the project), `Source` (an https address,
 at the commit or release the file was read at), `Licence` (an SPDX expression, or `LicenseRef-<name>` for
 terms the project gave in writing), `Copyright` (the line the licence asks to travel), `Terms` (what the
-project's own rules on its logo say, where and when they were read), `Retrieved` (the day, `YYYY-MM-DD`) and
-`Changes`. `Source`, `Licence` and `Retrieved` are required; a mark without them is not shipped
+project's own rules on its logo say, where and when they were read), `Repaint`, `Retrieved` (the day,
+`YYYY-MM-DD`) and `Changes`. `Copyright` is the project's own authorship (its authors or contributors), never the
+Free Software Foundation's line that begins the text of the GPL and the AGPL, which drew no logo (the parser
+refuses it). `Repaint` is required when the project's rules say the mark is not to be changed ("unmodified", "never
+altered", only in white or black): `no` has the console draw the file exactly as it is on both stones, and
+`white-black` lets it draw a one-colour mark in pure black on the light stone and pure white on the dark one,
+nothing else; without the field the stone's own ink and paper may stand in for a colour that would not read. A
+notice cannot promise "shown unmodified" and leave the console to recolour the mark. `Source`, `Licence` and `Retrieved` are required; a mark without them is not shipped
 (`noust.recipes.logos.parse_logo_notice`, held by `tests/recipes/test_catalog_policy.py`). NOTICE and
 `obs/debian.copyright` list every mark and its licence, written by `scripts/recipe_notice.py` from these
 notices and from `index.json`, so a mark cannot be added without them.

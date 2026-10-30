@@ -209,7 +209,6 @@ Files:
  src/noust/recipes/assets/rivet-engine/logo.svg
  src/noust/recipes/assets/shlink/logo.svg
  src/noust/recipes/assets/stirling-pdf/logo.svg
- src/noust/recipes/assets/versitygw/logo.svg
 Copyright: the authors each mark's LOGO-NOTICE names (src/noust/recipes/assets/<recipe>/LOGO-NOTICE)
 Comment: A mark of a project, taken from its repository, its brand kit or a collection of the
  logos of self-hosted software. The licence covers the file and not the brand: the LOGO-NOTICE
@@ -261,6 +260,7 @@ Files:
  src/noust/recipes/assets/stalwart/logo.svg
  src/noust/recipes/assets/typesense/logo.svg
  src/noust/recipes/assets/upsnap/logo.svg
+ src/noust/recipes/assets/versitygw/logo.svg
  src/noust/recipes/assets/wallos/logo.svg
  src/noust/recipes/assets/weaviate/logo.svg
 Copyright: the authors each mark's LOGO-NOTICE names (src/noust/recipes/assets/<recipe>/LOGO-NOTICE)

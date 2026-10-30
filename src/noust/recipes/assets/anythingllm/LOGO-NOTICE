@@ -3,5 +3,6 @@ Source: https://anythingllm.com/images/brand/anythingllm-app-icon-rounded.svg
 Licence: LicenseRef-brand-kit
 Copyright: Mintplex Labs, for AnythingLLM
 Terms: anythingllm.com/brand, read 2026-10-29: the brand kit's logos are to be used as provided, never altered, recreated or decorated and not in unofficial colours; the file is its app icon, shown unmodified
+Repaint: no
 Retrieved: 2026-10-29
 Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged

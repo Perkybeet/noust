@@ -236,7 +236,13 @@ def _collect(root: ET.Element) -> _Paints:
             else inherited_stroke
         )
         if local in SHAPES:
-            if box is not None and _fills_the_picture(element, local, box):
+            # A tile is something painted: an unfilled frame as big as the picture (Heimdall's file
+            # begins with one) draws nothing, and the figure on it is on the page.
+            if (
+                box is not None
+                and fill.strip().lower() not in _NONE
+                and _fills_the_picture(element, local, box)
+            ):
                 paints.backdrop = True
             if local != "line":
                 paints.add(fill, implicit=default_fill)
@@ -322,7 +328,13 @@ def _fills_the_picture(
     return False
 
 
-def _plan(paints: _Paints, scheme: str, brand: str | None) -> dict[tuple[int, int, int], str]:
+def _plan(
+    paints: _Paints,
+    scheme: str,
+    brand: str | None,
+    ink: str = INK,
+    paper: str = PAPER,
+) -> dict[tuple[int, int, int], str]:
     """
     Decide which colours change, and to what.
 
@@ -330,6 +342,8 @@ def _plan(paints: _Paints, scheme: str, brand: str | None) -> dict[tuple[int, in
         paints: What the logo is painted with.
         scheme: ``light`` or ``dark``.
         brand: The brand's own colour, for a mark that has none, as six hex digits.
+        ink: The colour a dark figure becomes on the light stone.
+        paper: The colour a light figure becomes on the dark stone.
 
     Returns:
         Each colour that is replaced and its replacement; empty when the logo stays as it is.
@@ -337,7 +351,6 @@ def _plan(paints: _Paints, scheme: str, brand: str | None) -> dict[tuple[int, in
     colours = list(paints.counts)
     if not colours:
         return {}
-    ink, paper = INK, PAPER
     stone = ink if scheme == "light" else paper
     if len(colours) == 1:
         only = colours[0]
@@ -372,7 +385,9 @@ def _plan(paints: _Paints, scheme: str, brand: str | None) -> dict[tuple[int, in
     }
 
 
-def adapt_to_scheme(name: str, svg: str, scheme: str, brand: str | None = None) -> str:
+def adapt_to_scheme(
+    name: str, svg: str, scheme: str, brand: str | None = None, repaint: str = ""
+) -> str:
     """
     Change the colours of a logo that would not read on the stone of a theme.
 
@@ -382,6 +397,10 @@ def adapt_to_scheme(name: str, svg: str, scheme: str, brand: str | None = None) 
         scheme: ``light`` or ``dark``: the theme the console is showing.
         brand: The brand's colour as six hex digits, for a mark drawn without one (the
             simple-icons collection's); it is the colour of such a mark when it reads.
+        repaint: What the project's rules let the console do: ``no`` leaves the file as it is,
+            ``white-black`` draws a one-colour mark in pure black on the light stone and pure
+            white on the dark one (and does not use the brand's colour); empty is the stone's own
+            ink and paper.
 
     Returns:
         The SVG: the same text when nothing needs to change, else the same document with some
@@ -396,13 +415,24 @@ def adapt_to_scheme(name: str, svg: str, scheme: str, brand: str | None = None) 
     if brand is not None and re.fullmatch(r"[0-9A-Fa-f]{6}", brand) is None:
         raise ValueError("brand must be six hex digits")
     validate_svg(name, svg)
+    if repaint == "no":
+        return svg
     root = ET.fromstring(svg)  # noqa: S314 - validated just above
     paints = _collect(root)
     if paints.complex or paints.backdrop:
         return svg
+    black_white = repaint == "white-black"
     # A colour that is replaced by itself is not a change: a black mark on light stone is the file.
     plan = {
-        old: new for old, new in _plan(paints, scheme, brand).items() if _parse_colour(new) != old
+        old: new
+        for old, new in _plan(
+            paints,
+            scheme,
+            None if black_white else brand,
+            "#000000" if black_white else INK,
+            "#ffffff" if black_white else PAPER,
+        ).items()
+        if _parse_colour(new) != old
     }
     if not plan:
         return svg

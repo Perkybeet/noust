@@ -1,7 +1,7 @@
 Mark of: Cup
 Source: https://github.com/sergi0g/cup/blob/e700aca99c557763c2a3ff8b3058699da52e4650/web/public/favicon.svg
 Licence: AGPL-3.0-only
-Copyright: Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+Copyright: the Cup contributors
 Terms: no rule on the project's logo was found in its repository, its documents or its site (checked 2026-10-29)
 Retrieved: 2026-10-29
 Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged
