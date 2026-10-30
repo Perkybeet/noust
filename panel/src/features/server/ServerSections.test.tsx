@@ -92,7 +92,7 @@ describe("the central's permissions", () => {
   it("says plainly that a server older than the console does not offer it", async () => {
     onWeb2("/n/web-2/server/central", []);
 
-    expect(await screen.findByText(/web-2/)).toBeInTheDocument();
+    expect(await screen.findByText(/^Not available on web-2/)).toBeInTheDocument();
     expect(screen.queryByRole("radio", { name: /Read only/ })).toBeNull();
   });
 

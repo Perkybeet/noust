@@ -216,6 +216,13 @@ describe("3. the budgets", () => {
     expect(areaTarget(dest("domains"), "fleet", true)).toBe("/fleet/certificates");
   });
 
+  it("lets the keys of Servers lead where its item of the bar does", () => {
+    const keyed = (hasFleet: boolean) => shortcuts("server", hasFleet).find((entry) => entry.id === "server")?.to;
+
+    expect(keyed(true)).toBe("/fleet/servers");
+    expect(keyed(false)).toBe("/server");
+  });
+
   it("knows which area a path is under, the longest start of it, and the fleet's faces are their area's", () => {
     const area = (path: string): string | undefined => areaOf(path)?.id;
     expect(area("/")).toBe("overview");

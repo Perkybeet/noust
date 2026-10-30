@@ -249,7 +249,7 @@ function ServerMenu({
   });
   return (
     <RowMenu name={origin.node}>
-      <MenuItem icon={<OBJECT_ICONS.server />} onClick={() => void navigate({ to: "/", search: { node: origin.local ? undefined : origin.node } })}>
+      <MenuItem icon={<OBJECT_ICONS.server />} onClick={() => void navigate({ to: "/server", search: { node: origin.local ? undefined : origin.node } })}>
         {t("fleet.servers.open")}
       </MenuItem>
       {origin.local ? null : (

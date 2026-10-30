@@ -8,7 +8,7 @@ export const serverWeb: Catalog<typeof en> = {
   holdsPorts: "Atiende los puertos 80 y 443",
   state: {
     serving: "Sirviendo",
-    stopped: "Parado",
+    stopped: "Detenido",
     notInstalled: "No instalado",
   },
   version: "Versión",

@@ -9,7 +9,7 @@ export const serverPorts: Catalog<typeof en> = {
   free: "Nada de este servidor usa el puerto {port}.",
   filterLabel: "Filtrar los puertos",
   searchLabel: "Buscar puertos",
-  searchPlaceholder: "Un número de puerto o lo que lo usa",
+  searchPlaceholder: "Un puerto o lo que lo usa",
   count: { one: "{count} puerto", other: "{count} puertos" },
   countFiltered: "{shown} de {total} puertos",
   caption: "Puertos y lo que los usa",

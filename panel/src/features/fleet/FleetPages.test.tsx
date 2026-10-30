@@ -64,7 +64,7 @@ describe("the fleet's summary", () => {
     expect(within(actions).getByRole("link", { name: "Renew certificates" })).toHaveAttribute("href", "/fleet/jobs/fj-1");
 
     const table = await rows("The fleet's servers at a glance");
-    expect(within(await rowOf(table, "web-2")).getByRole("link", { name: "Open web-2" })).toHaveAttribute("href", "/n/web-2");
+    expect(within(await rowOf(table, "web-2")).getByRole("link", { name: "Open web-2" })).toHaveAttribute("href", "/n/web-2/server");
     expect(within(await rowOf(table, "old-1")).getByText("Older Noust")).toBeInTheDocument();
     await expectNoAxeViolations(container, { page: true });
   });

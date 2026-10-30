@@ -140,7 +140,7 @@ export function Shell() {
       void navigate({ to });
     };
     // The letters of the scope on screen: `g a` is the server's Applications on a server and the fleet's on the fleet.
-    const navShortcuts = registeredShortcuts(scope).map((entry) => ({ keys: entry.keys, description: t(entry.description), run: go(entry.to) }));
+    const navShortcuts = registeredShortcuts(scope, hasFleet).map((entry) => ({ keys: entry.keys, description: t(entry.description), run: go(entry.to) }));
     return [
       ...navShortcuts,
       // The fleet is a scope, not a destination of a server's bar: one key leads to it from a server.
