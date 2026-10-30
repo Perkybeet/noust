@@ -24,6 +24,7 @@ from noust.core import totp
 from noust.core.access import builtin
 from noust.core.accounts import AuthPolicy, passwords
 from noust.core.store import NoustStore
+from noust.core.teams import TeamStore
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.permissions import ALL_PERMISSIONS
 from noust.web.server import create_app, get_token_manager
@@ -429,3 +430,35 @@ def test_the_first_account_made_through_the_console_is_the_owner(app: Any) -> No
         headers={CSRF_HEADER_NAME: csrf},
     )
     assert second.status_code == 201 and second.json()["roles"] == ["viewer"]
+
+
+def test_the_owner_role_is_given_by_an_owner_through_every_door(app: Any) -> None:
+    founder = Person(app, "fran", "admin", "owner")
+    founder.elevate()
+    other = Person(app, "olga", "admin")
+    other.elevate()
+    Person(app, "vera", "viewer")
+    accounts = get_token_manager().accounts
+    TeamStore(accounts.store).create_team("Acme", slug="acme")
+    binding = {"username": "vera", "role": "owner", "scope": "instance"}
+    account = {"username": "nora", "roles": ["owner"], "password": PASSWORD}
+    invitation = {"username": "ivan", "roles": ["owner"]}
+    team_invitation = {"username": "tim", "role": "owner", "team": "acme"}
+
+    for refused in (
+        other.post("/api/access/bindings", binding),
+        other.post("/api/auth/accounts", account),
+        other.post("/api/auth/invitations", invitation),
+        other.post("/api/auth/invitations", team_invitation),
+    ):
+        assert refused.status_code == 400 and code_of(refused) == "roles.owner_by_owner", (
+            refused.text
+        )
+    assert all(accounts.find(name) is None for name in ("nora", "ivan", "tim"))
+    assert accounts.require("vera").roles == ("viewer",)
+
+    # An owner can, through each of them.
+    assert founder.post("/api/access/bindings", binding).status_code == 201
+    assert founder.post("/api/auth/accounts", account).status_code == 201
+    assert founder.post("/api/auth/invitations", invitation).status_code == 201
+    assert founder.post("/api/auth/invitations", team_invitation).status_code == 201

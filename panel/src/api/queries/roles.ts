@@ -77,9 +77,9 @@ export function answerOffers(name: string, body: RoleOffers) {
 /**
  * Sets every role an account holds; at least one, the one it is known by first.
  *
- * A person who holds one role and is given another goes through the account's own PATCH: that is the call a
- * second person is asked to approve when four-eyes approvals are on, and the roles route is not on the server's
- * list of calls that wait for one. The roles route is what several roles need, and nothing else is used for them.
+ * A person who holds one role and is given another goes through the account's own PATCH, which every release
+ * since 3.1 has (the roles route is 4.1's, and a server reached through a central may be older). Several roles
+ * need the roles route. Both are calls a second person is asked to approve when four-eyes approvals are on.
  */
 export function setAccountRoles(username: string, roles: string[], held: readonly string[]) {
   const [only] = roles;

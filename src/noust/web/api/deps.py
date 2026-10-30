@@ -117,6 +117,7 @@ from noust.web.pydantic_compat import dump_model
 from noust.web.versioning import API_PREFIX
 
 if TYPE_CHECKING:
+    from noust.core.accounts import Account
     from noust.core.store import App
 
 #: Requests under this prefix are the JSON API and answer in the contract this
@@ -932,6 +933,32 @@ async def require_elevated(
     """
     ensure_elevated(request, session)
     return session
+
+
+def caller_account(session: dict[str, Any]) -> Account | None:
+    """
+    The account a request acts as: the signed-in account, or an API token's owner.
+
+    What a manager is given as ``by`` wherever it decides by who is asking (the owner role is
+    handed on by an owner, nobody grants themselves a role). None is root's answer, so a route that
+    leaves it out hands a non-owner the owner's power: every route that grants a role asks here.
+
+    Args:
+        session: The authenticated payload.
+
+    Returns:
+        The account, or None for the master token, a token nobody owns or a central.
+    """
+    from noust.web.server import get_token_manager
+
+    if session.get("fleet"):
+        return None
+    raw = session.get("account_id")
+    if raw is None and session.get("type") == "api_token":
+        raw = session.get("owner_account_id")
+    if raw is None:
+        return None
+    return get_token_manager().accounts.get(int(raw))
 
 
 def strict_server_name(value: str) -> str:

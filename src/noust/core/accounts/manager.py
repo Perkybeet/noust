@@ -470,6 +470,7 @@ class AccountManager:
         email: str | None = None,
         roles: Sequence[str] | None = None,
         first_account_is_owner: bool = False,
+        by: Account | None = None,
     ) -> Account:
         """
         Create an active account with a password.
@@ -493,12 +494,14 @@ class AccountManager:
                 server has and no framework keeps duties apart. The two ways a person arrives at
                 a server (the command line and the console) say so; code that makes accounts for
                 others (a provider, a test) leaves the roles it was given as they are.
+            by: The account asking (a token's owner); None for root and the master token.
 
         Returns:
             The account.
 
         Raises:
             ValidationError: When a field or the password is refused.
+            AccessError: When the owner role is asked for by an account that is not an owner.
             AccountError: When the name is taken or the roles are incompatible
                 with another account of the same person.
         """
@@ -523,6 +526,7 @@ class AccountManager:
             join_default_team=join_default_team,
             email=clean_email(email),
             first_account_is_owner=first_account_is_owner,
+            by=by,
         )
 
     def _insert(
@@ -539,6 +543,7 @@ class AccountManager:
         membership: tuple[int, str] | None = None,
         email: str | None = None,
         first_account_is_owner: bool = False,
+        by: Account | None = None,
     ) -> Account:
         """
         Write a new account row after the separation-of-duties check.
@@ -557,14 +562,19 @@ class AccountManager:
                 same transaction; for an account made for one team only.
             email: Cleaned address, or None.
             first_account_is_owner: Whether the first account of a server is made its owner too.
+            by: The account asking (a token's owner); None for root and the master token.
 
         Returns:
             The account.
 
         Raises:
+            AccessError: When the owner role is asked for by an account that is not an owner.
             AccountError: When the name is taken or the roles clash.
         """
         names = list(roles)
+        # Here and not in the callers: an account is made, or invited, through this one write, and
+        # the owner is handed on by an owner whichever way the account arrives.
+        role_rules.refuse_owner_hand_over(by, (), names)
         listed = RoleStore(self.store)
         requires = self.policy().requires
         if first_account_is_owner and role_rules.first_account_gets_the_owner(
@@ -658,6 +668,7 @@ class AccountManager:
         email: str | None = None,
         roles: Sequence[str] | None = None,
         first_account_is_owner: bool = False,
+        by: Account | None = None,
     ) -> tuple[Account, str]:
         """
         Issue a single-use invitation: the person sets their own password.
@@ -684,12 +695,15 @@ class AccountManager:
                 existing one that has none.
             roles: Several roles for a new account, instead of ``role``.
             first_account_is_owner: As in :meth:`create`.
+            by: The account asking (a token's owner); None for root and the master token.
 
         Returns:
             The account and the invitation code, in clear, exactly once.
 
         Raises:
             ValidationError: When a field is refused.
+            AccessError: When the owner role is asked for, or the account recovered holds it, and
+                the account asking is not an owner.
             AccountError: When a new account's role clashes, or the existing
                 account is disabled.
         """
@@ -718,6 +732,7 @@ class AccountManager:
                 join_default_team=join_default_team,
                 email=address,
                 first_account_is_owner=first_account_is_owner,
+                by=by,
             )
         elif existing.status == STATUS_DISABLED:
             raise AccountError(
@@ -727,7 +742,9 @@ class AccountManager:
         else:
             # A recovery hands the account, role and all, to whoever holds the
             # code: the role is granted again, so it is held to the same
-            # separation of duties as granting it (an exception may have ended).
+            # separation of duties as granting it (an exception may have ended), and the owner's
+            # account is handed to whoever holds the code only by an owner.
+            role_rules.refuse_owner_hand_over(by, (), existing.roles)
             self._check_separation(existing.person_ref, existing.roles, exclude_id=existing.id)
             account = existing
             address = clean_email(email)
@@ -1056,9 +1073,7 @@ class AccountManager:
         """
         account = self.require(username)
         first = self._validated_roles(role)[0]
-        return self.set_roles(
-            username, [first, *(name for name in account.roles[1:] if name != first)], by=by
-        )
+        return self.set_roles(username, role_rules.with_first_role(account.roles, first), by=by)
 
     def set_roles(
         self,
@@ -2029,10 +2044,12 @@ class AccountManager:
             action: What was attempted, for the message.
 
         Raises:
+            AccessError: When the account holds the owner role and the one asking is not an owner.
             AccountError: When it would be a grant to oneself.
         """
         if by is None:
             return
+        role_rules.refuse_owner_hand_over(by, (), account.roles)
         if by.id == account.id:
             raise AccountError(
                 f"You cannot {action} your own account",

@@ -3990,7 +3990,7 @@
         "type": "object"
       },
       "ApprovalInfo": {
-        "description": "One request for a second person's approval.\n\nAttributes:\n    id: Its id; the value of ``X-Noust-Approval``.\n    action: ``root_equivalent``, ``fleet.node.add``, ``fleet.node.remove``,\n        ``db.query.write``, ``db.query.analyze``, ``db.rows.write``,\n        ``apps.local_source``, ``user.role_change``, ``user.create`` or\n        ``user.invite``.\n    kind: ``infrastructure`` or ``role_change``.\n    description: What the action is, in one sentence.\n    method: The call's method.\n    path: The call's path.\n    parameters: What the call carries, secrets redacted: ``method``,\n        ``path``, ``query`` and ``body``.\n    fingerprint: SHA-256 of the exact call the approval allows.\n    reason: Why the requester asked.\n    state: ``requested``, ``approved``, ``rejected``, ``expired`` or\n        ``executed``.\n    requester: Who asked.\n    created_at: When, UNIX seconds.\n    expires_at: When it expires undecided.\n    decided_at: When it was decided.\n    decider: Who decided.\n    decision_comment: What they said.\n    execute_by: Until when an approval allows the call.\n    executed_at: When the call ran.\n    mine: Whether the caller asked for it.\n    can_decide: Whether the caller may approve or reject it now.",
+        "description": "One request for a second person's approval.\n\nAttributes:\n    id: Its id; the value of ``X-Noust-Approval``.\n    action: ``root_equivalent``, ``fleet.node.add``, ``fleet.node.remove``,\n        ``db.query.write``, ``db.query.analyze``, ``db.rows.write``,\n        ``apps.local_source``, ``user.role_change``, ``user.create``,\n        ``user.invite``, ``access.grant``, ``team.member``,\n        ``access.role_widen`` or ``auth.source_roles``.\n    kind: ``infrastructure`` or ``role_change``.\n    description: What the action is, in one sentence.\n    method: The call's method.\n    path: The call's path.\n    parameters: What the call carries, secrets redacted: ``method``,\n        ``path``, ``query`` and ``body``.\n    fingerprint: SHA-256 of the exact call the approval allows.\n    reason: Why the requester asked.\n    state: ``requested``, ``approved``, ``rejected``, ``expired`` or\n        ``executed``.\n    requester: Who asked.\n    created_at: When, UNIX seconds.\n    expires_at: When it expires undecided.\n    decided_at: When it was decided.\n    decider: Who decided.\n    decision_comment: What they said.\n    execute_by: Until when an approval allows the call.\n    executed_at: When the call ran.\n    mine: Whether the caller asked for it.\n    can_decide: Whether the caller may approve or reject it now.",
         "properties": {
           "action": {
             "title": "Action",
@@ -69188,6 +69188,11 @@
           "Access"
         ],
         "x-noust-permission": "accounts.manage",
+        "x-noust-requires-approval": {
+          "action": "access.role_widen",
+          "kind": "role_change",
+          "when": "the role would hold a permission it does not hold now"
+        },
         "x-noust-requires-elevation": true
       }
     },
@@ -82375,7 +82380,7 @@
         "x-noust-requires-approval": {
           "action": "user.role_change",
           "kind": "role_change",
-          "when": "role differs from the account's"
+          "when": "role or roles differ from the account's"
         },
         "x-noust-requires-elevation": true
       }
@@ -82577,6 +82582,11 @@
           "Authentication"
         ],
         "x-noust-permission": "accounts.manage",
+        "x-noust-requires-approval": {
+          "action": "user.role_change",
+          "kind": "role_change",
+          "when": "role or roles differ from the account's"
+        },
         "x-noust-requires-elevation": true
       }
     },
@@ -83077,6 +83087,11 @@
           "Single sign-on"
         ],
         "x-noust-permission": "accounts.manage",
+        "x-noust-requires-approval": {
+          "action": "auth.source_roles",
+          "kind": "role_change",
+          "when": "the source is new, or would hand out different roles than it does"
+        },
         "x-noust-requires-elevation": true
       }
     },
@@ -83559,6 +83574,11 @@
           "Single sign-on"
         ],
         "x-noust-permission": "accounts.manage",
+        "x-noust-requires-approval": {
+          "action": "auth.source_roles",
+          "kind": "role_change",
+          "when": "the source is new, or would hand out different roles than it does"
+        },
         "x-noust-requires-elevation": true
       }
     },
@@ -84535,6 +84555,11 @@
           "Single sign-on"
         ],
         "x-noust-permission": "accounts.manage",
+        "x-noust-requires-approval": {
+          "action": "auth.source_roles",
+          "kind": "role_change",
+          "when": "the source is new, or would hand out different roles than it does"
+        },
         "x-noust-requires-elevation": true
       }
     },
@@ -84800,6 +84825,11 @@
           "Single sign-on"
         ],
         "x-noust-permission": "accounts.manage",
+        "x-noust-requires-approval": {
+          "action": "auth.source_roles",
+          "kind": "role_change",
+          "when": "the source is new, or would hand out different roles than it does"
+        },
         "x-noust-requires-elevation": true
       }
     },
@@ -109008,6 +109038,11 @@
           "Access"
         ],
         "x-noust-permission": "accounts.manage",
+        "x-noust-requires-approval": {
+          "action": "access.role_widen",
+          "kind": "role_change",
+          "when": "the role would hold a permission it does not hold now"
+        },
         "x-noust-requires-elevation": true
       }
     },
@@ -109118,6 +109153,11 @@
           "Access"
         ],
         "x-noust-permission": "accounts.manage",
+        "x-noust-requires-approval": {
+          "action": "access.role_widen",
+          "kind": "role_change",
+          "when": "the role would hold a permission it does not hold now"
+        },
         "x-noust-requires-elevation": true
       }
     },
@@ -109163,6 +109203,11 @@
           "Access"
         ],
         "x-noust-permission": "accounts.manage",
+        "x-noust-requires-approval": {
+          "action": "access.role_widen",
+          "kind": "role_change",
+          "when": "the role would hold a permission it does not hold now"
+        },
         "x-noust-requires-elevation": true
       }
     },
@@ -116896,6 +116941,11 @@
           "Access"
         ],
         "x-noust-permission": "teams.manage",
+        "x-noust-requires-approval": {
+          "action": "access.grant",
+          "kind": "role_change",
+          "when": "an account already exists"
+        },
         "x-noust-requires-elevation": true
       }
     },
@@ -117047,6 +117097,11 @@
           "Teams"
         ],
         "x-noust-permission": "teams.manage",
+        "x-noust-requires-approval": {
+          "action": "team.member",
+          "kind": "role_change",
+          "when": "the account is not a member yet, or the role is above the one it has"
+        },
         "x-noust-requires-elevation": true
       }
     },
@@ -117163,6 +117218,11 @@
           "Teams"
         ],
         "x-noust-permission": "teams.manage",
+        "x-noust-requires-approval": {
+          "action": "team.member",
+          "kind": "role_change",
+          "when": "the account is not a member yet, or the role is above the one it has"
+        },
         "x-noust-requires-elevation": true
       }
     },

@@ -33,7 +33,7 @@ from noust.core.access.model import SCOPE_ENVIRONMENT, SCOPE_INSTANCE, SCOPE_PRO
 from noust.core.audit import record as audit_record
 from noust.core.teams import TeamNotFoundError, TeamStore
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, require_elevated
+from noust.web.api.deps import NoustErrorRoute, caller_account, require_elevated
 from noust.web.auth import actor_label
 from noust.web.permissions.access import AccessManager
 from noust.web.permissions.principal import actor_of
@@ -415,6 +415,7 @@ def bind(body: BindRequest, session: Annotated[dict, Depends(require_elevated)])
         project=body.project,
         environment=body.environment,
         actor=actor_label(session),
+        by=caller_account(session),
     )
     _record(
         session,

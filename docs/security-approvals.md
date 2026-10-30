@@ -71,8 +71,27 @@ raw site configuration, deploy hooks, moving an application to its own account a
 root (`root_equivalent`); SQL that writes, row edits
 and `EXPLAIN ANALYZE` included; deploying from a directory on the server; adding and removing
 fleet servers; opening a root shell on the server in the browser (see
-[Terminal and one-off commands](terminal.md)); and role grants (a role change, a new account, a
-recovery invitation). The OpenAPI schema marks those routes with `x-noust-requires-approval`.
+[Terminal and one-off commands](terminal.md)); and role grants. The OpenAPI schema marks those
+routes with `x-noust-requires-approval`.
+
+A role grant is anything that leaves somebody able to do more than before, by whichever route:
+
+- the roles of an account (`PATCH` with `role` or `roles`, and `PUT .../roles`): any change counts,
+  a reorder or a role taken away included, because the role an account is known by is what an
+  approval judges a decider by; a new account and a recovery invitation;
+- a role on the server, a team, a project or an environment, through the access bindings or the
+  team's own routes; adding an account to a team, or giving a member a higher role there;
+- a permission added to a role, which every account that holds it holds from its next request: a
+  role edited, put back to how Noust ships it with permissions it had taken out, or given what a
+  newer release offers it;
+- what a sign-in source (OpenID Connect, SAML, a directory or SCIM) hands out: its default role
+  and team, what its groups mean, provisioning and linking by e-mail address; and adding one.
+
+What waits for nobody, because it can only take power away: taking a binding or a team membership
+from an account, a team member given a lower role, a role that ends up holding less than it did, a
+sign-in source switched off or removed. Making a role, copying one or deleting one nobody holds
+changes nothing until somebody is given it, which is where it is asked. The owner role cannot be
+edited at all, and is handed on only by an owner, through every route.
 
 - The first call does not run. It answers `202` with `approval_required` and becomes a request
   that snapshots the exact call (method, path, query and body, by their SHA-256), with a reason.

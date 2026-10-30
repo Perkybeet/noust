@@ -108,8 +108,9 @@ class ApprovalInfo(BaseModel):
         id: Its id; the value of ``X-Noust-Approval``.
         action: ``root_equivalent``, ``fleet.node.add``, ``fleet.node.remove``,
             ``db.query.write``, ``db.query.analyze``, ``db.rows.write``,
-            ``apps.local_source``, ``user.role_change``, ``user.create`` or
-            ``user.invite``.
+            ``apps.local_source``, ``user.role_change``, ``user.create``,
+            ``user.invite``, ``access.grant``, ``team.member``,
+            ``access.role_widen`` or ``auth.source_roles``.
         kind: ``infrastructure`` or ``role_change``.
         description: What the action is, in one sentence.
         method: The call's method.

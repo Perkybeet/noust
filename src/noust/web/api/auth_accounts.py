@@ -43,7 +43,7 @@ from noust.core.audit import record as audit_record
 from noust.core.ens.profile import is_ens
 from noust.core.exceptions import EmailError
 from noust.core.teams.onboarding import invite_to_team
-from noust.web.api.deps import CodedText, NoustErrorRoute, require_elevated
+from noust.web.api.deps import CodedText, NoustErrorRoute, caller_account, require_elevated
 from noust.web.auth import (
     actor_label,
     audit_event,
@@ -502,27 +502,6 @@ class AccountActionResponse(BaseModel):
     message: str
 
 
-def _caller_account(session: dict[str, Any]) -> Account | None:
-    """
-    The account a request acts as: the signed-in account, or an API token's owner.
-
-    Args:
-        session: The authenticated payload.
-
-    Returns:
-        The account, or None for the master token, a token nobody owns or a
-        central.
-    """
-    if session.get("fleet"):
-        return None
-    raw = session.get("account_id")
-    if raw is None and session.get("type") == "api_token":
-        raw = session.get("owner_account_id")
-    if raw is None:
-        return None
-    return get_token_manager().accounts.get(int(raw))
-
-
 def _refuse_self(session: dict[str, Any], username: str, action: str) -> None:
     """
     Refuse an action on one's own account that another person has to take.
@@ -543,7 +522,7 @@ def _refuse_self(session: dict[str, Any], username: str, action: str) -> None:
     Raises:
         AccountError: When the account is the caller's own.
     """
-    caller = _caller_account(session)
+    caller = caller_account(session)
     target = get_token_manager().accounts.find(username)
     own = (caller is not None and target is not None and caller.id == target.id) or (
         bool(session.get("username")) and str(session["username"]) == username.strip().lower()
@@ -909,6 +888,7 @@ def create_account(
         created_by=actor_label(session),
         roles=body.roles,
         first_account_is_owner=True,
+        by=caller_account(session),
     )
     _after_role_granted(account)
     audit_event(
@@ -952,7 +932,7 @@ def create_invitation(
     existing = accounts.find(body.username)
     if existing is not None:
         # A recovery gives the account's role to whoever holds the code.
-        accounts.check_grant(existing, _caller_account(session), "issue a recovery invitation for")
+        accounts.check_grant(existing, caller_account(session), "issue a recovery invitation for")
     if body.team is not None:
         # Into one team and not the default: the person is in no other.
         account, code, membership = invite_to_team(
@@ -966,6 +946,7 @@ def create_invitation(
             created_by=actor_label(session),
             expires_hours=body.expires_hours,
             email=address,
+            by=caller_account(session),
         )
         audit_record(
             "team.member.add",
@@ -984,6 +965,7 @@ def create_invitation(
             email=address,
             roles=body.roles,
             first_account_is_owner=True,
+            by=caller_account(session),
         )
     # The invitation exists whether the mail goes or not: its code is shown to the caller to hand
     # over, so a server that cannot send mail does not take the invitation with it.
@@ -1097,7 +1079,7 @@ def update_account(
     elif body.role is not None and body.role != account.role:
         _refuse_self(session, username, "change the role of")
         previous = ", ".join(account.roles)
-        account = accounts.set_role(username, body.role, by=_caller_account(session))
+        account = accounts.set_role(username, body.role, by=caller_account(session))
         _after_role_granted(account)
         audit_event(
             "user.role_change",
@@ -1153,7 +1135,7 @@ def _change_roles(
     _refuse_self(session, username, "change the role of")
     previous = ", ".join(account.roles)
     changed = accounts.set_roles(
-        username, roles, by=_caller_account(session), actor=actor_label(session)
+        username, roles, by=caller_account(session), actor=actor_label(session)
     )
     _after_role_granted(changed)
     audit_event(
