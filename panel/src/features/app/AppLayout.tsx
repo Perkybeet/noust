@@ -238,7 +238,16 @@ function AppPage({ domain, app, job }: { domain: string; app: UseQueryResult<App
 
   // Where the page is in the tree is the top bar's (breadcrumbs generated from the register), not the header's.
   // Only an application whose type has a real logo wears it: nothing is drawn in its place (the tile is for logos).
-  const header: PageHeaderProps = { title: domain, mono: true, ...(typeLogo(app.data?.app_type) !== null ? { mark: <AppTypeMark type={app.data?.app_type} size="lg" /> } : {}) };
+  // While the app is read the mark's room is held (most types wear a logo), so the title does not slide when it arrives.
+  const header: PageHeaderProps = {
+    title: domain,
+    mono: true,
+    ...(app.isPending
+      ? { mark: <Skeleton className="size-14 rounded-card" /> }
+      : app.data !== undefined && typeLogo(app.data.app_type) !== null
+        ? { mark: <AppTypeMark type={app.data.app_type} size="lg" /> }
+        : {}),
+  };
 
   if (app.isError && isApiError(app.error) && app.error.status === 404) return <NotFound domain={domain} header={header} t={t} />;
 
