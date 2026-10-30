@@ -62,8 +62,8 @@ export interface RecipeCardProps {
 }
 
 /**
- * A recipe that is the same as root on the server (it drives Docker's socket, or runs an agent with
- * the server's keys) says so on its tile, in a sentence and not a colour: nobody should meet it first
+ * A recipe that is the same as root on the server (it drives Docker's socket, or holds the server's
+ * keys) says so on its tile, in a sentence and not a colour: nobody should meet it first
  * in the install form. Installing it asks the person to accept it there.
  */
 function RootEquivalentNote({ recipe }: { recipe: RecipeSummary }) {
