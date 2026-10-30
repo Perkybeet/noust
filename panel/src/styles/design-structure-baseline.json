@@ -53,8 +53,6 @@
       "features/apps/AppsPage.tsx": 1,
       "features/catalog/InstalledRecipesPage.tsx": 1,
       "features/domains/AppDomainsTab.tsx": 2,
-      "features/overview/OverviewPage.tsx": 1,
-      "features/overview/useFleetSummary.ts": 1,
       "features/queue/QueuePanel.tsx": 1
     },
     "help-starts-with-state": {
@@ -102,20 +100,15 @@
       "features/app/SourceLink.tsx": 1,
       "features/apps/AppsTable.tsx": 1,
       "features/catalog/InstalledRecipesPage.tsx": 1,
-      "features/domains/AppDomainsTab.tsx": 1,
-      "features/overview/FleetSummary.tsx": 1
+      "features/domains/AppDomainsTab.tsx": 1
     },
     "submit-disabled-invalid": {
-      "features/app/ReclaimDialog.tsx": 1,
       "features/auth/ElevateDialog.tsx": 1,
       "features/auth/PasskeysSection.tsx": 2,
       "features/auth/PasswordDialog.tsx": 1,
       "features/catalog/CatalogPackage.tsx": 1,
       "features/catalog/OwnRecipes.tsx": 1,
       "features/central/UnlockForm.tsx": 1,
-      "features/new-app/RemoteImport.tsx": 2,
-      "features/new-app/WorkspacesDialog.tsx": 2,
-      "features/promotion/PromoteDialog.tsx": 1,
       "features/settings/DeployKeysSection.tsx": 1,
       "features/settings/gitlab/ConnectGitLabDialog.tsx": 1,
       "features/settings/registries/RegistryDialog.tsx": 1,
