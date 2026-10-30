@@ -1,9 +1,11 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
 import { isApiError } from "../../api/client";
 import { auditPagesQuery } from "../../api/queries/audit";
+import { sessionQuery } from "../../api/queries/auth";
 import { jobsQuery } from "../../api/queries/jobs";
 import { queueBusy, queueQuery } from "../../api/queries/queue";
 import { CommandHint } from "../../components/page/CommandHint";
@@ -11,7 +13,7 @@ import { FilterBar } from "../../components/page/FilterBar";
 import { ListPage } from "../../components/page/ListPage";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { SegmentedControl } from "../../components/page/SegmentedControl";
-import { Button } from "../../components/ui/Button";
+import { Button, buttonClassName } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
@@ -75,6 +77,7 @@ interface Source {
 /** The page, whichever source feeds it: header, filters, the timeline and its footer. */
 function ActivityView({ search, onSearchChange, source }: { search: ActivitySearch; onSearchChange: ActivityPageProps["onSearchChange"]; source: Source }) {
   const t = useT();
+  const { data: reads } = useQuery({ ...sessionQuery(), select: (session) => session.permissions?.includes("audit.read") ?? false });
   const people = useMemo(() => peopleIn(source.rows), [source.rows]);
   const rows = useMemo(
     () => source.rows.filter((row) => inKind(row, search.kind) && matchesText(row, search.q ?? "", [actionWords(t, row).label, actorWords(t, row).label])),
@@ -149,7 +152,21 @@ function ActivityView({ search, onSearchChange, source }: { search: ActivitySear
 
   return (
     <ListPage
-      header={{ title: t("activity.title"), description: t("activity.description") }}
+      header={{
+        title: t("activity.title"),
+        description: t("activity.description"),
+        // The trail itself (is it intact, who reviewed it, its export) is the audit log's, which Settings keeps.
+        ...(reads === true
+          ? {
+              secondaryActions: (
+                <Link to="/settings/audit" className={buttonClassName("secondary", "md")}>
+                  <OBJECT_ICONS.audit aria-hidden="true" className="size-icon-md" />
+                  {t("activity.auditLink")}
+                </Link>
+              ),
+            }
+          : {}),
+      }}
       {...(source.notices.length > 0 ? { notice: <div className="flex flex-col gap-2">{source.notices}</div> } : {})}
       {...(nothingYet
         ? {}

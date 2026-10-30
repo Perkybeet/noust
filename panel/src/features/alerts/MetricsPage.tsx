@@ -10,13 +10,16 @@ import { DEFAULT_RANGE } from "../overview/ranges";
 import type { MetricRange } from "../overview/ranges";
 import type { MetricsSearch } from "./metricsSearch";
 
+/** What a person asks of the machine: how busy it is, how much it holds in memory, how full the disk is, how much it talks. */
+const FOUR = ["cpu", "memory", "disk", "network"] as const;
+
 export interface MetricsPageProps {
   search: MetricsSearch;
   onSearchChange: (search: MetricsSearch) => void;
 }
 
 /**
- * What the server measures, over the window in the address: CPU, memory, swap, load, network and
+ * What the server measures, over the window in the address: CPU, memory, network and
  * disk, with one range for all of them. On a central the servers are put side by side below it, one
  * measurement at a time, so which one is the busiest is a glance. The history is what the alert rules
  * judge, so it lives with them.
@@ -32,7 +35,7 @@ export function MetricsPage({ search, onSearchChange }: MetricsPageProps) {
   };
   return (
     <Sections>
-      <MachineCharts range={range} onRangeChange={change} />
+      <MachineCharts range={range} onRangeChange={change} only={FOUR} />
       {hasFleet && node === null ? <FleetMetricsCard /> : null}
       <CommandHint command="noust health" label={t("common.words.fromTerminal")} />
     </Sections>

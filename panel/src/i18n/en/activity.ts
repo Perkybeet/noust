@@ -12,6 +12,7 @@ export const activity = {
   kindDeployments: "Deployments",
   kindAccess: "Sign-ins",
   kindEverything: "Everything",
+  auditLink: "Audit log",
   personLabel: "Person",
   personEveryone: "Everyone",
   resultLabel: "Result",

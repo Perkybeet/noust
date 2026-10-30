@@ -435,6 +435,10 @@ class ServerHost:
                 f"  0 {self.boot_id} {earlier} {latest}\n"
             )
         if program == "journalctl" and "--output=json" in rest:
+            # The applications' search asks for their units one by one (`-u shop-example-com*`); the
+            # server's journal asks for one (`--unit=`) or none.
+            if "-u" in rest:
+                return ok(self._applications_journal(rest))
             return ok(self._journal_json(rest))
         if program == "journalctl" and any(arg.startswith("_COMM=sshd") for arg in rest):
             return ok(self._ssh_logins())
@@ -472,6 +476,98 @@ class ServerHost:
         if program == "shutdown":
             return self._shutdown(rest, ok)
         return None
+
+    def _applications_journal(self, rest: tuple[str, ...]) -> str:
+        """
+        ``journalctl --output=json -u <app>*``: what the applications' units said, newest first.
+
+        An application that runs says it started and answers its requests; one that failed says why,
+        in the words its runtime and systemd use, so that the logs of the applications have something
+        to search (4.1 task 3: why an application is down).
+
+        Args:
+            rest: The arguments after ``journalctl``.
+
+        Returns:
+            One JSON entry per line, as journalctl prints them.
+        """
+        patterns = [
+            rest[index + 1].rstrip("*")
+            for index, arg in enumerate(rest)
+            if arg == "-u" and index + 1 < len(rest)
+        ]
+        priority = next(
+            (int(arg.split("=", 1)[1]) for arg in rest if arg.startswith("--priority=")), 7
+        )
+        since = next(
+            (int(arg[len("--since=@") :]) for arg in rest if arg.startswith("--since=@")), 0
+        )
+        until = next(
+            (int(arg[len("--until=@") :]) for arg in rest if arg.startswith("--until=@")),
+            int(time.time()),
+        )
+        now = datetime.now(timezone.utc)
+        entries: list[tuple[datetime, str, int, int, str]] = []
+        for name, unit in self.units.items():
+            base = name.removesuffix(".service")
+            if not unit.managed or not any(
+                pattern and base.startswith(pattern) for pattern in patterns
+            ):
+                continue
+            began = now - timedelta(minutes=47)
+            entries.append((began, name, 6, unit.pid or 2200, "Server listening on port 3000"))
+            entries.append(
+                (began + timedelta(minutes=2), name, 6, unit.pid or 2200, "GET /api/health 200 3ms")
+            )
+            if unit.active == "failed":
+                broke = now - timedelta(minutes=12)
+                entries.extend(
+                    [
+                        (broke, name, 3, 2310, "Error: connect ECONNREFUSED 127.0.0.1:5432"),
+                        (
+                            broke + timedelta(seconds=1),
+                            name,
+                            3,
+                            2310,
+                            "    at TCPConnectWrap.afterConnect (node:net:1555:16)",
+                        ),
+                        (
+                            broke + timedelta(seconds=2),
+                            name,
+                            4,
+                            1,
+                            f"{name}.service: Main process exited, code=exited, status=1/FAILURE",
+                        ),
+                        (
+                            broke + timedelta(seconds=3),
+                            name,
+                            3,
+                            1,
+                            f"{name}.service: Failed with result 'exit-code'.",
+                        ),
+                    ]
+                )
+        lines = []
+        for moment, name, level, pid, message in sorted(
+            entries, key=lambda item: item[0], reverse=True
+        ):
+            if level > priority or not since <= moment.timestamp() <= until:
+                continue
+            micros = int(moment.timestamp() * 1_000_000)
+            lines.append(
+                json.dumps(
+                    {
+                        "__REALTIME_TIMESTAMP": str(micros),
+                        "PRIORITY": str(level),
+                        "MESSAGE": message,
+                        "_SYSTEMD_UNIT": f"{name}.service"
+                        if not name.endswith(".service")
+                        else name,
+                        "_PID": str(pid),
+                    }
+                )
+            )
+        return "\n".join(lines) + ("\n" if lines else "")
 
     def _journal_json(self, rest: tuple[str, ...]) -> str:
         """``journalctl --output=json``: a morning on the server, filtered as asked."""

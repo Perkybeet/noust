@@ -87,7 +87,7 @@ export const alerts = {
     switchFailed: "Could not change the rule",
   },
   form: {
-    newTitle: "New alert rule",
+    newTitle: "New alert",
     description: "Fires when the measurement has been past the limit for the whole time asked, and says when it comes back.",
     nameMissing: "Give the rule a name.",
     limitMissing: "Write the limit it fires at.",
@@ -120,7 +120,7 @@ export const alerts = {
     hysteresisDescription: "How far back inside the limit it must come before it clears, in the measurement's own unit. It keeps an alert hovering at its limit from firing and clearing all night.",
     noteLabel: "Note",
     noteDescription: "What the rule is for. It is kept with the rule.",
-    save: "Save rule",
+    save: "Save alert",
     saveErrorTitle: "Could not save the rule",
     more: "More options",
   },

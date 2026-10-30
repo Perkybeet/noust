@@ -86,7 +86,7 @@ export const alerts: Catalog<typeof en> = {
     switchFailed: "No se pudo cambiar la regla",
   },
   form: {
-    newTitle: "Nueva regla de alerta",
+    newTitle: "Nueva alerta",
     description: "Se activa cuando la medición lleva más allá del límite todo el tiempo pedido, y avisa cuando vuelve.",
     nameMissing: "Dale un nombre a la regla.",
     limitMissing: "Escribe el límite al que se activa.",
@@ -119,7 +119,7 @@ export const alerts: Catalog<typeof en> = {
     hysteresisDescription: "Cuánto debe volver hacia dentro del límite antes de desactivarse, en la unidad de la propia medición. Evita que una alerta que ronda su límite se active y desactive toda la noche.",
     noteLabel: "Nota",
     noteDescription: "Para qué sirve la regla. Se guarda con ella.",
-    save: "Guardar regla",
+    save: "Guardar alerta",
     saveErrorTitle: "No se pudo guardar la regla",
     more: "Más opciones",
   },

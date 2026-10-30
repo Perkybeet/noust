@@ -210,8 +210,8 @@ describe("Alerts", () => {
     const { user } = renderConsole("/alerts");
     await screen.findByRole("list", { name: "Alert rules" });
     await user.click(screen.getByRole("button", { name: "New alert" }));
-    const drawer = await screen.findByRole("dialog", { name: "New alert rule" });
-    const save = within(drawer).getByRole("button", { name: "Save rule" });
+    const drawer = await screen.findByRole("dialog", { name: "New alert" });
+    const save = within(drawer).getByRole("button", { name: "Save alert" });
     // The button is never disabled for what is left out: pressing it says what, and goes there.
     expect(save).toBeEnabled();
     await user.click(save);
@@ -255,11 +255,11 @@ describe("Alerts", () => {
     const [header] = screen.getAllByRole("button", { name: "New alert" });
     if (header === undefined) throw new Error("no New alert button");
     await user.click(header);
-    const drawer = await screen.findByRole("dialog", { name: "New alert rule" });
+    const drawer = await screen.findByRole("dialog", { name: "New alert" });
     await user.type(within(drawer).getByLabelText("Name"), "cpu-high");
     const limit = within(drawer).getByLabelText("Limit");
     await user.type(limit, "plenty");
-    await user.click(within(drawer).getByRole("button", { name: "Save rule" }));
+    await user.click(within(drawer).getByRole("button", { name: "Save alert" }));
     expect(await within(drawer).findByText("Not a limit: 'plenty'")).toBeInTheDocument();
     expect(limit).toHaveAttribute("aria-invalid", "true");
   });

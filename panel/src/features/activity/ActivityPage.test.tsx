@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
-import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
+import { SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RecordedCall, RouteHandler } from "../../test/fakes";
 
 /** A screen as wide as a desktop's: tables are tables, not the phone's card rows. */
@@ -273,6 +273,19 @@ describe("the activity timeline", () => {
     // The one who acted through the central is named first, in the console's language: the person, then the central.
     expect(within(table).getByText("marta (from the central fra-1)")).toBeInTheDocument();
     expect(within(table).queryByText("Application deployed")).not.toBeInTheDocument();
+  });
+
+  it("leads to the audit log, which keeps the trail's integrity, only to whoever may read it", async () => {
+    const { table } = await activityAt({}, "/activity");
+    await within(table).findByText("shop.example.com");
+    expect(screen.getByRole("link", { name: "Audit log" })).toHaveAttribute("href", "/settings/audit");
+  });
+
+  it("does not offer the audit log to a session that may not read it", async () => {
+    const viewer = { ...SESSION, scope: "viewer", permissions: ["self", "apps.read", "server.read"] };
+    const { table } = await activityAt({ "GET /api/auth/session": () => json(200, viewer) }, "/activity");
+    await within(table).findByText("shop.example.com");
+    expect(screen.queryByRole("link", { name: "Audit log" })).not.toBeInTheDocument();
   });
 
   it("searches by who, what and to what, through the URL", async () => {

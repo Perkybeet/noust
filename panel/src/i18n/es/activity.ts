@@ -14,6 +14,7 @@ export const activity: Catalog<typeof en> = {
   kindDeployments: "Despliegues",
   kindAccess: "Accesos",
   kindEverything: "Todo",
+  auditLink: "Registro de auditoría",
   personLabel: "Persona",
   personEveryone: "Todas",
   resultLabel: "Resultado",

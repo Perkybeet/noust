@@ -145,14 +145,14 @@ export function ActivityTable({ rows, caption, loading = false, empty, onOpenJob
       card: "hidden",
       cell: (row) => {
         if (row.kind === "audit" && row.secondFactor === true) {
-          return <span className="block max-w-72 truncate text-fg-muted">{t("activity.withSecondFactor")}</span>;
+          return <span className="block max-w-48 truncate text-fg-muted">{t("activity.withSecondFactor")}</span>;
         }
         const detail = detailOf(row);
         // What the server wrote, verbatim and untranslated: a system value, in mono.
         return detail === null ? (
           <EmptyCell reason={t("activity.noDetail")} />
         ) : (
-          <span className="block max-w-72">
+          <span className="block max-w-48">
             <Mono tone="muted" truncate title={detail}>
               {detail}
             </Mono>
