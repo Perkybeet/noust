@@ -33,7 +33,7 @@ afterAll(() => {
 describe("the team switcher", () => {
   it("is not drawn on a server nobody organised: one team called default has nothing to switch", async () => {
     await shellAt({ ...signedInRoutes(), ...organisation({ teams: [DEFAULT_TEAM], projects: [], environments: [] }) });
-    await screen.findByRole("heading", { level: 1, name: "Overview" });
+    await screen.findByRole("heading", { level: 1, name: "Home" });
     expect(screen.queryByTestId("team-switcher")).not.toBeInTheDocument();
   });
 

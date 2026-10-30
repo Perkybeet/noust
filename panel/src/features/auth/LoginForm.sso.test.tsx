@@ -202,7 +202,7 @@ describe("the sign-in page with an identity provider", () => {
     await user.type(code, CODE);
     await user.click(screen.getByRole("button", { name: "Verify" }));
 
-    await screen.findByRole("heading", { level: 1, name: "Overview" });
+    await screen.findByRole("heading", { level: 1, name: "Home" });
     expect(backend.callsTo("POST /api/auth/login/second-factor").map((call) => call.body)).toEqual([{ challenge: CHALLENGE, code: CODE, bearer: false }]);
   });
 

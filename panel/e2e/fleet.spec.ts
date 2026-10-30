@@ -125,21 +125,22 @@ withFleet("a deep link to a node's application works on reload", async ({ page, 
 
 withFleet("the Fleet's views show this server and the node, each row naming its server", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/fleet");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Fleet");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Home");
   await expect(page.getByRole("button", { name: "Server: all servers" })).toBeVisible();
 
-  const table = page.getByRole("region", { name: "The fleet's servers at a glance" });
-  await expect(table.getByText("This central")).toBeVisible();
-  await expect(table.getByRole("link", { name: `Open ${NODE_NAME}` })).toBeVisible();
+  // The fleet in courses: a row for each server, this one and the node, each named and opening its own page.
+  const courses = page.getByRole("list", { name: "Servers and their applications" });
+  await expect(courses.getByRole("link", { name: NODE_NAME, exact: true })).toHaveAttribute("href", new RegExp(`^/n/${NODE_NAME}/server$`));
+  await expect(courses.getByRole("link", { name: NODE_APP, exact: false }).first()).toBeVisible();
   await settle(page);
-  await expectNoA11yViolations(page, "the Fleet's summary");
+  await expectNoA11yViolations(page, "Home, over the fleet");
 
   // The main bar is the way between the fleet's views, each the face of an area; the page draws no strip of them.
   await expect(page.getByRole("navigation", { name: "Fleet views" })).toHaveCount(0);
   const views = page.getByRole("navigation", { name: "Main" });
   await views.getByRole("link", { name: "Applications" }).click();
-  const apps = page.getByRole("region", { name: "Applications on every server" });
-  await expect(apps.getByRole("link", { name: NODE_APP, exact: true })).toHaveAttribute("href", `/n/${NODE_NAME}/apps/${NODE_APP}`);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Applications");
+  await expect(page.getByRole("link", { name: NODE_APP, exact: true })).toHaveAttribute("href", `/n/${NODE_NAME}/apps/${NODE_APP}`);
   await settle(page);
   await expectNoA11yViolations(page, "the Fleet's applications");
 
@@ -529,7 +530,7 @@ test("a sealed central shows the lock screen, and opens with the right passphras
     await page.getByRole("button", { name: "Unlock", exact: true }).click();
     await confirmItsYou(page, central);
     await expect(toasts(page).getByText("Unlocked: the servers are within reach again")).toBeVisible();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Overview");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Home");
   } finally {
     await page.close();
     await central.stop();
