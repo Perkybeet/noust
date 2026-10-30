@@ -430,11 +430,6 @@ export const network: Catalog<typeof en> = {
     apply: "Aplicar",
     failed: "No se pudo cambiar de dónde viene el certificado de {domain}",
   },
-  tabs: {
-    dns: "DNS",
-    tunnels: "Túneles",
-    ports: "Puertos",
-  },
   dns: {
     add: "Añadir cuenta",
     managed: "Registros gestionados",
@@ -538,6 +533,16 @@ export const network: Catalog<typeof en> = {
     listFailed: "No se pudieron listar los túneles",
     emptyTitle: "Todavía no hay túneles",
     emptyDescription: "Un túnel llega a una aplicación sin dirección pública ni puerto abierto: su conector sale hacia Cloudflare, que lleva de vuelta por esa conexión los nombres que se le asignan.",
+    installAction: "Instalar cloudflared",
+    installRunning: "Instalando cloudflared",
+    installDone: "cloudflared está instalado",
+    installFailed: "No se ha instalado cloudflared",
+    addAccount: "Añadir una cuenta de Cloudflare",
+    lacks: {
+      connector: "Además necesita cloudflared, el conector, que no está instalado.",
+      account: "Además necesita una cuenta de Cloudflare que lo gestione.",
+      sealed: "El almacén de secretos está sellado: desbloquea antes la central.",
+    },
     tableCaption: "Túneles de Cloudflare",
     nameColumn: "Túnel",
     connectorColumn: "Conector",

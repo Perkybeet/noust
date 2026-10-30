@@ -8,10 +8,10 @@
 
 import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
 
-test("the DNS, Tunnels and Ports tabs are one click from the certificates, and each says what it holds", async ({ page, consoleServer }) => {
+test("the DNS, Tunnels and Ports tabs are one click from the domains, and each says what it holds", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/domains");
   const tabs = page.getByRole("navigation", { name: "Domains sections" });
-  await expect(tabs.getByRole("link", { name: /^Certificates/ })).toHaveAttribute("aria-current", "page");
+  await expect(tabs.getByRole("link", { name: /^Domains/ })).toHaveAttribute("aria-current", "page");
 
   await tabs.getByRole("link", { name: /^DNS/ }).click();
   await expect(page).toHaveURL(/\/domains\/dns$/);
@@ -21,9 +21,10 @@ test("the DNS, Tunnels and Ports tabs are one click from the certificates, and e
 
   await tabs.getByRole("link", { name: /^Tunnels/ }).click();
   await expect(page).toHaveURL(/\/domains\/tunnels$/);
-  // The sandbox has no cloudflared: the page says so, and offers no way to create a tunnel.
-  await expect(page.getByText("cloudflared is not installed")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Create a tunnel" }).first()).toBeDisabled();
+  // The sandbox has no cloudflared: the page says what a tunnel needs, in the console's words, and offers to install it.
+  await expect(page.getByText("It also needs cloudflared, the connector, which is not installed.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Install cloudflared" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create a tunnel" })).toHaveCount(0);
   await settle(page);
   await expectNoA11yViolations(page, "the Tunnels tab");
 
@@ -47,7 +48,7 @@ test("an application's Access settings are two clicks from its Settings", async 
 });
 
 test("the private certificate authority is one menu away from the certificates, and says what it is before it is made", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/domains");
+  await signIn(page, consoleServer, "/domains/certificates");
   await page.getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Private authority" }).click();
 

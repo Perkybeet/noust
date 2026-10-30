@@ -197,6 +197,7 @@ export const nav: Catalog<typeof en> = {
     recipesInstalled: "Recetas instaladas",
     projects: "Proyectos",
     domains: "Dominios y certificados",
+    webServerSites: "Sitios del servidor web",
     notifications: "Notificaciones",
     alerts: "Alertas",
     console: "Acceso a la consola",

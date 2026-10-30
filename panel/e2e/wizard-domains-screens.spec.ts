@@ -1,6 +1,6 @@
 /**
- * Screenshots of the new-app wizard, the Domains and certificates page and an application's
- * Domains tab, for review: both themes (the light and dark projects), a 1440px desktop and a
+ * Screenshots of the new-app wizard, a site's configuration and an application's Domains tab
+ * (the Domains area's own sections are in domains-screens.spec.ts), for review: both themes (the light and dark projects), a 1440px desktop and a
  * 390px phone. Tagged @screens, so left out of the default run; write them with
  *
  *     NOUST_SCREENS=1 npx playwright test e2e/wizard-domains-screens.spec.ts
@@ -84,16 +84,6 @@ const SCREENS: readonly Screen[] = [
       await expect(confirm.or(refusal)).toBeVisible();
       if (await confirm.isVisible()) await confirmItsYou(page, server);
       await expect(refusal).toBeVisible();
-    },
-  },
-  { name: "domains-certificates", path: "/domains" },
-  { name: "domains-sites", path: "/domains?tab=sites" },
-  {
-    name: "domains-issue",
-    path: "/domains",
-    act: async (page) => {
-      await page.getByRole("button", { name: "Issue certificate" }).first().click();
-      await expect(page.getByRole("dialog", { name: "Issue a certificate" })).toBeVisible();
     },
   },
   { name: "site-config", path: "/domains/sites/example.net" },

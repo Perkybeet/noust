@@ -2,29 +2,66 @@
 
 Part of [The console, page by page](console.md).
 
-Two tabs. **Certificates**: every certificate with its names, issuer and expiry; issue one
-(method: automatic, nginx, Apache, webroot or standalone; extra names; `www`), renew those
-due, renew one now, revoke, delete. **Sites**: every nginx or Apache site; create, enable,
-disable, delete, and edit a site's configuration in a full-height editor with "Test" and "Test
-and save": the web server tests it before it is installed.
+Six sections, as tabs under the title, and each is a page with its own title and its one sentence:
 
-The list shows every site file the web server has, the ones Noust wrote and the ones you wrote:
-**Written by** says "Noust" or "By hand", and **Application** names the application whose site it
-is, or says it is not an application's. A site written by hand is never rewritten by a deploy
-(see [domains.md](domains.md#operator-sites)).
+- **Domains**: every name the server answers on, with the application it belongs to and whether it
+  has HTTPS (a certificate and the days it has left, or "No HTTPS"). **Add domain** is the way to put
+  a name on an application and get its certificate in one dialog: choose the application, type the
+  name, and the dialog asks DNS where the name points before you press the button; the role (alias
+  or redirect), the port and whether to make the DNS record are under **More options**. A name opens its
+  application's own Domains section, where its spelling (`www` or the bare name), its port and its
+  certificate are chosen.
+- **Sites**: every nginx or Apache site; create, enable, disable, delete, and edit a site's
+  configuration in a full-height editor with "Test" and "Test and save": the web server tests it
+  before it is installed. **Written by** says "Noust" or "By hand", and **Application** names the
+  application whose site it is. A site written by hand is never rewritten by a deploy (see
+  [domains.md](domains.md#operator-sites)). Below the list, a card says what answers a name no site
+  serves.
+- **Certificates**: every certificate with its names, issuer and expiry, the soonest to expire
+  first; issue one (method: automatic, nginx, Apache, webroot or standalone; extra names; `www`),
+  renew those due, renew one now, revoke, delete. **More actions** can **upload** a certificate and
+  its key and opens the **certificate authority** settings and the **private authority** (the
+  server's own, for names that only resolve inside a network: made, trusted on this server, how to
+  trust it on each kind of device, the certificates it signed); see [certificates.md](certificates.md).
+  On a central, the fleet's own face of this section lists every server's certificates at once.
+- **DNS**: the accounts Noust holds at DNS providers (Cloudflare, IONOS, Route 53 and the rest) and
+  the records it manages in them, and, above them, **Noust DNS**, the other way to have DNS: a name
+  server of your own (see below).
+- **Tunnels**: Cloudflare Tunnels and the names each carries. A server without `cloudflared` is said
+  to lack it, in the page's words, with **Install cloudflared** beside it; a server with no Cloudflare
+  account leads to the DNS section to add one.
+- **Ports**: the TCP and UDP ports nginx publishes, for what is not a web page.
 
-Three more tabs are shown to whoever may see the server: **DNS** (the accounts Noust holds at DNS
-providers and the records it manages in them), **Tunnels** (Cloudflare Tunnels and the names each
-carries) and **Ports** (the TCP and UDP ports nginx publishes). The Certificates tab can **upload**
-a certificate and its key, opens the **certificate authority** settings and the **private authority**
-(the server's own, for names that only resolve inside a network: made, trusted on this server, how to
-trust it on each kind of device, the certificates it signed), from More actions; see
-[certificates.md](certificates.md) and
-[network.md](network.md). An application's **Domains** tab also chooses the spelling that is served
-(`www` or the bare name), sends an alias to another port, shows and makes the DNS records of its
-names, and chooses where its certificate comes from; its **Settings, Access** holds the password, the address lists, the private network,
-the sign-in service and the routes of its site, and **Settings, Protection** the limits, the
-response headers, HTTP/3, the firewall and the client certificates.
+DNS, Tunnels and Ports are the server's own network and are shown to whoever may see the server.
+See [network.md](network.md). An application's **Domains** section also shows and makes the DNS
+records of its names and chooses where its certificate comes from; its **Settings, Access** holds the
+password, the address lists, the private network, the sign-in service and the routes of its site, and
+**Settings, Protection** the limits, the response headers, HTTP/3, the firewall and the client
+certificates.
+
+## Noust DNS
+
+**DNS, Noust DNS** is one page with three states, the same as `noust dns server status`:
+
+1. **Not installed.** It says what running a name server takes on, in the server's own two
+   sentences (that the whole internet depends on it, and that a name server can be used to flood
+   others), and asks for one acceptance in front of **Install Noust DNS**. Pressing the button
+   without it says what is missing and puts the focus on it. Where Knot comes from EPEL, the install
+   asks before it enables it and names the packages.
+2. **Installed, not set up.** Choose what this server does (primary, which holds the zones, or
+   secondary, which copies them from a primary in another network), its name as a name server and the
+   addresses it answers on; a secondary also takes the primary's address and the transfer key.
+3. **Set up.** Its zones and, for a primary, its secondaries (add, remove, show the key a secondary
+   is set up with) and **Remove Noust DNS** last. A banner says when the name server is not running.
+
+A zone opens to three sections kept in the URL (`?view=`): **Records** (a table; add, edit and
+delete, with the name server's own words verbatim when it refuses a change), **DNSSEC** (turn it on
+and copy the DS record the registrar needs; turning it off asks first whether the DS is gone from the
+registrar, because a DS for an unsigned zone makes the domain unreachable for validating resolvers)
+and **Delegation** (the steps only the registrar can do, in order, and **Check now**, which asks each
+name server and the public resolvers and says what is still missing, each with its fix). A server
+that only copies a zone shows it read only. The commands are in
+[network-dns-server.md](network-dns-server.md).
 
 ![Domains](assets/console/domains.png)
 

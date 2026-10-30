@@ -12,6 +12,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { Mono } from "../../components/ui/Mono";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { serverPath } from "../../app/nodeRoute";
 import { formatDate, parseTimestamp } from "../../lib/format";
 import { CertificateStatus } from "../domains/CertificateStatus";
 import { certificateView, issuerName } from "../domains/certificates";
@@ -44,6 +45,12 @@ function names(row: FleetRow): string[] {
 
 const NAME_LINK = textLinkClassName("inline", "min-w-0", "row");
 
+/** The certificate on its own server's list, filtered to it: the views API says only that it is in Domains. */
+function certificateHref(row: FleetRow): string {
+  const origin = originOf(row);
+  return `${serverPath(origin.local ? null : origin.node, "/domains/certificates")}?q=${encodeURIComponent(field(row, "domain") ?? "")}`;
+}
+
 function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>): Column<FleetRow>[] {
   return [
     {
@@ -55,7 +62,7 @@ function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>): Column<Fleet
         const all = names(row);
         return (
           <span className="flex min-w-0 flex-col items-start gap-0.5">
-            <HrefLink href={originOf(row).href} className={NAME_LINK}>
+            <HrefLink href={certificateHref(row)} className={NAME_LINK}>
               <Mono truncate>{field(row, "domain") ?? all[0] ?? ""}</Mono>
             </HrefLink>
             {all.length > 1 ? (

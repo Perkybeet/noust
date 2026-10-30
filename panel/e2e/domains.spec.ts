@@ -71,6 +71,7 @@ test("a name that does not point here is added, and the failed order is shown in
   const dialog = page.getByRole("dialog", { name: `Add a domain to ${app}` });
   await dialog.getByLabel("Domain").fill(name);
   // Choosing the kind leaves the field, which is what asks DNS.
+  await dialog.getByRole("button", { name: "More options" }).click();
   await dialog.getByRole("radio", { name: /Redirect/ }).check();
   await expect(dialog.getByText(`${name} has no DNS record yet`)).toBeVisible();
   await dialog.getByRole("button", { name: "Show the records" }).click();
@@ -165,8 +166,8 @@ test("a configuration nginx rejects is not saved, and nginx's output says why", 
 });
 
 test("the certificates and sites tabs: the most urgent certificate first, renewing it, and the tab in the URL", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/domains");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/^Domains/);
+  await signIn(page, consoleServer, "/domains/certificates");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Certificates");
   const certificates = page.getByRole("region", { name: "Certificates" });
   // example.com expires in 12 days: first, and flagged.
   await expect(certificates.getByRole("row").nth(1)).toContainText("example.com");
@@ -198,7 +199,7 @@ test("the certificates and sites tabs: the most urgent certificate first, renewi
   await expectNoA11yViolations(page, "the issue dialog");
   await page.keyboard.press("Escape");
 
-  await page.getByRole("link", { name: /^Web server sites/ }).click();
+  await page.getByRole("link", { name: /^Sites/ }).click();
   await expect(page).toHaveURL(/\/domains\/sites$/);
   await expect(page.getByRole("region", { name: "Web server sites" })).toBeVisible();
   await expect(row(page, "Web server sites", "tools.example.net")).toContainText("Disabled");
@@ -252,7 +253,7 @@ test("a site's own page lists every name it serves, and a template is offered fr
 });
 
 test("deleting a certificate needs the operator to confirm it's them", async ({ page, consoleServer, problems }) => {
-  await signIn(page, consoleServer, "/domains");
+  await signIn(page, consoleServer, "/domains/certificates");
 
   // Other tests rely on example.com, example.org, example.net and bodas.example.com keeping
   // their certificates, and health-reasons.spec.ts on shop.example.net's being close to expiry

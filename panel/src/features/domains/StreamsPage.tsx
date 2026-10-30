@@ -247,7 +247,7 @@ export function StreamsPage() {
   ];
 
   return (
-    <DomainsListPage
+    <DomainsListPage section="ports"
       primaryAction={
         <Button variant="primary" icon={<Plus aria-hidden="true" />} onClick={() => setPublishing(true)} disabled={support !== undefined && !support.available}>
           {t("network.ports.publishAction")}
