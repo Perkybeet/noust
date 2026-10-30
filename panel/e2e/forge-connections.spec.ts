@@ -218,7 +218,9 @@ test("the wizard creates an application from a GitLab project and its branch", a
     });
   });
   await signIn(page, consoleServer, "/apps/new");
-  await page.getByRole("radio", { name: "From GitLab" }).click();
+  // The wizard opens on its one box; the other ways to start, a connected GitLab among them, are folded under it.
+  await page.getByRole("button", { name: "Other ways to start", exact: true }).click();
+  await page.getByRole("button", { name: "From GitLab", exact: true }).click();
   await expect(page.getByRole("list", { name: "Projects" })).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the GitLab project list");
@@ -276,6 +278,7 @@ test("the wizard deploys the workspaces of a monorepo, each on its own domain", 
   await signIn(page, consoleServer, "/apps/new");
   const field = await typedSource(page);
   await field.fill("https://github.com/acme/monorepo.git");
+  await page.getByRole("button", { name: "Other ways to start", exact: true }).click();
   await page.getByRole("button", { name: "Deploy the workspaces of a monorepo" }).click();
   const dialog = page.getByRole("dialog", { name: "Deploy the workspaces of a monorepo" });
   await dialog.getByRole("button", { name: "Read the workspaces" }).click();
