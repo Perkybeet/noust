@@ -328,14 +328,19 @@ def test_the_stacks_do_not_share_a_published_port() -> None:
         for port in recipe.public_ports:
             opened.setdefault((port.port, port.protocol), []).append(recipe.name)
 
-    shared = {key: names for key, names in opened.items() if len(names) > 1}
-    # Gitea and Forgejo are the same kind of server and both offer Git over SSH on 2222: the
-    # descriptions say so, and an operator who wants both changes one of them.
-    assert shared == {(2222, "tcp"): ["forgejo", "gitea"]} or shared == {
-        (2222, "tcp"): ["gitea", "forgejo"]
+    shared = {key: sorted(names) for key, names in opened.items() if len(names) > 1}
+    # Gitea and Forgejo are the same kind of server and both offer Git over SSH on 2222, and
+    # Pi-hole and Technitium are two DNS servers that answer on 53: the descriptions say so, and
+    # an operator who wants both changes one of them.
+    assert shared == {
+        (2222, "tcp"): ["forgejo", "gitea"],
+        (53, "tcp"): ["pi-hole", "technitium"],
+        (53, "udp"): ["pi-hole", "technitium"],
     }
     for name in ("gitea", "forgejo"):
         assert "2222" in get_recipe(name).description
+    for name in ("pi-hole", "technitium"):
+        assert "port 53" in get_recipe(name).description
 
 
 def test_the_recipes_that_were_listed_as_unavailable_until_now_are_installable() -> None:

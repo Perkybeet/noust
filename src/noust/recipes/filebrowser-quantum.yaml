@@ -1,0 +1,45 @@
+# FileBrowser Quantum from the image the project publishes (gtstef/filebrowser), with the folders and variable its documentation names (github.com/gtsteffaniak/filebrowser, wiki: getting started).
+schema: 2
+name: filebrowser-quantum
+kind: compose
+title: "FileBrowser Quantum"
+slogan: "Web file browser with sources, sharing, search and access rules."
+description: "A file manager in the browser: it lists folders, previews media, edits text, uploads, shares links and searches the index, with accounts and per-folder access. The administrator's password is generated."
+category: files
+tags: [files, browser, sharing, webdav]
+logo: logo.svg
+version: "2.0.2-stable"
+revision: 1
+updated: 2026-10-30
+homepage: https://filebrowserquantum.com
+docs: https://filebrowserquantum.com
+repository: https://github.com/gtsteffaniak/filebrowser
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  ADMIN_PASSWORD:
+    generate: "password32"
+    description: "The password of the account admin."
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    filebrowser-quantum:
+      image: gtstef/filebrowser:2.0.2-stable@sha256:de2b4c4d18485ea202ab2cdada5bd25d8f0b8ed071712c8216a67194c31285ae
+      restart: unless-stopped
+      environment:
+        FILEBROWSER_ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+        TZ: UTC
+      volumes:
+        - filebrowser-data:/home/filebrowser/data
+        - filebrowser-files:/srv
+      ports:
+        - 127.0.0.1:${PORT}:80
+  volumes:
+    filebrowser-data:
+    filebrowser-files:
+notes:
+  - "Open {{ url }}. Sign in as admin with the password in ADMIN_PASSWORD (noust env show {{ domain }} --unmask). The files it shows are in the volume filebrowser-files."
+  - "Its data is in the Docker volumes filebrowser-data, filebrowser-files of this application: back them up before updating."

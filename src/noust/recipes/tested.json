@@ -31,6 +31,11 @@
    "seconds": 66,
    "version": "3.13.1"
   },
+  "alertmanager": {
+   "date": "2026-10-30",
+   "seconds": 36,
+   "version": "0.34.2"
+  },
   "ampache": {
    "date": "2026-10-30",
    "seconds": 90,
@@ -151,6 +156,16 @@
    "seconds": 79,
    "version": "3.2.0"
   },
+  "checkmk": {
+   "date": "2026-10-30",
+   "seconds": 131,
+   "version": "2.4.0p39"
+  },
+  "chhoto-url": {
+   "date": "2026-10-30",
+   "seconds": 35,
+   "version": "7.10.5"
+  },
   "chroma": {
    "date": "2026-10-29",
    "seconds": 44,
@@ -241,6 +256,11 @@
    "seconds": 54,
    "version": "3.16.2"
   },
+  "dbgate": {
+   "date": "2026-10-30",
+   "seconds": 57,
+   "version": "7.3.3"
+  },
   "directory-lister": {
    "date": "2026-10-29",
    "seconds": 47,
@@ -306,10 +326,25 @@
    "seconds": 39,
    "version": "1.7.0"
   },
+  "drupal": {
+   "date": "2026-10-30",
+   "seconds": 66,
+   "version": "11.4.11-apache"
+  },
+  "dufs": {
+   "date": "2026-10-30",
+   "seconds": 30,
+   "version": "0.47.0"
+  },
   "elasticsearch": {
    "date": "2026-10-28",
    "seconds": 128,
    "version": "9.5.5"
+  },
+  "elasticvue": {
+   "date": "2026-10-30",
+   "seconds": 32,
+   "version": "1.17.0"
   },
   "element-web": {
    "date": "2026-10-30",
@@ -326,6 +361,11 @@
    "seconds": 56,
    "version": "1.20.0"
   },
+  "esphome": {
+   "date": "2026-10-30",
+   "seconds": 71,
+   "version": "2026.10.1"
+  },
   "espocrm": {
    "date": "2026-10-28",
    "seconds": 73,
@@ -340,6 +380,11 @@
    "date": "2026-10-30",
    "seconds": 78,
    "version": "2.3.0"
+  },
+  "filebrowser-quantum": {
+   "date": "2026-10-30",
+   "seconds": 48,
+   "version": "2.0.2-stable"
   },
   "filegator": {
    "date": "2026-10-29",
@@ -375,6 +420,11 @@
    "date": "2026-10-29",
    "seconds": 40,
    "version": "5.5.5"
+  },
+  "flipt": {
+   "date": "2026-10-30",
+   "seconds": 38,
+   "version": "2.14.1"
   },
   "forgejo": {
    "date": "2026-10-28",
@@ -420,6 +470,11 @@
    "date": "2026-10-28",
    "seconds": 50,
    "version": "28.0.0"
+  },
+  "gitness": {
+   "date": "2026-10-30",
+   "seconds": 42,
+   "version": "3.3.0"
   },
   "glance": {
    "date": "2026-10-28",
@@ -566,6 +621,11 @@
    "seconds": 38,
    "version": "2.7-alpine"
   },
+  "jaeger": {
+   "date": "2026-10-30",
+   "seconds": 38,
+   "version": "2.22.0"
+  },
   "jellyfin": {
    "date": "2026-10-28",
    "seconds": 68,
@@ -575,6 +635,11 @@
    "date": "2026-10-29",
    "seconds": 84,
    "version": "2.7.3"
+  },
+  "jellystat": {
+   "date": "2026-10-30",
+   "seconds": 113,
+   "version": "1.1.12"
   },
   "jenkins": {
    "date": "2026-10-28",
@@ -591,6 +656,11 @@
    "seconds": 56,
    "version": "1.29.2"
   },
+  "jupyterlab": {
+   "date": "2026-10-30",
+   "seconds": 69,
+   "version": "lab-4.6.4"
+  },
   "kaneo": {
    "date": "2026-10-30",
    "seconds": 76,
@@ -605,6 +675,11 @@
    "date": "2026-10-28",
    "seconds": 58,
    "version": "0.9.1"
+  },
+  "keila": {
+   "date": "2026-10-30",
+   "seconds": 66,
+   "version": "0.40.0"
   },
   "kener": {
    "date": "2026-10-30",
@@ -711,6 +786,11 @@
    "seconds": 84,
    "version": "1.104.0"
   },
+  "livebook": {
+   "date": "2026-10-30",
+   "seconds": 65,
+   "version": "0.19.10"
+  },
   "lldap": {
    "date": "2026-10-30",
    "seconds": 36,
@@ -801,6 +881,11 @@
    "seconds": 50,
    "version": "2.3.3"
   },
+  "mongo-express": {
+   "date": "2026-10-30",
+   "seconds": 74,
+   "version": "1.0.2"
+  },
   "moodist": {
    "date": "2026-10-30",
    "seconds": 38,
@@ -866,6 +951,11 @@
    "seconds": 36,
    "version": "2.28.0"
   },
+  "octoprint": {
+   "date": "2026-10-30",
+   "seconds": 80,
+   "version": "1.11.8"
+  },
   "odoo": {
    "date": "2026-10-28",
    "seconds": 119,
@@ -890,6 +980,11 @@
    "date": "2026-10-29",
    "seconds": 74,
    "version": "17.0.0"
+  },
+  "onlyoffice": {
+   "date": "2026-10-30",
+   "seconds": 114,
+   "version": "10.0.0.1"
   },
   "open-design": {
    "date": "2026-10-28",
@@ -1011,6 +1106,11 @@
    "seconds": 109,
    "version": "261029"
   },
+  "pi-hole": {
+   "date": "2026-10-30",
+   "seconds": 44,
+   "version": "2026.10.0"
+  },
   "plane": {
    "date": "2026-10-29",
    "seconds": 120,
@@ -1020,6 +1120,11 @@
    "date": "2026-10-29",
    "seconds": 55,
    "version": "2.2.1"
+  },
+  "plantuml-server": {
+   "date": "2026-10-30",
+   "seconds": 69,
+   "version": "1.2026.9"
   },
   "plausible": {
    "date": "2026-10-29",
@@ -1061,6 +1166,11 @@
    "seconds": 120,
    "version": "5.1"
   },
+  "pushgateway": {
+   "date": "2026-10-30",
+   "seconds": 30,
+   "version": "1.11.5"
+  },
   "qbittorrent": {
    "date": "2026-10-30",
    "seconds": 45,
@@ -1090,6 +1200,11 @@
    "date": "2026-10-30",
    "seconds": 92,
    "version": "4.16.3"
+  },
+  "redoc": {
+   "date": "2026-10-30",
+   "seconds": 34,
+   "version": "3.0.1"
   },
   "rivet-engine": {
    "date": "2026-10-29",
@@ -1221,6 +1336,11 @@
    "seconds": 101,
    "version": "6.1.0"
   },
+  "suwayomi": {
+   "date": "2026-10-30",
+   "seconds": 76,
+   "version": "2.4.2435"
+  },
   "swagger-editor": {
    "date": "2026-10-30",
    "seconds": 35,
@@ -1250,6 +1370,11 @@
    "date": "2026-10-30",
    "seconds": 42,
    "version": "2.18.2"
+  },
+  "technitium": {
+   "date": "2026-10-30",
+   "seconds": 41,
+   "version": "15.6.2"
   },
   "thelounge": {
    "date": "2026-10-30",
@@ -1316,6 +1441,11 @@
    "seconds": 30,
    "version": "1.8.0"
   },
+  "victoria-logs": {
+   "date": "2026-10-30",
+   "seconds": 32,
+   "version": "1.53.0"
+  },
   "victoriametrics": {
    "date": "2026-10-29",
    "seconds": 34,
@@ -1330,6 +1460,11 @@
    "date": "2026-10-29",
    "seconds": 41,
    "version": "5.10.0"
+  },
+  "wastebin": {
+   "date": "2026-10-30",
+   "seconds": 35,
+   "version": "3.9.0"
   },
   "weaviate": {
    "date": "2026-10-29",
@@ -1361,6 +1496,11 @@
    "seconds": 51,
    "version": "2026.10.1"
   },
+  "yopass": {
+   "date": "2026-10-30",
+   "seconds": 35,
+   "version": "16.0.1"
+  },
   "yourls": {
    "date": "2026-10-29",
    "seconds": 66,
@@ -1370,6 +1510,11 @@
    "date": "2026-10-29",
    "seconds": 56,
    "version": "1.85.0"
+  },
+  "zipkin": {
+   "date": "2026-10-30",
+   "seconds": 44,
+   "version": "3.6.1"
   }
  }
 }

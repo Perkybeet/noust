@@ -113,20 +113,24 @@ brand. The files, by licence:
     src/noust/recipes/assets/2fauth/logo.svg
     src/noust/recipes/assets/_simple-icons/apachecouchdb.svg
     src/noust/recipes/assets/_simple-icons/apachesuperset.svg
+    src/noust/recipes/assets/alertmanager/logo.svg
     src/noust/recipes/assets/atuin/logo.svg
     src/noust/recipes/assets/autobrr/logo.svg
     src/noust/recipes/assets/bazarr/logo.svg
     src/noust/recipes/assets/bytestash/logo.svg
+    src/noust/recipes/assets/chhoto-url/logo.svg
     src/noust/recipes/assets/chroma/logo.svg
     src/noust/recipes/assets/cloudbeaver/logo.svg
     src/noust/recipes/assets/commafeed/logo.svg
     src/noust/recipes/assets/copyparty/logo.svg
     src/noust/recipes/assets/cyberchef/logo.svg
     src/noust/recipes/assets/databasus/logo.svg
+    src/noust/recipes/assets/dbgate/logo.svg
     src/noust/recipes/assets/documenso/logo.svg
     src/noust/recipes/assets/dokuwiki/logo.svg
     src/noust/recipes/assets/enclosed/logo.svg
     src/noust/recipes/assets/etherpad/logo.svg
+    src/noust/recipes/assets/filebrowser-quantum/logo.svg
     src/noust/recipes/assets/filegator/logo.svg
     src/noust/recipes/assets/flarum/logo.svg
     src/noust/recipes/assets/flatnotes/logo.svg
@@ -138,15 +142,18 @@ brand. The files, by licence:
     src/noust/recipes/assets/infisical/logo.svg
     src/noust/recipes/assets/jellyseerr/logo.svg
     src/noust/recipes/assets/jotty/logo.svg
+    src/noust/recipes/assets/keila/logo.svg
     src/noust/recipes/assets/kestra/logo.svg
     src/noust/recipes/assets/kimai/logo.svg
     src/noust/recipes/assets/koillection/logo.svg
     src/noust/recipes/assets/librespeed/logo.svg
+    src/noust/recipes/assets/livebook/logo.svg
     src/noust/recipes/assets/logto/logo.svg
     src/noust/recipes/assets/lunalytics/logo.svg
     src/noust/recipes/assets/mage-ai/logo.svg
     src/noust/recipes/assets/marimo/logo.svg
     src/noust/recipes/assets/miniflux/logo.svg
+    src/noust/recipes/assets/mongo-express/logo.svg
     src/noust/recipes/assets/moodist/logo.svg
     src/noust/recipes/assets/myspeed/logo.svg
     src/noust/recipes/assets/nocodb/logo.svg
@@ -169,8 +176,11 @@ brand. The files, by licence:
     src/noust/recipes/assets/spoolman/logo.svg
     src/noust/recipes/assets/sshwifty/logo.svg
     src/noust/recipes/assets/stirling-pdf/logo.svg
+    src/noust/recipes/assets/suwayomi/logo.svg
     src/noust/recipes/assets/tautulli/logo.svg
     src/noust/recipes/assets/thelounge/logo.svg
+    src/noust/recipes/assets/victoria-logs/logo.svg
+    src/noust/recipes/assets/yopass/logo.svg
   BSD-2-Clause
     src/noust/recipes/assets/babybuddy/logo.svg
     src/noust/recipes/assets/pocket-id/logo.svg
@@ -207,6 +217,7 @@ brand. The files, by licence:
     src/noust/recipes/assets/upsnap/logo.svg
     src/noust/recipes/assets/versitygw/logo.svg
     src/noust/recipes/assets/wallos/logo.svg
+    src/noust/recipes/assets/wastebin/logo.svg
     src/noust/recipes/assets/weaviate/logo.svg
   CC-BY-SA-3.0
     src/noust/recipes/assets/_simple-icons/jenkins.svg

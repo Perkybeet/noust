@@ -391,8 +391,12 @@ def test_the_catalogue_lists_what_can_be_deployed_first() -> None:
 
 
 def test_a_search_finds_by_every_word_in_name_title_slogan_tags_and_category() -> None:
-    """password manager finds Vaultwarden; a word nothing has finds nothing."""
-    assert [recipe.name for recipe in search_recipes(query="password manager")] == ["vaultwarden"]
+    """Two words found in different fields find Vaultwarden; a word nothing has finds nothing."""
+    # Every word is looked for in the name, title, slogan, description, tags and category, so
+    # "password manager" also finds the database managers that protect their page with a password:
+    # the query that stays Vaultwarden's alone names its slogan's other words.
+    assert [recipe.name for recipe in search_recipes(query="bitwarden manager")] == ["vaultwarden"]
+    assert "vaultwarden" in {recipe.name for recipe in search_recipes(query="password manager")}
     assert "grafana" in {recipe.name for recipe in search_recipes(query="DASHBOARDS")}
     assert "mailpit" in {recipe.name for recipe in search_recipes(query="smtp")}
     assert search_recipes(query="zzzz nothing") == []
@@ -428,7 +432,7 @@ def test_categories_count_the_recipes_that_are_in_them() -> None:
 def test_a_logo_the_recipe_does_not_have_is_not_found() -> None:
     """An unknown recipe is a not found, not a crash."""
     with pytest.raises(RecipeError):
-        logo_file("drupal")
+        logo_file("bogus-recipe")
 
 
 def test_the_nginx_settings_a_recipe_ships_are_valid_for_the_builder_that_reads_them(

@@ -1,0 +1,31 @@
+# Zipkin from the image the project publishes (openzipkin/zipkin), as its documentation describes the container (zipkin.io/pages/quickstart, Docker).
+schema: 2
+name: zipkin
+kind: compose
+title: "Zipkin"
+slogan: "A distributed tracing system."
+description: "Collects the timing data of the calls between services and draws them as traces, to find where a request spends its time. Spans arrive over HTTP on the same address; they are kept in memory. It has no accounts, so keep it behind an allow-list."
+category: monitoring
+tags: [tracing, observability, latency, microservices]
+logo: logo.svg
+version: "3.6.1"
+revision: 1
+updated: 2026-10-30
+homepage: https://zipkin.io/
+docs: https://zipkin.io/
+repository: https://github.com/openzipkin/zipkin
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 9411
+health: {path: /health, expect: "200", timeout: 120}
+compose: |
+  services:
+    zipkin:
+      image: openzipkin/zipkin:3.6.1@sha256:d17e856dcbba7ffeefbbfc252f89ab78a4ab6faed47e646d46daad78f91b5ee2
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:9411
+notes:
+  - "Open {{ url }}. Send spans to {{ url }}/api/v2/spans. It has no sign-in and keeps spans in memory: restrict who can reach it."

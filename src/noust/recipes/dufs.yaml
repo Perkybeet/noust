@@ -1,0 +1,46 @@
+# Dufs from the image the project publishes (sigoden/dufs), with the variables its documentation names (github.com/sigoden/dufs, README: Environment variables).
+schema: 2
+name: dufs
+kind: compose
+title: "Dufs"
+slogan: "A distinctive utility file server."
+description: "Serves a folder over the browser and WebDAV: it lists, uploads, downloads, previews, searches and zips folders, and can take a folder as a drive. One account, whose password Noust generates, can read and write; nobody else gets in."
+category: files
+tags: [files, webdav, upload, server]
+logo: logo.svg
+version: "0.47.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://github.com/sigoden/dufs
+docs: https://github.com/sigoden/dufs
+repository: https://github.com/sigoden/dufs
+license: Apache-2.0
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 5000
+variables:
+  ADMIN_PASSWORD:
+    generate: "password32"
+    description: "The password of the user admin."
+health: {path: /, expect: "200-399,401", timeout: 120}
+compose: |
+  services:
+    dufs:
+      image: sigoden/dufs:v0.47.0@sha256:e5152c04e41d5a9d785546278b632bf035c8a08c52d7e8d35f4b59681f5ff35a
+      restart: unless-stopped
+      command:
+        - /data
+      environment:
+        DUFS_ALLOW_ALL: 'true'
+        DUFS_AUTH: admin:${ADMIN_PASSWORD}@/:rw
+      volumes:
+        - dufs-data:/data
+      ports:
+        - 127.0.0.1:${PORT}:5000
+      user: 0:0
+  volumes:
+    dufs-data:
+notes:
+  - "Open {{ url }}. Sign in as admin with the password in ADMIN_PASSWORD (noust env show {{ domain }} --unmask). The files are in the volume dufs-data."
+  - "Its data is in the Docker volume dufs-data of this application: back it up before updating."

@@ -1,0 +1,36 @@
+# OctoPrint from the image the project publishes (octoprint/octoprint), with the folder its documentation names (hub.docker.com/r/octoprint/octoprint).
+schema: 2
+name: octoprint
+kind: compose
+title: "OctoPrint"
+slogan: "The snappy web interface for your 3D printer."
+description: "Controls a 3D printer from the browser: files, a live camera, temperatures, the G-code viewer and plugins. The first visit is a wizard that makes the administrator."
+category: smart-home
+tags: [3d-printing, printer, gcode, plugins]
+logo: simple-icons:octoprint
+version: "1.11.8"
+revision: 1
+updated: 2026-10-30
+homepage: https://octoprint.org
+docs: https://octoprint.org
+repository: https://github.com/OctoPrint/OctoPrint
+license: AGPL-3.0-only
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    octoprint:
+      image: octoprint/octoprint:1.11.8@sha256:5ea0181e476597faa2800c991af4ce16903005f46b4c16666a4080ad606310bb
+      restart: unless-stopped
+      volumes:
+        - octoprint-data:/octoprint
+      ports:
+        - 127.0.0.1:${PORT}:80
+  volumes:
+    octoprint-data:
+notes:
+  - "Open {{ url }}. The first visit is a wizard that makes the administrator: do it right after installing. A printer on a USB port of this server needs its device passed to the container, which this recipe does not do."
+  - "Its data is in the Docker volume octoprint-data of this application: back it up before updating."

@@ -1,0 +1,36 @@
+# VictoriaLogs from the image the project publishes (victoriametrics/victoria-logs), with the folder its documentation names (docs.victoriametrics.com/victorialogs/quickstart).
+schema: 2
+name: victoria-logs
+kind: compose
+title: "VictoriaLogs"
+slogan: "Database for logs from VictoriaMetrics."
+description: "Stores the logs of your servers and applications and searches them fast: it takes the formats of Loki, Elasticsearch, Vector, Fluent Bit and syslog, answers LogsQL queries and shows them in a console. It has no accounts, so keep it behind an allow-list."
+category: monitoring
+tags: [logs, observability, search, victoriametrics]
+logo: logo.svg
+version: "1.53.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://docs.victoriametrics.com/victorialogs/
+docs: https://docs.victoriametrics.com/victorialogs/
+repository: https://github.com/VictoriaMetrics/VictoriaLogs
+license: Apache-2.0
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 9428
+health: {path: /health, expect: "200", timeout: 120}
+compose: |
+  services:
+    victoria-logs:
+      image: victoriametrics/victoria-logs:v1.53.0@sha256:251121fa882af99b95ba0c230a4a2f412ea602d2698c64a96c58dc9842bb755d
+      restart: unless-stopped
+      volumes:
+        - victoria-logs-data:/victoria-logs-data
+      ports:
+        - 127.0.0.1:${PORT}:9428
+  volumes:
+    victoria-logs-data:
+notes:
+  - "Open {{ url }}. The console is at {{ url }}/select/vmui. Ship logs to {{ url }}/insert/... (the documentation lists the formats). It has no sign-in: restrict who can reach it."
+  - "Its data is in the Docker volume victoria-logs-data of this application: back it up before updating."

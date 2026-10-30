@@ -1,0 +1,44 @@
+# ESPHome from the image the project publishes (esphome/esphome), with the variables and folder its documentation names (esphome.io/guides/getting_started_command_line, Docker).
+# Licence: LICENSE of esphome/esphome, read 2026-10-30: the ESPHome License is made up of MIT (the Python code and the rest) and GPLv3 (the C++ runtime)
+schema: 2
+name: esphome
+kind: compose
+title: "ESPHome"
+slogan: "Control your ESP chips from Home Assistant, with simple but powerful configuration files."
+description: "Writes, compiles and updates the firmware of ESP8266, ESP32 and other chips from the browser, from YAML files that describe the device, and shows their logs. A user name and a password Noust generates protect the dashboard. Flashing by USB needs the device on the computer you browse from."
+category: smart-home
+tags: [esp32, firmware, iot, home-automation]
+logo: simple-icons:esphome
+version: "2026.10.1"
+revision: 1
+updated: 2026-10-30
+homepage: https://esphome.io/
+docs: https://esphome.io/
+repository: https://github.com/esphome/esphome
+license: MIT AND GPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 6052
+variables:
+  ADMIN_PASSWORD:
+    generate: "password32"
+    description: "The password of the user admin."
+health: {path: /, expect: "200-399,401", timeout: 180}
+compose: |
+  services:
+    esphome:
+      image: esphome/esphome:2026.10.1@sha256:73dadde5f5802e0b0be671a698d970dab3b29113e26f8c601a1280ac9e764829
+      restart: unless-stopped
+      environment:
+        USERNAME: admin
+        PASSWORD: ${ADMIN_PASSWORD}
+      volumes:
+        - esphome-config:/config
+      ports:
+        - 127.0.0.1:${PORT}:6052
+  volumes:
+    esphome-config:
+notes:
+  - "Open {{ url }}. Sign in as admin with the password in ADMIN_PASSWORD (noust env show {{ domain }} --unmask). Devices are found by multicast, which does not cross Docker's network: add them by their address."
+  - "Its data is in the Docker volume esphome-config of this application: back it up before updating."

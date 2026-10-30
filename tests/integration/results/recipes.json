@@ -1,10 +1,10 @@
 {
   "measured": "tests/integration/recipes_run.py: scripts/recipe_smoke.py in the harness container, one recipe at a time",
   "harness": "Ubuntu 24.04 with systemd and a Docker of its own (Dockerfile.systemd)",
-  "updated": "2026-10-30T15:23:11Z",
+  "updated": "2026-10-30T15:51:52Z",
   "totals": {
-    "pass": 290,
-    "fail": 5
+    "pass": 306,
+    "fail": 4
   },
   "results": [
     {
@@ -482,6 +482,21 @@
       "seconds": 131,
       "result": "pass",
       "gate": "/cmk/check_mk/login.py -> 200 after 40s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "chhoto-url",
+      "version": "7.10.5",
+      "date": "2026-10-30T15:32:42Z",
+      "source": "own",
+      "seconds": 35,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
@@ -1006,6 +1021,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "dufs",
+      "version": "0.47.0",
+      "date": "2026-10-30T15:32:11Z",
+      "source": "own",
+      "seconds": 30,
+      "result": "pass",
+      "gate": "/ -> 401 after 0s",
+      "gate_status": "401",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "elasticsearch",
       "version": "9.5.5",
       "date": "2026-10-28T22:39:38Z",
@@ -1016,6 +1046,21 @@
       "gate_status": "401",
       "unsteady": false,
       "error_lines": 4,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "elasticvue",
+      "version": "1.17.0",
+      "date": "2026-10-30T15:23:11Z",
+      "source": "own",
+      "seconds": 32,
+      "result": "pass",
+      "gate": "/ -> 200 after 0s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -1085,6 +1130,21 @@
       "images_removed": 1,
       "attempts": 2,
       "first_attempt": "the health gate's request to / got 404, the recipe expects 200-399"
+    },
+    {
+      "recipe": "esphome",
+      "version": "2026.10.1",
+      "date": "2026-10-30T15:35:16Z",
+      "source": "own",
+      "seconds": 71,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
     },
     {
       "recipe": "espocrm",
@@ -1249,6 +1309,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "flipt",
+      "version": "2.14.1",
+      "date": "2026-10-30T15:38:21Z",
+      "source": "own",
+      "seconds": 38,
+      "result": "pass",
+      "gate": "/health -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "forgejo",
       "version": "16.0.5",
       "date": "2026-10-28T22:49:00Z",
@@ -1375,6 +1450,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "gitness",
+      "version": "3.3.0",
+      "date": "2026-10-30T15:48:56Z",
+      "source": "own",
+      "seconds": 42,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -1848,6 +1938,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "jellystat",
+      "version": "1.1.12",
+      "date": "2026-10-30T15:33:18Z",
+      "source": "own",
+      "seconds": 113,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 2,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "jenkins",
       "version": "2.580.1",
       "date": "2026-10-28T23:15:11Z",
@@ -2270,6 +2375,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "livebook",
+      "version": "0.19.10",
+      "date": "2026-10-30T15:40:55Z",
+      "source": "own",
+      "seconds": 65,
+      "result": "pass",
+      "gate": "/ -> 302 after 5s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "lldap",
       "version": "0.6.3",
       "date": "2026-10-30T14:55:09Z",
@@ -2648,25 +2768,6 @@
       "error_lines": 0,
       "rate_limited": false,
       "images_removed": 1
-    },
-    {
-      "recipe": "netbox",
-      "version": "4.7.4",
-      "date": "2026-10-30T15:20:11Z",
-      "source": "own",
-      "seconds": 50,
-      "result": "fail",
-      "gate": "/login/ ->  after 0s",
-      "gate_status": "",
-      "unsteady": false,
-      "problems": [
-        "docker compose up failed: -recetas400-netbox-db-1  Healthy\n Container noust-test-recetas400-netbox-redis-1  Healthy\n Container noust-test-recetas400-netbox-redis-cache-1  Healthy\n Container noust-test-recetas400-netbox-netbox-1  Starting\nError response from daemon: unable to find user unit: no matching entries in passwd file"
-      ],
-      "log_tail": "",
-      "error_lines": 0,
-      "transient": false,
-      "rate_limited": false,
-      "images_removed": 2
     },
     {
       "recipe": "netdata",
@@ -3209,6 +3310,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "pi-hole",
+      "version": "2026.10.0",
+      "date": "2026-10-30T15:37:35Z",
+      "source": "own",
+      "seconds": 44,
+      "result": "pass",
+      "gate": "/admin/ -> 302 after 5s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "plane",
       "version": "1.4.2",
       "date": "2026-10-29T00:20:37Z",
@@ -3233,6 +3349,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "plantuml-server",
+      "version": "1.2026.9",
+      "date": "2026-10-30T15:47:45Z",
+      "source": "own",
+      "seconds": 69,
+      "result": "pass",
+      "gate": "/ -> 302 after 5s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -3353,6 +3484,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "pushgateway",
+      "version": "1.11.5",
+      "date": "2026-10-30T15:39:32Z",
+      "source": "own",
+      "seconds": 30,
+      "result": "pass",
+      "gate": "/-/healthy -> 200 after 0s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "qbittorrent",
       "version": "5.2.4",
       "date": "2026-10-30T13:35:03Z",
@@ -3432,6 +3578,21 @@
       "seconds": 92,
       "result": "pass",
       "gate": "/ -> 200 after 6s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "redoc",
+      "version": "3.0.1",
+      "date": "2026-10-30T15:47:10Z",
+      "source": "own",
+      "seconds": 34,
+      "result": "pass",
+      "gate": "/ -> 200 after 0s",
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
@@ -3867,6 +4028,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "swingmusic",
+      "version": "3.0.0",
+      "date": "2026-10-30T15:50:32Z",
+      "source": "own",
+      "seconds": 78,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "synapse",
       "version": "1.164.1",
       "date": "2026-10-30T12:30:24Z",
@@ -3919,6 +4095,21 @@
       "seconds": 42,
       "result": "pass",
       "gate": "/status -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "technitium",
+      "version": "15.6.2",
+      "date": "2026-10-30T15:23:44Z",
+      "source": "own",
+      "seconds": 41,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
@@ -4123,6 +4314,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "victoria-logs",
+      "version": "1.53.0",
+      "date": "2026-10-30T15:38:59Z",
+      "source": "own",
+      "seconds": 32,
+      "result": "pass",
+      "gate": "/health -> 200 after 0s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "victoriametrics",
       "version": "1.108.1",
       "date": "2026-10-29T01:44:57Z",
@@ -4173,6 +4379,21 @@
       "date": "2026-10-30T15:06:46Z",
       "source": "own",
       "seconds": 35,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "wbo",
+      "version": "2.18.31",
+      "date": "2026-10-30T15:49:39Z",
+      "source": "own",
+      "seconds": 52,
       "result": "pass",
       "gate": "/ -> 200 after 5s",
       "gate_status": "200",

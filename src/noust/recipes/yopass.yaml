@@ -1,0 +1,39 @@
+# Yopass from the image the project publishes (jhaals/yopass), as its documentation describes the stack (github.com/jhaals/yopass, README: Docker).
+schema: 2
+name: yopass
+kind: compose
+title: "Yopass"
+slogan: "Secure sharing of secrets, passwords and files."
+description: "Shares a password or a file through a link that works once and expires: it is encrypted in the browser, so the server never sees the secret. Anyone who reaches the page can create one."
+category: security
+tags: [secrets, sharing, encryption, passwords]
+logo: logo.svg
+version: "16.0.1"
+revision: 1
+updated: 2026-10-30
+homepage: https://yopass.se
+docs: https://yopass.se
+repository: https://github.com/jhaals/yopass
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 1337
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    yopass:
+      image: jhaals/yopass:16.0.1@sha256:6e45ce6c6c694a094643e433c45e36d66d516a3a70235321186e4c061942d6d0
+      restart: unless-stopped
+      command:
+        - --memcached=memcached:11211
+      depends_on:
+        memcached:
+          condition: service_started
+      ports:
+        - 127.0.0.1:${PORT}:1337
+    memcached:
+      image: memcached:1.6.45-alpine@sha256:6a089e37cbb8acd75c80c6c0667fe57ec54db68782fb1b3afb1d0eb265e50070
+      restart: unless-stopped
+notes:
+  - "Open {{ url }}. Nothing to set up: paste a secret, and share the link it makes. Secrets are kept in memory and are gone when the application restarts."

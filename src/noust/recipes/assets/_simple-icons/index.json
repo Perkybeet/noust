@@ -89,6 +89,12 @@
    "license": "CC0-1.0",
    "source": "https://www.chatwoot.com"
   },
+  "checkmk": {
+   "title": "Checkmk",
+   "hex": "15D1A0",
+   "license": "CC0-1.0",
+   "source": "https://checkmk.com"
+  },
   "cinny": {
    "title": "Cinny",
    "hex": "000000",
@@ -139,11 +145,23 @@
    "license": "CC0-1.0",
    "source": "https://orm.drizzle.team"
   },
+  "drupal": {
+   "title": "Drupal",
+   "hex": "0678BE",
+   "license": "CC0-1.0",
+   "source": "https://www.drupal.org/about/media-kit/logos"
+  },
   "elasticsearch": {
    "title": "Elasticsearch",
    "hex": "005571",
    "license": "CC0-1.0",
    "source": "https://www.elastic.co/brand"
+  },
+  "esphome": {
+   "title": "ESPHome",
+   "hex": "18BCF2",
+   "license": "CC0-1.0",
+   "source": "https://github.com/esphome/developers.esphome.io/blob/7c0304aa36536c63c93b1f19ba18969f96df0e08/docs/images/logo.svg"
   },
   "excalidraw": {
    "title": "Excalidraw",
@@ -264,6 +282,13 @@
    "license": "CC0-1.0",
    "source": "https://influxdata.github.io/branding/logo/downloads/",
    "guidelines": "https://influxdata.github.io/branding/logo/usage/"
+  },
+  "jaeger": {
+   "title": "Jaeger",
+   "hex": "66CFE3",
+   "license": "CC0-1.0",
+   "source": "https://github.com/cncf/artwork/blob/e7e09686c20db6ddac06e482cf3338b0c8b2e22d/projects/jaeger/icon/black/jaeger-icon-black.svg",
+   "guidelines": "https://github.com/cncf/artwork/blob/e7e09686c20db6ddac06e482cf3338b0c8b2e22d/projects/jaeger/jaeger-logo-guide.pdf"
   },
   "jellyfin": {
    "title": "Jellyfin",
@@ -420,6 +445,12 @@
    "license": "CC0-1.0",
    "source": "https://ntfy.sh"
   },
+  "octoprint": {
+   "title": "OctoPrint",
+   "hex": "13C100",
+   "license": "CC0-1.0",
+   "source": "https://github.com/OctoPrint/OctoPrint/blob/53b9b6185781c07e8c4744a6e28462e96448f249/src/octoprint/static/img/mask.svg"
+  },
   "odoo": {
    "title": "Odoo",
    "hex": "714B67",
@@ -432,6 +463,12 @@
    "hex": "000000",
    "license": "CC0-1.0",
    "source": "https://github.com/ollama/ollama/issues/2152#issuecomment-1905286922"
+  },
+  "onlyoffice": {
+   "title": "ONLYOFFICE",
+   "hex": "444444",
+   "license": "CC0-1.0",
+   "source": "https://www.onlyoffice.com/en/press-downloads.aspx"
   },
   "openbao": {
    "title": "OpenBao",
@@ -476,6 +513,13 @@
    "hex": "000000",
    "license": "CC0-1.0",
    "source": "https://penpot.app"
+  },
+  "pihole": {
+   "title": "Pi-hole",
+   "hex": "96060C",
+   "license": "CC0-1.0",
+   "source": "https://docs.pi-hole.net",
+   "guidelines": "https://pi-hole.net/trademark-rules-and-brand-guidelines/"
   },
   "plane": {
    "title": "Plane",

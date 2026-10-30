@@ -234,7 +234,7 @@ def test_the_loader_refuses_what_it_does_not_understand(
 def test_an_unknown_recipe_lists_the_known_ones() -> None:
     """With the command that lists them."""
     with pytest.raises(RecipeNotFoundError) as failure:
-        get_recipe("drupal")
+        get_recipe("bogus-recipe")
 
     assert "wordpress" in failure.value.details
     assert "noust recipe list" in failure.value.details
@@ -598,7 +598,7 @@ def test_the_api_lists_and_describes_recipes(client: TestClient) -> None:
     """GET /api/recipes and /api/recipes/{name}, 404 for an unknown one."""
     listed = client.get("/api/recipes")
     one = client.get("/api/recipes/wordpress")
-    missing = client.get("/api/recipes/drupal")
+    missing = client.get("/api/recipes/bogus-recipe")
 
     assert listed.status_code == 200, listed.text
     names = [item["name"] for item in listed.json()["items"]]
@@ -628,7 +628,7 @@ def test_post_apps_with_a_recipe_queues_it_with_the_recipe_type(
         {"recipe": "wordpress", "source": "https://github.com/o/r.git"},
         {"recipe": "wordpress", "app_type": "nextjs"},
         {"recipe": "joplin-server"},
-        {"recipe": "drupal"},
+        {"recipe": "bogus-recipe"},
         {},
     ],
     ids=["source", "type", "unavailable", "unknown", "neither"],

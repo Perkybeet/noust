@@ -45,7 +45,7 @@ def test_list_prints_the_catalogue_with_its_docker_badge_and_slogan() -> None:
 def test_list_json_carries_the_catalogue_fields_and_filters() -> None:
     """Search, category, tag and kind, as the API's."""
     everything = json.loads(run("recipe", "list", "--json").output)
-    found = json.loads(run("recipe", "list", "--json", "-q", "password manager").output)
+    found = json.loads(run("recipe", "list", "--json", "-q", "bitwarden manager").output)
     media = json.loads(run("recipe", "list", "--json", "--category", "media").output)
     tagged = json.loads(
         run("recipe", "list", "--json", "--category", "media", "--tag", "subsonic").output
@@ -135,7 +135,7 @@ def test_show_json_is_the_full_description() -> None:
     assert described["kind"] == "compose" and described["images"][0]["digest"].startswith("sha256:")
     assert {entry["name"] for entry in described["variables"]} == {"PUID", "PGID"}
     assert described["public_ports"][0]["port"] == 22000
-    assert run("recipe", "show", "drupal").exit_code != 0
+    assert run("recipe", "show", "bogus-recipe").exit_code != 0
 
 
 # ---------------------------------------------------------------------------
