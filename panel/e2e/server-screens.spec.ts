@@ -88,8 +88,12 @@ for (const language of ["en", "es"] as const) {
       // The reboot is the header's of the server's Status page (on System it is a card's, "Reboot...", beside the shutdown).
       await page.goto("/server");
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-      await page.getByRole("button", { name: language === "es" ? "Reiniciar" : "Reboot", exact: true }).click();
-      await expect(page.getByRole("dialog")).toBeVisible();
+      const reboot = page.getByRole("button", { name: language === "es" ? "Reiniciar" : "Reboot", exact: true });
+      await expect(reboot).toBeEnabled();
+      await settle(page);
+      await reboot.click();
+      // A reboot is asked as a confirmation: an alert dialog, not a plain one.
+      await expect(page.getByRole("alertdialog")).toBeVisible();
       await settle(page);
       await page.screenshot({ path: path.join(dir, "dialog-reboot.png") });
       await page.keyboard.press("Escape");

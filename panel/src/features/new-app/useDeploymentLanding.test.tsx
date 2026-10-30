@@ -12,7 +12,7 @@ const TARGET = { domain: "landing.example.net", jobId: "job-1" };
 function followed(status: string, deploymentId: number | null = null): FollowedJob {
   return {
     id: TARGET.jobId,
-    job: { id: TARGET.jobId, type: "deploy", name: "Deploy", description: "", status, progress: 100, total_steps: 100, current_step: "", created_at: "2026-10-30T10:00:00", logs: [], deployment_id: deploymentId } as FollowedJob["job"],
+    job: { id: TARGET.jobId, type: "deploy", name: "Deploy", description: "", status, progress: 100, total_steps: 100, current_step: "", created_at: "2026-10-30T10:00:00", logs: [], deployment_id: deploymentId } as unknown as FollowedJob["job"],
     follow: () => undefined,
     dismiss: () => undefined,
   };

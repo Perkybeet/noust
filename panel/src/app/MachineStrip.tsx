@@ -274,7 +274,8 @@ function FleetStrip({ className }: { className?: string | undefined }) {
               <span className="text-fg tabular-nums">{t("shell.fleetStrip.answering", { count: answering })}</span>
             </span>
             {down > 0 ? (
-              <span aria-hidden="true" className="inline-flex min-w-0 items-center gap-1 truncate text-13 font-medium whitespace-nowrap text-fail">
+              // Where not even the short word fits (a phone) the count is left out, not cut to "1 dow": the summary is the link's name.
+              <span aria-hidden="true" className="inline-flex min-w-0 items-center gap-1 truncate text-13 font-medium whitespace-nowrap text-fail @max-[7rem]:hidden">
                 <StatusGlyph state="failed" size={10} />
                 <span className="tabular-nums @max-[24rem]:hidden">{t("shell.fleetStrip.down", { count: down })}</span>
                 <span className="tabular-nums @min-[24rem]:hidden">{t("shell.fleetStrip.downShort", { count: down })}</span>
