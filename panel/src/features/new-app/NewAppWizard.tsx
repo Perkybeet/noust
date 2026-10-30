@@ -842,6 +842,7 @@ export function NewAppWizard() {
                 else actions.next.onClick();
               }}
               github={githubStatus}
+              githubReading={github.isPending}
               centralGithub={hasFleet}
               gitlab={gitlab.data ?? null}
               mode={sourceMode}

@@ -401,7 +401,7 @@ export function GitHubSource({ status, form, errors, onChange, disabled, central
       <LoadingRegion label={t("newApp.github.loadingRepositories")} className="flex flex-col gap-2">
         <Skeleton className="h-3 w-24" />
         <Skeleton className="h-8" />
-        <Skeleton className="h-40" />
+        <Skeleton className="h-64" />
       </LoadingRegion>
     );
   }

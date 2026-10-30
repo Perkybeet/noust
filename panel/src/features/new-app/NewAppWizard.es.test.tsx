@@ -80,7 +80,7 @@ describe("the new-app wizard in Spanish", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Origen" })).toBeInTheDocument();
     expect(screen.getByLabelText("Qué desplegar")).toHaveValue("");
     // The rest of the ways are one button away.
-    expect(screen.getByRole("button", { name: "Otras formas de empezar" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Otras formas de empezar" })).toBeInTheDocument();
     const steps = screen.getByRole("list", { name: "Pasos" });
     expect(within(steps).getByText("Configuración: sin empezar")).toBeInTheDocument();
 

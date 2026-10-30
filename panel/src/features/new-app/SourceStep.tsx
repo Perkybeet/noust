@@ -189,6 +189,8 @@ export interface SourceStepProps {
   onRetry: () => void;
   /** This server's GitHub integration; null while unknown or when it could not be read. */
   github: GitHubStatus | null;
+  /** GitHub's answer has not come yet: what stands under the repositories waits for it. */
+  githubReading?: boolean;
   /** This server's GitLab connections; null while unknown or when they could not be read. */
   gitlab: GitLabStatus | null;
   /** Where the source comes from: a repository the GitHub App reaches, or typed. */
@@ -239,6 +241,7 @@ export function SourceStep({
   onManual,
   onRetry,
   github,
+  githubReading = false,
   centralGithub = false,
   gitlab,
   mode,
@@ -391,6 +394,9 @@ export function SourceStep({
         </form>
       ) : null}
 
+      {/* Under the repositories, which are drawn once GitHub has said whether it is connected: what is below them
+          is not drawn before, so it is not moved down when they arrive. */}
+      <div hidden={githubReading} className="flex flex-col gap-6">
       {entry === "empty" || entry === "search" ? recipes(entry === "search" ? text : "", mode === "recipe" && entry === "empty") : null}
 
       <Disclosure label={t("newApp.box.otherWays")}>
@@ -484,6 +490,7 @@ export function SourceStep({
           </div>
         </div>
       </Disclosure>
+      </div>
 
       <CommandHint
         command={
