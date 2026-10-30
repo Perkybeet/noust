@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { ReactNode } from "react";
 
 import { ApiError } from "../api/errors";
 import {
@@ -13,6 +14,7 @@ import {
   QueryState,
   RelativeTime,
   ResourceMeter,
+  RestoreDialog,
   Section as PageSection,
   SegmentedControl,
   StatTile,
@@ -344,6 +346,84 @@ function Danger() {
   );
 }
 
+/** The words of a restore, as a caller says them: an application, a database. */
+const RESTORE_WORDS = {
+  into: "Restore into",
+  intoNew: "A new database",
+  intoNewHint: "Beside this one; nothing that exists is touched.",
+  intoReplace: "orders, replacing what it holds",
+  intoReplaceHint: "A safety copy is taken first.",
+  replaceNote: "Replaces what orders holds now with the dump. A safety copy is taken first and kept with its backups; anything written since is lost.",
+  newName: "Name of the new database",
+  newNameHelp: "Letters, digits and underscores.",
+  nameInvalid: "That name is not one the server accepts.",
+  actionReplace: "Restore over orders",
+  actionNew: "Restore into a new database",
+};
+
+function Restoring() {
+  const refuse = (): Promise<void> => Promise.reject(new ApiError(409, "conflict", "A restore of orders is already running", "Wait for it to finish, or cancel it from Activity."));
+  const common = {
+    title: "Restore a dump",
+    source: "From orders_2026-10-28.sql, on this server.",
+    words: RESTORE_WORDS,
+    isValidName: (name: string) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(name),
+  };
+  return (
+    <Section
+      id="restore"
+      title="Restore"
+      description="The one confirmation of a restore, for whatever is backed up. A new place is the default where that touches nothing, and asks one question; over what exists it says what is replaced and kept first and asks for the name. The words are the caller's, its own options are the dialog's children."
+    >
+      <Stage>
+        <Row>
+          <Item label="Into a new place by default (a database)">
+            <RestoreTrigger label="Restore a dump…">
+              {(open, setOpen) => <RestoreDialog {...common} open={open} onOpenChange={setOpen} existing="orders" defaultTarget="new" suggestion="orders_restored" onRestore={() => Promise.resolve()} />}
+            </RestoreTrigger>
+          </Item>
+          <Item label="Over what exists, with an option of its own">
+            <RestoreTrigger label="Restore over…">
+              {(open, setOpen) => (
+                <RestoreDialog
+                  {...common}
+                  open={open}
+                  onOpenChange={setOpen}
+                  existing="orders"
+                  defaultTarget="replace"
+                  options={(target) => (target === "replace" ? <p className="text-13 text-fg-muted">Its tables are dropped and made again.</p> : null)}
+                  onRestore={() => Promise.resolve()}
+                />
+              )}
+            </RestoreTrigger>
+          </Item>
+          <Item label="One instance, nothing new to choose (Redis)">
+            <RestoreTrigger label="Restore the instance…">
+              {(open, setOpen) => <RestoreDialog {...common} open={open} onOpenChange={setOpen} existing="orders" defaultTarget="replace" replaceOnly onRestore={() => Promise.resolve()} />}
+            </RestoreTrigger>
+          </Item>
+          <Item label="The restore is refused: the dialog stays open and says why">
+            <RestoreTrigger label="Refused…">
+              {(open, setOpen) => <RestoreDialog {...common} open={open} onOpenChange={setOpen} existing="orders" defaultTarget="replace" replaceOnly onRestore={refuse} />}
+            </RestoreTrigger>
+          </Item>
+        </Row>
+      </Stage>
+    </Section>
+  );
+}
+
+/** A button that holds one dialog's open state, so each gallery item opens its own. */
+function RestoreTrigger({ label, children }: { label: string; children: (open: boolean, setOpen: (open: boolean) => void) => ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button onClick={() => setOpen(true)}>{label}</Button>
+      {children(open, setOpen)}
+    </>
+  );
+}
+
 /** The page kit (src/components/page): what every page is built from, above the primitives. */
 export function PageKit() {
   return (
@@ -356,6 +436,7 @@ export function PageKit() {
       <Readings />
       <Terminal />
       <Danger />
+      <Restoring />
     </>
   );
 }

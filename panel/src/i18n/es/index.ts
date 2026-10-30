@@ -59,6 +59,7 @@ export { network } from "./network";
 export { newApp } from "./newApp";
 export { nodeTools } from "./nodeTools";
 export { notifyRouting } from "./notifyRouting";
+export { operation } from "./operation";
 export { overview } from "./overview";
 export { queue } from "./queue";
 export { placements } from "./placements";

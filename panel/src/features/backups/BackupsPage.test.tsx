@@ -317,9 +317,9 @@ describe("the Backups tab", () => {
 
     const dialog = await screen.findByRole("alertdialog", { name: "Restore a backup of shop.example.com" });
     expect(within(dialog).getByText("b-new")).toBeInTheDocument();
-    const restore = within(dialog).getByRole("button", { name: "Restore" });
+    const restore = within(dialog).getByRole("button", { name: "Restore over shop.example.com" });
     expect(restore).toBeDisabled();
-    expect(within(dialog).getByLabelText("Restore into")).toHaveValue("shop.example.com");
+    expect(within(dialog).getByRole("combobox", { name: "Restore into" })).toHaveTextContent("shop.example.com, replacing what it runs now");
     // What destroys more starts unchecked: the .env files there now are kept unless asked.
     expect(within(dialog).getByRole("checkbox", { name: /Restore \.env files/ })).not.toBeChecked();
     expect(within(dialog).getByRole("checkbox", { name: /Check its integrity first/ })).toBeChecked();

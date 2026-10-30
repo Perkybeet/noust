@@ -15,6 +15,7 @@ import { serverSentence } from "../../components/ui/ServerText";
 import { hasMessage } from "../../i18n";
 import type { PlainKey, T } from "../../i18n";
 import { parseTimestamp } from "../../lib/format";
+import type { RowOrigin } from "../fleet/data";
 
 export type { AuditEntry } from "../../api/queries/audit";
 export type ActivityJob = JobList["jobs"][number];
@@ -37,6 +38,8 @@ export interface AuditRow {
   entry: AuditEntry;
   /** A sign-in that went through the second factor: the "asked for the code" step before it is folded into it. */
   secondFactor?: boolean;
+  /** The server it happened on, when the list holds more than one. */
+  origin?: RowOrigin;
 }
 
 export type ActivityRow = JobRow | AuditRow;
@@ -49,15 +52,44 @@ function toJobRow(job: ActivityJob): ActivityRow {
   return { kind: "job", id: `job:${job.id}`, timestamp: jobTimestamp(job), job };
 }
 
-function toAuditRow(entry: AuditEntry, index: number): ActivityRow {
+function toAuditRow(entry: AuditEntry, index: number, origin?: RowOrigin): ActivityRow {
   // Entries carry no id of their own; the index breaks a tie between two entries recorded in
   // the same instant (two audited effects of one request), which the timestamp alone would not.
-  return { kind: "audit", id: `audit:${entry.timestamp}:${String(index)}`, timestamp: entry.timestamp, entry };
+  const row: AuditRow = { kind: "audit", id: `audit:${origin?.node ?? ""}:${entry.timestamp}:${String(index)}`, timestamp: entry.timestamp, entry };
+  return origin === undefined ? row : { ...row, origin };
+}
+
+/**
+ * The events of several servers as rows of one timeline: each with the server it happened on. A
+ * server's own events are what it recorded; the console reads them as it reads one server's.
+ */
+export function auditRowsOf(items: readonly { entry: AuditEntry; origin: RowOrigin }[]): ActivityRow[] {
+  return items.map((item, index) => toAuditRow(item.entry, index, item.origin));
 }
 
 /** The actor exactly as the backend recorded it, or null when a job predates that field. */
 export function rowActor(row: ActivityRow): string | null {
   return row.kind === "job" ? (row.job.actor ?? null) : row.entry.actor;
+}
+
+/**
+ * The person behind an event: the account's name, the same whether they acted in the console of the
+ * server itself or through a central (`marta` and `fleet-fra-1 on behalf of marta` are one person).
+ * A token, a terminal, a webhook and Noust itself are not people, and have none.
+ */
+export function personOf(entry: AuditEntry): string | null {
+  const who = entry.who;
+  if (who !== null && who !== undefined) {
+    return (who.kind === "user" || who.kind === "fleet") && who.name !== null && who.name !== undefined && who.name !== "" ? who.name : null;
+  }
+  return fleetActor(entry.actor)?.person ?? null;
+}
+
+/** Whether a row was done by this person: an audit entry by its account, a job by the label it was queued under. */
+export function doneBy(row: ActivityRow, person: string): boolean {
+  if (row.kind === "audit") return personOf(row.entry) === person;
+  const actor = row.job.actor ?? null;
+  return actor !== null && (actor === person || fleetActor(actor)?.person === person);
 }
 
 // ---------------------------------------------------------------------------------------
@@ -74,6 +106,8 @@ export interface MergeInput {
   auditComplete: boolean;
   /** Narrows to one actor's rows, applied after merging so it never affects the cutoff below. */
   actor?: string | undefined;
+  /** Narrows to what one person did, by their account's name, in the console or through a central. */
+  person?: string | undefined;
 }
 
 export interface MergedActivity {
@@ -114,7 +148,10 @@ export function withoutRequestEchoes(rows: readonly ActivityRow[]): ActivityRow[
     if (row.kind !== "audit" || !row.entry.action.startsWith("api.")) return true;
     const at = timeValue(row.timestamp);
     return !specific.some(
-      (other) => other.entry.resource === row.entry.resource && Math.abs(timeValue(other.timestamp) - at) <= ECHO_WINDOW_MS,
+      (other) =>
+        (other.origin?.node ?? "") === (row.origin?.node ?? "") &&
+        other.entry.resource === row.entry.resource &&
+        Math.abs(timeValue(other.timestamp) - at) <= ECHO_WINDOW_MS,
     );
   });
 }
@@ -147,6 +184,7 @@ export function foldSecondFactor(rows: readonly ActivityRow[]): ActivityRow[] {
     const match = signIns.find(
       (row) =>
         !confirmed.has(row.id) &&
+        (row.origin?.node ?? "") === (ask.origin?.node ?? "") &&
         (row.entry.client_ip ?? null) === (ask.entry.client_ip ?? null) &&
         timeValue(row.timestamp) >= at &&
         timeValue(row.timestamp) - at <= SECOND_FACTOR_WINDOW_MS,
@@ -158,19 +196,42 @@ export function foldSecondFactor(rows: readonly ActivityRow[]): ActivityRow[] {
   return rows.filter((row) => !answered.has(row.id)).map((row) => (row.kind === "audit" && confirmed.has(row.id) ? { ...row, secondFactor: true } : row));
 }
 
-export function mergeActivity({ jobs, jobsComplete, entries, auditComplete, actor }: MergeInput): MergedActivity {
+export function mergeActivity({ jobs, jobsComplete, entries, auditComplete, actor, person }: MergeInput): MergedActivity {
   const lastJob = jobs.at(-1);
   const jobFloor = jobsComplete || lastJob === undefined ? Number.NEGATIVE_INFINITY : timeValue(jobTimestamp(lastJob));
   const lastEntry = entries.at(-1);
   const auditFloor = auditComplete || lastEntry === undefined ? Number.NEGATIVE_INFINITY : timeValue(lastEntry.timestamp);
   const cutoff = Math.max(jobFloor, auditFloor);
 
-  const rows = foldSecondFactor(withoutRequestEchoes([...jobs.map(toJobRow), ...entries.map(toAuditRow)]))
+  const rows = foldSecondFactor(withoutRequestEchoes([...jobs.map(toJobRow), ...entries.map((entry, index) => toAuditRow(entry, index))]))
     .filter((row) => timeValue(row.timestamp) >= cutoff)
     .filter((row) => actor === undefined || rowActor(row) === actor)
+    .filter((row) => person === undefined || doneBy(row, person))
     .sort((a, b) => timeValue(b.timestamp) - timeValue(a.timestamp));
 
   return { rows, hasMore: !jobsComplete || !auditComplete };
+}
+
+/**
+ * The events of every server as one newest-first timeline. Each server answers its newest events
+ * and the page asks for more of all of them together, so the order is the same whatever the
+ * servers' number; only the narrowing to a person is left to do.
+ */
+export function fleetTimeline(items: readonly { entry: AuditEntry; origin: RowOrigin }[], person?: string, actor?: string): ActivityRow[] {
+  return foldSecondFactor(withoutRequestEchoes(auditRowsOf(items)))
+    .filter((row) => actor === undefined || rowActor(row) === actor)
+    .filter((row) => person === undefined || doneBy(row, person))
+    .sort((a, b) => timeValue(b.timestamp) - timeValue(a.timestamp));
+}
+
+/** The people who appear in a list of rows, by name: the choices of the person filter. */
+export function peopleIn(rows: readonly ActivityRow[]): string[] {
+  const names = new Set<string>();
+  for (const row of rows) {
+    const person = row.kind === "audit" ? personOf(row.entry) : fleetActor(row.job.actor ?? "")?.person ?? null;
+    if (person !== null) names.add(person);
+  }
+  return [...names].sort((a, b) => a.localeCompare(b));
 }
 
 // ---------------------------------------------------------------------------------------
@@ -433,6 +494,26 @@ export function actorSource(row: ActivityRow): string | null {
 // Which rows a view shows: operations (what was done to the server and its applications),
 // sign-ins and access, or everything.
 
+/** The audit events that put a new version in front of people (`noust.core.audit.catalog`). */
+const DEPLOYMENT_ACTIONS: ReadonlySet<string> = new Set([
+  "apps.create",
+  "apps.deploy",
+  "apps.update",
+  "apps.rollback",
+  "apps.migrate",
+  "hooks.deploy",
+  "deploys.scheduled",
+  "deploys.frozen_override",
+]);
+
+/** The jobs that do the same (`noust.web.jobs.JobType`). */
+const DEPLOYMENT_JOBS: ReadonlySet<string> = new Set(["deploy", "update", "rollback", "push", "migrate", "zero_downtime"]);
+
+/** Whether an audit event is a deployment. */
+export function isDeployment(entry: AuditEntry): boolean {
+  return DEPLOYMENT_ACTIONS.has(entry.action);
+}
+
 /** Categories of the audit catalog (`noust.core.audit.catalog`) that change something. */
 const OPERATION_CATEGORIES: ReadonlySet<string> = new Set(["change", "config", "account"]);
 /** Categories about who got in, who was refused, and who saw a secret. */
@@ -466,6 +547,7 @@ export function auditCategoriesFor(kind: ActivitySearch["kind"]): string[] | und
 /** Whether a row belongs to a view: jobs are operations; audit entries go by their category. */
 export function inKind(row: ActivityRow, kind: ActivitySearch["kind"]): boolean {
   if (kind === "all") return true;
+  if (kind === "deployments") return row.kind === "job" ? DEPLOYMENT_JOBS.has(row.job.type) : isDeployment(row.entry);
   if (row.kind === "job") return kind === undefined;
   const category = auditCategory(row.entry);
   return kind === "access" ? ACCESS_CATEGORIES.has(category) : OPERATION_CATEGORIES.has(category);
@@ -507,14 +589,18 @@ const AUDIT_RESULT_WORDS: Readonly<Record<string, PlainKey>> = {
 };
 
 export interface ActivitySearch {
-  /** The view: operations when absent, sign-ins and access, or everything. */
-  kind?: "access" | "all";
+  /** The view: every change when absent; only the deployments, sign-ins and access, or everything. */
+  kind?: "deployments" | "access" | "all";
   /** A job status or an audit result, whichever the view allows. */
   result?: string;
   /** Free text, matched against what each row shows and what the backend recorded. */
   q?: string;
   /** The exact actor value: `master`, `token:<name>`, `webhook`, `anonymous` or a session id. */
   actor?: string;
+  /** What one person did, by the name of their account. */
+  person?: string;
+  /** Only this server's events, on a central that has servers (`@central` for the central itself). */
+  server?: string;
 }
 
 /** Whether a result value means anything in a view: sign-ins have no jobs, so no job status. */
@@ -557,19 +643,23 @@ function text(value: unknown): string | undefined {
  */
 export function validateActivitySearch(search: Record<string, unknown>): ActivitySearch {
   const kindRaw = text(search["kind"]);
-  const kind = kindRaw === "access" || kindRaw === "all" ? kindRaw : kindRaw === "audit" ? "all" : undefined;
+  const kind = kindRaw === "deployments" || kindRaw === "access" || kindRaw === "all" ? kindRaw : kindRaw === "audit" ? "all" : undefined;
   const resultRaw = text(search["result"]);
   const result = resultRaw !== undefined && resultValidFor(resultRaw, kind) ? resultRaw : undefined;
   const q = text(search["q"]);
   const actor = text(search["actor"]);
+  const person = text(search["person"]);
+  const server = text(search["server"]);
   return {
     ...(kind !== undefined ? { kind } : {}),
     ...(result !== undefined ? { result } : {}),
     ...(q !== undefined ? { q } : {}),
     ...(actor !== undefined ? { actor } : {}),
+    ...(person !== undefined ? { person } : {}),
+    ...(server !== undefined ? { server } : {}),
   };
 }
 
 export function isFiltered(search: ActivitySearch): boolean {
-  return search.kind !== undefined || search.result !== undefined || search.q !== undefined || search.actor !== undefined;
+  return search.kind !== undefined || search.result !== undefined || search.q !== undefined || search.actor !== undefined || search.person !== undefined || search.server !== undefined;
 }

@@ -119,11 +119,11 @@ describe("the activity timeline", () => {
     expect(within(table).getByText("Request beyond a token's scope refused")).toBeInTheDocument();
   });
 
-  it("opens on operations: what was done, not who signed in", async () => {
+  it("opens on the changes: what was done, not who signed in", async () => {
     const { table } = await activityAt({}, "/activity");
     await within(table).findByText("shop.example.com");
     expect(within(table).queryByText("Sign-in")).not.toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "Operations" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Changes" })).toBeChecked();
   });
 
   it("asks the server for the view's categories, so a page of sign-ins never hides the jobs", async () => {
@@ -213,10 +213,10 @@ describe("the activity timeline", () => {
     expect(within(table).queryByText("Sign-in")).not.toBeInTheDocument();
   });
 
-  it("switches views through the URL: sign-ins and access leave the jobs out", async () => {
+  it("switches views through the URL: sign-ins leave the jobs out", async () => {
     const { table, location, user } = await activityAt({}, "/activity");
     await within(table).findByText("shop.example.com");
-    await user.click(screen.getByRole("radio", { name: "Sign-ins and access" }));
+    await user.click(screen.getByRole("radio", { name: "Sign-ins" }));
     await waitFor(() => {
       expect(location().search).toEqual({ kind: "access" });
     });
@@ -224,6 +224,55 @@ describe("the activity timeline", () => {
       expect(within(table).queryByText("shop.example.com")).not.toBeInTheDocument();
     });
     expect(within(table).getByText("Sign-in")).toBeInTheDocument();
+  });
+
+  it("narrows to the deployments: what put a version in front of people, and no other change", async () => {
+    const entries = [
+      { timestamp: "2026-09-25T10:00:00+00:00", action: "config.update", result: "success", actor: "master", client_ip: null, resource: "/api/config", detail: "updated ssl.email", category: "config" },
+      { timestamp: "2026-09-25T09:50:00+00:00", action: "apps.rollback", result: "success", actor: "master", client_ip: null, resource: "/api/apps/shop.example.com/rollback", detail: null, category: "change" },
+    ];
+    const { table, location, user } = await activityAt({ "GET /api/audit": () => json(200, { items: entries, next_before: null }) }, "/activity");
+    await within(table).findByText("Application rolled back");
+    expect(within(table).getByText("Settings changed in the console")).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "Deployments" }));
+    await waitFor(() => {
+      expect(location().search).toEqual({ kind: "deployments" });
+    });
+    await waitFor(() => {
+      expect(within(table).queryByText("Settings changed in the console")).not.toBeInTheDocument();
+    });
+    // The jobs that deploy and the rollback stay; the settings change does not.
+    expect(within(table).getByText("Application rolled back")).toBeInTheDocument();
+    expect(within(table).getByText("admin.example.com")).toBeInTheDocument();
+    expect(within(table).getAllByText("shop.example.com")).toHaveLength(2);
+  });
+
+  it("says what one person did, whether they acted at the console or through a central", async () => {
+    const who = (kind: string, name: string, via?: string) => ({ kind, name, id: name, role: "operator", source: null, via: via ?? null });
+    const entries = [
+      { timestamp: "2026-09-25T10:00:00+00:00", action: "config.update", result: "success", actor: "marta", who: who("user", "marta"), client_ip: null, resource: "/api/config", detail: "updated ssl.email", category: "config" },
+      { timestamp: "2026-09-25T09:50:00+00:00", action: "apps.restart", result: "success", actor: "fleet-fra-1 on behalf of marta", who: who("fleet", "marta", "fleet-fra-1"), client_ip: null, resource: "/api/apps/shop.example.com/restart", detail: null, category: "change" },
+      { timestamp: "2026-09-25T09:40:00+00:00", action: "apps.stop", result: "success", actor: "joan", who: who("user", "joan"), client_ip: null, resource: "/api/apps/blog.example.com/stop", detail: null, category: "change" },
+      { timestamp: "2026-09-25T09:30:00+00:00", action: "apps.deploy", result: "success", actor: "token:ci-deploy", who: who("token", "token:ci-deploy"), client_ip: null, resource: "/api/apps/admin.example.com", detail: null, category: "change" },
+    ];
+    const { table, location, user } = await activityAt({ "GET /api/jobs": () => json(200, { jobs: [], total: 0, active: 0 }), "GET /api/audit": () => json(200, { items: entries, next_before: null }) }, "/activity");
+    await within(table).findByText("Application stopped");
+    // The people who appear are the choices, once each: marta acted twice and by two ways.
+    await user.click(screen.getByRole("combobox", { name: "Person" }));
+    expect(await screen.findAllByRole("option")).toHaveLength(3);
+    expect(screen.getByRole("option", { name: "Everyone" })).toBeInTheDocument();
+    await user.click(screen.getByRole("option", { name: "marta" }));
+    await waitFor(() => {
+      expect(location().search).toEqual({ person: "marta" });
+    });
+    await waitFor(() => {
+      expect(within(table).queryByText("Application stopped")).not.toBeInTheDocument();
+    });
+    expect(within(table).getByText("Settings changed in the console")).toBeInTheDocument();
+    expect(within(table).getByText("Application restarted")).toBeInTheDocument();
+    // The one who acted through the central is named first, in the console's language: the person, then the central.
+    expect(within(table).getByText("marta (from the central fra-1)")).toBeInTheDocument();
+    expect(within(table).queryByText("Application deployed")).not.toBeInTheDocument();
   });
 
   it("searches by who, what and to what, through the URL", async () => {

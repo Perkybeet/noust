@@ -186,7 +186,7 @@ export const OUTCOME_VIEW: Readonly<Record<OutcomeKind, { state: Status; label: 
 };
 
 /** The servers whose answer is not fresh and complete, in the central's order. */
-export function troubled(view: FleetView | undefined): NodeOutcome[] {
+export function troubled(view: Pick<FleetView, "nodes"> | undefined): NodeOutcome[] {
   return (view?.nodes ?? []).filter((outcome) => outcome.status !== "ok");
 }
 

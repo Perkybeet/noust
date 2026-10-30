@@ -166,7 +166,8 @@ describe("the fleet's views", () => {
     await act(() => router.navigate({ to: "/fleet/backups" }));
     const backups = await rows("Backups of every application");
     expect(within(await rowOf(backups, "api.example.com")).getAllByText("No backup").length).toBeGreaterThan(0);
-    expect(screen.getByText(/1 without a backup/)).toBeInTheDocument();
+    // The gap leads the list: the application with nothing backed up says so in its own state.
+    expect(within(backups).getAllByRole("listitem")[0]).toHaveTextContent("api.example.com");
 
     await act(() => router.navigate({ to: "/fleet/updates" }));
     const updates = await rows("Noust and system updates of every server");
@@ -184,7 +185,8 @@ describe("the fleet's views", () => {
     expect(within(target).getByText("1 waits for its package to be published.")).toBeInTheDocument();
 
     await act(() => router.navigate({ to: "/fleet/activity" }));
-    const activity = await rows("What happened lately on every server");
+    const activity = await rows("Activity");
+    // The view opens on the changes: the update of web-2 and the central's restart, not the refused sign-in.
     expect(within(activity).getAllByRole("listitem")).toHaveLength(2);
     await expectNoAxeViolations(container, { page: true });
   });

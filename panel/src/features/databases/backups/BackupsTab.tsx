@@ -45,8 +45,8 @@ import { ImportDumpDialog } from "../import/ImportDumpDialog";
 import { VerifiedMark } from "../VerifiedMark";
 import { downloadDump } from "./download";
 import { PolicyDrawer } from "./PolicyDrawer";
-import { RestoreDialog } from "./RestoreDialog";
-import type { RestoreSource } from "./RestoreDialog";
+import { RestoreDumpDialog } from "./RestoreDumpDialog";
+import type { RestoreSource } from "./RestoreDumpDialog";
 import { policyScheduleWords, retentionWords } from "./schedule";
 import { coversEveryDatabase, leftOutLines } from "./scope";
 import type { PolicyScope } from "./scope";
@@ -601,7 +601,7 @@ export function BackupsTab({ engine, name }: { engine: string; name: string }) {
           onQueued={(accepted, database) => job.track(accepted, "restore", database)}
         />
       ) : null}
-      <RestoreDialog
+      <RestoreDumpDialog
         key={`restore:${restoring?.dump ?? "none"}`}
         engine={engine}
         name={name}

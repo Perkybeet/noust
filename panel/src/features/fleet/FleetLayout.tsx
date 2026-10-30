@@ -19,6 +19,12 @@ import { AddServer } from "./enroll/AddServer";
 import { FleetActionsProvider } from "./BulkActionDialog";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
+/**
+ * The faces of an area that is a page of its own (Activity, Backups): the same page as the area's, with
+ * its own header, a title of its own and the server filter, so the fleet's header is not drawn over it.
+ */
+const OWN_HEADER: ReadonlySet<string> = new Set(["/fleet/activity", "/fleet/backups"]);
+
 export interface FleetLayoutProps {
   /** Set when a hub was asked for one of the pages it does not have. */
   hub?: HubArea | "overview" | undefined;
@@ -50,6 +56,7 @@ export function FleetLayout({ hub, adding: addingProp, onAddingChange }: FleetLa
   const onAppsViews = useRouterState({ select: (state) => state.location.pathname === "/fleet/apps" || state.location.pathname === "/fleet/placements" });
   const onServers = useRouterState({ select: (state) => state.location.pathname === "/fleet/servers" });
   const onServersViews = useRouterState({ select: (state) => state.location.pathname === "/fleet/servers" || state.location.pathname === "/fleet/updates" });
+  const ownHeader = useRouterState({ select: (state) => OWN_HEADER.has(state.location.pathname) });
 
   const add = (
     <Button
@@ -70,6 +77,20 @@ export function FleetLayout({ hub, adding: addingProp, onAddingChange }: FleetLa
       {t("fleet.page.createAtProvider")}
     </Link>
   );
+
+  if (ownHeader && !empty) {
+    return (
+      <FleetActionsProvider>
+        <Outlet />
+        <AddServer
+          open={adding}
+          onClose={() => {
+            setAdding(false);
+          }}
+        />
+      </FleetActionsProvider>
+    );
+  }
 
   return (
     <FleetActionsProvider>

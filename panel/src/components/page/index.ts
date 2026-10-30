@@ -13,6 +13,8 @@ export type { ErrorBlockProps, QueryLike, QueryStateProps } from "./QueryState";
 export { RelativeTime } from "./RelativeTime";
 export type { RelativeTimeProps } from "./RelativeTime";
 export { ResourceMeter } from "./ResourceMeter";
+export { RestoreDialog } from "./RestoreDialog";
+export type { RestoreChoice, RestoreDialogProps, RestoreTarget, RestoreWords } from "./RestoreDialog";
 export type { ResourceMeterProps } from "./ResourceMeter";
 export { Section, Sections } from "./Section";
 export type { SectionProps } from "./Section";

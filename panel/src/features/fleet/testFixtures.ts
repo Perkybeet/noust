@@ -9,6 +9,7 @@ import type { SessionInfo } from "../../api/queries/auth";
 import { MACHINE, SESSION, json, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import type { CentralInfo } from "../central/central";
+import { ACTIVITY_ITEMS, BACKUPS_ITEMS, envelope } from "../operation/testFixtures";
 
 export const SSH_TIMEOUT = "ssh: connect to host db1.example.com port 22: Connection timed out";
 
@@ -201,18 +202,6 @@ export const CERTIFICATES_VIEW = view("certificates", [
   row("web-01", "/domains", { domain: "shop.example.com", domains: ["shop.example.com"], days_remaining: 80, expires_on: "2026-12-18", auto_renew: true, issuer: null }),
 ]);
 
-export const BACKUPS_VIEW = view("backups", [
-  row("web-2", "/backups?domain=api.example.com", { domain: "api.example.com", backups: 0, size: 0, last_backup: null, verified: "never", scheduled: false }),
-  row("web-01", "/backups?domain=shop.example.com", {
-    domain: "shop.example.com",
-    backups: 3,
-    size: 52_428_800,
-    last_backup: { timestamp: NOW, verified_ok: true },
-    verified: "ok",
-    scheduled: true,
-  }),
-]);
-
 export const UPDATES_VIEW = view(
   "updates",
   ["web-01", "web-2", "db-1", "old-1", "pub-1"].map((node) =>
@@ -230,11 +219,6 @@ export const UPDATES_VIEW = view(
     ),
   ),
 );
-
-export const ACTIVITY_VIEW = view("activity", [
-  row("web-2", "/activity", { timestamp: NOW, action: "deploy.update", actor: "token:ci", result: "success", resource: "app:api.example.com" }),
-  row("web-01", "/activity", { timestamp: THREE_MINUTES_AGO, action: "auth.login", actor: "master", result: "denied", resource: null }),
-]);
 
 export const ACTIONS = {
   actions: [
@@ -311,11 +295,11 @@ export function fleetRoutes(session: SessionInfo = centralSession(), nodes: unkn
     "GET /api/fleet/servers": () => json(200, SERVERS_VIEW),
     "GET /api/fleet/apps": () => json(200, APPS_VIEW),
     "GET /api/fleet/certificates": () => json(200, CERTIFICATES_VIEW),
-    "GET /api/fleet/backups": () => json(200, BACKUPS_VIEW),
     "GET /api/fleet/updates": () => json(200, UPDATES_VIEW),
-    "GET /api/fleet/activity": () => json(200, ACTIVITY_VIEW),
     "GET /api/fleet/metrics": () => json(200, METRICS_VIEW),
     "GET /api/fleet/logs": () => json(200, LOGS_VIEW),
+    "GET /api/views/activity": () => json(200, envelope("activity", ACTIVITY_ITEMS)),
+    "GET /api/views/backups": () => json(200, envelope("backups", BACKUPS_ITEMS)),
     "GET /api/fleet/actions": () => json(200, ACTIONS),
     "GET /api/fleet/jobs": () => json(200, { jobs: [{ ...JOB, nodes: null }] }),
     "GET /api/fleet/jobs/fj-1": () => json(200, JOB),
