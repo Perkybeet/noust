@@ -247,6 +247,50 @@ def test_only_an_owner_gives_or_takes_the_owner_role(accounts: AccountManager) -
     assert other.id == accounts.require("pedro").id
 
 
+def test_the_owner_role_is_not_given_by_making_or_inviting_an_account_either(
+    accounts: AccountManager,
+) -> None:
+    owner = accounts.create("maria", "admin", password=PASSWORD, first_account_is_owner=True)
+    admin = accounts.create("lucia", "admin", password=PASSWORD)
+
+    with pytest.raises(AccessError) as made:
+        accounts.create("pedro", None, roles=["viewer", "owner"], password=PASSWORD, by=admin)
+    with pytest.raises(AccessError) as invited:
+        accounts.invite("rosa", None, roles=["owner"], by=admin)
+    assert code_of(made.value) == code_of(invited.value) == "roles.owner_by_owner"
+    assert accounts.find("pedro") is None and accounts.find("rosa") is None
+
+    accounts.create("pedro", None, roles=["viewer", "owner"], password=PASSWORD, by=owner)
+    accounts.invite("rosa", None, roles=["owner"], by=owner)
+    # Root and the master token are no account, and a server that lost its owners gets one back.
+    accounts.create("sol", None, roles=["owner"], password=PASSWORD, by=None)
+    assert accounts.require("pedro").roles == ("viewer", "owner")
+    assert accounts.require("rosa").roles == ("owner",)
+    assert accounts.require("sol").roles == ("owner",)
+
+
+def test_a_recovery_invitation_does_not_hand_an_owners_account_to_somebody_who_is_not_one(
+    accounts: AccountManager,
+) -> None:
+    owner = accounts.create("maria", "admin", password=PASSWORD, first_account_is_owner=True)
+    admin = accounts.create("lucia", "admin", password=PASSWORD)
+    colleague = accounts.create("hugo", "admin", password=PASSWORD)
+    accounts.set_roles("hugo", ["admin", "owner"], by=owner)
+
+    with pytest.raises(AccessError) as caught:
+        accounts.check_grant(owner, admin, "issue a recovery invitation for")
+    assert code_of(caught.value) == "roles.owner_by_owner"
+    with pytest.raises(AccessError) as direct:
+        accounts.invite("maria", by=admin)
+    assert code_of(direct.value) == "roles.owner_by_owner"
+
+    # Another owner, root and the master token may; nobody recovers their own account.
+    accounts.check_grant(owner, accounts.require(colleague.username), "recover")
+    accounts.check_grant(owner, None, "recover")
+    accounts.invite("maria", by=accounts.require("hugo"))
+    accounts.invite("lucia", by=accounts.require("hugo"))
+
+
 # ----------------------------------------------- a server always keeps an owner it can reach
 
 

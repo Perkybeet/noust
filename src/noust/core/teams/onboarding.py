@@ -80,6 +80,7 @@ def create_in_team(
     display_name: str | None = None,
     person_ref: str | None = None,
     created_by: str | None = None,
+    by: Account | None = None,
 ) -> tuple[Account, Membership]:
     """
     Create an account with a password that belongs to one team and not the default.
@@ -94,6 +95,7 @@ def create_in_team(
         display_name: How the console greets them.
         person_ref: Who the account belongs to.
         created_by: Who is creating it.
+        by: The account asking (a token's owner); None for root and the master token.
 
     Returns:
         The account and its membership.
@@ -101,6 +103,7 @@ def create_in_team(
     Raises:
         TeamNotFoundError: When the team does not exist.
         ValidationError: When anything is refused before the account exists.
+        AccessError: When the owner role is asked for by an account that is not an owner.
     """
     owner, chosen = _plan(accounts, username, role, team, team_role)
     account = accounts.create(
@@ -111,6 +114,7 @@ def create_in_team(
         person_ref=person_ref,
         created_by=created_by,
         join_default_team=False,
+        by=by,
     )
     membership = TeamStore(accounts.store).add_member(
         owner.slug, account.username, chosen, created_by=created_by
@@ -130,6 +134,7 @@ def invite_to_team(
     created_by: str | None = None,
     expires_hours: float | None = None,
     email: str | None = None,
+    by: Account | None = None,
 ) -> tuple[Account, str, Membership]:
     """
     Invite a person to one team: they set their own password, and join only it.
@@ -145,6 +150,7 @@ def invite_to_team(
         created_by: Who is inviting.
         expires_hours: How long the code lasts; the manager's default when omitted.
         email: Where the invitation is mailed; kept on the new account.
+        by: The account asking (a token's owner); None for root and the master token.
 
     Returns:
         The account, the invitation code (shown once) and the membership.
@@ -152,6 +158,7 @@ def invite_to_team(
     Raises:
         TeamNotFoundError: When the team does not exist.
         ValidationError: When anything is refused before the account exists.
+        AccessError: When the owner role is asked for by an account that is not an owner.
     """
     owner, chosen = _plan(accounts, username, role, team, team_role)
     options: dict[str, Any] = {} if expires_hours is None else {"expires_hours": expires_hours}
@@ -163,6 +170,7 @@ def invite_to_team(
         created_by=created_by,
         join_default_team=False,
         email=email,
+        by=by,
         **options,
     )
     membership = TeamStore(accounts.store).add_member(
