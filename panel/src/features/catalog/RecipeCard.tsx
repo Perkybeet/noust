@@ -6,11 +6,14 @@ import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Disclosure } from "../../components/ui/Disclosure";
 import { ExternalLink } from "../../components/ui/ExternalLink";
+import { ServerText } from "../../components/ui/ServerText";
+import { StatusGlyph, stateTextClass } from "../../components/ui/StatusPill";
+import { SystemOutput } from "../../components/ui/SystemOutput";
 import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { formatDate } from "../../lib/format";
-import { DEPENDENCY_LABELS, categoryLabelKey, dayOf, versionLabel } from "./model";
+import { DEPENDENCY_LABELS, categoryLabelKey, codedOf, dayOf, versionLabel } from "./model";
 import { RecipeLogo } from "./RecipeLogo";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
@@ -56,6 +59,62 @@ export interface RecipeCardProps {
   detail?: boolean;
   /** The heading level of its name: 2 directly under a page's title, 3 inside a step's section. */
   level?: 2 | 3;
+}
+
+/**
+ * A recipe that is the same as root on the server (it drives Docker's socket, or runs an agent with
+ * the server's keys) says so on its tile, in a sentence and not a colour: nobody should meet it first
+ * in the install form. Installing it asks the person to accept it there.
+ */
+function RootEquivalentNote({ recipe }: { recipe: RecipeSummary }) {
+  if (recipe.root_equivalent === null || recipe.root_equivalent === undefined) return null;
+  return (
+    <p className="flex items-start gap-1.5 text-12 text-pretty text-fg">
+      <StatusGlyph state="warning" size={12} className={`mt-0.5 shrink-0 ${stateTextClass("warning")}`} />
+      <span>
+        <ServerText coded={codedOf(recipe.root_equivalent_warning)} text={recipe.root_equivalent_text ?? null} />
+      </span>
+    </p>
+  );
+}
+
+/**
+ * Why a recipe cannot be installed here, listed and not hidden: the reason in the console's words, what to do
+ * instead, the recipe that replaces it when there is one, and what the check found, folded and verbatim.
+ */
+function UnavailableNote({ recipe }: { recipe: RecipeSummary }) {
+  const t = useT();
+  const coded = codedOf(recipe.unavailable);
+  const evidence = recipe.unavailable_reason;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="flex items-center gap-1.5 text-12 font-medium text-fg">
+        <Ban aria-hidden="true" className="size-icon-sm shrink-0 text-fg-muted" />
+        {t("newApp.recipes.unavailable")}
+      </span>
+      {(recipe.unavailable_text ?? "") !== "" ? (
+        <p className="text-12 text-pretty text-fg">
+          <ServerText coded={coded} text={recipe.unavailable_text ?? null} />
+        </p>
+      ) : null}
+      {/* A recipe that has a replacement says it as a link: its generic "use the recipe that replaces it" is not said again. */}
+      {(recipe.unavailable_hint ?? "") !== "" && (recipe.replaced_by ?? "") === "" ? (
+        <p className="text-12 text-pretty text-fg-muted">
+          <ServerText coded={coded} text={recipe.unavailable_hint ?? null} part="hint" />
+        </p>
+      ) : null}
+      {recipe.replaced_by !== null && recipe.replaced_by !== undefined && recipe.replaced_by !== "" ? (
+        <TextLink to="/catalog/$name" params={{ name: recipe.replaced_by }} size="inline">
+          {t("catalog.card.useInstead", { name: recipe.replaced_by })}
+        </TextLink>
+      ) : null}
+      {evidence !== null && evidence !== undefined && evidence !== "" ? (
+        <Disclosure label={t("catalog.card.evidence")}>
+          <SystemOutput label={t("catalog.card.evidence")}>{evidence}</SystemOutput>
+        </Disclosure>
+      ) : null}
+    </div>
+  );
 }
 
 /** Everything a recipe says about itself that a tile leaves out: what it runs as, its tags, what it needs, its sites. */
@@ -176,15 +235,7 @@ export function RecipeCard({ recipe, opening = false, disabled = false, onChoose
       className="h-full"
     >
       <div className="flex min-w-0 flex-col gap-2">
-        {recipe.available ? null : (
-          <div className="flex flex-col gap-1">
-            <span className="flex items-center gap-1.5 text-12 font-medium text-fg">
-              <Ban aria-hidden="true" className="size-icon-sm shrink-0 text-fg-muted" />
-              {t("newApp.recipes.unavailable")}
-            </span>
-            {recipe.unavailable_reason ? <p className="text-12 text-pretty text-fg-muted">{recipe.unavailable_reason}</p> : null}
-          </div>
-        )}
+        {recipe.available ? <RootEquivalentNote recipe={recipe} /> : <UnavailableNote recipe={recipe} />}
         {detail ? null : (
           <Disclosure label={t("catalog.card.details")}>
             <RecipeFacts recipe={recipe} />

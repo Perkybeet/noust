@@ -8,6 +8,24 @@ import type { InstalledRecipe, RecipeFilters, RecipeSummary } from "../../api/qu
 import type { PlainKey } from "../../i18n";
 
 /**
+ * A sentence the server says as a code and its values (`unavailable`, `root_equivalent_warning`), read from
+ * the open object the recipe's summary carries it in: null for anything that is not one, so a newer server's
+ * other shape shows its English text instead of failing.
+ */
+export function codedOf(value: unknown): { code: string; params: Record<string, string | number | boolean> } | null {
+  if (typeof value !== "object" || value === null) return null;
+  const { code, params } = value as { code?: unknown; params?: unknown };
+  if (typeof code !== "string") return null;
+  const values: Record<string, string | number | boolean> = {};
+  if (typeof params === "object" && params !== null) {
+    for (const [name, entry] of Object.entries(params)) {
+      if (typeof entry === "string" || typeof entry === "number" || typeof entry === "boolean") values[name] = entry;
+    }
+  }
+  return { code, params: values };
+}
+
+/**
  * The categories a recipe may be in, in the order the filter lists them. The list is closed on
  * purpose (docs/recipes.md): Coolify's free text ended up with 38 spellings of it. A category
  * the server sends that is not here (a newer server) is shown as it is, never dropped.
