@@ -41,5 +41,5 @@ export const serverPorts = {
     firewall: "Firewall",
     interfaces: "Interfaces",
   },
-  publishedElsewhere: "An application reached on a port of its own, and not as a website, is published in {link}.",
+  publishedElsewhere: "An application reached on a port of its own, and not as a website, is published from Domains, under {link}.",
 } as const;

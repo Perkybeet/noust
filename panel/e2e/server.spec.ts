@@ -11,7 +11,9 @@ import { confirmItsYou } from "./settings.helpers";
 test("the overview puts what needs attention first, and fits the first screen", async ({ page, consoleServer }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, consoleServer, "/server");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Server");
+  // A server's page is titled by the server: the machine's own name, which the session carries.
+  const { hostname } = (await (await page.request.get("/api/auth/session")).json()) as { hostname: string };
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(hostname);
   const attention = page.getByRole("list", { name: "What needs attention" });
   await expect(attention.getByText(/security updates are pending/)).toBeVisible();
   await expect(attention.getByText(/A reboot is needed to finish updating/)).toBeVisible();
@@ -108,6 +110,8 @@ test("the security tab shows its findings, SSH as it runs, the firewall against 
   await settle(page);
   await expectNoA11yViolations(page, "the firewall view");
 
+  // The bans stay with Security: back to it for the last view.
+  await page.goto("/server/security");
   await page.getByRole("radio", { name: "Brute force" }).click();
   await expect(page.getByRole("list", { name: "Addresses banned by sshd" }).getByText("185.220.101.4")).toBeVisible();
   await settle(page);

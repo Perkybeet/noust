@@ -64,7 +64,8 @@ test("Network and ports: who uses a port, a free one is offered to open, the fir
   await search.fill(String(application?.port));
   const table = page.getByRole("table", { name: "Ports and what uses them" });
   await expect(table.getByRole("row").filter({ hasText: application?.owner ?? "" }).first()).toBeVisible();
-  await expect(page).toHaveURL(new RegExp(`q=${String(application?.port)}`));
+  // The router writes a number typed in a search box as a JSON string: q="3000".
+  await expect(page).toHaveURL(new RegExp(`q=(%22)?${String(application?.port)}`));
 
   await search.fill("65001");
   await expect(page.getByText("Nothing on this server uses port 65001.")).toBeVisible();
@@ -102,7 +103,8 @@ test("Web server: both servers and what is behind each, and the move says what i
   await expect(dialog.getByText(/ports 80 and 443/).first()).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the plan of moving to the other web server");
-  await dialog.getByRole("button", { name: /^(Close|Cancel)$/ }).click();
+  // The dialog's corner button and the footer's say the same: either closes it.
+  await dialog.getByRole("button", { name: /^(Close|Cancel)$/ }).last().click();
   await expect(dialog).toBeHidden();
 });
 

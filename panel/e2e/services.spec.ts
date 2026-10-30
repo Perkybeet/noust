@@ -9,7 +9,9 @@ import { confirmItsYou } from "./settings.helpers";
 
 test("lists a seeded Noust-managed service in the Server area and opens its page", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/server/services");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Server");
+  // A server's page is titled by the server: the machine's own name, which the session carries.
+  const { hostname } = (await (await page.request.get("/api/auth/session")).json()) as { hostname: string };
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(hostname);
   await expect(page.getByRole("navigation", { name: "Server sections" }).getByRole("link", { name: "Services" })).toHaveAttribute("aria-current", "page");
 
   const table = page.getByRole("region", { name: /^Services/ });

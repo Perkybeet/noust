@@ -341,7 +341,7 @@ withFleet("the old Settings > Servers address is the fleet's list, and the add f
 
 withFleet("Fleet > Servers shows the node and the add flow's first step", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/fleet/servers");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Fleet");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Servers");
 
   const table = page.getByRole("region", { name: "Servers of this fleet" });
   const row = table.getByRole("row").filter({ hasText: NODE_NAME });

@@ -43,5 +43,5 @@ export const serverPorts: Catalog<typeof en> = {
     firewall: "Cortafuegos",
     interfaces: "Interfaces",
   },
-  publishedElsewhere: "Una aplicación a la que se llega por un puerto propio, y no como página web, se publica en {link}.",
+  publishedElsewhere: "Una aplicación a la que se llega por un puerto propio, y no como página web, se publica desde Dominios, en {link}.",
 };
