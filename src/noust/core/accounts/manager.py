@@ -1056,9 +1056,7 @@ class AccountManager:
         """
         account = self.require(username)
         first = self._validated_roles(role)[0]
-        return self.set_roles(
-            username, [first, *(name for name in account.roles[1:] if name != first)], by=by
-        )
+        return self.set_roles(username, role_rules.with_first_role(account.roles, first), by=by)
 
     def set_roles(
         self,

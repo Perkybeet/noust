@@ -51,6 +51,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, cast
 
+from noust.core.accounts.approval_roles import BodyCheck, changes_account_roles
 from noust.core.accounts.model import ROLE_ADMIN, ROLE_SECURITY
 from noust.core.exceptions import PermissionError as NoustPermissionError
 from noust.core.exceptions import SecurityError
@@ -441,17 +442,18 @@ def _accounts_exist(_body: Any, _params: Mapping[str, str]) -> bool:
     return AccountManager().any_exist()
 
 
-def _changes_role(body: Any, params: Mapping[str, str]) -> bool:
-    if not isinstance(body, Mapping) or not isinstance(body.get("role"), str):
-        return False
-    from noust.core.accounts.manager import AccountManager
+#: Every way to set the roles of an account is the same decision, so they share one rule.
+_ROLE_CHANGE = ApprovalRule("user.role_change", KIND_ROLE_CHANGE, "Changing an account's role.")
 
-    account = AccountManager().find(str(params.get("username") or ""))
-    return account is not None and account.role != body["role"].strip().lower()
-
+#: A role at a scope and a built-in role on a whole team are the same grant through two doors.
+_ACCESS_GRANT = ApprovalRule(
+    "access.grant",
+    KIND_ROLE_CHANGE,
+    "Giving an account a role on the server, a team, a project or an environment.",
+)
 
 #: Routes that need one by what their body asks.
-BODY_RULES: dict[tuple[str, str], tuple[ApprovalRule, Callable[[Any, Mapping[str, str]], bool]]] = {
+BODY_RULES: dict[tuple[str, str], tuple[ApprovalRule, BodyCheck]] = {
     ("POST", "/api/databases/query"): (
         ApprovalRule("db.query.write", KIND_INFRASTRUCTURE, "A SQL statement that may write."),
         _writes_sql,
@@ -472,24 +474,15 @@ BODY_RULES: dict[tuple[str, str], tuple[ApprovalRule, Callable[[Any, Mapping[str
         ),
         _analyzes,
     ),
-    ("PATCH", "/api/auth/accounts/{username}"): (
-        ApprovalRule("user.role_change", KIND_ROLE_CHANGE, "Changing an account's role."),
-        _changes_role,
-    ),
+    ("PATCH", "/api/auth/accounts/{username}"): (_ROLE_CHANGE, changes_account_roles),
+    ("PUT", "/api/auth/accounts/{username}/roles"): (_ROLE_CHANGE, changes_account_roles),
     ("POST", "/api/auth/accounts"): (
         ApprovalRule(
             "user.create", KIND_ROLE_CHANGE, "Creating an account, with the role it is given."
         ),
         _accounts_exist,
     ),
-    ("POST", "/api/access/bindings"): (
-        ApprovalRule(
-            "access.grant",
-            KIND_ROLE_CHANGE,
-            "Giving an account a role on the server, a team, a project or an environment.",
-        ),
-        _accounts_exist,
-    ),
+    ("POST", "/api/access/bindings"): (_ACCESS_GRANT, _accounts_exist),
     ("POST", "/api/auth/invitations"): (
         ApprovalRule(
             "user.invite",
@@ -565,7 +558,7 @@ def rule_for(
 _CONDITIONS: dict[str, str] = {
     "db.query.write": "mode is 'write'",
     "apps.local_source": "source is a directory of this server",
-    "user.role_change": "role differs from the account's",
+    "user.role_change": "role or roles differ from the account's",
     "db.query.analyze": "analyze is true",
     "user.create": "an account already exists",
     "user.invite": "an account already exists",

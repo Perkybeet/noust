@@ -152,6 +152,12 @@ class Person:
     def patch(self, path: str, body: Any, **headers: str) -> Any:
         return self.client.patch(path, json=body, headers=self.headers(**headers))
 
+    def put(self, path: str, body: Any, **headers: str) -> Any:
+        return self.client.put(path, json=body, headers=self.headers(**headers))
+
+    def delete(self, path: str, **headers: str) -> Any:
+        return self.client.delete(path, headers=self.headers(**headers))
+
 
 def allow_root_equivalent_from_centrals() -> None:
     """A cron command runs as root: a central reaches it only with host access."""
@@ -364,6 +370,248 @@ class TestRoleChanges:
         sam.elevate()
         response = sam.patch("/api/auth/accounts/maria", {"display_name": "María"})
         assert response.status_code == 200, response.text
+
+
+def role_changes() -> list[dict[str, Any]]:
+    return [entry for entry in audit_actions() if entry["action"] == "user.role_change"]
+
+
+class TestSeveralRolesWaitForASecondPerson:
+    """
+    The roles of an account are one thing however they arrive.
+
+    ``PATCH`` with ``role`` always waited; ``PUT .../roles`` and ``PATCH`` with ``roles`` did not,
+    so whoever manages accounts could hand out any role, ``owner`` included, alone.
+    """
+
+    ROLES = "/api/auth/accounts/maria/roles"
+    ACCOUNT = "/api/auth/accounts/maria"
+
+    @staticmethod
+    def maria_holds() -> tuple[str, ...]:
+        return AccountManager().require("maria").roles
+
+    def test_setting_the_roles_waits_for_another_person_and_runs_once(
+        self, app: Any, policy: dict[str, Any]
+    ) -> None:
+        get_token_manager().accounts.create("maria", "operator", password=PASSWORD)
+        sam = Person(app, "sam", "security")
+        tess = Person(app, "tess", "security")
+        sam.elevate()
+        wanted = {"roles": ["operator", "admin"]}
+
+        asked = sam.put(self.ROLES, wanted)
+        assert asked.status_code == 202, asked.text
+        assert asked.json()["error"] == "approval_required"
+        approval_id = asked.headers["X-Noust-Approval-Request"]
+        assert self.maria_holds() == ("operator",)
+        assert role_changes() == []
+        request = sam.client.get(f"/api/approvals/{approval_id}").json()
+        assert request["action"] == "user.role_change" and request["kind"] == "role_change"
+        assert request["method"] == "PUT" and request["path"] == self.ROLES
+
+        tess.elevate()
+        assert tess.post(f"/api/approvals/{approval_id}/approve", {}).status_code == 200
+        done = sam.put(self.ROLES, wanted, **{"X-Noust-Approval": approval_id})
+        assert done.status_code == 200, done.text
+        assert self.maria_holds() == ("operator", "admin")
+        assert len(role_changes()) == 1
+        assert "operator -> operator, admin" in role_changes()[0]["detail"]
+
+        # Sent again with the roles already in place it changes nothing, so it records nothing...
+        again = sam.put(self.ROLES, wanted, **{"X-Noust-Approval": approval_id})
+        assert again.status_code == 200, again.text
+        assert len(role_changes()) == 1
+        # ...but the approval does not run the change a second time once the roles are other again.
+        get_token_manager().accounts.set_roles("maria", ["operator"])
+        replay = sam.put(self.ROLES, wanted, **{"X-Noust-Approval": approval_id})
+        assert replay.status_code == 409 and replay.json()["error"] == "approval_used"
+        assert self.maria_holds() == ("operator",)
+        assert len(role_changes()) == 1
+        use = [entry for entry in audit_actions() if entry["action"] == "approval.use"]
+        assert len(use) == 1 and use[0]["details"]["approved_by"]["name"] == "tess"
+
+    def test_the_approval_is_for_those_roles_and_no_others(
+        self, app: Any, policy: dict[str, Any]
+    ) -> None:
+        get_token_manager().accounts.create("maria", "operator", password=PASSWORD)
+        sam = Person(app, "sam", "security")
+        tess = Person(app, "tess", "security")
+        sam.elevate()
+        tess.elevate()
+        approval_id = sam.put(self.ROLES, {"roles": ["operator", "viewer"]}).headers[
+            "X-Noust-Approval-Request"
+        ]
+        tess.post(f"/api/approvals/{approval_id}/approve", {})
+
+        swapped = sam.put(
+            self.ROLES, {"roles": ["operator", "admin"]}, **{"X-Noust-Approval": approval_id}
+        )
+        assert swapped.status_code == 409 and swapped.json()["error"] == "approval_mismatch"
+        assert self.maria_holds() == ("operator",)
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {"roles": ["operator", "admin"]},
+            # The two fields at once: whichever the handler applies, the one that changes
+            # something is enough, and neither can be used to slip the other through.
+            {"role": "operator", "roles": ["operator", "admin"]},
+            {"role": "admin", "roles": ["operator", "admin"]},
+            {"role": "admin", "roles": ["operator"]},
+            {"role": "admin"},
+            {"display_name": "Maria", "roles": ["operator", "admin"]},
+        ],
+    )
+    def test_the_account_patch_waits_for_roles_as_it_does_for_a_role(
+        self, app: Any, policy: dict[str, Any], body: dict[str, Any]
+    ) -> None:
+        get_token_manager().accounts.create("maria", "operator", password=PASSWORD)
+        sam = Person(app, "sam", "security")
+        sam.elevate()
+        asked = sam.patch(self.ACCOUNT, body)
+        assert asked.status_code == 202, asked.text
+        assert self.maria_holds() == ("operator",)
+        assert AccountManager().require("maria").display_name != "Maria"
+        assert role_changes() == []
+
+    def test_a_patch_with_roles_runs_once_approved(self, app: Any, policy: dict[str, Any]) -> None:
+        get_token_manager().accounts.create("maria", "operator", password=PASSWORD)
+        sam = Person(app, "sam", "security")
+        tess = Person(app, "tess", "security")
+        sam.elevate()
+        body = {"roles": ["operator", "admin"]}
+        approval_id = sam.patch(self.ACCOUNT, body).headers["X-Noust-Approval-Request"]
+        tess.elevate()
+        tess.post(f"/api/approvals/{approval_id}/approve", {})
+        done = sam.patch(self.ACCOUNT, body, **{"X-Noust-Approval": approval_id})
+        assert done.status_code == 200, done.text
+        assert self.maria_holds() == ("operator", "admin")
+        assert len(role_changes()) == 1
+
+    @pytest.mark.parametrize(
+        "roles",
+        [["operator"], [" Operator "], ["operator", "operator"]],
+    )
+    def test_roles_that_stay_as_they_are_ask_nothing(
+        self, app: Any, policy: dict[str, Any], roles: list[str]
+    ) -> None:
+        get_token_manager().accounts.create("maria", "operator", password=PASSWORD)
+        sam = Person(app, "sam", "security")
+        sam.elevate()
+        for call in (
+            sam.put(self.ROLES, {"roles": roles}),
+            sam.patch(self.ACCOUNT, {"roles": roles}),
+            sam.patch(self.ACCOUNT, {"role": "operator"}),
+        ):
+            assert call.status_code == 200, call.text
+        assert sam.client.get("/api/approvals").json()["approvals"] == []
+        assert self.maria_holds() == ("operator",)
+
+    def test_putting_back_the_roles_an_account_holds_asks_nothing_either(
+        self, app: Any, policy: dict[str, Any]
+    ) -> None:
+        get_token_manager().accounts.create("maria", "operator", password=PASSWORD)
+        get_token_manager().accounts.set_roles("maria", ["operator", "admin"])
+        sam = Person(app, "sam", "security")
+        sam.elevate()
+        same = sam.put(self.ROLES, {"roles": ["operator", "admin"]})
+        assert same.status_code == 200, same.text
+        assert sam.client.get("/api/approvals").json()["approvals"] == []
+
+    def test_taking_a_role_away_or_reordering_them_is_a_change_too(
+        self, app: Any, policy: dict[str, Any]
+    ) -> None:
+        # The role an account is known by decides who it is to an approval (a security officer
+        # decides, an operator does not), so a reorder or a removal is not a harmless edit.
+        get_token_manager().accounts.create("maria", "operator", password=PASSWORD)
+        get_token_manager().accounts.set_roles("maria", ["operator", "admin"])
+        sam = Person(app, "sam", "security")
+        sam.elevate()
+        for roles in (["admin", "operator"], ["operator"]):
+            asked = sam.put(self.ROLES, {"roles": roles})
+            assert asked.status_code == 202, (roles, asked.text)
+        assert self.maria_holds() == ("operator", "admin")
+
+    def test_a_request_that_the_handler_would_refuse_is_not_filed(
+        self, app: Any, policy: dict[str, Any]
+    ) -> None:
+        get_token_manager().accounts.create("maria", "operator", password=PASSWORD)
+        sam = Person(app, "sam", "security")
+        sam.elevate()
+        unknown = sam.put("/api/auth/accounts/nobody/roles", {"roles": ["admin"]})
+        assert unknown.status_code == 404, unknown.text
+        no_roles = sam.put(self.ROLES, {"roles": []})
+        assert no_roles.status_code == 422, no_roles.text
+        assert sam.client.get("/api/approvals").json()["approvals"] == []
+
+    def test_an_admin_never_approves_it(self, app: Any, policy: dict[str, Any]) -> None:
+        policy["approvers"] = ("security", "admin")
+        get_token_manager().accounts.create("maria", "operator", password=PASSWORD)
+        sam = Person(app, "sam", "security")
+        alice = Person(app, "alice", "admin")
+        sam.elevate()
+        alice.elevate()
+        approval_id = sam.put(self.ROLES, {"roles": ["admin"]}).headers["X-Noust-Approval-Request"]
+        refused = alice.post(f"/api/approvals/{approval_id}/approve", {})
+        assert refused.status_code in (403, 404), refused.text
+        assert self.maria_holds() == ("operator",)
+
+    def test_the_owner_role_is_handed_over_through_a_second_person_and_by_an_owner(
+        self, app: Any, policy: dict[str, Any]
+    ) -> None:
+        get_token_manager().accounts.create("maria", "operator", password=PASSWORD)
+        olga = Person(app, "olga", "owner")
+        sam = Person(app, "sam", "security")
+        tess = Person(app, "tess", "security")
+        olga.elevate()
+        sam.elevate()
+        tess.elevate()
+        wanted = {"roles": ["operator", "owner"]}
+
+        # An owner asks, a security officer decides: nobody holds the owner role alone.
+        asked = olga.put(self.ROLES, wanted)
+        assert asked.status_code == 202, asked.text
+        approval_id = asked.headers["X-Noust-Approval-Request"]
+        assert self.maria_holds() == ("operator",)
+        assert sam.post(f"/api/approvals/{approval_id}/approve", {}).status_code == 200
+        done = olga.put(self.ROLES, wanted, **{"X-Noust-Approval": approval_id})
+        assert done.status_code == 200, done.text
+        assert self.maria_holds() == ("operator", "owner")
+
+        # A second person's word does not replace the owner rule: a security officer who is not an
+        # owner still cannot hand the role over, approved or not.
+        get_token_manager().accounts.create("nora", "operator", password=PASSWORD)
+        nora = {"roles": ["operator", "owner"]}
+        ask = sam.put("/api/auth/accounts/nora/roles", nora)
+        assert ask.status_code == 202, ask.text
+        second = ask.headers["X-Noust-Approval-Request"]
+        assert tess.post(f"/api/approvals/{second}/approve", {}).status_code == 200
+        refused = sam.put("/api/auth/accounts/nora/roles", nora, **{"X-Noust-Approval": second})
+        assert refused.status_code == 400, refused.text
+        assert AccountManager().require("nora").roles == ("operator",)
+
+    def test_nothing_changes_while_approvals_are_off(self, app: Any) -> None:
+        get_token_manager().accounts.create("maria", "operator", password=PASSWORD)
+        sam = Person(app, "sam", "security")
+        sam.elevate()
+        done = sam.put(self.ROLES, {"roles": ["operator", "admin"]})
+        assert done.status_code == 200, done.text
+        assert self.maria_holds() == ("operator", "admin")
+
+    def test_the_policy_names_the_routes_and_what_they_wait_for(
+        self, app: Any, policy: dict[str, Any]
+    ) -> None:
+        viewer = Person(app, "vera", "viewer")
+        rules = viewer.client.get("/api/approvals/policy").json()["rules"]
+        by_route = {(rule["method"], rule["template"]): rule for rule in rules}
+        for route in (
+            ("PUT", "/api/auth/accounts/{username}/roles"),
+            ("PATCH", "/api/auth/accounts/{username}"),
+        ):
+            assert by_route[route]["action"] == "user.role_change"
+            assert by_route[route]["kind"] == "role_change"
+            assert "roles" in by_route[route]["when"]
 
 
 class TestTheAnswerSaysWhichControlAsks:

@@ -395,3 +395,25 @@ def test_one_person_cannot_hold_accounts_whose_roles_together_join_the_duties(
         apart.set_roles("reader", ["viewer", "operator"])
     assert apart.separation_conflicts() == []
     assert apart.require("reader").roles == ("viewer",)
+
+
+def test_a_role_typed_any_way_is_written_the_way_the_list_keeps_it() -> None:
+    from noust.core.accounts import role_rules
+
+    assert role_rules.normalised([" Admin ", "admin", "VIEWER"]) == ["admin", "viewer"]
+    # Nothing is checked here: an empty name stays one, for the caller that refuses it.
+    assert role_rules.normalised(["admin", " "]) == ["admin", ""]
+
+
+def test_replacing_the_role_an_account_is_known_by_keeps_the_others_in_their_order() -> None:
+    from noust.core.accounts import role_rules
+
+    assert role_rules.with_first_role(["operator", "admin", "viewer"], "admin") == [
+        "admin",
+        "viewer",
+    ]
+    assert role_rules.with_first_role(["operator"], "viewer") == ["viewer"]
+    assert role_rules.with_first_role(["operator", "viewer"], "auditor") == [
+        "auditor",
+        "viewer",
+    ]
