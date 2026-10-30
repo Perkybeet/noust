@@ -100,26 +100,23 @@ test("the catalog is searched and filtered by the server's own search, and says 
   await expectNoA11yViolations(page, "a catalog search that matches nothing");
 });
 
-test("the catalog pages at the operator's size and remembers it, with the recipes it cannot deploy listed with their reason", async ({ page, consoleServer }) => {
+test("the catalog pages the recipes it can deploy at the operator's size and remembers it, and folds the ones it cannot under their reason", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/catalog");
   await expect(recipes(page).getByRole("heading")).toHaveCount(20);
   const paging = page.getByRole("group", { name: "Pagination" });
   const range = await paging.getByText(/^Showing 1–20 of \d+$/).textContent();
   const total = Number(/of (\d+)$/.exec(range ?? "")?.[1]);
-  expect(total).toBeGreaterThan(40);
+  expect(total).toBeGreaterThan(20);
 
   const next = paging.getByRole("button", { name: "Next page" });
   await next.click();
   await expect(paging.getByText(/^Showing 21–\d+ of \d+$/)).toBeVisible();
-  // The deployable recipes come first: the ones this release cannot run are on the last page
-  // (or the last two), listed with the server's reason and no way to use them.
-  for (let shown = 2; shown < Math.ceil(total / 20); shown++) {
-    await next.click();
-    await expect(paging.getByText(new RegExp(`^Showing ${String(shown * 20 + 1)}–\\d+ of \\d+$`))).toBeVisible();
-  }
-  const unavailable = recipes(page).getByRole("listitem").filter({ hasText: "Not available in this release" }).first();
+  // The pages are of what this release can deploy. The ones it cannot run are not among them: they are folded
+  // under their own count, each with the server's reason and no way to use it.
+  await page.getByRole("button", { name: /not available yet/ }).click();
+  const unavailable = page.getByRole("list", { name: "Recipes that are not available" }).getByRole("listitem").filter({ hasText: "Not available in this release" }).first();
   await expect(unavailable).toBeVisible();
-  await expect(unavailable.getByRole("button")).toHaveCount(0);
+  await expect(unavailable.getByRole("button", { name: /^Use/ })).toHaveCount(0);
   await expect(unavailable.locator("p").last()).not.toBeEmpty();
 
   await paging.getByRole("combobox", { name: "Rows per page" }).click();
@@ -355,8 +352,9 @@ withCatalogApps("the container settings, the build commands, the installed recip
   await expectNoEnglishLeftovers(page, "installed recipes");
 
   await page.goto("/apps/new");
-  await page.getByRole("radiogroup", { name: spanish.newApp.modes.label }).getByRole("radio", { name: spanish.newApp.modes.image }).click();
-  await expect(page.getByLabel(spanish.containers.source.image, { exact: true })).toBeVisible();
+  // An image is typed in the one box, and Noust says it took it for one (a registry's account is asked for later).
+  await page.getByLabel(spanish.newApp.box.label).fill("ghcr.io/owner/app:1.4");
+  await expect(page.getByText(spanish.containers.source.privateRegistry)).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the image start (es)");
   await expectNoEnglishLeftovers(page, "the image start");

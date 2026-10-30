@@ -92,14 +92,20 @@ test("a repository and branch chosen from GitHub reach the inspection and the de
   await forgetApp(page, consoleServer, domain);
 });
 
-test("a link typed in the box replaces the repository chosen; emptying the box brings the repositories back", async ({ page, consoleServer }) => {
+test("a link typed in the box replaces the repository chosen; emptying the box brings the repositories back", async ({ page, consoleServer, problems }) => {
+  // The link is read when the box is left, and the sandbox reaches no other host: the refusal (or the sudo mode's
+  // first one) is the answer, and it is what this test is not about.
+  problems.expect(/status of (400|403) .* \/api\/apps\/inspect$/);
   await signIn(page, consoleServer, "/apps/new");
   await page.getByRole("listbox", { name: "Repositories" }).getByRole("option", { name: /yago-lopez\/portfolio/ }).click();
   await expect(page.getByText("yago-lopez/portfolio", { exact: true })).toBeVisible();
 
   // A link is a source of its own: the repository chosen before is not carried over, and the list gives way to it.
   const box = page.getByLabel("What to deploy");
+  const read = page.waitForResponse((response) => response.url().endsWith("/api/apps/inspect"));
   await box.fill("https://git.example.com/acme/shop.git");
+  await box.blur();
+  await read;
   await expect(page.getByRole("combobox", { name: "Repository" })).toHaveCount(0);
   await expect(page.getByLabel("Branch")).toBeVisible();
   await settle(page);

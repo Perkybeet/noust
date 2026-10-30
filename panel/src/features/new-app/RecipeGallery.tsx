@@ -2,15 +2,20 @@ import { useState } from "react";
 
 import type { RecipeSummary } from "../../api/queries/recipes";
 import { CommandHint } from "../../components/page/CommandHint";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Subsection } from "../../components/page/Subsection";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
+import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
 import { CatalogFilterBar, CatalogResults, useRecipeCatalog } from "../catalog/RecipeCatalog";
 import { RecipeLogo } from "../catalog/RecipeLogo";
 import type { CatalogSearch } from "../catalog/model";
 import { popularRecipes } from "../catalog/popular";
+
+/** How many tiles the popular recipes make: the room held for them while the catalog is read. */
+const POPULAR_PLACEHOLDERS = ["a", "b", "c", "d"] as const;
 
 export interface RecipeGalleryProps {
   /** What the person typed in the step's one box: words to look for in the catalog. Empty shows the popular ones. */
@@ -50,6 +55,25 @@ export function RecipeGallery({ query, browse = false, opening, failure, onChoos
     );
   }
 
+  if (catalog.everything.isPending) {
+    // The tiles and the button are what the catalog says: until it has, the same room is held, so the ways
+    // under them are not moved down when it arrives.
+    return (
+      <div className="flex flex-col gap-3">
+        {notice}
+        <Subsection title={t("newApp.recipes.startWith")}>
+          <LoadingRegion label={t("newApp.recipes.loading")} className="grid gap-3 sm:grid-cols-2">
+            {POPULAR_PLACEHOLDERS.map((place) => (
+              <Skeleton key={place} className="h-18 rounded-card" />
+            ))}
+          </LoadingRegion>
+        </Subsection>
+        <div>
+          <Skeleton className="h-8 w-40 rounded-control" />
+        </div>
+      </div>
+    );
+  }
   const popular = popularRecipes(catalog.everything.data?.items);
   return (
     <div className="flex flex-col gap-3">
