@@ -1,0 +1,65 @@
+# AirTrail from the image the project publishes (johly/airtrail), with the variables its documentation names (airtrail.johan.ohly.dk/docs/administration/environment-variables and the .env.example of the repository).
+schema: 2
+name: airtrail
+kind: compose
+title: "AirTrail"
+slogan: "A modern, open-source personal flight tracking system."
+description: "Logs the flights you take: airports, airlines, aircraft and seats on a map, with statistics, imports from other trackers and sharing by link. Runs with its own PostgreSQL."
+category: utilities
+tags: [travel, flights, tracking, maps]
+logo: logo.svg
+version: "3.13.1"
+revision: 1
+updated: 2026-10-30
+homepage: https://github.com/johanohly/AirTrail
+docs: https://github.com/johanohly/AirTrail
+repository: https://github.com/johanohly/AirTrail
+license: GPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  DB_PASSWORD:
+    generate: "password32"
+    description: "The password of the stack's PostgreSQL account."
+  PUBLIC_URL:
+    from: "url"
+    description: "The address people use to reach AirTrail."
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    airtrail:
+      image: johly/airtrail:v3.13.1@sha256:800466d42393a0a9f360a93d98ab8da524381b19f3c06cd4552c27106d982e3d
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        ORIGIN: ${PUBLIC_URL}
+        DB_URL: postgres://airtrail:${DB_PASSWORD}@db:5432/airtrail
+        ADDRESS_HEADER: X-Forwarded-For
+      ports:
+        - 127.0.0.1:${PORT}:3000
+    db:
+      image: postgres:17.11-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: airtrail
+        POSTGRES_DB: airtrail
+        POSTGRES_PASSWORD: ${DB_PASSWORD}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U airtrail -d airtrail
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - airtrail-db:/var/lib/postgresql/data
+  volumes:
+    airtrail-db:
+notes:
+  - "Open {{ url }}. The first visit creates the administrator: do it right after installing."
+  - "Its data is in the Docker volume airtrail-db of this application, the databases dumped by Noust before every update: back it up before updating."

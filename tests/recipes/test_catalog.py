@@ -40,7 +40,6 @@ UNAVAILABLE = {
     "joplin-server",
     "minio",
     "pocketbase",
-    "stalwart",
     "strapi",
     "supabase",
 }

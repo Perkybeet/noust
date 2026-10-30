@@ -26,10 +26,20 @@
    "seconds": 80,
    "version": "0.27.4"
   },
+  "airtrail": {
+   "date": "2026-10-30",
+   "seconds": 66,
+   "version": "3.13.1"
+  },
   "anythingllm": {
    "date": "2026-10-28",
    "seconds": 126,
    "version": "1.18.0"
+  },
+  "appsmith": {
+   "date": "2026-10-30",
+   "seconds": 171,
+   "version": "2.5.0"
   },
   "archivebox": {
    "date": "2026-10-29",
@@ -341,6 +351,11 @@
    "seconds": 52,
    "version": "16.0.5"
   },
+  "freellmapi": {
+   "date": "2026-10-30",
+   "seconds": 63,
+   "version": "0.8.4"
+  },
   "freshrss": {
    "date": "2026-10-28",
    "seconds": 42,
@@ -596,6 +611,11 @@
    "seconds": 77,
    "version": "3.12.0"
   },
+  "lemmy": {
+   "date": "2026-10-30",
+   "seconds": 92,
+   "version": "1.31.8-alpine"
+  },
   "librechat": {
    "date": "2026-10-28",
    "seconds": 167,
@@ -656,6 +676,11 @@
    "seconds": 40,
    "version": "1.6.5"
   },
+  "lunalytics": {
+   "date": "2026-10-30",
+   "seconds": 47,
+   "version": "0.10.23"
+  },
   "mage-ai": {
    "date": "2026-10-29",
    "seconds": 116,
@@ -670,6 +695,11 @@
    "date": "2026-10-29",
    "seconds": 44,
    "version": "0.25.2"
+  },
+  "mastodon": {
+   "date": "2026-10-30",
+   "seconds": 104,
+   "version": "4.7.4"
   },
   "matomo": {
    "date": "2026-10-28",
@@ -720,6 +750,16 @@
    "date": "2026-10-30",
    "seconds": 154,
    "version": "4.3"
+  },
+  "mqttx-web": {
+   "date": "2026-10-30",
+   "seconds": 38,
+   "version": "1.13.2"
+  },
+  "myspeed": {
+   "date": "2026-10-30",
+   "seconds": 54,
+   "version": "1.0.9"
   },
   "n8n": {
    "date": "2026-10-30",
@@ -866,6 +906,11 @@
    "seconds": 128,
    "version": "3.3.0"
   },
+  "papra": {
+   "date": "2026-10-30",
+   "seconds": 68,
+   "version": "26.7.1-root"
+  },
   "parseable": {
    "date": "2026-10-29",
    "seconds": 42,
@@ -875,6 +920,11 @@
    "date": "2026-10-29",
    "seconds": 94,
    "version": "2.18.3"
+  },
+  "perplexica": {
+   "date": "2026-10-30",
+   "seconds": 92,
+   "version": "1.12.0"
   },
   "pgadmin": {
    "date": "2026-10-29",
@@ -930,6 +980,11 @@
    "date": "2026-10-29",
    "seconds": 120,
    "version": "5.1"
+  },
+  "qbittorrent": {
+   "date": "2026-10-30",
+   "seconds": 45,
+   "version": "5.2.4"
   },
   "qdrant": {
    "date": "2026-10-29",
@@ -1036,6 +1091,11 @@
    "seconds": 47,
    "version": "1.15.1"
   },
+  "stalwart": {
+   "date": "2026-10-30",
+   "seconds": 41,
+   "version": "1.0.1"
+  },
   "steedos": {
    "date": "2026-10-29",
    "seconds": 118,
@@ -1045,6 +1105,11 @@
    "date": "2026-10-29",
    "seconds": 95,
    "version": "3.1.0"
+  },
+  "super-productivity": {
+   "date": "2026-10-30",
+   "seconds": 41,
+   "version": "19.3.1"
   },
   "superset": {
    "date": "2026-10-29",
@@ -1070,6 +1135,11 @@
    "date": "2026-10-30",
    "seconds": 42,
    "version": "2.18.2"
+  },
+  "thelounge": {
+   "date": "2026-10-30",
+   "seconds": 45,
+   "version": "4.5.2"
   },
   "transmission": {
    "date": "2026-10-29",

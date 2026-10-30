@@ -1,0 +1,5 @@
+# How nginx proxies this application. Media is uploaded through the client API (images, video, audio) and federation requests can be slow.
+max_body_size: 100m
+routes:
+  - path: /
+    read_timeout: 300

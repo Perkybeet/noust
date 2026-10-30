@@ -109,8 +109,11 @@ brand. The files, by licence:
     src/noust/recipes/assets/_simple-icons/hedgedoc.svg
     src/noust/recipes/assets/hello/logo.svg
   Apache-2.0
+    src/noust/recipes/assets/2fauth/logo.svg
     src/noust/recipes/assets/_simple-icons/apachecouchdb.svg
     src/noust/recipes/assets/_simple-icons/apachesuperset.svg
+    src/noust/recipes/assets/atuin/logo.svg
+    src/noust/recipes/assets/autobrr/logo.svg
     src/noust/recipes/assets/bazarr/logo.svg
     src/noust/recipes/assets/bytestash/logo.svg
     src/noust/recipes/assets/chroma/logo.svg
@@ -127,25 +130,37 @@ brand. The files, by licence:
     src/noust/recipes/assets/garage/logo.svg
     src/noust/recipes/assets/gatus/logo.svg
     src/noust/recipes/assets/glitchtip/logo.svg
+    src/noust/recipes/assets/gotosocial/logo.svg
+    src/noust/recipes/assets/homer/logo.svg
     src/noust/recipes/assets/infisical/logo.svg
     src/noust/recipes/assets/jellyseerr/logo.svg
     src/noust/recipes/assets/kimai/logo.svg
+    src/noust/recipes/assets/koillection/logo.svg
     src/noust/recipes/assets/librespeed/logo.svg
     src/noust/recipes/assets/logto/logo.svg
+    src/noust/recipes/assets/lunalytics/logo.svg
     src/noust/recipes/assets/mage-ai/logo.svg
     src/noust/recipes/assets/marimo/logo.svg
     src/noust/recipes/assets/miniflux/logo.svg
+    src/noust/recipes/assets/myspeed/logo.svg
     src/noust/recipes/assets/nocodb/logo.svg
     src/noust/recipes/assets/open-design/logo.svg
     src/noust/recipes/assets/open-webui/logo.svg
     src/noust/recipes/assets/openspeedtest/logo.svg
+    src/noust/recipes/assets/papra/logo.svg
     src/noust/recipes/assets/parseable/logo.svg
     src/noust/recipes/assets/pgadmin/logo.svg
     src/noust/recipes/assets/planka/logo.svg
     src/noust/recipes/assets/postgresus/logo.svg
+    src/noust/recipes/assets/rallly/logo.svg
     src/noust/recipes/assets/rivet-engine/logo.svg
+    src/noust/recipes/assets/romm/logo.svg
+    src/noust/recipes/assets/semaphore/logo.svg
+    src/noust/recipes/assets/shaarli/logo.svg
     src/noust/recipes/assets/shlink/logo.svg
     src/noust/recipes/assets/stirling-pdf/logo.svg
+    src/noust/recipes/assets/tautulli/logo.svg
+    src/noust/recipes/assets/thelounge/logo.svg
   BSD-2-Clause
     src/noust/recipes/assets/babybuddy/logo.svg
     src/noust/recipes/assets/pocket-id/logo.svg
@@ -155,22 +170,29 @@ brand. The files, by licence:
   CC-BY-3.0
     src/noust/recipes/assets/otterwiki/logo.svg
   CC-BY-4.0
+    src/noust/recipes/assets/ackee/logo.svg
     src/noust/recipes/assets/archivebox/logo.svg
+    src/noust/recipes/assets/blinko/logo.svg
     src/noust/recipes/assets/calibre/logo.svg
     src/noust/recipes/assets/dagu/logo.svg
     src/noust/recipes/assets/docmost/logo.svg
+    src/noust/recipes/assets/fireshare/logo.svg
     src/noust/recipes/assets/go2rtc/logo.svg
     src/noust/recipes/assets/gotify/logo.svg
+    src/noust/recipes/assets/grimmory/logo.svg
     src/noust/recipes/assets/hermes-agent/logo.svg
+    src/noust/recipes/assets/kaneo/logo.svg
+    src/noust/recipes/assets/kener/logo.svg
     src/noust/recipes/assets/linkwarden/logo.svg
     src/noust/recipes/assets/lowcoder/logo.svg
     src/noust/recipes/assets/mazanoke/logo.svg
+    src/noust/recipes/assets/mqttx-web/logo.svg
     src/noust/recipes/assets/pairdrop/logo.svg
     src/noust/recipes/assets/privatebin/logo.svg
     src/noust/recipes/assets/qui/logo.svg
     src/noust/recipes/assets/sftpgo/logo.svg
     src/noust/recipes/assets/speedtest-tracker/logo.svg
-    src/noust/recipes/assets/stalwart/logo.svg
+    src/noust/recipes/assets/super-productivity/logo.svg
     src/noust/recipes/assets/typesense/logo.svg
     src/noust/recipes/assets/upsnap/logo.svg
     src/noust/recipes/assets/versitygw/logo.svg
@@ -194,6 +216,7 @@ brand. The files, by licence:
     src/noust/recipes/assets/navidrome/logo.svg
   LicenseRef-custom
     src/noust/recipes/assets/_simple-icons/keycloak.svg
+    src/noust/recipes/assets/_simple-icons/lemmy.svg
   MIT
     src/noust/recipes/assets/_simple-icons/umami.svg
     src/noust/recipes/assets/activepieces/logo.svg
@@ -269,6 +292,7 @@ and what was changed:
   src/noust/recipes/flaresolverr.yaml
   src/noust/recipes/flarum.yaml
   src/noust/recipes/flatnotes.yaml
+  src/noust/recipes/freellmapi.yaml
   src/noust/recipes/gel.yaml
   src/noust/recipes/go2rtc.yaml
   src/noust/recipes/grimoire.yaml

@@ -298,6 +298,13 @@
    "license": "CC0-1.0",
    "source": "https://languagetool.org"
   },
+  "lemmy": {
+   "title": "Lemmy",
+   "hex": "000000",
+   "license": "LicenseRef-custom",
+   "license_url": "https://github.com/LemmyNet/lemmy/blob/main/LICENSE",
+   "source": "https://join-lemmy.org"
+  },
   "libretranslate": {
    "title": "LibreTranslate",
    "hex": "1565C0",
@@ -309,6 +316,13 @@
    "hex": "0055D4",
    "license": "CC0-1.0",
    "source": "https://listmonk.app"
+  },
+  "mastodon": {
+   "title": "Mastodon",
+   "hex": "6364FF",
+   "license": "CC0-1.0",
+   "source": "https://github.com/mastodon/mastodon/blob/7ccf7a73f1c47a8c03712c39f7c591e837cf6d08/app/javascript/images/logo-symbol-icon.svg",
+   "guidelines": "https://joinmastodon.org/branding"
   },
   "matomo": {
    "title": "Matomo",

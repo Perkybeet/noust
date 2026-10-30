@@ -1,0 +1,38 @@
+# Perplexica from the image the project publishes (itzcrazykns1337/perplexica), with the volumes its documentation names (github.com/ItzCrazyKns/Perplexica, README: Docker and docs/installation).
+schema: 2
+name: perplexica
+kind: compose
+title: "Perplexica"
+slogan: "An AI-powered search engine that answers with cited sources."
+description: "An answering engine: it searches the web through its bundled SearXNG and has the language model you choose write the answer with its sources. You add the model providers (a local Ollama, or an API key) on its settings page."
+category: ai
+tags: [search, llm, answers, searxng]
+logo: logo.svg
+version: "1.12.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://github.com/ItzCrazyKns/Vane
+docs: https://github.com/ItzCrazyKns/Vane
+repository: https://github.com/ItzCrazyKns/Vane
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    perplexica:
+      image: itzcrazykns1337/perplexica:v1.12.0@sha256:1bf43c0fe2f86a6d17935a318c13e4238f3c034922339bd8bce430a8ba009dab
+      restart: unless-stopped
+      volumes:
+        - perplexica-data:/home/perplexica/data
+        - perplexica-uploads:/home/perplexica/uploads
+      ports:
+        - 127.0.0.1:${PORT}:3000
+  volumes:
+    perplexica-data:
+    perplexica-uploads:
+notes:
+  - "Open {{ url }}. The settings page is open to whoever reaches the address and is where the model providers and their API keys are entered: open it right after installing and set them up, and put a sign-in in front of it if the server is public."
+  - "Its data is in the Docker volumes perplexica-data, perplexica-uploads of this application: back them up before updating."

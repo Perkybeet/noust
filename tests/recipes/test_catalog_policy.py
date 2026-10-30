@@ -36,14 +36,13 @@ LISTED_IN_40 = {
     "hermes-agent",
     "joplin-server",
     "minio",
-    "stalwart",
     "strapi",
     "supabase",
 }
 #: The forms a licence that is not free software takes in the catalogue: a name the project wrote
 #: (`LicenseRef-...`, said in the project's words in the recipe's header), a Business Source
 #: License, a Functional Source License, the Server Side Public License.
-NOT_FREE_FORMS = re.compile(r"LicenseRef-|BUSL-1\.1|FSL-1\.1|SSPL-1\.0")
+NOT_FREE_FORMS = re.compile(r"LicenseRef-|BUSL-1\.1|FSL-1\.1|SSPL-1\.0|Elastic-2\.0|FCL-1\.0")
 
 
 def assets_of(recipe: Recipe) -> Path:
