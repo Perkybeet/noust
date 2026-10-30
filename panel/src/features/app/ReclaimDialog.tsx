@@ -23,6 +23,7 @@ import { ErrorBlock } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { Dialog, DialogClose } from "../../components/ui/Dialog";
+import { InlineMessage } from "../../components/ui/InlineMessage";
 import { SkeletonText } from "../../components/ui/Skeleton";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { toast } from "../../components/ui/toast";
@@ -47,6 +48,8 @@ export function ReclaimDialog({ domain, open, onOpenChange }: { domain: string; 
   const t = useT();
   const queryClient = useQueryClient();
   const [acceptRecreate, setAcceptRecreate] = useState(false);
+  // Pressed before the recreation was accepted: the box says it is what is missing.
+  const [pressedWithout, setPressedWithout] = useState(false);
 
   const preview = useMutation({
     mutationFn: () => reclaimCall(domain, { preview: true, accept_recreate: false }),
@@ -85,7 +88,21 @@ export function ReclaimDialog({ domain, open, onOpenChange }: { domain: string; 
       footer={
         <>
           <DialogClose render={<Button variant="secondary">{t("common.confirmDialog.cancel")}</Button>} />
-          <Button variant="primary" disabled={!ready} loading={handBack.isPending} onClick={() => handBack.mutate(refused && acceptRecreate)}>
+          <Button
+            variant="primary"
+            disabled={preview.isPending}
+            loading={handBack.isPending}
+            onClick={() => {
+              if (ready) {
+                handBack.mutate(refused && acceptRecreate);
+              } else if (refused) {
+                setPressedWithout(true);
+              } else {
+                // The look failed: pressing it looks again, which is what it needs before it can hand anything back.
+                ask();
+              }
+            }}
+          >
             {t("appPages.reclaim.action")}
           </Button>
         </>
@@ -129,8 +146,12 @@ export function ReclaimDialog({ domain, open, onOpenChange }: { domain: string; 
               label={t("appPages.reclaim.acceptRecreate")}
               description={t("appPages.reclaim.acceptRecreateDescription")}
               checked={acceptRecreate}
-              onCheckedChange={setAcceptRecreate}
+              onCheckedChange={(checked) => {
+                setAcceptRecreate(checked);
+                setPressedWithout(false);
+              }}
             />
+            {pressedWithout && !acceptRecreate ? <InlineMessage tone="warning" live>{t("appPages.reclaim.acceptMissing")}</InlineMessage> : null}
           </div>
         ) : preview.isError ? (
           <ErrorBlock live compact error={preview.error} title={t("appPages.reclaim.couldNotCheck")} onRetry={() => ask()} />

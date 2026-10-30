@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
 import { request } from "../../api/client";
@@ -106,13 +106,31 @@ export function RemoteImport({ onLoaded }: RemoteImportProps) {
     hint: [item.project, item.build, ...(item.domains ?? [])].filter((part) => part !== "").join(" - "),
   }));
 
+  // What a press found missing, said on the field and where the keyboard goes.
+  const [missing, setMissing] = useState<{ url?: boolean; token?: boolean; chosen?: boolean }>({});
+  const urlInput = useRef<HTMLInputElement>(null);
+  const tokenInput = useRef<HTMLInputElement>(null);
   const submitList = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    if (!list.isPending && url.trim() !== "" && token !== "") list.mutate();
+    if (list.isPending) return;
+    const next = { url: url.trim() === "", token: token === "" };
+    if (next.url || next.token) {
+      setMissing(next);
+      (next.url ? urlInput : tokenInput).current?.focus();
+      return;
+    }
+    setMissing({});
+    list.mutate();
   };
   const submitRead = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    if (!read.isPending && chosen !== "") read.mutate();
+    if (read.isPending) return;
+    if (chosen === "") {
+      setMissing({ chosen: true });
+      return;
+    }
+    setMissing({});
+    read.mutate();
   };
 
   return (
@@ -133,19 +151,19 @@ export function RemoteImport({ onLoaded }: RemoteImportProps) {
               className="w-full"
             />
           </Field>
-          <Field label={t("remoteImport.url")} description={t("remoteImport.urlDescription")} error={listErrors.fields.url}>
-            <Input mono value={url} onValueChange={setUrl} placeholder="https://coolify.example.com" autoComplete="off" autoCapitalize="off" spellCheck={false} />
+          <Field label={t("remoteImport.url")} description={t("remoteImport.urlDescription")} error={listErrors.fields.url ?? (missing.url === true && url.trim() === "" ? t("remoteImport.urlMissing") : undefined)}>
+            <Input mono ref={urlInput} value={url} onValueChange={setUrl} placeholder="https://coolify.example.com" autoComplete="off" autoCapitalize="off" spellCheck={false} />
           </Field>
           <Field
             label={t(platform === "caprover" ? "remoteImport.password" : "remoteImport.token")}
             description={t(platform === "caprover" ? "remoteImport.passwordDescription" : "remoteImport.tokenDescription")}
-            error={listErrors.fields.token}
+            error={listErrors.fields.token ?? (missing.token === true && token === "" ? t(platform === "caprover" ? "remoteImport.passwordMissing" : "remoteImport.tokenMissing") : undefined)}
           >
-            <Input mono type="password" value={token} onValueChange={setToken} autoComplete="new-password" spellCheck={false} />
+            <Input mono type="password" ref={tokenInput} value={token} onValueChange={setToken} autoComplete="new-password" spellCheck={false} />
           </Field>
           {list.isError && listErrors.form !== null ? <ErrorBlock live compact error={listErrors.form} title={t("remoteImport.listFailed")} /> : null}
           <div>
-            <Button type="submit" size="sm" loading={list.isPending} disabled={url.trim() === "" || token === ""}>
+            <Button type="submit" size="sm" loading={list.isPending}>
               {t("remoteImport.list")}
             </Button>
           </div>
@@ -162,7 +180,7 @@ export function RemoteImport({ onLoaded }: RemoteImportProps) {
                 label={t("remoteImport.applications")}
                 nativeLabel={false}
                 description={t("remoteImport.applicationsDescription", { count: found.applications.length, url: url.trim() })}
-                error={readErrors.fields.ref}
+                error={readErrors.fields.ref ?? (missing.chosen === true && chosen === "" ? t("remoteImport.chooseMissing") : undefined)}
               >
                 <Select
                   options={options}
@@ -180,7 +198,7 @@ export function RemoteImport({ onLoaded }: RemoteImportProps) {
               </Field>
               {read.isError && readErrors.form !== null ? <ErrorBlock live compact error={readErrors.form} title={t("remoteImport.readFailed")} /> : null}
               <div>
-                <Button type="submit" variant="primary" size="sm" loading={read.isPending} disabled={chosen === ""}>
+                <Button type="submit" variant="primary" size="sm" loading={read.isPending}>
                   {t("remoteImport.read")}
                 </Button>
               </div>

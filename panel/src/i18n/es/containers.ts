@@ -98,7 +98,6 @@ export const containers: Catalog<typeof en> = {
   },
   source: {
     image: "Imagen",
-    imageDescription: "nombre[:etiqueta][@sha256:huella], como ghcr.io/owner/app:1.4 o nginx:1.27-alpine. Docker la descarga al desplegar y de nuevo en cada actualización.",
     privateRegistry: "La cuenta de un registro privado se pide en el paso de configuración. No se descarga nada hasta que despliegues.",
     intro:
       "Una imagen de un registro se ejecuta como aplicación de contenedor: Noust escribe el archivo Compose, el servicio y el sitio, y guarda cada release como una imagen a la que puede volver al instante.",

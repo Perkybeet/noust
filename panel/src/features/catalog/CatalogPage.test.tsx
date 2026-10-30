@@ -81,12 +81,15 @@ describe("the catalog page", () => {
     const { harness } = catalogue();
     const { user } = harness;
     await cardOf("Vaultwarden");
-    // 25 recipes, the deployable ones first: the ones this release cannot run are on the last page.
-    await user.click(screen.getByRole("button", { name: "Next page" }));
-    const ghost = await cardOf("Ghost");
+    // The ones this release cannot run are not among the recipes to use: they are folded under their own count.
+    expect(screen.queryByRole("heading", { name: "Ghost" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^1 recipe is not available yet/ }));
+    const heading = await within(screen.getByRole("list", { name: "Recipes that are not available" })).findByRole("heading", { name: "Ghost" });
+    const ghost = heading.closest<HTMLElement>("li");
+    if (ghost === null) throw new Error("no card around Ghost");
     expect(within(ghost).getByText("Not available in this release")).toBeInTheDocument();
     expect(within(ghost).getByText(/supports only MySQL 8 in production/)).toBeInTheDocument();
-    expect(within(ghost).queryByRole("button")).not.toBeInTheDocument();
+    expect(within(ghost).queryByRole("button", { name: /^Use/ })).not.toBeInTheDocument();
     await expectNoAxeViolations(harness.container);
   });
 
@@ -155,15 +158,16 @@ describe("the catalog page", () => {
     const { user } = harness;
     const list = await screen.findByRole("list", { name: "Recipes" });
     expect(within(list).getAllByRole("heading")).toHaveLength(20);
-    expect(screen.getByText(/Showing 1–20 of 25/)).toBeInTheDocument();
+    // The pages are of what can be deployed: 24 of the 25, the one this release cannot run is not counted in them.
+    expect(screen.getByText(/Showing 1–20 of 24/)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Next page" }));
-    await waitFor(() => expect(grid().getAllByRole("heading")).toHaveLength(5));
-    expect(screen.getByText(/Showing 21–25 of 25/)).toBeInTheDocument();
+    await waitFor(() => expect(grid().getAllByRole("heading")).toHaveLength(4));
+    expect(screen.getByText(/Showing 21–24 of 24/)).toBeInTheDocument();
 
     await user.click(screen.getByRole("combobox", { name: "Rows per page" }));
     await user.click(await screen.findByRole("option", { name: "All" }));
-    await waitFor(() => expect(grid().getAllByRole("heading")).toHaveLength(25));
+    await waitFor(() => expect(grid().getAllByRole("heading")).toHaveLength(24));
     expect(window.localStorage.getItem("noust.pageSize.recipes")).toBe("all");
   });
 

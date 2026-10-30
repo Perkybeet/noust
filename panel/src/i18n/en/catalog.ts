@@ -136,6 +136,12 @@ export const catalog = {
   empty: {
     noMatch: "No recipe matches these filters.",
   },
+  unavailable: {
+    title: { one: "{count} recipe is not available yet", other: "{count} recipes are not available yet" },
+    summary: "This release cannot deploy them. Each one says why and what to do.",
+    label: "Recipes that are not available",
+    noneAvailable: "None of these can be deployed with this release.",
+  },
   job: {
     viewOutput: "View output",
   },

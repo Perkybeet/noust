@@ -12,12 +12,7 @@ import type { Page } from "@playwright/test";
 
 import { forgetApp } from "./apps-cleanup";
 import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
-import { chooseWay, inspectSource, wizardSource } from "./wizard-sources";
-
-/** Chooses one of the wizard's ways in: "A Docker image", "From a recipe"... */
-async function chooseStart(page: Page, name: string): Promise<void> {
-  await chooseWay(page, name);
-}
+import { inspectSource, wizardSource } from "./wizard-sources";
 
 function stepTitle(page: Page) {
   return page.locator('[data-template="wizard"] [data-slot="step"] h2');
@@ -27,8 +22,8 @@ test("an image from a registry is configured in the wizard and sent with its reg
   test.setTimeout(240_000);
   const domain = "caja-imagen.example.net";
   await signIn(page, consoleServer, "/apps/new");
-  await chooseStart(page, "A Docker image");
-  await page.getByLabel("Image", { exact: true }).fill("ghcr.io/example-org/caja:1.4");
+  // An image is pasted in the one box, like anything else: the step tells it is one.
+  await page.getByLabel("What to deploy").fill("ghcr.io/example-org/caja:1.4");
   await settle(page);
   await expectNoA11yViolations(page, "the image start");
   await page.getByRole("button", { name: "Continue", exact: true }).click();

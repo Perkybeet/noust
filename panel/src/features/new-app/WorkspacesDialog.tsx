@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
 import { request } from "../../api/client";
@@ -12,6 +12,7 @@ import { Button } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
+import { InlineMessage } from "../../components/ui/InlineMessage";
 import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
@@ -94,6 +95,10 @@ export function WorkspacesDialog({ open, source: initialSource, branch: initialB
   const libraries = (report?.workspaces ?? []).filter((entry) => !entry.deployable);
   const picked = applications.filter((entry) => chosen.has(workspaceKey(entry)));
   const ready = picked.length > 0 && picked.every((entry) => (domains[workspaceKey(entry)] ?? "").trim() !== "");
+  // Pressed before it was ready: what is missing, said where the choice is made.
+  const [pressedEarly, setPressedEarly] = useState(false);
+  const [sourceMissing, setSourceMissing] = useState(false);
+  const source_input = useRef<HTMLInputElement>(null);
 
   const deploy = useMutation({
     mutationFn: () =>
@@ -118,7 +123,13 @@ export function WorkspacesDialog({ open, source: initialSource, branch: initialB
   };
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    if (!busy && source.trim() !== "") inspect.mutate();
+    if (busy) return;
+    if (source.trim() === "") {
+      setSourceMissing(true);
+      source_input.current?.focus();
+      return;
+    }
+    inspect.mutate();
   };
   const toggle = (entry: Entry, on: boolean): void => {
     setChosen((now) => {
@@ -143,12 +154,15 @@ export function WorkspacesDialog({ open, source: initialSource, branch: initialB
           <Button disabled={busy} onClick={close}>
             {queued ? t("common.words.close") : t("common.words.cancel")}
           </Button>
-          {queued ? null : (
+          {queued || applications.length === 0 ? null : (
             <Button
               variant="primary"
-              disabled={!ready}
               loading={deploy.isPending}
               onClick={() => {
+                if (!ready) {
+                  setPressedEarly(true);
+                  return;
+                }
                 deploy.mutate();
               }}
             >
@@ -160,12 +174,18 @@ export function WorkspacesDialog({ open, source: initialSource, branch: initialB
     >
       <div className="flex min-w-0 flex-col gap-5">
         <form onSubmit={submit} noValidate className="flex min-w-0 flex-col gap-4">
-          <Field label={t("workspaces.source")} description={t("workspaces.sourceDescription")} error={inspectErrors.fields.source ?? deployErrors.fields.source}>
+          <Field
+            label={t("workspaces.source")}
+            description={t("workspaces.sourceDescription")}
+            error={inspectErrors.fields.source ?? deployErrors.fields.source ?? (sourceMissing && source.trim() === "" ? t("workspaces.sourceMissing") : undefined)}
+          >
             <Input
               mono
+              ref={source_input}
               value={source}
               onValueChange={(value: string) => {
                 setSource(value);
+                setSourceMissing(false);
                 inspect.reset();
                 deploy.reset();
               }}
@@ -193,7 +213,7 @@ export function WorkspacesDialog({ open, source: initialSource, branch: initialB
           </Field>
           {inspect.isError && inspectErrors.form !== null ? <ErrorBlock live compact error={inspectErrors.form} title={t("workspaces.readFailed")} /> : null}
           <div>
-            <Button type="submit" size="sm" loading={inspect.isPending} disabled={source.trim() === "" || queued}>
+            <Button type="submit" size="sm" loading={inspect.isPending} disabled={queued}>
               {t("workspaces.read")}
             </Button>
           </div>
@@ -215,6 +235,11 @@ export function WorkspacesDialog({ open, source: initialSource, branch: initialB
               </Notice>
             ) : null}
             {report.workspaces.length > 0 && applications.length === 0 ? <p className="text-13 text-fg">{t("workspaces.none")}</p> : null}
+            {pressedEarly && !ready ? (
+              <InlineMessage tone="warning" live>
+                {picked.length === 0 ? t("workspaces.chooseMissing") : t("workspaces.domainMissing")}
+              </InlineMessage>
+            ) : null}
             {applications.length > 0 ? (
               <Subsection title={t("workspaces.applications")}>
                 <ul className="flex flex-col gap-2">

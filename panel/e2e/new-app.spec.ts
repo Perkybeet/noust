@@ -25,7 +25,7 @@ test("inspects a directory on the server, deploys it and lands on its deployment
   expect((await inspected).request().postDataJSON()).toEqual({ source });
 
   // The source is not asked for again (WCAG 3.3.7).
-  await expect(page.getByLabel("Repository or directory")).toHaveCount(0);
+  await expect(page.getByLabel("What to deploy")).toHaveCount(0);
   await page.getByLabel("Domain", { exact: true }).fill(domain);
   // Checked as it is typed: example.net is a seeded zone, so this name resolves here.
   await expect(page.getByText(`${domain} points here`)).toBeVisible();
@@ -121,7 +121,7 @@ test("a directory that does not exist is refused on its field, in the server's w
   if (await confirm.isVisible()) await confirmItsYou(page, consoleServer);
   expect((await inspected).status()).toBe(400);
   await expect(refusal).toBeVisible();
-  await expect(page.getByLabel("Repository or directory")).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByLabel("What to deploy")).toHaveAttribute("aria-invalid", "true");
   await settle(page);
   await expectNoA11yViolations(page, "a refused source");
 });
@@ -238,7 +238,7 @@ test("a source Noust cannot deploy as it is gets the inspection's verdict and ho
   // What would make it deployable, in the backend's words: a Dockerfile, or Railpack to build without one.
   await expect(verdict).toContainText("add a Dockerfile to the repository and deploy it with --type container");
   await expect(verdict).toContainText("--builder railpack");
-  await expect(page.getByLabel("Repository or directory")).not.toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByLabel("What to deploy")).not.toHaveAttribute("aria-invalid", "true");
   await settle(page);
   await expectNoA11yViolations(page, "an inspection's verdict");
 

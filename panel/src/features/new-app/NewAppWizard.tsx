@@ -9,7 +9,7 @@ import type { ImportAppBody } from "../../api/queries/appImport";
 import { appKeys, appsQuery, appTypesQuery } from "../../api/queries/apps";
 import { temporaryNameQuery } from "../../api/queries/domains";
 import type { TemporaryNameOf } from "../../api/queries/domains";
-import { githubStatusQuery } from "../../api/queries/github";
+import { centralGithubStatusQuery, githubStatusQuery } from "../../api/queries/github";
 import { gitlabStatusQuery } from "../../api/queries/gitlab";
 import { webserverQuery } from "../../api/queries/config";
 import { isJobFinished, jobKeys, useFollowedJob } from "../../api/queries/jobs";
@@ -29,6 +29,8 @@ import { textLinkClassName } from "../../components/ui/TextLink";
 import { translate, useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { cx } from "../../lib/cx";
+import { useHasFleet } from "../../nodes/servers";
+import { useNode } from "../../nodes/useNode";
 import { normalizeDomain } from "../domains/names";
 import { imageProblem } from "../container/model";
 import { AddressFields } from "./AddressFields";
@@ -85,6 +87,7 @@ import {
   stepOfField,
   typeName,
 } from "./wizard";
+import { createBodyFor, forServer, leaseFor } from "./sourceLease";
 import type { CreateAppBody, Inspection, ReviewErrors, ReviewForm, SourceErrors, SourceForm, StartKind, Step, WebServer } from "./wizard";
 
 function isAbort(error: unknown): boolean {
@@ -221,7 +224,12 @@ export function NewAppWizard() {
   const system = useQuery({ ...systemInfoQuery(), staleTime: 10 * 60_000, refetchOnWindowFocus: false });
   const followedJob = useFollowedJob();
   // Only decides whether "From GitHub" is offered: a failure leaves the typed source, as before.
-  const github = useQuery({ ...githubStatusQuery(), retry: false });
+  // On a fleet the GitHub App is the central's and serves every server: read from there, whichever server this goes to.
+  const hasFleet = useHasFleet();
+  const { node: targetNode } = useNode();
+  const ownGithub = useQuery({ ...githubStatusQuery(), enabled: !hasFleet, retry: false });
+  const sharedGithub = useQuery({ ...centralGithubStatusQuery(), enabled: hasFleet, retry: false });
+  const github = hasFleet ? sharedGithub : ownGithub;
   // Likewise for "From GitLab": offered where a connection exists.
   const gitlab = useQuery({ ...gitlabStatusQuery(), retry: false });
 
@@ -372,7 +380,7 @@ export function NewAppWizard() {
       abort.current?.abort();
       const controller = new AbortController();
       abort.current = controller;
-      const inspection = await request("post", "/api/apps/inspect", { body: inspectBody(form), signal: controller.signal });
+      const inspection = await request("post", "/api/apps/inspect", { body: forServer(inspectBody(form), targetNode, hasFleet), signal: controller.signal });
       const temporary = await temporaryFor({ source: form.source.trim() });
       return { inspection, form, temporary };
     },
@@ -458,7 +466,13 @@ export function NewAppWizard() {
   };
 
   const create = useMutation({
-    mutationFn: (body: CreateAppBody) => request("post", "/api/apps", { body }),
+    mutationFn: async (body: CreateAppBody) => {
+      // The first application of a repository on a server of the fleet: the central leases the server its access now,
+      // for this repository alone, so the clone does not wait for the next round (docs/sources.md).
+      const lease = leaseFor(targetNode, source.source, hasFleet && source.installationId !== undefined);
+      if (lease !== null) await request("post", "/api/fleet/sources/leases", { body: lease });
+      return request("post", "/api/apps", { body: createBodyFor(body, targetNode, hasFleet && source.installationId !== undefined) });
+    },
     onSuccess: (accepted, body) => {
       queued(accepted, body.domain, t("newApp.page.queued", { domain: body.domain }));
     },
@@ -588,7 +602,7 @@ export function NewAppWizard() {
   // What is wrong with each kind's form, found fresh on every render so Continue can say it.
   const codeErrors = review !== null ? reviewProblems(review, context) : {};
   const requiredRecipeVariables = recipe !== null ? requiredVariables(recipe) : [];
-  const recipeFound = recipeForm !== null ? recipeProblems(recipeForm, context.domains, requiredRecipeVariables) : {};
+  const recipeFound = recipeForm !== null ? recipeProblems(recipeForm, context.domains, requiredRecipeVariables, recipe?.root_equivalent != null) : {};
 
   // "Try a demo" (the Overview of a server with nothing on it) is a recipe deployed on its
   // temporary address from one press: once the recipe is open and has nothing left to ask, it
@@ -828,14 +842,19 @@ export function NewAppWizard() {
                 else actions.next.onClick();
               }}
               github={githubStatus}
+              centralGithub={hasFleet}
               gitlab={gitlab.data ?? null}
               mode={sourceMode}
-              onModeChange={(mode) => {
+              onModeChange={(mode, keep) => {
                 setChosenMode(mode);
                 // GitHub and a typed source are two spellings of the same field: switching
                 // between them starts it over. A recipe or an export keeps its own state.
                 // An image has a field of its own, so going to it and back loses nothing.
-                if (kindOf(mode) === "code" && mode !== "image" && sourceMode !== "image" && mode !== "compose" && sourceMode !== "compose") {
+                if (keep !== undefined) {
+                  // What the change brings with it (a link typed in the box) is the new source, not what it clears.
+                  setSource(keep);
+                  setSourceErrors({});
+                } else if (kindOf(mode) === "code" && mode !== "image" && sourceMode !== "image" && mode !== "compose" && sourceMode !== "compose") {
                   setSource({ source: "", branch: "" });
                   setSourceErrors({});
                 }
@@ -868,11 +887,15 @@ export function NewAppWizard() {
                   go(stepAfterSource(inspection, proposed));
                 })();
               }}
-              recipes={
+              recipes={(query, browse) => (
                 <RecipeGallery
+                  query={query}
+                  browse={browse}
                   opening={openRecipe.isPending ? openRecipe.variables.name : null}
                   failure={openRecipe.isError ? { title: t("newApp.recipes.openFailed", { title: openRecipe.variables.title }), error: openRecipe.error } : null}
                   onChoose={(summary) => {
+                    // A card chosen is a recipe start, whatever was typed to find it.
+                    setChosenMode("recipe");
                     // The same recipe again: what was set over it stays, nothing is read twice.
                     if (recipe !== null && recipe.name === summary.name && recipeForm !== null) {
                       go("setup");
@@ -881,7 +904,7 @@ export function NewAppWizard() {
                     openRecipe.mutate(summary);
                   }}
                 />
-              }
+              )}
               importer={<ImportFile loaded={loaded} problem={importProblem} types={typeList} onFile={readFile} onRemote={acceptExport} />}
               composer={composeDoc.content}
               adopter={adoption.content}
@@ -999,7 +1022,7 @@ export function NewAppWizard() {
                 onChange={(patch) => {
                   const next = { ...recipeForm, ...patch };
                   setRecipeForm(next);
-                  setRecipeErrors((previous) => revalidated(previous, "setup", recipeProblems(next, context.domains, requiredRecipeVariables), "recipe"));
+                  setRecipeErrors((previous) => revalidated(previous, "setup", recipeProblems(next, context.domains, requiredRecipeVariables, recipe.root_equivalent != null), "recipe"));
                 }}
                 error={recipeErrors["domain"]}
                 dns={dns}
@@ -1011,7 +1034,7 @@ export function NewAppWizard() {
                 errors={recipeErrors}
                 onChange={(next) => {
                   setRecipeForm(next);
-                  setRecipeErrors((previous) => revalidated(previous, "setup", recipeProblems(next, context.domains, requiredRecipeVariables), "recipe"));
+                  setRecipeErrors((previous) => revalidated(previous, "setup", recipeProblems(next, context.domains, requiredRecipeVariables, recipe.root_equivalent != null), "recipe"));
                 }}
               />
             </div>

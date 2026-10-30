@@ -35,18 +35,11 @@ export async function wizardSource(page: Page, name: WizardSource): Promise<stri
 }
 
 /**
- * The wizard's typed source field. The seeded machine has a GitHub App, so the wizard opens on
- * "From GitHub" once it knows; this waits for that choice to appear and switches to "URL or
- * path", so the field returned is the one that stays.
+ * The wizard's one box: what to deploy is pasted or typed here, and Noust tells a repository, a folder, an image
+ * and a search of the catalog apart (owner item 99). The step opens on it, so there is nothing to switch to first.
  */
 export async function typedSource(page: Page) {
-  const modes = page.getByRole("radiogroup", { name: "Where the code is" });
-  const typed = modes.getByRole("radio", { name: "URL or path" });
-  // "URL or path" is there, and checked, before the wizard knows of the App; waiting for it
-  // alone let the wizard switch to "From GitHub" after the check below and under the click.
-  await expect(modes.getByRole("radio", { name: "From GitHub" })).toBeVisible();
-  if ((await typed.getAttribute("aria-checked")) !== "true") await typed.click();
-  const field = page.getByLabel("Repository or directory");
+  const field = page.getByLabel("What to deploy");
   await expect(field).toBeVisible();
   return field;
 }
@@ -99,22 +92,21 @@ export async function fillStorefrontVariables(page: Page): Promise<void> {
   }
 }
 
-/** The ways in that are not on the wizard's row: behind its "More ways" button. */
-const BEHIND_MORE_WAYS = new Set(["Compose", "From a recipe", "Import an application", "Already running"]);
+/** The ways of starting that are not a thing to paste or search for: folded under "Other ways to start". */
+const OTHER_WAYS = new Set(["Compose", "Import an application", "Already running"]);
 
 /**
- * Chooses one of the wizard's ways in by its name, the way a person does: a radio of the row, or an
- * item of the menu "More ways" opens (which then carries the way's name and says it is the one chosen).
+ * Gets to one of the wizard's ways of starting by its name, the way a person does. A repository, a folder or an image
+ * is not a way to choose (it goes in the box); the catalog is "Browse all recipes" under it; the rest of the ways are
+ * behind "Other ways to start".
  */
 export async function chooseWay(page: Page, name: string): Promise<void> {
-  if (BEHIND_MORE_WAYS.has(name)) {
-    await page.getByRole("button", { name: "More ways", exact: true }).click();
-    await page.getByRole("menuitem", { name, exact: true }).click();
-    await expect(page.getByRole("button", { name, exact: true })).toHaveAttribute("aria-current", "true");
+  if (name === "From a recipe") {
+    await page.getByRole("button", { name: /^Browse (all \d+ recipes|the \d+ recipe)$/ }).click();
     return;
   }
-  const choice = page.getByRole("radiogroup", { name: "Where the code is" }).getByRole("radio", { name });
-  await expect(choice).toBeVisible();
-  await choice.click();
-  await expect(choice).toHaveAttribute("aria-checked", "true");
+  if (OTHER_WAYS.has(name)) {
+    await page.getByRole("button", { name: "Other ways to start", exact: true }).click();
+    await page.getByRole("button", { name, exact: true }).click();
+  }
 }

@@ -22,6 +22,7 @@ describe("a recipe's form", () => {
       defaultBackups: true,
       installRequirements: false,
       database: "",
+      acceptRoot: false,
     });
   });
 
@@ -37,6 +38,7 @@ describe("a recipe's form", () => {
       defaultBackups: false,
       installRequirements: true,
       database: "",
+      acceptRoot: false,
     };
     const other = { variables: [recipeVariable("WP_DEBUG"), recipeVariable("TZ")] };
     expect(initialRecipeForm(other, typed)).toEqual({
@@ -50,6 +52,7 @@ describe("a recipe's form", () => {
       defaultBackups: false,
       installRequirements: false,
       database: "",
+      acceptRoot: false,
     });
   });
 

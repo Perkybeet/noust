@@ -94,6 +94,9 @@ describe("starting from a recipe", () => {
     expect(site).toHaveAttribute("target", "_blank");
     expect(site.getAttribute("rel")).toContain("noopener");
 
+    // The ones this release cannot deploy are folded under their own count, each with its reason.
+    expect(screen.queryByRole("heading", { level: 3, name: "Ghost" })).not.toBeInTheDocument();
+    await harness.user.click(screen.getByRole("button", { name: /not available yet/ }));
     const ghost = screen.getByRole("heading", { level: 3, name: "Ghost" }).closest("li") as HTMLElement;
     expect(within(ghost).getByText("Not available in this release")).toBeInTheDocument();
     expect(within(ghost).getByText(/supports only MySQL 8 in production/)).toBeInTheDocument();
@@ -364,7 +367,7 @@ describe("another platform's configuration", () => {
     const { backend, harness } = wizard("api.example.com", {}, { "POST /api/apps/inspect": () => json(200, INSPECTION) });
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    await user.type(screen.getByLabelText("Repository or directory"), "/srv/api");
+    await user.type(screen.getByLabelText("What to deploy"), "/srv/api");
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("heading", { level: 2, name: "Address" });
     await user.type(screen.getByLabelText("Domain"), "api.example.com");
@@ -419,7 +422,7 @@ describe("another platform's configuration", () => {
     });
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    await user.type(screen.getByLabelText("Repository or directory"), "/srv/api");
+    await user.type(screen.getByLabelText("What to deploy"), "/srv/api");
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("heading", { level: 2, name: "Address" });
     await user.type(screen.getByLabelText("Domain"), "api.example.com");

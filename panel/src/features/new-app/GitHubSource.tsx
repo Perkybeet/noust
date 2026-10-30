@@ -3,7 +3,7 @@ import { Download, FolderGit2, Lock, Search } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 
-import { githubBranchesQuery, githubRepositoriesQuery } from "../../api/queries/github";
+import { centralGithubBranchesQuery, centralGithubRepositoriesQuery, githubBranchesQuery, githubRepositoriesQuery } from "../../api/queries/github";
 import type { GitHubRepository, GitHubStatus } from "../../api/queries/github";
 import { announce } from "../../app/Announcer";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -250,15 +250,20 @@ function BranchField({
   error,
   onChange,
   disabled,
+  central,
 }: {
   repository: { owner: string; repo: string; defaultBranch: string | null };
   form: SourceForm;
   error: string | undefined;
   onChange: (form: SourceForm) => void;
   disabled: boolean;
+  central: boolean;
 }) {
   const t = useT();
-  const branches = useQuery(githubBranchesQuery(repository.owner, repository.repo));
+  // This server's App, or the central's: only the one that serves this application is read.
+  const ownBranches = useQuery({ ...githubBranchesQuery(repository.owner, repository.repo), enabled: !central });
+  const sharedBranches = useQuery({ ...centralGithubBranchesQuery(repository.owner, repository.repo), enabled: central });
+  const branches = central ? sharedBranches : ownBranches;
   const description = t("newApp.github.branchDescription");
 
   if (branches.isError) {
@@ -322,6 +327,8 @@ export interface GitHubSourceProps {
   errors: SourceErrors;
   onChange: (form: SourceForm) => void;
   disabled: boolean;
+  /** The App is the central's, which serves every server of the fleet: its repositories are read from the central. */
+  central?: boolean;
 }
 
 /**
@@ -329,10 +336,12 @@ export interface GitHubSourceProps {
  * installation covers, choose one, then its branch. The choice becomes `github:owner/repo`
  * and carries the installation that reads it into the inspection and the deploy.
  */
-export function GitHubSource({ status, form, errors, onChange, disabled }: GitHubSourceProps) {
+export function GitHubSource({ status, form, errors, onChange, disabled, central = false }: GitHubSourceProps) {
   const t = useT();
   const installed = status.installations.length > 0;
-  const repositories = useQuery({ ...githubRepositoriesQuery(), enabled: installed });
+  const ownRepositories = useQuery({ ...githubRepositoriesQuery(), enabled: installed && !central });
+  const sharedRepositories = useQuery({ ...centralGithubRepositoriesQuery(), enabled: installed && central });
+  const repositories = central ? sharedRepositories : ownRepositories;
   const [changing, setChanging] = useState(false);
   const change = useRef<HTMLButtonElement>(null);
   const chose = useRef(false);
@@ -460,6 +469,7 @@ export function GitHubSource({ status, form, errors, onChange, disabled }: GitHu
           error={errors.branch}
           onChange={onChange}
           disabled={disabled}
+          central={central}
         />
       ) : null}
     </div>

@@ -7,6 +7,10 @@ export const remoteImport = {
   title: "From another platform",
   description: "Noust reads an application over the other server's API with a read-only token and proposes how it runs here. Nothing is written to the other server. The token is used for this request and is not stored.",
   platform: "Platform",
+  urlMissing: "Enter the address of the other server.",
+  tokenMissing: "Enter the token to read it with.",
+  passwordMissing: "Enter the password to read it with.",
+  chooseMissing: "Choose the application to read.",
   platforms: {
     coolify: "Coolify",
     dokploy: "Dokploy",

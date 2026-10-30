@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
-import { chooseWay } from "../../test/ways";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import type { Inspection } from "./wizard";
@@ -76,10 +75,12 @@ function wizard(extra: Record<string, RouteHandler> = {}) {
 
 type User = ReturnType<typeof renderConsole>["user"];
 
-/** The start named by a radio of "Where the code is". */
-async function start(user: User, name: string) {
+/** The first step, with an image typed in the one box that starts every application. */
+async function typeImage(user: User, image: string): Promise<HTMLElement> {
   await screen.findByRole("heading", { level: 1, name: "New application" });
-  await chooseWay(user, name);
+  const box = await screen.findByLabelText("What to deploy");
+  await user.type(box, image);
+  return box;
 }
 
 /** An optional field of the container section, by what its label begins with. */
@@ -92,7 +93,7 @@ describe("a container application from a repository with a Dockerfile", () => {
     const { backend, harness } = wizard();
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    await user.type(screen.getByLabelText("Repository or directory"), "/var/www/src/shop");
+    await user.type(screen.getByLabelText("What to deploy"), "/var/www/src/shop");
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("heading", { level: 2, name: "Address" });
     await user.type(screen.getByLabelText("Domain"), "crate.example.com");
@@ -161,7 +162,7 @@ describe("a container application from a repository with a Dockerfile", () => {
     const { backend, harness } = wizard();
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    await user.type(screen.getByLabelText("Repository or directory"), "/var/www/src/shop");
+    await user.type(screen.getByLabelText("What to deploy"), "/var/www/src/shop");
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("heading", { level: 2, name: "Address" });
     await user.type(screen.getByLabelText("Domain"), "crate.example.com");
@@ -183,7 +184,7 @@ describe("a container application from a repository with a Dockerfile", () => {
     const { backend, harness } = wizard();
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    await user.type(screen.getByLabelText("Repository or directory"), "/var/www/src/shop");
+    await user.type(screen.getByLabelText("What to deploy"), "/var/www/src/shop");
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("heading", { level: 2, name: "Address" });
     await user.type(screen.getByLabelText("Domain"), "crate.example.com");
@@ -203,9 +204,7 @@ describe("a container application from an image in a registry", () => {
   it("starts from the image, needs no inspection, and sends no source", { timeout: 60_000 }, async () => {
     const { backend, harness } = wizard();
     const { user } = harness;
-    await start(user, "A Docker image");
-    const image = screen.getByLabelText("Image");
-    await user.type(image, "ghcr.io/owner/app:1.4");
+    await typeImage(user, "ghcr.io/owner/app:1.4");
     await expectNoAxeViolations(screen.getByRole("main"));
     await user.click(screen.getByRole("button", { name: "Continue" }));
     expect(await screen.findByRole("heading", { level: 2, name: "Address" })).toBeInTheDocument();
@@ -253,16 +252,15 @@ describe("a container application from an image in a registry", () => {
     expect(body).not.toHaveProperty("branch");
   });
 
-  it("says what an image needs before going on", { timeout: 30_000 }, async () => {
+  it("takes what is typed for an image only when it is written as one, and says so before going on", { timeout: 30_000 }, async () => {
     const { harness } = wizard();
     const { user } = harness;
-    await start(user, "A Docker image");
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(await screen.findAllByText("Give the image, such as ghcr.io/owner/app:1.4.")).not.toHaveLength(0);
-    await user.type(screen.getByLabelText("Image"), "https://ghcr.io/owner/app");
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(await screen.findAllByText(/An image is name\[:tag\]\[@sha256:digest\]/)).not.toHaveLength(0);
-    expect(screen.getByRole("heading", { level: 2, name: "Source" })).toBeInTheDocument();
+    const box = await typeImage(user, "redis");
+    // A lone word is a search of the catalog: no image, nothing about a registry.
+    expect(screen.queryByText(/private registry's account/)).not.toBeInTheDocument();
+    await user.clear(box);
+    await user.type(box, "ghcr.io/owner/app:1.4");
+    expect(await screen.findByText(/private registry's account is asked for on the configuration step/)).toBeInTheDocument();
   });
 
   it("goes back to the image, with the server's words beside it, when the server refuses it", { timeout: 60_000 }, async () => {
@@ -274,8 +272,7 @@ describe("a container application from an image in a registry", () => {
         }),
     });
     const { user } = harness;
-    await start(user, "A Docker image");
-    await user.type(screen.getByLabelText("Image"), "Owner/App");
+    await typeImage(user, "owner/app");
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await user.type(await screen.findByLabelText("Domain"), "crate.example.com");
     await user.click(screen.getByRole("button", { name: "Continue" }));
@@ -283,14 +280,13 @@ describe("a container application from an image in a registry", () => {
     await user.click(await screen.findByRole("button", { name: "Deploy crate.example.com" }));
     expect(await screen.findByRole("heading", { level: 2, name: "Source" })).toBeInTheDocument();
     expect(await screen.findByText("'Owner/App' is not an image reference")).toBeInTheDocument();
-    expect(screen.getByLabelText("Image")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("What to deploy")).toHaveAttribute("aria-invalid", "true");
   });
 
   it("is never offered a database, which a container cannot reach", { timeout: 30_000 }, async () => {
     const { harness } = wizard({ "GET /api/databases": () => json(200, { databases: [], total: 0 }) });
     const { user } = harness;
-    await start(user, "A Docker image");
-    await user.type(screen.getByLabelText("Image"), "nginx:1.27-alpine");
+    await typeImage(user, "nginx:1.27-alpine");
     await user.click(screen.getByRole("button", { name: "Continue" }));
     const steps = await screen.findByRole("list", { name: "Steps" });
     expect(within(steps).queryByText(/^Database/)).not.toBeInTheDocument();

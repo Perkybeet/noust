@@ -109,7 +109,8 @@ describe("promoting a release to another environment", () => {
     await chooseFromMenu(user, SHOP, "Promote to another environment");
     const dialog = await screen.findByRole("dialog", { name: `Promote ${SHOP}` });
     expect(await within(dialog).findByText("No other environment has this app")).toBeInTheDocument();
-    expect(within(dialog).getByRole("button", { name: "Promote release" })).toBeDisabled();
+    // Nothing to promote to: the button is not drawn, and the sentence above says how to make a place.
+    expect(within(dialog).queryByRole("button", { name: "Promote release" })).not.toBeInTheDocument();
   });
 
   it("says the app has no release to promote", async () => {

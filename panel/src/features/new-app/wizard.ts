@@ -186,6 +186,39 @@ export function sourceKind(value: string): SourceKind {
   return "unknown";
 }
 
+/** What a person typed in the one box that starts an application. */
+export type EntryKind = "empty" | "source" | "image" | "search";
+
+/** A repository host written without its scheme (`github.com/you/app`): the address of a source all the same. */
+const BARE_HOST = /^(?:www\.)?(?:github\.com|gitlab\.com|bitbucket\.org|codeberg\.org)\/\S+$/i;
+
+/** An image reference: an optional registry, a path, a tag or a digest; lower case, as registries have it. */
+const IMAGE_REF = /^(?:[a-z0-9]+(?:[._-][a-z0-9]+)*(?::\d+)?\/)?(?:[a-z0-9]+(?:[._-][a-z0-9]+)*\/)*[a-z0-9]+(?:[._-][a-z0-9]+)*(?::[\w][\w.-]{0,127})?(?:@sha256:[a-f0-9]{64})?$/;
+
+/**
+ * What the one box holds: an address or a path of code (`source`), an image of a registry (`image`), or words to
+ * look for in the catalog (`search`). Noust decides the way from what was typed, so the person does not have to
+ * know which of four doors their thing is behind (owner item 99). The server decides again; this only picks
+ * what is shown. A name with a slash and no scheme (`owner/app`) is an image, as Docker reads it; a lone word
+ * (`redis`) is a search, because it is far likelier to be looked for than to be a Docker Hub image to deploy.
+ */
+export function classifyEntry(value: string): EntryKind {
+  const text = value.trim();
+  if (text === "") return "empty";
+  if (sourceKind(text) !== "unknown" || BARE_HOST.test(text)) return "source";
+  if (/\s/.test(text)) return "search";
+  const hasPath = text.includes("/");
+  const hasTag = /^[^/:]+:[\w][\w.-]*$/.test(text);
+  if ((hasPath || hasTag) && IMAGE_REF.test(text)) return "image";
+  return "search";
+}
+
+/** A source typed without its scheme, as the one box takes it: `github.com/you/app` is `https://github.com/you/app`. */
+export function withScheme(value: string): string {
+  const text = value.trim();
+  return BARE_HOST.test(text) ? `https://${text}` : text;
+}
+
 /**
  * A source in a few characters, for places too narrow for all of it: the end of a path
  * (`src/storefront`), the repository of a URL (`you/app`).

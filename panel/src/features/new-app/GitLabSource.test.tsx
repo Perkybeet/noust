@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
+import { chooseWay, openOtherWays } from "../../test/ways";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import type { Inspection } from "./wizard";
@@ -71,21 +72,23 @@ function wizard(status: object | null, extra: Record<string, RouteHandler> = {})
 
 describe("the new-app wizard, from GitLab", () => {
   it("is offered only where a connection exists", { timeout: 30_000 }, async () => {
-    wizard({ connections: [], oauth_apps: [], redirect_uri: null });
-    expect(await screen.findByLabelText("Repository or directory")).toBeInTheDocument();
-    expect(screen.queryByRole("radio", { name: "From GitLab" })).not.toBeInTheDocument();
+    const { harness } = wizard({ connections: [], oauth_apps: [], redirect_uri: null });
+    expect(await screen.findByLabelText("What to deploy")).toBeInTheDocument();
+    await openOtherWays(harness.user);
+    expect(screen.queryByRole("button", { name: "From GitLab" })).not.toBeInTheDocument();
   });
 
   it("stays on the typed source when the integration cannot be read", { timeout: 30_000 }, async () => {
-    const { backend } = wizard(null);
-    expect(await screen.findByLabelText("Repository or directory")).toBeInTheDocument();
+    const { backend, harness } = wizard(null);
+    expect(await screen.findByLabelText("What to deploy")).toBeInTheDocument();
     await waitFor(() => expect(backend.callsTo("GET /api/integrations/gitlab")).toHaveLength(1));
-    expect(screen.queryByRole("radio", { name: "From GitLab" })).not.toBeInTheDocument();
+    await openOtherWays(harness.user);
+    expect(screen.queryByRole("button", { name: "From GitLab" })).not.toBeInTheDocument();
   });
 
   it("lists the projects, narrows them by group and by name, and passes axe", { timeout: 40_000 }, async () => {
     const { backend, harness } = wizard(STATUS);
-    await harness.user.click(await screen.findByRole("radio", { name: "From GitLab" }));
+    await chooseWay(harness.user, "From GitLab");
     const list = await screen.findByRole("list", { name: "Projects" });
     expect(within(list).getByText("acme/api")).toBeInTheDocument();
     expect(within(list).getByText("acme/shop/storefront")).toBeInTheDocument();
@@ -98,7 +101,7 @@ describe("the new-app wizard, from GitLab", () => {
   it("chooses a project, preselects its default branch, and inspects its clone address", { timeout: 40_000 }, async () => {
     const { backend, harness } = wizard(STATUS);
     const { user } = harness;
-    await user.click(await screen.findByRole("radio", { name: "From GitLab" }));
+    await chooseWay(user, "From GitLab");
     await user.click(await screen.findByRole("button", { name: /acme\/shop\/storefront/ }));
 
     // Chosen: the project stands in place of the list, focus on its control.
@@ -118,7 +121,7 @@ describe("the new-app wizard, from GitLab", () => {
     const { harness } = wizard(STATUS, {
       "GET /api/integrations/gitlab/connections/work/projects/12/branches": () => problem(502, "integrationerror", "GitLab answered 502 Bad Gateway"),
     });
-    await harness.user.click(await screen.findByRole("radio", { name: "From GitLab" }));
+    await chooseWay(harness.user, "From GitLab");
     await harness.user.click(await screen.findByRole("button", { name: /acme\/shop\/storefront/ }));
 
     expect(await screen.findByText("GitLab answered 502 Bad Gateway")).toBeInTheDocument();
@@ -129,7 +132,7 @@ describe("the new-app wizard, from GitLab", () => {
     const { harness } = wizard(STATUS, {
       "GET /api/integrations/gitlab/connections/work/projects": () => problem(502, "integrationerror", "GitLab refused the token: 401 Unauthorized"),
     });
-    await harness.user.click(await screen.findByRole("radio", { name: "From GitLab" }));
+    await chooseWay(harness.user, "From GitLab");
 
     expect(await screen.findByText("GitLab refused the token: 401 Unauthorized")).toBeInTheDocument();
     expect(screen.getByText("Could not list the GitLab projects")).toBeInTheDocument();
@@ -137,7 +140,7 @@ describe("the new-app wizard, from GitLab", () => {
 
   it("asks for a project before inspecting", { timeout: 40_000 }, async () => {
     const { backend, harness } = wizard(STATUS);
-    await harness.user.click(await screen.findByRole("radio", { name: "From GitLab" }));
+    await chooseWay(harness.user, "From GitLab");
     await screen.findByRole("list", { name: "Projects" });
     await harness.user.click(screen.getByRole("button", { name: "Continue" }));
 

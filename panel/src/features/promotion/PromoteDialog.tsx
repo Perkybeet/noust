@@ -129,9 +129,12 @@ export function PromoteDialog({ domain, open, onOpenChange }: PromoteDialogProps
           <Button disabled={pending} onClick={() => onOpenChange(false)}>
             {t("common.words.cancel")}
           </Button>
-          <Button type="submit" form={formId} variant="primary" loading={pending} disabled={!ready}>
-            {t("promotion.promote.submit")}
-          </Button>
+          {/* Nothing to promote (no release, no twin) is said in the body; there is nothing to press then. */}
+          {ready ? (
+            <Button type="submit" form={formId} variant="primary" loading={pending}>
+              {t("promotion.promote.submit")}
+            </Button>
+          ) : null}
         </>
       }
     >

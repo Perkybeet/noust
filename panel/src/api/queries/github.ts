@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 
+import { runOnNode } from "../nodeScope";
 import { request } from "../client";
 import type { BodyOf, ResponseOf } from "../client";
 
@@ -40,6 +41,39 @@ export const githubBranchesQuery = (owner: string, repo: string) =>
     queryKey: githubKeys.branches(owner, repo),
     queryFn: ({ signal }) =>
       request("get", "/api/integrations/github/repositories/{owner}/{repo}/branches", { params: { owner, repo }, signal }),
+    staleTime: 60_000,
+  });
+
+/**
+ * The same three reads, from the central whichever server the console is showing: the GitHub App lives on the
+ * central and serves every server of the fleet through the leases it gives them (docs/sources.md), so a
+ * repository is listed once, from the one place that knows it, and cloned wherever the application goes. The
+ * entries are the central's own (`fleet` roots the key), shared by every server on screen.
+ */
+export const centralGithubKeys = {
+  status: ["fleet", "github", "status"] as const,
+  repositories: ["fleet", "github", "repositories"] as const,
+  branches: (owner: string, repo: string) => ["fleet", "github", "branches", owner, repo] as const,
+};
+
+export const centralGithubStatusQuery = () =>
+  queryOptions({
+    queryKey: centralGithubKeys.status,
+    queryFn: ({ signal }) => runOnNode(null, () => request("get", "/api/integrations/github", { signal })),
+  });
+
+export const centralGithubRepositoriesQuery = () =>
+  queryOptions({
+    queryKey: centralGithubKeys.repositories,
+    queryFn: ({ signal }) => runOnNode(null, () => request("get", "/api/integrations/github/repositories", { signal })),
+    staleTime: 60_000,
+  });
+
+export const centralGithubBranchesQuery = (owner: string, repo: string) =>
+  queryOptions({
+    queryKey: centralGithubKeys.branches(owner, repo),
+    queryFn: ({ signal }) =>
+      runOnNode(null, () => request("get", "/api/integrations/github/repositories/{owner}/{repo}/branches", { params: { owner, repo }, signal })),
     staleTime: 60_000,
   });
 

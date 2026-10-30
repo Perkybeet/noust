@@ -140,6 +140,12 @@ export const catalog: Catalog<typeof en> = {
   empty: {
     noMatch: "Ninguna receta coincide con estos filtros.",
   },
+  unavailable: {
+    title: { one: "{count} receta todavía no disponible", other: "{count} recetas todavía no disponibles" },
+    summary: "Esta versión no puede desplegarlas. Cada una dice por qué y qué hacer.",
+    label: "Recetas no disponibles",
+    noneAvailable: "Ninguna de estas se puede desplegar con esta versión.",
+  },
   job: {
     viewOutput: "Ver salida",
   },

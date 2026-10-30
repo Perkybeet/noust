@@ -75,7 +75,7 @@ type User = ReturnType<typeof renderConsole>["user"];
 
 async function inspectPlain(user: User): Promise<void> {
   await screen.findByRole("heading", { level: 1, name: "New application" });
-  await user.type(screen.getByLabelText("Repository or directory"), "https://github.com/acme/api.git");
+  await user.type(screen.getByLabelText("What to deploy"), "https://github.com/acme/api.git");
   await user.click(screen.getByRole("button", { name: "Continue" }));
   await screen.findByRole("heading", { level: 2, name: "Address" });
 }
@@ -211,23 +211,27 @@ describe("a public repository to its first build", () => {
 });
 
 describe("the ways in the wizard opens on", () => {
-  it("opens on the recipes for ?start=recipe, without a click to choose them", { timeout: 30_000 }, async () => {
+  it("opens on the whole catalog for ?start=recipe, without a click to choose it", { timeout: 30_000 }, async () => {
     wizard("/apps/new?start=recipe");
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    expect(await screen.findByRole("button", { name: "From a recipe" })).toHaveAttribute("aria-current", "true");
     expect(await screen.findByRole("button", { name: "Use WordPress" })).toBeInTheDocument();
+    // Browsing: the catalog's own filters are there, and the button that opens them is not.
+    expect(screen.getByRole("searchbox", { name: /^Search/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Browse all/ })).not.toBeInTheDocument();
   });
 
-  it("opens on an export for ?start=import", { timeout: 30_000 }, async () => {
+  it("opens on the screen of an export for ?start=import", { timeout: 30_000 }, async () => {
     wizard("/apps/new?start=import");
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    expect(await screen.findByRole("button", { name: "Import an application" })).toHaveAttribute("aria-current", "true");
+    // A way that is not the box has its own screen, with the way back to it.
+    expect(await screen.findByRole("button", { name: "Back" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("What to deploy")).not.toBeInTheDocument();
   });
 
-  it("opens on the default for a start it does not know", { timeout: 30_000 }, async () => {
+  it("opens on the one box for a start it does not know", { timeout: 30_000 }, async () => {
     wizard("/apps/new?start=nonsense");
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    expect(await screen.findByRole("radio", { name: "URL or path" })).toBeChecked();
+    expect(await screen.findByLabelText("What to deploy")).toHaveValue("");
   });
 });
 

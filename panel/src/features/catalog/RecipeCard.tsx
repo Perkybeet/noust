@@ -6,11 +6,15 @@ import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Disclosure } from "../../components/ui/Disclosure";
 import { ExternalLink } from "../../components/ui/ExternalLink";
+import { HelpPopover } from "../../components/ui/HelpPopover";
+import { ICONS } from "../../components/ui/icons";
+import { ServerText } from "../../components/ui/ServerText";
 import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { formatDate } from "../../lib/format";
 import { DEPENDENCY_LABELS, categoryLabelKey, dayOf, versionLabel } from "./model";
+import { codedText } from "./codedText";
 import { RecipeLogo } from "./RecipeLogo";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
@@ -38,6 +42,74 @@ export function dependencyWords(t: T, dependencies: readonly string[]): string[]
 export function categoryWords(t: T, category: string): string {
   const key = categoryLabelKey(category);
   return key === null ? category : t(key);
+}
+
+/**
+ * Why a recipe cannot be deployed from this release, said in the console's language: a short label, the reason
+ * in a sentence and what to do about it, and the one that stands in for it when there is one. The evidence the
+ * recipe holds (the licence's words, the archive's date) is folded and stays as written: it is the proof, not
+ * the sentence.
+ */
+function Unavailable({ recipe }: { recipe: RecipeSummary }) {
+  const t = useT();
+  const coded = codedText(recipe.unavailable);
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="flex items-center gap-1.5 text-12 font-medium text-fg">
+        <Ban aria-hidden="true" className="size-icon-sm shrink-0 text-fg-muted" />
+        {t("newApp.recipes.unavailable")}
+      </span>
+      {recipe.unavailable_text ? (
+        <p className="text-12 text-pretty text-fg">
+          <ServerText coded={coded} text={recipe.unavailable_text} />
+        </p>
+      ) : null}
+      {recipe.unavailable_hint ? (
+        <p className="text-12 text-pretty text-fg-muted">
+          <ServerText coded={coded} text={recipe.unavailable_hint} part="hint" />
+        </p>
+      ) : null}
+      {recipe.replaced_by ? (
+        <p className="text-12 text-fg-muted">
+          {t.rich("newApp.recipes.replacedBy", {
+            name: (
+              <TextLink key="name" to="/catalog/$name" params={{ name: recipe.replaced_by }} size="inline">
+                {recipe.replaced_by}
+              </TextLink>
+            ),
+          })}
+        </p>
+      ) : null}
+      {recipe.unavailable_reason ? (
+        <Disclosure label={t("newApp.recipes.evidence")}>
+          <p className="text-12 text-pretty text-fg-muted">{recipe.unavailable_reason}</p>
+        </Disclosure>
+      ) : null}
+    </div>
+  );
+}
+
+/** A recipe that is root on the server by design (it mounts the Docker socket), said before it is chosen, with what to weigh. */
+function RootEquivalent({ recipe }: { recipe: RecipeSummary }) {
+  const t = useT();
+  return (
+    <div className="flex min-w-0 items-center gap-1.5 text-12 font-medium text-fg">
+      <ICONS.locked aria-hidden="true" className="size-icon-sm shrink-0 text-fg-muted" />
+      {t("newApp.recipes.rootBadge")}
+      <HelpPopover label={t("newApp.recipes.rootHelp", { title: recipe.title })} title={t("newApp.recipes.rootBadge")}>
+        <div className="flex flex-col gap-2">
+          <p>
+            <ServerText coded={codedText(recipe.root_equivalent_warning)} text={recipe.root_equivalent_text} />
+          </p>
+          {recipe.root_equivalent_hint ? (
+            <p className="text-fg-muted">
+              <ServerText coded={codedText(recipe.root_equivalent_warning)} text={recipe.root_equivalent_hint} part="hint" />
+            </p>
+          ) : null}
+        </div>
+      </HelpPopover>
+    </div>
+  );
 }
 
 export interface RecipeCardProps {
@@ -176,15 +248,8 @@ export function RecipeCard({ recipe, opening = false, disabled = false, onChoose
       className="h-full"
     >
       <div className="flex min-w-0 flex-col gap-2">
-        {recipe.available ? null : (
-          <div className="flex flex-col gap-1">
-            <span className="flex items-center gap-1.5 text-12 font-medium text-fg">
-              <Ban aria-hidden="true" className="size-icon-sm shrink-0 text-fg-muted" />
-              {t("newApp.recipes.unavailable")}
-            </span>
-            {recipe.unavailable_reason ? <p className="text-12 text-pretty text-fg-muted">{recipe.unavailable_reason}</p> : null}
-          </div>
-        )}
+        {recipe.available ? null : <Unavailable recipe={recipe} />}
+        {recipe.root_equivalent != null ? <RootEquivalent recipe={recipe} /> : null}
         {detail ? null : (
           <Disclosure label={t("catalog.card.details")}>
             <RecipeFacts recipe={recipe} />
