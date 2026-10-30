@@ -70,7 +70,9 @@ serial("two accounts to hold roles", async ({ page, consoleServer }) => {
   }
 });
 
-serial("a role is defined from the permissions that exist, given on a project, taken back and deleted", async ({ page, consoleServer }) => {
+serial("a role is defined from the permissions that exist, given on a project, taken back and deleted", async ({ page, consoleServer, problems }) => {
+  // Deleting a role someone still holds is refused on purpose.
+  problems.expect(/status of 409 .*\/api\/roles\/release-manager$/);
   await signIn(page, consoleServer, "/settings/access");
   await elevate(page, consoleServer);
   await expect(page.getByRole("heading", { name: "Who holds what" })).toBeVisible();
@@ -108,10 +110,13 @@ serial("a role is defined from the permissions that exist, given on a project, t
   await settle(page);
   await expectNoA11yViolations(page, "Settings, Roles, with a grant");
 
-  // A role someone holds cannot be deleted: the menu does not offer it. Taken back, it can.
+  // A role someone holds on a project cannot be deleted, and the server says so; taken back, it can.
   await page.getByRole("button", { name: "Actions for Release manager" }).click();
-  await expect(page.getByRole("menuitem", { name: "Delete" })).toHaveCount(0);
-  await page.keyboard.press("Escape");
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+  const refusal = page.getByRole("alertdialog", { name: "Delete Release manager" });
+  await refusal.getByRole("button", { name: "Delete role" }).click();
+  await expect(refusal.getByText(/is still given to 1 account/)).toBeVisible();
+  await refusal.getByRole("button", { name: "Cancel" }).click();
   await page.getByRole("button", { name: "Revoke Release manager from bruno" }).click();
   await page.getByRole("alertdialog", { name: /^Revoke Release manager from bruno/ }).getByRole("button", { name: "Revoke role" }).click();
   await expect(page.getByRole("heading", { name: "No role is granted yet" })).toBeVisible();

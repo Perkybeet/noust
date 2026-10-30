@@ -260,13 +260,17 @@ export function FleetSettings() {
       >
         {list.isError ? (
           <ErrorBlock compact error={list.error} title={t("fleetSettings.loading")} onRetry={() => void list.refetch()} />
-        ) : status.isError ? null : (
+        ) : status.isError ? null : status.data === undefined || list.data === undefined ? (
+          // The height of the table with nothing in it (its header and the line that says so), the common first answer.
+          <div aria-busy="true">
+            <Skeleton className="h-28 w-full rounded-card" />
+          </div>
+        ) : (
           <DataTable
             caption={t("fleetSettings.table.caption")}
             columns={columns}
-            rows={status.data === undefined || list.data === undefined ? undefined : rows}
+            rows={rows}
             getRowId={(setting) => `${setting.resource}/${setting.name}`}
-            skeletonRows={2}
             empty={<EmptyState variant="inline" title={t("fleetSettings.empty.title")} description={t("fleetSettings.empty.description")} />}
             {...(canManage
               ? {
