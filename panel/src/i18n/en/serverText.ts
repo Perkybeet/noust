@@ -123,6 +123,32 @@ export const serverText = {
       hint: "To turn it off there, or:\n  {command}",
     },
   },
+  database_engines: {
+    conflict_mysql: {
+      text: "{installed} is installed, and {requested} cannot run beside it: they share port 3306, their packages and /var/lib/mysql.",
+      hint: "Remove {installed} first if you mean to replace it.",
+    },
+    conflict_redis: {
+      text: "{installed} is installed, and {requested} cannot run beside it: they share port 6379 and their packages.",
+      hint: "Remove {installed} first if you mean to replace it.",
+    },
+    no_package_manager: {
+      text: "Noust installs {engine} with apt, dnf or zypper, and this system has none of them.",
+      hint: "Run it as an instance, a container that needs no package manager ({command}), or install it with the distribution's package manager: Noust manages it from there.",
+    },
+    not_available: {
+      text: "Noust cannot install {engine} on {system}",
+      hint: "Run it as an instance, a container that needs no package manager ({command}), or install it with the system's package manager: Noust manages it from there.",
+    },
+    redis_not_shipped: {
+      text: "{system} does not ship Redis",
+      hint: "Install Valkey instead: run '{command}'.",
+    },
+    valkey_not_shipped: {
+      text: "{system} does not ship Valkey",
+      hint: "Valkey is packaged from Debian 13 and Ubuntu 24.04 on. Install Redis instead: run '{command}'.",
+    },
+  },
   database_servers: {
     default_app: {
       text: "{key} is the database of an application's stack, so it cannot be the default",

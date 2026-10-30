@@ -75,6 +75,38 @@ CATALOG: dict[str, str] = {
         "Add one with Account > Cloudflare Tunnel:Edit: "
         "noust dns provider add NAME --kind cloudflare --token-stdin"
     ),
+    # -- Database engines (Databases > New database, Install an engine): why one cannot be --
+    # installed on this server. The sentence and its fix, which together are the English reason
+    # the API has always sent (``noust.managers.database.flavours``).
+    "database_engines.conflict_mysql": (
+        "{installed} is installed, and {requested} cannot run beside it: they share "
+        "port 3306, their packages and /var/lib/mysql."
+    ),
+    "database_engines.conflict_mysql.hint": "Remove {installed} first if you mean to replace it.",
+    "database_engines.conflict_redis": (
+        "{installed} is installed, and {requested} cannot run beside it: they share "
+        "port 6379 and their packages."
+    ),
+    "database_engines.conflict_redis.hint": "Remove {installed} first if you mean to replace it.",
+    "database_engines.no_package_manager": (
+        "Noust installs {engine} with apt, dnf or zypper, and this system has none of them."
+    ),
+    "database_engines.no_package_manager.hint": (
+        "Run it as an instance, a container that needs no package manager ({command}), or "
+        "install it with the distribution's package manager: Noust manages it from there."
+    ),
+    "database_engines.redis_not_shipped": "{system} does not ship Redis",
+    "database_engines.redis_not_shipped.hint": "Install Valkey instead: run '{command}'.",
+    "database_engines.valkey_not_shipped": "{system} does not ship Valkey",
+    "database_engines.valkey_not_shipped.hint": (
+        "Valkey is packaged from Debian 13 and Ubuntu 24.04 on. Install Redis instead: "
+        "run '{command}'."
+    ),
+    "database_engines.not_available": "Noust cannot install {engine} on {system}",
+    "database_engines.not_available.hint": (
+        "Run it as an instance, a container that needs no package manager ({command}), or "
+        "install it with the system's package manager: Noust manages it from there."
+    ),
     # -- A person, when a central acted for them (noust.core.audit.actor) -----------------------
     "actors.through_central": "{person} (from the central {central})",
     # -- What an operator may call an object (noust.validators.object_names) ----------------

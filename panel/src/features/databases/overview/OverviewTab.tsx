@@ -249,7 +249,8 @@ export function OverviewTab({ engine, name }: { engine: string; name: string }) 
                     <span className="flex min-w-0 flex-wrap items-center gap-x-2 text-12 text-fg-muted">
                       {link.env_var ? <Mono tone="default">{link.env_var}</Mono> : null}
                       {link.url ? (
-                        <Mono tone="muted" truncate>
+                        // Whole, wrapped at any character: a cut address cannot be told from another one, and the real one is copied from the page's header.
+                        <Mono tone="muted" className="min-w-0 break-all">
                           {link.url}
                         </Mono>
                       ) : null}

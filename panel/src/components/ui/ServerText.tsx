@@ -80,6 +80,15 @@ export function ServerText({ coded, text, part = "text" }: ServerTextProps) {
 }
 
 /**
+ * A sentence and its fix as one text, for a line that gives the reason for something ("MariaDB: ...").
+ * A code this console has no entry for is the English the server sent, which already holds both.
+ */
+export function useServerReason(): (coded: CodedText | null | undefined, english: string | null | undefined) => string {
+  const t = useT();
+  return (coded, english) => [serverSentence(t.locale, coded, english, "text"), serverSentence(t.locale, coded, null, "hint")].filter((part) => part !== "").join(" ");
+}
+
+/**
  * The same words as plain text, for a title, an aria-label or a toast: `say(coded, english)`, and
  * `say(coded, english, "hint")` for the fix. Re-renders when the language changes or the catalog arrives.
  */

@@ -3,6 +3,7 @@ import { Field } from "../../../components/ui/Field";
 import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
 import type { SelectOption } from "../../../components/ui/Select";
+import { useServerReason } from "../../../components/ui/ServerText";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import type { EngineChoice } from "../../../api/queries/provisioning";
@@ -56,6 +57,7 @@ export interface EngineVersionFieldsProps {
  */
 export function EngineVersionFields({ choices, pick, onPick, installError }: EngineVersionFieldsProps) {
   const t = useT();
+  const reasonOf = useServerReason();
   const chosen = choiceFor(choices, pick.flavour);
   const usable = orderedChoices(choices).filter(isPickable);
   const unusable = choices.filter((choice) => !isPickable(choice));
@@ -104,7 +106,7 @@ export function EngineVersionFields({ choices, pick, onPick, installError }: Eng
           <p className="text-12 font-medium text-fg-muted">{t("provisioning.unavailable.title")}</p>
           <ul className="flex flex-col gap-0.5 text-12 text-fg-muted">
             {unusable.map((choice) => (
-              <li key={choice.flavour}>{t("provisioning.unavailable.line", { engine: choice.display_name, reason: choice.reason ?? t("provisioning.unavailable.noReason") })}</li>
+              <li key={choice.flavour}>{t("provisioning.unavailable.line", { engine: choice.display_name, reason: reasonOf(choice.coded, choice.reason) || t("provisioning.unavailable.noReason") })}</li>
             ))}
           </ul>
         </div>

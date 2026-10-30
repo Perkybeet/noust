@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
-import { ServerText, useServerSentence } from "./ServerText";
+import { ServerText, useServerReason, useServerSentence } from "./ServerText";
 
 const FRAMEWORK = {
   code: "terminal.server_framework",
@@ -105,5 +105,27 @@ describe("useServerSentence", () => {
     const { result } = renderHook(() => useServerSentence());
     expect(result.current({ code: "no.such.code", params: {} }, "As the server said it")).toBe("As the server said it");
     expect(result.current(null, undefined)).toBe("");
+  });
+});
+
+describe("useServerReason", () => {
+  const CONFLICT = { code: "database_engines.conflict_mysql", params: { installed: "MySQL", requested: "MariaDB" } } as const;
+
+  it("gives a sentence and its fix as one text in the console's language", async () => {
+    const { result } = renderHook(() => useServerReason());
+    expect(result.current(CONFLICT, "x")).toBe(
+      "MySQL is installed, and MariaDB cannot run beside it: they share port 3306, their packages and /var/lib/mysql. Remove MySQL first if you mean to replace it.",
+    );
+    await act(() => setLocale("es"));
+    expect(result.current(CONFLICT, "x")).toBe(
+      "MySQL está instalado y MariaDB no puede funcionar a su lado: comparten el puerto 3306, sus paquetes y /var/lib/mysql. Quita MySQL primero si quieres sustituirlo.",
+    );
+  });
+
+  it("gives the English the server sent, once, for a code it has no entry for or for none", () => {
+    const { result } = renderHook(() => useServerReason());
+    expect(result.current({ code: "database_engines.from_a_newer_server", params: {} }, "The English reason, fix included")).toBe("The English reason, fix included");
+    expect(result.current(null, "No code at all")).toBe("No code at all");
+    expect(result.current(null, null)).toBe("");
   });
 });

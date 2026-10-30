@@ -112,6 +112,32 @@ export const serverText: Catalog<typeof en> = {
       hint: "Para desactivarlo allí, o:\n  {command}",
     },
   },
+  database_engines: {
+    conflict_mysql: {
+      text: "{installed} está instalado y {requested} no puede funcionar a su lado: comparten el puerto 3306, sus paquetes y /var/lib/mysql.",
+      hint: "Quita {installed} primero si quieres sustituirlo.",
+    },
+    conflict_redis: {
+      text: "{installed} está instalado y {requested} no puede funcionar a su lado: comparten el puerto 6379 y sus paquetes.",
+      hint: "Quita {installed} primero si quieres sustituirlo.",
+    },
+    no_package_manager: {
+      text: "Noust instala {engine} con apt, dnf o zypper, y este sistema no tiene ninguno.",
+      hint: "Ejecútalo como instancia, un contenedor que no necesita gestor de paquetes ({command}), o instálalo con el gestor de paquetes de la distribución: Noust lo gestiona desde ahí.",
+    },
+    not_available: {
+      text: "Noust no puede instalar {engine} en {system}",
+      hint: "Ejecútalo como instancia, un contenedor que no necesita gestor de paquetes ({command}), o instálalo con el gestor de paquetes del sistema: Noust lo gestiona desde ahí.",
+    },
+    redis_not_shipped: {
+      text: "{system} no incluye Redis",
+      hint: "Instala Valkey en su lugar: ejecuta '{command}'.",
+    },
+    valkey_not_shipped: {
+      text: "{system} no incluye Valkey",
+      hint: "Valkey viene empaquetado desde Debian 13 y Ubuntu 24.04. Instala Redis en su lugar: ejecuta '{command}'.",
+    },
+  },
   database_servers: {
     default_app: {
       text: "{key} es la base de datos de la pila de una aplicación, así que no puede ser la predeterminada",

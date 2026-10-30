@@ -19812,8 +19812,18 @@
         "type": "object"
       },
       "EngineChoiceResponse": {
-        "description": "One engine a database can be created on, and its versions.\n\nAttributes:\n    flavour: ``postgresql``, ``mysql``, ``mariadb``, ``redis``, ``valkey``\n        or ``mongodb``; what ``engine`` takes in ``POST\n        /api/apps/{domain}/databases`` besides the engine's own name.\n    engine: The manager that runs it.\n    display_name: How it is named to a person.\n    installed: This flavour is the one installed.\n    running_version: The version that runs, when installed.\n    installable: It can be installed now.\n    reason: Why not, or what is installed, as one sentence.\n    versions: The versions on offer, oldest first.\n    instances: The instances Noust runs of this flavour that are ready.\n    instance_versions: The versions an instance of this flavour could be\n        made in (``POST /api/databases/instances``).",
+        "description": "One engine a database can be created on, and its versions.\n\nAttributes:\n    flavour: ``postgresql``, ``mysql``, ``mariadb``, ``redis``, ``valkey``\n        or ``mongodb``; what ``engine`` takes in ``POST\n        /api/apps/{domain}/databases`` besides the engine's own name.\n    engine: The manager that runs it.\n    display_name: How it is named to a person.\n    installed: This flavour is the one installed.\n    running_version: The version that runs, when installed.\n    installable: It can be installed now.\n    reason: Why not, or what is installed, as one sentence.\n    coded: The same reason as a code and its values, for the console to translate.\n    versions: The versions on offer, oldest first.\n    instances: The instances Noust runs of this flavour that are ready.\n    instance_versions: The versions an instance of this flavour could be\n        made in (``POST /api/databases/instances``).",
         "properties": {
+          "coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "display_name": {
             "title": "Display Name",
             "type": "string"
@@ -23334,7 +23344,7 @@
         "type": "object"
       },
       "FlavourChoiceResponse": {
-        "description": "A flavour as the install dialog offers it.\n\nAttributes:\n    flavour: ``postgresql``, ``mysql``, ``mariadb``, ``redis``,\n        ``valkey`` or ``mongodb``; what ``POST .../install`` takes.\n    engine: The engine that runs it, the ``{engine}`` of every other route.\n    installed: This flavour is the one installed.\n    installable: It can be installed now.\n    blocked: Why not, as a stable code: ``installed``, ``conflict`` (the\n        engine's other flavour is installed), ``not_available`` (nothing\n        publishes it for this release) or ``no_apt``.\n    reason: The same in one English sentence, with what to do.\n    versions: The versions offered, oldest first.",
+        "description": "A flavour as the install dialog offers it.\n\nAttributes:\n    flavour: ``postgresql``, ``mysql``, ``mariadb``, ``redis``,\n        ``valkey`` or ``mongodb``; what ``POST .../install`` takes.\n    engine: The engine that runs it, the ``{engine}`` of every other route.\n    installed: This flavour is the one installed.\n    installable: It can be installed now.\n    blocked: Why not, as a stable code: ``installed``, ``conflict`` (the\n        engine's other flavour is installed), ``not_available`` (nothing\n        publishes it for this release) or ``no_apt``.\n    reason: The same in one English sentence, with what to do.\n    coded: The same reason as a code and its values, for the console to translate.\n    versions: The versions offered, oldest first.",
         "properties": {
           "blocked": {
             "anyOf": [
@@ -23346,6 +23356,16 @@
               }
             ],
             "title": "Blocked"
+          },
+          "coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "display_name": {
             "title": "Display Name",
