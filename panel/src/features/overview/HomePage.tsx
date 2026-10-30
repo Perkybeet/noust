@@ -140,18 +140,15 @@ function Home({ scope, home, charts }: { scope: HomeScope; home: HomeData; chart
       fleet={
         <div className="flex min-w-0 flex-col gap-8">
           <HomeFleet servers={home.servers} courses={courses} allServers={scope === "server" && hasFleet} />
+          {/* Under the courses, which are the page's subject and never as tall as what is beside them: the four things a person comes to do. */}
+          {loaded ? <QuickActions /> : null}
           {/* Which server is under the most load: the question a person with several asks next, answered under the courses. */}
           {scope === "fleet" && home.several ? <FleetMetricsCard /> : null}
         </div>
       }
       {...(loaded
         ? {
-            side: (
-              <>
-                <HomeActivity lines={home.lines} />
-                <QuickActions />
-              </>
-            ),
+            side: <HomeActivity lines={home.lines} />,
           }
         : {})}
       {...(charts !== undefined && loaded ? { charts } : {})}
