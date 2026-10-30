@@ -216,6 +216,7 @@ export const auth: Catalog<typeof en> = {
     requestDescription: "Di de qué cuenta y te llega un enlace a su dirección para elegir otra. También necesitarás tu autenticador.",
     chooseTitle: "Elige una contraseña nueva",
     chooseDescription: "Elige una contraseña que solo conozcas tú y confirma que eres tú con un código de tu app de autenticación.",
+    notOfferedTitle: "Aquí no se ofrece restablecer la contraseña",
     notOffered: "Este servidor no puede enviar correo, o no recupera cuentas así. Un responsable de seguridad puede enviarte una invitación nueva.",
     identifier: "Nombre de la cuenta o dirección",
     identifierHint: "El nombre con el que inicias sesión, o la dirección a la que llega tu correo.",

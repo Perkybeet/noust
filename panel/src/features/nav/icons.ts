@@ -49,6 +49,10 @@ const OBJECT_OF: Readonly<Record<string, ObjectName>> = {
   "app.settings.export": "export",
   "app.settings.delete": "delete",
   // Settings.
+  "settings.general": "general",
+  "settings.fleet": "fleetSettings",
+  "settings.registries": "registry",
+  "settings.deploy-keys": "key",
   "settings.variables": "variable",
   "settings.secret-managers": "secretManager",
   "settings.console": "console",

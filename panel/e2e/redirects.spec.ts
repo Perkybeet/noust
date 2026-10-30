@@ -78,7 +78,7 @@ test("the account, its sign-in security and Controls are pages of their own, in 
   await expect(page.getByRole("heading", { level: 1, name: "Account" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Two-factor authentication" })).toBeVisible();
   await page.goto("/settings/controls");
-  await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Controls" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Security profile" })).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the controls page");

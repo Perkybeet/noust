@@ -185,13 +185,14 @@ describe("a team's page", () => {
     });
     await user.click(await screen.findByRole("button", { name: "Invite a person" }));
     const dialog = await screen.findByRole("dialog", { name: "Invite a person to Acme Corp" });
-    await user.type(within(dialog).getByLabelText(/Username/), "pablo");
+    // One address, and the account is named from it.
+    await user.type(within(dialog).getByLabelText(/^Email/), "pablo@example.com");
     await user.click(within(dialog).getByRole("radio", { name: /Operator/ }));
     await user.click(within(dialog).getByRole("button", { name: /Invite|Create invitation|Send/ }));
     await waitFor(() => {
       expect(backend.callsTo("POST /api/auth/invitations")).toHaveLength(1);
     });
-    expect(backend.callsTo("POST /api/auth/invitations")[0]?.body).toMatchObject({ username: "pablo", role: "viewer", team: "acme", team_role: "operator" });
+    expect(backend.callsTo("POST /api/auth/invitations")[0]?.body).toMatchObject({ username: "pablo", role: "viewer", team: "acme", team_role: "operator", email: "pablo@example.com" });
   });
 
   it("does not offer to invite when the operator may not create accounts", async () => {

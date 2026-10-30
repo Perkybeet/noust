@@ -23,8 +23,8 @@ import { formatDuration, parseTimestamp } from "../../lib/format";
 import { describeActor } from "../activity/data";
 import { PlanView } from "./BulkActionDialog";
 import {
-  ACTION_WORDS,
   NODE_JOB_VIEW,
+  actionTitle,
   batchOf,
   SKIP_REASONS,
   fleetJobQuery,
@@ -235,7 +235,7 @@ export function FleetJobPage({ id }: { id: string }) {
   const [retrying, setRetrying] = useState(false);
 
   const data = job.data;
-  const actionLabel = data === undefined ? t("fleet.jobs.title") : isKnownAction(data.action) ? t(ACTION_WORDS[data.action].label) : data.title;
+  const actionLabel = data === undefined ? t("fleet.jobs.title") : actionTitle(t, data.action, data.title);
   const status = data === undefined ? null : jobStatusView(data.status);
   const again = data === undefined ? 0 : retryable(data);
   const total = data === undefined ? 0 : Object.values(data.summary).reduce((sum, count) => sum + count, 0);

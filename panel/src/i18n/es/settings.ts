@@ -4,7 +4,6 @@ import type { Catalog } from "../types";
 export const settings: Catalog<typeof en> = {
   page: {
     title: "Ajustes",
-    description: "Cómo funciona Noust en esta máquina y quién puede acceder a la consola.",
   },
   shared: {
     required: "Obligatorio",
@@ -408,6 +407,7 @@ export const settings: Catalog<typeof en> = {
       },
     },
     email: {
+      removeDescription: "Dejan de llegar los avisos por correo, y también las invitaciones y los enlaces para restablecer la contraseña, que salen por esta cuenta. Su contraseña se borra de este servidor.",
       label: "Correo",
       description: "Se envía a través de tu servidor SMTP. Los informes del monitor de recursos usan la misma cuenta.",
       noun: "los ajustes del correo",

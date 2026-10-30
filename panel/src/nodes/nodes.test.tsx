@@ -341,12 +341,13 @@ describe("the three contexts", () => {
   it("keeps a node's own settings on the node, and says whose the central's are", async () => {
     const { user, history } = await consoleAt("/n/web-2/settings/notifications");
     const nav = await screen.findByRole("navigation", { name: "Settings sections" });
-    expect(within(nav).getByRole("link", { name: "General" })).toHaveAttribute("href", "/n/web-2/settings");
+    expect(within(nav).getByRole("link", { name: "General" })).toHaveAttribute("href", "/n/web-2/settings/general");
     expect(within(nav).getByRole("link", { name: "Channels" })).toHaveAttribute("href", "/n/web-2/settings/notifications");
-    // The central's sections never carry the node, and are grouped under the central's name.
+    // The central's sections never carry the node, and sit under the same groups, by what they are for (no server's name above them).
     expect(within(nav).getByRole("link", { name: "API tokens" })).toHaveAttribute("href", "/settings/tokens");
-    expect(within(nav).getByText((_, element) => element?.tagName === "P" && element.textContent === "Central web-01 · Developers")).toBeInTheDocument();
-    expect(within(nav).getByText((_, element) => element?.tagName === "P" && element.textContent === "web-2 · Monitoring")).toBeInTheDocument();
+    expect(within(nav).getByText("Notifications and channels")).toBeInTheDocument();
+    expect(within(nav).getByText("API")).toBeInTheDocument();
+    expect(within(nav).queryByText(/web-01 ·|web-2 ·/)).not.toBeInTheDocument();
     expect(await trigger("Server: web-2")).toBeInTheDocument();
 
     await user.click(within(nav).getByRole("link", { name: "API tokens" }));
@@ -359,7 +360,7 @@ describe("the three contexts", () => {
     // The server's sections still lead back to web-2.
     expect(within(screen.getByRole("navigation", { name: "Settings sections" })).getByRole("link", { name: "General" })).toHaveAttribute(
       "href",
-      "/n/web-2/settings",
+      "/n/web-2/settings/general",
     );
   });
 

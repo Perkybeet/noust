@@ -4,6 +4,11 @@
  * not here.
  */
 export const registries = {
+  nav: {
+    label: "Image registries",
+    keywords: "container registries docker hub ghcr login pull private images accounts",
+    command: "Image registries settings",
+  },
   title: "Container registries",
   description: "Accounts for the registries that hold your private images. An application pulls and builds with the accounts attached to it. Passwords are kept on this server and are never shown again.",
   loading: "Loading the registry accounts",

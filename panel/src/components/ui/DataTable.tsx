@@ -506,13 +506,14 @@ function CardRows<T>({
                     <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-12 text-fg-muted">
                       {values.map(({ column, content }, index) => (
                         <span key={column.id} className={cx("min-w-0", column.mono && "mono")}>
-                          {index > 0 ? (
-                            <span aria-hidden="true" className="mr-1.5 text-fg-faint">
+                          <span className="sr-only">{`${column.header}: `}</span>
+                          {content}
+                          {/* After its value, not before the next: a line that wraps ends on the separator instead of starting the next line with one. */}
+                          {index < values.length - 1 ? (
+                            <span aria-hidden="true" className="ml-1.5 text-fg-faint">
                               ·
                             </span>
                           ) : null}
-                          <span className="sr-only">{`${column.header}: `}</span>
-                          {content}
                         </span>
                       ))}
                     </p>

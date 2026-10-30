@@ -9,8 +9,18 @@
  * - The page passes axe with the section open, in the dialog and in both themes.
  */
 
+import type { Locator } from "@playwright/test";
+
 import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
 import { confirmItsYou, stillness, toastSaying } from "./settings.helpers";
+
+/** The controls are folded by group, each to a line that says how many are strict: a person opens the group they want. */
+async function openControlGroups(section: Locator): Promise<void> {
+  for (const name of [/^Access and accounts/, /^Accountability and the audit trail/, /^Backups/, /^Network and host/]) {
+    const group = section.getByRole("button", { name });
+    if ((await group.count()) > 0 && (await group.getAttribute("aria-expanded")) === "false") await group.click();
+  }
+}
 
 test("frameworks are off by default, turn on after listing what changes, and lock the controls they ask for", async ({
   page,
@@ -41,6 +51,7 @@ test("frameworks are off by default, turn on after listing what changes, and loc
   await dialog.getByRole("button", { name: "Turn on" }).click();
   await expect(toastSaying(page, "NIS2 is on")).toBeVisible();
 
+  await openControlGroups(section);
   const locked = section.getByRole("switch", { name: "Restricted API tokens" });
   await expect(locked).toBeDisabled();
   await expect(section.getByText("Required by NIS2").first()).toBeVisible();

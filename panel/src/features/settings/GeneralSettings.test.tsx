@@ -54,7 +54,7 @@ describe("reading the general settings", () => {
 describe("Settings > General", () => {
   it("shows one form with one save bar, the read-only details apart, and passes axe", { timeout: 20_000 }, async () => {
     fakeBackend(generalRoutes({ service_user: "www-data" }));
-    const { container } = renderConsole("/settings");
+    const { container } = renderConsole("/settings/general");
     await screen.findByDisplayValue("/var/www/apps");
     // The server's name is empty: the machine's own name is what it goes by, and says so.
     const name = screen.getByLabelText(/Server name/);
@@ -101,7 +101,7 @@ describe("Settings > General", () => {
         },
       ),
     );
-    const { user } = renderConsole("/settings");
+    const { user } = renderConsole("/settings/general");
     const name = await screen.findByLabelText(/Server name/);
     const count = screen.getByLabelText(/Backups kept per app/);
     await user.type(name, "web-1");
@@ -146,7 +146,7 @@ describe("Settings > General", () => {
         },
       ),
     );
-    const { user } = renderConsole("/settings");
+    const { user } = renderConsole("/settings/general");
     const minutes = await screen.findByLabelText(/Longest a deployment may take/);
     expect(minutes).toHaveValue("60");
     expect(screen.getByLabelText(/Builds at the same time/)).toHaveValue("2");
@@ -170,7 +170,7 @@ describe("Settings > General", () => {
 
   it("discards every change at once", { timeout: 20_000 }, async () => {
     const backend = fakeBackend(generalRoutes());
-    const { user } = renderConsole("/settings");
+    const { user } = renderConsole("/settings/general");
     const directory = await screen.findByLabelText(/Applications folder/);
     await user.clear(directory);
     await user.type(directory, "/srv/apps");
@@ -184,7 +184,7 @@ describe("Settings > General", () => {
 
   it("on a central that runs no applications, leaves out where applications live", { timeout: 20_000 }, async () => {
     fakeBackend(generalRoutes({ central: { role: "hub" } }));
-    renderConsole("/settings");
+    renderConsole("/settings/general");
     expect(await screen.findByText("This central runs no applications")).toBeInTheDocument();
     expect(screen.queryByLabelText(/Applications folder/)).not.toBeInTheDocument();
     expect(screen.getByLabelText(/Server name/)).toBeInTheDocument();
@@ -192,7 +192,7 @@ describe("Settings > General", () => {
 
   it("warns before anything is typed when the configuration file cannot be written", { timeout: 20_000 }, async () => {
     fakeBackend(generalRoutes({}, { "GET /api/config": () => json(200, { config: {}, path: "/etc/noust/config.yaml", writable: false }) }));
-    renderConsole("/settings");
+    renderConsole("/settings/general");
     expect(await screen.findByText("Saving will fail")).toBeInTheDocument();
   });
 });

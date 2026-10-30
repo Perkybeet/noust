@@ -58,12 +58,50 @@ const SECURITY = {
   permissions: ["self", "apps.read", "accounts.read", "accounts.manage", "audit.read", "security.manage"],
 };
 
+function roleOut(name: string, label: string, permissions: string[], over: Record<string, unknown> = {}) {
+  return {
+    name,
+    kind: "seeded",
+    label,
+    description: `${label} description`,
+    permissions: ["self", ...permissions],
+    shipped_permissions: ["self", ...permissions],
+    edited: false,
+    follows_noust: true,
+    protected: false,
+    offers: [],
+    holders: [],
+    holder_count: 0,
+    bindings: 0,
+    joins_duties: false,
+    governing: [],
+    running: [],
+    can_edit: true,
+    can_delete: false,
+    can_reset: false,
+    can_duplicate: true,
+    created_at: 1_790_000_000,
+    updated_at: 1_790_000_000,
+    ...over,
+  };
+}
+
+const SERVER_ROLES = [
+  roleOut("viewer", "Viewer", ["apps.read"]),
+  roleOut("operator", "Operator", ["apps.read", "apps.deploy"]),
+  roleOut("admin", "Administrator", ["apps.read", "apps.deploy", "accounts.manage"]),
+  roleOut("security", "Security officer", ["accounts.read", "audit.read"]),
+  roleOut("auditor", "Auditor", ["apps.read", "audit.read"]),
+  roleOut("owner", "Owner", ["apps.read", "apps.deploy", "accounts.manage"], { kind: "protected", protected: true, can_edit: false, can_duplicate: false }),
+];
+
 function accountsBackend(extra: Record<string, RouteHandler> = {}) {
   let elevated = false;
   return fakeBackend({
     ...signedInRoutes(SECURITY),
     "GET /api/auth/accounts": () => json(200, { accounts: ACCOUNTS, conflicts: [] }),
     "GET /api/auth/exceptions": () => json(200, { exceptions: [] }),
+    "GET /api/roles": () => json(200, { roles: SERVER_ROLES, permissions: { "apps.read": "See applications", "apps.deploy": "Deploy applications", "accounts.manage": "Manage accounts", "accounts.read": "See accounts", "audit.read": "Read the audit log" }, owners: 1, duties_apart: false }),
     "GET /api/ens/access-review": () =>
       json(200, { accounts: ACCOUNTS, conflicts: [], exceptions: [], tokens_without_owner: 0, generated_at: "2026-09-30T00:00:00Z", digest: "ab12", reviews: [] }),
     "GET /api/approvals/policy": () => json(200, { enabled: true, approvers: ["security"], request_hours: 24, execute_minutes: 30, reason_required: false, rules: [] }),
@@ -127,13 +165,13 @@ describe("Settings > Accounts", () => {
     renderConsole("/settings/accounts");
     await screen.findByText("ana");
     const invite = screen.getByRole("button", { name: "Invite a person" });
-    const header = screen.getByRole("heading", { level: 1, name: "Settings" }).closest("header");
+    const header = screen.getByRole("heading", { level: 1, name: "People" }).closest("header");
     if (header === null) throw new Error("no page header");
     expect(header).toContainElement(invite);
     expect(invite).toHaveAttribute("data-variant", "primary");
   });
 
-  it("invites a person and shows the link once, with the code after the #", { timeout: 20_000 }, async () => {
+  it("invites a person with one email and what they may do, and shows the link once, with the code after the #", { timeout: 20_000 }, async () => {
     const backend = accountsBackend({
       "POST /api/auth/invitations": (call) =>
         json(201, { account: account((call.body as { username: string }).username, "operator", { status: "invited" }), code: "noust_inv_abc123", expires_in: 86_400 }),
@@ -142,26 +180,47 @@ describe("Settings > Accounts", () => {
     await screen.findByText("ana");
     await user.click(screen.getByRole("button", { name: "Invite a person" }));
     const dialog = await screen.findByRole("dialog", { name: "Invite a person" });
-    await user.type(within(dialog).getByLabelText(/^Username/), "fer");
-    await user.type(within(dialog).getByLabelText(/^Email/), "fer@example.com");
-    await user.click(within(dialog).getByRole("radio", { name: /^Operator/ }));
+    // One address, and the account is named from it; there is no second field for the same address.
+    expect(within(dialog).getAllByLabelText(/^Email/)).toHaveLength(1);
+    await user.type(within(dialog).getByLabelText(/^Email/), "Lucia.Ferrer@example.com");
+    expect(within(dialog).getByText("lucia.ferrer")).toBeInTheDocument();
+    await user.click(await within(dialog).findByRole("radio", { name: /^Operator/ }));
     await expectNoAxeViolations(dialog);
-    await user.click(within(dialog).getByRole("button", { name: "Create invitation" }));
+    await user.click(within(dialog).getByRole("button", { name: "Send invitation" }));
     await confirmItsYou(user);
 
-    const issued = await screen.findByRole("dialog", { name: "Send this invitation to fer" });
+    const issued = await screen.findByRole("dialog", { name: "Send this invitation to lucia.ferrer" });
     expect(within(issued).getByTestId("invitation-link")).toHaveValue(`${window.location.origin}/invite#noust_inv_abc123`);
-    expect(within(issued).getByText("Shown only now")).toBeInTheDocument();
-    expect(backend.callsTo("POST /api/auth/invitations").at(-1)?.body).toEqual({
-      username: "fer",
-      expires_hours: 24,
-      role: "operator",
-      // One address: the server takes it for who the person is as well as where the mail goes.
-      email: "fer@example.com",
-    });
+    expect(within(issued).getByText("The email did not go out")).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/auth/invitations").at(-1)?.body).toEqual({ username: "lucia.ferrer", expires_hours: 24, role: "operator", email: "Lucia.Ferrer@example.com" });
   });
 
-  it("mails the link when an address is given, and says so beside the link", { timeout: 20_000 }, async () => {
+  it("lets the proposed account name be changed, and refuses one the server would", { timeout: 20_000 }, async () => {
+    const backend = accountsBackend({
+      "POST /api/auth/invitations": (call) => json(201, { account: account((call.body as { username: string }).username, "viewer", { status: "invited" }), code: "noust_inv_abc123", expires_in: 86_400, emailed: true }),
+    });
+    const { user } = renderConsole("/settings/accounts");
+    await screen.findByText("ana");
+    await user.click(screen.getByRole("button", { name: "Invite a person" }));
+    const dialog = await screen.findByRole("dialog", { name: "Invite a person" });
+    await user.type(within(dialog).getByLabelText(/^Email/), "juan@example.com");
+    await user.click(within(dialog).getByRole("button", { name: "Change" }));
+    const name = within(dialog).getByLabelText(/^Account name/);
+    expect(name).toHaveValue("juan");
+    await user.clear(name);
+    await user.type(name, "Juan Angel");
+    await user.click(within(dialog).getByRole("button", { name: "Send invitation" }));
+    // Said before it is sent, beside the field: the server is not asked for a name it refuses.
+    expect(await within(dialog).findByText("Use letters, digits, dots, hyphens and underscores, from 2 to 64.")).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/auth/invitations")).toHaveLength(0);
+    await user.clear(name);
+    await user.type(name, "juan.angel");
+    await user.click(within(dialog).getByRole("button", { name: "Send invitation" }));
+    await confirmItsYou(user);
+    await screen.findByRole("dialog", { name: "Send this invitation to juan.angel" });
+  });
+
+  it("says the email was sent, and shows the link all the same", { timeout: 20_000 }, async () => {
     const backend = accountsBackend({
       "POST /api/auth/invitations": (call) =>
         json(201, {
@@ -175,19 +234,19 @@ describe("Settings > Accounts", () => {
     await screen.findByText("ana");
     await user.click(screen.getByRole("button", { name: "Invite a person" }));
     const dialog = await screen.findByRole("dialog", { name: "Invite a person" });
-    await user.type(within(dialog).getByLabelText(/^Username/), "fer");
     await user.type(within(dialog).getByLabelText(/^Email/), "fer@work.example");
-    await user.click(within(dialog).getByRole("button", { name: "Create invitation" }));
+    await user.click(within(dialog).getByRole("button", { name: "Send invitation" }));
     await confirmItsYou(user);
 
     const issued = await screen.findByRole("dialog", { name: "Send this invitation to fer" });
-    expect(within(issued).getByText("The invitation was mailed to fer@work.example.")).toBeInTheDocument();
+    expect(within(issued).getByText("Invitation sent")).toBeInTheDocument();
+    expect(within(issued).getByText("The link was emailed to fer@work.example. It works once.")).toBeInTheDocument();
     // The link is shown all the same: a mail is the convenience, the invitation is the link.
     expect(within(issued).getByTestId("invitation-link")).toHaveValue(`${window.location.origin}/invite#noust_inv_abc123`);
     expect(backend.callsTo("POST /api/auth/invitations").at(-1)?.body).toMatchObject({ username: "fer", email: "fer@work.example" });
   });
 
-  it("says why a mail did not go, in the server's words, and still shows the link", { timeout: 20_000 }, async () => {
+  it("says why the email did not go, in the console's language from the server's code, and still shows the link", { timeout: 20_000 }, async () => {
     accountsBackend({
       "POST /api/auth/invitations": (call) =>
         json(201, {
@@ -195,21 +254,22 @@ describe("Settings > Accounts", () => {
           code: "noust_inv_abc123",
           expires_in: 86_400,
           emailed: false,
-          email_error: "This server has no way to send mail. Set one up under Settings > Notifications.",
+          email_error: "This server cannot send mail yet.",
+          email_error_hint: "Set up a mail account.",
+          email_error_coded: { code: "mail.no_transport", params: {} },
         }),
     });
     const { user } = renderConsole("/settings/accounts");
     await screen.findByText("ana");
     await user.click(screen.getByRole("button", { name: "Invite a person" }));
     const dialog = await screen.findByRole("dialog", { name: "Invite a person" });
-    await user.type(within(dialog).getByLabelText(/^Username/), "fer");
     await user.type(within(dialog).getByLabelText(/^Email/), "fer@work.example");
-    await user.click(within(dialog).getByRole("button", { name: "Create invitation" }));
+    await user.click(within(dialog).getByRole("button", { name: "Send invitation" }));
     await confirmItsYou(user);
 
     const issued = await screen.findByRole("dialog", { name: "Send this invitation to fer" });
-    expect(within(issued).getByText("Not mailed")).toBeInTheDocument();
-    expect(within(issued).getByText("This server has no way to send mail. Set one up under Settings > Notifications.")).toBeInTheDocument();
+    expect(within(issued).getByText("The email did not go out")).toBeInTheDocument();
+    expect(within(issued).getByText("The invitation exists. Send them the link yourself.")).toBeInTheDocument();
     expect(within(issued).getByTestId("invitation-link")).toBeInTheDocument();
   });
 
@@ -240,9 +300,13 @@ describe("Settings > Accounts", () => {
     await screen.findByText("ana");
     await user.click(screen.getByRole("button", { name: "Invite a person" }));
     const dialog = await screen.findByRole("dialog", { name: "Invite a person" });
-    await user.type(within(dialog).getByLabelText(/^Username/), "ana.sec");
     await user.type(within(dialog).getByLabelText(/^Email/), "ana@example.com");
-    await user.click(within(dialog).getByRole("radio", { name: /^Security officer/ }));
+    // The account is named "ana" from the email, which is the person's own account: it needs another name.
+    await user.click(within(dialog).getByRole("button", { name: "Change" }));
+    const name = within(dialog).getByLabelText(/^Account name/);
+    await user.clear(name);
+    await user.type(name, "ana.sec");
+    await user.click(await within(dialog).findByRole("radio", { name: /^Security officer/ }));
     expect(await within(dialog).findByText("Roles that go against each other")).toBeInTheDocument();
     expect(within(dialog).getByText(/The same person already has ana/)).toBeInTheDocument();
   });
@@ -250,9 +314,9 @@ describe("Settings > Accounts", () => {
   it("changes a role through a second person's approval, and runs it once approved", { timeout: 30_000 }, async () => {
     let state = "requested";
     const backend = accountsBackend({
-      "PATCH /api/auth/accounts/ana": (call) =>
+      "PUT /api/auth/accounts/ana/roles": (call) =>
         call.headers.get("X-Noust-Approval") === "41"
-          ? json(200, account("ana", "admin"))
+          ? json(200, account("ana", "operator", { roles: ["operator", "admin"] }))
           : json(
               202,
               { error: "approval_required", detail: "This needs a second person's approval. Request 41 is waiting for a security account to decide it.", hint: null, fields: { approval: "41", state: "requested" }, output: null },
@@ -265,8 +329,8 @@ describe("Settings > Accounts", () => {
           kind: "role_change",
           description: "Change an account's role",
           method: "PATCH",
-          path: "/api/auth/accounts/ana",
-          parameters: { method: "PATCH", path: "/api/auth/accounts/ana", query: [], body: { role: "admin" } },
+          path: "/api/auth/accounts/ana/roles",
+          parameters: { method: "PUT", path: "/api/auth/accounts/ana/roles", query: [], body: { role: "admin" } },
           fingerprint: "f00d",
           state,
           requester: { kind: "account", name: "bea", role: "security" },
@@ -280,10 +344,12 @@ describe("Settings > Accounts", () => {
     const { user } = renderConsole("/settings/accounts");
     await screen.findByText("ana");
     await user.click(screen.getByRole("button", { name: "Actions for ana" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Change role" }));
-    const dialog = await screen.findByRole("dialog", { name: "Change the role of ana" });
-    await user.click(within(dialog).getByRole("radio", { name: /^Administrator/ }));
-    await user.click(within(dialog).getByRole("button", { name: "Change role" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Change roles" }));
+    const dialog = await screen.findByRole("dialog", { name: "Roles of ana" });
+    // A person holds several roles: the operator she has, and the administrator added.
+    expect(await within(dialog).findByRole("checkbox", { name: /^Operator/ })).toBeChecked();
+    await user.click(within(dialog).getByRole("checkbox", { name: /^Administrator/ }));
+    await user.click(within(dialog).getByRole("button", { name: "Save roles" }));
     await confirmItsYou(user);
 
     const waiting = await screen.findByRole("dialog", { name: "Waiting for approval" });
@@ -297,9 +363,23 @@ describe("Settings > Accounts", () => {
     await user.click(within(approved).getByRole("button", { name: "Run it now" }));
 
     await waitFor(() => {
-      expect(backend.callsTo("PATCH /api/auth/accounts/ana").at(-1)?.headers.get("X-Noust-Approval")).toBe("41");
+      expect(backend.callsTo("PUT /api/auth/accounts/ana/roles").at(-1)?.headers.get("X-Noust-Approval")).toBe("41");
     });
-    expect(backend.callsTo("PATCH /api/auth/accounts/ana").map((call) => call.body)).toEqual([{ role: "admin" }, { role: "admin" }, { role: "admin" }]);
+    expect(backend.callsTo("PUT /api/auth/accounts/ana/roles").map((call) => call.body)).toEqual([{ roles: ["operator", "admin"] }, { roles: ["operator", "admin"] }, { roles: ["operator", "admin"] }]);
+  });
+
+  it("shows every role of a person and what they can do from all of them, and which role gives each permission", { timeout: 30_000 }, async () => {
+    accountsBackend();
+    const { user } = renderConsole("/settings/accounts");
+    await screen.findByText("ana");
+    const row = (await screen.findByText("ana")).closest("tr");
+    if (row === null) throw new Error("no row for ana");
+    expect(within(row).getByText("Operator")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Actions for ana" }));
+    await user.click(await screen.findByRole("menuitem", { name: "See what they can do" }));
+    const drawer = await screen.findByRole("dialog", { name: /What .* can do/ });
+    expect(within(drawer).getByText("apps.deploy")).toBeInTheDocument();
+    expect(within(drawer).getByText("Deploy applications")).toBeInTheDocument();
   });
 
   it("removes an account only once its name is typed", { timeout: 20_000 }, async () => {

@@ -16,6 +16,7 @@ import { Disclosure } from "../../components/ui/Disclosure";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
+import { InlineMessage } from "../../components/ui/InlineMessage";
 import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
 import { TextLink } from "../../components/ui/TextLink";
@@ -514,7 +515,7 @@ export function LoginForm({ next, expired, mode, onModeChange, recoveryHelp = fa
   const unreachable = sessionError !== null && failure === null ? sessionError : null;
   const notices: ReactNode = (
     <>
-      {expired ? <Notice title={t("auth.sessionExpired")} /> : null}
+      {expired ? <InlineMessage tone="info">{t("auth.sessionExpired")}</InlineMessage> : null}
       {ssoError !== undefined && failure === null ? (
         <Notice tone="error" live title={t("auth.sso.failedTitle")}>
           {t(`auth.sso.errors.${ssoError}`)}

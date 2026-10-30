@@ -59,6 +59,14 @@ async function pageAt(initial?: ReturnType<typeof withFrameworksOn>, extra: Reco
   return { ...harness, world, section };
 }
 
+/** The controls are folded by group, each to a line that says how many are strict: a person opens the group they want. */
+async function openControls(user: ReturnType<typeof renderConsole>["user"], section: HTMLElement): Promise<void> {
+  for (const name of [/^Access and accounts/, /^Accountability and the audit trail/, /^Backups/, /^Network and host/]) {
+    const group = within(section).queryByRole("button", { name });
+    if (group !== null && group.getAttribute("aria-expanded") === "false") await user.click(group);
+  }
+}
+
 describe("Settings > Controls > Compliance", () => {
   it("lists the frameworks that can be switched on, off by default, with one line on what each is, and passes axe", { timeout: 30_000 }, async () => {
     const { section } = await pageAt();
@@ -147,7 +155,8 @@ describe("Settings > Controls > Compliance", () => {
   });
 
   it("shows which framework locks a control, and does not let a locked switch be turned off", { timeout: 30_000 }, async () => {
-    const { section } = await pageAt(withFrameworksOn("ens-media"));
+    const { section, user } = await pageAt(withFrameworksOn("ens-media"));
+    await openControls(user, section);
 
     const lock = await within(section).findByRole("switch", { name: "Approval by a second person" });
     const approvals = lock.closest('[data-slot="setting"]');
@@ -163,6 +172,7 @@ describe("Settings > Controls > Compliance", () => {
     const { section, user, world } = await pageAt(undefined, {
       "POST /api/compliance/plan": () => json(200, { ...planFor("ens-media"), effects: [], warnings: [] }),
     });
+    await openControls(user, section);
 
     await user.click(await within(section).findByRole("switch", { name: "A reason for every change" }));
 
@@ -177,6 +187,7 @@ describe("Settings > Controls > Compliance", () => {
       "POST /api/compliance/plan": () => problem(400, "validationerror", "session_idle_minutes cannot be set looser than 15 minutes: ens-media asks for it"),
     });
 
+    await openControls(user, section);
     await user.click(await within(section).findByRole("button", { name: "Change… Session idle time" }));
     const dialog = await screen.findByRole("dialog", { name: "Change Session idle time" });
     expect(within(dialog).getByText("A framework asks for 15 minutes or stricter.")).toBeInTheDocument();
@@ -196,10 +207,11 @@ describe("Settings > Controls > Compliance", () => {
       ...signedInRoutes({ ...SESSION, permissions: (SESSION.permissions ?? []).filter((permission) => permission !== "security.manage") }),
       "GET /api/compliance": () => json(200, world.state),
     });
-    renderConsole("/settings/controls");
+    const { user } = renderConsole("/settings/controls");
     const heading = await screen.findByRole("heading", { level: 2, name: "Compliance" });
     const section = present(heading.closest("section"));
     await within(section).findByRole("heading", { level: 3, name: "Frameworks" });
+    await openControls(user, section);
 
     expect(within(section).queryByRole("button", { name: "Turn on…" })).toBeNull();
     expect(within(section).queryByRole("button", { name: "Turn off…" })).toBeNull();
@@ -208,7 +220,7 @@ describe("Settings > Controls > Compliance", () => {
 
   it("is in Spanish, with the same care about what a framework is", { timeout: 30_000 }, async () => {
     await act(() => setLocale("es"));
-    await pageAt(undefined, {}, "Cumplimiento", "Marcos");
+    await pageAt(undefined, {}, "Cumplimiento", "Normativas");
 
     expect(await screen.findByRole("heading", { level: 2, name: "Cumplimiento" })).toBeInTheDocument();
     expect(screen.getByText(/No hace que un servidor cumpla/)).toBeInTheDocument();

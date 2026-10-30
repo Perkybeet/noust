@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { GeneralSettings } from "../../../features/settings/GeneralSettings";
+import { SettingsHome } from "../../../features/settings/SettingsHome";
 
-/** Settings > General: the typed sections of config.yaml, each saved on its own. */
+/** Settings: every section as a door, in the groups a person looks for a setting by. */
 export const Route = createFileRoute("/_console/settings/")({
-  component: GeneralSettings,
+  component: SettingsHome,
 });

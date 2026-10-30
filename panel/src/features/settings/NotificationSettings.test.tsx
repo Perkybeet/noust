@@ -207,16 +207,21 @@ function saveBar(): HTMLElement {
 }
 
 describe("Settings > Notifications", () => {
-  it("says first whether anything is sent, lists the channels with their state, folds the events, and passes axe", { timeout: 20_000 }, async () => {
+  it("says first whether anything is sent, in the page's header and not as a row among the channels, lists the channels with their state, folds the events, and passes axe", { timeout: 20_000 }, async () => {
     notificationsBackend();
     const { container } = renderConsole("/settings/notifications");
     const master = await screen.findByRole("switch", { name: /Send notifications/ });
     expect(master).not.toBeChecked();
-    // The state is the switch and a small pill in its row; the sentence says what the switch does.
-    const masterRow = master.closest<HTMLElement>('[data-slot="setting"]');
-    if (masterRow === null) throw new Error("the switch has no row");
-    expect(within(masterRow).getByText("Off")).toHaveAttribute("data-state", "stopped");
-    expect(within(masterRow).getByText(/Nothing is sent, but a test still goes out/)).toBeInTheDocument();
+    // Item 106: it governs the whole page, so it is in the header beside where the action would be, with its own
+    // look, and the list it governs is drawn off while it is off. It is not one more row of the channels.
+    const header = screen.getByRole("heading", { level: 1 }).closest("header");
+    if (header === null) throw new Error("no page header");
+    expect(header).toContainElement(master);
+    expect(master.closest('[data-slot="section-switch"]')).not.toBeNull();
+    const channelList = screen.getByRole("list", { name: "Notification channels" });
+    expect(within(channelList).queryByRole("switch")).toBeNull();
+    expect(channelList.closest('[data-slot="switched-region"]')).toHaveAttribute("data-state", "off");
+    expect(screen.getByText(/Nothing is sent, but a test still goes out/)).toBeInTheDocument();
     // A channel's on or off is a state at a glance (item 56): the running green with its dot,
     // the stopped grey with its ring, and the word; a label, not a control.
     const slackOn = within(row("Slack")).getByText("On");
@@ -317,6 +322,27 @@ describe("Settings > Notifications", () => {
       type: "webhook",
       settings: { webhook_url: "***", secret: "***", webhook_headers: "Authorization: Bearer abc" },
     });
+  });
+
+  it("removes the email like any other channel, and says what else stops working with it", { timeout: 30_000 }, async () => {
+    // An account that is set up: there is something to remove.
+    const backend = notificationsBackend({ smtp: SMTP_SET });
+    const { user } = renderConsole("/settings/notifications");
+    await screen.findByRole("switch", { name: /Send notifications/ });
+    await user.click(within(row("Email")).getByRole("button", { name: /^(Edit|Set up) Email$/ }));
+    const drawer = await screen.findByRole("dialog", { name: "Email" });
+    await user.click(within(drawer).getByRole("button", { name: "Remove destination" }));
+    const question = await screen.findByRole("alertdialog", { name: "Remove the Email destination?" });
+    // The same account sends the invitations and the password-reset links: the question says so.
+    expect(within(question).getByText(/invitations and password-reset links/)).toBeInTheDocument();
+    await user.click(within(question).getByRole("button", { name: "Remove destination" }));
+    await confirmItsYou(user);
+    await waitFor(() => {
+      expect(backend.callsTo("PATCH /api/config").map((call) => (call.body as { path: string }).path)).toEqual(expect.arrayContaining(["monitor.smtp", "monitor.email_recipients", "monitor.email_api"]));
+    });
+    const smtp = backend.callsTo("PATCH /api/config").find((call) => (call.body as { path: string }).path === "monitor.smtp");
+    expect(smtp?.body).toEqual({ path: "monitor.smtp", value: { host: "", port: 587, use_ssl: false, use_tls: true, username: "", password: "", from_address: "" } });
+    expect(backend.callsTo("PUT /api/notifications/channels/email").at(-1)?.body).toEqual({ enabled: false });
   });
 
   it("removes a destination after one question", { timeout: 20_000 }, async () => {

@@ -131,7 +131,6 @@
       "features/server/TimeZoneField.tsx": 2,
       "features/server/updates/UpdatesTab.tsx": 1,
       "features/settings/servers/AddServerDialog.tsx": 1,
-      "features/settings/SettingsShell.tsx": 1,
       "features/settings/TelegramChannel.tsx": 1,
       "features/teams/TeamSwitcher.tsx": 1,
       "features/timeline/TimelineDrawer.tsx": 1,

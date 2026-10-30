@@ -2,7 +2,6 @@ import type { access as en } from "../en/access";
 import type { Catalog } from "../types";
 
 export const access: Catalog<typeof en> = {
-  documentTitle: "Roles",
   loadingLabel: "roles y concesiones",
   scope: {
     instance: "Todo el servidor",
@@ -49,48 +48,6 @@ export const access: Catalog<typeof en> = {
       noTeams: "No hay equipos entre los que elegir.",
       action: "Conceder rol",
       failed: "No se pudo conceder el rol",
-    },
-  },
-  roles: {
-    title: "Roles",
-    description: "Los roles que trae Noust no se pueden cambiar. Define los tuyos con los permisos que existen y concédelos arriba.",
-    defineRole: "Definir un rol",
-    tableCaption: "Definiciones de roles",
-    column: { role: "Rol", kind: "Tipo", where: "Se puede tener en", permissions: "Permisos" },
-    builtIn: "Incluido",
-    custom: "Personalizado",
-    permissionCount: { one: "{count} permiso", other: "{count} permisos" },
-    view: "Ver",
-    viewLabel: "Ver {role}",
-    editLabel: "Editar {role}",
-    deleteLabel: "Eliminar {role}",
-    deleteDialog: {
-      title: "Eliminar {role}",
-      description: "Se quita el rol. El servidor lo rechaza mientras una cuenta lo tenga: revócaselo antes.",
-      action: "Eliminar rol",
-    },
-    deletedToast: "Se eliminó {role}",
-    savedToast: "Se guardó {role}",
-    drawer: {
-      createTitle: "Definir un rol",
-      editTitle: "Editar {role}",
-      viewTitle: "{role}",
-      description:
-        "Un rol es un conjunto de permisos que ya existen. Dónde se puede tener se deduce de ellos: un rol que solo ejecuta aplicaciones se puede tener en un proyecto; uno que gobierna pertenece a un equipo o al servidor.",
-      viewDescription: "Un rol incluido no se puede cambiar. Esto es lo que tiene.",
-      nameHelp: "Un nombre corto en minúsculas, como release-manager. No se puede cambiar después.",
-      label: "Etiqueta",
-      labelHelp: "Lo que muestra la consola. Por defecto es el nombre.",
-      descriptionField: "Para qué sirve",
-      permissions: "Permisos",
-      permissionsRequired: "Elige al menos un permiso.",
-      permissionsHelp:
-        "Elige lo que el rol puede hacer. Mezclar lo que gobierna (cuentas, seguridad) con lo que opera el servidor se rechaza: una persona no debería tener ambos.",
-      canBeHeld: "Se puede tener en: {places}",
-      noPermissions: "Elige al menos un permiso.",
-      save: "Guardar rol",
-      create: "Definir rol",
-      errorTitle: "No se pudo guardar el rol",
     },
   },
   tokenReach: {

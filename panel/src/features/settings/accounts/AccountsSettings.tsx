@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { LockOpen, Mail, MailPlus, ShieldOff, UserCheck, UserCog, UserPlus, UserX } from "lucide-react";
+import { KeyRound, LockOpen, Mail, MailPlus, ShieldOff, UserCheck, UserCog, UserPlus, UserX } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { sessionQuery } from "../../../api/queries/auth";
+import { rolesQuery } from "../../../api/queries/roles";
+import type { Role as RoleDef } from "../../../api/queries/roles";
 import { useDocumentTitle } from "../../../app/documentTitle";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { FilterBar } from "../../../components/page/FilterBar";
@@ -29,13 +31,16 @@ import type { T } from "../../../i18n";
 import { reportActionError } from "../../apps/useAppActions";
 import { SettingsPrimaryAction } from "../SettingsShell";
 import { AccessReviewSection } from "./AccessReview";
-import { DisableDialog, EmailDialog, ExceptionDialog, RoleDialog } from "./AccountDialogs";
+import { DisableDialog, EmailDialog, ExceptionDialog } from "./AccountDialogs";
+import { AccountRolesDialog, rolesOf } from "../roles/AccountRolesDialog";
+import { PermissionsDrawer } from "../roles/PermissionsDrawer";
+import { roleLabel as shownRole } from "../roles/roleModel";
 import { accountKeys, accountsQuery, enableAccount, exceptionsQuery, removeAccount, resetMfa, revokeException, unlockAccount } from "./api";
 import type { Account, SeparationConflict, SodException } from "./api";
 import { accountStatus, factorLabel, filterAccounts, isFiltered, stateView } from "./data";
 import type { AccountStatus, AccountsSearch } from "./data";
 import { InviteDialog } from "./InviteDialog";
-import { ROLES, roleLabel } from "./roles";
+import { roleLabel } from "./roles";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
@@ -59,7 +64,26 @@ function Factor({ t, account }: { t: T; account: Account }) {
   );
 }
 
-function columnsFor(t: T): Column<Account>[] {
+/** The most roles a row names before "+N": the rest are one click away in what the person can do. */
+const ROLES_SHOWN = 2;
+
+function RoleChips({ t, account, byName }: { t: T; account: Account; byName: ReadonlyMap<string, RoleDef> }) {
+  const held = rolesOf(account);
+  const name = (role: string): string => {
+    const known = byName.get(role);
+    return known === undefined ? roleLabel(t, role) : shownRole(t, known);
+  };
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1 align-middle">
+      {held.slice(0, ROLES_SHOWN).map((role) => (
+        <Badge key={role}>{name(role)}</Badge>
+      ))}
+      {held.length > ROLES_SHOWN ? <Badge>{t("roles.account.more", { count: held.length - ROLES_SHOWN })}</Badge> : null}
+    </span>
+  );
+}
+
+function columnsFor(t: T, byName: ReadonlyMap<string, RoleDef>): Column<Account>[] {
   return [
     {
       id: "account",
@@ -76,7 +100,7 @@ function columnsFor(t: T): Column<Account>[] {
       ),
     },
     { id: "state", header: t("accounts.table.state"), card: "status", width: "w-40", cell: (account) => <AccountState t={t} account={account} /> },
-    { id: "role", header: t("accounts.table.role"), sortValue: (account) => account.role, cell: (account) => <Badge>{roleLabel(t, account.role)}</Badge> },
+    { id: "role", header: t("roles.account.column"), sortValue: (account) => account.role, cell: (account) => <RoleChips t={t} account={account} byName={byName} /> },
     { id: "factor", header: t("accounts.table.factor"), hideBelow: "md", cell: (account) => <Factor t={t} account={account} /> },
     {
       id: "last",
@@ -91,6 +115,7 @@ function columnsFor(t: T): Column<Account>[] {
 type Pending =
   | { kind: "invite"; recover: Account | null }
   | { kind: "role"; account: Account }
+  | { kind: "can"; account: Account }
   | { kind: "email"; account: Account }
   | { kind: "disable"; account: Account }
   | { kind: "reset"; account: Account }
@@ -125,8 +150,11 @@ function AccountActions({ t, account, self, onOpen }: { t: T; account: Account; 
           {t("accounts.actions.unlock")}
         </MenuItem>
       ) : null}
+      <MenuItem icon={<KeyRound />} onClick={() => onOpen({ kind: "can", account })}>
+        {t("roles.account.effectiveAction")}
+      </MenuItem>
       <MenuItem icon={<UserCog />} disabled={self} onClick={() => onOpen({ kind: "role", account })}>
-        {t("accounts.actions.changeRole")}
+        {t("roles.account.edit")}
       </MenuItem>
       <MenuItem icon={<MailPlus />} onClick={() => onOpen({ kind: "invite", recover: account })}>
         {t("accounts.actions.newInvitation")}
@@ -283,6 +311,9 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
   const queryClient = useQueryClient();
   const { data: session } = useQuery(sessionQuery());
   const query = useQuery(accountsQuery());
+  const rolesList = useQuery(rolesQuery());
+  const roleDefs = useMemo(() => rolesList.data?.roles ?? [], [rolesList.data]);
+  const byName = useMemo(() => new Map(roleDefs.map((role) => [role.name, role])), [roleDefs]);
   const [pending, setPending] = useState<Pending>(null);
   const canManage = session?.permissions?.includes("accounts.manage") ?? false;
   const me = session?.account?.username ?? null;
@@ -291,7 +322,7 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
   const shown = useMemo(() => filterAccounts(all, search), [all, search]);
   const filtered = isFiltered(search);
   const empty = query.data !== undefined && all.length === 0;
-  const columns = columnsFor(t);
+  const columns = columnsFor(t, byName);
   const set = (patch: { [K in keyof AccountsSearch]?: AccountsSearch[K] | undefined }, replace = false): void => {
     const next = { ...search, ...patch };
     onSearchChange(
@@ -356,8 +387,8 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
                 <Select
                   aria-label={t("accounts.page.roleFilter")}
                   value={search.role ?? ALL}
-                  onValueChange={(value) => set({ role: ROLES.find((role) => role === value) })}
-                  options={[{ value: ALL, label: t("accounts.page.everyRole") }, ...ROLES.map((role) => ({ value: role, label: roleLabel(t, role) }))]}
+                  onValueChange={(value) => set({ role: roleDefs.find((role) => role.name === value)?.name })}
+                  options={[{ value: ALL, label: t("accounts.page.everyRole") }, ...roleDefs.map((role) => ({ value: role.name, label: shownRole(t, role) }))]}
                   className="min-w-36"
                 />
                 <Select
@@ -424,7 +455,8 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
 
       {pending?.kind === "invite" ? <InviteDialog open accounts={all} recover={pending.recover} onClose={() => setPending(null)} /> : null}
       {pending?.kind === "email" ? <EmailDialog account={pending.account} onClose={() => setPending(null)} /> : null}
-      {pending?.kind === "role" ? <RoleDialog account={pending.account} accounts={all} onClose={() => setPending(null)} /> : null}
+      {pending?.kind === "role" ? <AccountRolesDialog account={pending.account} onClose={() => setPending(null)} /> : null}
+      {pending?.kind === "can" ? <PermissionsDrawer account={pending.account} onClose={() => setPending(null)} /> : null}
       {pending?.kind === "disable" ? <DisableDialog account={pending.account} onClose={() => setPending(null)} /> : null}
       {pending?.kind === "exception" ? <ExceptionDialog person={pending.person} onClose={() => setPending(null)} /> : null}
       {pending?.kind === "reset" ? (

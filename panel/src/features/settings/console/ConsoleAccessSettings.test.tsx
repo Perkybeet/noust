@@ -79,7 +79,7 @@ async function pageAt(exposure: unknown, extra: Record<string, RouteHandler> = {
     ...extra,
   });
   const harness = renderConsole("/settings/console");
-  await screen.findByRole("heading", { level: 1, name: "Settings" });
+  await screen.findByRole("heading", { level: 1, name: "Console address" });
   return { ...harness, backend };
 }
 

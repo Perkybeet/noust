@@ -55,6 +55,7 @@ export const approvals = {
     theCall: "What will run: {call}",
     reasonLabel: "Reason",
     reasonHint: "Kept with the request and in the audit log.",
+    whyAsked: "The Approvals control asks for it, for everyone on this server, owners included. It is turned off in {where}.",
     reasonMissing: "Say why you need it.",
     ask: "Ask for approval",
     waitingTitle: "Waiting for approval",

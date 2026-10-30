@@ -6,39 +6,38 @@
   "slack": 120,
   "routes": {
     "settings-general": {
-      "path": "/settings",
+      "path": "/settings/general",
       "height": 1471,
       "reason": "One form holds the server's identity, the console address, the folders, the limits, the web server and the deploy freeze; the console address has its own section, and what stays is measured again when it leaves."
     },
-    "settings-variables": { "path": "/settings/variables", "height": 342 },
-    "settings-secret-managers": { "path": "/settings/secret-managers", "height": 441 },
+    "settings-registries": { "path": "/settings/registries", "height": 246 },
+    "settings-deploy-keys": { "path": "/settings/deploy-keys", "height": 721 },
+    "settings-fleet": { "path": "/settings/fleet", "height": 565 },
+    "settings-variables": { "path": "/settings/variables", "height": 330 },
+    "settings-secret-managers": { "path": "/settings/secret-managers", "height": 430 },
     "settings-console": { "path": "/settings/console", "height": 460 },
-    "settings-integrations": {
-      "path": "/settings/integrations",
-      "height": 2749,
-      "reason": "Seven sections on one page: the webhook address, GitHub, GitLab and the other forges, deploy keys, host keys, container registries and the metrics export. The metrics export moves to Logs and metrics export and each forge gets its own space."
-    },
+    "settings-integrations": { "path": "/settings/integrations", "height": 1226 },
     "settings-about": {
       "path": "/settings/about",
-      "height": 1697,
+      "height": 1658,
       "reason": "Three sections (version and updates, this installation and support, what is new): the automatic update card, the installation check, the support report, the project links and the licence notices. The check and the support report can leave for a subsection of their own."
     },
     "settings-notifications": {
       "path": "/settings/notifications",
-      "height": 2000,
+      "height": 1903,
       "reason": "The switch, thirteen channels, more channels, the events, their language, private hosts and the delivery log on one page. The channels and the events are different subjects, and the delivery log is a list of its own."
     },
-    "settings-log-shipping": { "path": "/settings/log-shipping", "height": 1089 },
+    "settings-log-shipping": { "path": "/settings/log-shipping", "height": 1085 },
     "settings-tokens": { "path": "/settings/tokens", "height": 427 },
     "settings-api": { "path": "/settings/api", "height": 1163 },
-    "settings-manifest": { "path": "/settings/manifest", "height": 568 },
+    "settings-manifest": { "path": "/settings/manifest", "height": 554 },
     "settings-mcp": {
       "path": "/settings/mcp",
       "height": 2068,
       "reason": "The endpoint, how to connect, the three groups of tools and the table of 27 tools on one page; the table of tools is a list of its own and can leave for its own subsection."
     },
-    "settings-accounts": { "path": "/settings/accounts", "height": 480 },
-    "settings-access": { "path": "/settings/access", "height": 763 },
+    "settings-accounts": { "path": "/settings/accounts", "height": 474 },
+    "settings-access": { "path": "/settings/access", "height": 904 },
     "settings-sso": { "path": "/settings/sso", "height": 767 },
     "settings-approvals": { "path": "/settings/approvals", "height": 305 },
     "settings-audit": {
@@ -52,12 +51,12 @@
       "height": 4802,
       "reason": "The frameworks, their controls and the ENS report in one page; the frameworks and the security profile move to Controls and the report stays."
     },
-    "settings-cloud": { "path": "/settings/cloud", "height": 823 },
+    "settings-cloud": { "path": "/settings/cloud", "height": 819 },
     "settings-central": { "path": "/settings/central", "height": 468 },
     "settings-controls": {
       "path": "/settings/controls",
-      "height": 5096,
-      "reason": "Every compliance framework with the controls it is made of, and the security profile, on one page; each framework's controls go behind a disclosure and the profile becomes a section of its own. Measured 5064 before the control Second factor required joined the list (one more row, 32px), which makes 5096."
+      "height": 2314,
+      "reason": "The security profile, the nine frameworks with what each turns on, and the controls, folded by group to a line that says how many are strict. The frameworks are cards of their own: each can fold behind a line, which brings the page under the limit."
     },
     "account-profile": { "path": "/account", "height": 190 },
     "account-security": { "path": "/account/security", "height": 775 },

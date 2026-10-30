@@ -57,6 +57,7 @@ export const approvals: Catalog<typeof en> = {
     theCall: "Lo que se ejecutará: {call}",
     reasonLabel: "Motivo",
     reasonHint: "Se guarda con la solicitud y en el registro de auditoría.",
+    whyAsked: "Lo pide el control de Aprobaciones, para todas las personas de este servidor, también para quien es propietario. Se apaga en {where}.",
     reasonMissing: "Di por qué lo necesitas.",
     ask: "Pedir aprobación",
     waitingTitle: "Esperando la aprobación",
