@@ -27,6 +27,7 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { AppTypeMark, typeLogo } from "../apps/AppTypeMark";
 import { useTypeName } from "../apps/data";
 import { CancelJobButton } from "../queue/CancelJobButton";
 import { useCancelJob } from "../queue/useCancelJob";
@@ -236,7 +237,8 @@ function AppPage({ domain, app, job }: { domain: string; app: UseQueryResult<App
   useAnnounceChange(app.data ? view.label : null, `${domain}: ${view.label}`, view.state === "failed" ? "assertive" : "polite");
 
   // Where the page is in the tree is the top bar's (breadcrumbs generated from the register), not the header's.
-  const header: PageHeaderProps = { title: domain, mono: true };
+  // Only an application whose type has a real logo wears it: nothing is drawn in its place (the tile is for logos).
+  const header: PageHeaderProps = { title: domain, mono: true, ...(typeLogo(app.data?.app_type) !== null ? { mark: <AppTypeMark type={app.data?.app_type} size="lg" /> } : {}) };
 
   if (app.isError && isApiError(app.error) && app.error.status === 404) return <NotFound domain={domain} header={header} t={t} />;
 

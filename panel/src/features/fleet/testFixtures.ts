@@ -196,6 +196,18 @@ export const APPS_VIEW = view("apps", [
   row("db-1", "/apps/reports.example.com", { domain: "reports.example.com", name: "reports", app_type: "static", status: "running", port: null, layout: "inplace" }),
 ]);
 
+/** `GET /api/views/apps`: the same rows, with the servers a person may filter by and what they could not read. */
+export const APPS_VIEWS = {
+  resource: "apps",
+  generated_at: NOW,
+  partial: true,
+  fleet: true,
+  servers: ["web-01", "web-2", "db-1", "old-1"].map((name) => ({ name, selector: name === "web-01" ? "@central" : name, local: name === "web-01" })),
+  nodes: OUTCOMES,
+  refusals: [],
+  items: APPS_VIEW.items,
+};
+
 export const CERTIFICATES_VIEW = view("certificates", [
   row("web-2", "/domains", { domain: "www.example.com", domains: ["www.example.com", "example.com"], days_remaining: 5, expires_on: "2026-10-04", auto_renew: true, issuer: "C=US, O=Let's Encrypt, CN=R11" }),
   row("web-01", "/domains", { domain: "shop.example.com", domains: ["shop.example.com"], days_remaining: 80, expires_on: "2026-12-18", auto_renew: true, issuer: null }),
@@ -310,6 +322,7 @@ export function fleetRoutes(session: SessionInfo = centralSession(), nodes: unkn
     "GET /api/fleet/summary": () => json(200, SUMMARY_VIEW),
     "GET /api/fleet/servers": () => json(200, SERVERS_VIEW),
     "GET /api/fleet/apps": () => json(200, APPS_VIEW),
+    "GET /api/views/apps": () => json(200, APPS_VIEWS),
     "GET /api/fleet/certificates": () => json(200, CERTIFICATES_VIEW),
     "GET /api/fleet/backups": () => json(200, BACKUPS_VIEW),
     "GET /api/fleet/updates": () => json(200, UPDATES_VIEW),

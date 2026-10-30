@@ -5,7 +5,7 @@ import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem } from "../../test/fakes";
-import { APPS_VIEW, JOB, PLAN, SSH_TIMEOUT, SUMMARY_VIEW, centralSession, fleetRoutes } from "./testFixtures";
+import { APPS_VIEW, APPS_VIEWS, JOB, PLAN, SSH_TIMEOUT, SUMMARY_VIEW, centralSession, fleetRoutes } from "./testFixtures";
 
 /**
  * A list's row by a text in it. The tests run at a phone's width (jsdom matches no media
@@ -21,11 +21,11 @@ async function rowOf(list: HTMLElement, text: string): Promise<HTMLElement> {
   });
 }
 
-/** A card of the page, by its title. */
-function card(title: string): HTMLElement {
-  const heading = screen.getByRole("heading", { name: title, level: 2 });
+/** What needs attention, as Home draws it: the section under its heading. */
+async function board(): Promise<HTMLElement> {
+  const heading = await screen.findByRole("heading", { name: "Needs attention", level: 2 });
   const section = heading.closest("section");
-  if (section === null) throw new Error(`no card ${title}`);
+  if (section === null) throw new Error("no board");
   return section;
 }
 
@@ -33,13 +33,11 @@ function rows(caption: string): Promise<HTMLElement> {
   return screen.findByRole("list", { name: caption });
 }
 
-describe("the fleet's summary", () => {
-  it("adds every server up, says who did not answer in its own words, and opens problems on their server", { timeout: 30_000 }, async () => {
+describe("the fleet's Home", () => {
+  it("says who did not answer in the servers' own words, what needs attention on each server, and the fleet in courses", { timeout: 30_000 }, async () => {
     fakeBackend(fleetRoutes());
     const { container } = renderConsole("/fleet");
-    expect(await screen.findByRole("heading", { level: 1, name: "Fleet" })).toBeInTheDocument();
-    // The sidebar lists the fleet's views; the page draws no strip of them.
-    expect(screen.queryByRole("navigation", { name: "Fleet views" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Home" })).toBeInTheDocument();
 
     // Partial, never blank: db-1's last answer is shown, with why it is old.
     expect(await screen.findByText("2 of 4 servers did not answer fully")).toBeInTheDocument();
@@ -55,17 +53,16 @@ describe("the fleet's summary", () => {
     expect(screen.getByText("It runs an older Noust, which does not offer GET /api/overview.")).toBeInTheDocument();
     expect(troubled).toHaveTextContent("Update Noust on old-1 to see everything here.");
 
-    expect(screen.getByText("3 of 4")).toBeInTheDocument();
-    const attention = card("Needs attention");
-    expect(within(attention).getByRole("link", { name: "api.example.com" })).toHaveAttribute("href", "/n/web-2/apps/api.example.com");
+    // What needs attention on a server is a card that names the server and opens the fix there.
+    const attention = await board();
+    expect(within(attention).getByRole("link", { name: "api.example.com" })).toHaveAttribute("href", "/n/web-2/apps/api.example.com/diagnose");
     expect(within(attention).getByText("web-2")).toBeInTheDocument();
 
-    const actions = card("Recent actions");
-    expect(within(actions).getByRole("link", { name: "Renew certificates" })).toHaveAttribute("href", "/fleet/jobs/fj-1");
-
-    const table = await rows("The fleet's servers at a glance");
-    expect(within(await rowOf(table, "web-2")).getByRole("link", { name: "Open web-2" })).toHaveAttribute("href", "/n/web-2");
-    expect(within(await rowOf(table, "old-1")).getByText("Older Noust")).toBeInTheDocument();
+    // The fleet in courses: a course for each server, each name opening that server, and the one that does not answer says so.
+    const courses = await screen.findByRole("list", { name: "Servers and their applications" });
+    expect(within(courses).getByRole("link", { name: "web-2" })).toHaveAttribute("href", "/n/web-2/server");
+    expect(within(courses).getByRole("link", { name: /^api\.example\.com\s*Failed$/ })).toHaveAttribute("href", "/n/web-2/apps/api.example.com");
+    expect(within(courses).getByText("Not answering")).toBeInTheDocument();
     await expectNoAxeViolations(container, { page: true });
   });
 
@@ -85,7 +82,7 @@ describe("the fleet's summary", () => {
     };
     fakeBackend({ ...fleetRoutes(), "GET /api/fleet/summary": () => json(200, view) });
     renderConsole("/fleet");
-    const attention = await waitFor(() => card("Needs attention"));
+    const attention = await board();
     const link = await within(attention).findByRole("link", { name: "disk-high" });
     expect(link).toHaveAttribute("href", "/n/db-1/alerts");
     expect(within(attention).getByText("db-1")).toBeInTheDocument();
@@ -109,28 +106,28 @@ describe("the fleet's summary", () => {
 });
 
 describe("the fleet's views", () => {
-  it("lists every server's applications, each naming its server and opening there", { timeout: 30_000 }, async () => {
+  it("lists every server's applications, each naming its server and opening there, with the server as the first filter", { timeout: 30_000 }, async () => {
     fakeBackend({ ...fleetRoutes(), "GET /api/apps/types": () => json(200, { types: [{ type: "python", name: "Python", default_port: 8000 }] }) });
     const { container, user, location } = renderConsole("/fleet/apps");
-    const table = await rows("Applications on every server");
+    const table = await rows("Applications");
     const api = await rowOf(table, "api.example.com");
     expect(within(api).getByRole("link", { name: "api.example.com" })).toHaveAttribute("href", "/n/web-2/apps/api.example.com");
     expect(within(api).getByRole("link", { name: "Open web-2" })).toBeInTheDocument();
     const reports = await rowOf(table, "reports.example.com");
     // db-1's row is its last good answer: said so, with its age.
     expect(within(reports).getByText(/Last answer/)).toBeInTheDocument();
-    // One primary for the view: New application, in the header; Add a server belongs to the
-    // other views, and each action to run lives with the view it acts on, never twice.
+    // One primary for the view: New application, in the header; Add a server belongs to the other views.
     expect(screen.getAllByRole("link", { name: "New application" })).toHaveLength(1);
     expect(screen.getByRole("link", { name: "New application" })).toHaveAttribute("href", "/apps/new");
     expect(screen.queryByRole("button", { name: "Add a server" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Run an action" })).not.toBeInTheDocument();
-    // The same words as the local list: the type's name, the last deploy's state and age.
+    // The same words as the local list: the type's name.
     expect(within(api).getByText("Python")).toBeInTheDocument();
     expect(within(api).queryByText("python")).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("combobox", { name: "Server" }));
-    await user.click(await screen.findByRole("option", { name: "web-2" }));
+    // The server is chosen on a strip that says how many each runs: choosing filters, it does not move to another page.
+    const strip = screen.getByRole("radiogroup", { name: "Server" });
+    expect(within(strip).getByRole("radio", { name: "The whole fleet 3" })).toBeInTheDocument();
+    await user.click(within(strip).getByRole("radio", { name: "web-2 1" }));
     await waitFor(() => {
       expect(location().search).toMatchObject({ server: "web-2" });
     });
@@ -144,9 +141,9 @@ describe("the fleet's views", () => {
       domain: `app${String(i).padStart(2, "0")}.example.com`,
       page: `/apps/app${String(i)}.example.com`,
     }));
-    fakeBackend({ ...fleetRoutes(), "GET /api/fleet/apps": () => json(200, { ...APPS_VIEW, items: many }) });
+    fakeBackend({ ...fleetRoutes(), "GET /api/views/apps": () => json(200, { ...APPS_VIEWS, items: many }) });
     const { user } = renderConsole("/fleet/apps");
-    const table = await rows("Applications on every server");
+    const table = await rows("Applications");
     // The kit's paging, the same as every other list: 20 to a page until the operator says otherwise.
     expect(await within(table).findByText("app19.example.com")).toBeInTheDocument();
     expect(within(table).queryByText("app20.example.com")).not.toBeInTheDocument();
@@ -155,6 +152,33 @@ describe("the fleet's views", () => {
     expect(await within(table).findByText("app29.example.com")).toBeInTheDocument();
     expect(screen.getByText("Showing 21–30 of 30")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next page" })).toBeDisabled();
+  });
+
+  it("says once which servers did not let this account read the applications, and still lists the others'", { timeout: 20_000 }, async () => {
+    fakeBackend({
+      ...fleetRoutes(),
+      "GET /api/views/apps": () =>
+        json(200, {
+          ...APPS_VIEWS,
+          refusals: [
+            {
+              reason: "permission",
+              code: "fleet.refused.permission",
+              permission: "apps.read",
+              resource: "apps",
+              servers: ["db-1"],
+              count: 1,
+              includes_central: false,
+              message: "db-1 does not let your role read apps",
+              hint: "Give the role apps.read there.",
+              coded: { code: "fleet.refused.permission", params: { role: "viewer", permission: "apps.read" } },
+            },
+          ],
+        }),
+    });
+    renderConsole("/fleet/apps");
+    expect(await screen.findByText("1 server does not let you read applications")).toBeInTheDocument();
+    expect(await rowOf(await rows("Applications"), "api.example.com")).toBeInTheDocument();
   });
 
   it("lists certificates soonest first, backups gaps first, updates and activity, with no violations", { timeout: 40_000 }, async () => {
@@ -371,7 +395,7 @@ describe("a bulk action", () => {
   it("says why a view could not be put together at all, in the central's words", { timeout: 20_000 }, async () => {
     fakeBackend({
       ...fleetRoutes(),
-      "GET /api/fleet/apps": () => problem(500, "internal_error", "The aggregator could not start its threads", { hint: "Restart the console on the central." }),
+      "GET /api/views/apps": () => problem(500, "internal_error", "The aggregator could not start its threads", { hint: "Restart the console on the central." }),
     });
     renderConsole("/fleet/apps");
     expect(await screen.findByText("Could not load the fleet")).toBeInTheDocument();
@@ -387,7 +411,7 @@ describe("in Spanish", () => {
     await act(async () => {
       await setLocale("es");
     });
-    expect(await screen.findByRole("heading", { level: 1, name: "Flota" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Inicio" })).toBeInTheDocument();
     expect(screen.getByText("2 de 4 servidores no respondieron del todo")).toBeInTheDocument();
     // The sentence is Spanish; the system's own words, under it, are never translated.
     expect(screen.getByText("db-1 no respondió: sus filas son su última respuesta.")).toBeInTheDocument();

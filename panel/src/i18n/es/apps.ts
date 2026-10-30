@@ -5,7 +5,6 @@ export const apps: Catalog<typeof en> = {
   newApplication: "Nueva aplicación",
   page: {
     title: "Aplicaciones",
-    description: "Todo lo que ejecuta este servidor, y en qué estado está.",
     couldNotLoad: "No se pudieron cargar las aplicaciones",
     emptyTitle: "Todavía no hay aplicaciones",
     emptyDescription:
@@ -27,6 +26,7 @@ export const apps: Catalog<typeof en> = {
   table: {
     columnState: "Estado",
     columnApplication: "Aplicación",
+    columnServer: "Servidor",
     columnType: "Tipo",
     columnLastDeploy: "Último despliegue",
     columnCpu: "CPU",

@@ -78,6 +78,7 @@ export const appPages: Catalog<typeof en> = {
     dryRunEmpty: "Docker Compose no ha escrito nada.",
     wouldRecreateTitle: "Arrancar la unidad recrearía contenedores",
     acceptRecreate: "Devolverla de todos modos, recreando lo que indica Docker Compose",
+    acceptMissing: "Marca la casilla para devolverla, o cancela y arregla lo que Compose recrearía.",
     acceptRecreateDescription:
       "Los contenedores en marcha no coinciden con el archivo de Compose. Un contenedor recreado pierde lo que guarda fuera de sus volúmenes.",
     couldNotCheck: "No se ha podido comprobar qué cambiaría al arrancar la unidad",
@@ -173,9 +174,15 @@ export const appPages: Catalog<typeof en> = {
 
   overview: {
     liveNow: "Ahora en producción",
+    nothingLiveShort: "Ninguna todavía",
+    highlightsLabel: "Lo principal de {domain}",
+    recentLogs: "Registros recientes",
+    openLogs: "Abrir registros",
+    loadingLogs: "Cargando los registros …",
+    logsLoadError: "No se han podido cargar los registros",
+    noLogs: "Todavía no ha escrito nada",
+    recentLogsOutput: "Las últimas líneas que ha escrito {domain}",
     lastServed: "Última versión que sirvió",
-    nothingLive: "Ningún despliegue de esta aplicación ha salido bien todavía.",
-    builtIn: "Compilado en {duration}",
     lastDeployments: "Últimos despliegues",
     deploymentsLabel: "Últimos despliegues de {domain}",
     viewAll: "Ver todos",

@@ -22,6 +22,8 @@ export interface AppsSearch extends OwnerSearch {
   type?: string;
   /** A tag the app carries (`noust app tag`): the apps grouped under it. */
   tag?: string;
+  /** The fleet's list only: the server whose applications are shown. `server`, not `node`: the router keeps `node` for the server a page is on. */
+  server?: string;
 }
 
 function text(value: unknown): string | undefined {
@@ -39,11 +41,13 @@ export function validateAppsSearch(search: Record<string, unknown>): AppsSearch 
   const state = text(search["state"]);
   const type = text(search["type"]);
   const tag = text(search["tag"]);
+  const server = text(search["server"]);
   return {
     ...(q !== undefined ? { q } : {}),
     ...(state !== undefined && (STATE_FILTERS as readonly string[]).includes(state) ? { state: state as StateFilter } : {}),
     ...(type !== undefined && /^[\w.-]+$/.test(type) ? { type } : {}),
     ...(tag !== undefined && /^[a-z0-9][a-z0-9._-]*$/.test(tag) ? { tag } : {}),
+    ...(server !== undefined && /^[\w.-]{1,64}$/.test(server) ? { server } : {}),
     ...ownerSearch(search),
   };
 }

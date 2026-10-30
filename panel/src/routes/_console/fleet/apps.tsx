@@ -1,22 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { inPlace } from "../../../app/searchNavigation";
-import { validateFleetSearch } from "../../../features/fleet/filters";
-import { AppsTab } from "../../../features/fleet/AppsTab";
+import { validateAppsSearch } from "../../../features/apps/filters";
+import { FleetAppsPage } from "../../../features/fleet/FleetAppsPage";
 
-/** Fleet > Applications: every application of every server. */
+/** Applications across the fleet: the same list as a server's, over every server. Filters are search params: `/fleet/apps?server=web-2&state=failed`. */
 export const Route = createFileRoute("/_console/fleet/apps")({
-  validateSearch: validateFleetSearch,
-  component: FleetView,
+  validateSearch: validateAppsSearch,
+  component: FleetAppsRoute,
 });
 
-function FleetView() {
+function FleetAppsRoute() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
-  return (
-    <AppsTab
-      search={{ ...(search.q !== undefined ? { q: search.q } : {}), ...(search.server !== undefined ? { server: search.server } : {}), ...(search.state !== undefined ? { state: search.state } : {}) }}
-      onSearchChange={(next, options) => void navigate({ search: next, ...inPlace(options) })}
-    />
-  );
+  return <FleetAppsPage search={search} onSearchChange={(next, options) => void navigate({ search: next, ...inPlace(options) })} />;
 }

@@ -132,6 +132,12 @@ describe("the central-only lists agree with each other", () => {
     expect(queryRoots).toEqual(fromApiPrefixes);
   });
 
+  it("the views of every server are the central's own, whichever server is on screen", () => {
+    expect(isCentralApiPath("/api/views/apps")).toBe(true);
+    expect(nodeApiPath("web-2", "/api/views/apps?node=web-2")).toBe("/api/views/apps?node=web-2");
+    expect(CENTRAL_QUERY_ROOTS.has("views")).toBe(true);
+  });
+
   it("the fleet and servers routes keep the same name in the query cache", () => {
     expect(CENTRAL_ONLY_PATHS).toContain("/fleet");
     expect(CENTRAL_QUERY_ROOTS.has("fleet")).toBe(true);
