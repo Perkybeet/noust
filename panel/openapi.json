@@ -68131,6 +68131,16 @@
       "noust__web__api__server__models__CheckOut": {
         "description": "One thing looked at before a reboot.",
         "properties": {
+          "coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "id": {
             "title": "Id",
             "type": "string"

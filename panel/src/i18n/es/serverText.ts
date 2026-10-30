@@ -510,6 +510,22 @@ export const serverText: Catalog<typeof en> = {
       },
     },
   },
+  power_checks: {
+    jobs_running: { text: "En marcha ahora: {jobs}" },
+    jobs_idle: { text: "No hay nada en marcha" },
+    console_returns: { text: "La consola arranca con el servidor" },
+    console_stays_down: {
+      text: "La consola no es una unidad de systemd activada: no volverá a arrancar tras el reinicio. Ejecuta antes 'noust web enable'.",
+    },
+    apps_stay_down: { text: "Estas aplicaciones no están activadas y no volverán a arrancar: {apps}" },
+    apps_return: { text: "Todas las aplicaciones arrancan con el servidor" },
+    fstab_correct: { text: "fstab es correcto" },
+    fstab_problem: {
+      text: "findmnt --verify ha encontrado un problema, y un fstab erróneo puede dejar la máquina en modo de emergencia: {output}",
+    },
+    ramdisk_missing: { text: "El kernel más nuevo, {release}, no tiene disco RAM inicial en /boot" },
+    ramdisk_present: { text: "El kernel más nuevo está completo" },
+  },
   recipes: {
     root_equivalent: {
       agent: {

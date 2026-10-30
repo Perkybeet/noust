@@ -25,6 +25,7 @@ import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
+import { ServerText } from "../../components/ui/ServerText";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusGlyph, stateTextClass } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
@@ -109,8 +110,12 @@ function PreChecks({ power, t }: { power: PowerStatus | undefined; t: T }) {
                 {checkLabel(t, check.id)}
                 <span className="sr-only">{check.status === "ok" ? t("server.power.checkOk") : t("server.power.checkWarn")}</span>
               </span>
-              {/* Noust's own finding, as the API words it. */}
-              <span className="text-12 text-fg-muted">{check.message}</span>
+              {/* What was found, only when it is something to read: on a passing row it repeats the line above. */}
+              {check.status === "ok" ? null : (
+                <span className="text-12 text-fg-muted">
+                  <ServerText coded={check.coded} text={check.message} />
+                </span>
+              )}
             </div>
           </li>
         );

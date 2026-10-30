@@ -29,6 +29,7 @@ from noust.core import paths
 from noust.core.exceptions import ValidationError
 from noust.core.fs import FileSystem, get_fs
 from noust.core.runner import CommandRunner, get_runner
+from noust.core.server_text import ServerText, say
 from noust.managers.server.errors import HostBusyError, PreflightError, ServerError
 from noust.managers.server.host import HostPaths, read_text
 from noust.managers.server.power_records import PowerRecords, ScheduledPower
@@ -135,11 +136,29 @@ class Check:
         status: ``ok`` or ``warn``; a warning needs ``force`` to be overridden.
         message: What was found, one sentence, with the system's own words
             where there are any.
+        coded: The same sentence as a code and its values, for the console to say in
+            its own language (``message`` is its English).
     """
 
     id: str
     status: str
     message: str
+    coded: ServerText | None = None
+
+
+def _found(check_id: str, ok: bool, sentence: ServerText) -> Check:
+    """
+    Make a check from the sentence that says what it found.
+
+    Args:
+        check_id: The check's stable id.
+        ok: Whether nothing needs a second look.
+        sentence: What was found.
+
+    Returns:
+        The check, whose English message is the sentence's.
+    """
+    return Check(check_id, "ok" if ok else "warn", sentence.text, sentence)
 
 
 @dataclass(frozen=True)
@@ -422,10 +441,12 @@ class PowerManager:
 
         running = self._blockers() if self._blockers else []
         checks.append(
-            Check(
+            _found(
                 "jobs",
-                "warn" if running else "ok",
-                f"Running now: {', '.join(running)}" if running else "Nothing is running",
+                not running,
+                say("power_checks.jobs_running", jobs=", ".join(running))
+                if running
+                else say("power_checks.jobs_idle"),
             )
         )
 
@@ -437,48 +458,46 @@ class PowerManager:
         ]
         returns = any(state in _UNIT_ENABLED for state in console)
         checks.append(
-            Check(
+            _found(
                 "console",
-                "ok" if returns else "warn",
-                "The console starts on boot"
+                returns,
+                say("power_checks.console_returns")
                 if returns
-                else "The console is not an enabled systemd unit: it will not come back after the "
-                "reboot. Run 'noust web enable' first.",
+                else say("power_checks.console_stays_down"),
             )
         )
 
         stay_down = self._apps_check(self.runner)
         checks.append(
-            Check(
+            _found(
                 "apps",
-                "warn" if stay_down else "ok",
-                f"These applications are not enabled and will not start again: {', '.join(stay_down)}"
+                not stay_down,
+                say("power_checks.apps_stay_down", apps=", ".join(stay_down))
                 if stay_down
-                else "Every application starts on boot",
+                else say("power_checks.apps_return"),
             )
         )
 
         verify = self.runner.run(["findmnt", "--verify"], timeout=COMMAND_TIMEOUT)
         fstab_words = "\n".join(p for p in (verify.stdout.strip(), verify.stderr.strip()) if p)
         checks.append(
-            Check(
+            _found(
                 "fstab",
-                "ok" if verify.success else "warn",
-                "fstab is correct"
+                verify.success,
+                say("power_checks.fstab_correct")
                 if verify.success
-                else f"findmnt --verify found a problem, and a bad fstab can leave the machine "
-                f"in emergency mode: {fstab_words}",
+                else say("power_checks.fstab_problem", output=fstab_words),
             )
         )
 
         ramdisk = self._missing_ramdisk()
         checks.append(
-            Check(
+            _found(
                 "ramdisk",
-                "warn" if ramdisk else "ok",
-                f"The newest kernel, {ramdisk}, has no initial ramdisk in /boot"
+                not ramdisk,
+                say("power_checks.ramdisk_missing", release=ramdisk)
                 if ramdisk
-                else "The newest kernel is complete",
+                else say("power_checks.ramdisk_present"),
             )
         )
         return checks

@@ -100,7 +100,8 @@ for (const language of ["en", "es"] as const) {
       await page.goto("/server/security");
       const fix = page.getByRole("button", { name: language === "es" ? "Arreglar…" : "Fix…" }).first();
       await fix.click();
-      await expect(page.getByRole("dialog")).toBeVisible();
+      // The fix is a change that asks for the server's name before it applies: an alert dialog too.
+      await expect(page.getByRole("alertdialog")).toBeVisible();
       await settle(page);
       await page.screenshot({ path: path.join(dir, "dialog-fix.png") });
     });

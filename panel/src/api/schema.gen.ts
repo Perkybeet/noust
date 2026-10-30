@@ -67810,6 +67810,7 @@ export interface components {
          * @description One thing looked at before a reboot.
          */
         noust__web__api__server__models__CheckOut: {
+            coded?: components["schemas"]["CodedText"] | null;
             /** Id */
             id: string;
             /** Message */

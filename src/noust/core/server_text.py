@@ -107,6 +107,27 @@ CATALOG: dict[str, str] = {
         "Run it as an instance, a container that needs no package manager ({command}), or "
         "install it with the system's package manager: Noust manages it from there."
     ),
+    # -- What a reboot would break (noust.managers.server.power, the checks before a reboot) ---
+    # What each check found, as the one sentence under its title in the reboot dialog. A list of
+    # names (applications, jobs) and what findmnt said are values, shown as they are.
+    "power_checks.jobs_running": "Running now: {jobs}",
+    "power_checks.jobs_idle": "Nothing is running",
+    "power_checks.console_returns": "The console starts on boot",
+    "power_checks.console_stays_down": (
+        "The console is not an enabled systemd unit: it will not come back after the "
+        "reboot. Run 'noust web enable' first."
+    ),
+    "power_checks.apps_stay_down": (
+        "These applications are not enabled and will not start again: {apps}"
+    ),
+    "power_checks.apps_return": "Every application starts on boot",
+    "power_checks.fstab_correct": "fstab is correct",
+    "power_checks.fstab_problem": (
+        "findmnt --verify found a problem, and a bad fstab can leave the machine "
+        "in emergency mode: {output}"
+    ),
+    "power_checks.ramdisk_missing": "The newest kernel, {release}, has no initial ramdisk in /boot",
+    "power_checks.ramdisk_present": "The newest kernel is complete",
     # -- A person, when a central acted for them (noust.core.audit.actor) -----------------------
     "actors.through_central": "{person} (from the central {central})",
     # -- What an operator may call an object (noust.validators.object_names) ----------------

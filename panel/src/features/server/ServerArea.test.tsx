@@ -177,6 +177,23 @@ describe("the Server area", () => {
     ).toBeDisabled();
   });
 
+  it("says what the reboot's checks found in Spanish, and only for the rows that need a look", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    const { user } = server("/server");
+    const list = await screen.findByRole("list", { name: "Lo que requiere atención" });
+    await user.click(within(list).getByRole("button", { name: "Programar reinicio" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Reiniciar el servidor" });
+    const checks = await within(dialog).findByRole("list", { name: "Comprobaciones antes de reiniciar" });
+    // The finding is the server's sentence by its code, not the English it also sent.
+    expect(within(checks).getByText("Estas aplicaciones no están activadas y no volverán a arrancar: blog.example.org")).toBeInTheDocument();
+    expect(checks).not.toHaveTextContent("These applications");
+    // A row that passed is its title: the finding under it would say the same again.
+    expect(checks).not.toHaveTextContent("Nothing is running");
+    expect(within(checks).getAllByText("No hay nada en marcha")).toHaveLength(1);
+  });
+
   it("says in Spanish what it says in English", async () => {
     await act(async () => {
       await setLocale("es");

@@ -11710,6 +11710,7 @@ NoustWebApiSelfBackupScheduleDestination = TypedDict("NoustWebApiSelfBackupSched
 })
 
 NoustWebApiServerModelsCheckOut = TypedDict("NoustWebApiServerModelsCheckOut", {
+    "coded": NotRequired[Union["CodedText", None]],
     "id": Required[str],
     "message": Required[str],
     "status": Required[str],

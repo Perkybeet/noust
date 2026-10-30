@@ -521,6 +521,22 @@ export const serverText = {
       },
     },
   },
+  power_checks: {
+    jobs_running: { text: "Running now: {jobs}" },
+    jobs_idle: { text: "Nothing is running" },
+    console_returns: { text: "The console starts on boot" },
+    console_stays_down: {
+      text: "The console is not an enabled systemd unit: it will not come back after the reboot. Run 'noust web enable' first.",
+    },
+    apps_stay_down: { text: "These applications are not enabled and will not start again: {apps}" },
+    apps_return: { text: "Every application starts on boot" },
+    fstab_correct: { text: "fstab is correct" },
+    fstab_problem: {
+      text: "findmnt --verify found a problem, and a bad fstab can leave the machine in emergency mode: {output}",
+    },
+    ramdisk_missing: { text: "The newest kernel, {release}, has no initial ramdisk in /boot" },
+    ramdisk_present: { text: "The newest kernel is complete" },
+  },
   recipes: {
     root_equivalent: {
       agent: {
