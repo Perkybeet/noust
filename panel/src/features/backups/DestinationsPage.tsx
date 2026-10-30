@@ -177,7 +177,12 @@ export function DestinationsPage() {
     test.mutate(name, {
       onSuccess: (result) => {
         setTestStates((current) => ({ ...current, [name]: { checking: false, ok: result.ok } }));
-        if (result.ok) announce(t("backups.destinations.toast.reachable", { name }));
+        // The row says it is reachable; the folders found there are what the row does not say.
+        const entries = result.entries?.join(", ") ?? "";
+        if (result.ok) {
+          if (entries !== "") toast.info(t("backups.destinations.toast.reachable", { name }), { detail: entries });
+          else announce(t("backups.destinations.toast.reachable", { name }));
+        }
         else toast.error(t("backups.destinations.toast.unreachable", { name }));
       },
       onError: (error) => {

@@ -25,7 +25,6 @@ export const alerts = {
     searchLabel: "Search alerts",
     searchPlaceholder: "Rule, application or server",
     loadFailed: "Could not load the alerts of the servers",
-    nothingFiring: "Nothing firing",
     takenBy: "Acknowledged by {who}",
     column: { rule: "Alert", now: "Now" },
   },

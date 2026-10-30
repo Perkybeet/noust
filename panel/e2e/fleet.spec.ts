@@ -294,7 +294,7 @@ withFleet(
     await create.getByRole("button", { name: "Add destination" }).click();
     await confirmItsYou(page, consoleServer);
     await expect(create).toBeHidden();
-    await expect(toasts(page).getByText(`Backup destination created: ${name}`, { exact: true })).toBeVisible();
+    await expect(page.getByTestId("announcer-polite")).toHaveText(`Backup destination created: ${name}`);
     // A destination is encrypted unless the box is unticked: its key is shown once, and the dialog
     // closes only after the operator says it is somewhere safe.
     const key = page.getByRole("dialog", { name: `Encryption key for ${name}` });

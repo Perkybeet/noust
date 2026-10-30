@@ -247,6 +247,19 @@ describe("the activity timeline", () => {
     expect(within(table).getAllByText("shop.example.com")).toHaveLength(2);
   });
 
+  it("does not offer the accounts Noust makes for itself as people", async () => {
+    const who = (kind: string, name: string) => ({ kind, name, id: name, role: "operator", source: null, via: null });
+    const entries = [
+      { timestamp: "2026-09-25T10:00:00+00:00", action: "config.update", result: "success", actor: "marta", who: who("user", "marta"), client_ip: null, resource: "/api/config", detail: null, category: "config" },
+      { timestamp: "2026-09-25T09:50:00+00:00", action: "fleet.action", result: "success", actor: "noust-fleet-sync", who: who("user", "noust-fleet-sync"), client_ip: null, resource: "fleet-job:1", detail: null, category: "change" },
+    ];
+    const { user } = await activityAt({ "GET /api/jobs": () => json(200, { jobs: [], total: 0, active: 0 }), "GET /api/audit": () => json(200, { items: entries, next_before: null }) }, "/activity");
+    await screen.findByRole("combobox", { name: "Person" });
+    await user.click(screen.getByRole("combobox", { name: "Person" }));
+    expect(await screen.findAllByRole("option")).toHaveLength(2);
+    expect(screen.queryByRole("option", { name: "noust-fleet-sync" })).not.toBeInTheDocument();
+  });
+
   it("says what one person did, whether they acted at the console or through a central", async () => {
     const who = (kind: string, name: string, via?: string) => ({ kind, name, id: name, role: "operator", source: null, via: via ?? null });
     const entries = [

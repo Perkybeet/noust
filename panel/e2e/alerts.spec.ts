@@ -93,7 +93,7 @@ test("a rule is two clicks from the list, says what it watches, and goes when it
 test("the built-in checks are one form: only what changed is written, and the bar says so", async ({ page, consoleServer, problems }) => {
   problems.expect(/status of 403 .* \/api\/config$/);
   problems.expect(/status of 400 .* \/api\/config$/);
-  await signIn(page, consoleServer, "/alerts");
+  await signIn(page, consoleServer, "/alerts/checks");
   const disk = page.getByLabel("Almost full at (%)");
   await expect(disk).toHaveValue("90");
   await expect(page.getByLabel("Days before they expire")).toHaveValue("14");

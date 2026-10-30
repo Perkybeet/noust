@@ -103,6 +103,10 @@ describe("Alerts > Metrics", () => {
     expect(await screen.findByRole("img", { name: /^CPU, last 24 hours/ })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /^Memory, last 24 hours/ })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /^Disk, last 24 hours/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /^Network, last 24 hours/ })).toBeInTheDocument();
+    // The four people ask for: swap and load stay on the Overview.
+    expect(screen.queryByRole("img", { name: /^Swap, / })).not.toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /^Load, / })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("radio", { name: "7d" }));
     await waitFor(() => {

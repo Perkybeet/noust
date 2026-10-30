@@ -72,6 +72,9 @@ export function rowActor(row: ActivityRow): string | null {
   return row.kind === "job" ? (row.job.actor ?? null) : row.entry.actor;
 }
 
+/** The accounts Noust makes for its own work (the fleet's sync): somebody to name in a log, not a person to ask about. */
+const INTERNAL_ACCOUNT = /^noust-/;
+
 /**
  * The person behind an event: the account's name, the same whether they acted in the console of the
  * server itself or through a central (`marta` and `fleet-fra-1 on behalf of marta` are one person).
@@ -80,7 +83,8 @@ export function rowActor(row: ActivityRow): string | null {
 export function personOf(entry: AuditEntry): string | null {
   const who = entry.who;
   if (who !== null && who !== undefined) {
-    return (who.kind === "user" || who.kind === "fleet") && who.name !== null && who.name !== undefined && who.name !== "" ? who.name : null;
+    const named = (who.kind === "user" || who.kind === "fleet") && who.name !== null && who.name !== undefined && who.name !== "" ? who.name : null;
+    return named === null || INTERNAL_ACCOUNT.test(named) ? null : named;
   }
   return fleetActor(entry.actor)?.person ?? null;
 }

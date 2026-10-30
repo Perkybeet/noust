@@ -24,7 +24,6 @@ export const alerts: Catalog<typeof en> = {
     searchLabel: "Buscar alertas",
     searchPlaceholder: "Regla, aplicación o servidor",
     loadFailed: "No se pudieron cargar las alertas de los servidores",
-    nothingFiring: "Nada disparado",
     takenBy: "Reconocida por {who}",
     column: { rule: "Alerta", now: "Ahora" },
   },

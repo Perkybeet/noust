@@ -9,7 +9,6 @@ import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
-import { EmptyCell } from "../../components/ui/EmptyCell";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Mono } from "../../components/ui/Mono";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
@@ -45,7 +44,8 @@ const NAME_LINK = textLinkClassName("inline", "min-w-0", "row");
 function Firing({ rule }: { rule: AlertRule }) {
   const t = useT();
   const firing = (rule.states ?? []).filter((entry) => entry.state === "firing");
-  if (!rule.enabled || firing.length === 0) return <EmptyCell reason={t("alerts.fleet.nothingFiring")} />;
+  // A rule that is well says nothing here: its state column already said it, and a card has no dash to draw.
+  if (!rule.enabled || firing.length === 0) return null;
   return (
     <ul className="flex min-w-0 flex-col gap-1 text-12 text-fg-muted">
       {firing.map((entry) => {
