@@ -1204,6 +1204,46 @@ def pick_release_tag(reference: str, floating: str, log: list[str]) -> str:
     return plain[0]
 
 
+def align_routed_port(draft: Draft) -> None:
+    """
+    Follow the one port the web service's image exposes when the template routes another.
+
+    Some templates name a port the image does not listen on (Dokploy's Apache Answer says 9080, the
+    image exposes 80): the published port then resets every request. When the image exposes exactly
+    one TCP port, that port is not the routed one and nothing in the service's environment sets the
+    routed one, the mapping follows the image. Anything less clear is left as the template wrote it.
+
+    Args:
+        draft: Changed in place.
+    """
+    if draft.routed is None:
+        return
+    service, port = draft.routed
+    spec = draft.services.get(service, {})
+    if any(str(port) == str(value) for value in as_environment(spec.get("environment")).values()):
+        return
+    try:
+        config = recipe_draft.image_config(str(spec.get("image", "")))
+    except Exception:  # noqa: BLE001 - the registry's failure is not the template's: leave the port
+        return
+    exposed = {
+        int(entry.split("/")[0])
+        for entry in (config.get("ExposedPorts") or {})
+        if entry.endswith("/tcp") and entry.split("/")[0].isdigit()
+    }
+    if len(exposed) != 1 or port in exposed:
+        return
+    (actual,) = exposed
+    spec["ports"] = [
+        entry.replace(f"${{PORT}}:{port}", f"${{PORT}}:{actual}")
+        for entry in spec.get("ports") or ()
+    ]
+    draft.routed = (service, actual)
+    draft.warnings.append(
+        f"{service} is routed to {actual}, the one port its image exposes, not {port}"
+    )
+
+
 def pin_images(draft: Draft) -> list[str]:
     """
     Give every image a release tag and the digest its registry serves.
@@ -1249,9 +1289,11 @@ def generator_for(name: str, value: str | None) -> str:
         One of :data:`noust.recipes.model.GENERATORS`.
     """
     if value:
-        if re.fullmatch(r"[0-9a-f]{64}", value):
+        # Hexadecimal of any length stays hexadecimal: imgproxy's key and salt are decoded from hex
+        # and a template that asked for 128 digits made them with the longer form.
+        if re.fullmatch(r"[0-9a-f]{64,}", value):
             return "hex64"
-        if re.fullmatch(r"[0-9a-f]{32}", value):
+        if re.fullmatch(r"[0-9a-f]{32,63}", value):
             return "hex32"
         if re.fullmatch(r"[A-Za-z0-9+/]{43}=", value):
             return "base64_32"
@@ -1314,7 +1356,23 @@ def declare_variables(draft: Draft, text: str) -> dict[str, dict[str, Any]]:
             else:
                 entry = {"generate": "user"}
         elif known is not None and known["value"] is not None:
-            entry = {"default": str(known["value"])}
+            text = str(known["value"])
+            if text.lstrip().startswith("#"):
+                text = ""  # what follows a hash on a template's env line is its comment
+            if DOMAIN in text:
+                found.setdefault(
+                    "APP_DOMAIN",
+                    {
+                        "from": "fqdn",
+                        "description": "The domain people use to reach the application.",
+                    },
+                )
+                entry = {"value": text.replace(DOMAIN, "${APP_DOMAIN}")}
+            elif text and SECRET_NAME.search(name) and not NOT_A_CREDENTIAL.match(text):
+                # A default credential is what the recipe never ships: the install makes one.
+                entry = {"generate": "password32"}
+            else:
+                entry = {"default": text}
         elif reference.operator in ("-", ":-"):
             continue
         elif reference.operator in ("?", ":?"):
@@ -1779,6 +1837,7 @@ def draft_recipe(
     secret_literals(draft)
     one_default_each(draft)
     archs = pin_images(draft)
+    align_routed_port(draft)
     page = front_matter(source.docs)
     meta = dokploy_meta(source.dokploy)
     title = (

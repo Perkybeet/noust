@@ -252,6 +252,8 @@ def test_a_value_that_only_looks_like_a_secret_by_its_name_is_a_setting_not_a_se
         ("Z" * 64, "password64"),
         ("0123456789abcdef" * 4, "hex64"),
         ("0123456789abcdef" * 2, "hex32"),
+        ("0123456789abcdef" * 8, "hex64"),  # imgproxy's template asked for 128 digits
+        ("0123456789abcdef" * 3, "hex32"),
         ("A" * 43 + "=", "base64_32"),
         ("x" * 20, "password32"),
         (None, "password32"),
@@ -1065,6 +1067,134 @@ def test_in_a_rendered_file_only_a_variable_the_recipe_declares_stays_a_referenc
     )
 
     assert made == "a=${KNOWN} b=${KNOWN} c=$${OTHER} d=$$other e=$$$$ f=$$(cmd) g=$$"
+
+
+def test_a_routed_port_the_image_does_not_expose_follows_the_one_port_it_does(
+    tool: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Dokploy routed Apache Answer to 9080, the image listens on 80, and nothing configures 9080."""
+    monkeypatch.setattr(
+        tool.recipe_draft, "image_config", lambda reference: {"ExposedPorts": {"80/tcp": {}}}
+    )
+    draft = draft_of(
+        tool,
+        {"web": {"image": "o/app:1.0@sha256:" + "a" * 64, "ports": ["127.0.0.1:${PORT}:9080"]}},
+        ("web", 9080),
+    )
+
+    tool.align_routed_port(draft)
+
+    assert draft.services["web"]["ports"] == ["127.0.0.1:${PORT}:80"] and draft.routed == (
+        "web",
+        80,
+    )
+
+
+@pytest.mark.parametrize(
+    ("exposed", "environment"),
+    [
+        ({"80/tcp": {}, "443/tcp": {}}, {}),
+        ({}, {}),
+        ({"80/tcp": {}}, {"LISTEN": "9080"}),
+        ({"9080/tcp": {}}, {}),
+    ],
+)
+def test_a_routed_port_is_left_alone_when_the_image_says_nothing_clear_or_the_template_sets_it(
+    tool: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    exposed: dict[str, dict[str, Any]],
+    environment: dict[str, str],
+) -> None:
+    """More than one port, none, a port the template configures: what the template says stands."""
+    monkeypatch.setattr(
+        tool.recipe_draft, "image_config", lambda reference: {"ExposedPorts": exposed}
+    )
+    draft = draft_of(
+        tool,
+        {
+            "web": {
+                "image": "o/app:1.0@sha256:" + "a" * 64,
+                "ports": ["127.0.0.1:${PORT}:9080"],
+                "environment": environment,
+            }
+        },
+        ("web", 9080),
+    )
+
+    tool.align_routed_port(draft)
+
+    assert draft.services["web"]["ports"] == ["127.0.0.1:${PORT}:9080"]
+
+
+def test_an_image_that_cannot_be_read_leaves_the_port_as_it_is(
+    tool: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The registry is asked; its failure is not the template's."""
+
+    def broken(reference: str) -> dict[str, Any]:
+        raise RuntimeError("registry down")
+
+    monkeypatch.setattr(tool.recipe_draft, "image_config", broken)
+    draft = draft_of(
+        tool, {"web": {"image": "o/app:1.0", "ports": ["127.0.0.1:${PORT}:9080"]}}, ("web", 9080)
+    )
+
+    tool.align_routed_port(draft)
+
+    assert draft.routed == ("web", 9080)
+
+
+def test_a_default_that_is_a_credential_becomes_a_generated_secret(tool: ModuleType) -> None:
+    """Zitadel's template said `AdminPassword123!`: the recipe starts closed, with a password of its own."""
+    draft = draft_of(tool, {"web": {"image": "o/app:1.0"}}, ("web", 80))
+    draft.variables = {
+        "ADMIN_PASSWORD": {"origin": "template", "secret": False, "value": "AdminPassword123!"},
+        "TOKEN_TTL": {"origin": "template", "secret": False, "value": "24h"},
+        "API_SECRET": {"origin": "template", "secret": False, "value": ""},
+    }
+    draft.values = {"ADMIN_PASSWORD": "AdminPassword123!", "TOKEN_TTL": "24h", "API_SECRET": ""}
+
+    declared = tool.declare_variables(
+        draft, "a: ${ADMIN_PASSWORD}\nb: ${TOKEN_TTL}\nc: ${API_SECRET}\n"
+    )
+
+    assert (
+        declared["ADMIN_PASSWORD"]["generate"] == "password32"
+        and declared["ADMIN_PASSWORD"]["secret"]
+    )
+    assert declared["TOKEN_TTL"]["default"] == "24h"
+    assert declared["API_SECRET"]["default"] == "" and declared["API_SECRET"]["secret"]
+
+
+def test_a_default_that_names_the_sample_domain_follows_the_deployment_s_domain(
+    tool: ModuleType,
+) -> None:
+    """`admin@app.example.com` is an address nobody reads."""
+    draft = draft_of(tool, {"web": {"image": "o/app:1.0"}}, ("web", 80))
+    draft.variables = {
+        "ADMIN_EMAIL": {"origin": "template", "secret": False, "value": "admin@app.example.com"}
+    }
+    draft.values = {"ADMIN_EMAIL": "admin@app.example.com"}
+
+    declared = tool.declare_variables(draft, "a: ${ADMIN_EMAIL}\n")
+
+    assert declared["ADMIN_EMAIL"]["value"] == "admin@${APP_DOMAIN}"
+    assert declared["APP_DOMAIN"]["from"] == "fqdn"
+
+
+def test_what_follows_a_hash_in_a_template_s_env_line_is_its_comment_not_the_default(
+    tool: ModuleType,
+) -> None:
+    """Pastefy's `CLIENT_SECRET= # GitHub API Secret` was a default made of the comment."""
+    draft = draft_of(tool, {"web": {"image": "o/app:1.0"}}, ("web", 80))
+    draft.variables = {
+        "CLIENT_ID": {"origin": "template", "secret": False, "value": "# GitHub API"}
+    }
+    draft.values = {"CLIENT_ID": "# GitHub API"}
+
+    declared = tool.declare_variables(draft, "a: ${CLIENT_ID}\n")
+
+    assert declared["CLIENT_ID"]["default"] == ""
 
 
 def test_a_ssh_port_mapped_to_another_host_port_is_left_out_and_said(tool: ModuleType) -> None:
