@@ -272,6 +272,26 @@ class TestTheReleaseIsSignedAndAttested:
         for suffix in (".SHA256SUMS", ".SHA256SUMS.sig", ".SHA256SUMS.pem"):
             assert suffix in files
 
+    def test_cosign_stays_on_the_line_whose_files_the_documents_describe(
+        self, release: dict[str, Any]
+    ) -> None:
+        # cosign-installer 4 installs cosign 3 unless told otherwise, and cosign 3 writes a single
+        # bundle: `sign-blob --output-signature --output-certificate` without `--bundle` fails with
+        # "create bundle file". The release publishes a `.sig` and a `.pem` and documents
+        # `verify-blob --signature --certificate`, so the move to cosign 3 is a change of that
+        # contract (and of SECURITY-MODEL.md and PLATFORMS.md), never a side effect of bumping the
+        # installer.
+        installs = [
+            step
+            for job in release["jobs"].values()
+            for step in steps_of(job)
+            if str(step.get("uses", "")).startswith("sigstore/cosign-installer@")
+        ]
+
+        assert len(installs) == 3
+        for step in installs:
+            assert str(step.get("with", {}).get("cosign-release", "")).startswith("v2."), step
+
     def test_the_installers_own_checksums_keep_their_name(self, release: dict[str, Any]) -> None:
         # docs/PLATFORMS.md tells people to verify install.sh with a file called
         # SHA256SUMS; the release-wide checksums must not take that name over.
