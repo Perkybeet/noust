@@ -17024,8 +17024,7 @@ export interface paths {
          *
          *     A private repository over ssh fails to clone before an application exists, and the
          *     person starting one needs the key to add at the code host. Only the public line is
-         *     ever returned; there is nothing to create here (that is ``noust setup ssh``, which
-         *     writes into the home of the account Noust runs as).
+         *     ever returned. Making it is a POST to the same path.
          *
          *     Args:
          *         session: The authenticated session.
@@ -17035,7 +17034,25 @@ export interface paths {
          */
         get: operations["get_server_key_api_deploy_keys_server_get"];
         put?: never;
-        post?: never;
+        /**
+         * Create Server Key
+         * @description Make the server-wide SSH key when there is none, and show its public half.
+         *
+         *     It writes into the home of the account Noust runs as, so it is the host's and asks for
+         *     sudo mode. A server that already has a key is answered with it and status 200: nothing is
+         *     replaced. Only the public line is ever returned.
+         *
+         *     Args:
+         *         response: To say 200 when the key was already there.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The key.
+         *
+         *     Raises:
+         *         SourceError: ``ssh-keygen`` could not make it (400).
+         */
+        post: operations["create_server_key_api_deploy_keys_server_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -25206,6 +25223,34 @@ export interface paths {
          *         ValidationError: 400 when the plan has a blocker or no passphrase is available.
          */
         post: operations["prepare_migration_api_server_migration_prepare_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/ports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Ports
+         * @description List who holds every port of this machine, over TCP and UDP.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The claims, sorted by port, protocol and then declared before observed. It names
+         *         applications because reading the server is the whole server's (a team's role never
+         *         holds ``server.read``).
+         */
+        get: operations["list_ports_api_server_ports_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -51380,6 +51425,42 @@ export interface components {
             next_run?: string | null;
         };
         /**
+         * PortClaimOut
+         * @description One thing that holds a port.
+         *
+         *     Attributes:
+         *         port: The port.
+         *         protocol: ``tcp`` or ``udp``.
+         *         kind: ``system`` (the web server, SSH, the console), ``app``, ``stack`` (a Compose
+         *             stack's published port), ``stream`` (a port published through nginx), ``database``
+         *             (made reachable), ``instance`` (a database engine Noust runs), ``dns`` or
+         *             ``process`` (what the kernel reports, whoever it is).
+         *         owner: Whose it is: the web server or SSH, an application's domain, the stream's name,
+         *             or the process.
+         *         address: The address it is bound to; None for every address.
+         *         detail: Where the claim comes from ("its copy", "zero-downtime"), when that says more.
+         *         processes: For a socket the kernel reports, the processes holding it.
+         */
+        PortClaimOut: {
+            /** Address */
+            address?: string | null;
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+            /** Kind */
+            kind: string;
+            /** Owner */
+            owner: string;
+            /** Port */
+            port: number;
+            /** Processes */
+            processes?: string[];
+            /** Protocol */
+            protocol: string;
+        };
+        /**
          * PortOut
          * @description A port that answers, and the firewall's verdict.
          *
@@ -51415,6 +51496,18 @@ export interface components {
             sources: string[];
             /** Verdict */
             verdict: string;
+        };
+        /**
+         * PortsOut
+         * @description Every claim on this machine's ports, lowest port first.
+         *
+         *     Attributes:
+         *         claims: The claims over TCP and UDP, declared holders before the process that
+         *             happens to listen, so a page names what Noust knows first.
+         */
+        PortsOut: {
+            /** Claims */
+            claims: components["schemas"]["PortClaimOut"][];
         };
         /**
          * PowerOut
@@ -86797,6 +86890,26 @@ export interface operations {
             };
         };
     };
+    create_server_key_api_deploy_keys_server_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerKeyResponse"];
+                };
+            };
+        };
+    };
     list_deployments_api_deployments_get: {
         parameters: {
             query?: {
@@ -95694,6 +95807,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_ports_api_server_ports_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortsOut"];
                 };
             };
         };

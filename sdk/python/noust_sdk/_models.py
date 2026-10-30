@@ -5364,6 +5364,7 @@ MachineMemory = TypedDict("MachineMemory", {
 MachineUnits = TypedDict("MachineUnits", {
     "failed": Required[int],
     "running": Required[int],
+    "scheduled": NotRequired[int],
     "stopped": Required[int],
 })
 
@@ -6458,6 +6459,16 @@ PolicyTimer = TypedDict("PolicyTimer", {
     "next_run": NotRequired[Union[str, None]],
 })
 
+PortClaimOut = TypedDict("PortClaimOut", {
+    "address": NotRequired[Union[str, None]],
+    "detail": NotRequired[str],
+    "kind": Required[str],
+    "owner": Required[str],
+    "port": Required[int],
+    "processes": NotRequired[list[str]],
+    "protocol": Required[str],
+})
+
 PortOut = TypedDict("PortOut", {
     "address": Required[str],
     "baseline": NotRequired[bool],
@@ -6469,6 +6480,10 @@ PortOut = TypedDict("PortOut", {
     "risky": NotRequired[str],
     "sources": NotRequired[list[str]],
     "verdict": Required[str],
+})
+
+PortsOut = TypedDict("PortsOut", {
+    "claims": Required[list["PortClaimOut"]],
 })
 
 PowerOut = TypedDict("PowerOut", {
@@ -8771,6 +8786,7 @@ ServiceInfo = TypedDict("ServiceInfo", {
     "name": Required[str],
     "pid": NotRequired[Union[int, None]],
     "result": NotRequired[Union[str, None]],
+    "scheduled": NotRequired[bool],
     "status": Required[str],
     "sub_state": NotRequired[Union[str, None]],
     "tags": NotRequired[list[str]],

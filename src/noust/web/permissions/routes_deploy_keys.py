@@ -28,6 +28,8 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/deploy-keys"): Permission.APPS_READ,
     ("GET", "/api/deploy-keys/hosts"): Permission.APPS_READ,
     ("GET", "/api/deploy-keys/server"): Permission.APPS_READ,
+    # Writes the SSH identity of the account Noust runs as: how this server reaches a code host.
+    ("POST", "/api/deploy-keys/server"): Permission.SERVER_HOST_ACCESS,
     ("POST", "/api/deploy-keys/hosts"): Permission.SERVER_HOST_ACCESS,
     ("DELETE", "/api/deploy-keys/hosts/{host}"): Permission.SERVER_HOST_ACCESS,
 }
