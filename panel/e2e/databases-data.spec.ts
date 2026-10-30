@@ -189,10 +189,10 @@ test("one backup policy for every database of an engine, with what it leaves out
   await expect(card.getByText("databases shop_wp")).toBeVisible();
   await expect(card.getByText("tables sessions, logs_*")).toBeVisible();
 
-  // The list agrees: the database it covers is backed up, the one it leaves out is not.
+  // The list agrees: the database it covers has a schedule that has not run yet, the one it leaves out has none.
   await page.goto("/databases");
   const table = page.getByRole("region", { name: "Databases" });
-  await expect(table.getByRole("row", { name: /example_shop/ }).getByText("Backed up")).toBeVisible();
+  await expect(table.getByRole("row", { name: /example_shop/ }).getByText("Scheduled")).toBeVisible();
   await expect(table.getByRole("row", { name: /shop_wp/ }).getByText("No backup")).toBeVisible();
 
   // Leaving no trace for what runs after this in the same server.

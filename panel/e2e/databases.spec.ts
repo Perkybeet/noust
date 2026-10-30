@@ -36,9 +36,11 @@ test("the list says where each database runs and whether it is backed up, and th
   await expect(production.getByText(/PostgreSQL 16/)).toBeVisible();
   await expect(production.getByRole("link", { name: "example.com" })).toBeVisible();
   const staging = table.getByRole("row", { name: /example_staging/ });
-  await expect(staging.getByText("No backup")).toBeVisible();
-  // A database Noust does not hold is not a kind of database: its row offers to add it.
+  // A database Noust does not hold is not a kind of database: where its backup would be, its row offers to add it.
   await expect(staging.getByRole("button", { name: "Add to Noust" })).toBeVisible();
+  await expect(staging.getByText("No backup")).toHaveCount(0);
+  // One Noust holds with nothing scheduled says so in words.
+  await expect(table.getByRole("row", { name: /shop_wp/ }).getByText("No backup")).toBeVisible();
   await expect(page.getByText(/databases? (has|have) no backup schedule/)).toHaveCount(0);
   await expect(page.getByRole("radio", { name: /^No schedule \(\d+\)$/ })).toBeVisible();
   // The servers they run on are the second part of the page, MySQL's support said in words and tinted.
