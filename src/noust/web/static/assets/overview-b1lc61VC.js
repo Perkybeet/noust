@@ -1,0 +1,1 @@
+import{a as e,x as t}from"./client-DOD4T5ok.js";var n={all:[`overview`]},r=15e3,i=()=>t({queryKey:n.all,queryFn:({signal:t})=>e(`get`,`/api/overview`,{signal:t}),refetchInterval:r});export{i as n,n as t};

@@ -1,1 +1,0 @@
-import{t as e}from"./InvitePage-D2zfwn1T.js";var t=e;export{t as component};

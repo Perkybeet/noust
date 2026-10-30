@@ -1,0 +1,1 @@
+function e(e,t=!0){return t&&e!==void 0&&e!==``?{friction:`type`,confirmText:e}:{friction:`simple`}}export{e as t};

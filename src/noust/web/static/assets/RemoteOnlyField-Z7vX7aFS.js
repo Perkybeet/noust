@@ -1,0 +1,1 @@
+import{bt as e}from"./useNode-d7_yWS1e.js";import{t}from"./Checkbox-BQUZ_wAM.js";var n=e();function r({words:e,value:r,onChange:i,destinations:a}){let o=a>0;return(0,n.jsx)(t,{checked:r&&o,onCheckedChange:i,disabled:!o,label:e.label,description:o?e.help:e.needsDestination})}export{r as t};
