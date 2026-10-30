@@ -17,9 +17,9 @@ import { Checkbox } from "../../components/ui/Checkbox";
 import { Disclosure } from "../../components/ui/Disclosure";
 import { Field, FieldGroup } from "../../components/ui/Field";
 import { Mono } from "../../components/ui/Mono";
-import { Setting } from "../../components/ui/Setting";
+import { SectionSwitch, SwitchedRegion } from "../../components/ui/SectionSwitch";
+import { InlineMessage } from "../../components/ui/InlineMessage";
 import { Skeleton } from "../../components/ui/Skeleton";
-import { StatusPill } from "../../components/ui/StatusPill";
 import { Textarea } from "../../components/ui/Textarea";
 import { TextLink } from "../../components/ui/TextLink";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
@@ -34,19 +34,21 @@ import { MoreChannels } from "./MoreChannels";
 import { EVENT_GROUPS, EVENT_KINDS, channels, eventSpec, isChannelConfigured, parseHostList, publicUrlOf, readNotificationSettings } from "./notifications";
 import type { EventGroupId, NotificationSettings as Settings } from "./notifications";
 import { FormFailure, useRefreshConfig } from "./SettingsForm";
+import { SettingsPrimaryAction } from "./SettingsPrimaryAction";
 import { TelegramChannel } from "./TelegramChannel";
 import { useSettingsForm } from "./useSettingsForm";
 import type { SettingsForm } from "./useSettingsForm";
 
 // ---------------------------------------------------------------------------------------
-// The master switch: applies at once, so it is not part of the form below.
+// The master switch: the page's, in its header, and what it governs is drawn off when it is (item 106).
 
 /**
- * Whether anything is sent, as the first row of the channels' card. The state is the switch and a
- * small pill; "on" with nowhere to go is not on, so it says so in amber, with the one sentence
- * that fixes it, and no block.
+ * Whether anything is sent. It is not a channel, so it is not a row among them: it is in the header of the
+ * page, beside where the page's action would be, and the channels and events under it are dimmed while it is
+ * off (`SwitchedRegion`). It applies at once and is not part of the form below. "On" with nowhere to go is
+ * not on, which the line over the channels says with the one sentence that fixes it.
  */
-function DeliveryRow({ settings, channelsOn }: { settings: Settings; channelsOn: number }) {
+function DeliverySwitch({ settings }: { settings: Settings }) {
   const t = useT();
   const refresh = useRefreshConfig();
   const toggle = useMutation({
@@ -60,29 +62,17 @@ function DeliveryRow({ settings, channelsOn }: { settings: Settings; channelsOn:
   });
   // While the write is in flight (and "Confirm it's you" is open) the switch shows where it is going.
   const checked = toggle.isPending ? toggle.variables : settings.enabled;
-  const help = !checked
-    ? t("settings.notifications.delivery.helpOff")
-    : channelsOn === 0
-      ? t("settings.notifications.delivery.helpNoChannel")
-      : t("settings.notifications.delivery.helpOn", { count: channelsOn });
-  const status = !checked ? (
-    <StatusPill state="stopped" label={t("settings.notifications.delivery.off")} size="sm" />
-  ) : channelsOn === 0 ? (
-    <StatusPill state="warning" label={t("settings.notifications.delivery.onNoChannel")} size="sm" />
-  ) : (
-    <StatusPill state="running" label={t("settings.notifications.delivery.on")} size="sm" />
-  );
   return (
-    <Setting
-      label={t("settings.notifications.delivery.switchLabel")}
-      help={help}
-      status={status}
-      checked={checked}
-      busy={toggle.isPending}
-      onCheckedChange={(next) => {
-        toggle.mutate(next);
-      }}
-    />
+    <SettingsPrimaryAction>
+      <SectionSwitch
+        label={t("settings.notifications.delivery.switchLabel")}
+        checked={checked}
+        busy={toggle.isPending}
+        onCheckedChange={(next) => {
+          toggle.mutate(next);
+        }}
+      />
+    </SettingsPrimaryAction>
   );
 }
 
@@ -96,23 +86,26 @@ function DeliveryRow({ settings, channelsOn }: { settings: Settings; channelsOn:
 function Channels({ settings, smtp }: { settings: Settings; smtp: SmtpSettings | undefined }) {
   const t = useT();
   const specs = channels(t);
+  const on = channelsOn(t, settings, smtp);
   return (
     <Section icon={OBJECT_ICONS.channel} title={t("settings.notifications.channels.title")}>
+      {!settings.enabled ? (
+        <InlineMessage tone="warning">{t("settings.notifications.delivery.helpOff")}</InlineMessage>
+      ) : on === 0 ? (
+        <InlineMessage tone="warning">{t("settings.notifications.delivery.helpNoChannel")}</InlineMessage>
+      ) : null}
       <Card padding="none">
-        <div className="flex min-w-0 flex-col divide-y divide-border">
-          <DeliveryRow settings={settings} channelsOn={channelsOn(t, settings, smtp)} />
-          <ul aria-label={t("settings.notifications.channels.listLabel")} className="flex min-w-0 flex-col divide-y divide-border">
-            {specs.map((spec) =>
-              spec.id === "email" ? (
-                <EmailChannel key={spec.id} enabledStored={settings.emailEnabled} smtp={smtp} />
-              ) : spec.id === "telegram" ? (
-                <TelegramChannel key={spec.id} stored={settings.channels.telegram} />
-              ) : (
-                <HttpChannel key={spec.id} spec={spec} stored={settings.channels[spec.id]} />
-              ),
-            )}
-          </ul>
-        </div>
+        <ul aria-label={t("settings.notifications.channels.listLabel")} className="flex min-w-0 flex-col divide-y divide-border">
+          {specs.map((spec) =>
+            spec.id === "email" ? (
+              <EmailChannel key={spec.id} enabledStored={settings.emailEnabled} smtp={smtp} />
+            ) : spec.id === "telegram" ? (
+              <TelegramChannel key={spec.id} stored={settings.channels.telegram} />
+            ) : (
+              <HttpChannel key={spec.id} spec={spec} stored={settings.channels[spec.id]} />
+            ),
+          )}
+        </ul>
       </Card>
     </Section>
   );
@@ -327,9 +320,12 @@ function NotificationsForm({ settings, publicUrl, smtp }: { settings: Settings; 
   const bar = useSaveBar([events.part, language.part, privateHosts.part], t("settings.notifications.notSaved"));
   return (
     <>
-      <Channels settings={settings} smtp={smtp} />
-      <MoreChannels />
-      <EventsCard form={events} language={language} privateHosts={privateHosts} publicUrl={publicUrl} />
+      <DeliverySwitch settings={settings} />
+      <SwitchedRegion on={settings.enabled} className="flex flex-col gap-8">
+        <Channels settings={settings} smtp={smtp} />
+        <MoreChannels />
+        <EventsCard form={events} language={language} privateHosts={privateHosts} publicUrl={publicUrl} />
+      </SwitchedRegion>
       <CommandHint command="noust notify test telegram" label={t("settings.notifications.fromTerminal")} />
       <DeliveryLog />
       <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} />

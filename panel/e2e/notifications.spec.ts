@@ -125,7 +125,8 @@ test("sets up channels in their drawers and reports what the receiving server an
     await expect(toggle).not.toBeChecked();
     await toggle.click();
     await expect(toggle).toBeChecked();
-    await expect(page.getByText("The events chosen below go to 2 channels.")).toBeVisible();
+    // What the switch governs is drawn on: the channels and the events under it.
+    await expect(page.locator('[data-slot="switched-region"]')).toHaveAttribute("data-state", "on");
     // A press while the write is still in flight is ignored (the switch draws its arc): wait for it to land.
     await expect(toggle).not.toHaveAttribute("aria-busy", "true");
     await toggle.click();

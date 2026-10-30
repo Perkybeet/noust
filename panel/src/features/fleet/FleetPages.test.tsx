@@ -29,6 +29,13 @@ async function board(): Promise<HTMLElement> {
   return section;
 }
 
+function card(title: string): HTMLElement {
+  const heading = screen.getByRole("heading", { name: title, level: 2 });
+  const section = heading.closest("section");
+  if (section === null) throw new Error(`no card ${title}`);
+  return section;
+}
+
 function rows(caption: string): Promise<HTMLElement> {
   return screen.findByRole("list", { name: caption });
 }
@@ -57,6 +64,10 @@ describe("the fleet's Home", () => {
     const attention = await board();
     expect(within(attention).getByRole("link", { name: "api.example.com" })).toHaveAttribute("href", "/n/web-2/apps/api.example.com");
     expect(within(attention).getByText("web-2")).toBeInTheDocument();
+
+    // What was run on several servers at once is on Home too, each action opening its job.
+    const actions = card("Recent actions");
+    expect(await within(actions).findByRole("link", { name: "Renew certificates" })).toHaveAttribute("href", "/fleet/jobs/fj-1");
 
     // The fleet in courses: a course for each server, each name opening that server, and the one that does not answer says so.
     const courses = await screen.findByRole("list", { name: "Servers and their applications" });

@@ -17,6 +17,7 @@ import type {
   Firewall,
   Identity,
   PendingChange,
+  PortClaim,
   Power,
   SecurityOverview,
   ServerClock,
@@ -326,6 +327,18 @@ export const FIREWALL: Firewall = {
   session_sources: ["203.0.113.7"],
 };
 
+/** Who holds the ports of the fake VPS: the web server, SSH, an application, a database and a process. */
+export const PORT_CLAIMS: PortClaim[] = [
+  { port: 22, protocol: "tcp", kind: "system", owner: "ssh", address: null, detail: "", processes: [] },
+  { port: 80, protocol: "tcp", kind: "system", owner: "web", address: null, detail: "", processes: [] },
+  { port: 443, protocol: "tcp", kind: "system", owner: "web", address: null, detail: "", processes: [] },
+  { port: 443, protocol: "udp", kind: "system", owner: "web", address: null, detail: "", processes: [] },
+  { port: 3000, protocol: "tcp", kind: "app", owner: "shop.example.net", address: null, detail: "", processes: [] },
+  { port: 3000, protocol: "tcp", kind: "process", owner: "node", address: "127.0.0.1", detail: "", processes: ["node"] },
+  { port: 5432, protocol: "tcp", kind: "process", owner: "docker-proxy", address: "0.0.0.0", detail: "", processes: ["docker-proxy"] },
+  { port: 8080, protocol: "tcp", kind: "system", owner: "console", address: null, detail: "", processes: [] },
+];
+
 export const FAIL2BAN: Fail2ban = {
   installed: false,
   running: false,
@@ -393,6 +406,7 @@ export function serverRoutes(overrides: Partial<{ summary: ServerSummary; securi
     "GET /api/server/security/ssh/keys": () => json(200, KEYS),
     "GET /api/server/security/firewall": () => json(200, FIREWALL),
     "GET /api/server/security/fail2ban": () => json(200, FAIL2BAN),
+    "GET /api/server/ports": () => json(200, { claims: PORT_CLAIMS }),
     "GET /api/server/updates": () => json(200, UPDATES),
     "GET /api/server/updates/plan": () => json(200, PLAN),
     "GET /api/server/updates/runs": () => json(200, []),

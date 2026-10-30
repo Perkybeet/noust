@@ -229,14 +229,16 @@ describe("SectionSwitch and SwitchedRegion", () => {
     expect(screen.getByRole("switch", { name: "Alerts" })).not.toBeChecked();
   });
 
-  it("dims what it governs when the section is off, and leaves it readable", async () => {
+  it("steps what it governs down to the muted tone when the section is off, with no fade, and leaves it readable", async () => {
     const { container } = render(<Page />);
     const region = container.querySelector('[data-slot="switched-region"]');
     expect(region).toHaveAttribute("data-state", "on");
-    expect(region).not.toHaveClass("opacity-60");
+    expect(region).not.toHaveClass("[--color-fg:var(--text-muted)]");
     await userEvent.click(screen.getByRole("switch", { name: "Alerts" }));
     expect(region).toHaveAttribute("data-state", "off");
-    expect(region).toHaveClass("opacity-60");
+    expect(region).toHaveClass("[--color-fg:var(--text-muted)]");
+    // A fade would take the muted text and the idle pills under 4.5:1: the tone changes, the opacity never does.
+    expect(region?.className).not.toMatch(/opacity-/);
     expect(screen.getByText("The rules")).toBeInTheDocument();
   });
 

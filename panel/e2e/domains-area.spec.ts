@@ -14,7 +14,7 @@ const SECTIONS = [
   { tab: /^Certificates/, path: "/domains/certificates", title: "Certificates" },
   { tab: /^DNS/, path: "/domains/dns", title: "DNS" },
   { tab: /^Tunnels/, path: "/domains/tunnels", title: "Tunnels" },
-  { tab: /^Ports/, path: "/domains/ports", title: "Ports" },
+  { tab: /^Published ports/, path: "/domains/ports", title: "Published ports" },
 ] as const;
 
 test("every section is a tab with a title of its own, and moving between them is one click", async ({ page, consoleServer }) => {

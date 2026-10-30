@@ -489,6 +489,7 @@ export const network = {
   },
   ports: {
     publishAction: "Publish a port",
+    whatListens: "What listens on each port of this server, and what the firewall lets through, is in {link}.",
     unavailable: "nginx cannot publish a port here",
     listFailed: "Could not list the published ports",
     emptyTitle: "No TCP or UDP ports published",

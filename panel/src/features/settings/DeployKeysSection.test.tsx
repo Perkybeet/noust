@@ -64,8 +64,8 @@ async function integrations(routes: Record<string, RouteHandler> = {}) {
     "GET /api/deploy-keys/hosts": () => json(200, HOSTS),
     ...routes,
   });
-  const harness = renderConsole("/settings/integrations");
-  const heading = await screen.findByRole("heading", { level: 2, name: "Deploy keys" });
+  const harness = renderConsole("/settings/deploy-keys");
+  const heading = await screen.findByRole("heading", { level: 2, name: "Keys of this server" });
   const section = heading.closest("section");
   if (!section) throw new Error("no deploy keys section");
   return { ...harness, backend, section };
@@ -200,7 +200,7 @@ describe("the host keys Noust pinned", () => {
     await within(section).findByRole("table", { name: "Host keys pinned by this server" });
     await expectNoAxeViolations(section);
     await act(() => setLocale("es"));
-    expect(await screen.findByRole("heading", { level: 2, name: "Claves de despliegue" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "Claves de este servidor" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Claves de host fijadas" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Olvidar github.com" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Fijar la clave del host" })).toBeInTheDocument();

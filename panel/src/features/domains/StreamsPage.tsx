@@ -25,6 +25,7 @@ import { Select } from "../../components/ui/Select";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { Textarea } from "../../components/ui/Textarea";
+import { TextLink } from "../../components/ui/TextLink";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
@@ -262,7 +263,20 @@ export function StreamsPage() {
             ),
           }
         : {})}
-      footer={<CommandHint command="noust stream list" label={t("common.words.fromTerminal")} />}
+      footer={
+        <div className="flex min-w-0 flex-col gap-3">
+          <p className="max-w-measure text-13 text-pretty text-fg-muted">
+            {t.rich("network.ports.whatListens", {
+              link: (
+                <TextLink key="link" to="/server/network" size="inline">
+                  {t("server.tabs.network")}
+                </TextLink>
+              ),
+            })}
+          </p>
+          <CommandHint command="noust stream list" label={t("common.words.fromTerminal")} />
+        </div>
+      }
     >
       {/* design-exception: hand-error-ternary the table draws its own skeleton rows; the failure replaces only what it would have listed */}
       {streams.isError && streams.data === undefined ? (

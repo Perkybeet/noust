@@ -95,6 +95,8 @@ export const fleet = {
     createAtProvider: "Create at a provider",
     title: "Fleet",
     description: "Every server this central manages, at once.",
+    serversTitle: "Servers",
+    serversDescription: "Every server this central manages. Open one to see how it is and to change it.",
     tabsLabel: "Fleet application views",
     serversTabsLabel: "Fleet server views",
     addServer: "Add a server",
@@ -110,7 +112,7 @@ export const fleet = {
     state: "State",
     version: "Version",
     labels: "Labels",
-    access: "Access",
+    access: "Central's permissions",
     lastSeen: "Last seen",
     app: "Application",
     certificate: "Certificate",
@@ -140,6 +142,13 @@ export const fleet = {
   },
   summary: {
     notRead: "Not read",
+    actions: {
+      title: "Recent actions",
+      loading: "Loading the recent actions",
+      loadFailed: "Could not load the recent actions",
+      empty: "No action has run on the fleet yet.",
+      servers: { one: "{count} server", other: "{count} servers" },
+    },
   },
   view: {
     refused: { one: "{count} server does not let you read {what}", other: "{count} servers do not let you read {what}" },

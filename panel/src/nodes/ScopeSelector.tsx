@@ -153,7 +153,8 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
       </>
     );
   } else if (context.kind === "central") {
-    icon = <Landmark aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />;
+    // On a phone the top bar has no room left for the icon beside the name (the bar scrolled sideways on every central page).
+    icon = <Landmark aria-hidden="true" className={cx("size-icon-md shrink-0 text-fg-muted", !side && "max-sm:hidden")} />;
     name = (
       <>
         <span className={cx("shrink-0 font-medium", !side && "max-sm:sr-only")}>{t("fleet.selector.central")}</span>

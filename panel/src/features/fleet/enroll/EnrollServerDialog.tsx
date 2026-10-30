@@ -27,7 +27,7 @@ import { JobLogPanel } from "../../jobs/JobLogPanel";
 import { Added } from "../../settings/servers/AddServerDialog";
 import { fleetKeys } from "../data";
 import { nodeKeys, nodesQuery } from "../nodes";
-import { EMPTY_ENROLL, enrollBody, firstProblem, hostKeyBody, withoutCredential } from "./data";
+import { EMPTY_ENROLL, enrollBody, firstProblem, hostKeyBody, suggestName, withoutCredential } from "./data";
 import type { Access, Credential, EnrollForm, Problem } from "./data";
 
 type Step = "server" | "hostKey" | "add";
@@ -70,8 +70,15 @@ export function EnrollServerDialog({ open, onClose, onManual, onLink }: EnrollSe
   const portRef = useRef<HTMLInputElement>(null);
   const userRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
+  // The name follows the address until the person names the server themselves.
+  const nameTouched = useRef(false);
   const set = (patch: Partial<EnrollForm>): void => {
-    setForm((previous) => ({ ...previous, ...patch }));
+    if (patch.name !== undefined) nameTouched.current = patch.name.trim() !== "";
+    setForm((previous) => ({
+      ...previous,
+      ...patch,
+      ...(patch.host !== undefined && patch.name === undefined && !nameTouched.current ? { name: suggestName(patch.host) } : {}),
+    }));
     setProblem(null);
   };
 
@@ -114,6 +121,7 @@ export function EnrollServerDialog({ open, onClose, onManual, onLink }: EnrollSe
   const reset = (): void => {
     setStep("server");
     setForm(EMPTY_ENROLL);
+    nameTouched.current = false;
     setProblem(null);
     setConfirmed(false);
     followed.dismiss();
@@ -190,19 +198,11 @@ export function EnrollServerDialog({ open, onClose, onManual, onLink }: EnrollSe
           toHostKey();
         }}
       >
-        <Field label={t("common.words.name")} description={t("enroll.server.nameHelp")} error={problem === "name" ? problemWords("name") : undefined}>
-          <Input ref={nameRef} mono maxLength={32} value={form.name} onValueChange={(value: string) => set({ name: value })} placeholder="web-2" autoComplete="off" autoCapitalize="off" spellCheck={false} />
+        <Field label={t("enroll.server.host")} description={t("enroll.server.hostHelp")} error={problem === "host" ? problemWords("host") : undefined}>
+          <Input ref={hostRef} mono value={form.host} onValueChange={(value: string) => set({ host: value })} placeholder="203.0.113.9" autoComplete="off" autoCapitalize="off" spellCheck={false} />
         </Field>
-        <div className="flex min-w-0 flex-wrap gap-4">
-          <Field label={t("enroll.server.host")} description={t("enroll.server.hostHelp")} error={problem === "host" ? problemWords("host") : undefined} className="min-w-56 flex-1">
-            <Input ref={hostRef} mono value={form.host} onValueChange={(value: string) => set({ host: value })} placeholder="203.0.113.9" autoComplete="off" autoCapitalize="off" spellCheck={false} />
-          </Field>
-          <Field label={t("enroll.server.port")} error={problem === "port" ? problemWords("port") : undefined} className="w-28">
-            <Input ref={portRef} mono inputMode="numeric" value={form.port} onValueChange={(value: string) => set({ port: value })} autoComplete="off" />
-          </Field>
-        </div>
-        <Field label={t("enroll.server.user")} description={t("enroll.server.userHelp")} error={problem === "user" ? problemWords("user") : undefined} className="max-w-xs">
-          <Input ref={userRef} mono value={form.user} onValueChange={(value: string) => set({ user: value })} autoComplete="off" autoCapitalize="off" spellCheck={false} />
+        <Field label={t("common.words.name")} description={t("enroll.server.nameHelp")} error={problem === "name" ? problemWords("name") : undefined} className="max-w-sm">
+          <Input ref={nameRef} mono maxLength={32} value={form.name} onValueChange={(value: string) => set({ name: value })} placeholder="web-2" autoComplete="off" autoCapitalize="off" spellCheck={false} />
         </Field>
         <ChoiceCards<Credential>
           legend={t("enroll.server.credential")}
@@ -234,19 +234,30 @@ export function EnrollServerDialog({ open, onClose, onManual, onLink }: EnrollSe
             <p className="text-13 text-pretty text-fg-muted">{t("enroll.server.onceBody")}</p>
           </div>
         </div>
-        <Field label={t("enroll.server.access")} nativeLabel={false} description={t("servers.add.access.description")}>
-          <Select<Access>
-            value={form.access}
-            onValueChange={(access) => set({ access })}
-            options={[
-              { value: "admin", label: t("fleet.access.level.admin"), hint: t("servers.add.access.adminHint") },
-              { value: "deploy", label: t("fleet.access.level.deploy"), hint: t("servers.add.access.deployHint") },
-              { value: "read", label: t("fleet.access.level.read"), hint: t("servers.add.access.readHint") },
-            ]}
-          />
-        </Field>
-        <Disclosure label={t("enroll.server.more")} defaultOpen={form.hostAccess || !form.install || form.replaceToken}>
+        <Disclosure
+          label={t("enroll.server.more")}
+          defaultOpen={form.hostAccess || !form.install || form.replaceToken || form.port !== EMPTY_ENROLL.port || form.user !== EMPTY_ENROLL.user || form.access !== EMPTY_ENROLL.access}
+        >
           <div className="flex min-w-0 flex-col gap-4">
+            <div className="flex min-w-0 flex-wrap gap-4">
+              <Field label={t("enroll.server.user")} description={t("enroll.server.userHelp")} error={problem === "user" ? problemWords("user") : undefined} className="min-w-48 flex-1">
+                <Input ref={userRef} mono value={form.user} onValueChange={(value: string) => set({ user: value })} autoComplete="off" autoCapitalize="off" spellCheck={false} />
+              </Field>
+              <Field label={t("enroll.server.port")} error={problem === "port" ? problemWords("port") : undefined} className="w-28">
+                <Input ref={portRef} mono inputMode="numeric" value={form.port} onValueChange={(value: string) => set({ port: value })} autoComplete="off" />
+              </Field>
+            </div>
+            <Field label={t("enroll.server.access")} nativeLabel={false} description={t("servers.add.access.description")} className="max-w-sm">
+              <Select<Access>
+                value={form.access}
+                onValueChange={(access) => set({ access })}
+                options={[
+                  { value: "admin", label: t("fleet.access.level.admin"), hint: t("servers.add.access.adminHint") },
+                  { value: "deploy", label: t("fleet.access.level.deploy"), hint: t("servers.add.access.deployHint") },
+                  { value: "read", label: t("fleet.access.level.read"), hint: t("servers.add.access.readHint") },
+                ]}
+              />
+            </Field>
             <Checkbox checked={form.hostAccess} onCheckedChange={(hostAccess) => set({ hostAccess })} label={t("enroll.server.hostAccess")} description={t("enroll.server.hostAccessHelp")} />
             <Checkbox checked={form.install} onCheckedChange={(install) => set({ install })} label={t("enroll.server.install")} description={t("enroll.server.installHelp")} />
             <Checkbox checked={form.replaceToken} onCheckedChange={(replaceToken) => set({ replaceToken })} label={t("enroll.server.replaceToken")} description={t("enroll.server.replaceTokenHelp")} />
@@ -349,7 +360,7 @@ export function EnrollServerDialog({ open, onClose, onManual, onLink }: EnrollSe
         if (!next) close();
       }}
       size="lg"
-      initialFocus={nameRef}
+      initialFocus={hostRef}
       title={t("enroll.title")}
       description={t("enroll.description")}
       footer={footer}

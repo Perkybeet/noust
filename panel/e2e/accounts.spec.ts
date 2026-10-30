@@ -177,10 +177,11 @@ serial("a role change waits for a second officer, who approves it in the inbox; 
   await signInAs(page, requester, "/settings/accounts");
   const row = page.getByRole("row").filter({ hasText: "viewer1" });
   await row.getByRole("button", { name: "Actions for viewer1" }).click();
-  await page.getByRole("menuitem", { name: "Change role" }).click();
-  const dialog = page.getByRole("dialog", { name: "Change the role of viewer1" });
-  await dialog.getByRole("radio", { name: /^Operator/ }).check();
-  await dialog.getByRole("button", { name: "Change role" }).click();
+  await page.getByRole("menuitem", { name: "Change roles" }).click();
+  const dialog = page.getByRole("dialog", { name: "Roles of viewer1" });
+  await dialog.getByRole("checkbox", { name: /^Operator/ }).check();
+  await dialog.getByRole("checkbox", { name: /^Viewer/ }).uncheck();
+  await dialog.getByRole("button", { name: "Save roles" }).click();
   await confirmAsPerson(page, requester);
 
   const waiting = page.getByRole("dialog", { name: "Waiting for approval" });
@@ -211,7 +212,6 @@ serial("a role change waits for a second officer, who approves it in the inbox; 
   await expect(page.getByRole("dialog", { name: "Approved" })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("Agreed with the team lead")).toBeVisible();
   await page.getByRole("dialog", { name: "Approved" }).getByRole("button", { name: "Run it now" }).click();
-  await expect(page.locator(".toast").filter({ hasText: "viewer1 is now Operator" })).toBeVisible();
   await expect(row).toContainText("Operator");
 });
 

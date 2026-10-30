@@ -119,7 +119,9 @@ test("every destination renders its page with no accessibility or policy violati
   if (testInfo.project.name === "dark") await luminance.toBeGreaterThan(0.6);
   else await luminance.toBeLessThan(0.2);
 
-  const main = page.getByRole("navigation", { name: "Main" });
+  // The name is matched whole: "Domains sections" contains "main", and its first tab is called Domains.
+  const main = page.getByRole("navigation", { name: "Main", exact: true });
+  const { hostname } = (await (await page.request.get("/api/auth/session")).json()) as { hostname: string };
   for (const destination of DESTINATIONS) {
     await test.step(destination.title, async () => {
       const link =
@@ -129,7 +131,8 @@ test("every destination renders its page with no accessibility or policy violati
       await link.click();
 
       await expect(page).toHaveURL(new RegExp(`${destination.path === "/" ? "/" : destination.path}$`));
-      await expect(heading(page)).toHaveText(destination.title);
+      // A server's page is titled by the server.
+      await expect(heading(page)).toHaveText(destination.path === "/server" ? hostname : destination.title);
       await expect(link).toHaveAttribute("aria-current", "page");
       await settle(page);
       await expectNoA11yViolations(page, destination.title);

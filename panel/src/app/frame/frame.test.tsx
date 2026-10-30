@@ -199,7 +199,7 @@ describe("the double bar (1440 px and wider)", () => {
   it("has the server's sections in a column of its own, and Settings' by whose they are", async () => {
     await shellAt("/server", 1440);
     const server = await screen.findByRole("navigation", { name: "Server sections" });
-    expect(within(server).getByRole("link", { name: /^Overview/ })).toHaveAttribute("aria-current", "page");
+    expect(within(server).getByRole("link", { name: /^Status/ })).toHaveAttribute("aria-current", "page");
     expect(screen.queryByRole("navigation", { name: "Servers sections" })).toBeNull();
   });
 

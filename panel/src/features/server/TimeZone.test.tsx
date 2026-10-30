@@ -31,7 +31,7 @@ function system(extra: Record<string, RouteHandler> = {}) {
     "GET /api/server/clock/timezones": () => json(200, ZONES),
     ...extra,
   });
-  const harness = renderConsole("/server/system");
+  const harness = renderConsole("/server/system?view=machine");
   return { ...harness, backend };
 }
 

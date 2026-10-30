@@ -116,8 +116,14 @@ export const catalog: Catalog<typeof en> = {
     docsOf: "Documentación de {title}",
     details: "Detalles",
     updated: "Actualizada el {date}",
+    useInstead: "Usar {name} en su lugar",
+    evidence: "Lo que se comprobó",
     yours: "Tuya",
     package: "De un paquete",
+  },
+  unavailable: {
+    title: "No disponibles aquí",
+    description: "Se enseñan y no se esconden: cada una dice por qué no se puede instalar en este servidor y qué hacer en su lugar.",
   },
   filters: {
     label: "Filtrar el catálogo",
@@ -139,12 +145,6 @@ export const catalog: Catalog<typeof en> = {
   },
   empty: {
     noMatch: "Ninguna receta coincide con estos filtros.",
-  },
-  unavailable: {
-    title: { one: "{count} receta todavía no disponible", other: "{count} recetas todavía no disponibles" },
-    summary: "Esta versión no puede desplegarlas. Cada una dice por qué y qué hacer.",
-    label: "Recetas no disponibles",
-    noneAvailable: "Ninguna de estas se puede desplegar con esta versión.",
   },
   job: {
     viewOutput: "Ver salida",

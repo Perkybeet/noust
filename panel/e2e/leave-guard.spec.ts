@@ -31,7 +31,7 @@ interface Form {
 const FORMS: readonly Form[] = [
   {
     id: "settings",
-    path: "/settings",
+    path: "/settings/general",
     first: (page) => page.getByLabel("Server name"),
     read: (page) => page.getByLabel("Server name").inputValue(),
     change: (page) => page.getByLabel("Server name").fill("web-leave-guard"),

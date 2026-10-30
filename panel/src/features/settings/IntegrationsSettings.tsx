@@ -12,12 +12,13 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusGlyph } from "../../components/ui/StatusPill";
 import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
-import { DeployKeysSection } from "./DeployKeysSection";
+import { useHasFleet } from "../../nodes/servers";
+import { useNode } from "../../nodes/useNode";
 import { GitHubIntegration } from "./github/GitHubIntegration";
 import { GitLabIntegration } from "./gitlab/GitLabIntegration";
-import { MetricsExportSection } from "./MetricsExportSection";
-import { RegistriesSection } from "./registries/RegistriesSection";
 import { readServerIdentity } from "./GeneralSettings.model";
+import { AllowedSourcesSection } from "./sources/AllowedSourcesSection";
+import { SourcesSection } from "./sources/SourcesSection";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /**
@@ -95,17 +96,19 @@ export function IntegrationsSettings() {
   const github = useQuery(githubStatusQuery());
   const config = useQuery(configQuery());
   const settled = (github.data !== undefined || github.isError) && (config.data !== undefined || config.isError);
+  // What a central adds: how its servers reach their repositories. A server's own page has no fleet to say it of.
+  const { node } = useNode();
+  const hasFleet = useHasFleet();
   return (
     <Sections>
       <HooksAddress />
       <GitHubIntegration />
+      {hasFleet && node === null ? <SourcesSection /> : null}
       {settled ? (
         <>
           <GitLabIntegration />
           <OtherHosts />
-          <DeployKeysSection />
-          <RegistriesSection />
-          <MetricsExportSection />
+          <AllowedSourcesSection />
           <CommandHint command="noust github status" label={t("settings.integrations.fromTerminal")} />
         </>
       ) : null}

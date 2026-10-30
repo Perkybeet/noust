@@ -87,6 +87,8 @@ export const fleet: Catalog<typeof en> = {
     createAtProvider: "Crear en un proveedor",
     title: "Flota",
     description: "Todos los servidores que gestiona esta central, a la vez.",
+    serversTitle: "Servidores",
+    serversDescription: "Todos los servidores que gestiona esta central. Abre uno para ver cómo está y para cambiarlo.",
     tabsLabel: "Vistas de las aplicaciones de la flota",
     serversTabsLabel: "Vistas de los servidores de la flota",
     addServer: "Añadir un servidor",
@@ -102,7 +104,7 @@ export const fleet: Catalog<typeof en> = {
     state: "Estado",
     version: "Versión",
     labels: "Etiquetas",
-    access: "Acceso",
+    access: "Permisos de la central",
     lastSeen: "Visto por última vez",
     app: "Aplicación",
     certificate: "Certificado",
@@ -132,6 +134,13 @@ export const fleet: Catalog<typeof en> = {
   },
   summary: {
     notRead: "Sin leer",
+    actions: {
+      title: "Acciones recientes",
+      loading: "Cargando las acciones recientes",
+      loadFailed: "No se pudieron cargar las acciones recientes",
+      empty: "Aún no se ha ejecutado ninguna acción en la flota.",
+      servers: { one: "{count} servidor", other: "{count} servidores" },
+    },
   },
   view: {
     refused: { one: "{count} servidor no te deja ver {what}", other: "{count} servidores no te dejan ver {what}" },

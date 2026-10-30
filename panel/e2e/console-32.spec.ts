@@ -148,7 +148,7 @@ test("an application's deploy hooks: the operator's YAML saved behind sudo mode,
 });
 
 test("the server's time zone is chosen from its own zones, with the offset and the time it will read", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/server/system");
+  await signIn(page, consoleServer, "/server/system?view=machine");
   await page.getByRole("button", { name: "Change time zone" }).click();
   // A question the page asks, so an alert dialog (the server area asks all of its questions that way).
   const dialog = page.getByRole("alertdialog", { name: "Change the time zone" });

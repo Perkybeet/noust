@@ -27,6 +27,7 @@ from fastapi import APIRouter
 from noust.web.api.server.common import ServerRoute
 from noust.web.api.server.logs import router as logs_router
 from noust.web.api.server.overview import router as overview_router
+from noust.web.api.server.ports import router as ports_router
 from noust.web.api.server.power import router as power_router
 from noust.web.api.server.storage import router as storage_router
 from noust.web.api.server.storage import swap_router
@@ -38,6 +39,7 @@ router = APIRouter(route_class=ServerRoute)
 router.include_router(overview_router)
 router.include_router(updates_router, prefix="/updates")
 router.include_router(power_router, prefix="/power")
+router.include_router(ports_router)
 router.include_router(storage_router, prefix="/storage")
 router.include_router(swap_router, prefix="/swap")
 router.include_router(system_router)

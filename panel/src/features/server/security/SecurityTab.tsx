@@ -1,7 +1,7 @@
 /**
- * The Security tab: how hardened the server is, as counted findings (there is no score), and
- * four views behind them, each a URL (`?view=`): the checks, SSH, the firewall against what
- * listens, and the bans. The views load only when shown.
+ * Security and SSH: how hardened the server is, as counted findings (there is no score), and
+ * three views behind them, each a URL (`?view=`): the checks, SSH and the bans. The firewall,
+ * which decides what listens to whom, is Network and ports'. The views load only when shown.
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -24,7 +24,6 @@ import { useServerJob } from "../serverJob";
 import { TabToolbar } from "../TabToolbar";
 import { BansView } from "./BansView";
 import { ChecksView } from "./ChecksView";
-import { FirewallView } from "./FirewallView";
 import { SshView } from "./SshView";
 import type { SecurityView } from "./data";
 
@@ -107,12 +106,11 @@ function Security({ view, onViewChange }: SecurityTabProps) {
         options={[
           { value: "checks", label: t("server.security.views.checks") },
           { value: "ssh", label: t("server.security.views.ssh") },
-          { value: "firewall", label: t("server.security.views.firewall") },
           { value: "bans", label: t("server.security.views.bans") },
         ]}
         className="self-start"
       />
-      {view === "ssh" ? <SshView /> : view === "firewall" ? <FirewallView /> : view === "bans" ? <BansView /> : <ChecksView />}
+      {view === "ssh" ? <SshView /> : view === "bans" ? <BansView /> : <ChecksView />}
     </div>
   );
 }

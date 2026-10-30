@@ -72,30 +72,29 @@ serial("two accounts to hold roles", async ({ page, consoleServer }) => {
 
 serial("a role is defined from the permissions that exist, given on a project, taken back and deleted", async ({ page, consoleServer, problems }) => {
   // Deleting a role someone still holds is refused on purpose.
-  problems.expect(/status of 409 .*\/api\/access\/roles\/release-manager$/);
+  problems.expect(/status of 409 .*\/api\/roles\/release-manager$/);
   await signIn(page, consoleServer, "/settings/access");
   await elevate(page, consoleServer);
   await expect(page.getByRole("heading", { name: "Who holds what" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "No role is granted yet" })).toBeVisible();
   await settle(page);
-  await expectNoA11yViolations(page, "Settings, Roles and access, empty");
+  await expectNoA11yViolations(page, "Settings, Roles, empty");
 
   // A role of your own, from the permissions the server lists, each with its own sentence.
-  await page.getByRole("button", { name: "Define a role" }).click();
-  const drawer = page.getByRole("dialog", { name: "Define a role" });
+  await page.getByRole("button", { name: "New role" }).click();
+  const drawer = page.getByRole("dialog", { name: "New role" });
   await drawer.getByLabel("Name", { exact: true }).fill("release-manager");
-  await drawer.getByLabel("Label").fill("Release manager");
+  await drawer.getByLabel("Title").fill("Release manager");
   await drawer.getByRole("checkbox", { name: /apps\.read/ }).check();
   await drawer.getByRole("checkbox", { name: /apps\.deploy/ }).check();
-  await expect(drawer.getByText(/^It can be held on: Environment, Project, Team, Server$/)).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the role drawer");
-  await drawer.getByRole("button", { name: "Define role" }).click();
-  const roles = page.getByRole("region", { name: "Role definitions" });
+  await drawer.getByRole("button", { name: "Create role" }).click();
+  const roles = page.getByRole("table", { name: "Roles" });
   await expect(roles.getByText("Release manager")).toBeVisible();
 
   // Given where it is needed: the production environment of the default project.
-  await page.getByRole("button", { name: "Grant a role" }).click();
+  await page.getByRole("button", { name: "Grant a role" }).first().click();
   const dialog = page.getByRole("dialog", { name: "Grant a role" });
   await choose(page, dialog, "Account", "bruno");
   await choose(page, dialog, "Where it applies", "An environment");
@@ -109,18 +108,20 @@ serial("a role is defined from the permissions that exist, given on a project, t
   await expect(grants.getByText("Release manager")).toBeVisible();
   await expect(grants.getByText("Environment", { exact: true })).toBeVisible();
   await settle(page);
-  await expectNoA11yViolations(page, "Settings, Roles and access, with a grant");
+  await expectNoA11yViolations(page, "Settings, Roles, with a grant");
 
-  // A role someone holds cannot be deleted, and the server says so; taken back, it can.
-  await page.getByRole("button", { name: "Delete Release manager" }).click();
+  // A role someone holds on a project cannot be deleted, and the server says so; taken back, it can.
+  await page.getByRole("button", { name: "Actions for Release manager" }).click();
+  await page.getByRole("menuitem", { name: "Delete" }).click();
   const refusal = page.getByRole("alertdialog", { name: "Delete Release manager" });
   await refusal.getByRole("button", { name: "Delete role" }).click();
-  await expect(refusal.getByText(/is held by 1 binding/)).toBeVisible();
+  await expect(refusal.getByText(/is still given to 1 account/)).toBeVisible();
   await refusal.getByRole("button", { name: "Cancel" }).click();
   await page.getByRole("button", { name: "Revoke Release manager from bruno" }).click();
   await page.getByRole("alertdialog", { name: /^Revoke Release manager from bruno/ }).getByRole("button", { name: "Revoke role" }).click();
   await expect(page.getByRole("heading", { name: "No role is granted yet" })).toBeVisible();
-  await page.getByRole("button", { name: "Delete Release manager" }).click();
+  await page.getByRole("button", { name: "Actions for Release manager" }).click();
+  await page.getByRole("menuitem", { name: "Delete" }).click();
   await page.getByRole("alertdialog", { name: "Delete Release manager" }).getByRole("button", { name: "Delete role" }).click();
   await expect(roles.getByText("Release manager")).toBeHidden();
 });

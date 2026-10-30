@@ -94,10 +94,8 @@ describe("starting from a recipe", () => {
     expect(site).toHaveAttribute("target", "_blank");
     expect(site.getAttribute("rel")).toContain("noopener");
 
-    // The ones this release cannot deploy are folded under their own count, each with its reason.
-    expect(screen.queryByRole("heading", { level: 3, name: "Ghost" })).not.toBeInTheDocument();
-    await harness.user.click(screen.getByRole("button", { name: /not available yet/ }));
-    const ghost = screen.getByRole("heading", { level: 3, name: "Ghost" }).closest("li") as HTMLElement;
+    // The ones this release cannot deploy are listed after the others, each with its reason.
+    const ghost = within(screen.getByRole("list", { name: "Not available here" })).getByRole("heading", { level: 3, name: "Ghost" }).closest("li") as HTMLElement;
     expect(within(ghost).getByText("Not available in this release")).toBeInTheDocument();
     expect(within(ghost).getByText(/supports only MySQL 8 in production/)).toBeInTheDocument();
     expect(within(ghost).queryByRole("button", { name: /^Use/ })).not.toBeInTheDocument();

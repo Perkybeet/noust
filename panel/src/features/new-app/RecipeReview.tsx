@@ -20,11 +20,10 @@ import { Notice } from "../../components/ui/Notice";
 import { ServerText } from "../../components/ui/ServerText";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
-import { codedText } from "../catalog/codedText";
 import { categoryWords, dependencyWords } from "../catalog/RecipeCard";
 import { RecipeLogo } from "../catalog/RecipeLogo";
 import { RecipeRequirements } from "../catalog/RecipeRequirements";
-import { versionLabel } from "../catalog/model";
+import { codedOf, versionLabel } from "../catalog/model";
 import { addressItem } from "./DeployStep";
 import type { Summary } from "./DeployStep";
 import { editableVariables, generatedVariables, recipeVariableField, requiredVariables, variableNamed } from "./recipe";
@@ -270,11 +269,11 @@ export function RecipeVariables({ recipe, form, onChange, errors = {} }: RecipeV
         <Notice tone="warning" title={t("newApp.recipes.rootTitle", { title: recipe.title })}>
           <div className="flex flex-col gap-3">
             <p>
-              <ServerText coded={codedText(recipe.root_equivalent_warning)} text={recipe.root_equivalent_text} />
+              <ServerText coded={codedOf(recipe.root_equivalent_warning)} text={recipe.root_equivalent_text} />
             </p>
             {recipe.root_equivalent_hint ? (
               <p className="text-fg-muted">
-                <ServerText coded={codedText(recipe.root_equivalent_warning)} text={recipe.root_equivalent_hint} part="hint" />
+                <ServerText coded={codedOf(recipe.root_equivalent_warning)} text={recipe.root_equivalent_hint} part="hint" />
               </p>
             ) : null}
             <Checkbox

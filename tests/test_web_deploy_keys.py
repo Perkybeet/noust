@@ -314,6 +314,87 @@ class TestServerKey:
         assert anonymous.get("/api/deploy-keys/server").status_code in (401, 403)
 
 
+class TestMakeServerKey:
+    """4.1 (backlog W): the console makes the server's SSH key, the way `noust setup ssh --generate` does."""
+
+    @pytest.fixture
+    def ssh_dir(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+        """The directory of the account Noust runs as, kept out of the real home."""
+        directory = tmp_path / "home" / ".ssh"
+        monkeypatch.setattr("noust.validators.ssh.DEFAULT_SSH_DIR", directory)
+        return directory
+
+    def test_it_makes_the_key_and_answers_with_its_public_half_only(
+        self, admin: TestClient, keygen: DeployKeyRunner, ssh_dir: Path
+    ) -> None:
+        response = admin.post("/api/deploy-keys/server")
+
+        assert response.status_code == 201, response.text
+        body = response.json()
+        assert body["public_key"].startswith("ssh-ed25519 ")
+        assert body["fingerprint"].startswith("SHA256:")
+        assert "PRIVATE" not in response.text
+        assert (ssh_dir / "id_ed25519").is_file()
+        assert (ssh_dir / "id_ed25519").stat().st_mode & 0o077 == 0
+        assert keygen.generated == 1
+
+    def test_a_server_that_has_a_key_keeps_it_and_says_so(
+        self, admin: TestClient, keygen: DeployKeyRunner, ssh_dir: Path
+    ) -> None:
+        first = admin.post("/api/deploy-keys/server")
+        again = admin.post("/api/deploy-keys/server")
+
+        assert first.status_code == 201
+        assert again.status_code == 200
+        assert again.json() == first.json()
+        assert keygen.generated == 1
+
+    def test_the_key_it_made_is_the_one_the_server_shows(
+        self, admin: TestClient, keygen: DeployKeyRunner, ssh_dir: Path
+    ) -> None:
+        made = admin.post("/api/deploy-keys/server").json()
+
+        assert admin.get("/api/deploy-keys/server").json() == made
+
+    def test_it_asks_for_sudo_mode_because_it_writes_the_servers_identity(
+        self, plain: TestClient, keygen: DeployKeyRunner, ssh_dir: Path
+    ) -> None:
+        response = plain.post("/api/deploy-keys/server")
+
+        assert response.status_code == 403
+        assert keygen.generated == 0
+        assert not ssh_dir.exists()
+
+    def test_what_ssh_keygen_says_when_it_fails_is_the_error(
+        self, admin: TestClient, keygen: DeployKeyRunner, ssh_dir: Path
+    ) -> None:
+        keygen.script(("ssh-keygen",), exit_code=1, stderr="Saving key failed: Permission denied")
+
+        response = admin.post("/api/deploy-keys/server")
+
+        assert response.status_code == 400
+        assert "Permission denied" in response.text
+        assert "noust setup ssh --generate" in response.text
+
+    def test_it_is_audited_without_the_key(
+        self,
+        admin: TestClient,
+        keygen: DeployKeyRunner,
+        ssh_dir: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        recorded: list[tuple[str, dict]] = []
+        monkeypatch.setattr(
+            "noust.managers.source_keys.audit.record",
+            lambda event, **kwargs: recorded.append((event, kwargs)),
+        )
+
+        admin.post("/api/deploy-keys/server")
+
+        assert [event for event, _ in recorded] == ["apps.deploy_key.server_generate"]
+        assert "PRIVATE" not in str(recorded)
+
+
 class TestList:
     """Every key, and the pinned host keys."""
 

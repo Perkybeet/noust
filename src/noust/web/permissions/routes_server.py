@@ -46,6 +46,8 @@ ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/server/power/reboot"): Permission.SERVER_MANAGE,
     ("POST", "/api/server/power/shutdown"): Permission.SERVER_HOST_ACCESS,
     ("DELETE", "/api/server/power/scheduled"): Permission.SERVER_MANAGE,
+    # Who holds each port: a read of the machine, like the sockets it lists
+    ("GET", "/api/server/ports"): Permission.SERVER_READ,
     # Storage
     ("GET", "/api/server/storage"): Permission.SERVER_READ,
     ("GET", "/api/server/storage/analyze/latest"): Permission.SERVER_READ,

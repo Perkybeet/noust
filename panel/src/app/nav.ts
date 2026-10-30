@@ -40,7 +40,6 @@ import { OVERVIEW_SCREENS } from "../features/nav/overview";
 import { PROJECTS_SCREENS } from "../features/nav/projects";
 import { SERVER_SCREENS, SERVICE_SCREENS } from "../features/nav/server";
 import { RENAMED, SETTINGS_SCREENS, groupSettings } from "../features/nav/settings";
-import type { SettingsBlock } from "../features/nav/settings";
 import { TEAM_SCREENS } from "../features/nav/team";
 import type { PlainKey } from "../i18n";
 import { REDIRECT_ROWS } from "./redirects";
@@ -186,8 +185,13 @@ export function sidebarFor(ctx: NavContext = {}): Dest[][] {
   return [...groups.values()];
 }
 
-/** Where an area opens: its fleet face from the fleet's pages, where it has one, and its own page otherwise. */
-export function areaTarget(entry: Dest, scope: Scope): ConsolePath {
+/**
+ * Where an area opens: its fleet face from the fleet's pages, where it has one, and its own page otherwise.
+ * Servers is the exception that makes a fleet usable: where the console holds one, it opens the list of
+ * servers from anywhere (`hasFleet`), because choosing a server is picking a row of it, not a scope to be in.
+ */
+export function areaTarget(entry: Dest, scope: Scope, hasFleet = false): ConsolePath {
+  if (entry.id === "server" && hasFleet) return entry.fleetTo ?? entry.to;
   return scope === "fleet" ? (entry.fleetTo ?? entry.to) : entry.to;
 }
 
@@ -197,13 +201,11 @@ export function tabsById(id: string, ctx: NavContext = {}): TabItem[] {
 }
 
 export { RENAMED, SETTINGS_GROUPS, groupSettings, settingsGroupOf } from "../features/nav/settings";
-export type { SettingsBlock } from "../features/nav/settings";
 
-/** The sections of Settings a block holds, in titled groups, from the whole register. */
-export function settingsGroups(block: SettingsBlock, ctx: NavContext = {}): { id: string; sections: Dest[] }[] {
+/** The sections of Settings, in titled groups, from the whole register. */
+export function settingsGroups(ctx: NavContext = {}): { id: string; sections: Dest[] }[] {
   return groupSettings(
     REGISTERED.filter((entry) => entry.id === "settings" || entry.parent === "settings"),
-    block,
     ctx,
   );
 }
@@ -266,12 +268,12 @@ export function areaOf(pathname: string): Dest | undefined {
  * The `g` shortcuts, in the order the shortcut list shows them, of one scope (or of all). The areas
  * are in both: the same two keys open each from a server and from the fleet.
  */
-export function shortcuts(scope?: Scope): { id: string; keys: readonly string[]; description: PlainKey; to: ConsolePath }[] {
+export function shortcuts(scope?: Scope, hasFleet = false): { id: string; keys: readonly string[]; description: PlainKey; to: ConsolePath }[] {
   return REGISTERED.flatMap((entry) => {
     if (entry.shortcut === undefined || entry.goTo === undefined) return [];
     if (scope !== undefined && entry.scope !== "both" && entry.scope !== scope) return [];
     // The fleet's pages open an area at its fleet face, where it has one.
-    return [{ id: entry.id, keys: entry.shortcut, description: entry.goTo, to: scope === undefined ? entry.to : areaTarget(entry, scope) }];
+    return [{ id: entry.id, keys: entry.shortcut, description: entry.goTo, to: scope === undefined ? entry.to : areaTarget(entry, scope, hasFleet) }];
   });
 }
 

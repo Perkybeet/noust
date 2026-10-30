@@ -9,6 +9,7 @@ import { useDocumentTitle } from "../../app/documentTitle";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
 import { Field } from "../../components/ui/Field";
+import { InlineMessage } from "../../components/ui/InlineMessage";
 import { Input } from "../../components/ui/Input";
 import { Notice } from "../../components/ui/Notice";
 import { TextLink } from "../../components/ui/TextLink";
@@ -53,7 +54,9 @@ export function ResetPasswordPage() {
       }
     >
       {!offered && providers !== undefined ? (
-        <Notice tone="info">{t("auth.reset.notOffered")}</Notice>
+        <Notice tone="info" title={t("auth.reset.notOfferedTitle")}>
+          {t("auth.reset.notOffered")}
+        </Notice>
       ) : code === "" ? (
         <RequestLink />
       ) : (
@@ -84,9 +87,12 @@ function RequestLink() {
 
   if (ask.isSuccess) {
     return (
-      <Notice tone="success" live title={t("auth.reset.sentTitle")}>
-        {t("auth.reset.sent", { minutes: ask.data.expires_in_minutes })}
-      </Notice>
+      <div className="flex flex-col gap-2">
+        <InlineMessage tone="success" live>
+          {t("auth.reset.sentTitle")}
+        </InlineMessage>
+        <p className="text-13 text-pretty text-fg-muted">{t("auth.reset.sent", { minutes: ask.data.expires_in_minutes })}</p>
+      </div>
     );
   }
   return (
@@ -145,9 +151,12 @@ function ChoosePassword({ code, onDone }: { code: string; onDone: () => void }) 
   if (confirm.isSuccess) {
     return (
       <div className="flex flex-col gap-5">
-        <Notice tone="success" live title={t("auth.reset.doneTitle")}>
-          {t("auth.reset.done")}
-        </Notice>
+        <div className="flex flex-col gap-2">
+          <InlineMessage tone="success" live>
+            {t("auth.reset.doneTitle")}
+          </InlineMessage>
+          <p className="text-13 text-pretty text-fg-muted">{t("auth.reset.done")}</p>
+        </div>
         <Button variant="primary" size="lg" className="w-full" onClick={onDone}>
           {t("auth.reset.toSignIn")}
         </Button>

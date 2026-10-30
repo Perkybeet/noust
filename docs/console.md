@@ -65,7 +65,7 @@ that goes with it.
 
 The state is a row on Settings > Channels, Console address, MCP, Approvals and Automatic updates (in
 About Noust), the second factor in Account > Sign-in security, scheduled backups on the Backups page,
-automatic updates on Server > Updates, and in an application's settings for instant rollback,
+automatic updates on Server > System and updates, and in an application's settings for instant rollback,
 zero-downtime deploys, builds in the sandbox and pull request previews. See [DESIGN.md](DESIGN.md).
 
 ## Live updates

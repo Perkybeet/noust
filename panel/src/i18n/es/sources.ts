@@ -143,7 +143,7 @@ export const sources: Catalog<typeof en> = {
     notChanged: "No se cambió la credencial de {domain}",
   },
   server: {
-    title: "Claves de despliegue",
+    title: "Claves de este servidor",
     description: "Las claves SSH con las que este servidor inicia sesión en los repositorios, una por repositorio, y las claves de host que ha fijado.",
     label: "las claves de despliegue",
     caption: "Claves de despliegue de este servidor",

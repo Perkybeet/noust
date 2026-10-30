@@ -33,7 +33,7 @@ function Outcome({ status }: { status: Item["status"] }) {
 function Row({ item }: { item: Item }) {
   const t = useT();
   return (
-    <li className="flex min-w-0 flex-wrap items-start gap-x-3 gap-y-1.5 px-4 py-2.5">
+    <li className="flex min-w-0 flex-wrap items-start gap-x-3 gap-y-1.5 py-2.5">
       <Outcome status={item.status} />
       <div className="flex min-w-0 flex-1 basis-64 flex-col gap-1.5">
         {/* The doctor's own words, kept as it wrote them. */}
@@ -76,7 +76,7 @@ function Details({ report }: { report: InstallCheckResult }) {
       <Card padding="none">
         <div className="flex min-w-0 flex-col divide-y divide-border">
           {report.sections.map((section) => (
-            <Subsection key={section.title} title={section.title} description={section.explain ?? undefined} className="gap-1 pt-3 pb-1">
+            <Subsection key={section.title} title={section.title} description={section.explain ?? undefined} className="gap-1 px-4 pt-3 pb-1">
               <ul aria-label={t("settings.about.installCheck.listLabel", { section: section.title })} className="flex min-w-0 flex-col">
                 {section.items.map((item, index) => (
                   <Row key={`${item.text}-${String(index)}`} item={item} />

@@ -170,3 +170,15 @@ export async function findTelegramChats(): Promise<readonly TelegramChat[]> {
   const result = await request("post", "/api/config/notifications/telegram/chats");
   return result.chats;
 }
+
+/**
+ * Takes the email account away: the SMTP account with its password, the email service, who it goes to, and the
+ * switch. Written as whole blocks because a blank password on a write that changes the server is refused (the
+ * stored one is only kept for the server it was entered for), and a block set whole is what clears it. Needs a
+ * recent "Confirm it's you"; the client asks for it.
+ */
+export async function removeEmailAccount(): Promise<void> {
+  await patchConfig("monitor.smtp", { host: "", port: 587, use_ssl: false, use_tls: true, username: "", password: "", from_address: "" });
+  await patchConfig("monitor.email_recipients", []);
+  await patchConfig("monitor.email_api", {});
+}

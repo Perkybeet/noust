@@ -74,7 +74,7 @@ test("a server behind NAT: the way is one step from adding a server, and says wh
 test("Server > Storage: the disk cleans itself by a policy that is read back in words, with a history", async ({ page, consoleServer, problems }) => {
   // Saving a policy is behind sudo mode: the first answer is the 403 that asks for it.
   problems.expect(/status of 403 .*\/api\/server\/storage\/schedule$/);
-  await signIn(page, consoleServer, "/server/storage");
+  await signIn(page, consoleServer, "/server/files");
   const heading = page.getByRole("heading", { name: "Automatic cleanup" });
   await expect(heading).toBeVisible();
   await expect(page.getByText("Nothing is cleaned unless you ask")).toBeVisible();

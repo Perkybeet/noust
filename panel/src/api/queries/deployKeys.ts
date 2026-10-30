@@ -20,3 +20,11 @@ export const serverKeyQuery = () =>
     queryFn: ({ signal }) => request("get", "/api/deploy-keys/server", { signal }),
     staleTime: 30_000,
   });
+
+/**
+ * Makes the server's key when it has none (sudo mode: it writes the server's SSH identity), and
+ * answers with the key, which a server that already has one gets back unchanged.
+ */
+export function createServerKey(): Promise<ServerKey> {
+  return request("post", "/api/deploy-keys/server");
+}

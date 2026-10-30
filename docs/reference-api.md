@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1127 operations.
+1129 operations.
 
 ## Access
 
@@ -656,6 +656,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/deploy-keys/hosts` | Pin Host | `server.host_access` | yes |  |
 | DELETE | `/api/deploy-keys/hosts/{host}` | Forget Pinned Host | `server.host_access` | yes |  |
 | GET | `/api/deploy-keys/server` | Get Server Key | `apps.read` |  |  |
+| POST | `/api/deploy-keys/server` | Create Server Key | `server.host_access` | yes |  |
 
 ## Deployments
 
@@ -1109,6 +1110,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/server/migration/check` | Check Migration | `server.read` |  |  |
 | GET | `/api/server/migration/plan` | Plan Migration | `server.read` |  |  |
 | POST | `/api/server/migration/prepare` | Prepare Migration | `backups.manage` | yes |  |
+| GET | `/api/server/ports` | List Ports | `server.read` |  |  |
 | GET | `/api/server/power` | Get Power | `server.read` |  |  |
 | POST | `/api/server/power/reboot` | Schedule Reboot | `server.manage` | yes |  |
 | DELETE | `/api/server/power/scheduled` | Cancel Scheduled | `server.manage` |  |  |

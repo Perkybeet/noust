@@ -173,22 +173,20 @@ describe("Settings > Integrations", () => {
     screenWidth(1440);
   });
 
-  it("is a settings tab", async () => {
+  it("is a settings tab, in the group of what Noust is connected to, with the keys and the registries beside it and not inside it", async () => {
     integrations(NOT_CONFIGURED);
     renderConsole("/settings/integrations");
     const tabs = await screen.findByRole("navigation", {
       name: "Settings sections",
     });
     expect(
-      within(tabs).getByRole("link", { name: "Integrations" }),
+      within(tabs).getByRole("link", { name: "Connections" }),
     ).toHaveAttribute("aria-current", "page");
-    // About closes the group of this server, right after Integrations.
     const names = within(tabs)
       .getAllByRole("link")
       .map((link) => link.textContent);
-    expect(names.indexOf("About Noust")).toBe(
-      names.indexOf("Integrations") + 1,
-    );
+    // The card of each of these was on this page once: one subject a page (NV-9), each with its own door.
+    expect(names.slice(names.indexOf("Connections"), names.indexOf("Connections") + 4)).toEqual(["Connections", "Image registries", "Deploy keys", "Secret managers"]);
   });
 
   it(
@@ -196,7 +194,7 @@ describe("Settings > Integrations", () => {
     { timeout: 20_000 },
     async () => {
       integrations(NOT_CONFIGURED);
-      renderConsole("/settings/integrations");
+      renderConsole("/settings/log-shipping");
       const section =
         (
           await screen.findByRole("heading", {

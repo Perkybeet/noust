@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import type { ReactNode } from "react";
 
-import { emailApiQuery, saveEmailApiSettings, saveSmtpSettings, smtpSettingsQuery } from "../../api/queries/config";
+import { emailApiQuery, removeEmailAccount, saveEmailApiSettings, saveSmtpSettings, smtpSettingsQuery } from "../../api/queries/config";
 import type { SmtpSettings } from "../../api/queries/config";
 import { saveNotificationChannel } from "../../api/queries/notifications";
 import { QueryState } from "../../components/page/QueryState";
@@ -438,6 +438,22 @@ export function EmailChannel({ enabledStored, smtp }: { enabledStored: boolean; 
         test={test}
         testSource={t("settings.notifications.email.testSourceLabel")}
         testReason={testReason}
+        remove={
+          accountSet || enabledStored
+            ? {
+                label: t("settings.notifications.channels.remove"),
+                title: t("settings.notifications.channels.removeTitle", { label }),
+                description: t("settings.notifications.email.removeDescription"),
+                run: async () => {
+                  await removeEmailAccount();
+                  // Through the channel API, so the switch and the routing go with the account.
+                  await saveNotificationChannel("email", { enabled: false });
+                  await refresh();
+                  reset();
+                },
+              }
+            : undefined
+        }
       >
         <FormFailure error={split.form !== null && providerSplit.form !== null ? split.form : null} title={t("settings.notifications.email.saveErrorTitle")} />
         <QueryState

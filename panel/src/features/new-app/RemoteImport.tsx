@@ -11,6 +11,7 @@ import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
+import { InlineMessage } from "../../components/ui/InlineMessage";
 import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
 import type { SelectOption } from "../../components/ui/Select";
@@ -34,9 +35,12 @@ function Outcome({ name, proposal }: { name: string; proposal: Proposal }) {
   return (
     <div className="flex min-w-0 flex-col gap-3">
       {proposal.deployable ? (
-        <Notice tone="success" live title={t("remoteImport.loadedTitle", { name })}>
-          {t("remoteImport.loadedBody")}
-        </Notice>
+        <div className="flex flex-col gap-1.5">
+          <InlineMessage tone="success" live>
+            {t("remoteImport.loadedTitle", { name })}
+          </InlineMessage>
+          <p className="text-13 text-pretty text-fg-muted">{t("remoteImport.loadedBody")}</p>
+        </div>
       ) : (
         <Notice tone="warning" live title={t("remoteImport.notDeployable", { name })}>
           {t("remoteImport.notDeployableBody")}

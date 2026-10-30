@@ -157,7 +157,8 @@ describe("the palette's verbs on an application", () => {
   it("offers a viewer no verb at all: what the buttons would be refused is not in the palette", async () => {
     const viewer = { ...SESSION, permissions: (SESSION.permissions ?? []).filter((permission) => permission !== "apps.operate" && permission !== "apps.deploy") };
     const { user } = await open({ ...signedInRoutes(viewer), "GET /api/auth/session": () => json(200, viewer) });
-    await ask(user, "restart");
+    // Named as the other tests name it: "restart" alone is also scattered through a page's long name.
+    await ask(user, "restart shop");
     expect(await screen.findByText(/Nothing matches/)).toBeInTheDocument();
   });
 

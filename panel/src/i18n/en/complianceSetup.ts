@@ -8,7 +8,7 @@
 export const complianceSetup = {
   title: "Compliance",
   description:
-    "Frameworks switch on the controls that help with a standard. Nothing is on until you choose it, and several can be on together: each control takes the strictest value any of them asks.",
+    "Nothing is on until you choose it. Several frameworks can be on together, and each control takes the strictest value any of them asks.",
   honest:
     "A framework turns on technical controls. It does not make a server compliant: what stays organisational is yours, and only an auditor can say the rest.",
   loadFailed: "Could not read the compliance settings",
@@ -74,11 +74,14 @@ export const complianceSetup = {
   controls: {
     title: "Controls",
     description:
-      "Each control has its own setting. A framework that is on locks the controls it asks for at its value or stricter; you can always tighten one further.",
+      "Each control has its own setting. A framework that is on locks the ones it asks for; you can always tighten one further.",
     lockedBy: "Required by {names}",
     change: "Change…",
     noPermission: "Your role cannot change security settings.",
     checkOnly: "Judged by the compliance check: nothing refuses it",
+    groupSummary: "{on} of {total} strict",
+    ownNotCounted: "Nobody chose this number: it is the default, and it limits nothing until a framework asks for it or you choose one.",
+    choose: "Choose",
     changed: "{name} changed",
     group: {
       access: "Access and accounts",

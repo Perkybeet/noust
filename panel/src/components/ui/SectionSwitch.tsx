@@ -61,13 +61,15 @@ export interface SwitchedRegionProps {
 }
 
 /**
- * What a section switch governs, drawn off when it is: dimmed, because an inactive thing is
- * the one case in which fading is the message (WCAG exempts inactive components from contrast),
- * and still readable and still reachable, so a person can see what is there before turning it on.
+ * What a section switch governs, drawn off when it is: its strong text steps down to the muted
+ * tone, so the list reads as one that does nothing, and it stays readable and reachable, so a
+ * person can see what is there before turning it on. It is a change of tone and not a fade:
+ * an opacity takes the muted text and the idle pills under 4.5:1, and axe measures it (it only
+ * exempts what is disabled or inert, which is not what this is).
  */
 export function SwitchedRegion({ on, children, className }: SwitchedRegionProps) {
   return (
-    <div data-slot="switched-region" data-state={on ? "on" : "off"} className={cx("min-w-0 transition-opacity duration-(--duration-move) ease-(--ease-standard)", !on && "opacity-60", className)}>
+    <div data-slot="switched-region" data-state={on ? "on" : "off"} className={cx("min-w-0", !on && "[--color-fg:var(--text-muted)]", className)}>
       {children}
     </div>
   );

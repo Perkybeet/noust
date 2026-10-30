@@ -44,6 +44,7 @@ import { identityQuery, sshKeysQuery, sshQuery } from "../queries";
 import type { AccountKeys, FixPlan, SshKey, SshStatus } from "../queries";
 import { useServerJob } from "../serverJob";
 import { DirectiveChanges, FixBlocked } from "./FixDialogs";
+import { ServerKeyCard } from "./ServerKeyCard";
 import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
@@ -419,6 +420,7 @@ export function SshView() {
             <Settings ssh={data} />
             <div className="flex min-w-0 flex-col gap-6">
               <Fixes ssh={data} hostname={hostname} />
+              <ServerKeyCard />
               <Sessions ssh={data} />
             </div>
           </div>

@@ -74,7 +74,10 @@ interface Route {
 
 /** The server's settings, one URL each (the list `app/nav.ts` calls `settings.*`). */
 const SERVER_SETTINGS: readonly Route[] = [
-  { id: "settings-general", path: "/settings" },
+  { id: "settings-general", path: "/settings/general" },
+  { id: "settings-registries", path: "/settings/registries" },
+  { id: "settings-deploy-keys", path: "/settings/deploy-keys" },
+  { id: "settings-fleet", path: "/settings/fleet" },
   { id: "settings-variables", path: "/settings/variables" },
   { id: "settings-secret-managers", path: "/settings/secret-managers" },
   { id: "settings-console", path: "/settings/console" },
@@ -132,6 +135,7 @@ test.use({ viewport: { width: 1440, height: 900 } });
 /** Settings route files that are not a subsection of their own, with the reason. */
 const NOT_A_SUBSECTION: Readonly<Record<string, string>> = {
   "settings/security.tsx": "it redirects to /account/security, where the person's sign-in security is",
+  "settings/index.tsx": "it is the hub Settings opens on: every section as a door under its group, a page of its own height and not a subsection",
   "apps/$domain/settings/container.tsx": "only a container application has it, and the seeded machine has none",
   "apps/$domain/settings/compose.tsx": "only a Compose stack has it, and the seeded machine has none",
   "apps/$domain/settings/builds.tsx": "it redirects to Build: the sandbox is a card of that page since 4.0",

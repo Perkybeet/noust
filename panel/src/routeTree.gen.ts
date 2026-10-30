@@ -62,13 +62,17 @@ import { Route as ConsoleFleetUpdatesRouteImport } from "./routes/_console/fleet
 import { Route as ConsoleProjectsIndexRouteImport } from "./routes/_console/projects/index"
 import { Route as ConsoleProjectsTeamsRouteImport } from "./routes/_console/projects/teams"
 import { Route as ConsoleServerIndexRouteImport } from "./routes/_console/server/index"
+import { Route as ConsoleServerCentralRouteImport } from "./routes/_console/server/central"
+import { Route as ConsoleServerFilesRouteImport } from "./routes/_console/server/files"
 import { Route as ConsoleServerLogsRouteImport } from "./routes/_console/server/logs"
+import { Route as ConsoleServerNetworkRouteImport } from "./routes/_console/server/network"
 import { Route as ConsoleServerSecurityRouteImport } from "./routes/_console/server/security"
 import { Route as ConsoleServerServicesRouteImport } from "./routes/_console/server/services"
 import { Route as ConsoleServerStorageRouteImport } from "./routes/_console/server/storage"
 import { Route as ConsoleServerSystemRouteImport } from "./routes/_console/server/system"
 import { Route as ConsoleServerTerminalRouteImport } from "./routes/_console/server/terminal"
 import { Route as ConsoleServerUpdatesRouteImport } from "./routes/_console/server/updates"
+import { Route as ConsoleServerWebserverRouteImport } from "./routes/_console/server/webserver"
 import { Route as ConsoleServicesIndexRouteImport } from "./routes/_console/services/index"
 import { Route as ConsoleServicesNameRouteImport } from "./routes/_console/services/$name"
 import { Route as ConsoleSettingsIndexRouteImport } from "./routes/_console/settings/index"
@@ -84,12 +88,16 @@ import { Route as ConsoleSettingsCloudRouteImport } from "./routes/_console/sett
 import { Route as ConsoleSettingsComplianceRouteImport } from "./routes/_console/settings/compliance"
 import { Route as ConsoleSettingsConsoleRouteImport } from "./routes/_console/settings/console"
 import { Route as ConsoleSettingsControlsRouteImport } from "./routes/_console/settings/controls"
+import { Route as ConsoleSettingsDeployKeysRouteImport } from "./routes/_console/settings/deploy-keys"
+import { Route as ConsoleSettingsFleetRouteImport } from "./routes/_console/settings/fleet"
+import { Route as ConsoleSettingsGeneralRouteImport } from "./routes/_console/settings/general"
 import { Route as ConsoleSettingsIntegrationsRouteImport } from "./routes/_console/settings/integrations"
 import { Route as ConsoleSettingsLogShippingRouteImport } from "./routes/_console/settings/log-shipping"
 import { Route as ConsoleSettingsManifestRouteImport } from "./routes/_console/settings/manifest"
 import { Route as ConsoleSettingsMcpRouteImport } from "./routes/_console/settings/mcp"
 import { Route as ConsoleSettingsNotificationsRouteImport } from "./routes/_console/settings/notifications"
 import { Route as ConsoleSettingsProbesRouteImport } from "./routes/_console/settings/probes"
+import { Route as ConsoleSettingsRegistriesRouteImport } from "./routes/_console/settings/registries"
 import { Route as ConsoleSettingsSecretManagersRouteImport } from "./routes/_console/settings/secret-managers"
 import { Route as ConsoleSettingsSecurityRouteImport } from "./routes/_console/settings/security"
 import { Route as ConsoleSettingsServersRouteImport } from "./routes/_console/settings/servers"
@@ -425,9 +433,24 @@ const ConsoleServerIndexRoute = ConsoleServerIndexRouteImport.update({
   path: "/",
   getParentRoute: () => ConsoleServerRoute,
 } as any)
+const ConsoleServerCentralRoute = ConsoleServerCentralRouteImport.update({
+  id: "/central",
+  path: "/central",
+  getParentRoute: () => ConsoleServerRoute,
+} as any)
+const ConsoleServerFilesRoute = ConsoleServerFilesRouteImport.update({
+  id: "/files",
+  path: "/files",
+  getParentRoute: () => ConsoleServerRoute,
+} as any)
 const ConsoleServerLogsRoute = ConsoleServerLogsRouteImport.update({
   id: "/logs",
   path: "/logs",
+  getParentRoute: () => ConsoleServerRoute,
+} as any)
+const ConsoleServerNetworkRoute = ConsoleServerNetworkRouteImport.update({
+  id: "/network",
+  path: "/network",
   getParentRoute: () => ConsoleServerRoute,
 } as any)
 const ConsoleServerSecurityRoute = ConsoleServerSecurityRouteImport.update({
@@ -458,6 +481,11 @@ const ConsoleServerTerminalRoute = ConsoleServerTerminalRouteImport.update({
 const ConsoleServerUpdatesRoute = ConsoleServerUpdatesRouteImport.update({
   id: "/updates",
   path: "/updates",
+  getParentRoute: () => ConsoleServerRoute,
+} as any)
+const ConsoleServerWebserverRoute = ConsoleServerWebserverRouteImport.update({
+  id: "/webserver",
+  path: "/webserver",
   getParentRoute: () => ConsoleServerRoute,
 } as any)
 const ConsoleServicesIndexRoute = ConsoleServicesIndexRouteImport.update({
@@ -537,6 +565,22 @@ const ConsoleSettingsControlsRoute = ConsoleSettingsControlsRouteImport.update({
   path: "/controls",
   getParentRoute: () => ConsoleSettingsRoute,
 } as any)
+const ConsoleSettingsDeployKeysRoute =
+  ConsoleSettingsDeployKeysRouteImport.update({
+    id: "/deploy-keys",
+    path: "/deploy-keys",
+    getParentRoute: () => ConsoleSettingsRoute,
+  } as any)
+const ConsoleSettingsFleetRoute = ConsoleSettingsFleetRouteImport.update({
+  id: "/fleet",
+  path: "/fleet",
+  getParentRoute: () => ConsoleSettingsRoute,
+} as any)
+const ConsoleSettingsGeneralRoute = ConsoleSettingsGeneralRouteImport.update({
+  id: "/general",
+  path: "/general",
+  getParentRoute: () => ConsoleSettingsRoute,
+} as any)
 const ConsoleSettingsIntegrationsRoute =
   ConsoleSettingsIntegrationsRouteImport.update({
     id: "/integrations",
@@ -570,6 +614,12 @@ const ConsoleSettingsProbesRoute = ConsoleSettingsProbesRouteImport.update({
   path: "/probes",
   getParentRoute: () => ConsoleSettingsRoute,
 } as any)
+const ConsoleSettingsRegistriesRoute =
+  ConsoleSettingsRegistriesRouteImport.update({
+    id: "/registries",
+    path: "/registries",
+    getParentRoute: () => ConsoleSettingsRoute,
+  } as any)
 const ConsoleSettingsSecretManagersRoute =
   ConsoleSettingsSecretManagersRouteImport.update({
     id: "/secret-managers",
@@ -1001,13 +1051,17 @@ export interface FileRoutesByFullPath {
   "/fleet/servers": typeof ConsoleFleetServersRoute
   "/fleet/updates": typeof ConsoleFleetUpdatesRoute
   "/projects/teams": typeof ConsoleProjectsTeamsRoute
+  "/server/central": typeof ConsoleServerCentralRoute
+  "/server/files": typeof ConsoleServerFilesRoute
   "/server/logs": typeof ConsoleServerLogsRoute
+  "/server/network": typeof ConsoleServerNetworkRoute
   "/server/security": typeof ConsoleServerSecurityRoute
   "/server/services": typeof ConsoleServerServicesRoute
   "/server/storage": typeof ConsoleServerStorageRoute
   "/server/system": typeof ConsoleServerSystemRoute
   "/server/terminal": typeof ConsoleServerTerminalRoute
   "/server/updates": typeof ConsoleServerUpdatesRoute
+  "/server/webserver": typeof ConsoleServerWebserverRoute
   "/services/$name": typeof ConsoleServicesNameRoute
   "/settings/about": typeof ConsoleSettingsAboutRoute
   "/settings/access": typeof ConsoleSettingsAccessRoute
@@ -1021,12 +1075,16 @@ export interface FileRoutesByFullPath {
   "/settings/compliance": typeof ConsoleSettingsComplianceRoute
   "/settings/console": typeof ConsoleSettingsConsoleRoute
   "/settings/controls": typeof ConsoleSettingsControlsRoute
+  "/settings/deploy-keys": typeof ConsoleSettingsDeployKeysRoute
+  "/settings/fleet": typeof ConsoleSettingsFleetRoute
+  "/settings/general": typeof ConsoleSettingsGeneralRoute
   "/settings/integrations": typeof ConsoleSettingsIntegrationsRoute
   "/settings/log-shipping": typeof ConsoleSettingsLogShippingRoute
   "/settings/manifest": typeof ConsoleSettingsManifestRoute
   "/settings/mcp": typeof ConsoleSettingsMcpRoute
   "/settings/notifications": typeof ConsoleSettingsNotificationsRoute
   "/settings/probes": typeof ConsoleSettingsProbesRoute
+  "/settings/registries": typeof ConsoleSettingsRegistriesRoute
   "/settings/secret-managers": typeof ConsoleSettingsSecretManagersRoute
   "/settings/security": typeof ConsoleSettingsSecurityRoute
   "/settings/servers": typeof ConsoleSettingsServersRoute
@@ -1144,13 +1202,17 @@ export interface FileRoutesByTo {
   "/fleet/servers": typeof ConsoleFleetServersRoute
   "/fleet/updates": typeof ConsoleFleetUpdatesRoute
   "/projects/teams": typeof ConsoleProjectsTeamsRoute
+  "/server/central": typeof ConsoleServerCentralRoute
+  "/server/files": typeof ConsoleServerFilesRoute
   "/server/logs": typeof ConsoleServerLogsRoute
+  "/server/network": typeof ConsoleServerNetworkRoute
   "/server/security": typeof ConsoleServerSecurityRoute
   "/server/services": typeof ConsoleServerServicesRoute
   "/server/storage": typeof ConsoleServerStorageRoute
   "/server/system": typeof ConsoleServerSystemRoute
   "/server/terminal": typeof ConsoleServerTerminalRoute
   "/server/updates": typeof ConsoleServerUpdatesRoute
+  "/server/webserver": typeof ConsoleServerWebserverRoute
   "/services/$name": typeof ConsoleServicesNameRoute
   "/settings/about": typeof ConsoleSettingsAboutRoute
   "/settings/access": typeof ConsoleSettingsAccessRoute
@@ -1164,12 +1226,16 @@ export interface FileRoutesByTo {
   "/settings/compliance": typeof ConsoleSettingsComplianceRoute
   "/settings/console": typeof ConsoleSettingsConsoleRoute
   "/settings/controls": typeof ConsoleSettingsControlsRoute
+  "/settings/deploy-keys": typeof ConsoleSettingsDeployKeysRoute
+  "/settings/fleet": typeof ConsoleSettingsFleetRoute
+  "/settings/general": typeof ConsoleSettingsGeneralRoute
   "/settings/integrations": typeof ConsoleSettingsIntegrationsRoute
   "/settings/log-shipping": typeof ConsoleSettingsLogShippingRoute
   "/settings/manifest": typeof ConsoleSettingsManifestRoute
   "/settings/mcp": typeof ConsoleSettingsMcpRoute
   "/settings/notifications": typeof ConsoleSettingsNotificationsRoute
   "/settings/probes": typeof ConsoleSettingsProbesRoute
+  "/settings/registries": typeof ConsoleSettingsRegistriesRoute
   "/settings/secret-managers": typeof ConsoleSettingsSecretManagersRoute
   "/settings/security": typeof ConsoleSettingsSecurityRoute
   "/settings/servers": typeof ConsoleSettingsServersRoute
@@ -1291,13 +1357,17 @@ export interface FileRoutesById {
   "/_console/fleet/servers": typeof ConsoleFleetServersRoute
   "/_console/fleet/updates": typeof ConsoleFleetUpdatesRoute
   "/_console/projects/teams": typeof ConsoleProjectsTeamsRoute
+  "/_console/server/central": typeof ConsoleServerCentralRoute
+  "/_console/server/files": typeof ConsoleServerFilesRoute
   "/_console/server/logs": typeof ConsoleServerLogsRoute
+  "/_console/server/network": typeof ConsoleServerNetworkRoute
   "/_console/server/security": typeof ConsoleServerSecurityRoute
   "/_console/server/services": typeof ConsoleServerServicesRoute
   "/_console/server/storage": typeof ConsoleServerStorageRoute
   "/_console/server/system": typeof ConsoleServerSystemRoute
   "/_console/server/terminal": typeof ConsoleServerTerminalRoute
   "/_console/server/updates": typeof ConsoleServerUpdatesRoute
+  "/_console/server/webserver": typeof ConsoleServerWebserverRoute
   "/_console/services/$name": typeof ConsoleServicesNameRoute
   "/_console/settings/about": typeof ConsoleSettingsAboutRoute
   "/_console/settings/access": typeof ConsoleSettingsAccessRoute
@@ -1311,12 +1381,16 @@ export interface FileRoutesById {
   "/_console/settings/compliance": typeof ConsoleSettingsComplianceRoute
   "/_console/settings/console": typeof ConsoleSettingsConsoleRoute
   "/_console/settings/controls": typeof ConsoleSettingsControlsRoute
+  "/_console/settings/deploy-keys": typeof ConsoleSettingsDeployKeysRoute
+  "/_console/settings/fleet": typeof ConsoleSettingsFleetRoute
+  "/_console/settings/general": typeof ConsoleSettingsGeneralRoute
   "/_console/settings/integrations": typeof ConsoleSettingsIntegrationsRoute
   "/_console/settings/log-shipping": typeof ConsoleSettingsLogShippingRoute
   "/_console/settings/manifest": typeof ConsoleSettingsManifestRoute
   "/_console/settings/mcp": typeof ConsoleSettingsMcpRoute
   "/_console/settings/notifications": typeof ConsoleSettingsNotificationsRoute
   "/_console/settings/probes": typeof ConsoleSettingsProbesRoute
+  "/_console/settings/registries": typeof ConsoleSettingsRegistriesRoute
   "/_console/settings/secret-managers": typeof ConsoleSettingsSecretManagersRoute
   "/_console/settings/security": typeof ConsoleSettingsSecurityRoute
   "/_console/settings/servers": typeof ConsoleSettingsServersRoute
@@ -1442,13 +1516,17 @@ export interface FileRouteTypes {
     | "/fleet/servers"
     | "/fleet/updates"
     | "/projects/teams"
+    | "/server/central"
+    | "/server/files"
     | "/server/logs"
+    | "/server/network"
     | "/server/security"
     | "/server/services"
     | "/server/storage"
     | "/server/system"
     | "/server/terminal"
     | "/server/updates"
+    | "/server/webserver"
     | "/services/$name"
     | "/settings/about"
     | "/settings/access"
@@ -1462,12 +1540,16 @@ export interface FileRouteTypes {
     | "/settings/compliance"
     | "/settings/console"
     | "/settings/controls"
+    | "/settings/deploy-keys"
+    | "/settings/fleet"
+    | "/settings/general"
     | "/settings/integrations"
     | "/settings/log-shipping"
     | "/settings/manifest"
     | "/settings/mcp"
     | "/settings/notifications"
     | "/settings/probes"
+    | "/settings/registries"
     | "/settings/secret-managers"
     | "/settings/security"
     | "/settings/servers"
@@ -1585,13 +1667,17 @@ export interface FileRouteTypes {
     | "/fleet/servers"
     | "/fleet/updates"
     | "/projects/teams"
+    | "/server/central"
+    | "/server/files"
     | "/server/logs"
+    | "/server/network"
     | "/server/security"
     | "/server/services"
     | "/server/storage"
     | "/server/system"
     | "/server/terminal"
     | "/server/updates"
+    | "/server/webserver"
     | "/services/$name"
     | "/settings/about"
     | "/settings/access"
@@ -1605,12 +1691,16 @@ export interface FileRouteTypes {
     | "/settings/compliance"
     | "/settings/console"
     | "/settings/controls"
+    | "/settings/deploy-keys"
+    | "/settings/fleet"
+    | "/settings/general"
     | "/settings/integrations"
     | "/settings/log-shipping"
     | "/settings/manifest"
     | "/settings/mcp"
     | "/settings/notifications"
     | "/settings/probes"
+    | "/settings/registries"
     | "/settings/secret-managers"
     | "/settings/security"
     | "/settings/servers"
@@ -1731,13 +1821,17 @@ export interface FileRouteTypes {
     | "/_console/fleet/servers"
     | "/_console/fleet/updates"
     | "/_console/projects/teams"
+    | "/_console/server/central"
+    | "/_console/server/files"
     | "/_console/server/logs"
+    | "/_console/server/network"
     | "/_console/server/security"
     | "/_console/server/services"
     | "/_console/server/storage"
     | "/_console/server/system"
     | "/_console/server/terminal"
     | "/_console/server/updates"
+    | "/_console/server/webserver"
     | "/_console/services/$name"
     | "/_console/settings/about"
     | "/_console/settings/access"
@@ -1751,12 +1845,16 @@ export interface FileRouteTypes {
     | "/_console/settings/compliance"
     | "/_console/settings/console"
     | "/_console/settings/controls"
+    | "/_console/settings/deploy-keys"
+    | "/_console/settings/fleet"
+    | "/_console/settings/general"
     | "/_console/settings/integrations"
     | "/_console/settings/log-shipping"
     | "/_console/settings/manifest"
     | "/_console/settings/mcp"
     | "/_console/settings/notifications"
     | "/_console/settings/probes"
+    | "/_console/settings/registries"
     | "/_console/settings/secret-managers"
     | "/_console/settings/security"
     | "/_console/settings/servers"
@@ -2220,11 +2318,32 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleServerIndexRouteImport
       parentRoute: typeof ConsoleServerRoute
     }
+    "/_console/server/central": {
+      id: "/_console/server/central"
+      path: "/central"
+      fullPath: "/server/central"
+      preLoaderRoute: typeof ConsoleServerCentralRouteImport
+      parentRoute: typeof ConsoleServerRoute
+    }
+    "/_console/server/files": {
+      id: "/_console/server/files"
+      path: "/files"
+      fullPath: "/server/files"
+      preLoaderRoute: typeof ConsoleServerFilesRouteImport
+      parentRoute: typeof ConsoleServerRoute
+    }
     "/_console/server/logs": {
       id: "/_console/server/logs"
       path: "/logs"
       fullPath: "/server/logs"
       preLoaderRoute: typeof ConsoleServerLogsRouteImport
+      parentRoute: typeof ConsoleServerRoute
+    }
+    "/_console/server/network": {
+      id: "/_console/server/network"
+      path: "/network"
+      fullPath: "/server/network"
+      preLoaderRoute: typeof ConsoleServerNetworkRouteImport
       parentRoute: typeof ConsoleServerRoute
     }
     "/_console/server/security": {
@@ -2267,6 +2386,13 @@ declare module "@tanstack/react-router" {
       path: "/updates"
       fullPath: "/server/updates"
       preLoaderRoute: typeof ConsoleServerUpdatesRouteImport
+      parentRoute: typeof ConsoleServerRoute
+    }
+    "/_console/server/webserver": {
+      id: "/_console/server/webserver"
+      path: "/webserver"
+      fullPath: "/server/webserver"
+      preLoaderRoute: typeof ConsoleServerWebserverRouteImport
       parentRoute: typeof ConsoleServerRoute
     }
     "/_console/services/": {
@@ -2374,6 +2500,27 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleSettingsControlsRouteImport
       parentRoute: typeof ConsoleSettingsRoute
     }
+    "/_console/settings/deploy-keys": {
+      id: "/_console/settings/deploy-keys"
+      path: "/deploy-keys"
+      fullPath: "/settings/deploy-keys"
+      preLoaderRoute: typeof ConsoleSettingsDeployKeysRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
+    "/_console/settings/fleet": {
+      id: "/_console/settings/fleet"
+      path: "/fleet"
+      fullPath: "/settings/fleet"
+      preLoaderRoute: typeof ConsoleSettingsFleetRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
+    "/_console/settings/general": {
+      id: "/_console/settings/general"
+      path: "/general"
+      fullPath: "/settings/general"
+      preLoaderRoute: typeof ConsoleSettingsGeneralRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
     "/_console/settings/integrations": {
       id: "/_console/settings/integrations"
       path: "/integrations"
@@ -2414,6 +2561,13 @@ declare module "@tanstack/react-router" {
       path: "/probes"
       fullPath: "/settings/probes"
       preLoaderRoute: typeof ConsoleSettingsProbesRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
+    "/_console/settings/registries": {
+      id: "/_console/settings/registries"
+      path: "/registries"
+      fullPath: "/settings/registries"
+      preLoaderRoute: typeof ConsoleSettingsRegistriesRouteImport
       parentRoute: typeof ConsoleSettingsRoute
     }
     "/_console/settings/secret-managers": {
@@ -2951,24 +3105,32 @@ const ConsoleFleetRouteWithChildren = ConsoleFleetRoute._addFileChildren(
 )
 
 interface ConsoleServerRouteChildren {
+  ConsoleServerCentralRoute: typeof ConsoleServerCentralRoute
+  ConsoleServerFilesRoute: typeof ConsoleServerFilesRoute
   ConsoleServerLogsRoute: typeof ConsoleServerLogsRoute
+  ConsoleServerNetworkRoute: typeof ConsoleServerNetworkRoute
   ConsoleServerSecurityRoute: typeof ConsoleServerSecurityRoute
   ConsoleServerServicesRoute: typeof ConsoleServerServicesRoute
   ConsoleServerStorageRoute: typeof ConsoleServerStorageRoute
   ConsoleServerSystemRoute: typeof ConsoleServerSystemRoute
   ConsoleServerTerminalRoute: typeof ConsoleServerTerminalRoute
   ConsoleServerUpdatesRoute: typeof ConsoleServerUpdatesRoute
+  ConsoleServerWebserverRoute: typeof ConsoleServerWebserverRoute
   ConsoleServerIndexRoute: typeof ConsoleServerIndexRoute
 }
 
 const ConsoleServerRouteChildren: ConsoleServerRouteChildren = {
+  ConsoleServerCentralRoute: ConsoleServerCentralRoute,
+  ConsoleServerFilesRoute: ConsoleServerFilesRoute,
   ConsoleServerLogsRoute: ConsoleServerLogsRoute,
+  ConsoleServerNetworkRoute: ConsoleServerNetworkRoute,
   ConsoleServerSecurityRoute: ConsoleServerSecurityRoute,
   ConsoleServerServicesRoute: ConsoleServerServicesRoute,
   ConsoleServerStorageRoute: ConsoleServerStorageRoute,
   ConsoleServerSystemRoute: ConsoleServerSystemRoute,
   ConsoleServerTerminalRoute: ConsoleServerTerminalRoute,
   ConsoleServerUpdatesRoute: ConsoleServerUpdatesRoute,
+  ConsoleServerWebserverRoute: ConsoleServerWebserverRoute,
   ConsoleServerIndexRoute: ConsoleServerIndexRoute,
 }
 
@@ -2989,12 +3151,16 @@ interface ConsoleSettingsRouteChildren {
   ConsoleSettingsComplianceRoute: typeof ConsoleSettingsComplianceRoute
   ConsoleSettingsConsoleRoute: typeof ConsoleSettingsConsoleRoute
   ConsoleSettingsControlsRoute: typeof ConsoleSettingsControlsRoute
+  ConsoleSettingsDeployKeysRoute: typeof ConsoleSettingsDeployKeysRoute
+  ConsoleSettingsFleetRoute: typeof ConsoleSettingsFleetRoute
+  ConsoleSettingsGeneralRoute: typeof ConsoleSettingsGeneralRoute
   ConsoleSettingsIntegrationsRoute: typeof ConsoleSettingsIntegrationsRoute
   ConsoleSettingsLogShippingRoute: typeof ConsoleSettingsLogShippingRoute
   ConsoleSettingsManifestRoute: typeof ConsoleSettingsManifestRoute
   ConsoleSettingsMcpRoute: typeof ConsoleSettingsMcpRoute
   ConsoleSettingsNotificationsRoute: typeof ConsoleSettingsNotificationsRoute
   ConsoleSettingsProbesRoute: typeof ConsoleSettingsProbesRoute
+  ConsoleSettingsRegistriesRoute: typeof ConsoleSettingsRegistriesRoute
   ConsoleSettingsSecretManagersRoute: typeof ConsoleSettingsSecretManagersRoute
   ConsoleSettingsSecurityRoute: typeof ConsoleSettingsSecurityRoute
   ConsoleSettingsServersRoute: typeof ConsoleSettingsServersRoute
@@ -3017,12 +3183,16 @@ const ConsoleSettingsRouteChildren: ConsoleSettingsRouteChildren = {
   ConsoleSettingsComplianceRoute: ConsoleSettingsComplianceRoute,
   ConsoleSettingsConsoleRoute: ConsoleSettingsConsoleRoute,
   ConsoleSettingsControlsRoute: ConsoleSettingsControlsRoute,
+  ConsoleSettingsDeployKeysRoute: ConsoleSettingsDeployKeysRoute,
+  ConsoleSettingsFleetRoute: ConsoleSettingsFleetRoute,
+  ConsoleSettingsGeneralRoute: ConsoleSettingsGeneralRoute,
   ConsoleSettingsIntegrationsRoute: ConsoleSettingsIntegrationsRoute,
   ConsoleSettingsLogShippingRoute: ConsoleSettingsLogShippingRoute,
   ConsoleSettingsManifestRoute: ConsoleSettingsManifestRoute,
   ConsoleSettingsMcpRoute: ConsoleSettingsMcpRoute,
   ConsoleSettingsNotificationsRoute: ConsoleSettingsNotificationsRoute,
   ConsoleSettingsProbesRoute: ConsoleSettingsProbesRoute,
+  ConsoleSettingsRegistriesRoute: ConsoleSettingsRegistriesRoute,
   ConsoleSettingsSecretManagersRoute: ConsoleSettingsSecretManagersRoute,
   ConsoleSettingsSecurityRoute: ConsoleSettingsSecurityRoute,
   ConsoleSettingsServersRoute: ConsoleSettingsServersRoute,

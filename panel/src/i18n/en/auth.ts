@@ -218,6 +218,7 @@ export const auth = {
     requestDescription: "Say which account and a link to choose a new one is mailed to its address. You will need your authenticator as well.",
     chooseTitle: "Choose a new password",
     chooseDescription: "Pick a password only you know, and confirm it's you with a code from your authenticator app.",
+    notOfferedTitle: "Password reset is not offered here",
     notOffered: "This server cannot send mail, or does not recover accounts this way. A security officer can send you a new invitation.",
     identifier: "Account name or address",
     identifierHint: "The name you sign in with, or the address your mail goes to.",

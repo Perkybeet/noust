@@ -24,6 +24,11 @@ import { ENS_PROFILE, perWindow, profileLabel, readLockoutPolicy, spokenDuration
 
 type Baseline = Awaited<ReturnType<typeof profileRequest>>["baseline"][number];
 
+/** A sentence in a facts row: the list cuts a value to one line, and a rule that reads "lock it for 15 minutes" must not end in an ellipsis on a phone. */
+function wraps(sentence: string) {
+  return <span className="whitespace-normal">{sentence}</span>;
+}
+
 function profileRequest(signal: AbortSignal) {
   return request("get", "/api/ens/profile", { signal });
 }
@@ -104,10 +109,10 @@ export function PolicySection() {
       ? [
           {
             label: t("auth.security.perAddress"),
-            value: t("auth.security.perAddressValue", {
+            value: wraps(t("auth.security.perAddressValue", {
               count: formatCount(attempts, t.locale),
               duration: spokenDuration(lockSeconds, t.locale),
-            }),
+            })),
             mono: false,
             copy: false as const,
           },

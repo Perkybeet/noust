@@ -60,7 +60,7 @@ async function pageAt(path = "/settings/api", extra: Record<string, RouteHandler
     ...extra,
   });
   const harness = renderConsole(path);
-  await screen.findByRole("heading", { level: 1, name: "Settings" });
+  await screen.findByRole("heading", { level: 1, name: "API reference" });
   return { ...harness, backend };
 }
 

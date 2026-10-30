@@ -135,12 +135,11 @@ describe("the recipes inside the wizard", () => {
     const { backend, harness } = wizard("/apps/new?start=recipe");
     const { user } = harness;
     const list = await screen.findByRole("list", { name: "Recipes" });
-    // The wizard lists every recipe it can deploy: it is where one is picked, not browsed.
-    expect(await within(list).findByRole("heading", { level: 3, name: "WordPress" })).toBeInTheDocument();
-    // The ones it cannot are folded under their own count, with the reason on each.
-    expect(within(list).queryByRole("heading", { level: 3, name: "Ghost" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /not available yet/ }));
-    expect(await within(screen.getByRole("list", { name: "Recipes that are not available" })).findByRole("heading", { level: 3, name: "Ghost" })).toBeInTheDocument();
+    // The wizard lists every recipe: it is where one is picked, not browsed.
+    expect(await within(list).findByRole("heading", { level: 3, name: "Vaultwarden" })).toBeInTheDocument();
+    // What this release cannot install is listed after the others with its reason, not among the ones to pick.
+    expect(within(list).queryByRole("heading", { name: "Ghost" })).not.toBeInTheDocument();
+    expect(within(screen.getByRole("list", { name: "Not available here" })).getByRole("heading", { level: 3, name: "Ghost" })).toBeInTheDocument();
     await user.type(screen.getByRole("searchbox", { name: "Search recipes" }), "feeds");
     await waitFor(() => expect(backend.callsTo("GET /api/recipes").some((call) => call.search.get("q") === "feeds")).toBe(true));
     expect(await screen.findByRole("heading", { level: 3, name: "FreshRSS" })).toBeInTheDocument();

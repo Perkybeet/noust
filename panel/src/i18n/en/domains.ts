@@ -60,10 +60,10 @@ export const domains = {
       keywords: "cloudflare cloudflared nat home server",
     },
     ports: {
-      tab: "Ports",
-      title: "Ports",
+      tab: "Published ports",
+      title: "Published ports",
       description: "The TCP and UDP ports nginx publishes, for what is not a web page.",
-      keywords: "tcp udp stream firewall game server open a port who uses a port",
+      keywords: "tcp udp stream game server minecraft publish a port reach an application on a port",
     },
   },
 

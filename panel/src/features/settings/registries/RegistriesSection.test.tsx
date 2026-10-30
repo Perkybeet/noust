@@ -59,7 +59,7 @@ async function integrations(routes: Record<string, RouteHandler> = {}) {
     "GET /api/registries": () => json(200, { logins: [HUB, BROKEN], kinds: KINDS }),
     ...routes,
   });
-  const harness = renderConsole("/settings/integrations");
+  const harness = renderConsole("/settings/registries");
   const heading = await screen.findByRole("heading", { level: 2, name: "Container registries" });
   const section = heading.closest("section");
   if (!section) throw new Error("no registries section");

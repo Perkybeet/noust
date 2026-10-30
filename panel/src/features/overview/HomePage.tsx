@@ -15,6 +15,7 @@ import { useT } from "../../i18n";
 import { useHasFleet } from "../../nodes/servers";
 import { OVERVIEW_SCREENS } from "../nav/overview";
 import { FleetMetricsCard } from "../fleet/FleetMetricsCard";
+import { RecentActions } from "../fleet/RecentActions";
 import { PartialNotice } from "../fleet/parts";
 import { AttentionBoard } from "./AttentionBoard";
 import { FirstSteps } from "./FirstSteps";
@@ -148,7 +149,13 @@ function Home({ scope, home, charts }: { scope: HomeScope; home: HomeData; chart
                 {scope === "fleet" && home.several ? <FleetMetricsCard /> : null}
               </div>
             ),
-            side: <HomeActivity lines={home.lines} />,
+            side: (
+              <>
+                <HomeActivity lines={home.lines} />
+                {/* What was run on several servers at once is the fleet's own: no server's activity says it. */}
+                {scope === "fleet" ? <RecentActions /> : null}
+              </>
+            ),
           }
         : {})}
       {...(charts !== undefined && loaded ? { charts } : {})}

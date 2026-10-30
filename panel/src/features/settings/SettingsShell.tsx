@@ -1,5 +1,4 @@
 import { useRouterState } from "@tanstack/react-router";
-import { Landmark } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
@@ -7,77 +6,68 @@ import { useColumnCarries } from "../../app/frame/columnContext";
 import { CommandHint } from "../../components/page/CommandHint";
 import { DetailPage } from "../../components/page/DetailPage";
 import { SettingsLayout } from "../../components/page/SettingsLayout";
-import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { useT } from "../../i18n";
 import { useReturnServer } from "../../nodes/servers";
+import { SETTINGS_SCREENS } from "../nav/settings";
 import { PrimarySlot } from "./SettingsPrimaryAction";
 import { useSettingsItems } from "./useSettingsItems";
 
 export { SettingsPrimaryAction } from "./SettingsPrimaryAction";
 
+/** The hub's own route: where Settings opens and lists every section, drawn by SettingsHome. */
+const HUB_ROUTES: readonly string[] = ["/settings", "/settings/"];
+
 /**
- * Settings, grouped by whose they are (NV-7, NV-11) and drawn from the register: the selected
- * server's own - This server, Monitoring, Developers - follow the selector (on web-2 they are
- * `/n/web-2/settings/...` and read and write web-2); the instance's - People and access,
- * Governance, Fleet - are the central's whichever server is selected, and say so in their
- * heading, in their group of the navigation and under the title.
+ * Settings, one section per URL, in the groups a person looks for a setting by (item 107) and drawn
+ * from the register (`useSettingsItems`). The title (`h1`) is the section on screen, never the area
+ * repeated (NV-15); `/settings` itself is the hub, which draws every section as a door with a line
+ * about what is inside (SettingsHome), and is the page a phone's "All sections" leads back to.
  *
- * On a lone server there is nothing to tell apart: one list, each group under its title. On a
- * fleet every group is headed by whose it is, the server's name in mono or the central's; from the
- * central's sections the server's groups still lead back to the server the operator came from, and
- * a note says how that server's own sign-in, two-factor and tokens are managed there - a node
- * refuses a central on those on purpose, so a compromised central cannot lock anyone out. A list
- * of twelve sections or more has a box that narrows it, by name and by the names it had before.
+ * Whose a section is (the selected server's or the central's) is not said above each group any more:
+ * the scope selector says which server is selected (6.11) and the central's sections open the central's
+ * page whichever server it is. From the central's sections a note says how a node's own sign-in,
+ * two-factor and tokens are managed there: a node refuses a central on those on purpose, so a
+ * compromised central cannot lock anyone out.
  *
- * The list is in the page with one bar and is the second column of the double bar (app/frame/NavColumn.tsx),
- * which reads the same `useSettingsItems`: where the column has it, the page does not repeat it.
+ * The list is in the page with one bar and is the second column of the double bar
+ * (app/frame/NavColumn.tsx), which reads the same `useSettingsItems`: where the column has it, the
+ * page does not repeat it.
  */
 export function SettingsShell({ children }: { children: ReactNode }) {
   const t = useT();
   const back = useReturnServer();
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const leaf = useRouterState({ select: (state) => state.matches.at(-1)?.fullPath });
   const [slot, setSlot] = useState<HTMLElement | null>(null);
-  const { items, onCentral, hasFleet, serverName, centralName } = useSettingsItems();
+  const { items, onCentral, hasFleet } = useSettingsItems();
   const carried = useColumnCarries("settings");
-
-  const description = !hasFleet
-    ? t("settings.page.description")
-    : onCentral
-      ? t.rich("nav.settingsGroups.centralDescription", { name: <Mono key="central">{centralName}</Mono> })
-      : t.rich("nav.settingsGroups.serverDescription", { name: <Mono key="server">{serverName}</Mono> });
+  const hub = leaf === undefined || HUB_ROUTES.includes(leaf);
+  const current = items.find((item) => item.to === leaf);
+  // A section the list does not offer here (fleet settings on a server that is not a central, reached by its address)
+  // is still called what it is, not "Settings".
+  const named = SETTINGS_SCREENS.find((screen) => screen.to === leaf);
 
   return (
-    // T3 under the title "Settings" (the T2 header, with no tabs): the header is the layout's,
-    // the same on every section, and says whose sections these are.
+    // T3 under the title of the section (the T2 header, with no tabs): the header is the layout's, the
+    // same on every section, and the section is its title.
     <DetailPage
       header={{
-        title: t("settings.page.title"),
-        description,
-        // The central's sections are no one server's: the header names the central instead.
-        ...(onCentral && hasFleet ? { meta: <CentralLabel name={centralName} /> } : {}),
+        title: hub ? t("settings.page.title") : (current?.label ?? (named !== undefined ? t(named.label) : t("settings.page.title"))),
         // Empty (and boxless) unless the section on screen puts its primary action here.
         primaryAction: <span ref={setSlot} className="contents" />,
       }}
     >
       <div data-scope={onCentral ? "central" : "server"} className="min-w-0">
-        <SettingsLayout label={t("nav.landmarks.settingsSections")} items={items} index={pathname === "/settings"} backTo="/settings" carried={carried}>
-          {onCentral && hasFleet && back !== null && back.node !== null ? <NodeAccessNote node={back.node} /> : null}
+        {hub ? (
           <PrimarySlot.Provider value={slot}>{children}</PrimarySlot.Provider>
-        </SettingsLayout>
+        ) : (
+          <SettingsLayout label={t("nav.landmarks.settingsSections")} items={items} index={false} backTo="/settings" carried={carried}>
+            {onCentral && hasFleet && back !== null && back.node !== null && current?.central === true ? <NodeAccessNote node={back.node} /> : null}
+            <PrimarySlot.Provider value={slot}>{children}</PrimarySlot.Provider>
+          </SettingsLayout>
+        )}
       </div>
     </DetailPage>
-  );
-}
-
-/** "Central · nas": which machine the central's settings are, beside the title. */
-function CentralLabel({ name }: { name: string }) {
-  const t = useT();
-  return (
-    <span className="inline-flex min-w-0 items-center gap-1.5 text-13 text-fg-muted">
-      <Landmark aria-hidden="true" className="size-icon-sm shrink-0" />
-      {t.rich("nav.settingsGroups.central", { name: <Mono key="central">{name}</Mono> })}
-    </span>
   );
 }
 

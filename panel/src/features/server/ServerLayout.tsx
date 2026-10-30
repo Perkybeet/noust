@@ -13,6 +13,7 @@ import { Outlet, useNavigate } from "@tanstack/react-router";
 import { ListChecks, Power, RotateCw } from "lucide-react";
 
 import { request } from "../../api/client";
+import { sessionQuery } from "../../api/queries/auth";
 import { LinkTabs } from "../../app/LinkTabs";
 import type { LinkTab } from "../../app/LinkTabs";
 import { useColumnCarries } from "../../app/frame/columnContext";
@@ -52,11 +53,10 @@ function verdictLabel(t: T, verdict: Verdict): string {
   }
 }
 
-/** One line of facts: the host name, the system, the kernel, how long it has been up. */
+/** One line of facts: the system, the kernel, how long it has been up. The name is the page's title. */
 function Facts({ summary, t }: { summary: ServerSummary; t: T }) {
   return (
     <>
-      <Mono tone="default">{summary.hostname}</Mono>
       <span>{`${summary.os.name}${summary.os.version !== "" && !summary.os.name.includes(summary.os.version) ? ` ${summary.os.version}` : ""}`}</span>
       <span>{t.rich("server.header.kernel", { kernel: <Mono>{summary.kernel}</Mono> })}</span>
       {summary.uptime_seconds != null ? <span>{t("server.header.uptime", { duration: formatDuration(summary.uptime_seconds, t.locale) })}</span> : null}
@@ -67,6 +67,7 @@ function Facts({ summary, t }: { summary: ServerSummary; t: T }) {
 function Layout() {
   const t = useT();
   const { node } = useNode();
+  const { data: sessionHostname } = useQuery({ ...sessionQuery(), select: (session) => session.hostname });
   const power = usePowerDialog();
   // The double bar's second column holds the sections: the strip under the header is for one bar.
   const columnHasTabs = useColumnCarries("server");
@@ -99,7 +100,8 @@ function Layout() {
   const counts = security.data?.counts;
   const openFindings = counts ? counts.critical + counts.warning : null;
 
-  const tabs: readonly LinkTab[] = withCounts(tabsOf(SERVER_SCREENS),available ? { "/server/updates": summary.data?.updates.pending ?? null, "/server/security": openFindings } : {});
+  // The central's permissions exist for a server a central manages: on a fleet, any server but the central itself.
+  const tabs: readonly LinkTab[] = withCounts(tabsOf(SERVER_SCREENS, { when: { fleet: node !== null } }), available ? { "/server/system": summary.data?.updates.pending ?? null, "/server/security": openFindings } : {});
 
   const banner =
     pending.length > 0 || scheduled !== null ? (
@@ -112,7 +114,9 @@ function Layout() {
   return (
     <DetailPage
       header={{
-        title: t("server.title"),
+        // The server's own name: this page is the one place a header names the machine (item 92).
+        title: node ?? sessionHostname ?? t("server.title"),
+        mono: true,
         status: !available ? undefined : verdict !== null ? <StatusPill state={verdict.state} label={verdictLabel(t, verdict)} /> : <Skeleton className="h-6 w-28 rounded-pill" />,
         meta: !available ? undefined : summary.data !== undefined ? <Facts summary={summary.data} t={t} /> : (
           <span className="flex h-5 w-80 max-w-full items-center">

@@ -100,23 +100,29 @@ test("the catalog is searched and filtered by the server's own search, and says 
   await expectNoA11yViolations(page, "a catalog search that matches nothing");
 });
 
-test("the catalog pages the recipes it can deploy at the operator's size and remembers it, and folds the ones it cannot under their reason", async ({ page, consoleServer }) => {
+test("the catalog pages at the operator's size and remembers it, with the recipes it cannot deploy listed with their reason", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/catalog");
   await expect(recipes(page).getByRole("heading")).toHaveCount(20);
   const paging = page.getByRole("group", { name: "Pagination" });
   const range = await paging.getByText(/^Showing 1–20 of \d+$/).textContent();
   const total = Number(/of (\d+)$/.exec(range ?? "")?.[1]);
-  expect(total).toBeGreaterThan(20);
+  expect(total).toBeGreaterThan(40);
 
   const next = paging.getByRole("button", { name: "Next page" });
   await next.click();
   await expect(paging.getByText(/^Showing 21–\d+ of \d+$/)).toBeVisible();
-  // The pages are of what this release can deploy. The ones it cannot run are not among them: they are folded
-  // under their own count, each with the server's reason and no way to use it.
-  await page.getByRole("button", { name: /not available yet/ }).click();
-  const unavailable = page.getByRole("list", { name: "Recipes that are not available" }).getByRole("listitem").filter({ hasText: "Not available in this release" }).first();
+  // The pages hold the recipes that can be deployed; the ones this release cannot run are listed after them,
+  // apart, with the server's reason and no way to use them.
+  for (let shown = 2; shown < Math.ceil(total / 20); shown++) {
+    await next.click();
+    await expect(paging.getByText(new RegExp(`^Showing ${String(shown * 20 + 1)}–\\d+ of \\d+$`))).toBeVisible();
+  }
+  const unavailable = page.getByRole("list", { name: "Not available here" }).getByRole("listitem").filter({ hasText: "Not available in this release" }).first();
   await expect(unavailable).toBeVisible();
-  await expect(unavailable.getByRole("button", { name: /^Use/ })).toHaveCount(0);
+  await expect(recipes(page).getByRole("listitem").filter({ hasText: "Not available in this release" })).toHaveCount(0);
+  // No way to use it: the only button is the one that unfolds what the check found.
+  await expect(unavailable.getByRole("button", { name: /^Use / })).toHaveCount(0);
+  await expect(unavailable.getByRole("button", { name: "What was checked" })).toHaveCount(1);
   await expect(unavailable.locator("p").last()).not.toBeEmpty();
 
   await paging.getByRole("combobox", { name: "Rows per page" }).click();

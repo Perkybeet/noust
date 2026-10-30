@@ -588,6 +588,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("deploy_keys", "pin_host"): ("POST", "/api/deploy-keys/hosts", "server.host_access", True),
     ("deploy_keys", "forget_pinned_host"): ("DELETE", "/api/deploy-keys/hosts/{host}", "server.host_access", True),
     ("deploy_keys", "get_server_key"): ("GET", "/api/deploy-keys/server", "apps.read", False),
+    ("deploy_keys", "create_server_key"): ("POST", "/api/deploy-keys/server", "server.host_access", True),
     ("deployments", "rebuild_deployment"): ("POST", "/api/apps/{domain}/deployments/{deployment_id}/rebuild", "apps.deploy", False),
     ("deployments", "rollback_deployment"): ("POST", "/api/apps/{domain}/deployments/{deployment_id}/rollback", "apps.deploy", False),
     ("deployments", "list_deployments"): ("GET", "/api/deployments", "apps.read", False),
@@ -906,6 +907,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("server", "check_migration"): ("GET", "/api/server/migration/check", "server.read", False),
     ("server", "plan_migration"): ("GET", "/api/server/migration/plan", "server.read", False),
     ("server", "prepare_migration"): ("POST", "/api/server/migration/prepare", "backups.manage", True),
+    ("server", "list_ports"): ("GET", "/api/server/ports", "server.read", False),
     ("server", "get_power"): ("GET", "/api/server/power", "server.read", False),
     ("server", "schedule_reboot"): ("POST", "/api/server/power/reboot", "server.manage", True),
     ("server", "cancel_scheduled"): ("DELETE", "/api/server/power/scheduled", "server.manage", False),
@@ -5714,7 +5716,7 @@ class Databases:
 
 
 class DeployKeys:
-    """Deploy keys: 5 operations."""
+    """Deploy keys: 6 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -5758,6 +5760,14 @@ class DeployKeys:
 
         Needs: permission `apps.read`."""
         return self._call("GET", "/api/deploy-keys/server", query=None, body=None)
+
+    def create_server_key(self) -> "ServerKeyResponse":
+        """POST /api/deploy-keys/server
+
+        Create Server Key
+
+        Needs: permission `server.host_access`, sudo mode."""
+        return self._call("POST", "/api/deploy-keys/server", query=None, body=None)
 
 
 
@@ -8428,7 +8438,7 @@ class SelfBackup:
 
 
 class Server:
-    """Server: 75 operations."""
+    """Server: 76 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -8528,6 +8538,14 @@ class Server:
 
         Needs: permission `backups.manage`, sudo mode."""
         return self._call("POST", "/api/server/migration/prepare", query=None, body=body)
+
+    def list_ports(self) -> "PortsOut":
+        """GET /api/server/ports
+
+        List Ports
+
+        Needs: permission `server.read`."""
+        return self._call("GET", "/api/server/ports", query=None, body=None)
 
     def get_power(self) -> "PowerOut":
         """GET /api/server/power

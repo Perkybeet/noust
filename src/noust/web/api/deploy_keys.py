@@ -20,7 +20,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel, Field
 
 from noust.core.audit import Actor
@@ -526,8 +526,7 @@ def get_server_key(
 
     A private repository over ssh fails to clone before an application exists, and the
     person starting one needs the key to add at the code host. Only the public line is
-    ever returned; there is nothing to create here (that is ``noust setup ssh``, which
-    writes into the home of the account Noust runs as).
+    ever returned. Making it is a POST to the same path.
 
     Args:
         session: The authenticated session.
@@ -536,6 +535,34 @@ def get_server_key(
         The key, or nothing when the server has none.
     """
     public_key, fingerprint = _manager(session).server_key()
+    return ServerKeyResponse(public_key=public_key, fingerprint=fingerprint)
+
+
+@keys_router.post("/server", response_model=ServerKeyResponse, status_code=201)
+def create_server_key(
+    response: Response,
+    session: Annotated[dict, Depends(require_elevated)],
+) -> ServerKeyResponse:
+    """
+    Make the server-wide SSH key when there is none, and show its public half.
+
+    It writes into the home of the account Noust runs as, so it is the host's and asks for
+    sudo mode. A server that already has a key is answered with it and status 200: nothing is
+    replaced. Only the public line is ever returned.
+
+    Args:
+        response: To say 200 when the key was already there.
+        session: The authenticated, elevated session.
+
+    Returns:
+        The key.
+
+    Raises:
+        SourceError: ``ssh-keygen`` could not make it (400).
+    """
+    public_key, fingerprint, made = _manager(session).create_server_key()
+    if not made:
+        response.status_code = 200
     return ServerKeyResponse(public_key=public_key, fingerprint=fingerprint)
 
 

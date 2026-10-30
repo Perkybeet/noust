@@ -40,7 +40,7 @@ function routes(extra: Record<string, RouteHandler> = {}): Record<string, RouteH
 
 async function general(extra: Record<string, RouteHandler> = {}) {
   const backend = fakeBackend(routes(extra));
-  const harness = renderConsole("/settings");
+  const harness = renderConsole("/settings/general");
   await screen.findByDisplayValue("/var/www/apps");
   return { ...harness, backend };
 }

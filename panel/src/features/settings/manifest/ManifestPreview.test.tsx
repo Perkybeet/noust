@@ -49,7 +49,7 @@ async function pageAt(extra: Record<string, RouteHandler> = {}) {
     ...extra,
   });
   const harness = renderConsole("/settings/manifest");
-  await screen.findByRole("heading", { level: 1, name: "Settings" });
+  await screen.findByRole("heading", { level: 1, name: "Manifest" });
   return { ...harness, backend };
 }
 

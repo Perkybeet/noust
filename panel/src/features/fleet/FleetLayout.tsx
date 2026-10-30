@@ -113,8 +113,8 @@ export function FleetLayout({ hub, adding: addingProp, onAddingChange }: FleetLa
       <DetailPage
         header={{
           // The applications' second view is the same area as their list: the same title.
-          title: onAppsViews ? t("apps.page.title") : t("fleet.page.title"),
-          ...(onAppsViews ? {} : { description: t("fleet.page.description") }),
+          title: onAppsViews ? t("apps.page.title") : onServersViews ? t("fleet.page.serversTitle") : t("fleet.page.title"),
+          ...(onAppsViews ? {} : { description: onServersViews ? t("fleet.page.serversDescription") : t("fleet.page.description") }),
           ...(empty
             ? {}
             : {

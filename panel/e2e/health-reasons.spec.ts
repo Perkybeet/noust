@@ -17,7 +17,7 @@ import type { ConsoleServer } from "./fixtures";
 test("the server's verdict stands beside the reasons that make it, each with where it is fixed", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/server");
   const main = page.getByRole("main");
-  await expect(main.getByRole("heading", { level: 1, name: "Server" })).toBeVisible();
+  await expect(main.getByRole("heading", { level: 1 })).toBeVisible();
   const reasons = main.getByRole("list", { name: "What needs attention" });
   await expect(reasons.getByRole("listitem").first()).toBeVisible();
   // The worst reason decides the verdict, and it comes first.
@@ -29,9 +29,9 @@ test("the server's verdict stands beside the reasons that make it, each with whe
     await expect(item.getByRole("link").or(item.getByRole("button"))).toHaveCount(1);
   }
   const exposed = reasons.getByRole("listitem").filter({ hasText: "A database or internal service is reachable from the internet" });
-  await expect(exposed.getByRole("link", { name: "Review" })).toHaveAttribute("href", "/server/security?view=firewall");
+  await expect(exposed.getByRole("link", { name: "Review" })).toHaveAttribute("href", "/server/network?view=firewall");
   const disk = reasons.getByRole("listitem").filter({ hasText: /^Warning\/srv is \d+% full/ });
-  await expect(disk.getByRole("link", { name: "Free space" })).toHaveAttribute("href", "/server/storage");
+  await expect(disk.getByRole("link", { name: "Free space" })).toHaveAttribute("href", "/server/files");
   await settle(page);
   await expectNoA11yViolations(page, "the server's verdict and its reasons");
 });
