@@ -116,8 +116,10 @@ test("a probe is added, its page is kept up to date, and it goes when it is remo
   await row.getByRole("button", { name: "Incidents" }).click();
   await expect(row.getByText("It has never stopped answering.")).toBeVisible();
 
-  // The page it is a component of: kept up to date, with the files it wrote.
-  const page_ = section(page, "Status page");
+  // The page it is a component of is the next section: kept up to date, with the files it wrote.
+  await page.getByRole("navigation", { name: "Alerts sections" }).getByRole("link", { name: "Status page" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Status page" })).toBeVisible();
+  const page_ = page.getByRole("main");
   await expect(page_.getByText(/Written to .*: 1 component\./)).toBeVisible();
   await expect(page_.getByText("It has no name of its own: serve the folder above yourself, or give it one.")).toBeVisible();
   await page_.getByRole("switch", { name: "Keep the page's files up to date" }).click();
@@ -131,6 +133,7 @@ test("a probe is added, its page is kept up to date, and it goes when it is remo
   // Everything back as it was.
   await page_.getByRole("switch", { name: "Keep the page's files up to date" }).click();
   await expect(page_.getByRole("switch", { name: "Keep the page's files up to date" })).not.toBeChecked();
+  await page.getByRole("navigation", { name: "Alerts sections" }).getByRole("link", { name: "Probes" }).click();
   await row.getByRole("button", { name: "Actions for shop" }).click();
   await page.getByRole("menuitem", { name: "Remove" }).click();
   await page.getByRole("alertdialog", { name: "Remove shop?" }).getByRole("button", { name: "Remove" }).click();

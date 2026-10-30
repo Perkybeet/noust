@@ -60,6 +60,7 @@ export { newApp } from "./newApp";
 export { nodeTools } from "./nodeTools";
 export { notifyRouting } from "./notifyRouting";
 export { noustDns } from "./noustDns";
+export { operation } from "./operation";
 export { overview } from "./overview";
 export { queue } from "./queue";
 export { placements } from "./placements";

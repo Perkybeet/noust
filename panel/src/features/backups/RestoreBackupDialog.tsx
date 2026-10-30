@@ -2,7 +2,7 @@ import type { Backup } from "../../api/queries/backups";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { Mono } from "../../components/ui/Mono";
 import { useT } from "../../i18n";
-import { RestoreDialog } from "./RestoreDialog";
+import { AppRestoreDialog } from "./AppRestoreDialog";
 import { schemaChangeRefusal } from "../app/schemaChange";
 import { useSchemaChangeConfirmation } from "../app/SchemaChangeDialog";
 import { useBackupActions } from "./useBackupActions";
@@ -20,11 +20,11 @@ export function RestoreBackupDialog({ backup, open, onOpenChange }: RestoreBacku
   const schema = useSchemaChangeConfirmation(backup.domain);
   return (
     <>
-    <RestoreDialog
+    <AppRestoreDialog
       open={open}
       onOpenChange={onOpenChange}
       title={t("backups.restoreDialog.title", { domain: backup.domain })}
-      description={t("backups.restoreDialog.description")}
+      replaceNote={t("backups.restoreDialog.replaceNote")}
       source={t.rich("backups.restoreDialog.source", { id: <Mono tone="default">{backup.backup_id}</Mono>, when: <RelativeTime value={backup.timestamp} /> })}
       domain={backup.domain}
       offerVerify

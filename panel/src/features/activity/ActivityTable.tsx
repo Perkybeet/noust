@@ -13,6 +13,8 @@ import { parseTimestamp } from "../../lib/format";
 import { actionWords, actorSource, actorWords, detailOf, resourceWords, resultView, rowActor } from "./data";
 import type { ActivityJob, ActivityRow } from "./data";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
+import type { NodeOutcome } from "../fleet/data";
+import { ServerCell } from "../fleet/parts";
 
 /**
  * Rows drawn while the timeline loads: more than a desktop screen holds. A history's first
@@ -29,6 +31,11 @@ export interface ActivityTableProps {
   empty?: ReactNode;
   /** Opens a job's captured log; audit rows have none, so they get no action at all. */
   onOpenJobLog: (job: ActivityJob) => void;
+  /**
+   * How each server answered, by name: a list of the events of several servers names the server of
+   * each one in a column of its own. Left out, the list is one server's and draws none.
+   */
+  servers?: ReadonlyMap<string, NodeOutcome>;
   className?: string;
 }
 
@@ -37,7 +44,7 @@ export interface ActivityTableProps {
  * ended, to what, who did it and from where, and when. Only a job row opens anything - see
  * `./data` for the merge and the words each column uses.
  */
-export function ActivityTable({ rows, caption, loading = false, empty, onOpenJobLog, className }: ActivityTableProps) {
+export function ActivityTable({ rows, caption, loading = false, empty, onOpenJobLog, servers, className }: ActivityTableProps) {
   const t = useT();
   const columns: Column<ActivityRow>[] = [
     {
@@ -88,6 +95,18 @@ export function ActivityTable({ rows, caption, loading = false, empty, onOpenJob
       },
       sortValue: (row) => resourceWords(row).object,
     },
+    ...(servers === undefined
+      ? []
+      : [
+          {
+            id: "server",
+            header: t("fleet.column.server"),
+            width: "w-40",
+            card: "meta" as const,
+            cell: (row: ActivityRow) => (row.kind === "audit" && row.origin !== undefined ? <ServerCell origin={row.origin} outcome={servers.get(row.origin.node)} /> : null),
+            sortValue: (row: ActivityRow) => (row.kind === "audit" ? (row.origin?.node ?? "") : ""),
+          },
+        ]),
     {
       id: "actor",
       header: t("activity.columnActor"),
@@ -101,9 +120,12 @@ export function ActivityTable({ rows, caption, loading = false, empty, onOpenJob
         return (
           <span className="inline-flex max-w-48 min-w-0 flex-col align-top">
             <span className="truncate text-fg">{words.label}</span>
-            <Mono tone="faint" truncate title={words.raw} className="text-12 max-sm:hidden">
-              {words.label === words.raw && source !== null ? source : words.raw}
-            </Mono>
+            {/* The recorded label is a second line only when it says more than the words do. */}
+            {words.label !== words.raw || source !== null ? (
+              <Mono tone="faint" truncate title={words.raw} className="text-12 max-sm:hidden">
+                {words.label === words.raw && source !== null ? source : words.raw}
+              </Mono>
+            ) : null}
           </span>
         );
       },
@@ -123,16 +145,18 @@ export function ActivityTable({ rows, caption, loading = false, empty, onOpenJob
       card: "hidden",
       cell: (row) => {
         if (row.kind === "audit" && row.secondFactor === true) {
-          return <span className="block max-w-72 truncate text-fg-muted">{t("activity.withSecondFactor")}</span>;
+          return <span className="block max-w-48 truncate text-fg-muted">{t("activity.withSecondFactor")}</span>;
         }
         const detail = detailOf(row);
         // What the server wrote, verbatim and untranslated: a system value, in mono.
         return detail === null ? (
           <EmptyCell reason={t("activity.noDetail")} />
         ) : (
-          <Mono tone="muted" truncate title={detail} className="max-w-72">
-            {detail}
-          </Mono>
+          <span className="block max-w-48">
+            <Mono tone="muted" truncate title={detail}>
+              {detail}
+            </Mono>
+          </span>
         );
       },
     },

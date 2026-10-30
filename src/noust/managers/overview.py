@@ -140,6 +140,7 @@ def collect_overview(
     backups: Callable[[], list[Any]] | None = None,
     observations: Callable[[], list[dict[str, Any]]] | None = None,
     alerts: Callable[[], list[tuple[Any, Any]]] | None = None,
+    probes: Callable[[], list[tuple[Any, Any]]] | None = None,
     metrics: Any | None = None,
     updates: Callable[[], dict[str, Any] | None] | None = None,
     recording: Callable[[], Any] | None = None,
@@ -161,6 +162,8 @@ def collect_overview(
         observations: Lists the monitor's open observations.
         alerts: Lists the alerts firing, as ``(rule, state)`` pairs
             (:meth:`~noust.core.alerts.rules.AlertRules.firing`).
+        probes: Lists the probes that are down, as ``(probe, state)`` pairs
+            (:meth:`~noust.core.probe_store.ProbeStore.down`).
         metrics: The metrics store, for the disk forecast and the spark.
         updates: Returns the server area's summary (``updates`` and ``reboot``
             sections), or None when this Noust has none. The integration point
@@ -196,7 +199,7 @@ def collect_overview(
         "disk": _section("disk", lambda: _disk(metrics, moment)),
         "updates": _updates(updates),
     }
-    items, total = _attention(store, units, certificates, observations, alerts, apps)
+    items, total = _attention(store, units, certificates, observations, alerts, probes, apps)
     overview["attention"] = items
     overview["attention_total"] = total
     overview["activity"] = _section("activity", lambda: _activity(store))
@@ -603,6 +606,7 @@ def _attention(
     certificates: Callable[[], list[Any]] | None,
     observations: Callable[[], list[dict[str, Any]]] | None,
     alerts: Callable[[], list[tuple[Any, Any]]] | None,
+    probes: Callable[[], list[tuple[Any, Any]]] | None,
     apps: list[Any],
 ) -> tuple[list[dict[str, Any]], int]:
     """
@@ -612,13 +616,13 @@ def _attention(
     computed where the data is: an application whose service failed or is
     restarting, one whose newest deployment failed or was rolled back, a
     certificate about to expire or expired, a unit Noust manages that failed
-    beyond the applications' own, an open monitor observation and an alert that is
-    firing. A source that cannot be read is skipped and logged; what remains is still
-    worth showing.
+    beyond the applications' own, an open monitor observation, an alert that is
+    firing and a probe that is down. A source that cannot be read is skipped and
+    logged; what remains is still worth showing.
 
-    The alerts are here, and not added by the console, because a fleet reads each
-    server's own list: what only the console that looks at a server adds is what the
-    fleet never sees.
+    The alerts and the probes are here, and not added by the console, because a fleet
+    reads each server's own list: what only the console that looks at a server adds is
+    what the fleet never sees.
 
     Args:
         store: The Noust store.
@@ -626,6 +630,7 @@ def _attention(
         certificates: Lists certificates.
         observations: Lists open observations.
         alerts: Lists the alerts that are firing.
+        probes: Lists the probes that are down.
         apps: The deployed applications.
 
     Returns:
@@ -687,6 +692,7 @@ def _attention(
     _add_units(services, add)
     _add_observations(observations, add)
     _add_alerts(alerts, add)
+    _add_probes(probes, add)
 
     ordered = sorted(items.values(), key=lambda i: (_RANK[i["severity"]], i["title"].lower()))
     return ordered[:ATTENTION_LIMIT], len(ordered)
@@ -708,7 +714,7 @@ def _reason(
 
     Args:
         kind: Where it comes from: ``state``, ``deploy``, ``certificate``,
-            ``unit`` or ``monitor``.
+            ``unit``, ``monitor``, ``alert`` or ``probe``.
         severity: ``fail`` or ``warn``.
         code: Machine-readable and stable; the console words it.
         params: Values for the console's sentence.
@@ -956,6 +962,48 @@ def _add_alerts(read: Callable[[], list[tuple[Any, Any]]] | None, add: Callable[
                     timespec="seconds"
                 ),
                 actions=["reopen_alert" if taken else "acknowledge_alert"],
+            ),
+        )
+
+
+def _add_probes(read: Callable[[], list[tuple[Any, Any]]] | None, add: Callable[..., None]) -> None:
+    """
+    Add the probes that are down, one item per probe.
+
+    The one place that says which probes need an operator (rule 3), as for the alerts: the
+    Overview, the inbox, the sidebar's counters and a fleet's "Needs attention" read it from
+    here, so a probe that is down on a node counts there whichever console looks.
+
+    Args:
+        read: Lists ``(probe, state)`` pairs; the probe store's own ``down`` by default.
+        add: Adds a reason to an item.
+    """
+    try:
+        if read is not None:
+            pairs = read()
+        else:
+            from noust.core.probe_store import ProbeStore
+
+            pairs = ProbeStore().down()
+    except _SECTION_ERRORS as exc:
+        log.warning("The attention list could not read the probes: %s", exc)
+        return
+    for probe, state in pairs:
+        add(
+            f"probe:{probe.name}",
+            {"kind": "probe", "name": probe.name},
+            probe.name,
+            _reason(
+                "probe",
+                "fail",
+                "probe_down",
+                params={"probe": probe.name, "since": state.since},
+                # What the address answered, in the probe's own words and verbatim.
+                detail=state.last_error,
+                when=datetime.fromtimestamp(state.since, tz=timezone.utc).isoformat(
+                    timespec="seconds"
+                ),
+                actions=["open_probes"],
             ),
         )
 

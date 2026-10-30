@@ -1076,7 +1076,6 @@ export const databases: Catalog<typeof en> = {
     title: "Restaurar un volcado",
     fromLocal: "Desde {dump}, en este servidor.",
     fromRemote: "Desde {dump}, en {destination}: primero se descarga y se comprueba.",
-    onServer: "En {server}.",
     into: "Restaurar en",
     intoNew: "Una base de datos nueva",
     intoNewHint: "Junto a esta; no se toca nada de lo que existe.",

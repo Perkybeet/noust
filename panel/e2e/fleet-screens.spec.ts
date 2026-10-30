@@ -125,6 +125,8 @@ test("@screens the fleet's console, every context, view and dialog", async ({ pa
         await visit("/fleet/backups", "07-fleet-backups");
         await visit("/fleet/updates", "08-fleet-updates");
         await visit("/fleet/activity", "09-fleet-activity");
+        await visit("/fleet/alerts", "09b-fleet-alerts");
+        await visit("/logs?scope=fleet", "09c-fleet-logs");
         await visit("/n/web-2/settings", "10-settings-server-web-2");
         await visit("/settings/tokens", "12-settings-central-tokens");
         await visit("/settings/central", "13-settings-central-seal");

@@ -71,6 +71,7 @@ export const fleet: Catalog<typeof en> = {
       backups: "Copias de seguridad de todos los servidores",
       updates: "Actualizaciones de Noust y del sistema de todos los servidores",
       activity: "Actividad de todos los servidores",
+      alerts: "Alertas de todos los servidores",
     },
     keywords: {
       servers: "flota nodos etiquetas acceso versión fleet nodes labels",
@@ -79,6 +80,7 @@ export const fleet: Catalog<typeof en> = {
       backups: "flota copias huecos restaurar verificar backups",
       updates: "flota actualizar noust paquetes reinicio updates",
       activity: "flota auditoría registro historial eventos activity",
+      alerts: "flota alertas reglas disparadas umbrales monitor alerts",
     },
   },
   page: {
@@ -116,7 +118,6 @@ export const fleet: Catalog<typeof en> = {
     expiresOn: "Caduca el",
     renewal: "Renovación",
     issuer: "Emisor",
-    coverage: "Copias",
     lastBackup: "Última copia",
     size: "Tamaño",
     schedule: "Programación",
@@ -124,10 +125,6 @@ export const fleet: Catalog<typeof en> = {
     method: "Se actualiza con",
     osUpdates: "Actualizaciones del sistema",
     reboot: "Reinicio",
-    when: "Cuándo",
-    action: "Acción",
-    result: "Resultado",
-    actor: "Por",
     step: "Paso",
     batch: "Lote",
     took: "Duró",
@@ -337,8 +334,6 @@ export const fleet: Catalog<typeof en> = {
     searchPlaceholder: "Dominio o servidor",
     count: { one: "{count} aplicación", other: "{count} aplicaciones" },
     countFiltered: "{shown} de {total} aplicaciones",
-    gaps: { one: "{count} sin copia", other: "{count} sin copia" },
-    unscheduledCount: { one: "{count} sin programación", other: "{count} sin programación" },
     empty: "Ningún servidor tiene aún una aplicación de la que hacer copia.",
     coverage: {
       none: "Sin copia",

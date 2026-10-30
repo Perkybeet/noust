@@ -1014,6 +1014,13 @@ target). An action the operator held is not a failure (`lib/held.ts`, used here,
 open and says nothing, a request left waiting for approval closes it with a neutral "Waiting
 for approval" toast that leads to Approvals.
 
+**`RestoreDialog`** (`existing`, `defaultTarget`, `replaceOnly`, `suggestion`, `isValidName`, `words`,
+`options`, `onRestore`). The one confirmation of a restore, for whatever is backed up (an application, a
+database): a new place by default where that touches nothing, with one question; over what exists, a
+`ConfirmDialog friction="type"` that says what is replaced and what is kept first and asks for the name. It
+knows neither word: the caller's `words` name the choices, and its own options are the children (a function of
+where the restore goes). Not for anything that is not a restore.
+
 **`Drawer`** (`size` `md | lg`). Detail with the page still behind it: a log, a unit file, a
 certificate, a channel's form.
 
@@ -1318,7 +1325,9 @@ system's own and is never translated.
 **`ErrorBlock`** (`onRetry`, `action`), **`QueryState`**. A failure the way the console always
 shows one, and the four states of anything loaded (see 6.5 and 6.6). `action` is one follow-up
 beside Try again, after the system's words ("View output"); `JobProgress` passes its own
-`action` to it when the job failed.
+`action` to it when the job failed. `QueryState` takes `label` (a noun that completes "Loading ...",
+"Could not load ...", right in English and wrong where the article or the order changes) or, for a new
+screen, `sentences`: the three said whole in the screen's own catalog.
 
 **`DangerZone`**, **`DangerAction`**. Irreversible actions, last, each saying what it destroys.
 
@@ -1640,11 +1649,12 @@ Four questions, answered in four places: **where am I** (the scope selector, and
   page never adds a second "Live" or "Follow" switch. *Enforced by:* ratchet `live-switch`.
 - **AL-1** A firing alert or a failing probe is shown where the operator looks (the inbox,
   Overview's "Needs attention", the sidebar counter, the affected application's header) with its
-  acknowledgement in place, not only in Settings. *Enforced by:* `attention.test.ts` (the kinds
-  `alert` and `probe`); `e2e/inbox.spec.ts`.
+  acknowledgement in place, not only in Alerts. The server lists both among what needs attention
+  (`managers/overview.py`), so a fleet reading each server's list counts them too. *Enforced by:*
+  `attention.test.ts` (the kinds `alert` and `probe`); `tests/test_overview.py`; `e2e/inbox.spec.ts`.
 - **AL-2** Acknowledging is called "Acknowledge" and "Reopen", shows who and when, and stops the
   reminders; it never resolves. *Enforced by:* `i18n/verbs.test.ts`.
-- **DB-1** A restore goes to a new database by default; over an existing one it takes a safety copy
+- **DB-1** A restore goes to a new database by default (`RestoreDialog`); over an existing one it takes a safety copy
   first, names it, asks for the name and shows what it will replace before it runs. *Enforced by:*
   `e2e/databases.spec.ts`; one `RestoreDialog` for applications and databases.
 - **DB-2** A data-gap message under a chart or a log ("not recorded yet") is one line under its

@@ -580,6 +580,24 @@ class ProbeStore:
             cursor.execute("SELECT * FROM probe_state")
             return {int(row["probe_id"]): _state(row) for row in cursor.fetchall()}
 
+    def down(self) -> list[tuple[Probe, ProbeState]]:
+        """
+        The one answer to "which probes are down", for every list that counts them.
+
+        Returns:
+            Each probe that is switched on and whose last answers made it down, with where it
+            stands, the one down for longest first. A probe that is switched off is not asked,
+            so what it last decided is not listed; one never asked is not down either.
+        """
+        states = self.states()
+        found = [
+            (probe, states[probe.id])
+            for probe in self.probes()
+            if probe.enabled and probe.id is not None and probe.id in states
+            if states[probe.id].state == "down"
+        ]
+        return sorted(found, key=lambda pair: (pair[1].since, pair[0].name))
+
     def put_state(self, state: ProbeState) -> None:
         """
         Write where a probe stands.

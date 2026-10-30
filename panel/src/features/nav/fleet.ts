@@ -53,12 +53,18 @@ const activity = face("fleet.activity", "/fleet/activity", "nav.fleetBar.activit
   command: "fleet.tabs.command.activity",
 });
 
+const alerts = face("fleet.alerts", "/fleet/alerts", "nav.fleetBar.alerts.label", "alerts", {
+  faceOf: "alerts",
+  keywords: "fleet.tabs.keywords.alerts",
+  command: "fleet.tabs.command.alerts",
+});
+
 /**
  * The fleet: every server at once, as the faces of the areas that have one. The applications'
  * second view, the ones that run on several servers, is a tab of the fleet's Applications. The
  * register is app/nav.ts; this is one group of it.
  */
-export const FLEET_SCREENS: Strip = [overview, servers, apps, placements, certificates, backups, updates, activity];
+export const FLEET_SCREENS: Strip = [overview, servers, apps, placements, certificates, backups, updates, activity, alerts];
 
 /** The two views of the fleet's applications, every server's and those that run on several. */
 export const FLEET_APPS_SCREENS: Strip = [apps, placements];

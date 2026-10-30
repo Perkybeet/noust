@@ -133,9 +133,10 @@ function TroubledServer({ outcome }: { outcome: NodeOutcome }) {
  * stopped answering shows its last good answer with its age - so the page is never blank
  * because one server is down. An older Noust is information, not a fault.
  */
-export function PartialNotice({ view }: { view: FleetView | undefined }) {
+export function PartialNotice({ view, skip }: { view: Pick<FleetView, "nodes"> | undefined; skip?: ReadonlySet<string> }) {
   const t = useT();
-  const trouble = troubled(view);
+  // The servers that refused the operator are said apart, grouped (features/operation): not twice.
+  const trouble = troubled(view).filter((outcome) => skip?.has(outcome.name) !== true);
   if (view === undefined || trouble.length === 0) return null;
   const faulty = trouble.some((outcome) => {
     const kind = outcomeKind(outcome);

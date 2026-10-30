@@ -79,6 +79,7 @@ export const fleet = {
       backups: "Backups on every server",
       updates: "Noust and system updates on every server",
       activity: "Activity on every server",
+      alerts: "Alerts on every server",
     },
     keywords: {
       servers: "fleet nodes labels access version",
@@ -87,6 +88,7 @@ export const fleet = {
       backups: "fleet backups gaps restore verify",
       updates: "fleet upgrade noust packages reboot",
       activity: "fleet audit log history events",
+      alerts: "fleet alert rules firing thresholds monitor",
     },
   },
   page: {
@@ -124,7 +126,6 @@ export const fleet = {
     expiresOn: "Expires on",
     renewal: "Renewal",
     issuer: "Issuer",
-    coverage: "Backups",
     lastBackup: "Last backup",
     size: "Size",
     schedule: "Schedule",
@@ -132,10 +133,6 @@ export const fleet = {
     method: "Updates with",
     osUpdates: "System updates",
     reboot: "Reboot",
-    when: "When",
-    action: "Action",
-    result: "Result",
-    actor: "By",
     step: "Step",
     batch: "Batch",
     took: "Took",
@@ -354,8 +351,6 @@ export const fleet = {
     searchPlaceholder: "Domain or server",
     count: { one: "{count} application", other: "{count} applications" },
     countFiltered: "{shown} of {total} applications",
-    gaps: { one: "{count} without a backup", other: "{count} without a backup" },
-    unscheduledCount: { one: "{count} without a schedule", other: "{count} without a schedule" },
     empty: "No server has an application to back up yet.",
     coverage: {
       none: "No backup",

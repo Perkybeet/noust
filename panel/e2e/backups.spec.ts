@@ -94,9 +94,9 @@ test("restoring the latest backup is confirmed by typing the target domain", asy
   const confirmButton = dialog.getByRole("button", { name: "Restore" });
   await expect(confirmButton).toBeDisabled();
 
-  const domainField = dialog.getByRole("textbox").nth(0);
-  await expect(domainField).toHaveValue("shop.example.net");
-  const confirmField = dialog.getByRole("textbox").nth(1);
+  // Over the application there is now, by default; the name to type is that application's.
+  await expect(dialog.getByRole("combobox", { name: "Restore into" })).toContainText("shop.example.net, replacing what it runs now");
+  const confirmField = dialog.getByRole("textbox").nth(0);
   await confirmField.fill("not-the-domain");
   await expect(confirmButton).toBeDisabled();
   await confirmField.fill("shop.example.net");
@@ -126,13 +126,14 @@ test("restoring into a different domain is confirmed by typing that domain", asy
   await page.getByRole("menuitem", { name: "Restore…" }).click();
 
   const dialog = page.getByRole("alertdialog", { name: "Restore a backup of shop.example.net" });
-  const domainField = dialog.getByRole("textbox").nth(0);
+  // Another domain restores a copy there: it asks for nothing to be typed, only for where the copy goes.
+  await dialog.getByRole("combobox", { name: "Restore into" }).click();
+  await page.getByRole("option", { name: "Another domain" }).click();
+  const domainField = dialog.getByRole("textbox", { name: /Domain to restore into/ });
+  await domainField.fill("not a domain");
+  await expect(dialog.getByRole("button", { name: "Restore a copy" })).toBeDisabled();
   await domainField.fill("shop-staging.example.com");
-  const confirmField = dialog.getByRole("textbox").nth(1);
-  await confirmField.fill("shop.example.net");
-  await expect(dialog.getByRole("button", { name: "Restore" })).toBeDisabled();
-  await confirmField.fill("shop-staging.example.com");
-  await expect(dialog.getByRole("button", { name: "Restore" })).toBeEnabled();
+  await expect(dialog.getByRole("button", { name: "Restore a copy" })).toBeEnabled();
 });
 
 test("checking a backup's integrity updates its row with the result, and a reload keeps it", async ({ page, consoleServer }) => {

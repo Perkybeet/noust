@@ -1073,7 +1073,6 @@ export const databases = {
     title: "Restore a dump",
     fromLocal: "From {dump}, on this server.",
     fromRemote: "From {dump}, on {destination}: it is downloaded and checked first.",
-    onServer: "On {server}.",
     into: "Restore into",
     intoNew: "A new database",
     intoNewHint: "Beside this one; nothing that exists is touched.",

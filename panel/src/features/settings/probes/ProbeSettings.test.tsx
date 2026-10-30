@@ -62,7 +62,7 @@ const JOB = {
 };
 const ACCEPTED = { job_id: JOB.id, status: "completed", message: "Queued", job: JOB };
 
-async function pageAt(items: unknown[] = [probe("shop"), DOWN], page: Record<string, unknown> = PAGE, extra: Record<string, RouteHandler> = {}, heading = "Alerts") {
+async function pageAt(items: unknown[] = [probe("shop"), DOWN], page: Record<string, unknown> = PAGE, extra: Record<string, RouteHandler> = {}, heading = "Probes", path = "/alerts/probes") {
   screenWidth(1440);
   let held = items;
   let status = page;
@@ -78,7 +78,7 @@ async function pageAt(items: unknown[] = [probe("shop"), DOWN], page: Record<str
     "POST /api/probes/status-page/write": () => json(200, { files: ["/var/lib/noust/status/index.html", "/var/lib/noust/status/status.json"] }),
     ...extra,
   });
-  const harness = renderConsole("/alerts/probes");
+  const harness = renderConsole(path);
   await screen.findByRole("heading", { level: 1, name: heading });
   return {
     ...harness,
@@ -87,6 +87,11 @@ async function pageAt(items: unknown[] = [probe("shop"), DOWN], page: Record<str
       held = next;
     },
   };
+}
+
+/** The status page, which the probes marked public make up, on its own address. */
+function statusAt(items?: unknown[], page?: Record<string, unknown>, extra?: Record<string, RouteHandler>) {
+  return pageAt(items, page, extra, "Status page", "/alerts/status");
 }
 
 function row(name: string): HTMLElement {
@@ -126,7 +131,9 @@ describe("Alerts > Probes", () => {
   it("is the second tab of Alerts, beside the rules", { timeout: 20_000 }, async () => {
     await pageAt();
     const nav = await screen.findByRole("navigation", { name: "Alerts sections" });
-    expect(within(nav).getByRole("link", { name: "Probes and status page" })).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getByRole("link", { name: "Probes" })).toHaveAttribute("aria-current", "page");
+    // The status page the probes make up is a section of its own, next to them.
+    expect(within(nav).getByRole("link", { name: "Status page" })).toHaveAttribute("href", "/alerts/status");
   });
 
   it("explains what a probe is when there is none", { timeout: 20_000 }, async () => {
@@ -264,10 +271,10 @@ describe("Alerts > Probes", () => {
   });
 });
 
-describe("Alerts > Probes: the status page", () => {
+describe("Alerts > Status page", () => {
   it("keeps the page's files, titles it and writes it now", { timeout: 30_000 }, async () => {
-    const { user, backend } = await pageAt();
-    const section = (await screen.findByRole("heading", { name: "Status page" })).closest("section") ?? document.body;
+    const { user, backend } = await statusAt();
+    const section = await screen.findByRole("main");
     expect(section.textContent).toContain("Written to /var/lib/noust/status: 1 component.");
     expect(within(section).getByText("It has no name of its own: serve the folder above yourself, or give it one.")).toBeInTheDocument();
 
@@ -297,7 +304,7 @@ describe("Alerts > Probes: the status page", () => {
   });
 
   it("puts the page on a name through a job and shows its output", { timeout: 30_000 }, async () => {
-    const { user, backend } = await pageAt([probe("shop", { public: true })], PAGE, {
+    const { user, backend } = await statusAt([probe("shop", { public: true })], PAGE, {
       "POST /api/probes/status-page/publish": () => json(202, ACCEPTED),
     });
     await user.click(await screen.findByRole("button", { name: "Publish on a name" }));
@@ -319,7 +326,7 @@ describe("Alerts > Probes: the status page", () => {
   });
 
   it("shows the server's refusal to publish verbatim and stays on the name", { timeout: 30_000 }, async () => {
-    const { user } = await pageAt([probe("shop", { public: true })], PAGE, {
+    const { user } = await statusAt([probe("shop", { public: true })], PAGE, {
       "POST /api/probes/status-page/publish": () => problem(400, "validation_error", "status.example.com is an application's name", { hint: "Choose a name of its own." }),
     });
     await user.click(await screen.findByRole("button", { name: "Publish on a name" }));
@@ -331,7 +338,7 @@ describe("Alerts > Probes: the status page", () => {
   });
 
   it("takes a published page off its name, removing only what publishing made", { timeout: 30_000 }, async () => {
-    const { user, backend } = await pageAt([probe("shop", { public: true })], { ...PAGE, domain: "status.example.com", site_created: true, certificate_created: true }, {
+    const { user, backend } = await statusAt([probe("shop", { public: true })], { ...PAGE, domain: "status.example.com", site_created: true, certificate_created: true }, {
       "DELETE /api/probes/status-page/site": () => json(202, { ...ACCEPTED, job: { ...JOB, name: "Take the status page off status.example.com" } }),
     });
     expect(await screen.findByText(/Published on/)).toBeInTheDocument();
@@ -352,7 +359,7 @@ describe("Alerts > Probes in Spanish", () => {
     await act(async () => {
       await setLocale("es");
     });
-    await pageAt(undefined, undefined, undefined, "Alertas");
+    await pageAt(undefined, undefined, undefined, "Sondas");
     expect(await screen.findByText("1 dirección no responde")).toBeInTheDocument();
     expect(screen.getByText("Página de estado")).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));

@@ -17,7 +17,7 @@ import { calendarWords } from "../cron/data";
 import { COVERAGE_RANK } from "./coverage";
 import type { Coverage, CoverageRow } from "./coverage";
 import type { BackupRow } from "./BackupsTable";
-import { OBJECT_ICONS } from "../../components/ui/objectIcons";
+import { OBJECT_ICONS, VERB_ICONS } from "../../components/ui/objectIcons";
 
 const STATE: Readonly<Record<Coverage, Status>> = { current: "running", stale: "warning", never: "warning" };
 
@@ -32,6 +32,8 @@ export interface CoverageActions {
   onBackUp: (domain: string) => void;
   onRestore: (backup: BackupRow) => void;
   onSchedule: (row: CoverageRow) => void;
+  /** Puts the newest backup's databases back into temporary ones, to know the backup restores. */
+  onTestRestore: (domain: string) => void;
 }
 
 function CoverageMenu({ row, actions }: { row: CoverageRow; actions: CoverageActions }) {
@@ -49,6 +51,11 @@ function CoverageMenu({ row, actions }: { row: CoverageRow; actions: CoverageAct
       {row.latest !== null ? (
         <MenuItem icon={<RotateCcw />} onClick={() => row.latest !== null && actions.onRestore(row.latest)}>
           {t("backups.coverage.actions.restoreLatest")}
+        </MenuItem>
+      ) : null}
+      {row.deployed && row.latest !== null ? (
+        <MenuItem icon={<VERB_ICONS.test />} onClick={() => actions.onTestRestore(row.domain)}>
+          {t("backups.coverage.actions.testRestore")}
         </MenuItem>
       ) : null}
       {row.deployed ? (

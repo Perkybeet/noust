@@ -80,6 +80,7 @@ export const backups: Catalog<typeof en> = {
     actions: {
       viewBackups: "Ver copias",
       restoreLatest: "Restaurar la última…",
+      testRestore: "Probar una restauración",
       schedule: "Programar copias…",
       editSchedule: "Editar programación…",
     },
@@ -206,16 +207,21 @@ export const backups: Catalog<typeof en> = {
 
   restoreDialog: {
     title: "Restaurar una copia de {domain}",
-    description: "Reemplaza los archivos de la aplicación, y sus bases de datos si la copia las tiene, con lo que contiene la copia. Todo lo escrito desde entonces se pierde.",
+    replaceNote: "Reemplaza los archivos de la aplicación, y sus bases de datos si la copia las tiene, con lo que contiene la copia. Lo que hay ahora se guarda hasta que la restauración haya salido bien. Todo lo escrito desde la copia se pierde.",
     source: "Copia {id}, hecha {when}.",
-    submit: "Restaurar",
-    restoreInto: "Restaurar en",
-    restoreIntoDescription: "Otro dominio restaura una copia allí y deja este como está.",
+    into: "Restaurar en",
+    intoNew: "Otro dominio",
+    intoNewHint: "Restaura una copia allí y deja este como está.",
+    intoReplace: "{domain}, sustituyendo lo que corre ahora",
+    intoReplaceHint: "Sus archivos se apartan antes y se devuelven si la restauración falla.",
+    newName: "Dominio donde restaurar",
+    newNameHelp: "El dominio de la aplicación que recibe la copia.",
+    nameInvalid: "Eso no es un dominio, por ejemplo tienda.example.com.",
+    actionReplace: "Restaurar sobre {domain}",
+    actionNew: "Restaurar una copia",
     restoreEnv: "Restaurar archivos .env",
     envFromArchive: "Desde la copia, reemplazando los que hay ahora.",
     verifyFirst: { label: "Comprobar antes su integridad", description: "Se niega a restaurar una copia dañada o manipulada." },
-    envKept: "Los archivos .env que hay ahora se conservan.",
-    envReplaced: "Los archivos .env que hay ahora también se sustituyen.",
   },
 
   restoreFromDestination: {

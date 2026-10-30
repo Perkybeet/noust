@@ -138,7 +138,8 @@ test("adding an SFTP destination lists it; one that cannot be reached says so in
   await refusal.getByRole("button", { name: "Keep it anyway" }).click();
   expect((await kept).postDataJSON()).toMatchObject({ name, backend: "sftp", encrypted: true, verify: false });
   await expect(dialog).toBeHidden();
-  await expect(toasts(page).getByText(`Backup destination created: ${name}`, { exact: true })).toBeVisible();
+  // The destination is in the list at once: nothing pops up, and a screen reader is told.
+  await expect(page.getByTestId("announcer-polite")).toHaveText(`Backup destination created: ${name}`);
 
   // Encrypted, so the key is shown once and kept on screen until the operator says it is saved.
   const key = page.getByRole("dialog", { name: `Encryption key for ${name}` });
@@ -195,7 +196,7 @@ test("browsing a destination lists its applications and backups, and restores on
   const restore = confirm.getByRole("button", { name: "Restore" });
   await expect(restore).toBeDisabled();
   // The folder is named after the application; the target offered is its domain.
-  await expect(confirm.getByLabel("Restore into")).toHaveValue("shop.example.net");
+  await expect(confirm.getByRole("combobox", { name: "Restore into" })).toContainText("shop.example.net, replacing what it runs now");
   // Replacing the .env files there now destroys them: an option that starts unchecked.
   await expect(confirm.getByRole("checkbox", { name: "Restore .env files" })).not.toBeChecked();
   await confirm.getByLabel(/to confirm$/).fill("shop.example.net");

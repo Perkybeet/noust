@@ -53,20 +53,34 @@ function alertItem(taken: boolean, by = "alice") {
   };
 }
 
+/** A probe that is down, as the server lists it too: which probes need somebody is the server's to say. */
+const PROBE_DOWN = {
+  id: "probe:blog",
+  subject: { kind: "probe", name: "blog" },
+  title: "blog",
+  severity: "fail",
+  reasons: [
+    {
+      kind: "probe",
+      severity: "fail",
+      code: "probe_down",
+      params: { probe: "blog", since: SINCE },
+      detail: "HTTP 503 Service Unavailable",
+      when: new Date(SINCE * 1000).toISOString(),
+      deployment_id: null,
+      actions: ["open_probes"],
+    },
+  ],
+};
+
 function overviewWithAlert(taken: boolean, by = "alice") {
-  return overviewFixture({ attention_total: 3, attention: [FAILED_APP, alertItem(taken, by), EXPIRING] });
+  return overviewFixture({ attention_total: 4, attention: [PROBE_DOWN, FAILED_APP, alertItem(taken, by), EXPIRING] });
 }
 
 function inboxRoutes(over: Record<string, RouteHandler> = {}): Record<string, RouteHandler> {
   return {
     ...signedInRoutes(),
     "GET /api/overview": () => json(200, overviewWithAlert(false)),
-    "GET /api/probes": () =>
-      json(200, {
-        items: [{ name: "blog", enabled: true, address: "https://blog.example.com", status: { state: "down", since: SINCE, last_error: "HTTP 503 Service Unavailable", failures: 3 } }],
-        down: 1,
-        status_page: {},
-      }),
     "GET /api/approvals": () => json(200, { approvals: [], pending: 0 }),
     ...over,
   };
@@ -107,7 +121,7 @@ afterEach(() => {
 
 describe("the inbox", () => {
   it("counts what needs the operator in the bell, worst first, from the server's list and from what the console adds", async () => {
-    fakeBackend(inboxRoutes());
+    const backend = fakeBackend(inboxRoutes());
     const { user } = await openBell("Inbox, 4 things need you");
     const panel = await screen.findByRole("dialog", { name: "Inbox" });
     const rows = await within(panel).findAllByRole("listitem");
@@ -127,6 +141,8 @@ describe("the inbox", () => {
     expect(within(at(rows, 3)).getByRole("link", { name: "Certificate of example.com" })).toHaveAttribute("href", "/domains?q=example.com");
     expect(within(panel).getByRole("link", { name: "Open activity" })).toHaveAttribute("href", "/activity");
     await expectNoAxeViolations(panel);
+    // The probe that is down came with the server's own list, as the alert did: the console asks nothing else for it.
+    expect(backend.callsTo("GET /api/probes")).toHaveLength(0);
     await user.keyboard("{Escape}");
   });
 
@@ -181,7 +197,7 @@ describe("the inbox", () => {
   });
 
   it("says nothing needs the operator when nothing does, and offers the history", async () => {
-    fakeBackend(inboxRoutes({ "GET /api/overview": () => json(200, overviewFixture()), "GET /api/probes": () => json(200, { items: [], down: 0, status_page: {} }) }));
+    fakeBackend(inboxRoutes({ "GET /api/overview": () => json(200, overviewFixture()) }));
     await openBell("Inbox, nothing needs you");
     const panel = await screen.findByRole("dialog", { name: "Inbox" });
     expect(await within(panel).findByText("Nothing needs you")).toBeInTheDocument();

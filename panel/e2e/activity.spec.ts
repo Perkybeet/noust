@@ -11,7 +11,7 @@
 import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
 
 test("merges the jobs history and the audit log, newest first, including this sign-in", async ({ page, consoleServer }) => {
-  // Everything: the page opens on operations, and a sign-in is access.
+  // Everything: the page opens on the changes, and a sign-in is access.
   await signIn(page, consoleServer, "/activity?kind=all");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Activity");
 
@@ -40,8 +40,8 @@ test("merges the jobs history and the audit log, newest first, including this si
   await settle(page);
   await expectNoA11yViolations(page, "the activity timeline");
 
-  // Operations, the page's own view, leaves the sign-ins out and keeps the jobs.
-  await page.getByRole("radio", { name: "Operations" }).click();
+  // Changes, the page's own view, leaves the sign-ins out and keeps the jobs.
+  await page.getByRole("radio", { name: "Changes" }).click();
   await expect(page).toHaveURL(/\/activity$/);
   await expect(table.getByText("Sign-in", { exact: true })).toHaveCount(0);
   await expect(table.getByRole("row").filter({ has: page.getByText("shop.example.net") }).first()).toBeVisible();
