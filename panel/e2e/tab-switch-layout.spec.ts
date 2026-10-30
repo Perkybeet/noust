@@ -62,7 +62,8 @@ const PAGES: readonly TabbedPage[] = [
     name: "domains and certificates",
     long: "/domains/sites",
     short: (page) => page.getByRole("navigation", { name: "Domains sections" }).getByRole("link", { name: /^Certificates/ }),
-    shortUrl: /\/domains$/,
+    // Certificates is a section of its own now (Domains, Sites, Certificates, Tunnels...), not the Domains list.
+    shortUrl: /\/domains\/certificates$/,
   },
 ];
 

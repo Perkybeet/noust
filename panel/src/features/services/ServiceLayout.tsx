@@ -127,7 +127,10 @@ export function ServiceLayout({ name }: { name: string }) {
               {service.description}
             </Mono>
           ) : record.loading ? (
-            <Skeleton className="h-4 w-64 max-w-full" />
+            // A line as tall as the one it stands for (a text of 13px is 20px tall), so its arrival moves nothing.
+            <span aria-hidden="true" className="flex h-5 items-center">
+              <Skeleton className="h-3 w-64 max-w-full" />
+            </span>
           ) : undefined,
           ...(managed
             ? {
