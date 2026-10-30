@@ -1280,6 +1280,44 @@ def test_a_setting_made_of_other_variables_is_a_value_filled_in_at_the_install(
     assert "secret" not in declared["LOG_FORMAT"]
 
 
+def test_a_credential_written_as_the_default_of_a_reference_becomes_a_generated_secret(
+    tool: ModuleType,
+) -> None:
+    """Lavalink's `${LAVALINK_SERVER_PASSWORD:-youshallnotpass}` shipped a password everybody knows."""
+    draft = draft_of(tool, {"web": {"image": "o/app:1.0"}}, ("web", 80))
+
+    declared = tool.declare_variables(
+        draft,
+        "a: ${LAVALINK_SERVER_PASSWORD:-youshallnotpass}\n"
+        "b: ${TOKEN_TTL:-3600}\n"
+        "c: ${SECRET_FILE:-/run/secrets/x}\n"
+        "d: ${API_KEY:-}\n"
+        "e: ${SERVER_PORT:-2333}\n",
+    )
+
+    assert set(declared) == {"LAVALINK_SERVER_PASSWORD"}
+    assert declared["LAVALINK_SERVER_PASSWORD"]["generate"] == "password32"
+    assert declared["LAVALINK_SERVER_PASSWORD"]["secret"] is True
+
+
+def test_a_health_check_reads_the_containers_own_variable_not_composes(tool: ModuleType) -> None:
+    """Portabase's `pg_isready -U ${POSTGRES_USER}` asked for an empty user: the database never got healthy."""
+    draft = draft_of(tool, {"web": {"image": "o/app:1.0"}}, ("web", 80))
+    draft.variables = {"POSTGRES_DB": {"origin": "template", "secret": False, "value": "app"}}
+    spec = {
+        "environment": {"POSTGRES_USER": "${DB_USER}", "POSTGRES_DB": "${POSTGRES_DB}"},
+        "healthcheck": {
+            "test": ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h ${OTHER}"]
+        },
+    }
+
+    tool.container_env_in_healthcheck(draft, spec)
+
+    assert spec["healthcheck"]["test"][1] == (
+        "pg_isready -U $${POSTGRES_USER} -d ${POSTGRES_DB} -h ${OTHER}"
+    )
+
+
 def test_what_follows_a_hash_in_a_template_s_env_line_is_its_comment_not_the_default(
     tool: ModuleType,
 ) -> None:

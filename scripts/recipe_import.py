@@ -810,6 +810,42 @@ def shell_dollars(spec: dict[str, Any]) -> None:
         check["test"] = _escaped(check["test"])
 
 
+def container_env_in_healthcheck(draft: Draft, spec: dict[str, Any]) -> None:
+    """
+    Write ``$${NAME}`` for a variable of the container's own that a health check reads.
+
+    A check such as ``pg_isready -U ${POSTGRES_USER}`` runs in the container, where the service's
+    environment sets ``POSTGRES_USER``; Compose would fill ``${POSTGRES_USER}`` in itself, from a
+    variable nobody declared, and the check would ask for an empty user (Portabase's database never
+    became healthy). A name the template does declare as a variable stays Compose's.
+
+    Args:
+        draft: The draft, whose declared variables are known.
+        spec: One service, changed in place.
+    """
+    check = spec.get("healthcheck")
+    if not isinstance(check, dict):
+        return
+    own = set(as_environment(spec.get("environment")))
+
+    def escape(text: str) -> str:
+        return re.sub(
+            r"(?<!\$)\$\{(\w+)\}",
+            lambda found: (
+                "$${" + found.group(1) + "}"
+                if found.group(1) in own and found.group(1) not in draft.variables
+                else found.group(0)
+            ),
+            text,
+        )
+
+    test = check.get("test")
+    if isinstance(test, str):
+        check["test"] = escape(test)
+    elif isinstance(test, list):
+        check["test"] = [escape(item) if isinstance(item, str) else item for item in test]
+
+
 #: The stack's own PORT (the host's port nginx proxies to) as a template hands it to an application.
 _CONTAINER_PORT = re.compile(r"\$\{PORT(?::?-[0-9]+)?\}")
 
@@ -840,6 +876,7 @@ def clean_services(draft: Draft) -> None:
             del spec[dropped]
         use_stack_env(draft, spec)
         shell_dollars(spec)
+        container_env_in_healthcheck(draft, spec)
         unknown = set(spec) - KEPT_KEYS
         if unknown:
             raise Skip("service-keys", f"service {key}: {', '.join(sorted(unknown))}")
@@ -1441,7 +1478,11 @@ def declare_variables(draft: Draft, text: str) -> dict[str, dict[str, Any]]:
             else:
                 entry = {"default": text}
         elif reference.operator in ("-", ":-"):
-            continue
+            if is_default_credential(name, reference.argument):
+                # `${LAVALINK_SERVER_PASSWORD:-youshallnotpass}`: the install makes its own.
+                entry = {"generate": "password32"}
+            else:
+                continue
         elif reference.operator in ("?", ":?"):
             entry = {"required": True}
         else:
@@ -1453,6 +1494,27 @@ def declare_variables(draft: Draft, text: str) -> dict[str, dict[str, Any]]:
         entry["description"] = describe_variable(name, entry)
         found[name] = entry
     return found
+
+
+def is_default_credential(name: str, text: str) -> bool:
+    """
+    Tell a credential written as the default of a reference (``${NAME:-secret}``).
+
+    Args:
+        name: The variable's name.
+        text: What the reference gives when the variable is unset.
+
+    Returns:
+        True when the name says it holds a credential and the default is a literal one: not empty,
+        not a switch, a duration, a path or an address.
+    """
+    return bool(
+        text
+        and SECRET_NAME.search(name)
+        and not NOT_A_CREDENTIAL.match(text)
+        and not text.startswith(("/", "http://", "https://", "$"))
+        and "${" not in text
+    )
 
 
 def compose_value(draft: Draft, name: str, found: dict[str, dict[str, Any]]) -> str | None:
