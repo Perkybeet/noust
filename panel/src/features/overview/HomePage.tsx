@@ -123,9 +123,9 @@ function Home({ scope, home, charts }: { scope: HomeScope; home: HomeData; chart
     );
   }
 
-  // What stands beside the fleet and under it is drawn when the fleet is: the fleet's own skeleton holds the
-  // place of its courses, and nothing below it is there to be moved down when they arrive.
-  const loaded = home.servers !== undefined;
+  // What is under the attention cards, and what stands beside the fleet and under it, is drawn once the cards and the
+  // courses are: until then their skeletons are all there is below the title, so nothing is moved down when they arrive.
+  const loaded = home.servers !== undefined && home.entries !== undefined;
   return (
     <DashboardPage
       header={header}
@@ -137,17 +137,17 @@ function Home({ scope, home, charts }: { scope: HomeScope; home: HomeData; chart
           <AttentionBoard entries={home.entries} total={home.total} showServer={home.several} />
         </div>
       }
-      fleet={
-        <div className="flex min-w-0 flex-col gap-8">
-          <HomeFleet servers={home.servers} courses={courses} allServers={scope === "server" && hasFleet} />
-          {/* Under the courses, which are the page's subject and never as tall as what is beside them: the four things a person comes to do. */}
-          {loaded ? <QuickActions /> : null}
-          {/* Which server is under the most load: the question a person with several asks next, answered under the courses. */}
-          {scope === "fleet" && home.several ? <FleetMetricsCard /> : null}
-        </div>
-      }
       {...(loaded
         ? {
+            fleet: (
+              <div className="flex min-w-0 flex-col gap-8">
+                <HomeFleet servers={home.servers} courses={courses} allServers={scope === "server" && hasFleet} />
+                {/* Under the courses, which are the page's subject and never as tall as what is beside them: the four things a person comes to do. */}
+                <QuickActions />
+                {/* Which server is under the most load: the question a person with several asks next, answered under the courses. */}
+                {scope === "fleet" && home.several ? <FleetMetricsCard /> : null}
+              </div>
+            ),
             side: <HomeActivity lines={home.lines} />,
           }
         : {})}
