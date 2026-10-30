@@ -1,5 +1,5 @@
 /**
- * The network pages against the real backend: the Domains page's DNS, Tunnels and Ports tabs are
+ * The network pages against the real backend: the Domains page's DNS, Tunnels and Published ports tabs are
  * one click apart and each says what is missing in the server's own words (the sandbox has no
  * DNS account, no cloudflared and an nginx without the stream module), and an application's
  * Access settings are two clicks from its Settings. Runs in both themes, with the CSP and
@@ -8,10 +8,10 @@
 
 import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
 
-test("the DNS, Tunnels and Ports tabs are one click from the certificates, and each says what it holds", async ({ page, consoleServer }) => {
+test("the DNS, Tunnels and Published ports tabs are one click from the domains, and each says what it holds", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/domains");
   const tabs = page.getByRole("navigation", { name: "Domains sections" });
-  await expect(tabs.getByRole("link", { name: /^Certificates/ })).toHaveAttribute("aria-current", "page");
+  await expect(tabs.getByRole("link", { name: /^Domains/ })).toHaveAttribute("aria-current", "page");
 
   await tabs.getByRole("link", { name: /^DNS/ }).click();
   await expect(page).toHaveURL(/\/domains\/dns$/);
@@ -21,19 +21,18 @@ test("the DNS, Tunnels and Ports tabs are one click from the certificates, and e
 
   await tabs.getByRole("link", { name: /^Tunnels/ }).click();
   await expect(page).toHaveURL(/\/domains\/tunnels$/);
-  // The sandbox has no cloudflared: the page says so, and offers no way to create a tunnel.
-  await expect(page.getByText("cloudflared is not installed")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Create a tunnel" }).first()).toBeDisabled();
+  // The sandbox has no cloudflared: the page says what a tunnel needs, in the console's words, and offers to install it.
+  await expect(page.getByText("It also needs cloudflared, the connector, which is not installed.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Install cloudflared" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create a tunnel" })).toHaveCount(0);
   await settle(page);
   await expectNoA11yViolations(page, "the Tunnels tab");
 
-  // The ports are the server's: Network and ports, where the old address of this tab leads.
-  await page.goto("/domains/ports");
-  await expect(page).toHaveURL(/\/server\/network$/);
-  await page.getByRole("radio", { name: "Published ports" }).click();
+  await tabs.getByRole("link", { name: /^Published ports/ }).click();
+  await expect(page).toHaveURL(/\/domains\/ports$/);
   await expect(page.getByRole("button", { name: "Publish a port" }).first()).toBeVisible();
   await settle(page);
-  await expectNoA11yViolations(page, "the published ports");
+  await expectNoA11yViolations(page, "the Published ports tab");
 });
 
 test("an application's Access settings are two clicks from its Settings", async ({ page, consoleServer }) => {
@@ -49,7 +48,7 @@ test("an application's Access settings are two clicks from its Settings", async 
 });
 
 test("the private certificate authority is one menu away from the certificates, and says what it is before it is made", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/domains");
+  await signIn(page, consoleServer, "/domains/certificates");
   await page.getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Private authority" }).click();
 

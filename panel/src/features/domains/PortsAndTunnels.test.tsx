@@ -5,7 +5,6 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
-import { serverRoutes } from "../server/testing";
 
 beforeEach(() => {
   vi.stubGlobal("matchMedia", (query: string) => ({
@@ -64,7 +63,6 @@ const HOME = {
 function network(path: string, routes: Record<string, RouteHandler>) {
   const backend = fakeBackend({
     ...signedInRoutes(),
-    ...serverRoutes(),
     "GET /api/certs": () => json(200, { certificates: [], total: 0 }),
     "GET /api/sites": () => json(200, { sites: [], total: 0, webserver: "nginx" }),
     "GET /api/jobs/active": () => json(200, { jobs: [], total: 0, active: 0 }),
@@ -77,10 +75,9 @@ function network(path: string, routes: Record<string, RouteHandler>) {
   return { ...harness, backend };
 }
 
-// 4.1: the ports a server publishes are Network and ports' (a view of that section), and /domains/ports goes there.
-describe("the published ports view", () => {
+describe("the Ports tab", () => {
   it("lists what is published, from where, and the state of each", { timeout: 20_000 }, async () => {
-    network("/server/network?view=published", { "GET /api/streams": () => json(200, { exposures: [MINECRAFT], support: STREAM_SUPPORT }) });
+    network("/domains/ports", { "GET /api/streams": () => json(200, { exposures: [MINECRAFT], support: STREAM_SUPPORT }) });
 
     const table = await screen.findByRole("region", { name: "Published TCP and UDP ports" });
     const row = (await within(table).findByText("minecraft")).closest("tr");
@@ -93,14 +90,14 @@ describe("the published ports view", () => {
   });
 
   it("says what a port is for when none is published", async () => {
-    network("/server/network?view=published", {});
+    network("/domains/ports", {});
 
     expect(await screen.findByText("No TCP or UDP ports published")).toBeInTheDocument();
     expect(screen.getByText("noust stream add minecraft --port 25565 --to 25565")).toBeInTheDocument();
   });
 
   it("shows what is missing, in the server's words, and offers no way to publish until it is there", async () => {
-    network("/server/network?view=published", {
+    network("/domains/ports", {
       "GET /api/streams": () =>
         json(200, {
           exposures: [],
@@ -124,7 +121,7 @@ describe("the published ports view", () => {
       warnings: ["Nothing listens on 127.0.0.1:25565 yet"],
       firewall: [{ port: 25565, proto: "tcp", source: "203.0.113.0/24" }],
     };
-    const { user, backend } = network("/server/network?view=published", {
+    const { user, backend } = network("/domains/ports", {
       "GET /api/streams": () => json(200, { exposures: published, support: STREAM_SUPPORT }),
       "POST /api/streams/plan": () => json(200, plan),
       "POST /api/streams": () => {
@@ -165,7 +162,7 @@ describe("the published ports view", () => {
   });
 
   it("changing a field after the check asks again instead of publishing what was not checked", async () => {
-    const { user, backend } = network("/server/network?view=published", {
+    const { user, backend } = network("/domains/ports", {
       "POST /api/streams/plan": () =>
         json(200, { exposure: MINECRAFT, config: "", file: "/x.conf", loader: "present", support: STREAM_SUPPORT, warnings: [], firewall: [] }),
     });
@@ -186,7 +183,7 @@ describe("the published ports view", () => {
   });
 
   it("shows a port that cannot be had beside the field, in the server's words", async () => {
-    const { user } = network("/server/network?view=published", {
+    const { user } = network("/domains/ports", {
       "POST /api/streams/plan": () => problem(400, "validation_error", "Port 443 is the web server's", { fields: { listen_port: "Port 443 is the web server's" } }),
     });
 
@@ -201,7 +198,7 @@ describe("the published ports view", () => {
   });
 
   it("shows nginx's own words when it refuses the configuration", async () => {
-    const { user } = network("/server/network?view=published", {
+    const { user } = network("/domains/ports", {
       "POST /api/streams/plan": () =>
         json(200, { exposure: MINECRAFT, config: "", file: "/x.conf", loader: "present", support: STREAM_SUPPORT, warnings: [], firewall: [] }),
       "POST /api/streams": () =>
@@ -223,7 +220,7 @@ describe("the published ports view", () => {
   });
 
   it("closes a port after asking, and says the rules that were already there stay", async () => {
-    const { user, backend } = network("/server/network?view=published", {
+    const { user, backend } = network("/domains/ports", {
       "GET /api/streams": () => json(200, { exposures: [MINECRAFT], support: STREAM_SUPPORT }),
       "DELETE /api/streams/minecraft": () => json(200, { exposure: MINECRAFT, warnings: [], firewall: "" }),
     });
@@ -262,18 +259,49 @@ describe("the Tunnels tab", () => {
     expect(screen.getByText("noust tunnel create home")).toBeInTheDocument();
   });
 
-  it("names where the connector comes from when it is not installed, and offers no way to create one", async () => {
+  it("says what is missing as a state of the page, in the console's words, and offers to install the connector", { timeout: 20_000 }, async () => {
+    let installed = 0;
+    const { user } = network("/domains/tunnels", {
+      "GET /api/tunnels": () =>
+        json(200, {
+          tunnels: [],
+          support: {
+            available: false,
+            cloudflared: null,
+            sealed: false,
+            accounts: ["cf"],
+            problem: "cloudflared is not installed",
+            hint: "English hint from the server",
+            coded: { code: "tunnels.cloudflared_missing", params: { url: "https://pkg.cloudflare.com/" } },
+          },
+        }),
+      "POST /api/tunnels/install-cloudflared": () => {
+        installed += 1;
+        return json(202, { job_id: "j9", status: "queued", message: "queued" });
+      },
+    });
+
+    // The page says what a tunnel is and what this server lacks, once, with the action that fixes it: not a form's error.
+    expect(await screen.findByText("No tunnels yet")).toBeInTheDocument();
+    expect(screen.getByText("It also needs cloudflared, the connector, which is not installed.")).toBeInTheDocument();
+    expect(screen.queryByText("English hint from the server")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Create a tunnel" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Install cloudflared" }));
+    await waitFor(() => expect(installed).toBe(1));
+    expect(await screen.findByText("Installing cloudflared")).toBeInTheDocument();
+    await expectNoAxeViolations(document.body);
+  });
+
+  it("leads to the DNS section when there is no Cloudflare account yet", async () => {
     network("/domains/tunnels", {
       "GET /api/tunnels": () =>
         json(200, {
           tunnels: [],
-          support: { available: false, cloudflared: null, sealed: false, accounts: ["cf"], problem: "cloudflared is not installed", hint: "Install it from Cloudflare's own package repository, https://pkg.cloudflare.com/" },
+          support: { available: false, cloudflared: "/usr/bin/cloudflared", sealed: false, accounts: [], problem: "There is no Cloudflare account", hint: null, coded: { code: "tunnels.no_account", params: {} } },
         }),
     });
-
-    expect(await screen.findByText("cloudflared is not installed")).toBeInTheDocument();
-    expect(screen.getByText(/https:\/\/pkg\.cloudflare\.com\//)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create a tunnel" })).toBeDisabled();
+    expect(await screen.findByText("It also needs a Cloudflare account to manage it.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Add a Cloudflare account" })).toHaveAttribute("href", "/domains/dns");
   });
 
   it("creates a tunnel through the only Cloudflare account", async () => {
@@ -281,6 +309,8 @@ describe("the Tunnels tab", () => {
       "POST /api/tunnels": () => json(201, { tunnel: HOME, warnings: [], released: [] }),
     });
 
+    // The page offers the first tunnel once it knows there is none: the header gives way to the empty state.
+    await screen.findByText("No tunnels yet");
     await user.click(first(await screen.findAllByRole("button", { name: "Create a tunnel" })));
     const dialog = await screen.findByRole("dialog", { name: "Create a tunnel" });
     await user.type(within(dialog).getByLabelText("Name"), "home");

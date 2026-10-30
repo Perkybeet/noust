@@ -57,7 +57,7 @@ const VIEW_PATHS = {
   summary: "/api/fleet/summary",
   servers: "/api/fleet/servers",
   apps: "/api/fleet/apps",
-  certificates: "/api/fleet/certificates",
+  certificates: "/api/views/certificates",
   backups: "/api/fleet/backups",
   updates: "/api/fleet/updates",
   activity: "/api/fleet/activity",

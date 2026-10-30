@@ -185,6 +185,7 @@ export const nav = {
     recipesInstalled: "Installed recipes",
     projects: "Projects",
     domains: "Domains and certificates",
+    webServerSites: "Web server sites",
     notifications: "Notifications",
     alerts: "Alerts",
     console: "Console access",

@@ -37,9 +37,9 @@ export const serverPorts = {
   },
   viewsLabel: "Network view",
   views: {
-    ports: "Ports",
+    ports: "Listening ports",
     firewall: "Firewall",
-    published: "Published ports",
     interfaces: "Interfaces",
   },
+  publishedElsewhere: "An application reached on a port of its own, and not as a website, is published in {link}.",
 } as const;

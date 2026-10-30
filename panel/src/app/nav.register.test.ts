@@ -479,7 +479,7 @@ describe("7. what a role cannot see is not found", () => {
   });
 
   it("leaves a tab out of its strip, rather than disabling it", () => {
-    expect(tabsById("domains", { can: () => false }).map((tab) => tab.to)).toEqual(["/domains", "/domains/sites"]);
+    expect(tabsById("domains", { can: () => false }).map((tab) => tab.to)).toEqual(["/domains", "/domains/sites", "/domains/certificates"]);
     expect(tabsById("domains", { can: () => true }).map((tab) => tab.to)).toContain("/domains/dns");
   });
 
@@ -592,7 +592,7 @@ describe("what the pages draw from the register", () => {
     expect(paths(tabsOf(FLEET_SERVERS_SCREENS))).toEqual(["/fleet/servers", "/fleet/updates"]);
     expect(paths(tabsById("server"))).toEqual(["/server", "/server/system", "/server/security", "/server/network", "/server/services", "/server/webserver", "/server/files", "/server/central"]);
     expect(paths(tabsById("backups"))).toEqual(["/backups", "/backups/schedules", "/backups/volumes", "/backups/noust", "/backups/destinations"]);
-    expect(paths(tabsById("domains"))).toEqual(["/domains", "/domains/sites", "/domains/dns", "/domains/tunnels"]);
+    expect(paths(tabsById("domains"))).toEqual(["/domains", "/domains/sites", "/domains/certificates", "/domains/dns", "/domains/tunnels", "/domains/ports"]);
     expect(paths(tabsById("apps"))).toEqual(["/apps", "/projects"]);
     expect(paths(tabsById("catalog"))).toEqual(["/catalog", "/catalog/installed"]);
     expect(paths(tabsById("alerts"))).toEqual(["/alerts", "/alerts/probes"]);
@@ -602,7 +602,7 @@ describe("what the pages draw from the register", () => {
 
   it("keeps the exact tabs that must not stay lit beneath them", () => {
     const exact = (tabs: readonly { to: string; exact?: boolean }[]) => tabs.filter((tab) => tab.exact === true).map((tab) => tab.to);
-    expect(exact(tabsById("domains"))).toEqual(["/domains", "/domains/sites", "/domains/dns", "/domains/tunnels"]);
+    expect(exact(tabsById("domains"))).toEqual(["/domains", "/domains/sites", "/domains/certificates", "/domains/tunnels", "/domains/ports"]);
     expect(exact(tabsById("backups"))).toEqual(["/backups"]);
     expect(exact(tabsById("database"))).toEqual(["/databases/$engine/$name"]);
   });

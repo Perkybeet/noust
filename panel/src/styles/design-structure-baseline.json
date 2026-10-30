@@ -154,6 +154,7 @@
       "features/domains/InternalAuthorityPanels.tsx": 2,
       "features/domains/SiteConfigPage.tsx": 2,
       "features/domains/SitesPage.tsx": 2,
+      "features/domains/StreamsPage.tsx": 2,
       "features/domains/TunnelsPage.tsx": 4,
       "features/domains/UnknownHostsCard.tsx": 2,
       "features/domains/UploadCertificateDialog.tsx": 1,

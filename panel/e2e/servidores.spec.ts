@@ -48,15 +48,13 @@ test("the 4.0 addresses of a server's tabs go to where each thing is now", async
   await expect(page).toHaveURL(/\/server\/system$/);
   await page.goto("/server/storage");
   await expect(page).toHaveURL(/\/server\/files$/);
-  await page.goto("/domains/ports");
-  await expect(page).toHaveURL(/\/server\/network$/);
   await page.goto("/server/security?view=firewall");
   await expect(page).toHaveURL(/\/server\/network\?view=firewall$/);
   await page.goto("/server/system?view=network");
   await expect(page).toHaveURL(/\/server\/network$/);
 });
 
-test("Network and ports: who uses a port, a free one is offered to open, and the firewall and the published ports are views of it", async ({ page, consoleServer }) => {
+test("Network and ports: who uses a port, a free one is offered to open, the firewall is a view of it, and Domains has the ports an application is published on", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/server/network");
   const claims = (await (await page.request.get("/api/server/ports")).json()) as { claims: { port: number; protocol: string; kind: string; owner: string }[] };
   const application = claims.claims.find((claim) => claim.kind === "app");
@@ -80,10 +78,14 @@ test("Network and ports: who uses a port, a free one is offered to open, and the
   await page.getByRole("radio", { name: "Firewall" }).click();
   await expect(page).toHaveURL(/view=firewall/);
   await expect(page.getByRole("region", { name: "Ports that listen" })).toBeVisible();
-  await page.getByRole("radio", { name: "Published ports" }).click();
-  await expect(page.getByRole("button", { name: "Publish a port" })).toBeVisible();
   await page.getByRole("radio", { name: "Interfaces" }).click();
   await expect(page.getByRole("table", { name: "Network interfaces" })).toBeVisible();
+  // Each side leads to the other with one line: this is where what listens is, Domains is where an application is published.
+  await page.getByRole("link", { name: "Published ports" }).click();
+  await expect(page).toHaveURL(/\/domains\/ports$/);
+  await expect(page.getByRole("button", { name: "Publish a port" }).first()).toBeVisible();
+  await page.getByRole("main").getByRole("link", { name: "Network and ports" }).click();
+  await expect(page).toHaveURL(/\/server\/network$/);
 });
 
 test("Web server: both servers and what is behind each, and the move says what it would do before it asks for anything", async ({ page, consoleServer }) => {

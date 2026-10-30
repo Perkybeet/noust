@@ -90,7 +90,7 @@ describe("resourceCommands", () => {
     byGroup["Domains"]?.run();
     expect(navigate).toHaveBeenLastCalledWith({ to: "/domains/sites/$site", params: { site: "shop.example.com" } });
     byGroup["Certificates"]?.run();
-    expect(navigate).toHaveBeenLastCalledWith({ to: "/domains", search: { q: "shop.example.com" } });
+    expect(navigate).toHaveBeenLastCalledWith({ to: "/domains/certificates", search: { q: "shop.example.com" } });
     byGroup["Services"]?.run();
     expect(navigate).toHaveBeenLastCalledWith({ to: "/server/services/$name", params: { name: "noust-web" } });
     byGroup["Deployments"]?.run();

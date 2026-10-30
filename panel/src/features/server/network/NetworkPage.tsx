@@ -1,8 +1,9 @@
 /**
  * Network and ports (4.1, task 11: open a port, or see who uses one). What is open to the network
- * and who holds each port is the first view; the firewall that decides who may reach them, the
- * ports published in front of a service that is not a website, and the interfaces are the others,
- * each a URL (`?view=`). The question "who uses port 5432?" is the search box of the first one.
+ * and who holds each port is the first view; the firewall that decides who may reach them and the
+ * interfaces are the others, each a URL (`?view=`). The question "who uses port 5432?" is the search
+ * box of the first one. Publishing an application on a port of its own is a way to reach it, so it is
+ * Domains' (Published ports), and a line here leads there.
  */
 
 import { useQuery } from "@tanstack/react-query";
@@ -20,7 +21,6 @@ import { AddRuleDialog, FirewallView } from "../security/FirewallView";
 import { TabToolbar } from "../TabToolbar";
 import { InterfacesView } from "./InterfacesView";
 import { PortsView } from "./PortsView";
-import { PublishedPorts } from "./PublishedPorts";
 import type { NetworkSearch, NetworkView } from "./data";
 
 export interface NetworkPageProps {
@@ -50,6 +50,15 @@ function Network({ search, onSearchChange }: NetworkPageProps) {
             }
           : {})}
       />
+      <p className="max-w-measure text-13 text-pretty text-fg-muted">
+        {t.rich("serverPorts.publishedElsewhere", {
+          link: (
+            <TextLink key="link" to="/domains/ports" size="inline">
+              {t("domains.sections.ports.tab")}
+            </TextLink>
+          ),
+        })}
+      </p>
       {view === "ports" && firewall.data !== undefined && !active && firewall.data.firewall.backend !== "none" ? (
         <Notice tone="warning" title={t("serverPorts.firewallOff.title")}>
           <p>
@@ -67,15 +76,12 @@ function Network({ search, onSearchChange }: NetworkPageProps) {
         options={[
           { value: "ports", label: t("serverPorts.views.ports") },
           { value: "firewall", label: t("serverPorts.views.firewall") },
-          { value: "published", label: t("serverPorts.views.published") },
           { value: "interfaces", label: t("serverPorts.views.interfaces") },
         ]}
         className="self-start"
       />
       {view === "firewall" ? (
         <FirewallView />
-      ) : view === "published" ? (
-        <PublishedPorts />
       ) : view === "interfaces" ? (
         <InterfacesView />
       ) : (

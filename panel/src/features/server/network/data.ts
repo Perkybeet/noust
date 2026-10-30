@@ -6,7 +6,7 @@
 
 import type { ListeningPort, PortClaim } from "../queries";
 
-export const NETWORK_VIEWS = ["ports", "firewall", "published", "interfaces"] as const;
+export const NETWORK_VIEWS = ["ports", "firewall", "interfaces"] as const;
 export type NetworkView = (typeof NETWORK_VIEWS)[number];
 
 export interface NetworkSearch {

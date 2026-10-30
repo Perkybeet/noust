@@ -39,9 +39,9 @@ export const serverPorts: Catalog<typeof en> = {
   },
   viewsLabel: "Vista de red",
   views: {
-    ports: "Puertos",
+    ports: "Puertos en escucha",
     firewall: "Cortafuegos",
-    published: "Puertos publicados",
     interfaces: "Interfaces",
   },
+  publishedElsewhere: "Una aplicación a la que se llega por un puerto propio, y no como página web, se publica en {link}.",
 };

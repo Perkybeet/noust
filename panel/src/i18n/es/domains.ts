@@ -22,10 +22,77 @@ export const domains: Catalog<typeof en> = {
   theSite: "El sitio",
 
   page: {
-    description: "Cada certificado HTTPS de este servidor y los sitios del servidor web que responden por cada nombre.",
     tabsLabel: "Secciones de Dominios",
-    certificatesTab: "Certificados",
-    sitesTab: "Sitios del servidor web",
+  },
+
+  /** Each section of the Domains area: its tab, its title (never the area's name again) and its one sentence. */
+  sections: {
+    domains: {
+      tab: "Dominios",
+      title: "Dominios",
+      description: "Los nombres en los que responden tus aplicaciones y si cada uno tiene HTTPS.",
+      keywords: "nombres hosts https ssl añadir dominio alias redirección",
+    },
+    sites: {
+      tab: "Sitios",
+      title: "Sitios",
+      description: "El archivo del servidor web de cada nombre, escrito por Noust o a mano.",
+      keywords: "servidor web nginx apache vhost configuración",
+    },
+    certificates: {
+      tab: "Certificados",
+      title: "Certificados",
+      description: "Todos los certificados HTTPS, empezando por el que antes caduca.",
+      keywords: "ssl tls https certbot lets encrypt renovar caducar emitir subir",
+    },
+    dns: {
+      tab: "DNS",
+      title: "DNS",
+      description: "Donde Noust escribe los registros de tus dominios, o responde por ellos él mismo.",
+      keywords: "registros proveedores cloudflare ionos route53 servidor de nombres zonas dnssec",
+    },
+    tunnels: {
+      tab: "Túneles",
+      title: "Túneles",
+      description: "Llega a una aplicación a través de Cloudflare, sin dirección pública ni puerto abierto.",
+      keywords: "cloudflare cloudflared nat servidor de casa",
+    },
+    ports: {
+      tab: "Puertos publicados",
+      title: "Puertos publicados",
+      description: "Los puertos TCP y UDP que publica nginx, para lo que no es una página web.",
+      keywords: "tcp udp stream servidor de juegos minecraft publicar un puerto llegar a una aplicación por un puerto",
+    },
+  },
+
+  /** The first section: one row for each name the server answers on. */
+  domainsTab: {
+    nameColumn: "Dominio",
+    httpsColumn: "HTTPS",
+    appColumn: "Aplicación",
+    siteColumn: "Sitio",
+    httpsElsewhere: "HTTPS",
+    noHttps: "Sin HTTPS",
+    add: "Añadir dominio",
+    emptyTitle: "Aún no hay dominios",
+    emptyDescription: "Un dominio es un nombre en el que responde tu aplicación. Añade uno y Noust comprueba a dónde apunta y le consigue el certificado.",
+    couldNotList: "No se han podido listar los dominios",
+    certificatesFailed: "No se han podido leer los certificados, así que no se muestra el HTTPS",
+    tableCaption: "Dominios",
+    tableCaptionFiltered: "Dominios que coinciden con la búsqueda",
+    noMatch: "Ningún dominio coincide",
+    openApp: "Abrir la aplicación",
+    openSite: "Abrir el sitio",
+    addedPlain: "{name} añadido a {app} sin HTTPS",
+    filterAriaLabel: "Filtrar dominios",
+    filterByNameAriaLabel: "Filtrar dominios por nombre",
+    count: { one: "{count} dominio", other: "{count} dominios" },
+    countFiltered: "{shown} de {total} dominios",
+    job: {
+      running: "Consiguiendo el certificado del nombre nuevo",
+      done: "El certificado cubre el nombre nuevo",
+      failed: "No se ha emitido el certificado",
+    },
   },
 
   appTab: {
@@ -239,6 +306,12 @@ export const domains: Catalog<typeof en> = {
     redirectDescription: "Envía a los visitantes a {app} con una redirección permanente (301).",
     roleLegend: "Rol",
     addDialogTitle: "Añadir un dominio a {app}",
+    addDialogTitleAny: "Añadir un dominio",
+    moreOptions: "Más opciones",
+    appLabel: "Aplicación",
+    appPlaceholder: "Elige una aplicación",
+    appNeeded: "Elige la aplicación a la que pertenece el nombre.",
+    theApplication: "la aplicación",
     addDialogDescription: "El sitio se reescribe y se recarga al momento. Cuando la aplicación sirve HTTPS, su certificado se extiende al nuevo nombre.",
     domainFieldDescription: "El nombre desnudo, como shop.example.com.",
     addAnyway: "Añadir de todos modos",
