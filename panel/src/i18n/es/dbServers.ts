@@ -8,7 +8,7 @@ export const dbServers: Catalog<typeof en> = {
   column: {
     label: "Bases de datos",
     databases: "Tus bases",
-    servers: "Servidores de bases de datos",
+    servers: "Servidores de BD",
     engines: "Motores",
   },
   empty: {

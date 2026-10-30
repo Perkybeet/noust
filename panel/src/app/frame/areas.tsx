@@ -159,7 +159,8 @@ const ROW =
 export type AreaLinkVariant = "rail" | "folded" | "single" | "bottom";
 
 const VARIANT: Record<AreaLinkVariant, string> = {
-  rail: "h-10 gap-3 px-3 text-14 font-medium",
+  // Less room on the right than on the left: the longest name (Tareas programadas) fits the bar whole in Spanish.
+  rail: "h-10 gap-3 pr-2 pl-3 text-14 font-medium",
   folded: "size-11 justify-center text-14 font-medium",
   single: "h-9 gap-2.5 px-3 text-14 font-medium",
   // A name that needs two lines (Bases de datos) takes them, from the top, so every icon of the foot is on one line.

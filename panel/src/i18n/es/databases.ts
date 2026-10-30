@@ -47,7 +47,7 @@ export const databases: Catalog<typeof en> = {
   },
   table: {
     name: "Base de datos",
-    server: "Servidor de bases de datos",
+    server: "Servidor",
     app: "Aplicación",
     size: "Tamaño",
     backup: "Copia",

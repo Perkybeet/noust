@@ -6,7 +6,7 @@ import { renderConsole } from "../../test/console";
 import { fakeBackend, json } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import { screenWidth } from "../app/testRoutes";
-import { CONTAINER_DATABASE, CONTAINER_ENGINE, DATABASES, DETECTED_DATABASE, ENGINES, SERVERS, databaseRoutes } from "./testFixtures";
+import { CONTAINER_DATABASE, CONTAINER_ENGINE, DATABASES, DETECTED_DATABASE, ENGINES, POLICY, SERVERS, databaseRoutes } from "./testFixtures";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -358,11 +358,24 @@ describe("what a row offers at its end", () => {
     const row = rowOf(table, "example_staging");
     // No "not tracked" mark on the name, and no other kind of database: the action is the whole difference.
     expect(within(row).queryByText("Not tracked")).not.toBeInTheDocument();
+    // Where its backup would be: a database Noust does not hold has none to warn about, and the way to get one is the button.
+    expect(within(row).queryByText("No backup")).not.toBeInTheDocument();
     await user.click(within(row).getByRole("button", { name: "Add to Noust" }));
     await waitFor(() => expect(backend.callsTo("POST /api/databases/databases/postgresql/example_staging/adopt")).toHaveLength(1));
     await waitFor(() => expect(within(rowOf(listRegion(), "example_staging")).queryByRole("button", { name: "Add to Noust" })).not.toBeInTheDocument());
     // Said where the person looked: the row changed, and nothing else was announced.
     expect(screen.queryByRole("status", { name: /added/i })).not.toBeInTheDocument();
+  });
+
+  it("keeps the backup state of a database Noust does not hold when a schedule for every database of its engine covers it", async () => {
+    const everyPostgres = { ...POLICY, database: "*", scope: "all" as const, last_dump: null };
+    const { table } = await listAt("/databases", {
+      "GET /api/databases/backup-policies": () => json(200, { policies: [POLICY, everyPostgres], total: 2, unprotected: [] }),
+    });
+    // It is backed up, whether or not it is added: the way to add it is for the database nothing covers.
+    const row = rowOf(table, "example_staging");
+    expect(await within(row).findByText("Backed up")).toBeInTheDocument();
+    expect(within(row).queryByRole("button", { name: "Add to Noust" })).not.toBeInTheDocument();
   });
 
   it("offers no button to add on a server that cannot do it one by one, and keeps the bulk action in the page's menu", async () => {

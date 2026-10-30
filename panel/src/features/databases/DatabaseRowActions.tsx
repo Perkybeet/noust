@@ -8,7 +8,6 @@ import { databaseKeys } from "../../api/queries/databases";
 import type { Database, Engine } from "../../api/queries/databases";
 import { jobKeys } from "../../api/queries/jobs";
 import { RowMenu } from "../../components/page/RowMenu";
-import { Button } from "../../components/ui/Button";
 import { IconButton } from "../../components/ui/IconButton";
 import { MenuGroup, MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
@@ -21,41 +20,15 @@ import { isNotAdded } from "./DatabasesTable";
 import { can } from "./engines";
 
 /**
- * Adds a database the engine holds to Noust (`POST .../adopt`): from then on it is listed as Noust's, can be linked
- * to an application and is backed up with it. It is not a different kind of database, so the button is only on the
- * row of one Noust does not hold yet, and what changes is the row itself.
- */
-function AddToNoust({ database }: { database: Database }) {
-  const t = useT();
-  const queryClient = useQueryClient();
-  const add = useMutation({
-    mutationFn: () => request("post", "/api/databases/databases/{engine}/{name}/adopt", { params: { engine: database.engine, name: database.name } }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: databaseKeys.lists });
-      void queryClient.invalidateQueries({ queryKey: databaseKeys.policies });
-    },
-    onError: (error) => reportActionError(t("databases.listRow.addFailed", { name: database.name }), error),
-  });
-  return (
-    <Button size="sm" loading={add.isPending} onClick={() => add.mutate()}>
-      {t("databases.listRow.addToNoust")}
-    </Button>
-  );
-}
-
-/**
- * What a row offers at its end: to add the database to Noust when it is not added; to copy its connection when an
- * application uses it; to read how to reach it otherwise; nothing for one that is gone. Then its menu.
+ * What a row offers at its end: to copy its connection when an application uses it; to read how to reach it otherwise;
+ * nothing for one that is gone or that Noust does not hold yet (adding it is in its Backup cell). Then its menu.
  */
 export function DatabaseRowActions({ database, engines }: { database: Database; engines: readonly Engine[] | undefined }) {
   const t = useT();
   const navigate = useNavigate();
-  const adoptable = isNotAdded(database) && (database.actions ?? []).includes("add_to_noust");
   return (
     <span className="flex items-center justify-end gap-1">
-      {adoptable ? (
-        <AddToNoust database={database} />
-      ) : database.missing || isNotAdded(database) ? null : (database.apps ?? []).length > 0 ? (
+      {database.missing || isNotAdded(database) ? null : (database.apps ?? []).length > 0 ? (
         <CopyConnection engine={database.engine} name={database.name} />
       ) : (
         <IconButton

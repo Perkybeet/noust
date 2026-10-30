@@ -18,6 +18,7 @@ import { formatBytes } from "../../lib/format";
 import { TagChips } from "../app/settings/ResourceTagsDialog";
 import { ownerColumns } from "../teams/ownership";
 import type { Labels, Scope } from "../teams/organization";
+import { AddToNoust } from "./AddToNoust";
 import { engineName } from "./engines";
 import { PROTECTION_RANK, coveringPolicy, databaseId, databaseProtection } from "./protection";
 import type { Protection } from "./protection";
@@ -151,9 +152,11 @@ function ServerCell({
 
 /**
  * Whether a database is backed up, in one cell: when its newest dump was taken (and whether checking it found it
- * sound), and otherwise the state that needs a look, in words with its shape.
+ * sound), and otherwise the state that needs a look, in words with its shape. A database Noust does not hold yet and
+ * that no schedule covers has no backup to speak of: where it would be is the way to add it.
  */
 function BackupCell({ database, protection, newest, t }: { database: Database; protection: Protection; newest: DatabaseBackup | undefined; t: T }) {
+  if (protection === "unprotected" && isNotAdded(database) && (database.actions ?? []).includes("add_to_noust")) return <AddToNoust database={database} />;
   if (protection === "protected") {
     const at = newest?.created ?? database.last_backup;
     return at ? (
