@@ -4,7 +4,7 @@ import type { Catalog } from "../types";
 export const fleetCompare: Catalog<typeof en> = {
   metrics: {
     title: "Comparar servidores",
-    description: "Una misma medida de todos los servidores en la misma ventana, del historial de cada uno. La memoria, el swap y el disco son la parte de lo que tiene cada servidor.",
+    description: "La memoria, el swap y el disco son la parte que tiene cada servidor.",
     metricLabel: "Qué comparar",
     windowLabel: "Hasta cuándo atrás",
     metric: {

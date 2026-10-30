@@ -12,7 +12,6 @@ import { Plus } from "lucide-react";
 import { useMemo } from "react";
 
 import { mapQuery } from "../../api/queries/map";
-import { overviewQuery } from "../../api/queries/overview";
 import { LinkTabs } from "../../app/LinkTabs";
 import { tabsOf } from "../../app/navCore";
 import type { MapNode } from "../../api/queries/map";
@@ -20,7 +19,6 @@ import { CommandHint } from "../../components/page/CommandHint";
 import { DashboardPage } from "../../components/page/DashboardPage";
 import { QueryState } from "../../components/page/QueryState";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { Mono } from "../../components/ui/Mono";
 import { FlowDiagram } from "../../components/ui/FlowDiagram";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { TextLink } from "../../components/ui/TextLink";
@@ -71,8 +69,6 @@ function MapSkeleton() {
 export function MapPage() {
   const t = useT();
   const query = useQuery(mapQuery());
-  const overview = useQuery(overviewQuery());
-  const server = overview.data?.server;
   const typeName = useTypeName();
   const diagram = useMemo(() => (query.data ? diagramOf(query.data, t, (type) => typeName(type) ?? type) : null), [query.data, t, typeName]);
 
@@ -85,19 +81,6 @@ export function MapPage() {
     <DashboardPage
       header={{
         title: t("overview.title"),
-        description: t("overview.description"),
-        // The line keeps its height before the answer arrives, so nothing below it moves.
-        meta:
-          server !== undefined ? (
-            <>
-              <Mono>{server.name}</Mono>
-              <span>{t("overview.version", { version: server.version })}</span>
-            </>
-          ) : (
-            <span aria-hidden="true" className="flex h-5 items-center">
-              <Skeleton className="h-3 w-40" />
-            </span>
-          ),
         primaryAction: (
           <Link to="/apps/new" className={buttonClassName("primary")}>
             <Plus aria-hidden="true" />

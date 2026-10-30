@@ -15,7 +15,7 @@ import { signInSpanish, useSpanish } from "./spanish";
  * area lanes of 4.1 rename to the bar's names as they redo each one.
  */
 const DESTINATIONS: readonly { link: string; path: string; title: string }[] = [
-  { link: "Home", path: "/", title: "Overview" },
+  { link: "Home", path: "/", title: "Home" },
   { link: "Applications", path: "/apps", title: "Applications" },
   { link: "Databases", path: "/databases", title: "Databases" },
   { link: "Scheduled tasks", path: "/cron", title: "Cron" },

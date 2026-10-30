@@ -77,7 +77,7 @@ function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>): Column<Fleet
   ];
 }
 
-/** The comparison card of the fleet's Summary: the metric and the window chosen here, the servers below. */
+/** The comparison card of the fleet's Home: the metric and the window chosen here, the servers below. */
 export function FleetMetricsCard() {
   const t = useT();
   const [metric, setMetric] = useState<CompareMetric>("cpu");
@@ -93,7 +93,8 @@ export function FleetMetricsCard() {
       as="section"
       level={2}
       padding="none"
-      title={t("fleetCompare.metrics.title")} icon={OBJECT_ICONS.node}
+      title={t("fleetCompare.metrics.title")}
+      icon={OBJECT_ICONS.node}
       description={t("fleetCompare.metrics.description")}
       actions={
         <div className="flex min-w-0 flex-wrap items-center gap-2">

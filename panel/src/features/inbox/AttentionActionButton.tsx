@@ -3,6 +3,8 @@ import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
 import { acknowledgeAlert, handBackAlert, refreshAlerts } from "../../api/queries/alerts";
+import { runOnNode } from "../../api/nodeScope";
+import { fleetKeys } from "../fleet/data";
 import type { OverviewAttentionItem } from "../../api/queries/overview";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { useT } from "../../i18n";
@@ -41,14 +43,22 @@ function wordsOf(t: T, action: OpenAction): { label: string; aria: string } {
  * is on it, and it never resolves the alert: the row changes in place, which is the answer, so
  * there is no toast for it (a toast is for what is not on screen).
  */
-function AlertButton({ action, iconFor }: { action: AlertAction; iconFor: ((action: AttentionAction) => ReactNode) | undefined }) {
+function AlertButton({ action, node, iconFor }: { action: AlertAction; node: string | null | undefined; iconFor: ((action: AttentionAction) => ReactNode) | undefined }) {
   const t = useT();
   const queryClient = useQueryClient();
   const reopening = action.kind === "reopen";
   const icon = iconFor?.(action);
   const change = useMutation({
-    mutationFn: () => (reopening ? handBackAlert(action.rule, action.subject) : acknowledgeAlert(action.rule, action.subject)),
-    onSuccess: () => refreshAlerts(queryClient),
+    // An alert of another server is taken on that server, whichever one the console is showing.
+    mutationFn: () => {
+      const run = () => (reopening ? handBackAlert(action.rule, action.subject) : acknowledgeAlert(action.rule, action.subject));
+      return node === undefined ? run() : runOnNode(node, run);
+    },
+    onSuccess: () => {
+      // The fleet's summary carries each server's own list, so it says who took the alert too.
+      void queryClient.invalidateQueries({ queryKey: fleetKeys.all });
+      return refreshAlerts(queryClient);
+    },
     onError: (error) => {
       reportActionError(t(reopening ? "inbox.actions.reopenFailed" : "inbox.actions.acknowledgeFailed"), error);
     },
@@ -75,14 +85,19 @@ export interface AttentionActionButtonProps {
   onNavigate?: (() => void) | undefined;
   /** What the button acts on, drawn before its word: given where icons are wanted (the inbox), left out where the card is dense. */
   iconFor?: ((action: AttentionAction) => ReactNode) | undefined;
+  /**
+   * The server the item is on, when it is not the one the page is showing (the fleet's Home): the screen
+   * opens there and an alert is taken there. A node's name, or null for this server; left out, the page's own.
+   */
+  node?: string | null | undefined;
 }
 
 /** The one button of a row that needs attention: the fix, or the screen that fixes it (2.7). */
-export function AttentionActionButton({ item, onNavigate, iconFor }: AttentionActionButtonProps) {
+export function AttentionActionButton({ item, onNavigate, iconFor, node }: AttentionActionButtonProps) {
   const t = useT();
   const action = attentionAction(item);
   if (action === null) return null;
-  if (action.mode === "alert") return <AlertButton action={action} iconFor={iconFor} />;
+  if (action.mode === "alert") return <AlertButton action={action} node={node} iconFor={iconFor} />;
   const { label, aria } = wordsOf(t, action);
   const { to, params, search } = action.target;
   const icon = iconFor?.(action);
@@ -90,7 +105,7 @@ export function AttentionActionButton({ item, onNavigate, iconFor }: AttentionAc
     <Link
       to={to as never}
       {...(params !== undefined ? { params: params as never } : {})}
-      {...(search !== undefined ? { search: search as never } : {})}
+      {...(search !== undefined || node !== undefined ? { search: { ...search, node: node ?? undefined } as never } : {})}
       aria-label={aria}
       {...(onNavigate ? { onClick: onNavigate } : {})}
       className={buttonClassName("secondary", "sm")}
