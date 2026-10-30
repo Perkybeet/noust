@@ -4,7 +4,7 @@ import { sessionQuery } from "../api/queries/auth";
 import { FramedRoutePending } from "../app/RoutePending";
 import { GatePage } from "../features/auth/GatePage";
 import { safeNext } from "../features/auth/session";
-import { pendingChecks } from "../features/auth/SessionGate";
+import { pendingChecks } from "../features/auth/requireSession";
 
 export interface WelcomeSearch {
   next?: string;

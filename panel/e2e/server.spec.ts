@@ -31,7 +31,7 @@ test("schedules a reboot with its pre-checks in view, shows it on every tab and 
   await page.getByRole("button", { name: "Reboot", exact: true }).click();
   const dialog = page.getByRole("alertdialog", { name: "Reboot the server" });
   const checks = dialog.getByRole("list", { name: "Checks before rebooting" });
-  await expect(checks.getByText("Nothing is running", { exact: true })).toBeVisible();
+  await expect(checks.getByText("Nothing is running")).toBeVisible();
   // Judged once the dialog has finished opening: mid-fade its colours are blends of the page's.
   await settle(page);
   await expectNoA11yViolations(page, "the reboot dialog");

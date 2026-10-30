@@ -46,6 +46,19 @@ function CardSkeleton({ title }: { title: string }) {
   );
 }
 
+/** The four cards of the machine view as they stand before their answers: one row of two is as tall as the taller of them. */
+export function MachineSkeleton() {
+  const t = useT();
+  return (
+    <div className="grid min-w-0 items-start gap-6 lg:grid-cols-2 2xl:grid-cols-4">
+      <CardSkeleton title={t("server.clock.title")} />
+      <CardSkeleton title={t("server.hostname.title")} />
+      <CardSkeleton title={t("server.os.title")} />
+      <CardSkeleton title={t("server.power.cardTitle")} />
+    </div>
+  );
+}
+
 export function ClockCard() {
   const t = useT();
   const clock = useQuery(timeQuery());

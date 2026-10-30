@@ -210,6 +210,7 @@ export const nav: Catalog<typeof en> = {
     engines: "Motores",
     backups: "Copias de seguridad",
     server: "Servidor",
+    systemUpdates: "Actualizaciones del sistema",
     recipes: "Recetas",
     recipesInstalled: "Recetas instaladas",
     projects: "Proyectos",

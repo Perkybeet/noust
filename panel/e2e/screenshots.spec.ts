@@ -40,11 +40,13 @@ const WIDE = { width: 1920, height: 1080 };
 const PHONE = { width: 390, height: 844 };
 
 /** Every size a page is captured at, in order; the name is the file's suffix. */
+// NOUST_SCREENS_SIZES=desktop,mobile takes only those (a review of the two sizes people read at does not need the wide one).
+const ONLY = process.env.NOUST_SCREENS_SIZES?.split(",");
 const SIZES: readonly { suffix: string; size: { width: number; height: number } }[] = [
   { suffix: "desktop", size: DESKTOP },
   { suffix: "wide", size: WIDE },
   { suffix: "mobile", size: PHONE },
-];
+].filter(({ suffix }) => ONLY === undefined || ONLY.includes(suffix));
 
 async function captureSizes(page: Page, dir: string, name: string): Promise<void> {
   for (const { suffix, size } of SIZES) {

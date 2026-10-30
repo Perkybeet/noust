@@ -102,9 +102,11 @@ export function Card({
       )}
     >
       {hasHeader ? (
-        <header className={cx("flex items-start justify-between gap-4", space.header)}>
+        // The text keeps 12rem at least, and the actions go under it when they would take them: on a phone a wide action
+        // beside a description left it one word to a line.
+        <header className={cx("flex flex-wrap items-start justify-between gap-x-4 gap-y-2", space.header)}>
           {leading}
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 basis-48">
             {status !== undefined ? (
               <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                 {Icon !== undefined ? <Icon aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" /> : null}

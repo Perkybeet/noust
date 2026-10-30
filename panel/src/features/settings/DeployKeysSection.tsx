@@ -7,6 +7,7 @@ import { deployKeysQuery, pinnedHostsQuery, sourceKeys } from "../../api/queries
 import type { DeployKey, PinnedHost } from "../../api/queries/sources";
 import { announce } from "../../app/Announcer";
 import { CommandHint } from "../../components/page/CommandHint";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock, QueryState } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { Section } from "../../components/page/Section";
@@ -238,27 +239,39 @@ function PinnedHosts() {
 export function DeployKeysSection() {
   const t = useT();
   const keys = useQuery(deployKeysQuery());
+  const hosts = useQuery(pinnedHostsQuery());
+  // The keys and the pinned hosts are one page and are answered apart: nothing is drawn until both are known, and what
+  // follows them is drawn with them, so the one that arrives second does not move what is under the first.
+  const waiting = keys.isPending || hosts.isPending;
   return (
     <Section title={t("sources.server.title")} icon={OBJECT_ICONS.key} description={t("sources.server.description")}>
-      <QueryState
-        query={keys}
-        label={t("sources.server.label")}
-        skeleton={<Skeleton className="h-16 w-full rounded-card" />}
-        isEmpty={(data) => data.keys.length === 0}
-        empty={<EmptyState variant="inline" title={t("sources.server.emptyTitle")} description={t("sources.server.emptyDescription")} />}
-      >
-        {(data) => (
-          <DataTable
-            caption={t("sources.server.caption")}
-            columns={keyColumns(t)}
-            rows={data.keys}
-            getRowId={(key) => key.name}
-            density="compact"
-          />
-        )}
-      </QueryState>
-      <PinnedHosts />
-      <CommandHint command="noust app deploy-key list" label={t("common.words.sameFromTerminal")} />
+      {waiting ? (
+        <LoadingRegion label={t("sources.server.label")}>
+          <Skeleton className="h-64 w-full rounded-card" />
+        </LoadingRegion>
+      ) : (
+        <>
+          <QueryState
+            query={keys}
+            label={t("sources.server.label")}
+            skeleton={<Skeleton className="h-16 w-full rounded-card" />}
+            isEmpty={(data) => data.keys.length === 0}
+            empty={<EmptyState variant="inline" title={t("sources.server.emptyTitle")} description={t("sources.server.emptyDescription")} />}
+          >
+            {(data) => (
+              <DataTable
+                caption={t("sources.server.caption")}
+                columns={keyColumns(t)}
+                rows={data.keys}
+                getRowId={(key) => key.name}
+                density="compact"
+              />
+            )}
+          </QueryState>
+          <PinnedHosts />
+          <CommandHint command="noust app deploy-key list" label={t("common.words.sameFromTerminal")} />
+        </>
+      )}
     </Section>
   );
 }

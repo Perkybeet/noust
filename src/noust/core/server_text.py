@@ -75,6 +75,59 @@ CATALOG: dict[str, str] = {
         "Add one with Account > Cloudflare Tunnel:Edit: "
         "noust dns provider add NAME --kind cloudflare --token-stdin"
     ),
+    # -- Database engines (Databases > New database, Install an engine): why one cannot be --
+    # installed on this server. The sentence and its fix, which together are the English reason
+    # the API has always sent (``noust.managers.database.flavours``).
+    "database_engines.conflict_mysql": (
+        "{installed} is installed, and {requested} cannot run beside it: they share "
+        "port 3306, their packages and /var/lib/mysql."
+    ),
+    "database_engines.conflict_mysql.hint": "Remove {installed} first if you mean to replace it.",
+    "database_engines.conflict_redis": (
+        "{installed} is installed, and {requested} cannot run beside it: they share "
+        "port 6379 and their packages."
+    ),
+    "database_engines.conflict_redis.hint": "Remove {installed} first if you mean to replace it.",
+    "database_engines.no_package_manager": (
+        "Noust installs {engine} with apt, dnf or zypper, and this system has none of them."
+    ),
+    "database_engines.no_package_manager.hint": (
+        "Run it as an instance, a container that needs no package manager ({command}), or "
+        "install it with the distribution's package manager: Noust manages it from there."
+    ),
+    "database_engines.redis_not_shipped": "{system} does not ship Redis",
+    "database_engines.redis_not_shipped.hint": "Install Valkey instead: run '{command}'.",
+    "database_engines.valkey_not_shipped": "{system} does not ship Valkey",
+    "database_engines.valkey_not_shipped.hint": (
+        "Valkey is packaged from Debian 13 and Ubuntu 24.04 on. Install Redis instead: "
+        "run '{command}'."
+    ),
+    "database_engines.not_available": "Noust cannot install {engine} on {system}",
+    "database_engines.not_available.hint": (
+        "Run it as an instance, a container that needs no package manager ({command}), or "
+        "install it with the system's package manager: Noust manages it from there."
+    ),
+    # -- What a reboot would break (noust.managers.server.power, the checks before a reboot) ---
+    # What each check found, as the one sentence under its title in the reboot dialog. A list of
+    # names (applications, jobs) and what findmnt said are values, shown as they are.
+    "power_checks.jobs_running": "Running now: {jobs}",
+    "power_checks.jobs_idle": "Nothing is running",
+    "power_checks.console_returns": "The console starts on boot",
+    "power_checks.console_stays_down": (
+        "The console is not an enabled systemd unit: it will not come back after the "
+        "reboot. Run 'noust web enable' first."
+    ),
+    "power_checks.apps_stay_down": (
+        "These applications are not enabled and will not start again: {apps}"
+    ),
+    "power_checks.apps_return": "Every application starts on boot",
+    "power_checks.fstab_correct": "fstab is correct",
+    "power_checks.fstab_problem": (
+        "findmnt --verify found a problem, and a bad fstab can leave the machine "
+        "in emergency mode: {output}"
+    ),
+    "power_checks.ramdisk_missing": "The newest kernel, {release}, has no initial ramdisk in /boot",
+    "power_checks.ramdisk_present": "The newest kernel is complete",
     # -- A person, when a central acted for them (noust.core.audit.actor) -----------------------
     "actors.through_central": "{person} (from the central {central})",
     # -- What an operator may call an object (noust.validators.object_names) ----------------

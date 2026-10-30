@@ -733,6 +733,7 @@ def choices(service: DatabaseService) -> list[dict[str, Any]]:
                 "running_version": running,
                 "installable": flavour.installable,
                 "reason": flavour.reason,
+                "coded": flavour.coded.to_dict() if flavour.coded is not None else None,
                 "versions": offered,
                 "instances": [
                     {"name": row.name, "key": key_of(row), "version": row.version} for row in mine

@@ -454,6 +454,13 @@ describe("an application's page", () => {
       expect(within(recent).getByRole("link", { name: "Open logs" })).toHaveAttribute("href", `/apps/${DOMAIN}/logs`);
     });
 
+    it("asks for no logs of a static site, which has no process to have printed any", async () => {
+      const { backend } = await appAt({ [`GET /api/apps/${DOMAIN}`]: () => json(200, { ...APPS[0], app_type: "static", status: "static", active: false }) });
+      await screen.findByRole("region", { name: `Highlights of ${DOMAIN}` });
+      expect(screen.queryByRole("region", { name: "Recent logs" })).not.toBeInTheDocument();
+      expect(backend.callsTo(`GET /api/apps/${DOMAIN}/logs`)).toHaveLength(0);
+    });
+
     it("says where it answers and whether a push deploys it, each with its way on", async () => {
       await appAt();
       const reach = await screen.findByRole("list", { name: `Where ${DOMAIN} answers and what deploys it` });

@@ -55,6 +55,13 @@ export interface PageHeaderProps {
    * console's own is never drawn.
    */
   mark?: ReactNode;
+  /**
+   * Draws the state (and what follows it) on a line of its own under the title instead of beside it. Beside the title
+   * the state wraps under it when the actions take the room, and the actions arrive after the page: a header whose
+   * state wrapped when they came moved the page under it (an application's, in Spanish). Under the title the line is
+   * the same whatever the actions are.
+   */
+  statusBelow?: boolean;
   /** The title is a system identifier (a domain, a unit, a database, a site): it is not translated. It is set like any title, in the display voice, and no longer in mono. */
   mono?: boolean;
   /** Facts about the resource on one line under the title: "Next.js · :3001 · shop.example.com". */
@@ -79,6 +86,7 @@ export function PageHeader({
   actions,
   status,
   statusExtras,
+  statusBelow = false,
   place,
   mono = false,
   mark,
@@ -131,9 +139,15 @@ export function PageHeader({
             >
               {title}
             </h1>
-            {status}
-            {statusExtras}
+            {statusBelow ? null : status}
+            {statusBelow ? null : statusExtras}
           </div>
+          {statusBelow && (status !== undefined || statusExtras !== undefined) ? (
+            <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+              {status}
+              {statusExtras}
+            </div>
+          ) : null}
           {meta !== undefined ? (
             <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-13 text-fg-muted">{meta}</div>
           ) : null}

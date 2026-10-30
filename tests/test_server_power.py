@@ -220,6 +220,49 @@ class TestChecks:
 
         assert self._by_id(_manager(store, host, runner))["ramdisk"].status == "ok"
 
+    def test_every_finding_is_a_sentence_the_console_can_say_in_its_language(
+        self, store, host
+    ) -> None:
+        # The reboot dialog drew these as the English the manager wrote, also in a Spanish console.
+        healthy = self._by_id(_manager(store, host, _healthy(FakeRunner())))
+        (host.boot / "vmlinuz-6.8.0-100-generic").write_text("")
+        runner = FakeRunner()
+        runner.script(["systemctl", "is-enabled"], stdout="disabled\n", exit_code=1)
+        runner.script(
+            ["findmnt", "--verify"], stdout="/dev/sdb1 does not exist\n0 parse errors", exit_code=1
+        )
+        manager = _manager(
+            store,
+            host,
+            runner,
+            apps_check=lambda r: ["shop-example-com"],
+            blockers=lambda: ["a deploy of shop.example.com"],
+        )
+
+        warned = self._by_id(manager)
+
+        assert {k: c.coded.code for k, c in warned.items() if c.coded} == {
+            "jobs": "power_checks.jobs_running",
+            "console": "power_checks.console_stays_down",
+            "apps": "power_checks.apps_stay_down",
+            "fstab": "power_checks.fstab_problem",
+            "ramdisk": "power_checks.ramdisk_missing",
+        }
+        assert warned["apps"].coded.params == {"apps": "shop-example-com"}
+        assert warned["fstab"].coded.params["output"].startswith("/dev/sdb1 does not exist")
+        assert warned["ramdisk"].coded.params == {"release": "6.8.0-100-generic"}
+        assert {c.coded.code for c in healthy.values()} == {
+            "power_checks.jobs_idle",
+            "power_checks.console_returns",
+            "power_checks.apps_return",
+            "power_checks.fstab_correct",
+            "power_checks.ramdisk_present",
+        }
+        # The English the command line prints and a refused request lists is the sentence's own.
+        assert all(c.message == c.coded.text for c in [*warned.values(), *healthy.values()])
+        assert healthy["jobs"].message == "Nothing is running"
+        assert healthy["console"].message == "The console starts on boot"
+
     def test_units_of_applications_that_are_not_enabled_are_listed(
         self, store, host, monkeypatch: pytest.MonkeyPatch
     ) -> None:

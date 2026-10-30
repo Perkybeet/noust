@@ -450,6 +450,13 @@ describe("6. the palette finds every screen", () => {
     expect(found("projects")).toContain("apps.projects");
   });
 
+  it("opens System and updates when System updates is typed whole, ahead of the alert rule that names them", () => {
+    const everything = paletteEntries(paletteContext({ staged: true }));
+    const commandsOf = everything.map((entry): Command => ({ id: entry.id, group: "Pages", label: entry.text, keywords: entry.keywords, aliases: entry.aliases, detail: entry.path, kind: "navigate", run: () => undefined }));
+    const first = filterCommands(commandsOf, "System updates").flatMap((group) => group.items.map((item) => item.id))[0];
+    expect(first).toBe("server.system");
+  });
+
   it("keeps the old name of a renamed screen as a word of its own", () => {
     const everything = paletteEntries(paletteContext({ staged: true }));
     for (const [id, keys] of Object.entries(RENAMED)) {

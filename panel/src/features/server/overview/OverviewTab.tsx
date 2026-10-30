@@ -156,7 +156,7 @@ function NeedsAttention({ items, loading }: { items: readonly AttentionItem[]; l
     <Card level={2}
       title={t("server.attention.title")} icon={OBJECT_ICONS.alert}
       padding="none"
-      className="lg:col-span-2"
+      className="lg:col-span-3"
       actions={
         items.length > SHOWN ? (
           <Button size="sm" variant="ghost" onClick={() => setAll((current) => !current)}>
@@ -218,7 +218,7 @@ function Facts({ summary }: { summary: ServerSummary | undefined }) {
   const t = useT();
   if (summary === undefined) {
     return (
-      <Card level={2} title={t("server.overview.factsTitle")} icon={OBJECT_ICONS.server} padding="sm">
+      <Card level={2} title={t("server.overview.factsTitle")} icon={OBJECT_ICONS.server} padding="sm" className="lg:col-span-2">
         <LoadingRegion label={t("server.overview.loading")}>
           <KeyValueListSkeleton rows={6} />
         </LoadingRegion>
@@ -233,8 +233,8 @@ function Facts({ summary }: { summary: ServerSummary | undefined }) {
       label: t("server.overview.system"),
       value: (
         <span className="flex min-w-0 flex-col">
-          <span className="truncate text-13 text-fg">{summary.os.name}</span>
-          <span className="truncate text-12 text-fg-muted">{supportText(t, summary)}</span>
+          <span className="text-13 text-fg">{summary.os.name}</span>
+          <span className="text-12 text-fg-muted">{supportText(t, summary)}</span>
         </span>
       ),
       mono: false,
@@ -264,8 +264,8 @@ function Facts({ summary }: { summary: ServerSummary | undefined }) {
     },
   ];
   return (
-    <Card level={2} title={t("server.overview.factsTitle")} icon={OBJECT_ICONS.server} padding="sm">
-      <KeyValueList items={items} />
+    <Card level={2} title={t("server.overview.factsTitle")} icon={OBJECT_ICONS.server} padding="sm" className="lg:col-span-2">
+      <KeyValueList items={items} wrap />
     </Card>
   );
 }
@@ -285,6 +285,7 @@ function Readings({ summary, security }: { summary: ServerSummary | undefined; s
   return (
     <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
       <StatTile
+        detailLines={2}
         label={t("server.overview.updates")}
         {...reading(
           updates === undefined
@@ -308,6 +309,7 @@ function Readings({ summary, security }: { summary: ServerSummary | undefined; s
         }
       />
       <StatTile
+        detailLines={2}
         label={t("server.overview.security")}
         {...reading(
           security === undefined
@@ -323,6 +325,7 @@ function Readings({ summary, security }: { summary: ServerSummary | undefined; s
         detail={counts !== null ? t("server.overview.findingsDetail", { critical: counts.critical, warning: counts.warning, passed: counts.passed }) : undefined}
       />
       <StatTile
+        detailLines={2}
         label={t("server.overview.disk")}
         {...reading(disk === undefined ? pending : disk.worst_percent != null ? formatPercent(disk.worst_percent, t.locale) : t("server.overview.noReading"))}
         detail={
@@ -335,6 +338,7 @@ function Readings({ summary, security }: { summary: ServerSummary | undefined; s
         }
       />
       <StatTile
+        detailLines={2}
         label={t("server.overview.memory")}
         {...reading(memory === undefined ? pending : formatPercent(memory.percent, t.locale))}
         detail={
@@ -348,6 +352,7 @@ function Readings({ summary, security }: { summary: ServerSummary | undefined; s
         }
       />
       <StatTile
+        detailLines={2}
         label={t("server.overview.clock")}
         {...reading(
           time === undefined || (time.synchronized == null && time.error == null)
@@ -371,7 +376,7 @@ function OverviewLayout({ summary, security }: { summary: ServerSummary | undefi
   const items = attentionItems(summary, security);
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      <div className="grid min-w-0 items-start gap-6 lg:grid-cols-3">
+      <div className="grid min-w-0 items-start gap-6 lg:grid-cols-5">
         <NeedsAttention items={items} loading={summary === undefined} />
         <Facts summary={summary} />
       </div>

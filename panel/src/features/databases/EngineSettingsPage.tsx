@@ -277,6 +277,12 @@ function SettingsForm({ engine, data }: { engine: string; data: EngineSettings }
 }
 
 /**
+ * The facts line holds two lines whether it is drawn or not: in Spanish the file's path and the resources do not fit
+ * side by side, and a line that became two when they arrived moved everything under the header.
+ */
+const META = "flex min-h-11 min-w-0 flex-wrap content-start gap-x-3 gap-y-1";
+
+/**
  * An engine's settings on this server (T2 header, one form saved from its bar): the closed set
  * Noust manages, each with what the engine uses now and the advice for this server's memory
  * and processors. Noust writes them to a file of its own, checks it with the engine's tool and
@@ -301,17 +307,17 @@ export function EngineSettingsPage({ engine }: { engine: string }) {
         ...(data !== undefined
           ? {
               meta: (
-                <>
+                <span className={META}>
                   <span>{t.rich("databases.engineSettings.fileFact", { file: <Mono tone="muted">{data.file}</Mono> })}</span>
                   <span>{t("databases.engineSettings.resourcesFact", { memory: formatBytes(data.memory_bytes, t.locale), count: data.cpus })}</span>
-                </>
+                </span>
               ),
             }
           : {
               meta: (
-                <span aria-hidden="true" className="flex h-5 items-center gap-3">
-                  <Skeleton className="h-3 w-64" />
-                  <Skeleton className="h-3 w-48" />
+                <span aria-hidden="true" className={META}>
+                  <Skeleton className="mt-1 h-3 w-64" />
+                  <Skeleton className="mt-1 h-3 w-48" />
                 </span>
               ),
             }),

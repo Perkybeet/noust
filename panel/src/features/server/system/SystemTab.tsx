@@ -23,10 +23,10 @@ import { formatBytes, formatPercent } from "../../../lib/format";
 import { NodeCapabilityGate } from "../../../nodes/capability";
 import { ServerQueryState } from "../errors";
 import { MonitorCard } from "../MonitorCard";
-import { SERVER_CAPABILITY, processesQuery } from "../queries";
+import { SERVER_CAPABILITY, identityQuery, processesQuery, summaryQuery, timeQuery } from "../queries";
 import type { ProcessSort, Processes } from "../queries";
 import { UpdatesTab } from "../updates/UpdatesTab";
-import { ClockCard, HostnameCard, PowerCard, SystemCard } from "./SystemCards";
+import { ClockCard, HostnameCard, MachineSkeleton, PowerCard, SystemCard } from "./SystemCards";
 import { NoustUpdate } from "./NoustUpdate";
 import type { SystemView } from "./data";
 import { SkeletonCard } from "../../../components/ui/Skeleton";
@@ -153,13 +153,22 @@ export interface SystemTabProps {
 }
 
 function MachineView() {
-  return (
-    <div className="grid min-w-0 items-start gap-6 lg:grid-cols-2 2xl:grid-cols-4">
-      <ClockCard />
-      <HostnameCard />
-      <SystemCard />
-      <PowerCard />
-    </div>
+  const t = useT();
+  const waiting = [useQuery(timeQuery()), useQuery(identityQuery()), useQuery(summaryQuery())].some((query) => query.isPending);
+  // The cards answer apart and a row of two is as tall as the taller of them, so the one that arrived last moved the row under
+  // it: nothing is drawn until the four are known, and what follows them is drawn with them.
+  return waiting ? (
+    <MachineSkeleton />
+  ) : (
+    <>
+      <div className="grid min-w-0 items-start gap-6 lg:grid-cols-2 2xl:grid-cols-4">
+        <ClockCard />
+        <HostnameCard />
+        <SystemCard />
+        <PowerCard />
+      </div>
+      <CommandHint command="noust server time status" label={t("common.words.fromTerminal")} />
+    </>
   );
 }
 
@@ -185,10 +194,7 @@ function System({ view, onViewChange }: SystemTabProps) {
           <UpdatesTab />
         </>
       ) : view === "machine" ? (
-        <>
-          <MachineView />
-          <CommandHint command="noust server time status" label={t("common.words.fromTerminal")} />
-        </>
+        <MachineView />
       ) : view === "monitor" ? (
         <MonitorCard />
       ) : (

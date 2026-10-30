@@ -56,6 +56,9 @@ export function TeamLayout({ team: slug }: { team: string }) {
   const team = query.data;
 
   const header = { title: team?.name ?? slug };
+  // The tabs are the same whoever the team is, and its short name is the address: both are there from the first frame, with
+  // the role (the one thing the answer holds) as a skeleton, so the page under them does not move when the team arrives.
+  const tabs = <LinkTabs label={t("nav.landmarks.teamSections")} tabs={TEAM_TABS.map((tab) => ({ ...tab, params: { team: slug } }))} />;
 
   if (query.isError && isApiError(query.error) && query.error.status === 404) {
     return (
@@ -78,7 +81,21 @@ export function TeamLayout({ team: slug }: { team: string }) {
 
   if (team === undefined) {
     return (
-      <DetailPage header={{ ...header, mono: true }}>
+      <DetailPage
+        header={{
+          ...header,
+          mono: true,
+          meta: (
+            <>
+              <Mono tone="muted">{slug}</Mono>
+              <span aria-hidden="true" className="flex h-5 items-center">
+                <Skeleton className="h-3 w-28" />
+              </span>
+            </>
+          ),
+        }}
+        tabs={tabs}
+      >
         {query.isError ? <ErrorBlock error={query.error} title={t("teams.team.couldNotLoad", { name: slug })} onRetry={() => void query.refetch()} retrying={query.isRefetching} /> : <BodySkeleton slug={slug} />}
       </DetailPage>
     );
@@ -114,7 +131,7 @@ export function TeamLayout({ team: slug }: { team: string }) {
             }
           : {}),
       }}
-      tabs={<LinkTabs label={t("nav.landmarks.teamSections")} tabs={TEAM_TABS.map((tab) => ({ ...tab, params: { team: team.slug } }))} />}
+      tabs={tabs}
     >
       <TeamContext.Provider value={team}>
         <Outlet />

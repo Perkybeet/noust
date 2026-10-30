@@ -1158,7 +1158,9 @@ state, right after the title (not in `actions`). `leading` is a real logo (`Logo
 outside the text so that it spans the title and the line under it; `tone` (`warning` or `failed`) takes the
 ground and edge of the state of what the card holds, only when it is not well (a database server whose
 support is ending or ended, a thing that needs attention on Home), so that only what is wrong has colour
-behind it, and the state is also said in words and a glyph inside, never by the ground alone.
+behind it, and the state is also said in words and a glyph inside, never by the ground alone. The
+header keeps 12rem for its text and the `actions` go under it when they would take them, so a phone
+never reads a description one word to a line beside a wide button.
 
 **`Notice`** (`tone` `info | success | warning | error`, `variant` `inline | banner`, `title`,
 `action`, `onDismiss`, `live`). A persistent message beside what it concerns (inline) or the
@@ -1242,14 +1244,19 @@ templates render it from their `header` prop. `description` is one sentence of p
 in `meta`; a `mark` is drawn before the title (the logo of an application's type, in a `LogoTile`) and holds
 its room with a skeleton while the page is read; `actions` is the 3.0 form, kept for pages not yet migrated. `statusExtras` are chips
 after the state that open what they count ("3 not applied", "Deploys paused"), instead of a banner
-on every tab, and keep their room while they load; `place` is the line above the title that says
+on every tab, and keep their room while they load; `statusBelow` draws the state and its chips on a line of
+their own under the title, from the first frame, for a resource whose actions arrive after the page and would
+otherwise take the room beside the title (an application's, a site's): a state that wrapped under the title when
+the actions came moved the page; `place` is the line above the title that says
 where a resource lives (team, project, environment), drawn only where there is something to tell
 apart. The `primaryAction` is wrapped so that it steps aside while a `SaveBar` holds changes
 (`DemotePrimary`): a `Dialog`, a `Drawer` and a `ConfirmDialog` reset it, since a dialog has a
 primary of its own.
 
-**`KeyValueList`**. Facts about one thing, one per row; system values in mono and copyable. Not
-tabular data.
+**`KeyValueList`**. Facts about one thing, one per row; system values in mono and copyable, cut at the
+end of their line with the whole as their title. A value that is a sentence (`mono: false`) is never
+cut: it takes the lines it needs, and `wrap` gives a card too narrow for a host name or a kernel the
+same for its system values. Not tabular data.
 
 **`StatTile`** (`loading`). One key figure with a line of context, in a dashboard's figures band.
 On a phone, two to a row, its label, value and context wrap instead of being cut. While the

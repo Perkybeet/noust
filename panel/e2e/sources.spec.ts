@@ -49,10 +49,11 @@ test("an application gets a key of its own, adds its public half at the host, te
   await page.getByRole("navigation", { name: "Application settings" }).first().getByRole("link", { name: "Source", exact: true }).click();
   await expect(page.getByRole("heading", { level: 2, name: "Source" })).toBeVisible();
 
-  // No key of its own, and no server key to fall back to on this machine.
+  // No key of its own, and what git falls back to: no key at all, or the server's own, which another spec of this worker
+  // (Security and SSH makes it) may have made already.
   const key = card(page, "Deploy key");
   await expect(key.getByText("No key of its own", { exact: true })).toBeVisible();
-  await expect(key.getByText(/Git has no key to offer/)).toBeVisible();
+  await expect(key.getByText(/Git has no key to offer|Git signs in to .* with this server's own key/)).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "a repository with no deploy key");
 

@@ -42066,12 +42066,14 @@ export interface components {
          *         running_version: The version that runs, when installed.
          *         installable: It can be installed now.
          *         reason: Why not, or what is installed, as one sentence.
+         *         coded: The same reason as a code and its values, for the console to translate.
          *         versions: The versions on offer, oldest first.
          *         instances: The instances Noust runs of this flavour that are ready.
          *         instance_versions: The versions an instance of this flavour could be
          *             made in (``POST /api/databases/instances``).
          */
         EngineChoiceResponse: {
+            coded?: components["schemas"]["CodedText"] | null;
             /** Display Name */
             display_name: string;
             /** Engine */
@@ -43932,11 +43934,13 @@ export interface components {
          *             engine's other flavour is installed), ``not_available`` (nothing
          *             publishes it for this release) or ``no_apt``.
          *         reason: The same in one English sentence, with what to do.
+         *         coded: The same reason as a code and its values, for the console to translate.
          *         versions: The versions offered, oldest first.
          */
         FlavourChoiceResponse: {
             /** Blocked */
             blocked?: string | null;
+            coded?: components["schemas"]["CodedText"] | null;
             /** Display Name */
             display_name: string;
             /** Engine */
@@ -67806,6 +67810,7 @@ export interface components {
          * @description One thing looked at before a reboot.
          */
         noust__web__api__server__models__CheckOut: {
+            coded?: components["schemas"]["CodedText"] | null;
             /** Id */
             id: string;
             /** Message */

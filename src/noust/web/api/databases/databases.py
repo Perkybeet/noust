@@ -36,7 +36,7 @@ from noust.web.api.databases.common import (
     queue,
     service,
 )
-from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, require_elevated
+from noust.web.api.deps import CodedText, JobAcceptedResponse, NoustErrorRoute, require_elevated
 from noust.web.api.scope import resolve_target_for
 from noust.web.jobs import JobType
 from noust.web.permissions import Permission
@@ -293,6 +293,7 @@ class EngineChoiceResponse(BaseModel):
         running_version: The version that runs, when installed.
         installable: It can be installed now.
         reason: Why not, or what is installed, as one sentence.
+        coded: The same reason as a code and its values, for the console to translate.
         versions: The versions on offer, oldest first.
         instances: The instances Noust runs of this flavour that are ready.
         instance_versions: The versions an instance of this flavour could be
@@ -306,6 +307,7 @@ class EngineChoiceResponse(BaseModel):
     running_version: str | None = None
     installable: bool
     reason: str | None = None
+    coded: CodedText | None = None
     versions: list[ChoiceVersionResponse]
     instances: list[ChoiceInstanceResponse] = Field(default_factory=list)
     instance_versions: list[str] = Field(default_factory=list)

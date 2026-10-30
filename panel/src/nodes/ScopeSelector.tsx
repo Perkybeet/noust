@@ -140,7 +140,8 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
   let line: ReactNode;
   if (context.kind === "fleet") {
     icon = <OBJECT_ICONS.node aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />;
-    name = <span className="min-w-0 truncate font-medium">{t("fleet.selector.all")}</span>;
+    // On a phone the icon says "servers" and the name is for a screen reader: "Todos..." was all that fitted.
+    name = <span className={cx("min-w-0 truncate font-medium", !side && "max-sm:sr-only")}>{t("fleet.selector.all")}</span>;
     line = (
       <>
         <span>{t("fleet.selector.lineServers", { count: total })}</span>
@@ -202,7 +203,8 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
           "flex min-w-0 cursor-pointer items-center gap-2 rounded-control bg-bg-sunken text-13 text-fg elev-carved",
           "transition-colors duration-(--duration-fast) ease-out hover:bg-surface-hover",
           // In the top bar the trail and the machine's readout give way first: shrinking with them left "f…" for fra-1.
-          side ? "min-h-control-lg w-full py-1 pr-2 pl-2.5" : "h-control-md max-w-60 shrink-0 gap-1.5 pr-1.5 pl-2.5",
+          // On a phone it may shrink, its name ending in an ellipsis: "All servers" at full width pushed the buttons at the right off the screen.
+          side ? "min-h-control-lg w-full py-1 pr-2 pl-2.5" : "h-control-md max-w-60 shrink-0 gap-1.5 pr-1.5 pl-2.5 max-sm:shrink",
           className,
         )}
       >

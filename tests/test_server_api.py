@@ -340,6 +340,13 @@ class TestPower:
         assert body["boot_id"] == "d875e599869f472296c96f9b3e1b5356"
         assert {c["id"] for c in body["checks"]} == {"jobs", "console", "apps", "fstab", "ramdisk"}
 
+    def test_each_check_is_said_as_a_code_beside_its_english(self, api) -> None:
+        checks = {c["id"]: c for c in api.client.get("/api/server/power").json()["checks"]}
+
+        assert checks["jobs"]["message"] == "Nothing is running"
+        assert checks["jobs"]["coded"] == {"code": "power_checks.jobs_idle", "params": {}}
+        assert all(c["coded"]["code"].startswith("power_checks.") for c in checks.values())
+
     def _power(self, api) -> None:
         api.machine.ctx.power._apps_check = lambda runner: []
 

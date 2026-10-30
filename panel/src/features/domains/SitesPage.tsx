@@ -114,6 +114,8 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
   const shown = needle === "" ? narrowed : narrowed.filter((site) => site.name.includes(needle) || site.server_names.some((name) => name.includes(needle)));
   const filtered = needle !== "" || owner.filtered;
   const empty = sites.data !== undefined && everything.length === 0;
+  // The list is still being drawn (the sites, or the team they are narrowed to): what goes under it is drawn once it has its height.
+  const listing = sites.isPending || owner.loading;
   const open = (site: SiteEntry): void => {
     void navigate({ to: "/domains/sites/$site", params: { site: site.name } });
   };
@@ -280,11 +282,13 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
               />
             ),
           })}
-      {...(empty ? {} : { footer: <CommandHint command="noust site list" label={t("common.words.fromTerminal")} /> })}
+      // Neither the footer nor the card under the list is drawn until the list is: an empty server answers with an empty state in
+      // their place, and a list of nineteen rows pushed them out of the screen when it arrived.
+      {...(empty || listing ? {} : { footer: <CommandHint command="noust site list" label={t("common.words.fromTerminal")} /> })}
     >
       {content}
       {/* After the list: what answers an unknown name is read once in a while, and must not push the sites down. */}
-      {empty || !server ? null : <UnknownHostsCard />}
+      {empty || !server || listing ? null : <UnknownHostsCard />}
 
       <CreateSiteDialog
         open={creating}

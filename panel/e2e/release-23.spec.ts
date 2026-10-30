@@ -63,10 +63,13 @@ test("a recipe from the gallery is reviewed, deployed, and says what to do next"
   // unavailable and with no button. Named, not counted: every recipe the catalog adds that this
   // release cannot run would otherwise move the number. The heading is matched whole, because
   // "Vault" is also a part of "Vaultwarden", which can be installed.
+  // They are on a list of their own after the ones that can be installed ("Not available here"), with their reason.
+  const unavailable = page.getByRole("list", { name: "Not available here" });
   for (const title of ["Vault", "Excalidraw"]) {
-    const card = recipes.getByRole("listitem").filter({ has: page.getByRole("heading", { name: title, exact: true }) });
+    const card = unavailable.getByRole("listitem").filter({ has: page.getByRole("heading", { name: title, exact: true }) });
     await expect(card.getByText("Not available in this release", { exact: true })).toBeVisible();
     await expect(card.getByRole("button", { name: `Use ${title}` })).toHaveCount(0);
+    await expect(recipes.getByRole("listitem").filter({ has: page.getByRole("heading", { name: title, exact: true }) })).toHaveCount(0);
   }
   await settle(page);
   await expectNoA11yViolations(page, "the recipe gallery");

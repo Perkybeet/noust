@@ -143,7 +143,7 @@ export const server = {
     supportEnded: "Out of support since {date}",
     supportEndedNoDate: "Out of support",
     supportUnknown: "Support dates unknown",
-    updates: "System updates",
+    updates: "Updates",
     upToDate: "Up to date",
     updatesUnmanaged: "Not managed here",
     updatesPending: { one: "{count} pending", other: "{count} pending" },

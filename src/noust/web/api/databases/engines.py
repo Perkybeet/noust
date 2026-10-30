@@ -29,7 +29,7 @@ from noust.web.api.databases.common import (
     service,
     session_actor,
 )
-from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, require_elevated
+from noust.web.api.deps import CodedText, JobAcceptedResponse, NoustErrorRoute, require_elevated
 from noust.web.jobs import JobType, database_engine_job
 from noust.web.permissions import Permission
 from noust.web.permissions.enforce import check_permission
@@ -171,6 +171,7 @@ class FlavourChoiceResponse(BaseModel):
             engine's other flavour is installed), ``not_available`` (nothing
             publishes it for this release) or ``no_apt``.
         reason: The same in one English sentence, with what to do.
+        coded: The same reason as a code and its values, for the console to translate.
         versions: The versions offered, oldest first.
     """
 
@@ -181,6 +182,7 @@ class FlavourChoiceResponse(BaseModel):
     installable: bool
     blocked: str | None = None
     reason: str | None = None
+    coded: CodedText | None = None
     versions: list[VersionChoiceResponse] = Field(default_factory=list)
 
 

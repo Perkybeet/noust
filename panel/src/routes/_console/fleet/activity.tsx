@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { inPlace } from "../../../app/searchNavigation";
 import { ActivityPage } from "../../../features/activity/ActivityPage";
-import { validateActivitySearch } from "../../../features/activity/data";
+import { validateActivitySearch } from "../../../features/activity/search";
 
 /** Activity on every server: the same page as the server's, over what each server's audit log lets the operator read. */
 export const Route = createFileRoute("/_console/fleet/activity")({

@@ -147,11 +147,16 @@ export const POWER: Power = {
   mode: null,
   due_at: null,
   checks: [
-    { id: "jobs", status: "ok", message: "Nothing is running" },
-    { id: "console", status: "ok", message: "The console starts on boot" },
-    { id: "apps", status: "warn", message: "These applications are not enabled and will not start again: blog.example.org" },
-    { id: "fstab", status: "ok", message: "fstab is correct" },
-    { id: "ramdisk", status: "ok", message: "The newest kernel is complete" },
+    { id: "jobs", status: "ok", message: "Nothing is running", coded: { code: "power_checks.jobs_idle", params: {} } },
+    { id: "console", status: "ok", message: "The console starts on boot", coded: { code: "power_checks.console_returns", params: {} } },
+    {
+      id: "apps",
+      status: "warn",
+      message: "These applications are not enabled and will not start again: blog.example.org",
+      coded: { code: "power_checks.apps_stay_down", params: { apps: "blog.example.org" } },
+    },
+    { id: "fstab", status: "ok", message: "fstab is correct", coded: { code: "power_checks.fstab_correct", params: {} } },
+    { id: "ramdisk", status: "ok", message: "The newest kernel is complete", coded: { code: "power_checks.ramdisk_present", params: {} } },
   ],
 };
 

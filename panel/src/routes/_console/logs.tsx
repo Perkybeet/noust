@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { inPlace } from "../../app/searchNavigation";
-import { validateLogsSearch } from "../../features/logs/data";
+import { validateLogsSearch } from "../../features/logs/search";
 import { LogSearchPage } from "../../features/logs/LogSearchPage";
 
 /**

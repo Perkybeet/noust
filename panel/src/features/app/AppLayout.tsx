@@ -289,6 +289,7 @@ function AppPage({ domain, app, job }: { domain: string; app: UseQueryResult<App
       <DetailPage
         header={{
           ...header,
+          statusBelow: true,
           status: loaded ? <StatusPill state={view.state} label={view.label} /> : <Skeleton className="h-6 w-28 rounded-pill" />,
           ...(extras !== undefined ? { statusExtras: extras } : {}),
           meta: loaded ? <Facts app={loaded} address={displayAddress(domain, names.data?.domains, certs.data)} t={t} /> : <FactsSkeleton />,

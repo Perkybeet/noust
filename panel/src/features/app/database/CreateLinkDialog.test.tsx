@@ -1,6 +1,7 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { setLocale } from "../../../app/locale";
 import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { fakeBackend, json, problem } from "../../../test/fakes";
@@ -50,6 +51,19 @@ describe("creating a database for an application", () => {
     expect(within(listbox).getByRole("option", { name: /^17/ })).toHaveAttribute("aria-disabled", "true");
     await user.keyboard("{Escape}");
     expect(within(dialog).getByText("MariaDB: MySQL is installed, and MariaDB cannot run beside it.")).toBeInTheDocument();
+  });
+
+  it("says why an engine cannot be used in the language of the console when the server sent the reason with a code", async () => {
+    const coded = { code: "database_engines.conflict_mysql", params: { installed: "MySQL", requested: "MariaDB" } };
+    const withCode = CHOICES.map((choice) => (choice.flavour === "mariadb" ? { ...choice, reason: "The English reason of an older console.", coded } : choice));
+    const { dialog } = await dialogAt({ "GET /api/databases/provisioning/choices": () => json(200, { choices: withCode }) });
+    expect(await within(dialog).findByText(/^MariaDB: MySQL is installed, and MariaDB cannot run beside it: they share port 3306/)).toBeInTheDocument();
+    await act(() => setLocale("es"));
+    expect(
+      await within(dialog).findByText(
+        "MariaDB: MySQL está instalado y MariaDB no puede funcionar a su lado: comparten el puerto 3306, sus paquetes y /var/lib/mysql. Quita MySQL primero si quieres sustituirlo.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("asks to install an engine that is not installed before creating on it", async () => {

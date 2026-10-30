@@ -17,6 +17,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from noust.web.api.deps import CodedText
+
 # -- summary -------------------------------------------------------------------
 
 
@@ -360,6 +362,8 @@ class CheckOut(BaseModel):
     id: str
     status: str
     message: str
+    #: ``message`` as a code and its values, for the console to say in its own language.
+    coded: CodedText | None = None
 
 
 class PowerOut(BaseModel):

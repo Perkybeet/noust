@@ -49,7 +49,7 @@ import {
   parseTimestamp,
 } from "../../lib/format";
 import type { Deployment } from "../apps/data";
-import { appLimits, appReading, useLatestMetrics } from "../apps/data";
+import { appLimits, appReading, hasUnit, useLatestMetrics } from "../apps/data";
 import { CERT_WARNING_DAYS } from "../overview/attention";
 import { PreviewLogsDrawer } from "./settings/PreviewLogsDrawer";
 import { previewName, previewStatus } from "./settings/previews";
@@ -731,7 +731,8 @@ export function AppOverview({ domain }: { domain: string }) {
           <Health app={app.data} t={t} />
         </div>
       </div>
-      <RecentLogs domain={domain} t={t} />
+      {/* A static site has no process and so nothing printed: asking its journal is an error, not an empty list. */}
+      {hasUnit(app.data) ? <RecentLogs domain={domain} t={t} /> : null}
       <CommandHint
         command={`noust status ${domain}`}
         label={t("common.words.fromTerminal")}

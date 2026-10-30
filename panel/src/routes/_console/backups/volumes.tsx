@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { inPlace } from "../../../app/searchNavigation";
-import { VolumesPage, validateVolumesSearch } from "../../../features/backups/volumes/VolumesPage";
+import { VolumesPage } from "../../../features/backups/volumes/VolumesPage";
+import { validateVolumesSearch } from "../../../features/backups/volumes/search";
 
 /**
  * The data of each application, backed up on its own. The application whose backups are open is

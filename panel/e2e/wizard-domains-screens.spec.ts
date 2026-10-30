@@ -95,7 +95,8 @@ const SCREENS: readonly Screen[] = [
       const editor = page.getByRole("textbox", { name: "Configuration of example.com" });
       await expect(editor).toHaveValue(/server_name/);
       const text = await editor.inputValue();
-      await editor.fill(text.replace("proxy_http_version 1.1;", "proxy_http_version 1.1"));
+      // A directive with no ";" is what nginx refuses (the same break the Domains spec makes).
+      await editor.fill(`${text}    listen 8080\n`);
       await page.getByRole("button", { name: "Test and save" }).click();
       const elevate = page.getByRole("dialog", { name: "Confirm it's you" });
       if (await elevate.isVisible({ timeout: 2_000 }).catch(() => false)) {

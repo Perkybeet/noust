@@ -48,6 +48,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from noust.core.exceptions import DatabaseEngineError, DatabaseExistsError, ValidationError
 from noust.core.fs import FileSystem
 from noust.core.runner import CommandRunner
+from noust.core.server_text import ServerText, say
 from noust.managers.server.host import HostPaths, OsRelease, read_os_release
 
 if TYPE_CHECKING:
@@ -985,6 +986,8 @@ class FlavourChoice:
             publishes it for this release), ``no_apt`` (not a Debian or
             Ubuntu system). None when it can.
         reason: The same, as one English sentence with what to do.
+        coded: The same sentence as a code and its values, for the console to say in
+            its own language (``reason`` is its English); None when nothing blocks it.
         versions: The versions offered, oldest first.
     """
 
@@ -995,6 +998,7 @@ class FlavourChoice:
     installable: bool
     blocked: str | None = None
     reason: str | None = None
+    coded: ServerText | None = None
     versions: tuple[VersionChoice, ...] = field(default_factory=tuple)
 
     def to_dict(self) -> dict[str, Any]:
@@ -1010,6 +1014,7 @@ class FlavourChoice:
             "installable": self.installable,
             "blocked": self.blocked,
             "reason": self.reason,
+            "coded": self.coded.to_dict() if self.coded is not None else None,
             "versions": [choice.to_dict() for choice in self.versions],
         }
 
@@ -1105,22 +1110,25 @@ def catalog(
         versions = offered_versions(spec.name, os_release) if apt else ()
         blocked: str | None = None
         reason: str | None = None
+        coded: ServerText | None = None
         if present == spec.name:
             blocked, reason = "installed", f"{spec.display_name} is installed."
         elif present is not None:
             other = FLAVOURS[present].display_name if present in FLAVOURS else present
-            blocked, reason = "conflict", conflict_reason(other, spec.display_name)
+            blocked, coded = "conflict", conflict_sentence(other, spec.display_name)
         elif not apt:
             blocked = "no_apt"
-            reason = (
-                f"Noust installs {spec.display_name} with apt, dnf or zypper, and this system has none of them. "
-                "Run it as an instance, a container that needs no package manager "
-                f"(noust db instance create NAME --engine {spec.name}), or install it "
-                "with the distribution's package manager: Noust manages it from there."
+            coded = say(
+                "database_engines.no_package_manager",
+                engine=spec.display_name,
+                command=f"noust db instance create NAME --engine {spec.name}",
             )
         elif not _installable_here(spec.name, os_release):
             blocked = "not_available"
             reason = _unavailable_reason(spec.name, os_release)
+            coded = _unavailable_sentence(spec, os_release)
+        if coded is not None and reason is None:
+            reason = _in_english(coded)
         choices.append(
             FlavourChoice(
                 flavour=spec.name,
@@ -1130,6 +1138,7 @@ def catalog(
                 installable=blocked is None,
                 blocked=blocked,
                 reason=reason,
+                coded=coded,
                 versions=versions,
             )
         )
@@ -1172,6 +1181,68 @@ def _unavailable_reason(flavour: str, os_release: OsRelease) -> str:
     return ""
 
 
+def _in_english(sentence: ServerText) -> str:
+    """
+    Args:
+        sentence: A sentence of the server's.
+
+    Returns:
+        It and its fix as the one English reason the API has always sent.
+    """
+    return f"{sentence.text} {sentence.hint}" if sentence.hint else sentence.text
+
+
+def _unavailable_sentence(spec: Flavour, os_release: OsRelease) -> ServerText:
+    """
+    Say, as a code, why a flavour cannot be installed on this release.
+
+    Args:
+        spec: The flavour.
+        os_release: The distribution.
+
+    Returns:
+        The sentence the console says in its own language. The refusal of the plan with its
+        details (a series, a processor) stays in the English ``reason``.
+    """
+    if spec.name == "redis":
+        return say(
+            "database_engines.redis_not_shipped",
+            system=os_release.pretty_name,
+            command="noust db install valkey",
+        )
+    if spec.name == "valkey":
+        return say(
+            "database_engines.valkey_not_shipped",
+            system=os_release.pretty_name,
+            command="noust db install redis",
+        )
+    return say(
+        "database_engines.not_available",
+        engine=spec.display_name,
+        system=os_release.pretty_name,
+        command=f"noust db instance create NAME --engine {spec.name}",
+    )
+
+
+def conflict_sentence(installed: str, requested: str) -> ServerText:
+    """
+    Say why one flavour of an engine cannot be installed beside the other.
+
+    Args:
+        installed: The installed flavour's name for a person.
+        requested: The requested one's.
+
+    Returns:
+        The sentence and its fix, as a code the console translates.
+    """
+    code = (
+        "database_engines.conflict_mysql"
+        if {installed, requested} <= {"MySQL", "MariaDB"}
+        else "database_engines.conflict_redis"
+    )
+    return say(code, installed=installed, requested=requested)
+
+
 def conflict_reason(installed: str, requested: str) -> str:
     """
     Say why one flavour of an engine cannot be installed beside the other.
@@ -1183,15 +1254,7 @@ def conflict_reason(installed: str, requested: str) -> str:
     Returns:
         The sentence, with what to do.
     """
-    shared = (
-        "port 3306, their packages and /var/lib/mysql"
-        if {installed, requested} <= {"MySQL", "MariaDB"}
-        else "port 6379 and their packages"
-    )
-    return (
-        f"{installed} is installed, and {requested} cannot run beside it: they share "
-        f"{shared}. Remove {installed} first if you mean to replace it."
-    )
+    return _in_english(conflict_sentence(installed, requested))
 
 
 # --------------------------------------------------------------- repository

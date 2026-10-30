@@ -3359,6 +3359,7 @@ EngineCatalogResponse = TypedDict("EngineCatalogResponse", {
 })
 
 EngineChoiceResponse = TypedDict("EngineChoiceResponse", {
+    "coded": NotRequired[Union["CodedText", None]],
     "display_name": Required[str],
     "engine": Required[str],
     "flavour": Required[str],
@@ -3982,6 +3983,7 @@ FixRequest = TypedDict("FixRequest", {
 
 FlavourChoiceResponse = TypedDict("FlavourChoiceResponse", {
     "blocked": NotRequired[Union[str, None]],
+    "coded": NotRequired[Union["CodedText", None]],
     "display_name": Required[str],
     "engine": Required[str],
     "flavour": Required[str],
@@ -11708,6 +11710,7 @@ NoustWebApiSelfBackupScheduleDestination = TypedDict("NoustWebApiSelfBackupSched
 })
 
 NoustWebApiServerModelsCheckOut = TypedDict("NoustWebApiServerModelsCheckOut", {
+    "coded": NotRequired[Union["CodedText", None]],
     "id": Required[str],
     "message": Required[str],
     "status": Required[str],

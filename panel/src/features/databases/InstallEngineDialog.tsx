@@ -13,6 +13,7 @@ import { Field } from "../../components/ui/Field";
 import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { useServerReason } from "../../components/ui/ServerText";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 
@@ -59,6 +60,7 @@ function versionLabel(t: T, version: VersionChoice): string {
  */
 export function InstallEngineDialog({ open, onOpenChange, engine: preset, onQueued }: InstallEngineDialogProps) {
   const t = useT();
+  const reasonOf = useServerReason();
   const catalog = useQuery({ ...engineCatalogQuery(), enabled: open });
   const [flavour, setFlavour] = useState<string | null>(null);
   const [version, setVersion] = useState<string | null>(null);
@@ -155,7 +157,7 @@ export function InstallEngineDialog({ open, onOpenChange, engine: preset, onQueu
               <ul className="flex max-w-measure flex-col gap-1 text-12 text-fg-muted">
                 {blocked.map((item) => (
                   <li key={item.flavour}>
-                    <span className="font-medium text-fg">{item.display_name}</span> <span translate="no">{item.reason}</span>
+                    <span className="font-medium text-fg">{item.display_name}</span> <span {...(item.coded ? {} : { translate: "no" })}>{reasonOf(item.coded, item.reason)}</span>
                   </li>
                 ))}
               </ul>

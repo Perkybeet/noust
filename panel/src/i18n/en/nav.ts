@@ -197,6 +197,7 @@ export const nav = {
     engines: "Engines",
     backups: "Backups",
     server: "Server",
+    systemUpdates: "System updates",
     recipes: "Recipes",
     recipesInstalled: "Installed recipes",
     projects: "Projects",

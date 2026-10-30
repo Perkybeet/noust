@@ -123,6 +123,32 @@ export const serverText = {
       hint: "To turn it off there, or:\n  {command}",
     },
   },
+  database_engines: {
+    conflict_mysql: {
+      text: "{installed} is installed, and {requested} cannot run beside it: they share port 3306, their packages and /var/lib/mysql.",
+      hint: "Remove {installed} first if you mean to replace it.",
+    },
+    conflict_redis: {
+      text: "{installed} is installed, and {requested} cannot run beside it: they share port 6379 and their packages.",
+      hint: "Remove {installed} first if you mean to replace it.",
+    },
+    no_package_manager: {
+      text: "Noust installs {engine} with apt, dnf or zypper, and this system has none of them.",
+      hint: "Run it as an instance, a container that needs no package manager ({command}), or install it with the distribution's package manager: Noust manages it from there.",
+    },
+    not_available: {
+      text: "Noust cannot install {engine} on {system}",
+      hint: "Run it as an instance, a container that needs no package manager ({command}), or install it with the system's package manager: Noust manages it from there.",
+    },
+    redis_not_shipped: {
+      text: "{system} does not ship Redis",
+      hint: "Install Valkey instead: run '{command}'.",
+    },
+    valkey_not_shipped: {
+      text: "{system} does not ship Valkey",
+      hint: "Valkey is packaged from Debian 13 and Ubuntu 24.04 on. Install Redis instead: run '{command}'.",
+    },
+  },
   database_servers: {
     default_app: {
       text: "{key} is the database of an application's stack, so it cannot be the default",
@@ -494,6 +520,22 @@ export const serverText = {
         text: "Use lower-case letters, digits, '-' and '_', starting with a letter, at most {max} characters.",
       },
     },
+  },
+  power_checks: {
+    jobs_running: { text: "Running now: {jobs}" },
+    jobs_idle: { text: "Nothing is running" },
+    console_returns: { text: "The console starts on boot" },
+    console_stays_down: {
+      text: "The console is not an enabled systemd unit: it will not come back after the reboot. Run 'noust web enable' first.",
+    },
+    apps_stay_down: { text: "These applications are not enabled and will not start again: {apps}" },
+    apps_return: { text: "Every application starts on boot" },
+    fstab_correct: { text: "fstab is correct" },
+    fstab_problem: {
+      text: "findmnt --verify found a problem, and a bad fstab can leave the machine in emergency mode: {output}",
+    },
+    ramdisk_missing: { text: "The newest kernel, {release}, has no initial ramdisk in /boot" },
+    ramdisk_present: { text: "The newest kernel is complete" },
   },
   recipes: {
     root_equivalent: {

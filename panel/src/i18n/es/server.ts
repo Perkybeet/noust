@@ -153,7 +153,7 @@ export const server: Catalog<typeof en> = {
     supportEnded: "Fuera de soporte desde el {date}",
     supportEndedNoDate: "Fuera de soporte",
     supportUnknown: "Fechas de soporte desconocidas",
-    updates: "Actualizaciones del sistema",
+    updates: "Actualizaciones",
     upToDate: "Al día",
     updatesUnmanaged: "No se gestionan aquí",
     updatesPending: { one: "{count} pendiente", other: "{count} pendientes" },

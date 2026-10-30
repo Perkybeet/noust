@@ -293,6 +293,63 @@ def test_the_catalog_never_offers_the_other_flavour_of_an_installed_engine() -> 
     assert entries["postgresql"].installable
 
 
+def test_every_reason_an_engine_cannot_be_installed_is_a_sentence_with_a_code() -> None:
+    """The console says it in its own language; the English reason is the same words as before."""
+    conflict = {entry.flavour: entry for entry in catalog(NOBLE, {"mysql": "mariadb"}, apt=True)}[
+        "mysql"
+    ]
+    assert conflict.coded is not None and conflict.coded.code == "database_engines.conflict_mysql"
+    assert conflict.coded.params == {"installed": "MariaDB", "requested": "MySQL"}
+    assert conflict.reason == (
+        "MariaDB is installed, and MySQL cannot run beside it: they share port 3306, their "
+        "packages and /var/lib/mysql. Remove MariaDB first if you mean to replace it."
+    )
+    # The sentence travels in the dictionary the API turns into its response.
+    assert conflict.to_dict()["coded"] == conflict.coded.to_dict()
+
+    redis = {entry.flavour: entry for entry in catalog(NOBLE, {"redis": "valkey"}, apt=True)}[
+        "redis"
+    ]
+    assert redis.coded is not None and redis.coded.code == "database_engines.conflict_redis"
+
+    no_apt = {entry.flavour: entry for entry in catalog(NOBLE, {}, apt=False)}["postgresql"]
+    assert no_apt.coded is not None and no_apt.coded.code == "database_engines.no_package_manager"
+    assert no_apt.coded.params == {
+        "engine": "PostgreSQL",
+        "command": "noust db instance create NAME --engine postgresql",
+    }
+    assert (no_apt.reason or "").startswith("Noust installs PostgreSQL with apt, dnf or zypper")
+
+
+def test_an_engine_the_release_does_not_ship_says_which_one_to_use_instead(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    entries = {entry.flavour: entry for entry in catalog(BOOKWORM, {}, apt=True)}
+
+    valkey = entries["valkey"]
+    assert valkey.coded is not None and valkey.coded.code == "database_engines.valkey_not_shipped"
+    assert valkey.coded.params == {
+        "system": "Debian GNU/Linux 12 (bookworm)",
+        "command": "noust db install redis",
+    }
+    # The plan's own refusal, with its details, is still the English reason.
+    assert "Valkey" in (valkey.reason or "")
+
+    # Any other refusal is one sentence that names the engine and the system and the way out.
+    monkeypatch.setattr(flavours, "architecture", lambda: "arm64")
+    mysql = {entry.flavour: entry for entry in catalog(BOOKWORM, {}, apt=True)}["mysql"]
+    assert mysql.coded is not None and mysql.coded.code == "database_engines.not_available"
+    assert mysql.coded.params["engine"] == "MySQL"
+    assert "noust db instance create" in (mysql.reason or "")
+
+
+def test_what_can_be_installed_has_no_reason_and_no_code() -> None:
+    postgres = {entry.flavour: entry for entry in catalog(BOOKWORM, {}, apt=True)}["postgresql"]
+
+    assert postgres.installable and postgres.reason is None and postgres.coded is None
+    assert postgres.to_dict()["coded"] is None
+
+
 def test_the_catalog_without_apt_installs_nothing() -> None:
     entries = catalog(NOBLE, {}, apt=False)
 

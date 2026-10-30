@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { loadCatalog } from "../../i18n";
 import { bindT } from "../../i18n/useT";
 import type { AuditEntry, ActivityJob } from "./data";
+import { isFiltered, resultValidFor, validateActivitySearch } from "./search";
 import {
   actionWords,
   namedActor,
@@ -14,17 +15,14 @@ import {
   describeActor,
   detailOf,
   inKind,
-  isFiltered,
   jobActionLabel,
   matchesText,
   mergeActivity,
   resourceOf,
   resourceWords,
   resultOptions,
-  resultValidFor,
   resultView,
   rowActor,
-  validateActivitySearch,
 } from "./data";
 
 const t = bindT("en");

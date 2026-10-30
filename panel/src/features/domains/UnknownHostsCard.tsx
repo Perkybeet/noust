@@ -136,24 +136,23 @@ export function UnknownHostsCard() {
     },
   });
 
-  // design-exception: hand-error-ternary the card keeps its frame and a skeleton of its action while it loads, so the page below does not move
-  if (status.isError && status.data === undefined) {
-    return <ErrorBlock error={status.error} title={t("network.unknownHosts.readFailed")} onRetry={() => void status.refetch()} retrying={status.isRefetching} />;
-  }
   const data = status.data;
+  // The failure is drawn inside the card, which keeps its title and its line: a card that turned into a bare error when the answer
+  // came back moved everything under it.
+  const failed = status.isError && data === undefined;
   const holders = data?.holders ?? [];
   const foreign = holders.filter((holder) => !holder.distribution);
 
   return (
     <Card
       icon={OBJECT_ICONS.domain}
-      loading={data === undefined}
+      loading={data === undefined && !failed}
       level={2}
       title={t("network.unknownHosts.title")}
       description={t("network.unknownHosts.description")}
       actions={
         data === undefined ? (
-          <Skeleton className="h-8 w-24" />
+          failed ? undefined : <Skeleton className="h-8 w-24" />
         ) : (
           <span className="flex items-center gap-2">
             {data.enabled ? (
@@ -168,7 +167,9 @@ export function UnknownHostsCard() {
         )
       }
     >
-      {data === undefined ? (
+      {failed ? (
+        <ErrorBlock compact error={status.error} title={t("network.unknownHosts.readFailed")} onRetry={() => void status.refetch()} retrying={status.isRefetching} />
+      ) : data === undefined ? (
         <LoadingRegion label={t("network.unknownHosts.loading")} className="flex flex-col gap-2">
           <Skeleton className="h-5 w-2/3" />
         </LoadingRegion>

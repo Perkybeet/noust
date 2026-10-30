@@ -29,6 +29,32 @@ describe("a database's page", () => {
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
+  it("shows the address an application connects with whole, on the overview and on Connect, never cut by an ellipsis", async () => {
+    const address = "postgresql://example_production:********@localhost:5432/example_production";
+    const link = OVERVIEW.links[0];
+    const { user } = await pageAt("/databases/postgresql/example_production", {
+      "GET /api/databases/databases/postgresql/example_production/connect": () =>
+        json(200, {
+          engine: "postgresql",
+          database: "example_production",
+          port: 5432,
+          username: "example_production",
+          password_known: true,
+          apps: [link],
+          exposed: [],
+          tunnel: { command: "ssh -N -L 5432:127.0.0.1:5432 root@db.example.com", url: address, local_port: 5432, remote_port: 5432, server: "db.example.com", ssh_port: 22, ssh_user: "root", clients: {} },
+        }),
+    });
+    const onOverview = await screen.findByText(address);
+    expect(onOverview).not.toHaveClass("truncate");
+    expect(onOverview).toHaveClass("break-all");
+    await user.click(within(screen.getByRole("navigation", { name: "Database sections" })).getByRole("link", { name: "Connect" }));
+    // The same address is also the tunnel's step 2 (in full, in a box of its own): the application's row is the first.
+    const onConnect = (await screen.findAllByText(address))[0];
+    expect(onConnect).not.toHaveClass("truncate");
+    expect(onConnect).toHaveClass("break-all");
+  });
+
   it("holds the place of the last day's charts while the metrics are read, and not when the engine reports none", async () => {
     await pageAt("/databases/postgresql/example_production", {
       "GET /api/databases/databases/postgresql/example_production/metrics": () => new Promise<Response>(() => undefined),

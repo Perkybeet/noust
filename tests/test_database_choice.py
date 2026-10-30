@@ -255,6 +255,20 @@ class TestTheChoices:
         assert "MySQL is installed" in (listing["mariadb"]["reason"] or "")
         assert all(item["state"] == "unavailable" for item in listing["mariadb"]["versions"])
 
+    def test_the_reason_is_also_a_sentence_with_a_code_for_the_console_to_translate(
+        self, tmp_path: Path
+    ) -> None:
+        listing = {
+            entry["flavour"]: entry
+            for entry in choices(service_for(engine_classes(tmp_path, mysql="mysql")))
+        }
+        assert listing["mariadb"]["coded"] == {
+            "code": "database_engines.conflict_mysql",
+            "params": {"installed": "MySQL", "requested": "MariaDB"},
+        }
+        # What can be created has no reason, so no code.
+        assert listing["postgresql"]["coded"] is None
+
 
 class TestProvisioning:
     """The refusal comes before anything is created."""
@@ -489,6 +503,22 @@ class TestApi:
         ] or any(
             item["version"] == "16" and item["state"] == "installed"
             for item in by_flavour["postgresql"]["versions"]
+        )
+
+    def test_a_choice_that_cannot_be_used_carries_its_reason_with_a_code(
+        self, client: TestClient
+    ) -> None:
+        body = client.get("/api/databases/provisioning/choices").json()
+        by_flavour = {entry["flavour"]: entry for entry in body["choices"]}
+        blocked = [
+            entry
+            for entry in by_flavour.values()
+            if not entry["installable"] and not entry["installed"]
+        ]
+        assert all("coded" in entry for entry in by_flavour.values())
+        assert all(
+            entry["coded"] is None or entry["coded"]["code"].startswith("database_engines.")
+            for entry in blocked
         )
 
     def test_the_choices_need_a_session(
