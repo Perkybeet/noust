@@ -40,8 +40,10 @@ LISTED_IN_40 = {
     "strapi",
     "supabase",
 }
-#: Licences that are readable but not open source, and so are said in the description.
-NOT_OPEN_SOURCE = re.compile(r"LicenseRef|BUSL|FSL|SSPL", re.IGNORECASE)
+#: The forms a licence that is not free software takes in the catalogue: a name the project wrote
+#: (`LicenseRef-...`, said in the project's words in the recipe's header), a Business Source
+#: License, a Functional Source License, the Server Side Public License.
+NOT_FREE_FORMS = re.compile(r"LicenseRef-|BUSL-1\.1|FSL-1\.1|SSPL-1\.0")
 
 
 def assets_of(recipe: Recipe) -> Path:
@@ -183,29 +185,28 @@ def test_the_clickhouse_files_copied_from_plausible_carry_the_licence_they_came_
     assert all(name in notice for name in copied), copied
 
 
-@pytest.mark.parametrize(
-    "recipe",
-    [
-        recipe
-        for recipe in list_recipes()
-        if recipe.available and NOT_OPEN_SOURCE.search(recipe.license or "")
-    ],
-    ids=lambda recipe: recipe.name,
-)
-def test_a_licence_that_is_not_open_source_is_said_in_the_description(recipe: Recipe) -> None:
-    """The contribution rule: a source-available or open-core recipe says so where the operator chooses it."""
+def not_free() -> list[Recipe]:
+    """The installable recipes whose project's licence is not free software."""
+    return [r for r in list_recipes() if r.available and r.license and not r.free_software]
+
+
+@pytest.mark.parametrize("recipe", not_free(), ids=lambda recipe: recipe.name)
+def test_a_licence_that_is_not_free_software_is_said_in_the_description(recipe: Recipe) -> None:
+    """The contribution rule: a source-available or open core recipe says so where the operator chooses it."""
     assert re.search(r"source-available|open core", recipe.description, re.IGNORECASE), recipe.name
 
 
-def test_the_licences_that_are_not_open_source_are_the_ones_the_policy_names() -> None:
-    """The ones the docs name (the Licences paragraph of docs/recipes-format.md), and no other."""
-    found = {
-        recipe.name
-        for recipe in list_recipes()
-        if recipe.available and NOT_OPEN_SOURCE.search(recipe.license or "")
-    }
+@pytest.mark.parametrize("recipe", not_free(), ids=lambda recipe: recipe.name)
+def test_a_licence_that_is_not_free_software_takes_one_of_the_forms_the_policy_names(
+    recipe: Recipe,
+) -> None:
+    """Not an SPDX identifier of a free licence misspelt: a name the project wrote, or a licence of the family."""
+    assert NOT_FREE_FORMS.search(recipe.license or ""), (recipe.name, recipe.license)
 
-    assert found == {
+
+def test_the_projects_the_docs_name_as_source_available_are_not_free_software() -> None:
+    """The Licences paragraph of docs/recipes-format.md names them; the label follows."""
+    named = {
         "affine",
         "bugsink",
         "chatwoot",
@@ -219,7 +220,10 @@ def test_the_licences_that_are_not_open_source_are_the_ones_the_policy_names() -
         "stirling-pdf",
         "tandoor",
         "typebot",
+        "vault",
     }
+
+    assert named <= {recipe.name for recipe in not_free()}
 
 
 @pytest.mark.parametrize("name", sorted(LISTED_IN_40))

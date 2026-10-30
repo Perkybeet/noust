@@ -80,6 +80,8 @@ class RecipeSummaryOut(BaseModel):
         docs: The project's documentation.
         repository: The project's source code.
         license: The project's licence.
+        free_software: Whether that licence is a free software one; False means the software
+            is source-available or open core, which the console says beside the licence.
         min_noust: The oldest Noust that can install it, when it asks for one.
         architectures: What it runs on; empty for any. Checked at install.
         category: One of the closed list (``GET /api/recipes/categories``).
@@ -134,6 +136,7 @@ class RecipeSummaryOut(BaseModel):
     docs: str | None = None
     repository: str | None = None
     license: str | None = None
+    free_software: bool = True
     min_noust: str | None = None
     architectures: list[str] = []
     category: str = "other"
