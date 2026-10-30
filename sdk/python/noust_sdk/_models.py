@@ -5364,6 +5364,7 @@ MachineMemory = TypedDict("MachineMemory", {
 MachineUnits = TypedDict("MachineUnits", {
     "failed": Required[int],
     "running": Required[int],
+    "scheduled": NotRequired[int],
     "stopped": Required[int],
 })
 
@@ -8771,6 +8772,7 @@ ServiceInfo = TypedDict("ServiceInfo", {
     "name": Required[str],
     "pid": NotRequired[Union[int, None]],
     "result": NotRequired[Union[str, None]],
+    "scheduled": NotRequired[bool],
     "status": Required[str],
     "sub_state": NotRequired[Union[str, None]],
     "tags": NotRequired[list[str]],

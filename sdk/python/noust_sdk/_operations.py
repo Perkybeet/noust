@@ -9041,7 +9041,7 @@ class Services:
     def __init__(self, call: Call) -> None:
         self._call = call
 
-    def list_services(self, *, noust_only: Union[bool, None] = None, wasm_only: Union[bool, None] = None, state: Union[Literal["failed", "running", "stopped"], None] = None, tag: Union[str, None] = None) -> "ServiceListResponse":
+    def list_services(self, *, noust_only: Union[bool, None] = None, wasm_only: Union[bool, None] = None, state: Union[Literal["failed", "running", "stopped", "scheduled"], None] = None, tag: Union[str, None] = None) -> "ServiceListResponse":
         """GET /api/services
 
         List Services
