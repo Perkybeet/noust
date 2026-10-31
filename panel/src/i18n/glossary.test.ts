@@ -294,6 +294,7 @@ describe("what the retired values catch", () => {
     "en:old-names": { yes: ["Domains and certificates", "Log shipping"], no: ["Domains", "Logs and metrics export"] },
     "es:borrar": { yes: ["Borrar", "Borrar fila", "Borrarla de aquí", "para borrarse"], no: ["Borrador", "Eliminar"] },
     "es:leyendo": { yes: ["Leyendo los procesos", "Leyendo: {range}…"], no: ["Leyendo esto cuesta una petición."] },
+    "es:reconocer-alerta": { yes: ["Reconocer", "Reconocida por {who}"], no: ["Marcar como vista", "Vista por {who}", "Reconoce el framework de la carpeta"] },
     "es:parar-arrancar": { yes: ["Parar", "Arrancar", "Parar tras"], no: ["Lo lee el proceso al arrancar", "Detener"] },
     "es:fallo-verbo": { yes: ["Falló", "falló"], no: ["Fallido", "Falló un gancho que se ejecuta después"] },
     "es:en-vivo": { yes: ["En vivo", "Seguir el registro en vivo"], no: ["En directo", "En producción"] },

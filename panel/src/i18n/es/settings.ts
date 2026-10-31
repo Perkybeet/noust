@@ -504,7 +504,7 @@ export const settings: Catalog<typeof en> = {
         approvalDecided: { label: "Aprobación resuelta", description: "Se aprobó o rechazó una solicitud." },
         alertFiring: { label: "Alerta activa", description: "Una de tus reglas de alerta se ha incumplido durante el tiempo que pide." },
         alertResolved: { label: "Alerta resuelta", description: "Una regla que estaba activa vuelve a estar dentro de su límite." },
-        alertAcknowledged: { label: "Alerta atendida", description: "Alguien atendió una alerta activa; un buscapersonas reconoce el incidente." },
+        alertAcknowledged: { label: "Alerta atendida", description: "Alguien atendió una alerta activa; un buscapersonas marca el incidente como visto." },
         backupMissing: { label: "Falta una copia de seguridad", description: "Una aplicación, una base de datos o el estado de Noust no tiene una copia reciente, o nunca la tuvo." },
         cronFailed: { label: "Tarea programada fallida", description: "Una tarea programada terminó con un error." },
         cronSuccess: { label: "Tarea programada terminada", description: "Cada tarea programada que termina bien. Ruidoso." },

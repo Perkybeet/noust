@@ -277,7 +277,7 @@ changes it changes here first (docs/DESIGN.md G-5), and the tests hold the catal
 | **Continue** | Continuar | a step of a wizard, with its object when it is ambiguous ("Continue with GitLab") | **Confirm**, **Confirm and continue**, **OK** (DESIGN 5) |
 | **Back** | Atrás | the previous step of a wizard or a dialog; pages have breadcrumbs | Volver (it collides with Volver atrás, Roll back) |
 | **Refresh**, **Renew** | Recargar, Renovar | Refresh reads again; Renew issues a certificate again | "Renovar las listas de paquetes", Actualizar to refresh |
-| **Acknowledge**, **Reopen** | Reconocer, Reabrir | a firing alert: stops the reminders and never resolves it | Take it, Hand it back |
+| **Acknowledge**, **Reopen** | Marcar como vista, Reabrir | a firing alert: stops the reminders and never resolves it; the state is "Vista por {who}" | Take it, Hand it back, Reconocer (a calque of the English: it says nothing of what it does) |
 | **Next** | Siguiente, Próxima | Siguiente: the step or the page. Próxima: the next occurrence in time ("Next run") | |
 | **Loading …** | Cargando … | everything that loads, also what is read from the machine: the text of `LoadingRegion`, `sr-only`, and the two-second footer (DESIGN 6.6) | **Reading …** / Leyendo … (about eighty keys), the nine fragments "the …" |
 

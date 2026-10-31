@@ -123,6 +123,6 @@ describe("alerts on every server", () => {
     const table = await screen.findByRole("region", { name: "Reglas de alerta de todos los servidores" });
     expect(await within(table).findByText("Normal")).toBeInTheDocument();
     expect(screen.getByText("2 alertas están activas")).toBeInTheDocument();
-    expect(table).toHaveTextContent("Reconocida por marta (desde la central web-01)");
+    expect(table).toHaveTextContent("Vista por marta (desde la central web-01)");
   });
 });

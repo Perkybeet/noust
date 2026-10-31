@@ -44,7 +44,7 @@ export const GLOSSARY: readonly GlossaryRow[] = [
   { en: "Back", es: ["Atrás"], group: "action" },
   { en: "Refresh", es: ["Recargar"], group: "action" },
   { en: "Renew", es: ["Renovar"], group: "action" },
-  { en: "Acknowledge", es: ["Reconocer"], group: "action" },
+  { en: "Acknowledge", es: ["Marcar como vista"], group: "action" },
   { en: "Reopen", es: ["Reabrir"], group: "action" },
   { en: "Next", es: ["Siguiente", "Próxima"], group: "action" },
   // States (README, "States"); a state agrees with its entity, so the feminine and the plural count
@@ -150,6 +150,7 @@ export const RETIRED: readonly Retired[] = [
   // Spanish
   { id: "borrar", language: "es", pattern: /\bborrar(?:l[aeo]s?|se)?\b/i, instead: "Eliminar (Delete) or Quitar (unlink; Clear filters is Quitar filtros)" },
   { id: "leyendo", language: "es", pattern: /^Leyendo\b/, notSentence: true, instead: "Cargando …" },
+  { id: "reconocer-alerta", language: "es", pattern: /^Reconocer\b|\bReconocida por\b/, instead: "Marcar como vista (Acknowledge, an alert); its state is \"Vista por {who}\"" },
   { id: "parar-arrancar", language: "es", pattern: /^(?:Parar|Arrancar)\b/, maxWords: 4, notSentence: true, instead: "Detener or Iniciar" },
   { id: "fallo-verbo", language: "es", pattern: /^falló$/i, instead: "Fallido or Fallida: a state is not a verb" },
   { id: "en-vivo", language: "es", pattern: /\ben vivo\b/i, instead: "En producción (the version that serves) or En directo (a stream)" },

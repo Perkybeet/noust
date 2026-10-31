@@ -383,8 +383,8 @@ describe("Alerts", () => {
     });
     renderConsole("/alerts");
     await screen.findByRole("list", { name: "Reglas de alerta" });
-    const badge = await within(ruleRow("shop-memory", "Reglas de alerta")).findByText(/Reconocida por/);
-    expect(badge).toHaveTextContent(/Reconocida por\s+marta \(desde la central fra-1\)/);
+    const badge = await within(ruleRow("shop-memory", "Reglas de alerta")).findByText(/Vista por/);
+    expect(badge).toHaveTextContent(/Vista por\s+marta \(desde la central fra-1\)/);
     expect(badge).not.toHaveTextContent("on behalf of");
   });
 
