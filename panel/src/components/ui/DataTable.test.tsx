@@ -288,14 +288,15 @@ describe("DataTable", () => {
       const [first, second] = cards;
       if (!first || !second) throw new Error("no card");
       const box = within(first).getByRole("checkbox", { name: "Choose shop.example.com" });
-      // Not on the meta line, and no separator for the values that are not there.
+      // Not on the meta line, and nothing in its place for the values that are not there.
       expect(box.closest("p")).toBeNull();
       expect(first).not.toHaveTextContent("Port");
       expect(first).not.toHaveTextContent("Nothing");
       expect(first).not.toHaveTextContent("–");
-      expect(within(first).queryAllByText("·", { exact: true })).toHaveLength(0);
       expect(second).toHaveTextContent("Port: 3000");
-      expect(within(second).getAllByText("·", { exact: true })).toHaveLength(1);
+      // The facts are apart by room: no mark between them, which wrapped alone to a line of its own.
+      expect(first).not.toHaveTextContent("·");
+      expect(second).not.toHaveTextContent("·");
     });
 
     it("opens a row from its name, as the table does", async () => {

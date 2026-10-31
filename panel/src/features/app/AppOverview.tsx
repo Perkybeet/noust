@@ -222,9 +222,13 @@ function Highlights({ app, t }: { app: App; t: T }) {
     ) : serving === null ? (
       <span className="title text-18 text-fg-muted">{t("appPages.overview.nothingLiveShort")}</span>
     ) : (
-      <TextLink to="/apps/$domain/deployments/$id" params={{ domain, id: String(serving.id) }} variant="row" className="title text-18">
-        {`#${String(serving.id)}`}
-      </TextLink>
+      // The moment is beside the version, apart from the message under it: after the message it read as the last words of it.
+      <span className="flex min-w-0 items-baseline gap-3">
+        <TextLink to="/apps/$domain/deployments/$id" params={{ domain, id: String(serving.id) }} variant="row" className="title text-18">
+          {`#${String(serving.id)}`}
+        </TextLink>
+        <RelativeTime value={serving.finished_at ?? serving.started_at} className="text-12 text-fg-muted" />
+      </span>
     );
   return (
     <section aria-label={t("appPages.overview.highlightsLabel", { domain })} className={cx("grid min-w-0 gap-4", !staticSite && "sm:grid-cols-3")}>
@@ -237,8 +241,7 @@ function Highlights({ app, t }: { app: App; t: T }) {
           serving === null ? undefined : (
             <>
               {shortCommit(serving.git_commit) !== null ? <Mono tone="muted">{shortCommit(serving.git_commit)}</Mono> : null}{" "}
-              {message !== null ? <span title={message}>{message}</span> : null}{" "}
-              <RelativeTime value={serving.finished_at ?? serving.started_at} />
+              {message !== null ? <span title={message}>{message}</span> : null}
             </>
           )
         }
@@ -721,13 +724,16 @@ export function AppOverview({ domain }: { domain: string }) {
   return (
     <div className="flex flex-col gap-8">
       <Highlights app={app.data} t={t} />
-      <div className="grid min-w-0 gap-8 lg:grid-cols-3">
-        <div className="flex min-w-0 flex-col gap-8 lg:col-span-2">
-          <Deploys app={app.data} t={t} />
+      {/* The history has the whole width: a commit message is what its lines are read for, and at 1440px beside
+          the bars two thirds of the page cut it, while the card of the health next to it held two facts. */}
+      <Deploys app={app.data} t={t} />
+      <div className="grid min-w-0 gap-8 lg:grid-cols-5">
+        <div className="flex min-w-0 flex-col gap-8 lg:col-span-3">
           <Reach app={app.data} t={t} />
           <Previews domain={domain} t={t} />
         </div>
-        <div className="flex min-w-0 flex-col gap-8">
+        {/* Two fifths: the two facts of the health each have room for their label and their value in Spanish too. */}
+        <div className="flex min-w-0 flex-col gap-8 lg:col-span-2">
           <Health app={app.data} t={t} />
         </div>
       </div>

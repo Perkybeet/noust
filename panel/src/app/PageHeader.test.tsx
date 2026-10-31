@@ -61,12 +61,17 @@ describe("PageHeader", () => {
         overflow={<MenuItem>Stop</MenuItem>}
       />,
     );
-    const actions = screen.getByRole("button", { name: "Update" }).parentElement;
-    if (!actions) throw new Error("no actions");
+    const update = screen.getByRole("button", { name: "Update" });
+    // The row of the actions: the primary and the menu are one piece in it, so they wrap together.
+    const tail = update.parentElement;
+    const actions = tail?.parentElement;
+    if (!actions || !tail) throw new Error("no actions");
     const names = within(actions)
       .getAllByRole("button")
       .map((button) => button.getAttribute("aria-label") ?? button.textContent);
     expect(names).toEqual(["Restart", "Update", "More actions"]);
+    expect(within(tail).getAllByRole("button")).toHaveLength(2);
+    expect(within(tail).getByRole("button", { name: "More actions" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "More actions" }));
     expect(await screen.findByRole("menuitem", { name: "Stop" })).toBeInTheDocument();
   });

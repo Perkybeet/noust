@@ -200,7 +200,7 @@ export const appPages: Catalog<typeof en> = {
     loadingDeploys: "Cargando los despliegues",
     healthTitle: "Salud",
     editLimits: "Editar límites",
-    uptimeLabel: "Tiempo en marcha",
+    uptimeLabel: "Tiempo activo",
     alwaysOn: "Siempre activo",
     notRunning: "No está en ejecución",
     certificateLabel: "Certificado",
