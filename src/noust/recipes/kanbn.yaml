@@ -1,0 +1,87 @@
+# Kanbn: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/kanbn
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: kanbn
+kind: compose
+title: "Kanbn"
+slogan: "The open source Trello alternative."
+description: "The open-source project management alternative to Trello."
+category: utilities
+tags: [collaboration, project-management, kanban-board, task-management, utilities]
+logo: logo.svg
+version: "0.6.0"
+revision: 1
+updated: 2026-10-31
+homepage: https://kan.bn
+docs: https://docs.kan.bn/
+repository: https://github.com/kanbn/kan
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  NEXT_PUBLIC_BASE_URL:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  BETTER_AUTH_SECRET:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for better auth secret."
+  POSTGRES_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres password."
+  POSTGRES_URL:
+    value: "postgresql://kan:${POSTGRES_PASSWORD}@postgres:5432/kan_db"
+    secret: true
+    description: "Setting POSTGRES_URL of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    kanbn:
+      image: ghcr.io/kanbn/kan:0.6.0@sha256:0087a72a123d8462c66ddce3a303049d4ec92f03cfba297d41466605ef8cb5b5
+      restart: unless-stopped
+      environment:
+        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL}
+        BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+        POSTGRES_URL: ${POSTGRES_URL}
+        NEXT_PUBLIC_ALLOW_CREDENTIALS: 'true'
+      depends_on:
+        migrate:
+          condition: service_completed_successfully
+      ports:
+        - 127.0.0.1:${PORT}:3000
+    migrate:
+      image: ghcr.io/kanbn/kan-migrate:0.6.0@sha256:3296fd28e037a93dda478981494a72c6905ecd4f0d0739e79139172844acbc4b
+      restart: 'no'
+      environment:
+        POSTGRES_URL: ${POSTGRES_URL}
+      depends_on:
+        postgres:
+          condition: service_healthy
+    postgres:
+      image: postgres:15@sha256:64b99032e218b66b1d1a6334995056e1aa57f50a0c522cc856e72dff0e4b0d63
+      restart: unless-stopped
+      environment:
+        POSTGRES_DB: kan_db
+        POSTGRES_USER: kan
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      volumes:
+        - kan_postgres_data:/var/lib/postgresql/data
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U kan -d kan_db
+        interval: 5s
+        timeout: 5s
+        retries: 10
+  volumes:
+    kan_postgres_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume kan_postgres_data of this application: back it up before updating."

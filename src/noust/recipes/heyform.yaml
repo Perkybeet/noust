@@ -1,0 +1,113 @@
+# Heyform: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/heyform.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: heyform
+kind: compose
+title: "Heyform"
+slogan: "Create conversational forms for surveys, questionnaires and quizzes."
+description: "Allows anyone to create engaging conversational forms for surveys, questionnaires, quizzes, and polls. No coding skills required."
+category: development
+tags: [form, builder, forms, survey, quiz, open, source, self-hosted]
+logo: logo.svg
+version: "3.0.5"
+revision: 1
+updated: 2026-10-31
+homepage: https://heyform.net
+docs: https://docs.heyform.net/open-source/self-hosting
+repository: https://github.com/heyform/heyform
+license: AGPL-3.0-only
+architectures: ["amd64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_HEYFORM:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_BASE64_64_SESSION:
+    generate: "base64_64"
+    secret: true
+    description: "The secret Noust generated for session."
+  SERVICE_BASE64_64_FORM:
+    generate: "base64_64"
+    secret: true
+    description: "The secret Noust generated for form."
+  SERVICE_PASSWORD_KEYDB:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for keydb."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    heyform:
+      image: heyform/community-edition:v3.0.5@sha256:3a103fa72d7ec8d94e8f0c44b009041fdd73d4ed35e3ed1b68ff7fe28520525e
+      volumes:
+        - heyform-assets:/app/static/upload
+      depends_on:
+        mongo:
+          condition: service_healthy
+        keydb:
+          condition: service_healthy
+      environment:
+        SERVICE_URL_HEYFORM: ${SERVICE_URL_HEYFORM}
+        APP_HOMEPAGE_URL: ${SERVICE_URL_HEYFORM}
+        SESSION_KEY: ${SERVICE_BASE64_64_SESSION}
+        FORM_ENCRYPTION_KEY: ${SERVICE_BASE64_64_FORM}
+        MONGO_URI: mongodb://mongo:27017/heyform
+        REDIS_HOST: keydb
+        REDIS_PORT: '6379'
+        REDIS_PASSWORD: ${SERVICE_PASSWORD_KEYDB}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - wget -qO- http://127.0.0.1:9157 || exit 1
+        interval: 5s
+        timeout: 5s
+        retries: 3
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:9157
+    mongo:
+      image: percona/percona-server-mongodb:8.3.13@sha256:615d0bacd7d0ee5f591050b5c14ca7dfb929c60db2d20965532e4c2eef99144b
+      volumes:
+        - heyform-mongo-data:/data/db
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - echo 'ok' > /dev/null 2>&1
+        interval: 5s
+        timeout: 5s
+        retries: 10
+        start_period: 5s
+      restart: unless-stopped
+    keydb:
+      image: valkey/valkey:9.0.6-alpine@sha256:187679e3bd4036959631e3f03983ab2ba503ab21e6fd0454d508e909db2ee989
+      command:
+        - sh
+        - -c
+        - valkey-server --appendonly yes --requirepass $$REDIS_PASSWORD
+      environment:
+        REDIS_PASSWORD: ${SERVICE_PASSWORD_KEYDB}
+      volumes:
+        - heyform-keydb-data:/data
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - valkey-cli -a $$REDIS_PASSWORD ping | grep PONG
+        interval: 5s
+        timeout: 5s
+        retries: 10
+        start_period: 5s
+      restart: unless-stopped
+  volumes:
+    heyform-assets:
+    heyform-mongo-data:
+    heyform-keydb-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_PASSWORD_KEYDB in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes heyform-assets, heyform-mongo-data, heyform-keydb-data of this application: back them up before updating."

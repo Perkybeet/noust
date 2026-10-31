@@ -21,6 +21,11 @@
    "seconds": 43,
    "version": "26.10.0"
   },
+  "adventurelog": {
+   "date": "2026-10-31",
+   "seconds": 92,
+   "version": "0.13.1"
+  },
   "affine": {
    "date": "2026-10-28",
    "seconds": 80,
@@ -35,6 +40,11 @@
    "date": "2026-10-30",
    "seconds": 36,
    "version": "0.34.2"
+  },
+  "alexandrie": {
+   "date": "2026-10-31",
+   "seconds": 81,
+   "version": "8.14.2"
   },
   "ampache": {
    "date": "2026-10-30",
@@ -171,6 +181,11 @@
    "seconds": 131,
    "version": "2.4.0p39"
   },
+  "chevereto": {
+   "date": "2026-10-31",
+   "seconds": 89,
+   "version": "4.5.8"
+  },
   "chhoto-url": {
    "date": "2026-10-30",
    "seconds": 35,
@@ -190,6 +205,11 @@
    "date": "2026-10-28",
    "seconds": 54,
    "version": "26.2.3"
+  },
+  "cloudreve": {
+   "date": "2026-10-31",
+   "seconds": 103,
+   "version": "4.19.1"
   },
   "code-server": {
    "date": "2026-10-28",
@@ -250,6 +270,11 @@
    "date": "2026-10-28",
    "seconds": 37,
    "version": "11.5.0"
+  },
+  "cypht": {
+   "date": "2026-10-31",
+   "seconds": 76,
+   "version": "2.13.0"
   },
   "dagu": {
    "date": "2026-10-29",
@@ -330,6 +355,11 @@
    "date": "2026-10-28",
    "seconds": 149,
    "version": "24.0.2"
+  },
+  "domain-locker": {
+   "date": "2026-10-31",
+   "seconds": 81,
+   "version": "0.3.5"
   },
   "dozzle": {
    "date": "2026-10-29",
@@ -596,6 +626,11 @@
    "seconds": 72,
    "version": "0.4.4"
   },
+  "grist": {
+   "date": "2026-10-31",
+   "seconds": 99,
+   "version": "1.7.22"
+  },
   "grocy": {
    "date": "2026-10-29",
    "seconds": 48,
@@ -631,6 +666,16 @@
    "seconds": 45,
    "version": "2.8.3"
   },
+  "hello": {
+   "date": "2026-10-31",
+   "seconds": 46,
+   "version": "1.0.0"
+  },
+  "heyform": {
+   "date": "2026-10-31",
+   "seconds": 107,
+   "version": "3.0.5"
+  },
   "homarr": {
    "date": "2026-10-28",
    "seconds": 48,
@@ -665,6 +710,11 @@
    "date": "2026-10-30",
    "seconds": 82,
    "version": "6.4"
+  },
+  "hyperdx": {
+   "date": "2026-10-31",
+   "seconds": 109,
+   "version": "2.42.0"
   },
   "imgproxy": {
    "date": "2026-10-30",
@@ -740,6 +790,11 @@
    "date": "2026-10-30",
    "seconds": 69,
    "version": "lab-4.6.4"
+  },
+  "kanbn": {
+   "date": "2026-10-31",
+   "seconds": 61,
+   "version": "0.6.0"
   },
   "kaneo": {
    "date": "2026-10-30",
@@ -996,6 +1051,11 @@
    "seconds": 50,
    "version": "2.3.3"
   },
+  "mixpost": {
+   "date": "2026-10-31",
+   "seconds": 185,
+   "version": "2.6.0"
+  },
   "mongo-express": {
    "date": "2026-10-30",
    "seconds": 74,
@@ -1126,6 +1186,11 @@
    "seconds": 114,
    "version": "10.0.0.1"
   },
+  "open-archiver": {
+   "date": "2026-10-31",
+   "seconds": 95,
+   "version": "0.6.2"
+  },
   "open-design": {
    "date": "2026-10-28",
    "seconds": 50,
@@ -1160,6 +1225,11 @@
    "date": "2026-10-30",
    "seconds": 89,
    "version": "5.2.3"
+  },
+  "openhabittracker": {
+   "date": "2026-10-31",
+   "seconds": 43,
+   "version": "1.2.5"
   },
   "openlist": {
    "date": "2026-10-30",
@@ -1241,6 +1311,11 @@
    "seconds": 89,
    "version": "5.17.0"
   },
+  "paymenter": {
+   "date": "2026-10-31",
+   "seconds": 82,
+   "version": "1.5.9"
+  },
   "penpot": {
    "date": "2026-10-29",
    "seconds": 94,
@@ -1276,6 +1351,11 @@
    "seconds": 44,
    "version": "2026.10.0"
   },
+  "piwigo": {
+   "date": "2026-10-31",
+   "seconds": 66,
+   "version": "16.4.0"
+  },
   "plane": {
    "date": "2026-10-29",
    "seconds": 120,
@@ -1296,6 +1376,11 @@
    "seconds": 68,
    "version": "3.2.1"
   },
+  "plunk": {
+   "date": "2026-10-31",
+   "seconds": 86,
+   "version": "1.3.6"
+  },
   "pocket-id": {
    "date": "2026-10-29",
    "seconds": 37,
@@ -1315,6 +1400,11 @@
    "date": "2026-10-29",
    "seconds": 53,
    "version": "2.15.3"
+  },
+  "prefect": {
+   "date": "2026-10-31",
+   "seconds": 80,
+   "version": "3.9.0-python3.15"
   },
   "prestashop": {
    "date": "2026-10-30",
@@ -1411,6 +1501,11 @@
    "seconds": 117,
    "version": "5.4.1"
   },
+  "rote": {
+   "date": "2026-10-31",
+   "seconds": 65,
+   "version": "2.6.0"
+  },
   "roundcube": {
    "date": "2026-10-29",
    "seconds": 51,
@@ -1441,6 +1536,11 @@
    "seconds": 78,
    "version": "2.19.17"
   },
+  "sequin": {
+   "date": "2026-10-31",
+   "seconds": 79,
+   "version": "0.14.6"
+  },
   "sftpgo": {
    "date": "2026-10-29",
    "seconds": 38,
@@ -1470,6 +1570,11 @@
    "date": "2026-10-29",
    "seconds": 53,
    "version": "2.12.1"
+  },
+  "sim": {
+   "date": "2026-10-31",
+   "seconds": 163,
+   "version": "0.9.36"
   },
   "siyuan": {
    "date": "2026-10-29",
@@ -1540,6 +1645,11 @@
    "date": "2026-10-29",
    "seconds": 101,
    "version": "6.1.0"
+  },
+  "sure": {
+   "date": "2026-10-31",
+   "seconds": 105,
+   "version": "0.7.5"
   },
   "suwayomi": {
    "date": "2026-10-30",
@@ -1646,6 +1756,11 @@
    "seconds": 53,
    "version": "30.2"
   },
+  "umami": {
+   "date": "2026-10-31",
+   "seconds": 509,
+   "version": "2.20.2"
+  },
   "unleash": {
    "date": "2026-10-29",
    "seconds": 54,
@@ -1655,6 +1770,16 @@
    "date": "2026-10-29",
    "seconds": 36,
    "version": "5"
+  },
+  "uptime-kuma": {
+   "date": "2026-10-31",
+   "seconds": 358,
+   "version": "1.23.17"
+  },
+  "usesend": {
+   "date": "2026-10-31",
+   "seconds": 80,
+   "version": "1.10.0"
   },
   "vault": {
    "date": "2026-10-30",
@@ -1696,6 +1821,11 @@
    "seconds": 50,
    "version": "2.18.2"
   },
+  "wallabag": {
+   "date": "2026-10-31",
+   "seconds": 84,
+   "version": "2.6.14"
+  },
   "wallos": {
    "date": "2026-10-29",
    "seconds": 41,
@@ -1715,6 +1845,11 @@
    "date": "2026-10-29",
    "seconds": 40,
    "version": "1.40.1"
+  },
+  "weblate": {
+   "date": "2026-10-31",
+   "seconds": 163,
+   "version": "2026.10.1.4"
   },
   "wekan": {
    "date": "2026-10-29",
@@ -1746,6 +1881,11 @@
    "seconds": 51,
    "version": "2026.10.1"
   },
+  "wordpress": {
+   "date": "2026-10-31",
+   "seconds": 82,
+   "version": "7.1.2"
+  },
   "wuzapi": {
    "date": "2026-10-31",
    "seconds": 60,
@@ -1770,6 +1910,11 @@
    "date": "2026-10-29",
    "seconds": 56,
    "version": "1.85.0"
+  },
+  "zabbix": {
+   "date": "2026-10-31",
+   "seconds": 92,
+   "version": "7.4.16-ubuntu"
   },
   "zipkin": {
    "date": "2026-10-30",

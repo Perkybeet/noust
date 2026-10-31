@@ -1,0 +1,77 @@
+# Piwigo from the image the project publishes (ghcr.io/linuxserver/piwigo), with the variables and folders its documentation names (docs.linuxserver.io/images/docker-piwigo).
+# Licence: LICENSE of Piwigo/Piwigo, read 2026-10-30: GNU General Public License, version 2
+schema: 2
+name: piwigo
+kind: compose
+title: "Piwigo"
+slogan: "Photo gallery software for the web, built by an active community."
+description: "A photo gallery with albums, tags, a calendar, user permissions, comments, ratings and a plugin and theme library, for a family or an agency. It runs with its own MariaDB and starts at its installer."
+category: media
+tags: [photos, gallery, albums, cms]
+logo: simple-icons:piwigo
+version: "16.4.0"
+revision: 1
+updated: 2026-10-31
+homepage: https://piwigo.org
+docs: https://piwigo.org
+repository: https://github.com/Piwigo/Piwigo
+license: GPL-2.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  DB_PASSWORD:
+    generate: "password32"
+    description: "The password of the stack's Mariadb account."
+  DB_ROOT_PASSWORD:
+    generate: "password32"
+    description: "The password of the stack's Mariadb administrator."
+  TZ:
+    default: "UTC"
+    description: "The time zone, such as Europe/Madrid."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    piwigo:
+      image: ghcr.io/linuxserver/piwigo:16.4.0@sha256:ae48cf752e94920c06c49cbfd902266e3a7822c90c418b6090137509637b1106
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        PUID: '1000'
+        PGID: '1000'
+        TZ: ${TZ}
+      volumes:
+        - piwigo-config:/config
+        - piwigo-gallery:/gallery
+      ports:
+        - 127.0.0.1:${PORT}:80
+    db:
+      image: mariadb:11.8.9@sha256:c4124d1afa875e47f2892edf26b482fa54f796e2f342d3717a04ca091a22a9bd
+      restart: unless-stopped
+      environment:
+        MARIADB_USER: piwigo
+        MARIADB_DATABASE: piwigo
+        MARIADB_PASSWORD: ${DB_PASSWORD}
+        MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      healthcheck:
+        test:
+          - CMD
+          - healthcheck.sh
+          - --connect
+          - --innodb_initialized
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 30s
+      volumes:
+        - piwigo-db:/var/lib/mysql
+  volumes:
+    piwigo-config:
+    piwigo-gallery:
+    piwigo-db:
+notes:
+  - "Open {{ url }}. The first visit is Piwigo's installer: do it right after installing, with database host db, name piwigo, user piwigo and the password in DB_PASSWORD (noust env show {{ domain }} --unmask)."
+  - "Its data is in the Docker volumes piwigo-config, piwigo-gallery, piwigo-db of this application, the databases dumped by Noust before every update: back them up before updating."

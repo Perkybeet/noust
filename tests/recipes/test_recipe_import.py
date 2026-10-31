@@ -1253,6 +1253,26 @@ def test_a_default_that_names_the_sample_domain_follows_the_deployment_s_domain(
     assert declared["APP_DOMAIN"]["from"] == "fqdn"
 
 
+def test_an_address_on_any_example_domain_follows_the_deployment_s_domain(tool: ModuleType) -> None:
+    """`wallabag@example.com` and `tickets@mail.example.org` are as unread as the sample domain's."""
+    draft = draft_of(tool, {"web": {"image": "o/app:1.0"}}, ("web", 80))
+    draft.variables = {
+        "FROM_EMAIL": {"origin": "template", "secret": False, "value": "wallabag@example.com"},
+        "MAIL_FROM": {"origin": "template", "secret": False, "value": "tickets@mail.example.org"},
+        "DOCS": {"origin": "template", "secret": False, "value": "https://docs.example.com/"},
+    }
+    draft.values = {name: entry["value"] for name, entry in draft.variables.items()}
+
+    declared = tool.declare_variables(draft, "a: ${FROM_EMAIL}\nb: ${MAIL_FROM}\nc: ${DOCS}\n")
+
+    assert declared["FROM_EMAIL"]["value"] == "wallabag@${APP_DOMAIN}"
+    assert declared["MAIL_FROM"]["value"] == "tickets@${APP_DOMAIN}"
+    assert declared["DOCS"] == {
+        "default": "https://docs.example.com/",
+        "description": declared["DOCS"]["description"],
+    }
+
+
 def test_a_setting_made_of_other_variables_is_a_value_filled_in_at_the_install(
     tool: ModuleType,
 ) -> None:

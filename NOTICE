@@ -12,12 +12,14 @@ under the Apache License, Version 2.0 (see LICENSE-APACHE-2.0). Each of these fi
 header which template it comes from and what was changed:
 
   src/noust/recipes/affine.yaml
+  src/noust/recipes/alexandrie.yaml
   src/noust/recipes/anythingllm.yaml
   src/noust/recipes/apprise-api.yaml
   src/noust/recipes/babybuddy.yaml
   src/noust/recipes/calibre-web-automated-book-downloader.yaml
   src/noust/recipes/checkmate.yaml
   src/noust/recipes/chroma.yaml
+  src/noust/recipes/cloudreve.yaml
   src/noust/recipes/cryptgeon.yaml
   src/noust/recipes/databasus.yaml
   src/noust/recipes/docling.yaml
@@ -36,8 +38,10 @@ header which template it comes from and what was changed:
   src/noust/recipes/gotenberg.yaml
   src/noust/recipes/gowa.yaml
   src/noust/recipes/grimmory.yaml
+  src/noust/recipes/grist.yaml
   src/noust/recipes/grocy.yaml
   src/noust/recipes/heimdall.yaml
+  src/noust/recipes/heyform.yaml
   src/noust/recipes/homebox.yaml
   src/noust/recipes/hoppscotch.yaml
   src/noust/recipes/influxdb.yaml
@@ -50,20 +54,25 @@ header which template it comes from and what was changed:
   src/noust/recipes/marimo.yaml
   src/noust/recipes/mealie.yaml
   src/noust/recipes/metamcp.yaml
+  src/noust/recipes/mixpost.yaml
   src/noust/recipes/moodle.yaml
   src/noust/recipes/once-campfire.yaml
   src/noust/recipes/onedev.yaml
   src/noust/recipes/onetimesecret.yaml
+  src/noust/recipes/open-archiver.yaml
   src/noust/recipes/openobserve.yaml
   src/noust/recipes/orangehrm.yaml
   src/noust/recipes/outline.yaml
   src/noust/recipes/passbolt.yaml
+  src/noust/recipes/paymenter.yaml
   src/noust/recipes/penpot.yaml
   src/noust/recipes/pgadmin.yaml
   src/noust/recipes/pgbackweb.yaml
   src/noust/recipes/plane.yaml
+  src/noust/recipes/plunk.yaml
   src/noust/recipes/pocket-id.yaml
   src/noust/recipes/portabase.yaml
+  src/noust/recipes/prefect.yaml
   src/noust/recipes/privatebin.yaml
   src/noust/recipes/pydio-cells.yaml
   src/noust/recipes/qdrant.yaml
@@ -71,10 +80,14 @@ header which template it comes from and what was changed:
   src/noust/recipes/rallly.yaml
   src/noust/recipes/rivet-engine.yaml
   src/noust/recipes/ryot.yaml
+  src/noust/recipes/sequin.yaml
   src/noust/recipes/silverbullet.yaml
   src/noust/recipes/snipe-it.yaml
+  src/noust/recipes/sure.yaml
+  src/noust/recipes/usesend.yaml
   src/noust/recipes/wakapi.yaml
   src/noust/recipes/weaviate.yaml
+  src/noust/recipes/weblate.yaml
   src/noust/recipes/yamtrack.yaml
   src/noust/recipes/zipline.yaml
 
@@ -129,10 +142,12 @@ brand. The files, by licence:
     src/noust/recipes/assets/_simple-icons/apachecouchdb.svg
     src/noust/recipes/assets/_simple-icons/apachesuperset.svg
     src/noust/recipes/assets/alertmanager/logo.svg
+    src/noust/recipes/assets/alexandrie/logo.svg
     src/noust/recipes/assets/atuin/logo.svg
     src/noust/recipes/assets/autobrr/logo.svg
     src/noust/recipes/assets/bazarr/logo.svg
     src/noust/recipes/assets/bytestash/logo.svg
+    src/noust/recipes/assets/chevereto/logo.svg
     src/noust/recipes/assets/chhoto-url/logo.svg
     src/noust/recipes/assets/chroma/logo.svg
     src/noust/recipes/assets/cloudbeaver/logo.svg
@@ -154,6 +169,8 @@ brand. The files, by licence:
     src/noust/recipes/assets/gatus/logo.svg
     src/noust/recipes/assets/glitchtip/logo.svg
     src/noust/recipes/assets/gotosocial/logo.svg
+    src/noust/recipes/assets/grist/logo.svg
+    src/noust/recipes/assets/heyform/logo.svg
     src/noust/recipes/assets/homer/logo.svg
     src/noust/recipes/assets/infisical/logo.svg
     src/noust/recipes/assets/jackett/logo.svg
@@ -173,6 +190,7 @@ brand. The files, by licence:
     src/noust/recipes/assets/mage-ai/logo.svg
     src/noust/recipes/assets/marimo/logo.svg
     src/noust/recipes/assets/miniflux/logo.svg
+    src/noust/recipes/assets/mixpost/logo.svg
     src/noust/recipes/assets/mongo-express/logo.svg
     src/noust/recipes/assets/moodist/logo.svg
     src/noust/recipes/assets/mstream/logo.svg
@@ -186,6 +204,7 @@ brand. The files, by licence:
     src/noust/recipes/assets/openspeedtest/logo.svg
     src/noust/recipes/assets/papra/logo.svg
     src/noust/recipes/assets/parseable/logo.svg
+    src/noust/recipes/assets/paymenter/logo.svg
     src/noust/recipes/assets/pgadmin/logo.svg
     src/noust/recipes/assets/pgbackweb/logo.svg
     src/noust/recipes/assets/planka/logo.svg
@@ -213,6 +232,7 @@ brand. The files, by licence:
     src/noust/recipes/assets/wakapi/logo.svg
     src/noust/recipes/assets/yamtrack/logo.svg
     src/noust/recipes/assets/yopass/logo.svg
+    src/noust/recipes/assets/zabbix/logo.svg
     src/noust/recipes/assets/zitadel/logo.svg
   BSD-2-Clause
     src/noust/recipes/assets/babybuddy/logo.svg
@@ -229,14 +249,18 @@ brand. The files, by licence:
     src/noust/recipes/assets/calibre-web-automated-book-downloader/logo.svg
     src/noust/recipes/assets/calibre/logo.svg
     src/noust/recipes/assets/cryptgeon/logo.svg
+    src/noust/recipes/assets/cypht/logo.svg
     src/noust/recipes/assets/dagu/logo.svg
     src/noust/recipes/assets/docmost/logo.svg
+    src/noust/recipes/assets/domain-locker/logo.svg
     src/noust/recipes/assets/fireshare/logo.svg
     src/noust/recipes/assets/go2rtc/logo.svg
     src/noust/recipes/assets/gotify/logo.svg
     src/noust/recipes/assets/grimmory/logo.svg
     src/noust/recipes/assets/hermes-agent/logo.svg
     src/noust/recipes/assets/hortusfox/logo.svg
+    src/noust/recipes/assets/hyperdx/logo.svg
+    src/noust/recipes/assets/kanbn/logo.svg
     src/noust/recipes/assets/kaneo/logo.svg
     src/noust/recipes/assets/kener/logo.svg
     src/noust/recipes/assets/leafwiki/logo.svg
@@ -266,6 +290,7 @@ brand. The files, by licence:
     src/noust/recipes/assets/_simple-icons/forgejo.svg
     src/noust/recipes/assets/_simple-icons/openbao.svg
   GPL-3.0-only
+    src/noust/recipes/assets/_simple-icons/weblate.svg
     src/noust/recipes/assets/cookie-cloud/logo.png
     src/noust/recipes/assets/kavita/logo.svg
     src/noust/recipes/assets/lidarr/logo.svg
@@ -334,6 +359,7 @@ licensed under the MIT License. Each of these files says in its header which tem
 and what was changed:
 
   src/noust/recipes/ackee.yaml
+  src/noust/recipes/adventurelog.yaml
   src/noust/recipes/ampache.yaml
   src/noust/recipes/answer.yaml
   src/noust/recipes/archivebox.yaml
@@ -343,15 +369,18 @@ and what was changed:
   src/noust/recipes/calibre.yaml
   src/noust/recipes/certmate.yaml
   src/noust/recipes/chatto.yaml
+  src/noust/recipes/chevereto.yaml
   src/noust/recipes/commafeed.yaml
   src/noust/recipes/cookie-cloud.yaml
   src/noust/recipes/crawl4ai.yaml
   src/noust/recipes/cup.yaml
+  src/noust/recipes/cypht.yaml
   src/noust/recipes/dagu.yaml
   src/noust/recipes/databasement.yaml
   src/noust/recipes/directory-lister.yaml
   src/noust/recipes/discourse.yaml
   src/noust/recipes/docling-serve.yaml
+  src/noust/recipes/domain-locker.yaml
   src/noust/recipes/evershop.yaml
   src/noust/recipes/ezbookkeeping.yaml
   src/noust/recipes/filegator.yaml
@@ -363,10 +392,12 @@ and what was changed:
   src/noust/recipes/go2rtc.yaml
   src/noust/recipes/grimoire.yaml
   src/noust/recipes/hortusfox.yaml
+  src/noust/recipes/hyperdx.yaml
   src/noust/recipes/imgproxy.yaml
   src/noust/recipes/invoiceshelf.yaml
   src/noust/recipes/jellyseerr.yaml
   src/noust/recipes/joomla.yaml
+  src/noust/recipes/kanbn.yaml
   src/noust/recipes/kaneo.yaml
   src/noust/recipes/kener.yaml
   src/noust/recipes/kestra.yaml
@@ -384,6 +415,7 @@ and what was changed:
   src/noust/recipes/open-design.yaml
   src/noust/recipes/opencode.yaml
   src/noust/recipes/opengist.yaml
+  src/noust/recipes/openhabittracker.yaml
   src/noust/recipes/openseo.yaml
   src/noust/recipes/openspeedtest.yaml
   src/noust/recipes/otterwiki.yaml
@@ -394,8 +426,10 @@ and what was changed:
   src/noust/recipes/prometheus.yaml
   src/noust/recipes/pulse.yaml
   src/noust/recipes/qui.yaml
+  src/noust/recipes/rote.yaml
   src/noust/recipes/silex.yaml
   src/noust/recipes/silo.yaml
+  src/noust/recipes/sim.yaml
   src/noust/recipes/speedtest-tracker.yaml
   src/noust/recipes/spliit.yaml
   src/noust/recipes/steedos.yaml
@@ -406,9 +440,11 @@ and what was changed:
   src/noust/recipes/upsnap.yaml
   src/noust/recipes/versitygw.yaml
   src/noust/recipes/victoriametrics.yaml
+  src/noust/recipes/wallabag.yaml
   src/noust/recipes/wuzapi.yaml
   src/noust/recipes/yourls.yaml
   src/noust/recipes/yuvomi.yaml
+  src/noust/recipes/zabbix.yaml
   src/noust/recipes/zitadel.yaml
 
 The tests of the Dokploy template converter also quote parts of templates. The licence:

@@ -1,0 +1,137 @@
+# AdventureLog: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/adventurelog
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: adventurelog
+kind: compose
+title: "AdventureLog"
+slogan: "Self-hostable travel tracker and trip planner."
+description: "AdventureLog is an open-source activity tracker with maps, journaling, and Strava integration."
+category: utilities
+tags: [activity, maps, django, react, postgres, utilities]
+logo: logo.svg
+version: "0.13.1"
+revision: 1
+updated: 2026-10-30
+homepage: https://adventurelog.app
+docs: https://adventurelog.app/docs/intro/adventurelog_overview.html
+repository: https://github.com/seanmorley15/AdventureLog
+license: GPL-3.0-only
+architectures: ["amd64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  PUBLIC_SERVER_URL:
+    from: "fqdn"
+    description: "The address people use to reach the application, as the template builds it."
+  ORIGIN:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  BODY_SIZE_LIMIT:
+    default: "Infinity"
+    description: "Setting BODY_SIZE_LIMIT of the application; the template leaves it to the operator."
+  POSTGRES_DB:
+    default: "adventure"
+    description: "Setting POSTGRES_DB of the application; the template leaves it to the operator."
+  POSTGRES_USER:
+    default: "adventure"
+    description: "Setting POSTGRES_USER of the application; the template leaves it to the operator."
+  POSTGRES_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres password."
+  PGHOST:
+    default: "db"
+    description: "Setting PGHOST of the application; the template leaves it to the operator."
+  SECRET_KEY:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for secret key."
+  DJANGO_ADMIN_USERNAME:
+    default: "admin"
+    description: "Setting DJANGO_ADMIN_USERNAME of the application; the template leaves it to the operator."
+  DJANGO_ADMIN_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for django admin password."
+  APP_DOMAIN:
+    from: "fqdn"
+    description: "The domain people use to reach the application."
+  DJANGO_ADMIN_EMAIL:
+    value: "admin@${APP_DOMAIN}"
+    description: "Setting DJANGO_ADMIN_EMAIL of the application; the template leaves it to the operator."
+  DEBUG:
+    default: "False"
+    description: "Setting DEBUG of the application; the template leaves it to the operator."
+  CSRF_TRUSTED_ORIGINS:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  FRONTEND_URL:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  PUBLIC_URL:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    web:
+      image: ghcr.io/seanmorley15/adventurelog-frontend:v0.13.1@sha256:568b1be1c42f456df066a8bb55be8ce0046b2c6fc96b1650db5d2162eb4f1ce9
+      restart: unless-stopped
+      depends_on:
+        server:
+          condition: service_started
+      environment:
+        PUBLIC_SERVER_URL: ${PUBLIC_SERVER_URL}
+        ORIGIN: ${ORIGIN}
+        BODY_SIZE_LIMIT: ${BODY_SIZE_LIMIT}
+      ports:
+        - 127.0.0.1:${PORT}:3000
+    db:
+      image: postgis/postgis:16-3.5@sha256:94146ac37bc61e2322f88016056c5920729cb8c64c8542ed590af8fc2abdac07
+      restart: unless-stopped
+      volumes:
+        - postgres_data:/var/lib/postgresql/data/
+      environment:
+        POSTGRES_DB: ${POSTGRES_DB}
+        POSTGRES_USER: ${POSTGRES_USER}
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U "$${POSTGRES_USER:-postgres}" -q
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+    server:
+      image: ghcr.io/seanmorley15/adventurelog-backend:v0.13.1@sha256:8c45e21f95875ccd35a6e68f7da72504df9e837d6ee703379512cb8de6a67082
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      volumes:
+        - adventurelog_media:/code/media/
+      environment:
+        PGHOST: ${PGHOST}
+        POSTGRES_DB: ${POSTGRES_DB}
+        POSTGRES_USER: ${POSTGRES_USER}
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        SECRET_KEY: ${SECRET_KEY}
+        DJANGO_ADMIN_USERNAME: ${DJANGO_ADMIN_USERNAME}
+        DJANGO_ADMIN_PASSWORD: ${DJANGO_ADMIN_PASSWORD}
+        DJANGO_ADMIN_EMAIL: ${DJANGO_ADMIN_EMAIL}
+        DEBUG: ${DEBUG}
+        CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS}
+        FRONTEND_URL: ${FRONTEND_URL}
+        PUBLIC_URL: ${PUBLIC_URL}
+  volumes:
+    postgres_data:
+    adventurelog_media:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes postgres_data, adventurelog_media of this application: back them up before updating."

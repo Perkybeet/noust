@@ -86,6 +86,10 @@ DEFAULTS = {
 
 #: The domain a template is converted with, and the port a stack's web service is published on.
 DOMAIN = "app.example.com"
+
+#: An address on one of the domains reserved for examples (a template's `wallabag@example.com`): nobody
+#: reads its mail, so it follows the deployment's own domain.
+SAMPLE_ADDRESS = re.compile(r"@(?:[\w-]+\.)*example\.(?:com|org|net)\b")
 PORT = 3000
 
 #: Eligibility (docs/contributing-recipes.md, "Is it eligible").
@@ -1537,7 +1541,7 @@ def declare_variables(draft: Draft, text: str) -> dict[str, dict[str, Any]]:
             text = str(known["value"])
             if text.lstrip().startswith("#"):
                 text = ""  # what follows a hash on a template's env line is its comment
-            if DOMAIN in text:
+            if DOMAIN in text or SAMPLE_ADDRESS.search(text):
                 found.setdefault(
                     "APP_DOMAIN",
                     {
@@ -1545,7 +1549,11 @@ def declare_variables(draft: Draft, text: str) -> dict[str, dict[str, Any]]:
                         "description": "The domain people use to reach the application.",
                     },
                 )
-                entry = {"value": text.replace(DOMAIN, "${APP_DOMAIN}")}
+                entry = {
+                    "value": SAMPLE_ADDRESS.sub(
+                        "@${APP_DOMAIN}", text.replace(DOMAIN, "${APP_DOMAIN}")
+                    )
+                }
             elif text and SECRET_NAME.search(name) and not NOT_A_CREDENTIAL.match(text):
                 # A default credential is what the recipe never ships: the install makes one.
                 entry = {"generate": "password32"}

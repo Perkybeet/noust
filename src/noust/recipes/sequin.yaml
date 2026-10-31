@@ -1,0 +1,128 @@
+# Sequin: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/sequin.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: sequin
+kind: compose
+title: "Sequin"
+slogan: "The fastest Postgres change data capture"
+description: "The fastest Postgres change data capture."
+category: analytics
+tags: [postgres, sync, data, analytics]
+logo: logo.svg
+version: "0.14.6"
+revision: 1
+updated: 2026-10-30
+homepage: https://sequinstream.com
+docs: https://sequinstream.com/docs/
+repository: https://github.com/sequinstream/sequin
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_SEQUIN:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_FQDN_SEQUIN:
+    from: "fqdn"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_USER_POSTGRES:
+    generate: "user"
+    description: "The user name Noust generated for postgres."
+  SERVICE_PASSWORD_POSTGRES:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres."
+  SERVICE_REALBASE64_64_SECRETKEY:
+    generate: "base64_64"
+    secret: true
+    description: "The secret Noust generated for secretkey."
+  SERVICE_REALBASE64_VAULTKEY:
+    generate: "base64_32"
+    secret: true
+    description: "The secret Noust generated for vaultkey."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    sequin:
+      image: sequin/sequin:v0.14.6@sha256:336759c1c632ebdc87939bcea70b26b46df6593e666088e1bf29058209437d3e
+      environment:
+        SERVICE_URL_SEQUIN: ${SERVICE_URL_SEQUIN}
+        SERVER_HOST: ${SERVICE_FQDN_SEQUIN}
+        PG_HOSTNAME: postgres
+        PG_DATABASE: ${POSTGRES_DB:-sequin-db}
+        PG_PORT: '5432'
+        PG_USERNAME: ${SERVICE_USER_POSTGRES}
+        PG_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+        PG_POOL_SIZE: '20'
+        SECRET_KEY_BASE: ${SERVICE_REALBASE64_64_SECRETKEY}
+        VAULT_KEY: ${SERVICE_REALBASE64_VAULTKEY}
+        REDIS_URL: redis://redis:6379
+        CONFIG_FILE_PATH: /config/playground.yml
+        FEATURE_ACCOUNT_SELF_SIGNUP: ${FEATURE_ACCOUNT_SELF_SIGNUP:-false}
+        SEQUIN_TELEMETRY_DISABLED: ${SEQUIN_TELEMETRY_DISABLED:-false}
+        CRASH_REPORTING_DISABLED: ${CRASH_REPORTING_DISABLED:-false}
+      depends_on:
+        redis:
+          condition: service_healthy
+        postgres:
+          condition: service_healthy
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - http://localhost:7376/health
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:7376
+    postgres:
+      image: postgres:16@sha256:1beaa3084eee2676f20a9cd9928f0bf2c5bf674f8e49f81017912183d377c61c
+      environment:
+        POSTGRES_DB: ${POSTGRES_DB:-sequin-db}
+        POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+      command:
+        - postgres
+        - -c
+        - wal_level=logical
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U ${SERVICE_USER_POSTGRES} -d sequin
+        interval: 10s
+        timeout: 2s
+        retries: 5
+        start_period: 2s
+        start_interval: 1s
+      volumes:
+        - postgres_data:/var/lib/postgresql/data
+      restart: unless-stopped
+    redis:
+      image: redis:7@sha256:b6b6e3dc0c0952737748e55d5d885272840c7e42ba41ab1d5489f693419882f5
+      command:
+        - redis-server
+        - --port
+        - '6379'
+      healthcheck:
+        test:
+          - CMD
+          - redis-cli
+          - ping
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      volumes:
+        - redis_data:/data
+      restart: unless-stopped
+  volumes:
+    postgres_data:
+    redis_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_USER_POSTGRES and SERVICE_PASSWORD_POSTGRES in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes postgres_data, redis_data of this application: back them up before updating."

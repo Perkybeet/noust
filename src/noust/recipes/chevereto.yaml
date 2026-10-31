@@ -1,0 +1,82 @@
+# Chevereto: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/chevereto
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: chevereto
+kind: compose
+title: "Chevereto"
+slogan: "A self-hosted image and video hosting platform, mature and battle-tested."
+description: "Chevereto is a powerful, self-hosted image and video hosting platform designed for individuals, communities, and businesses. It allows users to upload, organize, and share media effortlessly."
+category: communication
+tags: [image-hosting, file-management, open-source, multi-user, private-albums, communication]
+logo: logo.svg
+version: "4.5.8"
+revision: 1
+updated: 2026-10-30
+homepage: https://chevereto.com
+docs: https://v4-docs.chevereto.com/
+repository: https://github.com/chevereto/chevereto
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  DB_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for db password."
+  DOMAIN:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+health: {path: /, expect: "200-399", timeout: 600}
+compose: |
+  services:
+    chevereto:
+      image: chevereto/chevereto:4.5.8@sha256:a7c58e5661834059189941740bb11a9e7d882d712c1e9c2684d4d4ed17ea8d06
+      restart: unless-stopped
+      environment:
+        CHEVERETO_DB_HOST: mysql
+        CHEVERETO_DB_USER: mysql
+        CHEVERETO_DB_PASS: ${DB_PASSWORD}
+        CHEVERETO_DB_PORT: '3306'
+        CHEVERETO_DB_NAME: chevereto
+        CHEVERETO_HOSTNAME: ${DOMAIN}
+        CHEVERETO_HOSTNAME_PATH: /
+        CHEVERETO_HTTPS: '0'
+        CHEVERETO_MAX_POST_SIZE: 2G
+        CHEVERETO_MAX_UPLOAD_SIZE: 2G
+      volumes:
+        - storage:/var/www/html/images/
+      depends_on:
+        mysql:
+          condition: service_healthy
+      ports:
+        - 127.0.0.1:${PORT}:8080
+    mysql:
+      image: mysql:8@sha256:a0225d1ea6631c8bc2385dc4c2faba17bbf1834ecf369e1659a9a382bd8d5dd7
+      restart: unless-stopped
+      environment:
+        MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+        MYSQL_DATABASE: chevereto
+        MYSQL_USER: mysql
+        MYSQL_PASSWORD: ${DB_PASSWORD}
+      volumes:
+        - mysql:/var/lib/mysql
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - mysqladmin ping -h 127.0.0.1 --silent
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+  volumes:
+    storage:
+    mysql:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes storage, mysql of this application: back them up before updating."

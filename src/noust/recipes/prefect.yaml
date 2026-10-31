@@ -1,0 +1,137 @@
+# Prefect: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/prefect.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: prefect
+kind: compose
+title: "Prefect"
+slogan: "An orchestration and observability platform that helps developers build reliable data workflows."
+description: "Prefect is an open-source workflow orchestration platform for building, scheduling, monitoring, and managing data pipelines and Python workflows."
+category: automation
+tags: [workflow, orchestration, data-pipeline, python, automation, data-processing, data-integration, etl]
+logo: simple-icons:prefect
+version: "3.9.0-python3.15"
+revision: 1
+updated: 2026-10-30
+homepage: https://prefect.io
+docs: https://www.prefect.io/
+repository: https://github.com/PrefectHQ/prefect
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_PREFECT:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_USER_POSTGRES:
+    generate: "user"
+    description: "The user name Noust generated for postgres."
+  SERVICE_PASSWORD_POSTGRES:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres."
+  SERVICE_PASSWORD_APIKEY:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for apikey."
+  DEFAULT_POOL_NAME:
+    default: "default"
+    description: "Setting DEFAULT_POOL_NAME of the application; the template leaves it to the operator."
+  DEFAULT_WORKER_NAME:
+    default: "worker1"
+    description: "Setting DEFAULT_WORKER_NAME of the application; the template leaves it to the operator."
+  DEFAULT_POOL_LIMIT:
+    default: "1"
+    description: "Setting DEFAULT_POOL_LIMIT of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    prefect:
+      image: prefecthq/prefect:3.9.0-python3.15@sha256:40e31fa73d16fdb4f93f0262068f6b497391c22089024b61bdc8b23412c811bb
+      depends_on:
+        postgresql:
+          condition: service_healthy
+      environment:
+        SERVICE_URL_PREFECT: ${SERVICE_URL_PREFECT}
+        PREFECT_API_URL: ${SERVICE_URL_PREFECT}/api
+        PREFECT_API_DATABASE_CONNECTION_URL: postgresql+asyncpg://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@postgresql:5432/${POSTGRES_DB:-prefect}
+        PREFECT_API_KEY: ${SERVICE_PASSWORD_APIKEY}
+        PREFECT_EXPERIMENTAL_WARN: ${PREFECT_EXPERIMENTAL_WARN:-false}
+        PREFECT_EXPERIMENTAL_ENABLE_SCHEDULE_CONCURRENCY: ${PREFECT_EXPERIMENTAL_ENABLE_SCHEDULE_CONCURRENCY:-false}
+        PREFECT_RUNNER_SERVER_ENABLE: ${PREFECT_RUNNER_SERVER_ENABLE:-false}
+        PREFECT_DEFAULT_WORK_POOL_NAME: ${DEFAULT_POOL_NAME:-default}
+      command:
+        - prefect
+        - server
+        - start
+        - --host
+        - 0.0.0.0
+        - --port
+        - '4200'
+      healthcheck:
+        test:
+          - CMD
+          - python
+          - -c
+          - import requests as r;r.get('http://127.0.0.1:4200/api/health').raise_for_status()
+        interval: 5s
+        timeout: 5s
+        retries: 3
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:4200
+    postgresql:
+      image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
+      volumes:
+        - pg-data:/var/lib/postgresql/data
+      environment:
+        POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+        POSTGRES_DB: ${POSTGRES_DB:-prefect}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+        interval: 5s
+        timeout: 5s
+        retries: 3
+      restart: unless-stopped
+    agent:
+      image: prefecthq/prefect:3-python3.12@sha256:9f4fb20a431f0aba81bbcede83d5c08648aa769faf0ec47e989e9d370270129e
+      depends_on:
+        prefect:
+          condition: service_healthy
+      entrypoint:
+        - /opt/prefect/entrypoint.sh
+        - prefect
+        - worker
+        - start
+        - --pool=${DEFAULT_POOL_NAME}
+        - --with-healthcheck
+        - --name=${DEFAULT_WORKER_NAME}
+        - --limit=${DEFAULT_POOL_LIMIT}
+      environment:
+        PREFECT_API_URL: http://prefect:4200/api
+        PREFECT_API_KEY: ${SERVICE_PASSWORD_APIKEY}
+        DEFAULT_POOL_NAME: ${DEFAULT_POOL_NAME:-default}
+        DEFAULT_POOL_LIMIT: ${DEFAULT_POOL_LIMIT:-1}
+        DEFAULT_WORKER_NAME: ${DEFAULT_WORKER_NAME:-worker1}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pwd
+        interval: 5s
+        timeout: 5s
+        retries: 3
+      restart: unless-stopped
+  volumes:
+    pg-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_USER_POSTGRES and SERVICE_PASSWORD_POSTGRES and SERVICE_PASSWORD_APIKEY in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume pg-data of this application: back it up before updating."

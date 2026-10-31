@@ -1,10 +1,10 @@
 {
   "measured": "tests/integration/recipes_run.py: scripts/recipe_smoke.py in the harness container, one recipe at a time",
   "harness": "Ubuntu 24.04 with systemd and a Docker of its own (Dockerfile.systemd)",
-  "updated": "2026-10-31T19:32:25Z",
+  "updated": "2026-10-31T21:38:11Z",
   "totals": {
-    "pass": 363,
-    "fail": 2
+    "pass": 387,
+    "fail": 5
   },
   "results": [
     {
@@ -60,6 +60,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "adventurelog",
+      "version": "0.13.1",
+      "date": "2026-10-31T20:06:33Z",
+      "source": "dokploy",
+      "seconds": 92,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 3
+    },
+    {
       "recipe": "affine",
       "version": "0.27.4",
       "date": "2026-10-28T20:42:10Z",
@@ -99,6 +114,21 @@
       "transient": false,
       "rate_limited": false,
       "images_removed": 1
+    },
+    {
+      "recipe": "alexandrie",
+      "version": "8.14.2",
+      "date": "2026-10-31T20:41:47Z",
+      "source": "coolify",
+      "seconds": 81,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 3
     },
     {
       "recipe": "ampache",
@@ -245,6 +275,26 @@
       "transient": false,
       "rate_limited": false,
       "images_removed": 2
+    },
+    {
+      "recipe": "authorizer",
+      "version": "2.4.3",
+      "date": "2026-10-31T21:27:17Z",
+      "source": "dokploy",
+      "seconds": 52,
+      "result": "fail",
+      "gate": "/ -> conn:URLError after 30s",
+      "gate_status": "conn:URLError",
+      "unsteady": true,
+      "problems": [
+        "noust-test-recetas400-authorizer-authorizer-1 restarted 9 times",
+        "the health gate's request to / got conn:URLError, the recipe expects 200-399"
+      ],
+      "log_tail": "77 UTC [1] LOG:  database system is ready to accept connections\nauthorizer-1        |       --twitch-client-id string                      Client ID for Twitch\nauthorizer-1        |       --twitch-client-secret string                  Client secret for Twitch\nauthorizer-1        |       --twitch-scopes strings                        Scopes for Twitch (default [openid,user:read:email])\nauthorizer-1        |       --twitter-client-id string                     Client ID for Twitter\nauthorizer-1        |       --twitter-client-secret string                 Client secret for Twitter\nauthorizer-1        |       --twitter-scopes strings                       Scopes for Twitter (default [tweet.read,users.read])\nauthorizer-1        |       --url string                                   Canonical/trusted base URL of this Authorizer instance (e.g. https://auth.example.com). When set, it is the ONLY source used to build verification/reset/magic-link email URLs, the JWT iss claim, and OIDC discovery URLs; all request headers (X-Authorizer-URL, X-Forwarded-Host, Host) are ignored. REQUIRED: the server refuses to start without it, because deriving its own host from request headers exposes host-header-injection account takeover (CWE-640). This is not --allowed-origins: --url is this server's own address, --allowed-origins is the apps it may redirect to\nauthorizer-1        | \nauthorizer-1        | Use \"authorizer [command] --help\" for more information about a command.\nauthorizer-1        | \n",
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
     },
     {
       "recipe": "autobrr",
@@ -524,6 +574,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "chevereto",
+      "version": "4.5.8",
+      "date": "2026-10-31T19:33:54Z",
+      "source": "dokploy",
+      "seconds": 89,
+      "result": "pass",
+      "gate": "/ -> 302 after 5s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "chhoto-url",
       "version": "7.10.5",
       "date": "2026-10-30T15:32:42Z",
@@ -785,6 +850,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "cypht",
+      "version": "2.13.0",
+      "date": "2026-10-31T20:29:44Z",
+      "source": "dokploy",
+      "seconds": 76,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "dagu",
       "version": "2.10.7",
       "date": "2026-10-29T02:26:06Z",
@@ -1020,6 +1100,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "domain-locker",
+      "version": "0.3.5",
+      "date": "2026-10-31T20:31:02Z",
+      "source": "dokploy",
+      "seconds": 81,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 2
+    },
+    {
       "recipe": "dozzle",
       "version": "11.3.5",
       "date": "2026-10-29T01:54:07Z",
@@ -1198,6 +1293,25 @@
       "images_removed": 1,
       "attempts": 2,
       "first_attempt": "the health gate's request to / got 404, the recipe expects 200-399"
+    },
+    {
+      "recipe": "erpnext",
+      "version": "version-15",
+      "date": "2026-10-31T21:33:04Z",
+      "source": "dokploy",
+      "seconds": 303,
+      "result": "fail",
+      "gate": "/ -> 404 after 182s",
+      "gate_status": "404",
+      "unsteady": true,
+      "problems": [
+        "the health gate's request to / got 404, the recipe expects 200-399"
+      ],
+      "log_tail": " erpnext       : [======================================= ] 98%\nUpdating DocTypes for erpnext       : [======================================= ] 98%\nUpdating DocTypes for erpnext       : [======================================= ] 98%\nUpdating DocTypes for erpnext       : [======================================= ] 98%\nUpdating DocTypes for erpnext       : [======================================= ] 98%\nUpdating DocTypes for erpnext       : [======================================= ] 98%\nUpdating DocTypes for erpnext       : [======================================= ] 98%\nUpdating DocTypes for erpnext       : [======================================= ] 99%\nUpdating DocTypes for erpnext       : [======================================= ] 99%\nUpdating DocTypes for erpnext       : [======================================= ] 99%\nUpdating DocTypes for erpnext       : [======================================= ] 99%\nUpdating DocTypes for erpnext       : [======================================= ] 99%\nUpdating DocTypes for erpnext       : [======================================= ] 99%\nUpdating DocTypes for erpnext       : [======================================= ] 99%\nUpdating DocTypes for erpnext       : [======================================= ] 99%\nUpdating DocTypes for erpnext       : [========================================] 100%\ncreate-site-1     | Address / Accounts Manager: added read\ncreate-site-1     | Updating Dashboard for erpnext\ncreate-site-1     | *** Scheduler is disabled ***\n",
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 10
     },
     {
       "recipe": "esphome",
@@ -1922,6 +2036,33 @@
       "images_removed": 1
     },
     {
+      "recipe": "hello",
+      "version": "1.0.0",
+      "date": "2026-10-31T20:24:23Z",
+      "source": "catalogue",
+      "result": "pass",
+      "seconds": 46,
+      "verified": "tests/integration/run.py --scenario recipe_hello: the real deployment in the harness container (create, answer through nginx, update, delete), not the Compose smoke run",
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 0
+    },
+    {
+      "recipe": "heyform",
+      "version": "3.0.5",
+      "date": "2026-10-31T20:32:50Z",
+      "source": "coolify",
+      "seconds": 107,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 2
+    },
+    {
       "recipe": "homarr",
       "version": "2.6.0",
       "date": "2026-10-28T23:00:32Z",
@@ -2023,6 +2164,21 @@
       "transient": false,
       "rate_limited": false,
       "images_removed": 1
+    },
+    {
+      "recipe": "hyperdx",
+      "version": "2.42.0",
+      "date": "2026-10-31T20:39:55Z",
+      "source": "dokploy",
+      "seconds": 109,
+      "result": "pass",
+      "gate": "/ -> 200 after 0s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 2,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 3
     },
     {
       "recipe": "imgproxy",
@@ -2244,6 +2400,21 @@
       "transient": false,
       "rate_limited": false,
       "images_removed": 1
+    },
+    {
+      "recipe": "kanbn",
+      "version": "0.6.0",
+      "date": "2026-10-31T19:54:24Z",
+      "source": "dokploy",
+      "seconds": 61,
+      "result": "pass",
+      "gate": "/ -> 307 after 5s",
+      "gate_status": "307",
+      "unsteady": true,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 2
     },
     {
       "recipe": "kaneo",
@@ -2993,6 +3164,23 @@
       "images_removed": 1
     },
     {
+      "recipe": "mixpost",
+      "version": "2.6.0",
+      "date": "2026-10-31T20:03:24Z",
+      "source": "coolify",
+      "seconds": 185,
+      "result": "pass",
+      "gate": "/robots.txt -> 200 after 65s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 1,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 2,
+      "attempts": 2,
+      "first_attempt": "the health gate's request to / got 500, the recipe expects 200-399"
+    },
+    {
       "recipe": "mongo-express",
       "version": "1.0.2",
       "date": "2026-10-30T15:17:26Z",
@@ -3379,6 +3567,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "open-archiver",
+      "version": "0.6.2",
+      "date": "2026-10-31T20:49:52Z",
+      "source": "coolify",
+      "seconds": 95,
+      "result": "pass",
+      "gate": "/ -> 307 after 10s",
+      "gate_status": "307",
+      "unsteady": false,
+      "error_lines": 3,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 2
+    },
+    {
       "recipe": "open-design",
       "version": "0.16.1",
       "date": "2026-10-28T21:47:07Z",
@@ -3480,6 +3683,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "openhabittracker",
+      "version": "1.2.5",
+      "date": "2026-10-31T21:15:33Z",
+      "source": "dokploy",
+      "seconds": 43,
+      "result": "pass",
+      "gate": "/ -> 302 after 5s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "openlist",
       "version": "4.2.9",
       "date": "2026-10-30T14:38:12Z",
@@ -3507,6 +3725,26 @@
       "error_lines": 0,
       "rate_limited": false,
       "images_removed": 1
+    },
+    {
+      "recipe": "openproject",
+      "version": "17-slim",
+      "date": "2026-10-31T21:12:23Z",
+      "source": "dokploy",
+      "seconds": 101,
+      "result": "fail",
+      "gate": "/ -> conn:ConnectionResetError after 30s",
+      "gate_status": "conn:ConnectionResetError",
+      "unsteady": true,
+      "problems": [
+        "noust-test-recetas400-openproject-web-1 restarted 4 times",
+        "the health gate's request to / got conn:ConnectionResetError, the recipe expects 200-399"
+      ],
+      "log_tail": "er-1  | \tfrom /usr/local/lib/ruby/4.0.0/bundler/cli/exec.rb:24:in 'Bundler::CLI::Exec#run'\nworker-1  | \tfrom /usr/local/lib/ruby/4.0.0/bundler/cli.rb:509:in 'Bundler::CLI#exec'\nworker-1  | \tfrom /usr/local/lib/ruby/4.0.0/bundler/vendor/thor/lib/thor/command.rb:28:in 'Bundler::Thor::Command#run'\nworker-1  | \tfrom /usr/local/lib/ruby/4.0.0/bundler/vendor/thor/lib/thor/invocation.rb:127:in 'Bundler::Thor::Invocation#invoke_command'\nworker-1  | \tfrom /usr/local/lib/ruby/4.0.0/bundler/vendor/thor/lib/thor.rb:538:in 'Bundler::Thor.dispatch'\nworker-1  | \tfrom /usr/local/lib/ruby/4.0.0/bundler/cli.rb:35:in 'Bundler::CLI.dispatch'\nworker-1  | \tfrom /usr/local/lib/ruby/4.0.0/bundler/vendor/thor/lib/thor/base.rb:584:in 'Bundler::Thor::Base::ClassMethods#start'\nworker-1  | \tfrom /usr/local/lib/ruby/4.0.0/bundler/cli.rb:29:in 'Bundler::CLI.start'\nworker-1  | \tfrom /usr/local/lib/ruby/gems/4.0.0/gems/bundler-4.0.20/exe/bundle:28:in 'block in <top (required)>'\nworker-1  | \tfrom /usr/local/lib/ruby/4.0.0/bundler/friendly_errors.rb:118:in 'Bundler.with_friendly_errors'\nworker-1  | \tfrom /usr/local/lib/ruby/gems/4.0.0/gems/bundler-4.0.20/exe/bundle:20:in '<top (required)>'\nworker-1  | \tfrom /usr/local/lib/ruby/4.0.0/rubygems.rb:305:in 'Kernel#load'\nworker-1  | \tfrom /usr/local/lib/ruby/4.0.0/rubygems.rb:305:in 'Gem.activate_and_load_bin_path'\nworker-1  | \tfrom /usr/local/bundle/bin/bundle:25:in '<main>'\ncron-1    | [cron] IMAP email checking is disabled\ncron-1    | [cron] Rescheduling in 600s\n",
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 5
     },
     {
       "recipe": "openseo",
@@ -3714,6 +3952,23 @@
       "images_removed": 1
     },
     {
+      "recipe": "paymenter",
+      "version": "1.5.9",
+      "date": "2026-10-31T20:12:04Z",
+      "source": "coolify",
+      "seconds": 82,
+      "result": "pass",
+      "gate": "/robots.txt -> 200 after 10s",
+      "gate_status": "200",
+      "unsteady": true,
+      "error_lines": 1,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1,
+      "attempts": 2,
+      "first_attempt": "the health gate's request to / got 500, the recipe expects 200-399"
+    },
+    {
       "recipe": "penpot",
       "version": "2.18.3",
       "date": "2026-10-29T00:17:55Z",
@@ -3887,6 +4142,21 @@
       "error_lines": 10,
       "rate_limited": false,
       "images_removed": 2
+    },
+    {
+      "recipe": "plunk",
+      "version": "1.3.6",
+      "date": "2026-10-31T19:43:30Z",
+      "source": "coolify",
+      "seconds": 86,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
     },
     {
       "recipe": "pocket-id",
@@ -4247,6 +4517,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "rote",
+      "version": "2.6.0",
+      "date": "2026-10-31T20:34:42Z",
+      "source": "dokploy",
+      "seconds": 65,
+      "result": "pass",
+      "gate": "/ -> 200 after 0s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 2
+    },
+    {
       "recipe": "roundcube",
       "version": "1.7.5",
       "date": "2026-10-29T00:30:03Z",
@@ -4331,6 +4616,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 2,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "sequin",
+      "version": "0.14.6",
+      "date": "2026-10-31T20:27:31Z",
+      "source": "coolify",
+      "seconds": 79,
+      "result": "pass",
+      "gate": "/ -> 302 after 10s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 12,
       "transient": false,
       "rate_limited": false,
       "images_removed": 1
@@ -4421,6 +4721,21 @@
       "error_lines": 0,
       "rate_limited": false,
       "images_removed": 1
+    },
+    {
+      "recipe": "sim",
+      "version": "0.9.36",
+      "date": "2026-10-31T20:46:59Z",
+      "source": "dokploy",
+      "seconds": 163,
+      "result": "pass",
+      "gate": "/ -> 307 after 8s",
+      "gate_status": "307",
+      "unsteady": true,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 3
     },
     {
       "recipe": "siyuan",
@@ -4630,6 +4945,21 @@
       "error_lines": 0,
       "rate_limited": false,
       "images_removed": 1
+    },
+    {
+      "recipe": "sure",
+      "version": "0.7.5",
+      "date": "2026-10-31T20:38:07Z",
+      "source": "coolify",
+      "seconds": 105,
+      "result": "pass",
+      "gate": "/ -> 302 after 20s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 2
     },
     {
       "recipe": "suwayomi",
@@ -4947,6 +5277,18 @@
       "images_removed": 1
     },
     {
+      "recipe": "umami",
+      "version": "2.20.2",
+      "date": "2026-10-31T20:24:23Z",
+      "source": "catalogue",
+      "result": "pass",
+      "seconds": 509,
+      "verified": "tests/integration/run.py --scenario recipe_umami: the real deployment in the harness container (create, answer through nginx, update, delete), not the Compose smoke run",
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 0
+    },
+    {
       "recipe": "unleash",
       "version": "7.4.0",
       "date": "2026-10-29T03:51:09Z",
@@ -4972,6 +5314,33 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "uptime-kuma",
+      "version": "1.23.17",
+      "date": "2026-10-31T20:24:23Z",
+      "source": "catalogue",
+      "result": "pass",
+      "seconds": 358,
+      "verified": "tests/integration/run.py --scenario recipe_uptime_kuma: the real deployment in the harness container (create, answer through nginx, update, delete), not the Compose smoke run",
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 0
+    },
+    {
+      "recipe": "usesend",
+      "version": "1.10.0",
+      "date": "2026-10-31T19:44:58Z",
+      "source": "coolify",
+      "seconds": 80,
+      "result": "pass",
+      "gate": "/ -> 307 after 15s",
+      "gate_status": "307",
+      "unsteady": false,
+      "error_lines": 10,
       "transient": false,
       "rate_limited": false,
       "images_removed": 1
@@ -5100,9 +5469,9 @@
     {
       "recipe": "wallabag",
       "version": "2.6.14",
-      "date": "2026-10-31T19:17:38Z",
-      "source": "dokploy",
-      "seconds": 88,
+      "date": "2026-10-31T21:14:08Z",
+      "source": "catalogue",
+      "seconds": 84,
       "result": "pass",
       "gate": "/ -> 302 after 15s",
       "gate_status": "302",
@@ -5168,6 +5537,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 1,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "weblate",
+      "version": "2026.10.1.4",
+      "date": "2026-10-31T19:37:11Z",
+      "source": "coolify",
+      "seconds": 163,
+      "result": "pass",
+      "gate": "/ -> 200 after 76s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 5,
       "transient": false,
       "rate_limited": false,
       "images_removed": 1
@@ -5263,6 +5647,18 @@
       "images_removed": 1
     },
     {
+      "recipe": "wordpress",
+      "version": "7.1.2",
+      "date": "2026-10-31T20:24:23Z",
+      "source": "catalogue",
+      "result": "pass",
+      "seconds": 82,
+      "verified": "tests/integration/run.py --scenario recipe_wordpress: the real deployment in the harness container (create, answer through nginx, update, delete), not the Compose smoke run",
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 0
+    },
+    {
       "recipe": "wuzapi",
       "version": "sha-30c1805",
       "date": "2026-10-31T18:57:52Z",
@@ -5338,6 +5734,21 @@
       "transient": false,
       "rate_limited": false,
       "images_removed": 1
+    },
+    {
+      "recipe": "zabbix",
+      "version": "7.4.16-ubuntu",
+      "date": "2026-10-31T20:54:24Z",
+      "source": "dokploy",
+      "seconds": 92,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 3,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 4
     },
     {
       "recipe": "zipkin",
