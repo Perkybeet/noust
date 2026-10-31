@@ -1,0 +1,105 @@
+# NewAPI: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/newapi.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: newapi
+kind: compose
+title: "NewAPI"
+slogan: "The next-generation LLM gateway and AI asset management system supports multiple languages."
+description: "The next-generation LLM gateway and AI asset management system supports multiple languages."
+category: ai
+tags: [api, openai, llm, api-gateway, api-management, ai]
+logo: logo.svg
+version: "0.9.2.0"
+revision: 1
+updated: 2026-10-31
+homepage: https://www.newapi.ai
+docs: https://docs.newapi.pro/en/getting-started/
+repository: https://github.com/QuantumNous/new-api
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_NEW_API:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_USER_POSTGRES:
+    generate: "user"
+    description: "The user name Noust generated for postgres."
+  SERVICE_PASSWORD_POSTGRES:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres."
+  SERVICE_BASE64_64_SESSION_SECRET:
+    generate: "base64_64"
+    secret: true
+    description: "The secret Noust generated for session secret."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    new-api:
+      image: calciumion/new-api:v0.9.2.0@sha256:669d66baa9384e36ce8b71ef93d587b5dc5c8a08dacc3e0a5e29d8841980282a
+      depends_on:
+        postgresql:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      environment:
+        SERVICE_URL_NEW_API: ${SERVICE_URL_NEW_API}
+        SQL_DSN: postgres://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@postgresql:5432/${POSTGRES_DATABASE:-newapi}?sslmode=disable&TimeZone=${TZ:-Asia/Shanghai}
+        REDIS_CONN_STRING: redis://redis:6379
+        TZ: ${TZ:-Asia/Shanghai}
+        SESSION_SECRET: ${SERVICE_BASE64_64_SESSION_SECRET}
+        ERROR_LOG_ENABLED: ${ERROR_LOG_ENABLED:-true}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - 'wget -q -O - http://127.0.0.1:3000/api/status | grep -o ''"success":\s*true'' | awk -F: ''{print
+            $$2}'''
+        interval: 30s
+        timeout: 10s
+        retries: 3
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:3000
+    postgresql:
+      image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
+      environment:
+        POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+        POSTGRES_DB: ${POSTGRES_DATABASE:-newapi}
+      volumes:
+        - postgresql-data:/var/lib/postgresql/data
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB:-newapi}
+        interval: 5s
+        timeout: 10s
+        retries: 20
+      restart: unless-stopped
+    redis:
+      image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
+      volumes:
+        - redis-data:/data
+      healthcheck:
+        test:
+          - CMD
+          - redis-cli
+          - PING
+        interval: 5s
+        timeout: 10s
+        retries: 20
+      restart: unless-stopped
+  volumes:
+    postgresql-data:
+    redis-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_USER_POSTGRES and SERVICE_PASSWORD_POSTGRES in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes postgresql-data, redis-data of this application: back them up before updating."

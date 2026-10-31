@@ -51,8 +51,10 @@ Files:
  src/noust/recipes/marimo.yaml
  src/noust/recipes/mealie.yaml
  src/noust/recipes/metamcp.yaml
+ src/noust/recipes/mindsdb.yaml
  src/noust/recipes/mixpost.yaml
  src/noust/recipes/moodle.yaml
+ src/noust/recipes/newapi.yaml
  src/noust/recipes/once-campfire.yaml
  src/noust/recipes/onedev.yaml
  src/noust/recipes/onetimesecret.yaml
@@ -69,6 +71,7 @@ Files:
  src/noust/recipes/plunk.yaml
  src/noust/recipes/pocket-id.yaml
  src/noust/recipes/portabase.yaml
+ src/noust/recipes/postiz.yaml
  src/noust/recipes/prefect.yaml
  src/noust/recipes/privatebin.yaml
  src/noust/recipes/pydio-cells.yaml
@@ -99,6 +102,7 @@ Files:
  src/noust/recipes/ampache.yaml
  src/noust/recipes/answer.yaml
  src/noust/recipes/archivebox.yaml
+ src/noust/recipes/authorizer.yaml
  src/noust/recipes/azuracast.yaml
  src/noust/recipes/blinko.yaml
  src/noust/recipes/bytestash.yaml
@@ -117,12 +121,15 @@ Files:
  src/noust/recipes/discourse.yaml
  src/noust/recipes/docling-serve.yaml
  src/noust/recipes/domain-locker.yaml
+ src/noust/recipes/dragonfly-db.yaml
  src/noust/recipes/evershop.yaml
  src/noust/recipes/ezbookkeeping.yaml
  src/noust/recipes/filegator.yaml
  src/noust/recipes/flaresolverr.yaml
  src/noust/recipes/flarum.yaml
  src/noust/recipes/flatnotes.yaml
+ src/noust/recipes/frappe-lending.yaml
+ src/noust/recipes/frappe-lms.yaml
  src/noust/recipes/freellmapi.yaml
  src/noust/recipes/gel.yaml
  src/noust/recipes/go2rtc.yaml
@@ -147,6 +154,7 @@ Files:
  src/noust/recipes/mazanoke.yaml
  src/noust/recipes/mcsmanager.yaml
  src/noust/recipes/nginx.yaml
+ src/noust/recipes/novu.yaml
  src/noust/recipes/omni-tools.yaml
  src/noust/recipes/open-design.yaml
  src/noust/recipes/opencode.yaml
@@ -170,6 +178,7 @@ Files:
  src/noust/recipes/spliit.yaml
  src/noust/recipes/steedos.yaml
  src/noust/recipes/tianji.yaml
+ src/noust/recipes/tooljet.yaml
  src/noust/recipes/trek.yaml
  src/noust/recipes/tuwunel.yaml
  src/noust/recipes/unleash.yaml

@@ -1,0 +1,417 @@
+# Frappe LMS: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/frappe-lms
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: frappe-lms
+kind: compose
+title: "Frappe LMS"
+slogan: "Easy to Use, 100% Open Source Learning Management System"
+description: "Easy to use, open source learning management system to structure courses and reach out to learners, built on the Frappe Framework."
+category: utilities
+tags: [lms, learning, education, courses, frappe, utilities]
+logo: logo.svg
+version: "2.52.0"
+revision: 1
+updated: 2026-10-31
+homepage: https://frappe.io/learning
+docs: https://docs.frappe.io/learning
+repository: https://github.com/frappe/lms
+license: AGPL-3.0-only
+architectures: ["amd64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SITE_NAME:
+    from: "fqdn"
+    description: "The address people use to reach the application, as the template builds it."
+  CONFIGURE:
+    default: "1"
+    description: "Setting CONFIGURE of the application; the template leaves it to the operator."
+  DB_HOST:
+    default: "db"
+    description: "Setting DB_HOST of the application; the template leaves it to the operator."
+  REGENERATE_APPS_TXT:
+    default: "1"
+    description: "Setting REGENERATE_APPS_TXT of the application; the template leaves it to the operator."
+  CREATE_SITE:
+    default: "1"
+    description: "Setting CREATE_SITE of the application; the template leaves it to the operator."
+  ADMIN_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for admin password."
+  DB_ROOT_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for db root password."
+  INSTALL_APP_ARGS:
+    default: "--install-app lms"
+    description: "Setting INSTALL_APP_ARGS of the application; the template leaves it to the operator."
+  ENABLE_SCHEDULER:
+    default: "1"
+    description: "Setting ENABLE_SCHEDULER of the application; the template leaves it to the operator."
+  MIGRATE:
+    default: "1"
+    description: "Setting MIGRATE of the application; the template leaves it to the operator."
+  ENABLE_DB:
+    default: "1"
+    description: "Setting ENABLE_DB of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 600}
+compose: |
+  services:
+    backend:
+      image: ghcr.io/frappe/lms:v2.52.0@sha256:819635cb7582044293a2e5154336d04c38f90490271217d3fc6af14b7d34d315
+      pull_policy: ${PULL_POLICY:-always}
+      deploy: &id001
+        restart_policy:
+          condition: always
+      entrypoint:
+        - bash
+        - -c
+      command:
+        - "until [[ -f \"sites/${SITE_NAME}/.create-site-done\" ]]; do\n  echo \"Waiting for site ${SITE_NAME}\
+          \ to be created (first boot takes a few minutes)\";\n  sleep 5;\ndone; exec /home/frappe/frappe-bench/env/bin/gunicorn\
+          \ --chdir=/home/frappe/frappe-bench/sites --bind=0.0.0.0:8000 --threads=4 --workers=2 --worker-class=gthread\
+          \ --worker-tmp-dir=/dev/shm --timeout=120 --preload frappe.app:application\n"
+      volumes:
+        - sites:/home/frappe/frappe-bench/sites
+      healthcheck:
+        test:
+          - CMD
+          - wait-for-it
+          - 127.0.0.1:8000
+        interval: 2s
+        timeout: 10s
+        retries: 30
+        start_period: 600s
+      restart: unless-stopped
+    frontend:
+      image: ghcr.io/frappe/lms:v2.52.0@sha256:819635cb7582044293a2e5154336d04c38f90490271217d3fc6af14b7d34d315
+      pull_policy: ${PULL_POLICY:-always}
+      deploy: *id001
+      command:
+        - nginx-entrypoint.sh
+      depends_on:
+        backend:
+          condition: service_healthy
+        websocket:
+          condition: service_healthy
+      environment:
+        BACKEND: backend:8000
+        FRAPPE_SITE_NAME_HEADER: ${SITE_NAME}
+        SOCKETIO: websocket:9000
+        UPSTREAM_REAL_IP_ADDRESS: 127.0.0.1
+        UPSTREAM_REAL_IP_HEADER: X-Forwarded-For
+        UPSTREAM_REAL_IP_RECURSIVE: 'off'
+      volumes:
+        - sites:/home/frappe/frappe-bench/sites
+      healthcheck:
+        test:
+          - CMD
+          - wait-for-it
+          - 127.0.0.1:8080
+        interval: 2s
+        timeout: 30s
+        retries: 30
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8080
+    queue-default:
+      image: ghcr.io/frappe/lms:v2.52.0@sha256:819635cb7582044293a2e5154336d04c38f90490271217d3fc6af14b7d34d315
+      pull_policy: ${PULL_POLICY:-always}
+      deploy: *id001
+      command:
+        - bench
+        - worker
+        - --queue
+        - default
+      volumes:
+        - sites:/home/frappe/frappe-bench/sites
+      healthcheck:
+        test:
+          - CMD
+          - wait-for-it
+          - redis-queue:6379
+        interval: 2s
+        timeout: 10s
+        retries: 30
+      depends_on:
+        configurator:
+          condition: service_completed_successfully
+      restart: unless-stopped
+    queue-long:
+      image: ghcr.io/frappe/lms:v2.52.0@sha256:819635cb7582044293a2e5154336d04c38f90490271217d3fc6af14b7d34d315
+      pull_policy: ${PULL_POLICY:-always}
+      deploy: *id001
+      command:
+        - bench
+        - worker
+        - --queue
+        - long
+      volumes:
+        - sites:/home/frappe/frappe-bench/sites
+      healthcheck:
+        test:
+          - CMD
+          - wait-for-it
+          - redis-queue:6379
+        interval: 2s
+        timeout: 10s
+        retries: 30
+      depends_on:
+        configurator:
+          condition: service_completed_successfully
+      restart: unless-stopped
+    queue-short:
+      image: ghcr.io/frappe/lms:v2.52.0@sha256:819635cb7582044293a2e5154336d04c38f90490271217d3fc6af14b7d34d315
+      pull_policy: ${PULL_POLICY:-always}
+      deploy: *id001
+      command:
+        - bench
+        - worker
+        - --queue
+        - short
+      volumes:
+        - sites:/home/frappe/frappe-bench/sites
+      healthcheck:
+        test:
+          - CMD
+          - wait-for-it
+          - redis-queue:6379
+        interval: 2s
+        timeout: 10s
+        retries: 30
+      depends_on:
+        configurator:
+          condition: service_completed_successfully
+      restart: unless-stopped
+    scheduler:
+      image: ghcr.io/frappe/lms:v2.52.0@sha256:819635cb7582044293a2e5154336d04c38f90490271217d3fc6af14b7d34d315
+      pull_policy: ${PULL_POLICY:-always}
+      deploy: *id001
+      healthcheck:
+        test:
+          - CMD
+          - wait-for-it
+          - redis-queue:6379
+        interval: 2s
+        timeout: 10s
+        retries: 30
+      command:
+        - bench
+        - schedule
+      depends_on:
+        configurator:
+          condition: service_completed_successfully
+      volumes:
+        - sites:/home/frappe/frappe-bench/sites
+      restart: unless-stopped
+    websocket:
+      image: ghcr.io/frappe/lms:v2.52.0@sha256:819635cb7582044293a2e5154336d04c38f90490271217d3fc6af14b7d34d315
+      pull_policy: ${PULL_POLICY:-always}
+      deploy: *id001
+      healthcheck:
+        test:
+          - CMD
+          - wait-for-it
+          - websocket:9000
+        interval: 2s
+        timeout: 10s
+        retries: 30
+      command:
+        - node
+        - /home/frappe/frappe-bench/apps/frappe/socketio.js
+      depends_on:
+        configurator:
+          condition: service_completed_successfully
+      volumes:
+        - sites:/home/frappe/frappe-bench/sites
+      restart: unless-stopped
+    configurator:
+      depends_on:
+        redis-cache:
+          condition: service_healthy
+        redis-queue:
+          condition: service_healthy
+        redis-socketio:
+          condition: service_healthy
+      image: ghcr.io/frappe/lms:v2.52.0@sha256:819635cb7582044293a2e5154336d04c38f90490271217d3fc6af14b7d34d315
+      pull_policy: ${PULL_POLICY:-always}
+      deploy:
+        mode: replicated
+        replicas: ${CONFIGURE:-0}
+        restart_policy:
+          condition: none
+      entrypoint:
+        - bash
+        - -c
+      command:
+        - "echo \"[configurator] starting\"; if [[ $${REGENERATE_APPS_TXT} == \"1\" ]]; then\n  echo \"\
+          [configurator] regenerating sites/apps.txt\";\n  ls -1 apps > sites/apps.txt;\nfi; existing_db_host=$$(grep\
+          \ -hs '^' sites/common_site_config.json | jq -r \".db_host // empty\" 2>/dev/null || true); if\
+          \ [[ -n \"$${existing_db_host}\" ]]; then\n  echo \"[configurator] common_site_config.json already\
+          \ configured, skipping\";\n  exit 0;\nfi; echo \"[configurator] applying bench global config\"\
+          ; bench set-config -g db_host $$DB_HOST; bench set-config -gp db_port $$DB_PORT; bench set-config\
+          \ -g redis_cache \"redis://$$REDIS_CACHE\"; bench set-config -g redis_queue \"redis://$$REDIS_QUEUE\"\
+          ; bench set-config -g redis_socketio \"redis://$$REDIS_SOCKETIO\"; bench set-config -gp socketio_port\
+          \ $$SOCKETIO_PORT; echo \"[configurator] done\";\n"
+      environment:
+        DB_HOST: ${DB_HOST:-db}
+        DB_PORT: '3306'
+        REDIS_CACHE: redis-cache:6379
+        REDIS_QUEUE: redis-queue:6379
+        REDIS_SOCKETIO: redis-socketio:6379
+        SOCKETIO_PORT: '9000'
+        REGENERATE_APPS_TXT: ${REGENERATE_APPS_TXT:-0}
+      volumes:
+        - sites:/home/frappe/frappe-bench/sites
+      restart: 'no'
+    create-site:
+      depends_on:
+        redis-cache:
+          condition: service_healthy
+        redis-queue:
+          condition: service_healthy
+      image: ghcr.io/frappe/lms:v2.52.0@sha256:819635cb7582044293a2e5154336d04c38f90490271217d3fc6af14b7d34d315
+      pull_policy: ${PULL_POLICY:-always}
+      deploy:
+        mode: replicated
+        replicas: ${CREATE_SITE:-0}
+        restart_policy:
+          condition: none
+      entrypoint:
+        - bash
+        - -c
+      command:
+        - "wait-for-it -t 300 $${DB_HOST}:$${DB_PORT}; wait-for-it -t 120 redis-cache:6379; wait-for-it\
+          \ -t 120 redis-queue:6379; export start=`date +%s`; until [[ -n `grep -hs ^ sites/common_site_config.json\
+          \ | jq -r \".db_host // empty\"` ]] && \\\n  [[ -n `grep -hs ^ sites/common_site_config.json |\
+          \ jq -r \".redis_cache // empty\"` ]] && \\\n  [[ -n `grep -hs ^ sites/common_site_config.json\
+          \ | jq -r \".redis_queue // empty\"` ]];\ndo\n  echo \"Waiting for sites/common_site_config.json\
+          \ to be created\";\n  sleep 5;\n  if (( `date +%s`-start > 120 )); then\n    echo \"could not\
+          \ find sites/common_site_config.json with required keys\";\n    exit 1\n  fi\ndone; echo \"sites/common_site_config.json\
+          \ found\"; [[ -d \"sites/${SITE_NAME}\" ]] && echo \"${SITE_NAME} already exists\" && touch sites/${SITE_NAME}/.create-site-done\
+          \ && exit 0; sed -i \"s/^required_apps.*/required_apps = []/\" apps/lms/lms/hooks.py; bench new-site\
+          \ --mariadb-user-host-login-scope='%' --admin-password=$${ADMIN_PASSWORD} --db-root-username=root\
+          \ --db-root-password=$${DB_ROOT_PASSWORD} $${INSTALL_APP_ARGS} $${SITE_NAME} || exit 1; if [[\
+          \ $${ENABLE_SCHEDULER} == \"1\" ]]; then\n  bench --site $${SITE_NAME} enable-scheduler;\nelse\n\
+          \  echo \"Skipping scheduler enable\";\nfi; bench --site $${SITE_NAME} clear-cache; touch sites/$${SITE_NAME}/.create-site-done;\n"
+      volumes:
+        - sites:/home/frappe/frappe-bench/sites
+      environment:
+        SITE_NAME: ${SITE_NAME}
+        ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+        DB_HOST: ${DB_HOST:-db}
+        DB_PORT: ${DB_PORT:-3306}
+        DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+        INSTALL_APP_ARGS: ${INSTALL_APP_ARGS}
+        ENABLE_SCHEDULER: ${ENABLE_SCHEDULER}
+      restart: unless-stopped
+    migration:
+      image: ghcr.io/frappe/lms:v2.52.0@sha256:819635cb7582044293a2e5154336d04c38f90490271217d3fc6af14b7d34d315
+      pull_policy: ${PULL_POLICY:-always}
+      deploy:
+        mode: replicated
+        replicas: ${MIGRATE:-0}
+        restart_policy:
+          condition: none
+      entrypoint:
+        - bash
+        - -c
+      command:
+        - 'curl -f -H "Host: ${SITE_NAME}" http://frontend:8080/api/method/ping || { echo "Site not reachable
+          yet, skipping migration"; exit 0; }; bench --site all set-config -p maintenance_mode 1; bench
+          --site all set-config -p pause_scheduler 1; bench --site all migrate; bench --site all set-config
+          -p maintenance_mode 0; bench --site all set-config -p pause_scheduler 0;
+
+          '
+      volumes:
+        - sites:/home/frappe/frappe-bench/sites
+      restart: unless-stopped
+    db:
+      image: mariadb:11.8.6@sha256:78a5047d3ba33975f183f183c2464cc7f1eab13ec8667e57cc9a5821d6da7577
+      deploy:
+        mode: replicated
+        replicas: ${ENABLE_DB:-0}
+        restart_policy:
+          condition: always
+      healthcheck:
+        test:
+          - CMD
+          - healthcheck.sh
+          - --connect
+          - --innodb_initialized
+        start_period: 120s
+        interval: 5s
+        timeout: 5s
+        retries: 30
+      command:
+        - --character-set-server=utf8mb4
+        - --collation-server=utf8mb4_unicode_ci
+        - --skip-character-set-client-handshake
+      environment:
+        MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      volumes:
+        - db-data:/var/lib/mysql
+      restart: unless-stopped
+    redis-cache:
+      deploy:
+        restart_policy:
+          condition: always
+      image: redis:6.2-alpine@sha256:63d5174750e285bc3069c4519c53c8b6de6ebe70715140a6c9d21d6f04b77319
+      volumes:
+        - redis-cache-data:/data
+      healthcheck:
+        test:
+          - CMD
+          - redis-cli
+          - ping
+        interval: 5s
+        timeout: 5s
+        retries: 3
+      restart: unless-stopped
+    redis-queue:
+      deploy:
+        restart_policy:
+          condition: always
+      image: redis:6.2-alpine@sha256:63d5174750e285bc3069c4519c53c8b6de6ebe70715140a6c9d21d6f04b77319
+      volumes:
+        - redis-queue-data:/data
+      healthcheck:
+        test:
+          - CMD
+          - redis-cli
+          - ping
+        interval: 5s
+        timeout: 5s
+        retries: 3
+      restart: unless-stopped
+    redis-socketio:
+      deploy:
+        restart_policy:
+          condition: always
+      image: redis:6.2-alpine@sha256:63d5174750e285bc3069c4519c53c8b6de6ebe70715140a6c9d21d6f04b77319
+      volumes:
+        - redis-socketio-data:/data
+      healthcheck:
+        test:
+          - CMD
+          - redis-cli
+          - ping
+        interval: 5s
+        timeout: 5s
+        retries: 3
+      restart: unless-stopped
+  volumes:
+    sites:
+    db-data:
+    redis-cache-data:
+    redis-queue-data:
+    redis-socketio-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes sites, db-data, redis-cache-data, redis-queue-data, redis-socketio-data of this application: back them up before updating."

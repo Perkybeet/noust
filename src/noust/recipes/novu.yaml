@@ -1,0 +1,361 @@
+# Novu: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/novu
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+# Licence: LICENSE-ENTERPRISE of novuhq/novu, read 2026-10-30: MIT, except the enterprise packages
+schema: 2
+name: novu
+kind: compose
+title: "Novu"
+slogan: "The open-source communication infrastructure for agents and products"
+description: "Open core (MIT with enterprise packages), its enterprise features need a licence. Open-source notification infrastructure for multi-channel workflows — in-app Inbox, email, SMS, push, and chat — with a unified API and dashboard."
+category: ai
+tags: [notifications, email, sms, push, inbox, self-hosted, api, ai]
+logo: simple-icons:novu
+version: "3.18.0"
+revision: 1
+updated: 2026-10-31
+homepage: https://go.novu.co/github
+docs: https://docs.novu.co/community/self-hosting-novu/deploy-with-docker
+repository: https://github.com/novuhq/novu
+license: LicenseRef-Novu-MIT-and-EE
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  MONGO_INITDB_ROOT_USERNAME:
+    default: "root"
+    description: "Setting MONGO_INITDB_ROOT_USERNAME of the application; the template leaves it to the operator."
+  MONGO_INITDB_ROOT_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for mongo initdb root password."
+  NODE_ENV:
+    default: "production"
+    description: "Setting NODE_ENV of the application; the template leaves it to the operator."
+  API_ROOT_URL:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  API_PORT:
+    default: "3000"
+    description: "Setting API_PORT of the application; the template leaves it to the operator."
+  FRONT_BASE_URL:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  MONGO_URL:
+    value: "mongodb://root:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/novu-db?authSource=admin"
+    secret: true
+    description: "Setting MONGO_URL of the application; the template leaves it to the operator."
+  MONGO_MIN_POOL_SIZE:
+    default: "5"
+    description: "Setting MONGO_MIN_POOL_SIZE of the application; the template leaves it to the operator."
+  MONGO_MAX_POOL_SIZE:
+    default: "10"
+    description: "Setting MONGO_MAX_POOL_SIZE of the application; the template leaves it to the operator."
+  MONGO_AUTO_CREATE_INDEXES:
+    default: "true"
+    description: "Setting MONGO_AUTO_CREATE_INDEXES of the application; the template leaves it to the operator."
+  REDIS_HOST:
+    default: "redis"
+    description: "Setting REDIS_HOST of the application; the template leaves it to the operator."
+  REDIS_PORT:
+    default: "6379"
+    description: "Setting REDIS_PORT of the application; the template leaves it to the operator."
+  REDIS_PASSWORD:
+    default: ""
+    secret: true
+    description: "Setting REDIS_PASSWORD of the application; the template leaves it to the operator."
+  REDIS_CACHE_SERVICE_HOST:
+    default: "redis"
+    description: "Setting REDIS_CACHE_SERVICE_HOST of the application; the template leaves it to the operator."
+  REDIS_CACHE_SERVICE_PORT:
+    default: "6379"
+    description: "Setting REDIS_CACHE_SERVICE_PORT of the application; the template leaves it to the operator."
+  S3_LOCAL_STACK:
+    default: ""
+    description: "Setting S3_LOCAL_STACK of the application; the template leaves it to the operator."
+  S3_BUCKET_NAME:
+    default: "novu-local"
+    description: "Setting S3_BUCKET_NAME of the application; the template leaves it to the operator."
+  S3_REGION:
+    default: "us-east-1"
+    description: "Setting S3_REGION of the application; the template leaves it to the operator."
+  AWS_ACCESS_KEY_ID:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for aws access key id."
+  AWS_SECRET_ACCESS_KEY:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for aws secret access key."
+  JWT_SECRET:
+    generate: "password64"
+    secret: true
+    description: "The secret Noust generated for jwt secret."
+  STORE_ENCRYPTION_KEY:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for store encryption key."
+  NOVU_SECRET_KEY:
+    generate: "password64"
+    secret: true
+    description: "The secret Noust generated for novu secret key."
+  SUBSCRIBER_WIDGET_JWT_EXPIRATION_TIME:
+    default: "15d"
+    description: "Setting SUBSCRIBER_WIDGET_JWT_EXPIRATION_TIME of the application; the template leaves it to the operator."
+  SENTRY_DSN:
+    default: ""
+    description: "Setting SENTRY_DSN of the application; the template leaves it to the operator."
+  NEW_RELIC_ENABLED:
+    default: "false"
+    description: "Setting NEW_RELIC_ENABLED of the application; the template leaves it to the operator."
+  NEW_RELIC_APP_NAME:
+    default: ""
+    description: "Setting NEW_RELIC_APP_NAME of the application; the template leaves it to the operator."
+  NEW_RELIC_LICENSE_KEY:
+    default: ""
+    secret: true
+    description: "Setting NEW_RELIC_LICENSE_KEY of the application; the template leaves it to the operator."
+  API_CONTEXT_PATH:
+    default: ""
+    description: "Setting API_CONTEXT_PATH of the application; the template leaves it to the operator."
+  IS_API_IDEMPOTENCY_ENABLED:
+    default: "false"
+    description: "Setting IS_API_IDEMPOTENCY_ENABLED of the application; the template leaves it to the operator."
+  IS_API_RATE_LIMITING_ENABLED:
+    default: "false"
+    description: "Setting IS_API_RATE_LIMITING_ENABLED of the application; the template leaves it to the operator."
+  IS_NEW_MESSAGES_API_RESPONSE_ENABLED:
+    default: "true"
+    description: "Setting IS_NEW_MESSAGES_API_RESPONSE_ENABLED of the application; the template leaves it to the operator."
+  IS_V2_ENABLED:
+    default: "true"
+    description: "Setting IS_V2_ENABLED of the application; the template leaves it to the operator."
+  IS_SELF_HOSTED:
+    default: "true"
+    description: "Setting IS_SELF_HOSTED of the application; the template leaves it to the operator."
+  WORKER_PORT:
+    default: "3004"
+    description: "Setting WORKER_PORT of the application; the template leaves it to the operator."
+  BROADCAST_QUEUE_CHUNK_SIZE:
+    default: "100"
+    description: "Setting BROADCAST_QUEUE_CHUNK_SIZE of the application; the template leaves it to the operator."
+  MULTICAST_QUEUE_CHUNK_SIZE:
+    default: "100"
+    description: "Setting MULTICAST_QUEUE_CHUNK_SIZE of the application; the template leaves it to the operator."
+  IS_EMAIL_INLINE_CSS_DISABLED:
+    default: "false"
+    description: "Setting IS_EMAIL_INLINE_CSS_DISABLED of the application; the template leaves it to the operator."
+  IS_USE_MERGED_DIGEST_ID_ENABLED:
+    default: "false"
+    description: "Setting IS_USE_MERGED_DIGEST_ID_ENABLED of the application; the template leaves it to the operator."
+  WS_PORT:
+    default: "3002"
+    description: "Setting WS_PORT of the application; the template leaves it to the operator."
+  WS_CONTEXT_PATH:
+    default: ""
+    description: "Setting WS_CONTEXT_PATH of the application; the template leaves it to the operator."
+  VITE_API_HOSTNAME:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  VITE_WEBSOCKET_HOSTNAME:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    redis:
+      image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
+      restart: unless-stopped
+      command: redis-server --appendonly yes
+      volumes:
+        - novu-redis:/data
+      healthcheck:
+        test:
+          - CMD
+          - redis-cli
+          - ping
+        interval: 10s
+        timeout: 5s
+        retries: 5
+    mongodb:
+      image: mongo:8.0.17@sha256:9814652e33f0cf8b9fddea8b46dfc9d8e19b130dcfdd7b510ca58bb0d40c8b71
+      restart: unless-stopped
+      environment:
+        MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+        MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      volumes:
+        - novu-mongodb:/data/db
+      healthcheck:
+        test:
+          - CMD
+          - mongosh
+          - --quiet
+          - --username
+          - ${MONGO_INITDB_ROOT_USERNAME}
+          - --password
+          - ${MONGO_INITDB_ROOT_PASSWORD}
+          - --eval
+          - db.adminCommand('ping').ok
+        interval: 20s
+        timeout: 5s
+        retries: 5
+        start_period: 20s
+    api:
+      image: ghcr.io/novuhq/novu/api:3.18.0@sha256:d9550e949cf469a3124c6859844863c15881c512fcd2cf5ea2147f8b339fb4e7
+      restart: unless-stopped
+      depends_on:
+        mongodb:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      environment:
+        NODE_ENV: ${NODE_ENV}
+        API_ROOT_URL: ${API_ROOT_URL}
+        PORT: ${API_PORT}
+        FRONT_BASE_URL: ${FRONT_BASE_URL}
+        MONGO_URL: ${MONGO_URL}
+        MONGO_MIN_POOL_SIZE: ${MONGO_MIN_POOL_SIZE}
+        MONGO_MAX_POOL_SIZE: ${MONGO_MAX_POOL_SIZE}
+        MONGO_AUTO_CREATE_INDEXES: ${MONGO_AUTO_CREATE_INDEXES}
+        REDIS_HOST: ${REDIS_HOST}
+        REDIS_PORT: ${REDIS_PORT}
+        REDIS_PASSWORD: ${REDIS_PASSWORD}
+        REDIS_DB_INDEX: '2'
+        REDIS_CACHE_SERVICE_HOST: ${REDIS_CACHE_SERVICE_HOST}
+        REDIS_CACHE_SERVICE_PORT: ${REDIS_CACHE_SERVICE_PORT}
+        S3_LOCAL_STACK: ${S3_LOCAL_STACK}
+        S3_BUCKET_NAME: ${S3_BUCKET_NAME}
+        S3_REGION: ${S3_REGION}
+        AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+        AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+        JWT_SECRET: ${JWT_SECRET}
+        STORE_ENCRYPTION_KEY: ${STORE_ENCRYPTION_KEY}
+        NOVU_SECRET_KEY: ${NOVU_SECRET_KEY}
+        SUBSCRIBER_WIDGET_JWT_EXPIRATION_TIME: ${SUBSCRIBER_WIDGET_JWT_EXPIRATION_TIME}
+        SENTRY_DSN: ${SENTRY_DSN}
+        NEW_RELIC_ENABLED: ${NEW_RELIC_ENABLED}
+        NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME}
+        NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY}
+        API_CONTEXT_PATH: ${API_CONTEXT_PATH:-}
+        IS_API_IDEMPOTENCY_ENABLED: ${IS_API_IDEMPOTENCY_ENABLED}
+        IS_API_RATE_LIMITING_ENABLED: ${IS_API_RATE_LIMITING_ENABLED}
+        IS_NEW_MESSAGES_API_RESPONSE_ENABLED: ${IS_NEW_MESSAGES_API_RESPONSE_ENABLED}
+        IS_V2_ENABLED: ${IS_V2_ENABLED}
+        IS_SELF_HOSTED: ${IS_SELF_HOSTED}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - wget --no-verbose --tries=1 --spider http://127.0.0.1:$${PORT}/v1/health-check || exit 1
+        interval: 20s
+        timeout: 10s
+        retries: 3
+        start_period: 40s
+    worker:
+      image: ghcr.io/novuhq/novu/worker:3.18.0@sha256:83296878d1b633ca5c9a4e39b10283fa8e2c4d5d341c11847ffd1e4a3897f3b0
+      restart: unless-stopped
+      depends_on:
+        mongodb:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      environment:
+        NODE_ENV: ${NODE_ENV}
+        PORT: ${WORKER_PORT:-3004}
+        MONGO_URL: ${MONGO_URL}
+        MONGO_MIN_POOL_SIZE: ${MONGO_MIN_POOL_SIZE}
+        MONGO_MAX_POOL_SIZE: ${MONGO_MAX_POOL_SIZE}
+        REDIS_HOST: ${REDIS_HOST}
+        REDIS_PORT: ${REDIS_PORT}
+        REDIS_PASSWORD: ${REDIS_PASSWORD}
+        REDIS_DB_INDEX: '2'
+        REDIS_CACHE_SERVICE_HOST: ${REDIS_CACHE_SERVICE_HOST}
+        REDIS_CACHE_SERVICE_PORT: ${REDIS_CACHE_SERVICE_PORT}
+        S3_LOCAL_STACK: ${S3_LOCAL_STACK}
+        S3_BUCKET_NAME: ${S3_BUCKET_NAME}
+        S3_REGION: ${S3_REGION}
+        AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+        AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+        STORE_ENCRYPTION_KEY: ${STORE_ENCRYPTION_KEY}
+        SUBSCRIBER_WIDGET_JWT_EXPIRATION_TIME: ${SUBSCRIBER_WIDGET_JWT_EXPIRATION_TIME}
+        SENTRY_DSN: ${SENTRY_DSN}
+        NEW_RELIC_ENABLED: ${NEW_RELIC_ENABLED}
+        NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME}
+        NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY}
+        BROADCAST_QUEUE_CHUNK_SIZE: ${BROADCAST_QUEUE_CHUNK_SIZE}
+        MULTICAST_QUEUE_CHUNK_SIZE: ${MULTICAST_QUEUE_CHUNK_SIZE}
+        API_ROOT_URL: http://api:${API_PORT}
+        IS_EMAIL_INLINE_CSS_DISABLED: ${IS_EMAIL_INLINE_CSS_DISABLED}
+        IS_USE_MERGED_DIGEST_ID_ENABLED: ${IS_USE_MERGED_DIGEST_ID_ENABLED}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - wget --no-verbose --tries=1 --spider http://127.0.0.1:$${PORT:-3004}/v1/health-check || exit
+            1
+        interval: 20s
+        timeout: 10s
+        retries: 3
+        start_period: 20s
+    ws:
+      image: ghcr.io/novuhq/novu/ws:3.18.0@sha256:61560aaf8b60a9ea38cec7cd5976a441ef7f90721892a0d38958b3ac17196836
+      restart: unless-stopped
+      depends_on:
+        mongodb:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      environment:
+        PORT: ${WS_PORT}
+        NODE_ENV: ${NODE_ENV}
+        MONGO_URL: ${MONGO_URL}
+        MONGO_MIN_POOL_SIZE: ${MONGO_MIN_POOL_SIZE}
+        MONGO_MAX_POOL_SIZE: ${MONGO_MAX_POOL_SIZE}
+        REDIS_HOST: ${REDIS_HOST}
+        REDIS_PORT: ${REDIS_PORT}
+        REDIS_PASSWORD: ${REDIS_PASSWORD}
+        JWT_SECRET: ${JWT_SECRET}
+        WS_CONTEXT_PATH: ${WS_CONTEXT_PATH:-}
+        NEW_RELIC_ENABLED: ${NEW_RELIC_ENABLED}
+        NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME}
+        NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - wget --no-verbose --tries=1 --spider http://127.0.0.1:$${PORT}/v1/health-check || exit 1
+        interval: 20s
+        timeout: 10s
+        retries: 3
+        start_period: 40s
+    novu:
+      image: ghcr.io/novuhq/novu/dashboard:3.18.0@sha256:08f477a1ae9393c67d5853d75ae4e4b3fb03786a6386a0ce89678518dc2b0909
+      restart: unless-stopped
+      depends_on:
+        api:
+          condition: service_healthy
+        worker:
+          condition: service_healthy
+      environment:
+        VITE_API_HOSTNAME: ${VITE_API_HOSTNAME}
+        VITE_WEBSOCKET_HOSTNAME: ${VITE_WEBSOCKET_HOSTNAME}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - 'node -e "const http = require(''http''); const req = http.get({hostname: ''localhost'', port:
+            4000, path: ''/'', timeout: 5000}, (res) => { process.exit(res.statusCode === 200 ? 0 : 1);
+            }); req.on(''error'', () => process.exit(1)); req.on(''timeout'', () => { req.destroy(); process.exit(1);
+            });"'
+        interval: 20s
+        timeout: 10s
+        retries: 3
+        start_period: 20s
+      ports:
+        - 127.0.0.1:${PORT}:4000
+  volumes:
+    novu-redis:
+    novu-mongodb:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes novu-redis, novu-mongodb of this application: back them up before updating."

@@ -451,6 +451,12 @@
    "license": "CC0-1.0",
    "source": "https://nodered.org/about/resources/"
   },
+  "novu": {
+   "title": "Novu",
+   "hex": "000000",
+   "license": "CC0-1.0",
+   "source": "https://handbook.novu.co/logos-assets"
+  },
   "ntfy": {
    "title": "ntfy",
    "hex": "317F6F",
@@ -563,6 +569,12 @@
    "hex": "13BEF9",
    "license": "CC0-1.0",
    "source": "https://www.portainer.io"
+  },
+  "postiz": {
+   "title": "Postiz",
+   "hex": "612BD3",
+   "license": "CC0-1.0",
+   "source": "https://postiz.com"
   },
   "prefect": {
    "title": "Prefect",
