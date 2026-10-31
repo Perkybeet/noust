@@ -537,6 +537,7 @@ def failing_logs(project: Project, containers: Sequence[Mapping[str, Any]]) -> s
             container.get("restarts")
             or container.get("exit_code")
             or container["state"] == "restarting"
+            or container.get("health") == "unhealthy"
         ):
             shown = project.container_logs(str(container["name"]))
             parts.append(f"--- {container['name']}\n{shown[-1500:]}")
