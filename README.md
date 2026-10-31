@@ -1,11 +1,11 @@
-> **Noust 4.0** adds teams, projects and environments, applications built from a Dockerfile, a
-> registry image or Railpack, a catalogue of 143 recipes, database engines that Noust runs in
-> containers beside the host's, a certificate of its own for any name of an application, single
-> sign-on, servers created at a cloud provider, a one-command installer and a console arranged
-> around what you do, in six languages. It retires the command, the packages and the names the product had before
-> 3.0, and a server still on 2.x goes through 3.3.1 first: read
-> [docs/UPGRADING-4.0.md](docs/UPGRADING-4.0.md) before updating, and see
-> [docs/CHANGELOG-4.0.md](docs/CHANGELOG-4.0.md).
+> **Noust 4.1** reads a fleet as one thing and works it from the central: every list of the console
+> covers every server, the settings of the fleet are written once and each server applies them, and the
+> GitHub App on the central lends each server what it needs to deploy. It brings a console with a new
+> frame and a new look, roles you edit, a name server of your own (Noust DNS) and IONOS as a DNS
+> provider, a move of an application between nginx and Apache, database servers in any version and more
+> than two hundred recipes with their logos. The store moves to schema 16: read
+> [docs/UPGRADING-4.1.md](docs/UPGRADING-4.1.md) before updating, and see
+> [docs/CHANGELOG-4.1.md](docs/CHANGELOG-4.1.md).
 >
 > Every earlier release has its own changelog in [docs/](docs/) (`CHANGELOG-<version>.md`).
 
