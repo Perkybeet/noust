@@ -171,6 +171,7 @@ class FakeProject:
     containers: list[dict[str, Any]] = []
     log: str = ""
     started = 0
+    up_error = ""
 
     def __init__(self, recipe: Any, directory: Path, prefix: str = "noust-smoke-") -> None:
         self.name = f"{prefix}{recipe.name}"
@@ -178,7 +179,10 @@ class FakeProject:
     def run(self, *arguments: str, timeout: int = 0) -> subprocess.CompletedProcess[str]:
         FakeProject.started += arguments[0] == "up"
         stdout = FakeProject.log if arguments[0] == "logs" else ""
-        return subprocess.CompletedProcess(list(arguments), 0, stdout, "")
+        refused = arguments[0] == "up" and FakeProject.up_error
+        return subprocess.CompletedProcess(
+            list(arguments), 1 if refused else 0, stdout, FakeProject.up_error if refused else ""
+        )
 
     def inspect(self) -> list[dict[str, Any]]:
         return FakeProject.containers
@@ -198,6 +202,7 @@ def fake_docker(smoke: ModuleType, monkeypatch: pytest.MonkeyPatch) -> type[Fake
     ]
     FakeProject.log = "starting\nERROR: one expected line\nlistening\n"
     FakeProject.started = 0
+    FakeProject.up_error = ""
     return FakeProject
 
 
@@ -742,3 +747,21 @@ def test_the_logs_of_a_container_that_restarted_come_before_the_projects_own_tai
     assert "--- web-1\nthe log of web-1" in text
     assert "db-1" not in text
     assert text.index("web-1") < text.index("mongo chatter")
+
+
+def test_a_stack_that_does_not_come_up_says_why_with_the_log_of_what_exited(
+    smoke: ModuleType, fake_docker: type[FakeProject]
+) -> None:
+    """`dependency failed to start` names a container; its own log is what says what went wrong."""
+    fake_docker.up_error = "dependency failed to start: container web-1 exited (1)"
+    fake_docker.containers = [
+        {"name": "web-1", "state": "exited", "restarts": 0, "exit_code": 1, "oom_killed": False}
+    ]
+
+    report = run_smoke(smoke)
+
+    assert report.problems == [
+        "docker compose up failed: dependency failed to start: container web-1 exited (1)"
+    ]
+    assert report.containers == fake_docker.containers
+    assert "--- web-1\nthe log of web-1" in report.log_tail

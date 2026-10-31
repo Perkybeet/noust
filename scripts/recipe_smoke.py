@@ -595,6 +595,10 @@ def smoke(
         started = project.run("up", "-d", "--wait-timeout", "180")
         if started.returncode:
             report.problems.append(f"docker compose up failed: {started.stderr.strip()[-300:]}")
+            # What did not start says why in its own log: a dependency that failed is a container
+            # that exited, and the sentence above only names it.
+            report.containers = project.inspect()
+            report.log_tail = failing_logs(project, report.containers)
             return report
         url = f"http://127.0.0.1:{port}{report.gate_path}"
         begin = time.monotonic()
