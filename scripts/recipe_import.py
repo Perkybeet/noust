@@ -713,6 +713,29 @@ def as_environment(raw: Any) -> dict[str, str]:
     return {}
 
 
+def awaited_jobs(services: Mapping[str, Mapping[str, Any]]) -> set[str]:
+    """
+    Name the services another one waits to finish.
+
+    Args:
+        services: The template's services.
+
+    Returns:
+        The names listed in a ``depends_on`` with ``condition: service_completed_successfully``.
+    """
+    names: set[str] = set()
+    for spec in services.values():
+        depends = spec.get("depends_on")
+        if isinstance(depends, dict):
+            for other, wait in depends.items():
+                if (
+                    isinstance(wait, dict)
+                    and wait.get("condition") == "service_completed_successfully"
+                ):
+                    names.add(str(other))
+    return names
+
+
 def pass_through_names(draft: Draft, raw: Any) -> dict[str, str]:
     """
     Read a service's ``environment``, taking a bare name as the stack's variable of that name.
@@ -906,7 +929,8 @@ def clean_services(draft: Draft) -> None:
             raise Skip("service-keys", f"service {key}: {', '.join(sorted(unknown))}")
         if not re.fullmatch(r"[a-z][a-z0-9_-]{0,62}", key):
             raise Skip("service-name", key)
-        spec["restart"] = "unless-stopped"
+        # A job the stack waits for to finish (a migration) must not restart when it ends.
+        spec["restart"] = "no" if key in awaited_jobs(draft.services) else "unless-stopped"
         if "environment" in spec:
             spec["environment"] = {
                 name: _CONTAINER_PORT.sub(str(routed_port), value) if routed_port else value

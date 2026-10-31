@@ -117,6 +117,11 @@ A stack with a database follows the same few rules in every recipe, and
   `backup.databases` names the service, the engine, the database and the user.
 - Its data is in a named volume mounted where the engine keeps it, and what uses it starts when
   it answers: `depends_on` with `condition: service_healthy` and a `healthcheck` on the database.
+- A migration or an initialisation that the application must wait for is a service of its own with
+  `restart: "no"` (or `on-failure`) and, on the application, `depends_on` with
+  `condition: service_completed_successfully`. It is the one service that may skip
+  `restart: unless-stopped`: under that policy it would start again when it ended and the stack would
+  wait for ever. `docker compose up -d` runs it again on every start, which is what a migration wants.
 - Nothing but the web port, and the ports `public_ports` declares, is published: a database, a
   cache or a worker is reachable only from inside the stack.
 - No credential is written in the document: the database password and every key are generated

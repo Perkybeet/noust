@@ -1318,6 +1318,32 @@ def test_a_health_check_reads_the_containers_own_variable_not_composes(tool: Mod
     )
 
 
+def test_a_job_the_stack_waits_for_runs_once_and_every_other_service_restarts(
+    tool: ModuleType,
+) -> None:
+    """Kan's migration under `unless-stopped` started again when it ended: `up` never finished."""
+    draft = draft_of(
+        tool,
+        {
+            "web": {
+                "image": "o/app:1.0",
+                "depends_on": {"migrate": {"condition": "service_completed_successfully"}},
+            },
+            "migrate": {"image": "o/job:1.0"},
+            "db": {"image": "o/db:1.0"},
+        },
+        ("web", 80),
+    )
+
+    tool.clean_services(draft)
+
+    assert draft.services["migrate"]["restart"] == "no"
+    assert draft.services["web"]["restart"] == draft.services["db"]["restart"] == "unless-stopped"
+    assert draft.services["web"]["depends_on"]["migrate"] == {
+        "condition": "service_completed_successfully"
+    }
+
+
 def test_a_bare_name_in_a_services_environment_is_the_stacks_variable_of_that_name(
     tool: ModuleType,
 ) -> None:
