@@ -620,7 +620,7 @@ def smoke(
                 f"the recipe expects {report.gate_expected or '200'}"
             )
             report.containers = project.inspect()
-            report.log_tail = project.run("logs", "--no-color", "--tail", "40").stdout[-4000:]
+            report.log_tail = failing_logs(project, report.containers)
             if isinstance(status, int):
                 report.suggested_health = suggest_health(
                     f"http://127.0.0.1:{port}", report.gate_path, status
