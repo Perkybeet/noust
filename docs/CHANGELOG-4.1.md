@@ -447,3 +447,28 @@ the weight budget require; the script every page loads is held to 398 KiB gzippe
 - **Cancel on a new application no longer starts the read it stopped.**
 - **The previews page decides whether a source is on GitHub by reading the start of the source**, not by finding
   `github.com/` anywhere in it.
+- **The terminal takes the keyboard back when it is clicked.** The press on its screen gave the focus to the
+  hidden text area, and the browser's own answer to a press on a canvas moved it to the page afterwards, so the
+  terminal could not be typed in again with the mouse once the keyboard had gone elsewhere. The press is declined
+  there; the text view, which needs it to select, keeps it.
+- **Continue after a typed repository takes a press of any length.** Leaving the field starts the read of the
+  repository, and Continue turned busy under a finger still on it: a press of 90 ms ended on a button that takes
+  no press and the step stayed on Source. Continue is busy only for a read it asked for, and a press while the
+  field's read runs joins it.
+- **Typing an address in "What to deploy" no longer shows the catalog on the way** (`h`, `ht`, ... `https:/`): what
+  can still become an address keeps the page as it was.
+- **The stages of an update by push no longer run ahead of its log.** Its first line, "Building and activating a
+  new release", read as the last phase it names and turned Start before anything was fetched.
+- **A fleet job's title, and who started a job or a deployment, are said in the console's language and by
+  name**: "Aplicar los ajustes de la flota en 2 servidores" in a Spanish console, "Marta Ruiz" and not "Console" or
+  "Session marta", and "Noust itself" for what Noust does on its own (additive fields in the
+  [API changelog](API-CHANGELOG.md)).
+- **A server of the fleet is never drawn with none of its applications named.** Beyond two rows the well ones fill
+  what is left of them by name, and one slab says how many more ("+2 running").
+- **Spanish reads as it is said**: "Sitio estático", "Detección automática" and "Contenedor" for the types whose
+  name is a description, "hace 1 día", "Desplegado" for a deployment that served, and a figure and its unit
+  ("41 s") stay together instead of leaving a cell between them in the mono face.
+- **An application's overview** gives its history of deployments the whole width, so a commit message is read and
+  not cut, and the version that serves says when beside its number instead of after the message.
+- **On a phone** the trail keeps the page and what it is under, whole; a card says its facts apart by room, with
+  no mark that wrapped alone to a line; the primary action and the menu beside it wrap together.

@@ -96,7 +96,6 @@
       "app/PageHeader.tsx": 2,
       "components/page/SettingsLayout.tsx": 2,
       "components/ui/Chart.tsx": 1,
-      "components/ui/DataTable.tsx": 1,
       "components/ui/FlowDiagram.tsx": 1,
       "components/ui/flowDiagram.types.ts": 2,
       "features/app/database/AppDatabaseTab.tsx": 1,
