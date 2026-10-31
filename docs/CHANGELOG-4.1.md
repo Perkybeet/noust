@@ -474,3 +474,17 @@ the weight budget require; the script every page loads is held to 398 KiB gzippe
   not cut, and the version that serves says when beside its number instead of after the message.
 - **On a phone** the trail keeps the page and what it is under, whole; a card says its facts apart by room, with
   no mark that wrapped alone to a line; the primary action and the menu beside it wrap together.
+- **A deployment that did not finish says so in the console's language.** "Release 20261031-2 did not pass its
+  health check" reached the toast of the failed job and Home's list of what needs attention in English, in a
+  Spanish console. The first line of the failure (the health check of a release, of an application or of a
+  stack, a rollback that did not answer, an installation or a build that failed, ran out of memory or took too
+  long) is now a sentence with a code, built where each is raised and read back from what a job and a
+  deployment keep; what the gate, the journal and the tools printed after it is shown as it came (additive
+  fields in the [API changelog](API-CHANGELOG.md)).
+- **"Reconocer" is "Marcar como vista"**, and "Reconocida por" is "Vista por": an alert is taken, not recognised.
+- **The step from the wizard to the deployment draws one picture, not three.** Pressing Deploy drew the next
+  page's second column empty beside the wizard, then the page in its loading shapes, then the page. The frame now
+  follows the page that is on screen, and the wizard reads what the page draws first (the application, its
+  deployments, the deployment and its log, the page's code) before it leaves.
+- **Choosing a result in the search no longer says "nothing matches" while it closes.** The search kept no
+  commands once it was shut, and the dialog is on screen for the length of its exit.
