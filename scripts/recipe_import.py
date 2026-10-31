@@ -717,6 +717,32 @@ def as_environment(raw: Any) -> dict[str, str]:
     return {}
 
 
+def adopt_declared_jobs(draft: Draft, routed_service: str) -> None:
+    """
+    Make the application wait for the one-shot jobs a template declared with `restart: "no"`.
+
+    A recipe's services all restart, except a job the stack waits for to finish. A template that
+    marks a service as run-once (Teable's database migration) means exactly that, so the web
+    service waits for it, which is also the order the template intended.
+
+    Args:
+        draft: Changed in place.
+        routed_service: The web service, which waits.
+    """
+    main = draft.services.get(routed_service)
+    if main is None:
+        return
+    for key, spec in draft.services.items():
+        if key == routed_service or spec.get("restart") not in (False, "no", "on-failure"):
+            continue
+        depends = main.get("depends_on")
+        if isinstance(depends, list):
+            depends = {str(item): {"condition": "service_started"} for item in depends}
+        depends = dict(depends or {})
+        depends.setdefault(key, {"condition": "service_completed_successfully"})
+        main["depends_on"] = depends
+
+
 def awaited_jobs(services: Mapping[str, Mapping[str, Any]]) -> set[str]:
     """
     Name the services another one waits to finish.
@@ -955,6 +981,7 @@ def clean_services(draft: Draft) -> None:
     # the application itself would be on a public name.
     if image_engine(str(draft.services.get(routed_service, {}).get("image", ""))) is not None:
         raise Skip("database-as-app", f"service {routed_service} is a database engine")
+    adopt_declared_jobs(draft, routed_service)
     for key, spec in draft.services.items():
         for banned in ("privileged", "cap_add", "devices", "network_mode", "pid", "ipc", "build"):
             if spec.get(banned):

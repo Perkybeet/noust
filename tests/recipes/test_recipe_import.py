@@ -1386,6 +1386,31 @@ def test_a_wget_health_check_asks_the_ipv4_loopback_not_localhost(tool: ModuleTy
     ]
 
 
+def test_a_service_a_template_marks_run_once_is_a_job_the_web_service_waits_for(
+    tool: ModuleType,
+) -> None:
+    """Teable's `restart: no` migration restarted for ever under `unless-stopped`."""
+    draft = draft_of(
+        tool,
+        {
+            "web": {"image": "o/app:1.0", "depends_on": ["db"]},
+            "db": {"image": "o/db:1.0"},
+            "migrate": {"image": "o/job:1.0", "restart": "no"},
+            "backup": {"image": "o/job:1.0", "restart": False},
+        },
+        ("web", 80),
+    )
+
+    tool.clean_services(draft)
+
+    assert draft.services["migrate"]["restart"] == draft.services["backup"]["restart"] == "no"
+    assert draft.services["web"]["depends_on"]["db"]["condition"] == "service_started"
+    assert draft.services["web"]["depends_on"]["migrate"] == {
+        "condition": "service_completed_successfully"
+    }
+    assert draft.services["db"]["restart"] == "unless-stopped"
+
+
 def test_a_bare_name_in_a_services_environment_is_the_stacks_variable_of_that_name(
     tool: ModuleType,
 ) -> None:
