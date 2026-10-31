@@ -194,6 +194,39 @@ describe("the new-app wizard", () => {
     });
   });
 
+  it("does not leave the wizard until the page it goes to has what it draws first", { timeout: 20_000 }, async () => {
+    // The deployment's own read is held: the list already says where to go, and the page cannot be drawn yet.
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const { backend, harness } = wizard({
+      "GET /api/deployments/7": async () => {
+        await held;
+        return json(200, { id: 7, domain: "storefront.example.com", status: "running", triggered_by: "panel", has_log: true, job_id: JOB.id });
+      },
+    });
+    const { user } = harness;
+    await inspect(user);
+    await toVariables(user, "storefront.example.com");
+    await fillRequired(user);
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { level: 2, name: "Deploy" });
+    await user.click(screen.getByRole("button", { name: "Deploy storefront.example.com" }));
+
+    // The deployment is being read, and the wizard is still the page: no second frame is drawn for the page that comes next.
+    await waitFor(() => {
+      expect(backend.callsTo("GET /api/deployments/7")).toHaveLength(1);
+    });
+    expect(harness.location().pathname).toBe("/apps/new");
+    expect(screen.getByText("Deploying storefront.example.com")).toBeInTheDocument();
+
+    release();
+    await waitFor(() => {
+      expect(harness.location().pathname).toBe("/apps/storefront.example.com/deployments/7");
+    });
+  });
+
   it("never disables Continue: it says what is missing, and takes the operator to it", async () => {
     const { harness } = wizard();
     const { user } = harness;
