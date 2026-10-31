@@ -836,6 +836,62 @@ def _tabs_inplace_app(
     return root
 
 
+#: What an application of each sampled type holds in memory just after a start, in MB. A static site,
+#: a PHP-FPM pool and a Compose stack are not sampled by cgroup on a real machine either.
+BASE_MEMORY_MB = {"nextjs": 180.0, "nodejs": 120.0, "python": 150.0}
+
+
+def _day_shape(stamp: float) -> tuple[float, float]:
+    """
+    Args:
+        stamp: A moment, in UNIX seconds.
+
+    Returns:
+        How busy the day makes it (``-1`` at midnight to ``1`` at noon) and a wobble that never
+        repeats within a day, the two shapes every modelled series is made of.
+    """
+    import math
+
+    daily = math.sin((stamp % 86_400) / 86_400 * 2 * math.pi - math.pi / 2)
+    wobble = math.sin(stamp / 977.0) * 0.6 + math.sin(stamp / 331.0) * 0.4
+    return daily, wobble
+
+
+def _seconds_since_deploy(stamp: float, deploy_times: Sequence[int]) -> float:
+    """
+    Args:
+        stamp: A moment, in UNIX seconds.
+        deploy_times: When the application was deployed, ascending.
+
+    Returns:
+        How long before ``stamp`` it was last deployed; a month when it never had been.
+    """
+    since = [stamp - moment for moment in deploy_times if moment <= stamp]
+    return min(since) if since else 30 * 86_400.0
+
+
+def tabs_reading(stamp: float, deploy_times: Sequence[int], base_mb: float) -> tuple[float, float]:
+    """
+    What an application uses at a moment: the one model of the history the Metrics tab draws and of
+    the reading the overview and the list show now, so the last point of a chart is the number.
+
+    Args:
+        stamp: A moment, in UNIX seconds.
+        deploy_times: When the application was deployed, ascending.
+        base_mb: Its resident memory just after a start, in MB.
+
+    Returns:
+        Its CPU in percent of one processor and its memory in MB.
+    """
+    import math
+
+    age = _seconds_since_deploy(stamp, deploy_times)
+    daily, wobble = _day_shape(stamp)
+    cpu = 3.2 + 2.4 * daily + 1.1 * wobble + (38.0 * math.exp(-age / 240.0))
+    memory_mb = base_mb + min(age / 3_600, 96) * 0.9 + 6 * wobble
+    return max(0.1, cpu), memory_mb
+
+
 def _tabs_metrics(domain: str, deploys: Sequence[datetime], *, base_mb: float) -> None:
     """
     Write thirty days of CPU, memory, disk and network history for an application.
@@ -866,17 +922,14 @@ def _tabs_metrics(domain: str, deploys: Sequence[datetime], *, base_mb: float) -
     ]
     deploy_times = sorted(int(moment.timestamp()) for moment in deploys)
     for stamp in stamps:
-        since = [stamp - t for t in deploy_times if t <= stamp]
-        age = min(since) if since else 30 * 86_400
-        daily = math.sin((stamp % 86_400) / 86_400 * 2 * math.pi - math.pi / 2)
-        wobble = math.sin(stamp / 977.0) * 0.6 + math.sin(stamp / 331.0) * 0.4
-        cpu = 3.2 + 2.4 * daily + 1.1 * wobble + (38.0 * math.exp(-age / 240.0))
-        memory_mb = base_mb + min(age / 3_600, 96) * 0.9 + 6 * wobble
+        age = _seconds_since_deploy(stamp, deploy_times)
+        daily, wobble = _day_shape(stamp)
+        cpu, memory_mb = tabs_reading(stamp, deploy_times, base_mb)
         # Disk and network follow the day's traffic, and a deploy reads the new release in.
         warm = math.exp(-age / 240.0)
         store.record_many(
             [
-                (cpu_name, max(0.1, cpu)),
+                (cpu_name, cpu),
                 (mem_name, memory_mb * 1024 * 1024),
                 (read_name, max(0.0, 30_000 + 22_000 * daily + 9_000 * wobble + 4_000_000 * warm)),
                 (write_name, max(0.0, 85_000 + 60_000 * daily + 20_000 * wobble + 600_000 * warm)),

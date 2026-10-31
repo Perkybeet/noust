@@ -38,6 +38,7 @@ from .fleet import (
     run_internal_seal,
     seal_sandbox_before_serving,
 )
+from .host_reads import model_host_reads
 from .machine import Unit
 from .recipes_and_export import seed_catalog_apps, seed_exportable_app, seed_fleet_node_app
 from .runner import make_runner
@@ -211,6 +212,7 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
         use_console_build(args.static_dir)
     if args.hostname is not None:
         use_fixed_hostname(args.hostname)
+    cpu_held = 12.0
     if args.showcase:
         from tests.support.showcase import NODE_READINGS
         from tests.support.showcase_video import VIDEO_READINGS
@@ -219,12 +221,16 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
         cpu_percent, memory_percent, disk_percent, uptime_s = readings.get(
             args.hostname or "", readings["fra-1"]
         )
+        cpu_held = cpu_percent
         use_fixed_machine_stats(
             cpu_percent=cpu_percent,
             memory_percent=memory_percent,
             disk_percent=disk_percent,
             uptime_s=uptime_s,
         )
+    # The kernel, the processes and the disks the pages name are the modelled VPS's, never the
+    # machine this script runs on.
+    model_host_reads(host.root, args.hostname or socket.gethostname(), units, cpu_held, domains)
     app = create_app(config)
     token = get_token_manager().generate_master_token()
     totp_secret, backup_codes = enable_totp(args.backup_codes) if args.totp else (None, [])

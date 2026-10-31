@@ -14,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from .app_tabs import _tabs_metrics, _tabs_register
+from .app_tabs import BASE_MEMORY_MB, _tabs_metrics, _tabs_register
 from .constants import (
     CATALOG_DOCKERFILE_APP,
     CATALOG_IMAGE_APP,
@@ -288,8 +288,7 @@ def seed_showcase_app_metrics(store: Any) -> None:
     Args:
         store: The seeded store.
     """
-    sampled_types = {"nextjs", "nodejs", "python"}
-    base_mb = {"nextjs": 180.0, "nodejs": 120.0, "python": 150.0}
+    sampled_types = set(BASE_MEMORY_MB)
     for app in store.list_apps():
         if app.app_type not in sampled_types:
             continue
@@ -300,7 +299,7 @@ def seed_showcase_app_metrics(store: Any) -> None:
         ]
         if not starts:
             continue
-        _tabs_metrics(app.domain, starts, base_mb=base_mb[app.app_type])
+        _tabs_metrics(app.domain, starts, base_mb=BASE_MEMORY_MB[app.app_type])
 
 
 def _parse_iso(value: str) -> datetime | None:
