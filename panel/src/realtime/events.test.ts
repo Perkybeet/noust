@@ -1,5 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
-import { act } from "@testing-library/react";
+import { act, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { configureApi } from "../api/client";
@@ -14,6 +14,7 @@ import { siteKeys } from "../api/queries/sites";
 import { systemKeys } from "../api/queries/system";
 import { setLocale } from "../app/locale";
 import { toast } from "../components/ui/toast";
+import { CHROME, dropNamespaces, loadCatalog } from "../i18n/catalogs";
 import { ANONYMOUS, FakeEventSource, MACHINE, fakeBackend, json } from "../test/fakes";
 import { RECONNECT, reconnectDelay } from "./backoff";
 import { EventStream, applyServerEvent, failureWords } from "./events";
@@ -198,6 +199,28 @@ describe("applyServerEvent", () => {
     // A code this console has no text for keeps the English the server sent, with the rest.
     applyServerEvent(new QueryClient(), "notice", { ...notice, coded: { code: "deploy_failure.something_new", params: {} } });
     expect(error).toHaveBeenLastCalledWith("Release 20261031-2 did not pass its health check; release 20261031-1 is active again", { detail: notice.text });
+  });
+
+  it("waits for the texts of the server's sentences when this console has not fetched them yet, so the first toast is in its language too", async () => {
+    const error = vi.spyOn(toast, "error");
+    await act(() => setLocale("es"));
+    try {
+      // A console that has just opened has only its chrome: the rest is fetched the first time it is asked for.
+      dropNamespaces("en", CHROME);
+      dropNamespaces("es", CHROME);
+      error.mockClear();
+
+      applyServerEvent(new QueryClient(), "notice", { text: "Build failed", state: "failed", coded: { code: "deploy_failure.build_failed", params: {} } });
+      // Not said in English first, and then again in Spanish.
+      expect(error).not.toHaveBeenCalled();
+      await waitFor(() => {
+        expect(error).toHaveBeenCalledTimes(1);
+      });
+      expect(error).toHaveBeenLastCalledWith("No se pudo compilar la aplicación");
+    } finally {
+      await loadCatalog("en");
+      await loadCatalog("es");
+    }
   });
 
   it("keeps a failed deploy's notice the size of a notice: its first line, and all of it beside, to scroll", () => {
