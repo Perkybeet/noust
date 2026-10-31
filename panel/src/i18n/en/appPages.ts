@@ -23,6 +23,7 @@ export const appPages = {
       service: "Creating the service",
       certificate: "Obtaining the certificate",
       zeroDowntime: "Enabling updates without downtime",
+      buildAndActivate: "Building and activating a new release",
     },
     deploy: { title: "Deploying {domain}", failed: "Deploy of {domain} failed" },
     update: { running: "Updating", title: "Updating {domain}", failed: "Update of {domain} failed" },

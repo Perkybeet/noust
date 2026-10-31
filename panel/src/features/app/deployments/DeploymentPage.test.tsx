@@ -103,6 +103,20 @@ describe("a deployment's page", { timeout: 20_000 }, () => {
     expect(screen.getAllByRole("link", { name: "Deployments" }).map((link) => link.getAttribute("href"))).toContain(`/apps/${TAB_DOMAIN}/deployments`);
   });
 
+  it("says who started it by the name of their account, and what started it when no person did", async () => {
+    const started = { ...FAILED, triggered_by: "panel", started_by: "Marta Ruiz" };
+    await pageAt(20, { [`GET /api/deployments/${String(FAILED.id)}`]: () => json(200, started) });
+    const term = await screen.findByText("Started by");
+    expect(term.closest("div")).toHaveTextContent("Marta Ruiz");
+    expect(term.closest("div")).not.toHaveTextContent("Console");
+  });
+
+  it("says a deploy no person started by what started it", async () => {
+    await pageAt(20, { [`GET /api/deployments/${String(FAILED.id)}`]: () => json(200, { ...FAILED, triggered_by: "panel", started_by: null }) });
+    const term = await screen.findByText("Started by");
+    expect(term.closest("div")).toHaveTextContent("Console");
+  });
+
   it("shows the end of the phase that failed, not only the system's one-line error", async () => {
     await pageAt(20, { [`GET /api/deployments/${String(FAILED.id)}`]: () => json(200, { ...FAILED, error: null }) });
     expect(await screen.findByText("The deploy failed while building")).toBeInTheDocument();

@@ -366,5 +366,35 @@ describe("TerminalController", () => {
       mounted.container.dispatchEvent(new MouseEvent("mousedown", { button: 0, bubbles: true }));
       expect(document.activeElement).toBe(mounted.input);
     });
+
+    // jsdom runs no default action, so it cannot see the focus a browser moves to the page after the
+    // handler; what it can see is that the press is told not to (e2e/terminal.spec.ts proves the focus).
+    function press(target: HTMLElement, init: MouseEventInit = {}): MouseEvent {
+      const event = new MouseEvent("mousedown", { button: 0, bubbles: true, cancelable: true, ...init });
+      target.dispatchEvent(event);
+      return event;
+    }
+
+    it("declines the browser's own answer to a press on the canvas or on the box, which would take the focus away", () => {
+      expect(press(mounted.canvas).defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(mounted.input);
+      mounted.input.blur();
+      expect(press(mounted.container).defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(mounted.input);
+    });
+
+    it("leaves a press on the text view alone, which needs it to start a selection", () => {
+      const view = document.createElement("pre");
+      view.tabIndex = 0;
+      mounted.container.append(view);
+      expect(press(view).defaultPrevented).toBe(false);
+      expect(document.activeElement).toBe(mounted.input);
+    });
+
+    it("leaves the other buttons of the mouse alone", () => {
+      mounted.input.blur();
+      expect(press(mounted.canvas, { button: 2 }).defaultPrevented).toBe(false);
+      expect(document.activeElement).not.toBe(mounted.input);
+    });
   });
 });

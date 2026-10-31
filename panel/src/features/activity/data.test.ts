@@ -138,6 +138,15 @@ describe("describeActor", () => {
     expect(describeActor(t, "webhook").label).toBe("A webhook delivery");
   });
 
+  it("names what Noust does by itself, which is not a session", () => {
+    // The fleet's settings brought to a server that just joined, and the sandbox trial of an update.
+    expect(describeActor(t, "noust-fleet-sync")).toEqual({ label: "Noust itself", raw: "noust-fleet-sync" });
+    expect(describeActor(t, "noust").label).toBe("Noust itself");
+    expect(describeActor(t, "system:jobs").label).toBe("Noust itself");
+    // A session of an unlucky prefix is still one.
+    expect(describeActor(t, "noust-abcdef12").label).toBe("Session noust-ab");
+  });
+
   it("names an anonymous, unauthenticated attempt", () => {
     expect(describeActor(t, "anonymous").label).toBe("Anonymous");
   });

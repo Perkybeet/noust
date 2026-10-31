@@ -42,8 +42,8 @@ export interface FleetCoursesProps {
   columns?: 3 | 4 | 6;
   /**
    * Draw every application of every course, however many: for a fleet of one server, where there is no other
-   * course to compare with and "+9 running" would hide the names a person came to find. The default says the
-   * well ones of a crowded server as one slab.
+   * course to compare with and "+3 running" would hide the names a person came to find. The default says the
+   * well ones of a crowded server by name as far as two rows go, and one slab says how many more.
    */
   ungrouped?: boolean;
   /**
@@ -75,20 +75,30 @@ export function isWell(state: Status): boolean {
 export interface CoursePlan {
   /** Problems first, most urgent first, then the well ones when they are shown one by one. */
   slabs: readonly FleetCourseApp[];
-  /** How many well applications are said as one slab ("+9 running"), 0 when each is shown. */
+  /** How many well applications are said as one slab ("+3 running"), 0 when each is shown. */
   grouped: number;
 }
 
 /**
  * Which slabs a course draws. Everything, problems first, while it fits in two rows. When it does
- * not, the problems stay one by one (a problem is never hidden) and the well ones become a single
- * "+N running" slab: twenty applications that are well say less than the one that is not.
+ * not, the problems stay one by one (a problem is never hidden), the well ones fill what is left of
+ * the two rows by name, and the last slab says how many more there are ("+3 running"): twenty
+ * applications that are well say less than the one that is not, but a server is never drawn with
+ * none of its applications named while its neighbours show theirs.
  */
 export function planCourse(apps: readonly FleetCourseApp[], columns: number, ungrouped = false): CoursePlan {
   const ordered = [...apps].sort((a, b) => URGENCY[a.state] - URGENCY[b.state] || a.name.localeCompare(b.name, "en"));
-  if (ungrouped || ordered.length <= columns * 2) return { slabs: ordered, grouped: 0 };
+  const room = columns * 2;
+  if (ungrouped || ordered.length <= room) return { slabs: ordered, grouped: 0 };
   const problems = ordered.filter((app) => !isWell(app.state));
-  return { slabs: problems, grouped: ordered.length - problems.length };
+  const well = ordered.filter(isWellApp);
+  // One slab of the two rows is the "+N running" one.
+  const named = Math.max(0, room - problems.length - 1);
+  return { slabs: [...problems, ...well.slice(0, named)], grouped: well.length - named };
+}
+
+function isWellApp(app: FleetCourseApp): boolean {
+  return isWell(app.state);
 }
 
 const GRID = { 3: "grid-cols-2 sm:grid-cols-3", 4: "grid-cols-2 sm:grid-cols-4", 6: "grid-cols-2 sm:grid-cols-6" } as const;

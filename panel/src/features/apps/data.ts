@@ -12,7 +12,9 @@ import type { DeploymentList } from "../../api/queries/deployments";
 import { deploymentsQuery } from "../../api/queries/deployments";
 import { metricKeys } from "../../api/queries/metrics";
 import type { MetricsSnapshot } from "../../api/queries/metrics";
-import { useT } from "../../i18n";
+import { getLocale } from "../../app/locale";
+import { translate, useT } from "../../i18n";
+import type { PlainKey } from "../../i18n";
 import { appStatus } from "../../components/page/status";
 
 export type AppInfo = AppList["apps"][number];
@@ -23,13 +25,23 @@ export function hasUnit(app: Pick<AppInfo, "status" | "app_type">): boolean {
   return appStatus(app.status).state !== "static" && app.app_type !== "static";
 }
 
+/** The types whose name the registry gives as English words and not as a product's (Next.js, Node.js): the console says them itself. */
+const DESCRIBED_TYPES: Readonly<Record<string, PlainKey>> = {
+  static: "common.typeNames.static",
+  auto: "common.typeNames.auto",
+  container: "common.typeNames.container",
+};
+
 /**
  * The registry's display name (`DISPLAY_NAME`) for a type, from `GET /api/apps/types` - the
  * one source of truth for what Noust can deploy. Falls back to the raw identifier while the
  * list has not loaded, or for a type the registry no longer knows: the backend's word beats a
- * guess.
+ * guess. A type whose name is a description ("Static Site") and not a product's is said in the
+ * console's language, which the registry's English cannot be.
  */
 export function typeName(types: readonly AppTypeInfo[], type: string): string {
+  const own = DESCRIBED_TYPES[type];
+  if (own !== undefined) return translate(getLocale(), own);
   return types.find((entry) => entry.type === type)?.name ?? type;
 }
 

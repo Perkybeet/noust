@@ -23,6 +23,7 @@ from noust.core import app_build_store, delivery
 from noust.core.config import Config
 from noust.core.exceptions import BuildError, ConfigError, DeploymentError, ValidationError
 from noust.core.runner import CommandResult, FakeRunner
+from noust.core.server_text import say
 from noust.core.store import App, NoustStore
 from noust.deployers.helpers.build_config import (
     MAX_TIMEOUT,
@@ -258,6 +259,7 @@ class TestWhatTheDeployerGives:
             instance.install_dependencies()
 
         assert "did not finish within 300s" in str(caught.value)
+        assert caught.value.coded == say("deploy_failure.install_timeout", seconds=300)
         details = caught.value.details or ""
         assert f"noust app build set {DOMAIN} --timeout 600" in details
         assert "noust config set deploy.install_timeout 600" in details
@@ -275,6 +277,7 @@ class TestWhatTheDeployerGives:
             instance.build()
 
         assert "did not finish within 2700s" in str(caught.value)
+        assert caught.value.coded == say("deploy_failure.build_timeout", seconds=2700)
         details = caught.value.details or ""
         assert "noust config set deploy.build_timeout 5400" in details
 

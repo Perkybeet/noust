@@ -17,7 +17,7 @@ describe("translate", () => {
 
   it("fills placeholders", () => {
     expect(translate("en", "time.duration.hoursMinutes", { hours: 1, minutes: 12 })).toBe("1h 12m");
-    expect(translate("es", "time.duration.hoursMinutes", { hours: 1, minutes: 12 })).toBe("1 h 12 min");
+    expect(translate("es", "time.duration.hoursMinutes", { hours: 1, minutes: 12 })).toBe("1\u202fh 12\u202fmin");
   });
 
   it("leaves a placeholder without a value visible instead of dropping it", () => {

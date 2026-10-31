@@ -503,17 +503,13 @@ function CardRows<T>({
                     <p className="min-w-0 truncate text-14 font-medium text-fg">{title}</p>
                   )}
                   {values.length > 0 ? (
-                    <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-12 text-fg-muted">
-                      {values.map(({ column, content }, index) => (
+                    <p className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5 text-12 text-fg-muted">
+                      {values.map(({ column, content }) => (
+                        // Each fact has its own place, apart from the next by room and not by a mark: a mark inside the
+                        // fact wrapped alone to a line of its own when the line was full.
                         <span key={column.id} className={cx("min-w-0", column.mono && "mono")}>
                           <span className="sr-only">{`${column.header}: `}</span>
                           {content}
-                          {/* After its value, not before the next: a line that wraps ends on the separator instead of starting the next line with one. */}
-                          {index < values.length - 1 ? (
-                            <span aria-hidden="true" className="ml-1.5 text-fg-faint">
-                              ·
-                            </span>
-                          ) : null}
                         </span>
                       ))}
                     </p>

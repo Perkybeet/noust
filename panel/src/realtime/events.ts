@@ -37,7 +37,11 @@ import { serviceKeys } from "../api/queries/services";
 import { siteKeys } from "../api/queries/sites";
 import { systemKeys } from "../api/queries/system";
 import type { Machine } from "../api/queries/system";
+import { getLocale } from "../app/locale";
 import { toast } from "../components/ui/toast";
+import { hasNamespace, loadNamespaces } from "../i18n/catalogs";
+import { leadingSentence } from "../lib/serverSentence";
+import type { CodedText } from "../lib/serverSentence";
 import { useNode } from "../nodes/useNode";
 import { reconnectDelay } from "./backoff";
 import { recordNotice } from "./notices";
@@ -53,6 +57,8 @@ export interface NoticeEvent {
   text: string;
   /** The backend's four-word vocabulary: busy, active, failed, idle. */
   state: "busy" | "active" | "failed" | "idle";
+  /** `text` as a sentence with a code, when it is one of Noust's own (a fleet job's title): said in the console's language. */
+  coded?: CodedText | null;
 }
 
 /** The pre-v2 transition event: an id (a job id or a domain) moved to a state. */
@@ -267,18 +273,35 @@ export function applyServerEvent(queryClient: QueryClient, name: ServerEventName
       return;
     }
     case "notice": {
-      const text = typeof data["text"] === "string" ? data["text"] : null;
-      if (text === null) return;
-      // The toast is gone in seconds; the inbox keeps the last thirty (NV-17).
-      recordNotice(text, data["state"] === "failed" || data["state"] === "active" || data["state"] === "busy" ? data["state"] : "idle", activeNode());
-      if (data["state"] === "failed") {
-        const { title, detail } = failureWords(text);
-        if (detail === undefined) toast.error(title);
-        else toast.error(title, { detail });
+      const sent = typeof data["text"] === "string" ? data["text"] : null;
+      if (sent === null) return;
+      // A sentence of Noust's own, in this console's language; what a tool said is shown as it came, so a failure
+      // whose first line is one keeps everything after it.
+      const coded = isRecord(data["coded"]) ? (data["coded"] as unknown as CodedText) : null;
+      const state = data["state"];
+      const node = activeNode();
+      const say = (): void => {
+        const text = leadingSentence(getLocale(), coded, sent);
+        // The toast is gone in seconds; the inbox keeps the last thirty (NV-17).
+        recordNotice(text, state === "failed" || state === "active" || state === "busy" ? state : "idle", node);
+        if (state === "failed") {
+          const { title, detail } = failureWords(text);
+          if (detail === undefined) toast.error(title);
+          else toast.error(title, { detail });
+        }
+        // design-exception: toast-success a notice the server sends is, by definition, something that is not on this screen
+        else if (state === "active") toast.success(text);
+        else toast.info(text);
+      };
+      // The texts of the server's sentences are fetched the first time one is asked for, and a toast is said once: it waits
+      // for them, or it would be said in English in a Spanish console the first time. When they do not come, the English
+      // the server sent is what is said.
+      const locale = getLocale();
+      if (coded !== null && !(hasNamespace("en", "serverText") && hasNamespace(locale, "serverText"))) {
+        void Promise.all([loadNamespaces("en", ["serverText"]), loadNamespaces(locale, ["serverText"])]).then(say, say);
+      } else {
+        say();
       }
-      // design-exception: toast-success a notice the server sends is, by definition, something that is not on this screen
-      else if (data["state"] === "active") toast.success(text);
-      else toast.info(text);
       return;
     }
     case "state": {

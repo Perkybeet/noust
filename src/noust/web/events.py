@@ -52,7 +52,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from starlette.concurrency import run_in_threadpool
 
+from noust.core.deploy_failures import coded as deploy_failure
 from noust.core.exceptions import NoustError
+from noust.core.fleet_job_titles import coded as fleet_job_title
 from noust.core.teams import ScopedStore
 from noust.web import metrics_collector
 from noust.web.auth import SAFE_METHODS, credential_is_current, require_auth
@@ -230,7 +232,14 @@ def job_events(job: Job) -> list[tuple[str, dict[str, Any]]]:
         # failure is summarised rather than shown verbatim, and it is a toast
         # pointing at the activity screen, not a replacement for the output.
         text = job.error if status == "failed" and job.error else job.name
-        events.append(("notice", {"text": text, "state": state}))
+        notice: dict[str, Any] = {"text": text, "state": state}
+        # The job's own name, when it is one of Noust's sentences, travels with its code so the
+        # console says it in its language; so does the first line of a failure that is one. What a
+        # tool printed after it is shown as it came: the code stands for the first line only.
+        sentence = fleet_job_title(job.name) if text == job.name else deploy_failure(text)
+        if sentence is not None:
+            notice["coded"] = sentence.to_dict()
+        events.append(("notice", notice))
 
     return events
 

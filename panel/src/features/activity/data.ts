@@ -429,6 +429,9 @@ export function namedActor(t: T, label: string): string {
   return fleet === null ? label : throughCentral(t, fleet.person, fleet.central);
 }
 
+/** The labels the server gives what it does by itself (`AUTOMATIC_ACTOR` of the fleet's settings and of the sandbox trial). */
+const AUTOMATIC_ACTORS: ReadonlySet<string> = new Set(["noust", "noust-fleet-sync"]);
+
 /**
  * `actor_label()` in `noust.web.auth`: `"master"`, `"token:<name>"`, a browser session's id
  * (the full value, or the twelve characters that helper keeps), `"webhook"` for a deploy the
@@ -442,6 +445,9 @@ export function describeActor(t: T, actor: string): ActorWords {
   if (actor === "master") return { label: t("activity.actor.masterToken"), raw: actor };
   if (actor === "anonymous") return { label: t("activity.actor.anonymous"), raw: actor };
   if (actor === "webhook") return { label: t("activity.actor.webhookDelivery"), raw: actor };
+  // What Noust does on its own: the label a job carries when nobody asked (the fleet's settings brought to a server that
+  // just joined, the sandbox trial of an update), which is not the first characters of a session.
+  if (AUTOMATIC_ACTORS.has(actor) || actor === "system" || actor.startsWith("system:")) return { label: t("activity.actor.system"), raw: actor };
   if (actor.startsWith("token:")) {
     const name = actor.slice("token:".length);
     return { label: name === "" ? t("activity.actor.apiToken") : t("activity.actor.namedToken", { name }), raw: actor };

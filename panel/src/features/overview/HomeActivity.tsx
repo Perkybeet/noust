@@ -7,6 +7,7 @@ import { deployStatus } from "../../components/page/status";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Mono } from "../../components/ui/Mono";
 import { RowList } from "../../components/ui/RowList";
+import { serverSentence } from "../../components/ui/ServerText";
 import { SkeletonRows } from "../../components/ui/Skeleton";
 import { StatusGlyph, stateTextClass } from "../../components/ui/StatusPill";
 import { TextLink } from "../../components/ui/TextLink";
@@ -27,7 +28,14 @@ function Line({ t, line }: { t: T; line: ActivityLine }) {
   // words on every line. Anything else (failed, in progress, cancelled) is said out loud.
   const quiet = view.state === "running";
   const domain = entry.domain ?? null;
-  const who = entry.actor !== null && entry.actor !== undefined && entry.actor !== "" ? describeActor(t, entry.actor).label : null;
+  // A person is named by the name of their account; any other actor (a token, a webhook, a central acting for someone) by what it is.
+  const who =
+    entry.actor_name !== null && entry.actor_name !== undefined && entry.actor_name !== ""
+      ? entry.actor_name
+      : entry.actor !== null && entry.actor !== undefined && entry.actor !== ""
+        ? describeActor(t, entry.actor).label
+        : null;
+  const person = entry.actor_name !== null && entry.actor_name !== undefined && entry.actor_name !== "";
   return (
     <RowList.Item leading={<StatusGlyph state={view.state} size={14} className={stateTextClass(view.state)} />}>
       <div className="flex min-w-0 items-baseline justify-between gap-3">
@@ -44,8 +52,9 @@ function Line({ t, line }: { t: T; line: ActivityLine }) {
               <span translate="no">{domain}</span>
             </Link>
           ) : (
-            <span translate="no" className="min-w-0 truncate text-fg">
-              {entry.title !== "" ? entry.title : jobActionLabel(t, entry.type)}
+            // A title that is one of Noust's own sentences is said in the console's language; any other is the server's, as it came. It wraps: a sentence cut at "servi…" says less than two lines.
+            <span translate={entry.title_coded ? undefined : "no"} className="min-w-0 break-words text-fg">
+              {entry.title !== "" ? serverSentence(t.locale, entry.title_coded, entry.title, "text") : jobActionLabel(t, entry.type)}
             </span>
           )}
           <span className={cx("shrink-0 text-12", quiet ? "sr-only" : stateTextClass(view.state))}>{view.label}</span>
@@ -54,7 +63,11 @@ function Line({ t, line }: { t: T; line: ActivityLine }) {
       </div>
       {who !== null || server !== null ? (
         <p className="mt-0.5 flex min-w-0 flex-wrap items-baseline gap-x-3 text-12 text-fg-muted">
-          {who !== null ? <span className="min-w-0 truncate">{who}</span> : null}
+          {who !== null ? (
+            <span translate={person ? "no" : undefined} className="min-w-0 truncate">
+              {who}
+            </span>
+          ) : null}
           {server !== null ? <Mono tone="muted">{server}</Mono> : null}
         </p>
       ) : null}

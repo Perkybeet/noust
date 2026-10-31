@@ -84,7 +84,9 @@ describe("in Spanish", () => {
     expect(appStatus("overheating", "es").label).toBe("Overheating");
     expect(appStatus("degraded", "es").label).toBe("Degradada");
     expect(appStatus("running_no_healthcheck", "es").label).toBe("En ejecución, sin comprobación de arranque");
-    expect(deployStatus("success", "es").label).toBe("Correcto");
+    expect(deployStatus("success", "es").label).toBe("Desplegado");
+    // A job that ended well is not a deployment.
+    expect(deployStatus("completed", "es").label).toBe("Correcto");
     expect(deployStatus("rolled_back", "es").label).toBe("Revertido");
     expect(deployStatus("half_done", "es").label).toBe("Half done");
   });

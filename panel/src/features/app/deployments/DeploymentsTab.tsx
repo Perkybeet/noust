@@ -50,7 +50,7 @@ const HISTORY_PAGE = 200;
 const STATE_WORDS = {
   live: "appPages.deployments.words.live",
   running: "common.deployState.inProgress",
-  succeeded: "common.deployState.succeeded",
+  succeeded: "common.deployState.deployed",
   failed: "common.deployState.failed",
   rolled_back: "common.deployState.rolledBack",
   cancelled: "common.deployState.cancelled",
@@ -155,7 +155,7 @@ function columns(t: T): Column<Row>[] {
         return (
           <span className="flex items-center gap-1.5 text-fg-muted">
             <Icon aria-hidden="true" className="size-icon-sm shrink-0" />
-            {words.label}
+            {row.deployment.started_by ? <span translate="no">{row.deployment.started_by}</span> : words.label}
           </span>
         );
       },

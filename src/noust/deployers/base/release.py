@@ -14,11 +14,11 @@ from datetime import datetime
 
 from noust.core import cancellation, delivery
 from noust.core.appdir.permissions import hand_over_tree
+from noust.core.deploy_failures import release_unhealthy
 from noust.core.exceptions import (
     CertificateError,
     DeploymentError,
     NoustError,
-    RolledBackError,
     SourceError,
 )
 from noust.core.fs import DryRunFileSystem
@@ -428,22 +428,14 @@ class ReleaseMixin(SiteServiceMixin):
         if declared is not None:
             declared.rollback()
         if previous is None:
-            raise DeploymentError(
-                f"Release {staged.id} did not pass its health check",
-                details=evidence,
-            )
+            raise release_unhealthy(staged.id, previous=None, restored=False, evidence=evidence)
 
         self.logger.warning(f"Release {staged.id} did not pass its health check")
         self.logger.substep(f"Going back to release {previous.id}")
         staged.manager.activate(previous.path)
         restored, _ = self._restart_and_probe()
-        state = "is active again" if restored else "is active again but is not answering either"
-        # Only a previous release that answers makes this a rollback: one that
-        # does not leaves the application down, which is a plain failure.
-        error_class = RolledBackError if restored else DeploymentError
-        raise error_class(
-            f"Release {staged.id} did not pass its health check; release {previous.id} {state}",
-            details=evidence,
+        raise release_unhealthy(
+            staged.id, previous=previous.id, restored=restored, evidence=evidence
         )
 
     def _declare_processes(self) -> Declaration | None:

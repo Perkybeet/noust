@@ -38,6 +38,7 @@ from noust.core.appdir.releases import ReleaseManager, persistent_path, release_
 from noust.core.applock import app_lock
 from noust.core.compose_yaml import load_compose
 from noust.core.config import Config
+from noust.core.deploy_failures import stack_update_unhealthy, stack_went_back
 from noust.core.exceptions import (
     DatabaseQueryError,
     DeploymentCancelled,
@@ -45,7 +46,6 @@ from noust.core.exceptions import (
     DockerError,
     NoustError,
     PortConflictError,
-    RolledBackError,
     SecurityError,
     ValidationError,
 )
@@ -3570,8 +3570,7 @@ class DockerComposeDeployer(AppDeployer):
         Returns:
             The error to raise, which says whether what served is back and answering.
         """
-        attempted = f"The update of {self.domain} did not pass its health check"
-        self.logger.warning(attempted)
+        self.logger.warning(stack_update_unhealthy(self.domain).text)
         # The containers that served are not told this update's commit and release.
         for problem in self._restore_predefined():
             self.logger.warning(problem)
@@ -3584,10 +3583,7 @@ class DockerComposeDeployer(AppDeployer):
         )
         if not serving.images:
             self.store.update_app_status(self.domain, AppStatus.FAILED.value)
-            return DeploymentError(
-                f"{attempted}; nothing was running before it, so nothing was put back",
-                details=evidence,
-            )
+            return stack_went_back(self.domain, "nothing_before", evidence)
 
         self._attempted_git = self._git_info()()
         problems = self._put_back_files(serving)
@@ -3604,22 +3600,21 @@ class DockerComposeDeployer(AppDeployer):
 
         if problems:
             self.store.update_app_status(self.domain, AppStatus.FAILED.value)
-            return DeploymentError(
-                f"{attempted}; what was serving could not be put back entirely",
-                details=_paragraphs(evidence, *notes, _problem_list(problems)),
+            return stack_went_back(
+                self.domain,
+                "not_restored",
+                _paragraphs(evidence, *notes, _problem_list(problems)),
             )
 
         restored, after = self._activate(lambda: None)
         if restored:
             self.store.update_app_status(self.domain, AppStatus.RUNNING.value)
-            return RolledBackError(
-                f"{attempted}; the containers that were serving are running again",
-                details=_paragraphs(evidence, *notes),
-            )
+            return stack_went_back(self.domain, "back", _paragraphs(evidence, *notes))
         self.store.update_app_status(self.domain, AppStatus.FAILED.value)
-        return DeploymentError(
-            f"{attempted}; the previous containers are back but are not answering either",
-            details=_paragraphs(evidence, *notes, f"After going back:\n{after}"),
+        return stack_went_back(
+            self.domain,
+            "back_down",
+            _paragraphs(evidence, *notes, f"After going back:\n{after}"),
         )
 
     def down(self, remove_volumes: bool = False) -> bool:

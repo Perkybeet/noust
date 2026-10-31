@@ -215,6 +215,34 @@ test("the server's own terminal is a root shell, and says so", async ({ page, co
   await expect(page.getByRole("region", { name: "Terminal contents as text" })).toContainText("Fake terminal");
 });
 
+// The press on the canvas used to take the keyboard back to the page: the handler gave the focus to
+// the text area, and the browser's own answer to a press on something that cannot take it came after
+// and moved it to the body. A test of jsdom cannot see that, because it runs no default action
+// ("imposible, ni clicando", the owner, 2026-10-26).
+test("clicking the terminal gives it the keyboard back, and what is typed then arrives", async ({ page, consoleServer, problems }) => {
+  problems.expect(ELEVATION.server);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(page, consoleServer, "/server/terminal");
+  await page.getByRole("button", { name: "Open terminal" }).click();
+  await confirmItsYou(page, consoleServer);
+  await expect(page.getByText("Connected", { exact: true })).toBeVisible();
+  const keyboard = page.getByRole("textbox", { name: /^Terminal/ });
+  await expect(keyboard).toBeFocused();
+
+  // The keyboard goes elsewhere: a press on the session's own header, which holds no field.
+  await page.getByRole("group", { name: "Terminal session" }).click({ position: { x: 4, y: 4 } });
+  await expect(keyboard).not.toBeFocused();
+
+  // A press on the screen is a press in the terminal: a real one, by the mouse, on the canvas.
+  await page.locator("canvas").first().click({ position: { x: 60, y: 40 } });
+  await expect(keyboard).toBeFocused();
+
+  await page.keyboard.type("echo back with the mouse");
+  await page.keyboard.press("Enter");
+  await toggleTextView(page);
+  await expect(textView(page)).toContainText("back with the mouse");
+});
+
 test("a narrow screen keeps the terminal usable", async ({ page, consoleServer, problems }) => {
   problems.expect(ELEVATION.app);
   await page.setViewportSize({ width: 390, height: 844 });

@@ -24,6 +24,12 @@ describe("stepWords", () => {
     expect(stepWords("deploy", "Obtaining SSL certificate", "es")).toBe("Obteniendo el certificado");
   });
 
+  it("says a plan of two phases as the plan it is, not as the one it names last", async () => {
+    await loadCatalog("es");
+    // The first line of an update of an app on releases: it is neither "Arrancando la versión nueva" nor "Compilando".
+    expect(stepWords("update", "Building and activating a new release", "es")).toBe("Compilando y activando una nueva release");
+  });
+
   it("leaves a step it does not know as the server said it, and every step of a job that is not a deploy", async () => {
     await loadCatalog("es");
     expect(stepWords("deploy", "Copying the data", "es")).toBe("Copying the data");

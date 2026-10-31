@@ -5,9 +5,11 @@
  */
 
 import type { OverviewAttentionReason } from "../../api/queries/overview";
+import { Mono } from "../../components/ui/Mono";
 import { StatusGlyph } from "../../components/ui/StatusPill";
 import type { T } from "../../i18n";
 import { formatDate, parseTimestamp } from "../../lib/format";
+import { leadingSentence } from "../../lib/serverSentence";
 import { namedActor } from "../activity/data";
 import type { Severity } from "./attention";
 
@@ -87,4 +89,34 @@ export function reasonText(t: T, reason: OverviewAttentionReason): string {
     default:
       return reason.code;
   }
+}
+
+/** The line under a reason: `sentence` when it is Noust's own, said in this console's language, else what the system printed. */
+export interface ReasonDetail {
+  text: string;
+  sentence: boolean;
+}
+
+/**
+ * What a reason says under its sentence. The server marks a detail that is a sentence of Noust's (a release
+ * that did not pass its startup check) with its code, and this console says it in its language; any other
+ * detail is another program's words and is shown as they came.
+ */
+export function reasonDetail(t: T, reason: OverviewAttentionReason): ReasonDetail | null {
+  const detail = text(reason.detail);
+  if (detail === null) return null;
+  const coded = reason.detail_coded ?? null;
+  const said = leadingSentence(t.locale, coded, detail);
+  return { text: said, sentence: coded !== null && said !== detail };
+}
+
+/** A reason's detail line: a sentence of Noust's in the text's own face, the system's words in mono, wrapped and never cut. */
+export function DetailLine({ detail }: { detail: ReasonDetail }) {
+  return detail.sentence ? (
+    <span className="line-clamp-2 text-12 text-pretty break-words text-fg-muted">{detail.text}</span>
+  ) : (
+    <Mono tone="muted" className="line-clamp-2 text-12 break-words whitespace-pre-wrap">
+      {detail.text}
+    </Mono>
+  );
 }

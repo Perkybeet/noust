@@ -161,13 +161,19 @@ export function PageHeader({
           <DemotePrimary active={yielded}>
             {actions}
             {secondaryActions}
-            {primaryAction}
+            {/* The primary and the menu beside it wrap together: where the row is full (a phone, in Spanish, where Update is
+                longer) the menu button never goes alone to a line of its own. */}
+            {primaryAction !== undefined || overflow !== undefined ? (
+              <div className="flex items-center gap-2">
+                {primaryAction}
+                {overflow !== undefined ? (
+                  <Menu align="end" trigger={<IconButton variant="secondary" label={t("common.pageHeader.moreActions")} icon={<ICONS.more />} />}>
+                    {overflow}
+                  </Menu>
+                ) : null}
+              </div>
+            ) : null}
           </DemotePrimary>
-          {overflow !== undefined ? (
-            <Menu align="end" trigger={<IconButton variant="secondary" label={t("common.pageHeader.moreActions")} icon={<ICONS.more />} />}>
-              {overflow}
-            </Menu>
-          ) : null}
         </div>
       ) : null}
     </header>

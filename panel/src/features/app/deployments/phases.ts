@@ -22,10 +22,7 @@ export const PHASES: readonly PhaseSpec[] = [{ key: "fetch" }, { key: "install" 
 
 const INDEX: Readonly<Record<PhaseKey, number>> = { fetch: 0, install: 1, build: 2, activate: 3, health: 4 };
 
-/**
- * Most specific first: a health probe line mentions nothing else, an activation line may name
- * a release, a build line may be an npm command.
- */
+/** What each phase's own steps say. A step is a phase's only when exactly one of these matches it (`phaseOf`). */
 const RULES: readonly (readonly [PhaseKey, RegExp])[] = [
   ["health", /\bhealth\b|^checking: https?:\/\//i],
   ["activate", /\bactivat|\brestart|\bstarting application\b|\bswitch(?:ing|ed)? to release\b/i],
@@ -34,11 +31,17 @@ const RULES: readonly (readonly [PhaseKey, RegExp])[] = [
   ["fetch", /\bfetch|\bpull(?:ing)?\b|\bclon(?:e|ing)\b|\bhead is now at\b|^source:/i],
 ];
 
-/** The phase a step names, or null for a step that belongs to none (permissions, the site). */
+/**
+ * The phase a step names, or null for a step that belongs to none (permissions, the site) or that names
+ * several. A step that names more than one phase says what the deploy will do, not where it is:
+ * "Building and activating a new release" is written before anything is fetched, and read as the last
+ * phase it names it marked Install done in a second and Build "not in the log" while Start turned. What
+ * the deploy has reached is what its own steps say, one phase at a time.
+ */
 export function phaseOf(step: string): PhaseKey | null {
   const text = step.trim();
-  for (const [key, pattern] of RULES) if (pattern.test(text)) return key;
-  return null;
+  const named = RULES.filter(([, pattern]) => pattern.test(text));
+  return named.length === 1 ? (named[0]?.[0] ?? null) : null;
 }
 
 const HEADER = /^\[\d+\/\d+\]\s*(.*)$/;

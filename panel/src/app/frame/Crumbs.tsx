@@ -39,7 +39,7 @@ function AppSwitcher({ route, params, label }: { route: string; params: Params; 
   const to = (only ? route.replace(/\/+$/, "") : "/apps/$domain") as ConsolePath;
   if (others.length === 0) return null;
   return (
-    <Menu trigger={<IconButton size="sm" label={t("nav.crumbs.switch", { name: label })} icon={<ChevronsUpDown />} tooltip={false} className="-ml-0.5" />}>
+    <Menu trigger={<IconButton size="sm" label={t("nav.crumbs.switch", { name: label })} icon={<ChevronsUpDown />} tooltip={false} className="-ml-2 -mr-2" />}>
       {others.map((domain) => (
         <MenuItem
           key={domain}
@@ -85,7 +85,7 @@ function SectionSwitcher({ step, params, label }: { step: CrumbStep; params: Par
     <Menu
       open={open}
       onOpenChange={setOpen}
-      trigger={<IconButton size="sm" label={t("nav.crumbs.switch", { name: label })} icon={<ChevronsUpDown />} tooltip={false} className="-ml-0.5" />}
+      trigger={<IconButton size="sm" label={t("nav.crumbs.switch", { name: label })} icon={<ChevronsUpDown />} tooltip={false} className="-ml-2 -mr-2" />}
     >
       {(open ? siblings.filter((entry) => hasMessage(entry.label)) : []).map((entry) => {
         const Icon = tryIcon(entry.id);
@@ -130,9 +130,13 @@ export function Crumbs({ className }: { className?: string }) {
           const last = index === steps.length - 1;
           const label = nameOf(step.name);
           const translate = "param" in step.name ? ({ translate: "no" } as const) : {};
+          // A phone has room for the page and what it is under: the steps above them are the areas of the bar at the
+          // foot, and drawn here they cut the names of the two that matter ("wrenfield…", "Deployme…").
+          const farUp = index < steps.length - 2;
+          const firstShown = index === steps.length - 2;
           return (
-            <li key={step.id} className={cx("flex items-center gap-1", last || step.resource ? "min-w-0" : "shrink-0")}>
-              {index > 0 ? <ChevronRight aria-hidden="true" className="size-icon-sm shrink-0 text-fg-faint" /> : null}
+            <li key={step.id} className={cx("items-center gap-1", farUp ? "hidden sm:flex" : "flex", last || step.resource ? "min-w-0" : "shrink-0")}>
+              {index > 0 ? <ChevronRight aria-hidden="true" className={cx("size-icon-sm shrink-0 text-fg-faint", firstShown && "hidden sm:block")} /> : null}
               {last ? (
                 <span aria-current="page" {...translate} className="min-w-0 truncate font-semibold text-fg">
                   {label}

@@ -176,6 +176,24 @@ export const serverText = {
       text: "The database {name} on {engine} is already added to Noust",
     },
   },
+  deploy_failure: {
+    app_unhealthy: { text: "{domain} did not pass its startup check" },
+    build_failed: { text: "Build failed" },
+    build_oom: { text: "Build killed due to insufficient memory (exit code 137)" },
+    build_timeout: { text: "Build did not finish within {seconds}s and was stopped" },
+    install_failed: { text: "Dependency installation failed" },
+    install_oom: { text: "Dependency installation ran out of memory and was killed" },
+    install_timeout: { text: "Dependency installation did not finish within {seconds}s and was stopped" },
+    release_unhealthy: { text: "Release {release} did not pass its startup check" },
+    release_unhealthy_back: { text: "Release {release} did not pass its startup check; release {previous} is active again" },
+    release_unhealthy_down: { text: "Release {release} did not pass its startup check; release {previous} is active again but is not answering either" },
+    rollback_unhealthy: { text: "{domain} did not pass its startup check after the rollback" },
+    stack_back: { text: "The update of {domain} did not pass its startup check; the containers that were serving are running again" },
+    stack_back_down: { text: "The update of {domain} did not pass its startup check; the previous containers are back but are not answering either" },
+    stack_nothing_before: { text: "The update of {domain} did not pass its startup check; nothing was running before it, so nothing was put back" },
+    stack_not_restored: { text: "The update of {domain} did not pass its startup check; what was serving could not be put back entirely" },
+    stack_unhealthy: { text: "The update of {domain} did not pass its startup check" },
+  },
   doctor: {
     config: {
       apps_dir_missing: {
@@ -375,6 +393,60 @@ export const serverText = {
         text: "Your role {role} does not hold the permission {permission} on these servers",
         hint: "Ask a security officer of each of them for an account with a role that holds it, or have that permission added to your role there.",
       },
+    },
+  },
+  fleet_job: {
+    apps_restart: {
+      single: { text: "Restart applications on 1 server" },
+      several: { text: "Restart applications on {count} servers" },
+    },
+    apps_update: {
+      single: { text: "Update applications on 1 server" },
+      several: { text: "Update applications on {count} servers" },
+    },
+    backups_run: {
+      single: { text: "Back up applications now on 1 server" },
+      several: { text: "Back up applications now on {count} servers" },
+    },
+    backups_verify: {
+      single: { text: "Verify the newest backups on 1 server" },
+      several: { text: "Verify the newest backups on {count} servers" },
+    },
+    certs_renew: {
+      single: { text: "Renew certificates on 1 server" },
+      several: { text: "Renew certificates on {count} servers" },
+    },
+    dns_cluster: {
+      single: { text: "Set up Noust DNS on 1 server" },
+      several: { text: "Set up Noust DNS on {count} servers" },
+    },
+    index_refresh: {
+      single: { text: "Refresh package lists on 1 server" },
+      several: { text: "Refresh package lists on {count} servers" },
+    },
+    noust_update: {
+      single: { text: "Update Noust on 1 server" },
+      several: { text: "Update Noust on {count} servers" },
+    },
+    os_updates: {
+      single: { text: "Apply operating system updates on 1 server" },
+      several: { text: "Apply operating system updates on {count} servers" },
+    },
+    placement_copy: {
+      single: { text: "Copy an application to 1 server" },
+      several: { text: "Copy an application to {count} servers" },
+    },
+    placement_rollout: {
+      single: { text: "Roll an application out on 1 server" },
+      several: { text: "Roll an application out on {count} servers" },
+    },
+    placement_ship: {
+      single: { text: "Build on one server, run on others on 1 server" },
+      several: { text: "Build on one server, run on others on {count} servers" },
+    },
+    settings_apply: {
+      single: { text: "Apply the fleet's settings on 1 server" },
+      several: { text: "Apply the fleet's settings on {count} servers" },
     },
   },
   fleet_settings: {

@@ -49,6 +49,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from noust.core.deploy_failures import release_unhealthy
 from noust.core.exceptions import NoustError
 from noust.web import events as events_module
 from noust.web import metrics_collector
@@ -375,6 +376,67 @@ def test_a_finished_job_is_announced() -> None:
     events = job_events(make_job(status="completed", name="Deploy example.com"))
 
     assert ("notice", {"text": "Deploy example.com", "state": "active"}) in events
+
+
+def test_a_fleet_job_is_announced_with_the_code_of_its_title() -> None:
+    """The console says the sentence in its own language; the English is still there."""
+    events = job_events(
+        make_job(
+            status="completed",
+            name="Apply the fleet's settings on 2 servers",
+            domain=None,
+            job_type="fleet",
+        )
+    )
+
+    assert (
+        "notice",
+        {
+            "text": "Apply the fleet's settings on 2 servers",
+            "state": "active",
+            "coded": {"code": "fleet_job.settings_apply.several", "params": {"count": 2}},
+        },
+    ) in events
+
+
+def test_what_a_fleet_job_failed_with_is_the_tool_s_own_words_and_has_no_code() -> None:
+    events = job_events(
+        make_job(
+            status="failed",
+            name="Renew certificates on 1 server",
+            error="certbot said no",
+            domain=None,
+            job_type="fleet",
+        )
+    )
+
+    assert ("notice", {"text": "certbot said no", "state": "failed"}) in events
+
+
+def test_a_failed_deployment_is_announced_with_the_code_of_its_first_line() -> None:
+    """The first line is Noust's sentence and the rest is what the gate saw: the code stands for the first."""
+    error = str(
+        release_unhealthy(
+            "20261031-2",
+            previous="20261031-1",
+            restored=True,
+            evidence="probe: HTTP 502\njournal: x",
+        )
+    )
+
+    events = job_events(make_job(status="failed", error=error))
+
+    assert (
+        "notice",
+        {
+            "text": error,
+            "state": "failed",
+            "coded": {
+                "code": "deploy_failure.release_unhealthy_back",
+                "params": {"release": "20261031-2", "previous": "20261031-1"},
+            },
+        },
+    ) in events
 
 
 def test_a_failed_job_is_announced_in_the_tool_s_own_words() -> None:

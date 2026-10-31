@@ -64,6 +64,7 @@ from noust.core.exceptions import (
 from noust.core.fs import DryRunFileSystem, FileSystem
 from noust.core.logger import Icons
 from noust.core.runner import CommandResult, CommandRunner, SandboxSpec, get_runner
+from noust.core.server_text import say
 from noust.core.store import (
     App,
     AppStatus,
@@ -1905,7 +1906,8 @@ class MonorepoDeployer(AppDeployer):
                         "  - Setting NODE_OPTIONS='--max-old-space-size=4096'"
                     ),
                 )
-            raise BuildError("Build failed", details=result.stderr or result.stdout)
+            sentence = say("deploy_failure.build_failed")
+            raise BuildError(sentence.text, details=result.stderr or result.stdout, coded=sentence)
 
     def _webserver_manager(self) -> NginxManager | ApacheManager:
         """

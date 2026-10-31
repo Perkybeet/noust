@@ -63,6 +63,8 @@ import type { Destination } from "../teams/useDestination";
 import type { SourceMode } from "./SourceStep";
 import { useDomainDnsCheck } from "./useDomainDnsCheck";
 import type { LandingTarget } from "./useDeploymentLanding";
+import { useSourceReads } from "./useSourceReads";
+import type { SourceRead } from "./useSourceReads";
 import {
   STEP_LABELS,
   WIZARD_STEPS,
@@ -191,10 +193,10 @@ function missingOf(t: T, errors: [string, string][]): string | undefined {
   return name === null ? t("newApp.page.missingMany", { count }) : t("newApp.page.missingManyNamed", { count, name });
 }
 
-/** What is asked of the inspection: the source, and whether to move on once it is read (Continue) or only to read it (a paste). */
+/** What is asked of the inspection: the source, and the read it belongs to (`useSourceReads`). */
 interface InspectRequest {
   form: SourceForm;
-  advance: boolean;
+  read: SourceRead;
 }
 
 /** What a step shows and what its Continue does. */
@@ -374,7 +376,8 @@ export function NewAppWizard() {
     return steps.slice(1).find((id) => stepAsks(id, "code", ask)) ?? "deploy";
   };
 
-  const pressedWhileReading = useRef(false);
+  // Which read is under way: Continue joins it, whoever started it (the field's own blur does, as a rule).
+  const reads = useSourceReads();
   const inspect = useMutation({
     mutationFn: async ({ form }: InspectRequest) => {
       abort.current?.abort();
@@ -384,22 +387,29 @@ export function NewAppWizard() {
       const temporary = await temporaryFor({ source: form.source.trim() });
       return { inspection, form, temporary };
     },
-    onSuccess: ({ inspection, form, temporary }, { advance }) => {
+    onSuccess: ({ inspection, form, temporary }, { read }) => {
       const proposed = reviewFor(inspection, temporary, review);
       setInspected({ inspection, for: form });
       setReview(proposed);
       setReviewErrors({});
-      // Continue pressed while a paste was still being read goes on as soon as it is read.
-      const pressed = pressedWhileReading.current;
-      pressedWhileReading.current = false;
-      if (advance || pressed) go(stepAfterSource(inspection, proposed));
+      // A read that was replaced by another, or given up, is no longer anyone's to go on with.
+      if (reads.finish(read) && read.advance) go(stepAfterSource(inspection, proposed));
     },
-    onError: (error) => {
-      pressedWhileReading.current = false;
+    onError: (error, { read }) => {
+      reads.finish(read);
       const refusal = refusalOf(error);
       if (refusal?.step === "source" && Object.keys(refusal.fields).length > 0) setSourceErrors(refusal.fields);
     },
   });
+  /** Reads a source, or joins the read of it that is under way. `advance` is Continue's: go on once it is read. */
+  const readSource = (form: SourceForm, advance: boolean): void => {
+    const read = reads.ask(form, advance);
+    if (read !== null) inspect.mutate({ form, read });
+  };
+  const resetInspection = (): void => {
+    reads.forget();
+    inspect.reset();
+  };
 
   // A source that is complete is read without being asked: pasted, chosen from a list or left, so
   // what was found is on screen before Continue is pressed. A directory on this server is read by
@@ -407,6 +417,9 @@ export function NewAppWizard() {
   const [settleAsk, setSettleAsk] = useState(0);
   const [settled, setSettled] = useState(0);
   const settleSource = (): void => {
+    // Leaving the field to press Continue asks for nothing: the press is the ask, and what a read draws above the
+    // button would move it from under the finger before it lifts.
+    if (reads.pressing()) return;
     setSettleAsk((count) => count + 1);
   };
   useEffect(() => {
@@ -425,9 +438,8 @@ export function NewAppWizard() {
     const problems = sourceProblems(source);
     if (problems.source !== undefined || problems.branch !== undefined) return;
     if (sourceKind(source.source) === "local") return;
-    if (inspect.isPending) return;
     if (inspected !== null && sameSource(inspected.for, source) && review !== null) return;
-    inspect.mutate({ form: source, advance: false });
+    readSource(source, false);
     // Only a source that was settled reads it; every other value is read as it is when that happens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settled]);
@@ -538,7 +550,7 @@ export function NewAppWizard() {
   );
   const cancelInspection = (): void => {
     abort.current?.abort();
-    inspect.reset();
+    resetInspection();
     // A read the field's blur asked for and that is still waiting out its 80ms is the one being
     // cancelled: left alone it starts again once the request is reset, and the screen goes back to
     // "Loading the repository" a moment after the operator said stop.
@@ -683,7 +695,7 @@ export function NewAppWizard() {
           label: t("common.words.continue"),
           onClick: () => {
             const inspection = composeInspection(found, composeDoc.made);
-            inspect.reset();
+            resetInspection();
             setInspected({ inspection, for: { source: "", branch: "" }, document: composeDoc.document });
             void (async () => {
               // A stack is named for nothing in particular: the temporary address is an application's.
@@ -707,7 +719,7 @@ export function NewAppWizard() {
             setImageError(undefined);
             const inspection = imageInspection();
             const reference = imageRef.trim();
-            inspect.reset();
+            resetInspection();
             setInspected({ inspection, for: { source: reference, branch: "" } });
             void (async () => {
               const proposed = reviewFor(inspection, await temporaryFor({ image: reference }), review, reference);
@@ -763,18 +775,19 @@ export function NewAppWizard() {
     return {
       next: {
         label: t("common.words.continue"),
-        loading: inspect.isPending,
+        // Busy only for a read Continue asked for: one the field started (a paste, leaving it) is read in the open, with
+        // its own Cancel, and the press that ends while it runs must still be taken.
+        loading: inspect.isPending && reads.advancing,
+        onPress: reads.press,
         onClick: () => {
           setSourceErrors({});
           // Pressing Continue is the ask: the read the field's blur scheduled 80ms ahead (pressing
-          // the button is what blurs it) is no longer wanted, and left to fire it would race the
-          // press for who starts the read.
+          // the button is what blurs it) is no longer wanted.
           setSettleAsk(0);
           // A source read already (on paste) goes straight on; one being read goes on when it is
           // read; one that was not is read now, and then goes on.
           if (ready) go(stepAfterSource(inspected.inspection, review));
-          else if (inspect.isPending) pressedWhileReading.current = true;
-          else inspect.mutate({ form: source, advance: true });
+          else readSource(source, true);
         },
       },
       ...(missing !== undefined
@@ -830,7 +843,7 @@ export function NewAppWizard() {
                 setChosenMode(sourceMode);
                 setSource(next);
                 setSourceErrors({});
-                if (inspect.isError) inspect.reset();
+                if (inspect.isError) resetInspection();
                 // A repository chosen from a list is complete the moment it is chosen.
                 if ((sourceMode === "github" || sourceMode === "gitlab") && next.source.trim() !== "" && next.source !== source.source) settleSource();
               }}
@@ -860,7 +873,7 @@ export function NewAppWizard() {
                   setSourceErrors({});
                 }
                 setImageError(undefined);
-                inspect.reset();
+                resetInspection();
                 openRecipe.reset();
               }}
               image={{
@@ -875,11 +888,11 @@ export function NewAppWizard() {
               onCancel={cancelInspection}
               failure={inspect.isError && !isAbort(inspect.error) ? inspect.error : null}
               onRetry={() => {
-                inspect.mutate({ form: source, advance: false });
+                readSource(source, false);
               }}
               onManual={() => {
                 const inspection = manualInspection(source);
-                inspect.reset();
+                resetInspection();
                 setInspected({ inspection, for: source });
                 void (async () => {
                   const proposed = reviewFor(inspection, await temporaryFor({ source: source.source.trim() }), review);

@@ -18,6 +18,7 @@ from noust.core.appdir.layout import INPLACE, RELEASES, env_file_in, layout_on_d
 from noust.core.appdir.permissions import hand_over_tree
 from noust.core.applock import app_lock
 from noust.core.config import Config
+from noust.core.deploy_failures import rollback_unhealthy
 from noust.core.exceptions import BackupError, DeploymentError, NoustError, ServiceError
 from noust.core.fs import FileSystem
 from noust.core.logger import Logger
@@ -407,10 +408,7 @@ class RollbackManager:
                             if safety is not None
                             else "No safety backup could be taken before the rollback."
                         )
-                        raise DeploymentError(
-                            f"{domain} did not pass its health check after the rollback",
-                            details=f"{evidence}\n\n{way_back}",
-                        )
+                        raise rollback_unhealthy(domain, details=f"{evidence}\n\n{way_back}")
                 else:
                     try:
                         status = self.service_manager.get_status(app_name)

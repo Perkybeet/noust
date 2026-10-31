@@ -38,7 +38,9 @@ from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from noust.core.deploy_failures import coded as deploy_failure
 from noust.core.exceptions import NoustError
+from noust.core.server_text import ServerText
 from noust.core.timeutil import to_iso_offset
 from noust.monitor import sampler
 from noust.monitor.process_monitor import days_until_expiry
@@ -705,6 +707,7 @@ def _reason(
     *,
     params: dict[str, Any] | None = None,
     detail: str | None = None,
+    detail_coded: dict[str, Any] | None = None,
     when: str | None = None,
     deployment_id: int | None = None,
     actions: list[str] | None = None,
@@ -719,6 +722,8 @@ def _reason(
         code: Machine-readable and stable; the console words it.
         params: Values for the console's sentence.
         detail: The system's own words, verbatim.
+        detail_coded: The detail as a sentence of Noust's (``noust.core.server_text``), when it
+            is one and not another program's words, for the console to say in its language.
         when: When it happened, with its UTC offset.
         deployment_id: A deployment to open for the full story.
         actions: What the operator can do about it, as identifiers the console
@@ -733,6 +738,7 @@ def _reason(
         "code": code,
         "params": params or {},
         "detail": detail,
+        "detail_coded": detail_coded,
         "when": when,
         "deployment_id": deployment_id,
         "actions": actions or [],
@@ -753,6 +759,17 @@ def _first_line(text: str | None) -> str | None:
         if line.strip():
             return line.strip()
     return None
+
+
+def _coded_dict(sentence: ServerText | None) -> dict[str, Any] | None:
+    """
+    Args:
+        sentence: A sentence of Noust's, or None.
+
+    Returns:
+        Its code and values as the API sends them, or None.
+    """
+    return sentence.to_dict() if sentence is not None else None
 
 
 def _add_deployments(store: Any, domains: set[str], add: Callable[..., None]) -> None:
@@ -786,6 +803,7 @@ def _add_deployments(store: Any, domains: set[str], add: Callable[..., None]) ->
                 "fail" if failed else "warn",
                 "deploy_failed" if failed else "deploy_rolled_back",
                 detail=_first_line(deployment.error),
+                detail_coded=_coded_dict(deploy_failure(deployment.error)),
                 when=to_iso_offset(deployment.finished_at or deployment.started_at),
                 deployment_id=deployment.id,
                 actions=["view_deployment", "diagnose"],
@@ -1022,22 +1040,31 @@ def _activity(store: Any) -> list[dict[str, Any]]:
 
     Returns:
         The newest :data:`ACTIVITY_LIMIT` jobs, newest first, each with what it
-        was, on which application, how it ended and who asked. Audit entries are
-        not mixed in: they name sessions and addresses and need a stronger
-        scope than this read has.
+        was, on which application, how it ended and who asked (the login, and
+        the name of the person when the actor is an account). The title of a
+        fleet job also comes as a sentence with a code. Audit entries are not
+        mixed in: they name sessions and addresses and need a stronger scope
+        than this read has.
     """
+    from noust.core.accounts.names import display_names
+    from noust.core.fleet_job_titles import coded as fleet_job_title
+
     jobs = store.list_jobs(limit=ACTIVITY_LIMIT * 3)
+    names = display_names((job.actor for job in jobs), store=store)
     entries = []
     for job in jobs:
         at = job.finished_at or job.started_at or job.created_at
+        sentence = fleet_job_title(job.name)
         entries.append(
             {
                 "id": f"job:{job.id}",
                 "type": job.type,
                 "title": job.name,
+                "title_coded": _coded_dict(sentence),
                 "status": job.status,
                 "domain": job.domain,
                 "actor": job.actor,
+                "actor_name": names.get(job.actor or ""),
                 "at": to_iso_offset(at),
                 "_sort": _parse_moment(at) or datetime.min.replace(tzinfo=timezone.utc),
             }

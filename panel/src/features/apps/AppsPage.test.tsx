@@ -287,7 +287,7 @@ describe("the applications list", () => {
     const admin = within(table).getByRole("link", { name: "admin.example.com" }).closest("tr");
     if (!shopRow || !admin) throw new Error("no row");
     expect(within(shopRow).getByText("En ejecución")).toBeInTheDocument();
-    expect(await within(shopRow).findByText(/Correcto/)).toHaveClass("sr-only");
+    expect(await within(shopRow).findByText(/Desplegado/)).toHaveClass("sr-only");
     expect(within(admin).getByText("Fallido")).toBeInTheDocument();
 
     await user.click(screen.getByRole("combobox", { name: "Estado" }));

@@ -196,11 +196,13 @@ ActiveTeamRequest = TypedDict("ActiveTeamRequest", {
 
 ActivityEntry = TypedDict("ActivityEntry", {
     "actor": NotRequired[Union[str, None]],
+    "actor_name": NotRequired[Union[str, None]],
     "at": NotRequired[Union[str, None]],
     "domain": NotRequired[Union[str, None]],
     "id": Required[str],
     "status": NotRequired[str],
     "title": NotRequired[str],
+    "title_coded": NotRequired[Union["CodedText", None]],
     "type": Required[str],
 })
 
@@ -729,6 +731,7 @@ AttentionReason = TypedDict("AttentionReason", {
     "code": Required[str],
     "deployment_id": NotRequired[Union[int, None]],
     "detail": NotRequired[Union[str, None]],
+    "detail_coded": NotRequired[Union["CodedText", None]],
     "kind": Required[str],
     "params": NotRequired[dict[str, Any]],
     "severity": Required[str],
@@ -2891,6 +2894,7 @@ DeploymentOut = TypedDict("DeploymentOut", {
     "schema_changed_between": NotRequired[list[int]],
     "snapshot_backup": NotRequired[Union[str, None]],
     "started_at": NotRequired[Union[str, None]],
+    "started_by": NotRequired[Union[str, None]],
     "status": Required[str],
     "triggered_by": Required[str],
     "warnings": NotRequired[Union[str, None]],

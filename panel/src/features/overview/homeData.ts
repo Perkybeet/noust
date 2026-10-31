@@ -12,6 +12,7 @@
 import type { Overview, OverviewActivityEntry, OverviewAttentionItem, OverviewAttentionReason } from "../../api/queries/overview";
 import type { StatusView } from "../../components/page/status";
 import type { FleetCourse, FleetCourseApp } from "../../components/ui/FleetCourses";
+import type { CodedText } from "../../lib/serverSentence";
 import type { Status } from "../../components/ui/StatusPill";
 import { parseTimestamp } from "../../lib/format";
 import { attentionOf, numberOf, objectOf, textOf } from "../fleet/data";
@@ -62,6 +63,15 @@ export function serverHome(overview: Overview, apps: readonly HomeApp[], attenti
 
 const UNREACHABLE: ReadonlySet<string> = new Set(["unreachable", "refused"]);
 
+/** A sentence a node sent as a code and its values, or null when it sent none (a node older than this console). */
+function codedOf(raw: unknown): CodedText | null {
+  const sentence = objectOf(raw);
+  const code = textOf(sentence?.["code"]);
+  if (sentence === null || code === null) return null;
+  const params = objectOf(sentence["params"]);
+  return params === null ? { code } : { code, params: params as NonNullable<CodedText["params"]> };
+}
+
 /** A node's activity, read field by field: the contract types a row's Overview as an open dictionary. */
 function activityOf(overview: Record<string, unknown> | null): OverviewActivityEntry[] {
   const list = overview !== null && Array.isArray(overview["activity"]) ? overview["activity"] : [];
@@ -75,9 +85,11 @@ function activityOf(overview: Record<string, unknown> | null): OverviewActivityE
         id,
         type,
         title: textOf(entry["title"]) ?? "",
+        title_coded: codedOf(entry["title_coded"]),
         status: textOf(entry["status"]) ?? "",
         domain: textOf(entry["domain"]),
         actor: textOf(entry["actor"]),
+        actor_name: textOf(entry["actor_name"]),
         at: textOf(entry["at"]),
       },
     ];

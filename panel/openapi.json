@@ -1069,7 +1069,7 @@
         "type": "object"
       },
       "ActivityEntry": {
-        "description": "One thing that happened lately.\n\nAttributes:\n    id: Stable identifier (``job:<id>``).\n    type: What it was: ``deploy``, ``update``, ``backup``, ``restore``...\n    title: The job's name.\n    status: How it went: ``pending``, ``running``, ``completed``,\n        ``failed``, ``cancelled``.\n    domain: The application it acted on, if any.\n    actor: Who asked, if known.\n    at: When it ended (or started), with its UTC offset.",
+        "description": "One thing that happened lately.\n\nAttributes:\n    id: Stable identifier (``job:<id>``).\n    type: What it was: ``deploy``, ``update``, ``backup``, ``restore``...\n    title: The job's name.\n    title_coded: The name as a sentence with a code and values, for a job whose name is one\n        of Noust's own sentences (a fleet job's title); None for any other, whose name is\n        shown as written.\n    status: How it went: ``pending``, ``running``, ``completed``,\n        ``failed``, ``cancelled``.\n    domain: The application it acted on, if any.\n    actor: Who asked, if known.\n    actor_name: The name its owner is greeted by, when the actor is an account (its login when\n        the account has no display name); None for a token, the master token or a webhook.\n    at: When it ended (or started), with its UTC offset.",
         "properties": {
           "actor": {
             "anyOf": [
@@ -1081,6 +1081,17 @@
               }
             ],
             "title": "Actor"
+          },
+          "actor_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Name"
           },
           "at": {
             "anyOf": [
@@ -1117,6 +1128,16 @@
             "default": "",
             "title": "Title",
             "type": "string"
+          },
+          "title_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "type": {
             "title": "Type",
@@ -4368,7 +4389,7 @@
         "type": "object"
       },
       "AttentionReason": {
-        "description": "One reason an item needs attention.\n\nAttributes:\n    kind: ``state``, ``deploy``, ``certificate``, ``unit``, ``monitor``, ``alert`` or\n        ``probe``.\n    severity: ``fail`` or ``warn``.\n    code: Machine-readable and stable; the console words it. ``service_failed``,\n        ``service_restarting``, ``running_outside_unit``, ``deploy_failed``, ``deploy_rolled_back``,\n        ``certificate_expired``, ``certificate_expires_today``,\n        ``certificate_expires_in``, ``unit_failed``, ``unit_restarting``,\n        ``monitor_finding``, ``probe_down``, ``alert_firing`` (nobody has taken it) and ``alert_taken``\n        (somebody has; it still fires).\n    params: Values for the console's sentence (days, a signal).\n    detail: The system's own words, verbatim.\n    when: When it happened.\n    deployment_id: A deployment to open for the full story.\n    actions: What can be done, as identifiers the console maps to buttons:\n        ``view_log``, ``diagnose``, ``view_deployment``,\n        ``renew_certificate``, ``open_service``, ``open_observation``,\n        ``acknowledge_alert``, ``reopen_alert``, ``open_probes``.",
+        "description": "One reason an item needs attention.\n\nAttributes:\n    kind: ``state``, ``deploy``, ``certificate``, ``unit``, ``monitor``, ``alert`` or\n        ``probe``.\n    severity: ``fail`` or ``warn``.\n    code: Machine-readable and stable; the console words it. ``service_failed``,\n        ``service_restarting``, ``running_outside_unit``, ``deploy_failed``, ``deploy_rolled_back``,\n        ``certificate_expired``, ``certificate_expires_today``,\n        ``certificate_expires_in``, ``unit_failed``, ``unit_restarting``,\n        ``monitor_finding``, ``probe_down``, ``alert_firing`` (nobody has taken it) and ``alert_taken``\n        (somebody has; it still fires).\n    params: Values for the console's sentence (days, a signal).\n    detail: The system's own words, verbatim.\n    detail_coded: The detail as a sentence with a code and values, when it is one of Noust's\n        own (a deployment that did not pass its health check) and not another program's words;\n        the console says it in its language and keeps ``detail`` for any code it lacks.\n    when: When it happened.\n    deployment_id: A deployment to open for the full story.\n    actions: What can be done, as identifiers the console maps to buttons:\n        ``view_log``, ``diagnose``, ``view_deployment``,\n        ``renew_certificate``, ``open_service``, ``open_observation``,\n        ``acknowledge_alert``, ``reopen_alert``, ``open_probes``.",
         "properties": {
           "actions": {
             "items": {
@@ -4402,6 +4423,16 @@
               }
             ],
             "title": "Detail"
+          },
+          "detail_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "kind": {
             "title": "Kind",
@@ -16902,7 +16933,7 @@
         "type": "object"
       },
       "DeploymentOut": {
-        "description": "One deployment attempt, as the console lists and inspects it.\n\nAttributes:\n    job_id: The background job that started this deployment, when the\n        panel queued it. None for a CLI or webhook deploy.\n    release_id: The release this deployment built, on the releases\n        layout. None for an in-place deployment.\n    commit_message: Subject line of the deployed commit, for a git\n        source. None for a source that is not git.\n    snapshot_backup: In place, the backup that holds exactly what this\n        deployment produced, taken by the update that followed it.\n    rollback_available: Whether going back to this deployment is\n        possible now: its release is on disk and not live, or its\n        snapshot backup still exists.\n    rollback_unavailable_reason: Why not, when it is not.\n    rollback_method: How going back is done, when it can be: ``instant``\n        (a release, a container's image or the images a stack kept are put\n        back, nothing is built), ``rebuild`` (its commit is built again where\n        the application runs) or ``snapshot`` (the backup is restored).\n    schema_changed: A hook marked ``migrates`` or Prisma's migration\n        changed the database's schema.\n    schema_changed_between: Later deployments of the application that\n        changed the schema: going back to this one passes them, and asks\n        first.\n    hooks: What the deploy hooks ran, in order.\n    warnings: Why a successful deployment carries warnings (deployed with\n        warnings: a ``post_deploy`` hook failed once it served).\n    cancelled: An operator cancelled it while it was building. Its status is\n        ``failed`` (the column cannot say anything else on a store from\n        before 4.0) but nothing went wrong and nothing that served was touched.\n    cancelled_at: When it was cancelled.\n    cancelled_by: Who cancelled it.\n    certificate_state: How the certificate ordered for it ended: ``issued`` or ``failed``.\n        None when none was asked for. A certificate that is refused does not fail a\n        deployment: the application serves over HTTP.\n    certificate_output: What the certificate authority said when it refused, word for word.",
+        "description": "One deployment attempt, as the console lists and inspects it.\n\nAttributes:\n    started_by: The name of the person who started it, when a person did from the\n        console: the name their account is greeted by, taken from the job that ran it.\n        None for a push, a command, a token or a job that is gone.\n    job_id: The background job that started this deployment, when the\n        panel queued it. None for a CLI or webhook deploy.\n    release_id: The release this deployment built, on the releases\n        layout. None for an in-place deployment.\n    commit_message: Subject line of the deployed commit, for a git\n        source. None for a source that is not git.\n    snapshot_backup: In place, the backup that holds exactly what this\n        deployment produced, taken by the update that followed it.\n    rollback_available: Whether going back to this deployment is\n        possible now: its release is on disk and not live, or its\n        snapshot backup still exists.\n    rollback_unavailable_reason: Why not, when it is not.\n    rollback_method: How going back is done, when it can be: ``instant``\n        (a release, a container's image or the images a stack kept are put\n        back, nothing is built), ``rebuild`` (its commit is built again where\n        the application runs) or ``snapshot`` (the backup is restored).\n    schema_changed: A hook marked ``migrates`` or Prisma's migration\n        changed the database's schema.\n    schema_changed_between: Later deployments of the application that\n        changed the schema: going back to this one passes them, and asks\n        first.\n    hooks: What the deploy hooks ran, in order.\n    warnings: Why a successful deployment carries warnings (deployed with\n        warnings: a ``post_deploy`` hook failed once it served).\n    cancelled: An operator cancelled it while it was building. Its status is\n        ``failed`` (the column cannot say anything else on a store from\n        before 4.0) but nothing went wrong and nothing that served was touched.\n    cancelled_at: When it was cancelled.\n    cancelled_by: Who cancelled it.\n    certificate_state: How the certificate ordered for it ended: ``issued`` or ``failed``.\n        None when none was asked for. A certificate that is refused does not fail a\n        deployment: the application serves over HTTP.\n    certificate_output: What the certificate authority said when it refused, word for word.",
         "properties": {
           "cancelled": {
             "default": false,
@@ -17120,6 +17151,17 @@
               }
             ],
             "title": "Started At"
+          },
+          "started_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started By"
           },
           "status": {
             "title": "Status",
@@ -88215,7 +88257,7 @@
     },
     "/api/config/notifications/telegram/chats": {
       "post": {
-        "description": "List the chats the configured Telegram bot has seen.\n\nFinding a chat id today means opening the Bot API's ``getUpdates`` URL by\nhand and reading raw JSON, or asking an assistant to do it. This is that\nlookup, using the bot token already saved, over the notifier's own HTTP\npath - the same SSRF guard and timeout as every other channel.\n\nPlain ``get_current_session``, not :func:`require_elevated`: this only\nreads what Telegram has queued for the bot, the same reasoning\n:func:`test_notification_channel` already applies to sending a message -\nneither one changes anything Noust manages.\n\nArgs:\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    Every chat found.\n\nRaises:\n    HTTPException: 400 when no bot token is configured, the token does\n        not have the Bot API's shape, or the Bot API could not be reached\n        or answered with an error - in its own words.",
+        "description": "List the chats the configured Telegram bot has seen.\n\nFinding a chat id today means opening the Bot API's ``getUpdates`` URL by\nhand and reading raw JSON, or asking somebody to do it. This is that\nlookup, using the bot token already saved, over the notifier's own HTTP\npath - the same SSRF guard and timeout as every other channel.\n\nPlain ``get_current_session``, not :func:`require_elevated`: this only\nreads what Telegram has queued for the bot, the same reasoning\n:func:`test_notification_channel` already applies to sending a message -\nneither one changes anything Noust manages.\n\nArgs:\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    Every chat found.\n\nRaises:\n    HTTPException: 400 when no bot token is configured, the token does\n        not have the Bot API's shape, or the Bot API could not be reached\n        or answered with an error - in its own words.",
         "operationId": "list_telegram_chats_api_config_notifications_telegram_chats_post",
         "responses": {
           "200": {

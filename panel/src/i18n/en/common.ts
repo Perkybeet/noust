@@ -224,6 +224,15 @@ export const common = {
     systemSaid: "What the system said",
     commandOutput: "The command's own output",
   },
+  /**
+   * The application types whose name is a description and not a product's: the registry names them in English
+   * (`DISPLAY_NAME`), so the console says them in its language. Next.js, Node.js or Docker Compose are names.
+   */
+  typeNames: {
+    static: "Static Site",
+    auto: "Auto-detect",
+    container: "Container",
+  },
   statusPill: {
     running: "Running",
     deploying: "Deploying",
@@ -253,6 +262,8 @@ export const common = {
     queued: "Queued",
     inProgress: "In progress",
     succeeded: "Succeeded",
+    /** A deployment that served, the state of a row of the history: any other thing that ended well is `succeeded`. */
+    deployed: "Succeeded",
     failed: "Failed",
     rolledBack: "Rolled back",
     cancelled: "Cancelled",

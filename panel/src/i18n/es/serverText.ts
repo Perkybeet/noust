@@ -165,6 +165,24 @@ export const serverText: Catalog<typeof en> = {
       text: "La base de datos {name} de {engine} ya está añadida a Noust",
     },
   },
+  deploy_failure: {
+    app_unhealthy: { text: "{domain} no superó la comprobación de arranque" },
+    build_failed: { text: "No se pudo compilar la aplicación" },
+    build_oom: { text: "La compilación se cerró por falta de memoria (código de salida 137)" },
+    build_timeout: { text: "La compilación tardó más de {seconds} segundos y se detuvo" },
+    install_failed: { text: "No se pudieron instalar las dependencias" },
+    install_oom: { text: "La instalación de dependencias se quedó sin memoria y se cerró" },
+    install_timeout: { text: "La instalación de dependencias tardó más de {seconds} segundos y se detuvo" },
+    release_unhealthy: { text: "La versión {release} no superó la comprobación de arranque" },
+    release_unhealthy_back: { text: "La versión {release} no superó la comprobación de arranque; la versión {previous} está activa de nuevo" },
+    release_unhealthy_down: { text: "La versión {release} no superó la comprobación de arranque; la versión {previous} está activa de nuevo, pero tampoco responde" },
+    rollback_unhealthy: { text: "{domain} no superó la comprobación de arranque tras volver atrás" },
+    stack_back: { text: "La actualización de {domain} no superó la comprobación de arranque; los contenedores que estaban sirviendo vuelven a funcionar" },
+    stack_back_down: { text: "La actualización de {domain} no superó la comprobación de arranque; los contenedores anteriores están de vuelta, pero tampoco responden" },
+    stack_nothing_before: { text: "La actualización de {domain} no superó la comprobación de arranque; antes no había nada en marcha, así que no hay nada que recuperar" },
+    stack_not_restored: { text: "La actualización de {domain} no superó la comprobación de arranque; lo que estaba sirviendo no se pudo recuperar por completo" },
+    stack_unhealthy: { text: "La actualización de {domain} no superó la comprobación de arranque" },
+  },
   doctor: {
     config: {
       apps_dir_missing: {
@@ -364,6 +382,60 @@ export const serverText: Catalog<typeof en> = {
         text: "Tu rol {role} no tiene el permiso {permission} en estos servidores",
         hint: "Pide a un responsable de seguridad de cada uno una cuenta con un rol que lo tenga, o que añadan ese permiso a tu rol allí.",
       },
+    },
+  },
+  fleet_job: {
+    apps_restart: {
+      single: { text: "Reiniciar aplicaciones en 1 servidor" },
+      several: { text: "Reiniciar aplicaciones en {count} servidores" },
+    },
+    apps_update: {
+      single: { text: "Actualizar aplicaciones en 1 servidor" },
+      several: { text: "Actualizar aplicaciones en {count} servidores" },
+    },
+    backups_run: {
+      single: { text: "Hacer copia de las aplicaciones ahora en 1 servidor" },
+      several: { text: "Hacer copia de las aplicaciones ahora en {count} servidores" },
+    },
+    backups_verify: {
+      single: { text: "Verificar las copias más recientes en 1 servidor" },
+      several: { text: "Verificar las copias más recientes en {count} servidores" },
+    },
+    certs_renew: {
+      single: { text: "Renovar certificados en 1 servidor" },
+      several: { text: "Renovar certificados en {count} servidores" },
+    },
+    dns_cluster: {
+      single: { text: "Configurar el DNS de Noust en 1 servidor" },
+      several: { text: "Configurar el DNS de Noust en {count} servidores" },
+    },
+    index_refresh: {
+      single: { text: "Recargar las listas de paquetes en 1 servidor" },
+      several: { text: "Recargar las listas de paquetes en {count} servidores" },
+    },
+    noust_update: {
+      single: { text: "Actualizar Noust en 1 servidor" },
+      several: { text: "Actualizar Noust en {count} servidores" },
+    },
+    os_updates: {
+      single: { text: "Aplicar actualizaciones del sistema en 1 servidor" },
+      several: { text: "Aplicar actualizaciones del sistema en {count} servidores" },
+    },
+    placement_copy: {
+      single: { text: "Copiar una aplicación a 1 servidor" },
+      several: { text: "Copiar una aplicación a {count} servidores" },
+    },
+    placement_rollout: {
+      single: { text: "Desplegar una aplicación en 1 servidor" },
+      several: { text: "Desplegar una aplicación en {count} servidores" },
+    },
+    placement_ship: {
+      single: { text: "Compilar en un servidor y ejecutar en otros, en 1 servidor" },
+      several: { text: "Compilar en un servidor y ejecutar en otros, en {count} servidores" },
+    },
+    settings_apply: {
+      single: { text: "Aplicar los ajustes de la flota en 1 servidor" },
+      several: { text: "Aplicar los ajustes de la flota en {count} servidores" },
     },
   },
   fleet_settings: {

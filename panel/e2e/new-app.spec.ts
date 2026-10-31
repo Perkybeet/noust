@@ -7,6 +7,7 @@
 
 import { forgetApp } from "./apps-cleanup";
 import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, stillness, test } from "./fixtures";
+import { recordFrames, recordedFrames } from "./handover";
 import { continueTo, fillStorefrontVariables, inspectSource, openConfiguration, typedSource, wizardSource } from "./wizard-sources";
 
 test("inspects a directory on the server, deploys it and lands on its deployment", async ({ page, consoleServer, problems }) => {
@@ -63,6 +64,7 @@ test("inspects a directory on the server, deploys it and lands on its deployment
   await expectNoA11yViolations(page, "the wizard's deploy step");
 
   const queued = page.waitForRequest((request) => request.url().endsWith("/api/apps") && request.method() === "POST");
+  await recordFrames(page);
   await page.getByRole("button", { name: `Deploy ${domain}` }).click();
   const body = (await queued).postDataJSON() as { env_vars: Record<string, string> };
   expect(body).toMatchObject({ domain, source, app_type: "nextjs", webserver: "nginx", ssl: true, layout: "releases" });
@@ -73,6 +75,14 @@ test("inspects a directory on the server, deploys it and lands on its deployment
   // The deploy's history row appears once the deployer starts; the wizard hands over to it.
   await expect(page).toHaveURL(new RegExp(`/apps/${domain.replace(/\./g, "\\.")}/deployments/\\d+$`), { timeout: 30_000 });
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(domain);
+
+  // One step, one picture: the first frame at the deployment's address is its page, drawn. It was the wizard under the new
+  // address with the next page's second column empty beside it, and then the page in its loading shapes.
+  const frames = await recordedFrames(page);
+  const arrived = frames.findIndex((frame) => /\/deployments\/\d+$/.test(frame.path));
+  expect(arrived, JSON.stringify(frames)).toBeGreaterThan(0);
+  expect(frames[arrived], JSON.stringify(frames)).toMatchObject({ title: domain, loading: [] });
+  expect(frames.slice(0, arrived).map((frame) => frame.path), "nothing between the wizard and the page").toEqual(Array<string>(arrived).fill("/apps/new"));
 
   await forgetApp(page, consoleServer, domain);
 });

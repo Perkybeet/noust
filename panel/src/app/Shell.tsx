@@ -1,4 +1,4 @@
-import { Outlet, useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
+import { Outlet, useNavigate, useRouter } from "@tanstack/react-router";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent } from "react";
 
@@ -26,6 +26,7 @@ import { useNavLayout } from "./navLayout";
 import { useNavScope } from "./useNavScope";
 import PaletteHost from "./PaletteHost";
 import { usePreferences } from "./preferences";
+import { useRenderedPathname } from "./renderedPath";
 import { shortcutKey, useKeyboardShortcuts } from "./shortcuts";
 import type { KeyBinding } from "./shortcuts";
 import { ShortcutsDialog } from "./ShortcutsDialog";
@@ -75,7 +76,7 @@ export function Shell() {
   const t = useT();
   const navigate = useNavigate();
   const router = useRouter();
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const pathname = useRenderedPathname();
 
   const [paletteOpen, setPaletteOpen] = useState(false);
   // Its commands are built at the first opening and kept, so a second one is instant and an operator who never opens it pays nothing.

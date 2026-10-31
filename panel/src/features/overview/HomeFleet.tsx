@@ -26,7 +26,7 @@ export interface HomeFleetProps {
 
 /**
  * The fleet in courses: a row for each server, its applications as slabs of one size, the ones with a
- * problem first and tinted, the well ones neutral and, when a server has many, said as "+9 running".
+ * problem first and tinted, the well ones neutral and, when a server has many, named as far as two rows go, the rest said as "+3 running".
  * Over it, how many applications are in each state. A server's name and each slab lead to its page, on
  * that server. With one server there is nothing to tell apart and the block says only what runs.
  */

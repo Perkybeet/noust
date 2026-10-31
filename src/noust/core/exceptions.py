@@ -339,7 +339,13 @@ class OutOfMemoryError(BuildError):
     which typically indicates the OOM killer terminated the process.
     """
 
-    def __init__(self, message: str = "Build killed due to insufficient memory", details: str = ""):
+    def __init__(
+        self,
+        message: str = "Build killed due to insufficient memory",
+        details: str = "",
+        *,
+        coded: ServerText | None = None,
+    ):
         suggestions = """
 The build process was killed by the system (exit code 137), typically caused by
 insufficient RAM. Next.js/Turbopack builds can require 2-4GB+ of memory.
@@ -373,7 +379,7 @@ Solutions to try:
         else:
             full_details = suggestions
 
-        super().__init__(message, full_details)
+        super().__init__(message, full_details, coded=coded)
 
 
 class SourceError(NoustError):

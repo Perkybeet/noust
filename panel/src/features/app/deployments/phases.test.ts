@@ -60,6 +60,44 @@ describe("phaseOf", () => {
   );
 });
 
+describe("a step that names several phases", () => {
+  it.each(["Building and activating a new release", "Installing dependencies and building", "Restarting and checking health"])(
+    "%s says what will be done, not where the deploy is: it is no phase",
+    (step) => {
+      expect(phaseOf(step)).toBeNull();
+    },
+  );
+
+  it("is not read as the last phase it names, which is how Start turned before anything was fetched", () => {
+    // What a push to an application on releases writes, line for line, and when (a job's own log).
+    const lines = [
+      "[2026-10-31 11:09:02] [INFO] Job started",
+      "[2026-10-31 11:09:02] [INFO] Detecting application type",
+      "[2026-10-31 11:09:02] [INFO] Building and activating a new release",
+      "[2026-10-31 11:09:02] [INFO] Fetching into a new release",
+      "[2026-10-31 11:09:03] [INFO] Installing dependencies",
+      "[2026-10-31 11:09:12] [INFO] Building",
+      "[2026-10-31 11:09:29] [INFO] Activating release 20261031-190902-d3a8e05",
+    ];
+    // After each line, what the indicator says: only what the lines so far have said.
+    const states = lines.map((_, count) => {
+      const entries = parseLog(lines.slice(0, count + 1).join("\n")).map((line) => ({ text: line.text, at: line.at }));
+      const views = timeline(jobEvents(entries), "running", { lastAt: null, now: at("11:10:00"), offset: 0 });
+      return views.map((view) => `${view.key}:${view.state}`).join(" ");
+    });
+    expect(states).toEqual([
+      "fetch:pending install:pending build:pending activate:pending health:pending",
+      "fetch:pending install:pending build:pending activate:pending health:pending",
+      // The plan is not progress: nothing is claimed.
+      "fetch:pending install:pending build:pending activate:pending health:pending",
+      "fetch:running install:pending build:pending activate:pending health:pending",
+      "fetch:done install:running build:pending activate:pending health:pending",
+      "fetch:done install:done build:running activate:pending health:pending",
+      "fetch:done install:done build:done activate:running health:pending",
+    ]);
+  });
+});
+
 describe("timeline", () => {
   const now: PhaseClock = { lastAt: null, now: at("12:10:00"), offset: 0 };
 

@@ -18,6 +18,7 @@ from noust.core.exceptions import (
     OutOfMemoryError,
     ServiceError,
 )
+from noust.core.server_text import say
 from noust.deployers.base.commands import CommandsMixin
 from noust.deployers.helpers import sandbox as build_sandbox
 from noust.deployers.helpers.health import failure_output
@@ -380,23 +381,25 @@ class BuildMixin(CommandsMixin):
             if not result.success:
                 error_output = failure_output(result)
                 if result.out_of_memory:
-                    raise OutOfMemoryError(
-                        "Dependency installation ran out of memory and was killed",
-                        details=error_output,
-                    )
+                    sentence = say("deploy_failure.install_oom")
+                    raise OutOfMemoryError(sentence.text, details=error_output, coded=sentence)
                 if result.timed_out:
+                    sentence = say("deploy_failure.install_timeout", seconds=limit)
                     raise DeploymentError(
-                        f"Dependency installation did not finish within {limit}s and was stopped",
+                        sentence.text,
                         details="\n\n".join(
                             part
                             for part in (self._timeout_hint("install", limit), error_output)
                             if part
                         ),
+                        coded=sentence,
                     )
+                sentence = say("deploy_failure.install_failed")
                 raise DeploymentError(
-                    "Dependency installation failed",
+                    sentence.text,
                     details=error_output
                     or "No error output captured. Check if the package manager is properly installed.",
+                    coded=sentence,
                 )
 
         self.post_install()
@@ -435,13 +438,16 @@ class BuildMixin(CommandsMixin):
             # sandbox the unit's own Result says so, since systemd-run
             # itself exits 1 for it.
             if result.exit_code == 137 or result.out_of_memory:
+                sentence = say("deploy_failure.build_oom")
                 raise OutOfMemoryError(
-                    "Build killed due to insufficient memory (exit code 137)",
+                    sentence.text,
                     details=error_output or "Process was killed by the OOM killer.",
+                    coded=sentence,
                 )
             if result.timed_out:
+                sentence = say("deploy_failure.build_timeout", seconds=limit)
                 raise BuildError(
-                    f"Build did not finish within {limit}s and was stopped",
+                    sentence.text,
                     details="\n\n".join(
                         part
                         for part in (
@@ -450,6 +456,7 @@ class BuildMixin(CommandsMixin):
                         )
                         if part
                     ),
+                    coded=sentence,
                 )
 
             hint = build_sandbox.network_hint(
@@ -457,11 +464,13 @@ class BuildMixin(CommandsMixin):
                 self.domain,
                 error_output,
             )
+            sentence = say("deploy_failure.build_failed")
             raise BuildError(
-                "Build failed",
+                sentence.text,
                 details="\n\n".join(
                     part for part in (hint, error_output or "No error output captured.") if part
                 ),
+                coded=sentence,
             )
 
         self.post_build()

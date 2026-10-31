@@ -35,6 +35,65 @@ describe("what the one box holds (item 99)", () => {
     expect(classifyEntry(value)).toBe("search");
   });
 
+  it.each([
+    "h",
+    "ht",
+    "htt",
+    "http",
+    "https",
+    "https:",
+    "https:/",
+    "https://",
+    "http:/",
+    "s",
+    "ssh",
+    "ssh:/",
+    "ssh://",
+    "g",
+    "gi",
+    "git",
+    "git:",
+    "git@",
+    "git@github",
+    "git@github.com:",
+    "deploy@git.example.com",
+    "HTTPS:/",
+  ])("reads %s as the beginning of an address, which is neither the catalog nor code yet", (value) => {
+    expect(classifyEntry(value)).toBe("start");
+  });
+
+  it.each([
+    // Words, though they begin like an address: the letters have left every address's way.
+    ["gh", "search"],
+    ["hasura", "search"],
+    ["gitea", "search"],
+    ["gitlab", "search"],
+    ["sentry", "search"],
+    // A host without its scheme is words until its slash: `code` is a recipe, and the page does not guess.
+    ["github.com", "search"],
+    ["code", "search"],
+    ["a b", "search"],
+    ["ssh keys", "search"],
+    // And what is an address already is code, whatever it began as.
+    ["https://g", "source"],
+    ["git@github.com:acme/app.git", "source"],
+    ["github.com/y", "source"],
+  ] as const)("does not hold %s back: it is %s", (value, kind) => {
+    expect(classifyEntry(value)).toBe(kind);
+  });
+
+  it("holds back every prefix of an address that is typed by hand and none that makes it one", () => {
+    for (const address of ["https://github.com/you/app.git", "git@github.com:you/app.git", "ssh://deploy@git.example.com:2222/team/app.git"]) {
+      const kinds = Array.from({ length: address.length }, (_, at) => classifyEntry(address.slice(0, at + 1)));
+      // Never the catalog on the way to an address, and once it is one it stays one to the last letter.
+      expect(kinds).not.toContain("search");
+      const first = kinds.indexOf("source");
+      expect(first).toBeGreaterThan(0);
+      expect(kinds.slice(first).every((kind) => kind === "source")).toBe(true);
+      expect(kinds.slice(0, first).every((kind) => kind === "start")).toBe(true);
+    }
+  });
+
   it("does not take a sentence with a slash in it for an image", () => {
     expect(classifyEntry("a/b testing tool")).toBe("search");
   });

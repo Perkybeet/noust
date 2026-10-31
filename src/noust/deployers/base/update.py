@@ -12,6 +12,7 @@ from dataclasses import replace
 from noust.central import require_server_role
 from noust.core import cancellation
 from noust.core.appdir.layout import RELEASES
+from noust.core.deploy_failures import app_unhealthy
 from noust.core.exceptions import DeploymentError
 from noust.deployers.base.release import ReleaseMixin
 from noust.deployers.helpers.hooks import CommandHookExecutor, DeploymentHooks, HookSet
@@ -305,7 +306,7 @@ class UpdateMixin(ReleaseMixin):
             if put_unit_back is not None:
                 put_unit_back()
                 self._restart_and_probe()
-            raise DeploymentError(f"{self.domain} did not pass its health check", details=evidence)
+            raise app_unhealthy(self.domain, evidence=evidence)
         return replace(result, restarted=(self.app_name,) if self.app_name else ())
 
     def _update_release(self, report: StepReporter) -> UpdateResult:

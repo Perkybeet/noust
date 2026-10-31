@@ -206,7 +206,8 @@ function Facts({ deployment, t }: { deployment: Deployment; t: T }) {
           aria-hidden="true"
           className="size-icon-sm shrink-0 text-fg-muted"
         />
-        {trigger.label}
+        {/* A person is named by the name of their account; what no person started, by what did. */}
+        {deployment.started_by ? <span translate="no">{deployment.started_by}</span> : trigger.label}
       </Fact>
       <Fact term={t("appPages.deployments.fields.started")}>
         <RelativeTime value={deployment.started_at} />

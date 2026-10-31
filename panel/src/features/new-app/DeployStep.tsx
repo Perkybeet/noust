@@ -1,4 +1,5 @@
-import { useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate, useRouter } from "@tanstack/react-router";
 import { useEffect } from "react";
 
 import type { FollowedJob } from "../../api/queries/jobs";
@@ -11,6 +12,7 @@ import { Disclosure } from "../../components/ui/Disclosure";
 import { textLinkClassName } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { readAppPage, readDeploymentPage } from "../app/prefetch";
 import { stepWords } from "../app/stepWords";
 import { containerSummary } from "../container/summary";
 import { normalizeDomain } from "../domains/names";
@@ -165,17 +167,31 @@ export function deploySummary(
 function Landing({ target, followedJob, onGone }: { target: LandingTarget; followedJob: FollowedJob; onGone: () => void }) {
   const t = useT();
   const navigate = useNavigate();
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const landing = useDeploymentLanding(target, followedJob);
+  const domain = target.domain;
+  const deploymentId = landing?.kind === "deployment" ? landing.id : null;
+  const toApp = landing?.kind === "app";
 
+  // The page it goes to needs its code and texts, the application around it and, for a deployment, the deployment and its log.
+  // All of it is read while the wizard still shows the job, so the page arrives drawn: leaving first showed the new page's
+  // frame empty beside the wizard, then its loading shapes, then the page, three pictures for one move. A read that fails
+  // does not hold the wizard: the page says what failed.
   useEffect(() => {
-    if (landing?.kind === "deployment") {
+    if (deploymentId === null && !toApp) return;
+    let live = true;
+    const to = deploymentId !== null ? ({ to: "/apps/$domain/deployments/$id", params: { domain, id: String(deploymentId) }, replace: true } as const) : ({ to: "/apps/$domain", params: { domain }, replace: true } as const);
+    const reads = [readAppPage(queryClient, domain), router.preloadRoute(to), ...(deploymentId !== null ? [readDeploymentPage(queryClient, deploymentId)] : [])];
+    void Promise.allSettled(reads).then(() => {
+      if (!live) return;
       onGone();
-      void navigate({ to: "/apps/$domain/deployments/$id", params: { domain: target.domain, id: String(landing.id) }, replace: true });
-    } else if (landing?.kind === "app") {
-      onGone();
-      void navigate({ to: "/apps/$domain", params: { domain: target.domain }, replace: true });
-    }
-  }, [landing, navigate, onGone, target.domain]);
+      void navigate(to);
+    });
+    return () => {
+      live = false;
+    };
+  }, [deploymentId, toApp, domain, queryClient, router, navigate, onGone]);
 
   if (landing?.kind === "failed") {
     const job = followedJob.job;

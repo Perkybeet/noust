@@ -17,6 +17,8 @@ const FIXED_STEPS: readonly (readonly [RegExp, MessageKey])[] = [
   [/^creating systemd service$/i, "appPages.job.steps.service"],
   [/^obtaining ssl certificate$/i, "appPages.job.steps.certificate"],
   [/^enabling updates without downtime$/i, "appPages.job.steps.zeroDowntime"],
+  // The first thing an update of an app on releases says: a plan of two phases, which `phaseOf` reads as neither.
+  [/^building and activating a new release$/i, "appPages.job.steps.buildAndActivate"],
 ];
 
 const PHASE_DOING = {

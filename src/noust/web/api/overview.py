@@ -30,7 +30,7 @@ from pydantic import BaseModel, Field
 from noust.managers.overview import get_overview, reset_cache
 from noust.web import metrics_collector
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute
+from noust.web.api.deps import CodedText, NoustErrorRoute
 
 if TYPE_CHECKING:
     from noust.web.jobs import Job
@@ -286,6 +286,9 @@ class AttentionReason(BaseModel):
             (somebody has; it still fires).
         params: Values for the console's sentence (days, a signal).
         detail: The system's own words, verbatim.
+        detail_coded: The detail as a sentence with a code and values, when it is one of Noust's
+            own (a deployment that did not pass its health check) and not another program's words;
+            the console says it in its language and keeps ``detail`` for any code it lacks.
         when: When it happened.
         deployment_id: A deployment to open for the full story.
         actions: What can be done, as identifiers the console maps to buttons:
@@ -299,6 +302,7 @@ class AttentionReason(BaseModel):
     code: str
     params: dict[str, Any] = Field(default_factory=dict)
     detail: str | None = None
+    detail_coded: CodedText | None = None
     when: str | None = None
     deployment_id: int | None = None
     actions: list[str] = Field(default_factory=list)
@@ -335,19 +339,26 @@ class ActivityEntry(BaseModel):
         id: Stable identifier (``job:<id>``).
         type: What it was: ``deploy``, ``update``, ``backup``, ``restore``...
         title: The job's name.
+        title_coded: The name as a sentence with a code and values, for a job whose name is one
+            of Noust's own sentences (a fleet job's title); None for any other, whose name is
+            shown as written.
         status: How it went: ``pending``, ``running``, ``completed``,
             ``failed``, ``cancelled``.
         domain: The application it acted on, if any.
         actor: Who asked, if known.
+        actor_name: The name its owner is greeted by, when the actor is an account (its login when
+            the account has no display name); None for a token, the master token or a webhook.
         at: When it ended (or started), with its UTC offset.
     """
 
     id: str
     type: str
     title: str = ""
+    title_coded: CodedText | None = None
     status: str = ""
     domain: str | None = None
     actor: str | None = None
+    actor_name: str | None = None
     at: str | None = None
 
 
