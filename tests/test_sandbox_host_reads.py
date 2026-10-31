@@ -102,7 +102,7 @@ def test_the_processes_are_the_vps_s_and_none_of_this_machine_s(modelled: dict[s
     )
     assert 0 not in by_pid and all("broken-example-com" not in row.user for row in rows)
     # Nothing of the developer's machine: its browsers, its shell, its account.
-    assert not {"chrome", "chromium", "chrome-headless-shell", "claude", "node-gyp"} & {
+    assert not {"chrome", "chromium", "chrome-headless-shell", "code", "vite"} & {
         row.name for row in rows if row.name != "node"
     }
     assert {row.user for row in rows} <= {
