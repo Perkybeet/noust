@@ -1318,6 +1318,26 @@ def test_a_health_check_reads_the_containers_own_variable_not_composes(tool: Mod
     )
 
 
+def test_a_bare_name_in_a_services_environment_is_the_stacks_variable_of_that_name(
+    tool: ModuleType,
+) -> None:
+    """`- POSTGRES_PASSWORD` passes the `.env` value on: the database started with an empty password."""
+    draft = draft_of(tool, {"web": {"image": "o/app:1.0"}}, ("web", 80))
+    draft.values = {"POSTGRES_PASSWORD": "x" * 24, "POSTGRES_USER": "app"}
+
+    found = tool.pass_through_names(
+        draft, ["POSTGRES_PASSWORD", "POSTGRES_USER", "TZ=UTC", "NOBODY_SET_THIS"]
+    )
+
+    assert found == {
+        "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
+        "POSTGRES_USER": "${POSTGRES_USER}",
+        "TZ": "UTC",
+        "NOBODY_SET_THIS": "",
+    }
+    assert tool.pass_through_names(draft, {"TZ": "UTC", "A": None}) == {"TZ": "UTC", "A": ""}
+
+
 def test_what_follows_a_hash_in_a_template_s_env_line_is_its_comment_not_the_default(
     tool: ModuleType,
 ) -> None:

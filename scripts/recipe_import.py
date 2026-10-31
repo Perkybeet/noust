@@ -713,6 +713,30 @@ def as_environment(raw: Any) -> dict[str, str]:
     return {}
 
 
+def pass_through_names(draft: Draft, raw: Any) -> dict[str, str]:
+    """
+    Read a service's ``environment``, taking a bare name as the stack's variable of that name.
+
+    ``- POSTGRES_PASSWORD`` in the list form tells Compose to pass the variable on from the stack's
+    ``.env``, where Dokploy's ``[config.env]`` wrote its value: it is ``${POSTGRES_PASSWORD}``, not
+    an empty string (the database of misaka-danmu-server started with an empty password).
+
+    Args:
+        draft: The draft, whose ``values`` are the stack's variables.
+        raw: A service's ``environment`` in either Compose syntax.
+
+    Returns:
+        A mapping of strings; a bare name nobody gave a value is the empty string.
+    """
+    found = as_environment(raw)
+    if isinstance(raw, list):
+        for item in raw:
+            name = str(item)
+            if "=" not in name and name in draft.values:
+                found[name] = f"${{{name}}}"
+    return found
+
+
 #: How each engine says it answers, for a template that left its database without a check: an
 #: application that starts before its database answers restarts until it does, which the smoke test
 #: counts as a restart loop. The commands read the account from the container's own environment.
@@ -886,7 +910,7 @@ def clean_services(draft: Draft) -> None:
         if "environment" in spec:
             spec["environment"] = {
                 name: _CONTAINER_PORT.sub(str(routed_port), value) if routed_port else value
-                for name, value in as_environment(spec["environment"]).items()
+                for name, value in pass_through_names(draft, spec["environment"]).items()
                 if not FORBIDDEN_WORDS.search(name)
             }
         ports = []
