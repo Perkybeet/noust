@@ -18,6 +18,9 @@ import { signInSpanish, useSpanish } from "./spanish";
 
 const APP = "shop.example.net";
 
+/** The narrow no-break space Spanish puts between a figure and its unit. */
+const NARROW_SPACE = String.fromCodePoint(0x202f);
+
 /** The texts inside `scope` that an ellipsis hides part of. */
 async function cutTexts(scope: Locator): Promise<string[]> {
   return scope.evaluate((root) => {
@@ -75,7 +78,7 @@ test("a phone keeps the two names of the trail whole and the facts of a card apa
   const cards = page.getByRole("list", { name: `Deploys of ${APP}, newest first` });
   await expect(cards.getByRole("listitem").first()).toBeVisible();
   // No mark between the facts of a card: nothing to wrap alone.
-  expect(await cards.evaluate((list) => list.textContent?.includes("·"))).toBe(false);
+  expect(await cards.evaluate((list, mark) => list.textContent.includes(mark), String.fromCodePoint(0xb7))).toBe(false);
 });
 
 test("the trail's separators are even, the ones beside a switcher too", async ({ page, consoleServer }) => {
@@ -101,7 +104,7 @@ test("the trail's separators are even, the ones beside a switcher too", async ({
   expect(plain.length).toBeGreaterThan(0);
   expect(beside.length).toBeGreaterThan(0);
   // Whatever the glyph's own padding, the room around a switcher reads as the room around a separator: within 2px of it.
-  for (const room of beside) expect(Math.abs(room - (plain[0] ?? 0)), `${JSON.stringify(gaps)}`).toBeLessThanOrEqual(2);
+  for (const room of beside) expect(Math.abs(room - (plain[0] ?? 0)), JSON.stringify(gaps)).toBeLessThanOrEqual(2);
 });
 
 test("a duration in Spanish keeps its figure and its unit together", async ({ page, consoleServer }) => {
@@ -110,6 +113,6 @@ test("a duration in Spanish keeps its figure and its unit together", async ({ pa
   await expect(history).toBeVisible();
   const text = (await history.textContent()) ?? "";
   // The figure and the unit are joined by a narrow no-break space, in the text a browser keeps.
-  expect(text).toMatch(/\d (?:s|min)/);
+  expect(text).toMatch(new RegExp(`\\d${NARROW_SPACE}(?:s|min)`));
   expect(text).not.toMatch(/\d (?:s|min)\b/);
 });

@@ -65,7 +65,7 @@ describe("PageHeader", () => {
     // The row of the actions: the primary and the menu are one piece in it, so they wrap together.
     const tail = update.parentElement;
     const actions = tail?.parentElement;
-    if (!actions || !tail) throw new Error("no actions");
+    if (!actions) throw new Error("no actions");
     const names = within(actions)
       .getAllByRole("button")
       .map((button) => button.getAttribute("aria-label") ?? button.textContent);
