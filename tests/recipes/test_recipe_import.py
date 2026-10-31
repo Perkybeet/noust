@@ -1344,6 +1344,28 @@ def test_a_job_the_stack_waits_for_runs_once_and_every_other_service_restarts(
     }
 
 
+def test_a_wget_health_check_asks_the_ipv4_loopback_not_localhost(tool: ModuleType) -> None:
+    """BusyBox wget tries `::1` and stops: Wanderer's PocketBase never looked healthy."""
+    draft = draft_of(tool, {"web": {"image": "o/app:1.0"}}, ("web", 80))
+    wget = {"test": "wget --spider -q http://localhost:8090/health || exit 1"}
+    curl = {"test": ["CMD-SHELL", "curl --fail http://localhost:3000/ || exit 1"]}
+    listed = {"test": ["CMD", "wget", "-qO-", "http://localhost:80/", "-T", "localhost.example"]}
+
+    for check in (wget, curl, listed):
+        tool.container_env_in_healthcheck(draft, {"healthcheck": check})
+
+    assert wget["test"] == "wget --spider -q http://127.0.0.1:8090/health || exit 1"
+    assert curl["test"][1] == "curl --fail http://localhost:3000/ || exit 1"
+    assert listed["test"] == [
+        "CMD",
+        "wget",
+        "-qO-",
+        "http://127.0.0.1:80/",
+        "-T",
+        "localhost.example",
+    ]
+
+
 def test_a_bare_name_in_a_services_environment_is_the_stacks_variable_of_that_name(
     tool: ModuleType,
 ) -> None:

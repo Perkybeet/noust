@@ -857,6 +857,41 @@ def shell_dollars(spec: dict[str, Any]) -> None:
         check["test"] = _escaped(check["test"])
 
 
+def ipv4_loopback(check: dict[str, Any]) -> None:
+    """
+    Ask `127.0.0.1` where a health check says `localhost` and uses wget.
+
+    BusyBox's wget tries `::1` first and does not fall back, so a program that listens on IPv4 only
+    (PocketBase on `0.0.0.0`) is never found and its container stays unhealthy for ever (Wanderer's
+    database). The address means the same thing for every program that listens on both.
+
+    Args:
+        check: A service's ``healthcheck``, changed in place.
+    """
+    test = check.get("test")
+    if isinstance(test, str):
+        check["test"] = _loopback_of(test, "wget" in test)
+    elif isinstance(test, list):
+        uses_wget = any("wget" in item for item in test if isinstance(item, str))
+        check["test"] = [
+            _loopback_of(item, uses_wget) if isinstance(item, str) else item for item in test
+        ]
+
+
+def _loopback_of(text: str, uses_wget: bool) -> str:
+    """
+    Args:
+        text: One element of a health check's test.
+        uses_wget: Whether the check runs wget (its command may be another element).
+
+    Returns:
+        It with `localhost` named `127.0.0.1` when the check is wget's.
+    """
+    if not uses_wget:
+        return text
+    return re.sub(r"(?<![\w.-])localhost(?=[:/\s]|$)", "127.0.0.1", text)
+
+
 def container_env_in_healthcheck(draft: Draft, spec: dict[str, Any]) -> None:
     """
     Write ``$${NAME}`` for a variable of the container's own that a health check reads.
@@ -873,6 +908,7 @@ def container_env_in_healthcheck(draft: Draft, spec: dict[str, Any]) -> None:
     check = spec.get("healthcheck")
     if not isinstance(check, dict):
         return
+    ipv4_loopback(check)
     own = set(as_environment(spec.get("environment")))
 
     def escape(text: str) -> str:
