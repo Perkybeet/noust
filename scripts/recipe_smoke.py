@@ -464,7 +464,7 @@ class Project:
             check=False,
         )
 
-    def container_logs(self, name: str, tail: int = 30) -> str:
+    def container_logs(self, name: str, tail: int = 80) -> str:
         """
         Read the end of one container's log.
 
@@ -529,7 +529,7 @@ def failing_logs(project: Project, containers: Sequence[Mapping[str, Any]]) -> s
 
     Returns:
         Text for the evidence: each failing container's last lines under its name, and the
-        project's last lines after them, six thousand characters at most.
+        project's last lines after them, nine thousand characters at most.
     """
     parts = []
     for container in containers:
@@ -540,9 +540,9 @@ def failing_logs(project: Project, containers: Sequence[Mapping[str, Any]]) -> s
             or container.get("health") == "unhealthy"
         ):
             shown = project.container_logs(str(container["name"]))
-            parts.append(f"--- {container['name']}\n{shown[-1500:]}")
-    parts.append(project.run("logs", "--no-color", "--tail", "40").stdout[-2500:])
-    return "\n".join(parts)[-6000:]
+            parts.append(f"--- {container['name']}\n{shown[-3000:]}")
+    parts.append(project.run("logs", "--no-color", "--tail", "40").stdout[-1500:])
+    return "\n".join(parts)[-9000:]
 
 
 def smoke(
