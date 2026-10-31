@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { useState } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../test/axe";
 import { setLocale } from "./locale";
@@ -222,6 +223,65 @@ describe("CommandPalette", () => {
     expect(screen.queryByRole("listbox")).toBeNull();
     expect(input).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByText('Nothing matches "nothing like this".')).toBeInTheDocument();
+  });
+
+  describe("while it closes", () => {
+    afterEach(() => {
+      Reflect.deleteProperty(Element.prototype, "getAnimations");
+    });
+
+    /** The palette as its host drives it: shut, the host reads nothing, so it offers no commands. */
+    function Host({ list }: { list: Command[] }) {
+      const [open, setOpen] = useState(true);
+      return <CommandPalette open={open} onOpenChange={setOpen} commands={open ? list : []} />;
+    }
+
+    /** jsdom runs no animation: this one lasts until the test ends it, as a browser's exit lasts a moment. */
+    function holdTheExit(): () => void {
+      let end = (): void => undefined;
+      const finished = new Promise<void>((resolve) => {
+        end = resolve;
+      });
+      Object.defineProperty(Element.prototype, "getAnimations", { configurable: true, value: () => [{ finished }] });
+      return end;
+    }
+
+    it("keeps showing what it offered, so choosing a result never says that nothing matches", async () => {
+      const user = userEvent.setup();
+      const run = vi.fn();
+      const endExit = holdTheExit();
+      render(<Host list={resources(run)} />);
+      await user.type(await screen.findByRole("combobox"), "noust-web");
+      await user.keyboard("{Enter}");
+      expect(run).toHaveBeenCalledOnce();
+
+      // The dialog is still on screen for the length of its exit, and it still shows the result that was chosen.
+      expect(document.querySelector("[role='dialog']")).not.toBeNull();
+      expect(screen.queryByText(/Nothing matches/)).toBeNull();
+      expect(screen.getByRole("option", { name: /noust-web/ })).toBeInTheDocument();
+
+      endExit();
+      await waitFor(() => {
+        expect(document.querySelector("[role='dialog']")).toBeNull();
+      });
+    });
+
+    it("offers what the host offers again once it is opened a second time", async () => {
+      const user = userEvent.setup();
+      const endExit = holdTheExit();
+      const { rerender } = render(<CommandPalette open onOpenChange={() => undefined} commands={resources()} />);
+      await user.type(await screen.findByRole("combobox"), "noust-web");
+      rerender(<CommandPalette open={false} onOpenChange={() => undefined} commands={[]} />);
+      endExit();
+      await waitFor(() => {
+        expect(document.querySelector("[role='dialog']")).toBeNull();
+      });
+
+      rerender(<CommandPalette open onOpenChange={() => undefined} commands={commands()} />);
+      await user.type(await screen.findByRole("combobox"), "databases");
+      expect(await screen.findByRole("option", { name: "Databases" })).toBeInTheDocument();
+      expect(screen.queryByRole("option", { name: /noust-web/ })).toBeNull();
+    });
   });
 
   it("has no accessibility violations", async () => {

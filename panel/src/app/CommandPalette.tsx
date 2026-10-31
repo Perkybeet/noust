@@ -451,6 +451,11 @@ export function CommandPalette({ open, onOpenChange, commands, scope, returnFocu
   const t = useT();
   const inputRef = useRef<HTMLInputElement>(null);
   const lastRun = useRef<Command["kind"] | null>(null);
+  // What the palette offers is emptied the moment it closes (the host reads nothing while it is shut), and the
+  // dialog stays on screen for the length of its exit: what it showed is kept for that time, so choosing a result
+  // does not draw "nothing matches" over the frames that fade out. Taken again on the render that opens it.
+  const [offered, setOffered] = useState(commands);
+  if (open && offered !== commands) setOffered(commands);
 
   // The palette is opened from outside (the trigger, Ctrl+K), which Base UI's onOpenChange
   // never reports; without this, a page opened from it once kept focus from ever being
@@ -488,7 +493,7 @@ export function CommandPalette({ open, onOpenChange, commands, scope, returnFocu
             className={cx(MODAL_POPUP, "sm:max-w-[640px]")}
           >
             <BaseDialog.Title className="sr-only">{t("shell.search.dialogTitle")}</BaseDialog.Title>
-            <PaletteBody commands={commands} onRun={run} inputRef={inputRef} scope={scope} onQueryChange={onQueryChange} />
+            <PaletteBody commands={offered} onRun={run} inputRef={inputRef} scope={scope} onQueryChange={onQueryChange} />
           </BaseDialog.Popup>
         </BaseDialog.Viewport>
       </BaseDialog.Portal>
