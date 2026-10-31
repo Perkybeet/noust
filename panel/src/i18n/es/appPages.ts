@@ -20,6 +20,7 @@ export const appPages: Catalog<typeof en> = {
       service: "Creando el servicio",
       certificate: "Obteniendo el certificado",
       zeroDowntime: "Activando las actualizaciones sin cortes",
+      buildAndActivate: "Compilando y activando una nueva release",
     },
     deploy: { title: "Desplegando {domain}", failed: "El despliegue de {domain} falló" },
     update: { running: "Actualizando", title: "Actualizando {domain}", failed: "La actualización de {domain} falló" },
