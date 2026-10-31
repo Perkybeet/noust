@@ -1,0 +1,36 @@
+# WhoDB from the image the project publishes (clidey/whodb), as its documentation describes the container (github.com/clidey/whodb, README: Docker).
+schema: 2
+name: whodb
+kind: compose
+title: "WhoDB"
+slogan: "A lightweight next-gen data explorer for Postgres, MySQL, SQLite, MongoDB, Redis and more."
+description: "Explores and edits the data of many database engines from the browser: a grid, a scratchpad of queries, an explorer of the schema and a natural-language assistant if you give it a model. It has no accounts of its own, so keep it behind an allow-list."
+category: development
+tags: [database, sql, explorer, admin]
+logo: logo.svg
+version: "0.138.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://whodb.com
+docs: https://whodb.com
+repository: https://github.com/clidey/whodb
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8080
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    whodb:
+      image: clidey/whodb:0.138.0@sha256:9195aef28c8d0c02267748f3a09a94757d5440fd44ab9602681ae21137d7920d
+      restart: unless-stopped
+      volumes:
+        - whodb-data:/db
+      ports:
+        - 127.0.0.1:${PORT}:8080
+  volumes:
+    whodb-data:
+notes:
+  - "Open {{ url }}. It has no sign-in: a connection is typed in the page, and anyone who reaches the page can try to connect to any host this server can reach. Restrict who can reach it."
+  - "Its data is in the Docker volume whodb-data of this application: back it up before updating."

@@ -1,9 +1,9 @@
 {
   "measured": "tests/integration/recipes_run.py: scripts/recipe_smoke.py in the harness container, one recipe at a time",
   "harness": "Ubuntu 24.04 with systemd and a Docker of its own (Dockerfile.systemd)",
-  "updated": "2026-10-30T16:48:11Z",
+  "updated": "2026-10-31T18:58:53Z",
   "totals": {
-    "pass": 331,
+    "pass": 358,
     "fail": 3
   },
   "results": [
@@ -464,9 +464,9 @@
     {
       "recipe": "chatto",
       "version": "0.4",
-      "date": "2026-10-30T14:20:33Z",
-      "source": "dokploy",
-      "seconds": 42,
+      "date": "2026-10-30T17:43:57Z",
+      "source": "catalogue",
+      "seconds": 46,
       "result": "pass",
       "gate": "/ -> 200 after 5s",
       "gate_status": "200",
@@ -707,6 +707,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "cryptgeon",
+      "version": "2.9.3",
+      "date": "2026-10-30T17:11:12Z",
+      "source": "coolify",
+      "seconds": 49,
+      "result": "pass",
+      "gate": "/ -> 200 after 0s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "ctfd",
       "version": "3.8.9",
       "date": "2026-10-30T12:39:43Z",
@@ -871,11 +886,11 @@
     {
       "recipe": "discourse",
       "version": "2026.1.4",
-      "date": "2026-10-30T14:21:15Z",
-      "source": "dokploy",
-      "seconds": 311,
+      "date": "2026-10-30T17:44:44Z",
+      "source": "catalogue",
+      "seconds": 428,
       "result": "pass",
-      "gate": "/ -> 200 after 74s",
+      "gate": "/ -> 200 after 120s",
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 1,
@@ -1211,11 +1226,11 @@
     {
       "recipe": "evershop",
       "version": "2.3.0",
-      "date": "2026-10-30T14:26:34Z",
-      "source": "dokploy",
-      "seconds": 78,
+      "date": "2026-10-30T17:52:03Z",
+      "source": "catalogue",
+      "seconds": 94,
       "result": "pass",
-      "gate": "/ -> 200 after 5s",
+      "gate": "/ -> 200 after 10s",
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 2,
@@ -1338,6 +1353,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 1,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "flame",
+      "version": "2.4.0",
+      "date": "2026-10-30T17:59:53Z",
+      "source": "own",
+      "seconds": 55,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
       "transient": false,
       "rate_limited": false,
       "images_removed": 1
@@ -1710,6 +1740,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "grav",
+      "version": "2.2.17",
+      "date": "2026-10-31T18:49:34Z",
+      "source": "own",
+      "seconds": 60,
+      "result": "pass",
+      "gate": "/ -> 302 after 15s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "grimmory",
       "version": "3.5.0",
       "date": "2026-10-30T12:21:39Z",
@@ -1930,6 +1975,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "hortusfox",
+      "version": "6.4",
+      "date": "2026-10-30T17:09:48Z",
+      "source": "dokploy",
+      "seconds": 82,
+      "result": "pass",
+      "gate": "/ -> 302 after 5s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "imgproxy",
       "version": "1.31.8-alpine",
       "date": "2026-10-30T14:46:45Z",
@@ -1988,20 +2048,46 @@
       "images_removed": 1
     },
     {
+      "recipe": "invoiceshelf",
+      "version": "2.4.7",
+      "date": "2026-10-30T17:06:32Z",
+      "source": "dokploy",
+      "seconds": 93,
+      "result": "pass",
+      "gate": "/ -> 302 after 10s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 1,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "isso",
       "version": "0.14.0",
-      "date": "2026-10-30T16:45:59Z",
+      "date": "2026-10-30T17:21:04Z",
       "source": "own",
-      "seconds": 131,
-      "result": "fail",
-      "gate": "/ -> 400 after 121s",
-      "gate_status": "400",
+      "seconds": 41,
+      "result": "pass",
+      "gate": "/info -> 200 after 5s",
+      "gate_status": "200",
       "unsteady": false,
-      "problems": [
-        "the health gate's request to / got 400, the recipe expects 200-399,404"
-      ],
-      "log_tail": "isso-1  | 2026-10-30 16:46:08,784:INFO: Loading Mistune with plugins: ['strikethrough', 'subscript', 'superscript'] and parameters: ['escape', 'hard_wrap']\nisso-1  | 2026-10-30 16:46:08,785:INFO: Using Mistune as Markdown rendering engine\nisso-1  | 2026-10-30 16:46:08,796:INFO: Using database at '/db/comments.db'\nisso-1  | 2026-10-30 16:46:08,871:WARNING: unable to connect to your website, Isso will probably not work correctly. Please make sure, Isso can reach your website via HTTP(S).\nisso-1  | [2026-10-30 16:46:08 +0000] [1] [INFO] Starting gunicorn 25.2.0\nisso-1  | [2026-10-30 16:46:08 +0000] [1] [INFO] Listening at: http://0.0.0.0:8080 (1)\nisso-1  | [2026-10-30 16:46:08 +0000] [1] [INFO] Using worker: sync\nisso-1  | [2026-10-30 16:46:08 +0000] [7] [INFO] Booting worker with pid: 7\nisso-1  | [2026-10-30 16:46:08 +0000] [8] [INFO] Booting worker with pid: 8\nisso-1  | [2026-10-30 16:46:09 +0000] [9] [INFO] Booting worker with pid: 9\nisso-1  | [2026-10-30 16:46:09 +0000] [10] [INFO] Booting worker with pid: 10\nisso-1  | [2026-10-30 16:46:09 +0000] [1] [INFO] Control socket listening at /root/.gunicorn/gunicorn.ctl\n",
       "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "jackett",
+      "version": "0.24.1316",
+      "date": "2026-10-30T18:19:18Z",
+      "source": "own",
+      "seconds": 43,
+      "result": "pass",
+      "gate": "/UI/Dashboard -> 302 after 5s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 2,
       "transient": false,
       "rate_limited": false,
       "images_removed": 1
@@ -2082,9 +2168,9 @@
     {
       "recipe": "joomla",
       "version": "6.1.0-apache",
-      "date": "2026-10-30T14:27:55Z",
-      "source": "dokploy",
-      "seconds": 73,
+      "date": "2026-10-30T17:53:40Z",
+      "source": "catalogue",
+      "seconds": 77,
       "result": "pass",
       "gate": "/ -> 302 after 5s",
       "gate_status": "302",
@@ -2271,6 +2357,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "kokoro-fastapi",
+      "version": "0.9.2",
+      "date": "2026-10-31T18:42:55Z",
+      "source": "own",
+      "seconds": 185,
+      "result": "pass",
+      "gate": "/health -> 200 after 20s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "komari-monitor",
       "version": "1.6.1",
       "date": "2026-10-29T02:17:05Z",
@@ -2344,6 +2445,23 @@
       "images_removed": 1,
       "attempts": 2,
       "first_attempt": "the health gate's request to / got 400, the recipe expects 200-399"
+    },
+    {
+      "recipe": "lavalink",
+      "version": "4.2.2",
+      "date": "2026-10-30T17:26:21Z",
+      "source": "dokploy",
+      "seconds": 51,
+      "result": "pass",
+      "gate": "/version -> 401 after 10s",
+      "gate_status": "401",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1,
+      "attempts": 2,
+      "first_attempt": "the health gate's request to /version got 401, the recipe expects 200"
     },
     {
       "recipe": "leafwiki",
@@ -2577,6 +2695,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "loki",
+      "version": "3.7.9",
+      "date": "2026-10-31T18:41:59Z",
+      "source": "own",
+      "seconds": 55,
+      "result": "pass",
+      "gate": "/ready -> 200 after 20s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 1,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "lowcoder",
       "version": "3.0.0",
       "date": "2026-10-29T02:57:32Z",
@@ -2795,6 +2928,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "metamcp",
+      "version": "2.4.22",
+      "date": "2026-10-30T16:48:11Z",
+      "source": "coolify",
+      "seconds": 240,
+      "result": "pass",
+      "gate": "/ -> 307 after 10s",
+      "gate_status": "307",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "miniflux",
       "version": "2.3.3",
       "date": "2026-10-28T23:48:41Z",
@@ -2869,6 +3017,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "mstream",
+      "version": "6.32.1",
+      "date": "2026-10-30T18:20:49Z",
+      "source": "own",
+      "seconds": 73,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "myspeed",
       "version": "1.0.9",
       "date": "2026-10-30T13:15:39Z",
@@ -2926,6 +3089,21 @@
       "error_lines": 0,
       "rate_limited": false,
       "images_removed": 1
+    },
+    {
+      "recipe": "netbox",
+      "version": "4.7.4",
+      "date": "2026-10-30T17:34:27Z",
+      "source": "catalogue",
+      "seconds": 564,
+      "result": "pass",
+      "gate": "/login/ -> 200 after 468s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 2
     },
     {
       "recipe": "netdata",
@@ -3003,6 +3181,21 @@
       "images_removed": 2
     },
     {
+      "recipe": "node-red",
+      "version": "5.0.9",
+      "date": "2026-10-31T18:50:35Z",
+      "source": "own",
+      "seconds": 56,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "ntfy",
       "version": "2.28.0",
       "date": "2026-10-28T23:54:30Z",
@@ -3056,6 +3249,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "ombi",
+      "version": "4.53.10",
+      "date": "2026-10-30T18:20:02Z",
+      "source": "own",
+      "seconds": 46,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -3295,6 +3503,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "orangehrm",
+      "version": "5.9",
+      "date": "2026-10-31T18:56:44Z",
+      "source": "coolify",
+      "seconds": 66,
+      "result": "pass",
+      "gate": "/ -> 302 after 5s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "otterwiki",
       "version": "2",
       "date": "2026-10-29T03:01:27Z",
@@ -3498,6 +3721,36 @@
       "images_removed": 1
     },
     {
+      "recipe": "pgbackweb",
+      "version": "0.5.2",
+      "date": "2026-10-30T16:52:16Z",
+      "source": "coolify",
+      "seconds": 175,
+      "result": "pass",
+      "gate": "/ -> 302 after 5s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 8,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "pgweb",
+      "version": "0.17.0",
+      "date": "2026-10-30T17:57:39Z",
+      "source": "own",
+      "seconds": 46,
+      "result": "pass",
+      "gate": "/ -> 401 after 0s",
+      "gate_status": "401",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "photoprism",
       "version": "261029",
       "date": "2026-10-30T14:53:18Z",
@@ -3526,6 +3779,27 @@
       "transient": false,
       "rate_limited": false,
       "images_removed": 1
+    },
+    {
+      "recipe": "piwigo",
+      "version": "16.4.0",
+      "date": "2026-10-30T18:25:49Z",
+      "source": "own",
+      "seconds": 634,
+      "result": "fail",
+      "gate": "/ -> 502 after 601s",
+      "gate_status": "502",
+      "unsteady": false,
+      "problems": [
+        "the health gate's request to / got 502, the recipe expects 200-399"
+      ],
+      "log_tail": "igo-1  | [31-Oct-2026 18:41:44] ERROR: [pool www] please specify user and group other than root\npiwigo-1  | [31-Oct-2026 18:41:44] ERROR: FPM initialization failed\npiwigo-1  | [31-Oct-2026 18:41:45] ERROR: [pool www] please specify user and group other than root\npiwigo-1  | [31-Oct-2026 18:41:45] ERROR: FPM initialization failed\npiwigo-1  | [31-Oct-2026 18:41:46] ERROR: [pool www] please specify user and group other than root\npiwigo-1  | [31-Oct-2026 18:41:46] ERROR: FPM initialization failed\npiwigo-1  | [31-Oct-2026 18:41:47] ERROR: [pool www] please specify user and group other than root\npiwigo-1  | [31-Oct-2026 18:41:47] ERROR: FPM initialization failed\npiwigo-1  | [31-Oct-2026 18:41:48] ERROR: [pool www] please specify user and group other than root\npiwigo-1  | [31-Oct-2026 18:41:48] ERROR: FPM initialization failed\npiwigo-1  | [31-Oct-2026 18:41:49] ERROR: [pool www] please specify user and group other than root\npiwigo-1  | [31-Oct-2026 18:41:49] ERROR: FPM initialization failed\npiwigo-1  | [31-Oct-2026 18:41:50] ERROR: [pool www] please specify user and group other than root\npiwigo-1  | [31-Oct-2026 18:41:50] ERROR: FPM initialization failed\npiwigo-1  | [31-Oct-2026 18:41:51] ERROR: [pool www] please specify user and group other than root\npiwigo-1  | [31-Oct-2026 18:41:51] ERROR: FPM initialization failed\npiwigo-1  | [31-Oct-2026 18:41:52] ERROR: [pool www] please specify user and group other than root\npiwigo-1  | [31-Oct-2026 18:41:52] ERROR: FPM initialization failed\n",
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1,
+      "attempts": 2,
+      "first_attempt": "the health gate's request to / got 502, the recipe expects 200-399"
     },
     {
       "recipe": "plane",
@@ -3597,6 +3871,23 @@
       "error_lines": 0,
       "rate_limited": false,
       "images_removed": 1
+    },
+    {
+      "recipe": "portabase",
+      "version": "1.35.2",
+      "date": "2026-10-30T17:31:04Z",
+      "source": "coolify",
+      "seconds": 70,
+      "result": "pass",
+      "gate": "/api/health -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1,
+      "attempts": 2,
+      "first_attempt": "the health gate's request to / got 500, the recipe expects 200-399"
     },
     {
       "recipe": "portainer",
@@ -3712,6 +4003,21 @@
       "seconds": 30,
       "result": "pass",
       "gate": "/-/healthy -> 200 after 0s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "pydio-cells",
+      "version": "5.1.0",
+      "date": "2026-10-30T16:55:16Z",
+      "source": "coolify",
+      "seconds": 53,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
@@ -3910,6 +4216,23 @@
       "images_removed": 1
     },
     {
+      "recipe": "rsshub",
+      "version": "2026-10-29",
+      "date": "2026-10-31T18:55:06Z",
+      "source": "own",
+      "seconds": 48,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1,
+      "attempts": 2,
+      "first_attempt": "the health gate's request to /healthz got 403, the recipe expects 200"
+    },
+    {
       "recipe": "ryot",
       "version": "10.5.5",
       "date": "2026-10-30T16:37:24Z",
@@ -4094,6 +4417,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 2,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "speaches",
+      "version": "0.8.3-cpu",
+      "date": "2026-10-31T18:47:52Z",
+      "source": "own",
+      "seconds": 100,
+      "result": "pass",
+      "gate": "/health -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -4384,6 +4722,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "temporal",
+      "version": "2.57.0",
+      "date": "2026-10-31T18:51:33Z",
+      "source": "own",
+      "seconds": 64,
+      "result": "pass",
+      "gate": "/ -> 200 after 0s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 16,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 2
+    },
+    {
       "recipe": "thelounge",
       "version": "4.5.2",
       "date": "2026-10-30T13:14:52Z",
@@ -4414,6 +4767,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "traggo",
+      "version": "0.8.3",
+      "date": "2026-10-30T17:59:17Z",
+      "source": "own",
+      "seconds": 35,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "transmission",
       "version": "4.1.3",
       "date": "2026-10-29T00:45:30Z",
@@ -4431,9 +4799,9 @@
     {
       "recipe": "trek",
       "version": "3.3.0",
-      "date": "2026-10-30T14:29:09Z",
-      "source": "dokploy",
-      "seconds": 79,
+      "date": "2026-10-30T17:55:01Z",
+      "source": "catalogue",
+      "seconds": 102,
       "result": "pass",
       "gate": "/ -> 200 after 5s",
       "gate_status": "200",
@@ -4655,6 +5023,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "voidauth",
+      "version": "1.17.1",
+      "date": "2026-10-30T17:21:46Z",
+      "source": "own",
+      "seconds": 71,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "wakapi",
       "version": "2.18.2",
       "date": "2026-10-30T16:20:19Z",
@@ -4760,6 +5143,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "whodb",
+      "version": "0.138.0",
+      "date": "2026-10-30T17:58:27Z",
+      "source": "own",
+      "seconds": 49,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 1,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "whoogle",
       "version": "1.2.4",
       "date": "2026-10-30T12:50:04Z",
@@ -4800,6 +5198,21 @@
       "gate_status": "302",
       "unsteady": false,
       "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "wuzapi",
+      "version": "sha-30c1805",
+      "date": "2026-10-31T18:57:52Z",
+      "source": "dokploy",
+      "seconds": 60,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 1,
       "transient": false,
       "rate_limited": false,
       "images_removed": 1

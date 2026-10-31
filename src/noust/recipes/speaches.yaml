@@ -1,0 +1,37 @@
+# Speaches from the image the project publishes (ghcr.io/speaches-ai/speaches), with the folder its documentation names (speaches.ai/installation).
+schema: 2
+name: speaches
+kind: compose
+title: "Speaches"
+slogan: "An OpenAI API-compatible server for speech to text, text to speech and realtime."
+description: "A server that speaks the OpenAI API for transcription, translation and speech synthesis, running Whisper and other models on the CPU, loading each model the first time it is asked for. It has no accounts, so keep it behind an allow-list."
+category: ai
+tags: [speech-to-text, transcription, openai, whisper]
+logo: logo.svg
+version: "0.8.3-cpu"
+revision: 1
+updated: 2026-10-30
+homepage: https://speaches.ai/
+docs: https://speaches.ai/
+repository: https://github.com/speaches-ai/speaches
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8000
+health: {path: /health, expect: "200", timeout: 240}
+compose: |
+  services:
+    speaches:
+      image: ghcr.io/speaches-ai/speaches:0.8.3-cpu@sha256:21e3df06d842fb7802ab470dd77c25f0e8c0d22950e8d8c6ae886e851af53ef8
+      restart: unless-stopped
+      volumes:
+        - speaches-models:/home/ubuntu/.cache/huggingface/hub
+      ports:
+        - 127.0.0.1:${PORT}:8000
+      user: 0:0
+  volumes:
+    speaches-models:
+notes:
+  - "Open {{ url }}. The API is at {{ url }}/v1 and its reference at {{ url }}/docs. Models are downloaded when first asked for. It has no sign-in: restrict who can reach it."
+  - "Its data is in the Docker volume speaches-models of this application: back it up before updating."

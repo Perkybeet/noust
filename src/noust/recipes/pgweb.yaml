@@ -1,0 +1,69 @@
+# pgweb from the image the project publishes (sosedoff/pgweb), with the variables its documentation names (github.com/sosedoff/pgweb, README and wiki: Environment variables).
+schema: 2
+name: pgweb
+kind: compose
+title: "pgweb"
+slogan: "Cross-platform client for PostgreSQL databases."
+description: "A small web client for PostgreSQL: it browses tables, runs queries, shows the schema and exports results, with a user name and a password Noust generates. It comes with its own PostgreSQL to look at; point it at another by changing its URL."
+category: development
+tags: [postgresql, database, sql, admin]
+logo: logo.svg
+version: "0.17.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://sosedoff.github.io/pgweb
+docs: https://sosedoff.github.io/pgweb
+repository: https://github.com/sosedoff/pgweb
+license: MIT
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8081
+variables:
+  DB_PASSWORD:
+    generate: "password32"
+    description: "The password of the stack's PostgreSQL account."
+  ADMIN_PASSWORD:
+    generate: "password32"
+    description: "The password of the user admin."
+health: {path: /, expect: "200-399,401", timeout: 120}
+compose: |
+  services:
+    pgweb:
+      image: sosedoff/pgweb:0.17.0@sha256:a5256d416e2e8b92d69a4459058e3eca33a9f075d8325491644411d0bc3bd70b
+      restart: unless-stopped
+      command:
+        - /usr/bin/pgweb
+        - --bind=0.0.0.0
+        - --listen=8081
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        PGWEB_DATABASE_URL: postgres://pgweb:${DB_PASSWORD}@db:5432/pgweb?sslmode=disable
+        PGWEB_AUTH_USER: admin
+        PGWEB_AUTH_PASS: ${ADMIN_PASSWORD}
+      ports:
+        - 127.0.0.1:${PORT}:8081
+    db:
+      image: postgres:17.11-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: pgweb
+        POSTGRES_DB: pgweb
+        POSTGRES_PASSWORD: ${DB_PASSWORD}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U pgweb -d pgweb
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - pgweb-db:/var/lib/postgresql/data
+  volumes:
+    pgweb-db:
+notes:
+  - "Open {{ url }}. Sign in as admin with the password in ADMIN_PASSWORD (noust env show {{ domain }} --unmask). It opens the PostgreSQL of this stack; to look at another database, change PGWEB_DATABASE_URL in the application's environment and restart it."
+  - "Its data is in the Docker volume pgweb-db of this application, the databases dumped by Noust before every update: back it up before updating."

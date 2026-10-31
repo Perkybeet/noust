@@ -1,0 +1,36 @@
+# Feishin from the image the project publishes (ghcr.io/jeffvli/feishin), with the variables its documentation names (github.com/jeffvli/feishin, README: Docker).
+schema: 2
+name: feishin
+kind: compose
+title: "Feishin"
+slogan: "A modern self-hosted music player for Navidrome, Jellyfin and Subsonic servers."
+description: "A web player for the music library of a Navidrome, Jellyfin or Subsonic-compatible server: queue, playlists, lyrics, a visualiser and a mini player. Static: the library server is reached from your browser, nothing is stored here."
+category: media
+tags: [music, player, navidrome, jellyfin]
+logo: logo.svg
+version: "1.17.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://feishin.vercel.app
+docs: https://feishin.vercel.app
+repository: https://github.com/jeffvli/feishin
+license: GPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 9180
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    feishin:
+      image: ghcr.io/jeffvli/feishin:1.17.0@sha256:6c75a4d3b99065ac245e2eb2b693fde3e5f2a6fe41c9e255da4fcb8948071965
+      restart: unless-stopped
+      environment:
+        SERVER_NAME:
+        SERVER_TYPE:
+        SERVER_URL:
+        SERVER_LOCK: 'false'
+      ports:
+        - 127.0.0.1:${PORT}:9180
+notes:
+  - "Open {{ url }}. Add your music server in the page (or set SERVER_NAME, SERVER_TYPE and SERVER_URL in the application's environment to have it ready for everybody). The server must be reachable from your browser."

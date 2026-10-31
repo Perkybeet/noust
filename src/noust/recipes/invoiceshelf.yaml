@@ -1,0 +1,96 @@
+# InvoiceShelf: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/invoiceshelf
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: invoiceshelf
+kind: compose
+title: "InvoiceShelf"
+slogan: "Open Source Invoicing Solution for Individuals & Businesses"
+description: "InvoiceShelf is a self-hosted open source invoicing system for freelancers and small businesses."
+category: business
+tags: [invoice, business, finance]
+logo: logo.svg
+version: "2.4.7"
+revision: 1
+updated: 2026-10-30
+homepage: https://invoiceshelf.com
+docs: https://github.com/InvoiceShelf/invoiceshelf#readme
+repository: https://github.com/InvoiceShelf/InvoiceShelf
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  DB_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for db password."
+  DB_USERNAME:
+    default: "invoiceshelf"
+    description: "Setting DB_USERNAME of the application; the template leaves it to the operator."
+  DB_DATABASE:
+    default: "invoiceshelf"
+    description: "Setting DB_DATABASE of the application; the template leaves it to the operator."
+  INVOICESHELF_HOST:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    invoiceshelf-postgres:
+      image: postgres:15@sha256:64b99032e218b66b1d1a6334995056e1aa57f50a0c522cc856e72dff0e4b0d63
+      volumes:
+        - invoiceshelf-postgres-data:/var/lib/postgresql/data
+      environment:
+        POSTGRES_PASSWORD: ${DB_PASSWORD}
+        POSTGRES_USER: ${DB_USERNAME}
+        POSTGRES_DB: ${DB_DATABASE}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U ${DB_USERNAME}
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      restart: unless-stopped
+    invoiceshelf-app:
+      image: invoiceshelf/invoiceshelf:2.4.7@sha256:599dc6aa9d7303c9ae0d099397817c7f6002cd6f7af099bc90511d5eae4e9cd2
+      volumes:
+        - invoiceshelf-storage:/var/www/html/storage
+      environment:
+        PHP_TZ: UTC
+        TIMEZONE: UTC
+        APP_NAME: InvoiceShelf
+        APP_ENV: production
+        APP_DEBUG: 'false'
+        APP_URL: http://${INVOICESHELF_HOST}
+        DB_CONNECTION: pgsql
+        DB_HOST: invoiceshelf-postgres
+        DB_PORT: '5432'
+        DB_DATABASE: ${DB_DATABASE}
+        DB_USERNAME: ${DB_USERNAME}
+        DB_PASSWORD: ${DB_PASSWORD}
+        CACHE_STORE: file
+        SESSION_DRIVER: file
+        SESSION_LIFETIME: '120'
+        SESSION_ENCRYPT: 'true'
+        SESSION_PATH: /
+        SESSION_DOMAIN: ${INVOICESHELF_HOST}
+        SANCTUM_STATEFUL_DOMAINS: ${INVOICESHELF_HOST}
+        STARTUP_DELAY: '10'
+      depends_on:
+        invoiceshelf-postgres:
+          condition: service_healthy
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8080
+  volumes:
+    invoiceshelf-postgres-data:
+    invoiceshelf-storage:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes invoiceshelf-postgres-data, invoiceshelf-storage of this application: back them up before updating."

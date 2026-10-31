@@ -1,0 +1,126 @@
+# Portabase: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/portabase.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: portabase
+kind: compose
+title: "Portabase"
+slogan: "Self-hosted database backup & monitoring platform"
+description: "A free, open-source and self-hosted tool from a non-profit organization that helps you automate backups and restore your databases on demand."
+category: monitoring
+tags: [backup, database, monitoring, open-source, postgres, mysql, mariadb, mongodb]
+logo: logo.svg
+version: "1.35.2"
+revision: 1
+updated: 2026-10-30
+homepage: https://portabase.io
+docs: https://portabase.io/docs
+repository: https://github.com/Portabase/portabase
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_PORTABASE:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_PASSWORD_64_PORTABASE:
+    generate: "password64"
+    secret: true
+    description: "The secret Noust generated for portabase."
+  SERVICE_USER_POSTGRES:
+    generate: "user"
+    description: "The user name Noust generated for postgres."
+  SERVICE_PASSWORD_POSTGRES:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres."
+  POSTGRES_DB:
+    default: "portabase"
+    description: "Setting POSTGRES_DB of the application; the template leaves it to the operator."
+  SMTP_HOST:
+    default: ""
+    description: "Setting SMTP_HOST of the application; the template leaves it to the operator."
+  SMTP_PORT:
+    default: ""
+    description: "Setting SMTP_PORT of the application; the template leaves it to the operator."
+  SMTP_USER:
+    default: ""
+    description: "Setting SMTP_USER of the application; the template leaves it to the operator."
+  SMTP_PASSWORD:
+    default: ""
+    secret: true
+    description: "Setting SMTP_PASSWORD of the application; the template leaves it to the operator."
+  SMTP_FROM:
+    default: ""
+    description: "Setting SMTP_FROM of the application; the template leaves it to the operator."
+health: {path: /api/health, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    portabase:
+      image: portabase/portabase:1.35.2@sha256:3d25e4041eb7753a5a0d5a6cf2c69ffdd7fcd3d458a4c86e31dd82ba77a08626
+      restart: unless-stopped
+      environment:
+        SERVICE_URL_PORTABASE: ${SERVICE_URL_PORTABASE}
+        PROJECT_URL: ${SERVICE_URL_PORTABASE}
+        PROJECT_SECRET: ${SERVICE_PASSWORD_64_PORTABASE}
+        DATABASE_URL: postgresql://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/${POSTGRES_DB:-portabase}?schema=public
+        PROJECT_NAME: ${PROJECT_NAME:-Portabase}
+        TZ: ${TZ:-Europe/Paris}
+        LOG_LEVEL: ${LOG_LEVEL:-info}
+        RETENTION_CRON: ${RETENTION_CRON:-0 7 * * *}
+        STALE_BACKUP_THRESHOLD_HOURS: ${STALE_BACKUP_THRESHOLD_HOURS:-6}
+        BACKUP_FOLDER_NAME: ${BACKUP_FOLDER_NAME:-backups}
+        TELEMETRY: ${TELEMETRY:-true}
+        SKIP_ONBOARDING: ${SKIP_ONBOARDING:-false}
+        API_ENABLED: ${API_ENABLED:-false}
+        OPENAPI_ENABLED: ${OPENAPI_ENABLED:-false}
+        MCP_ENABLED: ${MCP_ENABLED:-false}
+        SMTP_HOST: ${SMTP_HOST}
+        SMTP_PORT: ${SMTP_PORT}
+        SMTP_USER: ${SMTP_USER}
+        SMTP_PASSWORD: ${SMTP_PASSWORD}
+        SMTP_FROM: ${SMTP_FROM}
+        SMTP_SECURE: ${SMTP_SECURE:-false}
+      volumes:
+        - portabase-data:/data
+      depends_on:
+        postgres:
+          condition: service_healthy
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - curl -f http://localhost/api/health
+        interval: 30s
+        timeout: 5s
+        retries: 3
+        start_period: 60s
+      ports:
+        - 127.0.0.1:${PORT}:80
+    postgres:
+      image: postgres:18-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
+      volumes:
+        - postgres-data:/var/lib/postgresql
+      environment:
+        POSTGRES_DB: ${POSTGRES_DB:-portabase}
+        POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U $${POSTGRES_USER} -d ${POSTGRES_DB}
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      restart: unless-stopped
+  volumes:
+    portabase-data:
+    postgres-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_PASSWORD_64_PORTABASE and SERVICE_USER_POSTGRES and SERVICE_PASSWORD_POSTGRES in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes portabase-data, postgres-data of this application: back them up before updating."

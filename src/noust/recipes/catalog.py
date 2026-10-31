@@ -50,6 +50,11 @@ _logger = logging.getLogger(__name__)
 #: operator edits them while Noust is up.
 _SHIPPED: dict[str, Recipe] = {}
 
+#: The loader a recipe's own document is read with: PyYAML's libyaml one when the package has it
+#: (reading four hundred recipes takes a third of the time), else the pure Python safe loader.
+#: Both build plain data only.
+_RECIPE_LOADER: type[yaml.SafeLoader] = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+
 
 def catalogue_files() -> tuple[dict[str, RecipeFile], list[Problem]]:
     """
@@ -100,7 +105,7 @@ def load_file(entry: RecipeFile) -> Recipe:
     if cached is not None:
         return cached
     try:
-        data = yaml.safe_load(entry.read())
+        data = yaml.load(entry.read(), Loader=_RECIPE_LOADER)  # noqa: S506 - a safe loader
     except yaml.YAMLError as exc:
         raise recipe_error(entry.name, f"the YAML does not parse: {exc}") from exc
     except (OSError, ValueError) as exc:

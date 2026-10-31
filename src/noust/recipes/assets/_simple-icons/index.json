@@ -226,6 +226,12 @@
    "license": "CC0-1.0",
    "source": "https://grafana.com"
   },
+  "grav": {
+   "title": "Grav",
+   "hex": "221E1F",
+   "license": "CC0-1.0",
+   "source": "https://getgrav.org/media"
+  },
   "grocy": {
    "title": "Grocy",
    "hex": "337AB7",
@@ -439,6 +445,12 @@
    "source": "https://www.nginx.com/press/",
    "guidelines": "https://www.nginx.com/press/"
   },
+  "nodered": {
+   "title": "Node-RED",
+   "hex": "8F0000",
+   "license": "CC0-1.0",
+   "source": "https://nodered.org/about/resources/"
+  },
   "ntfy": {
    "title": "ntfy",
    "hex": "317F6F",
@@ -633,6 +645,12 @@
    "hex": "0891D1",
    "license": "CC0-1.0",
    "source": "https://github.com/syncthing/syncthing/blob/bdfd0f0548d2f6fc4b5500690dbd383baa3b0561/assets/logo-only.svg"
+  },
+  "temporal": {
+   "title": "Temporal",
+   "hex": "000000",
+   "license": "CC0-1.0",
+   "source": "https://github.com/temporalio/temporaldotio/blob/b6b5f3ed1fda818d5d6c07e27ec15d51a61f2267/public/images/icons/temporal-no-text.svg"
   },
   "transmission": {
    "title": "Transmission",

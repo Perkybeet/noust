@@ -3119,6 +3119,9 @@ KUMA_ROOT = "/var/www/apps/kuma-test"
 UMAMI_DOMAIN = "umami.test"
 UMAMI_ROOT = "/var/www/apps/umami-test"
 
+HELLO_DOMAIN = "hello.test"
+HELLO_ROOT = "/var/www/apps/hello-test"
+
 EXPORT_DOMAIN = "exp.test"
 EXPORT_SECRET = "it-export-secret-value-0123456789"
 
@@ -3293,6 +3296,40 @@ def _recipe_wordpress(sc: Scenario, unit: str) -> None:
         f"systemctl is-active {unit}", timeout=15, check=False, label=f"systemctl is-active {unit}"
     )
     sc.check(active.stdout.strip() == "active", f"{unit} is {active.stdout.strip()!r}")
+
+
+@scenario("recipe_hello")
+def scenario_recipe_hello(sc: Scenario) -> None:
+    """
+    The demo recipe: one static page, served by nginx from a release, with no process of its own.
+
+    It is what "Try a demo" deploys on a server with nothing on it, so the path from the recipe to
+    an answering address is run for real: the page is the recipe's file, nginx serves it by name,
+    nothing listens on a port of its own, and deleting the application leaves no site behind.
+    """
+    create = f"noust create --recipe hello -d {HELLO_DOMAIN} --no-ssl"
+    sc.run(create, timeout=300, label=create)
+    try:
+        page = curl_host(sc, HELLO_DOMAIN, "/")
+        sc.check("It works." in page, f"the demo page answered {page[:200]!r}")
+        head = curl_host(sc, HELLO_DOMAIN, "/", head=True)
+        sc.check(" 200" in head.splitlines()[0], f"/ answered {head.splitlines()[:1]!r}, not 200")
+        sc.run(
+            f"test -f {HELLO_ROOT}/current/index.html",
+            timeout=15,
+            label=f"test -f {HELLO_ROOT}/current/index.html",
+        )
+        units = sc.run(
+            "systemctl list-units --no-legend 'hello-test*' | wc -l",
+            timeout=15,
+            check=False,
+            label="units of the demo application",
+        ).stdout.strip()
+        sc.check(units == "0", f"a static page has no unit of its own, found {units!r}")
+    finally:
+        sc.run(f"noust delete {HELLO_DOMAIN} --force", timeout=180, check=False, label="cleanup")
+    gone = curl_host(sc, HELLO_DOMAIN, "/", head=True)
+    sc.check(" 200" not in gone.splitlines()[0], "the demo page still answers after the delete")
 
 
 @scenario("recipe_uptime_kuma")

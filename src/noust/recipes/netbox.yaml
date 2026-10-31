@@ -44,7 +44,7 @@ variables:
   ADMIN_EMAIL:
     value: "admin@${FQDN}"
     description: "The e-mail address of the user admin."
-health: {path: /login/, expect: "200", timeout: 420}
+health: {path: /login/, expect: "200", timeout: 600}
 compose: |
   services:
     netbox:

@@ -153,7 +153,7 @@
   },
   "chatto": {
    "date": "2026-10-30",
-   "seconds": 42,
+   "seconds": 46,
    "version": "0.4"
   },
   "chatwoot": {
@@ -231,6 +231,11 @@
    "seconds": 33,
    "version": "0.9.5"
   },
+  "cryptgeon": {
+   "date": "2026-10-30",
+   "seconds": 49,
+   "version": "2.9.3"
+  },
   "ctfd": {
    "date": "2026-10-30",
    "seconds": 74,
@@ -288,7 +293,7 @@
   },
   "discourse": {
    "date": "2026-10-30",
-   "seconds": 311,
+   "seconds": 428,
    "version": "2026.1.4"
   },
   "docling": {
@@ -403,13 +408,18 @@
   },
   "evershop": {
    "date": "2026-10-30",
-   "seconds": 78,
+   "seconds": 94,
    "version": "2.3.0"
   },
   "ezbookkeeping": {
    "date": "2026-10-30",
    "seconds": 83,
    "version": "2.1.1"
+  },
+  "feishin": {
+   "date": "2026-10-30",
+   "seconds": 34,
+   "version": "1.17.0"
   },
   "fider": {
    "date": "2026-10-30",
@@ -440,6 +450,11 @@
    "date": "2026-10-30",
    "seconds": 166,
    "version": "1.9.0"
+  },
+  "flame": {
+   "date": "2026-10-30",
+   "seconds": 55,
+   "version": "2.4.0"
   },
   "flaresolverr": {
    "date": "2026-10-29",
@@ -566,6 +581,11 @@
    "seconds": 73,
    "version": "13.2.3"
   },
+  "grav": {
+   "date": "2026-10-31",
+   "seconds": 60,
+   "version": "2.2.17"
+  },
   "grimmory": {
    "date": "2026-10-30",
    "seconds": 105,
@@ -641,6 +661,11 @@
    "seconds": 67,
    "version": "2026.9.0"
   },
+  "hortusfox": {
+   "date": "2026-10-30",
+   "seconds": 82,
+   "version": "6.4"
+  },
   "imgproxy": {
    "date": "2026-10-30",
    "seconds": 38,
@@ -660,6 +685,21 @@
    "date": "2026-10-29",
    "seconds": 38,
    "version": "2.7-alpine"
+  },
+  "invoiceshelf": {
+   "date": "2026-10-30",
+   "seconds": 93,
+   "version": "2.4.7"
+  },
+  "isso": {
+   "date": "2026-10-30",
+   "seconds": 41,
+   "version": "0.14.0"
+  },
+  "jackett": {
+   "date": "2026-10-30",
+   "seconds": 43,
+   "version": "0.24.1316"
   },
   "jaeger": {
    "date": "2026-10-30",
@@ -688,7 +728,7 @@
   },
   "joomla": {
    "date": "2026-10-30",
-   "seconds": 73,
+   "seconds": 77,
    "version": "6.1.0-apache"
   },
   "jotty": {
@@ -751,6 +791,11 @@
    "seconds": 100,
    "version": "1.8.5"
   },
+  "kokoro-fastapi": {
+   "date": "2026-10-31",
+   "seconds": 185,
+   "version": "0.9.2"
+  },
   "komari-monitor": {
    "date": "2026-10-29",
    "seconds": 34,
@@ -775,6 +820,11 @@
    "date": "2026-10-29",
    "seconds": 66,
    "version": "6.6"
+  },
+  "lavalink": {
+   "date": "2026-10-30",
+   "seconds": 51,
+   "version": "4.2.2"
   },
   "leafwiki": {
    "date": "2026-10-30",
@@ -856,6 +906,11 @@
    "seconds": 91,
    "version": "1.45.0"
   },
+  "loki": {
+   "date": "2026-10-31",
+   "seconds": 55,
+   "version": "3.7.9"
+  },
   "lowcoder": {
    "date": "2026-10-29",
    "seconds": 110,
@@ -931,6 +986,11 @@
    "seconds": 115,
    "version": "0.63.19"
   },
+  "metamcp": {
+   "date": "2026-10-30",
+   "seconds": 240,
+   "version": "2.4.22"
+  },
   "miniflux": {
    "date": "2026-10-28",
    "seconds": 50,
@@ -956,6 +1016,11 @@
    "seconds": 38,
    "version": "1.13.2"
   },
+  "mstream": {
+   "date": "2026-10-30",
+   "seconds": 73,
+   "version": "6.32.1"
+  },
   "myspeed": {
    "date": "2026-10-30",
    "seconds": 54,
@@ -975,6 +1040,11 @@
    "date": "2026-10-28",
    "seconds": 39,
    "version": "0.64.2"
+  },
+  "netbox": {
+   "date": "2026-10-30",
+   "seconds": 564,
+   "version": "4.7.4"
   },
   "netdata": {
    "date": "2026-10-28",
@@ -1001,6 +1071,11 @@
    "seconds": 92,
    "version": "2026.09.1"
   },
+  "node-red": {
+   "date": "2026-10-31",
+   "seconds": 56,
+   "version": "5.0.9"
+  },
   "ntfy": {
    "date": "2026-10-28",
    "seconds": 36,
@@ -1021,6 +1096,11 @@
    "seconds": 332,
    "version": "0.35.1"
   },
+  "ombi": {
+   "date": "2026-10-30",
+   "seconds": 46,
+   "version": "4.53.10"
+  },
   "omni-tools": {
    "date": "2026-10-29",
    "seconds": 36,
@@ -1035,6 +1115,11 @@
    "date": "2026-10-29",
    "seconds": 74,
    "version": "17.0.0"
+  },
+  "onetimesecret": {
+   "date": "2026-10-30",
+   "seconds": 84,
+   "version": "0.26.19"
   },
   "onlyoffice": {
    "date": "2026-10-30",
@@ -1095,6 +1180,11 @@
    "date": "2026-10-29",
    "seconds": 46,
    "version": "2.0.8"
+  },
+  "orangehrm": {
+   "date": "2026-10-31",
+   "seconds": 66,
+   "version": "5.9"
   },
   "otterwiki": {
    "date": "2026-10-29",
@@ -1166,6 +1256,16 @@
    "seconds": 65,
    "version": "9.18.0"
   },
+  "pgbackweb": {
+   "date": "2026-10-30",
+   "seconds": 175,
+   "version": "0.5.2"
+  },
+  "pgweb": {
+   "date": "2026-10-30",
+   "seconds": 46,
+   "version": "0.17.0"
+  },
   "photoprism": {
    "date": "2026-10-30",
    "seconds": 109,
@@ -1200,6 +1300,11 @@
    "date": "2026-10-29",
    "seconds": 37,
    "version": "2.18.0"
+  },
+  "portabase": {
+   "date": "2026-10-30",
+   "seconds": 70,
+   "version": "1.35.2"
   },
   "portainer": {
    "date": "2026-10-28",
@@ -1241,6 +1346,11 @@
    "seconds": 30,
    "version": "1.11.5"
   },
+  "pydio-cells": {
+   "date": "2026-10-30",
+   "seconds": 53,
+   "version": "5.1.0"
+  },
   "qbittorrent": {
    "date": "2026-10-30",
    "seconds": 45,
@@ -1281,6 +1391,11 @@
    "seconds": 34,
    "version": "3.0.1"
   },
+  "remark42": {
+   "date": "2026-10-30",
+   "seconds": 37,
+   "version": "1.18.0"
+  },
   "rivet-engine": {
    "date": "2026-10-29",
    "seconds": 41,
@@ -1300,6 +1415,11 @@
    "date": "2026-10-29",
    "seconds": 51,
    "version": "1.7.5"
+  },
+  "rsshub": {
+   "date": "2026-10-31",
+   "seconds": 48,
+   "version": "2026-10-29"
   },
   "ryot": {
    "date": "2026-10-30",
@@ -1365,6 +1485,11 @@
    "date": "2026-10-29",
    "seconds": 43,
    "version": "4.0.20.3014"
+  },
+  "speaches": {
+   "date": "2026-10-31",
+   "seconds": 100,
+   "version": "0.8.3-cpu"
   },
   "speedtest-tracker": {
    "date": "2026-10-29",
@@ -1461,6 +1586,11 @@
    "seconds": 41,
    "version": "15.6.2"
   },
+  "temporal": {
+   "date": "2026-10-31",
+   "seconds": 64,
+   "version": "2.57.0"
+  },
   "thelounge": {
    "date": "2026-10-30",
    "seconds": 45,
@@ -1471,6 +1601,11 @@
    "seconds": 105,
    "version": "1.33.13"
   },
+  "traggo": {
+   "date": "2026-10-30",
+   "seconds": 35,
+   "version": "0.8.3"
+  },
   "transmission": {
    "date": "2026-10-29",
    "seconds": 42,
@@ -1478,7 +1613,7 @@
   },
   "trek": {
    "date": "2026-10-30",
-   "seconds": 79,
+   "seconds": 102,
    "version": "3.3.0"
   },
   "trilium": {
@@ -1551,6 +1686,11 @@
    "seconds": 37,
    "version": "2.7.0"
   },
+  "voidauth": {
+   "date": "2026-10-30",
+   "seconds": 71,
+   "version": "1.17.1"
+  },
   "wakapi": {
    "date": "2026-10-30",
    "seconds": 50,
@@ -1586,6 +1726,11 @@
    "seconds": 29,
    "version": "1.12.0"
   },
+  "whodb": {
+   "date": "2026-10-30",
+   "seconds": 49,
+   "version": "0.138.0"
+  },
   "whoogle": {
    "date": "2026-10-30",
    "seconds": 52,
@@ -1600,6 +1745,11 @@
    "date": "2026-10-30",
    "seconds": 51,
    "version": "2026.10.1"
+  },
+  "wuzapi": {
+   "date": "2026-10-31",
+   "seconds": 60,
+   "version": "sha-30c1805"
   },
   "yamtrack": {
    "date": "2026-10-30",

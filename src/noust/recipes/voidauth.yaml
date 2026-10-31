@@ -1,0 +1,74 @@
+# VoidAuth from the image the project publishes (voidauth/voidauth), with the variables and folder its documentation names (voidauth.app, Getting started).
+schema: 2
+name: voidauth
+kind: compose
+title: "VoidAuth"
+slogan: "Single sign-on for your self-hosted applications."
+description: "A sign-in server for your self-hosted applications: OpenID Connect and proxy authentication, invitations and self-service profiles, passkeys, groups and e-mail. It runs with its own PostgreSQL; the first administrator's password-reset link is printed in its log."
+category: security
+tags: [sso, oidc, authentication, passkeys]
+logo: logo.svg
+version: "1.17.1"
+revision: 1
+updated: 2026-10-30
+homepage: https://github.com/voidauth/voidauth
+docs: https://github.com/voidauth/voidauth
+repository: https://github.com/voidauth/voidauth
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  DB_PASSWORD:
+    generate: "password32"
+    description: "The password of the stack's PostgreSQL account."
+  APP_URL:
+    from: "url"
+    description: "The address people use to reach the application."
+  STORAGE_KEY:
+    generate: "password64"
+    description: "The key the secrets that VoidAuth keeps are encrypted with: keep it as it is."
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    voidauth:
+      image: voidauth/voidauth:1.17.1@sha256:4b1363a5611d1c6401298c81f948b18f5f47ad7a0fe890e0730e1aa99e7837cf
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        APP_URL: ${APP_URL}
+        STORAGE_KEY: ${STORAGE_KEY}
+        DB_HOST: db
+        DB_NAME: voidauth
+        DB_USER: postgres
+        DB_PASSWORD: ${DB_PASSWORD}
+      volumes:
+        - voidauth-config:/app/config
+      ports:
+        - 127.0.0.1:${PORT}:3000
+    db:
+      image: postgres:17.11-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: postgres
+        POSTGRES_DB: voidauth
+        POSTGRES_PASSWORD: ${DB_PASSWORD}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U postgres -d voidauth
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - voidauth-db:/var/lib/postgresql/data
+  volumes:
+    voidauth-config:
+    voidauth-db:
+notes:
+  - "Open {{ url }}. The initial administrator's password-reset link is in the application's log the first time it starts (noust logs {{ domain }}): open it and set a password right after installing."
+  - "Its data is in the Docker volumes voidauth-config, voidauth-db of this application, the databases dumped by Noust before every update: back them up before updating."

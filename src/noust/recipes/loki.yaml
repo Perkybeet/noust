@@ -1,0 +1,37 @@
+# Grafana Loki from the image the project publishes (grafana/loki), as its documentation describes the container (grafana.com/docs/loki/latest/setup/install/docker).
+schema: 2
+name: loki
+kind: compose
+title: "Grafana Loki"
+slogan: "Like Prometheus, but for logs."
+description: "Stores logs the way Prometheus stores metrics: indexed by labels, queried with LogQL from Grafana, fed by Promtail, Alloy, Fluent Bit or Docker. It runs as one process with the image's single-node configuration and no tenants. It has no accounts, so keep it behind an allow-list."
+category: monitoring
+tags: [logs, grafana, observability, logql]
+logo: logo.svg
+version: "3.7.9"
+revision: 1
+updated: 2026-10-30
+homepage: https://grafana.com/oss/loki
+docs: https://grafana.com/oss/loki
+repository: https://github.com/grafana/loki
+license: AGPL-3.0-only
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3100
+health: {path: /ready, expect: "200", timeout: 180}
+compose: |
+  services:
+    loki:
+      image: grafana/loki:3.7.9@sha256:0db216b630ae1f348a1584c67f3cead8b4c1fc839169a39501db664744158e28
+      restart: unless-stopped
+      volumes:
+        - loki-data:/tmp/loki
+      ports:
+        - 127.0.0.1:${PORT}:3100
+      user: 0:0
+  volumes:
+    loki-data:
+notes:
+  - "Open {{ url }}. Send logs to {{ url }}/loki/api/v1/push and add {{ url }} as a Loki data source in Grafana. It has no sign-in: restrict who can reach it."
+  - "Its data is in the Docker volume loki-data of this application: back it up before updating."

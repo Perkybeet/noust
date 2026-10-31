@@ -1,0 +1,58 @@
+# Remark42 from the image the project publishes (umputun/remark42), with the variables and folder its documentation names (remark42.com/docs/configuration/parameters).
+schema: 2
+name: remark42
+kind: compose
+title: "Remark42"
+slogan: "Privacy-focused lightweight commenting engine."
+description: "A comments section for a website without ads or tracking: threads, votes, moderation, notifications and import from other systems, kept in a file on the server. Anonymous comments are allowed; the administrator signs in with a password Noust generates."
+category: cms
+tags: [comments, moderation, privacy, website]
+logo: logo.svg
+version: "1.18.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://remark42.com
+docs: https://remark42.com
+repository: https://github.com/umputun/remark42
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8080
+variables:
+  APP_URL:
+    from: "url"
+    description: "The address people use to reach the application."
+  FQDN:
+    from: "fqdn"
+    description: "The host name people use."
+  SECRET:
+    generate: "password64"
+    description: "The secret the sessions are signed with."
+  ADMIN_PASSWORD:
+    generate: "password32"
+    description: "The password of the administrator."
+health: {path: /ping, expect: "200", timeout: 120}
+compose: |
+  services:
+    remark42:
+      image: umputun/remark42:v1.18.0@sha256:aa61f7d97e0a2cbadf07ed06e0f3384c6b6f8ab5b8782f052eff56a3a72cd98e
+      restart: unless-stopped
+      environment:
+        REMARK_URL: ${APP_URL}
+        SITE: ${FQDN}
+        SECRET: ${SECRET}
+        AUTH_ANON: 'true'
+        ADMIN_PASSWD: ${ADMIN_PASSWORD}
+        STORE_BOLT_PATH: /srv/var/db
+        BACKUP_PATH: /srv/var/backup
+      volumes:
+        - remark42-data:/srv/var
+      ports:
+        - 127.0.0.1:${PORT}:8080
+      user: 0:0
+  volumes:
+    remark42-data:
+notes:
+  - "Open {{ url }}. Embed the widget in your site as the documentation says, with host {{ url }} and site id {{ domain }}. The administrator signs in with the password in ADMIN_PASSWORD (noust env show {{ domain }} --unmask). Add social sign-in (GitHub, Google) with the AUTH_* variables of the documentation."
+  - "Its data is in the Docker volume remark42-data of this application: back it up before updating."

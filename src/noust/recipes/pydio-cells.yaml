@@ -1,0 +1,81 @@
+# Pydio Cells: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/pydio-cells.yml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: pydio-cells
+kind: compose
+title: "Pydio Cells"
+slogan: "High-performance large file sharing, no-code automation and collaboration in one platform."
+description: "File sharing platform for organizations."
+category: files
+tags: [storage, files]
+logo: logo.svg
+version: "5.1.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://pydio.com
+docs: https://docs.pydio.com/
+repository: https://github.com/pydio/cells
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_CELLS:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_PASSWORD_MYSQLROOT:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for mysqlroot."
+  SERVICE_USER_MYSQL:
+    generate: "user"
+    description: "The user name Noust generated for mysql."
+  SERVICE_PASSWORD_MYSQL:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for mysql."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    cells:
+      image: pydio/cells:5.1.0@sha256:b842c9da4523dabf817e0355cd28b8ee3f73e916539c01c211064e132fb1f495
+      environment:
+        SERVICE_URL_CELLS: ${SERVICE_URL_CELLS}
+        CELLS_SITE_EXTERNAL: ${SERVICE_URL_CELLS}
+        CELLS_SITE_NO_TLS: '1'
+      volumes:
+        - cells_data:/var/cells
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8080
+    mariadb:
+      image: mariadb:11@sha256:c4124d1afa875e47f2892edf26b482fa54f796e2f342d3717a04ca091a22a9bd
+      volumes:
+        - mysql_data:/var/lib/mysql
+      environment:
+        MYSQL_ROOT_PASSWORD: ${SERVICE_PASSWORD_MYSQLROOT}
+        MYSQL_DATABASE: ${MYSQL_DATABASE:-cells}
+        MYSQL_USER: ${SERVICE_USER_MYSQL}
+        MYSQL_PASSWORD: ${SERVICE_PASSWORD_MYSQL}
+      healthcheck:
+        test:
+          - CMD
+          - healthcheck.sh
+          - --connect
+          - --innodb_initialized
+        interval: 10s
+        timeout: 20s
+        retries: 5
+      restart: unless-stopped
+  volumes:
+    cells_data:
+    mysql_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_PASSWORD_MYSQLROOT and SERVICE_USER_MYSQL and SERVICE_PASSWORD_MYSQL in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes cells_data, mysql_data of this application: back them up before updating."
