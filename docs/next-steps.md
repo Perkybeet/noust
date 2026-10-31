@@ -51,4 +51,4 @@ You have a server, an application and a way back. Here is where each next thing 
 ## Look it up
 
 [Every command](reference-cli.md), [every API operation](reference-api.md),
-[every setting](reference-config.md), and [what changed in each release](CHANGELOG-4.0.md).
+[every setting](reference-config.md), and [what changed in each release](CHANGELOG-4.1.md).

@@ -126,7 +126,7 @@ A 2.x server upgrades to 3.3.x first: [upgrading-3.0.md](UPGRADING-3.0.md).
 
 | You want | Read |
 |---|---|
-| What changed in a minor | `CHANGELOG-X.Y.md` ([4.0](CHANGELOG-4.0.md), [3.3](CHANGELOG-3.3.md), [3.2](CHANGELOG-3.2.md), [3.1](CHANGELOG-3.1.md)) |
-| What to do when you upgrade | `UPGRADING-X.Y.md` ([4.0](UPGRADING-4.0.md), [3.3](UPGRADING-3.3.md)), and the console: Settings > About Noust > What's new |
+| What changed in a minor | `CHANGELOG-X.Y.md` ([4.1](CHANGELOG-4.1.md), [4.0](CHANGELOG-4.0.md), [3.3](CHANGELOG-3.3.md), [3.2](CHANGELOG-3.2.md), [3.1](CHANGELOG-3.1.md)) |
+| What to do when you upgrade | `UPGRADING-X.Y.md` ([4.1](UPGRADING-4.1.md), [4.0](UPGRADING-4.0.md), [3.3](UPGRADING-3.3.md)), and the console: Settings > About Noust > What's new |
 | Changes to the API | [the API changelog](API-CHANGELOG.md) |
 | How to go back | [downgrading.md](downgrading.md) |
