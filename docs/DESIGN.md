@@ -1224,13 +1224,15 @@ would be taller than its row.
 stone: one course (a row) per server, with its name, its place and its disk on the left and its
 applications as slabs of one size in a regular grid (two across on a phone, `columns` from 640px). The
 ones with a problem come first, tinted with their state, its glyph and its word; the well ones are neutral
-stone and, when a server has more than two rows of them, are said as one slab ("+9 running"), because a
-problem is never hidden and twenty that are well say less than the one that is not. A server with nothing
+stone and, when a server has more than two rows of them, fill what is left of the two rows by name and the
+last slab says how many more there are ("+3 running"), because a problem is never hidden, twenty that are
+well say less than the one that is not, and a server drawn with none of its applications named, beside
+neighbours that show theirs, reads as a server that has none. A server with nothing
 on it shows an empty slot. A slab that opens a page is raised (it takes `linkFor`, since the kit does not
 know the routes); without it the slabs are seated. A server is named as the operator named it (`web-01`),
 never with a name that has to be decoded. A course takes a `problem` (`state`, `label`): a server that does not
 answer says so on a slab at the head of its course, with the applications it last ran drawn after it. `ungrouped`
-draws every application of a fleet of one, where "+9 running" would hide what the page is about.
+draws every application of a fleet of one, where "+3 running" would hide what the page is about.
 
 **`Section`** (`loading`, `icon`), **`Sections`**, **`Subsection`**. A page's subjects (`h2`, 32px
 apart) and their parts (`h3`, or `h4` inside a card). Headings are never written by hand in a

@@ -32,11 +32,27 @@ describe("planCourse: which slabs a course draws", () => {
     expect(planCourse(apps, 4).slabs.map((slab) => slab.id)).toEqual(["failed", "warning", "deploying", "unknown", "stopped"]);
   });
 
-  it("says the well ones as one slab when they do not fit, and never hides a problem", () => {
+  it("names the well ones that fit in the two rows and says the rest as one slab, and never hides a problem", () => {
     const well = Array.from({ length: 9 }, (_, index) => app(`w${String(index)}`, "running"));
     const plan = planCourse([...well, app("p", "stopped"), app("f", "failed")], 4);
-    expect(plan.slabs.map((slab) => slab.id)).toEqual(["f", "p"]);
-    expect(plan.grouped).toBe(9);
+    // Eight places: the two problems, five by name, and one that says how many more.
+    expect(plan.slabs.map((slab) => slab.id)).toEqual(["f", "p", "w0", "w1", "w2", "w3", "w4"]);
+    expect(plan.grouped).toBe(4);
+    expect(plan.slabs.length + 1).toBe(8);
+  });
+
+  it("never leaves a server with none of its applications named while there is room: a crowded one shows what fits", () => {
+    const ten = Array.from({ length: 10 }, (_, index) => app(`w${String(index)}`, "running"));
+    const plan = planCourse(ten, 4);
+    expect(plan.slabs.map((slab) => slab.id)).toEqual(["w0", "w1", "w2", "w3", "w4", "w5", "w6"]);
+    expect(plan.grouped).toBe(3);
+  });
+
+  it("says only the count when the problems alone fill the two rows", () => {
+    const problems = Array.from({ length: 8 }, (_, index) => app(`p${String(index)}`, "failed"));
+    const plan = planCourse([...problems, app("w", "running"), app("x", "running")], 4);
+    expect(plan.slabs).toHaveLength(8);
+    expect(plan.grouped).toBe(2);
   });
 
   it("draws every application when told not to group: a fleet of one server has nothing to compare with", () => {
@@ -51,7 +67,9 @@ describe("planCourse: which slabs a course draws", () => {
     const eight = Array.from({ length: 8 }, (_, index) => app(`w${String(index)}`, "running"));
     expect(planCourse(eight, 4).grouped).toBe(0);
     expect(planCourse(eight, 4).slabs).toHaveLength(8);
-    expect(planCourse([...eight, app("x", "running")], 4).grouped).toBe(9);
+    const nine = planCourse([...eight, app("x", "running")], 4);
+    expect(nine.slabs).toHaveLength(7);
+    expect(nine.grouped).toBe(2);
   });
 
   it("knows what is well: running and static, and nothing else", () => {
@@ -85,9 +103,13 @@ describe("FleetCourses", () => {
     expect(screen.getByText("b.example.com").closest("div")?.className).not.toMatch(/bg-(?:ok|fail|warn)/);
   });
 
-  it("says the well ones of a crowded server as '+N running', in the catalog's words", () => {
+  it("names what fits of a crowded server and says the rest as '+N running', in the catalog's words", () => {
     render(<FleetCourses label="Fleet" courses={COURSES} />);
-    expect(screen.getByText("+9 running")).toBeInTheDocument();
+    expect(screen.getByText("+2 running")).toBeInTheDocument();
+    // Seven of its nine are drawn by name beside the slab that counts the others.
+    expect(screen.getByText("w0.example.com")).toBeInTheDocument();
+    expect(screen.getByText("w6.example.com")).toBeInTheDocument();
+    expect(screen.queryByText("w7.example.com")).not.toBeInTheDocument();
   });
 
   it("shows an empty slot for a server with nothing on it", () => {
