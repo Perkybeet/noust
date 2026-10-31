@@ -1,0 +1,1 @@
+import{xt as e}from"./useNode-HqJbJF29.js";import{t}from"./HomePage-YXh0U-UB.js";var n=e();function r(){return(0,n.jsx)(t,{scope:`fleet`})}export{r as component};

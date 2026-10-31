@@ -1,1 +1,0 @@
-import{a as e,x as t}from"./client-DOD4T5ok.js";var n={server:[`deploy-keys`,`server`]},r=()=>t({queryKey:n.server,queryFn:({signal:t})=>e(`get`,`/api/deploy-keys/server`,{signal:t}),staleTime:3e4});function i(){return e(`post`,`/api/deploy-keys/server`)}export{n,r,i as t};

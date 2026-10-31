@@ -1,0 +1,1 @@
+import{t as e}from"./icons-CUN93IaY.js";import{n as t,t as n}from"./objectIcons-DSokodb1.js";var r={...n,...t,remove:e.delete,add:e.add};export{r as t};

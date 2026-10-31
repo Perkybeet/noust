@@ -1,1 +1,0 @@
-import{bt as e}from"./useNode-d7_yWS1e.js";import{n as t}from"./Match-bhgitJ52.js";import{t as n}from"./SettingsShell-RVy_Exrq.js";var r=e();function i(){return(0,r.jsx)(n,{children:(0,r.jsx)(t,{})})}export{i as component};
