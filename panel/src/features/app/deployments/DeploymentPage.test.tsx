@@ -7,6 +7,7 @@ import { renderConsole } from "../../../test/console";
 import { FakeWebSocket, fakeBackend, json, problem } from "../../../test/fakes";
 import type { RouteHandler } from "../../../test/fakes";
 import { TAB_APP, TAB_DOMAIN, appRoutes, screenWidth } from "../testRoutes";
+import { giveElementsASize } from "../../../test/layout";
 
 const FAILED = {
   id: 20,
@@ -155,9 +156,8 @@ describe("a deployment's page", { timeout: 20_000 }, () => {
   });
 
   it("opens the log on the line where it first went wrong", async () => {
-    // The virtualizer sizes its window from offsetHeight, which jsdom reports as 0.
-    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(400);
-    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(800);
+    // jsdom has no layout: a virtualized list's window is as big as the size it is given.
+    giveElementsASize();
     await pageAt(20);
     const log = await screen.findByRole("region", { name: `Build log of deployment 20 of ${TAB_DOMAIN}` });
     const line = await within(log).findByText("Type error: Property 'total' does not exist on type 'Order'.");
@@ -213,9 +213,8 @@ describe("a deployment's page", { timeout: 20_000 }, () => {
   });
 
   it("shows the build log with its times apart from the verbatim text", async () => {
-    // The virtualizer sizes its window from offsetHeight, which jsdom reports as 0.
-    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(400);
-    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(800);
+    // jsdom has no layout: a virtualized list's window is as big as the size it is given.
+    giveElementsASize();
     await pageAt(20);
     const log = await screen.findByRole("region", { name: `Build log of deployment 20 of ${TAB_DOMAIN}` });
     expect(await within(log).findByText("added 812 packages, and audited 813 packages in 12s")).toBeInTheDocument();

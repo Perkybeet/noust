@@ -60,7 +60,10 @@ describe("the unit tally", () => {
     const link = within(strip).getByRole("link", { name: "Noust's services: 9 running, 1 failed, 2 stopped" });
     // Both forms are rendered; the strip's own width (a container query) shows one of them:
     // the words, or on a narrower strip the counts alone, whose meaning the link's name keeps.
-    expect(link.textContent).toBe("Services9 running91 failed12 stopped2");
+    const drawn = [...link.querySelectorAll('[aria-hidden="true"]')].map((node) => node.textContent).join("");
+    expect(drawn).toBe("Services9 running91 failed12 stopped2");
+    // The name is the link's own hidden text, not an aria-label (WCAG 2.5.3, Label in Name).
+    expect(link).not.toHaveAttribute("aria-label");
     expect(within(link).getByText("9 running")).toHaveClass("hidden");
   });
 

@@ -7,6 +7,7 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { downloadText } from "../../lib/clipboard";
 import type { LogLine } from "./LogViewer";
 import { LogViewer } from "./LogViewer";
+import { giveElementsASize } from "../../test/layout";
 
 // The real implementation still runs (so the download tests below exercise the actual blob
 // and anchor dance), wrapped so its calls - and the exact text passed to it - can be asserted.
@@ -38,9 +39,8 @@ function scrollTo(region: HTMLElement, top: number) {
 }
 
 beforeEach(() => {
-  // The virtualizer sizes its window from offsetHeight, which jsdom reports as 0.
-  vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(400);
-  vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(800);
+  // jsdom has no layout: a virtualized list's window is as big as the size it is given.
+  giveElementsASize();
 });
 
 describe("LogViewer", () => {

@@ -6,7 +6,7 @@
  */
 
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { setLocale } from "../../../app/locale";
 import { expectNoAxeViolations } from "../../../test/axe";
@@ -14,12 +14,12 @@ import { renderConsole } from "../../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../../test/fakes";
 import type { RouteHandler } from "../../../test/fakes";
 import { onDesktop, serverRoutes } from "../testing";
+import { giveElementsASize } from "../../../test/layout";
 
 beforeEach(() => {
   onDesktop();
   // The viewer shows only the rows its scroller has room for, and jsdom reports no room.
-  vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(400);
-  vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(800);
+  giveElementsASize();
 });
 
 const ENTRIES = [

@@ -1,0 +1,1 @@
+import{t as e}from"./Checkbox-Dnrofj2m.js";import{dt as t}from"./useNode-BZ3mMIFn.js";var n=t();function r({words:t,value:r,onChange:i,destinations:a}){let o=a>0;return(0,n.jsx)(e,{checked:r&&o,onCheckedChange:i,disabled:!o,label:t.label,description:o?t.help:t.needsDestination})}export{r as t};

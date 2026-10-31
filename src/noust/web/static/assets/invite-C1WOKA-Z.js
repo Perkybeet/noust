@@ -1,1 +1,0 @@
-import{t as e}from"./InvitePage-8surkiEk.js";var t=e;export{t as component};

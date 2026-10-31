@@ -368,6 +368,10 @@ the weight budget require; the script every page loads is held to 398 KiB gzippe
   the website draws, and the old addresses lead to the new pages.
 - **Release**: the announcement waits until the files are signed, and the SBOM of the central's image is
   attested beside it instead of attached to the release.
+- **Dependencies**: the workflows run on the current major version of each action, and the release keeps
+  signing with cosign 2, whose separate signature and certificate the installer and the guides describe; the
+  console moves to the current versions of its runtime and tooling, Base UI 1.9 among them. The console's
+  accessibility checks run axe 4.14, which adds the Label in Name rule (WCAG 2.5.3).
 
 ## Fixes
 

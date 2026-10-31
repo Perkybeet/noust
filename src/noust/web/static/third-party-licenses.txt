@@ -10,7 +10,7 @@ fonts are under the SIL Open Font License, version 1.1 (LICENSE-OFL-1.1); the ma
 27 packages
 
 ------------------------------------------------------------------------------
-@base-ui/react 1.8.0
+@base-ui/react 1.9.0
 License: MIT
 Source: https://github.com/mui/base-ui
 ------------------------------------------------------------------------------
@@ -38,7 +38,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ------------------------------------------------------------------------------
-@base-ui/utils 0.4.0
+@base-ui/utils 0.5.0
 License: MIT
 Source: https://github.com/mui/base-ui
 ------------------------------------------------------------------------------
@@ -474,7 +474,7 @@ FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
 
 ------------------------------------------------------------------------------
-@tanstack/history 1.162.4
+@tanstack/history 1.162.5
 License: MIT
 Source: https://github.com/TanStack/router
 ------------------------------------------------------------------------------
@@ -502,7 +502,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ------------------------------------------------------------------------------
-@tanstack/query-core 5.103.2
+@tanstack/query-core 5.104.5
 License: MIT
 Source: https://github.com/TanStack/query
 ------------------------------------------------------------------------------
@@ -530,7 +530,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ------------------------------------------------------------------------------
-@tanstack/react-query 5.103.2
+@tanstack/react-query 5.104.5
 License: MIT
 Source: https://github.com/TanStack/query
 ------------------------------------------------------------------------------
@@ -558,7 +558,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ------------------------------------------------------------------------------
-@tanstack/react-router 1.170.39
+@tanstack/react-router 1.170.46
 License: MIT
 Source: https://github.com/TanStack/router
 ------------------------------------------------------------------------------
@@ -586,7 +586,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ------------------------------------------------------------------------------
-@tanstack/react-store 0.11.1
+@tanstack/react-store 0.11.2
 License: MIT
 Source: https://github.com/TanStack/store
 ------------------------------------------------------------------------------
@@ -614,7 +614,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ------------------------------------------------------------------------------
-@tanstack/react-virtual 3.14.13
+@tanstack/react-virtual 3.14.22
 License: MIT
 Source: https://github.com/TanStack/virtual
 ------------------------------------------------------------------------------
@@ -642,7 +642,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ------------------------------------------------------------------------------
-@tanstack/router-core 1.171.32
+@tanstack/router-core 1.171.39
 License: MIT
 Source: https://github.com/TanStack/router
 ------------------------------------------------------------------------------
@@ -670,7 +670,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ------------------------------------------------------------------------------
-@tanstack/store 0.11.1
+@tanstack/store 0.11.2
 License: MIT
 Source: https://github.com/TanStack/store
 ------------------------------------------------------------------------------
@@ -698,7 +698,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ------------------------------------------------------------------------------
-@tanstack/virtual-core 3.17.11
+@tanstack/virtual-core 3.19.7
 License: MIT
 Source: https://github.com/TanStack/virtual
 ------------------------------------------------------------------------------
@@ -726,7 +726,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ------------------------------------------------------------------------------
-lucide-react 1.48.0
+lucide-react 1.61.0
 License: ISC
 Source: https://github.com/lucide-icons/lucide
 ------------------------------------------------------------------------------
@@ -801,7 +801,7 @@ DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ------------------------------------------------------------------------------
-react 19.3.0
+react 19.3.1
 License: MIT
 Source: https://github.com/react/react
 ------------------------------------------------------------------------------
@@ -829,7 +829,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ------------------------------------------------------------------------------
-react-dom 19.3.0
+react-dom 19.3.1
 License: MIT
 Source: https://github.com/react/react
 ------------------------------------------------------------------------------

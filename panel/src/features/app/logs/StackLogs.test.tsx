@@ -13,6 +13,7 @@ import { renderConsole } from "../../../test/console";
 import { FakeWebSocket, fakeBackend, json, problem } from "../../../test/fakes";
 import type { RouteHandler } from "../../../test/fakes";
 import { TAB_DOMAIN, appRoutes } from "../testRoutes";
+import { giveElementsASize } from "../../../test/layout";
 
 const OUTPUT = [
   "web-1  | GET / 200 in 38ms",
@@ -30,9 +31,8 @@ function stackLogs(call: { search: URLSearchParams }) {
 
 async function stackAt(app: Record<string, unknown> = {}, extra: Record<string, RouteHandler> = {}) {
   vi.stubGlobal("WebSocket", FakeWebSocket);
-  // The virtualizer sizes its window from offsetHeight, which jsdom reports as 0.
-  vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(400);
-  vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(800);
+  // jsdom has no layout: a virtualized list's window is as big as the size it is given.
+  giveElementsASize();
   const backend = fakeBackend(
     appRoutes({ app_type: "docker-compose", ...app }, { "POST /api/auth/ws-ticket": () => json(200, { ticket: "t1" }), [LOGS]: stackLogs, ...extra }),
   );

@@ -84,11 +84,14 @@ function UnitTally({ units, named }: { units: Machine["units"]; named: boolean }
     { state: "stopped" as const, count: units.stopped, word: t("shell.machine.stopped", { count: units.stopped }), tone: "text-idle" },
   ];
   // One sentence, not two: the tooltip (hover and keyboard focus) and the accessible name say
-  // the same thing, so the symbols next to it are never the only place the meaning lives.
+  // the same thing, so the symbols next to it are never the only place the meaning lives. The name
+  // is the link's own hidden text, not an aria-label: what it draws ("11 2 4") is no sequence of the
+  // sentence, which a label would have to contain (WCAG 2.5.3, Label in Name).
   const summary = unitTallySummary(units, t);
   return (
     <Tooltip content={summary}>
-      <Link to="/server/services" aria-label={summary} className={cx("flex items-center gap-3", STRIP_LINK)}>
+      <Link to="/server/services" className={cx("flex items-center gap-3", STRIP_LINK)}>
+        <span className="sr-only">{summary}</span>
         <span aria-hidden="true" className="hidden text-12 text-fg-muted @min-[60rem]:inline">
           {t("shell.machine.units")}
         </span>

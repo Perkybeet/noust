@@ -1,0 +1,1 @@
+import{n as e}from"./rolldown-runtime-WkwZ5CU-.js";import{er as t}from"./lucide-DAghnoaZ.js";var n=e(t(),1),r=(0,n.createContext)(null);function i(e){return(0,n.useContext)(r)===e}export{i as n,r as t};

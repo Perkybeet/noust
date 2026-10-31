@@ -6,14 +6,14 @@ import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import { catalogueRoutes, installed } from "./testFixtures";
+import { giveElementsASize } from "../../test/layout";
 
 /**
  * A screen as wide as a desktop's: tables are tables, not the phone's card rows. And a layout
  * for the log viewer, which sizes its window from it.
  */
 beforeEach(() => {
-  vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(400);
-  vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(800);
+  giveElementsASize();
   vi.stubGlobal("matchMedia", (query: string) => ({
     matches: true,
     media: query,

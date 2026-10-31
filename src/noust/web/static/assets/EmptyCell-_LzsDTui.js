@@ -1,1 +1,0 @@
-import{g as e,xt as t}from"./useNode-HqJbJF29.js";var n=t();function r({reason:t}){let r=e();return(0,n.jsxs)(n.Fragment,{children:[(0,n.jsx)(`span`,{"aria-hidden":`true`,className:`text-fg-faint`,children:`–`}),(0,n.jsx)(`span`,{className:`sr-only`,children:t??r(`common.emptyCell.none`)})]})}export{r as t};

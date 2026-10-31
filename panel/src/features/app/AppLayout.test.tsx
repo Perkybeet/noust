@@ -7,6 +7,7 @@ import { renderConsole } from "../../test/console";
 import { APPS, FakeEventSource, SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import { screenWidth } from "./testRoutes";
+import { giveElementsASize } from "../../test/layout";
 
 const DOMAIN = "shop.example.com";
 
@@ -889,9 +890,8 @@ describe("the job in hand", () => {
   });
 
   it("opens the job's own output beside the page while it has no deployment yet", async () => {
-    // The log viewer sizes its window from offsetHeight, which jsdom reports as 0.
-    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(400);
-    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(800);
+    // jsdom has no layout: a virtualized list's window is as big as the size it is given.
+    giveElementsASize();
     const { user } = await appAt({ "GET /api/jobs/active": () => json(200, { jobs: [RUNNING_JOB], total: 1, active: 1 }) });
     await user.click(await screen.findByRole("button", { name: "View log" }));
     const drawer = await screen.findByRole("dialog", { name: `Updating ${DOMAIN}` });
