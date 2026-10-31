@@ -464,6 +464,26 @@ class Project:
             check=False,
         )
 
+    def container_logs(self, name: str, tail: int = 30) -> str:
+        """
+        Read the end of one container's log.
+
+        Args:
+            name: The container's name, as :meth:`inspect` gives it.
+            tail: How many lines.
+
+        Returns:
+            What the container wrote to its output and its error output.
+        """
+        shown = subprocess.run(
+            ["docker", "logs", "--tail", str(tail), name],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+        return shown.stdout + shown.stderr
+
     def inspect(self) -> list[dict[str, Any]]:
         """
         Describe every container of the project.
@@ -497,6 +517,31 @@ class Project:
                 }
             )
         return found
+
+
+def failing_logs(project: Project, containers: Sequence[Mapping[str, Any]]) -> str:
+    """
+    Gather the end of the logs of the containers that did not stay up, then the project's own tail.
+
+    Args:
+        project: The Compose project.
+        containers: What :meth:`Project.inspect` returned.
+
+    Returns:
+        Text for the evidence: each failing container's last lines under its name, and the
+        project's last lines after them, six thousand characters at most.
+    """
+    parts = []
+    for container in containers:
+        if (
+            container.get("restarts")
+            or container.get("exit_code")
+            or container["state"] == "restarting"
+        ):
+            shown = project.container_logs(str(container["name"]))
+            parts.append(f"--- {container['name']}\n{shown[-1500:]}")
+    parts.append(project.run("logs", "--no-color", "--tail", "40").stdout[-2500:])
+    return "\n".join(parts)[-6000:]
 
 
 def smoke(
@@ -615,8 +660,10 @@ def smoke(
         report.error_lines = {"count": len(errors), "first": errors[:5]}
         if report.problems:
             # A restart loop answers the gate and fails afterwards: the evidence needs the logs
-            # that say why, as it has them when the gate itself fails.
-            report.log_tail = project.run("logs", "--no-color", "--tail", "60").stdout[-6000:]
+            # that say why, as it has them when the gate itself fails. The ones of the containers
+            # that restarted or left with an error come first: a database's chatter drowns them
+            # in the project's own tail.
+            report.log_tail = failing_logs(project, report.containers)
         return report
     finally:
         if keep:

@@ -183,6 +183,9 @@ class FakeProject:
     def inspect(self) -> list[dict[str, Any]]:
         return FakeProject.containers
 
+    def container_logs(self, name: str, tail: int = 30) -> str:
+        return f"the log of {name}\n"
+
 
 @pytest.fixture
 def fake_docker(smoke: ModuleType, monkeypatch: pytest.MonkeyPatch) -> type[FakeProject]:
@@ -720,3 +723,22 @@ def test_the_gate_stops_waiting_when_a_container_keeps_restarting(
     assert any("restarted 5 times" in problem for problem in report.problems)
     assert asked[-1] < 60, "it waited on for the recipe's whole timeout"
     assert "ERROR: one expected line" in report.log_tail
+
+
+def test_the_logs_of_a_container_that_restarted_come_before_the_projects_own_tail(
+    smoke: ModuleType, fake_docker: type[FakeProject]
+) -> None:
+    """HeyForm's own error was lost under its database's chatter in the last lines of the project."""
+    fake_docker.log = "mongo chatter\n" * 3
+    containers = [
+        {"name": "db-1", "state": "running", "restarts": 0, "exit_code": 0},
+        {"name": "web-1", "state": "restarting", "restarts": 7, "exit_code": 1},
+    ]
+
+    text = smoke.failing_logs(
+        FakeProject(type("R", (), {"name": "x"})(), Path("."), "p-"), containers
+    )
+
+    assert "--- web-1\nthe log of web-1" in text
+    assert "db-1" not in text
+    assert text.index("web-1") < text.index("mongo chatter")
