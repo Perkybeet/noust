@@ -39,7 +39,7 @@ function AppSwitcher({ route, params, label }: { route: string; params: Params; 
   const to = (only ? route.replace(/\/+$/, "") : "/apps/$domain") as ConsolePath;
   if (others.length === 0) return null;
   return (
-    <Menu trigger={<IconButton size="sm" label={t("nav.crumbs.switch", { name: label })} icon={<ChevronsUpDown />} tooltip={false} className="-ml-1.5 -mr-2" />}>
+    <Menu trigger={<IconButton size="sm" label={t("nav.crumbs.switch", { name: label })} icon={<ChevronsUpDown />} tooltip={false} className="-ml-2 -mr-2" />}>
       {others.map((domain) => (
         <MenuItem
           key={domain}
@@ -85,7 +85,7 @@ function SectionSwitcher({ step, params, label }: { step: CrumbStep; params: Par
     <Menu
       open={open}
       onOpenChange={setOpen}
-      trigger={<IconButton size="sm" label={t("nav.crumbs.switch", { name: label })} icon={<ChevronsUpDown />} tooltip={false} className="-ml-1.5 -mr-2" />}
+      trigger={<IconButton size="sm" label={t("nav.crumbs.switch", { name: label })} icon={<ChevronsUpDown />} tooltip={false} className="-ml-2 -mr-2" />}
     >
       {(open ? siblings.filter((entry) => hasMessage(entry.label)) : []).map((entry) => {
         const Icon = tryIcon(entry.id);

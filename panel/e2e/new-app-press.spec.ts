@@ -11,7 +11,7 @@
 
 import type { Page } from "@playwright/test";
 
-import { expect, signIn, test } from "./fixtures";
+import { expect, settle, signIn, test } from "./fixtures";
 
 const INSPECTION = {
   app_type: "nextjs",
@@ -50,13 +50,15 @@ for (const heldMs of [60, 150, 400]) {
     await page.setViewportSize({ width: 1440, height: 810 });
     await signIn(page, consoleServer, "/apps/new");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("New application");
+    // A page that is still arriving moves under the hand for reasons of its own (the fonts, the lists): the press is
+    // the subject here, so it is made on a page that has finished.
+    await settle(page);
     const { reads } = await answerReads(page);
     await typeRepository(page);
 
-    const button = page.getByRole("button", { name: "Continue", exact: true });
-    const box = await button.boundingBox();
-    if (box === null) throw new Error("Continue is not drawn");
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    // The page rearranges as the address is typed (the catalog gives way, the branch appears): the pointer goes to
+    // the button once it has stopped moving, as a hand does.
+    await page.getByRole("button", { name: "Continue", exact: true }).hover();
     await page.mouse.down();
     // How long the hand holds it is the input of the test, not something it waits for.
     await page.waitForTimeout(heldMs);
@@ -73,6 +75,7 @@ test("a repository left with the mouse is read by itself, and a later press join
   await page.setViewportSize({ width: 1440, height: 810 });
   await signIn(page, consoleServer, "/apps/new");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("New application");
+  await settle(page);
   const { reads } = await answerReads(page);
   await typeRepository(page);
   // Leaving the field for the page's title, not for the button.

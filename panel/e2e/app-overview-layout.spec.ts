@@ -113,6 +113,6 @@ test("a duration in Spanish keeps its figure and its unit together", async ({ pa
   await expect(history).toBeVisible();
   const text = (await history.textContent()) ?? "";
   // The figure and the unit are joined by a narrow no-break space, in the text a browser keeps.
-  expect(text).toMatch(new RegExp(`\\d${NARROW_SPACE}(?:s|min)`));
-  expect(text).not.toMatch(/\d (?:s|min)\b/);
+  expect(text).toMatch(new RegExp(`\\d${NARROW_SPACE}(?:ms|s|min)`));
+  expect(text).not.toMatch(/\d (?:ms|s|min)\b/);
 });
