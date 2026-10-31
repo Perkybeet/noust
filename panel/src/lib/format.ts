@@ -19,6 +19,7 @@ import { translate } from "../i18n/translate";
 const numberFormats = new Map<string, Intl.NumberFormat>();
 const dateFormats = new Map<string, Intl.DateTimeFormat>();
 const relativeFormats = new Map<Locale, Intl.RelativeTimeFormat>();
+const relativeDayFormats = new Map<Locale, Intl.RelativeTimeFormat>();
 
 function numberFormat(locale: Locale, options: Intl.NumberFormatOptions = {}): Intl.NumberFormat {
   const key = `${locale}|${JSON.stringify(options)}`;
@@ -48,6 +49,19 @@ function relativeFormat(locale: Locale): Intl.RelativeTimeFormat {
     const narrow = new Intl.RelativeTimeFormat(locale, { style: "narrow", numeric: "always" });
     format = /^[-+\u2212]/.test(narrow.format(-1, "hour")) ? new Intl.RelativeTimeFormat(locale, { style: "short", numeric: "always" }) : narrow;
     relativeFormats.set(locale, format);
+  }
+  return format;
+}
+
+/**
+ * The days of a relative time, in full where the compact form is a letter that reads as a typo: Spanish
+ * narrow says "hace 1 d", and a person reads "hace 1 día". Hours and minutes keep their compact units.
+ */
+function relativeDayFormat(locale: Locale): Intl.RelativeTimeFormat {
+  let format = relativeDayFormats.get(locale);
+  if (format === undefined) {
+    format = locale === "es" ? new Intl.RelativeTimeFormat(locale, { style: "long", numeric: "always" }) : relativeFormat(locale);
+    relativeDayFormats.set(locale, format);
   }
   return format;
 }
@@ -279,7 +293,8 @@ export function formatRelative(date: Date, now: Date = new Date(), locale: Local
   const delta = Math.round((now.getTime() - date.getTime()) / 1000);
   const sign = delta < 0 ? 1 : -1;
   const seconds = Math.abs(delta);
-  const say = (amount: number, unit: Intl.RelativeTimeFormatUnit): string => relativeFormat(locale).format(sign * amount, unit);
+  const say = (amount: number, unit: Intl.RelativeTimeFormatUnit): string =>
+    (unit === "day" ? relativeDayFormat(locale) : relativeFormat(locale)).format(sign * amount, unit);
   // Either side of now by a few seconds is the same moment: clocks and ticks drift that much.
   if (seconds < 10) return translate(locale, "time.justNow");
   if (seconds < 60) return say(seconds, "second");
@@ -287,7 +302,7 @@ export function formatRelative(date: Date, now: Date = new Date(), locale: Local
   if (seconds < 86_400) return say(Math.floor(seconds / 3_600), "hour");
   if (seconds < 7 * 86_400) return say(Math.floor(seconds / 86_400), "day");
   const year = date.getFullYear() !== now.getFullYear();
-  // Spanish in full: its short August, "20 ago", reads as the English "ago" next to "hace 2 d".
+  // Spanish in full: its short August, "20 ago", reads as the English "ago" next to "hace 2 días".
   if (locale === "es") return dateFormat(locale, year ? { year: "numeric", month: "long", day: "numeric" } : { month: "long", day: "numeric" }).format(date);
   return formatDate(date, { year }, locale);
 }

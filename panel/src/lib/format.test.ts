@@ -172,6 +172,15 @@ describe("formatRelative", () => {
     expect(formatRelative(new Date(now.getTime() + 3 * 3600 * 1000), now, "fr")).toMatch(/^dans 3\sh$/);
     expect(formatRelative(ago(5 * 3600), now, "es")).toMatch(/^hace 5\sh$/);
   });
+
+  it("says the days in Spanish as days, not as a letter: hace 1 día, hace 3 días", () => {
+    expect(formatRelative(ago(86_400), now, "es")).toMatch(/^hace 1\sdía$/);
+    expect(formatRelative(ago(3 * 86_400), now, "es")).toMatch(/^hace 3\sdías$/);
+    // The hours and the minutes keep their compact units, and English keeps its own.
+    expect(formatRelative(ago(23 * 3600), now, "es")).toMatch(/^hace 23\sh$/);
+    expect(formatRelative(ago(5 * 60), now, "es")).toMatch(/^hace 5\smin$/);
+    expect(formatRelative(ago(86_400), now, "en")).toBe("1d ago");
+  });
 });
 
 describe("formatDateTime", () => {
@@ -221,12 +230,12 @@ describe("in Spanish", () => {
   });
 
   it.each([
-    [0.003205, "3 ms"],
-    [2.46, "2,4 s"],
-    [14.9, "14 s"],
-    [125, "2 min 05 s"],
-    [4_320, "1 h 12 min"],
-    [273_600, "3 d 4 h"],
+    [0.003205, "3\u202fms"],
+    [2.46, "2,4\u202fs"],
+    [14.9, "14\u202fs"],
+    [125, "2\u202fmin 05\u202fs"],
+    [4_320, "1\u202fh 12\u202fmin"],
+    [273_600, "3\u202fd 4\u202fh"],
   ])("%d seconds read as %s", (seconds, text) => {
     expect(formatDuration(seconds, "es")).toBe(text);
   });
@@ -239,14 +248,14 @@ describe("in Spanish", () => {
     [42, "hace 42 s"],
     [180, "hace 3 min"],
     [5 * 3600, "hace 5 h"],
-    [4 * 86_400, "hace 4 d"],
+    [4 * 86_400, "hace 4 días"],
   ])("%d seconds ago reads %s", (seconds, text) => {
     expect(formatRelative(ago(seconds), now, "es")).toBe(text);
   });
 
   it("speaks of the future and names older days in Spanish", () => {
     expect(formatRelative(new Date(now.getTime() + 3 * 3600 * 1000), now, "es")).toBe("dentro de 3 h");
-    // The month in full: "20 ago" (August) would read as the English "ago" beside "hace 2 d".
+    // The month in full: "20 ago" (August) would read as the English "ago" beside "hace 2 días".
     expect(formatRelative(new Date(2026, 8, 12, 9), now, "es")).toBe("12 de septiembre");
     expect(formatRelative(new Date(2026, 7, 20, 9), now, "es")).toBe("20 de agosto");
     expect(formatRelative(new Date(2025, 8, 12, 9), now, "es")).toBe("12 de septiembre de 2025");
@@ -257,7 +266,7 @@ describe("in Spanish", () => {
     await setLocale("es");
     expect(formatBytes(1_536)).toBe("1,5 KB");
     expect(formatRelative(ago(180), now)).toBe("hace 3 min");
-    expect(formatDuration(125)).toBe("2 min 05 s");
+    expect(formatDuration(125)).toBe("2\u202fmin 05\u202fs");
   });
 });
 

@@ -94,7 +94,8 @@ const DEPLOY_STATES: Readonly<Record<string, KnownState>> = {
   queued: { state: "queued", labelKey: "common.deployState.queued", attention: false },
   pending: { state: "queued", labelKey: "common.deployState.queued", attention: false },
   running: { state: "deploying", labelKey: "common.deployState.inProgress", attention: false },
-  success: { state: "running", labelKey: "common.deployState.succeeded", attention: false },
+  // A deployment that served is "deployed"; a job that ended well (below) is "succeeded".
+  success: { state: "running", labelKey: "common.deployState.deployed", attention: false },
   completed: { state: "running", labelKey: "common.deployState.succeeded", attention: false },
   failed: { state: "failed", labelKey: "common.deployState.failed", attention: true },
   rolled_back: { state: "stopped", labelKey: "common.deployState.rolledBack", attention: true },

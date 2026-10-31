@@ -291,7 +291,7 @@ With an article or without: the button of a page has none ("Add server") and the
 | **Running** | En ejecución | the service or the application that is up (`common.statusPill.running`) | En curso, En marcha, Ejecutando (as a state) |
 | **In progress** | En curso | work that is advancing (a task, a backup) | |
 | **Failed** | Fallido/Fallida | a state, in agreement; "Con fallos" in the plural of a count | "Falló" (a verb, not a state), Con fallo |
-| **Succeeded** | Correcto/Correcta | a job or a deployment that ended well | "Bien", a bare "OK" |
+| **Succeeded** | Correcto/Correcta, Desplegado | a job, a backup or a check that ended well; a deployment that served is Desplegado, as "Desplegado con avisos" is | "Bien", a bare "OK" |
 | **Live** (the version that serves) | En producción | the "Live now" row ("Ahora en producción"), the badge in the list of deployments | En vivo |
 | **Live** (a stream of data) | En directo | the "Live" range of Logs | En vivo |
 | **Queued**, **Stopped**, **Deploying**, **Warning**, **Static**, **Unknown** | En cola, Detenido, Desplegando, Aviso, Estático, Desconocido | the `StatusPill` states | |

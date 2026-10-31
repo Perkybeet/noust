@@ -221,6 +221,11 @@ export const common: Catalog<typeof en> = {
     systemSaid: "Lo que dijo el sistema",
     commandOutput: "La salida propia del comando",
   },
+  typeNames: {
+    static: "Sitio estático",
+    auto: "Detección automática",
+    container: "Contenedor",
+  },
   statusPill: {
     running: "En ejecución",
     deploying: "Desplegando",
@@ -250,6 +255,7 @@ export const common: Catalog<typeof en> = {
     queued: "En cola",
     inProgress: "En curso",
     succeeded: "Correcto",
+    deployed: "Desplegado",
     failed: "Fallido",
     rolledBack: "Revertido",
     cancelled: "Cancelado",

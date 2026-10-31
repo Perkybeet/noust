@@ -1,11 +1,50 @@
 import { describe, expect, it } from "vitest";
 
+import { resetLocale, setLocale } from "../../app/locale";
+import { loadCatalog } from "../../i18n";
 import type { AppInfo, Deployment } from "./data";
-import { appLimits, appNameOf, appReading, deployMoment, latestDeployByDomain, previewParentOf, readsApps } from "./data";
+import { appLimits, appNameOf, appReading, deployMoment, latestDeployByDomain, previewParentOf, readsApps, typeName } from "./data";
 
 function deploy(id: number, domain: string, status = "success"): Deployment {
   return { id, domain, status, triggered_by: "cli", has_log: true, started_at: "2026-09-25T10:00:00", finished_at: null, rollback_available: false, schema_changed: false, cancelled: false };
 }
+
+describe("typeName", () => {
+  // What GET /api/apps/types answers: the registry's own English.
+  const types = [
+    { type: "nextjs", name: "Next.js", default_port: 3000 },
+    { type: "static", name: "Static Site", default_port: 80 },
+    { type: "auto", name: "Auto-detect", default_port: 3000 },
+    { type: "container", name: "Container", default_port: 3000 },
+    { type: "python", name: "Python (Django/Flask/FastAPI)", default_port: 8000 },
+  ];
+
+  it("says a type by the registry's name in English", () => {
+    expect(typeName(types, "static")).toBe("Static Site");
+    expect(typeName(types, "auto")).toBe("Auto-detect");
+    expect(typeName(types, "container")).toBe("Container");
+    expect(typeName(types, "nextjs")).toBe("Next.js");
+    // A type the registry does not list, or the list not read yet, is the identifier.
+    expect(typeName(types, "cobol")).toBe("cobol");
+    expect(typeName([], "nextjs")).toBe("nextjs");
+  });
+
+  it("says the types whose name is a description in Spanish, and keeps the names of products", async () => {
+    await loadCatalog("es");
+    await setLocale("es");
+    try {
+      expect(typeName(types, "static")).toBe("Sitio estático");
+      expect(typeName(types, "auto")).toBe("Detección automática");
+      expect(typeName(types, "container")).toBe("Contenedor");
+      // Before the list is read it is the console's word, not the identifier.
+      expect(typeName([], "static")).toBe("Sitio estático");
+      expect(typeName(types, "nextjs")).toBe("Next.js");
+      expect(typeName(types, "python")).toBe("Python (Django/Flask/FastAPI)");
+    } finally {
+      resetLocale("en");
+    }
+  });
+});
 
 describe("latestDeployByDomain", () => {
   it("keeps the newest deploy of each domain, whatever the order", () => {
