@@ -151,7 +151,13 @@ export class TerminalController {
     });
     this.on(container, "mousedown", (event) => {
       // Clicking anywhere in the box is clicking in the terminal: the keyboard goes to it.
-      if ((event as MouseEvent).button === 0) this.focus();
+      if ((event as MouseEvent).button !== 0) return;
+      // The press on the canvas (which cannot take the focus) would, once this handler is done, move
+      // the focus to the page and take it from the text area just given it: so the browser's own
+      // answer to the press is declined where nothing of it is wanted. The text view is not
+      // declined: it is a region of its own, which needs the press to start a selection.
+      if (event.target === canvas || event.target === container) event.preventDefault();
+      this.focus();
     });
 
     this.watchTheme(container);
