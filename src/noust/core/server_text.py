@@ -153,6 +153,36 @@ CATALOG: dict[str, str] = {
         "Ask a security officer of each of them for an account with a role that holds it, "
         "or have that permission added to your role there."
     ),
+    # -- A fleet job's title (noust.core.fleet_job_titles): the name its console job carries ----
+    # One sentence for one server and one for several, because the plural of "server" is not a
+    # suffix in every language. The job's name is this text, so the console, a notice and the
+    # activity of the Overview say the same thing in the language of whoever reads.
+    "fleet_job.certs_renew.single": "Renew certificates on 1 server",
+    "fleet_job.certs_renew.several": "Renew certificates on {count} servers",
+    "fleet_job.backups_run.single": "Back up applications now on 1 server",
+    "fleet_job.backups_run.several": "Back up applications now on {count} servers",
+    "fleet_job.backups_verify.single": "Verify the newest backups on 1 server",
+    "fleet_job.backups_verify.several": "Verify the newest backups on {count} servers",
+    "fleet_job.apps_update.single": "Update applications on 1 server",
+    "fleet_job.apps_update.several": "Update applications on {count} servers",
+    "fleet_job.apps_restart.single": "Restart applications on 1 server",
+    "fleet_job.apps_restart.several": "Restart applications on {count} servers",
+    "fleet_job.noust_update.single": "Update Noust on 1 server",
+    "fleet_job.noust_update.several": "Update Noust on {count} servers",
+    "fleet_job.index_refresh.single": "Refresh package lists on 1 server",
+    "fleet_job.index_refresh.several": "Refresh package lists on {count} servers",
+    "fleet_job.os_updates.single": "Apply operating system updates on 1 server",
+    "fleet_job.os_updates.several": "Apply operating system updates on {count} servers",
+    "fleet_job.settings_apply.single": "Apply the fleet's settings on 1 server",
+    "fleet_job.settings_apply.several": "Apply the fleet's settings on {count} servers",
+    "fleet_job.placement_rollout.single": "Roll an application out on 1 server",
+    "fleet_job.placement_rollout.several": "Roll an application out on {count} servers",
+    "fleet_job.placement_copy.single": "Copy an application to 1 server",
+    "fleet_job.placement_copy.several": "Copy an application to {count} servers",
+    "fleet_job.placement_ship.single": "Build on one server, run on others on 1 server",
+    "fleet_job.placement_ship.several": "Build on one server, run on others on {count} servers",
+    "fleet_job.dns_cluster.single": "Set up Noust DNS on 1 server",
+    "fleet_job.dns_cluster.several": "Set up Noust DNS on {count} servers",
     # -- The recipe catalogue: why a recipe is listed and cannot be installed ---------------
     "recipes.unavailable.licence": "Its licence does not let an operator run it for others",
     "recipes.unavailable.licence.hint": (

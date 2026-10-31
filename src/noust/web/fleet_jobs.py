@@ -52,6 +52,7 @@ from urllib.parse import quote
 from noust.core import package_index
 from noust.core.audit import record as record_audit
 from noust.core.exceptions import NoustError, ValidationError
+from noust.core.fleet_job_titles import title as job_title
 from noust.core.store import NodeRecord, NoustStore, get_store
 from noust.core.timeutil import utc_now_iso
 from noust.fleet.aggregate import (
@@ -2452,9 +2453,14 @@ def start_job(
     from noust.web.jobs import JobType, get_job_manager
 
     targets = [node.node for node in the_plan.nodes]
+    # The name is a sentence of the catalog where there is one, so what lists jobs can say it in the
+    # console's language (noust.core.fleet_job_titles reads it back from the name).
+    sentence = job_title(the_plan.spec.name, len(targets))
     job = get_job_manager().create_job(
         job_type=JobType.FLEET,
-        name=f"{the_plan.spec.title} on {len(targets)} server{'s' if len(targets) != 1 else ''}",
+        name=sentence.text
+        if sentence is not None
+        else f"{the_plan.spec.title} on {len(targets)} server{'s' if len(targets) != 1 else ''}",
         description=", ".join(targets),
         func=fleet_action_job,
         kwargs={

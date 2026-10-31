@@ -39,7 +39,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from noust.core.store import App, DeploymentStatus, DeploymentTrigger, NoustStore
+from noust.core.accounts import AccountManager
+from noust.core.store import App, DeploymentStatus, DeploymentTrigger, JobRecord, NoustStore
 from noust.deployers.logs import DEFAULT_TAIL_BYTES, read_deployment_log
 from noust.managers.backup_manager import BackupMetadata
 from noust.web.api import apps as apps_api
@@ -349,6 +350,52 @@ class TestGetDeployment:
         assert body["job_id"] is None
         assert body["release_id"] is None
         assert body["commit_message"] is None
+
+    def test_a_deploy_a_person_started_says_who_by_the_name_of_their_account(
+        self, client: TestClient, store: NoustStore
+    ) -> None:
+        """ "Started by: Console" said nothing: the job that ran it knows the person."""
+        AccountManager(store).create(
+            "marta", "admin", password="correct horse battery staple", display_name="Marta Ruiz"
+        )
+        store.save_job(JobRecord(id="ab12cd34", type="deploy", name="Deploy", actor="marta"))
+        deployment_id = store.record_deployment_start(DOMAIN, "panel", job_id="ab12cd34")
+
+        one = client.get(f"/api/deployments/{deployment_id}")
+        listed = client.get("/api/deployments", params={"domain": DOMAIN})
+
+        assert one.json()["started_by"] == "Marta Ruiz"
+        assert listed.json()["items"][0]["started_by"] == "Marta Ruiz"
+        assert one.json()["triggered_by"] == "panel"
+
+    @pytest.mark.parametrize(
+        ("trigger", "actor"),
+        [
+            ("panel", "token:ci"),
+            ("panel", "master"),
+            ("panel", "0123456789ab"),
+            ("webhook", "marta"),
+            ("cli", "marta"),
+        ],
+    )
+    def test_what_no_person_started_names_nobody(
+        self, client: TestClient, store: NoustStore, trigger: str, actor: str
+    ) -> None:
+        """A token, the master token, a session of nobody's, a push or a command: no name."""
+        AccountManager(store).create(
+            "marta", "admin", password="correct horse battery staple", display_name="Marta Ruiz"
+        )
+        store.save_job(JobRecord(id="ab12cd34", type="deploy", name="Deploy", actor=actor))
+        deployment_id = store.record_deployment_start(DOMAIN, trigger, job_id="ab12cd34")
+
+        assert client.get(f"/api/deployments/{deployment_id}").json()["started_by"] is None
+
+    def test_a_deploy_whose_job_is_gone_names_nobody(
+        self, client: TestClient, store: NoustStore
+    ) -> None:
+        deployment_id = store.record_deployment_start(DOMAIN, "panel", job_id="gone0000")
+
+        assert client.get(f"/api/deployments/{deployment_id}").json()["started_by"] is None
 
 
 # --------------------------------------------------------------- log reading

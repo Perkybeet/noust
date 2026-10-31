@@ -377,6 +377,60 @@ export const serverText = {
       },
     },
   },
+  fleet_job: {
+    apps_restart: {
+      single: { text: "Restart applications on 1 server" },
+      several: { text: "Restart applications on {count} servers" },
+    },
+    apps_update: {
+      single: { text: "Update applications on 1 server" },
+      several: { text: "Update applications on {count} servers" },
+    },
+    backups_run: {
+      single: { text: "Back up applications now on 1 server" },
+      several: { text: "Back up applications now on {count} servers" },
+    },
+    backups_verify: {
+      single: { text: "Verify the newest backups on 1 server" },
+      several: { text: "Verify the newest backups on {count} servers" },
+    },
+    certs_renew: {
+      single: { text: "Renew certificates on 1 server" },
+      several: { text: "Renew certificates on {count} servers" },
+    },
+    dns_cluster: {
+      single: { text: "Set up Noust DNS on 1 server" },
+      several: { text: "Set up Noust DNS on {count} servers" },
+    },
+    index_refresh: {
+      single: { text: "Refresh package lists on 1 server" },
+      several: { text: "Refresh package lists on {count} servers" },
+    },
+    noust_update: {
+      single: { text: "Update Noust on 1 server" },
+      several: { text: "Update Noust on {count} servers" },
+    },
+    os_updates: {
+      single: { text: "Apply operating system updates on 1 server" },
+      several: { text: "Apply operating system updates on {count} servers" },
+    },
+    placement_copy: {
+      single: { text: "Copy an application to 1 server" },
+      several: { text: "Copy an application to {count} servers" },
+    },
+    placement_rollout: {
+      single: { text: "Roll an application out on 1 server" },
+      several: { text: "Roll an application out on {count} servers" },
+    },
+    placement_ship: {
+      single: { text: "Build on one server, run on others on 1 server" },
+      several: { text: "Build on one server, run on others on {count} servers" },
+    },
+    settings_apply: {
+      single: { text: "Apply the fleet's settings on 1 server" },
+      several: { text: "Apply the fleet's settings on {count} servers" },
+    },
+  },
   fleet_settings: {
     backend_changed: {
       text: "The backup destination {name} is {have} on this server and the fleet wants it {want}",

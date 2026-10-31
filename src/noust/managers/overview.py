@@ -1022,22 +1022,31 @@ def _activity(store: Any) -> list[dict[str, Any]]:
 
     Returns:
         The newest :data:`ACTIVITY_LIMIT` jobs, newest first, each with what it
-        was, on which application, how it ended and who asked. Audit entries are
-        not mixed in: they name sessions and addresses and need a stronger
-        scope than this read has.
+        was, on which application, how it ended and who asked (the login, and
+        the name of the person when the actor is an account). The title of a
+        fleet job also comes as a sentence with a code. Audit entries are not
+        mixed in: they name sessions and addresses and need a stronger scope
+        than this read has.
     """
+    from noust.core.accounts.names import display_names
+    from noust.core.fleet_job_titles import coded as fleet_job_title
+
     jobs = store.list_jobs(limit=ACTIVITY_LIMIT * 3)
+    names = display_names((job.actor for job in jobs), store=store)
     entries = []
     for job in jobs:
         at = job.finished_at or job.started_at or job.created_at
+        sentence = fleet_job_title(job.name)
         entries.append(
             {
                 "id": f"job:{job.id}",
                 "type": job.type,
                 "title": job.name,
+                "title_coded": sentence.to_dict() if sentence is not None else None,
                 "status": job.status,
                 "domain": job.domain,
                 "actor": job.actor,
+                "actor_name": names.get(job.actor or ""),
                 "at": to_iso_offset(at),
                 "_sort": _parse_moment(at) or datetime.min.replace(tzinfo=timezone.utc),
             }

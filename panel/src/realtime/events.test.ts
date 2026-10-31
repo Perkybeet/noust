@@ -1,4 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
+import { act } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { configureApi } from "../api/client";
@@ -11,6 +12,7 @@ import { queueKeys } from "../api/queries/queue";
 import { serviceKeys } from "../api/queries/services";
 import { siteKeys } from "../api/queries/sites";
 import { systemKeys } from "../api/queries/system";
+import { setLocale } from "../app/locale";
 import { toast } from "../components/ui/toast";
 import { ANONYMOUS, FakeEventSource, MACHINE, fakeBackend, json } from "../test/fakes";
 import { RECONNECT, reconnectDelay } from "./backoff";
@@ -152,6 +154,25 @@ describe("applyServerEvent", () => {
     applyServerEvent(new QueryClient(), "notice", { text: "Deploy shop.example.com", state: "active" });
     expect(error).toHaveBeenCalledWith("npm ERR! missing script: build");
     expect(success).toHaveBeenCalledWith("Deploy shop.example.com");
+  });
+
+  it("says a notice that is one of the server's sentences in the console's language, and a tool's words as they came", async () => {
+    const success = vi.spyOn(toast, "success");
+    const error = vi.spyOn(toast, "error");
+    const sentence = { text: "Apply the fleet's settings on 2 servers", state: "active", coded: { code: "fleet_job.settings_apply.several", params: { count: 2 } } } as const;
+
+    applyServerEvent(new QueryClient(), "notice", sentence);
+    expect(success).toHaveBeenLastCalledWith("Apply the fleet's settings on 2 servers");
+
+    await act(() => setLocale("es"));
+    applyServerEvent(new QueryClient(), "notice", sentence);
+    expect(success).toHaveBeenLastCalledWith("Aplicar los ajustes de la flota en 2 servidores");
+    // A code the console does not know is the English the server sent beside it.
+    applyServerEvent(new QueryClient(), "notice", { text: "Something new on 2 servers", state: "active", coded: { code: "fleet_job.something_new.several", params: { count: 2 } } });
+    expect(success).toHaveBeenLastCalledWith("Something new on 2 servers");
+    // What a tool said is shown as it came, whatever the language.
+    applyServerEvent(new QueryClient(), "notice", { text: "certbot said no", state: "failed" });
+    expect(error).toHaveBeenLastCalledWith("certbot said no");
   });
 
   it("keeps a failed deploy's notice the size of a notice: its first line, and all of it beside, to scroll", () => {

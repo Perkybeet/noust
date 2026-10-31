@@ -250,6 +250,13 @@ or a field; each changes what a call answers.
 - A request for an approval or a reason says which control asks: `controls.*` among `notes_coded`, with the
   control's key, whether the operator or a framework holds it, and the command that turns it off.
 - `actors.through_central`: who acted through a central, as a sentence.
+- `title_coded` on the activity of `GET /api/overview` (and on a node's, in the fleet's rows): the title of a
+  fleet job as a code and its values (`fleet_job.settings_apply.several`, with `count`), `null` for any other
+  job; a `notice` event of the stream carries the same as `coded`. `actor_name` beside `actor` on the same
+  entries: the name its owner is greeted by, when the actor is an account; `null` for a token, the master token
+  or a webhook. `started_by` on a deployment (`GET /api/deployments`, `GET /api/deployments/{id}`): the name
+  of the person who started it from the console, `null` for a push, a command, a token or a job the history
+  no longer holds.
 
 #### Services and the machine
 

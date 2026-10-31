@@ -377,6 +377,41 @@ def test_a_finished_job_is_announced() -> None:
     assert ("notice", {"text": "Deploy example.com", "state": "active"}) in events
 
 
+def test_a_fleet_job_is_announced_with_the_code_of_its_title() -> None:
+    """The console says the sentence in its own language; the English is still there."""
+    events = job_events(
+        make_job(
+            status="completed",
+            name="Apply the fleet's settings on 2 servers",
+            domain=None,
+            job_type="fleet",
+        )
+    )
+
+    assert (
+        "notice",
+        {
+            "text": "Apply the fleet's settings on 2 servers",
+            "state": "active",
+            "coded": {"code": "fleet_job.settings_apply.several", "params": {"count": 2}},
+        },
+    ) in events
+
+
+def test_what_a_fleet_job_failed_with_is_the_tool_s_own_words_and_has_no_code() -> None:
+    events = job_events(
+        make_job(
+            status="failed",
+            name="Renew certificates on 1 server",
+            error="certbot said no",
+            domain=None,
+            job_type="fleet",
+        )
+    )
+
+    assert ("notice", {"text": "certbot said no", "state": "failed"}) in events
+
+
 def test_a_failed_job_is_announced_in_the_tool_s_own_words() -> None:
     """A system error is never paraphrased."""
     error = "nginx: [emerg] duplicate listen options for [::]:443"

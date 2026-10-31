@@ -366,6 +366,60 @@ export const serverText: Catalog<typeof en> = {
       },
     },
   },
+  fleet_job: {
+    apps_restart: {
+      single: { text: "Reiniciar aplicaciones en 1 servidor" },
+      several: { text: "Reiniciar aplicaciones en {count} servidores" },
+    },
+    apps_update: {
+      single: { text: "Actualizar aplicaciones en 1 servidor" },
+      several: { text: "Actualizar aplicaciones en {count} servidores" },
+    },
+    backups_run: {
+      single: { text: "Hacer copia de las aplicaciones ahora en 1 servidor" },
+      several: { text: "Hacer copia de las aplicaciones ahora en {count} servidores" },
+    },
+    backups_verify: {
+      single: { text: "Verificar las copias más recientes en 1 servidor" },
+      several: { text: "Verificar las copias más recientes en {count} servidores" },
+    },
+    certs_renew: {
+      single: { text: "Renovar certificados en 1 servidor" },
+      several: { text: "Renovar certificados en {count} servidores" },
+    },
+    dns_cluster: {
+      single: { text: "Configurar el DNS de Noust en 1 servidor" },
+      several: { text: "Configurar el DNS de Noust en {count} servidores" },
+    },
+    index_refresh: {
+      single: { text: "Recargar las listas de paquetes en 1 servidor" },
+      several: { text: "Recargar las listas de paquetes en {count} servidores" },
+    },
+    noust_update: {
+      single: { text: "Actualizar Noust en 1 servidor" },
+      several: { text: "Actualizar Noust en {count} servidores" },
+    },
+    os_updates: {
+      single: { text: "Aplicar actualizaciones del sistema en 1 servidor" },
+      several: { text: "Aplicar actualizaciones del sistema en {count} servidores" },
+    },
+    placement_copy: {
+      single: { text: "Copiar una aplicación a 1 servidor" },
+      several: { text: "Copiar una aplicación a {count} servidores" },
+    },
+    placement_rollout: {
+      single: { text: "Desplegar una aplicación en 1 servidor" },
+      several: { text: "Desplegar una aplicación en {count} servidores" },
+    },
+    placement_ship: {
+      single: { text: "Compilar en un servidor y ejecutar en otros, en 1 servidor" },
+      several: { text: "Compilar en un servidor y ejecutar en otros, en {count} servidores" },
+    },
+    settings_apply: {
+      single: { text: "Aplicar los ajustes de la flota en 1 servidor" },
+      several: { text: "Aplicar los ajustes de la flota en {count} servidores" },
+    },
+  },
   fleet_settings: {
     backend_changed: {
       text: "El destino de copias {name} es {have} en este servidor y la flota lo quiere {want}",

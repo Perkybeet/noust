@@ -34,6 +34,7 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from noust.core.accounts.names import display_names
 from noust.core.store import (
     DeploymentRecord,
     DeploymentStatus,
@@ -94,6 +95,9 @@ class DeploymentOut(BaseModel):
     One deployment attempt, as the console lists and inspects it.
 
     Attributes:
+        started_by: The name of the person who started it, when a person did from the
+            console: the name their account is greeted by, taken from the job that ran it.
+            None for a push, a command, a token or a job that is gone.
         job_id: The background job that started this deployment, when the
             panel queued it. None for a CLI or webhook deploy.
         release_id: The release this deployment built, on the releases
@@ -133,6 +137,7 @@ class DeploymentOut(BaseModel):
     domain: str
     status: str
     triggered_by: str
+    started_by: str | None = None
     git_commit: str | None = None
     git_branch: str | None = None
     started_at: str | None = None
@@ -209,11 +214,41 @@ def _hook_runs(stored: str | None) -> list[DeploymentHookRun]:
     ]
 
 
+def _started_by(records: list[DeploymentRecord]) -> dict[int, str]:
+    """
+    Name the people who started deployments from the console.
+
+    A deployment records what started it (``panel``) and the job that ran it, and the job records
+    who queued it: for a person, the login of their account, which is turned into the name they are
+    greeted by.
+
+    Args:
+        records: The rows being answered.
+
+    Returns:
+        For each deployment a person started, the name of the person. A push, a command, an API
+        token and a job the history no longer holds name nobody.
+    """
+    store = scoped_store()
+    actors: dict[int, str] = {}
+    for record in records:
+        if record.id is None or record.job_id is None:
+            continue
+        if record.triggered_by != DeploymentTrigger.PANEL.value:
+            continue
+        job = store.get_job(record.job_id)
+        if job is not None and job.actor:
+            actors[record.id] = job.actor
+    names = display_names(actors.values())
+    return {at: names[actor] for at, actor in actors.items() if actor in names}
+
+
 def _to_out(
     record: DeploymentRecord,
     availability: dict[int, str | None],
     schema_changes: dict[int, list[int]] | None = None,
     methods: dict[int, str] | None = None,
+    started_by: dict[int, str] | None = None,
 ) -> DeploymentOut:
     """
     Args:
@@ -224,6 +259,7 @@ def _to_out(
             of the rows being answered.
         methods: :func:`~noust.deployers.lifecycle.rollback_methods` of the rows
             being answered.
+        started_by: :func:`_started_by` of the rows being answered.
 
     Returns:
         The API shape of the row.
@@ -241,6 +277,7 @@ def _to_out(
         domain=record.domain,
         status=record.status,
         triggered_by=record.triggered_by,
+        started_by=(started_by or {}).get(record.id),
         git_commit=record.git_commit,
         git_branch=record.git_branch,
         started_at=record.started_at,
@@ -346,8 +383,9 @@ def list_deployments(
     availability = rollback_availability(page)
     methods = rollback_methods(page, availability)
     schema_changes = schema_changed_between(page)
+    started = _started_by(page)
     return DeploymentListResponse(
-        items=[_to_out(record, availability, schema_changes, methods) for record in page],
+        items=[_to_out(record, availability, schema_changes, methods, started) for record in page],
         total=total,
         next_before_id=next_before_id,
     )
@@ -379,6 +417,7 @@ def get_deployment(
         availability,
         schema_changed_between([record]),
         rollback_methods([record], availability),
+        _started_by([record]),
     )
 
 

@@ -31963,15 +31963,22 @@ export interface components {
          *         id: Stable identifier (``job:<id>``).
          *         type: What it was: ``deploy``, ``update``, ``backup``, ``restore``...
          *         title: The job's name.
+         *         title_coded: The name as a sentence with a code and values, for a job whose name is one
+         *             of Noust's own sentences (a fleet job's title); None for any other, whose name is
+         *             shown as written.
          *         status: How it went: ``pending``, ``running``, ``completed``,
          *             ``failed``, ``cancelled``.
          *         domain: The application it acted on, if any.
          *         actor: Who asked, if known.
+         *         actor_name: The name its owner is greeted by, when the actor is an account (its login when
+         *             the account has no display name); None for a token, the master token or a webhook.
          *         at: When it ended (or started), with its UTC offset.
          */
         ActivityEntry: {
             /** Actor */
             actor?: string | null;
+            /** Actor Name */
+            actor_name?: string | null;
             /** At */
             at?: string | null;
             /** Domain */
@@ -31988,6 +31995,7 @@ export interface components {
              * @default
              */
             title: string;
+            title_coded?: components["schemas"]["CodedText"] | null;
             /** Type */
             type: string;
         };
@@ -40577,6 +40585,9 @@ export interface components {
          * @description One deployment attempt, as the console lists and inspects it.
          *
          *     Attributes:
+         *         started_by: The name of the person who started it, when a person did from the
+         *             console: the name their account is greeted by, taken from the job that ran it.
+         *             None for a push, a command, a token or a job that is gone.
          *         job_id: The background job that started this deployment, when the
          *             panel queued it. None for a CLI or webhook deploy.
          *         release_id: The release this deployment built, on the releases
@@ -40669,6 +40680,8 @@ export interface components {
             snapshot_backup?: string | null;
             /** Started At */
             started_at?: string | null;
+            /** Started By */
+            started_by?: string | null;
             /** Status */
             status: string;
             /** Triggered By */

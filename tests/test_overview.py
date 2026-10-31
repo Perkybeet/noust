@@ -31,6 +31,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from noust.core.accounts import AccountManager
 from noust.core.alerts.model import AlertRule
 from noust.core.alerts.rules import FIRING, AlertRules, AlertState
 from noust.core.exceptions import NoustError
@@ -55,6 +56,8 @@ NOW = datetime(2026, 9, 29, 15, 30, 0)
 NOW_EPOCH = int(NOW.timestamp())
 
 DAY = 86_400
+
+PASSWORD = "correct horse battery staple"
 
 
 @pytest.fixture
@@ -788,12 +791,66 @@ def test_recent_activity_is_the_jobs_newest_first(store: NoustStore) -> None:
         "id": "job:j1",
         "type": "backup",
         "title": "backup shop",
+        "title_coded": None,
         "status": "failed",
         "domain": "shop.example.com",
         "actor": "ana",
+        "actor_name": None,
         "at": activity[0]["at"],
     }
     assert activity[0]["at"].startswith("2026-09-29T14:30:00")
+
+
+def _job(store: NoustStore, job_id: str, **fields: Any) -> None:
+    moment = NOW.isoformat()
+    store.save_job(
+        JobRecord(id=job_id, status="completed", created_at=moment, finished_at=moment, **fields)
+    )
+
+
+def test_an_activity_says_who_asked_by_the_name_of_their_account(store: NoustStore) -> None:
+    """The login of an account is not what anybody calls the person: the line says the name."""
+    AccountManager(store).create("marta", "admin", password=PASSWORD, display_name="Marta Ruiz")
+    AccountManager(store).create("iker", "operator", password=PASSWORD)
+    _job(store, "j1", type="deploy", name="Deploy shop", domain="shop.example.com", actor="marta")
+    _job(store, "j2", type="deploy", name="Deploy blog", domain="blog.example.com", actor="iker")
+    _job(store, "j3", type="backup", name="Back up shop", domain="shop.example.com", actor="master")
+    _job(store, "j4", type="update", name="Update shop", domain="shop.example.com", actor="webhook")
+
+    by_id = {entry["id"]: entry for entry in collect(store)["activity"]}
+
+    assert by_id["job:j1"]["actor_name"] == "Marta Ruiz"
+    # An account with no display name is its login, which still reads better than a session.
+    assert by_id["job:j2"]["actor_name"] == "iker"
+    # The master token and a webhook are not people.
+    assert by_id["job:j3"]["actor_name"] is None
+    assert by_id["job:j4"]["actor_name"] is None
+
+
+def test_a_fleet_jobs_title_comes_as_a_sentence_the_console_can_say_in_its_language(
+    store: NoustStore,
+) -> None:
+    _job(
+        store,
+        "f1",
+        type="fleet",
+        name="Apply the fleet's settings on 2 servers",
+        description="ams-3, lon-2",
+        actor="marta",
+    )
+    _job(store, "f2", type="fleet", name="Renew certificates on 1 server", actor="marta")
+    _job(store, "d1", type="deploy", name="Deploy shop", domain="shop.example.com")
+
+    by_id = {entry["id"]: entry for entry in collect(store)["activity"]}
+
+    assert by_id["job:f1"]["title_coded"] == {
+        "code": "fleet_job.settings_apply.several",
+        "params": {"count": 2},
+    }
+    assert by_id["job:f2"]["title_coded"] == {"code": "fleet_job.certs_renew.single", "params": {}}
+    # The English is still sent, and a name that is not one of Noust's sentences has no code.
+    assert by_id["job:f1"]["title"] == "Apply the fleet's settings on 2 servers"
+    assert by_id["job:d1"]["title_coded"] is None
 
 
 def test_a_section_that_fails_says_so_and_the_rest_answers(store: NoustStore) -> None:

@@ -37,7 +37,10 @@ import { serviceKeys } from "../api/queries/services";
 import { siteKeys } from "../api/queries/sites";
 import { systemKeys } from "../api/queries/system";
 import type { Machine } from "../api/queries/system";
+import { getLocale } from "../app/locale";
 import { toast } from "../components/ui/toast";
+import { serverSentence } from "../lib/serverSentence";
+import type { CodedText } from "../lib/serverSentence";
 import { useNode } from "../nodes/useNode";
 import { reconnectDelay } from "./backoff";
 import { recordNotice } from "./notices";
@@ -53,6 +56,8 @@ export interface NoticeEvent {
   text: string;
   /** The backend's four-word vocabulary: busy, active, failed, idle. */
   state: "busy" | "active" | "failed" | "idle";
+  /** `text` as a sentence with a code, when it is one of Noust's own (a fleet job's title): said in the console's language. */
+  coded?: CodedText | null;
 }
 
 /** The pre-v2 transition event: an id (a job id or a domain) moved to a state. */
@@ -267,8 +272,11 @@ export function applyServerEvent(queryClient: QueryClient, name: ServerEventName
       return;
     }
     case "notice": {
-      const text = typeof data["text"] === "string" ? data["text"] : null;
-      if (text === null) return;
+      const sent = typeof data["text"] === "string" ? data["text"] : null;
+      if (sent === null) return;
+      // A sentence of Noust's own, in this console's language; what a tool said is shown as it came.
+      const coded = isRecord(data["coded"]) ? (data["coded"] as unknown as CodedText) : null;
+      const text = serverSentence(getLocale(), coded, sent, "text");
       // The toast is gone in seconds; the inbox keeps the last thirty (NV-17).
       recordNotice(text, data["state"] === "failed" || data["state"] === "active" || data["state"] === "busy" ? data["state"] : "idle", activeNode());
       if (data["state"] === "failed") {
