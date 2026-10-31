@@ -175,6 +175,31 @@ describe("applyServerEvent", () => {
     expect(error).toHaveBeenLastCalledWith("certbot said no");
   });
 
+  it("says the first line of a failed deploy in the console's language and leaves what the gate printed as it came", async () => {
+    const error = vi.spyOn(toast, "error");
+    const gate = "  Details: Health check attempts 1-15 failed: HTTP 502";
+    const notice = {
+      text: `Release 20261031-2 did not pass its health check; release 20261031-1 is active again\n${gate}`,
+      state: "failed",
+      coded: { code: "deploy_failure.release_unhealthy_back", params: { release: "20261031-2", previous: "20261031-1" } },
+    } as const;
+
+    applyServerEvent(new QueryClient(), "notice", notice);
+    expect(error).toHaveBeenLastCalledWith("Release 20261031-2 did not pass its startup check; release 20261031-1 is active again", {
+      detail: `Release 20261031-2 did not pass its startup check; release 20261031-1 is active again\n${gate}`,
+    });
+
+    await act(() => setLocale("es"));
+    applyServerEvent(new QueryClient(), "notice", notice);
+    const first = "La versión 20261031-2 no superó la comprobación de arranque; la versión 20261031-1 está activa de nuevo";
+    // The probes are another program's words: not translated, not paraphrased, still all there.
+    expect(error).toHaveBeenLastCalledWith(first, { detail: `${first}\n${gate}` });
+
+    // A code this console has no text for keeps the English the server sent, with the rest.
+    applyServerEvent(new QueryClient(), "notice", { ...notice, coded: { code: "deploy_failure.something_new", params: {} } });
+    expect(error).toHaveBeenLastCalledWith("Release 20261031-2 did not pass its health check; release 20261031-1 is active again", { detail: notice.text });
+  });
+
   it("keeps a failed deploy's notice the size of a notice: its first line, and all of it beside, to scroll", () => {
     const error = vi.spyOn(toast, "error");
     const npm = ["npm ERR! code ELIFECYCLE", "npm ERR! errno 1", "npm ERR! app@1.4.2 build: `next build`", "npm ERR! Exit status 1"].join("\n");

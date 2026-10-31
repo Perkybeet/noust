@@ -731,6 +731,7 @@ AttentionReason = TypedDict("AttentionReason", {
     "code": Required[str],
     "deployment_id": NotRequired[Union[int, None]],
     "detail": NotRequired[Union[str, None]],
+    "detail_coded": NotRequired[Union["CodedText", None]],
     "kind": Required[str],
     "params": NotRequired[dict[str, Any]],
     "severity": Required[str],

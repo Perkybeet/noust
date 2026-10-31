@@ -18,9 +18,7 @@ for a job queued before the code existed as well as one queued now.
 
 from __future__ import annotations
 
-import re
-
-from noust.core.server_text import CATALOG, ServerText, say
+from noust.core.server_text import ServerText, read_back, say
 
 #: Each bulk action's sentence for one server and for several. A table of literals, not a code built
 #: from the action's name: a sentence that nothing asks for is a bug the catalog's test finds.
@@ -61,24 +59,8 @@ def title(action: str, servers: int) -> ServerText | None:
     return say(single) if servers == 1 else say(several, count=servers)
 
 
-def _pattern(template: str) -> re.Pattern[str]:
-    """
-    Args:
-        template: A catalog entry whose only value is ``{count}``.
-
-    Returns:
-        The expression that reads the count back out of the entry's text.
-    """
-    return re.compile(re.escape(template).replace(re.escape("{count}"), r"(?P<count>\d+)"))
-
-
-#: What reads a name back as its sentence: the text of the sentence for one server, and the
-#: pattern of the one for several.
-_READ_BACK: tuple[tuple[str, str, re.Pattern[str] | None], ...] = tuple(
-    (code, CATALOG[code], None if "{count}" not in CATALOG[code] else _pattern(CATALOG[code]))
-    for codes in _TITLES.values()
-    for code in codes
-)
+#: Every sentence a title can be, for reading a stored name back.
+_CODES: tuple[str, ...] = tuple(code for codes in _TITLES.values() for code in codes)
 
 
 def coded(name: str | None) -> ServerText | None:
@@ -89,14 +71,4 @@ def coded(name: str | None) -> ServerText | None:
     Returns:
         The sentence the name is, when it is the title of a fleet job; None for any other name.
     """
-    if not name:
-        return None
-    for code, template, pattern in _READ_BACK:
-        if pattern is None:
-            if name == template:
-                return say(code)
-            continue
-        found = pattern.fullmatch(name)
-        if found is not None:
-            return say(code, count=int(found.group("count")))
-    return None
+    return read_back(name, _CODES, integers=("count",))

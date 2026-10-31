@@ -39,7 +39,7 @@ import { systemKeys } from "../api/queries/system";
 import type { Machine } from "../api/queries/system";
 import { getLocale } from "../app/locale";
 import { toast } from "../components/ui/toast";
-import { serverSentence } from "../lib/serverSentence";
+import { leadingSentence } from "../lib/serverSentence";
 import type { CodedText } from "../lib/serverSentence";
 import { useNode } from "../nodes/useNode";
 import { reconnectDelay } from "./backoff";
@@ -274,9 +274,10 @@ export function applyServerEvent(queryClient: QueryClient, name: ServerEventName
     case "notice": {
       const sent = typeof data["text"] === "string" ? data["text"] : null;
       if (sent === null) return;
-      // A sentence of Noust's own, in this console's language; what a tool said is shown as it came.
+      // A sentence of Noust's own, in this console's language; what a tool said is shown as it came, so a failure
+      // whose first line is one keeps everything after it.
       const coded = isRecord(data["coded"]) ? (data["coded"] as unknown as CodedText) : null;
-      const text = serverSentence(getLocale(), coded, sent, "text");
+      const text = leadingSentence(getLocale(), coded, sent);
       // The toast is gone in seconds; the inbox keeps the last thirty (NV-17).
       recordNotice(text, data["state"] === "failed" || data["state"] === "active" || data["state"] === "busy" ? data["state"] : "idle", activeNode());
       if (data["state"] === "failed") {

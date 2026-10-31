@@ -22,6 +22,7 @@ import pytest
 from noust.core import deploy_freeze
 from noust.core.appdir.releases import ReleaseManager
 from noust.core.exceptions import DeploymentError, DeploysFrozenError, ValidationError
+from noust.core.server_text import say
 from noust.core.store import NoustStore
 from noust.deployers import lifecycle, staged
 from noust.deployers.nodejs import NodeJSDeployer
@@ -263,10 +264,14 @@ class TestMakingItServe:
         machine.git.publish(node_tree(tmp_path / "v3", server=BROKEN_SERVER))
         built = staged.stage_build(DOMAIN)
 
-        with pytest.raises(DeploymentError, match="did not pass its health check"):
+        with pytest.raises(DeploymentError, match="did not pass its health check") as caught:
             staged.promote_staged(DOMAIN, built.release_id)
 
         assert active_id(root) == first
+        # The sentence travels with its code, so a console in another language says it.
+        assert caught.value.coded == say(
+            "deploy_failure.release_unhealthy_back", release=built.release_id, previous=first
+        )
 
     def test_a_freeze_holds_it_until_a_person_says_so(
         self, root: Path, deployed: tuple[str, str]

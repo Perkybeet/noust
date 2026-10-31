@@ -165,6 +165,24 @@ export const serverText: Catalog<typeof en> = {
       text: "La base de datos {name} de {engine} ya está añadida a Noust",
     },
   },
+  deploy_failure: {
+    app_unhealthy: { text: "{domain} no superó la comprobación de arranque" },
+    build_failed: { text: "No se pudo compilar la aplicación" },
+    build_oom: { text: "La compilación se cerró por falta de memoria (código de salida 137)" },
+    build_timeout: { text: "La compilación tardó más de {seconds} segundos y se detuvo" },
+    install_failed: { text: "No se pudieron instalar las dependencias" },
+    install_oom: { text: "La instalación de dependencias se quedó sin memoria y se cerró" },
+    install_timeout: { text: "La instalación de dependencias tardó más de {seconds} segundos y se detuvo" },
+    release_unhealthy: { text: "La versión {release} no superó la comprobación de arranque" },
+    release_unhealthy_back: { text: "La versión {release} no superó la comprobación de arranque; la versión {previous} está activa de nuevo" },
+    release_unhealthy_down: { text: "La versión {release} no superó la comprobación de arranque; la versión {previous} está activa de nuevo, pero tampoco responde" },
+    rollback_unhealthy: { text: "{domain} no superó la comprobación de arranque tras volver atrás" },
+    stack_back: { text: "La actualización de {domain} no superó la comprobación de arranque; los contenedores que estaban sirviendo vuelven a funcionar" },
+    stack_back_down: { text: "La actualización de {domain} no superó la comprobación de arranque; los contenedores anteriores están de vuelta, pero tampoco responden" },
+    stack_nothing_before: { text: "La actualización de {domain} no superó la comprobación de arranque; antes no había nada en marcha, así que no hay nada que recuperar" },
+    stack_not_restored: { text: "La actualización de {domain} no superó la comprobación de arranque; lo que estaba sirviendo no se pudo recuperar por completo" },
+    stack_unhealthy: { text: "La actualización de {domain} no superó la comprobación de arranque" },
+  },
   doctor: {
     config: {
       apps_dir_missing: {

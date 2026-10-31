@@ -176,6 +176,24 @@ export const serverText = {
       text: "The database {name} on {engine} is already added to Noust",
     },
   },
+  deploy_failure: {
+    app_unhealthy: { text: "{domain} did not pass its startup check" },
+    build_failed: { text: "Build failed" },
+    build_oom: { text: "Build killed due to insufficient memory (exit code 137)" },
+    build_timeout: { text: "Build did not finish within {seconds}s and was stopped" },
+    install_failed: { text: "Dependency installation failed" },
+    install_oom: { text: "Dependency installation ran out of memory and was killed" },
+    install_timeout: { text: "Dependency installation did not finish within {seconds}s and was stopped" },
+    release_unhealthy: { text: "Release {release} did not pass its startup check" },
+    release_unhealthy_back: { text: "Release {release} did not pass its startup check; release {previous} is active again" },
+    release_unhealthy_down: { text: "Release {release} did not pass its startup check; release {previous} is active again but is not answering either" },
+    rollback_unhealthy: { text: "{domain} did not pass its startup check after the rollback" },
+    stack_back: { text: "The update of {domain} did not pass its startup check; the containers that were serving are running again" },
+    stack_back_down: { text: "The update of {domain} did not pass its startup check; the previous containers are back but are not answering either" },
+    stack_nothing_before: { text: "The update of {domain} did not pass its startup check; nothing was running before it, so nothing was put back" },
+    stack_not_restored: { text: "The update of {domain} did not pass its startup check; what was serving could not be put back entirely" },
+    stack_unhealthy: { text: "The update of {domain} did not pass its startup check" },
+  },
   doctor: {
     config: {
       apps_dir_missing: {

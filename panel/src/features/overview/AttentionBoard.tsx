@@ -18,7 +18,7 @@ import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { AttentionActionButton } from "../inbox/AttentionActionButton";
-import { validUntilText, reasonText } from "./attentionWords";
+import { DetailLine, reasonDetail, reasonText, validUntilText } from "./attentionWords";
 import { attentionTarget } from "./attentionTarget";
 import type { AttentionTarget } from "./attentionTarget";
 import type { HomeAttention } from "./homeData";
@@ -97,16 +97,12 @@ function Entry({ t, entry, showServer }: { t: T; entry: HomeAttention; showServe
             <ul className="flex min-w-0 flex-col gap-0.5">
               {item.reasons.map((reason, index) => {
                 const validUntil = text(reason.params?.["valid_until"]);
-                const detail = reason.detail ?? (validUntil !== null ? validUntilText(t, validUntil) : null);
+                const detail = reasonDetail(t, reason) ?? (validUntil !== null ? { text: validUntilText(t, validUntil), sentence: false } : null);
                 return (
                   <li key={`${reason.code}-${String(index)}`} className="flex min-w-0 flex-col">
                     <span className="text-13 text-fg">{reasonText(t, reason)}</span>
-                    {detail !== null ? (
-                      // The system's words wrap rather than being cut, on a phone too.
-                      <Mono tone="muted" className="line-clamp-2 text-12 break-words whitespace-pre-wrap">
-                        {detail}
-                      </Mono>
-                    ) : null}
+                    {/* The system's words wrap rather than being cut, on a phone too. */}
+                    {detail !== null ? <DetailLine detail={detail} /> : null}
                   </li>
                 );
               })}

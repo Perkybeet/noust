@@ -45,3 +45,17 @@ export function serverSentence(locale: Locale, coded: CodedText | null | undefin
   const key = coded ? sentenceKey(coded, part) : null;
   return coded && key !== null ? say(locale, key, strings(coded.params ?? {})) : (english ?? "");
 }
+
+/**
+ * A message whose first line is a sentence of Noust's and whose rest is what a program printed (a failed
+ * deployment: the probes, the journal, the package manager's output): the first line in this console's
+ * language, the rest as it came. The code stands for the first line only.
+ */
+export function leadingSentence(locale: Locale, coded: CodedText | null | undefined, english: string): string {
+  if (!coded) return english;
+  const lines = english.split("\n");
+  const at = lines.findIndex((line) => line.trim() !== "");
+  if (at < 0) return english;
+  lines[at] = serverSentence(locale, coded, lines[at] ?? "", "text");
+  return lines.join("\n");
+}

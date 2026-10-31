@@ -39,8 +39,9 @@ given codes yet.
 
 from __future__ import annotations
 
+import re
 import string
-from collections.abc import Mapping
+from collections.abc import Container, Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -926,6 +927,46 @@ CATALOG: dict[str, str] = {
         "Resolvers that validate refuse the domain. Remove the DS at your registrar, or sign the "
         "zone."
     ),
+    # -- A deployment that did not finish (noust.core.deploy_failures): the first line of the --
+    # error a job and a deployment keep. What follows it (the probes, the journal, the package
+    # manager's and the build's own output) is another program's words and is never a sentence.
+    "deploy_failure.release_unhealthy": "Release {release} did not pass its health check",
+    "deploy_failure.release_unhealthy_back": (
+        "Release {release} did not pass its health check; release {previous} is active again"
+    ),
+    "deploy_failure.release_unhealthy_down": (
+        "Release {release} did not pass its health check; release {previous} is active again "
+        "but is not answering either"
+    ),
+    "deploy_failure.app_unhealthy": "{domain} did not pass its health check",
+    "deploy_failure.rollback_unhealthy": (
+        "{domain} did not pass its health check after the rollback"
+    ),
+    "deploy_failure.stack_unhealthy": "The update of {domain} did not pass its health check",
+    "deploy_failure.stack_nothing_before": (
+        "The update of {domain} did not pass its health check; nothing was running before it, "
+        "so nothing was put back"
+    ),
+    "deploy_failure.stack_not_restored": (
+        "The update of {domain} did not pass its health check; what was serving could not be "
+        "put back entirely"
+    ),
+    "deploy_failure.stack_back": (
+        "The update of {domain} did not pass its health check; the containers that were "
+        "serving are running again"
+    ),
+    "deploy_failure.stack_back_down": (
+        "The update of {domain} did not pass its health check; the previous containers are "
+        "back but are not answering either"
+    ),
+    "deploy_failure.install_failed": "Dependency installation failed",
+    "deploy_failure.install_timeout": (
+        "Dependency installation did not finish within {seconds}s and was stopped"
+    ),
+    "deploy_failure.install_oom": "Dependency installation ran out of memory and was killed",
+    "deploy_failure.build_failed": "Build failed",
+    "deploy_failure.build_timeout": "Build did not finish within {seconds}s and was stopped",
+    "deploy_failure.build_oom": "Build killed due to insufficient memory (exit code 137)",
 }
 
 
@@ -1069,6 +1110,45 @@ class ServerText:
             The code and the values, which is all the console needs next to the text.
         """
         return {"code": self.code, "params": dict(self.params)}
+
+
+def read_back(
+    text: str | None, codes: Iterable[str], *, integers: Container[str] = ()
+) -> ServerText | None:
+    """
+    Read a stored sentence back as the catalog sentence that made it.
+
+    A job and a deployment keep an error as text, and the code it was said with is gone. The
+    English text is the catalog entry with the values put in, so it reads back: the same
+    sentence for an error recorded before the code existed as for one recorded now.
+
+    Args:
+        text: One line, as stored.
+        codes: The sentences it may be, by code; the order is the order they are tried in.
+        integers: The values that are numbers (``count``), which the console puts in as numbers.
+            Every other value is one word, a name or an id with no space in it.
+
+    Returns:
+        The sentence the whole line is, or None when it is not one of them.
+    """
+    if not text:
+        return None
+    for code in codes:
+        template = CATALOG[code]
+        pattern = re.escape(template)
+        for name in _names_in(template) or ():
+            shape = r"\d+" if name in integers else r"\S+"
+            pattern = pattern.replace(re.escape("{" + name + "}"), f"(?P<{name}>{shape})")
+        found = re.fullmatch(pattern, text)
+        if found is not None:
+            return say(
+                code,
+                **{
+                    name: int(value) if name in integers else value
+                    for name, value in found.groupdict().items()
+                },
+            )
+    return None
 
 
 def say(code: str, **params: Param) -> ServerText:

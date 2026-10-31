@@ -34,6 +34,7 @@ from fastapi.testclient import TestClient
 from noust.core.accounts import AccountManager
 from noust.core.alerts.model import AlertRule
 from noust.core.alerts.rules import FIRING, AlertRules, AlertState
+from noust.core.deploy_failures import release_unhealthy
 from noust.core.exceptions import NoustError
 from noust.core.probe_store import Probe, ProbeState, ProbeStore
 from noust.core.store import App, BackupScheduleRecord, JobRecord, NoustStore
@@ -452,6 +453,55 @@ def test_one_subject_is_one_item_with_every_reason(store: NoustStore) -> None:
     assert deploy_reason["deployment_id"] is not None
     cert_reason = next(r for r in item["reasons"] if r["kind"] == "certificate")
     assert cert_reason["params"]["days"] == 5
+
+
+def test_a_failed_deploy_says_its_first_line_with_a_code_when_it_is_noust_s_sentence(
+    store: NoustStore,
+) -> None:
+    """The console says the sentence in its language and keeps the system's words for the rest."""
+    deploy(store, "shop.example.com")
+    finish(
+        store,
+        "shop.example.com",
+        "failed",
+        when=NOW - timedelta(hours=1),
+        error=str(
+            release_unhealthy(
+                "20261031-2", previous="20261031-1", restored=True, evidence="probe: HTTP 502"
+            )
+        ),
+    )
+
+    item = collect(store, services=lambda: [unit("shop-example-com", "shop.example.com")])[
+        "attention"
+    ][0]
+
+    reason = next(r for r in item["reasons"] if r["code"] == "deploy_failed")
+    assert reason["detail"] == (
+        "Release 20261031-2 did not pass its health check; release 20261031-1 is active again"
+    )
+    assert reason["detail_coded"] == {
+        "code": "deploy_failure.release_unhealthy_back",
+        "params": {"release": "20261031-2", "previous": "20261031-1"},
+    }
+
+
+def test_a_tool_s_error_has_no_code_in_the_attention_list(store: NoustStore) -> None:
+    deploy(store, "shop.example.com")
+    finish(
+        store,
+        "shop.example.com",
+        "failed",
+        when=NOW - timedelta(hours=1),
+        error="npm ERR! code ELIFECYCLE",
+    )
+
+    item = collect(store, services=lambda: [unit("shop-example-com", "shop.example.com")])[
+        "attention"
+    ][0]
+
+    reason = next(r for r in item["reasons"] if r["code"] == "deploy_failed")
+    assert reason["detail_coded"] is None
 
 
 def test_a_rolled_back_deploy_is_a_warning_not_a_failure(store: NoustStore) -> None:

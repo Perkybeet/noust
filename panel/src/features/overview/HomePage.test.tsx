@@ -283,6 +283,48 @@ describe("Home", () => {
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
+  it("says a failed deploy's first line in the console's language, and what a tool printed as it came", async () => {
+    const sentence = "Release 20261031-2 did not pass its health check; release 20261031-1 is active again";
+    const reason = { kind: "deploy", severity: "fail", params: {}, when: null, actions: ["view_deployment"] };
+    const attention = [
+      {
+        id: "app:shop.example.com",
+        subject: { kind: "app", domain: "shop.example.com" },
+        title: "shop.example.com",
+        severity: "fail",
+        reasons: [
+          {
+            ...reason,
+            code: "deploy_failed",
+            detail: sentence,
+            detail_coded: { code: "deploy_failure.release_unhealthy_back", params: { release: "20261031-2", previous: "20261031-1" } },
+            deployment_id: 7,
+          },
+        ],
+      },
+      {
+        id: "app:admin.example.com",
+        subject: { kind: "app", domain: "admin.example.com" },
+        title: "admin.example.com",
+        severity: "fail",
+        reasons: [{ ...reason, code: "deploy_failed", detail: "npm ERR! code ELIFECYCLE", detail_coded: null, deployment_id: 12 }],
+      },
+    ];
+    await act(() => setLocale("es"));
+    fakeBackend(routes({}, overviewFixture({ attention, attention_total: 2, activity: [] })));
+    renderConsole("/");
+    const heading = await screen.findByRole("heading", { level: 2, name: "Requiere atención" });
+    const section = heading.closest("section");
+    if (section === null) throw new Error("no board");
+
+    const said = await within(section).findByText("La versión 20261031-2 no superó la comprobación de arranque; la versión 20261031-1 está activa de nuevo");
+    // Noust's own sentence is said as text, not set in mono as if a program had printed it.
+    expect(said).not.toHaveClass("mono");
+    expect(within(section).queryByText(sentence)).not.toBeInTheDocument();
+    // What npm printed is not ours to translate.
+    expect(within(section).getByText("npm ERR! code ELIFECYCLE")).toHaveClass("mono");
+  });
+
   it("speaks Spanish, with the names of the glossary", async () => {
     await act(() => setLocale("es"));
     fakeBackend(routes());

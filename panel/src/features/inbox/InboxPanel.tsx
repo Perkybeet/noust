@@ -19,7 +19,7 @@ import { useHasFleet } from "../../nodes/servers";
 import { useNode } from "../../nodes/useNode";
 import { useRecentNotices } from "../../realtime/notices";
 import type { NoticeState, RecentNotice } from "../../realtime/notices";
-import { SeverityGlyph, reasonText, validUntilText } from "../overview/attentionWords";
+import { DetailLine, SeverityGlyph, reasonDetail, reasonText, validUntilText } from "../overview/attentionWords";
 import { attentionTarget } from "../overview/attentionTarget";
 import { AttentionActionButton } from "./AttentionActionButton";
 import { attentionIcon } from "./attentionIcons";
@@ -34,7 +34,8 @@ function NeedsRow({ t, item, onNavigate }: { t: T; item: OverviewAttentionItem; 
   const severity = item.severity === "fail" ? "fail" : "warn";
   // The system's own words come from whichever reason has them: a service that failed has none, the deploy that left it so does.
   const reason = item.reasons.find((candidate) => typeof candidate.detail === "string" && candidate.detail !== "") ?? item.reasons[0];
-  const detail = reason?.detail ?? (typeof reason?.params?.["valid_until"] === "string" ? validUntilText(t, reason.params["valid_until"]) : null);
+  const said = reason === undefined ? null : reasonDetail(t, reason);
+  const detail = said ?? (typeof reason?.params?.["valid_until"] === "string" ? { text: validUntilText(t, reason.params["valid_until"]), sentence: false } : null);
   const kind = item.subject["kind"];
   const body = (
     <>
@@ -47,12 +48,8 @@ function NeedsRow({ t, item, onNavigate }: { t: T; item: OverviewAttentionItem; 
           {reasonText(t, each)}
         </span>
       ))}
-      {typeof detail === "string" && detail !== "" ? (
-        // The system's words, verbatim and wrapped, as everywhere.
-        <Mono tone="muted" className="line-clamp-2 text-12 break-words whitespace-pre-wrap">
-          {detail}
-        </Mono>
-      ) : null}
+      {/* The system's words, verbatim and wrapped, as everywhere. */}
+      {detail !== null ? <DetailLine detail={detail} /> : null}
     </>
   );
   return (

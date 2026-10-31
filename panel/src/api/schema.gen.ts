@@ -33700,6 +33700,9 @@ export interface components {
          *             (somebody has; it still fires).
          *         params: Values for the console's sentence (days, a signal).
          *         detail: The system's own words, verbatim.
+         *         detail_coded: The detail as a sentence with a code and values, when it is one of Noust's
+         *             own (a deployment that did not pass its health check) and not another program's words;
+         *             the console says it in its language and keeps ``detail`` for any code it lacks.
          *         when: When it happened.
          *         deployment_id: A deployment to open for the full story.
          *         actions: What can be done, as identifiers the console maps to buttons:
@@ -33716,6 +33719,7 @@ export interface components {
             deployment_id?: number | null;
             /** Detail */
             detail?: string | null;
+            detail_coded?: components["schemas"]["CodedText"] | null;
             /** Kind */
             kind: string;
             /** Params */

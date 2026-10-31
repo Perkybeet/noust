@@ -36,7 +36,8 @@ from typing import TYPE_CHECKING
 from noust.core import cancellation
 from noust.core.appdir.layout import RELEASES
 from noust.core.appdir.releases import ReleaseManager
-from noust.core.exceptions import DeploymentError, RolledBackError
+from noust.core.deploy_failures import release_unhealthy
+from noust.core.exceptions import DeploymentError
 from noust.core.fs import SECRET_MODE
 from noust.core.store import App, ReleaseStatus, Service
 from noust.deployers.helpers.release_book import ReleaseBook
@@ -367,20 +368,15 @@ class MonorepoReleases:
 
         self.book().record_status(staged, ReleaseStatus.FAILED)
         if previous is None:
-            raise DeploymentError(
-                f"Release {staged.id} did not pass its health check", details=outcome.evidence
+            raise release_unhealthy(
+                staged.id, previous=None, restored=False, evidence=outcome.evidence
             )
         deployer.logger.warning(f"Release {staged.id} did not pass its health check")
         deployer.logger.substep(f"Going back to release {previous.id}")
         staged.manager.activate(previous.path)
         again: WorkspaceRestart = deployer._restart_and_probe(units)
-        state = (
-            "is active again" if again.healthy else "is active again but is not answering either"
-        )
-        error = RolledBackError if again.healthy else DeploymentError
-        raise error(
-            f"Release {staged.id} did not pass its health check; release {previous.id} {state}",
-            details=outcome.evidence,
+        raise release_unhealthy(
+            staged.id, previous=previous.id, restored=again.healthy, evidence=outcome.evidence
         )
 
 

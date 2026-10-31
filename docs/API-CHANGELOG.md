@@ -257,6 +257,12 @@ or a field; each changes what a call answers.
   or a webhook. `started_by` on a deployment (`GET /api/deployments`, `GET /api/deployments/{id}`): the name
   of the person who started it from the console, `null` for a push, a command, a token or a job the history
   no longer holds.
+- `detail_coded` on a reason of `GET /api/overview`'s attention list: the first line of a failed deployment
+  as a code and its values (`deploy_failure.release_unhealthy_back`, with `release` and `previous`), `null`
+  when the line is another program's words; a failed job's `notice` event carries the same as `coded` for its
+  first line, and what follows it stays as the tool printed it. The codes are `deploy_failure.*`: the release
+  or the application that did not pass its health check, and an installation or a build that failed, ran out
+  of memory or was stopped for taking too long.
 
 #### Services and the machine
 

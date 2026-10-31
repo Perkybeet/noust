@@ -51,6 +51,7 @@ from noust.core.container_store import (
     ContainerStore,
     forget_secrets,
 )
+from noust.core.deploy_failures import app_unhealthy, release_unhealthy
 from noust.core.exceptions import (
     DeploymentError,
     NoustError,
@@ -629,7 +630,7 @@ class ContainerDeployer(DockerComposeDeployer):
         services = ServiceManager(verbose=self.verbose, runner=self._runner)
         healthy, evidence = self._activate(lambda: services.start(self.app_name))
         if not healthy:
-            raise DeploymentError(f"{self.domain} did not pass its health check", details=evidence)
+            raise app_unhealthy(self.domain, evidence=evidence)
         self.logger.substep("The container answers")
 
     def _register_app(self, status: str = AppStatus.RUNNING.value) -> None:
@@ -1010,24 +1011,17 @@ class ContainerDeployer(DockerComposeDeployer):
             return
         self.store.set_release_status(app.id, release_id, ReleaseStatus.FAILED.value)
         if previous is None:
-            raise DeploymentError(
-                f"Release {release_id} did not pass its health check", details=evidence
-            )
+            raise release_unhealthy(release_id, previous=None, restored=False, evidence=evidence)
         self.logger.warning(f"Release {release_id} did not pass its health check")
         for problem in self._restore_predefined():
             self.logger.warning(problem)
         self._write_compose(previous)
         restored, after = self._activate(self._recreate)
-        if restored:
-            raise RolledBackError(
-                f"Release {release_id} did not pass its health check; release {previous} "
-                "is active again",
-                details=evidence,
-            )
-        raise DeploymentError(
-            f"Release {release_id} did not pass its health check; release {previous} is "
-            "active again but is not answering either",
-            details=f"{evidence}\n\nAfter going back:\n{after}",
+        raise release_unhealthy(
+            release_id,
+            previous=previous,
+            restored=restored,
+            evidence=evidence if restored else f"{evidence}\n\nAfter going back:\n{after}",
         )
 
     # -- Limits --------------------------------------------------------------

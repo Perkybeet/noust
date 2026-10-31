@@ -80,11 +80,11 @@ from noust.core.appdir.releases import (
 from noust.core.applock import app_lock
 from noust.core.config import Config
 from noust.core.container_store import forget_secrets
+from noust.core.deploy_failures import app_unhealthy, release_unhealthy
 from noust.core.exceptions import (
     BackupError,
     DeploymentError,
     NoustError,
-    RolledBackError,
     SchemaChangedError,
     ServiceError,
     SourceError,
@@ -795,7 +795,7 @@ def _update_app(
         # BaseDeployer): the same gate, here.
         healthy, evidence = health_gate_for(app, store, log).restart_and_probe()
         if not healthy:
-            error = DeploymentError(f"{domain} did not pass its health check", details=evidence)
+            error = app_unhealthy(domain, evidence=evidence)
             _record_failure_after_the_fact(store, deployment_id, error, log)
             raise error
         restarted, active = (app_name,), True
@@ -2360,21 +2360,12 @@ def _restore_previous(
         The error to raise, which says which release is active now.
     """
     if previous is None:
-        return DeploymentError(
-            f"Release {target.id} did not pass its health check", details=evidence
-        )
+        return release_unhealthy(target.id, previous=None, restored=False, evidence=evidence)
     log.warning(f"Release {target.id} did not pass its health check")
     log.substep(f"Going back to release {previous.id}")
     releases.activate(previous.path)
     restored, _ = health_gate_for(app, store, log).restart_and_probe()
-    state = "is active again" if restored else "is active again but is not answering either"
-    # Only a previous release that answers makes this a rollback: one that
-    # does not leaves the application down, which is a plain failure.
-    error_class = RolledBackError if restored else DeploymentError
-    return error_class(
-        f"Release {target.id} did not pass its health check; release {previous.id} {state}",
-        details=evidence,
-    )
+    return release_unhealthy(target.id, previous=previous.id, restored=restored, evidence=evidence)
 
 
 def _record_activation(
