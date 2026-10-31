@@ -20,6 +20,284 @@ them before the rest):
   `panel/openapi.baseline.json` in the same commit (`python scripts/api_compat.py --update
   --accept-breaking`).
 
+## 4.1.0
+
+API version 1. This section is everything that differs from 4.0.0, the schema that release shipped. The
+API gains 79 operations (1,050 in 4.0.0, 1,129 now), loses none, and deprecates five; compared with the
+schema of 4.0.0, `python scripts/api_compat.py` keeps passing. Every new route declares its permission
+(`x-noust-permission`), and the ones that change something and need sudo mode say so
+(`x-noust-requires-elevation`: 373 operations now, 351 in 4.0.0).
+
+### Breaking changes
+
+What a client written against 4.0.0 can notice, most likely first. None removes an operation, a parameter
+or a field; each changes what a call answers.
+
+- **More routes wait for a second person when approvals are on.** With `approval.enabled` (and always under
+  `ens-medium`), these answered `200` or `201` and ran at once; they now answer `202` with
+  `approval_required` and run when a security officer approves the exact call
+  ([api.md](api.md#approvals)): `POST /api/teams/{team}/access`, `POST /api/teams/{team}/members`,
+  `PATCH /api/teams/{team}/members/{username}` (a new member, or a higher role), `PATCH /api/access/roles/{role}`
+  (when the role would hold a permission it does not hold), `PATCH /api/auth/accounts/{username}` when its body
+  carries `roles`, and the four routes that set what a sign-in source hands out: `PUT /api/auth/oidc/config/{provider}`,
+  `PUT /api/auth/saml/config/{provider}`, `PUT /api/auth/ldap/directories/{name}` and
+  `PUT /api/auth/scim/sources/{name}` (when the source is new or would hand out different roles). They were
+  role grants one person could make alone. `x-noust-requires-approval` marks them: 54 operations now, 40 in
+  4.0.0 (six of the 14 added are routes that are new in this release). A client handles them as the routes that
+  already did: it takes the request from the `202`, waits for a decision and sends the same call again with
+  `X-Noust-Approval`. Removing a binding, a membership or a source, lowering a role and any change that
+  leaves things as they are still answer at once.
+- **`PUT /api/config/webserver` (and `PATCH /api/config` with `webserver`) can answer `409` with
+  `error: webserver_in_use`.** The setting is the web server new applications are put behind; every
+  application keeps the one it was deployed behind, so changing it is refused while applications or sites are
+  still behind the other server, with how many are where. It used to save and send the next application to a
+  server that did not hold ports 80 and 443. `GET /api/config/webserver` answers `applies_to`
+  (`new_applications`), `applications` and `sites` (how many are behind each server); moving them is
+  `POST /api/webserver/migrate`.
+- **`POST /api/apps/{domain}/identity/migrate` can be refused (`400`) for a folder only the shared account can
+  write.** It used to check only that the application answered after the move. It now reads the absolute paths
+  of the `.env` and the unit first, and names the folder, who owns it and the ways forward. The call takes an
+  optional body, `shared_group`, a group the new account joins so it can write there (a request with no body
+  is unchanged).
+- **A write of `security.allowed_sources` judges each entry** (`PATCH /api/config`). An entry has to be a host,
+  an organisation, a repository or one of `local`, `push`, `upload` and `recipes`; a user, a token, a port, a
+  path, a bracket or a wildcard over a whole top-level domain is refused with the shapes that work, and a list
+  written in brackets is read as a list.
+
+### Added
+
+#### Roles and accounts
+
+- One list of roles ([security-roles.md](security-roles.md)): `GET /api/roles` (`accounts.read`: the roles,
+  every permission with what it allows, how many owners can sign in, and `duties_apart`), `GET /api/roles/{name}`,
+  `POST /api/roles` (`name` and `permissions`, with `label` and `description`), `PATCH /api/roles/{name}`,
+  `DELETE /api/roles/{name}`, `POST /api/roles/{name}/duplicate`, `POST .../reset` (put a role Noust ships back
+  as it comes, so it follows the release again) and `POST .../offers` (`accept` and `dismiss` what a newer
+  release offers a role that was edited). They need `accounts.manage` and sudo mode. A role answers `kind`
+  (`seeded`, `protected` for the owner, or `custom`), `edited`, `follows_noust`, `offers`, `holders`,
+  `holder_count`, `bindings`, `joins_duties`, `governing`, `running` and `can_edit`, `can_delete`, `can_reset`
+  and `can_duplicate`.
+- `GET /api/roles/review` (`accounts.read`): what the frameworks in force make of the roles, which roles join
+  governing the server with running it, the accounts that hold them and what to split.
+- `PUT /api/auth/accounts/{username}/roles` (`accounts.manage`, sudo mode) sets every role an account holds, the
+  first being the one that names it; an empty list is a `422` of the schema.
+- `roles` on `POST /api/auth/accounts`, `PATCH /api/auth/accounts/{username}` and `POST /api/auth/invitations`
+  (instead of `role`); `roles`, `permissions` (what they hold together, outside any team) and `owner` on every
+  account; `roles` on `GET /api/auth/session`. The first account of a server is made its owner as well, unless a
+  framework keeps duties apart.
+- Errors of the roles routes carry `coded.code`: `roles.unknown` (`404` or `400`); `roles.name_taken`,
+  `roles.too_many` and `roles.in_use` (`409`); `roles.name_invalid`, `roles.name_system`, `roles.owner_protected`,
+  `roles.owner_by_owner`, `roles.last_owner`, `roles.seeded_kept`, `roles.reset_custom`,
+  `roles.permissions_unknown`, `roles.permissions_none`, `roles.permissions_many`, `roles.no_roles`,
+  `roles.offer_unknown`, `roles.separation_role`, `roles.separation_account` and `roles.auditor_exclusive`
+  (`400`). Giving or taking the owner role is `400` `roles.owner_by_owner` for an account that is not an owner,
+  by `PUT .../roles`, `POST /api/access/bindings` (scope `instance`), `POST /api/auth/accounts` and
+  `POST /api/auth/invitations`.
+- `email` on an invitation is where it is mailed and, when no `person_ref` is given, who the person is.
+  `POST /api/auth/invitations` always makes the invitation: `emailed`, `email_error`, `email_error_hint` and
+  `email_error_coded` (`mail.no_transport`, `mail.no_public_url`, `invitation.mail_failed`) say whether the mail
+  went and, if not, why.
+- `own_counts` on every control of `GET /api/compliance` (whether the operator's own number limits without a
+  framework), and `items` on a warning of the plan `POST /api/compliance/plan` answers (for
+  `roles_join_duties`, the roles).
+
+#### The fleet
+
+- Resources across the servers ([api.md](api.md#a-resource-across-the-servers)): `GET /api/views/apps`,
+  `databases`, `sites`, `certificates`, `backups`, `cron`, `logs` (with `q`, `since`, `until`, `level` and
+  `limit`), `alerts` and `activity` (with `limit`), each asking for the permission of the page it stands for.
+  Every answer carries `resource`, `generated_at`, `partial`, `fleet`, `servers` (the central first),
+  `nodes` (one outcome for each server: `ok`, `stale`, `unreachable`, `unsupported`, `forbidden` or `error`),
+  `refusals` (servers that refuse the same thing, once, with the missing permission as `coded`) and `items`
+  (the row as that server lists it, plus `node`, `local`, `page` and `href`). `node` is repeatable and
+  `@central` is the central itself; `refresh` asks the servers again.
+- `GET /api/views/search` (`q`, `kind`, `node`, `limit` up to 200): a server, application, database, site,
+  certificate or scheduled task on any server, a server that is down found by its name.
+  `GET /api/views/deliveries` (`settings.read`; `state`, `channel`, `node`, `limit`): the record of
+  notification deliveries of every server in one list.
+- The fleet's settings ([central-operate.md](central-operate.md#settings-of-the-fleet)), on the central:
+  `GET /api/fleet/settings` and `.../settings/{resource}` and `.../settings/{resource}/{name}` (`fleet.read`),
+  `GET /api/fleet/settings/status` (where each server stands on each setting), `PUT` and `DELETE
+  /api/fleet/settings/{resource}/{name}` (`fleet.manage` and the permission the server's own route for that
+  kind asks, sudo mode; `value`, `scope` `fleet` or `node:NAME`, `apply`), `PUT /api/fleet/servers/{node}/settings-mode` (`managed` or `independent`),
+  `POST /api/fleet/servers/{node}/settings/{resource}/{name}/restore` and `POST /api/fleet/settings/apply`
+  (`nodes`, `adopt`, `restore`, `restore_all`, `plan`; a fleet job with each server's progress). The kinds are
+  `channel`, `alert_rule`, `backup_destination`, `registry`, `variable` and `console_link`; another kind is a
+  `400` `fleet_settings.kind_not_yet`. A secret is sent and never answered (`***`; sending `***` keeps the
+  stored one). Each answer carries two axes for each server and setting: `origin` (`fleet`, `central_exception`,
+  `local_exception`, `independent`, `none`) and `sync` (`in_sync`, `pending`, `diverged`, `release_pending`,
+  `not_applicable`, `unreachable`, `unsupported`, `refused`, `unknown`).
+- On a server, what a central keeps on it: `GET /api/managed-settings` (`settings.read`: each setting managed,
+  the centrals that call it, `last_call_at`, `quiet_for_s` and `keeps_watch`), `PUT` and `DELETE
+  /api/managed-settings/{resource}/{name}` (what the central records as applied or released) and
+  `POST .../restore` (the operator asks for the fleet's value back). A server takes a central's push as sudo
+  mode only for these routes, only under an `admin` ceiling, and a push without a person in front names the
+  person and the change: `X-Noust-Actor: fleet-sync on behalf of <person> (change <id>)` with
+  `X-Noust-Elevated: change:<id>`; anything else signed that way is refused (`fleet_sync_refused`,
+  `fleet_sync_ceiling`). A central also sends `X-Noust-Actor-Permissions` (what the person may do; a server
+  before 4.1 reads `X-Noust-Actor-Role`) and, from its monitor, `X-Noust-Heartbeat`.
+- `GET` and `PUT /api/notifications/console-url` (`settings.read`, `settings.manage`): the address of the
+  central's console that a server builds the links of its notifications from (`notifications.console_url`).
+- `GET /api/fleet/dns` (`fleet.read`; `node`, `refresh`): every server's part in Noust DNS, and
+  `POST /api/fleet/dns/cluster` (`fleet.manage`: `primary`, `secondaries`, `epel`, `plan`; a fleet job).
+
+#### Sources and GitHub
+
+- The central's side ([central-sources.md](central-sources.md)): `GET /api/fleet/sources` (`fleet.read`: whether
+  the App is set up and reachable, and for each server whether it holds a lease, which, how long is left and
+  what keeps it from having one), `GET /api/fleet/sources/deliveries` (`node`, `state`, `limit`: each forwarded
+  event with its attempts, the jobs it started and whether the deployment or preview it started is followed),
+  `POST /api/fleet/sources/leases` (`fleet.manage`; `nodes`, `repositories`, `force`: renew now, and call it
+  with `nodes` and `repositories` before creating the first application of a repository on a server) and
+  `POST /api/fleet/sources/deliveries/{forward_id}/retry`.
+- A server's side: `GET /api/sources/leases` (`apps.read`: who leased what, for which repositories, how many
+  seconds are left; never the token), `PUT` and `DELETE /api/sources/leases` (`apps.deploy`: what the central
+  calls to hold or drop a lease) and `POST /api/sources/events` (`apps.deploy`: a push the central forwards).
+- `warnings` on `GET /api/integrations/github` and on the App manifest: GitHub has no address to deliver this
+  central's pushes to (`sources.webhook_unreachable`, with the commands that fix it).
+- Codes of `sources.*`: `node_unsupported`, `node_ceiling`, `node_unreachable`, `node_refused`,
+  `node_independent`, `github_refused`, `no_installation`, `not_reachable`, `no_app` (`409`), `webhook_unreachable`,
+  `forward_gave_up`, `forward_refused`, `delivery_not_retryable` (`409`), `central_only`, `lease_expired` and
+  `lease_expired_quiet`.
+
+#### Databases and engines
+
+- Database servers ([databases-instances.md](databases-instances.md)): `GET /api/databases/servers` (`engine`
+  filters) and `GET .../servers/{key}` list the system's engines, Noust's containers (stopped ones too) and the
+  databases an application's stack runs, each with `key`, `engine`, `flavour`, `version`, `runs_in`, `state`,
+  `port`, `memory_limit_mb`, `image`, `digest`, `custom_image`, `app`, `support`, `end_of_life`, `databases`,
+  `default`, `default_source` and `actions`. `PUT` and `DELETE .../servers/{key}/default` (`databases.manage`)
+  choose and clear the default of an engine (one for each flavour, so MySQL and MariaDB each have theirs); a
+  database made with just the engine's name goes to it. `400` `database_servers.default_app` and
+  `database_servers.default_not_ready` (field `server`); `404` `database_servers.unknown`.
+- `POST /api/databases/databases/{engine}/{name}/adopt` (`databases.manage`) adds a database the engine has and
+  Noust does not manage. Every database of `GET /api/databases/databases` answers `noust_state` (`added`,
+  `not_added`, `missing`, `unverified`) and `actions` (`["add_to_noust"]` when it is not added); `409`
+  `databases.already_added`.
+- Versions without support: each version of `GET /api/databases/instances/catalog` answers `support`
+  (`supported`, `ending_soon`, `ended`, `unknown`), `unsupported`, `end_of_life` and `platforms`, and the catalog
+  takes `engine` (a flavour). `POST /api/databases/instances` takes `unsupported_ok`; without it a version that
+  has no security fixes is a `400` `confirmation_required` on that field (`database_servers.unsupported_ended`
+  or `database_servers.unsupported_ending`, with the engine, the version and the date). The plan answers
+  `unsupported`, `requires_unsupported_ok`, `unsupported_coded`, `support`, `end_of_life` and, for an image of
+  your own, `digest_pending` (the digest is read when the instance is made).
+
+#### Domains, DNS and the web server
+
+- Noust DNS ([network-dns-server.md](network-dns-server.md)), on a server: `GET /api/dns/noust/server` (whether
+  it is installed, set up as a primary or a secondary, running, what it listens on, its zones and secondaries,
+  the addresses it could answer on, the firewall, and `warnings` for availability and amplification, to show
+  and have accepted before installing), `POST .../server/install` and `POST .../server` (`role`, `hostname`,
+  `listen`, `primary_address`, `transfer_key`, `epel`; a job, `server.host_access`, sudo mode; `409`
+  `confirmation_required` names what the EPEL question needs; `501` for a platform it cannot run on),
+  `DELETE .../server` (`delete_zones`), `GET .../server/key` (the key the servers sign transfers with), and
+  `POST` and `DELETE .../server/secondaries[/{address}]`.
+- Its zones: `GET`, `POST /api/dns/noust/zones`; `GET`, `PATCH`, `DELETE .../zones/{zone}`;
+  `POST .../zones/{zone}/records` and `PATCH`, `DELETE .../records/{record_id}`; `GET`, `PUT .../zones/{zone}/dnssec`
+  (`enabled`, `ds_removed`; the DS records to give the registrar, empty while the key is being made) and
+  `POST .../dnssec/ds-published`; `GET .../zones/{zone}/delegation` (glue, name servers, DS and the steps in
+  order) and `.../delegation/check` (what the world answers and what is still missing). A record is `400` by
+  field; a change Knot refuses is `502` with its output. The codes are `authdns.*`.
+- `ionos` is a provider kind of `/api/dns/providers`.
+- The web server move ([network-webserver.md](network-webserver.md)): `GET /api/webserver/status` (the setting and,
+  for each server, whether it is installed, running, starts at boot, its version, and how many applications and
+  sites are behind it), `GET /api/webserver/migration/plan` and `GET /api/apps/{domain}/webserver/plan`
+  (`to`, `domain`, `all`, `text`: the mode, `live` or `handover`, the blockers, what has no equivalent, the
+  protections that would be lost, the modules, the confirmation to ask for, and for each site its findings),
+  and `POST /api/webserver/migrate` and `POST /api/apps/{domain}/webserver/migrate` (`to`, `domains` or `all`,
+  `accept_losses`, `confirm`; a job, sudo mode, `root_equivalent`, and a second person when approvals are on). Without
+  `accept_losses` the answer is a `400` `confirmation_required`; without `confirm` the same `400` carries the
+  text to ask; a blocker is a `409` with `error: webserver_move` and its first cause as `coded`. The job's result
+  says what was rejected, not served or not restored.
+- `GET /api/server/ports` (`server.read`): every claim over TCP and UDP (system, application, Compose stack,
+  published port, database, engine, DNS, process), lowest port first, with who holds it.
+  `POST /api/deploy-keys/server` (`server.host_access`, sudo mode, audited) makes the server's own SSH key when
+  there is none and answers its public half only; it never replaces one.
+  `POST /api/tunnels/install-cloudflared` (`server.manage`, sudo mode; a job) adds Cloudflare's repository with
+  its key pinned and installs the connector.
+
+#### Recipes
+
+- Logos ([recipes-format.md](recipes-format.md#logos)): `logo_source` (`simple-icons` or `asset`), `logo_icon`,
+  `logo_license` (the licence of the file) and `logo_origin` on a recipe; `GET /api/recipes/{name}/logo` takes
+  `scheme=light|dark` and answers the mark painted for that theme.
+- Recipes that cannot be installed: `unavailable_code`, `unavailable` (a code and its values), `unavailable_text`,
+  `unavailable_hint` and `replaced_by` on a recipe (`unavailable_reason` stays the evidence, as written);
+  `GET /api/recipes` takes `available`, `unavailable_code` and `tested` filters. The codes are
+  `recipes.unavailable.*`: `licence`, `not_for_production`, `no_image`, `not_an_application`, `host_ports`,
+  `archived`, `platform_stack`, `root_equivalent` and `no_sign_in`.
+- Recipes that are root on the server: `root_equivalent` (why: `docker_socket`, or a program that runs
+  commands for its user) with `root_equivalent_warning`, `root_equivalent_text` and `root_equivalent_hint`.
+  `accept_root_equivalent` on `POST /api/recipes/{name}/install` and on `POST /api/apps` (with a recipe);
+  without it, `400` `recipes.root_equivalent.confirm_required` carries the command, and sudo mode and
+  `server.manage` are needed (`403 elevation_required` otherwise).
+- `tested` on a recipe: the `version` that was started for real, the `date`, the `seconds` it took and whether
+  that is the version pinned now (`current`).
+- `recipes_allowed` on `GET /api/recipes`: false when `security.allowed_sources` names where code may come from
+  and leaves recipes out; the requirements of a recipe then carry a `source` item with the command that allows
+  them.
+
+#### Sentences with a code
+
+- `coded` and `notes_coded` on the body of every error (`ErrorResponse`; `null` and empty for an error whose
+  words are only its message): `detail` and `hint` as a code and its values, and the sentences that follow
+  `detail` in English, each as a code and its values. The English is always sent;
+  a client that does not know a code shows it ([api.md](api.md#sentences-with-a-code)). The same on a line of
+  `GET /api/system/doctor` (`coded`, `notes_coded`, and `key` and `explain_coded` on its sections), the `problem`
+  and `hint` of `GET /api/tunnels`' `support`, the engines and flavours of the database install and provisioning
+  choices, the checks of a reboot (`power_checks.*`), and `server.coded` on `GET /api/terminal/status`
+  (`terminal.server_off`, `terminal.server_control`, `terminal.server_framework`).
+- A request for an approval or a reason says which control asks: `controls.*` among `notes_coded`, with the
+  control's key, whether the operator or a framework holds it, and the command that turns it off.
+- `actors.through_central`: who acted through a central, as a sentence.
+
+#### Services and the machine
+
+- `units.scheduled` on `GET /api/system/machine`, on its event and on the fleet's rows: the services a timer
+  starts (a backup, a scheduled task), waiting for their next run. `scheduled` on a service of
+  `GET /api/services`, and `state=scheduled` as a filter.
+
+### Changed, without breaking a client
+
+- **A role of an account is the first of the five roles of 4.0 among its roles, `viewer` when it holds none of
+  them.** `role` on an account and on the session is what a client written before 4.1 reads; what the account may
+  do is `roles` and `permissions`. A client that decides by `role` of an account that holds roles of its own
+  reads `viewer` for it.
+- **`POST /api/auth/accounts` no longer requires `role`**: give `role` or `roles`.
+- **`units.stopped` and the `stopped` count of a services listing no longer include a service a timer starts**
+  that is waiting for its next run. A server with eight scheduled backups and five scheduled tasks used to
+  report thirteen stopped units that were in order.
+- **A recipe that was listed as unavailable in 4.0 may be installable**: BookStack, Portainer, Coder and
+  OpenClaw are (the last three need `accept_root_equivalent`), and OpenBao joins.
+- **A probe's name may contain an underscore**, as the name of an alert rule or a channel may: what an object
+  of Noust may be called is one table, the same rule for every kind.
+- **The text of an approval's `detail` says which control asks for it**, in sentences after the first; the first
+  is unchanged.
+- **The central's reachability probe asks as `noust-probe`** (it asked with a label the client refused, so it
+  never saw a server answer).
+- **A notification about an alert someone took on names the person, not the central's credential** ("<person> is
+  looking into it"); the stored label is unchanged.
+- **A running deployment answers its commit as soon as the source is fetched**, not when it ends.
+- **Debug lines of a build no longer appear in a deployment's log.**
+
+### Deprecated
+
+Five operations of the fleet are announced as going away, with a `Sunset` of 2027-05-01 (announced on
+2026-10-28). They keep answering as they did, with `Deprecation`, `Sunset` and `Link` headers and
+`deprecated: true` and `x-noust-deprecation` in the schema:
+
+| Operation | Successor |
+|---|---|
+| `GET /api/fleet/apps` | `GET /api/views/apps` |
+| `GET /api/fleet/certificates` | `GET /api/views/certificates` |
+| `GET /api/fleet/backups` | `GET /api/views/backups` |
+| `GET /api/fleet/activity` | `GET /api/views/activity` |
+| `GET /api/fleet/logs` | `GET /api/views/logs` |
+
+### Removed
+
+Nothing.
+
 ## 4.0.0
 
 API version 1: the first API that has one. This section is everything that differs from 3.3.1, which

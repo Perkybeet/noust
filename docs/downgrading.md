@@ -44,6 +44,7 @@ Copies kept before upgrading:
 | 13 | 3.2.0 | 3.2.0 and later (3.3 did not change it) |
 | 14 | 4.0.0, on the way to 15 | 4.0.0 and later |
 | 15 | 4.0.0 | 4.0.0 and later |
+| 16 | 4.1.0 | 4.1.0 and later |
 
 The table is in the code (`noust.core.store_compat.SCHEMA_RELEASES`), and a test fails when the
 schema a release writes has no row in it. **A schema only ever changes in a minor release**
@@ -146,9 +147,19 @@ goes on. The same checks run when a central updates its servers.
 - **`domains.enabled`** (schema v14) and the monitor's tables: the older release ignores the columns,
   and a name that was switched off is served again by it.
 
+## What 4.1 wrote that an earlier release ignores
+
+4.1 writes the store at schema 16: the list of roles and the roles of each account, the fleet's settings and
+what each server applied of them, the leases of the GitHub App and the pushes forwarded, the default of each
+database engine, and Noust DNS's zones. The copy that going back restores holds none of it. Outside the store,
+an application that moved to the other web server is still on it while the copy says it is not, and Noust DNS
+is a service of the system that goes on answering: move the applications back and take Noust DNS away
+before you go back. [UPGRADING-4.1.md](UPGRADING-4.1.md#rolling-back) says how.
+
 ## What an upgrade guide says about it
 
 Each minor's upgrade guide has a "Rolling back" section that is specific to what that release
-changed: [3.3](UPGRADING-3.3.md#rolling-back), [3.2](UPGRADING-3.2.md#rolling-back),
+changed: [4.1](UPGRADING-4.1.md#rolling-back), [4.0](UPGRADING-4.0.md#rolling-back),
+[3.3](UPGRADING-3.3.md#rolling-back), [3.2](UPGRADING-3.2.md#rolling-back),
 [3.1](UPGRADING-3.1.md#rolling-back). Read it first: it names the files the release wrote that the
 older one ignores.
