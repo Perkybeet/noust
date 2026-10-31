@@ -77,8 +77,8 @@
    "version": "2.37.1"
   },
   "authentik": {
-   "date": "2026-10-28",
-   "seconds": 198,
+   "date": "2026-10-31",
+   "seconds": 185,
    "version": "2026.8.3"
   },
   "autobrr": {
@@ -532,8 +532,8 @@
    "version": "0.8.7"
   },
   "glitchtip": {
-   "date": "2026-10-28",
-   "seconds": 71,
+   "date": "2026-10-31",
+   "seconds": 92,
    "version": "6.2.6"
   },
   "go2rtc": {
@@ -777,8 +777,8 @@
    "version": "26.8.0"
   },
   "kimai": {
-   "date": "2026-10-28",
-   "seconds": 95,
+   "date": "2026-10-31",
+   "seconds": 126,
    "version": "2.70.0"
   },
   "kitchenowl": {

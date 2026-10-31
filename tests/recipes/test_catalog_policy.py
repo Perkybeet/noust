@@ -275,3 +275,46 @@ def test_the_docs_hold_the_policy_on_names_marks_licences_and_logos() -> None:
         "not legal advice",
     ):
         assert needle in section, needle
+
+
+#: What a variable's name says it holds a credential in, and what a literal there may be without
+#: being one: a switch, a duration, a count, a path or an address.
+CREDENTIAL_NAME = re.compile(
+    r"(PASSWORD|PASSWD|SECRET|TOKEN|_KEY|_PASS$|_PWD$|SALT)", re.IGNORECASE
+)
+NOT_A_CREDENTIAL = re.compile(
+    r"(true|false|none|null|disabled|enabled|yes|no|on|off|\d+|\d+[smhdw]|\d+/\w+|file:.*"
+    r"|https?://.*|/.*|user_provided)",
+    re.IGNORECASE,
+)
+
+
+def declared_variables(recipe: Recipe) -> dict[str, dict[str, object]]:
+    """The variables a recipe's file declares, as it wrote them (before the install fills them)."""
+    import yaml
+
+    text = Path(str(resources.files("noust.recipes").joinpath(f"{recipe.name}.yaml"))).read_text()
+    data = yaml.safe_load(text)
+    assert isinstance(data, dict)
+    return dict(data.get("variables") or {})
+
+
+@pytest.mark.parametrize(
+    "recipe",
+    [recipe for recipe in list_recipes() if recipe.available and recipe.kind == "compose"],
+    ids=lambda recipe: recipe.name,
+)
+def test_no_recipe_ships_a_credential_or_the_sample_domain_as_a_default(recipe: Recipe) -> None:
+    """The install makes every password (`generate`) and an address follows the deployment's domain.
+
+    A default such as `postgres`, `AdminPassword123!` or `admin@app.example.com` is a way into a
+    server that everybody who read the recipe knows: Chatto, Discourse, EverShop, Joomla, Trek,
+    Authentik, GlitchTip, Kimai and Lavalink all had one.
+    """
+    for name, entry in declared_variables(recipe).items():
+        literal = entry.get("default")
+        if literal and CREDENTIAL_NAME.search(name):
+            assert NOT_A_CREDENTIAL.fullmatch(str(literal)), (recipe.name, name, literal)
+        for field in ("default", "value"):
+            assert "example.com" not in str(entry.get(field, "")), (recipe.name, name)
+            assert "example.org" not in str(entry.get(field, "")), (recipe.name, name)

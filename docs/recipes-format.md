@@ -121,7 +121,12 @@ A stack with a database follows the same few rules in every recipe, and
   cache or a worker is reachable only from inside the stack.
 - No credential is written in the document: the database password and every key are generated
   variables (`generate: password32`, `hex64`, `base64_32`...), the same value in the application
-  and in the database through one variable.
+  and in the database through one variable. Nor is one a default: a variable whose name says it holds a
+  password, a secret or a token never has a literal `default` (a switch, a duration, a count or a path
+  may), and an address never defaults to `example.com`: it is `value: "admin@${APP_DOMAIN}"` over a
+  variable `from: fqdn`. A password a program insists on shaping (an upper-case letter, a symbol) is
+  `value: "${PASSWORD_BASE}Aa1!"` over a generated base. `tests/recipes/test_catalog_policy.py` fails on
+  the first recipe that ships one.
 - Settings an operator may add later and that are not worth a variable (an SMTP server) are
   passed through: `NAME:` with no value in `environment` takes the value from the application's
   environment when the operator sets it, and sets nothing when not.

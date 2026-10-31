@@ -1,10 +1,10 @@
 {
   "measured": "tests/integration/recipes_run.py: scripts/recipe_smoke.py in the harness container, one recipe at a time",
   "harness": "Ubuntu 24.04 with systemd and a Docker of its own (Dockerfile.systemd)",
-  "updated": "2026-10-31T18:58:53Z",
+  "updated": "2026-10-31T19:32:25Z",
   "totals": {
-    "pass": 358,
-    "fail": 3
+    "pass": 363,
+    "fail": 2
   },
   "results": [
     {
@@ -234,11 +234,15 @@
     {
       "recipe": "authentik",
       "version": "2026.8.3",
-      "date": "2026-10-28T20:57:42Z",
-      "seconds": 198,
+      "date": "2026-10-31T19:23:51Z",
+      "source": "catalogue",
+      "seconds": 185,
       "result": "pass",
-      "gate": "/-/health/ready/ -> 200 after 90s",
-      "error_lines": 80,
+      "gate": "/-/health/ready/ -> 200 after 96s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 74,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 2
     },
@@ -589,6 +593,21 @@
       "gate": "/ -> 200 after 5s",
       "gate_status": "200",
       "error_lines": 1,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "cloudreve",
+      "version": "4.19.1",
+      "date": "2026-10-31T19:14:30Z",
+      "source": "coolify",
+      "seconds": 103,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 1,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -1594,14 +1613,15 @@
     {
       "recipe": "glitchtip",
       "version": "6.2.6",
-      "date": "2026-10-28T22:56:40Z",
+      "date": "2026-10-31T19:27:00Z",
       "source": "catalogue",
-      "seconds": 71,
+      "seconds": 92,
       "result": "pass",
-      "gate": "/_health/ -> 200 after 15s",
+      "gate": "/_health/ -> 200 after 25s",
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -1780,6 +1800,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "grist",
+      "version": "1.7.22",
+      "date": "2026-10-31T19:30:43Z",
+      "source": "coolify",
+      "seconds": 99,
+      "result": "pass",
+      "gate": "/ -> 302 after 15s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 2,
       "transient": false,
       "rate_limited": false,
       "images_removed": 1
@@ -2315,14 +2350,15 @@
     {
       "recipe": "kimai",
       "version": "2.70.0",
-      "date": "2026-10-28T23:19:55Z",
+      "date": "2026-10-31T19:28:34Z",
       "source": "catalogue",
-      "seconds": 95,
+      "seconds": 126,
       "result": "pass",
-      "gate": "/en/login -> 200 after 25s",
+      "gate": "/en/login -> 200 after 40s",
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 1,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -3783,23 +3819,17 @@
     {
       "recipe": "piwigo",
       "version": "16.4.0",
-      "date": "2026-10-30T18:25:49Z",
+      "date": "2026-10-31T19:21:06Z",
       "source": "own",
-      "seconds": 634,
-      "result": "fail",
-      "gate": "/ -> 502 after 601s",
-      "gate_status": "502",
+      "seconds": 66,
+      "result": "pass",
+      "gate": "/ -> 302 after 5s",
+      "gate_status": "302",
       "unsteady": false,
-      "problems": [
-        "the health gate's request to / got 502, the recipe expects 200-399"
-      ],
-      "log_tail": "igo-1  | [31-Oct-2026 18:41:44] ERROR: [pool www] please specify user and group other than root\npiwigo-1  | [31-Oct-2026 18:41:44] ERROR: FPM initialization failed\npiwigo-1  | [31-Oct-2026 18:41:45] ERROR: [pool www] please specify user and group other than root\npiwigo-1  | [31-Oct-2026 18:41:45] ERROR: FPM initialization failed\npiwigo-1  | [31-Oct-2026 18:41:46] ERROR: [pool www] please specify user and group other than root\npiwigo-1  | [31-Oct-2026 18:41:46] ERROR: FPM initialization failed\npiwigo-1  | [31-Oct-2026 18:41:47] ERROR: [pool www] please specify user and group other than root\npiwigo-1  | [31-Oct-2026 18:41:47] ERROR: FPM initialization failed\npiwigo-1  | [31-Oct-2026 18:41:48] ERROR: [pool www] please specify user and group other than root\npiwigo-1  | [31-Oct-2026 18:41:48] ERROR: FPM initialization failed\npiwigo-1  | [31-Oct-2026 18:41:49] ERROR: [pool www] please specify user and group other than root\npiwigo-1  | [31-Oct-2026 18:41:49] ERROR: FPM initialization failed\npiwigo-1  | [31-Oct-2026 18:41:50] ERROR: [pool www] please specify user and group other than root\npiwigo-1  | [31-Oct-2026 18:41:50] ERROR: FPM initialization failed\npiwigo-1  | [31-Oct-2026 18:41:51] ERROR: [pool www] please specify user and group other than root\npiwigo-1  | [31-Oct-2026 18:41:51] ERROR: FPM initialization failed\npiwigo-1  | [31-Oct-2026 18:41:52] ERROR: [pool www] please specify user and group other than root\npiwigo-1  | [31-Oct-2026 18:41:52] ERROR: FPM initialization failed\n",
       "error_lines": 0,
       "transient": false,
       "rate_limited": false,
-      "images_removed": 1,
-      "attempts": 2,
-      "first_attempt": "the health gate's request to / got 502, the recipe expects 200-399"
+      "images_removed": 1
     },
     {
       "recipe": "plane",
@@ -3917,6 +3947,21 @@
       "transient": false,
       "rate_limited": false,
       "images_removed": 1
+    },
+    {
+      "recipe": "prefect",
+      "version": "3.9.0-python3.15",
+      "date": "2026-10-31T19:16:15Z",
+      "source": "coolify",
+      "seconds": 80,
+      "result": "pass",
+      "gate": "/ -> 200 after 0s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 2
     },
     {
       "recipe": "prestashop",
@@ -5048,6 +5093,21 @@
       "gate_status": "302",
       "unsteady": false,
       "error_lines": 6,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "wallabag",
+      "version": "2.6.14",
+      "date": "2026-10-31T19:17:38Z",
+      "source": "dokploy",
+      "seconds": 88,
+      "result": "pass",
+      "gate": "/ -> 302 after 15s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 3,
       "transient": false,
       "rate_limited": false,
       "images_removed": 1

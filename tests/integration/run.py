@@ -3329,7 +3329,8 @@ def scenario_recipe_hello(sc: Scenario) -> None:
     finally:
         sc.run(f"noust delete {HELLO_DOMAIN} --force", timeout=180, check=False, label="cleanup")
     gone = curl_host(sc, HELLO_DOMAIN, "/", head=True)
-    sc.check(" 200" not in gone.splitlines()[0], "the demo page still answers after the delete")
+    status_line = gone.splitlines()[0] if gone.strip() else ""
+    sc.check(" 200" not in status_line, f"the demo page still answers after the delete: {gone!r}")
 
 
 @scenario("recipe_uptime_kuma")
