@@ -186,11 +186,35 @@ export function sourceKind(value: string): SourceKind {
   return "unknown";
 }
 
-/** What a person typed in the one box that starts an application. */
-export type EntryKind = "empty" | "source" | "image" | "search";
+/**
+ * What a person typed in the one box that starts an application. `start` is the beginning of an address that
+ * the letters so far do not make one yet (`h`, `https:/`, `git@host`): it is not words to look for, and not a
+ * source to read either, so the page keeps what it showed before the first letter.
+ */
+export type EntryKind = "empty" | "start" | "source" | "image" | "search";
 
 /** A repository host written without its scheme (`github.com/you/app`): the address of a source all the same. */
 const BARE_HOST = /^(?:www\.)?(?:github\.com|gitlab\.com|bitbucket\.org|codeberg\.org)\/\S+$/i;
+
+/** The ways an address that is typed by hand begins: what `sourceKind` takes for a git source or a link. */
+const ADDRESS_SCHEMES = ["https://", "http://", "ssh://", "git://", "git@"] as const;
+
+/** `user@host` and `user@host:`, the scp-like address of git before the path that makes it one. */
+const SCP_START = /^[\w.-]+@[\w.-]*:?$/;
+
+/**
+ * Whether what is typed could still become the address of a source, as it is typed letter by letter: a prefix of
+ * `https://`, `http://`, `ssh://`, `git://` or `git@`, or a `user@host` on its way to its colon. A repository
+ * host written without its scheme (`github.com/you`) is not: `code` is a recipe somebody looks for, and the
+ * letters of a host are words until the slash. Said of text that is not yet an address, so it is not asked of
+ * what is one.
+ */
+export function isAddressStart(value: string): boolean {
+  const text = value.trim().toLowerCase();
+  if (text === "" || /\s/.test(text)) return false;
+  if (ADDRESS_SCHEMES.some((scheme) => scheme.startsWith(text))) return true;
+  return SCP_START.test(text);
+}
 
 /** An image reference: an optional registry, a path, a tag or a digest; lower case, as registries have it. */
 const IMAGE_REF = /^(?:[a-z0-9]+(?:[._-][a-z0-9]+)*(?::\d+)?\/)?(?:[a-z0-9]+(?:[._-][a-z0-9]+)*\/)*[a-z0-9]+(?:[._-][a-z0-9]+)*(?::[\w][\w.-]{0,127})?(?:@sha256:[a-f0-9]{64})?$/;
@@ -201,11 +225,14 @@ const IMAGE_REF = /^(?:[a-z0-9]+(?:[._-][a-z0-9]+)*(?::\d+)?\/)?(?:[a-z0-9]+(?:[
  * know which of four doors their thing is behind (owner item 99). The server decides again; this only picks
  * what is shown. A name with a slash and no scheme (`owner/app`) is an image, as Docker reads it; a lone word
  * (`redis`) is a search, because it is far likelier to be looked for than to be a Docker Hub image to deploy.
+ * The beginning of an address (`isAddressStart`) is neither: typed letter by letter, an address would
+ * otherwise show the catalog for `h` and take it away at `https://g`.
  */
 export function classifyEntry(value: string): EntryKind {
   const text = value.trim();
   if (text === "") return "empty";
   if (sourceKind(text) !== "unknown" || BARE_HOST.test(text)) return "source";
+  if (isAddressStart(text)) return "start";
   if (/\s/.test(text)) return "search";
   const hasPath = text.includes("/");
   const hasTag = /^[^/:]+:[\w][\w.-]*$/.test(text);

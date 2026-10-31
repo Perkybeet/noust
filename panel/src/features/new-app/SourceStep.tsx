@@ -318,8 +318,11 @@ export function SourceStep({
   }
 
   const entry = classifyEntry(text);
+  // The beginning of an address keeps the page as it was before the first letter: typed letter by letter, an address
+  // would otherwise show the catalog for `h` and take it away at `https://g`, and the page would jump twice.
+  const view = entry === "start" ? "empty" : entry;
   // With the repositories listed under an empty box, a missing choice is said on the list it is chosen from.
-  const pickerOwnsError = entry === "empty" && mode === "github" && github?.configured === true;
+  const pickerOwnsError = view === "empty" && mode === "github" && github?.configured === true;
   /** What was typed or pasted decides where it goes: a source, an image, or words for the catalog. */
   const typed = (next: string): void => {
     setText(next);
@@ -387,7 +390,7 @@ export function SourceStep({
         {entry === "image" ? <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("containers.source.privateRegistry")}</p> : null}
       </form>
 
-      {entry === "empty" && mode === "github" && github?.configured === true ? (
+      {view === "empty" && mode === "github" && github?.configured === true ? (
         <form id={`${SOURCE_FORM}-repositories`} onSubmit={submit} noValidate className="flex flex-col gap-5">
           <GitHubSource status={github} form={form} errors={errors} onChange={onChange} disabled={busy} central={centralGithub} />
           {reading}
@@ -397,7 +400,7 @@ export function SourceStep({
       {/* Under the repositories, which are drawn once GitHub has said whether it is connected: what is below them
           is not drawn before, so it is not moved down when they arrive. */}
       <div hidden={githubReading} className="flex flex-col gap-6">
-      {entry === "empty" || entry === "search" ? recipes(entry === "search" ? text : "", mode === "recipe" && entry === "empty") : null}
+      {view === "empty" || view === "search" ? recipes(view === "search" ? text : "", mode === "recipe" && view === "empty") : null}
 
       <Disclosure label={t("newApp.box.otherWays")}>
         <div className="flex flex-col gap-5">
