@@ -1,9 +1,9 @@
 {
   "measured": "tests/integration/recipes_run.py: scripts/recipe_smoke.py in the harness container, one recipe at a time",
   "harness": "Ubuntu 24.04 with systemd and a Docker of its own (Dockerfile.systemd)",
-  "updated": "2026-10-31T22:54:19Z",
+  "updated": "2026-10-31T23:01:54Z",
   "totals": {
-    "pass": 397,
+    "pass": 400,
     "fail": 3
   },
   "results": [
@@ -258,6 +258,21 @@
       "result": "pass",
       "gate": "/healthcheck -> 200 after 5s",
       "error_lines": 0,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "authelia",
+      "version": "4.39.28",
+      "date": "2026-10-31T23:00:57Z",
+      "source": "dokploy",
+      "seconds": 56,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -1123,23 +1138,6 @@
       "transient": false,
       "rate_limited": false,
       "images_removed": 1
-    },
-    {
-      "recipe": "dragonfly-db",
-      "version": "2.0.2",
-      "date": "2026-10-31T21:49:58Z",
-      "source": "dokploy",
-      "seconds": 35,
-      "result": "pass",
-      "gate": "/healthz -> 200 after 0s",
-      "gate_status": "200",
-      "unsteady": false,
-      "error_lines": 0,
-      "transient": false,
-      "rate_limited": false,
-      "images_removed": 1,
-      "attempts": 2,
-      "first_attempt": "the health gate's request to / got 401, the recipe expects 200-399"
     },
     {
       "recipe": "drawio",
@@ -3521,6 +3519,23 @@
       "images_removed": 1
     },
     {
+      "recipe": "obscura",
+      "version": "2.10.2-alpine",
+      "date": "2026-10-31T23:00:04Z",
+      "source": "dokploy",
+      "seconds": 52,
+      "result": "pass",
+      "gate": "/ -> 401 after 5s",
+      "gate_status": "401",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 3,
+      "attempts": 2,
+      "first_attempt": "the health gate's request to / got 401, the recipe expects 200-399"
+    },
+    {
       "recipe": "octoprint",
       "version": "1.11.8",
       "date": "2026-10-30T15:14:53Z",
@@ -5061,6 +5076,21 @@
       "images_removed": 2
     },
     {
+      "recipe": "surrealdb",
+      "version": "2.3.10",
+      "date": "2026-10-31T22:55:59Z",
+      "source": "dokploy",
+      "seconds": 38,
+      "result": "pass",
+      "gate": "/ -> 307 after 5s",
+      "gate_status": "307",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "suwayomi",
       "version": "2.4.2435",
       "date": "2026-10-30T15:04:52Z",
@@ -5651,6 +5681,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 1,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "web-check",
+      "version": "2.3.11",
+      "date": "2026-10-31T22:54:44Z",
+      "source": "coolify",
+      "seconds": 73,
+      "result": "pass",
+      "gate": "/ -> 302 after 5s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 0,
       "transient": false,
       "rate_limited": false,
       "images_removed": 1

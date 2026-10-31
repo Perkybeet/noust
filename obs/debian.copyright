@@ -121,7 +121,6 @@ Files:
  src/noust/recipes/discourse.yaml
  src/noust/recipes/docling-serve.yaml
  src/noust/recipes/domain-locker.yaml
- src/noust/recipes/dragonfly-db.yaml
  src/noust/recipes/evershop.yaml
  src/noust/recipes/ezbookkeeping.yaml
  src/noust/recipes/filegator.yaml
