@@ -451,10 +451,12 @@ the weight budget require; the script every page loads is held to 398 KiB gzippe
   hidden text area, and the browser's own answer to a press on a canvas moved it to the page afterwards, so the
   terminal could not be typed in again with the mouse once the keyboard had gone elsewhere. The press is declined
   there; the text view, which needs it to select, keeps it.
-- **Continue after a typed repository takes a press of any length.** Leaving the field starts the read of the
-  repository, and Continue turned busy under a finger still on it: a press of 90 ms ended on a button that takes
-  no press and the step stayed on Source. Continue is busy only for a read it asked for, and a press while the
-  field's read runs joins it.
+- **Continue after a typed repository takes a press of any length.** Pressing it leaves the field, and 80 ms later
+  the field's read drew a block above the button: the button moved some fifty pixels from under the finger, the
+  release landed on something else and the press ended in no click (every hold from 90 to 300 ms, found in a
+  browser). While a press on Continue is down, leaving the field reads nothing; the click is the ask. A read the
+  field started when it was left another way is joined by a later press, and Continue is busy only for a read it
+  asked for.
 - **Typing an address in "What to deploy" no longer shows the catalog on the way** (`h`, `ht`, ... `https:/`): what
   can still become an address keeps the page as it was.
 - **The stages of an update by push no longer run ahead of its log.** Its first line, "Building and activating a
