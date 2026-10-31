@@ -11850,7 +11850,7 @@ export interface paths {
          * @description List the chats the configured Telegram bot has seen.
          *
          *     Finding a chat id today means opening the Bot API's ``getUpdates`` URL by
-         *     hand and reading raw JSON, or asking an assistant to do it. This is that
+         *     hand and reading raw JSON, or asking somebody to do it. This is that
          *     lookup, using the bot token already saved, over the notifier's own HTTP
          *     path - the same SSRF guard and timeout as every other channel.
          *
