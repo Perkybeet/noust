@@ -464,7 +464,7 @@ class Project:
             check=False,
         )
 
-    def container_logs(self, name: str, tail: int = 80) -> str:
+    def container_logs(self, name: str, tail: int = 400) -> str:
         """
         Read the end of one container's log.
 
@@ -528,8 +528,8 @@ def failing_logs(project: Project, containers: Sequence[Mapping[str, Any]]) -> s
         containers: What :meth:`Project.inspect` returned.
 
     Returns:
-        Text for the evidence: each failing container's last lines under its name, and the
-        project's last lines after them, nine thousand characters at most.
+        Text for the evidence: each failing container's first and last lines under its name, and the
+        project's last lines after them.
     """
     parts = []
     for container in containers:
@@ -539,10 +539,13 @@ def failing_logs(project: Project, containers: Sequence[Mapping[str, Any]]) -> s
             or container["state"] == "restarting"
             or container.get("health") == "unhealthy"
         ):
-            shown = project.container_logs(str(container["name"]))
-            parts.append(f"--- {container['name']}\n{shown[-3000:]}")
+            lines = project.container_logs(str(container["name"])).splitlines()
+            # The first lines say what went wrong and the last say that it still does: a backtrace
+            # between them is neither.
+            shown = lines if len(lines) <= 70 else [*lines[:15], "[...]", *lines[-50:]]
+            parts.append(f"--- {container['name']}\n" + "\n".join(line[:200] for line in shown))
     parts.append(project.run("logs", "--no-color", "--tail", "40").stdout[-1500:])
-    return "\n".join(parts)[-9000:]
+    return "\n".join(parts)
 
 
 def smoke(
