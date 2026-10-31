@@ -28,6 +28,14 @@ export interface SourceReads {
   finish: (read: SourceRead) => boolean;
   /** Forgets the read under way, as a change of way does, so nothing still under way is gone on with. */
   forget: () => void;
+  /**
+   * Continue is pressed down: until the finger lifts, the field's being left (it is what a press on the button does)
+   * asks for no read. A read that starts under the finger puts what it draws above the button, the button moves, and
+   * the release lands on something else: no click, and the press is lost.
+   */
+  press: () => void;
+  /** Whether a press on Continue is down. */
+  pressing: () => boolean;
 }
 
 /**
@@ -62,5 +70,18 @@ export function useSourceReads(): SourceReads {
     under.current = null;
     setAdvancing(false);
   }, []);
-  return { advancing, ask, finish, forget };
+  const down = useRef(false);
+  const press = useCallback((): void => {
+    down.current = true;
+    const lift = (): void => {
+      down.current = false;
+      window.removeEventListener("pointerup", lift, true);
+      window.removeEventListener("pointercancel", lift, true);
+    };
+    // Wherever it lifts: the button may have been left, or moved from under the finger.
+    window.addEventListener("pointerup", lift, true);
+    window.addEventListener("pointercancel", lift, true);
+  }, []);
+  const pressing = useCallback((): boolean => down.current, []);
+  return { advancing, ask, finish, forget, press, pressing };
 }

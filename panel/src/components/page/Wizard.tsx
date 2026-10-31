@@ -13,7 +13,13 @@ import type { WizardStep } from "./Stepper";
 
 export interface WizardActionsProps {
   back?: { label?: string; onClick: () => void };
-  next: { label?: string; onClick: () => void; loading?: boolean };
+  next: {
+    label?: string;
+    onClick: () => void;
+    loading?: boolean;
+    /** The button is pressed down, before it is let go: a step that must not change what is drawn under the finger hears it here. */
+    onPress?: () => void;
+  };
   /**
    * What the step still needs, as a sentence ("Enter the domain the app answers on."). Next
    * stays enabled; pressing it says this, and calls `onMissing` (to focus the field), instead
@@ -47,6 +53,7 @@ export function WizardActions({ back, next, missing, onMissing, className }: Wiz
         <Button
           variant="primary"
           loading={next.loading ?? false}
+          {...(next.onPress !== undefined ? { onPointerDown: next.onPress } : {})}
           onClick={() => {
             if (blocked) {
               setPointed(true);

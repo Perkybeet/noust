@@ -417,6 +417,9 @@ export function NewAppWizard() {
   const [settleAsk, setSettleAsk] = useState(0);
   const [settled, setSettled] = useState(0);
   const settleSource = (): void => {
+    // Leaving the field to press Continue asks for nothing: the press is the ask, and what a read draws above the
+    // button would move it from under the finger before it lifts.
+    if (reads.pressing()) return;
     setSettleAsk((count) => count + 1);
   };
   useEffect(() => {
@@ -775,6 +778,7 @@ export function NewAppWizard() {
         // Busy only for a read Continue asked for: one the field started (a paste, leaving it) is read in the open, with
         // its own Cancel, and the press that ends while it runs must still be taken.
         loading: inspect.isPending && reads.advancing,
+        onPress: reads.press,
         onClick: () => {
           setSourceErrors({});
           // Pressing Continue is the ask: the read the field's blur scheduled 80ms ahead (pressing

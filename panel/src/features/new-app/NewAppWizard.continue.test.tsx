@@ -1,8 +1,11 @@
 /**
  * Pressing Continue after a repository was typed, however long the press lasts. Leaving the field
- * (pressing the button is what leaves it) starts the read of the repository by itself, and a press
- * of 90ms is the ordinary one: the read starts while the button is still down. The press must go on
- * with that read, not be lost to a button that turned busy under the finger.
+ * (pressing the button is what leaves it) used to start the read of the repository by itself 80ms
+ * later, and a press of 90ms is the ordinary one: the read put its block above the button, the button
+ * moved from under the finger and the release landed on something else, so the press was lost. The
+ * press is the ask: while it is down, leaving the field reads nothing, and the click reads and goes
+ * on. A read the field starts when it is left some other way is joined by a press that comes while it
+ * runs, and never started twice.
  */
 
 import { screen, waitFor } from "@testing-library/react";
@@ -70,24 +73,25 @@ function wizard(extra: Record<string, RouteHandler> = {}) {
 const continueButton = (): HTMLElement => screen.getByRole("button", { name: "Continue" });
 
 describe("Continue after a typed repository", () => {
-  it("goes on with the read the field's own blur started, when it is pressed while that read runs", { timeout: 30_000 }, async () => {
+  it("reads nothing while the press is down, however long it is held, and goes on when it lifts", { timeout: 30_000 }, async () => {
     const read = slowRead();
     const { backend, harness } = wizard({ "POST /api/apps/inspect": read.handler });
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
     await user.type(screen.getByLabelText("What to deploy"), REPOSITORY);
 
-    // The press starts: the button takes the focus, so the field is left and its read begins.
+    // The press starts: the button takes the focus, so the field is left.
     await user.pointer({ keys: "[MouseLeft>]", target: continueButton() });
+    // An absence is proved after the window in which it would have happened: the field settles 80ms after it is left.
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    expect(backend.callsTo("POST /api/apps/inspect")).toHaveLength(0);
+    expect(screen.queryByText("Loading the repository…")).not.toBeInTheDocument();
+
+    // The press ends on the button, which has not moved: Continue reads, and goes on when it has.
+    await user.pointer({ keys: "[/MouseLeft]" });
     await waitFor(() => {
       expect(backend.callsTo("POST /api/apps/inspect")).toHaveLength(1);
     });
-    await screen.findByText("Loading the repository…");
-    // Nothing Continue asked for is under way, so it is a button that can still be pressed.
-    expect(continueButton()).not.toHaveAttribute("aria-busy");
-
-    // The press ends with the read still going: it goes on with it, it does not start another.
-    await user.pointer({ keys: "[/MouseLeft]" });
     expect(continueButton()).toHaveAttribute("aria-busy", "true");
     read.answer();
 
@@ -95,15 +99,39 @@ describe("Continue after a typed repository", () => {
     expect(backend.callsTo("POST /api/apps/inspect")).toHaveLength(1);
   });
 
-  it("goes on at once when the read ended while the button was down", { timeout: 30_000 }, async () => {
-    const { backend, harness } = wizard();
+  it("joins the read the field started when it was left another way, and does not start a second one", { timeout: 30_000 }, async () => {
+    const read = slowRead();
+    const { backend, harness } = wizard({ "POST /api/apps/inspect": read.handler });
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
     await user.type(screen.getByLabelText("What to deploy"), REPOSITORY);
 
-    await user.pointer({ keys: "[MouseLeft>]", target: continueButton() });
-    // What the read found is on screen before the finger lifts.
+    // Leaving the field for anything but the button: it reads by itself, in the open.
+    await user.click(screen.getByRole("heading", { level: 1, name: "New application" }));
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/apps/inspect")).toHaveLength(1);
+    });
+    await screen.findByText("Loading the repository…");
+    // Nothing Continue asked for is under way, so it is a button that can still be pressed.
+    expect(continueButton()).not.toHaveAttribute("aria-busy");
+
+    await user.click(continueButton());
+    expect(continueButton()).toHaveAttribute("aria-busy", "true");
+    read.answer();
+
+    expect(await screen.findByRole("heading", { level: 2, name: "Variables" })).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/apps/inspect")).toHaveLength(1);
+  });
+
+  it("goes on at once when what the field read is already on screen", { timeout: 30_000 }, async () => {
+    const { backend, harness } = wizard();
+    const { user } = harness;
+    await screen.findByRole("heading", { level: 1, name: "New application" });
+    await user.type(screen.getByLabelText("What to deploy"), REPOSITORY);
+    await user.click(screen.getByRole("heading", { level: 1, name: "New application" }));
     await screen.findByText(/Detected: Next\.js/);
+
+    await user.pointer({ keys: "[MouseLeft>]", target: continueButton() });
     await user.pointer({ keys: "[/MouseLeft]" });
 
     expect(await screen.findByRole("heading", { level: 2, name: "Variables" })).toBeInTheDocument();
