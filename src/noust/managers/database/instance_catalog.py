@@ -226,17 +226,17 @@ SPECS: dict[str, EngineSpec] = {
                     legacy=True,
                 ),
                 ImagePin(
-                    "15", "sha256:7e2070cf6ad06fb3cbbd141b1bafbb7fd5bb63e2b6001e6daf34448eb555e4b3"
+                    "15", "sha256:40e8c839f86c404f9bd1c456bb83f11b205f2cd95d753b34c2d074e89ecee786"
                 ),
                 ImagePin(
-                    "16", "sha256:65b16a8b326e0cfbdf33fa7e783f2a0cb352a61448616ccccfd616ef42aa0f65"
+                    "16", "sha256:1beaa3084eee2676f20a9cd9928f0bf2c5bf674f8e49f81017912183d377c61c"
                 ),
                 ImagePin(
-                    "17", "sha256:ae69c452f483507a6b99fb654cf93aad7fe156ffd2c56247707eef4e36d3c12b"
+                    "17", "sha256:31ba9c94a03ada9988f2bb493a22a75eef3a185884533e5cdbcd498ea835b08f"
                 ),
                 ImagePin(
                     "18",
-                    "sha256:fc973eb97c9fd04bfa1840e0f510719a584ccb3be8debfe6a4144637a9dfe8cf",
+                    "sha256:3a4264520e121176619f54ff867d12774bc81e95e7b84db58d63bccdb6144b81",
                     default=True,
                 ),
             ),
@@ -250,22 +250,22 @@ SPECS: dict[str, EngineSpec] = {
                     pins=(
                         ImagePin(
                             "15",
-                            "sha256:47af0b65960b14f1c6945aa4ccae37836c632e9a6fe0eea9160936e616e5b2e9",
+                            "sha256:88164492558c9773a1e17a8305abaca7863e05b3d8bbcdb792774890a2047e06",
                             tag="pg15",
                         ),
                         ImagePin(
                             "16",
-                            "sha256:7b822b0aac60967beb1ea5e576b8602c94c300a157d187f385ae3e0da199b90a",
+                            "sha256:0dd3149a06e4579a0d70d8fef9945636cd514005e7237deb27f9b67886f8dc4f",
                             tag="pg16",
                         ),
                         ImagePin(
                             "17",
-                            "sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d",
+                            "sha256:7d0a41464797aeb9862dfdc0bbf1526b82cfd324cdd8036df19e3545f4a9ccb8",
                             tag="pg17",
                         ),
                         ImagePin(
                             "18",
-                            "sha256:2358fcba361ed2233a5ed81b5fe4ca779ccb304120ce531a3bf51c0ed7e2bc11",
+                            "sha256:c29f30688a9ad961691bdf0ec1650717cc132a5814619d80f80463d6e4c42e47",
                             default=True,
                             tag="pg18",
                         ),
@@ -296,7 +296,7 @@ SPECS: dict[str, EngineSpec] = {
                         ),
                         ImagePin(
                             "18",
-                            "sha256:60f6ad1d21ea86a67d47780b9a0d1e1d200500f62b19293fa834d0dea80b8677",
+                            "sha256:4a43e3c3e5d55b9208240fc71db543b79c638766280c625a425bd0a2390989c4",
                             default=True,
                             tag="18-3.6",
                         ),
@@ -326,11 +326,11 @@ SPECS: dict[str, EngineSpec] = {
                 ),
                 ImagePin(
                     "8.4",
-                    "sha256:6ea90827b1100f8f2ae306a539f86d2c264a26ed435a2a9f75551dd5c3aeb242",
+                    "sha256:a0225d1ea6631c8bc2385dc4c2faba17bbf1834ecf369e1659a9a382bd8d5dd7",
                     default=True,
                 ),
                 ImagePin(
-                    "9.7", "sha256:e2bde46db6563855d7177adb5f0b57b9dc663f5a20927a90f4259d3312068497"
+                    "9.7", "sha256:86b390ef642f89a0157d6215dee33ddc928b8b0ecab173117f56f6c40cb24eab"
                 ),
             ),
             data_path=_fixed("/var/lib/mysql"),
@@ -350,15 +350,15 @@ SPECS: dict[str, EngineSpec] = {
                 ),
                 ImagePin(
                     "10.11",
-                    "sha256:7db29378d4fdab73f8123bbc2b48905c90d1a4b00cf848b028f1e81e623257f2",
+                    "sha256:d769e37960821dfdcf096954f6e7ac89f747e116c1bba98e48edd265dfc7deae",
                 ),
                 ImagePin(
                     "11.4",
-                    "sha256:1292844148b311e4ed4300022a996d39083f415a963e970cf47cad1b3b18e3a6",
+                    "sha256:d1891ede5a559f1086f55053bb8cc1569b0298338c4d72d71725a7f74f6ba620",
                 ),
                 ImagePin(
                     "11.8",
-                    "sha256:6422478cb8e159f080fb1d8ccf65101e26fe51385787fde7d16c3b165a331f15",
+                    "sha256:c4124d1afa875e47f2892edf26b482fa54f796e2f342d3717a04ca091a22a9bd",
                     default=True,
                 ),
             ),
@@ -373,10 +373,10 @@ SPECS: dict[str, EngineSpec] = {
             default_memory_mb=256,
             pins=(
                 ImagePin(
-                    "7.2", "sha256:46f15cf64fdef63e483dcda99e74e3d51c017b1175547b6bb874152ee2391aad"
+                    "7.2", "sha256:0312984fbfeb2ff1d4382ecef45b50e7d65478a6a58cf12ce28d6de7a4142e45"
                 ),
                 ImagePin(
-                    "7.4", "sha256:4fa24486b8bcca8eec45ee0eb166edc674795e53a2b53d1a9ef263eecebaac85"
+                    "7.4", "sha256:b6b6e3dc0c0952737748e55d5d885272840c7e42ba41ab1d5489f693419882f5"
                 ),
                 ImagePin(
                     "8.0",
@@ -384,7 +384,7 @@ SPECS: dict[str, EngineSpec] = {
                     default=True,
                 ),
                 ImagePin(
-                    "8.4", "sha256:b595f965375098bb2aa039d5534f4532d21852ce00e27fde591f9b6c96ef0a28"
+                    "8.4", "sha256:aab06e6b74b4e486cb934b6cd2ebc6d0bc4fc1576bae9df8207eba8663508b64"
                 ),
             ),
             data_path=_fixed("/data"),
@@ -398,15 +398,15 @@ SPECS: dict[str, EngineSpec] = {
             default_memory_mb=256,
             pins=(
                 ImagePin(
-                    "7.2", "sha256:ef0f9fb533b1f06fb7aba6478d758ca1c077d49e2bcb2b4365a4ea7f50b6d42e"
+                    "7.2", "sha256:828b1cbb1c258e02b9cd9588063fa997e097444e610d3f3c00d43e21400e2b8d"
                 ),
                 ImagePin(
                     "8",
-                    "sha256:640c5e62cea04b6d6f2084232651d0cc70362d31f4f805e7be94dbed6855e8f2",
+                    "sha256:8f836008e0986c36adf50da714c7060cf689dbb335f61fe077939d90fa650809",
                     default=True,
                 ),
                 ImagePin(
-                    "9", "sha256:418652cfb58ef879d4978c33553735d7147016032d5aefaa14c828e611eb9dfd"
+                    "9", "sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7"
                 ),
             ),
             data_path=_fixed("/data"),
@@ -455,11 +455,11 @@ SPECS: dict[str, EngineSpec] = {
                 ),
                 ImagePin(
                     "26.3",
-                    "sha256:5637f7b3024c95ee94b8e4c1255c90c8151618088c5549cc77b886786a86beb0",
+                    "sha256:de3e47c64078aa196dae2349e048fc98ba81947f651f5c20e06e46baea8ae40a",
                 ),
                 ImagePin(
                     "26.8",
-                    "sha256:6ded2b2c2f2c46f12784bd8000c75f8aa7363372ed64afccaa932456b8cb41e4",
+                    "sha256:d426d2f612e1e189c90f9a3f8dcd85a03c6851273833817a296bb327e63aa7a7",
                     default=True,
                 ),
             ),
@@ -481,11 +481,11 @@ SPECS: dict[str, EngineSpec] = {
                     legacy=True,
                 ),
                 ImagePin(
-                    "7.0", "sha256:1f995ad6fdb93244a1addab1b58f934a0bc2f5643c38e02f5e9d7f0c7d227a7b"
+                    "7.0", "sha256:8bb4442761a63a8dda452744082cdac9644b429807eb977b42324a63cef59ca4"
                 ),
                 ImagePin(
                     "8.0",
-                    "sha256:d0d926f94df099bff534b7ee5b5986458131a22489dfff8664509af0c1e2ca9c",
+                    "sha256:b9924c330a8bbc5800fe9c69f04a84e221eca7b28fd049a0354147d9908fa142",
                     default=True,
                 ),
             ),
