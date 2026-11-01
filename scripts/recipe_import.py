@@ -1160,7 +1160,9 @@ def rewrite_mount(draft: Draft, service: str, volume: str) -> str | None:
         draft.root_equivalent = "docker_socket"
         return volume
     if not source.startswith(("/", ".", "~", "$")):
-        return volume
+        # `data:/var/lib/postgresql/data/` and `data:/var/lib/postgresql/data` are one mount: the
+        # recipe's checks (and Noust's backups) look for the folder without its closing slash.
+        return re.sub(r"^([^:]+:/[^:]*?)/+(?=:|$)", r"\1", volume)
     data_folder = host_data_folder(volume)
     if data_folder is not None:
         source_path, target = data_folder

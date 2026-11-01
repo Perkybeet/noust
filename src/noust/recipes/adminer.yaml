@@ -1,0 +1,37 @@
+# Adminer: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/adminer
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+# Licence: LICENSE of vrana/adminer, read 2026-10-30: 'Apache License 2.0 or GPL 2.0'
+schema: 2
+name: adminer
+kind: compose
+title: "Adminer"
+slogan: "Database management in a single PHP file"
+description: "Adminer is a lightweight, web-based database management tool. Self-host it on your own server with Dokploy, which deploys Adminer as a Docker Compose service in a few clicks."
+category: files
+tags: [databases, developer-tools, mysql, postgresql, files]
+logo: simple-icons:adminer
+version: "4.8.1"
+revision: 1
+updated: 2026-10-31
+homepage: https://www.adminer.org/
+docs: https://www.adminer.org/en/plugins/
+repository: https://github.com/vrana/adminer
+license: Apache-2.0 OR GPL-2.0-only
+architectures: ["386", "amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    adminer:
+      image: adminer:4.8.1@sha256:34d37131366c5aa84e1693dbed48593ed6f95fb450b576c1a7a59d3a9c9e8802
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8080
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."

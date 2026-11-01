@@ -8,6 +8,12 @@
    "license": "CC0-1.0",
    "source": "https://github.com/actualbudget/actual/blob/f9f6917fcdeadd138f5e21c7bd24e475778c4263/packages/component-library/src/icons/logo/logo.svg"
   },
+  "adminer": {
+   "title": "Adminer",
+   "hex": "34567C",
+   "license": "CC0-1.0",
+   "source": "https://www.adminer.org"
+  },
   "affine": {
    "title": "AFFiNE",
    "hex": "1E96EB",
@@ -258,6 +264,12 @@
    "license": "CC0-1.0",
    "source": "https://getgrav.org/media"
   },
+  "graylog": {
+   "title": "Graylog",
+   "hex": "FF3633",
+   "license": "CC0-1.0",
+   "source": "https://www.graylog.org"
+  },
   "grocy": {
    "title": "Grocy",
    "hex": "337AB7",
@@ -418,6 +430,12 @@
    "license": "CC0-1.0",
    "source": "https://www.mattermost.org/brand-guidelines/",
    "guidelines": "https://www.mattermost.org/brand-guidelines/"
+  },
+  "mautic": {
+   "title": "Mautic",
+   "hex": "4E5E9E",
+   "license": "CC0-1.0",
+   "source": "https://www.mautic.org/about/logos-and-graphics"
   },
   "mealie": {
    "title": "Mealie",
@@ -719,6 +737,12 @@
    "hex": "000000",
    "license": "CC0-1.0",
    "source": "https://github.com/temporalio/temporaldotio/blob/b6b5f3ed1fda818d5d6c07e27ec15d51a61f2267/public/images/icons/temporal-no-text.svg"
+  },
+  "traccar": {
+   "title": "Traccar",
+   "hex": "000000",
+   "license": "CC0-1.0",
+   "source": "https://www.traccar.org"
   },
   "transmission": {
    "title": "Transmission",

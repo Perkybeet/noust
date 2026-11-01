@@ -492,6 +492,24 @@ def test_a_path_that_is_the_server_s_own_or_a_file_is_still_not_a_volume(
     assert skipped.value.code == "host-mount"
 
 
+@pytest.mark.parametrize(
+    ("volume", "kept"),
+    [
+        ("data:/var/lib/postgresql/data/", "data:/var/lib/postgresql/data"),
+        ("plugins:/opt/Lavalink/plugins/:rw", "plugins:/opt/Lavalink/plugins:rw"),
+        ("data:/data", "data:/data"),
+        ("root:/", "root:/"),
+    ],
+)
+def test_a_named_volume_is_mounted_where_the_folder_has_no_closing_slash(
+    tool: ModuleType, volume: str, kept: str
+) -> None:
+    """Traccar's `.../data/` was not found by the check that a database keeps its data in a volume."""
+    draft = tool.Draft(name="demo")
+
+    assert tool.rewrite_mount(draft, "web", volume) == kept
+
+
 def test_a_postgresql_18_volume_is_mounted_on_the_parent_of_the_data_folder(
     tool: ModuleType,
 ) -> None:

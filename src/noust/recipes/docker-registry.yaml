@@ -1,0 +1,91 @@
+# Docker Registry: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/docker-registry.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: docker-registry
+kind: compose
+title: "Docker Registry"
+slogan: "The Docker Registry lets you distribute Docker images."
+description: "A Docker registry to store and manage your Docker images."
+category: development
+tags: [registry, images, docker, development]
+logo: logo.svg
+version: "3"
+revision: 1
+updated: 2026-10-31
+homepage: https://distribution.github.io/distribution
+docs: https://distribution.github.io/distribution/
+repository: https://github.com/distribution/distribution
+license: Apache-2.0
+architectures: ["amd64", "arm", "arm64", "riscv64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_REGISTRY:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_USER_REGISTRY:
+    generate: "user"
+    description: "The user name Noust generated for registry."
+  SERVICE_PASSWORD_REGISTRY:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for registry."
+  REGISTRY_AUTH_HTPASSWD_REALM:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for registry auth htpasswd realm."
+  REGISTRY_AUTH_HTPASSWD_PATH:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for registry auth htpasswd path."
+health: {path: /, expect: "200-399", timeout: 180}
+files:
+  files/registry/config.yml:
+    asset: files/registry/config.yml
+    mode: "0644"
+  files/registry/entrypoint.sh:
+    asset: files/registry/entrypoint.sh
+    render: true
+    mode: "0644"
+compose: |
+  services:
+    registry:
+      image: registry:3@sha256:d4032d4cc323c1731c707931ecada07a53076eac38e3b61ae57533f170f2c6c3
+      environment:
+        SERVICE_URL_REGISTRY: ${SERVICE_URL_REGISTRY}
+        USERNAME: ${SERVICE_USER_REGISTRY}
+        PASSWORD: ${SERVICE_PASSWORD_REGISTRY}
+        REGISTRY_AUTH: htpasswd
+        REGISTRY_AUTH_HTPASSWD_REALM: ${REGISTRY_AUTH_HTPASSWD_REALM}
+        REGISTRY_AUTH_HTPASSWD_PATH: ${REGISTRY_AUTH_HTPASSWD_PATH}
+      entrypoint:
+        - sh
+        - /entrypoint.sh
+      volumes:
+        - registry-data:/var/lib/registry
+        - ./files/registry/entrypoint.sh:/entrypoint.sh
+        - ./files/registry/config.yml:/etc/docker/registry/config.yml
+      healthcheck:
+        test:
+          - CMD
+          - wget
+          - -q
+          - --spider
+          - http://127.0.0.1:5000/
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:5000
+  volumes:
+    registry-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_USER_REGISTRY and SERVICE_PASSWORD_REGISTRY in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume registry-data of this application: back it up before updating."

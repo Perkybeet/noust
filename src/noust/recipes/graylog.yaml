@@ -1,0 +1,147 @@
+# Graylog: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/graylog
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+# Licence: LICENSE of Graylog2/graylog2-server, read 2026-10-30: the SSPL
+schema: 2
+name: graylog
+kind: compose
+title: "Graylog"
+slogan: "Free and open log management"
+description: "Source-available (Server Side Public License), for your own use. Graylog Open collects, indexes, and searches logs, with dashboards and alerts. Includes MongoDB and OpenSearch."
+category: monitoring
+tags: [monitoring, logging]
+logo: simple-icons:graylog
+version: "7.1.9"
+revision: 1
+updated: 2026-10-31
+homepage: https://www.graylog.org
+docs: https://go2docs.graylog.org/
+repository: https://github.com/Graylog2/graylog2-server
+license: SSPL-1.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  GRAYLOG_ADMIN_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for graylog admin password."
+  GRAYLOG_PASSWORD_SECRET:
+    generate: "password64"
+    secret: true
+    description: "The secret Noust generated for graylog password secret."
+  APP_URL:
+    from: "url"
+    description: "The address people use to reach the application."
+  GRAYLOG_HTTP_EXTERNAL_URI:
+    value: "${APP_URL}/"
+    description: "The public address with its trailing slash, which Graylog insists on."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    graylog:
+      image: graylog/graylog:7.1.9@sha256:598bd41fefd5d65d05bb6a14f53d063fd717ea907a0764609413e7b89bae7406
+      restart: unless-stopped
+      depends_on:
+        mongodb:
+          condition: service_healthy
+        opensearch:
+          condition: service_healthy
+      entrypoint:
+        - /usr/bin/tini
+        - --
+        - /bin/bash
+        - -ec
+        - 'export GRAYLOG_ROOT_PASSWORD_SHA2="$$(printf ''%s'' "$$GRAYLOG_ADMIN_PASSWORD" | sha256sum |
+          cut -d '' '' -f 1)"
+
+          unset GRAYLOG_ADMIN_PASSWORD
+
+          exec /docker-entrypoint.sh
+
+          '
+      environment:
+        GRAYLOG_ADMIN_PASSWORD: ${GRAYLOG_ADMIN_PASSWORD:?Set the admin password}
+        GRAYLOG_PASSWORD_SECRET: ${GRAYLOG_PASSWORD_SECRET:?Set the password secret}
+        GRAYLOG_HTTP_BIND_ADDRESS: 0.0.0.0:9000
+        GRAYLOG_HTTP_EXTERNAL_URI: ${GRAYLOG_HTTP_EXTERNAL_URI}
+        GRAYLOG_MONGODB_URI: mongodb://mongodb:27017/graylog
+        GRAYLOG_ELASTICSEARCH_HOSTS: http://opensearch:9200
+        GRAYLOG_NODE_ID_FILE: /usr/share/graylog/data/data/node-id
+        GRAYLOG_SERVER_JAVA_OPTS: -Xms512m -Xmx512m
+      volumes:
+        - graylog-data:/usr/share/graylog/data
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - -fsS
+          - http://127.0.0.1:9000/api/system/lbstatus
+        interval: 30s
+        timeout: 5s
+        retries: 5
+        start_period: 120s
+      ports:
+        - 127.0.0.1:${PORT}:9000
+    mongodb:
+      image: mongo:8.0.29@sha256:02a0cc7939f5ed38f30f9bc714ef5f682d49baf9350c54acf302ce833087fe8a
+      restart: unless-stopped
+      command:
+        - mongod
+        - --wiredTigerCacheSizeGB
+        - '0.25'
+      volumes:
+        - mongodb-data:/data/db
+        - mongodb-config:/data/configdb
+      healthcheck:
+        test:
+          - CMD
+          - mongosh
+          - --quiet
+          - --eval
+          - 'quit(db.adminCommand(''ping'').ok ? 0 : 1)'
+        interval: 30s
+        timeout: 10s
+        retries: 5
+        start_period: 30s
+    opensearch:
+      image: opensearchproject/opensearch:2.19.5@sha256:4ee82ecb35d837a6186c81aaa64c8a5bce71aa956edbd87f1f684ab56af52c44
+      restart: unless-stopped
+      environment:
+        discovery.type: single-node
+        action.auto_create_index: 'false'
+        bootstrap.memory_lock: 'true'
+        OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+        DISABLE_INSTALL_DEMO_CONFIG: 'true'
+        DISABLE_SECURITY_PLUGIN: 'true'
+      ulimits:
+        memlock:
+          soft: -1
+          hard: -1
+        nofile:
+          soft: 65536
+          hard: 65536
+      volumes:
+        - opensearch-data:/usr/share/opensearch/data
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - -fsS
+          - http://127.0.0.1:9200/_cluster/health?wait_for_status=yellow&timeout=5s
+        interval: 30s
+        timeout: 10s
+        retries: 5
+        start_period: 60s
+  volumes:
+    graylog-data:
+    mongodb-data:
+    mongodb-config:
+    opensearch-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes graylog-data, mongodb-data, mongodb-config, opensearch-data of this application: back them up before updating."

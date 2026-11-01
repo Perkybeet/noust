@@ -1,9 +1,9 @@
 {
   "measured": "tests/integration/recipes_run.py: scripts/recipe_smoke.py in the harness container, one recipe at a time",
   "harness": "Ubuntu 24.04 with systemd and a Docker of its own (Dockerfile.systemd)",
-  "updated": "2026-11-01T00:07:07Z",
+  "updated": "2026-11-01T00:49:49Z",
   "totals": {
-    "pass": 417,
+    "pass": 430,
     "fail": 2
   },
   "results": [
@@ -56,6 +56,21 @@
       "result": "pass",
       "gate": "/health -> 200 after 5s",
       "error_lines": 0,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "adminer",
+      "version": "4.8.1",
+      "date": "2026-11-01T00:43:10Z",
+      "source": "dokploy",
+      "seconds": 36,
+      "result": "pass",
+      "gate": "/ -> 200 after 0s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -464,6 +479,21 @@
       "images_removed": 2
     },
     {
+      "recipe": "browserless",
+      "version": "2.58.1",
+      "date": "2026-11-01T00:12:21Z",
+      "source": "coolify",
+      "seconds": 93,
+      "result": "pass",
+      "gate": "/pressure -> 401 after 5s",
+      "gate_status": "401",
+      "unsteady": false,
+      "error_lines": 2,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "bugsink",
       "version": "2.6.1",
       "date": "2026-10-28T21:07:04Z",
@@ -541,6 +571,21 @@
       "transient": false,
       "rate_limited": false,
       "images_removed": 2
+    },
+    {
+      "recipe": "cap-captcha",
+      "version": "3.0.4",
+      "date": "2026-11-01T00:36:19Z",
+      "source": "coolify",
+      "seconds": 60,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
     },
     {
       "recipe": "certmate",
@@ -1053,6 +1098,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "docker-registry",
+      "version": "3",
+      "date": "2026-11-01T00:33:39Z",
+      "source": "coolify",
+      "seconds": 45,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "docling",
       "version": "1.38.2",
       "date": "2026-10-29T02:48:49Z",
@@ -1463,6 +1523,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 2,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "evolutionapi",
+      "version": "2.3.7",
+      "date": "2026-11-01T00:31:48Z",
+      "source": "coolify",
+      "seconds": 85,
+      "result": "pass",
+      "gate": "/ -> 200 after 10s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
       "transient": false,
       "rate_limited": false,
       "images_removed": 1
@@ -2015,6 +2090,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "graylog",
+      "version": "7.1.9",
+      "date": "2026-11-01T00:40:52Z",
+      "source": "dokploy",
+      "seconds": 136,
+      "result": "pass",
+      "gate": "/ -> 200 after 15s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 2
+    },
+    {
       "recipe": "grimmory",
       "version": "3.5.0",
       "date": "2026-10-30T12:21:39Z",
@@ -2260,6 +2350,23 @@
       "images_removed": 1
     },
     {
+      "recipe": "honcho",
+      "version": "3.0.12",
+      "date": "2026-11-01T00:48:10Z",
+      "source": "coolify",
+      "seconds": 97,
+      "result": "pass",
+      "gate": "/health -> 200 after 0s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 6,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 2,
+      "attempts": 2,
+      "first_attempt": "the health gate's request to / got 404, the recipe expects 200-399"
+    },
+    {
       "recipe": "hoppscotch",
       "version": "2026.9.0",
       "date": "2026-10-28T23:08:59Z",
@@ -2363,6 +2470,21 @@
       "transient": false,
       "rate_limited": false,
       "images_removed": 1
+    },
+    {
+      "recipe": "instatic",
+      "version": "0.0.18",
+      "date": "2026-11-01T00:35:30Z",
+      "source": "dokploy",
+      "seconds": 48,
+      "result": "pass",
+      "gate": "/ -> 302 after 5s",
+      "gate_status": "302",
+      "unsteady": true,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 2
     },
     {
       "recipe": "invoiceshelf",
@@ -2759,6 +2881,21 @@
       "result": "pass",
       "gate": "/health -> 200 after 5s",
       "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "kutt",
+      "version": "3.2.6",
+      "date": "2026-11-01T00:11:09Z",
+      "source": "dokploy",
+      "seconds": 45,
+      "result": "pass",
+      "gate": "/ -> 302 after 5s",
+      "gate_status": "302",
       "unsteady": false,
       "error_lines": 0,
       "transient": false,
@@ -3205,6 +3342,21 @@
       "error_lines": 7,
       "rate_limited": false,
       "images_removed": 1
+    },
+    {
+      "recipe": "mautic",
+      "version": "5.1.1-apache",
+      "date": "2026-11-01T00:15:58Z",
+      "source": "dokploy",
+      "seconds": 124,
+      "result": "pass",
+      "gate": "/ -> 302 after 0s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 3,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 4
     },
     {
       "recipe": "mazanoke",
@@ -3665,6 +3817,23 @@
       "transient": false,
       "rate_limited": false,
       "images_removed": 3,
+      "attempts": 2,
+      "first_attempt": "the health gate's request to / got 401, the recipe expects 200-399"
+    },
+    {
+      "recipe": "obsidian-livesync",
+      "version": "3.4.2",
+      "date": "2026-11-01T00:10:25Z",
+      "source": "coolify",
+      "seconds": 43,
+      "result": "pass",
+      "gate": "/ -> 401 after 5s",
+      "gate_status": "401",
+      "unsteady": false,
+      "error_lines": 6,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1,
       "attempts": 2,
       "first_attempt": "the health gate's request to / got 401, the recipe expects 200-399"
     },
@@ -5059,6 +5228,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "sonarqube",
+      "version": "community",
+      "date": "2026-11-01T00:13:55Z",
+      "source": "coolify",
+      "seconds": 121,
+      "result": "pass",
+      "gate": "/ -> 200 after 21s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "sonarr",
       "version": "4.0.20.3014",
       "date": "2026-10-29T00:35:53Z",
@@ -5489,6 +5673,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 3,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "traccar",
+      "version": "6.16.0",
+      "date": "2026-11-01T00:39:25Z",
+      "source": "coolify",
+      "seconds": 60,
+      "result": "pass",
+      "gate": "/ -> 200 after 10s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 1,
       "transient": false,
       "rate_limited": false,
       "images_removed": 1

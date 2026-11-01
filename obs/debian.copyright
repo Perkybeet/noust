@@ -14,12 +14,15 @@ Files:
  src/noust/recipes/apprise-api.yaml
  src/noust/recipes/babybuddy.yaml
  src/noust/recipes/bentopdf.yaml
+ src/noust/recipes/browserless.yaml
  src/noust/recipes/calibre-web-automated-book-downloader.yaml
+ src/noust/recipes/cap-captcha.yaml
  src/noust/recipes/checkmate.yaml
  src/noust/recipes/chroma.yaml
  src/noust/recipes/cloudreve.yaml
  src/noust/recipes/cryptgeon.yaml
  src/noust/recipes/databasus.yaml
+ src/noust/recipes/docker-registry.yaml
  src/noust/recipes/docling.yaml
  src/noust/recipes/documenso.yaml
  src/noust/recipes/docuseal.yaml
@@ -30,6 +33,7 @@ Files:
  src/noust/recipes/easyappointments.yaml
  src/noust/recipes/elasticsearch.yaml
  src/noust/recipes/engram.yaml
+ src/noust/recipes/evolutionapi.yaml
  src/noust/recipes/fider.yaml
  src/noust/recipes/firefox.yaml
  src/noust/recipes/glance.yaml
@@ -42,6 +46,7 @@ Files:
  src/noust/recipes/heimdall.yaml
  src/noust/recipes/heyform.yaml
  src/noust/recipes/homebox.yaml
+ src/noust/recipes/honcho.yaml
  src/noust/recipes/hoppscotch.yaml
  src/noust/recipes/influxdb.yaml
  src/noust/recipes/karakeep.yaml
@@ -59,6 +64,7 @@ Files:
  src/noust/recipes/mixpost.yaml
  src/noust/recipes/moodle.yaml
  src/noust/recipes/newapi.yaml
+ src/noust/recipes/obsidian-livesync.yaml
  src/noust/recipes/once-campfire.yaml
  src/noust/recipes/onedev.yaml
  src/noust/recipes/onetimesecret.yaml
@@ -84,14 +90,17 @@ Files:
  src/noust/recipes/rabbitmq.yaml
  src/noust/recipes/rallly.yaml
  src/noust/recipes/rivet-engine.yaml
+ src/noust/recipes/rybbit.yaml
  src/noust/recipes/ryot.yaml
  src/noust/recipes/seaweedfs.yaml
  src/noust/recipes/sequin.yaml
  src/noust/recipes/silverbullet.yaml
  src/noust/recipes/snipe-it.yaml
+ src/noust/recipes/sonarqube.yaml
  src/noust/recipes/sure.yaml
  src/noust/recipes/teable.yaml
  src/noust/recipes/termix.yaml
+ src/noust/recipes/traccar.yaml
  src/noust/recipes/usesend.yaml
  src/noust/recipes/wakapi.yaml
  src/noust/recipes/weaviate.yaml
@@ -108,6 +117,7 @@ License: Apache-2.0
 
 Files:
  src/noust/recipes/ackee.yaml
+ src/noust/recipes/adminer.yaml
  src/noust/recipes/adventurelog.yaml
  src/noust/recipes/agent-zero.yaml
  src/noust/recipes/ampache.yaml
@@ -148,10 +158,12 @@ Files:
  src/noust/recipes/freellmapi.yaml
  src/noust/recipes/gel.yaml
  src/noust/recipes/go2rtc.yaml
+ src/noust/recipes/graylog.yaml
  src/noust/recipes/grimoire.yaml
  src/noust/recipes/hortusfox.yaml
  src/noust/recipes/hyperdx.yaml
  src/noust/recipes/imgproxy.yaml
+ src/noust/recipes/instatic.yaml
  src/noust/recipes/invoiceshelf.yaml
  src/noust/recipes/ipfs.yaml
  src/noust/recipes/jellyseerr.yaml
@@ -162,11 +174,13 @@ Files:
  src/noust/recipes/kestra.yaml
  src/noust/recipes/kitchenowl.yaml
  src/noust/recipes/komari-monitor.yaml
+ src/noust/recipes/kutt.yaml
  src/noust/recipes/languagetool.yaml
  src/noust/recipes/lavalink.yaml
  src/noust/recipes/libredb-studio.yaml
  src/noust/recipes/linkstack.yaml
  src/noust/recipes/lubelogger.yaml
+ src/noust/recipes/mautic.yaml
  src/noust/recipes/mazanoke.yaml
  src/noust/recipes/mcsmanager.yaml
  src/noust/recipes/nginx.yaml
@@ -270,6 +284,7 @@ Files:
  src/noust/recipes/assets/autobrr/logo.svg
  src/noust/recipes/assets/bazarr/logo.svg
  src/noust/recipes/assets/bentopdf/logo.svg
+ src/noust/recipes/assets/browserless/logo.svg
  src/noust/recipes/assets/bytestash/logo.svg
  src/noust/recipes/assets/chevereto/logo.svg
  src/noust/recipes/assets/chhoto-url/logo.svg
@@ -341,10 +356,12 @@ Files:
  src/noust/recipes/assets/readeck/logo.svg
  src/noust/recipes/assets/rivet-engine/logo.svg
  src/noust/recipes/assets/romm/logo.svg
+ src/noust/recipes/assets/rybbit/logo.svg
  src/noust/recipes/assets/ryot/logo.svg
  src/noust/recipes/assets/semaphore/logo.svg
  src/noust/recipes/assets/shaarli/logo.svg
  src/noust/recipes/assets/shlink/logo.svg
+ src/noust/recipes/assets/sonarqube/logo.svg
  src/noust/recipes/assets/spliit/logo.svg
  src/noust/recipes/assets/spoolman/logo.svg
  src/noust/recipes/assets/sshwifty/logo.svg
