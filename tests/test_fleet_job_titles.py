@@ -50,6 +50,7 @@ def test_every_bulk_action_has_a_title_whose_english_reads_as_its_name_always_di
     reworded = {
         "placement_copy": "Copy an application to {n} servers",
         "dns_cluster": "Set up Noust DNS on {n} servers",
+        "database_transfer": "Move a database to {n} servers",
     }
     # The actions the product registers: another test of the same process may have added doubles of its own.
     product = {

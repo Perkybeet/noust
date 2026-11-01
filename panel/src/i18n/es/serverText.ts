@@ -405,6 +405,10 @@ export const serverText: Catalog<typeof en> = {
       single: { text: "Renovar certificados en 1 servidor" },
       several: { text: "Renovar certificados en {count} servidores" },
     },
+    database_transfer: {
+      single: { text: "Mover una base de datos a otro servidor" },
+      several: { text: "Mover una base de datos a {count} servidores" },
+    },
     dns_cluster: {
       single: { text: "Configurar el DNS de Noust en 1 servidor" },
       several: { text: "Configurar el DNS de Noust en {count} servidores" },

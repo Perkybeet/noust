@@ -416,6 +416,10 @@ export const serverText = {
       single: { text: "Renew certificates on 1 server" },
       several: { text: "Renew certificates on {count} servers" },
     },
+    database_transfer: {
+      single: { text: "Move a database to another server" },
+      several: { text: "Move a database to {count} servers" },
+    },
     dns_cluster: {
       single: { text: "Set up Noust DNS on 1 server" },
       several: { text: "Set up Noust DNS on {count} servers" },

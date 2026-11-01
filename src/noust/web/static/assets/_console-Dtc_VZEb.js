@@ -1,1 +1,0 @@
-import{n as e}from"./ErrorBoundary-B0379WNZ.js";import{dt as t}from"./useNode-CZyDQ7I_.js";var n=t(),r=({error:t})=>(0,n.jsx)(`main`,{className:`mx-auto min-h-dvh max-w-3xl px-6 py-16`,children:(0,n.jsx)(e,{error:t})});export{r as errorComponent};

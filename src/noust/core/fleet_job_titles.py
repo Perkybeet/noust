@@ -39,6 +39,10 @@ _TITLES: dict[str, tuple[str, str]] = {
     "placement_copy": ("fleet_job.placement_copy.single", "fleet_job.placement_copy.several"),
     "placement_ship": ("fleet_job.placement_ship.single", "fleet_job.placement_ship.several"),
     "dns_cluster": ("fleet_job.dns_cluster.single", "fleet_job.dns_cluster.several"),
+    "database_transfer": (
+        "fleet_job.database_transfer.single",
+        "fleet_job.database_transfer.several",
+    ),
 }
 
 

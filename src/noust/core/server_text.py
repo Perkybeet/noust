@@ -182,6 +182,8 @@ CATALOG: dict[str, str] = {
     "fleet_job.placement_copy.several": "Copy an application to {count} servers",
     "fleet_job.placement_ship.single": "Build on one server, run on others on 1 server",
     "fleet_job.placement_ship.several": "Build on one server, run on others on {count} servers",
+    "fleet_job.database_transfer.single": "Move a database to another server",
+    "fleet_job.database_transfer.several": "Move a database to {count} servers",
     "fleet_job.dns_cluster.single": "Set up Noust DNS on 1 server",
     "fleet_job.dns_cluster.several": "Set up Noust DNS on {count} servers",
     # -- The recipe catalogue: why a recipe is listed and cannot be installed ---------------

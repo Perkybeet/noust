@@ -1,1 +1,0 @@
-import{a as e,x as t}from"./client-9x4DcmL0.js";var n={sites:[`native-sites`],of:e=>[`app`,e,`adoption`]},r=()=>t({queryKey:n.sites,queryFn:({signal:t})=>e(`get`,`/api/apps/native-sites`,{signal:t})}),i=r=>t({queryKey:n.of(r),queryFn:({signal:t})=>e(`get`,`/api/apps/{domain}/adoption`,{params:{domain:r},signal:t})});export{r as n,i as t};

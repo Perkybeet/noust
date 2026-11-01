@@ -130,6 +130,8 @@ export const SERVER_TEXT = {
   "fleet_job.backups_verify.single": { text: [], hint: null, commands: [] },
   "fleet_job.certs_renew.several": { text: ["count"], hint: null, commands: [] },
   "fleet_job.certs_renew.single": { text: [], hint: null, commands: [] },
+  "fleet_job.database_transfer.several": { text: ["count"], hint: null, commands: [] },
+  "fleet_job.database_transfer.single": { text: [], hint: null, commands: [] },
   "fleet_job.dns_cluster.several": { text: ["count"], hint: null, commands: [] },
   "fleet_job.dns_cluster.single": { text: [], hint: null, commands: [] },
   "fleet_job.index_refresh.several": { text: ["count"], hint: null, commands: [] },
