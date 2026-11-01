@@ -1,23 +1,33 @@
-# Mindsdb: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/mindsdb.yaml
+# MindsDB: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/mindsdb.yaml
 # (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
 # digest its registry serves, the web port on the loopback address, credentials generated,
 # and nothing the closed schema refuses. The template's authors keep their rights in it.
+# Licence: the image is the query engine, whose code is the Elastic License 2.0 with its integrations
+# directory under the MIT licence (LICENSE of mindsdb/engine, `__license__` in mindsdb/__about__.py at
+# v26.1.0 and the metadata of MindsDB 26.1.0 on PyPI, read 2026-11-01). The MIT licence of the repository
+# this recipe used to name belongs to MindsHub, a different product: on 2026-06-08 the main branch of
+# mindsdb/mindsdb was replaced by it (commit "Fresh", #12461, 208,495 lines removed and an MIT LICENSE)
+# and GitHub now names that repository mindsdb/mindshub. The engine, with its history and its v26.1.0
+# tag (commit 86be14b66b16, the same in both), is mindsdb/engine, created on 2026-04-24; mindsdb.com
+# and docs.mindsdb.com redirect to mindshub.ai and to the engine's own docs (GitHub and the two sites,
+# read 2026-11-01). The Elastic License 2.0 forbids offering the software to others as a hosted or
+# managed service, so the recipe is not free software.
 schema: 2
 name: mindsdb
 kind: compose
-title: "Mindsdb"
-slogan: "MindsDB is the platform for building AI from enterprise data, enabling smarter organizations."
-description: "Machine learning platform that brings AI to databases."
+title: "MindsDB"
+slogan: "Semantic search over all your data, entirely in SQL."
+description: "Source-available (Elastic License 2.0), for your own use. The MindsDB query engine connects to over 200 data sources and queries them live in one SQL dialect, with knowledge bases for semantic search. The site gives its SQL editor and HTTP API; its MySQL and PostgreSQL ports stay inside the stack."
 category: ai
 tags: [mysql, postgresdb, machine-learning, ai]
 logo: logo.svg
 version: "26.1.0"
 revision: 1
-updated: 2026-10-31
-homepage: https://mindshub.ai
-docs: https://docs.mindsdb.com/what-is-mindsdb
-repository: https://github.com/mindsdb/mindshub
-license: MIT
+updated: 2026-11-01
+homepage: https://github.com/mindsdb/engine
+docs: https://mindsdb.github.io/engine/
+repository: https://github.com/mindsdb/engine
+license: Elastic-2.0 AND MIT
 architectures: ["amd64", "arm64"]
 needs:
   - Docker Engine with the Compose plugin
@@ -110,3 +120,4 @@ notes:
   - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
   - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
   - "Its data is in the Docker volumes mindsdb-data, mindsdb-postgresql-data of this application: back them up before updating."
+  - "MindsDB is source-available under the Elastic License 2.0 (its integrations directory is MIT): it is for your own use, and may not be offered to others as a hosted or managed service."

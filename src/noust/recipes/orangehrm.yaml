@@ -2,6 +2,8 @@
 # (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
 # digest its registry serves, the web port on the loopback address, credentials generated,
 # and nothing the closed schema refuses. The template's authors keep their rights in it.
+# Licence: README of orangehrm/orangehrm and the headers of its PHP files, read at the 5.9 tag on 2026-11-01:
+# the GNU GPL "either version 3 of the License, or (at your option) any later version".
 schema: 2
 name: orangehrm
 kind: compose
@@ -13,11 +15,11 @@ tags: [hr, hris, hrms, human, resource, management, orangehrm, business]
 logo: logo.png
 version: "5.9"
 revision: 1
-updated: 2026-10-30
+updated: 2026-11-01
 homepage: https://github.com/orangehrm/orangehrm
 docs: https://starterhelp.orangehrm.com/hc/en-us
 repository: https://github.com/orangehrm/orangehrm
-license: GPL-3.0-only
+license: GPL-3.0-or-later
 architectures: ["amd64"]
 needs:
   - Docker Engine with the Compose plugin

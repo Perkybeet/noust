@@ -101,3 +101,49 @@ def test_the_command_line_says_on_the_list_and_on_the_page_that_a_licence_is_not
     )
     assert "not free software" in shown.output
     assert "not free software" not in free.output
+
+
+#: What each project's own files say of its licence, read on 2026-11-01 at the tag the recipe pins.
+#: A recipe states what the project wrote and no more: "only" is a claim a project has to make.
+#:
+#: - OrangeHRM (README and the headers of 2,420 PHP files at 5.9): "either version 3 of the
+#:   License, or (at your option) any later version".
+#: - Silo (README, "License and Trademark"; the image's `org.opencontainers.image.licenses`, and
+#:   the headers of its Go files): the GNU Affero General Public License v3.0 or later.
+#: - OpenHabitTracker (`net.openhabittracker.OpenHabitTracker.metainfo.xml` at 1.2.5,
+#:   `project_license`): GPL-3.0-or-later; its LICENSE, snapcraft.yaml and site say "GPL-3.0"
+#:   and never "only".
+#: - imgproxy (LICENSE and README at v4.0.20, and the image's licence label): Apache-2.0. The
+#:   repository was MIT until 2026-03-30, so a source read before then says MIT.
+#: - MindsDB (`mindsdb/__about__.py` at v26.1.0 and the PyPI metadata of 26.1.0): the Elastic
+#:   License 2.0, with its integrations directory MIT (the LICENSE file).
+LICENCES_THE_PROJECTS_WROTE = {
+    "imgproxy": ("Apache-2.0", True),
+    "mindsdb": ("Elastic-2.0 AND MIT", False),
+    "openhabittracker": ("GPL-3.0-or-later", True),
+    "orangehrm": ("GPL-3.0-or-later", True),
+    "silo": ("AGPL-3.0-or-later", True),
+}
+
+
+@pytest.mark.parametrize("name", sorted(LICENCES_THE_PROJECTS_WROTE))
+def test_a_recipe_declares_the_licence_its_project_wrote(name: str) -> None:
+    """The licence of the recipe is the one of the code that its image runs, and so is the label."""
+    expression, free = LICENCES_THE_PROJECTS_WROTE[name]
+    recipe = get_recipe(name)
+
+    assert recipe.license == expression
+    assert recipe.free_software is free
+    assert recipe.summary()["free_software"] is free
+
+
+def test_mindsdb_is_source_available_and_points_at_the_repository_of_its_code() -> None:
+    """The image is the Elastic-licensed query engine, not MindsHub, whose repository is MIT."""
+    recipe = get_recipe("mindsdb")
+
+    assert recipe.repository == "https://github.com/mindsdb/engine"
+    assert "mindshub" not in (recipe.repository or "").lower()
+    assert not recipe.homepage.startswith("https://mindshub.ai")
+    assert "source-available" in recipe.description.lower()
+    assert "Elastic License 2.0" in recipe.description
+    assert any("hosted" in note and "Elastic License 2.0" in note for note in recipe.notes)

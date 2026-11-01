@@ -2,6 +2,9 @@
 # (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
 # digest its registry serves, the web port on the loopback address, credentials generated,
 # and nothing the closed schema refuses. The template's authors keep their rights in it.
+# Licence: README of pgsty/silo ("License and Trademark"), the headers of its Go files and the image's
+# org.opencontainers.image.licenses label, read at the RELEASE.2026-08-06T00-00-00Z tag on 2026-11-01:
+# the GNU Affero General Public License v3.0 or later.
 schema: 2
 name: silo
 kind: compose
@@ -13,11 +16,11 @@ tags: [s3, file, storage, files]
 logo: logo.svg
 version: "RELEASE.2026-08-06T00-00-00Z"
 revision: 1
-updated: 2026-10-30
+updated: 2026-11-01
 homepage: https://silo.pgsty.com
 docs: https://silo.pgsty.com/docs/
 repository: https://github.com/pgsty/silo
-license: AGPL-3.0-only
+license: AGPL-3.0-or-later
 architectures: ["amd64", "arm64"]
 needs:
   - Docker Engine with the Compose plugin

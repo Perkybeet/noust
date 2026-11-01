@@ -257,7 +257,6 @@ Files:
  src/noust/recipes/assets/opengist/logo.svg
  src/noust/recipes/assets/openobserve/logo.svg
  src/noust/recipes/assets/silex/logo.svg
- src/noust/recipes/assets/silo/logo.svg
  src/noust/recipes/assets/steedos/logo.svg
  src/noust/recipes/assets/sure/logo.svg
  src/noust/recipes/assets/tooljet/logo.svg
@@ -280,6 +279,7 @@ License: AGPL-3 and custom-commons-clause
 Files:
  src/noust/recipes/assets/_simple-icons/hedgedoc.svg
  src/noust/recipes/assets/hello/logo.svg
+ src/noust/recipes/assets/silo/logo.svg
 Copyright: the authors each mark's LOGO-NOTICE names (src/noust/recipes/assets/<recipe>/LOGO-NOTICE)
 Comment: A mark of a project, taken from its repository, its brand kit or a collection of the
  logos of self-hosted software. The licence covers the file and not the brand: the LOGO-NOTICE

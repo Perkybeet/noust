@@ -160,7 +160,6 @@ brand. The files, by licence:
     src/noust/recipes/assets/opengist/logo.svg
     src/noust/recipes/assets/openobserve/logo.svg
     src/noust/recipes/assets/silex/logo.svg
-    src/noust/recipes/assets/silo/logo.svg
     src/noust/recipes/assets/steedos/logo.svg
     src/noust/recipes/assets/sure/logo.svg
     src/noust/recipes/assets/tooljet/logo.svg
@@ -171,6 +170,7 @@ brand. The files, by licence:
   AGPL-3.0-or-later
     src/noust/recipes/assets/_simple-icons/hedgedoc.svg
     src/noust/recipes/assets/hello/logo.svg
+    src/noust/recipes/assets/silo/logo.svg
   Apache-2.0
     src/noust/recipes/assets/2fauth/logo.svg
     src/noust/recipes/assets/_simple-icons/apachecouchdb.svg
