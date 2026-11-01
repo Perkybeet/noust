@@ -726,6 +726,12 @@
    "license": "CC0-1.0",
    "source": "https://github.com/surrealdb/surrealdb/blob/b5b4601b09b8f1c1334675bbeb4e7408df8dc882/img/logo.svg"
   },
+  "swagger": {
+   "title": "Swagger",
+   "hex": "85EA2D",
+   "license": "CC0-1.0",
+   "source": "https://swagger.io"
+  },
   "syncthing": {
    "title": "Syncthing",
    "hex": "0891D1",

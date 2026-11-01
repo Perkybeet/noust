@@ -8,7 +8,7 @@ slogan: "Edit OpenAPI definitions in the browser, with a live preview."
 description: "An editor for OpenAPI definitions with validation as you type and a rendered preview beside it. Static: what you write stays in the browser."
 category: development
 tags: [openapi, api, editor, swagger]
-logo: logo.svg
+logo: simple-icons:swagger
 version: "5.10.0"
 revision: 1
 updated: 2026-10-30
