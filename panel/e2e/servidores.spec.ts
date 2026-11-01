@@ -184,9 +184,16 @@ withFleet("on a fleet Servers opens the list, a row opens that server, and its p
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, central, "/");
+  // The first request a central makes to a node opens the tunnel, which takes seconds (more on a busy machine); the pages
+  // under test are not about that wait, so it is spent here, once, and not inside the 10 s a page is given to arrive.
+  const reached = await page.request.get("/api/nodes/fleet-node/api/system/version", { timeout: 90_000 });
+  expect(reached.ok(), await reached.text()).toBe(true);
   // The sidebar's link says how many services failed after its name ("Servers 1 failed") once the counts arrive, which is
-  // sometime after the first heading: an exact name found the link only until then.
-  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: /^Servers\b/ }).click();
+  // sometime after the first heading: an exact name found the link only until then. And it leads to the fleet's list only
+  // once the console knows it is a central's, so it is pressed when it does.
+  const servers = page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: /^Servers\b/ });
+  await expect(servers).toHaveAttribute("href", /\/fleet\/servers$/);
+  await servers.click();
   await expect(page).toHaveURL(/\/fleet\/servers$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Servers");
   await settle(page);
