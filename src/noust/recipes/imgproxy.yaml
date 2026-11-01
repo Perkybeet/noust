@@ -2,6 +2,9 @@
 # (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
 # digest its registry serves, the web port on the loopback address, credentials generated,
 # and nothing the closed schema refuses. The template's authors keep their rights in it.
+# Licence: LICENSE and README of imgproxy/imgproxy at v4.0.20 and the org.opencontainers.image.licenses
+# label of darthsim/imgproxy:v4.0.20, read on 2026-11-01: Apache-2.0. The repository was MIT until
+# 2026-03-30 ("MIT license -> Apache 2.0"), so a source older than that says MIT.
 schema: 2
 name: imgproxy
 kind: compose

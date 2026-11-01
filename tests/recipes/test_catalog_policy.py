@@ -39,6 +39,13 @@ LISTED_IN_40 = {
     "strapi",
     "supabase",
 }
+#: The recipes withdrawn in 4.1 because what they installed stopped being true: Whoogle's README
+#: (2026-07-24, kept up to date on 2026-08-14) says Google closed the only way it had to reach
+#: results, and its repository is archived.
+LISTED_IN_41 = {"whoogle"}
+#: Projects that changed their name after the release a recipe pins, with the name they have now: the
+#: recipe keeps the name its installed applications recorded and says both in its description.
+RENAMED = {"perplexica": "Vane"}
 #: The forms a licence that is not free software takes in the catalogue: a name the project wrote
 #: (`LicenseRef-...`, said in the project's words in the recipe's header), a Business Source
 #: License, a Functional Source License, the Server Side Public License.
@@ -253,7 +260,7 @@ def test_the_projects_the_docs_name_as_source_available_are_not_free_software() 
     assert named <= {recipe.name for recipe in not_free()}
 
 
-@pytest.mark.parametrize("name", sorted(LISTED_IN_40))
+@pytest.mark.parametrize("name", sorted(LISTED_IN_40 | LISTED_IN_41))
 def test_a_listed_recipe_says_where_its_reason_was_read_and_when(name: str) -> None:
     """A claim about someone else's project names the file or page and the day, or the tag."""
     recipe = get_recipe(name)
@@ -263,6 +270,28 @@ def test_a_listed_recipe_says_where_its_reason_was_read_and_when(name: str) -> N
     assert reason.endswith("Not available in this release.")
     assert re.search(r"read (on |at )?(20\d\d-\d\d-\d\d|the v[\d.]+ tag)", reason), reason
     assert recipe.homepage.startswith("https://") and recipe.repository
+
+
+def test_whoogle_is_listed_as_an_archived_project_and_points_at_searxng() -> None:
+    """Its README says it no longer returns results: the code is the one for a project that ended."""
+    recipe = get_recipe("whoogle")
+
+    assert recipe.available is False
+    assert recipe.unavailable_code == "archived"
+    assert recipe.replaced_by == "searxng" and get_recipe("searxng").available
+    assert "no longer returns search results" in (recipe.unavailable_reason or "")
+    assert "archived" in (recipe.unavailable_reason or "")
+
+
+@pytest.mark.parametrize("name", sorted(RENAMED))
+def test_a_recipe_of_a_renamed_project_says_both_names(name: str) -> None:
+    """The new name is findable (title, tags or description) and the old one is the recipe's own."""
+    recipe = get_recipe(name)
+    new = RENAMED[name]
+
+    assert new in recipe.description and name.title() in recipe.description
+    assert new.lower() in recipe.tags
+    assert recipe.repository is not None and recipe.repository.endswith(f"/{new}")
 
 
 def test_the_docs_say_how_many_recipes_there_are_and_list_the_ones_that_are_not_installable() -> (

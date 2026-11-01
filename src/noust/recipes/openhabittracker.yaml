@@ -2,6 +2,9 @@
 # (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
 # digest its registry serves, the web port on the loopback address, credentials generated,
 # and nothing the closed schema refuses. The template's authors keep their rights in it.
+# Licence: `project_license` of net.openhabittracker.OpenHabitTracker.metainfo.xml in Jinjinov/OpenHabitTracker,
+# read at the 1.2.5 tag on 2026-11-01: GPL-3.0-or-later. Its LICENSE, snapcraft.yaml and site say "GPL-3.0"
+# without a version qualifier; no file of the project says "only".
 schema: 2
 name: openhabittracker
 kind: compose
@@ -13,11 +16,11 @@ tags: [productivity, notes, tasks, habits, self-hosted]
 logo: logo.svg
 version: "1.2.5"
 revision: 1
-updated: 2026-10-31
+updated: 2026-11-01
 homepage: https://openhabittracker.net
 docs: https://openhabittracker.net
 repository: https://github.com/Jinjinov/OpenHabitTracker
-license: GPL-3.0-only
+license: GPL-3.0-or-later
 architectures: ["amd64", "arm64"]
 needs:
   - Docker Engine with the Compose plugin
