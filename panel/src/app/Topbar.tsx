@@ -70,7 +70,7 @@ function SessionPanel({ onOpenShortcuts }: { onOpenShortcuts: () => void }) {
       align="end"
       trigger={
         <IconButton
-          label={t("shell.session.label")}
+          label={initials === null ? t("shell.session.label") : t("shell.session.labelOf", { initials })}
           variant="secondary"
           icon={
             initials !== null ? (

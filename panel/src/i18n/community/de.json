@@ -14619,7 +14619,7 @@
     "one": "{count} Anwendung fehlgeschlagen",
     "other": "{count} Anwendungen fehlgeschlagen"
   },
-  "shell.fleetStrip.summary": "Server in der Flotte: {total}. Antworten: {answering}. Antworten nicht: {down}. Fehlgeschlagene Anwendungen: {failed}.",
+  "shell.fleetStrip.summary": "In der Flotte: {readings}.",
   "shell.fleetStrip.unavailable": "Die Messwerte der Flotte sind nicht verfügbar",
   "shell.pageHeader.breadcrumb": "Brotkrumenpfad",
   "shell.pageError.title": "Diese Seite konnte nicht angezeigt werden",

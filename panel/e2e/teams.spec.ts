@@ -262,6 +262,17 @@ serial("a second team brings the switcher, which narrows the lists and is rememb
   await expect(page.getByTestId("team-switcher")).toHaveCount(0);
 });
 
+/**
+ * The server's first account. Whatever role the first account is made with it is the owner as well
+ * (a server must have someone who can hand the role on), and the owner may create a team: an
+ * account meant to only read is made after it, or it is not one that only reads.
+ */
+async function createOwner(admin: APIRequestContext, username: string): Promise<void> {
+  const password = `quiet meadow owner ${String(username.length * 7919)} lantern`;
+  const created = await admin.post("/api/auth/accounts", { data: { username, role: "admin", password, person_ref: `${username}@example.com` }, headers: await headers(admin) });
+  expect(created.status(), await created.text()).toBe(201);
+}
+
 /** An account that signs in with a password and a second factor, as accounts.spec makes them. */
 async function createViewer(server: ConsoleServer, admin: APIRequestContext, username: string): Promise<{ password: string; secret: string; codes: string[] }> {
   const password = `quiet meadow viewer ${String(username.length * 7919)} lantern`;
@@ -284,6 +295,7 @@ serial("someone who only reads sees the organisation and no way to change it", a
   test.setTimeout(240_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   const admin = await master(consoleServer);
+  await createOwner(admin, "olivia");
   const vera = await createViewer(consoleServer, admin, "vera");
   // A second project, so there is an organisation to read.
   const made = await admin.post("/api/teams/default/projects", { data: { name: "Web" }, headers: await headers(admin) });
@@ -318,6 +330,9 @@ serial("someone who only reads sees the organisation and no way to change it", a
 
   await page.goto("/projects/teams");
   await expect(page.getByRole("heading", { level: 1, name: "Projects" })).toBeVisible();
+  // The button would be drawn with the list, not before it: a button not there yet proves nothing, so
+  // the team's row (what the page reads to know who may create one) is waited for first.
+  await expect(page.getByRole("table").getByRole("link", { name: "Default", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "New team" })).toHaveCount(0);
 
   await page.goto("/apps");

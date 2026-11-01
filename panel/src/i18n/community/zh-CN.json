@@ -14300,7 +14300,7 @@
   "shell.fleetStrip.failedApps": {
     "other": "{count} 个应用失败"
   },
-  "shell.fleetStrip.summary": "服务器群中的服务器：{total}。有响应：{answering}。无响应：{down}。失败的应用：{failed}。",
+  "shell.fleetStrip.summary": "服务器群中：{readings}。",
   "shell.fleetStrip.unavailable": "服务器群的读数不可用",
   "shell.pageHeader.breadcrumb": "面包屑导航",
   "shell.pageError.title": "无法显示此页面",

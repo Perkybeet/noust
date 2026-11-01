@@ -285,7 +285,8 @@ export async function expectNoA11yViolations(page: Page, label?: string): Promis
   const report = results.violations.map((violation) => {
     const nodes = violation.nodes
       .slice(0, 5)
-      .map((node) => `    - ${node.target.join(" ")}\n      ${node.failureSummary?.replace(/\n/g, "\n      ") ?? ""}`)
+      // The element itself, not only its selector: a generated id (`#base-ui-_r_30_`) says nothing about what to look at.
+      .map((node) => `    - ${node.target.join(" ")}\n      ${node.html.slice(0, 240)}\n      ${node.failureSummary?.replace(/\n/g, "\n      ") ?? ""}`)
       .join("\n");
     return `${violation.id} (${violation.impact ?? "unknown"}): ${violation.help}\n  ${violation.helpUrl}\n${nodes}`;
   });

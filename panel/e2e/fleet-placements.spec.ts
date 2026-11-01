@@ -102,6 +102,46 @@ withFleet("a recorded placement is compared on the page, and its servers are wri
   await expect(dialog).toBeHidden();
 });
 
+withFleet("going from the fleet's Applications to On several servers never draws two titles, however long the second view takes to arrive", async ({ page, consoleServer }) => {
+  // The most titles the page has had at once, counted by the browser on every change of the document: two for a single frame
+  // are heard by a screen reader and counted by the next assertion that looks, and a poll from here could miss them.
+  await page.addInitScript(() => {
+    const peak = { value: 0 };
+    (window as unknown as { __noustTitles: { value: number } }).__noustTitles = peak;
+    new MutationObserver(() => {
+      peak.value = Math.max(peak.value, document.querySelectorAll("h1").length);
+    }).observe(document, { childList: true, subtree: true });
+  });
+  // The second view's code is held until the test lets it go: the page on screen is the first view's for as long as that takes.
+  let release: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let requested = false;
+  await page.route(/\/assets\/placements-[^/]+\.js$/, async (route) => {
+    requested = true;
+    await held;
+    await route.continue();
+  });
+
+  await signIn(page, consoleServer, "/fleet/apps");
+  await expect(page.getByRole("heading", { level: 1, name: "Applications" })).toBeVisible();
+  // From here: the sign-in's own pages are not what is looked at.
+  await page.evaluate(() => {
+    (window as unknown as { __noustTitles: { value: number } }).__noustTitles.value = document.querySelectorAll("h1").length;
+  });
+  await page.getByRole("navigation", { name: "Fleet application views" }).getByRole("link", { name: "On several servers" }).click();
+  await expect(page).toHaveURL(/\/fleet\/placements$/);
+  await expect.poll(() => requested, { message: "the second view's code was asked for" }).toBe(true);
+  release();
+  // Counts, not a lookup of one: while two pages are drawn a lookup that expects one is an error, not a wait.
+  await expect(page.getByRole("navigation", { name: "Fleet application views" })).toHaveCount(1);
+  await expect(page.getByRole("navigation", { name: "Fleet application views" }).getByRole("link", { name: "On several servers" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+  const peak = await page.evaluate(() => (window as unknown as { __noustTitles: { value: number } }).__noustTitles.value);
+  expect(peak, "the most titles the page had at once while it changed views").toBe(1);
+});
+
 withFleet("a rollout is planned from the page and nothing is deployed until it is asked for", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/fleet/placements");
   const saved = await page.request.put(`/api/fleet/placements/${NODE_APP}`, {

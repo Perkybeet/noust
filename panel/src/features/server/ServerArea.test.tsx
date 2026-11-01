@@ -361,7 +361,9 @@ describe("the Updates tab", () => {
     expect(within(dialog).getByText("Restarting it ends every session on the server")).toBeInTheDocument();
     expect(within(dialog).getByText(/The console restarts last/)).toBeInTheDocument();
     // An interruption that loses no data: one question, opened on Cancel.
-    expect(within(dialog).getByRole("button", { name: "Cancel" })).toHaveFocus();
+    await waitFor(() => {
+      expect(within(dialog).getByRole("button", { name: "Cancel" })).toHaveFocus();
+    });
     await expectNoAxeViolations(dialog);
     await user.click(within(dialog).getByRole("button", { name: "Restart 3 services" }));
     await waitFor(() => {

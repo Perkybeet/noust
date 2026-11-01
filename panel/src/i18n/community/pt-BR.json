@@ -14619,7 +14619,7 @@
     "one": "{count} aplicação com falha",
     "other": "{count} aplicações com falha"
   },
-  "shell.fleetStrip.summary": "Servidores na frota: {total}. Respondendo: {answering}. Sem resposta: {down}. Aplicações com falha: {failed}.",
+  "shell.fleetStrip.summary": "Na frota: {readings}.",
   "shell.fleetStrip.unavailable": "As leituras da frota estão indisponíveis",
   "shell.pageHeader.breadcrumb": "Trilha de navegação",
   "shell.pageError.title": "Não foi possível exibir esta página",
