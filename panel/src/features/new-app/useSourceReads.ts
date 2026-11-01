@@ -10,6 +10,8 @@ import type { SourceForm } from "./wizard";
 export interface SourceRead {
   form: SourceForm;
   advance: boolean;
+  /** Ends the request of this read, on the server too: aborted when the read is forgotten or another replaces it. */
+  controller: AbortController;
 }
 
 export interface SourceReads {
@@ -26,7 +28,10 @@ export interface SourceReads {
   ask: (form: SourceForm, advance: boolean) => SourceRead | null;
   /** Says a read ended, and whether it is still the one that matters: a read another replaced, or that was given up, is not. */
   finish: (read: SourceRead) => boolean;
-  /** Forgets the read under way, as a change of way does, so nothing still under way is gone on with. */
+  /**
+   * Forgets the read under way, as a change of way does, so nothing still under way is gone on with, and aborts its
+   * request: nobody is waiting for what it would have found.
+   */
   forget: () => void;
   /**
    * Continue is pressed down: until the finger lifts, the field's being left (it is what a press on the button does)
@@ -55,7 +60,9 @@ export function useSourceReads(): SourceReads {
       }
       return null;
     }
-    const read: SourceRead = { form, advance };
+    // A read of another source is replaced, and its request with it.
+    current?.controller.abort();
+    const read: SourceRead = { form, advance, controller: new AbortController() };
     under.current = read;
     setAdvancing(advance);
     return read;
@@ -67,6 +74,7 @@ export function useSourceReads(): SourceReads {
     return true;
   }, []);
   const forget = useCallback((): void => {
+    under.current?.controller.abort();
     under.current = null;
     setAdvancing(false);
   }, []);

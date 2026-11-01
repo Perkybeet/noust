@@ -297,7 +297,6 @@ export function NewAppWizard() {
   const [moved, setMoved] = useState(false);
   // Set once the wizard hands over to the deployment, so leaving for it asks nothing.
   const [gone, setGone] = useState(false);
-  const abort = useRef<AbortController | null>(null);
 
   const githubStatus = github.data ?? null;
   const sourceMode: SourceMode = chosenMode ?? (githubStatus?.configured === true ? "github" : "manual");
@@ -379,11 +378,8 @@ export function NewAppWizard() {
   // Which read is under way: Continue joins it, whoever started it (the field's own blur does, as a rule).
   const reads = useSourceReads();
   const inspect = useMutation({
-    mutationFn: async ({ form }: InspectRequest) => {
-      abort.current?.abort();
-      const controller = new AbortController();
-      abort.current = controller;
-      const inspection = await request("post", "/api/apps/inspect", { body: forServer(inspectBody(form), targetNode, hasFleet), signal: controller.signal });
+    mutationFn: async ({ form, read }: InspectRequest) => {
+      const inspection = await request("post", "/api/apps/inspect", { body: forServer(inspectBody(form), targetNode, hasFleet), signal: read.controller.signal });
       const temporary = await temporaryFor({ source: form.source.trim() });
       return { inspection, form, temporary };
     },
@@ -549,7 +545,6 @@ export function NewAppWizard() {
     [],
   );
   const cancelInspection = (): void => {
-    abort.current?.abort();
     resetInspection();
     // A read the field's blur asked for and that is still waiting out its 80ms is the one being
     // cancelled: left alone it starts again once the request is reset, and the screen goes back to
@@ -844,6 +839,9 @@ export function NewAppWizard() {
                 setSource(next);
                 setSourceErrors({});
                 if (inspect.isError) resetInspection();
+                // The fields stay editable while the step reads on its own, so a source can change under a read: that read
+                // is for another source, and it goes instead of drawing "reading" over what is now typed or chosen.
+                if (inspect.isPending && !sameSource(inspect.variables.form, next)) resetInspection();
                 // A repository chosen from a list is complete the moment it is chosen.
                 if ((sourceMode === "github" || sourceMode === "gitlab") && next.source.trim() !== "" && next.source !== source.source) settleSource();
               }}
@@ -884,7 +882,7 @@ export function NewAppWizard() {
                   setImageError(undefined);
                 },
               }}
-              inspecting={inspect.isPending ? { since: inspect.submittedAt } : null}
+              inspecting={inspect.isPending ? { since: inspect.submittedAt, advancing: reads.advancing } : null}
               onCancel={cancelInspection}
               failure={inspect.isError && !isAbort(inspect.error) ? inspect.error : null}
               onRetry={() => {
