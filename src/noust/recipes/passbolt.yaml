@@ -1,0 +1,105 @@
+# Passbolt: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/passbolt.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: passbolt
+kind: compose
+title: "Passbolt"
+slogan: "Passbolt Community Edition (CE) API. The JSON API for the open source password manager for teams!"
+description: "Passbolt is an open-source password manager built for teams. Self-host it on your own server with Dokploy, which deploys Passbolt as a Docker Compose service in a few clicks."
+category: security
+tags: [security, credentials, password-manager, open, source, team-collaboration, encryption]
+logo: simple-icons:passbolt
+version: "5.17.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://passbolt.com
+docs: https://www.passbolt.com/ce/docker
+repository: https://github.com/passbolt/passbolt_api
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_PASSBOLT:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_USER_PASSBOLT:
+    generate: "user"
+    description: "The user name Noust generated for passbolt."
+  SERVICE_PASSWORD_PASSBOLT:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for passbolt."
+  SERVICE_PASSWORD_ROOTMARIADB:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for rootmariadb."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    passbolt:
+      image: passbolt/passbolt:5.17.0-1-ce@sha256:e076a26c92a542f075dd138a78b8c5dea3361156383aa0a18c7dd8cdb3aff44f
+      environment:
+        SERVICE_URL_PASSBOLT: ${SERVICE_URL_PASSBOLT}
+        APP_FULL_BASE_URL: ${SERVICE_URL_PASSBOLT}
+        DATASOURCES_DEFAULT_HOST: mariadb
+        DATASOURCES_DEFAULT_USERNAME: ${SERVICE_USER_PASSBOLT}
+        DATASOURCES_DEFAULT_PASSWORD: ${SERVICE_PASSWORD_PASSBOLT}
+        DATASOURCES_DEFAULT_DATABASE: ${MYSQL_DB:-passbolt-db}
+      volumes:
+        - gpg_volume:/etc/passbolt/gpg
+        - jwt_volume:/etc/passbolt/jwt
+      command:
+        - /usr/bin/wait-for.sh
+        - -t
+        - '0'
+        - mariadb:3306
+        - --
+        - /docker-entrypoint.sh
+      depends_on:
+        mariadb:
+          condition: service_healthy
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - -f
+          - http://127.0.0.1:80
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:80
+    mariadb:
+      image: mariadb:11@sha256:c4124d1afa875e47f2892edf26b482fa54f796e2f342d3717a04ca091a22a9bd
+      environment:
+        MARIADB_ROOT_PASSWORD: ${SERVICE_PASSWORD_ROOTMARIADB}
+        MARIADB_DATABASE: ${MYSQL_DB:-passbolt-db}
+        MARIADB_USER: ${SERVICE_USER_PASSBOLT}
+        MARIADB_PASSWORD: ${SERVICE_PASSWORD_PASSBOLT}
+      volumes:
+        - passbolt_mariadb_data:/var/lib/mysql
+      healthcheck:
+        test:
+          - CMD
+          - healthcheck.sh
+          - --connect
+          - --innodb_initialized
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+  volumes:
+    gpg_volume:
+    jwt_volume:
+    passbolt_mariadb_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_USER_PASSBOLT and SERVICE_PASSWORD_PASSBOLT and SERVICE_PASSWORD_ROOTMARIADB in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes gpg_volume, jwt_volume, passbolt_mariadb_data of this application: back them up before updating."

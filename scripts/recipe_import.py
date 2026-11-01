@@ -69,7 +69,8 @@ import recipe_pins  # noqa: E402
 
 from noust.core.compose_yaml import load_compose  # noqa: E402
 from noust.recipes import coolify, dokploy  # noqa: E402
-from noust.recipes.model import CATEGORIES, FLOATING_TAGS, RecipeError  # noqa: E402
+from noust.recipes.licensing import is_free_software  # noqa: E402
+from noust.recipes.model import CATEGORIES, FLOATING_TAGS, NAME_PATTERN, RecipeError  # noqa: E402
 from noust.recipes.schema import parse_recipe  # noqa: E402
 from noust.recipes.variables import scan_references  # noqa: E402
 
@@ -85,6 +86,10 @@ DEFAULTS = {
 
 #: The domain a template is converted with, and the port a stack's web service is published on.
 DOMAIN = "app.example.com"
+
+#: An address on one of the domains reserved for examples (a template's `wallabag@example.com`): nobody
+#: reads its mail, so it follows the deployment's own domain.
+SAMPLE_ADDRESS = re.compile(r"@(?:[\w-]+\.)*example\.(?:com|org|net)\b")
 PORT = 3000
 
 #: Eligibility (docs/contributing-recipes.md, "Is it eligible").
@@ -292,6 +297,21 @@ def norm(text: str) -> str:
     return re.sub(r"[^a-z0-9]", "", text.lower())
 
 
+#: What a recipe's name may be (``noust.recipes.model.NAME_PATTERN``).
+NAME_OK = NAME_PATTERN
+
+
+def recipe_name(text: str) -> str:
+    """
+    Args:
+        text: The name a template has (``open_notebook``, ``bolt.diy``).
+
+    Returns:
+        The recipe's name: lower case letters, digits and dashes, which is all a recipe's name may be.
+    """
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:40].strip("-")
+
+
 def read_sources(coolify_dir: Path, dokploy_dir: Path, docs_dir: Path) -> dict[str, Source]:
     """
     List the candidates both catalogues describe.
@@ -308,10 +328,10 @@ def read_sources(coolify_dir: Path, dokploy_dir: Path, docs_dir: Path) -> dict[s
     for path in sorted(dokploy_dir.iterdir()) if dokploy_dir.is_dir() else ():
         if path.is_dir() and (path / "docker-compose.yml").is_file():
             key = norm(path.name)
-            found[key] = Source(key, path.name, dokploy=path)
+            found[key] = Source(key, recipe_name(path.name), dokploy=path)
     for path in sorted(coolify_dir.glob("*.y*ml")) if coolify_dir.is_dir() else ():
         key = norm(path.stem)
-        source = found.setdefault(key, Source(key, path.stem))
+        source = found.setdefault(key, Source(key, recipe_name(path.stem)))
         source.coolify = path
         page = docs_dir / f"{path.stem}.mdx"
         source.docs = page if page.is_file() else None
@@ -381,16 +401,20 @@ _GITHUB = re.compile(r"https://github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)")
 NOT_A_PROJECT = frozenset({"coollabsio", "Dokploy", "sponsors", "orgs", "topics", "marketplace"})
 
 
-def find_repository(source: Source) -> str | None:
+def find_repository(source: Source, repositories: Mapping[str, str] | None = None) -> str | None:
     """
     Find the GitHub repository of the project a candidate is.
 
     Args:
         source: The candidate.
+        repositories: Repositories a person found for templates that name none, by the
+            template's normalised name; they win over what the template says.
 
     Returns:
         ``owner/name``, or None when none of the places that name it do.
     """
+    if repositories and source.key in repositories:
+        return repositories[source.key]
     meta = dokploy_meta(source.dokploy)
     links = meta.get("links") if isinstance(meta.get("links"), dict) else {}
     texts = [str(links.get("github", ""))]
@@ -462,12 +486,53 @@ def repository_facts(slug: str, cache: dict[str, Any]) -> dict[str, Any] | None:
     return facts
 
 
-def not_eligible(facts: Mapping[str, Any] | None) -> Skip | None:
+def with_licence(
+    facts: Mapping[str, Any] | None, licences: Mapping[str, Mapping[str, Any]] | None
+) -> dict[str, Any] | None:
+    """
+    Put a person's reading of a repository's licence over what GitHub could say of it.
+
+    GitHub names a licence only when the file is a standard text; a repository with its own terms
+    (``NOASSERTION``) is read by a person, who records the SPDX expression to use, whether the terms
+    let an operator run it for others, and what was read and where.
+
+    Args:
+        facts: What :func:`repository_facts` read.
+        licences: Readings by repository (``owner/name``, any case): ``license`` (the expression),
+            ``accept`` (whether an operator may run it), ``name`` (how the terms are called) and
+            ``evidence`` (the file read and the day).
+
+    Returns:
+        The facts with ``license``, ``licence_name``, ``licence_evidence`` and ``licence_accepted``
+        set when a reading exists, else the facts as they were.
+    """
+    if facts is None:
+        return None
+    if not licences:
+        return dict(facts)
+    wanted = str(facts["repository"]).lower()
+    for slug, reading in licences.items():
+        if slug.lower() != wanted:
+            continue
+        return {
+            **facts,
+            "license": reading.get("license", facts.get("license")),
+            "licence_name": reading.get("name", ""),
+            "licence_evidence": reading.get("evidence", ""),
+            "licence_accepted": bool(reading.get("accept")),
+            "licence_refused": reading.get("accept") is False,
+        }
+    return dict(facts)
+
+
+def not_eligible(facts: Mapping[str, Any] | None, *, min_stars: int = MIN_STARS) -> Skip | None:
     """
     Judge a repository against docs/contributing-recipes.md.
 
     Args:
-        facts: What :func:`repository_facts` read.
+        facts: What :func:`repository_facts` read, as :func:`with_licence` may have changed it.
+        min_stars: The fewest stars a project may have; the catalogue's rule is 1,000 and a run
+            that looks for the long tail lowers it for projects that are alive and publish an image.
 
     Returns:
         Why not, or None when it is eligible.
@@ -476,7 +541,7 @@ def not_eligible(facts: Mapping[str, Any] | None) -> Skip | None:
         return Skip("no-repository", "the repository could not be read")
     if facts["archived"]:
         return Skip("archived", facts["repository"])
-    if facts["stars"] < MIN_STARS:
+    if facts["stars"] < min_stars:
         return Skip("stars", f"{facts['repository']} has {facts['stars']}")
     latest = facts.get("released") or facts.get("pushed")
     if latest is None:
@@ -485,7 +550,9 @@ def not_eligible(facts: Mapping[str, Any] | None) -> Skip | None:
     if age > MAX_AGE_DAYS:
         return Skip("stale", f"{facts['repository']}: last release or push {age} days ago")
     licence = facts.get("license")
-    if licence not in OPEN_LICENSES:
+    if facts.get("licence_refused"):
+        return Skip("licence", f"{facts['repository']}: {facts.get('licence_evidence') or licence}")
+    if licence not in OPEN_LICENSES and not facts.get("licence_accepted"):
         return Skip("licence", f"{facts['repository']}: {licence}")
     return None
 
@@ -524,6 +591,41 @@ class Draft:
     secret_files: set[str] = field(default_factory=set)
     root_equivalent: str | None = None
     shipped: dict[str, str] = field(default_factory=dict)
+    public_ports: list[dict[str, Any]] = field(default_factory=list)
+    rendered: dict[str, str] = field(default_factory=dict)
+    left_out_ssh: list[str] = field(default_factory=list)
+
+
+#: Web services a person chose for templates that name none, by the template's normalised name
+#: (``--overrides``, ``routes``): ``(service, container port)``.
+ROUTES: dict[str, tuple[str, int]] = {}
+
+
+def inline_files(draft: Draft) -> None:
+    """
+    Make the files a Coolify template writes inline into files of the draft.
+
+    A bind volume with ``content:`` is a file whose text the template carries; the volume becomes
+    the mount of a file under ``files/<service>/``, which the usual mount handling then ships or
+    renders.
+
+    Args:
+        draft: Changed in place.
+    """
+    for key, spec in draft.services.items():
+        mounts = []
+        for volume in spec.get("volumes") or ():
+            if isinstance(volume, dict) and "content" in volume and volume.get("target"):
+                name = Path(str(volume.get("source") or volume["target"])).name
+                path = f"files/{key}/{name}"
+                draft.files[path] = str(volume["content"])
+                mounts.append(
+                    f"./{path}:{volume['target']}" + (":ro" if volume.get("read_only") else "")
+                )
+            else:
+                mounts.append(volume)
+        if "volumes" in spec:
+            spec["volumes"] = mounts
 
 
 def convert_template(source: Source) -> tuple[Draft, str]:
@@ -567,9 +669,15 @@ def convert_template(source: Source) -> tuple[Draft, str]:
         raise Skip("conversion", str(exc)[:160]) from exc
     if result.warnings:
         draft.warnings.extend(result.warnings)
-        blocking = [w for w in result.warnings if "inline" in w or "content" in w]
+        blocking = [
+            w
+            for w in result.warnings
+            if ("inline" in w or "content" in w) and "inline file content" not in w
+        ]
         if blocking:
             raise Skip("template-files", blocking[0][:160])
+    if result.routed is None and source.key in ROUTES:
+        result.routed = ROUTES[source.key]
     if result.routed is None:
         raise Skip("no-web-service", "the template names no service for the domain")
     draft.routed = result.routed
@@ -580,6 +688,7 @@ def convert_template(source: Source) -> tuple[Draft, str]:
     for key, spec in (document.get("services") or {}).items():
         draft.services[str(key)] = dict(spec or {})
     draft.volumes = [str(v) for v in (document.get("volumes") or {})]
+    inline_files(draft)
     for variable in result.variables:
         draft.variables[variable.name] = {
             "origin": variable.origin,
@@ -608,6 +717,252 @@ def as_environment(raw: Any) -> dict[str, str]:
     return {}
 
 
+def adopt_declared_jobs(draft: Draft, routed_service: str) -> None:
+    """
+    Make the application wait for the one-shot jobs a template declared with `restart: "no"`.
+
+    A recipe's services all restart, except a job the stack waits for to finish. A template that
+    marks a service as run-once (Teable's database migration) means exactly that, so the web
+    service waits for it, which is also the order the template intended.
+
+    Args:
+        draft: Changed in place.
+        routed_service: The web service, which waits.
+    """
+    main = draft.services.get(routed_service)
+    if main is None:
+        return
+    for key, spec in draft.services.items():
+        if key == routed_service or spec.get("restart") not in (False, "no", "on-failure"):
+            continue
+        depends = main.get("depends_on")
+        if isinstance(depends, list):
+            depends = {str(item): {"condition": "service_started"} for item in depends}
+        depends = dict(depends or {})
+        depends.setdefault(key, {"condition": "service_completed_successfully"})
+        main["depends_on"] = depends
+
+
+def awaited_jobs(services: Mapping[str, Mapping[str, Any]]) -> set[str]:
+    """
+    Name the services another one waits to finish.
+
+    Args:
+        services: The template's services.
+
+    Returns:
+        The names listed in a ``depends_on`` with ``condition: service_completed_successfully``.
+    """
+    names: set[str] = set()
+    for spec in services.values():
+        depends = spec.get("depends_on")
+        if isinstance(depends, dict):
+            for other, wait in depends.items():
+                if (
+                    isinstance(wait, dict)
+                    and wait.get("condition") == "service_completed_successfully"
+                ):
+                    names.add(str(other))
+    return names
+
+
+def pass_through_names(draft: Draft, raw: Any) -> dict[str, str]:
+    """
+    Read a service's ``environment``, taking a bare name as the stack's variable of that name.
+
+    ``- POSTGRES_PASSWORD`` in the list form tells Compose to pass the variable on from the stack's
+    ``.env``, where Dokploy's ``[config.env]`` wrote its value: it is ``${POSTGRES_PASSWORD}``, not
+    an empty string (the database of misaka-danmu-server started with an empty password).
+
+    Args:
+        draft: The draft, whose ``values`` are the stack's variables.
+        raw: A service's ``environment`` in either Compose syntax.
+
+    Returns:
+        A mapping of strings; a bare name nobody gave a value is the empty string.
+    """
+    found = as_environment(raw)
+    if isinstance(raw, list):
+        for item in raw:
+            name = str(item)
+            if "=" not in name and name in draft.values:
+                found[name] = f"${{{name}}}"
+    return found
+
+
+#: How each engine says it answers, for a template that left its database without a check: an
+#: application that starts before its database answers restarts until it does, which the smoke test
+#: counts as a restart loop. The commands read the account from the container's own environment.
+_HEALTH_TIMING = {"interval": "10s", "timeout": "5s", "retries": 10, "start_period": "20s"}
+ENGINE_HEALTH_CHECKS: dict[str, dict[str, Any]] = {
+    "postgres": {
+        "test": ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER:-postgres}" -q'],
+        **_HEALTH_TIMING,
+    },
+    "mariadb": {
+        "test": ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"],
+        **_HEALTH_TIMING,
+    },
+    "mysql": {"test": ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 --silent"], **_HEALTH_TIMING},
+    "redis": {"test": ["CMD", "redis-cli", "ping"], **_HEALTH_TIMING},
+    "valkey": {"test": ["CMD", "valkey-cli", "ping"], **_HEALTH_TIMING},
+    "mongo": {
+        "test": ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"],
+        **_HEALTH_TIMING,
+    },
+}
+
+#: A port a stack opens on purpose, as the template writes it: numbers, and a protocol.
+_PUBLIC_PORT = re.compile(
+    r"(?P<host>[0-9]{1,5}):(?P<container>[0-9]{1,5})(?:/(?P<protocol>tcp|udp))?"
+)
+
+#: Ports the server itself (or the usual database beside it) holds: a recipe that opened one would
+#: not start next to them, so the template is left for a person to adapt.
+SERVER_PORTS = frozenset({22, 53, 80, 443, 3306, 5432, 6379, 27017})
+
+
+def use_stack_env(draft: Draft, spec: dict[str, Any]) -> None:
+    """
+    Turn ``env_file: .env`` into the variables of the stack, named in the service's environment.
+
+    The stack's ``.env`` is every variable the recipe declares, so a service that reads it is a
+    service whose environment lists them. Any other file is one the recipe does not ship and is
+    left for the closed schema to refuse.
+
+    Args:
+        draft: The draft, whose ``values`` are the stack's variables.
+        spec: One service, changed in place.
+    """
+    if "env_file" not in spec:
+        return
+    entries = spec["env_file"] if isinstance(spec["env_file"], list) else [spec["env_file"]]
+    paths = [str(e.get("path", "")) if isinstance(e, dict) else str(e) for e in entries]
+    if any(path not in (".env", "./.env") for path in paths):
+        return
+    del spec["env_file"]
+    environment = as_environment(spec.get("environment"))
+    for name in draft.values:
+        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name) and name not in environment:
+            environment[name] = f"${{{name}}}"
+    spec["environment"] = environment
+
+
+_SHELL_DOLLAR = re.compile(r"(?<!\$)\$(?![{$])")
+
+
+def _escaped(text: str) -> str:
+    """
+    Args:
+        text: A command, or a part of one.
+
+    Returns:
+        It with every ``$`` that is neither ``${`` nor already ``$$`` doubled.
+    """
+    return _SHELL_DOLLAR.sub(lambda _match: "$$", text)
+
+
+def shell_dollars(spec: dict[str, Any]) -> None:
+    """
+    Write a ``$`` the container's shell reads the way Compose passes it on: ``$$``.
+
+    A command such as ``export K=$(cat /run/k)`` is the shell's, and Compose would take ``$(``
+    and ``$K`` for variables of its own (and the recipe's loader refuses a bare ``$NAME``).
+
+    Args:
+        spec: One service, changed in place.
+    """
+    for key in ("command", "entrypoint"):
+        value = spec.get(key)
+        if isinstance(value, str):
+            spec[key] = _escaped(value)
+        elif isinstance(value, list):
+            spec[key] = [_escaped(item) if isinstance(item, str) else item for item in value]
+    check = spec.get("healthcheck")
+    if isinstance(check, dict) and isinstance(check.get("test"), list):
+        check["test"] = [
+            _escaped(item) if isinstance(item, str) else item for item in check["test"]
+        ]
+    elif isinstance(check, dict) and isinstance(check.get("test"), str):
+        check["test"] = _escaped(check["test"])
+
+
+def ipv4_loopback(check: dict[str, Any]) -> None:
+    """
+    Ask `127.0.0.1` where a health check says `localhost` and uses wget.
+
+    BusyBox's wget tries `::1` first and does not fall back, so a program that listens on IPv4 only
+    (PocketBase on `0.0.0.0`) is never found and its container stays unhealthy for ever (Wanderer's
+    database). The address means the same thing for every program that listens on both.
+
+    Args:
+        check: A service's ``healthcheck``, changed in place.
+    """
+    test = check.get("test")
+    if isinstance(test, str):
+        check["test"] = _loopback_of(test, "wget" in test)
+    elif isinstance(test, list):
+        uses_wget = any("wget" in item for item in test if isinstance(item, str))
+        check["test"] = [
+            _loopback_of(item, uses_wget) if isinstance(item, str) else item for item in test
+        ]
+
+
+def _loopback_of(text: str, uses_wget: bool) -> str:
+    """
+    Args:
+        text: One element of a health check's test.
+        uses_wget: Whether the check runs wget (its command may be another element).
+
+    Returns:
+        It with `localhost` named `127.0.0.1` when the check is wget's.
+    """
+    if not uses_wget:
+        return text
+    return re.sub(r"(?<![\w.-])localhost(?=[:/\s]|$)", "127.0.0.1", text)
+
+
+def container_env_in_healthcheck(draft: Draft, spec: dict[str, Any]) -> None:
+    """
+    Write ``$${NAME}`` for a variable of the container's own that a health check reads.
+
+    A check such as ``pg_isready -U ${POSTGRES_USER}`` runs in the container, where the service's
+    environment sets ``POSTGRES_USER``; Compose would fill ``${POSTGRES_USER}`` in itself, from a
+    variable nobody declared, and the check would ask for an empty user (Portabase's database never
+    became healthy). A name the template does declare as a variable stays Compose's.
+
+    Args:
+        draft: The draft, whose declared variables are known.
+        spec: One service, changed in place.
+    """
+    check = spec.get("healthcheck")
+    if not isinstance(check, dict):
+        return
+    ipv4_loopback(check)
+    own = set(as_environment(spec.get("environment")))
+
+    def escape(text: str) -> str:
+        return re.sub(
+            r"(?<!\$)\$\{(\w+)\}",
+            lambda found: (
+                "$${" + found.group(1) + "}"
+                if found.group(1) in own and found.group(1) not in draft.variables
+                else found.group(0)
+            ),
+            text,
+        )
+
+    test = check.get("test")
+    if isinstance(test, str):
+        check["test"] = escape(test)
+    elif isinstance(test, list):
+        check["test"] = [escape(item) if isinstance(item, str) else item for item in test]
+
+
+#: The stack's own PORT (the host's port nginx proxies to) as a template hands it to an application.
+_CONTAINER_PORT = re.compile(r"\$\{PORT(?::?-[0-9]+)?\}")
+
+
 def clean_services(draft: Draft) -> None:
     """
     Rewrite the services into what a recipe's schema accepts.
@@ -626,22 +981,27 @@ def clean_services(draft: Draft) -> None:
     # the application itself would be on a public name.
     if image_engine(str(draft.services.get(routed_service, {}).get("image", ""))) is not None:
         raise Skip("database-as-app", f"service {routed_service} is a database engine")
+    adopt_declared_jobs(draft, routed_service)
     for key, spec in draft.services.items():
         for banned in ("privileged", "cap_add", "devices", "network_mode", "pid", "ipc", "build"):
             if spec.get(banned):
                 raise Skip(f"uses-{banned}", f"service {key}")
         for dropped in DROPPED_KEYS & spec.keys():
             del spec[dropped]
+        use_stack_env(draft, spec)
+        shell_dollars(spec)
+        container_env_in_healthcheck(draft, spec)
         unknown = set(spec) - KEPT_KEYS
         if unknown:
             raise Skip("service-keys", f"service {key}: {', '.join(sorted(unknown))}")
         if not re.fullmatch(r"[a-z][a-z0-9_-]{0,62}", key):
             raise Skip("service-name", key)
-        spec["restart"] = "unless-stopped"
+        # A job the stack waits for to finish (a migration) must not restart when it ends.
+        spec["restart"] = "no" if key in awaited_jobs(draft.services) else "unless-stopped"
         if "environment" in spec:
             spec["environment"] = {
-                name: value
-                for name, value in as_environment(spec["environment"]).items()
+                name: _CONTAINER_PORT.sub(str(routed_port), value) if routed_port else value
+                for name, value in pass_through_names(draft, spec["environment"]).items()
                 if not FORBIDDEN_WORDS.search(name)
             }
         ports = []
@@ -652,7 +1012,27 @@ def clean_services(draft: Draft) -> None:
             ):
                 ports.append(f"127.0.0.1:${{PORT}}:{routed_port}")
             else:
-                raise Skip("extra-port", f"service {key} publishes {text}")
+                opened = _PUBLIC_PORT.fullmatch(text)
+                if opened is None or int(opened["host"]) in SERVER_PORTS:
+                    raise Skip("extra-port", f"service {key} publishes {text}")
+                if opened["host"] != opened["container"]:
+                    # A recipe opens the same port on both sides; SSH on another host port is a
+                    # convenience of a git forge (clone over HTTPS instead), anything else needs it.
+                    if opened["container"] != "22":
+                        raise Skip("extra-port", f"service {key} publishes {text}")
+                    draft.left_out_ssh.append(key)
+                    continue
+                protocol = opened["protocol"] or "tcp"
+                ports.append(text)
+                draft.public_ports.append(
+                    {
+                        "port": int(opened["host"]),
+                        "protocol": protocol,
+                        "purpose": f"{key}: {opened['container']}/{protocol}, which the template opens.",
+                    }
+                )
+        if key == routed_service and not any("${PORT}" in port for port in ports):
+            ports.append(f"127.0.0.1:${{PORT}}:{routed_port}")
         if ports:
             spec["ports"] = ports
         else:
@@ -681,6 +1061,11 @@ def clean_services(draft: Draft) -> None:
                     condition = "service_healthy"
                 waits[str(target)] = {"condition": condition}
             spec["depends_on"] = waits
+    for spec in draft.services.values():
+        if not spec.get("healthcheck"):
+            engine = image_engine(str(spec.get("image", "")))
+            if engine is not None and engine.flavour in ENGINE_HEALTH_CHECKS:
+                spec["healthcheck"] = dict(ENGINE_HEALTH_CHECKS[engine.flavour])
     for key, spec in draft.services.items():
         for target in spec.get("depends_on") or ():
             if target not in draft.services:
@@ -696,6 +1081,55 @@ CLOCK_FILES = frozenset({"/etc/localtime", "/etc/timezone"})
 
 #: The one mount of the Docker socket a recipe may make once it says it is root on the server.
 DOCKER_SOCKET = re.compile(r"/var/run/docker\.sock:/var/run/docker\.sock(?::ro)?")
+
+#: Places of the host that are the server's own and never a folder a service keeps its data in.
+HOST_SYSTEM_PATHS = (
+    "/boot",
+    "/dev",
+    "/etc",
+    "/home",
+    "/lib",
+    "/opt",
+    "/proc",
+    "/root",
+    "/run",
+    "/sys",
+    "/usr",
+    "/var/lib/docker",
+    "/var/log",
+    "/var/run",
+)
+
+_HOST_FOLDER = re.compile(r"(?P<source>\$\{[^}]*\}|/[^:]*):(?P<target>/.+)")
+
+
+def host_data_folder(volume: str) -> tuple[str, str] | None:
+    """
+    Tell a mount of a folder of the host that a service keeps its data in.
+
+    A template written for one person's server mounts `/jupyter` or `${DB_DATA_LOCATION}` from the
+    host. A folder that is no part of the server itself becomes a named volume of the stack, which
+    holds the same data and is backed up by Noust.
+
+    Args:
+        volume: The mount as the template wrote it.
+
+    Returns:
+        The source and the target (with its options), or None when the mount is not one.
+    """
+    found = _HOST_FOLDER.fullmatch(volume)
+    if found is None:
+        return None
+    source, target = found.group("source"), found.group("target")
+    if not source.startswith("$"):
+        path = source.rstrip("/")
+        if not path or "." in path.rsplit("/", 1)[-1]:
+            return None  # the root, or a file
+        if any(path == system or path.startswith(system + "/") for system in HOST_SYSTEM_PATHS):
+            return None
+    if "." in target.split(":", 1)[0].rsplit("/", 1)[-1] or "docker.sock" in target:
+        return None  # the service reads a file there, not a folder
+    return source, target
 
 
 def rewrite_mount(draft: Draft, service: str, volume: str) -> str | None:
@@ -726,7 +1160,17 @@ def rewrite_mount(draft: Draft, service: str, volume: str) -> str | None:
         draft.root_equivalent = "docker_socket"
         return volume
     if not source.startswith(("/", ".", "~", "$")):
-        return volume
+        # `data:/var/lib/postgresql/data/` and `data:/var/lib/postgresql/data` are one mount: the
+        # recipe's checks (and Noust's backups) look for the folder without its closing slash.
+        return re.sub(r"^([^:]+:/[^:]*?)/+(?=:|$)", r"\1", volume)
+    data_folder = host_data_folder(volume)
+    if data_folder is not None:
+        source_path, target = data_folder
+        folder = target.split(":", 1)[0].rstrip("/").rsplit("/", 1)[-1] or "data"
+        name = re.sub(r"[^a-z0-9]+", "-", f"{service}-{folder}".lower()).strip("-")
+        if name not in draft.volumes:
+            draft.volumes.append(name)
+        return f"{name}:{target}"
     if not source.startswith("./"):
         raise Skip("host-mount", f"service {service}: {volume}")
     relative = source[2:].rstrip("/")
@@ -738,16 +1182,83 @@ def rewrite_mount(draft: Draft, service: str, volume: str) -> str | None:
     if held:
         for path, body in held.items():
             if path in draft.secret_files or "${" in body or "$" in body:
-                raise Skip("template-files", f"{path} holds a secret or a reference")
-            draft.shipped[path] = body
+                made = render_body(draft, body, secret=path in draft.secret_files)
+                if made is None:
+                    raise Skip("template-files", f"{path} holds a secret or a reference")
+                draft.rendered[path] = made
+            else:
+                draft.shipped[path] = body
         return f"./{relative}:{target}"
-    if relative.startswith(("files/", "volumes/")) and "." not in relative.rsplit("/", 1)[-1]:
+    last = relative.rsplit("/", 1)[-1]
+    if (
+        ".." not in relative
+        and "." not in last
+        and (relative.startswith(("files/", "volumes/")) or DATA_FOLDER.fullmatch(last))
+    ):
         name = re.sub(r"[^a-z0-9]+", "-", f"{service}-{relative.rsplit('/', 1)[-1]}".lower())
         if name not in draft.volumes:
             draft.volumes.append(name)
         return f"{name}:{target}"
     raise Skip("host-mount", f"service {service}: {volume}")
 
+
+#: What a file's text can say with a dollar: ``$$``, ``${NAME}``, ``$NAME`` or a lone ``$``.
+_FILE_DOLLAR = re.compile(r"\$\$|\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)|\$")
+
+
+def render_body(draft: Draft, body: str, *, secret: bool) -> str | None:
+    """
+    Make a file of the template into one the recipe renders, with the stack's variables in it.
+
+    The converter expanded the template's helpers into values (a password, the sample domain); the
+    file is shipped with the variables where those values were, so that each installation gets its
+    own, and a ``$`` of the file's own is written ``$$``.
+
+    Args:
+        draft: The draft, whose generated values are looked for in the file.
+        body: The file as the converter wrote it.
+        secret: Whether the converter flagged the file as holding a secret it made.
+
+    Returns:
+        The text to render, or None when the file is flagged as holding a secret and none of the
+        stack's variables is in it (a secret nobody can name is not shipped).
+    """
+    declared = set(draft.variables)
+
+    def reference(found: re.Match[str]) -> str:
+        name = found.group(1) or found.group(2)
+        if name and name in declared:
+            return "${" + name + "}"
+        # Anything else with a dollar is for the program that reads the file, and the renderer
+        # reads `$$` as one dollar.
+        return found.group(0).replace("$", "$$")
+
+    text = _FILE_DOLLAR.sub(reference, body)
+    named = False
+    known = [
+        (name, str(draft.values.get(name) or ""))
+        for name, entry in draft.variables.items()
+        if entry["origin"] == "generated"
+    ]
+    for name, value in sorted(known, key=lambda pair: -len(pair[1])):
+        if len(value) >= 8 and value in text:
+            text = text.replace(value, f"${{{name}}}")
+            named = True
+    for scheme in ("https", "http"):
+        text = text.replace(f"{scheme}://{DOMAIN}", "${APP_URL}")
+    text = text.replace(DOMAIN, "${APP_DOMAIN}")
+    if secret and not named:
+        return None
+    return text
+
+
+#: Folders a template mounts from its own directory that are where the service keeps what it makes, not
+#: configuration the operator wrote: they become named volumes. A folder named `conf` is left to a person.
+DATA_FOLDER = re.compile(
+    r"(?:data|db|database|uploads?|storage|ssl|certs?|logs?|cache|tmp|media|files|backups?|downloads?"
+    r"|library|content|custom|html|www|plugins|themes|assets)",
+    re.IGNORECASE,
+)
 
 _DEFAULTED = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*):?-([^${}]*)\}")
 
@@ -904,6 +1415,46 @@ def pick_release_tag(reference: str, floating: str, log: list[str]) -> str:
     return plain[0]
 
 
+def align_routed_port(draft: Draft) -> None:
+    """
+    Follow the one port the web service's image exposes when the template routes another.
+
+    Some templates name a port the image does not listen on (Dokploy's Apache Answer says 9080, the
+    image exposes 80): the published port then resets every request. When the image exposes exactly
+    one TCP port, that port is not the routed one and nothing in the service's environment sets the
+    routed one, the mapping follows the image. Anything less clear is left as the template wrote it.
+
+    Args:
+        draft: Changed in place.
+    """
+    if draft.routed is None:
+        return
+    service, port = draft.routed
+    spec = draft.services.get(service, {})
+    if any(str(port) == str(value) for value in as_environment(spec.get("environment")).values()):
+        return
+    try:
+        config = recipe_draft.image_config(str(spec.get("image", "")))
+    except Exception:  # noqa: BLE001 - the registry's failure is not the template's: leave the port
+        return
+    exposed = {
+        int(entry.split("/")[0])
+        for entry in (config.get("ExposedPorts") or {})
+        if entry.endswith("/tcp") and entry.split("/")[0].isdigit()
+    }
+    if len(exposed) != 1 or port in exposed:
+        return
+    (actual,) = exposed
+    spec["ports"] = [
+        entry.replace(f"${{PORT}}:{port}", f"${{PORT}}:{actual}")
+        for entry in spec.get("ports") or ()
+    ]
+    draft.routed = (service, actual)
+    draft.warnings.append(
+        f"{service} is routed to {actual}, the one port its image exposes, not {port}"
+    )
+
+
 def pin_images(draft: Draft) -> list[str]:
     """
     Give every image a release tag and the digest its registry serves.
@@ -949,9 +1500,11 @@ def generator_for(name: str, value: str | None) -> str:
         One of :data:`noust.recipes.model.GENERATORS`.
     """
     if value:
-        if re.fullmatch(r"[0-9a-f]{64}", value):
+        # Hexadecimal of any length stays hexadecimal: imgproxy's key and salt are decoded from hex
+        # and a template that asked for 128 digits made them with the longer form.
+        if re.fullmatch(r"[0-9a-f]{64,}", value):
             return "hex64"
-        if re.fullmatch(r"[0-9a-f]{32}", value):
+        if re.fullmatch(r"[0-9a-f]{32,63}", value):
             return "hex32"
         if re.fullmatch(r"[A-Za-z0-9+/]{43}=", value):
             return "base64_32"
@@ -980,20 +1533,77 @@ def declare_variables(draft: Draft, text: str) -> dict[str, dict[str, Any]]:
             continue
         known = draft.variables.get(name)
         entry: dict[str, Any]
-        if known is not None and known["origin"] == "domain":
-            entry = {"from": "fqdn" if name.startswith("SERVICE_FQDN") else "url"}
+        if name == "APP_URL" and known is None:
+            entry = {"from": "url"}
+        elif name == "APP_DOMAIN" and known is None:
+            entry = {"from": "fqdn"}
+        elif known is not None and known["origin"] == "domain":
+            # What the converter made of the template's helper tells which it is: a bare host name
+            # (`matrix.local`, `SERVER_NAME`) wants the domain, an address with its scheme the URL.
+            value = str(known["value"] or "")
+            bare = bool(value) and not value.startswith(("http://", "https://"))
+            entry = {"from": "fqdn" if name.startswith("SERVICE_FQDN") or bare else "url"}
         elif known is not None and known["origin"] == "generated":
             composed = compose_value(draft, name, found)
+            twin = next(
+                (
+                    other
+                    for other, made in found.items()
+                    if "generate" in made
+                    and known["value"]
+                    and len(str(known["value"])) >= 8
+                    and draft.values.get(other) == known["value"]
+                ),
+                None,
+            )
             if composed is not None:
                 entry = {"value": composed, "secret": True}
+            elif twin is not None:
+                # The template wrote one secret (`db_pass`) and used it twice: the database's and the
+                # application's must stay the same value, not two random ones.
+                entry = {"value": f"${{{twin}}}", "secret": True}
             elif known["secret"]:
                 entry = {"generate": generator_for(name, known["value"])}
             else:
                 entry = {"generate": "user"}
         elif known is not None and known["value"] is not None:
-            entry = {"default": str(known["value"])}
+            text = str(known["value"])
+            if text.lstrip().startswith("#"):
+                text = ""  # what follows a hash on a template's env line is its comment
+            if DOMAIN in text or SAMPLE_ADDRESS.search(text):
+                found.setdefault(
+                    "APP_DOMAIN",
+                    {
+                        "from": "fqdn",
+                        "description": "The domain people use to reach the application.",
+                    },
+                )
+                entry = {
+                    "value": SAMPLE_ADDRESS.sub(
+                        "@${APP_DOMAIN}", text.replace(DOMAIN, "${APP_DOMAIN}")
+                    )
+                }
+            elif text and SECRET_NAME.search(name) and not NOT_A_CREDENTIAL.match(text):
+                # A default credential is what the recipe never ships: the install makes one.
+                entry = {"generate": "password32"}
+            elif "${" in text:
+                # A setting made of other variables (a database address) is filled in at the install.
+                names = re.findall(r"\$\{(\w+)", text)
+                entry = {"value": text}
+                if any(
+                    draft.variables.get(other, {}).get("origin") == "generated"
+                    or SECRET_NAME.search(other)
+                    for other in names
+                ):
+                    entry["secret"] = True
+            else:
+                entry = {"default": text}
         elif reference.operator in ("-", ":-"):
-            continue
+            if is_default_credential(name, reference.argument):
+                # `${LAVALINK_SERVER_PASSWORD:-youshallnotpass}`: the install makes its own.
+                entry = {"generate": "password32"}
+            else:
+                continue
         elif reference.operator in ("?", ":?"):
             entry = {"required": True}
         else:
@@ -1005,6 +1615,27 @@ def declare_variables(draft: Draft, text: str) -> dict[str, dict[str, Any]]:
         entry["description"] = describe_variable(name, entry)
         found[name] = entry
     return found
+
+
+def is_default_credential(name: str, text: str) -> bool:
+    """
+    Tell a credential written as the default of a reference (``${NAME:-secret}``).
+
+    Args:
+        name: The variable's name.
+        text: What the reference gives when the variable is unset.
+
+    Returns:
+        True when the name says it holds a credential and the default is a literal one: not empty,
+        not a switch, a duration, a path or an address.
+    """
+    return bool(
+        text
+        and SECRET_NAME.search(name)
+        and not NOT_A_CREDENTIAL.match(text)
+        and not text.startswith(("/", "http://", "https://", "$"))
+        and "${" not in text
+    )
 
 
 def compose_value(draft: Draft, name: str, found: dict[str, dict[str, Any]]) -> str | None:
@@ -1249,6 +1880,22 @@ def build_text(
     tag = image.split("@", 1)[0].rsplit(":", 1)[-1]
     version = re.sub(r"^v(?=\d)", "", tag)[:39] if re.match(r"^v?\d", tag) else tag[:39]
     licence = SPDX_ALIASES.get(facts["license"], facts["license"])
+    if not is_free_software(licence):
+        # The catalogue says so where the operator chooses (tests/recipes/test_licensing.py): the
+        # software may be run for one's own use, and it is not free software.
+        called = facts.get("licence_name") or "its own licence"
+        lead = (
+            f"Open core ({called}), its enterprise features need a licence. "
+            if re.search(r"-and-(EE|proprietary)$", licence or "")
+            else f"Source-available ({called}), for your own use. "
+        )
+        description = sentence(
+            lead
+            + str(
+                meta.get("description") or page.get("description") or facts["description"] or slogan
+            ),
+            400,
+        )
     homepage = (
         facts["homepage"] if str(facts["homepage"]).startswith("https://") else facts["html_url"]
     )
@@ -1256,7 +1903,9 @@ def build_text(
     if not docs_url.startswith("https://"):
         docs_url = homepage
     volumes = unique_volumes(draft.services)
-    variables = declare_variables(draft, dump({"services": draft.services}))
+    variables = declare_variables(
+        draft, dump({"services": draft.services}) + "\n".join(draft.rendered.values())
+    )
     compose_text = dump(
         {
             "services": draft.services,
@@ -1287,6 +1936,12 @@ def build_text(
             f"{' and '.join(account)} in its environment (noust env show {{{{ domain }}}} "
             "--unmask); the application's own sign-in may use them or ask you to create an account.",
         )
+    if draft.left_out_ssh:
+        notes.append(
+            "The template also opened SSH on another port of the server; this recipe does not "
+            "(a recipe opens a port only as the same number on both sides), so use the web "
+            "address, over HTTPS."
+        )
     if volumes:
         notes.append(
             f"Its data is in the Docker volume{'s' if len(volumes) > 1 else ''} "
@@ -1309,6 +1964,7 @@ def build_text(
         f"# ({licence_of_origin}), changed into a recipe: every image pinned to a release and the",
         "# digest its registry serves, the web port on the loopback address, credentials generated,",
         "# and nothing the closed schema refuses. The template's authors keep their rights in it.",
+        *([f"# Licence: {facts['licence_evidence']}"] if facts.get("licence_evidence") else []),
         "schema: 2",
         f"name: {source.name}",
         "kind: compose",
@@ -1343,11 +1999,23 @@ def build_text(
     )
     if draft.root_equivalent:
         lines.append(f"root_equivalent: {draft.root_equivalent}")
-    if draft.shipped:
+    if draft.public_ports:
+        lines.append("public_ports:")
+        for opened in draft.public_ports:
+            lines.append(
+                f"  - {{port: {opened['port']}, protocol: {opened['protocol']}, "
+                f"purpose: {quote(opened['purpose'])}}}"
+            )
+    if draft.shipped or draft.rendered:
         lines.append("files:")
         for shipped in draft.shipped:
             lines.append(f"  {shipped}:")
             lines.append(f"    asset: {shipped}")
+            lines.append('    mode: "0644"')
+        for rendered in draft.rendered:
+            lines.append(f"  {rendered}:")
+            lines.append(f"    asset: {rendered}")
+            lines.append("    render: true")
             lines.append('    mode: "0644"')
     lines.append("compose: |")
     lines.extend(f"  {row}" if row else "" for row in compose_text.rstrip().splitlines())
@@ -1392,6 +2060,46 @@ def icon_slug(name: str, title: str, icons: Path) -> str | None:
     return None
 
 
+def fix_postgres_data_directory(services: Mapping[str, dict[str, Any]]) -> list[str]:
+    """
+    Mount a PostgreSQL 18 volume where the image keeps its cluster.
+
+    From version 18 the image keeps the cluster in a folder named after the major version below
+    `/var/lib/postgresql`, and refuses to start on a volume mounted at `/var/lib/postgresql/data`
+    (the layout of every template written before): the volume belongs on the parent.
+
+    Args:
+        services: The services, pinned to a tag; changed in place.
+
+    Returns:
+        The names of the services whose mount moved.
+    """
+    from noust.managers.database.instances import image_engine
+
+    moved = []
+    for key, spec in services.items():
+        image = str(spec.get("image", "")).split("@", 1)[0]
+        engine = image_engine(image)
+        if engine is None or engine.flavour != "postgres":
+            continue
+        tag = image.rpartition(":")[2] if ":" in image.rsplit("/", 1)[-1] else ""
+        found = re.match(r"(?:pg)?(\d+)", tag)
+        if found is None or int(found.group(1)) < 18:
+            continue
+        mounts = []
+        for volume in spec.get("volumes") or ():
+            source, _, rest = str(volume).partition(":")
+            if rest == "/var/lib/postgresql/data" or rest.startswith("/var/lib/postgresql/data:"):
+                volume = f"{source}:/var/lib/postgresql" + rest.removeprefix(
+                    "/var/lib/postgresql/data"
+                )
+                moved.append(key)
+            mounts.append(volume)
+        if mounts:
+            spec["volumes"] = mounts
+    return moved
+
+
 def draft_recipe(
     source: Source,
     facts: Mapping[str, Any],
@@ -1419,6 +2127,8 @@ def draft_recipe(
     secret_literals(draft)
     one_default_each(draft)
     archs = pin_images(draft)
+    fix_postgres_data_directory(draft.services)
+    align_routed_port(draft)
     page = front_matter(source.docs)
     meta = dokploy_meta(source.dokploy)
     title = (
@@ -1432,6 +2142,7 @@ def draft_recipe(
         logo = "logo.svg"
         assets["logo.svg"] = monogram(title)
     assets.update(draft.shipped)
+    assets.update(draft.rendered)
     chosen = dict(health or {"path": "/", "expect": "200-399", "timeout": 180})
     text = build_text(draft, source, facts, archs, logo=logo, health=chosen)
     if FORBIDDEN_WORDS.search(text):
@@ -1626,6 +2337,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--dokploy", type=Path, default=DEFAULTS["dokploy"])
     parser.add_argument("--icons", type=Path, default=DEFAULTS["icons"])
     parser.add_argument("--cache", type=Path, default=work / "github-cache.json")
+    parser.add_argument(
+        "--min-stars",
+        type=int,
+        default=MIN_STARS,
+        help="the fewest stars a project may have (the catalogue's rule is 1,000)",
+    )
+    parser.add_argument(
+        "--overrides",
+        type=Path,
+        help="a JSON file with what a person found: `repositories` (template name -> owner/name) "
+        "and `licences` (owner/name -> license, accept, name, evidence)",
+    )
     commands = parser.add_subparsers(dest="command", required=True)
     survey = commands.add_parser("survey")
     survey.add_argument("--out", type=Path, default=work / "survey.json")
@@ -1646,6 +2369,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     sources = read_sources(args.coolify, args.dokploy, args.coolify_docs)
     cache = load_cache(args.cache)
     existing = {norm(p.stem) for p in RECIPES.glob("*.yaml")}
+    found_by_hand: dict[str, Any] = (
+        json.loads(args.overrides.read_text(encoding="utf-8")) if args.overrides else {}
+    )
+    repositories: dict[str, str] = {
+        norm(key): slug for key, slug in (found_by_hand.get("repositories") or {}).items()
+    }
+    licences: dict[str, Any] = found_by_hand.get("licences") or {}
+    for template, pair in (found_by_hand.get("routes") or {}).items():
+        ROUTES[norm(template)] = (str(pair[0]), int(pair[1]))
     try:
         if args.command == "survey":
             rows = []
@@ -1657,10 +2389,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                 if key in existing:
                     rows.append(row)
                     continue
-                slug = find_repository(source)
+                slug = find_repository(source, repositories)
                 row["repository"] = slug
-                facts = repository_facts(slug, cache) if slug else None
-                verdict = Skip("no-repository") if slug is None else not_eligible(facts)
+                facts = with_licence(repository_facts(slug, cache) if slug else None, licences)
+                verdict = (
+                    Skip("no-repository")
+                    if slug is None
+                    else not_eligible(facts, min_stars=args.min_stars)
+                )
                 row["facts"] = facts
                 row["skip"] = str(verdict) if verdict else None
                 reasons[verdict.code if verdict else "eligible"] += 1
@@ -1704,9 +2440,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print(f"{name}: skip the catalogue already has it")
                 failed += 1
                 continue
-            slug = find_repository(source)
-            facts = repository_facts(slug, cache) if slug else None
-            verdict = not_eligible(facts) if slug else Skip("no-repository")
+            slug = find_repository(source, repositories)
+            facts = with_licence(repository_facts(slug, cache) if slug else None, licences)
+            verdict = (
+                not_eligible(facts, min_stars=args.min_stars) if slug else Skip("no-repository")
+            )
             if verdict is not None or facts is None:
                 print(f"{name}: skip {verdict}")
                 log[name] = {"status": "skip", "reason": str(verdict)}

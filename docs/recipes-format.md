@@ -72,7 +72,7 @@ API answers it as a sentence of the server's words (`unavailable`, with its `cod
 `unavailable_text` and `unavailable_hint` in English), `GET /api/recipes?available=false` lists what
 is left out and `?unavailable_code=licence` narrows it, and `noust recipe list --unavailable
 [--reason CODE]` does the same. `unavailable_reason` stays the evidence, to be folded under the
-sentence. Installing a listed recipe is refused with that sentence. Vault, Excalidraw, PocketBase and
+sentence. Installing a listed recipe is refused with that sentence. Excalidraw, PocketBase, Joplin Server and
 others are listed this way (see the end of [the catalog](recipes-catalog.md)).
 
 ### `kind: compose`
@@ -117,11 +117,21 @@ A stack with a database follows the same few rules in every recipe, and
   `backup.databases` names the service, the engine, the database and the user.
 - Its data is in a named volume mounted where the engine keeps it, and what uses it starts when
   it answers: `depends_on` with `condition: service_healthy` and a `healthcheck` on the database.
+- A migration or an initialisation that the application must wait for is a service of its own with
+  `restart: "no"` (or `on-failure`) and, on the application, `depends_on` with
+  `condition: service_completed_successfully`. It is the one service that may skip
+  `restart: unless-stopped`: under that policy it would start again when it ended and the stack would
+  wait for ever. `docker compose up -d` runs it again on every start, which is what a migration wants.
 - Nothing but the web port, and the ports `public_ports` declares, is published: a database, a
   cache or a worker is reachable only from inside the stack.
 - No credential is written in the document: the database password and every key are generated
   variables (`generate: password32`, `hex64`, `base64_32`...), the same value in the application
-  and in the database through one variable.
+  and in the database through one variable. Nor is one a default: a variable whose name says it holds a
+  password, a secret or a token never has a literal `default` (a switch, a duration, a count or a path
+  may), and an address never defaults to `example.com`: it is `value: "admin@${APP_DOMAIN}"` over a
+  variable `from: fqdn`. A password a program insists on shaping (an upper-case letter, a symbol) is
+  `value: "${PASSWORD_BASE}Aa1!"` over a generated base. `tests/recipes/test_catalog_policy.py` fails on
+  the first recipe that ships one.
 - Settings an operator may add later and that are not worth a variable (an SMTP server) are
   passed through: `NAME:` with no value in `environment` takes the value from the application's
   environment when the operator sets it, and sets nothing when not.
@@ -358,12 +368,16 @@ repository (its licence covers the file unless it says otherwise); a brand kit o
 publishes for third parties; a collection of the logos of self-hosted software
 ([dashboard-icons](https://github.com/homarr-labs/dashboard-icons), Apache-2.0, or
 [selfh.st/icons](https://github.com/selfhst/icons), CC-BY-4.0), whose licence covers the collection's
-file and not the brand. SVG is preferred; a PNG is shipped only where there is no SVG and it is 256 pixels
-or more on each side. A file of another project is never copied by hand into `assets/`: it goes through
+file and not the brand. SVG is preferred; a PNG is shipped only where there is no SVG that the policy accepts
+(the project's own, its brand kit's or the collections') and it is 256 to 1024 pixels on each side and at most
+64 KiB, whether it is the project's picture or a collection's PNG. A picture larger than that is scaled down
+by the person adding it (the shorter side to 256 pixels, the palette reduced only if it is still too heavy) and
+`--scaled` makes the notice say so. A file of another project is never copied by hand into `assets/`: it goes through
 
 ```bash
 python scripts/recipe_logos.py add NAME FILE --source URL --licence SPDX \
-    --copyright "Copyright (c) ..." --terms "what the project's rules on its logo say, and where"
+    --copyright "Copyright (c) ..." --terms "what the project's rules on its logo say, and where" \
+    [--repaint no|white-black] [--scaled]
 ```
 
 which rewrites it with `noust.recipes.logo_sanitize.sanitize_svg` (removes `script`, `foreignObject`,
@@ -372,13 +386,22 @@ event handlers, every `href` that does not point inside the file, animation, fil
 recipe's own, rounds the numbers, gives the file a `viewBox` and no fixed size) and then holds the result
 to the check above, and writes the `LOGO-NOTICE`. A file that needs something the policy cannot carry (a
 raster picture, a mask, a pattern, text that needs a font) is refused with the reason, and another file
-is chosen.
+is chosen. A file whose picture is far larger than its figure (a banner, a poster: Headscale's three dots on a
+1280 by 640 canvas) is given the figure's own frame (`noust.recipes.logo_bounds`) and the notice says so, and a figure
+more than two and a half times wider than tall is reported, because at 32 pixels it is a strip: look for the
+symbol without the name, or a square icon (VersityGW's is the company's symbol, not its 150 by 53 banner).
 
 The `LOGO-NOTICE` is one `Field: value` per line: `Mark of` (the project), `Source` (an https address,
 at the commit or release the file was read at), `Licence` (an SPDX expression, or `LicenseRef-<name>` for
 terms the project gave in writing), `Copyright` (the line the licence asks to travel), `Terms` (what the
-project's own rules on its logo say, where and when they were read), `Retrieved` (the day, `YYYY-MM-DD`) and
-`Changes`. `Source`, `Licence` and `Retrieved` are required; a mark without them is not shipped
+project's own rules on its logo say, where and when they were read), `Repaint`, `Retrieved` (the day,
+`YYYY-MM-DD`) and `Changes`. `Copyright` is the project's own authorship (its authors or contributors), never the
+Free Software Foundation's line that begins the text of the GPL and the AGPL, which drew no logo (the parser
+refuses it). `Repaint` is required when the project's rules say the mark is not to be changed ("unmodified", "never
+altered", only in white or black): `no` has the console draw the file exactly as it is on both stones, and
+`white-black` lets it draw a one-colour mark in pure black on the light stone and pure white on the dark one,
+nothing else; without the field the stone's own ink and paper may stand in for a colour that would not read. A
+notice cannot promise "shown unmodified" and leave the console to recolour the mark. `Source`, `Licence` and `Retrieved` are required; a mark without them is not shipped
 (`noust.recipes.logos.parse_logo_notice`, held by `tests/recipes/test_catalog_policy.py`). NOTICE and
 `obs/debian.copyright` list every mark and its licence, written by `scripts/recipe_notice.py` from these
 notices and from `index.json`, so a mark cannot be added without them.
@@ -440,7 +463,46 @@ logo never gets its mark here, whatever a collection holds, and is given the mon
 - Typebot (its `LICENSE`, read 2026-10-29): no right to its trademarks except to identify it as the
   origin of the software;
 - Joplin (its `LICENSE`, read 2026-10-29): its logos and icons are all rights reserved and need a
-  permission.
+  permission;
+- Apprise API (the metadata of its logo files, read 2026-11-01): all rights reserved on the Apprise logo
+  and its marks, though the code is MIT;
+- Element (`element.io/legal/trademark-policy`, read 2026-11-01): the logos may point to services Element
+  hosts, manages or supports, and every other use needs its written consent;
+- Evershop (`evershop.io/tos`), useSend (the terms of `usesend.com`), Sequin (the terms of
+  `sequinstream.com`) and Sim (the terms of `sim.ai`), all read 2026-11-01: no use of their trademarks or
+  logos without written permission;
+- Evolution API (`TRADEMARKS.md`, read 2026-11-01): textual references and unmodified official builds only,
+  no recolouring and nothing else without written permission;
+- Flipt (its Fair Core `LICENSE`, read 2026-11-01): no right to its trademarks except to identify it as the
+  origin of the software;
+- Frappe Lending and Frappe Learning (`docs.frappe.io/legal/others/license-and-trademark`, read
+  2026-11-01): product logos remain Frappe's and may not be copied, modified, redistributed or used
+  commercially except as the policy permits, and the software licence applies only to the source code;
+- Gitness (`harness.io/legal/trademark`, read 2026-11-01) and OpenPanel (`TRADEMARK.md`, read 2026-11-01):
+  the word marks may describe a relationship to the software, the logos may not;
+- Label Studio (its `NOTICE`, read 2026-11-01): "Label Studio (TM) ... All Rights Reserved", with the
+  Apache-2.0 grant limited to source code, and a media kit for the brand assets that could not be read;
+- JupyterLab (`jupyter.org/governance/trademarks`, read 2026-11-01): only unaltered logos and always with
+  the registered-trademark symbol, which an icon of 32 pixels cannot carry;
+- MindsDB (the press kit and the terms of `mindshub.ai`, read 2026-11-01): the kit is "CC-BY-ND for press"
+  and the terms reserve the marks;
+- ONCE Campfire (37signals' `brand_guidelines.md`, read 2026-11-01): contact them before using their logos;
+- PhotoPrism (section 18 of its `LICENSE` and `photoprism.app/trademark`, read 2026-11-01): its logos and
+  icons are proprietary assets, to be asked for;
+- Plunk (the terms of `useplunk.com`, section 8, read 2026-11-01): use of its name and logo beyond using
+  the software needs permission;
+- Pydio Cells (the Subscription and Licence Terms of `pydio.com`, 4.2, read 2026-11-01): no right to its
+  trademarks, trade names or logos without written consent;
+- Stalwart (`stalw.art/legal/copyrights`, read 2026-11-01): its name and logo are registered trademarks and
+  unauthorised use of its materials is prohibited;
+- Teable (the Brand Protection terms of its `LICENSE`, read 2026-11-01): its name, logo and icons are not
+  covered by the AGPLv3 and are not to be modified, replaced or removed.
+
+Other recipes keep the monogram because no file of the project can be shipped: no logo published, only a
+picture under 256 pixels, only a banner too long to be read as an icon (a figure more than two and a half
+times wider than tall), a logo drawn with a raster picture, a mask or text the console's policy refuses, a
+file nobody licensed (a repository with no `LICENSE`, a website's file under its terms) or one that is
+another party's work (Isso's Pokemon). `scripts/recipe_logos.py report` lists them.
 
 A project that asks that its logo be shown as it is drawn (AnythingLLM's brand kit, Flarum, Navidrome,
 Open WebUI) has it shown unmodified: the file is rewritten into the elements the console's policy allows
@@ -458,17 +520,26 @@ to the image the project publishes, pinned by its digest. Three cases:
 - An open source licence: the recipe is installable.
 - A source-available licence that lets an organisation run the software for itself (n8n's and
   NocoDB's Sustainable Use License, Directus's Monospace Sustainable Core License, Open WebUI's
-  branding clause, PLANKA's Community License, Tandoor's AGPL with the Commons Clause, Outline's
-  Business Source License, Typebot's Functional Source License and Bugsink's PolyForm Shield
-  License), or an open core whose
+  branding clause, PLANKA's Community License, Tandoor's AGPL with the Commons Clause, a Business
+  Source License whose grant allows production use of your own (Outline's, HashiCorp Vault's), the
+  Functional Source License, the Server Side Public License used for your own needs, Typebot's
+  Functional Source License and Bugsink's PolyForm Shield License), or an open core whose
   repository holds some files under a proprietary licence (Stirling PDF, AFFiNE, Chatwoot,
   Infisical): the recipe is installable, its description says "source-available" or "open core",
   and a note names the restriction that matters (not offering it to others as a service, no
-  competing use, keeping a name and logo).
+  competing use, keeping a name and logo). Such a recipe is **not free software**, and the catalogue
+  says so wherever it is shown, with the licence's name: `GET /api/recipes` answers
+  `free_software: false`, `noust recipe list` marks the line `[not free software]` and
+  `noust recipe show` says it beside the licence. The decision is one function,
+  `noust.recipes.licensing.is_free_software`, over the SPDX expression: a licence of the families
+  the OSI and the FSF approve is free, anything else (a name the project wrote, BUSL, FSL, SSPL) is
+  not, and an unknown identifier is never read in the recipe's favour.
 - A licence that forbids what an operator of a server does (personal use only, no access for
-  others), a community edition its own project declares not for production, or terms that cannot
-  be told from the file: the recipe is listed as unavailable with the file or page named and the
-  day it was read (Joplin Server's licence, Cal.diy's README, Vault's Business Source License).
+  others, a ceiling on users or devices that an ordinary installation passes), a community edition
+  its own project declares not for production, or terms that cannot be told from the file or that
+  their owner may change by announcing it: the recipe is listed as unavailable with the file or
+  page named and the day it was read (Joplin Server's licence, Cal.diy's README, Akaunting's
+  ceiling of two users, ThingsBoard's of 1,000 devices, NocoBase's agreement).
 
 A file copied from a project's repository (Plausible's ClickHouse settings) is shipped unchanged
 with that repository's licence text in a `NOTICE` file in the recipe's assets.
@@ -518,7 +589,10 @@ testing it on your own Docker and sending it. What follows is the rule it is jud
 The rule of eligibility: the upstream project has at least 1,000 stars on GitHub (or on the forge
 that hosts it: Codeberg for Forgejo), has made a release in the last year and is not archived, and
 its licence allows running it for others (the licence goes in `license`; a source-available one is
-said so in the description). A project that publishes a build per commit and no release (SearXNG)
+said so in the description). The floor of stars is lower, 100, for a project that is alive (a release
+or a push in the last year) and publishes an image of its own that can be pinned: a long tail of
+applications people run is smaller than a thousand stars, and what matters is that someone maintains
+what the recipe installs. A project that publishes a build per commit and no release (SearXNG)
 is pinned to the newest dated build by tag and digest, and its recipe says so.
 
 A recipe is accepted when:

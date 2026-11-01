@@ -1,1 +1,0 @@
-import{t as e}from"./HomePage-BR3zMgLH.js";import{dt as t}from"./useNode-BZ3mMIFn.js";var n=t();function r(){return(0,n.jsx)(e,{scope:`fleet`})}export{r as component};

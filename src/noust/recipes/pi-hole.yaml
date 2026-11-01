@@ -1,0 +1,50 @@
+# Pi-hole from the image the project publishes (pihole/pihole), with the variables, volume and ports its documentation names (github.com/pi-hole/docker-pi-hole, README).
+# Licence: LICENSE of pi-hole/docker-pi-hole, read 2026-10-30: licensed under the European Union Public License (EUPL), English version included
+schema: 2
+name: pi-hole
+kind: compose
+title: "Pi-hole"
+slogan: "A network-wide ad blocker."
+description: "A DNS server that blocks the domains of ads, trackers and malware for every device that uses it, with a web console of statistics, blocking lists, a query log and per-client rules. It answers DNS on port 53 of this server; the console's password is generated."
+category: security
+tags: [dns, ad-blocking, privacy, network]
+logo: simple-icons:pihole
+version: "2026.10.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://pi-hole.net
+docs: https://pi-hole.net
+repository: https://github.com/pi-hole/docker-pi-hole
+license: EUPL-1.2
+architectures: ["386", "amd64", "arm", "arm64", "riscv64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  ADMIN_PASSWORD:
+    generate: "password32"
+    description: "The password of the console."
+health: {path: /admin/, expect: "200-399", timeout: 120}
+public_ports:
+  - {port: 53, protocol: tcp, purpose: "DNS over TCP, which clients ask."}
+  - {port: 53, protocol: udp, purpose: "DNS over UDP, which clients ask."}
+compose: |
+  services:
+    pi-hole:
+      image: pihole/pihole:2026.10.0@sha256:d34134716fc32038b052a8674c7c6879e0ff21f0e6d8af345166fffa2c27c113
+      restart: unless-stopped
+      environment:
+        TZ: UTC
+        FTLCONF_webserver_api_password: ${ADMIN_PASSWORD}
+        FTLCONF_dns_listeningMode: all
+      volumes:
+        - pihole-config:/etc/pihole
+      ports:
+        - 127.0.0.1:${PORT}:80
+        - 53:53/tcp
+        - 53:53/udp
+  volumes:
+    pihole-config:
+notes:
+  - "Open {{ url }}. Sign in with the password in ADMIN_PASSWORD (noust env show {{ domain }} --unmask). Port 53 answers anybody who asks: an open resolver is abused for attacks, so restrict it with the firewall to your own network before pointing devices at it. If another service on this server holds port 53, free it first."
+  - "Its data is in the Docker volume pihole-config of this application: back it up before updating."

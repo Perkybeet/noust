@@ -1,0 +1,108 @@
+# Moodle: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/moodle.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: moodle
+kind: compose
+title: "Moodle"
+slogan: "A customisable open-source learning platform for educators and students."
+description: "Open-source learning platform."
+category: cms
+tags: [moodle, elearning, education, lms, cms, open, source, low]
+logo: simple-icons:moodle
+version: "4.3"
+revision: 1
+updated: 2026-10-28
+homepage: https://moodle.org/
+docs: https://moodle.org
+repository: https://github.com/moodle/moodle
+license: GPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_PASSWORD_ROOT:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for root."
+  SERVICE_USER_MARIADB:
+    generate: "user"
+    description: "The user name Noust generated for mariadb."
+  SERVICE_PASSWORD_MARIADB:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for mariadb."
+  SERVICE_URL_MOODLE:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_PASSWORD_MOODLE:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for moodle."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    mariadb:
+      image: mariadb:11.1@sha256:6f42bfc1b0ceacc22c49c1e934f6ed68c4cec658f199101dc0c8d45f3b90941d
+      environment:
+        ALLOW_EMPTY_PASSWORD: 'no'
+        MYSQL_ROOT_PASSWORD: ${SERVICE_PASSWORD_ROOT}
+        MYSQL_DATABASE: bitnami_moodle
+        MYSQL_USER: ${SERVICE_USER_MARIADB}
+        MYSQL_PASSWORD: ${SERVICE_PASSWORD_MARIADB}
+        MARIADB_CHARACTER_SET: utf8mb4
+        MARIADB_COLLATE: utf8mb4_unicode_ci
+      volumes:
+        - mariadb-data:/var/lib/mysql
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - bash -c '</dev/tcp/localhost/3306'
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      restart: unless-stopped
+    moodle:
+      image: docker.io/bitnamilegacy/moodle:4.3@sha256:b90ca32bcc1e4cdff45caa8f2aa4fafde3ef11fab966bb063104389196e89733
+      depends_on:
+        mariadb:
+          condition: service_healthy
+      environment:
+        SERVICE_URL_MOODLE: ${SERVICE_URL_MOODLE}
+        MOODLE_DATABASE_HOST: mariadb
+        MOODLE_DATABASE_PORT_NUMBER: '3306'
+        MOODLE_DATABASE_USER: ${SERVICE_USER_MARIADB}
+        MOODLE_DATABASE_NAME: bitnami_moodle
+        MOODLE_DATABASE_PASSWORD: ${SERVICE_PASSWORD_MARIADB}
+        ALLOW_EMPTY_PASSWORD: 'no'
+        MOODLE_USERNAME: ${MOODLE_USERNAME:-user}
+        MOODLE_PASSWORD: ${SERVICE_PASSWORD_MOODLE}
+        MOODLE_EMAIL: user@example.com
+        MOODLE_SITE_NAME: ${MOODLE_SITE_NAME:-New Site}
+      volumes:
+        - moodle-data:/bitnami/moodle
+        - moodledata-data:/bitnami/moodledata
+      healthcheck:
+        test:
+          - CMD
+          - php
+          - -r
+          - 'exit(file_exists(''/opt/bitnami/moodle/config.php'') ? 0 : 1);'
+        interval: 20s
+        timeout: 10s
+        retries: 5
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8080
+  volumes:
+    mariadb-data:
+    moodle-data:
+    moodledata-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_PASSWORD_ROOT and SERVICE_USER_MARIADB and SERVICE_PASSWORD_MARIADB and SERVICE_PASSWORD_MOODLE in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes mariadb-data, moodle-data, moodledata-data of this application: back them up before updating."

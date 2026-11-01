@@ -1,0 +1,79 @@
+# Parse Server from the image the project publishes (parseplatform/parse-server), with the variables its documentation names (github.com/parse-community/parse-server, README: Docker, and docs.parseplatform.org).
+schema: 2
+name: parse-server
+kind: compose
+title: "Parse Server"
+slogan: "Parse Server for Node.js / Express."
+description: "A backend for mobile and web applications: a database with a REST and GraphQL API, users and sessions, files, push notifications, cloud code and live queries, spoken by the Parse SDKs. It runs with its own MongoDB; the application ID and the keys that applications present are generated."
+category: backend
+tags: [backend, api, mongodb, sdk]
+logo: logo.svg
+version: "9.10.7"
+revision: 1
+updated: 2026-10-30
+homepage: https://parseplatform.org
+docs: https://parseplatform.org
+repository: https://github.com/parse-community/parse-server
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 1337
+variables:
+  APP_URL:
+    from: "url"
+    description: "The address people use to reach the application."
+  APP_ID:
+    generate: "hex32"
+    description: "The application ID that the SDKs present."
+  MASTER_KEY:
+    generate: "password64"
+    description: "The master key, which bypasses every rule: keep it on the servers you trust."
+  MONGO_PASSWORD:
+    generate: "password32"
+    description: "The password of the MongoDB administrator (root)."
+health: {path: /parse/health, expect: "200", timeout: 120}
+compose: |
+  services:
+    parse-server:
+      image: parseplatform/parse-server:9.10.7@sha256:5ea340f64201caba5919f1969320636c9ede944e1cf6f70d6fbe5d4a700de2fa
+      restart: unless-stopped
+      depends_on:
+        mongo:
+          condition: service_healthy
+      environment:
+        PARSE_SERVER_APPLICATION_ID: ${APP_ID}
+        PARSE_SERVER_MASTER_KEY: ${MASTER_KEY}
+        PARSE_SERVER_DATABASE_URI: mongodb://root:${MONGO_PASSWORD}@mongo:27017/parse?authSource=admin
+        PARSE_SERVER_MOUNT_PATH: /parse
+        PARSE_SERVER_URL: http://localhost:1337/parse
+        PARSE_PUBLIC_SERVER_URL: ${APP_URL}/parse
+      volumes:
+        - parse-files:/parse-server/files
+      ports:
+        - 127.0.0.1:${PORT}:1337
+    mongo:
+      image: mongo:8.0.34@sha256:b9924c330a8bbc5800fe9c69f04a84e221eca7b28fd049a0354147d9908fa142
+      environment:
+        MONGO_INITDB_ROOT_USERNAME: root
+        MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+      volumes:
+        - parse-server-mongo:/data/db
+      healthcheck:
+        test:
+          - CMD
+          - mongosh
+          - --quiet
+          - --eval
+          - db.adminCommand('ping').ok
+        interval: 10s
+        timeout: 10s
+        retries: 10
+        start_period: 20s
+      restart: unless-stopped
+  volumes:
+    parse-files:
+    parse-server-mongo:
+notes:
+  - "Open {{ url }}. It is a service for your applications, not a page: they use {{ url }}/parse with the application ID in APP_ID (noust env show {{ domain }} --unmask). The master key is accepted only from the server itself until you set PARSE_SERVER_MASTER_KEY_IPS."
+  - "Its data is in the Docker volumes parse-files, parse-server-mongo of this application: back them up before updating."

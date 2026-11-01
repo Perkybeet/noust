@@ -1,0 +1,40 @@
+# Gokapi from the image the project publishes (f0rc3/gokapi), with the /app/data and /app/config volumes its documentation names (gokapi.readthedocs.io, Docker).
+schema: 2
+name: gokapi
+kind: compose
+title: "Gokapi"
+slogan: "Lightweight selfhosted Firefox Send alternative without public upload."
+description: "Shares files by link with an expiry and a download limit; only logged-in users upload, anyone with the link downloads. A single Go binary with its own files and settings."
+category: files
+tags: [file-sharing, links, expiry, upload]
+logo: logo.png
+version: "2.2.4"
+revision: 1
+updated: 2026-10-30
+homepage: https://github.com/Forceu/Gokapi
+docs: https://github.com/Forceu/Gokapi
+repository: https://github.com/Forceu/Gokapi
+license: AGPL-3.0-only
+architectures: ["386", "amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 53842
+health: {path: /, expect: "200-399", timeout: 120}
+files:
+  noust.nginx.yaml: noust.nginx.yaml
+compose: |
+  services:
+    gokapi:
+      image: f0rc3/gokapi:v2.2.4@sha256:43cd93b9e1f02d760923f67f6e74e1c4d4a9cccb9b08fa42ad60770333f231eb
+      restart: unless-stopped
+      volumes:
+        - gokapi-data:/app/data
+        - gokapi-config:/app/config
+      ports:
+        - 127.0.0.1:${PORT}:53842
+  volumes:
+    gokapi-data:
+    gokapi-config:
+notes:
+  - "Open {{ url }}. The first visit opens a setup that makes the administrator and sets the server address ({{ url }}): do it right after installing."
+  - "Its data is in the Docker volumes gokapi-data, gokapi-config of this application: back them up before updating."

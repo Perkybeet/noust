@@ -16,6 +16,7 @@ const BASE: Omit<RecipeSummary, "name" | "title"> = {
   docs: null,
   repository: null,
   license: null,
+  free_software: true,
   min_noust: null,
   architectures: ["amd64", "arm64"],
   category: "other",
@@ -248,9 +249,23 @@ export const WORDPRESS_FULL = full(WORDPRESS, {
 
 export const GHOST_FULL = full(GHOST);
 
+/** A recipe of a project that is source-available, so its licence is not free software. */
+export const N8N_FULL = full(
+  summary("n8n", "n8n", {
+    slogan: "Workflow automation with a visual editor.",
+    description: "Source-available (Sustainable Use License) workflow automation, for your own business.",
+    homepage: "https://n8n.io",
+    license: "LicenseRef-n8n-Sustainable-Use",
+    free_software: false,
+    category: "automation",
+    tags: ["automation"],
+    version: "2.45.7",
+  }),
+);
+
 /** `GET /api/recipes/{name}` for the recipes that have a full fixture; a 404 for any other. */
 export function detailRoutes(): Record<string, RouteHandler> {
-  const all = [VAULTWARDEN_FULL, FRESHRSS_FULL, SYNCTHING_FULL, WORDPRESS_FULL, GHOST_FULL];
+  const all = [VAULTWARDEN_FULL, FRESHRSS_FULL, SYNCTHING_FULL, WORDPRESS_FULL, GHOST_FULL, N8N_FULL];
   return Object.fromEntries(all.map((recipe) => [`GET /api/recipes/${recipe.name}`, () => json(200, recipe)]));
 }
 

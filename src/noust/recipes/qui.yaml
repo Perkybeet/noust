@@ -6,7 +6,7 @@ schema: 2
 name: qui
 kind: compose
 title: "qui"
-slogan: "A fast, single-binary qBittorrent web UI: manage multiple instances, automate torrent workflows..."
+slogan: "A fast, single-binary qBittorrent web interface: manage several instances and automate workflows."
 description: "A fast, modern web interface for qBittorrent. Manage multiple qBittorrent instances from a single, lightweight application built by autobrr."
 category: automation
 tags: [torrent, qbittorrent, download, media, self-hosted, automation]

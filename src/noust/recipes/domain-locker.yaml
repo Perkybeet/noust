@@ -1,0 +1,96 @@
+# Domain Locker: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/domain-locker
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: domain-locker
+kind: compose
+title: "Domain Locker"
+slogan: "🌐 The all-in-one tool, for keeping track of your domain name portfolio."
+description: "Domain Locker is an open-source tool for tracking domain expirations and sending renewal reminders."
+category: monitoring
+tags: [domains, monitoring, utilities, postgres]
+logo: logo.svg
+version: "0.3.5"
+revision: 1
+updated: 2026-10-30
+homepage: https://domain-locker.com
+docs: https://github.com/Lissy93/domain-locker#readme
+repository: https://github.com/lissy93/domain-locker
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  DL_PG_NAME:
+    default: "domain_locker"
+    description: "Setting DL_PG_NAME of the application; the template leaves it to the operator."
+  DL_PG_USER:
+    default: "postgres"
+    description: "Setting DL_PG_USER of the application; the template leaves it to the operator."
+  DL_PG_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for dl pg password."
+  DL_ENV_TYPE:
+    default: "selfHosted"
+    description: "Setting DL_ENV_TYPE of the application; the template leaves it to the operator."
+  DL_PG_HOST:
+    default: "postgres"
+    description: "Setting DL_PG_HOST of the application; the template leaves it to the operator."
+  DL_PG_PORT:
+    default: "5432"
+    description: "Setting DL_PG_PORT of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    postgres:
+      image: postgres:15-alpine@sha256:54e0dd8e8cddcdbb9156c2486eed5a43eccb7214d7c6828097d41ce049fb3984
+      restart: unless-stopped
+      environment:
+        POSTGRES_DB: ${DL_PG_NAME:-domain_locker}
+        POSTGRES_USER: ${DL_PG_USER:-postgres}
+        POSTGRES_PASSWORD: ${DL_PG_PASSWORD:-changeme2420}
+      volumes:
+        - postgres_data:/var/lib/postgresql/data
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U ${DL_PG_USER:-postgres}
+        interval: 5s
+        timeout: 3s
+        retries: 10
+    app:
+      image: lissy93/domain-locker:0.3.5@sha256:830bc2978462a36d4f9d4d09b33291369ae28e8b1c3ac947ece128fdb3683ad6
+      restart: unless-stopped
+      environment:
+        NODE_ENV: production
+        DL_ENV_TYPE: ${DL_ENV_TYPE:-selfHosted}
+        DL_PG_HOST: ${DL_PG_HOST:-postgres}
+        DL_PG_PORT: ${DL_PG_PORT:-5432}
+        DL_PG_USER: ${DL_PG_USER:-postgres}
+        DL_PG_PASSWORD: ${DL_PG_PASSWORD:-changeme2420}
+        DL_PG_NAME: ${DL_PG_NAME:-domain_locker}
+      depends_on:
+        postgres:
+          condition: service_healthy
+      ports:
+        - 127.0.0.1:${PORT}:3000
+    updater:
+      image: alpine:3.24@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
+      restart: unless-stopped
+      depends_on:
+        app:
+          condition: service_started
+      command: "/bin/sh -c \"\n  apk add --no-cache curl &&\n  echo '0 3 * * * /usr/bin/curl -s -X POST\
+        \ http://app:3000/api/domain-updater' > /etc/crontabs/root &&\n  echo '0 4 * * * /usr/bin/curl -s\
+        \ -X POST http://app:3000/api/expiration-reminders' >> /etc/crontabs/root &&\n  crond -f -L /dev/stdout\n\
+        \"\n"
+  volumes:
+    postgres_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume postgres_data of this application: back it up before updating."

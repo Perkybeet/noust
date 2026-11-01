@@ -1,0 +1,98 @@
+# CTFd from the image the project publishes (ctfd/ctfd), with the settings its documentation names (docs.ctfd.io/docs/deployment/configuration and the project's docker-compose.yml).
+schema: 2
+name: ctfd
+kind: compose
+title: "CTFd"
+slogan: "Capture The Flag framework focusing on ease of use and customizability."
+description: "Runs Capture The Flag events: challenges, scoring, teams, hints and an admin panel. Runs with its own MariaDB and Redis."
+category: security
+tags: [ctf, security, training, competition]
+logo: logo.svg
+version: "3.8.9"
+revision: 1
+updated: 2026-10-30
+homepage: https://ctfd.io
+docs: https://ctfd.io
+repository: https://github.com/CTFd/CTFd
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8000
+variables:
+  DB_PASSWORD:
+    generate: "password32"
+    description: "The password of the stack's Mariadb account."
+  DB_ROOT_PASSWORD:
+    generate: "password32"
+    description: "The password of the stack's Mariadb administrator."
+  SECRET_KEY:
+    generate: "hex64"
+    description: "Signs sessions and tokens; changing it signs everybody out."
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    ctfd:
+      image: ctfd/ctfd:3.8.9@sha256:84aff1e50b6a6f931b5da90c6f5b7c623ba4583217a9b00e9d4c1b7c53b9739f
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      environment:
+        SECRET_KEY: ${SECRET_KEY}
+        DATABASE_URL: mysql+pymysql://ctfd:${DB_PASSWORD}@db/ctfd
+        REDIS_URL: redis://redis:6379
+        WORKERS: '2'
+        REVERSE_PROXY: 'true'
+      volumes:
+        - ctfd-uploads:/var/uploads
+        - ctfd-logs:/var/log/CTFd
+      ports:
+        - 127.0.0.1:${PORT}:8000
+    db:
+      image: mariadb:11.8.9@sha256:c4124d1afa875e47f2892edf26b482fa54f796e2f342d3717a04ca091a22a9bd
+      restart: unless-stopped
+      environment:
+        MARIADB_USER: ctfd
+        MARIADB_DATABASE: ctfd
+        MARIADB_PASSWORD: ${DB_PASSWORD}
+        MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      healthcheck:
+        test:
+          - CMD
+          - healthcheck.sh
+          - --connect
+          - --innodb_initialized
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 30s
+      volumes:
+        - ctfd-db:/var/lib/mysql
+    redis:
+      image: valkey/valkey:9.0.6-alpine@sha256:187679e3bd4036959631e3f03983ab2ba503ab21e6fd0454d508e909db2ee989
+      restart: unless-stopped
+      command:
+        - valkey-server
+        - --appendonly
+        - 'yes'
+      healthcheck:
+        test:
+          - CMD
+          - valkey-cli
+          - ping
+        interval: 10s
+        timeout: 5s
+        retries: 10
+      volumes:
+        - ctfd-redis:/data
+  volumes:
+    ctfd-uploads:
+    ctfd-logs:
+    ctfd-db:
+    ctfd-redis:
+notes:
+  - "Open {{ url }}. The first visit runs the setup that makes the administrator and names the event: do it right after installing."
+  - "Its data is in the Docker volumes ctfd-uploads, ctfd-logs, ctfd-db, ctfd-redis of this application, the databases dumped by Noust before every update: back them up before updating."

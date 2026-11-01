@@ -1,0 +1,72 @@
+# Cryptgeon: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/cryptgeon.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: cryptgeon
+kind: compose
+title: "Cryptgeon"
+slogan: "Secure note / file sharing service inspired by PrivNote."
+description: "Secure note sharing service with self-destructing messages."
+category: security
+tags: [cryptgeon, secure, note, sharing, privnote, file, security]
+logo: logo.svg
+version: "2.9.3"
+revision: 1
+updated: 2026-10-30
+homepage: https://cryptgeon.org/
+docs: https://github.com/cupcakearmy/cryptgeon
+repository: https://github.com/cupcakearmy/cryptgeon
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_CRYPTGEON:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    app:
+      image: cupcakearmy/cryptgeon:2.9.3@sha256:0344b34ba5375b9cb5bc6740fd35d075d2a581ddb0fcd30e0494c62ba3408e87
+      environment:
+        SERVICE_URL_CRYPTGEON: ${SERVICE_URL_CRYPTGEON}
+        SIZE_LIMIT: ${SIZE_LIMIT:-4 MiB}
+        MAX_VIEWS: ${MAX_VIEWS:-100}
+        MAX_EXPIRATION: ${MAX_EXPIRATION:-360}
+        ALLOW_ADVANCED: ${ALLOW_ADVANCED:-true}
+        ALLOW_FILES: ${ALLOW_FILES:-true}
+      depends_on:
+        redis:
+          condition: service_healthy
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - --fail
+          - http://127.0.0.1:8000/api/live/
+        interval: 1m
+        timeout: 3s
+        retries: 2
+        start_period: 5s
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8000
+    redis:
+      image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
+      command: redis-server --maxmemory 200mb --maxmemory-policy allkeys-lru
+      healthcheck:
+        test:
+          - CMD
+          - redis-cli
+          - PING
+        interval: 5s
+        timeout: 10s
+        retries: 2
+      restart: unless-stopped
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."

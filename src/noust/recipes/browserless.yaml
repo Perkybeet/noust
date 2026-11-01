@@ -1,0 +1,58 @@
+# Browserless: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/browserless.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+# Licence: LICENSE of browserless/browserless, read 2026-10-30: SSPL or the commercial licence; running it for yourself is allowed
+schema: 2
+name: browserless
+kind: compose
+title: "Browserless"
+slogan: "A headless Chrome browser as a service."
+description: "Source-available (Server Side Public License), for your own use. Browserless allows remote clients to connect and execute headless work, all inside of docker. It supports the standard, unforked Puppeteer and Playwright libraries, as well offering REST-based APIs for common actions like data collection, PDF generation and more."
+category: automation
+tags: [chrome, headless, browser, service, automation]
+logo: logo.svg
+version: "2.58.1"
+revision: 1
+updated: 2026-10-31
+homepage: https://browserless.io
+docs: https://docs.browserless.io/
+repository: https://github.com/browserless/browserless
+license: SSPL-1.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_BROWSERLESS:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_PASSWORD_BROWSERLESS:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for browserless."
+health: {path: /pressure, expect: "200-399,401", timeout: 180}
+compose: |
+  services:
+    browserless:
+      image: ghcr.io/browserless/chromium:v2.58.1@sha256:f2950a079c3172339f1dfeac597b64ee0561e0843acb956ffec235b93bf77aff
+      environment:
+        SERVICE_URL_BROWSERLESS: ${SERVICE_URL_BROWSERLESS}
+        TOKEN: ${SERVICE_PASSWORD_BROWSERLESS}
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - -f
+          - http://127.0.0.1:3000/docs
+        interval: 2s
+        timeout: 10s
+        retries: 15
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:3000
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_PASSWORD_BROWSERLESS in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."

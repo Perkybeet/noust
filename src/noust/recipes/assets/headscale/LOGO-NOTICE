@@ -2,6 +2,6 @@ Mark of: Headscale
 Source: https://github.com/juanfont/headscale/blob/545ace5673d728f6cb7b9f7bb57cf112af2c1bfd/docs/assets/logo/headscale3-dots.svg
 Licence: BSD-3-Clause
 Copyright: Copyright (c) 2020, Juan Font
-Terms: no rule on the project's logo was found in its repository, its documents or its site (checked 2026-10-29)
-Retrieved: 2026-10-29
-Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged
+Terms: no rule on the project's logo was found in its repository, its documents or its site (checked 2026-10-29); the project's smaller variants (its favicon, the stacked header) are as wide as this one, which is the mark
+Retrieved: 2026-10-30
+Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged; the viewBox was cropped to the figure, which covered 58% of the picture (the shapes are not touched)

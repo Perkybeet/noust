@@ -1,1 +1,0 @@
-import{dt as e,lt as t,ot as n}from"./icons-BsQcozzX.js";function r(r){return r==null?t:r.type.startsWith(`key`)?n:r.type.startsWith(`mouse`)||r.type.startsWith(`pointer`)?e:t}export{r as t};

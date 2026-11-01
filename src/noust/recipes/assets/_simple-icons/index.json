@@ -8,11 +8,23 @@
    "license": "CC0-1.0",
    "source": "https://github.com/actualbudget/actual/blob/f9f6917fcdeadd138f5e21c7bd24e475778c4263/packages/component-library/src/icons/logo/logo.svg"
   },
+  "adminer": {
+   "title": "Adminer",
+   "hex": "34567C",
+   "license": "CC0-1.0",
+   "source": "https://www.adminer.org"
+  },
   "affine": {
    "title": "AFFiNE",
    "hex": "1E96EB",
    "license": "CC0-1.0",
    "source": "https://affine.pro"
+  },
+  "answer": {
+   "title": "Answer",
+   "hex": "0033FF",
+   "license": "CC0-1.0",
+   "source": "https://answer.dev"
   },
   "apachecouchdb": {
    "title": "Apache CouchDB",
@@ -41,11 +53,25 @@
    "source": "https://appwrite.io/assets",
    "guidelines": "https://appwrite.io/assets"
   },
+  "arangodb": {
+   "title": "ArangoDB",
+   "hex": "DDDF72",
+   "license": "CC0-1.0",
+   "source": "https://www.arangodb.com/resources/logos",
+   "guidelines": "https://www.arangodb.com/resources/logos"
+  },
   "audiobookshelf": {
    "title": "Audiobookshelf",
    "hex": "82612C",
    "license": "CC0-1.0",
    "source": "https://github.com/advplyr/audiobookshelf/blob/0d9d2fa4be9b642f0948e52ddff71ff370fd524d/images/banner.svg"
+  },
+  "authelia": {
+   "title": "Authelia",
+   "hex": "113155",
+   "license": "Apache-2.0",
+   "source": "https://github.com/authelia/authelia/blob/8316cd4eb7a6f0778c8f480c61ad76a88416fc3a/docs/static/images/branding/logo.svg",
+   "guidelines": "https://www.authelia.com/reference/guides/branding"
   },
   "authentik": {
    "title": "Authentik",
@@ -83,12 +109,31 @@
    "license": "CC0-1.0",
    "source": "https://www.chatwoot.com"
   },
+  "checkmk": {
+   "title": "Checkmk",
+   "hex": "15D1A0",
+   "license": "CC0-1.0",
+   "source": "https://checkmk.com"
+  },
+  "cinny": {
+   "title": "Cinny",
+   "hex": "000000",
+   "license": "CC0-1.0",
+   "source": "https://cinny.in/assets/cinny.svg"
+  },
   "coder": {
    "title": "Coder",
    "hex": "090B0B",
    "license": "CC0-1.0",
    "source": "https://coder.com/brand#3-logos",
    "guidelines": "https://coder.com/brand"
+  },
+  "dash": {
+   "title": "Dash",
+   "hex": "008DE4",
+   "license": "CC0-1.0",
+   "source": "https://www.dash.org/brand-assets/",
+   "guidelines": "https://www.dash.org/brand-guidelines/"
   },
   "diagramsdotnet": {
    "title": "diagrams.net",
@@ -120,11 +165,35 @@
    "license": "CC0-1.0",
    "source": "https://orm.drizzle.team"
   },
+  "drupal": {
+   "title": "Drupal",
+   "hex": "0678BE",
+   "license": "CC0-1.0",
+   "source": "https://www.drupal.org/about/media-kit/logos"
+  },
+  "duplicati": {
+   "title": "Duplicati",
+   "hex": "1E3A8A",
+   "license": "CC0-1.0",
+   "source": "https://duplicati.com"
+  },
   "elasticsearch": {
    "title": "Elasticsearch",
    "hex": "005571",
    "license": "CC0-1.0",
    "source": "https://www.elastic.co/brand"
+  },
+  "erpnext": {
+   "title": "ERPNext",
+   "hex": "0089FF",
+   "license": "CC0-1.0",
+   "source": "https://github.com/frappe/erpnext/blob/924911e74317f95a59f29e9410d4f141020a0411/erpnext/public/images/erpnext-logo.svg"
+  },
+  "esphome": {
+   "title": "ESPHome",
+   "hex": "18BCF2",
+   "license": "CC0-1.0",
+   "source": "https://github.com/esphome/developers.esphome.io/blob/7c0304aa36536c63c93b1f19ba18969f96df0e08/docs/images/logo.svg"
   },
   "excalidraw": {
    "title": "Excalidraw",
@@ -189,11 +258,29 @@
    "license": "CC0-1.0",
    "source": "https://grafana.com"
   },
+  "grav": {
+   "title": "Grav",
+   "hex": "221E1F",
+   "license": "CC0-1.0",
+   "source": "https://getgrav.org/media"
+  },
+  "graylog": {
+   "title": "Graylog",
+   "hex": "FF3633",
+   "license": "CC0-1.0",
+   "source": "https://www.graylog.org"
+  },
   "grocy": {
    "title": "Grocy",
    "hex": "337AB7",
    "license": "CC0-1.0",
    "source": "https://github.com/grocy/grocy/blob/9e1020b7f8994e2d3e3e890da64ceba9903b2fb2/public/img/icon.svg"
+  },
+  "hasura": {
+   "title": "Hasura",
+   "hex": "1EB4D4",
+   "license": "CC0-1.0",
+   "source": "https://github.com/hasura/graphql-engine/blob/5e2f5d470cdc2a7e59db7a3d5e94475a00bb2ac6/docs/static/img/logo.svg"
   },
   "hedgedoc": {
    "title": "HedgeDoc",
@@ -240,6 +327,19 @@
    "source": "https://influxdata.github.io/branding/logo/downloads/",
    "guidelines": "https://influxdata.github.io/branding/logo/usage/"
   },
+  "ipfs": {
+   "title": "IPFS",
+   "hex": "65C2CB",
+   "license": "CC-BY-SA-3.0",
+   "source": "https://github.com/ipfs-inactive/logo/tree/73169b495332415b174ac2f37ec27c4b2ee8da83"
+  },
+  "jaeger": {
+   "title": "Jaeger",
+   "hex": "66CFE3",
+   "license": "CC0-1.0",
+   "source": "https://github.com/cncf/artwork/blob/e7e09686c20db6ddac06e482cf3338b0c8b2e22d/projects/jaeger/icon/black/jaeger-icon-black.svg",
+   "guidelines": "https://github.com/cncf/artwork/blob/e7e09686c20db6ddac06e482cf3338b0c8b2e22d/projects/jaeger/jaeger-logo-guide.pdf"
+  },
   "jellyfin": {
    "title": "Jellyfin",
    "hex": "00A4DC",
@@ -253,6 +353,13 @@
    "license": "CC-BY-SA-3.0",
    "source": "https://get.jenkins.io/art/",
    "guidelines": "https://www.jenkins.io/press/"
+  },
+  "joomla": {
+   "title": "Joomla",
+   "hex": "5091CD",
+   "license": "CC0-1.0",
+   "source": "https://docs.joomla.org/Joomla:Brand_Identity_Elements/Official_Logo",
+   "guidelines": "https://docs.joomla.org/Joomla:Brand_Identity_Elements"
   },
   "karakeep": {
    "title": "Karakeep",
@@ -279,6 +386,13 @@
    "license": "CC0-1.0",
    "source": "https://languagetool.org"
   },
+  "lemmy": {
+   "title": "Lemmy",
+   "hex": "000000",
+   "license": "LicenseRef-custom",
+   "license_url": "https://github.com/LemmyNet/lemmy/blob/main/LICENSE",
+   "source": "https://join-lemmy.org"
+  },
   "libretranslate": {
    "title": "LibreTranslate",
    "hex": "1565C0",
@@ -291,11 +405,24 @@
    "license": "CC0-1.0",
    "source": "https://listmonk.app"
   },
+  "mastodon": {
+   "title": "Mastodon",
+   "hex": "6364FF",
+   "license": "CC0-1.0",
+   "source": "https://github.com/mastodon/mastodon/blob/7ccf7a73f1c47a8c03712c39f7c591e837cf6d08/app/javascript/images/logo-symbol-icon.svg",
+   "guidelines": "https://joinmastodon.org/branding"
+  },
   "matomo": {
    "title": "Matomo",
    "hex": "3152A0",
    "license": "CC0-1.0",
    "source": "https://matomo.org/media/"
+  },
+  "matrix": {
+   "title": "Matrix",
+   "hex": "000000",
+   "license": "CC0-1.0",
+   "source": "https://matrix.org"
   },
   "mattermost": {
    "title": "Mattermost",
@@ -303,6 +430,12 @@
    "license": "CC0-1.0",
    "source": "https://www.mattermost.org/brand-guidelines/",
    "guidelines": "https://www.mattermost.org/brand-guidelines/"
+  },
+  "mautic": {
+   "title": "Mautic",
+   "hex": "4E5E9E",
+   "license": "CC0-1.0",
+   "source": "https://www.mautic.org/about/logos-and-graphics"
   },
   "mealie": {
    "title": "Mealie",
@@ -328,6 +461,13 @@
    "license": "CC0-1.0",
    "source": "https://min.io",
    "guidelines": "https://min.io/logo"
+  },
+  "moodle": {
+   "title": "Moodle",
+   "hex": "F98012",
+   "license": "CC0-1.0",
+   "source": "https://moodle.com/trademarks",
+   "guidelines": "https://moodle.com/trademarks"
   },
   "n8n": {
    "title": "n8n",
@@ -355,11 +495,29 @@
    "source": "https://www.nginx.com/press/",
    "guidelines": "https://www.nginx.com/press/"
   },
+  "nodered": {
+   "title": "Node-RED",
+   "hex": "8F0000",
+   "license": "CC0-1.0",
+   "source": "https://nodered.org/about/resources/"
+  },
+  "novu": {
+   "title": "Novu",
+   "hex": "000000",
+   "license": "CC0-1.0",
+   "source": "https://handbook.novu.co/logos-assets"
+  },
   "ntfy": {
    "title": "ntfy",
    "hex": "317F6F",
    "license": "CC0-1.0",
    "source": "https://ntfy.sh"
+  },
+  "octoprint": {
+   "title": "OctoPrint",
+   "hex": "13C100",
+   "license": "CC0-1.0",
+   "source": "https://github.com/OctoPrint/OctoPrint/blob/53b9b6185781c07e8c4744a6e28462e96448f249/src/octoprint/static/img/mask.svg"
   },
   "odoo": {
    "title": "Odoo",
@@ -374,6 +532,12 @@
    "license": "CC0-1.0",
    "source": "https://github.com/ollama/ollama/issues/2152#issuecomment-1905286922"
   },
+  "onlyoffice": {
+   "title": "ONLYOFFICE",
+   "hex": "444444",
+   "license": "CC0-1.0",
+   "source": "https://www.onlyoffice.com/en/press-downloads.aspx"
+  },
   "openbao": {
    "title": "OpenBao",
    "hex": "336D5C",
@@ -386,6 +550,13 @@
    "hex": "000000",
    "license": "CC0-1.0",
    "source": "https://github.com/anomalyco/opencode/blob/1251a870cb384543c150c4a72fb101b55eec971b/packages/identity/mark.svg"
+  },
+  "openhab": {
+   "title": "openHAB",
+   "hex": "E64A19",
+   "license": "CC0-1.0",
+   "source": "https://www.openhab.org/artwork.html",
+   "guidelines": "https://www.openhab.org/about/trademark.html"
   },
   "outline": {
    "title": "Outline",
@@ -405,11 +576,37 @@
    "license": "CC0-1.0",
    "source": "https://github.com/paperless-ngx/paperless-ngx/blob/e16645b146da24f07004eb772a455450354a37a7/resources/logo/web/svg/square.svg"
   },
+  "passbolt": {
+   "title": "Passbolt",
+   "hex": "D40101",
+   "license": "CC0-1.0",
+   "source": "https://www.passbolt.com/credits/press-kit",
+   "guidelines": "https://www.passbolt.com/credits/brand-guidelines"
+  },
+  "peertube": {
+   "title": "PeerTube",
+   "hex": "F1680D",
+   "license": "CC-BY-SA-4.0",
+   "source": "https://joinpeertube.org"
+  },
   "penpot": {
    "title": "Penpot",
    "hex": "000000",
    "license": "CC0-1.0",
    "source": "https://penpot.app"
+  },
+  "pihole": {
+   "title": "Pi-hole",
+   "hex": "96060C",
+   "license": "CC0-1.0",
+   "source": "https://docs.pi-hole.net",
+   "guidelines": "https://pi-hole.net/trademark-rules-and-brand-guidelines/"
+  },
+  "piwigo": {
+   "title": "Piwigo",
+   "hex": "FF7700",
+   "license": "CC0-1.0",
+   "source": "https://github.com/Piwigo/piwigodotorg/blob/6edb840c16257314caec770a9a51f67ef81836e4/images/piwigo.org.svg"
   },
   "plane": {
    "title": "Plane",
@@ -428,6 +625,24 @@
    "hex": "13BEF9",
    "license": "CC0-1.0",
    "source": "https://www.portainer.io"
+  },
+  "postiz": {
+   "title": "Postiz",
+   "hex": "612BD3",
+   "license": "CC0-1.0",
+   "source": "https://postiz.com"
+  },
+  "prefect": {
+   "title": "Prefect",
+   "hex": "070E10",
+   "license": "CC0-1.0",
+   "source": "https://www.prefect.io"
+  },
+  "prestashop": {
+   "title": "PrestaShop",
+   "hex": "DF0067",
+   "license": "CC0-1.0",
+   "source": "https://prestashop.com/brand-book"
   },
   "prometheus": {
    "title": "Prometheus",
@@ -505,11 +720,35 @@
    "license": "CC0-1.0",
    "source": "https://github.com/supabase/supabase/blob/4031a7549f5d46da7bc79c01d56be4177dc7c114/packages/common/assets/images/supabase-logo-wordmark--light.svg"
   },
+  "surrealdb": {
+   "title": "SurrealDB",
+   "hex": "FF00A0",
+   "license": "CC0-1.0",
+   "source": "https://github.com/surrealdb/surrealdb/blob/b5b4601b09b8f1c1334675bbeb4e7408df8dc882/img/logo.svg"
+  },
+  "swagger": {
+   "title": "Swagger",
+   "hex": "85EA2D",
+   "license": "CC0-1.0",
+   "source": "https://swagger.io"
+  },
   "syncthing": {
    "title": "Syncthing",
    "hex": "0891D1",
    "license": "CC0-1.0",
    "source": "https://github.com/syncthing/syncthing/blob/bdfd0f0548d2f6fc4b5500690dbd383baa3b0561/assets/logo-only.svg"
+  },
+  "temporal": {
+   "title": "Temporal",
+   "hex": "000000",
+   "license": "CC0-1.0",
+   "source": "https://github.com/temporalio/temporaldotio/blob/b6b5f3ed1fda818d5d6c07e27ec15d51a61f2267/public/images/icons/temporal-no-text.svg"
+  },
+  "traccar": {
+   "title": "Traccar",
+   "hex": "000000",
+   "license": "CC0-1.0",
+   "source": "https://www.traccar.org"
   },
   "transmission": {
    "title": "Transmission",
@@ -554,6 +793,13 @@
    "license": "CC0-1.0",
    "source": "https://github.com/dani-garcia/vaultwarden/blob/44e9e1a58ed37bf4b352bb499fd3e97adcd3b26b/resources/vaultwarden-icon.svg"
   },
+  "verdaccio": {
+   "title": "Verdaccio",
+   "hex": "4B5E40",
+   "license": "CC0-1.0",
+   "source": "https://verdaccio.org/docs/logo",
+   "guidelines": "https://verdaccio.org/docs/logo"
+  },
   "victoriametrics": {
    "title": "VictoriaMetrics",
    "hex": "621773",
@@ -566,6 +812,18 @@
    "hex": "196AFF",
    "license": "CC0-1.0",
    "source": "https://github.com/go-vikunja/website/blob/45328fa981e7b038cd957a995528706617069420/public/favicon.svg"
+  },
+  "wallabag": {
+   "title": "Wallabag",
+   "hex": "3F6184",
+   "license": "CC0-1.0",
+   "source": "https://github.com/wallabag/logo/blob/f670395da2d85c3bbcb8dcfa8d2a339d8af5abb0/_default/icon/svg/logo-icon-black-no-bg.svg"
+  },
+  "weblate": {
+   "title": "Weblate",
+   "hex": "2ECCAA",
+   "license": "GPL-3.0-only",
+   "source": "https://github.com/WeblateOrg/graphics/blob/669e4f910abd9ec36fda172d2ea6f2f424a32ace/logo/weblate-black.svg"
   },
   "wikidotjs": {
    "title": "Wiki.js",

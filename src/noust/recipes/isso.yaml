@@ -1,0 +1,47 @@
+# Isso from the image the project publishes (ghcr.io/isso-comments/isso), with the configuration file its documentation names (isso-comments.de/docs/reference/server-config).
+schema: 2
+name: isso
+kind: compose
+title: "Isso"
+slogan: "A commenting server similar to Disqus."
+description: "A lightweight comments section for a website: threads, replies, moderation, e-mail notifications and Markdown, kept in a SQLite file, with no tracking. Comments are posted without an account; the moderation page is protected by a password Noust generates."
+category: cms
+tags: [comments, moderation, privacy, website]
+logo: logo.svg
+version: "0.14.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://isso-comments.de
+docs: https://isso-comments.de
+repository: https://github.com/isso-comments/isso
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8080
+variables:
+  FQDN:
+    from: "fqdn"
+    description: "The host name people use."
+  ADMIN_PASSWORD:
+    generate: "password32"
+    description: "The password of the moderation page."
+health: {path: /info, expect: "200", timeout: 120}
+files:
+  isso.cfg: {asset: isso.cfg, render: true, mode: "0640"}
+compose: |
+  services:
+    isso:
+      image: ghcr.io/isso-comments/isso:0.14.0@sha256:8e813ff52004f39c2c08237994450d3760515c4c6fa32faf61431bb280578e4e
+      restart: unless-stopped
+      volumes:
+        - isso-db:/db
+        - ./isso.cfg:/config/isso.cfg
+      ports:
+        - 127.0.0.1:${PORT}:8080
+      user: 0:0
+  volumes:
+    isso-db:
+notes:
+  - "Open {{ url }}. Add the script of {{ url }}/js/embed.min.js to your site as the documentation says. The moderation page is {{ url }}/admin, with the password in ADMIN_PASSWORD (noust env show {{ domain }} --unmask). The `host` in the configuration is the site whose comments it accepts: edit isso.cfg in this application's folder to add more."
+  - "Its data is in the Docker volume isso-db of this application: back it up before updating."

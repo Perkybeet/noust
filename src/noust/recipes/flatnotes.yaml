@@ -6,7 +6,7 @@ schema: 2
 name: flatnotes
 kind: compose
 title: "Flatnotes"
-slogan: "A self-hosted, database-less note taking web app that utilises a flat folder of markdown files..."
+slogan: "A self-hosted, database-less notes app that keeps a flat folder of Markdown files."
 description: "A self-hosted, modern note-taking web app that saves your notes as plain text Markdown files."
 category: files
 tags: [notes, productivity, markdown, self-hosted, files]

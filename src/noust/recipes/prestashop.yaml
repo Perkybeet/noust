@@ -1,0 +1,94 @@
+# PrestaShop from the image the project publishes (prestashop/prestashop), with the variables its documentation names (hub.docker.com/r/prestashop/prestashop, Environment variables).
+# Licence: LICENSE.md of PrestaShop/PrestaShop, read 2026-10-30: PrestaShop Core is licensed under OSL-3.0 and PrestaShop Modules are licensed under AFL-3.0
+schema: 2
+name: prestashop
+kind: compose
+title: "PrestaShop"
+slogan: "The open source e-commerce platform."
+description: "An online shop with a catalogue, variants, stock, carts, payments, shipping, taxes, discounts and a back office, extended by thousands of modules and themes. It installs itself on the first start with its own MariaDB; the administrator's password is generated."
+category: business
+tags: [e-commerce, shop, catalogue, payments]
+logo: simple-icons:prestashop
+version: "9.2.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://www.prestashop-project.org/
+docs: https://www.prestashop-project.org/
+repository: https://github.com/PrestaShop/PrestaShop
+license: OSL-3.0 AND AFL-3.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  DB_PASSWORD:
+    generate: "password32"
+    description: "The password of the stack's Mariadb account."
+  DB_ROOT_PASSWORD:
+    generate: "password32"
+    description: "The password of the stack's Mariadb administrator."
+  FQDN:
+    from: "fqdn"
+    description: "The host name people use."
+  ADMIN_EMAIL:
+    value: "admin@${FQDN}"
+    description: "The e-mail address of the administrator."
+  ADMIN_PASSWORD:
+    generate: "password32"
+    description: "The password of the administrator."
+  ADMIN_FOLDER_SUFFIX:
+    generate: "hex32"
+    description: "Makes the address of the back office hard to guess: it is /admin followed by this."
+health: {path: /, expect: "200-399", timeout: 480}
+compose: |
+  services:
+    prestashop:
+      image: prestashop/prestashop:9.2.0@sha256:09c36d25a22fd52f6ab876e8d7564c2b6830ba27236f50ef770dc6a650a3208e
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        PS_INSTALL_AUTO: '1'
+        PS_DOMAIN: ${FQDN}
+        PS_ENABLE_SSL: '1'
+        PS_LANGUAGE: en
+        PS_COUNTRY: GB
+        PS_FOLDER_ADMIN: admin${ADMIN_FOLDER_SUFFIX}
+        PS_ERASE_INSTALL_FOLDER: '1'
+        DB_SERVER: db
+        DB_NAME: prestashop
+        DB_USER: prestashop
+        DB_PASSWD: ${DB_PASSWORD}
+        ADMIN_MAIL: ${ADMIN_EMAIL}
+        ADMIN_PASSWD: ${ADMIN_PASSWORD}
+      volumes:
+        - prestashop-data:/var/www/html
+      ports:
+        - 127.0.0.1:${PORT}:80
+    db:
+      image: mariadb:11.8.9@sha256:c4124d1afa875e47f2892edf26b482fa54f796e2f342d3717a04ca091a22a9bd
+      restart: unless-stopped
+      environment:
+        MARIADB_USER: prestashop
+        MARIADB_DATABASE: prestashop
+        MARIADB_PASSWORD: ${DB_PASSWORD}
+        MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      healthcheck:
+        test:
+          - CMD
+          - healthcheck.sh
+          - --connect
+          - --innodb_initialized
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 30s
+      volumes:
+        - prestashop-db:/var/lib/mysql
+  volumes:
+    prestashop-data:
+    prestashop-db:
+notes:
+  - "Open {{ url }}. The shop installs itself on the first start, which takes a few minutes. The back office is at {{ url }}/admin followed by the value of ADMIN_FOLDER_SUFFIX; sign in with the e-mail in ADMIN_EMAIL and the password in ADMIN_PASSWORD (noust env show {{ domain }} --unmask)."
+  - "Its data is in the Docker volumes prestashop-data, prestashop-db of this application, the databases dumped by Noust before every update: back them up before updating."

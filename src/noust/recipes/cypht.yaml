@@ -1,0 +1,126 @@
+# Cypht: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/cypht
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: cypht
+kind: compose
+title: "Cypht"
+slogan: "Cypht: Lightweight Open Source webmail aggregator [PHP, JS]."
+description: "Lightweight open source webmail aggregator. Read and send mail from multiple IMAP, SMTP, JMAP and EWS accounts in one place."
+category: communication
+tags: [self-hosted, email, webmail, communication]
+logo: logo.svg
+version: "2.13.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://github.com/cypht-org/cypht
+docs: https://cypht.org/install.html
+repository: https://github.com/cypht-org/cypht
+license: LGPL-2.1-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  ADMIN_USERNAME:
+    default: "admin"
+    description: "Setting ADMIN_USERNAME of the application; the template leaves it to the operator."
+  ADMIN_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for admin password."
+  DB_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for db password."
+  REDIS_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for redis password."
+  MARIADB_RANDOM_ROOT_PASSWORD:
+    default: "yes"
+    description: "Setting MARIADB_RANDOM_ROOT_PASSWORD of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    cypht:
+      image: cypht/cypht:2.13.0@sha256:52d41a0ebfd347c2e2d33c42a0f8171c8a15564243b42a597694825f0cef3125
+      restart: unless-stopped
+      depends_on:
+        cypht-db:
+          condition: service_healthy
+        cypht-redis:
+          condition: service_healthy
+      environment:
+        AUTH_USERNAME: ${ADMIN_USERNAME}
+        AUTH_PASSWORD: ${ADMIN_PASSWORD}
+        ADMIN_USERS: ${ADMIN_USERNAME}
+        AUTH_TYPE: DB
+        USER_CONFIG_TYPE: DB
+        DB_CONNECTION_TYPE: host
+        DB_DRIVER: mysql
+        DB_HOST: cypht-db
+        DB_PORT: '3306'
+        DB_NAME: cypht
+        DB_USER: cypht
+        DB_PASS: ${DB_PASSWORD}
+        SESSION_TYPE: REDIS
+        ENABLE_REDIS: 'true'
+        REDIS_SERVER: cypht-redis
+        REDIS_PORT: '6379'
+        REDIS_PASS: ${REDIS_PASSWORD}
+        REDIS_SOCKET: ''
+        ENABLE_MEMCACHED: 'false'
+        ENCRYPT_LOCAL_STORAGE: 'true'
+      volumes:
+        - cypht-attachments:/var/lib/hm3/attachments
+      ports:
+        - 127.0.0.1:${PORT}:80
+    cypht-db:
+      image: mariadb:10.11@sha256:d769e37960821dfdcf096954f6e7ac89f747e116c1bba98e48edd265dfc7deae
+      restart: unless-stopped
+      environment:
+        MARIADB_DATABASE: cypht
+        MARIADB_USER: cypht
+        MARIADB_PASSWORD: ${DB_PASSWORD}
+        MARIADB_RANDOM_ROOT_PASSWORD: ${MARIADB_RANDOM_ROOT_PASSWORD}
+      volumes:
+        - cypht-db:/var/lib/mysql
+      healthcheck:
+        test:
+          - CMD
+          - healthcheck.sh
+          - --connect
+          - --innodb_initialized
+        interval: 10s
+        timeout: 5s
+        retries: 5
+    cypht-redis:
+      image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
+      restart: unless-stopped
+      environment:
+        REDIS_PASSWORD: ${REDIS_PASSWORD}
+      command:
+        - sh
+        - -c
+        - exec redis-server --requirepass "$$REDIS_PASSWORD" --appendonly yes --maxmemory 256mb --maxmemory-policy
+          volatile-lru
+      volumes:
+        - cypht-redis:/data
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - redis-cli -a "$$REDIS_PASSWORD" --no-auth-warning ping | grep -q PONG
+        interval: 10s
+        timeout: 5s
+        retries: 5
+  volumes:
+    cypht-attachments:
+    cypht-db:
+    cypht-redis:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes cypht-attachments, cypht-db, cypht-redis of this application: back them up before updating."

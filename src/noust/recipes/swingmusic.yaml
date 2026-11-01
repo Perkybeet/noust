@@ -1,0 +1,38 @@
+# Swing Music from the image the project publishes (ghcr.io/swingmx/swingmusic), with the folders its documentation names (swingmx.com/guide/introduction.html, Docker).
+schema: 2
+name: swingmusic
+kind: compose
+title: "Swing Music"
+slogan: "Swing Music is a beautiful, self-hosted music player for your local audio files."
+description: "A music player for a local library with a clean web page: albums, artists, playlists, folders, a radio of similar songs and lyrics, with accounts and a mobile-friendly layout. It reads the volume where you put your music."
+category: media
+tags: [music, player, library, streaming]
+logo: logo.svg
+version: "3.0.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://swingmx.com
+docs: https://swingmx.com
+repository: https://github.com/swingmx/swingmusic
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 1970
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    swingmusic:
+      image: ghcr.io/swingmx/swingmusic:v3.0.0@sha256:a49155d1809bc6ad09d87d76cc91648c149fc80146b5e10260e70fe1cfa78175
+      restart: unless-stopped
+      volumes:
+        - swingmusic-config:/config
+        - swingmusic-music:/music
+      ports:
+        - 127.0.0.1:${PORT}:1970
+  volumes:
+    swingmusic-config:
+    swingmusic-music:
+notes:
+  - "Open {{ url }}. Put your music in the volume swingmusic-music, then open the page: it asks to create the first account."
+  - "Its data is in the Docker volumes swingmusic-config, swingmusic-music of this application: back them up before updating."

@@ -6,7 +6,7 @@ schema: 2
 name: lowcoder
 kind: compose
 title: "Lowcoder"
-slogan: "Lowcoder (forked from OpenBlocks) is a self-hosted, open-source, low-code platform for building..."
+slogan: "A self-hosted, open-source low-code platform for building web applications."
 description: "Rapid business App Builder for Everyone"
 category: backend
 tags: [lowcoder, openblocks, low, code, platform, open, source, low-code]

@@ -1,0 +1,97 @@
+# Sonarqube: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/sonarqube.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: sonarqube
+kind: compose
+title: "Sonarqube"
+slogan: "A self-managed, automatic code review tool that helps you deliver clean, safe code."
+description: "Continuous Inspection"
+category: utilities
+tags: [sonarqube, code-review, clean-code, quality, code-quality, code-analysis, code-smells, code-coverage]
+logo: logo.svg
+version: "community"
+revision: 1
+updated: 2026-10-31
+homepage: https://github.com/SonarSource/sonarqube
+docs: https://hub.docker.com/_/sonarqube/
+repository: https://github.com/SonarSource/sonarqube
+license: LGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_SONARQUBE:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_USER_POSTGRES:
+    generate: "user"
+    description: "The user name Noust generated for postgres."
+  SERVICE_PASSWORD_POSTGRES:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    sonarqube:
+      image: sonarqube:community@sha256:f95aaa9016dd4e92c7d70691167a6d96dbb5d8acffd61eba1cb4335d364a7840
+      environment:
+        SERVICE_URL_SONARQUBE: ${SERVICE_URL_SONARQUBE}
+        SONAR_JDBC_URL: jdbc:postgresql://postgresql:5432/${POSTGRES_DB:-sonar}
+        SONAR_JDBC_USERNAME: ${SERVICE_USER_POSTGRES}
+        SONAR_JDBC_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+        SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: 'true'
+      volumes:
+        - sonarqube-data:/opt/sonarqube
+        - sonarqube-conf:/opt/sonarqube/conf
+        - sonarqube-extensions:/opt/sonarqube/extensions
+        - sonarqube-logs:/opt/sonarqube/logs
+        - sonarqube-bundled-plugins:/opt/sonarqube/lib/bundled-plugins
+      healthcheck:
+        test:
+          - CMD
+          - wget
+          - -q
+          - --spider
+          - http://127.0.0.1:9000
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      depends_on:
+        postgresql:
+          condition: service_healthy
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:9000
+    postgresql:
+      image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
+      volumes:
+        - postgresql-data:/var/lib/postgresql/data
+      environment:
+        POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+        POSTGRES_DB: ${POSTGRES_DB:-sonar}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+  volumes:
+    sonarqube-data:
+    sonarqube-conf:
+    sonarqube-extensions:
+    sonarqube-logs:
+    sonarqube-bundled-plugins:
+    postgresql-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_USER_POSTGRES and SERVICE_PASSWORD_POSTGRES in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes sonarqube-data, sonarqube-conf, sonarqube-extensions, sonarqube-logs, sonarqube-bundled-plugins, postgresql-data of this application: back them up before updating."

@@ -1,0 +1,48 @@
+# Papra from the image the project publishes (ghcr.io/papra-hq/papra), with the variables its documentation names (docs.papra.app/self-hosting/using-docker).
+schema: 2
+name: papra
+kind: compose
+title: "Papra"
+slogan: "A minimalist document archiving platform."
+description: "Stores the documents you want to keep for good: upload, automatic text extraction, tags, full-text search and an inbox for e-mail ingestion. One container with SQLite and the files in one volume."
+category: files
+tags: [documents, archive, ocr, search]
+logo: logo.svg
+version: "26.7.1-root"
+revision: 1
+updated: 2026-10-30
+homepage: https://demo.papra.app
+docs: https://demo.papra.app
+repository: https://github.com/papra-hq/papra
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 1221
+variables:
+  PUBLIC_URL:
+    from: "url"
+    description: "The address people use to reach Papra."
+  AUTH_SECRET:
+    generate: "password64"
+    description: "Signs sessions; changing it signs everybody out."
+health: {path: /, expect: "200-399", timeout: 120}
+files:
+  noust.nginx.yaml: noust.nginx.yaml
+compose: |
+  services:
+    papra:
+      image: ghcr.io/papra-hq/papra:26.7.1-root@sha256:9b1a64bbc7b8cd7987c7b672bb379ac96c8e1acd14235d886430a20574ab5032
+      restart: unless-stopped
+      environment:
+        APP_BASE_URL: ${PUBLIC_URL}
+        AUTH_SECRET: ${AUTH_SECRET}
+      volumes:
+        - papra-data:/app/app-data
+      ports:
+        - 127.0.0.1:${PORT}:1221
+  volumes:
+    papra-data:
+notes:
+  - "Open {{ url }}. The first visit creates the first account: do it right after installing, then disable sign-ups (AUTH_IS_REGISTRATION_ENABLED=false in the application's environment) if the server is not for the public."
+  - "Its data is in the Docker volume papra-data of this application: back it up before updating."

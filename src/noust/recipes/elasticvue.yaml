@@ -1,0 +1,31 @@
+# Elasticvue from the image the project publishes (cars10/elasticvue), as its documentation describes the container (elasticvue.com/installation/running-elasticvue-with-docker).
+schema: 2
+name: elasticvue
+kind: compose
+title: "Elasticvue"
+slogan: "Elasticsearch gui for the browser."
+description: "Browses and manages an Elasticsearch or OpenSearch cluster from the browser: indices, documents, a query editor, snapshots and node health. Static: the cluster is reached from your browser, nothing is stored on the server."
+category: development
+tags: [elasticsearch, opensearch, admin, search]
+logo: logo.png
+version: "1.17.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://elasticvue.com
+docs: https://elasticvue.com
+repository: https://github.com/cars10/elasticvue
+license: MIT
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8080
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    elasticvue:
+      image: cars10/elasticvue:1.17.0@sha256:05d3dc4c426ea48d5c4797f5fd8cdda4139aa99d9f732587a68d2b37dd91b423
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8080
+notes:
+  - "Open {{ url }}. Add a cluster by its address. The cluster must accept requests from this page's origin (CORS), and a cluster that is not public has to be reachable from your browser."

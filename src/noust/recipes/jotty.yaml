@@ -1,0 +1,43 @@
+# jotty from the image the project publishes (ghcr.io/fccview/jotty), with the folders its documentation names (github.com/fccview/jotty, README: Docker).
+schema: 2
+name: jotty
+kind: compose
+title: "jotty"
+slogan: "A simple, self-hosted app for your checklists and notes."
+description: "A tidy place for checklists, to-do lists and notes with categories, sharing between users, encryption of notes and an API. The first account becomes the administrator."
+category: productivity
+tags: [notes, checklists, todo, self-hosted]
+logo: logo.svg
+version: "1.29.2"
+revision: 1
+updated: 2026-10-30
+homepage: https://jotty.page
+docs: https://jotty.page
+repository: https://github.com/fccview/jotty
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    jotty:
+      image: ghcr.io/fccview/jotty:1.29.2@sha256:5295d8a85aada46519ed6a1822d5989a373583f42017a346e8a62b44d75af71a
+      restart: unless-stopped
+      environment:
+        NODE_ENV: production
+      volumes:
+        - jotty-data:/app/data
+        - jotty-config:/app/config
+        - jotty-cache:/app/.next/cache
+      ports:
+        - 127.0.0.1:${PORT}:3000
+      user: 0:0
+  volumes:
+    jotty-data:
+    jotty-config:
+    jotty-cache:
+notes:
+  - "Open {{ url }}. The first visit asks to create the administrator: do it right after installing."
+  - "Its data is in the Docker volumes jotty-data, jotty-config, jotty-cache of this application: back them up before updating."

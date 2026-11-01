@@ -1,0 +1,36 @@
+# Jaeger from the image the project publishes (jaegertracing/jaeger), as its documentation describes the container (www.jaegertracing.io/docs/latest/getting-started).
+schema: 2
+name: jaeger
+kind: compose
+title: "Jaeger"
+slogan: "Open source, distributed tracing platform."
+description: "Collects traces from applications that speak OpenTelemetry and draws each request across the services it touched, to find where the time goes. Traces are kept in memory. It has no accounts, so keep the page behind an allow-list."
+category: monitoring
+tags: [tracing, opentelemetry, observability, latency]
+logo: simple-icons:jaeger
+version: "2.22.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://www.jaegertracing.io/
+docs: https://www.jaegertracing.io/
+repository: https://github.com/jaegertracing/jaeger
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 16686
+health: {path: /, expect: "200-399", timeout: 120}
+public_ports:
+  - {port: 4317, protocol: tcp, purpose: "OTLP over gRPC: where applications send their traces."}
+  - {port: 4318, protocol: tcp, purpose: "OTLP over HTTP: where applications send their traces."}
+compose: |
+  services:
+    jaeger:
+      image: jaegertracing/jaeger:2.22.0@sha256:836b967b5abcf1f7758066aa6b348619267a2f1459f72d472840570f9bd88a17
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:16686
+        - 4317:4317
+        - 4318:4318
+notes:
+  - "Open {{ url }}. Point your applications' OpenTelemetry exporters at this server on port 4317 (gRPC) or 4318 (HTTP). The page and those ports have no sign-in and traces are kept in memory: restrict who can reach them."

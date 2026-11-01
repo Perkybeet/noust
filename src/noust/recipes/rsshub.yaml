@@ -1,0 +1,39 @@
+# RSSHub from the image the project publishes (diygod/rsshub), with the variables its documentation names (docs.rsshub.app/deploy/config).
+schema: 2
+name: rsshub
+kind: compose
+title: "RSSHub"
+slogan: "Everything is RSSible."
+description: "Makes an RSS feed out of almost anything that has none: social networks, news sites, video platforms, forums and code hosts, through thousands of routes maintained by its community. Every request carries an access key Noust generates, so that the server is not an open feed proxy."
+category: utilities
+tags: [rss, feeds, scraping, syndication]
+logo: logo.svg
+version: "2026-10-29"
+revision: 1
+updated: 2026-10-30
+homepage: https://docs.rsshub.app
+docs: https://docs.rsshub.app
+repository: https://github.com/DIYgod/RSSHub
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 1200
+variables:
+  ACCESS_KEY:
+    generate: "password32"
+    description: "The key every request must carry, as ?key=... or in the code of the address."
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    rsshub:
+      image: diygod/rsshub:2026-10-29@sha256:6113ee35a4e29ae599e6d7ebae2572a33f216c7251c6d2760cf1d3d7e9cb775c
+      restart: unless-stopped
+      environment:
+        NODE_ENV: production
+        ACCESS_KEY: ${ACCESS_KEY}
+        CACHE_TYPE: memory
+      ports:
+        - 127.0.0.1:${PORT}:1200
+notes:
+  - "Open {{ url }}. Every feed address carries the key in ACCESS_KEY (noust env show {{ domain }} --unmask): {{ url }}/<route>?key=<key>. The routes are listed at docs.rsshub.app/routes. This image has no headless browser, so the routes that need one answer an error."

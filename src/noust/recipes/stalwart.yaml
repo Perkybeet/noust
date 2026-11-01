@@ -1,17 +1,59 @@
+# Stalwart from the image the project publishes (stalwartlabs/stalwart), with the ports, volumes and health check its Dockerfile declares (Dockerfile of stalwartlabs/stalwart at v1.0.1: /etc/stalwart, /var/lib/stalwart, 8080).
+# Licence: LICENSES/ of stalwartlabs/stalwart, read 2026-10-30: AGPL-3.0-only for the server, the Stalwart Enterprise License (LicenseRef-SEL) only for the enterprise features, which an AGPL deployment does not need
 schema: 2
 name: stalwart
 kind: compose
-title: Stalwart
+title: "Stalwart"
 slogan: "An all-in-one mail and collaboration server."
-description: "SMTP, IMAP, JMAP, CalDAV, CardDAV and WebDAV with spam filtering, in one Rust binary. Listed because a mail server is not a web application behind a proxy."
+description: "SMTP, IMAP, JMAP, CalDAV, CardDAV and WebDAV with spam filtering and a web administration console, in one Rust binary. A mail server needs more than an installation: DNS records, a reverse name, and ports no web server uses."
 category: communication
 tags: [mail, smtp, imap, jmap]
 logo: logo.svg
-updated: 2026-10-06
+version: "1.0.1"
+revision: 1
+updated: 2026-10-30
 homepage: https://stalw.art
-docs: https://stalw.art/docs/install/platform/docker
+docs: https://stalw.art
 repository: https://github.com/stalwartlabs/stalwart
-license: AGPL-3.0-only OR LicenseRef-Stalwart-Enterprise-v2
-available: false
-unavailable_code: host_ports
-unavailable_reason: "Its container instructions publish ports 25, 110, 143, 443, 465, 587, 993, 995, 4190 and 8080 of the host (stalw.art, Docker installation, read 2026-10-06): 443 is nginx's, and a mail server also needs MX, SPF, DKIM and reverse-DNS records and a certificate for the mail host name, which a recipe cannot create. Not available in this release."
+license: AGPL-3.0-only OR LicenseRef-Stalwart-SEL
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+  - "Free ports 25, 110, 143, 465, 587, 993, 995 and 4190 on the server: a mail server already running there has to move"
+port: 8080
+health: {path: /healthz/live, expect: "200", timeout: 180}
+public_ports:
+  - {port: 25, protocol: tcp, purpose: "SMTP, where other mail servers deliver mail to you."}
+  - {port: 465, protocol: tcp, purpose: "SMTP submission over TLS, for your mail clients."}
+  - {port: 587, protocol: tcp, purpose: "SMTP submission with STARTTLS, for your mail clients."}
+  - {port: 143, protocol: tcp, purpose: "IMAP with STARTTLS, for your mail clients."}
+  - {port: 993, protocol: tcp, purpose: "IMAP over TLS, for your mail clients."}
+  - {port: 110, protocol: tcp, purpose: "POP3 with STARTTLS, for your mail clients."}
+  - {port: 995, protocol: tcp, purpose: "POP3 over TLS, for your mail clients."}
+  - {port: 4190, protocol: tcp, purpose: "ManageSieve, to edit mail filters from a client."}
+compose: |
+  services:
+    stalwart:
+      image: stalwartlabs/stalwart:v1.0.1@sha256:b9da4df8b4efc06bc926dd6e990bdeb0ad7b9261a7c3893d74b0461a00bb389b
+      restart: unless-stopped
+      volumes:
+        - stalwart-etc:/etc/stalwart
+        - stalwart-data:/var/lib/stalwart
+      ports:
+        - 127.0.0.1:${PORT}:8080
+        - '25:25'
+        - 465:465
+        - 587:587
+        - 143:143
+        - 993:993
+        - 110:110
+        - 995:995
+        - 4190:4190
+  volumes:
+    stalwart-etc:
+    stalwart-data:
+notes:
+  - "Open {{ url }}. The administrator's password is printed once in the application's log the first time it starts (noust logs {{ domain }}); sign in at {{ url }} with it and finish the setup."
+  - "A mail server also needs the records of your domain: an MX that points at this server, SPF, DKIM and DMARC, and a reverse name (PTR) for its address that matches the host name; without them the mail you send is refused or lands in spam, and a provider that blocks outbound port 25 will never deliver. The console lists the DNS records to create once the domain is added."
+  - "Only the web console goes through the site Noust writes; the mail ports are opened on the server as they are, and the certificate for the mail host name is the one Stalwart obtains or you give it, not the site's."
+  - "Its data is in the Docker volumes stalwart-etc, stalwart-data of this application: back them up before updating."

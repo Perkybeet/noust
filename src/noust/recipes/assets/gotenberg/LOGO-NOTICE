@@ -1,0 +1,7 @@
+Mark of: Gotenberg
+Source: https://github.com/gotenberg/gotenberg.dev/blob/6fa16412d6cdfabd70b1e351b5a69a9606d1e557/static/img/logo.png
+Licence: MIT
+Copyright: Copyright (c) Julien Neuhart; the Go gopher in the picture is by Renee French, CC BY 3.0
+Terms: no rule on the project's logo was found in its repository, its documents or its site (checked 2026-11-01)
+Retrieved: 2026-11-01
+Changes: reduced to a palette of at most 256 colours and written again with the picture's header and pixels only; the drawing is otherwise unchanged

@@ -1,0 +1,40 @@
+# Stump from the image the project publishes (aaronleopold/stump), with the volumes its documentation names (www.stumpapp.dev/guides/installation/docker).
+schema: 2
+name: stump
+kind: compose
+title: "Stump"
+slogan: "A free and open source comics, manga and digital book server."
+description: "Serves a library of comics, manga and ebooks (CBZ, CBR, EPUB, PDF) with a web reader, OPDS for apps, and accounts with permissions. Data is in a SQLite file."
+category: media
+tags: [comics, manga, books, opds]
+logo: logo.png
+version: "0.1.11"
+revision: 1
+updated: 2026-10-30
+homepage: https://stumpapp.dev
+docs: https://stumpapp.dev
+repository: https://github.com/stumpapp/stump
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 10801
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    stump:
+      image: aaronleopold/stump:0.1.11@sha256:2d62217aaabb68466d08d8f5275549ba8713b3ff5c1f39a80a742a6e66d8105b
+      restart: unless-stopped
+      environment:
+        STUMP_CONFIG_DIR: /config
+      volumes:
+        - stump-config:/config
+        - stump-data:/data
+      ports:
+        - 127.0.0.1:${PORT}:10801
+  volumes:
+    stump-config:
+    stump-data:
+notes:
+  - "Open {{ url }}. The first visit creates the first account, which becomes the server owner: do it right after installing. Put your books in the volume stump-data."
+  - "Its data is in the Docker volumes stump-config, stump-data of this application: back them up before updating."

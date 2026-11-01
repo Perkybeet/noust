@@ -11,7 +11,7 @@ order to do things in, and what a reviewer looks for.
 A project is eligible when all of these hold:
 
 - it has at least **1,000 stars** on the forge that hosts it (GitHub, or Codeberg for projects that live
-  there);
+  there), or at least **100** when it is alive and publishes an image of its own;
 - it has made **a release in the last year** and is **not archived**;
 - its **licence allows running it for others**. The licence goes in the recipe's `license`; a
   source-available one is said so in the description;

@@ -1,0 +1,81 @@
+# Yamtrack: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/yamtrack.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: yamtrack
+kind: compose
+title: "Yamtrack"
+slogan: "Yamtrack is a self hosted media tracker for movies, tv shows, anime, manga, video games and books."
+description: "Yamtrack is a self-hosted anime and manga tracker with Redis backend support."
+category: automation
+tags: [self-hosted, automation, tracker, media, movies, shows, anime, manga]
+logo: logo.svg
+version: "0.26.3"
+revision: 1
+updated: 2026-10-30
+homepage: https://github.com/FuzzyGrim/Yamtrack
+docs: https://github.com/FuzzyGrim/Yamtrack/wiki
+repository: https://github.com/FuzzyGrim/Yamtrack
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_YAMTRACK:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_PASSWORD_SECRET:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for secret."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    yamtrack:
+      image: ghcr.io/fuzzygrim/yamtrack:0.26.3@sha256:78497b454b2b52d3b1062f6fd238351d714cff0895db4369e49ace36f4622e75
+      environment:
+        SERVICE_URL_YAMTRACK: ${SERVICE_URL_YAMTRACK}
+        URLS: ${SERVICE_URL_YAMTRACK}
+        TZ: ${TZ:-Europe/Berlin}
+        SECRET: ${SERVICE_PASSWORD_SECRET}
+        REGISTRATION: ${REGISTRATION_ENABLED:-true}
+        REDIS_URL: redis://redis:6379
+      volumes:
+        - yamtrack_data:/yamtrack/db
+      depends_on:
+        redis:
+          condition: service_healthy
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - wget --quiet --tries=1 --spider http://127.0.0.1:8000/health/ || exit 1
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8000
+    redis:
+      image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
+      volumes:
+        - yamtrack_redis_data:/data
+      healthcheck:
+        test:
+          - CMD
+          - redis-cli
+          - ping
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+  volumes:
+    yamtrack_data:
+    yamtrack_redis_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_PASSWORD_SECRET in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes yamtrack_data, yamtrack_redis_data of this application: back them up before updating."

@@ -1,0 +1,83 @@
+# Rote: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/rote
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: rote
+kind: compose
+title: "Rote"
+slogan: "A personal note repository that looks different🤔"
+description: "Rote is an open-source multi-platform personal note system featuring an open API, full data ownership, and effortless Docker deployment."
+category: productivity
+tags: [notes, productivity, postgres, bun]
+logo: logo.svg
+version: "2.6.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://rote.ink
+docs: https://github.com/Rabithua/Rote/tree/main/doc/userguide
+repository: https://github.com/Rabithua/Rote
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  POSTGRES_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres password."
+  VITE_API_BASE:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    rote-backend:
+      image: rabithua/rote-backend:v2.6.0@sha256:303a6a01483cc6f30cf270d8c32fa266f376dee38dfb901811a2843c916407d2
+      pull_policy: always
+      environment:
+        POSTGRESQL_URL: postgresql://rote:${POSTGRES_PASSWORD}@rote-postgres:5432/rote
+      depends_on:
+        rote-postgres:
+          condition: service_healthy
+      restart: unless-stopped
+      command:
+        - sh
+        - -c
+        - sleep 15 && bun run dist/scripts/runMigrations.js && bun run dist/server.js
+    rote-frontend:
+      image: rabithua/rote-frontend:v2.6.0@sha256:d3c28de5f3b07e4a21ddf613e6e35645feb6462cfe50c2fd834a279fc942a205
+      pull_policy: always
+      depends_on:
+        rote-backend:
+          condition: service_started
+      environment:
+        VITE_API_BASE: ${VITE_API_BASE}
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:80
+    rote-postgres:
+      image: postgres:17@sha256:31ba9c94a03ada9988f2bb493a22a75eef3a185884533e5cdbcd498ea835b08f
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: rote
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        POSTGRES_DB: rote
+      volumes:
+        - rote-postgres-data:/var/lib/postgresql/data
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U rote -d rote
+        interval: 5s
+        timeout: 3s
+        retries: 10
+        start_period: 30s
+  volumes:
+    rote-postgres-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume rote-postgres-data of this application: back it up before updating."

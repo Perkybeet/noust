@@ -1,0 +1,39 @@
+# Shaarli from the image the project publishes (ghcr.io/shaarli/shaarli), with the data and cache directories its documentation names (shaarli.readthedocs.io, Docker).
+# Licence: COPYING of shaarli/Shaarli, read 2026-10-30: zlib/libpng, with BSD and MIT files for the assets it bundles
+schema: 2
+name: shaarli
+kind: compose
+title: "Shaarli"
+slogan: "The personal, minimalist, super-fast, database-free bookmarking service."
+description: "Bookmarks, notes and links kept in flat files: tags, search, a feed, a bookmarklet and no database. One user, who is whoever installs it first."
+category: productivity
+tags: [bookmarks, links, notes, rss]
+logo: logo.svg
+version: "0.16.10"
+revision: 1
+updated: 2026-10-30
+homepage: https://shaarli.readthedocs.io/
+docs: https://shaarli.readthedocs.io/
+repository: https://github.com/shaarli/Shaarli
+license: Zlib
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    shaarli:
+      image: ghcr.io/shaarli/shaarli:v0.16.10@sha256:48a1a8962c58c74c5c36d4927a7c2dcb5bf191a93b83dc480d9827f383ada903
+      restart: unless-stopped
+      volumes:
+        - shaarli-data:/var/www/shaarli/data
+        - shaarli-cache:/var/www/shaarli/cache
+      ports:
+        - 127.0.0.1:${PORT}:80
+  volumes:
+    shaarli-data:
+    shaarli-cache:
+notes:
+  - "Open {{ url }}. The first visit asks for the user name and the password of the only account: do it right after installing, because until then the first visitor can."
+  - "Its data is in the Docker volumes shaarli-data, shaarli-cache of this application: back them up before updating."

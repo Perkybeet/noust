@@ -1,0 +1,37 @@
+# Flipt from the image the project publishes (flipt/flipt), with the folder its documentation names (docs.flipt.io/v2/installation).
+# Licence: LICENSE of flipt-io/flipt, read 2026-10-30: Fair Core License, Version 1.0, MIT Future License (FCL-1.0-MIT); running it on your own server for your own use is allowed, offering it as a competing service is not
+schema: 2
+name: flipt
+kind: compose
+title: "Flipt"
+slogan: "Enterprise-ready, Git native feature management solution."
+description: "Source-available (Fair Core License, which becomes MIT after two years), for your own use. Manages feature flags and rollouts as files in a Git repository: boolean and variant flags, segments, rules, a web console and an evaluation API that your applications call. It has no accounts of its own until you configure an authentication method."
+category: development
+tags: [feature-flags, rollouts, git, api]
+logo: logo.svg
+version: "2.14.1"
+revision: 1
+updated: 2026-10-30
+homepage: https://flipt.io
+docs: https://flipt.io
+repository: https://github.com/flipt-io/flipt
+license: FCL-1.0-MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8080
+health: {path: /health, expect: "200", timeout: 120}
+compose: |
+  services:
+    flipt:
+      image: flipt/flipt:v2.14.1@sha256:fb8087a8819ae06a4ca84aaa7ab31bb4acb65006a38f4cc04c30fdf16e4e2630
+      restart: unless-stopped
+      volumes:
+        - flipt-data:/var/opt/flipt
+      ports:
+        - 127.0.0.1:${PORT}:8080
+  volumes:
+    flipt-data:
+notes:
+  - "Open {{ url }}. The console and the API have no sign-in until you configure an authentication method (docs.flipt.io): restrict who can reach them first."
+  - "Its data is in the Docker volume flipt-data of this application: back it up before updating."

@@ -1,0 +1,42 @@
+# Flame from the image the project publishes (pawelmalak/flame), with the variable and folder its documentation names (github.com/pawelmalak/flame, README: Docker).
+schema: 2
+name: flame
+kind: compose
+title: "Flame"
+slogan: "A self-hosted startpage for your server."
+description: "A startpage for your server and your browser: applications and bookmarks as icons in categories, a weather widget and a search bar, edited in the page. The editor is protected by a password Noust generates."
+category: utilities
+tags: [startpage, dashboard, bookmarks, homepage]
+logo: logo.svg
+version: "2.4.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://github.com/pawelmalak/flame
+docs: https://github.com/pawelmalak/flame
+repository: https://github.com/pawelmalak/flame
+license: MIT
+architectures: ["amd64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 5005
+variables:
+  ADMIN_PASSWORD:
+    generate: "password32"
+    description: "The password that protects editing."
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    flame:
+      image: pawelmalak/flame:2.4.0@sha256:7a5edc859235486a82871eb624f03048e44f603cba42ea3f60dc7cfe60ca6b3f
+      restart: unless-stopped
+      environment:
+        PASSWORD: ${ADMIN_PASSWORD}
+      volumes:
+        - flame-data:/app/data
+      ports:
+        - 127.0.0.1:${PORT}:5005
+  volumes:
+    flame-data:
+notes:
+  - "Open {{ url }}. Anyone can see the page; to edit it, sign in with the password in ADMIN_PASSWORD (noust env show {{ domain }} --unmask)."
+  - "Its data is in the Docker volume flame-data of this application: back it up before updating."

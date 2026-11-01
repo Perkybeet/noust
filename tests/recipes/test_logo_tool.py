@@ -118,6 +118,52 @@ def test_a_picture_replaces_the_monogram_and_is_stripped_of_what_it_carried(
     assert "logo: logo.png" in (recipes_dir / "demo.yaml").read_text()
 
 
+def test_the_notice_of_a_picture_says_what_was_done_to_a_picture_and_not_to_a_drawing(
+    tool: ModuleType, recipes_dir: Path
+) -> None:
+    """The line about a stylesheet and editor data is true of an SVG only."""
+    source = SOURCE.replace("logo.svg", "logo.png")
+    tool.add_logo(
+        "demo",
+        picture(),
+        title="Demo",
+        source=source,
+        licence="MIT",
+        retrieved=DAY,
+        recipes_dir=recipes_dir,
+    )
+    kept = (recipes_dir / "assets" / "demo" / "LOGO-NOTICE").read_text()
+
+    assert "header and pixels only" in kept and "the artwork is unchanged" in kept
+    assert "elements" not in kept and "stylesheet" not in kept and "scaled" not in kept
+
+    tool.add_logo(
+        "demo",
+        picture(),
+        title="Demo",
+        source=source,
+        licence="MIT",
+        retrieved=DAY,
+        scaled=True,
+        recipes_dir=recipes_dir,
+    )
+    scaled = (recipes_dir / "assets" / "demo" / "LOGO-NOTICE").read_text()
+
+    assert (
+        "scaled to 256 pixels and written again with the picture's header and pixels only" in scaled
+    )
+
+
+def test_the_mark_a_collection_holds_under_the_name_of_the_family_is_found_for_each_member(
+    tool: ModuleType,
+) -> None:
+    """Swagger UI and Swagger Editor are drawn with the one Swagger mark the collection has."""
+    collection = {"swagger": {"title": "Swagger", "file": "/x/swagger.svg"}}
+
+    assert tool.slug_for("swagger-ui", "Swagger UI", collection) == "swagger"
+    assert tool.slug_for("swagger-editor", "Swagger Editor", collection) == "swagger"
+
+
 def test_nothing_is_written_when_the_notice_or_the_file_is_not_acceptable(
     tool: ModuleType, recipes_dir: Path
 ) -> None:
@@ -147,8 +193,200 @@ def test_nothing_is_written_when_the_notice_or_the_file_is_not_acceptable(
     assert sorted(path.name for path in (recipes_dir / "assets" / "demo").iterdir()) == before
 
 
+def test_a_project_that_says_its_mark_is_not_to_be_changed_must_be_told_what_the_console_may_do(
+    tool: ModuleType, recipes_dir: Path
+) -> None:
+    """The notice cannot promise 'shown unmodified' and leave the console to recolour the mark."""
+    data = (
+        b"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M0 0h24v24z'/></svg>"
+    )
+    terms = "demo.example/brand: the logo is to be used unmodified"
+
+    with pytest.raises(RecipeError, match="repaint"):
+        tool.add_logo(
+            "demo",
+            data,
+            title="Demo",
+            source=SOURCE,
+            licence="MIT",
+            retrieved=DAY,
+            terms=terms,
+            recipes_dir=recipes_dir,
+        )
+    tool.add_logo(
+        "demo",
+        data,
+        title="Demo",
+        source=SOURCE,
+        licence="MIT",
+        retrieved=DAY,
+        terms=terms,
+        repaint="no",
+        recipes_dir=recipes_dir,
+    )
+
+    notice = parse_logo_notice(
+        "demo", (recipes_dir / "assets" / "demo" / "LOGO-NOTICE").read_text()
+    )
+    assert notice.repaint == "no"
+
+
+def test_a_notice_cannot_promise_a_mark_unmodified_without_saying_what_is_repainted() -> None:
+    """The parser holds the packaged notices to it."""
+    text = (
+        "Mark of: Demo\nSource: https://example.com/a.svg\nLicence: MIT\n"
+        "Terms: the logo is shown unmodified\nRetrieved: 2026-10-30\n"
+    )
+
+    with pytest.raises(RecipeError, match="Repaint"):
+        parse_logo_notice("demo", text)
+    assert parse_logo_notice("demo", text + "Repaint: no\n").repaint == "no"
+    with pytest.raises(RecipeError, match="Repaint is one of"):
+        parse_logo_notice("demo", text + "Repaint: sometimes\n")
+
+
+def test_a_file_with_a_picture_far_larger_than_its_figure_is_cropped_and_the_notice_says_so(
+    tool: ModuleType, recipes_dir: Path
+) -> None:
+    """Headscale's file: dots in a canvas twice as large."""
+    big = (
+        b"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 600'>"
+        b"<circle cx='500' cy='300' r='50' fill='#336699'/></svg>"
+    )
+
+    tool.add_logo(
+        "demo",
+        big,
+        title="Demo",
+        source=SOURCE,
+        licence="MIT",
+        retrieved=DAY,
+        recipes_dir=recipes_dir,
+    )
+
+    written = (recipes_dir / "assets" / "demo" / "logo.svg").read_text()
+    notice = (recipes_dir / "assets" / "demo" / "LOGO-NOTICE").read_text()
+    assert 'viewBox="446 246 108 108"' in written
+    assert "cropped to the figure" in notice and "the shapes are not touched" in notice
+
+
+def test_a_figure_that_is_a_strip_at_thirty_two_pixels_is_said_to_the_person_adding_it(
+    tool: ModuleType,
+) -> None:
+    """VersityGW's banner: 150 by 53, and the symbol in it a few pixels."""
+    banner = (
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 50'>"
+        "<path d='M0 0h150v50H0z'/></svg>"
+    )
+    square = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'><path d='M0 0h50v50H0z'/></svg>"
+
+    assert "strip" in (tool.strip_warning(banner) or "")
+    assert tool.strip_warning(square) is None
+
+
 @pytest.mark.parametrize(
-    "name", ["plausible", "trek", "leantime", "owncast", "typebot", "joplin-server"]
+    "line",
+    [
+        "Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>",
+        "Copyright (c) the FSF",
+    ],
+)
+def test_the_free_software_foundation_is_the_author_of_a_licence_text_not_of_a_logo(
+    tool: ModuleType, recipes_dir: Path, line: str
+) -> None:
+    """A GPL project's LICENSE file begins with the FSF's line; it was being copied as the logo's credit."""
+    with pytest.raises(RecipeError, match="Free Software Foundation"):
+        tool.add_logo(
+            "demo",
+            b"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M0 0h24v24z'/></svg>",
+            title="Demo",
+            source=SOURCE,
+            licence="AGPL-3.0-only",
+            retrieved=DAY,
+            copyright_line=line,
+            recipes_dir=recipes_dir,
+        )
+
+    assert not (recipes_dir / "assets" / "demo" / "LOGO-NOTICE").exists()
+
+
+def test_the_authors_of_the_project_are_credited_the_way_the_website_does(
+    tool: ModuleType, recipes_dir: Path
+) -> None:
+    """The project's own people are the ones a logo of theirs is credited to."""
+    tool.add_logo(
+        "demo",
+        b"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M0 0h24v24z'/></svg>",
+        title="Demo",
+        source=SOURCE,
+        licence="AGPL-3.0-only",
+        retrieved=DAY,
+        copyright_line="the Demo contributors",
+        recipes_dir=recipes_dir,
+    )
+
+    notice = parse_logo_notice(
+        "demo", (recipes_dir / "assets" / "demo" / "LOGO-NOTICE").read_text()
+    )
+    assert notice.copyright == "the Demo contributors"
+
+
+def test_no_packaged_mark_credits_the_free_software_foundation() -> None:
+    """The fourteen that did are credited to the people of their projects."""
+    from noust.recipes import list_recipes, read_asset
+
+    found = []
+    for recipe in list_recipes():
+        try:
+            text = read_asset(recipe.name, "LOGO-NOTICE")
+        except (FileNotFoundError, OSError, RecipeError):
+            continue
+        if "Free Software Foundation" in parse_logo_notice(recipe.name, text).copyright:
+            found.append(recipe.name)
+
+    assert found == []
+
+
+def test_a_project_whose_text_withholds_its_logo_is_not_given_the_collection_s_mark_either(
+    tool: ModuleType,
+) -> None:
+    """Element's policy lets logos point to services Element runs; the collection holds its mark anyway."""
+    collection = {"element": {"title": "Element", "file": "/x/element.svg"}}
+
+    assert tool.slug_for("element-web", "Element Web", collection) is None
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "apprise-api",
+        "element-web",
+        "evershop",
+        "evolutionapi",
+        "flipt",
+        "frappe-lending",
+        "frappe-lms",
+        "gitness",
+        "joplin-server",
+        "jupyterlab",
+        "labelstudio",
+        "leantime",
+        "mindsdb",
+        "once-campfire",
+        "openpanel",
+        "owncast",
+        "photoprism",
+        "plausible",
+        "plunk",
+        "pydio-cells",
+        "sequin",
+        "sim",
+        "stalwart",
+        "teable",
+        "trek",
+        "typebot",
+        "usesend",
+    ],
 )
 def test_a_project_that_does_not_let_a_third_party_show_its_logo_is_not_given_one(
     tool: ModuleType, recipes_dir: Path, name: str

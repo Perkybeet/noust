@@ -1,0 +1,31 @@
+# MQTTX Web from the image the project publishes (emqx/mqttx-web), as its documentation describes the web build's container (mqttx.app/docs/web).
+schema: 2
+name: mqttx-web
+kind: compose
+title: "MQTTX Web"
+slogan: "A browser MQTT client to connect, publish and subscribe over WebSocket."
+description: "The web build of MQTTX: connect to a broker over WebSocket, subscribe to topics, publish messages and inspect payloads with a JSON or hex viewer. Static, it stores its connections in the browser."
+category: development
+tags: [mqtt, iot, client, websocket]
+logo: logo.svg
+version: "1.13.2"
+revision: 1
+updated: 2026-10-30
+homepage: https://mqttx.app
+docs: https://mqttx.app
+repository: https://github.com/emqx/MQTTX
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    mqttx-web:
+      image: emqx/mqttx-web:v1.13.2@sha256:723906acdb1995ce2649b72b9cd33e86dc21b3a659b6464f04d2de01da10e6cc
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:80
+notes:
+  - "Open {{ url }}. Nothing to set up on the server: connections are saved in the browser of whoever opens the page."

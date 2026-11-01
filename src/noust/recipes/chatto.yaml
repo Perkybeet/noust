@@ -23,6 +23,9 @@ needs:
   - Docker Engine with the Compose plugin
 port: 3000
 variables:
+  APP_DOMAIN:
+    from: "fqdn"
+    description: "The domain people use to reach the application."
   CHATTO_HOST:
     from: "url"
     description: "The address people use to reach the application, as the template builds it."
@@ -39,7 +42,7 @@ variables:
     secret: true
     description: "The secret Noust generated for chatto assets secret."
   CHATTO_OWNER_EMAIL:
-    default: "admin@app.example.com"
+    value: "admin@${APP_DOMAIN}"
     description: "Setting CHATTO_OWNER_EMAIL of the application; the template leaves it to the operator."
 health: {path: /, expect: "200-399", timeout: 180}
 compose: |

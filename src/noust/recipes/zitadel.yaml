@@ -1,0 +1,137 @@
+# Zitadel: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/zitadel
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: zitadel
+kind: compose
+title: "Zitadel"
+slogan: "ZITADEL - Identity infrastructure, simplified for you."
+description: "Open-source identity and access management platform with multi-tenancy, OpenID Connect, SAML, and OAuth 2.0 support."
+category: security
+tags: [identity, authentication, authorization, iam, security, oauth, openid-connect, saml]
+logo: logo.svg
+version: "4.16.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://zitadel.com
+docs: https://zitadel.com/docs/
+repository: https://github.com/zitadel/zitadel
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  ZITADEL_MASTERKEY:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for zitadel masterkey."
+  ZITADEL_TLSMODE:
+    default: "disabled"
+    description: "Setting ZITADEL_TLSMODE of the application; the template leaves it to the operator."
+  POSTGRES_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres password."
+  ZITADEL_EXTERNALDOMAIN:
+    from: "fqdn"
+    description: "The address people use to reach the application, as the template builds it."
+  ZITADEL_EXTERNALPORT:
+    default: "80"
+    description: "Setting ZITADEL_EXTERNALPORT of the application; the template leaves it to the operator."
+  ZITADEL_EXTERNALSECURE:
+    default: "false"
+    description: "Setting ZITADEL_EXTERNALSECURE of the application; the template leaves it to the operator."
+  ZITADEL_FIRSTINSTANCE_ORG_HUMAN_USERNAME:
+    generate: "user"
+    description: "The user name Noust generated for zitadel firstinstance org human username."
+  ADMIN_PASSWORD_BASE:
+    generate: "password32"
+    secret: true
+    description: "The random part of the administrator's password."
+  ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORD:
+    value: "${ADMIN_PASSWORD_BASE}Aa1!"
+    secret: true
+    description: "The administrator's password; Zitadel asks for an upper-case letter, a lower-case one, a number and a symbol."
+  APP_DOMAIN:
+    from: "fqdn"
+    description: "The domain people use to reach the application."
+  ZITADEL_FIRSTINSTANCE_ORG_HUMAN_EMAIL_ADDRESS:
+    value: "admin@${APP_DOMAIN}"
+    description: "Setting ZITADEL_FIRSTINSTANCE_ORG_HUMAN_EMAIL_ADDRESS of the application; the template leaves it to the operator."
+  ZITADEL_FIRSTINSTANCE_ORG_HUMAN_FIRSTNAME:
+    default: "Admin"
+    description: "Setting ZITADEL_FIRSTINSTANCE_ORG_HUMAN_FIRSTNAME of the application; the template leaves it to the operator."
+  ZITADEL_FIRSTINSTANCE_ORG_HUMAN_LASTNAME:
+    default: "User"
+    description: "Setting ZITADEL_FIRSTINSTANCE_ORG_HUMAN_LASTNAME of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    zitadel:
+      restart: unless-stopped
+      image: ghcr.io/zitadel/zitadel:v4.16.0@sha256:15543f7a80c3e37905fe8c7db56af7ed2a9ece256704322c1449d7e8453afdab
+      command: start-from-init --masterkey "${ZITADEL_MASTERKEY}" --tlsMode ${ZITADEL_TLSMODE}
+      environment:
+        ZITADEL_DATABASE_POSTGRES_HOST: db
+        ZITADEL_DATABASE_POSTGRES_PORT: '5432'
+        ZITADEL_DATABASE_POSTGRES_DATABASE: zitadel
+        ZITADEL_DATABASE_POSTGRES_USER_USERNAME: zitadel
+        ZITADEL_DATABASE_POSTGRES_USER_PASSWORD: ${POSTGRES_PASSWORD}
+        ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE: disable
+        ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME: postgres
+        ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD: ${POSTGRES_PASSWORD}
+        ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE: disable
+        ZITADEL_EXTERNALDOMAIN: ${ZITADEL_EXTERNALDOMAIN}
+        ZITADEL_EXTERNALPORT: ${ZITADEL_EXTERNALPORT}
+        ZITADEL_EXTERNALSECURE: ${ZITADEL_EXTERNALSECURE}
+        ZITADEL_TLS_ENABLED: 'False'
+        ZITADEL_FIRSTINSTANCE_ORG_HUMAN_USERNAME: ${ZITADEL_FIRSTINSTANCE_ORG_HUMAN_USERNAME}
+        ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORD: ${ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORD}
+        ZITADEL_FIRSTINSTANCE_ORG_HUMAN_EMAIL_ADDRESS: ${ZITADEL_FIRSTINSTANCE_ORG_HUMAN_EMAIL_ADDRESS}
+        ZITADEL_FIRSTINSTANCE_ORG_HUMAN_FIRSTNAME: ${ZITADEL_FIRSTINSTANCE_ORG_HUMAN_FIRSTNAME}
+        ZITADEL_FIRSTINSTANCE_ORG_HUMAN_LASTNAME: ${ZITADEL_FIRSTINSTANCE_ORG_HUMAN_LASTNAME}
+        ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_REQUIRED: 'False'
+      healthcheck:
+        test:
+          - CMD
+          - /app/zitadel
+          - ready
+        interval: 10s
+        timeout: 30s
+        retries: 12
+        start_period: 30s
+      depends_on:
+        db:
+          condition: service_healthy
+      ports:
+        - 127.0.0.1:${PORT}:8080
+    db:
+      restart: unless-stopped
+      image: postgres:17-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+      environment:
+        PGUSER: postgres
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        POSTGRES_DB: zitadel
+      volumes:
+        - postgres_data:/var/lib/postgresql/data
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready
+          - -d
+          - zitadel
+          - -U
+          - postgres
+        interval: 10s
+        timeout: 30s
+        retries: 5
+        start_period: 20s
+  volumes:
+    postgres_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume postgres_data of this application: back it up before updating."

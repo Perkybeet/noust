@@ -1,0 +1,47 @@
+# Chhoto URL from the image the project publishes (sintan1729/chhoto-url), with the variables and folder its documentation names (github.com/SinTan1729/chhoto-url, README and docker-compose).
+schema: 2
+name: chhoto-url
+kind: compose
+title: "Chhoto URL"
+slogan: "A simple, blazingly fast, selfhosted URL shortener with no unnecessary features."
+description: "A tiny URL shortener: it makes short links with a name of your choosing or a random one, counts the hits and expires links. Protected by a password Noust generates; the links are kept in a SQLite file."
+category: utilities
+tags: [url-shortener, links, redirects, self-hosted]
+logo: logo.svg
+version: "7.10.5"
+revision: 1
+updated: 2026-10-30
+homepage: https://chhoto.link
+docs: https://chhoto.link
+repository: https://github.com/SinTan1729/chhoto-url
+license: MIT
+architectures: ["amd64", "arm", "arm64", "riscv64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 4567
+variables:
+  APP_URL:
+    from: "url"
+    description: "The address people use to reach the application."
+  ADMIN_PASSWORD:
+    generate: "password32"
+    description: "The password that opens the page where links are made."
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    chhoto-url:
+      image: sintan1729/chhoto-url:7.10.5@sha256:f9c35c7bd0f7f94ea764764ea6ff8fea7a5beb387716e5714faf1cd361206252
+      restart: unless-stopped
+      environment:
+        PASSWORD: ${ADMIN_PASSWORD}
+        SITE_URL: ${APP_URL}
+        DB_URL: /db/urls.sqlite
+      volumes:
+        - chhoto-db:/db
+      ports:
+        - 127.0.0.1:${PORT}:4567
+  volumes:
+    chhoto-db:
+notes:
+  - "Open {{ url }}. Open the page and sign in with the password in ADMIN_PASSWORD (noust env show {{ domain }} --unmask). A short link works for everybody; only making them needs the password."
+  - "Its data is in the Docker volume chhoto-db of this application: back it up before updating."

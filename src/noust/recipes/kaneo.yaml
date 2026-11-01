@@ -1,0 +1,94 @@
+# Kaneo: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/kaneo
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: kaneo
+kind: compose
+title: "Kaneo"
+slogan: "⚡ Project management that doesn't become the project. Boards, Gantt charts, and GitHub integration."
+description: "Kaneo - an open source project management platform focused on simplicity and efficiency. Self-host it, customize it, make it yours."
+category: productivity
+tags: [task-tracking, productivity]
+logo: logo.svg
+version: "2.35.0"
+revision: 1
+updated: 2026-10-28
+homepage: https://kaneo.app/
+docs: https://kaneo.app/docs/
+repository: https://github.com/usekaneo/kaneo
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  POSTGRES_DB:
+    default: "kaneo"
+    description: "Setting POSTGRES_DB of the application; the template leaves it to the operator."
+  POSTGRES_USER:
+    default: "kaneo"
+    description: "Setting POSTGRES_USER of the application; the template leaves it to the operator."
+  POSTGRES_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres password."
+  KANEO_CLIENT_URL:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  AUTH_SECRET:
+    generate: "hex64"
+    secret: true
+    description: "The secret Noust generated for auth secret."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    postgres:
+      image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
+      environment:
+        POSTGRES_DB: ${POSTGRES_DB}
+        POSTGRES_USER: ${POSTGRES_USER}
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      volumes:
+        - postgres_data:/var/lib/postgresql/data
+      restart: unless-stopped
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+        interval: 10s
+        timeout: 5s
+        retries: 5
+    kaneo:
+      image: ghcr.io/usekaneo/kaneo:2.35.0@sha256:4a14cb29a8a249c9d2e4c72d0a97df828577b1313e46331160844bb4622e3615
+      environment:
+        KANEO_CLIENT_URL: ${KANEO_CLIENT_URL}
+        AUTH_SECRET: ${AUTH_SECRET}
+        DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      depends_on:
+        postgres:
+          condition: service_healthy
+      restart: unless-stopped
+      healthcheck:
+        test:
+          - CMD
+          - wget
+          - -Y
+          - 'off'
+          - --no-verbose
+          - --tries=1
+          - --spider
+          - http://127.0.0.1:5173/api/health
+        interval: 30s
+        timeout: 5s
+        start_period: 60s
+        retries: 3
+      ports:
+        - 127.0.0.1:${PORT}:5173
+  volumes:
+    postgres_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume postgres_data of this application: back it up before updating."

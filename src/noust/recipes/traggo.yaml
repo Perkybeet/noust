@@ -1,0 +1,44 @@
+# Traggo from the image the project publishes (traggo/server), with the variables and folder its documentation names (traggo.net/install/docker).
+schema: 2
+name: traggo
+kind: compose
+title: "Traggo"
+slogan: "Tag-based time tracking."
+description: "Tracks your time with tags instead of projects: start a timer, tag it with as many tags as you like and then see a dashboard of how the hours were spent by any combination of tags. Accounts for several users; the first one's password is generated."
+category: productivity
+tags: [time-tracking, tags, dashboard, productivity]
+logo: logo.png
+version: "0.8.3"
+revision: 1
+updated: 2026-10-30
+homepage: https://traggo.net
+docs: https://traggo.net
+repository: https://github.com/traggo/server
+license: GPL-3.0-only
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3030
+variables:
+  ADMIN_PASSWORD:
+    generate: "password32"
+    description: "The password of the first user, admin."
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    traggo:
+      image: traggo/server:0.8.3@sha256:8bf510774ce1729b5bd9a8930e174de03ebec8c25ca4aaa087c0e56e2bcbb67a
+      restart: unless-stopped
+      environment:
+        TRAGGO_DEFAULT_USER_NAME: admin
+        TRAGGO_DEFAULT_USER_PASS: ${ADMIN_PASSWORD}
+      volumes:
+        - traggo-data:/opt/traggo/data
+      ports:
+        - 127.0.0.1:${PORT}:3030
+      user: 0:0
+  volumes:
+    traggo-data:
+notes:
+  - "Open {{ url }}. Sign in as admin with the password in ADMIN_PASSWORD (noust env show {{ domain }} --unmask). The first user is made on the first start, so changing the variable afterwards changes nothing."
+  - "Its data is in the Docker volume traggo-data of this application: back it up before updating."

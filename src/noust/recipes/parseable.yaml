@@ -6,7 +6,7 @@ schema: 2
 name: parseable
 kind: compose
 title: "Parseable"
-slogan: "Parseable is an open source, unified infrastructure observability platform built in Rust on a..."
+slogan: "An open-source, unified observability platform for logs, metrics and traces, written in Rust."
 description: "Fast observability and log analytics platform on object storage"
 category: ai
 tags: [observability, logging, analytics, monitoring, ai]

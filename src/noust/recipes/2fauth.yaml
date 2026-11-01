@@ -1,0 +1,59 @@
+# 2FAuth from the image the project publishes (2fauth/2fauth), with the settings its documentation names (docs.2fauth.app/getting-started/installation/docker, and the .env.example of the repository).
+schema: 2
+name: 2fauth
+kind: compose
+title: "2FAuth"
+slogan: "A web app to manage your Two-Factor Authentication codes."
+description: "Keeps your one-time-password accounts (TOTP, HOTP, Steam) in a web page with groups, icons, QR code import and export, and passkey sign-in. Data is in one SQLite file."
+category: security
+tags: [2fa, otp, authenticator, passwords]
+logo: logo.svg
+version: "9.0.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://docs.2fauth.app/
+docs: https://docs.2fauth.app/
+repository: https://github.com/Bubka/2FAuth
+license: AGPL-3.0-only
+architectures: ["386", "amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8000
+variables:
+  PUBLIC_URL:
+    from: "url"
+    description: "The address people use to reach 2FAuth."
+  FQDN:
+    from: "fqdn"
+    description: "The host name of that address."
+  SITE_OWNER:
+    value: "admin@${FQDN}"
+    description: "The address shown as the site owner, for support."
+  APP_KEY_RAW:
+    generate: "base64_32"
+    description: "Encrypts the secrets 2FAuth stores; keep a copy, without it they cannot be read again."
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    twofauth:
+      image: 2fauth/2fauth:9.0.0@sha256:9e94cb2d45ad4c3b2fac5da69f1d5b61dfd47f56dee617c8ddca0a0ce48eb2bf
+      restart: unless-stopped
+      environment:
+        APP_NAME: 2FAuth
+        APP_ENV: production
+        APP_DEBUG: 'false'
+        APP_URL: ${PUBLIC_URL}
+        APP_KEY: base64:${APP_KEY_RAW}
+        SITE_OWNER: ${SITE_OWNER}
+        TRUSTED_PROXIES: '*'
+        LOG_CHANNEL: stderr
+      volumes:
+        - twofauth-data:/2fauth
+      ports:
+        - 127.0.0.1:${PORT}:8000
+  volumes:
+    twofauth-data:
+notes:
+  - "Open {{ url }}. The first visit registers the first account, which becomes the administrator: do it right after installing."
+  - "APP_KEY encrypts every secret 2FAuth stores: keep a copy (noust env show {{ domain }} --unmask); without it the codes cannot be read again, even from a backup."
+  - "Its data is in the Docker volume twofauth-data of this application: back it up before updating."

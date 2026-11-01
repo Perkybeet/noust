@@ -1,0 +1,133 @@
+# SeaweedFS: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/seaweedfs.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: seaweedfs
+kind: compose
+title: "SeaweedFS"
+slogan: "SeaweedFS is a simple and highly scalable distributed file system."
+description: "SeaweedFS is a fast distributed storage system for blobs, objects, and files. Features S3-compatible API, POSIX FUSE mount, and WebDAV support."
+category: files
+tags: [object, storage, server, s3, api, distributed, object-storage, file-system]
+logo: logo.svg
+version: "4.41"
+revision: 1
+updated: 2026-10-31
+homepage: https://seaweedfs.com
+docs: https://github.com/seaweedfs/seaweedfs
+repository: https://github.com/seaweedfs/seaweedfs
+license: Apache-2.0
+architectures: ["386", "amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_S3:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_USER_S3:
+    generate: "user"
+    description: "The user name Noust generated for s3."
+  SERVICE_PASSWORD_S3:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for s3."
+  AWS_ACCESS_KEY_ID:
+    default: ""
+    secret: true
+    description: "Setting AWS_ACCESS_KEY_ID of the application; the template leaves it to the operator."
+  AWS_SECRET_ACCESS_KEY:
+    default: ""
+    secret: true
+    description: "Setting AWS_SECRET_ACCESS_KEY of the application; the template leaves it to the operator."
+  SERVICE_URL_ADMIN:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_USER_ADMIN:
+    generate: "user"
+    description: "The user name Noust generated for admin."
+  SERVICE_PASSWORD_ADMIN:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for admin."
+  SEAWEED_USER_ADMIN:
+    default: ""
+    description: "Setting SEAWEED_USER_ADMIN of the application; the template leaves it to the operator."
+  SEAWEED_PASSWORD_ADMIN:
+    default: ""
+    secret: true
+    description: "Setting SEAWEED_PASSWORD_ADMIN of the application; the template leaves it to the operator."
+health: {path: /healthz, expect: "200-399", timeout: 180}
+files:
+  files/seaweedfs-master/base-config.json:
+    asset: files/seaweedfs-master/base-config.json
+    mode: "0644"
+compose: |
+  services:
+    seaweedfs-master:
+      image: chrislusf/seaweedfs:4.41@sha256:43b768cd62b00d132439cda881b93fd1adebf1b315e996e794087743821d771d
+      environment:
+        SERVICE_URL_S3: ${SERVICE_URL_S3}
+        AWS_ACCESS_KEY_ID: ${SERVICE_USER_S3}
+        AWS_SECRET_ACCESS_KEY: ${SERVICE_PASSWORD_S3}
+      volumes:
+        - seaweedfs-s3-data:/data
+        - ./files/seaweedfs-master/base-config.json:/base-config.json
+      entrypoint: 'sh -c ''\
+
+        sed "s/env:AWS_ACCESS_KEY_ID/${AWS_ACCESS_KEY_ID}/g" /base-config.json > /base1-config.json; \
+
+        sed "s/env:AWS_SECRET_ACCESS_KEY/${AWS_SECRET_ACCESS_KEY}/g" /base1-config.json > /config.json;
+        \
+
+        weed server -dir=/data -master.port=9333 -s3 -s3.port=8333 -s3.config=/config.json\
+
+        ''
+
+        '
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - wget --spider -q http://0.0.0.0:8333; [ $$? -le 8 ]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8333
+    seaweedfs-admin:
+      image: chrislusf/seaweedfs:4.41@sha256:43b768cd62b00d132439cda881b93fd1adebf1b315e996e794087743821d771d
+      environment:
+        SERVICE_URL_ADMIN: ${SERVICE_URL_ADMIN}
+        SEAWEED_USER_ADMIN: ${SERVICE_USER_ADMIN}
+        SEAWEED_PASSWORD_ADMIN: ${SERVICE_PASSWORD_ADMIN}
+      command:
+        - admin
+        - -master=seaweedfs-master:9333
+        - -adminUser=${SEAWEED_USER_ADMIN}
+        - -adminPassword=${SEAWEED_PASSWORD_ADMIN}
+        - -port=23646
+        - -dataDir=/data
+      volumes:
+        - seaweedfs-admin-data:/data
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - wget --spider -q http://0.0.0.0:23646; [ $$? -le 8 ]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+      depends_on:
+        seaweedfs-master:
+          condition: service_healthy
+      restart: unless-stopped
+  volumes:
+    seaweedfs-s3-data:
+    seaweedfs-admin-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_USER_S3 and SERVICE_PASSWORD_S3 and SERVICE_USER_ADMIN and SERVICE_PASSWORD_ADMIN in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes seaweedfs-s3-data, seaweedfs-admin-data of this application: back them up before updating."

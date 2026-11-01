@@ -1,0 +1,95 @@
+# OrangeHRM: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/orangehrm.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: orangehrm
+kind: compose
+title: "OrangeHRM"
+slogan: "OrangeHRM open source HR management software."
+description: "Free HR management system for businesses."
+category: business
+tags: [hr, hris, hrms, human, resource, management, orangehrm, business]
+logo: logo.png
+version: "5.9"
+revision: 1
+updated: 2026-10-30
+homepage: https://github.com/orangehrm/orangehrm
+docs: https://starterhelp.orangehrm.com/hc/en-us
+repository: https://github.com/orangehrm/orangehrm
+license: GPL-3.0-only
+architectures: ["amd64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_ORANGEHRM:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_USER_MYSQL:
+    generate: "user"
+    description: "The user name Noust generated for mysql."
+  SERVICE_PASSWORD_MYSQL:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for mysql."
+  SERVICE_PASSWORD_MYSQLROOT:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for mysqlroot."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    orangehrm:
+      image: orangehrm/orangehrm:5.9@sha256:d692780efbb118b1ede754cfb153057baecf4c4c5f84627621ed015cf837ac28
+      environment:
+        SERVICE_URL_ORANGEHRM: ${SERVICE_URL_ORANGEHRM}
+        ORANGEHRM_DATABASE_HOST: mariadb
+        ORANGEHRM_DATABASE_USER: ${SERVICE_USER_MYSQL}
+        ORANGEHRM_DATABASE_PASSWORD: ${SERVICE_PASSWORD_MYSQL}
+        ORANGEHRM_DATABASE_NAME: ${MYSQL_DATABASE:-orangehrm-db}
+      volumes:
+        - orangehrm-data:/orangehrm
+      depends_on:
+        mariadb:
+          condition: service_healthy
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - -f
+          - http://127.0.0.1
+        interval: 2s
+        timeout: 10s
+        retries: 10
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:80
+    mariadb:
+      image: mariadb:11@sha256:c4124d1afa875e47f2892edf26b482fa54f796e2f342d3717a04ca091a22a9bd
+      volumes:
+        - orangehrm_mariadb_data:/var/lib/mysql
+      environment:
+        MYSQL_ROOT_PASSWORD: ${SERVICE_PASSWORD_MYSQLROOT}
+        MYSQL_DATABASE: ${MYSQL_DATABASE:-orangehrm-db}
+        MYSQL_USER: ${SERVICE_USER_MYSQL}
+        MYSQL_PASSWORD: ${SERVICE_PASSWORD_MYSQL}
+      healthcheck:
+        test:
+          - CMD
+          - healthcheck.sh
+          - --connect
+          - --innodb_initialized
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+  volumes:
+    orangehrm-data:
+    orangehrm_mariadb_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_USER_MYSQL and SERVICE_PASSWORD_MYSQL and SERVICE_PASSWORD_MYSQLROOT in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes orangehrm-data, orangehrm_mariadb_data of this application: back them up before updating."

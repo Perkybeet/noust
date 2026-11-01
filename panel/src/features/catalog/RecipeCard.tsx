@@ -133,6 +133,7 @@ function RecipeFacts({ recipe }: { recipe: RecipeSummary }) {
       <div className="flex flex-wrap items-center gap-1.5">
         {version !== null ? <Badge mono>{version}</Badge> : null}
         <Badge>{categoryWords(t, recipe.category)}</Badge>
+        {!recipe.free_software ? <Badge>{t("catalog.card.notFree")}</Badge> : null}
         {recipe.runs_in_docker ? (
           <Badge>
             <OBJECT_ICONS.container aria-hidden="true" className="size-icon-xs" />

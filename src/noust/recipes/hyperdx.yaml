@@ -1,0 +1,158 @@
+# HyperDX: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/hyperdx
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: hyperdx
+kind: compose
+title: "HyperDX"
+slogan: "An open-source observability platform that unifies session replays, logs, metrics and traces."
+description: "HyperDX searches and visualizes logs, traces, metrics, and session replays. Includes ClickHouse, MongoDB, and the ClickStack OpenTelemetry collector."
+category: monitoring
+tags: [monitoring, logging, observability]
+logo: logo.svg
+version: "2.42.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://hyperdx.io/
+docs: https://clickhouse.com/docs/use-cases/observability/clickstack
+repository: https://github.com/hyperdxio/hyperdx
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  HYPERDX_URL:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SESSION_SECRET:
+    generate: "password64"
+    secret: true
+    description: "The secret Noust generated for session secret."
+  CLICKHOUSE_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for clickhouse password."
+health: {path: /, expect: "200-399", timeout: 180}
+files:
+  files/clickhouse-config.xml:
+    asset: files/clickhouse-config.xml
+    mode: "0644"
+compose: |
+  services:
+    hyperdx:
+      image: hyperdx/hyperdx:2.42.0@sha256:409af6d989595376507283c7703b04912a2f66042af434e830ca4b410fc5a716
+      restart: unless-stopped
+      depends_on:
+        mongodb:
+          condition: service_healthy
+        clickhouse:
+          condition: service_healthy
+      environment:
+        FRONTEND_URL: ${HYPERDX_URL:?Set the public HyperDX URL}
+        HYPERDX_APP_URL: ${HYPERDX_URL:?Set the public HyperDX URL}
+        HYPERDX_APP_PORT: '8080'
+        HYPERDX_API_PORT: '8000'
+        SERVER_URL: http://127.0.0.1:8000
+        OPAMP_PORT: '4320'
+        MONGO_URI: mongodb://mongodb:27017/hyperdx
+        EXPRESS_SESSION_SECRET: ${SESSION_SECRET:?Set the session secret}
+        HYPERDX_LOG_LEVEL: info
+        USAGE_STATS_ENABLED: 'false'
+        NEXT_TELEMETRY_DISABLED: '1'
+        DEFAULT_CONNECTIONS: '[{"name":"Local ClickHouse","host":"http://clickhouse:8123","username":"hyperdx","password":"${CLICKHOUSE_PASSWORD}"}]'
+        DEFAULT_SOURCES: '[{"from":{"databaseName":"default","tableName":"otel_logs"},"kind":"log","timestampValueExpression":"Timestamp","name":"Logs","displayedTimestampValueExpression":"Timestamp","implicitColumnExpression":"Body","serviceNameExpression":"ServiceName","bodyExpression":"Body","eventAttributesExpression":"LogAttributes","resourceAttributesExpression":"ResourceAttributes","defaultTableSelectExpression":"Timestamp,ServiceName,SeverityText,Body","severityTextExpression":"SeverityText","traceIdExpression":"TraceId","spanIdExpression":"SpanId","metadataMaterializedViews":{"keyRollupTable":"otel_logs_key_rollup_15m","kvRollupTable":"otel_logs_kv_rollup_15m","granularity":"15
+          minute"},"connection":"Local ClickHouse","traceSourceId":"Traces","sessionSourceId":"Sessions","metricSourceId":"Metrics"},{"from":{"databaseName":"default","tableName":"otel_traces"},"kind":"trace","timestampValueExpression":"Timestamp","name":"Traces","displayedTimestampValueExpression":"Timestamp","implicitColumnExpression":"SpanName","serviceNameExpression":"ServiceName","eventAttributesExpression":"SpanAttributes","resourceAttributesExpression":"ResourceAttributes","defaultTableSelectExpression":"Timestamp,ServiceName,StatusCode,round(Duration/1e6),SpanName","traceIdExpression":"TraceId","spanIdExpression":"SpanId","durationExpression":"Duration","durationPrecision":9,"parentSpanIdExpression":"ParentSpanId","spanNameExpression":"SpanName","spanKindExpression":"SpanKind","statusCodeExpression":"StatusCode","statusMessageExpression":"StatusMessage","metadataMaterializedViews":{"keyRollupTable":"otel_traces_key_rollup_15m","kvRollupTable":"otel_traces_kv_rollup_15m","granularity":"15
+          minute"},"connection":"Local ClickHouse","logSourceId":"Logs","sessionSourceId":"Sessions","metricSourceId":"Metrics"},{"from":{"databaseName":"default","tableName":""},"kind":"metric","timestampValueExpression":"TimeUnix","name":"Metrics","resourceAttributesExpression":"ResourceAttributes","metricTables":{"gauge":"otel_metrics_gauge","histogram":"otel_metrics_histogram","sum":"otel_metrics_sum","exponential
+          histogram":"otel_metrics_exponential_histogram","_id":"682586a8b1f81924e628e808","id":"682586a8b1f81924e628e808"},"connection":"Local
+          ClickHouse","logSourceId":"Logs","traceSourceId":"Traces","sessionSourceId":"Sessions"},{"from":{"databaseName":"default","tableName":"hyperdx_sessions"},"kind":"session","timestampValueExpression":"TimestampTime","name":"Sessions","displayedTimestampValueExpression":"Timestamp","implicitColumnExpression":"Body","serviceNameExpression":"ServiceName","bodyExpression":"Body","eventAttributesExpression":"LogAttributes","resourceAttributesExpression":"ResourceAttributes","defaultTableSelectExpression":"Timestamp,ServiceName,SeverityText,Body","severityTextExpression":"SeverityText","traceIdExpression":"TraceId","spanIdExpression":"SpanId","connection":"Local
+          ClickHouse","logSourceId":"Logs","traceSourceId":"Traces","metricSourceId":"Metrics"}]'
+      healthcheck:
+        test:
+          - CMD
+          - node
+          - -e
+          - require('http').get('http://127.0.0.1:8080/api/ready',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))
+        interval: 30s
+        timeout: 5s
+        retries: 5
+        start_period: 60s
+      ports:
+        - 127.0.0.1:${PORT}:8080
+    mongodb:
+      image: mongo:8.0.29@sha256:02a0cc7939f5ed38f30f9bc714ef5f682d49baf9350c54acf302ce833087fe8a
+      restart: unless-stopped
+      command:
+        - mongod
+        - --wiredTigerCacheSizeGB
+        - '0.25'
+      volumes:
+        - mongodb-data:/data/db
+        - mongodb-config:/data/configdb
+      healthcheck:
+        test:
+          - CMD
+          - mongosh
+          - --quiet
+          - --eval
+          - 'quit(db.adminCommand(''ping'').ok ? 0 : 1)'
+        interval: 30s
+        timeout: 10s
+        retries: 5
+        start_period: 30s
+    clickhouse:
+      image: clickhouse/clickhouse-server:26.5.7.64-alpine@sha256:35b419db86eed71ab1c41c03b4fd1f39be26f41eb38b0866268e2ca162445105
+      restart: unless-stopped
+      environment:
+        CLICKHOUSE_USER: hyperdx
+        CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?Set the ClickHouse password}
+        CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: '1'
+      ulimits:
+        nofile:
+          soft: 262144
+          hard: 262144
+      volumes:
+        - clickhouse-data:/var/lib/clickhouse
+        - clickhouse-logs:/var/log/clickhouse-server
+        - ./files/clickhouse-config.xml:/etc/clickhouse-server/config.d/hyperdx.xml:ro
+      healthcheck:
+        test:
+          - CMD
+          - wget
+          - --quiet
+          - --spider
+          - http://127.0.0.1:8123/ping
+        interval: 30s
+        timeout: 5s
+        retries: 5
+        start_period: 60s
+    otel-collector:
+      image: clickhouse/clickstack-otel-collector:2.42.0@sha256:90ca453137798285871190722fcd7c79e7731e9376cf23a922d6f855bf94f3c7
+      restart: unless-stopped
+      depends_on:
+        clickhouse:
+          condition: service_healthy
+        hyperdx:
+          condition: service_healthy
+      environment:
+        CLICKHOUSE_ENDPOINT: tcp://clickhouse:9000?dial_timeout=10s
+        CLICKHOUSE_USER: hyperdx
+        CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?Set the ClickHouse password}
+        HYPERDX_OTEL_EXPORTER_CLICKHOUSE_DATABASE: default
+        HYPERDX_OTEL_EXPORTER_CREATE_LEGACY_SCHEMA: 'true'
+        OPAMP_SERVER_URL: http://hyperdx:4320
+        HYPERDX_LOG_LEVEL: info
+      volumes:
+        - otel-supervisor:/etc/otel/supervisor-data
+  volumes:
+    mongodb-data:
+    mongodb-config:
+    clickhouse-data:
+    clickhouse-logs:
+    otel-supervisor:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes mongodb-data, mongodb-config, clickhouse-data, clickhouse-logs, otel-supervisor of this application: back them up before updating."

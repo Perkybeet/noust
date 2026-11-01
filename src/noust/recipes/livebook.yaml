@@ -1,0 +1,45 @@
+# Livebook from the image the project publishes (ghcr.io/livebook-dev/livebook), with the variables and folder its documentation names (github.com/livebook-dev/livebook, docs: Docker).
+schema: 2
+name: livebook
+kind: compose
+title: "Livebook"
+slogan: "Automate code & data workflows with interactive Elixir notebooks."
+description: "Interactive notebooks for Elixir: code, Markdown and charts in cells that run on the server, with smart cells for data, machine learning and SQL, and real-time collaboration. Protected by a password Noust generates. Whoever signs in can run any code on this container."
+category: development
+tags: [notebooks, elixir, data, collaboration]
+logo: logo.svg
+version: "0.19.10"
+revision: 1
+updated: 2026-10-30
+homepage: https://livebook.dev
+docs: https://livebook.dev
+repository: https://github.com/livebook-dev/livebook
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8080
+variables:
+  PASSWORD:
+    generate: "password32"
+    description: "The password people type to sign in."
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    livebook:
+      image: ghcr.io/livebook-dev/livebook:0.19.10@sha256:216af978b9300980117ae8a362f866c9414026d55f98f15fa6d35def0699a348
+      restart: unless-stopped
+      environment:
+        LIVEBOOK_PASSWORD: ${PASSWORD}
+        LIVEBOOK_HOME: /data
+        LIVEBOOK_DATA_PATH: /data
+      volumes:
+        - livebook-data:/data
+      ports:
+        - 127.0.0.1:${PORT}:8080
+      user: 0:0
+  volumes:
+    livebook-data:
+notes:
+  - "Open {{ url }}. People sign in with the password in PASSWORD (noust env show {{ domain }} --unmask). Whoever signs in can run any code inside the container, with the network of the server."
+  - "Its data is in the Docker volume livebook-data of this application: back it up before updating."

@@ -1,0 +1,37 @@
+# TRIP from the image the project publishes (ghcr.io/itskovacs/trip), with the folder its documentation names (itskovacs.github.io/trip, getting started).
+schema: 2
+name: trip
+kind: compose
+title: "TRIP"
+slogan: "Minimalist POI map tracker and trip planner."
+description: "Plans trips on a map: places of interest with categories and photos, day-by-day itineraries, checklists, expenses, attachments and shared trips, with accounts for each traveller and optional single sign-on. Data is kept in a SQLite file."
+category: productivity
+tags: [travel, trips, maps, planner]
+logo: logo.png
+version: "1.50.1"
+revision: 1
+updated: 2026-10-30
+homepage: https://itskovacs-trip.netlify.app/
+docs: https://itskovacs-trip.netlify.app/
+repository: https://github.com/itskovacs/trip
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8000
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    trip:
+      image: ghcr.io/itskovacs/trip:1.50.1@sha256:a554617e98f6431a1e1855ad4a7d7e61ccdf22e97c62285057d635ad52063afa
+      restart: unless-stopped
+      volumes:
+        - trip-storage:/app/storage
+      ports:
+        - 127.0.0.1:${PORT}:8000
+      user: 0:0
+  volumes:
+    trip-storage:
+notes:
+  - "Open {{ url }}. The first visit lets you register: do it right after installing, then set REGISTER_ENABLE to false in the application's environment (noust env set {{ domain }} REGISTER_ENABLE=false) so that nobody else can."
+  - "Its data is in the Docker volume trip-storage of this application: back it up before updating."

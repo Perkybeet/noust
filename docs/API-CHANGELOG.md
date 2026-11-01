@@ -236,6 +236,8 @@ or a field; each changes what a call answers.
 - `recipes_allowed` on `GET /api/recipes`: false when `security.allowed_sources` names where code may come from
   and leaves recipes out; the requirements of a recipe then carry a `source` item with the command that allows
   them.
+- `free_software` on a recipe: false when its licence is not a free software one (source-available, such as
+  the BUSL or the SSPL, or open core); `license` names it.
 
 #### Sentences with a code
 

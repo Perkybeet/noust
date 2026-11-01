@@ -103,7 +103,8 @@ describe("the fleet's Home", () => {
     fakeBackend(fleetRoutes());
     renderConsole("/fleet");
     expect(await screen.findByRole("button", { name: "Server: all servers" })).toBeInTheDocument();
-    expect(await screen.findByRole("link", { name: /Servers in the fleet: 4\. Answering: 3\./ })).toHaveAttribute("href", "/fleet");
+    // Its name starts with the words the strip draws, in its order (label in name): "4 servers", "3 answering", "1 not answering".
+    expect(await screen.findByRole("link", { name: /^In the fleet: 4 servers, 3 answering, 1 not answering/ })).toHaveAttribute("href", "/fleet");
     expect(screen.queryByText(/^Server /)).not.toBeInTheDocument();
   });
 

@@ -1,0 +1,54 @@
+# Node-RED from the image the project publishes (nodered/node-red), with the settings file and variables its documentation names (nodered.org/docs/user-guide/runtime/securing-node-red and nodered.org/docs/getting-started/docker).
+schema: 2
+name: node-red
+kind: compose
+title: "Node-RED"
+slogan: "Low-code programming for event-driven applications."
+description: "A visual editor where you wire devices, APIs and services together as flows: MQTT, HTTP, databases, e-mail, cloud services and thousands of community nodes. The editor runs code on the server, so it is protected by a user name and a password Noust generates."
+category: automation
+tags: [flows, iot, mqtt, low-code]
+logo: simple-icons:nodered
+version: "5.0.9"
+revision: 1
+updated: 2026-10-30
+homepage: https://github.com/node-red/node-red
+docs: https://github.com/node-red/node-red
+repository: https://github.com/node-red/node-red
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 1880
+variables:
+  ADMIN_PASSWORD:
+    generate: "password32"
+    description: "The password of the user admin, who may edit and deploy flows."
+  CREDENTIAL_SECRET:
+    generate: "password64"
+    description: "The secret the credentials stored in the flows are encrypted with: keep it as it is."
+health: {path: /, expect: "200-399,401", timeout: 120}
+files:
+  settings.js: {asset: settings.js, mode: "0644"}
+compose: |
+  services:
+    node-red:
+      image: nodered/node-red:5.0.9@sha256:2ccd38b4066648bd5e17430c50a2f8102c566a82fd4f2fc5c342e61664d6896f
+      restart: unless-stopped
+      environment:
+        ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+        CREDENTIAL_SECRET: ${CREDENTIAL_SECRET}
+      volumes:
+        - nodered-data:/data
+        - ./settings.js:/data/settings.js
+      ports:
+        - 127.0.0.1:${PORT}:1880
+      entrypoint:
+        - sh
+        - -c
+        - ADMIN_HASH=$$(node -e 'process.stdout.write(require("bcryptjs").hashSync(process.env.ADMIN_PASSWORD,
+          8))') && export ADMIN_HASH && exec ./entrypoint.sh
+  volumes:
+    nodered-data:
+notes:
+  - "Open {{ url }}. Sign in as admin with the password in ADMIN_PASSWORD (noust env show {{ domain }} --unmask). Whoever can edit flows can run code on this container, with its network."
+  - "Its data is in the Docker volume nodered-data of this application: back it up before updating."

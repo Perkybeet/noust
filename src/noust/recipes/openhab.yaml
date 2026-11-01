@@ -1,0 +1,43 @@
+# openHAB from the image the project publishes (openhab/openhab), with the volumes its documentation names (www.openhab.org/docs/installation/docker.html).
+schema: 2
+name: openhab
+kind: compose
+title: "openHAB"
+slogan: "A vendor and technology agnostic open source home automation platform."
+description: "Home automation that talks to over two thousand devices and services: things, items, rules, dashboards and mobile apps, with a browser administration page. It starts with a setup that makes the administrator."
+category: smart-home
+tags: [home-automation, iot, rules, dashboards]
+logo: simple-icons:openhab
+version: "5.2.3"
+revision: 1
+updated: 2026-10-30
+homepage: https://www.openhab.org/
+docs: https://www.openhab.org/
+repository: https://github.com/openhab/openhab-distro
+license: EPL-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8080
+health: {path: /, expect: "200-399", timeout: 300}
+compose: |
+  services:
+    openhab:
+      image: openhab/openhab:5.2.3@sha256:fa50a6934dfd5bcbf21db18af66f2558f58c6c493ba23bdeb7a894e764507a99
+      restart: unless-stopped
+      environment:
+        OPENHAB_HTTP_PORT: '8080'
+        CRYPTO_POLICY: unlimited
+      volumes:
+        - openhab-conf:/openhab/conf
+        - openhab-userdata:/openhab/userdata
+        - openhab-addons:/openhab/addons
+      ports:
+        - 127.0.0.1:${PORT}:8080
+  volumes:
+    openhab-conf:
+    openhab-userdata:
+    openhab-addons:
+notes:
+  - "Open {{ url }}. The first visit asks for the administrator's name and password: do it right after installing."
+  - "Its data is in the Docker volumes openhab-conf, openhab-userdata, openhab-addons of this application: back them up before updating."

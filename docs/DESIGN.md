@@ -869,6 +869,9 @@ Domains > example.net  * Serving                                        [Disable
 
 - The editor takes the screen's height (`h-editor`); the bar at its foot is a `SaveBar` with
   Test and Test and save.
+- The `meta` line keeps its place while the file is read: a skeleton as tall as the facts, with
+  `metaLoading` so the line is `aria-busy` (a skeleton with no busy region around it is silent to
+  a screen reader). The editor under it says what is loading, once, in its own `LoadingRegion`.
 - Never on the same page as logs or a danger zone.
 - The check's own output (nginx -t, systemd-analyze) is shown verbatim when it fails.
 

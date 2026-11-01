@@ -1,0 +1,38 @@
+# Spoolman from the image the project publishes (ghcr.io/donkie/spoolman), with the folder its documentation names (github.com/Donkie/Spoolman, README: Docker).
+schema: 2
+name: spoolman
+kind: compose
+title: "Spoolman"
+slogan: "Keep track of your inventory of 3D-printer filament spools."
+description: "A database of filament spools that OctoPrint, Moonraker and Klipper write to as they print: material, colour, weight left and cost, with a page to browse and label them. It has no accounts, so keep it behind an allow-list."
+category: utilities
+tags: [3d-printing, filament, inventory, klipper]
+logo: logo.svg
+version: "0.27.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://github.com/Donkie/Spoolman
+docs: https://github.com/Donkie/Spoolman
+repository: https://github.com/Donkie/Spoolman
+license: MIT
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8000
+health: {path: /api/v1/health, expect: "200", timeout: 120}
+compose: |
+  services:
+    spoolman:
+      image: ghcr.io/donkie/spoolman:0.27.0@sha256:7aba565eff774c6dda212d4204de8fa30bf68d513127ef875cc7ef3197a4664e
+      restart: unless-stopped
+      environment:
+        TZ: UTC
+      volumes:
+        - spoolman-data:/home/app/.local/share/spoolman
+      ports:
+        - 127.0.0.1:${PORT}:8000
+  volumes:
+    spoolman-data:
+notes:
+  - "Open {{ url }}. It has no sign-in: anyone who reaches the page can edit your spools, so restrict who can reach it."
+  - "Its data is in the Docker volume spoolman-data of this application: back it up before updating."

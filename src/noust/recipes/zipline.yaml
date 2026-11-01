@@ -1,0 +1,95 @@
+# Zipline: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/zipline.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: zipline
+kind: compose
+title: "Zipline"
+slogan: "A ShareX/file upload server that is easy to use, packed with features, and with an easy setup!"
+description: "A ShareX/file upload server that is easy to use, packed with features, and with an easy setup!"
+category: files
+tags: [zipline, file-sharing, upload, sharing, media-system, storage, files]
+logo: logo.png
+version: "4.8.2"
+revision: 1
+updated: 2026-10-30
+homepage: https://zipline.diced.sh
+docs: https://zipline.diced.sh/docs/config
+repository: https://github.com/diced/zipline
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_ZIPLINE:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_PASSWORD_64_ZIPLINE:
+    generate: "password64"
+    secret: true
+    description: "The secret Noust generated for zipline."
+  SERVICE_USER_POSTGRES:
+    generate: "user"
+    description: "The user name Noust generated for postgres."
+  SERVICE_PASSWORD_POSTGRES:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    zipline:
+      image: ghcr.io/diced/zipline:4.8.2@sha256:cb3769f50a5887e38d678ab466656bd2a56f3ce96bc8a4d0788cc479d19c05c9
+      environment:
+        SERVICE_URL_ZIPLINE: ${SERVICE_URL_ZIPLINE}
+        CORE_RETURN_HTTPS: ${CORE_RETURN_HTTPS:-false}
+        CORE_SECRET: ${SERVICE_PASSWORD_64_ZIPLINE}
+        DATABASE_URL: postgres://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@postgres/${POSTGRES_DB:-zipline-db}
+        CORE_LOGGER: ${CORE_LOGGER:-true}
+      volumes:
+        - zipline-uploads:/zipline/uploads
+        - zipline-public:/zipline/public
+      depends_on:
+        postgres:
+          condition: service_healthy
+      healthcheck:
+        test:
+          - CMD
+          - wget
+          - -q
+          - --spider
+          - http://127.0.0.1:3000/auth/login
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:3000
+    postgres:
+      image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
+      volumes:
+        - zipline-postgres-data:/var/lib/postgresql/data
+      environment:
+        POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+        POSTGRES_DB: ${POSTGRES_DB:-zipline-db}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+  volumes:
+    zipline-uploads:
+    zipline-public:
+    zipline-postgres-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_PASSWORD_64_ZIPLINE and SERVICE_USER_POSTGRES and SERVICE_PASSWORD_POSTGRES in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes zipline-uploads, zipline-public, zipline-postgres-data of this application: back them up before updating."

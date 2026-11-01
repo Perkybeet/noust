@@ -1,0 +1,39 @@
+# autobrr from the image the project publishes (ghcr.io/autobrr/autobrr), with the /config volume and the AUTOBRR__ settings its documentation names (autobrr.com/installation/docker).
+schema: 2
+name: autobrr
+kind: compose
+title: "autobrr"
+slogan: "Modern download automation for torrents and usenet."
+description: "Watches IRC announce channels, RSS feeds and indexers and sends what matches your filters to qBittorrent, Sonarr, Radarr and other clients. Everything it knows is in one SQLite file."
+category: automation
+tags: [torrents, usenet, rss, irc, arr]
+logo: logo.svg
+version: "1.89.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://autobrr.com/introduction
+docs: https://autobrr.com/introduction
+repository: https://github.com/autobrr/autobrr
+license: GPL-2.0-only
+architectures: ["386", "amd64", "arm", "arm64", "riscv64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 7474
+health: {path: /api/healthz/liveness, expect: "200", timeout: 120}
+compose: |
+  services:
+    autobrr:
+      image: ghcr.io/autobrr/autobrr:v1.89.0@sha256:60efc357e1852f1cd337b8c26d65c5299feadbb4f364c89299b1eede5d159ce4
+      restart: unless-stopped
+      environment:
+        AUTOBRR__HOST: 0.0.0.0
+        TZ: UTC
+      volumes:
+        - autobrr-config:/config
+      ports:
+        - 127.0.0.1:${PORT}:7474
+  volumes:
+    autobrr-config:
+notes:
+  - "Open {{ url }}. The first visit creates the only account, so do it right after installing."
+  - "Its data is in the Docker volume autobrr-config of this application: back it up before updating."

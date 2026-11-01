@@ -105,6 +105,7 @@ export const catalog = {
   card: {
     use: "Use",
     docker: "Runs in Docker",
+    notFree: "Not free software",
     tags: "Tags",
     moreTags: "+{count}",
     website: "Website",
@@ -194,6 +195,7 @@ export const catalog = {
     updated: "Recipe updated",
     category: "Category",
     license: "License",
+    notFree: "{license} (not free software: source-available or open core)",
     architectures: "Runs on",
     minNoust: "Needs Noust",
     runs: "What it runs",

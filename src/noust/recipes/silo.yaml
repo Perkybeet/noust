@@ -1,0 +1,53 @@
+# Silo: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/silo
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: silo
+kind: compose
+title: "Silo"
+slogan: "S3-Compatible Object Storage. A MinIO fork maintained by PGSTY"
+description: "S3-Compatible Object Storage. A MinIO fork maintained by PGSTY"
+category: files
+tags: [s3, file, storage, files]
+logo: logo.svg
+version: "RELEASE.2026-08-06T00-00-00Z"
+revision: 1
+updated: 2026-10-30
+homepage: https://silo.pgsty.com
+docs: https://silo.pgsty.com/docs/
+repository: https://github.com/pgsty/silo
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  MINIO_ROOT_USER:
+    default: "silo_usr"
+    description: "Setting MINIO_ROOT_USER of the application; the template leaves it to the operator."
+  MINIO_ROOT_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for minio root password."
+health: {path: /minio/health/live, expect: "200", timeout: 120}
+compose: |
+  services:
+    silo:
+      image: pgsty/silo:RELEASE.2026-08-06T00-00-00Z@sha256:29a498b24669cae1fed11c1a2fb2b3d73c68829a0a9c0b14e71b386671d38fac
+      restart: unless-stopped
+      environment:
+        MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+        MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      volumes:
+        - silo:/data
+      command: server /data --console-address ":9001"
+      ports:
+        - 127.0.0.1:${PORT}:9000
+  volumes:
+    silo:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume silo of this application: back it up before updating."

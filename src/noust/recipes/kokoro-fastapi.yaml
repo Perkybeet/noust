@@ -1,0 +1,31 @@
+# Kokoro FastAPI from the image the project publishes (ghcr.io/remsky/kokoro-fastapi-cpu), as its documentation describes the container (github.com/remsky/Kokoro-FastAPI, README: Quick start).
+schema: 2
+name: kokoro-fastapi
+kind: compose
+title: "Kokoro FastAPI"
+slogan: "Dockerised FastAPI wrapper for the Kokoro-82M text-to-speech model."
+description: "A text-to-speech server with an OpenAI-compatible API: it turns text into natural speech in many voices on the CPU, with a web player for trying them. It has no accounts, so keep it behind an allow-list. The image is large."
+category: ai
+tags: [text-to-speech, tts, openai, voice]
+logo: logo.svg
+version: "0.9.2"
+revision: 1
+updated: 2026-10-30
+homepage: https://github.com/remsky/Kokoro-FastAPI
+docs: https://github.com/remsky/Kokoro-FastAPI
+repository: https://github.com/remsky/Kokoro-FastAPI
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8880
+health: {path: /health, expect: "200", timeout: 240}
+compose: |
+  services:
+    kokoro-fastapi:
+      image: ghcr.io/remsky/kokoro-fastapi-cpu:v0.9.2@sha256:cbcc28802fb5d1eaaba8b91e38b0e872a669e85831c513cf6a29c709cbe25405
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8880
+notes:
+  - "Open {{ url }}. The web player is at {{ url }}/web and the API at {{ url }}/v1/audio/speech. It has no sign-in: restrict who can reach it."

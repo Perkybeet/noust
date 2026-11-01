@@ -3,5 +3,6 @@ Source: https://github.com/homarr-labs/dashboard-icons/blob/83f32e08257b66fbd971
 Licence: Apache-2.0
 Copyright: Copyright (c) 2024 Bjorn Lammers, Meier Lukas, Thomas Camlong and Homarr Labs
 Terms: flarum.org/foundation/legal, read 2026-10-29: the original logo may be used unmodified in its form and colour to link to Flarum; shown unmodified
+Repaint: no
 Retrieved: 2026-10-29
 Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged

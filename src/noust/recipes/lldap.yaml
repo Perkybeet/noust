@@ -1,0 +1,55 @@
+# LLDAP from the image the project publishes (lldap/lldap), with the variables its documentation names (github.com/lldap/lldap, README: Docker image and example_configs).
+schema: 2
+name: lldap
+kind: compose
+title: "LLDAP"
+slogan: "Light LDAP implementation for authentication."
+description: "A lightweight LDAP server for the users and groups that Authelia, Gitea, Nextcloud, Jellyfin or Home Assistant sign in against, with a web page to manage them. It does authentication only, not all of LDAP; the administrator's password is generated."
+category: security
+tags: [ldap, authentication, users, directory]
+logo: logo.svg
+version: "0.6.3"
+revision: 1
+updated: 2026-10-30
+homepage: https://github.com/lldap/lldap
+docs: https://github.com/lldap/lldap
+repository: https://github.com/lldap/lldap
+license: GPL-3.0-only
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 17170
+variables:
+  JWT_SECRET:
+    generate: "password64"
+    description: "The secret LLDAP signs its sessions with."
+  KEY_SEED:
+    generate: "password64"
+    description: "The seed its private key is made from."
+  ADMIN_PASSWORD:
+    generate: "password32"
+    description: "The password of the account admin."
+  BASE_DN:
+    default: "dc=example,dc=com"
+    description: "The base of the directory. Set it to your own domain before the first start: it cannot be changed afterwards."
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    lldap:
+      image: lldap/lldap:v0.6.3@sha256:2a8454b668c1aba7157e832eab0e242e1e7eb5fb7591d7e7774ba05286511ca8
+      restart: unless-stopped
+      environment:
+        LLDAP_JWT_SECRET: ${JWT_SECRET}
+        LLDAP_KEY_SEED: ${KEY_SEED}
+        LLDAP_LDAP_BASE_DN: ${BASE_DN}
+        LLDAP_LDAP_USER_PASS: ${ADMIN_PASSWORD}
+        TZ: UTC
+      volumes:
+        - lldap-data:/data
+      ports:
+        - 127.0.0.1:${PORT}:17170
+  volumes:
+    lldap-data:
+notes:
+  - "Open {{ url }}. Sign in as admin with the password in ADMIN_PASSWORD (noust env show {{ domain }} --unmask). The LDAP port (3890) is open to the stack only: other applications on this server reach it by joining the stack's network, or you publish it yourself behind a firewall."
+  - "Its data is in the Docker volume lldap-data of this application: back it up before updating."

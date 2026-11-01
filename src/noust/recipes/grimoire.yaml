@@ -10,7 +10,7 @@ slogan: "Bookmark manager for the wizards 🧙"
 description: "Grimoire is a self-hosted bookmarking app designed for speed and simplicity."
 category: utilities
 tags: [bookmarks, self-hosted, knowledge-management, utilities]
-logo: logo.svg
+logo: logo.png
 version: "0.4.4"
 revision: 1
 updated: 2026-10-28

@@ -1,0 +1,48 @@
+# LeafWiki from the image the project publishes (ghcr.io/perber/leafwiki), with the variables and folder its documentation names (github.com/perber/leafwiki, README: Docker).
+schema: 2
+name: leafwiki
+kind: compose
+title: "LeafWiki"
+slogan: "A fast wiki for people who want simple writing, strong structure, and controlled sharing."
+description: "A wiki that keeps its pages in a tree of Markdown files on disk, with a visual editor, search, revisions, links between pages and roles for who may read or write. The administrator's password is generated and nobody can read without signing in."
+category: productivity
+tags: [wiki, markdown, documentation, knowledge]
+logo: logo.svg
+version: "0.14.2"
+revision: 1
+updated: 2026-10-30
+homepage: https://leafwiki.com
+docs: https://leafwiki.com
+repository: https://github.com/perber/leafwiki
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8080
+variables:
+  JWT_SECRET:
+    generate: "password64"
+    description: "The secret the sessions are signed with."
+  ADMIN_PASSWORD:
+    generate: "password32"
+    description: "The password of the user admin."
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    leafwiki:
+      image: ghcr.io/perber/leafwiki:v0.14.2@sha256:bc07b7d0f3de916233a570f6d4b54fe14de0e2cb77e179e6a07bf417fb109585
+      restart: unless-stopped
+      environment:
+        LEAFWIKI_HOST: 0.0.0.0
+        LEAFWIKI_JWT_SECRET: ${JWT_SECRET}
+        LEAFWIKI_ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      volumes:
+        - leafwiki-data:/app/data
+      ports:
+        - 127.0.0.1:${PORT}:8080
+      user: 0:0
+  volumes:
+    leafwiki-data:
+notes:
+  - "Open {{ url }}. Sign in as admin with the password in ADMIN_PASSWORD (noust env show {{ domain }} --unmask). The password is applied only the first time, when there is no administrator yet."
+  - "Its data is in the Docker volume leafwiki-data of this application: back it up before updating."

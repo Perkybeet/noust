@@ -1,0 +1,131 @@
+# Paymenter: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/paymenter.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: paymenter
+kind: compose
+title: "Paymenter"
+slogan: "Open-Source Billing, Built for Hosting"
+description: "Paymenter is a modern billing and payment management system for hosting providers, with automation, invoicing, and client management features."
+category: automation
+tags: [automation, billing, open, source, payment, hosting, invoicing, business]
+logo: logo.svg
+version: "1.5.9"
+revision: 1
+updated: 2026-10-30
+homepage: https://paymenter.org
+docs: https://paymenter.org/docs/guides/docker
+repository: https://github.com/Paymenter/Paymenter
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_PAYMENTER_80:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_PASSWORD_MYSQL:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for mysql."
+  SERVICE_USER_MYSQL:
+    generate: "user"
+    description: "The user name Noust generated for mysql."
+  SERVICE_PASSWORD_64_REDIS:
+    generate: "password64"
+    secret: true
+    description: "The secret Noust generated for redis."
+  SERVICE_BASE64_KEY:
+    generate: "base64_32"
+    secret: true
+    description: "The secret Noust generated for key."
+  SERVICE_PASSWORD_MYSQLROOT:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for mysqlroot."
+health: {path: /robots.txt, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    paymenter:
+      image: ghcr.io/paymenter/paymenter:v1.5.9@sha256:27471e077f4413f5f7c4e63656a8e7894892fc8c6885e5481f91e420bd37b63b
+      volumes:
+        - app_logs:/app/storage/logs
+        - extenstions:/app/extensions
+        - themes:/app/themes
+        - app_storage:/app/storage/app
+        - app_public_storage:/app/storage/app/public
+      environment:
+        SERVICE_URL_PAYMENTER: ${SERVICE_URL_PAYMENTER_80}
+        DB_DATABASE: ${MYSQL_DATABASE:-paymenter-db}
+        DB_PASSWORD: ${SERVICE_PASSWORD_MYSQL}
+        DB_USERNAME: ${SERVICE_USER_MYSQL}
+        APP_ENV: production
+        CACHE_STORE: redis
+        SESSION_DRIVER: redis
+        QUEUE_CONNECTION: redis
+        REDIS_HOST: redis
+        REDIS_USERNAME: default
+        REDIS_PASSWORD: ${SERVICE_PASSWORD_64_REDIS}
+        DB_CONNECTION: mariadb
+        DB_HOST: mariadb
+        DB_PORT: '3306'
+        APP_KEY: ${SERVICE_BASE64_KEY}
+      depends_on:
+        mariadb:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - curl -sf http://localhost:80 || exit 1
+        interval: 10s
+        timeout: 1s
+        retries: 3
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:80
+    mariadb:
+      image: mariadb:11.8@sha256:c4124d1afa875e47f2892edf26b482fa54f796e2f342d3717a04ca091a22a9bd
+      volumes:
+        - paymenter_mariadb_data:/var/lib/mysql
+      environment:
+        MYSQL_ROOT_PASSWORD: ${SERVICE_PASSWORD_MYSQLROOT}
+        MYSQL_DATABASE: ${MYSQL_DATABASE:-paymenter-db}
+        MYSQL_USER: ${SERVICE_USER_MYSQL}
+        MYSQL_PASSWORD: ${SERVICE_PASSWORD_MYSQL}
+      healthcheck:
+        test:
+          - CMD
+          - healthcheck.sh
+          - --connect
+          - --innodb_initialized
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+    redis:
+      image: redis:alpine@sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - redis-cli ping || exit 1
+        interval: 10s
+        timeout: 1s
+        retries: 3
+      restart: unless-stopped
+  volumes:
+    app_logs:
+    extenstions:
+    themes:
+    app_storage:
+    app_public_storage:
+    paymenter_mariadb_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_PASSWORD_MYSQL and SERVICE_USER_MYSQL and SERVICE_PASSWORD_64_REDIS and SERVICE_PASSWORD_MYSQLROOT in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes app_logs, extenstions, themes, app_storage, app_public_storage, paymenter_mariadb_data of this application: back them up before updating."

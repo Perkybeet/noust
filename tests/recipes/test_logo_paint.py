@@ -9,11 +9,12 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from noust.recipes import RecipeError
+from noust.recipes import RecipeError, logo_svg
 from noust.recipes.logo_paint import (
     DARK_SURFACES,
     INK,
     LIGHT_SURFACES,
+    MIN_CONTRAST,
     PAPER,
     adapt_to_scheme,
     contrast,
@@ -161,6 +162,29 @@ class TestSeveralColours:
             assert adapt_to_scheme("demo", monogram, scheme) == monogram
             assert adapt_to_scheme("demo", circle, scheme) == circle
 
+    def test_a_rectangle_that_paints_nothing_is_not_a_tile(self) -> None:
+        """Heimdall's file starts with an unfilled frame as big as the picture: the black figure is the mark."""
+        frame = svg(
+            '<rect fill="none" x="-1" y="-1" width="26" height="26"/><path d="M3 3h18v18z"/>'
+        )
+        see_through = svg(
+            '<circle fill="transparent" cx="12" cy="12" r="12"/><path d="M3 3h18v18z"/>'
+        )
+
+        for text in (frame, see_through):
+            drawn = fills(adapt_to_scheme("demo", text, "dark"))
+            assert PAPER in drawn
+            assert min(contrast(PAPER, surface) for surface in DARK_SURFACES) >= 7
+
+    def test_the_heimdall_mark_reads_on_the_dark_stone(self) -> None:
+        """The packaged file: black at 1.1 to 1 before, the stone's paper now."""
+        dark = logo_svg("heimdall", "dark")
+
+        painted = [paint for paint in fills(dark) if paint not in ("", "none")]
+        assert painted
+        for paint in painted:
+            assert min(contrast(paint, surface) for surface in DARK_SURFACES) >= MIN_CONTRAST
+
     def test_a_small_square_among_other_shapes_is_a_shape_and_not_a_tile(self) -> None:
         panda = svg(
             '<rect width="5" height="5" fill="#000"/><circle cx="12" cy="12" r="3" fill="#fff"/>'
@@ -225,3 +249,60 @@ class TestColoursInTheirSpellings:
             ]
 
         assert without_fills(out) == without_fills(source) and out != source
+
+
+class TestWhatAProjectsRulesLetTheConsoleDo:
+    """A mark the project says is not to be changed is not repainted, whatever the stone."""
+
+    BLACK = svg('<path d="M3 3h18v18z"/>')
+
+    def test_a_mark_that_is_not_to_be_changed_is_drawn_as_it_is_on_both_stones(self) -> None:
+        for scheme in ("light", "dark"):
+            assert adapt_to_scheme("demo", self.BLACK, scheme, repaint="no") == self.BLACK
+
+    def test_a_mark_that_may_only_be_black_or_white_is_pure_black_or_pure_white(self) -> None:
+        assert adapt_to_scheme("demo", self.BLACK, "light", repaint="white-black") == self.BLACK
+        dark = adapt_to_scheme("demo", self.BLACK, "dark", repaint="white-black")
+
+        assert fills(dark)[-1] == "#ffffff"
+        assert PAPER not in dark
+
+    def test_the_brand_colour_is_not_used_for_a_mark_that_may_only_be_black_or_white(self) -> None:
+        dark = adapt_to_scheme("demo", self.BLACK, "dark", brand="336699", repaint="white-black")
+
+        assert "#336699" not in dark and fills(dark)[-1] == "#ffffff"
+
+    def test_without_a_rule_the_stone_s_own_paper_stands_in_as_it_always_did(self) -> None:
+        assert PAPER in adapt_to_scheme("demo", self.BLACK, "dark")
+
+
+class TestWhatThePackagedNoticesPromise:
+    def test_a_mark_promised_unmodified_is_never_recoloured_beyond_what_its_notice_says(
+        self,
+    ) -> None:
+        """code-server's notice said so and the console painted it white on the dark stone."""
+        from noust.recipes import list_recipes
+        from noust.recipes.logos import FORBIDS_ALTERING, logo_repaint
+
+        checked = []
+        for recipe in list_recipes():
+            rule = logo_repaint(recipe.name, recipe.logo)
+            if not recipe.logo or recipe.logo.endswith(".png") or not rule:
+                continue
+            checked.append(recipe.name)
+            plain = logo_svg(recipe.name)
+            for scheme in ("light", "dark"):
+                drawn = logo_svg(recipe.name, scheme)
+                if rule == "no":
+                    assert drawn == plain, (recipe.name, scheme)
+                else:
+                    painted = {paint for paint in fills(drawn) if paint not in ("", "none")}
+                    assert painted <= {"#000000", "#ffffff", "#000", "#fff"}, (recipe.name, scheme)
+        assert {"code-server", "navidrome", "flarum", "anythingllm", "open-webui"} <= set(checked)
+        assert FORBIDS_ALTERING.search("the file is shown unmodified")
+
+    def test_code_server_reads_on_the_dark_stone_in_the_white_its_guidelines_allow(self) -> None:
+        dark = logo_svg("code-server", "dark")
+
+        assert 'fill="#ffffff"' in dark
+        assert min(contrast("#ffffff", surface) for surface in DARK_SURFACES) >= 7

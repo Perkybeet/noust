@@ -1,0 +1,115 @@
+# Authorizer: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/authorizer
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: authorizer
+kind: compose
+title: "Authorizer"
+slogan: "Your data, your control. Fully open source, authentication and authorization. No lock-ins."
+description: "Authorizer is a powerful tool designed to simplify the process of user authentication and authorization in your applications. It allows you to build secure apps 10x faster with its low code tool and low-cost deployment."
+category: security
+tags: [authentication, authorization, security]
+logo: logo.png
+version: "2.4.3"
+revision: 1
+updated: 2026-10-30
+homepage: https://authorizer.dev
+docs: https://docs.authorizer.dev/
+repository: https://github.com/authorizerdev/authorizer
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  APP_URL:
+    from: "url"
+    description: "The address people use to reach the application."
+  DB_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for db password."
+  ADMIN_SECRET:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for admin secret."
+  JWT_SECRET:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for jwt secret."
+  ENCRYPTION_KEY:
+    generate: "password32"
+    secret: true
+    description: "The key that protects the TOTP secrets and the one-time codes it stores. Keep it as it is."
+  CLIENT_ID:
+    generate: "hex32"
+    description: "The client ID of the application's own OAuth client."
+  CLIENT_SECRET:
+    generate: "hex64"
+    secret: true
+    description: "The client secret of the application's own OAuth client."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    authorizer:
+      image: lakhansamani/authorizer:2.4.3@sha256:45d4e0e8dd4269bb3326d9e9eeca8f8a16634a76c7ecde5e61ca82aaa49cf415
+      restart: unless-stopped
+      command:
+        - --database-type=postgres
+        - --database-url=postgres://postgres:${DB_PASSWORD}@authorizer-db:5432/authorizer?sslmode=disable
+        - --redis-url=redis://authorizer-redis:6379
+        - --admin-secret=${ADMIN_SECRET}
+        - --jwt-type=HS256
+        - --jwt-secret=${JWT_SECRET}
+        - --encryption-key=${ENCRYPTION_KEY}
+        - --client-id=${CLIENT_ID}
+        - --client-secret=${CLIENT_SECRET}
+        - --url=${APP_URL}
+        - --allowed-origins=${APP_URL}
+      depends_on:
+        authorizer-db:
+          condition: service_healthy
+        authorizer-redis:
+          condition: service_healthy
+      ports:
+        - 127.0.0.1:${PORT}:8080
+    authorizer-db:
+      image: postgres:15-alpine@sha256:54e0dd8e8cddcdbb9156c2486eed5a43eccb7214d7c6828097d41ce049fb3984
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: ${DB_PASSWORD}
+        POSTGRES_DB: authorizer
+      volumes:
+        - db_data:/var/lib/postgresql/data
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U "$${POSTGRES_USER:-postgres}" -q
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+    authorizer-redis:
+      image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
+      restart: unless-stopped
+      volumes:
+        - redis_data:/data
+      healthcheck:
+        test:
+          - CMD
+          - redis-cli
+          - ping
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+  volumes:
+    db_data:
+    redis_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes db_data, redis_data of this application: back them up before updating."

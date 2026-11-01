@@ -1,0 +1,315 @@
+# Tooljet: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/tooljet
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: tooljet
+kind: compose
+title: "Tooljet"
+slogan: "Open-source foundation of an enterprise platform for building internal tools."
+description: "Tooljet is an open-source low-code platform that allows you to build internal tools quickly and efficiently. It provides a user-friendly interface for creating applications without extensive coding knowledge."
+category: ai
+tags: [file-sync, file-sharing, self-hosted, ai]
+logo: logo.svg
+version: "3.20.252-lts"
+revision: 1
+updated: 2026-10-31
+homepage: https://tooljet.com
+docs: https://docs.tooljet.ai/
+repository: https://github.com/ToolJet/ToolJet
+license: AGPL-3.0-only
+architectures: ["amd64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  TOOLJET_HOST:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  TOOLJET_HTTP_PROXY:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  LOCKBOX_MASTER_KEY:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for lockbox master key."
+  SECRET_KEY_BASE:
+    generate: "password64"
+    secret: true
+    description: "The secret Noust generated for secret key base."
+  ORM_LOGGING:
+    default: "all"
+    description: "Setting ORM_LOGGING of the application; the template leaves it to the operator."
+  PG_DB:
+    default: "tooljet_production"
+    description: "Setting PG_DB of the application; the template leaves it to the operator."
+  PG_USER:
+    default: "postgres"
+    description: "Setting PG_USER of the application; the template leaves it to the operator."
+  PG_HOST:
+    default: "postgres"
+    description: "Setting PG_HOST of the application; the template leaves it to the operator."
+  PG_PASS:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for pg pass."
+  TOOLJET_DB:
+    default: "tooljet_db"
+    description: "Setting TOOLJET_DB of the application; the template leaves it to the operator."
+  TOOLJET_DB_USER:
+    default: "postgres"
+    description: "Setting TOOLJET_DB_USER of the application; the template leaves it to the operator."
+  TOOLJET_DB_HOST:
+    default: "postgres"
+    description: "Setting TOOLJET_DB_HOST of the application; the template leaves it to the operator."
+  TOOLJET_DB_PASS:
+    value: "${PG_PASS}"
+    secret: true
+    description: "Setting TOOLJET_DB_PASS of the application; the template leaves it to the operator."
+  PGRST_DB_URI:
+    value: "postgres://postgres:${PG_PASS}@postgres/tooljet_db"
+    secret: true
+    description: "Setting PGRST_DB_URI of the application; the template leaves it to the operator."
+  PGRST_HOST:
+    default: "localhost:3002"
+    description: "Setting PGRST_HOST of the application; the template leaves it to the operator."
+  PGRST_JWT_SECRET:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for pgrst jwt secret."
+  PGRST_SERVER_PORT:
+    default: "3002"
+    description: "Setting PGRST_SERVER_PORT of the application; the template leaves it to the operator."
+  REDIS_HOST:
+    default: "localhost"
+    description: "Setting REDIS_HOST of the application; the template leaves it to the operator."
+  REDIS_PORT:
+    default: "6379"
+    description: "Setting REDIS_PORT of the application; the template leaves it to the operator."
+  REDIS_USER:
+    default: "default"
+    description: "Setting REDIS_USER of the application; the template leaves it to the operator."
+  REDIS_PASSWORD:
+    default: ""
+    secret: true
+    description: "Setting REDIS_PASSWORD of the application; the template leaves it to the operator."
+  CHECK_FOR_UPDATES:
+    default: "true"
+    description: "Setting CHECK_FOR_UPDATES of the application; the template leaves it to the operator."
+  DISABLE_TOOLJET_TELEMETRY:
+    default: "true"
+    description: "Setting DISABLE_TOOLJET_TELEMETRY of the application; the template leaves it to the operator."
+  GOOGLE_CLIENT_ID:
+    default: ""
+    description: "Setting GOOGLE_CLIENT_ID of the application; the template leaves it to the operator."
+  GOOGLE_CLIENT_SECRET:
+    default: ""
+    secret: true
+    description: "Setting GOOGLE_CLIENT_SECRET of the application; the template leaves it to the operator."
+  DEFAULT_FROM_EMAIL:
+    default: "hello@tooljet.io"
+    description: "Setting DEFAULT_FROM_EMAIL of the application; the template leaves it to the operator."
+  SMTP_USERNAME:
+    default: ""
+    description: "Setting SMTP_USERNAME of the application; the template leaves it to the operator."
+  SMTP_PASSWORD:
+    default: ""
+    secret: true
+    description: "Setting SMTP_PASSWORD of the application; the template leaves it to the operator."
+  SMTP_DOMAIN:
+    default: ""
+    description: "Setting SMTP_DOMAIN of the application; the template leaves it to the operator."
+  SMTP_PORT:
+    default: ""
+    description: "Setting SMTP_PORT of the application; the template leaves it to the operator."
+  DISABLE_SIGNUPS:
+    default: ""
+    description: "Setting DISABLE_SIGNUPS of the application; the template leaves it to the operator."
+  APM_VENDOR:
+    default: ""
+    description: "Setting APM_VENDOR of the application; the template leaves it to the operator."
+  SENTRY_DNS:
+    default: ""
+    description: "Setting SENTRY_DNS of the application; the template leaves it to the operator."
+  SENTRY_DEBUG:
+    default: ""
+    description: "Setting SENTRY_DEBUG of the application; the template leaves it to the operator."
+  COMMENT_FEATURE_ENABLE:
+    default: ""
+    description: "Setting COMMENT_FEATURE_ENABLE of the application; the template leaves it to the operator."
+  ENABLE_MULTIPLAYER_EDITING:
+    default: "true"
+    description: "Setting ENABLE_MULTIPLAYER_EDITING of the application; the template leaves it to the operator."
+  ENABLE_MARKETPLACE_FEATURE:
+    default: "true"
+    description: "Setting ENABLE_MARKETPLACE_FEATURE of the application; the template leaves it to the operator."
+  SSO_GOOGLE_OAUTH2_CLIENT_ID:
+    default: ""
+    description: "Setting SSO_GOOGLE_OAUTH2_CLIENT_ID of the application; the template leaves it to the operator."
+  SSO_GIT_OAUTH2_CLIENT_ID:
+    default: ""
+    description: "Setting SSO_GIT_OAUTH2_CLIENT_ID of the application; the template leaves it to the operator."
+  SSO_GIT_OAUTH2_CLIENT_SECRET:
+    default: ""
+    secret: true
+    description: "Setting SSO_GIT_OAUTH2_CLIENT_SECRET of the application; the template leaves it to the operator."
+  SSO_GIT_OAUTH2_HOST:
+    default: ""
+    description: "Setting SSO_GIT_OAUTH2_HOST of the application; the template leaves it to the operator."
+  SSO_ACCEPTED_DOMAINS:
+    default: ""
+    description: "Setting SSO_ACCEPTED_DOMAINS of the application; the template leaves it to the operator."
+  SSO_DISABLE_SIGNUPS:
+    default: ""
+    description: "Setting SSO_DISABLE_SIGNUPS of the application; the template leaves it to the operator."
+  ENABLE_ONBOARDING_QUESTIONS_FOR_ALL_SIGN_UPS:
+    default: ""
+    description: "Setting ENABLE_ONBOARDING_QUESTIONS_FOR_ALL_SIGN_UPS of the application; the template leaves it to the operator."
+  USER_SESSION_EXPIRY:
+    default: "2880"
+    description: "Setting USER_SESSION_EXPIRY of the application; the template leaves it to the operator."
+  DEPLOYMENT_PLATFORM:
+    default: "docker"
+    description: "Setting DEPLOYMENT_PLATFORM of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    tooljet:
+      tty: true
+      stdin_open: true
+      image: tooljet/tooljet:v3.20.252-lts@sha256:b2c06c11ae184b31b927482a93be56436be73b01b95d6b13edfa643009300daf
+      restart: unless-stopped
+      deploy:
+        resources:
+          limits:
+            cpus: '1'
+            memory: 2G
+      depends_on:
+        postgres:
+          condition: service_healthy
+      environment:
+        SERVE_CLIENT: 'true'
+        PORT: '80'
+        TOOLJET_HOST: ${TOOLJET_HOST}
+        TOOLJET_HTTP_PROXY: ${TOOLJET_HTTP_PROXY}
+        LOCKBOX_MASTER_KEY: ${LOCKBOX_MASTER_KEY}
+        SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+        ORM_LOGGING: ${ORM_LOGGING}
+        PG_DB: ${PG_DB}
+        PG_USER: ${PG_USER}
+        PG_HOST: ${PG_HOST}
+        PG_PASS: ${PG_PASS}
+        TOOLJET_DB: ${TOOLJET_DB}
+        TOOLJET_DB_USER: ${TOOLJET_DB_USER}
+        TOOLJET_DB_HOST: ${TOOLJET_DB_HOST}
+        TOOLJET_DB_PASS: ${TOOLJET_DB_PASS}
+        PGRST_DB_URI: ${PGRST_DB_URI}
+        PGRST_HOST: ${PGRST_HOST}
+        PGRST_JWT_SECRET: ${PGRST_JWT_SECRET}
+        PGRST_SERVER_PORT: ${PGRST_SERVER_PORT}
+        REDIS_HOST: ${REDIS_HOST}
+        REDIS_PORT: ${REDIS_PORT}
+        REDIS_USER: ${REDIS_USER}
+        REDIS_PASSWORD: ${REDIS_PASSWORD}
+        CHECK_FOR_UPDATES: ${CHECK_FOR_UPDATES}
+        DISABLE_TOOLJET_TELEMETRY: ${DISABLE_TOOLJET_TELEMETRY}
+        GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+        GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+        DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL}
+        SMTP_USERNAME: ${SMTP_USERNAME}
+        SMTP_PASSWORD: ${SMTP_PASSWORD}
+        SMTP_DOMAIN: ${SMTP_DOMAIN}
+        SMTP_PORT: ${SMTP_PORT}
+        DISABLE_SIGNUPS: ${DISABLE_SIGNUPS}
+        APM_VENDOR: ${APM_VENDOR}
+        SENTRY_DNS: ${SENTRY_DNS}
+        SENTRY_DEBUG: ${SENTRY_DEBUG}
+        COMMENT_FEATURE_ENABLE: ${COMMENT_FEATURE_ENABLE}
+        ENABLE_MULTIPLAYER_EDITING: ${ENABLE_MULTIPLAYER_EDITING}
+        ENABLE_MARKETPLACE_FEATURE: ${ENABLE_MARKETPLACE_FEATURE}
+        SSO_GOOGLE_OAUTH2_CLIENT_ID: ${SSO_GOOGLE_OAUTH2_CLIENT_ID}
+        SSO_GIT_OAUTH2_CLIENT_ID: ${SSO_GIT_OAUTH2_CLIENT_ID}
+        SSO_GIT_OAUTH2_CLIENT_SECRET: ${SSO_GIT_OAUTH2_CLIENT_SECRET}
+        SSO_GIT_OAUTH2_HOST: ${SSO_GIT_OAUTH2_HOST}
+        SSO_ACCEPTED_DOMAINS: ${SSO_ACCEPTED_DOMAINS}
+        SSO_DISABLE_SIGNUPS: ${SSO_DISABLE_SIGNUPS}
+        ENABLE_ONBOARDING_QUESTIONS_FOR_ALL_SIGN_UPS: ${ENABLE_ONBOARDING_QUESTIONS_FOR_ALL_SIGN_UPS}
+        USER_SESSION_EXPIRY: ${USER_SESSION_EXPIRY}
+        DEPLOYMENT_PLATFORM: ${DEPLOYMENT_PLATFORM}
+      command: npm run start:prod
+      ports:
+        - 127.0.0.1:${PORT}:80
+    postgres:
+      image: postgres:13@sha256:4689940c683801b4ab839ab3b0a0a3555a5fe425371422310944e89eca7d8068
+      restart: unless-stopped
+      deploy:
+        resources:
+          limits:
+            cpus: '2'
+            memory: 3G
+      volumes:
+        - postgres-postgres:/var/lib/postgresql/data
+      environment:
+        POSTGRES_USER: ${PG_USER}
+        POSTGRES_PASSWORD: ${PG_PASS}
+        TOOLJET_HOST: ${TOOLJET_HOST}
+        TOOLJET_HTTP_PROXY: ${TOOLJET_HTTP_PROXY}
+        LOCKBOX_MASTER_KEY: ${LOCKBOX_MASTER_KEY}
+        SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+        ORM_LOGGING: ${ORM_LOGGING}
+        PG_DB: ${PG_DB}
+        PG_USER: ${PG_USER}
+        PG_HOST: ${PG_HOST}
+        PG_PASS: ${PG_PASS}
+        TOOLJET_DB: ${TOOLJET_DB}
+        TOOLJET_DB_USER: ${TOOLJET_DB_USER}
+        TOOLJET_DB_HOST: ${TOOLJET_DB_HOST}
+        TOOLJET_DB_PASS: ${TOOLJET_DB_PASS}
+        PGRST_DB_URI: ${PGRST_DB_URI}
+        PGRST_HOST: ${PGRST_HOST}
+        PGRST_JWT_SECRET: ${PGRST_JWT_SECRET}
+        PGRST_SERVER_PORT: ${PGRST_SERVER_PORT}
+        REDIS_HOST: ${REDIS_HOST}
+        REDIS_PORT: ${REDIS_PORT}
+        REDIS_USER: ${REDIS_USER}
+        REDIS_PASSWORD: ${REDIS_PASSWORD}
+        CHECK_FOR_UPDATES: ${CHECK_FOR_UPDATES}
+        DISABLE_TOOLJET_TELEMETRY: ${DISABLE_TOOLJET_TELEMETRY}
+        GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+        GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+        DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL}
+        SMTP_USERNAME: ${SMTP_USERNAME}
+        SMTP_PASSWORD: ${SMTP_PASSWORD}
+        SMTP_DOMAIN: ${SMTP_DOMAIN}
+        SMTP_PORT: ${SMTP_PORT}
+        DISABLE_SIGNUPS: ${DISABLE_SIGNUPS}
+        APM_VENDOR: ${APM_VENDOR}
+        SENTRY_DNS: ${SENTRY_DNS}
+        SENTRY_DEBUG: ${SENTRY_DEBUG}
+        COMMENT_FEATURE_ENABLE: ${COMMENT_FEATURE_ENABLE}
+        ENABLE_MULTIPLAYER_EDITING: ${ENABLE_MULTIPLAYER_EDITING}
+        ENABLE_MARKETPLACE_FEATURE: ${ENABLE_MARKETPLACE_FEATURE}
+        SSO_GOOGLE_OAUTH2_CLIENT_ID: ${SSO_GOOGLE_OAUTH2_CLIENT_ID}
+        SSO_GIT_OAUTH2_CLIENT_ID: ${SSO_GIT_OAUTH2_CLIENT_ID}
+        SSO_GIT_OAUTH2_CLIENT_SECRET: ${SSO_GIT_OAUTH2_CLIENT_SECRET}
+        SSO_GIT_OAUTH2_HOST: ${SSO_GIT_OAUTH2_HOST}
+        SSO_ACCEPTED_DOMAINS: ${SSO_ACCEPTED_DOMAINS}
+        SSO_DISABLE_SIGNUPS: ${SSO_DISABLE_SIGNUPS}
+        ENABLE_ONBOARDING_QUESTIONS_FOR_ALL_SIGN_UPS: ${ENABLE_ONBOARDING_QUESTIONS_FOR_ALL_SIGN_UPS}
+        USER_SESSION_EXPIRY: ${USER_SESSION_EXPIRY}
+        DEPLOYMENT_PLATFORM: ${DEPLOYMENT_PLATFORM}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U "$${POSTGRES_USER:-postgres}" -q
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+  volumes:
+    postgres-postgres:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume postgres-postgres of this application: back it up before updating."

@@ -1,0 +1,111 @@
+# HortusFox: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/hortusfox
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: hortusfox
+kind: compose
+title: "HortusFox"
+slogan: "Self-hosted collaborative plant management and tracking system for plant enthusiasts"
+description: "HortusFox is an open source task and photo management app, designed for photographers and creatives to manage projects, tasks, and images effectively."
+category: analytics
+tags: [productivity, photo, task-management, php, mariadb, analytics]
+logo: logo.svg
+version: "6.4"
+revision: 1
+updated: 2026-10-30
+homepage: https://www.hortusfox.com
+docs: https://github.com/danielbrendel/hortusfox-web#readme
+repository: https://github.com/danielbrendel/hortusfox-web
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  APP_DOMAIN:
+    from: "fqdn"
+    description: "The domain people use to reach the application."
+  APP_ADMIN_EMAIL:
+    value: "admin@${APP_DOMAIN}"
+    description: "Setting APP_ADMIN_EMAIL of the application; the template leaves it to the operator."
+  APP_ADMIN_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for app admin password."
+  APP_TIMEZONE:
+    default: "UTC"
+    description: "Setting APP_TIMEZONE of the application; the template leaves it to the operator."
+  DB_DATABASE:
+    default: "hortusfox"
+    description: "Setting DB_DATABASE of the application; the template leaves it to the operator."
+  DB_USERNAME:
+    default: "hortususer"
+    description: "Setting DB_USERNAME of the application; the template leaves it to the operator."
+  DB_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for db password."
+  MARIADB_ROOT_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for mariadb root password."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    app:
+      image: ghcr.io/danielbrendel/hortusfox-web:v6.4@sha256:bea58ac1f2884d672277ad2444de372b0a5032ef827bdc51d2b368285dbdb4dd
+      restart: unless-stopped
+      volumes:
+        - app_images:/var/www/html/public/img
+        - app_logs:/var/www/html/app/logs
+        - app_backup:/var/www/html/public/backup
+        - app_themes:/var/www/html/public/themes
+        - app_migrate:/var/www/html/app/migrations
+      environment:
+        APP_ADMIN_EMAIL: ${APP_ADMIN_EMAIL}
+        APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD}
+        APP_TIMEZONE: ${APP_TIMEZONE}
+        DB_HOST: db
+        DB_PORT: '3306'
+        DB_DATABASE: ${DB_DATABASE}
+        DB_USERNAME: ${DB_USERNAME}
+        DB_PASSWORD: ${DB_PASSWORD}
+        DB_CHARSET: utf8mb4
+      depends_on:
+        db:
+          condition: service_healthy
+      ports:
+        - 127.0.0.1:${PORT}:80
+    db:
+      image: mariadb:11@sha256:c4124d1afa875e47f2892edf26b482fa54f796e2f342d3717a04ca091a22a9bd
+      restart: unless-stopped
+      environment:
+        MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+        MARIADB_DATABASE: ${DB_DATABASE}
+        MARIADB_USER: ${DB_USERNAME}
+        MARIADB_PASSWORD: ${DB_PASSWORD}
+      volumes:
+        - db_data:/var/lib/mysql
+      healthcheck:
+        test:
+          - CMD
+          - healthcheck.sh
+          - --connect
+          - --innodb_initialized
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+  volumes:
+    app_images:
+    app_logs:
+    app_backup:
+    app_themes:
+    app_migrate:
+    db_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes app_images, app_logs, app_backup, app_themes, app_migrate, db_data of this application: back them up before updating."

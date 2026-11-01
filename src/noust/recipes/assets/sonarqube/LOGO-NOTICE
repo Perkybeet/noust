@@ -1,0 +1,7 @@
+Mark of: Sonarqube
+Source: https://github.com/homarr-labs/dashboard-icons/blob/83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/sonarqube.svg
+Licence: Apache-2.0
+Copyright: Copyright (c) 2024 Bjorn Lammers, Meier Lukas, Thomas Camlong and Homarr Labs
+Terms: the project's mark as the collection draws it, which is licensed Apache-2.0 and leaves the brand to its owner; no file about a trademark, a brand or a logo is in the root of SonarSource/sonarqube and its README mentions no trademark (checked 2026-11-01)
+Retrieved: 2026-11-01
+Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged

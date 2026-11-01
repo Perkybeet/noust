@@ -1,0 +1,115 @@
+# Lemmy from the image the project publishes (nginx), with the compose file, nginx.conf and lemmy.hjson of the project's docker folder at the 0.19.21 tag (github.com/LemmyNet/lemmy) and its administration guide (join-lemmy.org/docs/administration/install_docker.html).
+# Licence: LICENSE of LemmyNet/lemmy, read 2026-10-30: the GNU AGPL version 3
+schema: 2
+name: lemmy
+kind: compose
+title: "Lemmy"
+slogan: "A link aggregator and forum for the fediverse."
+description: "A federated Reddit-like community: communities, posts, votes and threaded comments that interoperate with Mastodon and the rest of the fediverse. Runs the server, its web interface and its image host beside its own PostgreSQL, behind one nginx of its own."
+category: communication
+tags: [fediverse, forum, reddit, activitypub]
+logo: simple-icons:lemmy
+version: "1.31.8-alpine"
+revision: 1
+updated: 2026-10-30
+homepage: https://join-lemmy.org
+docs: https://join-lemmy.org
+repository: https://github.com/LemmyNet/lemmy
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8536
+variables:
+  DB_PASSWORD:
+    generate: "password32"
+    description: "The password of the stack's PostgreSQL account."
+  FQDN:
+    from: "fqdn"
+    description: "The name of this instance. It cannot change after the first start."
+  ADMIN_PASSWORD:
+    generate: "password32"
+    description: "The password of the first administrator, admin."
+  PICTRS_KEY:
+    generate: "password32"
+    description: "The key Lemmy and its image host use to talk to each other."
+health: {path: /, expect: "200-399", timeout: 240}
+files:
+  lemmy.hjson: {asset: lemmy.hjson, render: true, mode: "0644"}
+  nginx.conf: {asset: nginx.conf, render: true, mode: "0644"}
+compose: |
+  services:
+    proxy:
+      image: nginx:1.31.8-alpine@sha256:785835ea65db4bba6f021acc0f3be91b0fef76a53fe41f8588c6698d2aed0606
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+        lemmy-ui:
+          condition: service_started
+        lemmy:
+          condition: service_started
+      volumes:
+        - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      ports:
+        - 127.0.0.1:${PORT}:8536
+    lemmy:
+      image: dessalines/lemmy:0.19.21@sha256:839d72704b10d574a21dacab046d9369e241366e4092b950d801e821f779de29
+      environment:
+        RUST_LOG: warn
+      volumes:
+        - ./lemmy.hjson:/config/config.hjson:ro
+      depends_on:
+        db:
+          condition: service_healthy
+        pictrs:
+          condition: service_started
+      restart: unless-stopped
+    lemmy-ui:
+      image: dessalines/lemmy-ui:0.19.21@sha256:d78d073a888c780f83e10850867841eca03261c8c459b65465fa337b4071768d
+      environment:
+        LEMMY_UI_LEMMY_INTERNAL_HOST: lemmy:8536
+        LEMMY_UI_LEMMY_EXTERNAL_HOST: ${FQDN}
+        LEMMY_UI_HTTPS: 'true'
+      depends_on:
+        lemmy:
+          condition: service_started
+      init: true
+      restart: unless-stopped
+    pictrs:
+      image: asonix/pictrs:0.5.16@sha256:b5a11e26ee8b3e6e7fa2cb4ce0afc8a8fc56e33801ba40edcf5212a1818c42f9
+      environment:
+        PICTRS__API_KEY: ${PICTRS_KEY}
+        PICTRS__MEDIA__VIDEO_CODEC: vp9
+        PICTRS__MEDIA__GIF__MAX_WIDTH: '256'
+        PICTRS__MEDIA__GIF__MAX_HEIGHT: '256'
+        PICTRS__MEDIA__GIF__MAX_AREA: '65536'
+        PICTRS__MEDIA__GIF__MAX_FRAME_COUNT: '400'
+      user: 991:991
+      volumes:
+        - pictrs-data:/mnt
+      restart: unless-stopped
+    db:
+      image: postgres:17.11-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: lemmy
+        POSTGRES_DB: lemmy
+        POSTGRES_PASSWORD: ${DB_PASSWORD}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U lemmy -d lemmy
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - lemmy-db:/var/lib/postgresql/data
+  volumes:
+    pictrs-data:
+    lemmy-db:
+notes:
+  - "Open {{ url }}. Sign in as admin with the password in ADMIN_PASSWORD (noust env show {{ domain }} --unmask) and change it; the instance is named Lemmy until you rename it in the site settings."
+  - "{{ domain }} is the name of this instance on the fediverse and cannot change after the first start. The images people upload are in the volume pictrs-data, the communities and posts in the PostgreSQL of this stack."
+  - "Its data is in the Docker volumes pictrs-data, lemmy-db of this application, the databases dumped by Noust before every update: back them up before updating."

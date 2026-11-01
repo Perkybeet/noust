@@ -1,0 +1,49 @@
+# ONLYOFFICE Docs from the image the project publishes (onlyoffice/documentserver), with the variables and volumes its documentation names (github.com/ONLYOFFICE/Docker-DocumentServer).
+schema: 2
+name: onlyoffice
+kind: compose
+title: "ONLYOFFICE Docs"
+slogan: "Online editors for text documents, spreadsheets and presentations."
+description: "The editing server behind the documents of Nextcloud, ownCloud, Seafile and others: it opens and edits Word, Excel and PowerPoint files together in the browser. Another application sends it the files; requests are signed with a secret Noust generates."
+category: productivity
+tags: [office, documents, spreadsheets, collaboration]
+logo: simple-icons:onlyoffice
+version: "10.0.0.1"
+revision: 1
+updated: 2026-10-30
+homepage: https://www.onlyoffice.com/see-it-in-action
+docs: https://www.onlyoffice.com/see-it-in-action
+repository: https://github.com/ONLYOFFICE/DocumentServer
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  JWT_SECRET:
+    generate: "password32"
+    description: "The secret the applications that use the server sign their requests with."
+health: {path: /healthcheck, expect: "200", timeout: 420}
+compose: |
+  services:
+    onlyoffice:
+      image: onlyoffice/documentserver:10.0.0.1@sha256:ca17889f10b11141cc6441836aebdd2835cf3e1b49681b2fd6e155c94b7850b3
+      restart: unless-stopped
+      environment:
+        JWT_ENABLED: 'true'
+        JWT_SECRET: ${JWT_SECRET}
+      volumes:
+        - onlyoffice-data:/var/www/onlyoffice/Data
+        - onlyoffice-lib:/var/lib/onlyoffice
+        - onlyoffice-log:/var/log/onlyoffice
+        - onlyoffice-db:/var/lib/postgresql
+      ports:
+        - 127.0.0.1:${PORT}:80
+  volumes:
+    onlyoffice-data:
+    onlyoffice-lib:
+    onlyoffice-log:
+    onlyoffice-db:
+notes:
+  - "Open {{ url }}. It is a service for other applications, not a place people sign in. In Nextcloud or ownCloud's ONLYOFFICE settings, give the address {{ url }} and the secret in JWT_SECRET (noust env show {{ domain }} --unmask). The first start takes a few minutes."
+  - "Its data is in the Docker volumes onlyoffice-data, onlyoffice-lib, onlyoffice-log, onlyoffice-db of this application: back them up before updating."

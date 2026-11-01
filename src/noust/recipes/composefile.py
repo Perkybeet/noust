@@ -23,7 +23,11 @@ press install. So the document is read through a closed schema:
 - Named volumes, declared and used; or paths under ``./`` that are files the
   recipe ships. No path of the host, no ``..``.
 - ``restart: unless-stopped`` on every service, because the unit that owns the
-  stack only runs ``docker compose up -d`` once.
+  stack only runs ``docker compose up -d`` once. The one exception is a job the
+  stack waits for (``depends_on`` with ``condition: service_completed_successfully``,
+  a migration or an initialisation): it is ``restart: "no"`` or ``on-failure``,
+  because a restart policy would run it again as soon as it finished and the
+  stack would wait for ever.
 - Every ``${VAR}`` is a variable the recipe declares, or carries its own
   default (``${VAR:-x}``) or its own demand (``${VAR:?message}``).
 """
@@ -254,6 +258,7 @@ def validate_compose(
     except ReferenceSyntaxError as exc:
         raise recipe_error(name, f"compose: {exc}", field="compose") from exc
 
+    jobs = _awaited_jobs(services)
     images: list[RecipeImage] = []
     web: list[tuple[str, int]] = []
     local_variables: set[str] = set()
@@ -278,10 +283,18 @@ def validate_compose(
         images.append(
             parse_image(name, service_name, service.get("image"), digest_verified=digest_verified)
         )
-        if service.get("restart") != "unless-stopped":
+        restart = service.get("restart")
+        if restart != "unless-stopped" and not (
+            service_name in jobs and str(restart) in _JOB_RESTARTS
+        ):
             raise recipe_error(
                 name,
-                f"service {service_name} needs restart: unless-stopped",
+                f"service {service_name} needs restart: unless-stopped"
+                + (
+                    ' (or "no" / on-failure, for a job another service waits for)'
+                    if service_name in jobs
+                    else ""
+                ),
                 field="compose",
             )
         _check_security(name, service_name, service)
@@ -538,6 +551,35 @@ def _check_ports(
             "127.0.0.1:${PORT}:<port>, and declare anything open to the network under public_ports",
             field="compose",
         )
+
+
+#: What a job that the stack waits for may restart as: never, or only when it failed.
+_JOB_RESTARTS = frozenset({"no", "on-failure"})
+
+
+def _awaited_jobs(services: Mapping[str, Any]) -> frozenset[str]:
+    """
+    Find the services another one waits to finish.
+
+    Args:
+        services: Every service of the document.
+
+    Returns:
+        The names that some service lists in ``depends_on`` with
+        ``condition: service_completed_successfully``.
+    """
+    awaited: set[str] = set()
+    for service in services.values():
+        depends = service.get("depends_on") if isinstance(service, Mapping) else None
+        if not isinstance(depends, Mapping):
+            continue
+        for other, wait in depends.items():
+            if (
+                isinstance(wait, Mapping)
+                and wait.get("condition") == "service_completed_successfully"
+            ):
+                awaited.add(str(other))
+    return frozenset(awaited)
 
 
 def _check_depends_on(

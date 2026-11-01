@@ -1,7 +1,7 @@
 Mark of: EspoCRM
 Source: https://github.com/espocrm/espocrm/blob/e4333c6639fd640ee1bac16972a0ef7073ed8fee/client/img/favicon.svg
 Licence: AGPL-3.0-only
-Copyright: Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+Copyright: the EspoCRM contributors
 Terms: espocrm.com/trademark, read 2026-10-29: the logos may not be used as an indicator of source or so as to cause confusion without consent; shown here only to identify the software a recipe installs
 Retrieved: 2026-10-29
 Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged

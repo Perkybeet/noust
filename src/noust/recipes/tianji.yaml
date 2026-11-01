@@ -1,0 +1,73 @@
+# Tianji: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/tianji
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: tianji
+kind: compose
+title: "Tianji"
+slogan: "Tianji: Insight into everything, Website Analytics + Uptime Monitor + Server Status."
+description: "Tianji is a lightweight web analytic service and uptime monitoring tool."
+category: analytics
+tags: [analytics, monitoring, web, uptime]
+logo: logo.svg
+version: "1.33.13"
+revision: 1
+updated: 2026-10-30
+homepage: https://tianji.dev
+docs: https://tianji.dev/docs/intro
+repository: https://github.com/msgbyte/tianji
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  POSTGRES_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres password."
+  jwt_secret:
+    default: ""
+    secret: true
+    description: "Setting jwt_secret of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    tianji:
+      image: moonrailgun/tianji:1.33.13@sha256:08b51b0a4c93eaa5a7982f39a75b59f69ab4a798c0f547b36c4ea2f9d5cc26f8
+      environment:
+        DATABASE_URL: postgresql://${POSTGRES_PASSWORD}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_PASSWORD}
+        JWT_SECRET: ${jwt_secret}
+        ALLOW_REGISTER: 'false'
+        ALLOW_OPENAPI: 'true'
+      depends_on:
+        postgres:
+          condition: service_healthy
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:12345
+    postgres:
+      image: postgres:15.4-alpine@sha256:35ce2187f2f7fb75e8e79493e13743596c21eb3789ff41ece145ae04d06e93a5
+      environment:
+        POSTGRES_DB: ${POSTGRES_PASSWORD}
+        POSTGRES_USER: ${POSTGRES_PASSWORD}
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      volumes:
+        - tianji-db-data:/var/lib/postgresql/data
+      restart: unless-stopped
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U "$${POSTGRES_USER:-postgres}" -q
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+  volumes:
+    tianji-db-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume tianji-db-data of this application: back it up before updating."

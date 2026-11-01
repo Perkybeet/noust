@@ -1,0 +1,7 @@
+Mark of: ToolJet
+Source: https://github.com/ToolJet/ToolJet/blob/6bfec3f1fa4d68d583a2ed75f96e796fd6ebbbb5/docs/static/img/Icon.svg
+Licence: AGPL-3.0-only
+Copyright: the contributors of ToolJet/ToolJet
+Terms: no rule on the project's logo was found in its repository, its documents or its site (checked 2026-11-01); the terms of tooljet.com/terms (the SaaS and on-prem product) only forbid removing trademark notices from the Product and say nothing on third-party use of the name or logo
+Retrieved: 2026-11-01
+Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged

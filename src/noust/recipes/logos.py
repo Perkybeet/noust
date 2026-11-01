@@ -360,6 +360,9 @@ _LICENCE = re.compile(
     r"(?:LicenseRef-[A-Za-z0-9.-]+|[A-Za-z0-9.+-]+)"
     r"(?: (?:AND|OR|WITH) (?:LicenseRef-[A-Za-z0-9.-]+|[A-Za-z0-9.+-]+))*"
 )
+#: The line a GPL or AGPL text begins with. It is the licence's authorship, copied into a project's
+#: LICENSE file, and not who drew the project's logo.
+_LICENCE_AUTHOR = re.compile(r"Free Software Foundation|\bFSF\b", re.IGNORECASE)
 _NOTICE_LINE = re.compile(r"([A-Za-z][A-Za-z ]*): (.+)")
 _NOTICE_FIELDS = {
     "Mark of": "mark",
@@ -369,7 +372,22 @@ _NOTICE_FIELDS = {
     "Terms": "terms",
     "Retrieved": "retrieved",
     "Changes": "changes",
+    "Repaint": "repaint",
 }
+
+#: What a project's rules let the console do with the colours of its mark (the ``Repaint`` field):
+#: nothing at all, or only draw a one-colour mark in pure black on the light stone and pure white
+#: on the dark one. Without the field the console may use the stone's own ink and paper.
+REPAINT_RULES = ("no", "white-black")
+
+#: Words in a project's rules that say its mark is not to be changed: a notice that has them says
+#: what the console may do about it (``Repaint``) instead of promising a file "shown unmodified"
+#: that the console would then recolour.
+FORBIDS_ALTERING = re.compile(
+    r"unmodified|never altered|not be (?:changed|altered)|not to be (?:changed|altered)|as provided"
+    r"|as it is drawn|as its designer drew|only (?:in )?(?:the )?white|non-approved colou?rs?",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -386,6 +404,10 @@ class LogoNotice:
         terms: What the project's own rules on its logo say (a trademark policy, a brand kit),
             and where and when they were read.
         changes: What was done to the file.
+        repaint: What the console may do with the mark's colours on the stone of a theme: ``no``
+            (draw it as it is) or ``white-black`` (pure black on the light stone, pure white on
+            the dark one); empty when the project's rules say nothing and the stone's own ink and
+            paper may stand in for a colour that would not read.
     """
 
     source: str
@@ -395,6 +417,7 @@ class LogoNotice:
     copyright: str = ""
     terms: str = ""
     changes: str = ""
+    repaint: str = ""
 
 
 def parse_logo_notice(name: str, text: str) -> LogoNotice:
@@ -445,6 +468,23 @@ def parse_logo_notice(name: str, text: str) -> LogoNotice:
             f"{where}: the licence {found['Licence']!r} is not an SPDX expression "
             "(MIT, Apache-2.0, CC-BY-4.0, or LicenseRef-<name> for terms the project gave in writing)",
         )
+    if found.get("Repaint", "") not in ("", *REPAINT_RULES):
+        raise recipe_error(
+            name, f"{where}: Repaint is one of {', '.join(REPAINT_RULES)}, not {found['Repaint']!r}"
+        )
+    if FORBIDS_ALTERING.search(found.get("Terms", "")) and not found.get("Repaint"):
+        raise recipe_error(
+            name,
+            f"{where}: the Terms say the mark is not to be changed, so the notice must say what the "
+            f"console may do with its colours: Repaint: {' or '.join(REPAINT_RULES)}",
+        )
+    if _LICENCE_AUTHOR.search(found.get("Copyright", "")):
+        raise recipe_error(
+            name,
+            f"{where}: the Copyright line names the Free Software Foundation, which wrote the "
+            "text of the GPL and the AGPL and drew no logo; credit the authors or contributors "
+            "of the project the mark comes from",
+        )
     try:
         retrieved = date.fromisoformat(found["Retrieved"])
     except ValueError as exc:
@@ -457,6 +497,7 @@ def parse_logo_notice(name: str, text: str) -> LogoNotice:
         copyright=found.get("Copyright", ""),
         terms=found.get("Terms", ""),
         changes=found.get("Changes", ""),
+        repaint=found.get("Repaint", ""),
     )
 
 
@@ -491,6 +532,26 @@ def logo_credit(name: str, logo: str | None) -> LogoCredit | None:
     except RecipeError:
         return None
     return LogoCredit(license=notice.license, origin=notice.source)
+
+
+def logo_repaint(name: str, logo: str | None) -> str:
+    """
+    Say what the console may do with the colours of a recipe's mark.
+
+    Args:
+        name: The recipe.
+        logo: Its ``logo:`` as written.
+
+    Returns:
+        ``no``, ``white-black``, or an empty string when the project's rules say nothing (and for
+        a mark of the collection, or the monogram, which have no notice).
+    """
+    if logo is None or simple_icon_slug(logo) is not None:
+        return ""
+    try:
+        return parse_logo_notice(name, read_asset(name, NOTICE_FILE)).repaint
+    except RecipeError:
+        return ""
 
 
 def simple_icon_brand(slug: str) -> str | None:

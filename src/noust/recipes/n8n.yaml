@@ -1,62 +1,115 @@
-# n8n is published as an npm package, not as a repository to build, so the
-# source is a two-line package.json rendered from the recipe (assets/n8n/)
-# that depends on a pinned n8n. The 1.x line declares Node.js 20.19 to 24, but
-# its isolated-vm 6 asks for Node.js 22 and does not compile on 20 (a server's
-# own Node, profleet 2026-10-26), so the recipe pins node@22 and Noust fetches
-# its own when the server's is another major; 2.x needs Node.js 24 and is a
-# recipe revision of its own once it has been deployed here. Its SQLite
-# database and encryption key file live in N8N_USER_FOLDER, kept in shared/
-# across releases.
+# n8n from the image the project publishes (docker.n8n.io, mirrored on Docker Hub as n8nio/n8n),
+# with the PostgreSQL its own hosting examples use (github.com/n8n-io/n8n-hosting,
+# docker-compose/withPostgres, and docs.n8n.io/hosting/configuration/environment-variables/):
+# the database through DB_TYPE and DB_POSTGRESDB_*, the public address through N8N_HOST,
+# N8N_PROTOCOL, WEBHOOK_URL and N8N_EDITOR_BASE_URL, one reverse proxy in front of it
+# (N8N_PROXY_HOPS), and the encryption key of the stored credentials in N8N_ENCRYPTION_KEY.
+# Everything n8n keeps outside the database (the key file, community nodes, binary data) is in
+# the volume mounted at /home/node/.n8n. 2.45.7 is the release `latest` names (checked against
+# the registry on 2026-10-30), not the 3.0 line published beside it as a next channel.
 #
-# The version in assets/n8n/package.json and `version` below are one number:
-# a test refuses a recipe where they differ.
+# n8n is source-available: its Sustainable Use License (LICENSE.md of n8n-io/n8n, read on
+# 2026-10-30) allows using and modifying it for your own internal business purposes, and
+# not selling it or offering it to others as a hosted service; files with ".ee." in their
+# name are under the n8n Enterprise License and need a key. Noust redistributes none of it.
 schema: 2
 name: n8n
-kind: native
+kind: compose
 title: n8n
-slogan: Workflow automation with a visual editor.
-description: "Source-available (Sustainable Use License) workflow automation with a visual editor and hundreds of integrations: for your own business, not to resell. It runs as a pinned npm package, with its data kept in shared/ across releases."
+slogan: Workflow automation with a visual editor and hundreds of integrations.
+description: "Source-available (Sustainable Use License) workflow automation: a visual editor, hundreds of integrations, webhooks and code steps, for your own business and not to resell. Runs with its own PostgreSQL. The first person to open it creates the owner account."
 category: automation
-tags: [automation, workflows, integrations, nodejs]
+tags: [automation, workflows, integrations, webhooks]
 logo: simple-icons:n8n
-version: "1.123.82"
-revision: 2
-updated: 2026-10-27
+version: "2.45.7"
+revision: 1
+updated: 2026-10-30
 homepage: https://n8n.io
-docs: https://docs.n8n.io
+docs: https://docs.n8n.io/hosting/
 repository: https://github.com/n8n-io/n8n
 license: LicenseRef-n8n-Sustainable-Use
+architectures: ["amd64", "arm64"]
 needs:
-  - Node.js 22, with npm (Noust installs its own copy when the server's is another version)
-  - About 2 GB of disk for its dependencies
-app_type: nodejs
-source:
-  template:
-    package.json: package.json
-layout: releases
-build:
-  runtime: node@22
+  - Docker Engine with the Compose plugin
 port: 5678
 variables:
-  PUBLIC_URL: {from: url}
-  APP_PATH: {from: app_path}
-  N8N_PORT: {from: port}
-  N8N_LISTEN_ADDRESS: {value: "127.0.0.1"}
-  N8N_HOST: {from: fqdn}
-  N8N_PROTOCOL: {from: scheme}
-  N8N_EDITOR_BASE_URL: {value: "${PUBLIC_URL}/"}
-  WEBHOOK_URL: {value: "${PUBLIC_URL}/"}
-  N8N_SECURE_COOKIE: {from: https}
-  N8N_USER_FOLDER: {value: "${APP_PATH}/shared/data"}
+  PUBLIC_URL:
+    from: url
+    description: The address people use to reach n8n.
+  FQDN:
+    from: fqdn
+    description: The host name of that address.
+  SCHEME:
+    from: scheme
+    description: http or https, as the address is served.
+  SECURE_COOKIE:
+    from: https
+    description: Whether the session cookie is sent only over https.
   N8N_ENCRYPTION_KEY:
     generate: password64
-    description: Encrypts every credential n8n stores; keep a copy.
-  N8N_DIAGNOSTICS_ENABLED: {value: "false"}
-persistent_paths:
-  - data
+    description: Encrypts every credential n8n stores; keep a copy, without it they cannot be read again.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+  GENERIC_TIMEZONE:
+    default: UTC
+    description: The time zone schedules run in (a name such as Europe/Madrid).
 health:
   path: /healthz
   expect: "200"
+  timeout: 120
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    n8n:
+      image: n8nio/n8n:2.45.7@sha256:9a8d8dcea75667496695d7810d7e1fe018a65efb36cc499d347f3931b3957b5d
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        DB_TYPE: postgresdb
+        DB_POSTGRESDB_HOST: db
+        DB_POSTGRESDB_PORT: "5432"
+        DB_POSTGRESDB_DATABASE: n8n
+        DB_POSTGRESDB_USER: n8n
+        DB_POSTGRESDB_PASSWORD: "${DB_PASSWORD}"
+        N8N_HOST: "${FQDN}"
+        N8N_PORT: "5678"
+        N8N_PROTOCOL: "${SCHEME}"
+        N8N_EDITOR_BASE_URL: "${PUBLIC_URL}/"
+        WEBHOOK_URL: "${PUBLIC_URL}/"
+        N8N_PROXY_HOPS: "1"
+        N8N_SECURE_COOKIE: "${SECURE_COOKIE}"
+        N8N_ENCRYPTION_KEY: "${N8N_ENCRYPTION_KEY}"
+        GENERIC_TIMEZONE: "${GENERIC_TIMEZONE}"
+        TZ: "${GENERIC_TIMEZONE}"
+        N8N_DIAGNOSTICS_ENABLED: "false"
+        N8N_RUNNERS_ENABLED: "true"
+      volumes:
+        - n8n-data:/home/node/.n8n
+      ports:
+        - "127.0.0.1:${PORT}:5678"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: n8n
+        POSTGRES_DB: n8n
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U n8n -d n8n"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - n8n-db:/var/lib/postgresql/data
+  volumes:
+    n8n-data:
+    n8n-db:
 notes:
-  - "Open {{ url }} now to create the owner account: until then, anyone who reaches it can."
-  - "N8N_ENCRYPTION_KEY encrypts every stored credential: keep a copy (noust env show {{ domain }}); without it they cannot be decrypted."
+  - "Open {{ url }} now and create the owner account: until someone does, anyone who reaches it can."
+  - "N8N_ENCRYPTION_KEY encrypts every credential n8n stores: keep a copy (noust env show {{ domain }} --unmask); without it the credentials cannot be decrypted, even from a backup."
+  - "Workflows, executions and credentials are in the PostgreSQL of this stack (Docker volume n8n-db, dumped by Noust before every update); the key file and community nodes are in the volume n8n-data. Back up both before updating."
+  - "n8n is source-available under its Sustainable Use License: it is for your own internal use, and may not be offered to others as a hosted service."

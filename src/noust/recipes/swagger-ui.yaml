@@ -1,0 +1,37 @@
+# Swagger UI from the image the project publishes (swaggerapi/swagger-ui), with the variables its documentation names (github.com/swagger-api/swagger-ui, docs/usage/configuration.md: Docker).
+schema: 2
+name: swagger-ui
+kind: compose
+title: "Swagger UI"
+slogan: "Visualize and interact with an API's resources from its OpenAPI definition."
+description: "Draws the documentation of any API described in OpenAPI: its operations, its schemas, and a button to try each call from the browser. Static, with nothing to sign into; it shows the definition at the address you give it."
+category: development
+tags: [openapi, api, documentation, swagger]
+logo: simple-icons:swagger
+version: "5.34.1"
+revision: 1
+updated: 2026-10-30
+homepage: https://swagger.io
+docs: https://swagger.io
+repository: https://github.com/swagger-api/swagger-ui
+license: Apache-2.0
+architectures: ["386", "amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8080
+variables:
+  DEFINITION_URL:
+    default: "https://petstore.swagger.io/v2/swagger.json"
+    description: "The address of the OpenAPI definition the page opens with."
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    swagger-ui:
+      image: swaggerapi/swagger-ui:v5.34.1@sha256:59ee9021a8884437c7fd8aae79e0a46ee6b6dd3afd7f24a587c4501585fde53b
+      restart: unless-stopped
+      environment:
+        URL: ${DEFINITION_URL}
+      ports:
+        - 127.0.0.1:${PORT}:8080
+notes:
+  - "Open {{ url }}. It opens on the definition named by DEFINITION_URL (a public example until you change it in the application's environment)."

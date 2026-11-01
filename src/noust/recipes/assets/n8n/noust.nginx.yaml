@@ -1,0 +1,5 @@
+# How nginx proxies this application. Webhooks receive payloads of up to 16 MB, an execution can hold a request open for minutes, and the editor listens to a push connection (WebSocket or server-sent events).
+max_body_size: 32m
+routes:
+  - path: /
+    read_timeout: 600

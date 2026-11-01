@@ -1,0 +1,95 @@
+# MetaMCP: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/metamcp.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: metamcp
+kind: compose
+title: "MetaMCP"
+slogan: "MCP Aggregator, Orchestrator, Middleware, Gateway in one app"
+description: "MCP Aggregator, Orchestrator, Middleware, Gateway in one application."
+category: ai
+tags: [mcp, ai, sse, aggregator, orchestrator, middleware]
+logo: logo.png
+version: "2.4.22"
+revision: 1
+updated: 2026-10-30
+homepage: https://docs.metamcp.com
+docs: https://github.com/metatool-ai/metamcp
+repository: https://github.com/metatool-ai/metamcp
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_METAMCP:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_USER_POSTGRES:
+    generate: "user"
+    description: "The user name Noust generated for postgres."
+  SERVICE_PASSWORD_POSTGRES:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres."
+  SERVICE_PASSWORD_AUTH:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for auth."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    app:
+      image: ghcr.io/metatool-ai/metamcp:2.4.22@sha256:6d5e0cba4ffc4976069a980723c11042f993a978fe0f3071ba2ec8a91ebc3d41
+      environment:
+        SERVICE_URL_METAMCP: ${SERVICE_URL_METAMCP}
+        POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+        POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+        POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+        POSTGRES_DB: ${POSTGRES_DB:-metamcp_db}
+        DATABASE_URL: postgresql://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-metamcp_db}
+        APP_URL: ${SERVICE_URL_METAMCP}
+        NEXT_PUBLIC_APP_URL: ${SERVICE_URL_METAMCP}
+        BETTER_AUTH_SECRET: ${SERVICE_PASSWORD_AUTH}
+        TRANSFORM_LOCALHOST_TO_DOCKER_INTERNAL: ${TRANSFORM_LOCALHOST_TO_DOCKER_INTERNAL:-true}
+      depends_on:
+        postgres:
+          condition: service_healthy
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - -f
+          - http://localhost:12008/health
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:12008
+    postgres:
+      image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
+      environment:
+        POSTGRES_DB: ${POSTGRES_DB:-metamcp_db}
+        POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+      volumes:
+        - postgres_data:/var/lib/postgresql/data
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U ${SERVICE_USER_POSTGRES} -d ${POSTGRES_DB:-metamcp_db}
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      restart: unless-stopped
+  volumes:
+    postgres_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_USER_POSTGRES and SERVICE_PASSWORD_POSTGRES and SERVICE_PASSWORD_AUTH in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume postgres_data of this application: back it up before updating."

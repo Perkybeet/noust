@@ -1,0 +1,98 @@
+# Grimmory: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/grimmory.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: grimmory
+kind: compose
+title: "Grimmory"
+slogan: "Grimmory is a self-hosted application for managing your entire book collection in one place."
+description: "A self-hosted ebook library manager and reader, successor to Booklore."
+category: media
+tags: [books, ebooks, library, reader, media]
+logo: logo.svg
+version: "3.5.0"
+revision: 1
+updated: 2026-10-28
+homepage: https://grimmory.org
+docs: https://github.com/grimmory-tools/grimmory
+repository: https://github.com/grimmory-tools/grimmory
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_GRIMMORY:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_USER_MARIADB:
+    generate: "user"
+    description: "The user name Noust generated for mariadb."
+  SERVICE_PASSWORD_MARIADB:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for mariadb."
+  SERVICE_PASSWORD_MARIADBROOT:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for mariadbroot."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    grimmory:
+      image: grimmory/grimmory:v3.5.0@sha256:bf6fe21c6e247597f7869664a440b5a34242e2d2940575cae39c17bfaa66dc0b
+      environment:
+        SERVICE_URL_GRIMMORY: ${SERVICE_URL_GRIMMORY}
+        USER_ID: ${GRIMMORY_USER_ID:-0}
+        GROUP_ID: ${GRIMMORY_GROUP_ID:-0}
+        TZ: ${TZ:-UTC}
+        DATABASE_URL: jdbc:mariadb://mariadb:3306/${MARIADB_DATABASE:-grimmory-db}
+        DATABASE_USERNAME: ${SERVICE_USER_MARIADB}
+        DATABASE_PASSWORD: ${SERVICE_PASSWORD_MARIADB}
+        BOOKLORE_PORT: '80'
+      volumes:
+        - grimmory-data:/app/data
+        - grimmory-books:/books
+        - grimmory-bookdrop:/bookdrop
+      healthcheck:
+        test: wget --no-verbose --tries=1 --spider http://127.0.0.1/health || exit 1
+        interval: 10s
+        timeout: 5s
+        retries: 10
+      depends_on:
+        mariadb:
+          condition: service_healthy
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:80
+    mariadb:
+      image: mariadb:12@sha256:d46e102fa8b9b72bfcdeb56f9dd538742092119dc8b11f31fe662605cd234cd9
+      environment:
+        MARIADB_USER: ${SERVICE_USER_MARIADB}
+        MARIADB_PASSWORD: ${SERVICE_PASSWORD_MARIADB}
+        MARIADB_ROOT_PASSWORD: ${SERVICE_PASSWORD_MARIADBROOT}
+        MARIADB_DATABASE: ${MARIADB_DATABASE:-grimmory-db}
+      volumes:
+        - mariadb-data:/var/lib/mysql
+      healthcheck:
+        test:
+          - CMD
+          - healthcheck.sh
+          - --connect
+          - --innodb_initialized
+        interval: 10s
+        timeout: 5s
+        retries: 10
+      restart: unless-stopped
+  volumes:
+    grimmory-data:
+    grimmory-books:
+    grimmory-bookdrop:
+    mariadb-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_USER_MARIADB and SERVICE_PASSWORD_MARIADB and SERVICE_PASSWORD_MARIADBROOT in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes grimmory-data, grimmory-books, grimmory-bookdrop, mariadb-data of this application: back them up before updating."

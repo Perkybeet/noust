@@ -1,0 +1,185 @@
+# Mautic: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/mautic
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+# Licence: LICENSE.txt of mautic/mautic, read 2026-10-30: GPL version 3 or later
+schema: 2
+name: mautic
+kind: compose
+title: "Mautic"
+slogan: "Mautic: Open Source Marketing Automation Software."
+description: "Mautic is the world's largest open-source marketing automation project. It allows you to automate the process of finding and nurturing contacts through landing pages and forms, sending email, text messages, web notifications, and tracking your contacts."
+category: automation
+tags: [marketing, automation, email, crm]
+logo: simple-icons:mautic
+version: "5.1.1-apache"
+revision: 1
+updated: 2026-10-31
+homepage: https://www.mautic.org
+docs: https://docs.mautic.org/en
+repository: https://github.com/mautic/mautic
+license: GPL-3.0-or-later
+architectures: ["amd64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  MYSQL_ROOT_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for mysql root password."
+  MAUTIC_DB_DATABASE:
+    default: "mautic"
+    description: "Setting MAUTIC_DB_DATABASE of the application; the template leaves it to the operator."
+  MAUTIC_DB_USER:
+    default: "mautic"
+    description: "Setting MAUTIC_DB_USER of the application; the template leaves it to the operator."
+  MAUTIC_DB_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for mautic db password."
+  MAUTIC_DB_HOST:
+    default: "mysql"
+    description: "Setting MAUTIC_DB_HOST of the application; the template leaves it to the operator."
+  MAUTIC_DB_PORT:
+    default: "3306"
+    description: "Setting MAUTIC_DB_PORT of the application; the template leaves it to the operator."
+  MAUTIC_URL:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  MAUTIC_TRUSTED_PROXIES:
+    default: "[\"0.0.0.0/0\"]"
+    description: "Setting MAUTIC_TRUSTED_PROXIES of the application; the template leaves it to the operator."
+  MAUTIC_MESSENGER_DSN_EMAIL:
+    default: "doctrine://default"
+    description: "Setting MAUTIC_MESSENGER_DSN_EMAIL of the application; the template leaves it to the operator."
+  MAUTIC_MESSENGER_DSN_HIT:
+    default: "doctrine://default"
+    description: "Setting MAUTIC_MESSENGER_DSN_HIT of the application; the template leaves it to the operator."
+  PHP_INI_DATE_TIMEZONE:
+    default: "UTC"
+    description: "Setting PHP_INI_DATE_TIMEZONE of the application; the template leaves it to the operator."
+  PHP_MEMORY_LIMIT:
+    default: "512M"
+    description: "Setting PHP_MEMORY_LIMIT of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    mysql:
+      image: mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
+      command: --default-authentication-plugin=mysql_native_password
+      restart: unless-stopped
+      environment:
+        MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+        MYSQL_DATABASE: ${MAUTIC_DB_DATABASE}
+        MYSQL_USER: ${MAUTIC_DB_USER}
+        MYSQL_PASSWORD: ${MAUTIC_DB_PASSWORD}
+      volumes:
+        - mysql_data:/var/lib/mysql
+      healthcheck:
+        test:
+          - CMD
+          - mysqladmin
+          - ping
+          - -h
+          - localhost
+        interval: 10s
+        timeout: 5s
+        retries: 5
+    mautic:
+      image: mautic/mautic:5.1.1-apache@sha256:d82ee25263477985f859466c4d6067376e91c7a64b7dc39f8e339a033669d36e
+      restart: unless-stopped
+      depends_on:
+        mysql:
+          condition: service_healthy
+      environment:
+        DOCKER_MAUTIC_ROLE: mautic_web
+        DOCKER_MAUTIC_RUN_MIGRATIONS: 'true'
+        MAUTIC_DB_HOST: ${MAUTIC_DB_HOST}
+        MAUTIC_DB_PORT: ${MAUTIC_DB_PORT}
+        MAUTIC_DB_DATABASE: ${MAUTIC_DB_DATABASE}
+        MAUTIC_DB_USER: ${MAUTIC_DB_USER}
+        MAUTIC_DB_PASSWORD: ${MAUTIC_DB_PASSWORD}
+        MAUTIC_URL: ${MAUTIC_URL}
+        MAUTIC_TRUSTED_PROXIES: ${MAUTIC_TRUSTED_PROXIES}
+        MAUTIC_MESSENGER_DSN_EMAIL: ${MAUTIC_MESSENGER_DSN_EMAIL}
+        MAUTIC_MESSENGER_DSN_HIT: ${MAUTIC_MESSENGER_DSN_HIT}
+        PHP_INI_DATE_TIMEZONE: ${PHP_INI_DATE_TIMEZONE}
+        PHP_MEMORY_LIMIT: ${PHP_MEMORY_LIMIT}
+      volumes:
+        - mautic_data:/var/www/html
+      entrypoint:
+        - /bin/sh
+        - -c
+        - chown -R www-data:www-data /var/www/html && /entrypoint.sh apache2-foreground
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - test -f /var/www/html/config/local.php || exit 1
+        interval: 10s
+        timeout: 5s
+        retries: 3
+        start_period: 300s
+      ports:
+        - 127.0.0.1:${PORT}:80
+    mautic-cron:
+      image: mautic/mautic:5.1.1-apache@sha256:d82ee25263477985f859466c4d6067376e91c7a64b7dc39f8e339a033669d36e
+      restart: unless-stopped
+      depends_on:
+        mautic:
+          condition: service_healthy
+      environment:
+        DOCKER_MAUTIC_ROLE: mautic_cron
+        MAUTIC_DB_HOST: ${MAUTIC_DB_HOST}
+        MAUTIC_DB_PORT: ${MAUTIC_DB_PORT}
+        MAUTIC_DB_DATABASE: ${MAUTIC_DB_DATABASE}
+        MAUTIC_DB_USER: ${MAUTIC_DB_USER}
+        MAUTIC_DB_PASSWORD: ${MAUTIC_DB_PASSWORD}
+        MAUTIC_URL: ${MAUTIC_URL}
+        PHP_INI_DATE_TIMEZONE: ${PHP_INI_DATE_TIMEZONE}
+      volumes:
+        - mautic_data:/var/www/html
+    mautic-worker:
+      image: mautic/mautic:5.1.1-apache@sha256:d82ee25263477985f859466c4d6067376e91c7a64b7dc39f8e339a033669d36e
+      restart: unless-stopped
+      depends_on:
+        mautic:
+          condition: service_healthy
+      deploy:
+        resources:
+          limits:
+            memory: 512M
+      environment:
+        DOCKER_MAUTIC_ROLE: mautic_worker
+        DOCKER_MAUTIC_WORKERS_CONSUME_EMAIL: '2'
+        DOCKER_MAUTIC_WORKERS_CONSUME_HIT: '2'
+        DOCKER_MAUTIC_WORKERS_CONSUME_FAILED: '2'
+        MAUTIC_DB_HOST: ${MAUTIC_DB_HOST}
+        MAUTIC_DB_PORT: ${MAUTIC_DB_PORT}
+        MAUTIC_DB_DATABASE: ${MAUTIC_DB_DATABASE}
+        MAUTIC_DB_USER: ${MAUTIC_DB_USER}
+        MAUTIC_DB_PASSWORD: ${MAUTIC_DB_PASSWORD}
+        MAUTIC_URL: ${MAUTIC_URL}
+        MAUTIC_MESSENGER_DSN_EMAIL: ${MAUTIC_MESSENGER_DSN_EMAIL}
+        MAUTIC_MESSENGER_DSN_HIT: ${MAUTIC_MESSENGER_DSN_HIT}
+        PHP_INI_DATE_TIMEZONE: ${PHP_INI_DATE_TIMEZONE}
+      volumes:
+        - mautic_data:/var/www/html
+    phpmyadmin:
+      image: phpmyadmin/phpmyadmin:5.2.3@sha256:16d0f09c25a2dee07739af9dc11e72c1bf7fb776a449f6cc03ec00b33d0c6d9b
+      restart: unless-stopped
+      depends_on:
+        mysql:
+          condition: service_healthy
+      environment:
+        PMA_HOST: mysql
+        PMA_PORT: '3306'
+        UPLOAD_LIMIT: 64M
+  volumes:
+    mysql_data:
+    mautic_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes mysql_data, mautic_data of this application: back them up before updating."

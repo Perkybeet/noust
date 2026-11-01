@@ -1,0 +1,52 @@
+# gonic from the image the project publishes (sentriz/gonic), with the variables and folders its documentation names (github.com/sentriz/gonic, README: Installation, Docker).
+schema: 2
+name: gonic
+kind: compose
+title: "gonic"
+slogan: "Music streaming server with Subsonic API support."
+description: "Serves a music library to Subsonic-compatible apps and its own web page: it scans folders, reads tags, scrobbles to Last.fm and ListenBrainz, fetches podcasts and has playlists. A small and fast alternative to bigger servers, with accounts."
+category: media
+tags: [music, subsonic, streaming, podcasts]
+logo: logo.png
+version: "0.23.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://web.libera.chat/?channels=#gonic
+docs: https://web.libera.chat/?channels=#gonic
+repository: https://github.com/sentriz/gonic
+license: GPL-3.0-only
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 4747
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    gonic:
+      image: sentriz/gonic:v0.23.0@sha256:7b2298d905149ecb7e57cdd3bf7a40082758b9bda2e24454b41c17c99bf25e8f
+      restart: unless-stopped
+      environment:
+        GONIC_DB_PATH: /data/gonic.db
+        GONIC_MUSIC_PATH: /music
+        GONIC_PODCAST_PATH: /podcasts
+        GONIC_PLAYLISTS_PATH: /playlists
+        GONIC_CACHE_PATH: /cache
+        TZ: UTC
+      volumes:
+        - gonic-data:/data
+        - gonic-music:/music
+        - gonic-podcasts:/podcasts
+        - gonic-playlists:/playlists
+        - gonic-cache:/cache
+      ports:
+        - 127.0.0.1:${PORT}:80
+      user: 0:0
+  volumes:
+    gonic-data:
+    gonic-music:
+    gonic-podcasts:
+    gonic-playlists:
+    gonic-cache:
+notes:
+  - "Open {{ url }}. The first visit asks to create the administrator: do it right after installing. Put your music in the volume gonic-music."
+  - "Its data is in the Docker volumes gonic-data, gonic-music, gonic-podcasts, gonic-playlists, gonic-cache of this application: back them up before updating."

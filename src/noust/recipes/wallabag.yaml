@@ -1,0 +1,118 @@
+# wallabag: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/wallabag
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: wallabag
+kind: compose
+title: "wallabag"
+slogan: "wallabag is a self hostable application for saving web pages: Save and classify articles."
+description: "wallabag is a self-hosted read-it-later application for saving, classifying, and reading web articles."
+category: utilities
+tags: [read-it-later, bookmarks, articles, self-hosted, utilities]
+logo: simple-icons:wallabag
+version: "2.6.14"
+revision: 2
+updated: 2026-10-30
+homepage: https://wallabag.org
+docs: https://doc.wallabag.org/
+repository: https://github.com/wallabag/wallabag
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  APP_DOMAIN:
+    from: "fqdn"
+    description: "The domain people use to reach the application."
+  MYSQL_ROOT_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for mysql root password."
+  SYMFONY__ENV__DATABASE_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for symfony  env  database password."
+  SYMFONY__ENV__FROM_EMAIL:
+    value: "wallabag@${APP_DOMAIN}"
+    description: "Setting SYMFONY__ENV__FROM_EMAIL of the application; the template leaves it to the operator."
+  SYMFONY__ENV__DOMAIN_NAME:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SYMFONY__ENV__SERVER_NAME:
+    default: "wallabag"
+    description: "Setting SYMFONY__ENV__SERVER_NAME of the application; the template leaves it to the operator."
+  SYMFONY__ENV__SECRET:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for symfony  env  secret."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    wallabag:
+      image: wallabag/wallabag:2.6.14@sha256:4a527e027e0d59e87c14225ef11e005af3d4890374202ad319ce5e63dfc66709
+      restart: unless-stopped
+      depends_on:
+        wallabag-db:
+          condition: service_healthy
+        wallabag-redis:
+          condition: service_healthy
+      environment:
+        MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+        SYMFONY__ENV__DATABASE_DRIVER: pdo_mysql
+        SYMFONY__ENV__DATABASE_HOST: wallabag-db
+        SYMFONY__ENV__DATABASE_PORT: '3306'
+        SYMFONY__ENV__DATABASE_NAME: wallabag
+        SYMFONY__ENV__DATABASE_USER: wallabag
+        SYMFONY__ENV__DATABASE_PASSWORD: ${SYMFONY__ENV__DATABASE_PASSWORD}
+        SYMFONY__ENV__DATABASE_CHARSET: utf8mb4
+        SYMFONY__ENV__DATABASE_TABLE_PREFIX: wallabag_
+        SYMFONY__ENV__MAILER_DSN: smtp://127.0.0.1
+        SYMFONY__ENV__FROM_EMAIL: ${SYMFONY__ENV__FROM_EMAIL}
+        SYMFONY__ENV__DOMAIN_NAME: ${SYMFONY__ENV__DOMAIN_NAME}
+        SYMFONY__ENV__SERVER_NAME: ${SYMFONY__ENV__SERVER_NAME}
+        SYMFONY__ENV__SECRET: ${SYMFONY__ENV__SECRET}
+        SYMFONY__ENV__REDIS_HOST: wallabag-redis
+      volumes:
+        - wallabag-images:/var/www/wallabag/web/assets/images
+      ports:
+        - 127.0.0.1:${PORT}:80
+    wallabag-db:
+      image: mariadb:11.4@sha256:d1891ede5a559f1086f55053bb8cc1569b0298338c4d72d71725a7f74f6ba620
+      restart: unless-stopped
+      environment:
+        MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      volumes:
+        - wallabag-db-data:/var/lib/mysql
+      healthcheck:
+        test:
+          - CMD
+          - healthcheck.sh
+          - --connect
+          - --innodb_initialized
+        interval: 20s
+        timeout: 5s
+        retries: 10
+    wallabag-redis:
+      image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
+      restart: unless-stopped
+      volumes:
+        - wallabag-redis-data:/data
+      healthcheck:
+        test:
+          - CMD
+          - redis-cli
+          - ping
+        interval: 20s
+        timeout: 5s
+        retries: 10
+  volumes:
+    wallabag-images:
+    wallabag-db-data:
+    wallabag-redis-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes wallabag-images, wallabag-db-data, wallabag-redis-data of this application: back them up before updating."

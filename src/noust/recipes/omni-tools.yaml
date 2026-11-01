@@ -10,7 +10,7 @@ slogan: "Self-hosted collection of powerful web-based tools for everyday tasks."
 description: "Omni-Tools is a collection of useful tools in a single self-hosted web application."
 category: analytics
 tags: [tools, utilities, collection, self-hosted, analytics]
-logo: logo.svg
+logo: logo.png
 version: "0.7.0"
 revision: 1
 updated: 2026-10-28

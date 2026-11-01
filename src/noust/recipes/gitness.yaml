@@ -1,0 +1,42 @@
+# Gitness from the image the project publishes (harness/harness), with the variable and folder its documentation names (docs.gitness.com, Docker install).
+schema: 2
+name: gitness
+kind: compose
+title: "Gitness"
+slogan: "An open-source developer platform with source control, continuous integration and delivery."
+description: "Hosts Git repositories with pull requests and code review, and runs pipelines on them, in one small program with a web console. The first account to sign up is the administrator. Pipelines that run in Docker need the Docker socket, which this recipe does not give it."
+category: development
+tags: [git, ci, code-review, devops]
+logo: logo.svg
+version: "3.3.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://www.harness.io/open-source
+docs: https://www.harness.io/open-source
+repository: https://github.com/harness/harness
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  APP_URL:
+    from: "url"
+    description: "The address people use to reach the application."
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    gitness:
+      image: harness/harness:3.3.0@sha256:c1bd76817ad7d2e7d78827653a54c55d4aec87c2777a586ebbad1ed01fc9e83f
+      restart: unless-stopped
+      environment:
+        GITNESS_URL_BASE: ${APP_URL}
+      volumes:
+        - gitness-data:/data
+      ports:
+        - 127.0.0.1:${PORT}:3000
+  volumes:
+    gitness-data:
+notes:
+  - "Open {{ url }}. The first visit asks to sign up: the first account is the administrator, so do it right after installing."
+  - "Its data is in the Docker volume gitness-data of this application: back it up before updating."

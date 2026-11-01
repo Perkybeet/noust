@@ -1,0 +1,92 @@
+# Ryot: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/ryot.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: ryot
+kind: compose
+title: "Ryot"
+slogan: "A self-hosted platform for tracking media, fitness and other aspects of life."
+description: "A self-hosted platform for tracking various media types including movies, TV shows, video games, books, audiobooks, and more."
+category: analytics
+tags: [rss, reader, self-hosted, automation, tracker, media, fitness, tracking]
+logo: logo.svg
+version: "10.5.5"
+revision: 1
+updated: 2026-10-30
+homepage: https://ryot.io
+docs: https://github.com/ignisda/ryot
+repository: https://github.com/IgnisDa/ryot
+license: GPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_RYOT:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_USER_POSTGRES:
+    generate: "user"
+    description: "The user name Noust generated for postgres."
+  SERVICE_PASSWORD_POSTGRES:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres."
+  POSTGRES_DB:
+    default: "ryot-db"
+    description: "Setting POSTGRES_DB of the application; the template leaves it to the operator."
+  SERVICE_PASSWORD_64_RYOT:
+    generate: "password64"
+    secret: true
+    description: "The secret Noust generated for ryot."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    ryot:
+      image: ignisda/ryot:v10.5.5@sha256:046a79d34b43baceb119716b978554c41715c736ba118e5b77c3d8865e9fc011
+      environment:
+        SERVICE_URL_RYOT: ${SERVICE_URL_RYOT}
+        DATABASE_URL: postgres://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@postgresql:5432/${POSTGRES_DB}
+        SERVER_ADMIN_ACCESS_TOKEN: ${SERVICE_PASSWORD_64_RYOT}
+        TZ: ${TZ:-Europe/Amsterdam}
+      depends_on:
+        postgresql:
+          condition: service_healthy
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - -f
+          - http://127.0.0.1:8000/health
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8000
+    postgresql:
+      image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
+      volumes:
+        - ryot_postgresql_data:/var/lib/postgresql/data
+      environment:
+        POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+        POSTGRES_DB: ${POSTGRES_DB:-ryot-db}
+        TZ: ${TZ:-Europe/Amsterdam}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+  volumes:
+    ryot_postgresql_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_USER_POSTGRES and SERVICE_PASSWORD_POSTGRES and SERVICE_PASSWORD_64_RYOT in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume ryot_postgresql_data of this application: back it up before updating."

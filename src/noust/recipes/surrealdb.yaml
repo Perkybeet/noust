@@ -1,0 +1,56 @@
+# SurrealDB: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/surrealdb
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+# Licence: LICENSE of surrealdb/surrealdb, read 2026-10-30: BSL 1.1 whose grant allows any use but a database service for third parties
+schema: 2
+name: surrealdb
+kind: compose
+title: "SurrealDB"
+slogan: "A scalable, distributed, collaborative, document-graph database, for the realtime web"
+description: "Source-available (Business Source License 1.1), for your own use. SurrealDB is a native, open-source, multi-model database that lets you store and manage data across relational, document, graph, time-series, vector & search, and geospatial modelsâ€”all in one place."
+category: data
+tags: [database, sql, surrealdb, data]
+logo: simple-icons:surrealdb
+version: "2.3.10"
+revision: 1
+updated: 2026-10-31
+homepage: https://surrealdb.com
+docs: https://surrealdb.com/docs/surrealdb
+repository: https://github.com/surrealdb/surrealdb
+license: BUSL-1.1
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SURREAL_USER:
+    generate: "user"
+    description: "The user name Noust generated for surreal user."
+  SURREAL_PASS:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for surreal pass."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    surrealdb:
+      image: surrealdb/surrealdb:v2.3.10@sha256:e3322f21b3135dd4893e6487874481333b03bc731d7da200d716a8564b4f0a92
+      environment:
+        SURREAL_USER: ${SURREAL_USER}
+        SURREAL_PASS: ${SURREAL_PASS}
+      volumes:
+        - db_data:/usr/app/data
+      user: root
+      command: start rocksdb:/db_data/data.db
+      pull_policy: always
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8000
+  volumes:
+    db_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume db_data of this application: back it up before updating."

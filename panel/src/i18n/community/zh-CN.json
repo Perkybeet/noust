@@ -3325,6 +3325,7 @@
   "catalog.all.title": "所有配方",
   "catalog.card.use": "使用",
   "catalog.card.docker": "在 Docker 中运行",
+  "catalog.card.notFree": "非自由软件",
   "catalog.card.tags": "标签",
   "catalog.card.moreTags": "+{count}",
   "catalog.card.website": "网站",
@@ -3402,6 +3403,7 @@
   "catalog.detail.updated": "配方更新于",
   "catalog.detail.category": "类别",
   "catalog.detail.license": "许可证",
+  "catalog.detail.notFree": "{license}（非自由软件：源码可用或开放核心）",
   "catalog.detail.architectures": "运行于",
   "catalog.detail.minNoust": "需要 Noust",
   "catalog.detail.runs": "运行内容",
@@ -14298,7 +14300,7 @@
   "shell.fleetStrip.failedApps": {
     "other": "{count} 个应用失败"
   },
-  "shell.fleetStrip.summary": "服务器群中的服务器：{total}。有响应：{answering}。无响应：{down}。失败的应用：{failed}。",
+  "shell.fleetStrip.summary": "服务器群中：{readings}。",
   "shell.fleetStrip.unavailable": "服务器群的读数不可用",
   "shell.pageHeader.breadcrumb": "面包屑导航",
   "shell.pageError.title": "无法显示此页面",

@@ -1,0 +1,49 @@
+# Wastebin from the image the project publishes (quxfoo/wastebin), with the variables its documentation names (github.com/matze/wastebin, README: Configuration).
+schema: 2
+name: wastebin
+kind: compose
+title: "Wastebin"
+slogan: "A pastebin service that is easy to host."
+description: "A small paste service with syntax highlighting, expiry, burn after reading and password protection. Pastes are kept in a SQLite file; anyone who reaches the page can paste."
+category: development
+tags: [pastebin, snippets, code, sharing]
+logo: logo.svg
+version: "3.9.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://bin.bloerg.net
+docs: https://bin.bloerg.net
+repository: https://github.com/matze/wastebin
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8088
+variables:
+  PASSWORD_SALT:
+    generate: "password32"
+    description: "The salt of the passwords that protect a paste."
+  SIGNING_KEY:
+    generate: "hex64"
+    description: "The key that signs the cookies of the page."
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    wastebin:
+      image: quxfoo/wastebin:3.9.0@sha256:d441b009827b896b67d7df5d7bf849cc5cff970c505cb50d72c946c3d3fd0a5e
+      restart: unless-stopped
+      environment:
+        WASTEBIN_ADDRESS_PORT: 0.0.0.0:8088
+        WASTEBIN_DATABASE_PATH: /data/state.db
+        WASTEBIN_PASSWORD_SALT: ${PASSWORD_SALT}
+        WASTEBIN_SIGNING_KEY: ${SIGNING_KEY}
+      volumes:
+        - wastebin-data:/data
+      ports:
+        - 127.0.0.1:${PORT}:8088
+      user: 0:0
+  volumes:
+    wastebin-data:
+notes:
+  - "Open {{ url }}. Nothing to set up: paste something, and share the link it makes."
+  - "Its data is in the Docker volume wastebin-data of this application: back it up before updating."

@@ -1,0 +1,37 @@
+# Redoc from the image the project publishes (redocly/redoc), with the variable its documentation names (github.com/Redocly/redoc, docs: Docker).
+schema: 2
+name: redoc
+kind: compose
+title: "Redoc"
+slogan: "OpenAPI/Swagger-generated API reference documentation."
+description: "Draws the reference of an API from its OpenAPI definition as a three-panel page with search, code samples and a menu that follows the operations. Static: it shows the definition at the address you give it."
+category: development
+tags: [openapi, api, documentation, reference]
+logo: logo.svg
+version: "3.0.1"
+revision: 1
+updated: 2026-10-30
+homepage: https://redocly.github.io/redoc/
+docs: https://redocly.github.io/redoc/
+repository: https://github.com/Redocly/redoc
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SPEC_URL:
+    default: "https://petstore.swagger.io/v2/swagger.json"
+    description: "The address of the OpenAPI definition the page shows."
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    redoc:
+      image: redocly/redoc:3.0.1@sha256:265ecca9adb2fd98982a6e25640c487707ffffa7b1895b3d0385f54da54a1e87
+      restart: unless-stopped
+      environment:
+        SPEC_URL: ${SPEC_URL}
+      ports:
+        - 127.0.0.1:${PORT}:80
+notes:
+  - "Open {{ url }}. It shows the definition named by SPEC_URL (a public example until you change it in the application's environment)."

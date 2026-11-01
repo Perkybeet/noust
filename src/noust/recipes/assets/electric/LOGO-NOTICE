@@ -1,0 +1,7 @@
+Mark of: Electric
+Source: https://github.com/electric-sql/electric/blob/3f9809fb0bd894cb74470d434749673492ad7acf/website/public/img/brand/icon.svg
+Licence: Apache-2.0
+Copyright: the contributors of electric-sql/electric
+Terms: terms of service of electric.ax (electric.ax/about/legal/terms, section 12), read 2026-11-01: the marks of its Services stay Electric's and are not to be distributed without its consent, while its open-source components 'may be used, modified, and distributed under their respective licenses' (Apache 2.0), and its contact page invites to 'Download our logo for use in presentations, press, and integrations'; shown here to identify the software a recipe installs
+Retrieved: 2026-11-01
+Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged

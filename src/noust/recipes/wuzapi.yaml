@@ -1,0 +1,86 @@
+# WuzAPI: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/wuzapi
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: wuzapi
+kind: compose
+title: "WuzAPI"
+slogan: "Simple RESTful API for WhatsApp in Golang (using the Whatsmeow multi device library)"
+description: "A RESTful API service for WhatsApp with multiple device support and concurrent sessions."
+category: automation
+tags: [api, whatsapp, messaging, automation]
+logo: logo.svg
+version: "sha-30c1805"
+revision: 1
+updated: 2026-10-30
+homepage: https://github.com/asternic/wuzapi
+docs: https://github.com/asternic/wuzapi/blob/main/README.md
+repository: https://github.com/asternic/wuzapi
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  WUZAPI_ADMIN_TOKEN:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for wuzapi admin token."
+  WUZAPI_GLOBAL_ENCRYPTION_KEY:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for wuzapi global encryption key."
+  DB_USER:
+    default: "wuzapi"
+    description: "Setting DB_USER of the application; the template leaves it to the operator."
+  DB_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for db password."
+  DB_NAME:
+    default: "wuzapi"
+    description: "Setting DB_NAME of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    wuzapi-server:
+      image: asternic/wuzapi:sha-30c1805@sha256:094f791d2ee2ffd6ff48941ac9d2bf5e301db537a7c5d8d1950ca33223459c86
+      restart: unless-stopped
+      environment:
+        WUZAPI_ADMIN_TOKEN: ${WUZAPI_ADMIN_TOKEN}
+        WUZAPI_GLOBAL_ENCRYPTION_KEY: ${WUZAPI_GLOBAL_ENCRYPTION_KEY}
+        DB_USER: ${DB_USER:-wuzapi}
+        DB_PASSWORD: ${DB_PASSWORD:-wuzapi}
+        DB_NAME: ${DB_NAME:-wuzapi}
+        DB_HOST: db
+        DB_PORT: '5432'
+        TZ: ${TZ:-UTC}
+      depends_on:
+        db:
+          condition: service_healthy
+      ports:
+        - 127.0.0.1:${PORT}:8080
+    db:
+      image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: ${DB_USER:-wuzapi}
+        POSTGRES_PASSWORD: ${DB_PASSWORD:-wuzapi}
+        POSTGRES_DB: ${DB_NAME:-wuzapi}
+      volumes:
+        - db_data:/var/lib/postgresql/data
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U $${DB_USER:-wuzapi}
+        interval: 5s
+        timeout: 5s
+        retries: 5
+  volumes:
+    db_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume db_data of this application: back it up before updating."

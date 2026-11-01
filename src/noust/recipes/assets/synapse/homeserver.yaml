@@ -1,0 +1,41 @@
+# Written by Noust from the recipe; the values come from the application's variables.
+# Reference: element-hq.github.io/synapse/latest/usage/configuration/config_documentation.html
+server_name: "${SERVER_NAME}"
+public_baseurl: "${PUBLIC_URL}/"
+pid_file: /data/homeserver.pid
+
+listeners:
+  - port: 8008
+    tls: false
+    type: http
+    x_forwarded: true
+    bind_addresses: ["0.0.0.0"]
+    resources:
+      - names: [client, federation]
+        compress: false
+
+database:
+  name: psycopg2
+  args:
+    user: synapse
+    password: "${DB_PASSWORD}"
+    database: synapse
+    host: db
+    port: 5432
+    cp_min: 5
+    cp_max: 10
+
+media_store_path: /data/media_store
+signing_key_path: /data/signing.key
+
+registration_shared_secret: "${REGISTRATION_SECRET}"
+macaroon_secret_key: "${MACAROON_SECRET}"
+form_secret: "${FORM_SECRET}"
+
+enable_registration: false
+report_stats: false
+serve_server_wellknown: true
+
+trusted_key_servers:
+  - server_name: "matrix.org"
+suppress_key_server_warning: true

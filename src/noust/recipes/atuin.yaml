@@ -1,0 +1,72 @@
+# Atuin Server from the image the project publishes (ghcr.io/atuinsh/atuin), with the settings its documentation names (docs.atuin.sh/self-hosting/docker and the project's docker-compose.yml in the repository).
+schema: 2
+name: atuin
+kind: compose
+title: "Atuin Server"
+slogan: "The server that syncs your shell history between machines."
+description: "The sync server for Atuin, which records your shell history with context. Everything it stores is encrypted on your machines with a key only they hold. Runs with its own PostgreSQL."
+category: development
+tags: [shell, history, sync, cli]
+logo: logo.svg
+version: "18.24.4"
+revision: 1
+updated: 2026-10-30
+homepage: https://atuin.sh
+docs: https://atuin.sh
+repository: https://github.com/atuinsh/atuin
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8888
+variables:
+  DB_PASSWORD:
+    generate: "password32"
+    description: "The password of the stack's PostgreSQL account."
+  OPEN_REGISTRATION:
+    default: "true"
+    description: "Whether anyone who reaches the server can register. Set it to false once your own accounts exist."
+health: {path: /, expect: "200", timeout: 120}
+compose: |
+  services:
+    atuin:
+      image: ghcr.io/atuinsh/atuin:18.24.4@sha256:1cb33a7126b748e0ad6d18d0f52e9bb805a98a196feccd597bf66544f58cf68e
+      restart: unless-stopped
+      command:
+        - start
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        ATUIN_HOST: 0.0.0.0
+        ATUIN_PORT: '8888'
+        ATUIN_OPEN_REGISTRATION: ${OPEN_REGISTRATION}
+        ATUIN_DB_URI: postgres://atuin:${DB_PASSWORD}@db/atuin
+        RUST_LOG: info,atuin_server=info
+      volumes:
+        - atuin-config:/config
+      ports:
+        - 127.0.0.1:${PORT}:8888
+    db:
+      image: postgres:17.11-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: atuin
+        POSTGRES_DB: atuin
+        POSTGRES_PASSWORD: ${DB_PASSWORD}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U atuin -d atuin
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - atuin-db:/var/lib/postgresql/data
+  volumes:
+    atuin-config:
+    atuin-db:
+notes:
+  - "Open {{ url }}. Registration is open so that you can register your machines: run `atuin register -u NAME -e EMAIL` after pointing sync_address at {{ url }}, then set OPEN_REGISTRATION to false and restart."
+  - "Its data is in the Docker volumes atuin-config, atuin-db of this application, the databases dumped by Noust before every update: back them up before updating."
