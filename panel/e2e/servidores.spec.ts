@@ -184,7 +184,9 @@ withFleet("on a fleet Servers opens the list, a row opens that server, and its p
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, central, "/");
-  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Servers", exact: true }).click();
+  // The sidebar's link says how many services failed after its name ("Servers 1 failed") once the counts arrive, which is
+  // sometime after the first heading: an exact name found the link only until then.
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: /^Servers\b/ }).click();
   await expect(page).toHaveURL(/\/fleet\/servers$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Servers");
   await settle(page);
