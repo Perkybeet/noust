@@ -14617,7 +14617,7 @@
     "one": "{count} application en échec",
     "other": "{count} applications en échec"
   },
-  "shell.fleetStrip.summary": "Serveurs de la flotte : {total}. Qui répondent : {answering}. Qui ne répondent pas : {down}. Applications en échec : {failed}.",
+  "shell.fleetStrip.summary": "Dans la flotte : {readings}.",
   "shell.fleetStrip.unavailable": "Les mesures de la flotte sont indisponibles",
   "shell.pageHeader.breadcrumb": "Fil d'Ariane",
   "shell.pageError.title": "Cette page n'a pas pu être affichée",

@@ -150,7 +150,7 @@ export const shell: Catalog<typeof en> = {
     down: { one: "{count} no responde", other: "{count} no responden" },
     downShort: { one: "{count} caído", other: "{count} caídos" },
     failedApps: { one: "{count} aplicación con fallo", other: "{count} aplicaciones con fallo" },
-    summary: "Servidores de la flota: {total}. Responden: {answering}. No responden: {down}. Aplicaciones con fallo: {failed}.",
+    summary: "En la flota: {readings}.",
     unavailable: "Las lecturas de la flota no están disponibles",
   },
   pageHeader: {

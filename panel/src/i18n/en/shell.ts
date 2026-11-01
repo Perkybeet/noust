@@ -157,7 +157,8 @@ export const shell = {
     down: { one: "{count} not answering", other: "{count} not answering" },
     downShort: { one: "{count} down", other: "{count} down" },
     failedApps: { one: "{count} application failed", other: "{count} applications failed" },
-    summary: "Servers in the fleet: {total}. Answering: {answering}. Not answering: {down}. Failed applications: {failed}.",
+    /** The link's name: the strip's own words, so what is read off it is what can be said to reach it. */
+    summary: "In the fleet: {readings}.",
     unavailable: "The fleet's readings are unavailable",
   },
   pageHeader: {
