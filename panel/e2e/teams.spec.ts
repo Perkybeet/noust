@@ -171,7 +171,7 @@ serial("a project and an environment are made in two clicks each, and the lists 
   await page.getByRole("button", { name: "Actions for the environment Staging" }).click();
   const remove = page.getByRole("menuitem", { name: /Delete environment/ });
   await expect(remove).toHaveAttribute("aria-disabled", "true");
-  await expect(remove).toHaveAccessibleDescription(/still holds \d+ resources?/);
+  await expect(remove).toHaveAccessibleName(/still holds \d+ resources?/);
   await page.keyboard.press("Escape");
 
   // Put back, then the environment and the project, which are empty now, are deleted.
