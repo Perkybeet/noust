@@ -1,6 +1,29 @@
 {
  "entries": [
   {
+   "version": "4.1.0",
+   "date": "2026-11-01",
+   "action_required": true,
+   "items": [
+    {
+     "text": "Noust reads a fleet as one thing and works it from the central: every list covers every server, the settings of the fleet are written once and each server applies them, and the GitHub App on the central lends each server what it needs to deploy",
+     "action_required": false
+    },
+    {
+     "text": "A console with a new frame and a new look, roles you edit, Noust DNS and IONOS, a move of an application between nginx and Apache, database servers in any version, and 440 recipes, every one that installs started before it shipped",
+     "action_required": false
+    },
+    {
+     "text": "a script that passes --json to a command that asks needs --yes too; setting the web server is refused while the other one still has sites",
+     "action_required": true
+    },
+    {
+     "text": "Every change: https://github.com/Perkybeet/noust/blob/main/docs/CHANGELOG-4.1.md - read https://github.com/Perkybeet/noust/blob/main/docs/UPGRADING-4.1.md before updating",
+     "action_required": false
+    }
+   ]
+  },
+  {
    "version": "4.0.0",
    "date": "2026-10-22",
    "action_required": false,
@@ -709,17 +732,6 @@
    "items": [
     {
      "text": "The panel manages the whole product: databases, services, sites, env vars, settings, scheduled backups, deployment history with rollback, live charts, git webhooks, notifications",
-     "action_required": false
-    }
-   ]
-  },
-  {
-   "version": "1.3.0",
-   "date": "2026-08-14",
-   "action_required": false,
-   "items": [
-    {
-     "text": "Panel security: TLS by default, TOTP 2FA, scoped API tokens, session management, browser E2E in CI",
      "action_required": false
     }
    ]

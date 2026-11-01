@@ -1,3 +1,12 @@
+noust (4.1.0-1) unstable; urgency=medium
+
+  * Noust reads a fleet as one thing and works it from the central: every list covers every server, the settings of the fleet are written once and each server applies them, and the GitHub App on the central lends each server what it needs to deploy
+  * A console with a new frame and a new look, roles you edit, Noust DNS and IONOS, a move of an application between nginx and Apache, database servers in any version, and 440 recipes, every one that installs started before it shipped
+  * Action required: a script that passes --json to a command that asks needs --yes too; setting the web server is refused while the other one still has sites
+  * Every change: https://github.com/Perkybeet/noust/blob/main/docs/CHANGELOG-4.1.md - read https://github.com/Perkybeet/noust/blob/main/docs/UPGRADING-4.1.md before updating
+
+ -- Yago López Prado <yago.lopez.adeje@gmail.com>  Sun, 01 Nov 2026 17:26:43 +0000
+
 noust (4.0.0-1) unstable; urgency=medium
 
   * Teams, projects and environments; applications built from a Dockerfile, a registry image or Railpack; a catalogue of 143 recipes; database engines that Noust runs in containers beside the host's; a certificate of its own for any name; single sign-on; servers created at a cloud provider or behind NAT; a one-command installer; and a console rebuilt around one set of rules, in six languages

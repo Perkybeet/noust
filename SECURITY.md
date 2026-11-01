@@ -7,9 +7,9 @@ vulnerability in every one of them. Reports are welcome and handled as described
 
 | Version | Security fixes |
 |---|---|
-| 4.0.x | Yes |
-| 3.3.x | Yes, until 4.1.0 is released |
-| 3.2.x and earlier | No: upgrade to a supported line |
+| 4.1.x | Yes |
+| 4.0.x | Yes, until 4.2.0 is released |
+| 3.3.x and earlier | No: upgrade to a supported line |
 
 Fixes are released as a patch version of each supported line, published to PyPI, the openSUSE
 Build Service repositories (Debian, Ubuntu, Fedora, openSUSE) and the container image
