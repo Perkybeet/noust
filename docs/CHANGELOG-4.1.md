@@ -225,9 +225,9 @@ the weight budget require; the script every page loads is held to 398 KiB gzippe
   and Dokploy's templates by an importer that settles their files, mounts and credentials, and accepted only
   after the recipe started. Compose recipes are installed and checked in the harness one at a time and the
   result is kept: the catalogue says which recipes were started for real, with the version, the date and how
-  long it took (`tested`; `noust recipe list --tested`). All 431 that can be installed were started; n8n is a
+  long it took (`tested`; `noust recipe list --tested`). All 430 that can be installed were started; n8n is a
   Compose recipe with its PostgreSQL and a variant with workers, and Vault and Stalwart can now be installed.
-- **A recipe that is not free software says so.** The 26 whose licence is source-available or open core carry
+- **A recipe that is not free software says so.** The 27 whose licence is source-available or open core carry
   the label and the licence's name on the tile, the recipe's page, the API (`free_software`) and the command line.
 - **A recipe that is root on the server is offered, with a warning and a confirmation.** Portainer, Coder and
   Dozzle mount the Docker socket; OpenClaw runs commands for its user. Installing one needs
