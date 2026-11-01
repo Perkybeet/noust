@@ -10,6 +10,11 @@ repository, and what a code host's webhook says (``owner/repo``), what a deploy
 key is assigned to and what a preview is built from all have to agree on that.
 This is the one place that reads it (rule 3): the previews, the deploy keys and
 the HTTPS credentials all ask here.
+
+A port is not part of which repository it is: the forge that serves it over https on 8443 also
+serves it over ssh on 2222, and a webhook says ``owner/repo``. It is part of which *server* an
+address reaches, and :func:`repository_port` answers that for what is sent to the server, such as
+a credential.
 """
 
 from __future__ import annotations
@@ -20,9 +25,13 @@ import re
 _GITHUB_SHORTHAND = re.compile(r"^github:(?P<path>[\w.-]+/[\w.-]+?)(?:\.git)?/?$", re.IGNORECASE)
 _SCP_LIKE = re.compile(r"^[\w.-]+@(?P<host>[\w.-]+):(?!//)(?P<path>[\w./-]+?)(?:\.git)?/?$")
 _URL_LIKE = re.compile(
-    r"^(?:https?|ssh|git)://(?:[^@/]+@)?(?P<host>[\w.-]+)(?::\d+)?/(?P<path>[\w./-]+?)(?:\.git)?/?$",
+    r"^(?P<scheme>https?|ssh|git)://(?:[^@/]+@)?(?P<host>[\w.-]+)(?::(?P<port>[0-9]{1,5}))?"
+    r"/(?P<path>[\w./-]+?)(?:\.git)?/?$",
     re.IGNORECASE,
 )
+
+#: The port each scheme answers on when an address names none.
+_DEFAULT_PORTS = {"http": 80, "https": 443, "git": 9418}
 
 
 def repository_key(source: str | None) -> tuple[str, str] | None:
@@ -54,6 +63,34 @@ def repository_key(source: str | None) -> tuple[str, str] | None:
     if "/" not in path:
         return None
     return (match.group("host").lower(), path.lower())
+
+
+def repository_port(source: str | None) -> int | None:
+    """
+    Name the port a source asks its server on, when it is not the scheme's own.
+
+    What a credential is kept for: the token of a repository on ``git.example.com`` is not for the
+    other service a tenant of the same machine runs on ``git.example.com:6666``. The default port
+    written out (``https://host:443/x``) is the same server as none.
+
+    Args:
+        source: A source as the store records it, or a clone URL.
+
+    Returns:
+        The port of an http, https or ``git://`` address that names one other than its scheme's
+        default; None for any other address (an ssh port is another service's, and the ``user@host:path``
+        form has none) or a source that is not a git repository.
+    """
+    if not source:
+        return None
+    match = _URL_LIKE.fullmatch(source.strip().split("#", 1)[0])
+    if match is None or match.group("port") is None:
+        return None
+    scheme = match.group("scheme").lower()
+    if scheme not in _DEFAULT_PORTS:
+        return None
+    port = int(match.group("port"))
+    return None if port == _DEFAULT_PORTS[scheme] else port
 
 
 def repository_identity(source: str | None) -> str | None:

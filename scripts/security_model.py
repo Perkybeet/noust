@@ -527,6 +527,7 @@ INPUT_CLASSES: tuple[InputClass, ...] = (
         "inside the machine's own network",
         (
             "tests/test_adversarial_inputs.py::TestSources",
+            "tests/test_adversarial_inputs.py::TestAPortInAWebAddress",
             "tests/test_source_archive_hosts.py::TestTheDownload",
         ),
     ),

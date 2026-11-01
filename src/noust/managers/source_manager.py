@@ -79,6 +79,8 @@ from noust.validators.source import (
     is_push_source,
     parse_git_url,
     parse_ssh_remote,
+    ssh_equivalent,
+    url_authority_problem,
     validate_source,
 )
 from noust.validators.ssh import (
@@ -254,8 +256,6 @@ _GIT_AUTH_FAILURE_MARKERS = (
 #: git commands that talk to a remote. ``checkout`` is one in a blobless
 #: clone, which fetches the blobs it checks out.
 _NETWORK_VERBS = frozenset({"clone", "fetch", "ls-remote", "pull", "checkout", "submodule", "lfs"})
-
-_HTTPS_REPOSITORY_RE = re.compile(r"^https?://(?P<host>[\w.-]+)/(?P<path>[\w./-]+?)(?:\.git)?/?$")
 
 
 def _own_uid() -> int:
@@ -709,24 +709,6 @@ def is_git_auth_failure(output: str) -> bool:
     return any(marker in lowered for marker in _GIT_AUTH_FAILURE_MARKERS)
 
 
-def _ssh_equivalent(url: str | None) -> str | None:
-    """
-    Spell an https repository URL the way ssh reaches it.
-
-    Args:
-        url: Repository URL, or None when it is not known.
-
-    Returns:
-        ``git@host:owner/repo.git``, or None when the URL is not https.
-    """
-    if not url:
-        return None
-    match = _HTTPS_REPOSITORY_RE.fullmatch(url.split("#")[0].strip())
-    if not match:
-        return None
-    return f"git@{match.group('host')}:{match.group('path')}.git"
-
-
 def git_auth_fix(url: str | None) -> str:
     """
     Say how to give this server access to a repository that refused it.
@@ -745,7 +727,7 @@ def git_auth_fix(url: str | None) -> str:
             "which reaches this repository and no other: `noust app deploy-key generate "
             "<domain>`. If the repository does not exist, check the URL."
         )
-    ssh_url = _ssh_equivalent(url) or "git@<host>:<owner>/<repo>.git"
+    ssh_url = ssh_equivalent(url) or "git@<host>:<owner>/<repo>.git"
     github_app = (
         "Or install this server's GitHub App on the repository's account "
         "(console: Integrations, GitHub), which clones it with a token of its own. "
@@ -1029,6 +1011,11 @@ def validate_git_remote_url(url: str) -> str:
         )
 
     if "://" in candidate:
+        problem = url_authority_problem(candidate)
+        if problem is not None:
+            raise SourceError(
+                f"Not a usable Git URL: '{redact_git_text(candidate)}'", details=problem
+            )
         scheme = urlparse(candidate).scheme.lower()
         if scheme not in ALLOWED_GIT_SCHEMES:
             raise SourceError(

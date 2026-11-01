@@ -85,8 +85,14 @@ def repo_of(source: str | None) -> api.ForgeRepo | None:
         return None
     authority = info.host
     parts = urlsplit((source or "").split("#", 1)[0])
-    if parts.scheme in ("http", "https") and parts.port:
-        authority = f"{info.host}:{parts.port}"
+    if parts.scheme in ("http", "https"):
+        try:
+            port = parts.port
+        except ValueError:
+            # Not an address the host's API can be reached at: nothing is written back to it.
+            return None
+        if port:
+            authority = f"{info.host}:{port}"
     return api.ForgeRepo(kind=info.forge, authority=authority, repository=info.repository)
 
 

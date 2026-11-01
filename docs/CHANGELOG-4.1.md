@@ -401,6 +401,14 @@ the weight budget require; the script every page loads is held to 398 KiB gzippe
   repositories. A list typed as text is read in one place, every entry is judged when the list is saved (a
   host, an organisation, a repository, or one of `local`, `push`, `upload`, `recipes`), and the suggested command
   is tested by running it.
+- **A repository served over https on another port can be the source of an application.**
+  `https://git.example.com:8443/team/app.git` (a GitHub Enterprise, a Gitea or a GitLab of your own) was
+  refused, although ssh remotes with a port and the GitHub host setting both took one, so the source the
+  GitHub integration writes for such a host could not be used. The port is read in one place and followed
+  wherever an address is read: the credential a repository is cloned with is kept for its port and never sent
+  to another, the webhook page is at the forge's own address, a push matches a repository on its host's port,
+  and `security.allowed_sources` still names a host without one (a port is not compared). An address with a
+  malformed host or port is refused, or matches nothing, where some readers raised.
 - **Invitations**: the invitation is made even when mail cannot go, one address names the person and receives
   it, the error comes in the console's language, and the hint names Settings > Channels, the page's name since
   4.0.

@@ -33,7 +33,7 @@ from urllib.parse import quote, urlsplit
 from noust.core import audit
 from noust.core.exceptions import ConfigError, ValidationError
 from noust.core.gitlab_store import GitLabStore
-from noust.core.repositories import repository_identity
+from noust.core.repositories import repository_identity, repository_port
 from noust.core.secrets import SecretStore
 from noust.core.store import App, NoustStore, get_store
 from noust.core.teams import ScopedStore
@@ -44,6 +44,36 @@ NAMESPACE = "git-credentials"
 #: Longest user and secret accepted.
 MAX_USERNAME = 128
 MAX_SECRET = 1024
+
+
+@dataclass(frozen=True)
+class _Stored:
+    """
+    What is kept for a repository.
+
+    Attributes:
+        username: The user to sign in as.
+        secret: The token.
+        port: The port the repository's address named when the credential was kept, or None for
+            its scheme's own. A credential is for one server: the same host and path on another
+            port is a different service, which must never be sent this token.
+    """
+
+    username: str
+    secret: str
+    port: int | None
+
+    def applies_to(self, address: str | None) -> bool:
+        """
+        Tell whether this credential is for the server an address reaches.
+
+        Args:
+            address: A source or a clone URL.
+
+        Returns:
+            True when the address names the port the credential was kept for.
+        """
+        return self.port == repository_port(address)
 
 
 @dataclass(frozen=True)
@@ -237,7 +267,8 @@ class GitCredentialManager:
         username = None
         if identity is not None:
             stored = self._read(self._secret_name(identity))
-            username = stored.get("username") if stored else None
+            # Kept for another port of the host: not what this application's clone is given.
+            username = stored.username if stored and stored.applies_to(app.source) else None
         return CredentialView(
             domain=app.domain,
             repository=identity,
@@ -267,12 +298,19 @@ class GitCredentialManager:
         identity = self._identity(app)
         user = _check_username(username)
         token = _check_secret(secret)
-        self.secrets.write_json(self._secret_name(identity), {"username": user, "secret": token})
+        port = repository_port(app.source)
+        # The port is kept only when the address names one, so what was written before a source
+        # could name a port reads as the default port's.
+        value: dict[str, str | int] = {"username": user, "secret": token}
+        details: dict[str, str | int] = {"repository": identity, "username": user}
+        if port is not None:
+            value["port"] = details["port"] = port
+        self.secrets.write_json(self._secret_name(identity), value)
         audit.record(
             "apps.git_credential.set",
             actor=self.actor,
             target=f"app:{app.domain}",
-            details={"repository": identity, "username": user},
+            details=details,
         )
         return self.view(domain)
 
@@ -303,7 +341,7 @@ class GitCredentialManager:
             )
         return existed
 
-    def _read(self, name: str) -> dict[str, str] | None:
+    def _read(self, name: str) -> _Stored | None:
         """
         Read a stored credential.
 
@@ -311,14 +349,16 @@ class GitCredentialManager:
             name: The secret's name.
 
         Returns:
-            ``{"username", "secret"}``, or None when none is stored or the
-            file is not one this module wrote.
+            The credential, or None when none is stored or the file is not one this module
+            wrote.
         """
         stored = self.secrets.read_json(name)
-        user, token = stored.get("username"), stored.get("secret")
+        user, token, port = stored.get("username"), stored.get("secret"), stored.get("port")
         if not isinstance(user, str) or not isinstance(token, str):
             return None
-        return {"username": user, "secret": token}
+        if port is not None and (not isinstance(port, int) or isinstance(port, bool)):
+            return None
+        return _Stored(username=user, secret=token, port=port)
 
     def any_stored(self) -> bool:
         """
@@ -360,9 +400,10 @@ class GitCredentialManager:
             stored = self._read(self._secret_name(identity))
         except ValidationError:
             return None
-        if stored is not None:
-            return stored["username"], stored["secret"]
-        # No credential of the repository's own: the connection of its host, if any.
+        if stored is not None and stored.applies_to(url):
+            return stored.username, stored.secret
+        # No credential of the repository's own for this server: the connection of its host, if
+        # any (which also tells one port from another).
         from noust.integrations.gitlab.service import GitLabService
 
         return GitLabService(GitLabStore(self.store), self.secrets).credential_for_url(url)
@@ -387,8 +428,7 @@ class GitCredentialManager:
         if found is None:
             return {}
         parts = urlsplit(url.split("#", 1)[0])
-        stored = {"username": found[0], "secret": found[1]}
-        userinfo = f"{quote(stored['username'], safe='')}:{quote(stored['secret'], safe='')}"
+        userinfo = f"{quote(found[0], safe='')}:{quote(found[1], safe='')}"
         _bare, environment = split_url_credentials(
             f"{parts.scheme}://{userinfo}@{parts.netloc}{parts.path}"
         )

@@ -21,6 +21,7 @@ A source may be any of these, with any user and any port:
 
 ```
 https://git.example.com/group/subgroup/project.git
+https://git.example.com:8443/group/project.git    # a forge that serves https on another port
 git@git.example.com:group/project.git         # scp-like, any user: deploy@host:path
 ssh://deploy@git.example.com:2222/group/project.git
 github:owner/repo                             # shorthand for github.com
@@ -29,6 +30,25 @@ github:owner/repo                             # shorthand for github.com
 The owner of a path with subgroups is everything before the last element (`group/subgroup`), and a
 non-standard SSH port is part of the host a deploy key and a pinned host key are kept for
 (`[host]:2222`). A user other than `git` is kept, so `ssh://deploy@host/...` clones as `deploy`.
+
+An `https://`, `http://` or `git://` address may name a port too, a number from 1 to 65535 written
+without a sign or a leading zero (`:08443` and `:0` are refused, and so is a `:` with nothing after it).
+An address is judged without its user (a credential in it is taken off first), and a host is a name or an
+IPv4 address, not `[::1]`. The port is the web server's: the same repository over ssh answers on another
+one, so the ssh address suggested for a source on `git.example.com:8443` has `<ssh-port>` for you to fill in.
+
+What a port decides is which server an address reaches, and what is sent to a server is sent to that one:
+
+- **A stored https credential is kept for the port of its address.** The token of `git.example.com/team/app`
+  is not sent to `git.example.com:6666/team/app`, a different service that may belong to somebody else on the
+  same machine, and the other way round. A credential stored before ports were accepted is the default
+  port's. A repository on two ports of a host keeps one credential (the last stored), for the port it was
+  stored from. A GitLab connection and the GitHub App follow the same rule: a host with a port is named with it.
+- **The allowed origins do not compare it** (see [the allowed origins](#the-allowed-origins)).
+- **The forge's webhook page is at the address the code is cloned from**, port and `http` or `https` as the
+  source says them; a source over ssh or `git://` gets `https` on the default port, which is a guess.
+- **A push matches a repository by host and path**, and an https address on a port other than 443 only when
+  the GitHub host is set with that port (`noust github host set ghe.corp.example:8443`).
 
 ## Submodules, Git LFS and shallow clones
 
@@ -68,6 +88,9 @@ passes (a name that resolves inside the machine's own networks is refused unless
   `--force`; to move, `noust github remove` and create the App again.
 - A repository of the Enterprise host is the App's (token, statuses, comments, pushes); a source on
   github.com is then an ordinary git source.
+- A host that serves https on another port is written with it (`noust github host set ghe.corp.example:8443`),
+  and its repositories are `https://ghe.corp.example:8443/owner/repo.git`. The App's token is only given to
+  that host and port: the same host on another port is an ordinary git source.
 - The repository list returns `https://HOST/owner/repo.git` as the source to deploy, since the
   `github:` shorthand always means github.com.
 
@@ -188,7 +211,13 @@ An entry is one of:
 `local` also covers the recipes, as it did before `recipes` existed. Each entry is checked when it is
 saved: a user or a token in it, a port, the `user@host:path` form, a path on disk or a bracket kept from
 a list is refused with the shapes that work, because an entry that cannot match looks like protection
-that is not there. A list is written `a, b` or `[a, b]`:
+that is not there. A list is written `a, b` or `[a, b]`.
+
+**A port is not compared.** An entry says which machine code may come from, by its name and its path, so
+`git.example.com` allows `https://git.example.com:8443/team/app.git` and `ssh://git@git.example.com:2222/...`
+as it allows `https://git.example.com/...`; a port in an entry is refused rather than ignored. What a port
+cannot do is move a source to another host: the host is what stands before the port and after any user, so
+`https://git.example.com:8443@evil.example.org/x.git` is `evil.example.org`.
 
 ```
 noust config set security.allowed_sources 'github.com/acme, recipes'

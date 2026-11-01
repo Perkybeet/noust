@@ -9,12 +9,11 @@ Validates SSH keys, connectivity, and provides setup guidance.
 
 import logging
 import os
-import re
 from pathlib import Path
 
 from noust.core.exceptions import SSHError
 from noust.core.utils import run_command
-from noust.validators.source import parse_ssh_remote
+from noust.validators.source import parse_ssh_remote, parse_url_remote
 
 logger = logging.getLogger(__name__)
 
@@ -246,10 +245,10 @@ def get_host_from_git_url(url: str) -> str | None:
     if remote is not None:
         return remote.host
 
-    # HTTPS format: https://host/path
-    https_match = re.match(r"^https?://([\w.-]+)/", url)
-    if https_match:
-        return https_match.group(1)
+    # HTTPS format: https://host[:port]/path. The host alone: the port is the web server's.
+    web = parse_url_remote(url)
+    if web is not None and web.scheme != "git":
+        return web.host
 
     return None
 

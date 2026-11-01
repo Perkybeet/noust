@@ -349,13 +349,28 @@ def forge_of(source: str | None) -> ForgeInfo:
 
     host: str | None = None
     path = ""
+    # The forge's pages are where git is cloned from when that is http(s), port included: the
+    # port of an https source is the web server's. An ssh or git:// source says nothing of the
+    # web server (ssh answers on its own port), so its page is https on the default.
+    scheme, web_port, readable = "https", None, True
     remote = parse_ssh_remote(text)
     if remote is not None:
         host, path = remote.host, remote.path
     else:
-        parts = urlsplit(text.split("#", 1)[0])
+        try:
+            parts = urlsplit(text.split("#", 1)[0])
+        except ValueError:
+            # A bracket in the host that is not an IPv6 literal: not an address.
+            return ForgeInfo(forge=None, host=None, repository=None, settings_url=None)
         if parts.scheme in ("http", "https", "ssh", "git") and parts.hostname:
             host, path = parts.hostname, parts.path
+            if parts.scheme in ("http", "https"):
+                scheme = parts.scheme
+                try:
+                    web_port = parts.port
+                except ValueError:
+                    # A page at an address that is not the forge's is worse than none.
+                    readable = False
     if not host:
         return ForgeInfo(forge=None, host=None, repository=None, settings_url=None)
 
@@ -364,7 +379,8 @@ def forge_of(source: str | None) -> ForgeInfo:
     repository = repo or None
     forge = kind_of_host(host)
     page = _SETTINGS_PAGES.get(forge or "")
-    settings_url = f"https://{host}/{repo}{page}" if page and repo else None
+    authority = f"{host}:{web_port}" if web_port else host
+    settings_url = f"{scheme}://{authority}/{repo}{page}" if page and repo and readable else None
     return ForgeInfo(forge=forge, host=host, repository=repository, settings_url=settings_url)
 
 
