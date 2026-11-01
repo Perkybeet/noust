@@ -73,6 +73,9 @@ test("the catalog is searched and filtered by the server's own search, and says 
   await page.getByRole("combobox", { name: "Category" }).click();
   await page.getByRole("option", { name: /^Security \(\d+\)$/ }).click();
   await expect(page).toHaveURL(/[?&]category=security/);
+  // The category holds more than a page of recipes: a search inside it finds the one this test knows.
+  await page.getByRole("searchbox", { name: "Search recipes" }).fill("vault");
+  await expect(page).toHaveURL(/[?&]q=vault/);
   await expect(card(page, "Vaultwarden")).toBeVisible();
   await expect(card(page, "WordPress")).toHaveCount(0);
   await page.getByRole("button", { name: "Clear filters" }).click();

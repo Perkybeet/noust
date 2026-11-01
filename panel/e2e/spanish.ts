@@ -73,6 +73,9 @@ const SERVER_TEXT: readonly { page: string; text: RegExp; origin: string }[] = [
   // span, so the page's text still holds the name, which here reads like "Open {name}".
   { page: "/apps/new (recipe)", text: /^Open WebUI$/, origin: "a recipe's name" },
   { page: "catalog", text: /^Open WebUI$/, origin: "a recipe's name" },
+  // A recipe's title is catalog data, in English like the rest of a recipe's text until recipes carry translations; the
+  // queue-mode n8n's reads like "{type} with {manager}".
+  { page: "/apps/new (recipe)", text: /^Usar n8n with workers$/, origin: "a recipe's title" },
   // The deployer registry's display name of a type, which the application's header shows as the server wrote it.
   { page: "container settings", text: /^Container$/, origin: "deployers/container.py DISPLAY_NAME" },
   // The status page's title is the operator's: the seeded server's page is titled "Status", and the probes' page shows it as the help of its title row.

@@ -57,15 +57,16 @@ test("a recipe from the gallery is reviewed, deployed, and says what to do next"
   // GET /api/recipes, answered from the recipe files the package ships.
   const recipes = page.getByRole("list", { name: "Recipes" });
   for (const title of ["WordPress", "Uptime Kuma", "Umami", "n8n"]) {
-    await expect(recipes.getByRole("button", { name: `Use ${title}` })).toBeEnabled();
+    // Exact: "Use n8n" is also the start of "Use n8n with workers", the queue-mode recipe beside it.
+    await expect(recipes.getByRole("button", { name: `Use ${title}`, exact: true })).toBeEnabled();
   }
-  // Vault starts sealed and Excalidraw publishes no release to pin: listed, said to be
+  // MinIO's repository is archived and Excalidraw publishes no release to pin: listed, said to be
   // unavailable and with no button. Named, not counted: every recipe the catalog adds that this
-  // release cannot run would otherwise move the number. The heading is matched whole, because
-  // "Vault" is also a part of "Vaultwarden", which can be installed.
+  // release cannot run would otherwise move the number. The heading is matched whole, so a recipe
+  // whose title holds another's is never taken for it.
   // They are on a list of their own after the ones that can be installed ("Not available here"), with their reason.
   const unavailable = page.getByRole("list", { name: "Not available here" });
-  for (const title of ["Vault", "Excalidraw"]) {
+  for (const title of ["MinIO", "Excalidraw"]) {
     const card = unavailable.getByRole("listitem").filter({ has: page.getByRole("heading", { name: title, exact: true }) });
     await expect(card.getByText("Not available in this release", { exact: true })).toBeVisible();
     await expect(card.getByRole("button", { name: `Use ${title}` })).toHaveCount(0);
