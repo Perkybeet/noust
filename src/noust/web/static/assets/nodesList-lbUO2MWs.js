@@ -1,0 +1,1 @@
+import{a as e,x as t}from"./client-JrYzIDa3.js";var n={all:[`nodes`],list:[`nodes`,`list`],key:e=>[`nodes`,`key`,e]},r=()=>t({queryKey:n.list,queryFn:({signal:t})=>e(`get`,`/api/nodes`,{signal:t}),refetchInterval:15e3});export{r as n,n as t};

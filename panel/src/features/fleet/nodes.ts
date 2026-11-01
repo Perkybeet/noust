@@ -10,6 +10,8 @@ import { queryOptions } from "@tanstack/react-query";
 import { api, request } from "../../api/client";
 import type { BodyOf, ResponseOf } from "../../api/client";
 
+import { nodeKeys } from "./nodesList";
+
 export type NodeList = ResponseOf<"/api/nodes", "get">;
 export type NodeRecord = NodeList["items"][number];
 export type NodeKey = ResponseOf<"/api/nodes/{node}/key", "get">;
@@ -88,19 +90,7 @@ export function testResultOf(raw: unknown): NodeTestResult {
   };
 }
 
-export const nodeKeys = {
-  all: ["nodes"] as const,
-  list: ["nodes", "list"] as const,
-  key: (name: string) => ["nodes", "key", name] as const,
-};
-
-/** Every server; polled, since a tunnel's state changes without the console doing anything. */
-export const nodesQuery = () =>
-  queryOptions({
-    queryKey: nodeKeys.list,
-    queryFn: ({ signal }) => request("get", "/api/nodes", { signal }),
-    refetchInterval: 15_000,
-  });
+export { nodeKeys, nodesQuery } from "./nodesList";
 
 /** The central's key for a server (registered or not yet) and the command that authorizes it. */
 export const nodeKeyQuery = (name: string) =>

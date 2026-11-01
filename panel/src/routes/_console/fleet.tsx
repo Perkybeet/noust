@@ -5,6 +5,7 @@ import { inPlace } from "../../app/searchNavigation";
 import { parseHubArea } from "../../features/central/central";
 import type { HubArea } from "../../features/central/central";
 import { FleetLayout } from "../../features/fleet/FleetLayout";
+import { nodesQuery } from "../../features/fleet/nodesList";
 import { useOnArrival } from "../../lib/useArrival";
 
 interface FleetLayoutSearch {
@@ -23,6 +24,14 @@ function validateSearch(search: Record<string, unknown>): FleetLayoutSearch {
 /** The fleet ("All servers"): its header and one view per URL, every server at once. */
 export const Route = createFileRoute("/_console/fleet")({
   validateSearch,
+  // Whether the fleet has a server decides the whole frame: an empty one draws its first-use state instead of the views.
+  // Known before the frame is drawn, the frame never draws a view and then swaps it for that state (on a cold load the
+  // list answered after the first paint, and the swap moved the page). A list that fails is the frame's to say.
+  // Only when nothing is cached: a later visit draws from what the shell already holds and lets it refresh behind.
+  loader: async ({ context }) => {
+    if (context.queryClient.getQueryData(nodesQuery().queryKey) !== undefined) return;
+    await context.queryClient.query(nodesQuery()).catch(() => undefined);
+  },
   component: FleetRoute,
 });
 
