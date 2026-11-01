@@ -18,8 +18,9 @@ from __future__ import annotations
 
 import http.client
 import socket
-import ssl
 from collections.abc import Callable
+
+from noust.core import tls_policy
 
 #: The web server's TLS port on this machine.
 HTTPS_PORT = 443
@@ -50,9 +51,7 @@ def request_https(
         OSError: It could not connect, or the handshake failed.
         http.client.HTTPException: It answered something that is not HTTP.
     """
-    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    context.check_hostname = False
-    context.verify_mode = ssl.CERT_NONE
+    context = tls_policy.loopback_client_context()
     with socket.create_connection(("127.0.0.1", port), timeout=timeout) as raw:
         with context.wrap_socket(raw, server_hostname=domain) as wrapped:
             connection = http.client.HTTPConnection(domain, timeout=timeout)

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The TLS the console serves: one definition of the floor.
+The TLS the console serves and the TLS Noust asks with on its own machine: one floor.
 
 uvicorn hands the context it builds to OpenSSL's defaults and its own
 ``ssl_ciphers="TLSv1"``, which is whatever the installed OpenSSL and the
@@ -13,7 +13,9 @@ other kind of suite, so it needs no list.
 
 Nothing here reads the network or the configuration: it turns a context into
 the stricter one, and :mod:`noust.web.server` is what applies it to the context
-uvicorn builds.
+uvicorn builds. The probes of this machine (the health gate, the check of a site
+a move put on another web server) ask through :func:`loopback_client_context`, so
+none of them leaves the floor to whatever the installed OpenSSL decided.
 """
 
 from __future__ import annotations
@@ -50,4 +52,26 @@ def harden_server_context(context: ssl.SSLContext) -> ssl.SSLContext:
     # suite first, not whatever order the client happens to list.
     context.options |= ssl.OP_NO_COMPRESSION | ssl.OP_CIPHER_SERVER_PREFERENCE
     context.options |= getattr(ssl, "OP_NO_RENEGOTIATION", 0)
+    return context
+
+
+def loopback_client_context() -> ssl.SSLContext:
+    """
+    Build the client context of a probe that asks something on this machine.
+
+    A probe connects to ``127.0.0.1`` and an address is not what a certificate
+    names, so verifying it would fail every application that serves TLS itself
+    with a certificate of its own, and every site whose certificate is not valid
+    yet. Nothing leaves the machine: the question is whether the process answers.
+    What it does not give up is the floor, because a bare context leaves the
+    version to the OpenSSL configuration of the distribution.
+
+    Returns:
+        A client context that does not verify the certificate and never speaks
+        a protocol below :data:`MINIMUM_VERSION`.
+    """
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    context.minimum_version = MINIMUM_VERSION
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
     return context
