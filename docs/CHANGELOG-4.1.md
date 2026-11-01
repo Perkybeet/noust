@@ -452,9 +452,14 @@ the weight budget require; the script every page loads is held to 398 KiB gzippe
 - **Redacting a SQL statement takes time proportional to its length** (a statement of 32,000 tabs took four
   seconds, and the time grew with the square of the length).
 - **One Jinja environment** renders every unit file, site and pool, instead of nine copies.
-- **Dependencies**: the Go provider's modules, the Astro, Next.js, Nuxt and Remix examples and the central's
-  image (pip and system packages brought up to date, the example running as `nobody`) move past every known
-  advisory.
+- **The probes of this machine never speak below TLS 1.2.** The health gate and the check of a site that moved
+  between nginx and Apache ask through one client (`core/tls_policy.py`, beside the console's own floor); each had
+  built its own, and a bare context leaves the version to the distribution's OpenSSL configuration.
+- **Dependencies**: the Go provider's modules, the console's lock file, the Astro, Next.js, Nuxt and Remix examples
+  and the central's image (system packages brought up to date, the example running as `nobody`) move past every
+  known advisory. The central's image no longer carries pip: it vendors its own urllib3, msgpack and setuptools,
+  which only a new pip updates, and a central runs from a read-only root file system and is updated by pulling the
+  image.
 
 ### The console
 
