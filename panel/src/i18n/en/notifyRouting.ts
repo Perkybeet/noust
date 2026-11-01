@@ -176,7 +176,7 @@ export const notifyRouting = {
     nextTry: "Next try {when}",
     heldUntil: "Sent {when}",
     retry: "Send now",
-    retryLabel: "Send {subject} to {channel} now",
+    retryLabel: "Send now: {subject} to {channel}",
     retryFailed: "Could not send it again",
     lastError: "What {channel} said",
     to: "to {channel}",

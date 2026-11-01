@@ -3813,7 +3813,7 @@
   "common.flowDiagram.nodeName": "{kind} {label}",
   "common.flowDiagram.nodeNameWithState": "{kind} {label} : {state}",
   "common.flowDiagram.nodeNameWithDetail": "{kind} {label}, {detail}",
-  "common.flowDiagram.nodeNameFull": "{kind} {label}, {detail} : {state}",
+  "common.flowDiagram.nodeNameFull": "{kind} {label} : {state}, {detail}",
   "common.flowDiagram.summary": {
     "one": "{count} connexion entre {nodes} éléments sur {layers} colonnes.",
     "other": "{count} connexions entre {nodes} éléments sur {layers} colonnes."

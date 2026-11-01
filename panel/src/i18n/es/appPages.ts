@@ -569,7 +569,7 @@ export const appPages: Catalog<typeof en> = {
     statusLoadError: "No se pudo comprobar cómo se mide esta aplicación",
     deploysInRangeTitle: "Despliegues en este rango",
     noDeploysInRange: "Ninguno. Un despliegue reinicia la aplicación, lo que suele verse como una caída en la memoria.",
-    deployMarkLabel: "Despliegue {id}, {status}, {when}",
+    deployMarkLabel: "Despliegue {id}, {when}, {status}",
     fixLabel: "Arreglo sugerido",
     evidenceLabel: "Lo que dijo el sistema",
     earlierStay: "Las lecturas anteriores siguen en las gráficas.",

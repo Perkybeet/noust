@@ -150,7 +150,7 @@ describe("the notifications of a team", () => {
     const { backend, user } = tab({
       "POST /api/teams/acme/notifications/channels/ops/test": () => json(200, { ok: false, detail: "HTTP 404: no_service" }),
     });
-    await user.click(await screen.findByRole("button", { name: "Send a test to ops" }));
+    await user.click(await screen.findByRole("button", { name: "Send test to ops" }));
 
     await waitFor(() => {
       expect(backend.callsTo("POST /api/teams/acme/notifications/channels/ops/test")).toHaveLength(1);

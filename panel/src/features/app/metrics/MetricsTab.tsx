@@ -246,7 +246,7 @@ function DeployList({
                     aria-hidden="true"
                     className="flex items-baseline gap-1.5"
                   >
-                    <Mono>{`#${String(mark.id)}`}</Mono>
+                    <Mono>{`#${String(mark.id)}`}</Mono>{" "}
                     <span className="text-fg-muted">{mark.when}</span>
                   </span>
                 </Link>

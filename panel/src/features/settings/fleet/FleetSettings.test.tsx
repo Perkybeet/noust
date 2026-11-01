@@ -92,7 +92,7 @@ describe("Settings > Fleet settings", () => {
     expect(rowOf("SUPPORT_EMAIL").getByText("Follows")).toBeInTheDocument();
     // A value changed on the server is a difference, with the way back.
     expect(rowOf("STATUS_URL").getByText("Changed on the server")).toHaveAttribute("data-state", "warning");
-    expect(rowOf("STATUS_URL").getByRole("button", { name: "Put STATUS_URL back to the fleet's value on web-2" })).toBeInTheDocument();
+    expect(rowOf("STATUS_URL").getByRole("button", { name: "Put back STATUS_URL to the fleet's value on web-2" })).toBeInTheDocument();
     // An exception the central set, waiting to be applied.
     expect(rowOf("ghcr").getByText("Waiting to apply")).toBeInTheDocument();
     // An independent server is left alone on purpose, in grey.
@@ -116,7 +116,7 @@ describe("Settings > Fleet settings", () => {
   it("puts a value changed on a server back to the fleet's", { timeout: 30_000 }, async () => {
     const calls = backend({ "POST /api/fleet/servers/web-2/settings/variable/STATUS_URL/restore": () => json(200, { success: true, message: "Asked" }) });
     const { user } = renderConsole("/settings/fleet");
-    await user.click(await screen.findByRole("button", { name: "Put STATUS_URL back to the fleet's value on web-2" }));
+    await user.click(await screen.findByRole("button", { name: "Put back STATUS_URL to the fleet's value on web-2" }));
     await waitFor(() => {
       expect(calls.callsTo("POST /api/fleet/servers/web-2/settings/variable/STATUS_URL/restore")).toHaveLength(1);
     });

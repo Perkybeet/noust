@@ -207,7 +207,7 @@ type Pointer = ReturnType<typeof renderConsole>["user"];
 /** Adds a connection of one of the three kinds from the one menu. */
 async function addConnection(user: Pointer, kind: "OpenID Connect provider" | "SAML provider" | "Directory"): Promise<void> {
   await user.click(await screen.findByRole("button", { name: "Add a connection" }));
-  await user.click(await screen.findByRole("menuitem", { name: kind }));
+  await user.click(await screen.findByRole("menuitem", { name: new RegExp(`^${kind}`) }));
 }
 
 /** One of a row's actions, from the menu at its end. */
@@ -257,9 +257,9 @@ describe("Settings > Single sign-on", () => {
     const { user } = await pageAt({ providers: [], identities: [], local: { enabled: true, exempt: [], providers: 0, survivors: ["ana"] } });
     expect(await screen.findByText("No sign-in connection yet")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Add a connection" }));
-    expect(await screen.findByRole("menuitem", { name: "OpenID Connect provider" })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "SAML provider" })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Directory" })).toBeInTheDocument();
+    expect(await screen.findByRole("menuitem", { name: /^OpenID Connect provider/ })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /^SAML provider/ })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /^Directory/ })).toBeInTheDocument();
     await user.keyboard("{Escape}");
     // With none, turning passwords off would lock everybody out: it is not offered, and says why.
     expect(screen.getByRole("switch", { name: "Sign in with passwords and passkeys" })).toHaveAttribute("aria-disabled", "true");

@@ -67,8 +67,10 @@ export function MenuItem({ children, onClick, icon, shortcut, destructive = fals
   return (
     <BaseMenu.Item
       {...(onClick ? { onClick } : {})}
-      // Named by its label alone: the description is read after it, not as part of the name.
-      {...(described ? { "aria-labelledby": labelId, "aria-describedby": descriptionId } : {})}
+      // Named by what it draws, the label and then the sentence under it, in that order: a name that left the sentence
+      // out would not hold the words on the item, and whoever says what they see to a voice control would not reach it
+      // (WCAG 2.5.3). Described as well, it would be read twice.
+      {...(described ? { "aria-labelledby": `${labelId} ${descriptionId}` } : {})}
       disabled={disabled}
       className={cx(
         "relative flex cursor-pointer gap-2.5 rounded-control px-2 text-13 outline-none select-none",
@@ -89,7 +91,7 @@ export function MenuItem({ children, onClick, icon, shortcut, destructive = fals
         <span className="flex min-w-0 flex-1 flex-col">
           <span id={labelId} className="truncate">
             {children}
-          </span>
+          </span>{" "}
           <span id={descriptionId} className="text-12 text-pretty whitespace-normal text-fg-muted">
             {description}
           </span>

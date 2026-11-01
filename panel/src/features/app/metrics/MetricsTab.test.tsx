@@ -7,6 +7,7 @@ import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { fakeBackend, json } from "../../../test/fakes";
 import type { RouteHandler } from "../../../test/fakes";
+import { expectLabelInName } from "../../../test/labelInName";
 import { metricsReadFixture } from "../../overview/testFixtures";
 import { TAB_DOMAIN, appRoutes } from "../testRoutes";
 import { CONTAINER_ROLES, busiest, containerMetrics } from "./ContainerCharts";
@@ -129,7 +130,10 @@ describe("the metrics tab", () => {
     expect(read?.search.getAll("metric")).toEqual([CPU, MEMORY]);
     expect(read?.search.get("window")).toBe("24h");
     // The deploy in the range is listed and linked; the one three weeks ago is not.
-    expect(screen.getByRole("link", { name: /^Deploy 25, succeeded/ })).toHaveAttribute("href", `/apps/${TAB_DOMAIN}/deployments/25`);
+    const deploy = screen.getByRole("link", { name: /^Deploy 25, .+, succeeded$/ });
+    expect(deploy).toHaveAttribute("href", `/apps/${TAB_DOMAIN}/deployments/25`);
+    // It draws "#25" and the time; the name says them in that order and adds the state after (WCAG 2.5.3).
+    expectLabelInName(deploy);
     expect(screen.queryByRole("link", { name: /^Deploy 9,/ })).not.toBeInTheDocument();
   });
 

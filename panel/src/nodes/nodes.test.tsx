@@ -7,6 +7,7 @@ import { expectNoAxeViolations } from "../test/axe";
 import { renderConsole } from "../test/console";
 import { APPS, FakeEventSource, MACHINE, NODES, fakeBackend, json, onNode, problem, signedInRoutes } from "../test/fakes";
 import type { RouteHandler } from "../test/fakes";
+import { expectLabelInName } from "../test/labelInName";
 
 /** What web-2 runs: other applications than this server, so a page shows whose data it is. */
 const WEB2_APPS = [{ ...APPS[0], domain: "api.web2.example", name: "api" }];
@@ -250,7 +251,8 @@ describe("the server selector", () => {
   it("says a node that does not answer on the button itself", async () => {
     await consoleAt("/n/db-1/apps");
     const button = await trigger("Server: db-1, Unreachable");
-    expect(button).toHaveTextContent("db-1Unreachable");
+    expect(button).toHaveTextContent("db-1 Unreachable");
+    expectLabelInName(button);
   });
 
   it("speaks Spanish", async () => {
@@ -348,7 +350,8 @@ describe("the three contexts", () => {
     await waitFor(() => {
       expect(history.location.pathname).toBe("/settings/central");
     });
-    expect(await trigger("Server: this central, web-01")).toBeInTheDocument();
+    // It draws "This central" and the hostname; its name holds both, in that order (WCAG 2.5.3).
+    expectLabelInName(await trigger("Server: this central, web-01"));
     // This central has no bar of its own: the same twelve areas, and the ones with no fleet face lead back to the server.
     expect(within(screen.getAllByRole("navigation", { name: "Main" })[0] ?? nav).getByRole("link", { name: "Databases" })).toHaveAttribute("href", "/n/web-2/databases");
     expect(screen.queryByRole("link", { name: /^Back to / })).not.toBeInTheDocument();
@@ -370,7 +373,8 @@ describe("the three contexts", () => {
     await waitFor(() => {
       expect(history.location.pathname).toBe("/settings/tokens");
     });
-    expect(await trigger("Server: this central, web-01")).toBeInTheDocument();
+    // It draws "This central" and the hostname; its name holds both, in that order (WCAG 2.5.3).
+    expectLabelInName(await trigger("Server: this central, web-01"));
     // web-2's own sign-in and tokens are managed on web-2, and the page says so and why.
     expect(await screen.findByText("Sign-in, two-factor and API tokens of web-2 are managed on web-2")).toBeInTheDocument();
     // The server's sections still lead back to web-2.

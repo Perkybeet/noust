@@ -67,7 +67,7 @@ export const fleetSettings = {
     remove: "Remove from the fleet",
     removeException: "Remove the exception on {server}",
     putBack: "Put back",
-    putBackLabel: "Put {name} back to the fleet's value on {server}",
+    putBackLabel: "Put back {name} to the fleet's value on {server}",
     putBackFailed: "Could not put {name} back on {server}",
   },
   empty: {

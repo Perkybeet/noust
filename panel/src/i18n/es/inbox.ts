@@ -48,7 +48,7 @@ export const inbox: Catalog<typeof en> = {
     review: "Revisar",
     reviewAria: "Revisar la solicitud {id}",
     openUpdates: "Abrir actualizaciones",
-    openUpdatesAria: "Abrir las actualizaciones de Noust",
+    openUpdatesAria: "Abrir actualizaciones de Noust",
     reviewRecipe: "Revisar",
     reviewRecipeAria: "Revisar la actualización de {domain}",
   },

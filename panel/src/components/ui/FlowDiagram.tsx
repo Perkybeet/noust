@@ -187,16 +187,20 @@ function NodeCard({ node, active, pinned, style, onEnter, onLeave, onPress, onEs
           {node.label}
         </span>
       </span>
+      {/* The spaces are for axe, which reads the lines of a column and the items of a row as one run: without them the
+          words it compares with the name are "sessionsredis" (WCAG 2.5.3). Between flex items they draw nothing. */}{" "}
       {word !== null || node.detail !== undefined ? (
         <span className="flex min-w-0 items-center gap-1 text-12">
           {word !== null && state !== "none" ? (
             <>
               <StatusGlyph state={STATE_STATUS[state]} size={10} className={stateTextClass(STATE_STATUS[state])} />
-              <span className={cx("shrink-0 font-medium", stateTextClass(STATE_STATUS[state]))}>{word}</span>
+              <span className={cx("shrink-0 font-medium", stateTextClass(STATE_STATUS[state]))}>{word}</span>{" "}
               {node.detail !== undefined ? (
-                <span aria-hidden="true" className="text-fg-faint">
-                  ·
-                </span>
+                <>
+                  <span aria-hidden="true" className="text-fg-faint">
+                    ·
+                  </span>{" "}
+                </>
               ) : null}
             </>
           ) : null}

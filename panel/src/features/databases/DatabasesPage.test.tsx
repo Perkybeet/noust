@@ -259,8 +259,8 @@ describe("the databases list", () => {
     expect(within(row).getByText("Detected")).toBeInTheDocument();
 
     await user.click(within(row).getByRole("button", { name: "Actions for example_staging" }));
-    const item = await screen.findByRole("menuitem", { name: "Record that docs.example.com uses it" });
-    expect(item).toHaveAccessibleDescription("Nothing in the application changes: its environment already names this database.");
+    const item = await screen.findByRole("menuitem", { name: /^Record that docs.example.com uses it/ });
+    expect(item).toHaveAccessibleName("Record that docs.example.com uses it Nothing in the application changes: its environment already names this database.");
     await expectNoAxeViolations(document.body);
     await user.click(item);
     await waitFor(() => expect(backend.callsTo("POST /api/databases/databases/postgresql/example_staging/links/detected")).toHaveLength(1));

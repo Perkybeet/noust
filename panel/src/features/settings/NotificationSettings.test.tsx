@@ -262,13 +262,13 @@ describe("Settings > Notifications", () => {
     notificationsBackend();
     const { user } = renderConsole("/settings/notifications");
     await screen.findByRole("switch", { name: /Send notifications/ });
-    await user.click(within(row("Slack")).getByRole("button", { name: "Send a test to Slack" }));
+    await user.click(within(row("Slack")).getByRole("button", { name: "Send test to Slack" }));
     expect(
       await within(row("Slack")).findByText("Channel slack is not configured; set notifications.channels.slack.webhook_url first."),
     ).toBeInTheDocument();
     expect(within(row("Slack")).getByText("The test failed. What the receiving server said:")).toBeInTheDocument();
 
-    await user.click(within(row("Webhook")).getByRole("button", { name: "Send a test to Webhook" }));
+    await user.click(within(row("Webhook")).getByRole("button", { name: "Send test to Webhook" }));
     expect(await within(row("Webhook")).findByText("Sent a test message. Check that it arrived.")).toBeInTheDocument();
   });
 
@@ -780,7 +780,7 @@ describe("Settings > Notifications", () => {
     if (waiting === undefined) throw new Error("no delivery listed");
     expect(within(waiting).getByText("Trying again")).toBeInTheDocument();
     expect(within(waiting).getByText("HTTP 502 Bad Gateway")).toBeInTheDocument();
-    await user.click(within(waiting).getByRole("button", { name: "Send shop.example.com to slack now" }));
+    await user.click(within(waiting).getByRole("button", { name: "Send now: shop.example.com to slack" }));
     await waitFor(() => {
       expect(backend.callsTo("POST /api/notifications/deliveries/7/retry")).toHaveLength(1);
     });

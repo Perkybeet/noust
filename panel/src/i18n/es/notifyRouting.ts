@@ -175,7 +175,7 @@ export const notifyRouting: Catalog<typeof en> = {
     nextTry: "Próximo intento {when}",
     heldUntil: "Se envía {when}",
     retry: "Enviar ahora",
-    retryLabel: "Enviar {subject} a {channel} ahora",
+    retryLabel: "Enviar ahora: {subject} a {channel}",
     retryFailed: "No se pudo enviar de nuevo",
     lastError: "Lo que dijo {channel}",
     to: "a {channel}",

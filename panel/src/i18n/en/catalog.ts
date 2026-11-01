@@ -110,7 +110,7 @@ export const catalog = {
     moreTags: "+{count}",
     website: "Website",
     docs: "Docs",
-    docsOf: "Documentation of {title}",
+    docsOf: "Docs for {title}",
     details: "Details",
     updated: "Updated {date}",
     yours: "Yours",

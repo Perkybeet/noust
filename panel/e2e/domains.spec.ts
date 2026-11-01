@@ -346,7 +346,7 @@ test("Proggest's site in its three views: one draft, the locations in nginx's or
   await expect(page).toHaveURL(/\?view=diagram$/);
   const diagram = page.getByRole("figure", { name: `How ${site} answers` });
   await expect(diagram).toBeVisible();
-  await expect(diagram.getByRole("button", { name: /^Backend 127\.0\.0\.1:3200, Service backend of the Compose project proggest: Responds$/ })).toBeVisible();
+  await expect(diagram.getByRole("button", { name: /^Backend 127\.0\.0\.1:3200: Responds, Service backend of the Compose project proggest$/ })).toBeVisible();
   const traced = page.waitForResponse((response) => response.url().endsWith(`/api/sites/${site}/route`));
   await page.getByRole("textbox", { name: "Try a URL" }).fill(`https://${site}/api/v1/auth/login`);
   await page.getByRole("button", { name: "Try", exact: true }).click();

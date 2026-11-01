@@ -283,7 +283,7 @@ export const settings = {
       testReasonNotConfigured: "Save a destination to test it.",
       testReasonDirty: "Save your changes first.",
       sendTest: "Send test",
-      sendTestTo: "Send a test to {label}",
+      sendTestTo: "Send test to {label}",
       testSent: "Sent a test message. Check that it arrived.",
       testFailedTitle: "The test could not be sent",
       testFailed: "The test failed. What {source} said:",

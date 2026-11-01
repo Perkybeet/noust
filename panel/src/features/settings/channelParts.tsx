@@ -177,7 +177,7 @@ export function TestButton({
   test: ChannelTest;
   reason?: string | undefined;
   size?: "sm" | "md";
-  /** The accessible name when the row around it does not say which channel: "Send a test to Slack". */
+  /** The accessible name when the row around it does not say which channel: "Send test to Slack". */
   label?: string;
 }) {
   const t = useT();

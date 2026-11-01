@@ -49,7 +49,7 @@ export const internalCa = {
   certRenewing: "{days} days left, renewed by itself",
   certDaysLeft: "{days} days left",
   renew: "Sign again",
-  renewLabel: "Sign {name} again",
+  renewLabel: "Sign again: {name}",
   renewedToast: "{name} is signed again",
   renewFailed: "{name} was not signed again",
   signTitle: "Sign a certificate",

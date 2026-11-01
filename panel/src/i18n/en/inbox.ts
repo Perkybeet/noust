@@ -52,7 +52,7 @@ export const inbox = {
     review: "Review",
     reviewAria: "Review request {id}",
     openUpdates: "Open updates",
-    openUpdatesAria: "Open the updates of Noust",
+    openUpdatesAria: "Open updates of Noust",
     reviewRecipe: "Review",
     reviewRecipeAria: "Review the update of {domain}",
   },

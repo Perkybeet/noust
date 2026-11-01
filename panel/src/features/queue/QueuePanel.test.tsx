@@ -187,7 +187,7 @@ describe("the deploy queue on the Activity page", () => {
     });
     expect(within(panel).getAllByText("Stopping").length).toBeGreaterThan(0);
     expect(within(panel).getByText(/It was asked to stop and is winding down/)).toBeInTheDocument();
-    const button = within(panel).getByRole("button", { name: "Cancel Updating shop.example.com" });
+    const button = within(panel).getByRole("button", { name: "Stopping: Updating shop.example.com" });
     expect(button).toHaveAttribute("aria-disabled", "true");
     expect(button).toHaveAttribute("aria-busy", "true");
   });

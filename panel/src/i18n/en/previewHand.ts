@@ -37,7 +37,7 @@ export const previewHand = {
       tag: "Tag",
     },
     ownDatabase: "Database of its own: {names}",
-    openAria: "Open the preview of {name}",
+    openAria: "Open preview of {name}",
     actionsAria: "Actions for the preview of {name}",
     logs: "Logs",
     redeployQueued: "Rebuilding the preview of {name}",

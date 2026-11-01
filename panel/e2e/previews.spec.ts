@@ -46,7 +46,7 @@ test("the settings show previews on, and each preview in its state", async ({ pa
   await expect(ready.getByText("feature/checkout-redesign", { exact: true })).toBeVisible();
   await expect(ready.getByText("8c1f2e7", { exact: true })).toBeVisible();
   await expect(ready.getByText("github example-org/portal", { exact: true })).toBeVisible();
-  await expect(ready.getByRole("link", { name: "Open the preview of #42 (opens in a new tab)" })).toHaveAttribute(
+  await expect(ready.getByRole("link", { name: "Open preview of #42 (opens in a new tab)" })).toHaveAttribute(
     "href",
     `https://${READY}`,
   );

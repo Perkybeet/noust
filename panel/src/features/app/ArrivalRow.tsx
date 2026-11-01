@@ -53,7 +53,8 @@ export function ArrivalRow({ domain, deploymentId = null, title, actions, next =
   const live = <StatusPill state="running" label={t("apps.arrival.live")} />;
   const site = (
     <>
-      <ExternalLink href={url} label={t("apps.arrival.liveSite", { domain: address.name })}>
+      {/* The link draws the whole address, scheme included, so its name starts with the whole address (WCAG 2.5.3): the text takes the address as its `{domain}`, which the community languages' copies of it expect. */}
+      <ExternalLink href={url} label={t("apps.arrival.liveSite", { domain: url })}>
         <Mono>{url}</Mono>
       </ExternalLink>
       <CopyButton value={url} label={t("apps.arrival.copy")} />

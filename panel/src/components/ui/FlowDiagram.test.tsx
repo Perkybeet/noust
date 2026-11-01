@@ -12,6 +12,7 @@ import {
   SMALL_LAYERS,
 } from "../../dev/flowSample";
 import { expectNoAxeViolations } from "../../test/axe";
+import { expectLabelInName } from "../../test/labelInName";
 import { edgeId } from "./flowDiagram.layout";
 import { FlowDiagram } from "./FlowDiagram";
 
@@ -51,7 +52,7 @@ describe("FlowDiagram", () => {
     expect(within(figure).getAllByRole("button", { pressed: false })).toHaveLength(total);
     expect(screen.getByRole("button", { name: "Location /api/v1/auth/login" })).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Backend 127.0.0.1:3000, NestJS · backend service of proggest.es: Responds" }),
+      screen.getByRole("button", { name: "Backend 127.0.0.1:3000: Responds, NestJS · backend service of proggest.es" }),
     ).toBeInTheDocument();
     for (const layer of PROGGEST_LAYERS) expect(screen.getByRole("list", { name: layer.title })).toBeInTheDocument();
     const backend = screen.getByRole("button", { name: /^Backend 127\.0\.0\.1:3000/ });
@@ -211,7 +212,7 @@ describe("FlowDiagram", () => {
       />,
     );
     expect(screen.getByRole("button", { name: "Name shop.example.com" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Application shop.example.com, Next.js: Running" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Application shop.example.com: Running, Next.js" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Database shop_prod, postgresql" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Scheduled job nightly: Disabled" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Data storage/uploads" })).toBeInTheDocument();
@@ -270,7 +271,21 @@ describe("FlowDiagram", () => {
       await setLocale("es");
     });
     render(<FlowDiagram label="Sitio" layers={SMALL_LAYERS} edges={SMALL_EDGES} />);
-    expect(screen.getByRole("button", { name: "Backend 127.0.0.1:3000, shop-example-com.service: Desconocido" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Backend 127.0.0.1:3000: Desconocido, shop-example-com.service" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ver las conexiones como tabla" })).toBeInTheDocument();
+  });
+
+  it.each(["en", "es"] as const)("names every element by the words it draws, in the order it draws them, in %s", async (locale) => {
+    viewport();
+    await act(async () => {
+      await setLocale(locale);
+    });
+    const { container } = render(<FlowDiagram label="Site" layers={PROGGEST_LAYERS} edges={PROGGEST_EDGES} />);
+    const nodes = [...container.querySelectorAll("button[data-node]")];
+    expect(nodes.length).toBeGreaterThan(10);
+    // What is drawn is the name, then the state, then the detail: a name that says the detail before the state
+    // does not hold it (WCAG 2.5.3), and these are the elements that have all three.
+    expect(nodes.filter((node) => /: [^,]+, /.test(node.getAttribute("aria-label") ?? "")).length).toBeGreaterThan(0);
+    for (const node of nodes) expectLabelInName(node);
   });
 });

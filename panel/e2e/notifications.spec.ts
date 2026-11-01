@@ -69,7 +69,7 @@ test("sets up channels in their drawers and reports what the receiving server an
 
     // A channel with nowhere to send has no test, only the way to set it up.
     await expect(row(page, "Slack").getByText("Off", { exact: true })).toBeVisible();
-    await expect(row(page, "Slack").getByRole("button", { name: "Send a test to Slack" })).toHaveCount(0);
+    await expect(row(page, "Slack").getByRole("button", { name: "Send test to Slack" })).toHaveCount(0);
     await expect(row(page, "Slack").getByRole("button", { name: "Set up Slack" })).toBeVisible();
 
     // Allow this machine as a destination, which the SSRF guard refuses otherwise.
@@ -114,7 +114,7 @@ test("sets up channels in their drawers and reports what the receiving server an
     await discord.getByRole("button", { name: "Save" }).click();
     await expect(discord.getByRole("button", { name: "Remove destination" })).toBeVisible();
     await discord.getByRole("button", { name: "Done" }).click();
-    await row(page, "Discord").getByRole("button", { name: "Send a test to Discord" }).click();
+    await row(page, "Discord").getByRole("button", { name: "Send test to Discord" }).click();
     await expect(row(page, "Discord").getByText("The test failed. What the receiving server said:")).toBeVisible();
     await expect(row(page, "Discord").locator("pre")).toContainText("allow_private_hosts");
     await stillness(page);

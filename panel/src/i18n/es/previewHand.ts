@@ -35,7 +35,7 @@ export const previewHand: Catalog<typeof en> = {
       tag: "Desde un tag",
     },
     ownDatabase: "Base de datos propia: {names}",
-    openAria: "Abrir la vista previa de {name}",
+    openAria: "Abrir vista previa de {name}",
     actionsAria: "Acciones de la vista previa de {name}",
     logs: "Registros",
     redeployQueued: "Recompilando la vista previa de {name}",
