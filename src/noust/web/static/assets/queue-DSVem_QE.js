@@ -1,1 +1,0 @@
-import{a as e,x as t}from"./client-CK76O-dx.js";var n={all:[`jobs`,`queue`]},r=3e3;function i(e){return e!==void 0&&e.running.length+e.queued.length>0}var a=()=>t({queryKey:n.all,queryFn:({signal:t})=>e(`get`,`/api/jobs/queue`,{signal:t}),refetchInterval:e=>i(e.state.data)?r:!1});export{n,a as r,i as t};

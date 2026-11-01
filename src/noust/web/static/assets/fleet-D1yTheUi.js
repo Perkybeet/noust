@@ -1,0 +1,1 @@
+import{t as e}from"./HomePage-JPOdZGvZ.js";import{dt as t}from"./useNode-CcVEc688.js";var n=t();function r(){return(0,n.jsx)(e,{scope:`fleet`})}export{r as component};

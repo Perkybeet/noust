@@ -1,0 +1,1 @@
+import{a as e}from"./nodeErrors-D7a6oIx6.js";import{dt as t}from"./useNode-CcVEc688.js";var n=t();function r({label:t,text:r,icon:i,onClick:a,loading:o=!1}){return(0,n.jsx)(e,{size:`sm`,variant:`ghost`,"aria-label":t,icon:i,loading:o,onClick:a,children:(0,n.jsx)(`span`,{className:`max-sm:sr-only`,children:r})})}export{r as t};

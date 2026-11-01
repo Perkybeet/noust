@@ -1,0 +1,1 @@
+import{n as e}from"./ErrorBoundary-B2O-Xrje.js";import{dt as t}from"./useNode-CcVEc688.js";var n=t(),r=({error:t})=>(0,n.jsx)(`main`,{className:`mx-auto min-h-dvh max-w-3xl px-6 py-16`,children:(0,n.jsx)(e,{error:t})});export{r as errorComponent};
