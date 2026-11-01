@@ -176,6 +176,9 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 python_functions = "test_*"
 addopts = "--strict-markers --strict-config"
+# The tree under test is the one pytest runs in: an editable install points at the checkout it was made from, and a
+# second checkout of the repository (a git worktree) would otherwise test that one's code without saying so.
+pythonpath = ["src"]
 # A passing test's directory is removed when it ends: a run writes some forty thousand, more
 # than a CI runner's disk holds. A failing one keeps its directory to be looked at.
 tmp_path_retention_policy = "failed"
