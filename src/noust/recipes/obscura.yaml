@@ -1,0 +1,101 @@
+# Obscura Browser: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/obscura
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: obscura
+kind: compose
+title: "Obscura Browser"
+slogan: "The headless browser for AI agents and web scraping"
+description: "Headless browser for AI agents with authenticated remote MCP and Chrome DevTools Protocol endpoints."
+category: ai
+tags: [ai, browser, automation, mcp, cdp]
+logo: logo.svg
+version: "2.10.2-alpine"
+revision: 1
+updated: 2026-10-31
+homepage: https://obscura.sh
+docs: https://github.com/h4ckf0r0day/obscura/blob/master/docs/Use-the-MCP-server.md
+repository: https://github.com/h4ckf0r0day/obscura
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  OBSCURA_HOST:
+    from: "fqdn"
+    description: "The address people use to reach the application, as the template builds it."
+  OBSCURA_API_TOKEN:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for obscura api token."
+health: {path: /, expect: "200-399,401", timeout: 180}
+files:
+  files/Caddyfile:
+    asset: files/Caddyfile
+    render: true
+    mode: "0644"
+compose: |
+  services:
+    obscura-cdp:
+      image: h4ckf0r0day/obscura:0.2.1@sha256:e65cb455fc67543283da6901e8735c45aab5421e2ced8879b0a1fa70a4e38a2d
+      restart: unless-stopped
+      command:
+        - serve
+        - --host
+        - 0.0.0.0
+        - --port
+        - '9222'
+        - --stealth
+        - --storage-dir
+        - /data
+      volumes:
+        - obscura-data:/data
+    obscura-mcp:
+      image: h4ckf0r0day/obscura:0.2.1@sha256:e65cb455fc67543283da6901e8735c45aab5421e2ced8879b0a1fa70a4e38a2d
+      restart: unless-stopped
+      command:
+        - mcp
+        - --http
+        - --host
+        - 0.0.0.0
+        - --port
+        - '3000'
+        - --stealth
+      environment:
+        OBSCURA_MCP_ALLOWED_ORIGINS: https://${OBSCURA_HOST}
+    caddy:
+      image: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+      restart: unless-stopped
+      environment:
+        OBSCURA_HOST: ${OBSCURA_HOST}
+        OBSCURA_API_TOKEN: ${OBSCURA_API_TOKEN}
+      volumes:
+        - ./files/Caddyfile:/etc/caddy/Caddyfile:ro
+      depends_on:
+        obscura-cdp:
+          condition: service_started
+        obscura-mcp:
+          condition: service_started
+      healthcheck:
+        test:
+          - CMD
+          - wget
+          - -q
+          - -O
+          - /dev/null
+          - http://127.0.0.1:2019/config/
+        interval: 30s
+        timeout: 5s
+        retries: 3
+        start_period: 10s
+      ports:
+        - 127.0.0.1:${PORT}:80
+  volumes:
+    obscura-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume obscura-data of this application: back it up before updating."

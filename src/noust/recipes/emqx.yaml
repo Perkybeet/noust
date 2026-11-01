@@ -1,0 +1,61 @@
+# EMQX: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/emqx
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+# Licence: LICENSE of emqx/emqx, read 2026-10-30: BSL 1.1 whose grant allows production use of a single node, not hosted or embedded for third parties
+schema: 2
+name: emqx
+kind: compose
+title: "EMQX"
+slogan: "The most scalable and reliable MQTT broker for AI, IoT, IIoT and connected vehicles"
+description: "Source-available (Business Source License 1.1), for your own use. A scalable and reliable MQTT broker for AI, IoT, IIoT and connected vehicles"
+category: smart-home
+tags: [broker, iot, mqtt, smart-home]
+logo: logo.svg
+version: "6.0.1"
+revision: 2
+updated: 2026-10-31
+homepage: https://www.emqx.com
+docs: https://docs.emqx.com
+repository: https://github.com/emqx/emqx
+license: BUSL-1.1
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  DASHBOARD_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The password of the dashboard's account admin, which EMQX otherwise gives the password public."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    emqx:
+      image: emqx/emqx-enterprise:6.0.1@sha256:227984a1d31b16b991cdd101f3dfb6dd10699b28b248488fbf7b38b5420004cd
+      hostname: node1.emqx.com
+      environment:
+        EMQX_NODE_NAME: emqx@node1.emqx.com
+        EMQX_DASHBOARD__DEFAULT_PASSWORD: ${DASHBOARD_PASSWORD}
+      volumes:
+        - emqx_data:/opt/emqx/data
+        - emqx_log:/opt/emqx/log
+      restart: unless-stopped
+      healthcheck:
+        test:
+          - CMD
+          - /opt/emqx/bin/emqx_ctl
+          - status
+        interval: 30s
+        timeout: 5s
+        retries: 3
+      ports:
+        - 127.0.0.1:${PORT}:18083
+  volumes:
+    emqx_data:
+    emqx_log:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "Sign in to the dashboard as admin with the password in DASHBOARD_PASSWORD (noust env show {{ domain }} --unmask). EMQX applies it only when it first creates the account. The MQTT listeners (1883, 8883) are not published: clients reach the broker from this stack's network, or you publish a port yourself behind a firewall."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes emqx_data, emqx_log of this application: back them up before updating."

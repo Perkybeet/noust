@@ -1,0 +1,46 @@
+# IPFS (Kubo): Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/ipfs
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+# Licence: LICENSE of ipfs/kubo, read 2026-10-30: dual MIT/Apache-2.0
+schema: 2
+name: ipfs
+kind: compose
+title: "IPFS (Kubo)"
+slogan: "An IPFS implementation in Go: a daemon that stores and serves content-addressed data."
+description: "IPFS (Kubo) is a decentralized peer-to-peer file sharing and storage network node. Host your own IPFS gateway and API."
+category: files
+tags: [storage, decentralized, p2p, self-hosted, files]
+logo: simple-icons:ipfs
+version: "0.43.1"
+revision: 1
+updated: 2026-10-31
+homepage: https://docs.ipfs.tech/how-to/command-line-quick-start/
+docs: https://docs.ipfs.tech/
+repository: https://github.com/ipfs/kubo
+license: MIT OR Apache-2.0
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /version, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    ipfs:
+      image: ipfs/kubo:v0.43.1@sha256:b293923d66e490e70ced64df42ea7a6cf7eac2740e3fb29101df18070fa7be48
+      restart: unless-stopped
+      environment:
+        IPFS_PROFILE: server
+      volumes:
+        - ipfs_data:/data/ipfs
+        - ipfs_staging:/export
+      ports:
+        - 127.0.0.1:${PORT}:8080
+  volumes:
+    ipfs_data:
+    ipfs_staging:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes ipfs_data, ipfs_staging of this application: back them up before updating."

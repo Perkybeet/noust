@@ -31,6 +31,11 @@
    "seconds": 80,
    "version": "0.27.4"
   },
+  "agent-zero": {
+   "date": "2026-10-31",
+   "seconds": 276,
+   "version": "1.9"
+  },
   "airtrail": {
    "date": "2026-10-30",
    "seconds": 66,
@@ -71,6 +76,11 @@
    "seconds": 171,
    "version": "2.5.0"
   },
+  "arangodb": {
+   "date": "2026-10-31",
+   "seconds": 55,
+   "version": "3.12.4"
+  },
   "archivebox": {
    "date": "2026-10-29",
    "seconds": 117,
@@ -85,6 +95,11 @@
    "date": "2026-10-28",
    "seconds": 47,
    "version": "2.37.1"
+  },
+  "authelia": {
+   "date": "2026-10-31",
+   "seconds": 56,
+   "version": "4.39.28"
   },
   "authentik": {
    "date": "2026-10-31",
@@ -120,6 +135,11 @@
    "date": "2026-10-28",
    "seconds": 68,
    "version": "1.6.2"
+  },
+  "bentopdf": {
+   "date": "2026-10-31",
+   "seconds": 42,
+   "version": "1.16.1"
   },
   "beszel": {
    "date": "2026-10-28",
@@ -376,6 +396,11 @@
    "seconds": 51,
    "version": "32.5.5"
   },
+  "drawnix": {
+   "date": "2026-11-01",
+   "seconds": 39,
+   "version": "0.4.1"
+  },
   "drizzle-gateway": {
    "date": "2026-10-29",
    "seconds": 39,
@@ -390,6 +415,11 @@
    "date": "2026-10-30",
    "seconds": 30,
    "version": "0.47.0"
+  },
+  "duplicati": {
+   "date": "2026-10-31",
+   "seconds": 52,
+   "version": "2.4.1"
   },
   "easyappointments": {
    "date": "2026-10-30",
@@ -416,6 +446,11 @@
    "seconds": 40,
    "version": "1.12.33"
   },
+  "emqx": {
+   "date": "2026-11-01",
+   "seconds": 57,
+   "version": "6.0.1"
+  },
   "enclosed": {
    "date": "2026-10-30",
    "seconds": 49,
@@ -425,6 +460,11 @@
    "date": "2026-10-30",
    "seconds": 56,
    "version": "1.20.0"
+  },
+  "erpnext": {
+   "date": "2026-10-31",
+   "seconds": 429,
+   "version": "version-15"
   },
   "esphome": {
    "date": "2026-10-30",
@@ -756,6 +796,11 @@
    "seconds": 93,
    "version": "2.4.7"
   },
+  "ipfs": {
+   "date": "2026-10-31",
+   "seconds": 40,
+   "version": "0.43.1"
+  },
   "isso": {
    "date": "2026-10-30",
    "seconds": 41,
@@ -880,6 +925,11 @@
    "date": "2026-10-30",
    "seconds": 99,
    "version": "0.34.0"
+  },
+  "labelstudio": {
+   "date": "2026-10-31",
+   "seconds": 110,
+   "version": "1.23.2"
   },
   "langflow": {
    "date": "2026-10-28",
@@ -1061,6 +1111,11 @@
    "seconds": 240,
    "version": "2.4.22"
   },
+  "metube": {
+   "date": "2026-10-31",
+   "seconds": 55,
+   "version": "2026.10.27"
+  },
   "mindsdb": {
    "date": "2026-10-31",
    "seconds": 121,
@@ -1170,6 +1225,11 @@
    "date": "2026-10-28",
    "seconds": 36,
    "version": "2.28.0"
+  },
+  "obscura": {
+   "date": "2026-10-31",
+   "seconds": 52,
+   "version": "2.10.2-alpine"
   },
   "octoprint": {
    "date": "2026-10-30",
@@ -1346,6 +1406,11 @@
    "seconds": 82,
    "version": "1.5.9"
   },
+  "peertube": {
+   "date": "2026-10-31",
+   "seconds": 134,
+   "version": "8.2.4"
+  },
   "penpot": {
    "date": "2026-10-29",
    "seconds": 94,
@@ -1425,6 +1490,11 @@
    "date": "2026-10-28",
    "seconds": 37,
    "version": "2.45.3"
+  },
+  "postgres-pgadmin": {
+   "date": "2026-10-31",
+   "seconds": 114,
+   "version": "9.17"
   },
   "postgresus": {
    "date": "2026-10-29",
@@ -1561,6 +1631,11 @@
    "seconds": 40,
    "version": "2026.10.4"
   },
+  "seaweedfs": {
+   "date": "2026-10-31",
+   "seconds": 55,
+   "version": "4.41"
+  },
   "seerr": {
    "date": "2026-10-29",
    "seconds": 62,
@@ -1686,6 +1761,11 @@
    "seconds": 105,
    "version": "0.7.5"
   },
+  "surrealdb": {
+   "date": "2026-10-31",
+   "seconds": 38,
+   "version": "2.3.10"
+  },
   "suwayomi": {
    "date": "2026-10-30",
    "seconds": 76,
@@ -1726,6 +1806,11 @@
    "seconds": 42,
    "version": "2.18.2"
   },
+  "teable": {
+   "date": "2026-10-31",
+   "seconds": 108,
+   "version": "1.3.1-build.457"
+  },
   "technitium": {
    "date": "2026-10-30",
    "seconds": 41,
@@ -1735,6 +1820,11 @@
    "date": "2026-10-31",
    "seconds": 64,
    "version": "2.57.0"
+  },
+  "termix": {
+   "date": "2026-10-31",
+   "seconds": 52,
+   "version": "2.6.1"
   },
   "thelounge": {
    "date": "2026-10-30",
@@ -1831,6 +1921,11 @@
    "seconds": 38,
    "version": "1.37.4"
   },
+  "verdaccio": {
+   "date": "2026-10-31",
+   "seconds": 50,
+   "version": "6"
+  },
   "versitygw": {
    "date": "2026-10-29",
    "seconds": 30,
@@ -1886,6 +1981,11 @@
    "seconds": 40,
    "version": "1.40.1"
   },
+  "web-check": {
+   "date": "2026-10-31",
+   "seconds": 73,
+   "version": "2.3.11"
+  },
   "weblate": {
    "date": "2026-10-31",
    "seconds": 163,
@@ -1915,6 +2015,11 @@
    "date": "2026-10-29",
    "seconds": 64,
    "version": "2.5.315"
+  },
+  "windmill": {
+   "date": "2026-10-31",
+   "seconds": 202,
+   "version": "1.855.1"
   },
   "wizarr": {
    "date": "2026-10-30",

@@ -1,0 +1,73 @@
+# Duplicati: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/duplicati.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+# Licence: LICENSE of duplicati/duplicati, read 2026-10-30: MIT, except the proprietary/ directory
+schema: 2
+name: duplicati
+kind: compose
+title: "Duplicati"
+slogan: "Duplicati is a backup solution, allowing you to make scheduled backups with encryption."
+description: "Open core (MIT with a proprietary directory), its enterprise features need a licence. Duplicati is a free, open-source backup solution that offers zero-trust, fully encrypted backups for your data"
+category: files
+tags: [backup, encryption, self-hosted, simple, files]
+logo: simple-icons:duplicati
+version: "2.4.1"
+revision: 1
+updated: 2026-10-31
+homepage: https://github.com/duplicati/duplicati
+docs: https://duplicati.readthedocs.io
+repository: https://github.com/duplicati/duplicati
+license: LicenseRef-Duplicati-MIT-and-proprietary
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_DUPLICATI:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_PASSWORD_ENCRYPT:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for encrypt."
+  SERVICE_PASSWORD_WEB:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for web."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    duplicati:
+      image: lscr.io/linuxserver/duplicati:2.4.1@sha256:811881130a7d37999440930d62d57e91e0bea1d930b6ba6bb08e381955205c44
+      environment:
+        SERVICE_URL_DUPLICATI: ${SERVICE_URL_DUPLICATI}
+        PUID: '1000'
+        PGID: '1000'
+        TZ: ${TZ:-Europe/London}
+        SETTINGS_ENCRYPTION_KEY: ${SERVICE_PASSWORD_ENCRYPT}
+        DUPLICATI__WEBSERVICE_PASSWORD: ${SERVICE_PASSWORD_WEB}
+      volumes:
+        - duplicati-config:/config
+        - duplicati-backups:/backups
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - -f
+          - http://127.0.0.1:8200
+        interval: 2s
+        timeout: 10s
+        retries: 15
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8200
+  volumes:
+    duplicati-config:
+    duplicati-backups:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_PASSWORD_ENCRYPT and SERVICE_PASSWORD_WEB in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes duplicati-config, duplicati-backups of this application: back them up before updating."

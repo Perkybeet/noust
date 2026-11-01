@@ -1,0 +1,190 @@
+# Windmill: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/windmill.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+# Licence: LICENSE of windmill-labs/windmill, read 2026-10-30: Apache-2.0 or AGPL-3.0 and a proprietary licence for certain enterprise features
+schema: 2
+name: windmill
+kind: compose
+title: "Windmill"
+slogan: "A developer platform to build production-grade multi-step automations and internal tools."
+description: "Open core (AGPL-3.0 and Apache-2.0 with enterprise features), its enterprise features need a licence. A developer platform to build production-grade workflows and internal apps. Open-source alternative to Airplane, Retool, and GitHub Actions."
+category: ai
+tags: [windmill, workflow, automation, developer, platform, development, ai]
+logo: logo.svg
+version: "1.855.1"
+revision: 1
+updated: 2026-10-31
+homepage: https://windmill.dev
+docs: https://www.windmill.dev/docs/
+repository: https://github.com/windmill-labs/windmill
+license: LicenseRef-Windmill-AGPL-3.0-and-EE
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_PASSWORD_POSTGRES:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres."
+  SERVICE_USER_POSTGRES:
+    generate: "user"
+    description: "The user name Noust generated for postgres."
+  SERVICE_URL_WINDMILL:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+health: {path: /, expect: "200-399", timeout: 180}
+root_equivalent: docker_socket
+compose: |
+  services:
+    db:
+      image: postgres:16@sha256:1beaa3084eee2676f20a9cd9928f0bf2c5bf674f8e49f81017912183d377c61c
+      shm_size: 1g
+      volumes:
+        - db-data:/var/lib/postgresql/data
+      environment:
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+        POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+        POSTGRES_DB: ${POSTGRES_DB:-windmill-db}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      restart: unless-stopped
+    windmill-server:
+      image: ghcr.io/windmill-labs/windmill:1.855.1@sha256:474fceb2b81445ab9dac9383cb3884133c1ddd0a68e85dcab24a784f7d110bb5
+      environment:
+        SERVICE_URL_WINDMILL: ${SERVICE_URL_WINDMILL}
+        DATABASE_URL: postgres://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@db/${POSTGRES_DB:-windmill-db}
+        MODE: server
+        BASE_URL: ${SERVICE_URL_WINDMILL}
+      depends_on:
+        db:
+          condition: service_healthy
+      volumes:
+        - worker-logs:/tmp/windmill/logs
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - -f
+          - http://localhost:8000/health
+        interval: 30s
+        timeout: 10s
+        retries: 3
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8000
+    windmill-worker-1:
+      image: ghcr.io/windmill-labs/windmill:1.855.1@sha256:474fceb2b81445ab9dac9383cb3884133c1ddd0a68e85dcab24a784f7d110bb5
+      environment:
+        DATABASE_URL: postgres://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@db/${POSTGRES_DB:-windmill-db}
+        MODE: worker
+        WORKER_GROUP: default
+      depends_on:
+        db:
+          condition: service_healthy
+      volumes:
+        - /var/run/docker.sock:/var/run/docker.sock
+        - worker-dependency-cache:/tmp/windmill/cache
+        - worker-logs:/tmp/windmill/logs
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - exit 0
+        interval: 30s
+        timeout: 10s
+        retries: 3
+      restart: unless-stopped
+    windmill-worker-2:
+      image: ghcr.io/windmill-labs/windmill:1.855.1@sha256:474fceb2b81445ab9dac9383cb3884133c1ddd0a68e85dcab24a784f7d110bb5
+      environment:
+        DATABASE_URL: postgres://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@db/${POSTGRES_DB:-windmill-db}
+        MODE: worker
+        WORKER_GROUP: default
+      depends_on:
+        db:
+          condition: service_healthy
+      volumes:
+        - /var/run/docker.sock:/var/run/docker.sock
+        - worker-dependency-cache:/tmp/windmill/cache
+        - worker-logs:/tmp/windmill/logs
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - exit 0
+        interval: 30s
+        timeout: 10s
+        retries: 3
+      restart: unless-stopped
+    windmill-worker-3:
+      image: ghcr.io/windmill-labs/windmill:1.855.1@sha256:474fceb2b81445ab9dac9383cb3884133c1ddd0a68e85dcab24a784f7d110bb5
+      environment:
+        DATABASE_URL: postgres://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@db/${POSTGRES_DB:-windmill-db}
+        MODE: worker
+        WORKER_GROUP: default
+      depends_on:
+        db:
+          condition: service_healthy
+      volumes:
+        - /var/run/docker.sock:/var/run/docker.sock
+        - worker-dependency-cache:/tmp/windmill/cache
+        - worker-logs:/tmp/windmill/logs
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - exit 0
+        interval: 30s
+        timeout: 10s
+        retries: 3
+      restart: unless-stopped
+    windmill-worker-native:
+      image: ghcr.io/windmill-labs/windmill:1.855.1@sha256:474fceb2b81445ab9dac9383cb3884133c1ddd0a68e85dcab24a784f7d110bb5
+      environment:
+        DATABASE_URL: postgres://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@db/${POSTGRES_DB:-windmill-db}
+        MODE: worker
+        WORKER_GROUP: native
+        NUM_WORKERS: '8'
+        SLEEP_QUEUE: '200'
+      depends_on:
+        db:
+          condition: service_healthy
+      volumes:
+        - worker-logs:/tmp/windmill/logs
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - exit 0
+        interval: 30s
+        timeout: 10s
+        retries: 3
+      restart: unless-stopped
+    lsp:
+      image: ghcr.io/windmill-labs/windmill-lsp:1.603.4@sha256:4e76621383915a938b8d45a9fab4bf4b8769068a73c079fccbbbc23be8da092e
+      volumes:
+        - lsp-cache:/root/.cache
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - exit 0
+        interval: 30s
+        timeout: 10s
+        retries: 3
+        start_period: 20s
+      restart: unless-stopped
+  volumes:
+    db-data:
+    worker-logs:
+    worker-dependency-cache:
+    lsp-cache:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_PASSWORD_POSTGRES and SERVICE_USER_POSTGRES in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "Windmill controls the Docker daemon of this server, which is the same as root on it: it can start any container with any part of the server mounted, Noust's applications included. Give its sign-in only to people you would give root."
+  - "Windmill starts with a superadmin account, admin@windmill.dev, whose password is changeme, and no setting can change that: sign in and change both right after installing, before anybody else reaches the page."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes db-data, worker-logs, worker-dependency-cache, lsp-cache of this application: back them up before updating."

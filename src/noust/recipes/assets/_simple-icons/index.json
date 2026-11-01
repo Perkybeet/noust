@@ -47,11 +47,25 @@
    "source": "https://appwrite.io/assets",
    "guidelines": "https://appwrite.io/assets"
   },
+  "arangodb": {
+   "title": "ArangoDB",
+   "hex": "DDDF72",
+   "license": "CC0-1.0",
+   "source": "https://www.arangodb.com/resources/logos",
+   "guidelines": "https://www.arangodb.com/resources/logos"
+  },
   "audiobookshelf": {
    "title": "Audiobookshelf",
    "hex": "82612C",
    "license": "CC0-1.0",
    "source": "https://github.com/advplyr/audiobookshelf/blob/0d9d2fa4be9b642f0948e52ddff71ff370fd524d/images/banner.svg"
+  },
+  "authelia": {
+   "title": "Authelia",
+   "hex": "113155",
+   "license": "Apache-2.0",
+   "source": "https://github.com/authelia/authelia/blob/8316cd4eb7a6f0778c8f480c61ad76a88416fc3a/docs/static/images/branding/logo.svg",
+   "guidelines": "https://www.authelia.com/reference/guides/branding"
   },
   "authentik": {
    "title": "Authentik",
@@ -151,11 +165,23 @@
    "license": "CC0-1.0",
    "source": "https://www.drupal.org/about/media-kit/logos"
   },
+  "duplicati": {
+   "title": "Duplicati",
+   "hex": "1E3A8A",
+   "license": "CC0-1.0",
+   "source": "https://duplicati.com"
+  },
   "elasticsearch": {
    "title": "Elasticsearch",
    "hex": "005571",
    "license": "CC0-1.0",
    "source": "https://www.elastic.co/brand"
+  },
+  "erpnext": {
+   "title": "ERPNext",
+   "hex": "0089FF",
+   "license": "CC0-1.0",
+   "source": "https://github.com/frappe/erpnext/blob/924911e74317f95a59f29e9410d4f141020a0411/erpnext/public/images/erpnext-logo.svg"
   },
   "esphome": {
    "title": "ESPHome",
@@ -288,6 +314,12 @@
    "license": "CC0-1.0",
    "source": "https://influxdata.github.io/branding/logo/downloads/",
    "guidelines": "https://influxdata.github.io/branding/logo/usage/"
+  },
+  "ipfs": {
+   "title": "IPFS",
+   "hex": "65C2CB",
+   "license": "CC-BY-SA-3.0",
+   "source": "https://github.com/ipfs-inactive/logo/tree/73169b495332415b174ac2f37ec27c4b2ee8da83"
   },
   "jaeger": {
    "title": "Jaeger",
@@ -533,6 +565,12 @@
    "source": "https://www.passbolt.com/credits/press-kit",
    "guidelines": "https://www.passbolt.com/credits/brand-guidelines"
   },
+  "peertube": {
+   "title": "PeerTube",
+   "hex": "F1680D",
+   "license": "CC-BY-SA-4.0",
+   "source": "https://joinpeertube.org"
+  },
   "penpot": {
    "title": "Penpot",
    "hex": "000000",
@@ -664,6 +702,12 @@
    "license": "CC0-1.0",
    "source": "https://github.com/supabase/supabase/blob/4031a7549f5d46da7bc79c01d56be4177dc7c114/packages/common/assets/images/supabase-logo-wordmark--light.svg"
   },
+  "surrealdb": {
+   "title": "SurrealDB",
+   "hex": "FF00A0",
+   "license": "CC0-1.0",
+   "source": "https://github.com/surrealdb/surrealdb/blob/b5b4601b09b8f1c1334675bbeb4e7408df8dc882/img/logo.svg"
+  },
   "syncthing": {
    "title": "Syncthing",
    "hex": "0891D1",
@@ -718,6 +762,13 @@
    "hex": "000000",
    "license": "CC0-1.0",
    "source": "https://github.com/dani-garcia/vaultwarden/blob/44e9e1a58ed37bf4b352bb499fd3e97adcd3b26b/resources/vaultwarden-icon.svg"
+  },
+  "verdaccio": {
+   "title": "Verdaccio",
+   "hex": "4B5E40",
+   "license": "CC0-1.0",
+   "source": "https://verdaccio.org/docs/logo",
+   "guidelines": "https://verdaccio.org/docs/logo"
   },
   "victoriametrics": {
    "title": "VictoriaMetrics",

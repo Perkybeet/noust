@@ -1,0 +1,22 @@
+###############################################################
+#                         Users Database                     #
+###############################################################
+
+# DEFAULT LOGIN CREDENTIALS:
+# Username: (generated from username helper)
+# Password: AdminPass123!
+# Email: (generated from email helper)
+#
+# IMPORTANT: Change the default password after first login!
+# To generate a new password hash, run:
+# docker run authelia/authelia:latest authelia hash-password 'your-new-password'
+
+users:
+  ${admin_username}:
+    disabled: false
+    displayname: "Authelia Admin"
+    password: "$$argon2id$$v=19$$m=65536,t=3,p=4$$170PGJ1MskQyxfFknfBPFQ$$VqD1/pqC3fBHo+Zk58bC2xQm1ltOFTr0w2wx93vJgC4"
+    email: admin@${APP_DOMAIN}
+    groups:
+      - admins
+      - dev

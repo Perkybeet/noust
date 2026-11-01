@@ -1,10 +1,10 @@
 {
   "measured": "tests/integration/recipes_run.py: scripts/recipe_smoke.py in the harness container, one recipe at a time",
   "harness": "Ubuntu 24.04 with systemd and a Docker of its own (Dockerfile.systemd)",
-  "updated": "2026-10-31T23:01:54Z",
+  "updated": "2026-11-01T00:07:07Z",
   "totals": {
-    "pass": 400,
-    "fail": 3
+    "pass": 417,
+    "fail": 2
   },
   "results": [
     {
@@ -82,6 +82,21 @@
       "result": "pass",
       "gate": "/info -> 200 after 5s",
       "error_lines": 1,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "agent-zero",
+      "version": "1.9",
+      "date": "2026-10-31T23:12:24Z",
+      "source": "dokploy",
+      "seconds": 276,
+      "result": "pass",
+      "gate": "/ -> 302 after 25s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 5,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -214,6 +229,21 @@
       "result": "pass",
       "gate": "/api/v1/health -> 200 after 60s",
       "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "arangodb",
+      "version": "3.12.4",
+      "date": "2026-10-31T23:51:07Z",
+      "source": "dokploy",
+      "seconds": 55,
+      "result": "pass",
+      "gate": "/ -> 301 after 10s",
+      "gate_status": "301",
       "unsteady": false,
       "error_lines": 0,
       "transient": false,
@@ -372,6 +402,21 @@
       "gate": "/ -> 200 after 15s",
       "gate_status": "200",
       "error_lines": 0,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "bentopdf",
+      "version": "1.16.1",
+      "date": "2026-10-31T23:28:52Z",
+      "source": "coolify",
+      "seconds": 42,
+      "result": "pass",
+      "gate": "/ -> 200 after 0s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -1154,6 +1199,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "drawnix",
+      "version": "0.4.1",
+      "date": "2026-11-01T00:04:42Z",
+      "source": "dokploy",
+      "seconds": 39,
+      "result": "pass",
+      "gate": "/ -> 200 after 0s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "drizzle-gateway",
       "version": "1.7.0",
       "date": "2026-10-29T01:21:21Z",
@@ -1192,6 +1252,21 @@
       "result": "pass",
       "gate": "/ -> 401 after 0s",
       "gate_status": "401",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "duplicati",
+      "version": "2.4.1",
+      "date": "2026-10-31T23:34:46Z",
+      "source": "coolify",
+      "seconds": 52,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
       "transient": false,
@@ -1273,6 +1348,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "emqx",
+      "version": "6.0.1",
+      "date": "2026-11-01T00:03:43Z",
+      "source": "catalogue",
+      "seconds": 57,
+      "result": "pass",
+      "gate": "/ -> 200 after 15s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "enclosed",
       "version": "1.16.1-rootless",
       "date": "2026-10-30T14:57:21Z",
@@ -1307,18 +1397,14 @@
     {
       "recipe": "erpnext",
       "version": "version-15",
-      "date": "2026-10-31T21:57:46Z",
+      "date": "2026-10-31T23:56:29Z",
       "source": "dokploy",
-      "seconds": 296,
-      "result": "fail",
-      "gate": "/ -> conn:TimeoutError after 186s",
-      "gate_status": "conn:TimeoutError",
+      "seconds": 429,
+      "result": "pass",
+      "gate": "/ -> 200 after 296s",
+      "gate_status": "200",
       "unsteady": true,
-      "problems": [
-        "the health gate's request to / got conn:TimeoutError, the recipe expects 200-399"
-      ],
-      "log_tail": "ench/env/lib/python3.11/site-packages/gunicorn/arbiter.py\", line 203 in run\nbackend-1         |   File \"/home/frappe/frappe-bench/env/lib/python3.11/site-packages/gunicorn/app/base.py\", line 71 in run\nbackend-1         |   File \"/home/frappe/frappe-bench/env/lib/python3.11/site-packages/gunicorn/app/base.py\", line 235 in run\nbackend-1         |   File \"/home/frappe/frappe-bench/env/lib/python3.11/site-packages/gunicorn/app/wsgiapp.py\", line 66 in run\nbackend-1         |   File \"/home/frappe/frappe-bench/env/bin/gunicorn\", line 10 in <module>\nbackend-1         | [2026-10-31 22:02:21 +0000] [12] [INFO] Worker exiting (pid: 12)\nredis-cache-1     | 1:C 31 Oct 2026 21:59:01.547 # oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo\nredis-cache-1     | 1:C 31 Oct 2026 21:59:01.548 # Redis version=6.2.24, bits=64, commit=00000000, modified=0, pid=1, just started\nredis-cache-1     | 1:C 31 Oct 2026 21:59:01.548 # Warning: no config file specified, using the default config. In order to specify a config file use redis-server /path/to/redis.conf\nredis-cache-1     | 1:M 31 Oct 2026 21:59:01.548 * Increased maximum number of open files to 10032 (it was originally set to 1024).\nredis-cache-1     | 1:M 31 Oct 2026 21:59:01.548 * monotonic clock: POSIX clock_gettime\nredis-cache-1     | 1:M 31 Oct 2026 21:59:01.549 * Running mode=standalone, port=6379.\nredis-cache-1     | 1:M 31 Oct 2026 21:59:01.549 # Server initialized\nredis-cache-1     | 1:M 31 Oct 2026 21:59:01.549 * Ready to accept connections\n",
-      "error_lines": 0,
+      "error_lines": 28,
       "transient": false,
       "rate_limited": false,
       "images_removed": 10
@@ -2294,6 +2380,23 @@
       "images_removed": 1
     },
     {
+      "recipe": "ipfs",
+      "version": "0.43.1",
+      "date": "2026-10-31T23:24:50Z",
+      "source": "dokploy",
+      "seconds": 40,
+      "result": "pass",
+      "gate": "/version -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1,
+      "attempts": 2,
+      "first_attempt": "the health gate's request to / got 404, the recipe expects 200-399"
+    },
+    {
       "recipe": "isso",
       "version": "0.14.0",
       "date": "2026-10-30T17:21:04Z",
@@ -2658,6 +2761,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "labelstudio",
+      "version": "1.23.2",
+      "date": "2026-10-31T23:01:54Z",
+      "source": "coolify",
+      "seconds": 110,
+      "result": "pass",
+      "gate": "/ -> 302 after 35s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 1,
       "transient": false,
       "rate_limited": false,
       "images_removed": 1
@@ -3183,6 +3301,21 @@
       "result": "pass",
       "gate": "/ -> 307 after 10s",
       "gate_status": "307",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "metube",
+      "version": "2026.10.27",
+      "date": "2026-10-31T23:35:39Z",
+      "source": "coolify",
+      "seconds": 55,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
       "transient": false,
@@ -4051,6 +4184,21 @@
       "first_attempt": "the health gate's request to / got 500, the recipe expects 200-399"
     },
     {
+      "recipe": "peertube",
+      "version": "8.2.4",
+      "date": "2026-10-31T23:30:29Z",
+      "source": "coolify",
+      "seconds": 134,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 1,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 2
+    },
+    {
       "recipe": "penpot",
       "version": "2.18.3",
       "date": "2026-10-29T00:17:55Z",
@@ -4282,6 +4430,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 0,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
+      "recipe": "postgres-pgadmin",
+      "version": "9.17",
+      "date": "2026-10-31T23:08:17Z",
+      "source": "dokploy",
+      "seconds": 114,
+      "result": "pass",
+      "gate": "/ -> 302 after 50s",
+      "gate_status": "302",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
       "rate_limited": false,
       "images_removed": 1
     },
@@ -4658,6 +4821,21 @@
       "images_removed": 1,
       "attempts": 2,
       "first_attempt": "the health gate's request to /healthz got 403, the recipe expects 200"
+    },
+    {
+      "recipe": "rybbit",
+      "version": "2.2.3",
+      "date": "2026-11-01T00:05:21Z",
+      "source": "coolify",
+      "seconds": 102,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 5,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 3
     },
     {
       "recipe": "ryot",
@@ -5211,6 +5389,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "teable",
+      "version": "1.3.1-build.457",
+      "date": "2026-10-31T23:25:56Z",
+      "source": "coolify",
+      "seconds": 108,
+      "result": "pass",
+      "gate": "/ -> 307 after 5s",
+      "gate_status": "307",
+      "unsteady": true,
+      "error_lines": 1,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 2
+    },
+    {
       "recipe": "technitium",
       "version": "15.6.2",
       "date": "2026-10-30T15:23:44Z",
@@ -5236,6 +5429,21 @@
       "gate_status": "200",
       "unsteady": false,
       "error_lines": 16,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 2
+    },
+    {
+      "recipe": "termix",
+      "version": "2.6.1",
+      "date": "2026-10-31T23:29:35Z",
+      "source": "coolify",
+      "seconds": 52,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
       "transient": false,
       "rate_limited": false,
       "images_removed": 2
@@ -5521,6 +5729,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "verdaccio",
+      "version": "6",
+      "date": "2026-10-31T23:20:40Z",
+      "source": "dokploy",
+      "seconds": 50,
+      "result": "pass",
+      "gate": "/ -> 200 after 5s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 0,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 1
+    },
+    {
       "recipe": "versitygw",
       "version": "1.8.0",
       "date": "2026-10-29T02:34:24Z",
@@ -5789,6 +6012,21 @@
       "transient": false,
       "rate_limited": false,
       "images_removed": 1
+    },
+    {
+      "recipe": "windmill",
+      "version": "1.855.1",
+      "date": "2026-10-31T23:17:07Z",
+      "source": "coolify",
+      "seconds": 202,
+      "result": "pass",
+      "gate": "/ -> 200 after 10s",
+      "gate_status": "200",
+      "unsteady": false,
+      "error_lines": 27,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 6
     },
     {
       "recipe": "wizarr",

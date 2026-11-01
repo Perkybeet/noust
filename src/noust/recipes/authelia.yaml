@@ -1,0 +1,126 @@
+# Authelia: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/authelia
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: authelia
+kind: compose
+title: "Authelia"
+slogan: "The Single Sign-On Multi-Factor portal for web apps."
+description: "Authelia is an open-source authentication portal for single sign-on (SSO) and two-factor authentication. Self-host it on your own server with Dokploy, which deploys Authelia as a Docker Compose service in a few clicks."
+category: security
+tags: [authentication, authorization, 2fa, sso, security, reverse-proxy, ldap]
+logo: simple-icons:authelia
+version: "4.39.28"
+revision: 1
+updated: 2026-10-31
+homepage: https://www.authelia.com
+docs: https://www.authelia.com/overview/prologue/introduction/
+repository: https://github.com/authelia/authelia
+license: Apache-2.0
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  JWT_SECRET:
+    generate: "password64"
+    secret: true
+    description: "The secret Noust generated for jwt secret."
+  SESSION_SECRET:
+    generate: "password64"
+    secret: true
+    description: "The secret Noust generated for session secret."
+  STORAGE_ENCRYPTION_KEY:
+    generate: "password64"
+    secret: true
+    description: "The secret Noust generated for storage encryption key."
+  POSTGRES_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres password."
+  REDIS_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for redis password."
+  APP_DOMAIN:
+    from: "fqdn"
+    description: "The address people use to reach the application, as the template builds it."
+  admin_username:
+    generate: "user"
+    description: "The user name Noust generated for admin username."
+health: {path: /, expect: "200-399", timeout: 180}
+files:
+  files/configuration.yml:
+    asset: files/configuration.yml
+    render: true
+    mode: "0644"
+  files/users_database.yml:
+    asset: files/users_database.yml
+    render: true
+    mode: "0644"
+compose: |
+  services:
+    authelia:
+      image: authelia/authelia:4.39.28@sha256:bd97cff4fcbf715b5ff1f9ae286afbe6033afce385302520b0368122d43a6f54
+      restart: unless-stopped
+      volumes:
+        - authelia_config:/config
+        - ./files/configuration.yml:/config/configuration.yml:ro
+        - ./files/users_database.yml:/config/users_database.yml
+      environment:
+        AUTHELIA_JWT_SECRET: ${JWT_SECRET}
+        AUTHELIA_SESSION_SECRET: ${SESSION_SECRET}
+        AUTHELIA_STORAGE_ENCRYPTION_KEY: ${STORAGE_ENCRYPTION_KEY}
+        AUTHELIA_STORAGE_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      depends_on:
+        redis:
+          condition: service_healthy
+        postgres:
+          condition: service_healthy
+      ports:
+        - 127.0.0.1:${PORT}:9091
+    redis:
+      image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
+      restart: unless-stopped
+      volumes:
+        - redis_data:/data
+      command: redis-server --save 60 1 --loglevel warning --requirepass ${REDIS_PASSWORD}
+      environment:
+        REDIS_PASSWORD: ${REDIS_PASSWORD}
+      healthcheck:
+        test:
+          - CMD
+          - redis-cli
+          - --raw
+          - incr
+          - ping
+        interval: 10s
+        timeout: 3s
+        retries: 5
+    postgres:
+      image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
+      restart: unless-stopped
+      volumes:
+        - postgres_data:/var/lib/postgresql/data
+      environment:
+        POSTGRES_DB: authelia
+        POSTGRES_USER: authelia
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U authelia -d authelia
+        interval: 10s
+        timeout: 5s
+        retries: 5
+        start_period: 30s
+  volumes:
+    authelia_config:
+    redis_data:
+    postgres_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes authelia_config, redis_data, postgres_data of this application: back them up before updating."

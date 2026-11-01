@@ -1,0 +1,36 @@
+# Drawnix: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/drawnix
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: drawnix
+kind: compose
+title: "Drawnix"
+slogan: "An all-in-one open-source whiteboard with mind maps, flowcharts and free drawing."
+description: "Drawnix is an application for generating and managing visual content, powered by pubuzhixing/drawnix Docker image."
+category: utilities
+tags: [visualization, content-generation, utilities]
+logo: logo.svg
+version: "0.4.1"
+revision: 1
+updated: 2026-10-31
+homepage: https://drawnix.com
+docs: https://github.com/plait-board/drawnix/blob/develop/README_en.md#docker
+repository: https://github.com/plait-board/drawnix
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /, expect: "200-399", timeout: 600}
+compose: |
+  services:
+    drawnix:
+      image: pubuzhixing/drawnix:v0.4.1@sha256:1faa5576e4bb70fc6d78a0f0d9b406dd4db9f966a96c53d62ed05b7b02f31c43
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:80
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."

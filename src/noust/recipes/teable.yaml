@@ -1,0 +1,177 @@
+# Teable: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/teable.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+# Licence: LICENSE of teableio/teable, read 2026-10-30: core under AGPL-3.0, enterprise parts under a commercial licence
+schema: 2
+name: teable
+kind: compose
+title: "Teable"
+slogan: "Teable is a powerful visual interface built on relational databases (PostgreSQL)."
+description: "Open core (AGPL-3.0 with enterprise parts), its enterprise features need a licence. Teable is a Super fast, Real-time, Professional, Developer friendly, No-code database built on Postgres. It uses a simple, spreadsheet-like interface to create complex enterprise-level database applications. Unlock efficient app development with no-code, free from the hurdles of data security and scalability."
+category: ai
+tags: [airtable, teable, database, visual, interface, relational, postgresql, spreadsheet]
+logo: logo.svg
+version: "1.3.1-build.457"
+revision: 1
+updated: 2026-10-31
+homepage: https://teable.ai
+docs: https://help.teable.io/
+repository: https://github.com/teableio/teable
+license: LicenseRef-Teable-AGPL-3.0-and-EE
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_TEABLE:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_PASSWORD_POSTGRES:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres."
+  SERVICE_PASSWORD_64_SECRET:
+    generate: "password64"
+    secret: true
+    description: "The secret Noust generated for secret."
+  TIMEZONE:
+    default: ""
+    description: "Setting TIMEZONE of the application; the template leaves it to the operator."
+  SERVICE_USER_POSTGRES:
+    generate: "user"
+    description: "The user name Noust generated for postgres."
+  POSTGRES_PORT:
+    default: "5432"
+    description: "Setting POSTGRES_PORT of the application; the template leaves it to the operator."
+  POSTGRES_DB:
+    default: "teable"
+    description: "Setting POSTGRES_DB of the application; the template leaves it to the operator."
+  SERVICE_PASSWORD_REDIS:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for redis."
+  BACKEND_MAIL_HOST:
+    default: ""
+    description: "Setting BACKEND_MAIL_HOST of the application; the template leaves it to the operator."
+  BACKEND_MAIL_PORT:
+    default: ""
+    description: "Setting BACKEND_MAIL_PORT of the application; the template leaves it to the operator."
+  BACKEND_MAIL_SECURE:
+    default: ""
+    description: "Setting BACKEND_MAIL_SECURE of the application; the template leaves it to the operator."
+  BACKEND_MAIL_SENDER:
+    default: ""
+    description: "Setting BACKEND_MAIL_SENDER of the application; the template leaves it to the operator."
+  BACKEND_MAIL_SENDER_NAME:
+    default: ""
+    description: "Setting BACKEND_MAIL_SENDER_NAME of the application; the template leaves it to the operator."
+  BACKEND_MAIL_AUTH_USER:
+    default: ""
+    description: "Setting BACKEND_MAIL_AUTH_USER of the application; the template leaves it to the operator."
+  BACKEND_MAIL_AUTH_PASS:
+    default: ""
+    secret: true
+    description: "Setting BACKEND_MAIL_AUTH_PASS of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    teable:
+      image: ghcr.io/teableio/teable:1.3.1-build.457@sha256:a1bc6418db0435a3bdc72927ddb7a50744abf576dd941ff066755b461d95435e
+      volumes:
+        - teable_data:/app/.assets:rw
+      environment:
+        SERVICE_URL_TEABLE: ${SERVICE_URL_TEABLE}
+        PUBLIC_ORIGIN: ${SERVICE_URL_TEABLE}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+        SECRET_KEY: ${SERVICE_PASSWORD_64_SECRET}
+        TZ: ${TIMEZONE}
+        PRISMA_DATABASE_URL: postgresql://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@teable-db:${POSTGRES_PORT}/${POSTGRES_DB}
+        NEXT_ENV_IMAGES_ALL_REMOTE: 'true'
+        PORT: '3000'
+        REDIS_PASSWORD: ${SERVICE_PASSWORD_REDIS}
+        BACKEND_CACHE_PROVIDER: redis
+        BACKEND_CACHE_REDIS_URI: redis://default:${SERVICE_PASSWORD_REDIS}@teable-cache:6379/0
+        BACKEND_MAIL_HOST: ${BACKEND_MAIL_HOST}
+        BACKEND_MAIL_PORT: ${BACKEND_MAIL_PORT}
+        BACKEND_MAIL_SECURE: ${BACKEND_MAIL_SECURE}
+        BACKEND_MAIL_SENDER: ${BACKEND_MAIL_SENDER}
+        BACKEND_MAIL_SENDER_NAME: ${BACKEND_MAIL_SENDER_NAME}
+        BACKEND_MAIL_AUTH_USER: ${BACKEND_MAIL_AUTH_USER}
+        BACKEND_MAIL_AUTH_PASS: ${BACKEND_MAIL_AUTH_PASS}
+      depends_on:
+        teable-db:
+          condition: service_healthy
+        teable-cache:
+          condition: service_healthy
+        teable-db-migrate:
+          condition: service_completed_successfully
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - -f
+          - http://127.0.0.1:3000
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:3000
+    teable-db:
+      image: postgres:15.4@sha256:d1168ad5397bf9c94cc417c530469805a8767ed585481d93f174461ac8557e3a
+      volumes:
+        - teable_db_data:/var/lib/postgresql/data:rw
+      environment:
+        TZ: ${TIMEZONE}
+        POSTGRES_DB: ${POSTGRES_DB:-teable}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+        POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+        POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+    teable-db-migrate:
+      image: ghcr.io/teableio/teable-db-migrate:1.3.1-build.457@sha256:e522b1e60fbd93a1a234aaabc6c80d64b9f032be6e81d3b1a1bd8bc98ef1f729
+      restart: 'no'
+      environment:
+        TZ: ${TIMEZONE}
+        PRISMA_DATABASE_URL: postgresql://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@teable-db:${POSTGRES_PORT}/${POSTGRES_DB}
+      depends_on:
+        teable-db:
+          condition: service_healthy
+    teable-cache:
+      image: redis:7.2.4@sha256:5a93f6b2e391b78e8bd3f9e7e1e1e06aeb5295043b4703fb88392835cec924a0
+      environment:
+        REDIS_PORT: '6379'
+        REDIS_DB: '0'
+        REDIS_PASSWORD: ${SERVICE_PASSWORD_REDIS}
+      volumes:
+        - teable_cache_data:/data:rw
+      command: redis-server --appendonly yes --requirepass ${SERVICE_PASSWORD_REDIS}
+      healthcheck:
+        test:
+          - CMD
+          - redis-cli
+          - --raw
+          - incr
+          - ping
+        interval: 10s
+        timeout: 3s
+        retries: 3
+      restart: unless-stopped
+  volumes:
+    teable_data:
+    teable_db_data:
+    teable_cache_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_PASSWORD_POSTGRES and SERVICE_PASSWORD_64_SECRET and SERVICE_USER_POSTGRES and SERVICE_PASSWORD_REDIS in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes teable_data, teable_db_data, teable_cache_data of this application: back them up before updating."

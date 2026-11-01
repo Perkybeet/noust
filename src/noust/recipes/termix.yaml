@@ -1,0 +1,57 @@
+# Termix: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/termix.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: termix
+kind: compose
+title: "Termix"
+slogan: "All-in-One SSH & Remote Desktop management app."
+description: "Self-hosted, plugin-based server management."
+category: utilities
+tags: [ssh, terminal, remote-desktop, rdp, vnc, server-management, remote-access, utilities]
+logo: logo.svg
+version: "2.6.1"
+revision: 1
+updated: 2026-10-31
+homepage: https://termix.site/
+docs: https://docs.termix.site/install/server/docker
+repository: https://github.com/Termix-SSH/Termix
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_TERMIX:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    termix:
+      image: ghcr.io/lukegus/termix:2.6.1@sha256:7d7b9e7c86107f21c824b4a7f0b47d626214754117b18dc46364851a8c42c17e
+      environment:
+        SERVICE_URL_TERMIX: ${SERVICE_URL_TERMIX}
+        PORT: '8080'
+        LOG_LEVEL: ${LOG_LEVEL:-info}
+        GUACD_HOST: guacd
+        GUACD_RECORDING_PATH: /termix-data/session_recordings/guacamole
+      depends_on:
+        guacd:
+          condition: service_started
+      volumes:
+        - termix-data:/app/data
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8080
+    guacd:
+      image: guacamole/guacd:1.6.0@sha256:8974eaa9ba32f713daf311e7cc8cd7e4cdfba1edea39eed75524e78ef4b08f4f
+      restart: unless-stopped
+  volumes:
+    termix-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume termix-data of this application: back it up before updating."

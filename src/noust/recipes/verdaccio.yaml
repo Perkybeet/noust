@@ -1,0 +1,51 @@
+# Verdaccio: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/verdaccio
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: verdaccio
+kind: compose
+title: "Verdaccio"
+slogan: "A lightweight Node.js private proxy registry"
+description: "A lightweight Node.js private proxy registry"
+category: development
+tags: [node-js, package-repository, npm, development]
+logo: simple-icons:verdaccio
+version: "6"
+revision: 1
+updated: 2026-10-31
+homepage: https://www.verdaccio.org/
+docs: https://www.verdaccio.org/docs/what-is-verdaccio
+repository: https://github.com/verdaccio/verdaccio
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /, expect: "200-399", timeout: 180}
+files:
+  files/conf/config.yaml:
+    asset: files/conf/config.yaml
+    render: true
+    mode: "0644"
+compose: |
+  services:
+    verdaccio:
+      image: verdaccio/verdaccio:6@sha256:82f4decaf1c9eff885bf7a1227335f78581ff715288d5f38898e67e28b3bfbdd
+      environment:
+        VERDACCIO_PORT: '4873'
+      volumes:
+        - verdaccio_storage:/verdaccio/storage
+        - verdaccio_plugins:/verdaccio/plugins
+        - ./files/conf:/verdaccio/conf
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:4873
+  volumes:
+    verdaccio_storage:
+    verdaccio_plugins:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes verdaccio_storage, verdaccio_plugins of this application: back them up before updating."

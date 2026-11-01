@@ -1,0 +1,107 @@
+# PostgreSQL + pgAdmin: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/postgres-pgadmin
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+# Licence: COPYRIGHT of postgres/postgres, read 2026-10-30: the PostgreSQL licence
+schema: 2
+name: postgres-pgadmin
+kind: compose
+title: "PostgreSQL + pgAdmin"
+slogan: "Mirror of the official PostgreSQL GIT repository."
+description: "PostgreSQL 18 Alpine with pgAdmin 4 web UI, persistent volumes and healthchecks for easy database administration."
+category: data
+tags: [database, postgres, postgresql, admin, pgadmin, data]
+logo: logo.svg
+version: "9.17"
+revision: 1
+updated: 2026-10-31
+homepage: https://www.postgresql.org/
+docs: https://www.pgadmin.org/docs/
+repository: https://github.com/postgres/postgres
+license: PostgreSQL
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  POSTGRES_USER:
+    generate: "user"
+    description: "The user name Noust generated for postgres user."
+  POSTGRES_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres password."
+  POSTGRES_DB:
+    default: "postgres"
+    description: "Setting POSTGRES_DB of the application; the template leaves it to the operator."
+  APP_DOMAIN:
+    from: "fqdn"
+    description: "The domain people use to reach the application."
+  PGADMIN_DEFAULT_EMAIL:
+    value: "admin@${APP_DOMAIN}"
+    description: "Setting PGADMIN_DEFAULT_EMAIL of the application; the template leaves it to the operator."
+  PGADMIN_DEFAULT_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for pgadmin default password."
+  PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED:
+    default: "False"
+    description: "Setting PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+files:
+  files/servers.json:
+    asset: files/servers.json
+    mode: "0644"
+  files/pgpass:
+    asset: files/pgpass
+    render: true
+    mode: "0644"
+compose: |
+  services:
+    postgres:
+      image: postgres:18-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: ${POSTGRES_USER}
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        POSTGRES_DB: ${POSTGRES_DB}
+      volumes:
+        - postgres-data:/var/lib/postgresql
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+        interval: 10s
+        timeout: 5s
+        retries: 5
+        start_period: 20s
+    pgadmin:
+      image: dpage/pgadmin4:9.17@sha256:c332c5f6dfba995d9ebc4af261d93506d6876085d712eaaa3defc8dd1a3f26de
+      restart: unless-stopped
+      entrypoint:
+        - /bin/sh
+        - -c
+        - cp /pgadmin4/pgpass /var/lib/pgadmin/pgpass && chmod 600 /var/lib/pgadmin/pgpass && exec /entrypoint.sh
+      environment:
+        PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+        PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+        PGADMIN_CONFIG_SERVER_MODE: 'False'
+        PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: ${PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED}
+        PGADMIN_SERVER_JSON_FILE: /pgadmin4/servers.json
+      volumes:
+        - pgadmin-data:/var/lib/pgadmin
+        - ./files/servers.json:/pgadmin4/servers.json:ro
+        - ./files/pgpass:/pgadmin4/pgpass:ro
+      depends_on:
+        postgres:
+          condition: service_healthy
+      ports:
+        - 127.0.0.1:${PORT}:80
+  volumes:
+    postgres-data:
+    pgadmin-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes postgres-data, pgadmin-data of this application: back them up before updating."
