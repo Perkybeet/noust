@@ -1,0 +1,1 @@
+import{z as e}from"./useNode-CZyDQ7I_.js";function t(){return e({select:e=>(e.resolvedLocation??e.location).pathname})}export{t};
