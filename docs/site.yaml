@@ -53,7 +53,7 @@ home:
   tasks:
     - {title: A domain with HTTPS, slug: start/domain-and-https}
     - {title: A database, slug: start/database}
-    - {title: Backups, and getting them back, slug: start/backups}
+    - {title: "Backups, and getting them back", slug: start/backups}
     - {title: Roll back a bad deploy, slug: start/roll-back}
     - {title: Deploy from CI, slug: guides/ci}
     - {title: A preview for each pull request, slug: guides/previews}
