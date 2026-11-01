@@ -9,7 +9,7 @@ line comes with the server it is on, as a column and a filter. The settings that
 written once on the central and every server applies them. The GitHub App lives on the central and lends
 each server what it needs to deploy. Roles are one list the operator edits. Beside that, 4.1 adds a name
 server of your own (Noust DNS), a move of an application between nginx and Apache, database servers in any
-version, a catalogue of RECIPE_COUNT recipes that show the project's logo where it may be shown, and the
+version, a catalogue of 440 recipes that show the project's logo where it may be shown, and the
 decision of every alert that code scanning had piled up. It is a minor version: the HTTP API only grows,
 the command line keeps every command, and the store moves to schema 16.
 
@@ -221,11 +221,14 @@ the weight budget require; the script every page loads is held to 398 KiB gzippe
 
 ## Recipes
 
-- **The catalogue grows from 143 to RECIPE_COUNT recipes** (item 98), many of them converted from Coolify's
+- **The catalogue grows from 143 to 440 recipes** (item 98), many of them converted from Coolify's
   and Dokploy's templates by an importer that settles their files, mounts and credentials, and accepted only
   after the recipe started. Compose recipes are installed and checked in the harness one at a time and the
   result is kept: the catalogue says which recipes were started for real, with the version, the date and how
-  long it took (`tested`; `noust recipe list --tested`).
+  long it took (`tested`; `noust recipe list --tested`). All 431 that can be installed were started; n8n is a
+  Compose recipe with its PostgreSQL and a variant with workers, and Vault and Stalwart can now be installed.
+- **A recipe that is not free software says so.** The 26 whose licence is source-available or open core carry
+  the label and the licence's name on the tile, the recipe's page, the API (`free_software`) and the command line.
 - **A recipe that is root on the server is offered, with a warning and a confirmation.** Portainer, Coder and
   Dozzle mount the Docker socket; OpenClaw runs commands for its user. Installing one needs
   `--accept-root-equivalent` (`accept_root_equivalent` in the API), sudo mode and the server's permission, and

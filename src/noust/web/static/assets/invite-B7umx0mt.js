@@ -1,1 +1,0 @@
-import{t as e}from"./InvitePage-Bkcs-aaS.js";var t=e;export{t as component};

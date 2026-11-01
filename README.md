@@ -2,8 +2,8 @@
 > covers every server, the settings of the fleet are written once and each server applies them, and the
 > GitHub App on the central lends each server what it needs to deploy. It brings a console with a new
 > frame and a new look, roles you edit, a name server of your own (Noust DNS) and IONOS as a DNS
-> provider, a move of an application between nginx and Apache, database servers in any version and more
-> than two hundred recipes with their logos. The store moves to schema 16: read
+> provider, a move of an application between nginx and Apache, database servers in any version and 440
+> recipes with their logos. The store moves to schema 16: read
 > [docs/UPGRADING-4.1.md](docs/UPGRADING-4.1.md) before updating, and see
 > [docs/CHANGELOG-4.1.md](docs/CHANGELOG-4.1.md).
 >
@@ -423,17 +423,17 @@ noust recipe outdated                               # installed recipes the cata
 noust recipe update vault.example.com               # through the one update: backup, health gate, way back
 ```
 
-128 applications: WordPress (PHP-FPM and MariaDB), Uptime Kuma, Umami (PostgreSQL) and a
-one-page demo (Hello) run natively from a source pinned to a tag or checked against a published
-checksum; the other 123 run in Docker, as a Compose stack behind nginx whose images are pinned by tag and by
+431 applications, every one started for real before it was accepted: WordPress (PHP-FPM and MariaDB),
+Uptime Kuma, Umami (PostgreSQL) and a one-page demo (Hello) run natively from a source pinned to a tag or
+checked against a published checksum; the other 427 run in Docker, as a Compose stack behind nginx whose images are pinned by tag and by
 digest. Some are one container (Vaultwarden, Memos, Syncthing, Grafana, Jellyfin, ntfy, Actual
 Budget, CyberChef...); the rest bring the database they need as a service of their stack, which
 Noust dumps before every update (Gitea, Forgejo, Nextcloud, Ghost, Plausible, Matomo, Mattermost,
 Paperless-ngx, Keycloak, authentik, Immich, Odoo, Metabase, NocoDB, Directus, Twenty,
 Rocket.Chat, Langflow, LiteLLM, Penpot, Plane, GlitchTip, Typebot, Home Assistant...). An
 application that answers on more than one name (Typebot's builder and viewer, Logto's sign-in and
-admin console) gets each name from the recipe. Fifteen more are listed with the reason they are not
-installable, and where it was read. Each recipe has generated secrets, its variables (kept across
+admin console) gets each name from the recipe. Nine more are listed with the reason they are not
+installable, and where it was read. The 26 that are not free software say so, with their licence. Each recipe has generated secrets, its variables (kept across
 updates and editable afterwards), a health check and the next steps. Also
 "From a recipe" in the console's new-application wizard. Noust installs nothing on its own:
 `noust recipe show` lists what a recipe needs. The format, the pinning policy and how to contribute
