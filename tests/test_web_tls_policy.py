@@ -267,3 +267,79 @@ def test_a_client_that_only_knows_tls_1_1_is_refused(tmp_path: Path) -> None:
 
     with pytest.raises(ssl.SSLError):
         _handshake(server, client)
+
+
+# -- the probes of this machine -----------------------------------------------------------
+
+
+def test_the_loopback_client_is_never_offered_a_version_below_tls_1_2() -> None:
+    """A bare client context leaves the floor to the machine's OpenSSL configuration."""
+    context = tls_policy.loopback_client_context()
+
+    assert context.minimum_version == ssl.TLSVersion.TLSv1_2
+
+
+def test_the_loopback_client_does_not_verify_an_address_a_certificate_does_not_name() -> None:
+    context = tls_policy.loopback_client_context()
+
+    assert context.verify_mode == ssl.CERT_NONE
+    assert context.check_hostname is False
+
+
+def test_the_loopback_client_still_reaches_a_server_with_the_console_floor(tmp_path: Path) -> None:
+    pytest.importorskip("cryptography")
+    cert, key = _pair(tmp_path)
+    server = server_context()
+    server.load_cert_chain(cert, key)
+    tls_policy.harden_server_context(server)
+
+    version, _cipher = _handshake(server, tls_policy.loopback_client_context())
+
+    assert version == "TLSv1.3"
+
+
+def test_the_health_gate_asks_an_application_with_that_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from noust.deployers.helpers import health
+
+    asked: list[ssl.SSLContext] = []
+    real = tls_policy.loopback_client_context
+
+    def spy() -> ssl.SSLContext:
+        context = real()
+        asked.append(context)
+        return context
+
+    monkeypatch.setattr(tls_policy, "loopback_client_context", spy)
+
+    health._probe_opener("https://127.0.0.1:3000/", follow_redirects=True)
+
+    assert len(asked) == 1
+
+
+def test_a_site_moved_between_web_servers_is_asked_with_that_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import socket
+
+    from noust.deployers.helpers import served_probe
+
+    asked: list[ssl.SSLContext] = []
+    real = tls_policy.loopback_client_context
+
+    def spy() -> ssl.SSLContext:
+        context = real()
+        asked.append(context)
+        return context
+
+    def refuse(*args: object, **kwargs: object) -> socket.socket:
+        raise ConnectionRefusedError("nothing listens in a test")
+
+    monkeypatch.setattr(tls_policy, "loopback_client_context", spy)
+    monkeypatch.setattr(socket, "create_connection", refuse)
+
+    with pytest.raises(ConnectionRefusedError):
+        served_probe.request_https("shop.example.com", "/", timeout=1.0)
+
+    assert len(asked) == 1

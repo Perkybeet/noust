@@ -7,7 +7,6 @@ Asking an application whether it came up, and reading what failed when it did no
 
 from __future__ import annotations
 
-import ssl
 import time
 import urllib.request
 from collections.abc import Callable
@@ -15,6 +14,7 @@ from email.message import Message
 from typing import IO
 from urllib.error import HTTPError, URLError
 
+from noust.core import tls_policy
 from noust.core.runner import CommandResult
 
 #: A local HTTP request that has not answered in this long is not going to.
@@ -23,24 +23,6 @@ PROBE_TIMEOUT = 5
 #: A command that has not said whether the application is up in this long is
 #: not going to: longer than a request, because a program starts a runtime.
 COMMAND_TIMEOUT = 30
-
-
-def _loopback_tls() -> ssl.SSLContext:
-    """
-    Build the TLS context of a probe of the application's own port.
-
-    The probe always connects to ``127.0.0.1``, and an address is not what a
-    certificate names, so verifying it would fail every application that serves
-    TLS itself, with a certificate of its own or none worth trusting. Nothing
-    leaves the machine: the point of the probe is whether the process answers.
-
-    Returns:
-        A client context that does not verify the certificate.
-    """
-    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    context.check_hostname = False
-    context.verify_mode = ssl.CERT_NONE
-    return context
 
 
 def _probe_opener(url: str, *, follow_redirects: bool) -> urllib.request.OpenerDirector:
@@ -59,7 +41,7 @@ def _probe_opener(url: str, *, follow_redirects: bool) -> urllib.request.OpenerD
     if not follow_redirects:
         handlers.append(_NoRedirect())
     if url.startswith("https://"):
-        handlers.append(urllib.request.HTTPSHandler(context=_loopback_tls()))
+        handlers.append(urllib.request.HTTPSHandler(context=tls_policy.loopback_client_context()))
     return urllib.request.build_opener(*handlers)
 
 
