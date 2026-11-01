@@ -1,0 +1,233 @@
+# OpenPanel: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/openpanel.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: openpanel
+kind: compose
+title: "OpenPanel"
+slogan: "Open source alternative to Mixpanel and Plausible for product analytics"
+description: "An open-source web and product analytics platform that combines the power of Mixpanel with the ease of Plausible and one of the best Google Analytics replacements."
+category: analytics
+tags: [analytics, insights, privacy, mixpanel, plausible, google, alternative]
+logo: logo.svg
+version: "2"
+revision: 1
+updated: 2026-10-31
+homepage: https://openpanel.dev
+docs: https://openpanel.dev/docs
+repository: https://github.com/Openpanel-dev/openpanel
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_OPDASHBOARD:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_URL_OPAPI:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_USER_POSTGRES:
+    generate: "user"
+    description: "The user name Noust generated for postgres."
+  SERVICE_PASSWORD_POSTGRES:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres."
+  SERVICE_PASSWORD_REDIS:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for redis."
+  SERVICE_BASE64_COOKIESECRET:
+    generate: "base64_32"
+    secret: true
+    description: "The secret Noust generated for cookiesecret."
+  OPENPANEL_EMAIL_SENDER:
+    default: ""
+    description: "Setting OPENPANEL_EMAIL_SENDER of the application; the template leaves it to the operator."
+  RESEND_API_KEY:
+    default: ""
+    secret: true
+    description: "Setting RESEND_API_KEY of the application; the template leaves it to the operator."
+  SERVICE_URL_OPBULLBOARD:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+health: {path: /, expect: "200-399", timeout: 180}
+files:
+  files/clickhouse/clickhouse-config.xml:
+    asset: files/clickhouse/clickhouse-config.xml
+    mode: "0644"
+  files/clickhouse/clickhouse-user-config.xml:
+    asset: files/clickhouse/clickhouse-user-config.xml
+    mode: "0644"
+  files/clickhouse/init-db.sh:
+    asset: files/clickhouse/init-db.sh
+    mode: "0644"
+compose: |
+  services:
+    openpanel-dashboard:
+      image: lindesvard/openpanel-dashboard:2@sha256:b773cf864454a0ec89b2a133b48bf06202880ed650a75cc2f1f5c87aaed1cffa
+      environment:
+        NODE_ENV: production
+        SELF_HOSTED: 'true'
+        SERVICE_URL_OPDASHBOARD: ${SERVICE_URL_OPDASHBOARD}
+        API_URL: ${SERVICE_URL_OPAPI}
+        DASHBOARD_URL: ${SERVICE_URL_OPDASHBOARD}
+        DATABASE_URL: postgres://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/${OPENPANEL_POSTGRES_DB:-openpanel-db}?schema=public
+        REDIS_URL: redis://default:${SERVICE_PASSWORD_REDIS}@redis:6379
+        CLICKHOUSE_URL: http://clickhouse:8123/openpanel
+      depends_on:
+        openpanel-api:
+          condition: service_healthy
+        openpanel-worker:
+          condition: service_healthy
+        postgres:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+        clickhouse:
+          condition: service_healthy
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - curl -f http://localhost:3000/api/healthcheck || exit 1
+        interval: 10s
+        timeout: 5s
+        retries: 5
+        start_period: 15s
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:3000
+    openpanel-api:
+      image: lindesvard/openpanel-api:2@sha256:cee4855cd715a7248c5c49090fe93a28ffc505541de20cb238d8884a6bcb9223
+      command: "sh -c \"\n  echo 'Running migrations...'\n  CI=true pnpm -r run migrate:deploy\n\n  pnpm\
+        \ start\n\"\n"
+      environment:
+        NODE_ENV: production
+        SELF_HOSTED: 'true'
+        SERVICE_URL_OPAPI: ${SERVICE_URL_OPAPI}
+        API_URL: ${SERVICE_URL_OPAPI}
+        DASHBOARD_URL: ${SERVICE_URL_OPDASHBOARD}
+        DATABASE_URL: postgres://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/${OPENPANEL_POSTGRES_DB:-openpanel-db}?schema=public
+        DATABASE_URL_DIRECT: postgres://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/${OPENPANEL_POSTGRES_DB:-openpanel-db}?schema=public
+        REDIS_URL: redis://default:${SERVICE_PASSWORD_REDIS}@redis:6379
+        CLICKHOUSE_URL: http://clickhouse:8123/openpanel
+        COOKIE_SECRET: ${SERVICE_BASE64_COOKIESECRET}
+        ALLOW_REGISTRATION: ${OPENPANEL_ALLOW_REGISTRATION:-false}
+        ALLOW_INVITATION: ${OPENPANEL_ALLOW_INVITATION:-false}
+        EMAIL_SENDER: ${OPENPANEL_EMAIL_SENDER}
+        RESEND_API_KEY: ${RESEND_API_KEY}
+      depends_on:
+        postgres:
+          condition: service_healthy
+        clickhouse:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - curl -f http://localhost:3000/healthcheck || exit 1
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      restart: unless-stopped
+    openpanel-worker:
+      image: lindesvard/openpanel-worker:2@sha256:b22e247fb6980b820c1a954d0e3d2fe88b3edf40a58aa53329467af239538e80
+      environment:
+        DISABLE_BULLBOARD: ${DISABLE_BULLBOARD:-1}
+        NODE_ENV: production
+        SELF_HOSTED: 'true'
+        SERVICE_URL_OPBULLBOARD: ${SERVICE_URL_OPBULLBOARD}
+        API_URL: ${SERVICE_URL_OPAPI}
+        DATABASE_URL: postgres://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/${OPENPANEL_POSTGRES_DB:-openpanel-db}?schema=public
+        DATABASE_URL_DIRECT: postgres://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/${OPENPANEL_POSTGRES_DB:-openpanel-db}?schema=public
+        REDIS_URL: redis://default:${SERVICE_PASSWORD_REDIS}@redis:6379
+        CLICKHOUSE_URL: http://clickhouse:8123/openpanel
+      depends_on:
+        openpanel-api:
+          condition: service_healthy
+        postgres:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+        clickhouse:
+          condition: service_healthy
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - curl -f http://localhost:3000/healthcheck || exit 1
+        interval: 10s
+        timeout: 5s
+        retries: 5
+        start_period: 5s
+      restart: unless-stopped
+    postgres:
+      image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
+      volumes:
+        - openpanel_postgres_data:/var/lib/postgresql/data
+      environment:
+        POSTGRES_DB: ${OPENPANEL_POSTGRES_DB:-openpanel-db}
+        POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      restart: unless-stopped
+    redis:
+      image: redis:7.4-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
+      volumes:
+        - openpanel_redis_data:/data
+      environment:
+        REDIS_PASSWORD: ${SERVICE_PASSWORD_REDIS}
+      command: redis-server --requirepass ${SERVICE_PASSWORD_REDIS} --maxmemory-policy noeviction
+      healthcheck:
+        test:
+          - CMD
+          - redis-cli
+          - -a
+          - ${SERVICE_PASSWORD_REDIS}
+          - ping
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      restart: unless-stopped
+    clickhouse:
+      image: clickhouse/clickhouse-server:25.10.2.65@sha256:e019438e1e0539b0d1ce8380b628f1c06c5a0e641f368fc746acf4a8cf48d2f2
+      environment:
+        CLICKHOUSE_SKIP_USER_SETUP: '1'
+      volumes:
+        - openpanel_clickhouse_data:/var/lib/clickhouse
+        - openpanel_clickhouse_logs:/var/log/clickhouse-server
+        - ./files/clickhouse/clickhouse-config.xml:/etc/clickhouse-server/config.d/op-config.xml:ro
+        - ./files/clickhouse/clickhouse-user-config.xml:/etc/clickhouse-server/users.d/op-user-config.xml:ro
+        - ./files/clickhouse/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
+      ulimits:
+        nofile:
+          soft: 262144
+          hard: 262144
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - clickhouse-client --query "SELECT 1"
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      restart: unless-stopped
+  volumes:
+    openpanel_postgres_data:
+    openpanel_redis_data:
+    openpanel_clickhouse_data:
+    openpanel_clickhouse_logs:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_USER_POSTGRES and SERVICE_PASSWORD_POSTGRES and SERVICE_PASSWORD_REDIS in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes openpanel_postgres_data, openpanel_redis_data, openpanel_clickhouse_data, openpanel_clickhouse_logs of this application: back them up before updating."

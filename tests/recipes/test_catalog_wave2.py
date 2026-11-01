@@ -336,6 +336,7 @@ def test_the_stacks_do_not_share_a_published_port() -> None:
         (2222, "tcp"): ["forgejo", "gitea"],
         (53, "tcp"): ["pi-hole", "technitium"],
         (53, "udp"): ["pi-hole", "technitium"],
+        **{(port, "tcp"): ["mailu", "stalwart"] for port in (25, 465, 587, 993)},
     }
     for name in ("gitea", "forgejo"):
         assert "2222" in get_recipe(name).description

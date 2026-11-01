@@ -70,6 +70,7 @@ Files:
  src/noust/recipes/onetimesecret.yaml
  src/noust/recipes/open-archiver.yaml
  src/noust/recipes/openobserve.yaml
+ src/noust/recipes/openpanel.yaml
  src/noust/recipes/orangehrm.yaml
  src/noust/recipes/outline.yaml
  src/noust/recipes/passbolt.yaml
@@ -180,6 +181,7 @@ Files:
  src/noust/recipes/libredb-studio.yaml
  src/noust/recipes/linkstack.yaml
  src/noust/recipes/lubelogger.yaml
+ src/noust/recipes/mailu.yaml
  src/noust/recipes/mautic.yaml
  src/noust/recipes/mazanoke.yaml
  src/noust/recipes/mcsmanager.yaml

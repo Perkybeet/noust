@@ -1101,6 +1101,11 @@
    "seconds": 35,
    "version": "1.31.4"
   },
+  "mailu": {
+   "date": "2026-11-01",
+   "seconds": 111,
+   "version": "2024.06"
+  },
   "marimo": {
    "date": "2026-10-29",
    "seconds": 44,
@@ -1385,6 +1390,11 @@
    "date": "2026-10-29",
    "seconds": 51,
    "version": "1.1.1"
+  },
+  "openpanel": {
+   "date": "2026-11-01",
+   "seconds": 203,
+   "version": "2"
   },
   "openseo": {
    "date": "2026-10-29",

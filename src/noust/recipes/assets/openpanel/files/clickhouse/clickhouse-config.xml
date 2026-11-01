@@ -1,0 +1,27 @@
+<clickhouse>
+    <logger>
+        <level>warning</level>
+        <console>true</console>
+    </logger>
+    <keep_alive_timeout>10</keep_alive_timeout>
+    <!-- Stop all the unnecessary logging -->
+    <query_thread_log remove="remove"/>
+    <query_log remove="remove"/>
+    <text_log remove="remove"/>
+    <trace_log remove="remove"/>
+    <metric_log remove="remove"/>
+    <asynchronous_metric_log remove="remove"/>
+    <session_log remove="remove"/>
+    <part_log remove="remove"/>
+    <listen_host>0.0.0.0</listen_host>
+    <interserver_listen_host>0.0.0.0</interserver_listen_host>
+    <interserver_http_host>opch</interserver_http_host>
+    <!-- Disable cgroup memory observer -->
+    <cgroups_memory_usage_observer_wait_time>0</cgroups_memory_usage_observer_wait_time>
+    <!-- Not used anymore, but kept for backwards compatibility -->
+    <macros>
+        <shard>1</shard>
+        <replica>replica1</replica>
+        <cluster>openpanel_cluster</cluster>
+    </macros>
+</clickhouse>

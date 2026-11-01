@@ -1,9 +1,9 @@
 {
   "measured": "tests/integration/recipes_run.py: scripts/recipe_smoke.py in the harness container, one recipe at a time",
   "harness": "Ubuntu 24.04 with systemd and a Docker of its own (Dockerfile.systemd)",
-  "updated": "2026-11-01T00:49:49Z",
+  "updated": "2026-11-01T01:14:31Z",
   "totals": {
-    "pass": 430,
+    "pass": 432,
     "fail": 2
   },
   "results": [
@@ -3286,6 +3286,21 @@
       "images_removed": 1
     },
     {
+      "recipe": "mailu",
+      "version": "2024.06",
+      "date": "2026-11-01T01:09:06Z",
+      "source": "dokploy",
+      "seconds": 111,
+      "result": "pass",
+      "gate": "/ -> 301 after 0s",
+      "gate_status": "301",
+      "unsteady": false,
+      "error_lines": 18,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 6
+    },
+    {
       "recipe": "marimo",
       "version": "0.25.2",
       "date": "2026-10-29T01:40:44Z",
@@ -4129,6 +4144,21 @@
       "error_lines": 0,
       "rate_limited": false,
       "images_removed": 1
+    },
+    {
+      "recipe": "openpanel",
+      "version": "2",
+      "date": "2026-11-01T01:10:59Z",
+      "source": "coolify",
+      "seconds": 203,
+      "result": "pass",
+      "gate": "/ -> 307 after 8s",
+      "gate_status": "307",
+      "unsteady": false,
+      "error_lines": 12,
+      "transient": false,
+      "rate_limited": false,
+      "images_removed": 4
     },
     {
       "recipe": "openseo",
