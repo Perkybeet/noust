@@ -14,6 +14,8 @@ export const shell = {
   },
   session: {
     label: "Session and preferences",
+    /** The same button for a person: its name starts with the initials drawn on it, so what is said is what is read (label in name). */
+    labelOf: "{initials}: Session and preferences",
     title: "Session",
     signedInAs: "Signed in as {user} on {hostname}",
     signedInWithToken: "Signed in with the access token on {hostname}",

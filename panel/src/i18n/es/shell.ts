@@ -10,6 +10,7 @@ export const shell: Catalog<typeof en> = {
   },
   session: {
     label: "Sesión y preferencias",
+    labelOf: "{initials}: Sesión y preferencias",
     title: "Sesión",
     signedInAs: "Sesión iniciada como {user} en {hostname}",
     signedInWithToken: "Sesión iniciada con el token de acceso en {hostname}",

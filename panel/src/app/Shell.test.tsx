@@ -1,9 +1,10 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import type { SessionInfo } from "../api/queries/auth";
 import { expectNoAxeViolations } from "../test/axe";
 import { renderConsole } from "../test/console";
-import { ANONYMOUS, FakeEventSource, MACHINE, fakeBackend, json, signedInRoutes } from "../test/fakes";
+import { ANONYMOUS, FakeEventSource, MACHINE, SESSION, fakeBackend, json, signedInRoutes } from "../test/fakes";
 import { setLocale } from "./locale";
 import { THEME_STORAGE_KEY } from "./theme";
 
@@ -142,6 +143,27 @@ describe("keyboard", () => {
     const tab = within(screen.getByRole("navigation", { name: "Application sections" })).getByRole("link", { name: "Logs" });
     expect(tab).toHaveFocus();
     expect(tab).toHaveAttribute("aria-current", "page");
+  });
+});
+
+describe("the session button", () => {
+  const person = (username: string) =>
+    ({
+      ...SESSION,
+      grant: "account",
+      account: { id: 2, username, display_name: "", role: "admin", status: "active", mfa_enabled: true, passkeys: 0, backup_codes_remaining: 8, owner: false, failures_since_login: 0, created_at: 1_790_000_000 },
+    }) as SessionInfo;
+
+  it("is named by the initials it draws, so what a person says is what is read (label in name)", async () => {
+    fakeBackend(signedInRoutes(person("vera")));
+    renderConsole("/apps");
+    const button = await screen.findByRole("button", { name: "VE: Session and preferences" });
+    expect(button).toHaveTextContent("VE");
+  });
+
+  it("is named by the page's words alone when the access token is the way in and no initials are drawn", async () => {
+    await shellAt("/apps");
+    expect(screen.getByRole("button", { name: "Session and preferences" })).toHaveTextContent("");
   });
 });
 
