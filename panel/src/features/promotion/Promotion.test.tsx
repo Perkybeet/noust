@@ -37,7 +37,7 @@ function appsList(extra: Record<string, RouteHandler> = {}) {
 
 async function chooseFromMenu(user: ReturnType<typeof renderConsole>["user"], domain: string, item: string) {
   await user.click(await screen.findByRole("button", { name: `Actions for ${domain}` }));
-  await user.click(await screen.findByRole("menuitem", { name: item }));
+  await user.click(await screen.findByRole("menuitem", { name: new RegExp(`^${item}`) }));
 }
 
 describe("promoting a release to another environment", () => {

@@ -124,7 +124,7 @@ describe("the projects list", () => {
     await user.click(within(row).getByRole("button", { name: "Actions for Web" }));
     const remove = await screen.findByRole("menuitem", { name: /Delete project/ });
     expect(remove).toHaveAttribute("aria-disabled", "true");
-    expect(remove).toHaveAccessibleDescription(/still holds 4 resources/);
+    expect(remove).toHaveAccessibleName(/still holds 4 resources/);
   });
 
   it("will not delete the default project either", async () => {
@@ -132,7 +132,7 @@ describe("the projects list", () => {
     await user.click(await screen.findByRole("button", { name: "Actions for Default" }));
     const remove = await screen.findByRole("menuitem", { name: /Delete project/ });
     expect(remove).toHaveAttribute("aria-disabled", "true");
-    expect(remove).toHaveAccessibleDescription(/receives what nobody assigned/);
+    expect(remove).toHaveAccessibleName(/receives what nobody assigned/);
   });
 
   it("deletes an empty project after one question", async () => {
@@ -233,7 +233,7 @@ describe("a project's page", () => {
     await user.click(await screen.findByRole("button", { name: "Actions for the environment Production" }));
     const remove = await screen.findByRole("menuitem", { name: /Delete environment/ });
     expect(remove).toHaveAttribute("aria-disabled", "true");
-    expect(remove).toHaveAccessibleDescription(/keeps at least one environment/);
+    expect(remove).toHaveAccessibleName(/keeps at least one environment/);
   });
 
   it("deletes an empty environment after one question", async () => {

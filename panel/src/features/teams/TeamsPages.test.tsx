@@ -167,7 +167,7 @@ describe("a team's page", () => {
     await user.click(await screen.findByRole("button", { name: "Actions for carla" }));
     const keep = await screen.findByRole("menuitem", { name: /Remove from team/ });
     expect(keep).toHaveAttribute("aria-disabled", "true");
-    expect(keep).toHaveAccessibleDescription(/at least one owner/);
+    expect(keep).toHaveAccessibleName(/at least one owner/);
     await user.keyboard("{Escape}");
     await user.click(screen.getByRole("button", { name: "Actions for omar" }));
     await user.click(await screen.findByRole("menuitem", { name: /Remove from team/ }));

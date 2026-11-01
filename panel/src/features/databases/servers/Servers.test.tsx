@@ -111,8 +111,8 @@ describe("the database servers", () => {
       },
     });
     await menuOf(user, "PostgreSQL 16");
-    const item = await screen.findByRole("menuitem", { name: "Set as default" });
-    expect(item).toHaveAccessibleDescription("New databases of this engine are created here unless you choose another server.");
+    const item = await screen.findByRole("menuitem", { name: /^Set as default/ });
+    expect(item).toHaveAccessibleName("Set as default New databases of this engine are created here unless you choose another server.");
     await user.click(item);
     await waitFor(() => expect(backend.callsTo("PUT /api/databases/servers/postgresql%40pg16/default")).toHaveLength(1));
     // The row changes where the person looked: no toast says it.

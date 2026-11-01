@@ -83,7 +83,8 @@ const SAVED = { domain: DOMAIN, changed: ["X"], restart_required: true, dry_run:
 
 async function rowAction(user: ReturnType<typeof renderConsole>["user"], name: string, item: string | RegExp): Promise<void> {
   await user.click(screen.getByRole("button", { name: `Actions for ${name}` }));
-  await user.click(await screen.findByRole("menuitem", { name: item }));
+  // An item that explains itself is named by its label and the sentence under it, so a string is how its name starts.
+  await user.click(await screen.findByRole("menuitem", { name: typeof item === "string" ? new RegExp(`^${item.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`) : item }));
 }
 
 describe("who gets a variable", () => {

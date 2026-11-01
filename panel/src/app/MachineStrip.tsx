@@ -257,8 +257,9 @@ function FleetStrip({ className }: { className?: string | undefined }) {
   }).length ?? 0;
   const failedApps = (view?.items ?? []).reduce((sum, row) => sum + (countsOf(row, "apps")?.failed ?? 0), 0);
   const answering = total - down;
-  // The link's name says the words the strip draws, in the order it draws them (label in name, WCAG 2.5.3): what a person
-  // reads off the strip is what they can say to reach it. A zero that is not drawn is not said either.
+  // The link's name says the words the strip draws, in the order it draws them, as its own hidden text and not an aria-label
+  // (WCAG 2.5.3, label in name): what a person reads off the strip is what they can say to reach it, and no spacing of the
+  // drawn words can make the name miss them. A zero that is not drawn is not said either.
   const readings = [
     t("shell.fleetStrip.servers", { count: total }),
     t("shell.fleetStrip.answering", { count: answering }),
@@ -276,19 +277,15 @@ function FleetStrip({ className }: { className?: string | undefined }) {
     >
       {view !== undefined ? (
         <Tooltip content={summary}>
-          {/* The name is the link's own hidden text, as the services link's is: what the strip draws is no sequence of the sentence (WCAG 2.5.3). */}
           <Link to="/fleet" className={cx("flex min-w-0 items-center gap-3", STRIP_LINK)}>
             <span className="sr-only">{summary}</span>
             <span aria-hidden="true" className="hidden shrink-0 text-13 font-medium text-fg tabular-nums @min-[20rem]:inline">
               {t("shell.fleetStrip.servers", { count: total })}
             </span>
-            {/* A space between the parts, where the page puts none: the words that are on screen are read joined, and "2 servers" must not meet "2 answering" as "servers2". */}
-            {" "}
             <span aria-hidden="true" className="hidden items-center gap-1 text-13 whitespace-nowrap text-ok @min-[24rem]:inline-flex">
               <StatusGlyph state="running" size={10} />
               <span className="text-fg tabular-nums">{t("shell.fleetStrip.answering", { count: answering })}</span>
             </span>
-            {down > 0 ? " " : null}
             {down > 0 ? (
               // Where not even the short word fits (a phone) the count is left out, not cut to "1 dow": the summary is the link's name.
               <span aria-hidden="true" className="inline-flex min-w-0 items-center gap-1 truncate text-13 font-medium whitespace-nowrap text-fail @max-[7rem]:hidden">
@@ -297,7 +294,6 @@ function FleetStrip({ className }: { className?: string | undefined }) {
                 <span className="tabular-nums @min-[24rem]:hidden">{t("shell.fleetStrip.downShort", { count: down })}</span>
               </span>
             ) : null}
-            {failedApps > 0 ? " " : null}
             {failedApps > 0 ? (
               <span aria-hidden="true" className="hidden items-center gap-1 text-13 font-medium whitespace-nowrap text-fail @min-[36rem]:inline-flex">
                 <StatusGlyph state="failed" size={10} />
