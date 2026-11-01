@@ -38,6 +38,12 @@ const PAIRS: Pair[] = [
   ["the button to put a setting back to the fleet's value", (l) => [translate(l, "fleetSettings.actions.putBack"), translate(l, "fleetSettings.actions.putBackLabel", { name: "retention", server: "web-2" })]],
   ["the button of a job that was asked to stop", (l) => [translate(l, "queue.cancel.stopping"), translate(l, "queue.cancel.stoppingLabel", { name: "Updating shop.example.com" })]],
   ["the button that cancels a job", (l) => [translate(l, "common.words.cancel"), translate(l, "queue.cancel.label", { name: "Updating shop.example.com" })]],
+  ["the action that ends a session, in a row of the table", (l) => [translate(l, "settings.security.sessions.signOutText"), translate(l, "settings.security.sessions.signOutLabel", { sid: "59455c53" })]],
+  ["the action that revokes a token, in a row of the table", (l) => [translate(l, "settings.tokens.revokeText"), translate(l, "settings.tokens.revokeLabel", { name: "ci-deploy" })]],
+  ["the action that changes where a token works from", (l) => [translate(l, "accounts.tokens.networks.text"), translate(l, "accounts.tokens.networks.label", { name: "ci-deploy" })]],
+  ["the action that unlinks an identity", (l) => [translate(l, "ssoAdmin.identities.unlink"), translate(l, "ssoAdmin.identities.unlinkLabel", { account: "ana", provider: "Keycloak" })]],
+  ["the action that revokes a grant", (l) => [translate(l, "common.words.revoke"), translate(l, "access.grants.revokeLabel", { role: "Operator", account: "ana" })]],
+  ["the button that sends a channel a test", (l) => [translate(l, "settings.notifications.channels.sendTest"), translate(l, "settings.notifications.channels.sendTestTo", { label: "Slack" })]],
   ["the button that opens a cleanup's details", (l) => [translate(l, "server.storage.history.details"), translate(l, "server.storage.history.detailFor", { id: 7 })]],
 ];
 

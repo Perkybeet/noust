@@ -4,6 +4,7 @@ import { RotateCw, Trash2 } from "lucide-react";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../test/axe";
+import { expectLabelInName, visibleText } from "../../test/labelInName";
 import { Button } from "./Button";
 import { Menu, MenuGroup, MenuItem, MenuSeparator } from "./Menu";
 
@@ -61,15 +62,17 @@ describe("Menu", () => {
     expect(onRestart).toHaveBeenCalledOnce();
   });
 
-  it("reads an item's description as its accessible description, not as part of its name", async () => {
+  it("names an item by its label and the sentence under it, so the name holds everything the item draws", async () => {
     render(
       <Menu trigger={<Button>Actions</Button>}>
         <MenuItem description="Nothing in the application changes.">Record the link</MenuItem>
       </Menu>,
     );
     await userEvent.click(screen.getByRole("button", { name: "Actions" }));
-    const item = await screen.findByRole("menuitem", { name: "Record the link" });
-    expect(item).toHaveAccessibleDescription("Nothing in the application changes.");
+    const item = await screen.findByRole("menuitem", { name: "Record the link Nothing in the application changes." });
+    // The two lines are one run to axe unless a space is between them: the name cannot hold "Record the linkNothing".
+    expect(visibleText(item)).toBe("Record the link Nothing in the application changes.");
+    expectLabelInName(item);
     await expectNoAxeViolations(document.body);
   });
 

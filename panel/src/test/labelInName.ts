@@ -67,13 +67,24 @@ export function visibleText(element: Element): string {
 }
 
 /**
- * Fails when an element named by `aria-label` does not hold the words it draws. An element with no
- * `aria-label` is named by its content and holds them by construction.
+ * Fails when an element named by `aria-label` or `aria-labelledby` does not hold the words it draws. An
+ * element with neither is named by its content and holds them by construction.
  *
- * @param element - A link, a button or any control that has text.
+ * @param element - A link, a button, a menu item or any control that has text.
  */
 export function expectLabelInName(element: Element): void {
-  const label = element.getAttribute("aria-label");
+  const labelledBy = element.getAttribute("aria-labelledby");
+  // The names of the elements it points at, joined with a space as the accessible name computation does.
+  const fromReferences =
+    labelledBy === null
+      ? null
+      : labelledBy
+          .split(/\s+/)
+          .map((id) => element.ownerDocument.getElementById(id))
+          .filter((referenced) => referenced !== null)
+          .map((referenced) => referenced.getAttribute("aria-label") ?? referenced.textContent)
+          .join(" ");
+  const label = element.getAttribute("aria-label") ?? fromReferences;
   if (label === null) return;
   const visible = visibleText(element);
   expect(nameHoldsLabel(visible, label), `the name "${label}" does not hold what the control draws, "${visible}" (WCAG 2.5.3)`).toBe(true);

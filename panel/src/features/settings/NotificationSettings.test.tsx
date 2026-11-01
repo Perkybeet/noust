@@ -262,13 +262,13 @@ describe("Settings > Notifications", () => {
     notificationsBackend();
     const { user } = renderConsole("/settings/notifications");
     await screen.findByRole("switch", { name: /Send notifications/ });
-    await user.click(within(row("Slack")).getByRole("button", { name: "Send a test to Slack" }));
+    await user.click(within(row("Slack")).getByRole("button", { name: "Send test to Slack" }));
     expect(
       await within(row("Slack")).findByText("Channel slack is not configured; set notifications.channels.slack.webhook_url first."),
     ).toBeInTheDocument();
     expect(within(row("Slack")).getByText("The test failed. What the receiving server said:")).toBeInTheDocument();
 
-    await user.click(within(row("Webhook")).getByRole("button", { name: "Send a test to Webhook" }));
+    await user.click(within(row("Webhook")).getByRole("button", { name: "Send test to Webhook" }));
     expect(await within(row("Webhook")).findByText("Sent a test message. Check that it arrived.")).toBeInTheDocument();
   });
 

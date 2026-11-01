@@ -159,6 +159,7 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
     name = (
       <>
         <span className={cx("shrink-0 font-medium", !side && "max-sm:sr-only")}>{t("fleet.selector.central")}</span>
+        {/* The space is for axe, which reads the two as one word without it: the trigger's name holds what is drawn (WCAG 2.5.3). */}{" "}
         {side ? null : (
           <Mono truncate className="min-w-0 font-medium">
             {hostname}
@@ -178,7 +179,7 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
         {trouble ? <StatusGlyph state={trouble.state} size={10} className={stateTextClass(trouble.state)} /> : null}
         <Mono truncate className="min-w-0 font-medium">
           {serverName}
-        </Mono>
+        </Mono>{" "}
         {trouble && !side ? <span className={cx("shrink-0 text-12 font-medium max-sm:hidden", stateTextClass(trouble.state))}>{t(trouble.label)}</span> : null}
       </>
     );
