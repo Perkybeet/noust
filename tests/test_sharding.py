@@ -14,6 +14,7 @@ caches stay in one process.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -154,6 +155,11 @@ class TestTheOption:
                     *files,
                 ],
                 cwd=ROOT,
+                # CI gives each machine its slice through NOUST_TEST_SHARD: inherited, the child would take
+                # that slice of these two files before the one asked here, and find nothing to list.
+                env={
+                    name: value for name, value in os.environ.items() if name != "NOUST_TEST_SHARD"
+                },
                 capture_output=True,
                 text=True,
                 timeout=240,

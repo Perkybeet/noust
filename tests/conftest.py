@@ -566,7 +566,10 @@ def isolated_store_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Ite
     # duration, and that fake is still in place when this teardown runs.
     store_class = store_module.NoustStore
     stale = store_class._instance
-    if stale is not None and not stale.db_path.parent.exists():
+    # Read without the property: that job may still be inside the store's __init__ on its own thread,
+    # where the instance exists (__new__ made it) and its path does not yet.
+    stale_path = getattr(stale, "_db_path", None)
+    if stale is not None and (stale_path is None or not stale_path.parent.exists()):
         # A job an earlier test queued and did not wait for opened the store after that test's
         # teardown, in its directory, which tmp_path's retention has removed since: inherited, it
         # fails this test with "Cannot open the Noust database" at a path that is not its own.
