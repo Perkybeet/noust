@@ -1,8 +1,9 @@
-import { Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { Link, Outlet } from "@tanstack/react-router";
 import { Cloud } from "lucide-react";
 import { useState } from "react";
 
 import { LinkTabs } from "../../app/LinkTabs";
+import { useRenderedPathname } from "../../app/renderedPath";
 import { tabsOf } from "../../app/navCore";
 import { FLEET_APPS_SCREENS, FLEET_SERVERS_SCREENS } from "../nav/fleet";
 import { DetailPage } from "../../components/page/DetailPage";
@@ -52,12 +53,16 @@ export function FleetLayout({ hub, adding: addingProp, onAddingChange }: FleetLa
   };
   const Add = ICONS.add;
   const empty = servers.loaded && servers.nodes.length === 0;
+  // What the layout draws follows the page that is on screen, not the one being loaded: the router's location moves the
+  // moment a link is pressed, and a header drawn from it appeared above the previous page's own (two titles) until the next
+  // page had arrived.
+  const pathname = useRenderedPathname();
   // Home and the applications across the fleet have their own templates, header and all.
-  const ownsPage = useRouterState({ select: (state) => ["/fleet", "/fleet/", "/fleet/apps"].includes(state.location.pathname) });
-  const onAppsViews = useRouterState({ select: (state) => state.location.pathname === "/fleet/apps" || state.location.pathname === "/fleet/placements" });
-  const onServers = useRouterState({ select: (state) => state.location.pathname === "/fleet/servers" });
-  const onServersViews = useRouterState({ select: (state) => state.location.pathname === "/fleet/servers" || state.location.pathname === "/fleet/updates" });
-  const ownHeader = useRouterState({ select: (state) => OWN_HEADER.has(state.location.pathname) });
+  const ownsPage = ["/fleet", "/fleet/", "/fleet/apps"].includes(pathname);
+  const onAppsViews = pathname === "/fleet/apps" || pathname === "/fleet/placements";
+  const onServers = pathname === "/fleet/servers";
+  const onServersViews = pathname === "/fleet/servers" || pathname === "/fleet/updates";
+  const ownHeader = OWN_HEADER.has(pathname);
 
   const add = (
     <Button
