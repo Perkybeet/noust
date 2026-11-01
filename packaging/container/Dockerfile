@@ -41,10 +41,15 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends tini openssh-client openssl git ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+# pip goes out with the wheel's installation, in the same layer. It vendors its own urllib3, msgpack
+# and setuptools, which only a new pip updates, so the image would answer for their advisories
+# without being able to fix one; and a central that only runs `noust` (from a read-only root file
+# system, as an unprivileged user) has no use for an installer. Updating it is pulling the new image.
 COPY dist/noust-${NOUST_VERSION}-py3-none-any.whl /tmp/
 RUN pip install --no-cache-dir --no-compile --upgrade pip \
     && pip install --no-cache-dir --no-compile "/tmp/noust-${NOUST_VERSION}-py3-none-any.whl[web]" \
-    && rm /tmp/noust-*.whl
+    && rm /tmp/noust-*.whl \
+    && pip uninstall --yes pip
 
 # The installer a central sends to a server that has no Noust yet, when it enrolls
 # it from the console (noust.fleet.enroll): the same file the release publishes.

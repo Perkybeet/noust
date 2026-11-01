@@ -193,3 +193,27 @@ class TestTheContainerImage:
             command.endswith("--upgrade pip") for command in installs if command not in noust
         )
         assert all("/tmp/noust-${NOUST_VERSION}-py3-none-any.whl" in command for command in noust)
+
+    def test_it_does_not_carry_pip_once_the_wheel_is_installed(self):
+        """
+        pip vendors its own urllib3, msgpack and setuptools, which no release of pip updates
+        between its own: a scanner reports them every time one of the three has an advisory, and
+        nothing in the image can act on the finding. A central that only runs ``noust`` does not
+        need an installer, and its root file system is read-only anyway, so nothing could use it.
+        """
+        dockerfile = read("packaging/container/Dockerfile")
+        # One RUN is one layer: pip removed in a later RUN would still be in the image.
+        runs = [
+            run.replace("\\\n", " ")
+            for run in re.findall(r"^RUN .*?(?<!\\)$", dockerfile, re.MULTILINE | re.DOTALL)
+        ]
+
+        installing = [run for run in runs if "/tmp/noust-${NOUST_VERSION}-py3-none-any.whl" in run]
+        assert len(installing) == 1
+        steps = [step.strip() for step in installing[0].split("&&")]
+        last_install = max(i for i, step in enumerate(steps) if step.startswith("pip install"))
+        removal = [i for i, step in enumerate(steps) if step.startswith("pip uninstall")]
+
+        assert removal, "the image keeps pip, and the advisories of what pip vendors with it"
+        assert removal[0] > last_install
+        assert "--yes" in steps[removal[0]] or "-y" in steps[removal[0]].split()
