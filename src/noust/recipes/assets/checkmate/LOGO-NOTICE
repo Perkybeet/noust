@@ -1,0 +1,7 @@
+Mark of: Checkmate
+Source: https://github.com/bluewave-labs/Checkmate/blob/df3f2fbabd95ea09509468c4990dd92fc0886e95/client/public/checkmate_favicon.svg
+Licence: CC-BY-SA-3.0
+Copyright: Cburnett ('Chess klt45.svg', Wikimedia Commons), adapted by the contributors of bluewave-labs/Checkmate
+Terms: client/NOTICE of bluewave-labs/Checkmate, read 2026-11-01: the king silhouette is adapted from 'Chess klt45.svg' by Cburnett, licensed CC BY-SA 3.0, with its stroke colour changed and its geometry unchanged; terms of service of checkmate.so, read 2026-11-01: 'The Checkmate name and branding remain trademarks of Bluewave Labs'; no rule on third-party use of the logo was found; shown here to identify the software a recipe installs
+Retrieved: 2026-11-01
+Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged

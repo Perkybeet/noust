@@ -1,0 +1,8 @@
+Mark of: AzuraCast
+Source: https://github.com/AzuraCast/AzuraCast/blob/a683c9dbb09ddab3fd6eec6793e691dc0575ff57/resources/icon.svg
+Licence: AGPL-3.0-only
+Copyright: the contributors of AzuraCast/AzuraCast
+Terms: azuracast.com/docs/press-kit, read 2026-11-01: the branding may be used as needed to refer to the software and, as a courtesy, the AzuraCast logo, mascot and hexagon logo are not to be modified or altered; the file is shown unmodified
+Repaint: no
+Retrieved: 2026-11-01
+Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged

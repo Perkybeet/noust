@@ -10,7 +10,7 @@ slogan: "The next-generation LLM gateway and AI asset management system supports
 description: "The next-generation LLM gateway and AI asset management system supports multiple languages."
 category: ai
 tags: [api, openai, llm, api-gateway, api-management, ai]
-logo: logo.svg
+logo: logo.png
 version: "0.9.2.0"
 revision: 1
 updated: 2026-10-31

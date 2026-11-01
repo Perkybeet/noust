@@ -7,7 +7,7 @@ slogan: "A distributed tracing system."
 description: "Collects the timing data of the calls between services and draws them as traces, to find where a request spends its time. Spans arrive over HTTP on the same address; they are kept in memory. It has no accounts, so keep it behind an allow-list."
 category: monitoring
 tags: [tracing, observability, latency, microservices]
-logo: logo.svg
+logo: logo.png
 version: "3.6.1"
 revision: 1
 updated: 2026-10-30

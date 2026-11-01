@@ -368,12 +368,16 @@ repository (its licence covers the file unless it says otherwise); a brand kit o
 publishes for third parties; a collection of the logos of self-hosted software
 ([dashboard-icons](https://github.com/homarr-labs/dashboard-icons), Apache-2.0, or
 [selfh.st/icons](https://github.com/selfhst/icons), CC-BY-4.0), whose licence covers the collection's
-file and not the brand. SVG is preferred; a PNG is shipped only where there is no SVG and it is 256 pixels
-or more on each side. A file of another project is never copied by hand into `assets/`: it goes through
+file and not the brand. SVG is preferred; a PNG is shipped only where there is no SVG that the policy accepts
+(the project's own, its brand kit's or the collections') and it is 256 to 1024 pixels on each side and at most
+64 KiB, whether it is the project's picture or a collection's PNG. A picture larger than that is scaled down
+by the person adding it (the shorter side to 256 pixels, the palette reduced only if it is still too heavy) and
+`--scaled` makes the notice say so. A file of another project is never copied by hand into `assets/`: it goes through
 
 ```bash
 python scripts/recipe_logos.py add NAME FILE --source URL --licence SPDX \
-    --copyright "Copyright (c) ..." --terms "what the project's rules on its logo say, and where"
+    --copyright "Copyright (c) ..." --terms "what the project's rules on its logo say, and where" \
+    [--repaint no|white-black] [--scaled]
 ```
 
 which rewrites it with `noust.recipes.logo_sanitize.sanitize_svg` (removes `script`, `foreignObject`,
@@ -459,7 +463,46 @@ logo never gets its mark here, whatever a collection holds, and is given the mon
 - Typebot (its `LICENSE`, read 2026-10-29): no right to its trademarks except to identify it as the
   origin of the software;
 - Joplin (its `LICENSE`, read 2026-10-29): its logos and icons are all rights reserved and need a
-  permission.
+  permission;
+- Apprise API (the metadata of its logo files, read 2026-11-01): all rights reserved on the Apprise logo
+  and its marks, though the code is MIT;
+- Element (`element.io/legal/trademark-policy`, read 2026-11-01): the logos may point to services Element
+  hosts, manages or supports, and every other use needs its written consent;
+- Evershop (`evershop.io/tos`), useSend (the terms of `usesend.com`), Sequin (the terms of
+  `sequinstream.com`) and Sim (the terms of `sim.ai`), all read 2026-11-01: no use of their trademarks or
+  logos without written permission;
+- Evolution API (`TRADEMARKS.md`, read 2026-11-01): textual references and unmodified official builds only,
+  no recolouring and nothing else without written permission;
+- Flipt (its Fair Core `LICENSE`, read 2026-11-01): no right to its trademarks except to identify it as the
+  origin of the software;
+- Frappe Lending and Frappe Learning (`docs.frappe.io/legal/others/license-and-trademark`, read
+  2026-11-01): product logos remain Frappe's and may not be copied, modified, redistributed or used
+  commercially except as the policy permits, and the software licence applies only to the source code;
+- Gitness (`harness.io/legal/trademark`, read 2026-11-01) and OpenPanel (`TRADEMARK.md`, read 2026-11-01):
+  the word marks may describe a relationship to the software, the logos may not;
+- Label Studio (its `NOTICE`, read 2026-11-01): "Label Studio (TM) ... All Rights Reserved", with the
+  Apache-2.0 grant limited to source code, and a media kit for the brand assets that could not be read;
+- JupyterLab (`jupyter.org/governance/trademarks`, read 2026-11-01): only unaltered logos and always with
+  the registered-trademark symbol, which an icon of 32 pixels cannot carry;
+- MindsDB (the press kit and the terms of `mindshub.ai`, read 2026-11-01): the kit is "CC-BY-ND for press"
+  and the terms reserve the marks;
+- ONCE Campfire (37signals' `brand_guidelines.md`, read 2026-11-01): contact them before using their logos;
+- PhotoPrism (section 18 of its `LICENSE` and `photoprism.app/trademark`, read 2026-11-01): its logos and
+  icons are proprietary assets, to be asked for;
+- Plunk (the terms of `useplunk.com`, section 8, read 2026-11-01): use of its name and logo beyond using
+  the software needs permission;
+- Pydio Cells (the Subscription and Licence Terms of `pydio.com`, 4.2, read 2026-11-01): no right to its
+  trademarks, trade names or logos without written consent;
+- Stalwart (`stalw.art/legal/copyrights`, read 2026-11-01): its name and logo are registered trademarks and
+  unauthorised use of its materials is prohibited;
+- Teable (the Brand Protection terms of its `LICENSE`, read 2026-11-01): its name, logo and icons are not
+  covered by the AGPLv3 and are not to be modified, replaced or removed.
+
+Other recipes keep the monogram because no file of the project can be shipped: no logo published, only a
+picture under 256 pixels, only a banner too long to be read as an icon (a figure more than two and a half
+times wider than tall), a logo drawn with a raster picture, a mask or text the console's policy refuses, a
+file nobody licensed (a repository with no `LICENSE`, a website's file under its terms) or one that is
+another party's work (Isso's Pokemon). `scripts/recipe_logos.py report` lists them.
 
 A project that asks that its logo be shown as it is drawn (AnythingLLM's brand kit, Flarum, Navidrome,
 Open WebUI) has it shown unmodified: the file is rewritten into the elements the console's policy allows

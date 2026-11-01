@@ -75,7 +75,35 @@ def monogram_letters(svg: str) -> str | None:
 
 #: Projects whose own text does not let a third party show their logo: whatever a collection holds, the
 #: recipe carries the monogram (scripts/recipe_logos.py, FORBIDDEN, which says where each was read).
-NO_THIRD_PARTY_LOGO = {"plausible", "trek", "leantime", "owncast", "typebot", "joplin-server"}
+NO_THIRD_PARTY_LOGO = {
+    "apprise-api",
+    "element-web",
+    "evershop",
+    "evolutionapi",
+    "flipt",
+    "frappe-lending",
+    "frappe-lms",
+    "gitness",
+    "joplin-server",
+    "jupyterlab",
+    "labelstudio",
+    "leantime",
+    "mindsdb",
+    "once-campfire",
+    "openpanel",
+    "owncast",
+    "photoprism",
+    "plausible",
+    "plunk",
+    "pydio-cells",
+    "sequin",
+    "sim",
+    "stalwart",
+    "teable",
+    "trek",
+    "typebot",
+    "usesend",
+}
 
 ICONS = Path(str(resources.files("noust.recipes").joinpath("assets").joinpath("_simple-icons")))
 

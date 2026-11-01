@@ -7,7 +7,7 @@ slogan: "An AI-powered search engine that answers with cited sources."
 description: "An answering engine: it searches the web through its bundled SearXNG and has the language model you choose write the answer with its sources. You add the model providers (a local Ollama, or an API key) on its settings page."
 category: ai
 tags: [search, llm, answers, searxng]
-logo: logo.svg
+logo: logo.png
 version: "1.12.0"
 revision: 1
 updated: 2026-10-30

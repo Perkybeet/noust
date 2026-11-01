@@ -7,7 +7,7 @@ slogan: "Lightweight selfhosted Firefox Send alternative without public upload."
 description: "Shares files by link with an expiry and a download limit; only logged-in users upload, anyone with the link downloads. A single Go binary with its own files and settings."
 category: files
 tags: [file-sharing, links, expiry, upload]
-logo: logo.svg
+logo: logo.png
 version: "2.2.4"
 revision: 1
 updated: 2026-10-30

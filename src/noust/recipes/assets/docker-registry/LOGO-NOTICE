@@ -1,0 +1,8 @@
+Mark of: Distribution
+Source: https://github.com/distribution/distribution/blob/54eda36d7fb9487e4d217226a1f1255febd420c8/distribution-logo.svg
+Licence: Apache-2.0
+Copyright: the contributors of distribution/distribution
+Terms: Linux Foundation trademark usage guidelines (linuxfoundation.org/legal/trademark-usage, the legal notice of the project's docs) and CNCF brand guidelines (cncf.io/brand-guidelines), read 2026-11-01: a logo must not be altered, recoloured or superimposed with other elements, must not imply endorsement, and promotional use of Linux Foundation logos needs written permission; the file is shown unmodified here only to identify the software a recipe installs
+Repaint: no
+Retrieved: 2026-11-01
+Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged

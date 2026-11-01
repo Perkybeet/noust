@@ -1,0 +1,8 @@
+Mark of: Pushgateway
+Source: https://github.com/prometheus/prometheus/blob/ef78ff64267724c8ecd1a1283cad49b365a8b67f/documentation/images/prometheus-logo.svg
+Licence: Apache-2.0
+Copyright: Copyright 2012-2015 The Prometheus Authors
+Terms: LICENSE.md of cncf/artwork, read 2026-11-01: the artwork of the CNCF projects, Prometheus among them, is made available under the Linux Foundation trademark usage guidelines, which say a logo 'should not be displayed with color variations' and that the use of a mark 'cannot imply that The Linux Foundation or its projects are sponsoring or endorsing the product'; no rule on the logo was found in the Pushgateway or Prometheus repositories; shown unmodified here to identify the software a recipe installs
+Repaint: no
+Retrieved: 2026-11-01
+Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged

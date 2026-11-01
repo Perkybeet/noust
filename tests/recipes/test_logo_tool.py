@@ -118,6 +118,52 @@ def test_a_picture_replaces_the_monogram_and_is_stripped_of_what_it_carried(
     assert "logo: logo.png" in (recipes_dir / "demo.yaml").read_text()
 
 
+def test_the_notice_of_a_picture_says_what_was_done_to_a_picture_and_not_to_a_drawing(
+    tool: ModuleType, recipes_dir: Path
+) -> None:
+    """The line about a stylesheet and editor data is true of an SVG only."""
+    source = SOURCE.replace("logo.svg", "logo.png")
+    tool.add_logo(
+        "demo",
+        picture(),
+        title="Demo",
+        source=source,
+        licence="MIT",
+        retrieved=DAY,
+        recipes_dir=recipes_dir,
+    )
+    kept = (recipes_dir / "assets" / "demo" / "LOGO-NOTICE").read_text()
+
+    assert "header and pixels only" in kept and "the artwork is unchanged" in kept
+    assert "elements" not in kept and "stylesheet" not in kept and "scaled" not in kept
+
+    tool.add_logo(
+        "demo",
+        picture(),
+        title="Demo",
+        source=source,
+        licence="MIT",
+        retrieved=DAY,
+        scaled=True,
+        recipes_dir=recipes_dir,
+    )
+    scaled = (recipes_dir / "assets" / "demo" / "LOGO-NOTICE").read_text()
+
+    assert (
+        "scaled to 256 pixels and written again with the picture's header and pixels only" in scaled
+    )
+
+
+def test_the_mark_a_collection_holds_under_the_name_of_the_family_is_found_for_each_member(
+    tool: ModuleType,
+) -> None:
+    """Swagger UI and Swagger Editor are drawn with the one Swagger mark the collection has."""
+    collection = {"swagger": {"title": "Swagger", "file": "/x/swagger.svg"}}
+
+    assert tool.slug_for("swagger-ui", "Swagger UI", collection) == "swagger"
+    assert tool.slug_for("swagger-editor", "Swagger Editor", collection) == "swagger"
+
+
 def test_nothing_is_written_when_the_notice_or_the_file_is_not_acceptable(
     tool: ModuleType, recipes_dir: Path
 ) -> None:
@@ -301,8 +347,46 @@ def test_no_packaged_mark_credits_the_free_software_foundation() -> None:
     assert found == []
 
 
+def test_a_project_whose_text_withholds_its_logo_is_not_given_the_collection_s_mark_either(
+    tool: ModuleType,
+) -> None:
+    """Element's policy lets logos point to services Element runs; the collection holds its mark anyway."""
+    collection = {"element": {"title": "Element", "file": "/x/element.svg"}}
+
+    assert tool.slug_for("element-web", "Element Web", collection) is None
+
+
 @pytest.mark.parametrize(
-    "name", ["plausible", "trek", "leantime", "owncast", "typebot", "joplin-server"]
+    "name",
+    [
+        "apprise-api",
+        "element-web",
+        "evershop",
+        "evolutionapi",
+        "flipt",
+        "frappe-lending",
+        "frappe-lms",
+        "gitness",
+        "joplin-server",
+        "jupyterlab",
+        "labelstudio",
+        "leantime",
+        "mindsdb",
+        "once-campfire",
+        "openpanel",
+        "owncast",
+        "photoprism",
+        "plausible",
+        "plunk",
+        "pydio-cells",
+        "sequin",
+        "sim",
+        "stalwart",
+        "teable",
+        "trek",
+        "typebot",
+        "usesend",
+    ],
 )
 def test_a_project_that_does_not_let_a_third_party_show_its_logo_is_not_given_one(
     tool: ModuleType, recipes_dir: Path, name: str

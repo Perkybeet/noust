@@ -10,7 +10,7 @@ slogan: "MCP Aggregator, Orchestrator, Middleware, Gateway in one app"
 description: "MCP Aggregator, Orchestrator, Middleware, Gateway in one application."
 category: ai
 tags: [mcp, ai, sse, aggregator, orchestrator, middleware]
-logo: logo.svg
+logo: logo.png
 version: "2.4.22"
 revision: 1
 updated: 2026-10-30

@@ -11,7 +11,7 @@ slogan: "The self-hosted CAPTCHA for the modern web."
 description: "The self-hosted CAPTCHA for the modern web."
 category: security
 tags: [captcha, security, privacy, proof-of-work]
-logo: logo.svg
+logo: logo.png
 version: "3.0.4"
 revision: 1
 updated: 2026-10-31

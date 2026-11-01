@@ -7,7 +7,7 @@ slogan: "Elasticsearch gui for the browser."
 description: "Browses and manages an Elasticsearch or OpenSearch cluster from the browser: indices, documents, a query editor, snapshots and node health. Static: the cluster is reached from your browser, nothing is stored on the server."
 category: development
 tags: [elasticsearch, opensearch, admin, search]
-logo: logo.svg
+logo: logo.png
 version: "1.17.0"
 revision: 1
 updated: 2026-10-30

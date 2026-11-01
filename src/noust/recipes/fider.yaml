@@ -10,7 +10,7 @@ slogan: "Fider is a feedback platform for collecting and managing user feedback.
 description: "Fider is an open-source feedback portal for collecting, discussing, and prioritizing feature requests."
 category: utilities
 tags: [feedback, user-feedback, product, roadmap, self-hosted, utilities]
-logo: logo.svg
+logo: logo.png
 version: "0.38.2"
 revision: 1
 updated: 2026-10-30

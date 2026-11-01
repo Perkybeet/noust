@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Rote">
-  <title>Rote</title>
-  <rect width="64" height="64" rx="14" fill="#24292f"/>
-  <text x="32" y="41" text-anchor="middle" font-family="sans-serif" font-size="26" font-weight="700" fill="#ffffff">RO</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" role="img" viewBox="11.13 17.13 77.55 65.74" fill="none"><title>Rote</title><defs><linearGradient id="rote-1" x1="52.8703" y1="79.8985" x2="-5.11655" y2="-27.7914" gradientUnits="userSpaceOnUse"><stop stop-color="#3ECF4A" offset="0"/><stop offset=".328125" stop-color="#3ECF4A" stop-opacity=".96"/><stop offset=".666667" stop-color="#99E626" stop-opacity=".4"/><stop offset="1" stop-color="#FAFF00" stop-opacity="0"/></linearGradient></defs><path d="M85.81 33.33V41.67C85.81 44.51 85.21 47.33 84.03 49.96 82.86 52.59 81.14 54.98 78.98 56.99 76.81 59 74.24 60.6 71.4 61.68 68.57 62.77 65.54 63.33 62.47 63.33H53.5V80H46.32V56.67L46.38 53.33C46.84 47.89 49.48 42.81 53.8 39.1 58.11 35.39 63.77 33.33 69.65 33.33H85.81ZM28.36 20C33.64 20 38.78 21.54 43.06 24.4 47.34 27.27 50.54 31.31 52.21 35.95 49.47 38.11 47.22 40.77 45.6 43.75 43.98 46.74 43.02 50 42.78 53.33H39.13C32.47 53.33 26.08 50.88 21.36 46.5 16.65 42.12 14 36.19 14 30V20H28.36Z" fill="url(#rote-1)"/></svg>

@@ -36,7 +36,8 @@ Usage:
                                                    collection's, a file no recipe names, and a
                                                    mark without its notice.
     scripts/recipe_logos.py add NAME FILE --source URL --licence SPDX [--copyright LINE]
-                           [--terms TEXT] [--retrieved YYYY-MM-DD] [--title TITLE]
+                           [--terms TEXT] [--repaint no|white-black] [--scaled]
+                           [--retrieved YYYY-MM-DD] [--title TITLE]
                                                    Rewrite FILE (downloaded into a folder of its own)
                                                    as the logo of NAME, write its LOGO-NOTICE and
                                                    name it in the recipe.
@@ -99,6 +100,98 @@ FORBIDDEN = {
         "LICENSE of laurent22/joplin, read 2026-10-29: the logos and icons are all rights reserved and "
         "may not be used without a permission"
     ),
+    "apprise-api": (
+        "the metadata of the logo files of caronc/apprise-api, read 2026-11-01: 'All rights reserved. "
+        "Apprise logo and associated marks.', though the code is MIT"
+    ),
+    "element-web": (
+        "element.io/legal/trademark-policy, read 2026-11-01: the logos may be used to point to services "
+        "Element hosts, manages or supports, and 'all other uses require prior written consent from "
+        "Element'"
+    ),
+    "evershop": (
+        "evershop.io/tos, read 2026-11-01: 'You may not use our trademarks or logos without our written "
+        "permission'"
+    ),
+    "evolutionapi": (
+        "TRADEMARKS.md of evolution-foundation/evolution-api, read 2026-11-01: only truthful textual "
+        "references and unmodified official builds are allowed, no recolouring or derivative of the "
+        "logo, and any other use needs prior written permission"
+    ),
+    "flipt": (
+        "LICENSE (Fair Core License, FCL-1.0-MIT) of flipt-io/flipt, read 2026-11-01: no right to use "
+        "its trademarks, trade names, service marks or product names except to identify it as the "
+        "origin of the software"
+    ),
+    "frappe-lending": (
+        "docs.frappe.io/legal/others/license-and-trademark, read 2026-11-01: product logos remain "
+        "Frappe's property and 'may not be copied, modified, redistributed, or used commercially' except "
+        "as the policy permits, and the software licence 'applies only to the source code'"
+    ),
+    "frappe-lms": (
+        "docs.frappe.io/legal/others/license-and-trademark, read 2026-11-01: product logos remain "
+        "Frappe's property and 'may not be copied, modified, redistributed, or used commercially' except "
+        "as the policy permits, and the software licence 'applies only to the source code'"
+    ),
+    "gitness": (
+        "harness.io/legal/trademark, read 2026-11-01: 'You may use the word marks, but not the logos, "
+        "to truthfully describe the relationship between your software and ours'"
+    ),
+    "jupyterlab": (
+        "jupyter.org/governance/trademarks, read 2026-11-01: only unaltered logos, always with the "
+        "registered-trademark symbol, which an icon of 32 pixels cannot carry"
+    ),
+    "labelstudio": (
+        "NOTICE of HumanSignal/label-studio, read 2026-11-01: 'Label Studio (TM) ... All Rights "
+        "Reserved', with the Apache-2.0 grant limited to the source code of the repository; its media "
+        "kit (a page that could not be read) is where the brand assets' terms are"
+    ),
+    "mindsdb": (
+        "mindshub.ai/press-kit and its Terms, read 2026-11-01: the kit's assets are 'CC-BY-ND for "
+        "press' and the Terms reserve the marks"
+    ),
+    "once-campfire": (
+        "brand_guidelines.md of 37signals (basecamp/api), read 2026-11-01: 'You must contact us before "
+        "you use our logos'"
+    ),
+    "openpanel": (
+        "TRADEMARK.md of Openpanel-dev/openpanel, read 2026-11-01: usage of word marks, but not logos, "
+        "in truthful statements describing the relationship between software is allowed; a site that "
+        "offers the software for installation must remove the logos"
+    ),
+    "photoprism": (
+        "LICENSE section 18 of photoprism/photoprism and photoprism.app/trademark, read 2026-11-01: the "
+        "logos and icons are proprietary assets, to be asked for before use"
+    ),
+    "plunk": (
+        "useplunk.com/terms section 8, read 2026-11-01: 'Plunk name and logo are trademarks' and their "
+        "use beyond using the software needs permission"
+    ),
+    "pydio-cells": (
+        "Subscription and Licence Terms of pydio.com section 4.2, read 2026-11-01: no right to use Wire "
+        "France's trademarks, trade names or logos without prior written consent"
+    ),
+    "sequin": (
+        "Terms of Service of sequinstream.com section 3, read 2026-11-01: 'You may not use any of the "
+        "trademarks, logos, or other proprietary graphics without express written permission'"
+    ),
+    "sim": (
+        "Terms of Service of sim.ai section 6, read 2026-11-01: trademarks and trade dress 'may not be "
+        "used in connection with a product or service without the prior written consent of Sim "
+        "Studio, Inc.'"
+    ),
+    "stalwart": (
+        "stalw.art/legal/copyrights, read 2026-11-01: the name and the logo are registered trademarks "
+        "and unauthorised use, reproduction or distribution of any materials is prohibited"
+    ),
+    "teable": (
+        "LICENSE of teableio/teable, read 2026-11-01: the brand assets (name, logo, icons) are not "
+        "covered by the AGPLv3 and are not to be modified, replaced or removed"
+    ),
+    "usesend": (
+        "Terms of usesend.com, read 2026-11-01: 'You may not use our marks without our prior written "
+        "permission'"
+    ),
 }
 
 #: A recipe's name to the collection's slug, where the two are not spelled alike.
@@ -111,12 +204,21 @@ ALIASES = {
     "owncloud-ocis": "owncloud",
     "drawio": "diagramsdotnet",
     "drizzle-gateway": "drizzle",
+    "swagger-ui": "swagger",
+    "swagger-editor": "swagger",
 }
 
 CHANGES = (
     "rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, "
     "styles and metadata removed, numbers rounded); the artwork is unchanged"
 )
+
+#: What is done to a picture: only its header, palette and pixels are kept, so the line about elements
+#: and stylesheets would be false of it.
+PICTURE_CHANGES = (
+    "written again with the picture's header and pixels only; the artwork is unchanged"
+)
+SCALED_PICTURE_CHANGES = "scaled to 256 pixels and " + PICTURE_CHANGES
 
 
 def norm(text: str) -> str:
@@ -363,6 +465,7 @@ def add_logo(
     copyright_line: str = "",
     terms: str = "",
     repaint: str = "",
+    scaled: bool = False,
     recipes_dir: Path = RECIPES,
 ) -> Path:
     """
@@ -379,6 +482,8 @@ def add_logo(
         terms: What the project's rules on its logo say.
         repaint: What the console may do with the mark's colours when the project's rules say it
             is not to be changed: ``no``, or ``white-black``. Required when the terms say so.
+        scaled: ``data`` is a PNG the person adding it scaled down to 256 pixels from the project's
+            larger picture, and the notice says so. Ignored for an SVG.
         recipes_dir: Where the recipes are.
 
     Returns:
@@ -406,6 +511,7 @@ def add_logo(
     if data.startswith(PNG_SIGNATURE):
         written = folder / "logo.png"
         written.write_bytes(sanitize_png(name, data))
+        changes = SCALED_PICTURE_CHANGES if scaled else PICTURE_CHANGES
         # The picture replaces the monogram, which would be a file nothing names.
         (folder / "logo.svg").unlink(missing_ok=True)
     else:
@@ -540,6 +646,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         "be changed (no: draw it as it is; white-black: pure black on the light stone, pure "
         "white on the dark one)",
     )
+    parser.add_argument(
+        "--scaled",
+        action="store_true",
+        help="add: FILE is a PNG scaled down to 256 pixels from the project's larger picture",
+    )
     parser.add_argument("--retrieved", default=date.today().isoformat())
     parser.add_argument("--title", help="add: the project's name")
     args = parser.parse_args(argv)
@@ -559,6 +670,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 copyright_line=args.copyright,
                 terms=args.terms,
                 repaint=args.repaint,
+                scaled=args.scaled,
             )
         except RecipeError as exc:
             print(exc.message)

@@ -7,7 +7,7 @@ slogan: "Powerful and easy-to-use open source website building tool."
 description: "A website builder and blog: themes, plugins, an editor, attachments and comments, with an admin console. Uses an embedded database in its data folder. Signs in as the administrator Noust generates."
 category: cms
 tags: [cms, blog, website, java]
-logo: logo.svg
+logo: logo.png
 version: "2.27.1"
 revision: 1
 updated: 2026-10-30

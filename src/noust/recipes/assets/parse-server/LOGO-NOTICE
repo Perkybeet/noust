@@ -1,0 +1,7 @@
+Mark of: Parse Server
+Source: https://github.com/parse-community/parseplatform.org/blob/28ec1115dec172af0404d50126e38d409346d715/img/favicon.svg
+Licence: BSD-3-Clause
+Copyright: Copyright (c) 2015-present, Parse, LLC
+Terms: no rule on the project's logo was found in its repository, its documents or its site (checked 2026-11-01)
+Retrieved: 2026-11-01
+Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged

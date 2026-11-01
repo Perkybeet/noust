@@ -7,7 +7,7 @@ slogan: "A distinctive utility file server."
 description: "Serves a folder over the browser and WebDAV: it lists, uploads, downloads, previews, searches and zips folders, and can take a folder as a drive. One account, whose password Noust generates, can read and write; nobody else gets in."
 category: files
 tags: [files, webdav, upload, server]
-logo: logo.svg
+logo: logo.png
 version: "0.47.0"
 revision: 1
 updated: 2026-10-30

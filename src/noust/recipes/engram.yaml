@@ -10,7 +10,7 @@ slogan: "Persistent memory sync server for AI coding agents (MCP)."
 description: "Persistent memory for AI coding agents — self-hosted Engram Cloud sync server with a web dashboard, backed by PostgreSQL."
 category: ai
 tags: [ai, memory, mcp, agents, self-hosted, postgres, developer-tools]
-logo: logo.svg
+logo: logo.png
 version: "1.20.0"
 revision: 1
 updated: 2026-10-28

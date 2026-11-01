@@ -10,7 +10,7 @@ slogan: "A ShareX/file upload server that is easy to use, packed with features, 
 description: "A ShareX/file upload server that is easy to use, packed with features, and with an easy setup!"
 category: files
 tags: [zipline, file-sharing, upload, sharing, media-system, storage, files]
-logo: logo.svg
+logo: logo.png
 version: "4.8.2"
 revision: 1
 updated: 2026-10-30

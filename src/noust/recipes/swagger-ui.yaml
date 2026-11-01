@@ -7,7 +7,7 @@ slogan: "Visualize and interact with an API's resources from its OpenAPI definit
 description: "Draws the documentation of any API described in OpenAPI: its operations, its schemas, and a button to try each call from the browser. Static, with nothing to sign into; it shows the definition at the address you give it."
 category: development
 tags: [openapi, api, documentation, swagger]
-logo: logo.svg
+logo: simple-icons:swagger
 version: "5.34.1"
 revision: 1
 updated: 2026-10-30

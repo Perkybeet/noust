@@ -10,7 +10,7 @@ slogan: "Free Modern URL Shortener."
 description: "Kutt is a modern URL shortener with support for custom domains. Create and edit links, view statistics, manage users, and more."
 category: utilities
 tags: [link-shortener, link-sharing, utilities]
-logo: logo.svg
+logo: logo.png
 version: "3.2.6"
 revision: 1
 updated: 2026-10-31

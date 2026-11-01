@@ -7,7 +7,7 @@ slogan: "Privacy-focused lightweight commenting engine."
 description: "A comments section for a website without ads or tracking: threads, votes, moderation, notifications and import from other systems, kept in a file on the server. Anonymous comments are allowed; the administrator signs in with a password Noust generates."
 category: cms
 tags: [comments, moderation, privacy, website]
-logo: logo.svg
+logo: logo.png
 version: "1.18.0"
 revision: 1
 updated: 2026-10-30

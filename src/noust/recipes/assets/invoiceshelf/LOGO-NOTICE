@@ -1,0 +1,8 @@
+Mark of: InvoiceShelf
+Source: https://github.com/InvoiceShelf/InvoiceShelf/blob/c8d10f76891c4efdecb71c04b49109e8f67f8e7c/resources/static/img/logo-mark.svg
+Licence: AGPL-3.0-only
+Copyright: the contributors of InvoiceShelf/InvoiceShelf
+Terms: invoiceshelf.com/brand, read 2026-11-01: use the name and marks only to refer to InvoiceShelf itself, not to brand your own product or imply an endorsement; do not recolor the marks or add gradients, shadows or strokes, stretch, rotate or distort the logo, or place it on low-contrast backgrounds; the software licence grants no trademark rights; shown unmodified here to identify the software a recipe installs
+Repaint: no
+Retrieved: 2026-11-01
+Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged

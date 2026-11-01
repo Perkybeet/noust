@@ -7,7 +7,7 @@ slogan: "Music streaming server with Subsonic API support."
 description: "Serves a music library to Subsonic-compatible apps and its own web page: it scans folders, reads tags, scrobbles to Last.fm and ListenBrainz, fetches podcasts and has playlists. A small and fast alternative to bigger servers, with accounts."
 category: media
 tags: [music, subsonic, streaming, podcasts]
-logo: logo.svg
+logo: logo.png
 version: "0.23.0"
 revision: 1
 updated: 2026-10-30

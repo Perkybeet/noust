@@ -21,7 +21,7 @@ slogan: "Self-hosted error tracking that is compatible with the Sentry SDKs."
 description: "Collect the errors your applications raise with the Sentry SDKs you already use, group them into issues and get alerts, without Sentry's weight: one small container and a MySQL. Source-available under the PolyForm Shield License: free to use, not to offer as a competing product. Starts with the administrator you name."
 category: monitoring
 tags: [error-tracking, sentry-compatible, crash-reporting]
-logo: logo.svg
+logo: logo.png
 version: "2.6.1"
 revision: 1
 updated: 2026-10-20

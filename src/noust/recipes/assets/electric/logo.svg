@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Electric">
-  <title>Electric</title>
-  <rect width="64" height="64" rx="14" fill="#24292f"/>
-  <text x="32" y="41" text-anchor="middle" font-family="sans-serif" font-size="26" font-weight="700" fill="#ffffff">EL</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" role="img" viewBox="0 0 192 192"><title>Electric</title><path d="M106.99 16.12C107.71 15.4 108.68 15 109.69 15H170L84.01 101.09C83.29 101.81 82.32 102.21 81.31 102.21H21L106.99 16.12Z" fill="currentColor"/><path d="M96.42 104.12C96.42 103.07 97.28 102.2 98.33 102.2H170L96.42 176V104.12Z" fill="currentColor"/></svg>
