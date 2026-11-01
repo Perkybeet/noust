@@ -1,16 +1,22 @@
-# Perplexica from the image the project publishes (itzcrazykns1337/perplexica), with the volumes its documentation names (github.com/ItzCrazyKns/Perplexica, README: Docker and docs/installation).
+# Perplexica from the image the project published under that name (itzcrazykns1337/perplexica, v1.12.0 of 2025-12-27), with the volumes its documentation names (github.com/ItzCrazyKns/Perplexica, README: Docker and docs/installation).
+# The project renamed itself Vane in March 2026 (its commit "feat(app): rename to 'vane'" is of 2026-03-09)
+# and the repository, now github.com/ItzCrazyKns/Vane, keeps this release's tag and the same icon. The image
+# followed: itzcrazykns1337/perplexica has no version tag after v1.12.0, only `latest`, last built on
+# 2026-02-13 (Docker Hub, read 2026-11-01), and v1.12.2 (2026-04-10) is published as itzcrazykns1337/vane,
+# whose README mounts /home/vane/data. The recipe keeps the name its installed applications recorded;
+# moving it to the new image changes its mount paths, so that is a change of its own, started for real.
 schema: 2
 name: perplexica
 kind: compose
 title: "Perplexica"
 slogan: "An AI-powered search engine that answers with cited sources."
-description: "An answering engine: it searches the web through its bundled SearXNG and has the language model you choose write the answer with its sources. You add the model providers (a local Ollama, or an API key) on its settings page."
+description: "An answering engine: it searches the web through its bundled SearXNG and has the language model you choose write the answer with its sources. The project is now called Vane; this recipe installs v1.12.0, the last release published as Perplexica. You add the model providers (a local Ollama, or an API key) on its settings page."
 category: ai
-tags: [search, llm, answers, searxng]
+tags: [search, llm, answers, searxng, vane]
 logo: logo.png
 version: "1.12.0"
 revision: 1
-updated: 2026-10-30
+updated: 2026-11-01
 homepage: https://github.com/ItzCrazyKns/Vane
 docs: https://github.com/ItzCrazyKns/Vane
 repository: https://github.com/ItzCrazyKns/Vane

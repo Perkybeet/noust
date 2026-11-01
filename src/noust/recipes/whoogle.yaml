@@ -1,38 +1,24 @@
-# Whoogle Search from the image the project publishes (benbusby/whoogle-search), with the settings its documentation names (github.com/benbusby/whoogle-search, README: Environment Variables).
+# Whoogle Search is listed and not installable since its project ended: the README of
+# benbusby/whoogle-search says on its first lines that Whoogle no longer returns results, because
+# Google closed the page it fetched them from and the paid API it fell back on, and the repository
+# is archived (README and GitHub, read 2026-11-01). The smoke test of 2026-10-30 (the container up
+# and /healthz answering) passed at 1.2.4, and says nothing of whether Google returns results.
 schema: 2
 name: whoogle
 kind: compose
 title: "Whoogle Search"
 slogan: "A self-hosted, ad-free, privacy-respecting metasearch engine."
-description: "Google results without ads, JavaScript, AMP links, cookies or tracking, fetched by your server. Protected by a user name and a password Noust generates, so it is not an open proxy."
+description: "Google results without ads, JavaScript, AMP links, cookies or tracking, fetched by your server. Listed because it no longer works: Google closed the way it fetched results, and its project has ended and is archived."
 category: search
 tags: [search, privacy, proxy, metasearch]
 logo: logo.png
 version: "1.2.4"
-revision: 1
-updated: 2026-10-30
+updated: 2026-11-01
 homepage: https://pypi.org/project/whoogle-search/
 docs: https://pypi.org/project/whoogle-search/
 repository: https://github.com/benbusby/whoogle-search
 license: MIT
-architectures: ["amd64", "arm64"]
-needs:
-  - Docker Engine with the Compose plugin
-port: 5000
-variables:
-  SEARCH_PASSWORD:
-    generate: "password32"
-    description: "The password of the user whoogle."
-health: {path: /healthz, expect: "200", timeout: 120}
-compose: |
-  services:
-    whoogle:
-      image: benbusby/whoogle-search:1.2.4@sha256:6ae072238642b7e5860c8fa7f68cf06be797eb4e2278fc41d17d3b5e8a051eea
-      restart: unless-stopped
-      environment:
-        WHOOGLE_USER: whoogle
-        WHOOGLE_PASS: ${SEARCH_PASSWORD}
-      ports:
-        - 127.0.0.1:${PORT}:5000
-notes:
-  - "Open {{ url }}. Sign in as whoogle with the password in SEARCH_PASSWORD (noust env show {{ domain }} --unmask)."
+available: false
+unavailable_code: archived
+replaced_by: searxng
+unavailable_reason: "Its README opens with 'Whoogle has reached the end of the road' (24 Jul 2026): 'Whoogle no longer returns search results, and that isn't something this project can fix', because Google banned the last User-Agent string that fetched results without JavaScript and the Google Custom Search fallback is closed too; it announces no further commits, releases, bug fixes or support for existing deployments and Docker images (README of benbusby/whoogle-search at main, read 2026-11-01). The repository is archived (GitHub, read 2026-11-01) and the last release, v1.2.4, is from 2026-04-15. A recipe does not install a search engine that returns no search results. Not available in this release."

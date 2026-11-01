@@ -143,3 +143,14 @@ def test_every_run_the_package_carries_is_of_a_recipe_it_has() -> None:
 
     assert set(carried) <= names
     assert all(isinstance(entry["version"], str) for entry in carried.values())
+
+
+def test_a_recipe_that_is_only_listed_is_not_carried_as_started(tool: ModuleType) -> None:
+    """Whoogle was started on 2026-10-30 and withdrawn after: a tested badge on a listing misleads."""
+    path = Path(tested_module.__file__).with_name("tested.json")
+    carried = json.loads(path.read_text(encoding="utf-8"))["recipes"]
+    listed = {recipe.name for recipe in list_recipes() if not recipe.available}
+
+    assert listed and not listed & set(carried)
+    assert "whoogle" not in tool.installable() and "searxng" in tool.installable()
+    assert tool.installable() == {recipe.name for recipe in list_recipes() if recipe.available}
