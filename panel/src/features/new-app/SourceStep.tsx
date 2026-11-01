@@ -178,8 +178,12 @@ export interface SourceStepProps {
   onChange: (form: SourceForm) => void;
   /** Enter in a field: the same as the wizard's Continue. */
   onSubmit: () => void;
-  /** The inspection in flight, and when it started. */
-  inspecting: { since: number } | null;
+  /**
+   * The inspection in flight, when it started, and whether Continue asked for it. Only that one holds the step: a read
+   * the step started by itself (a repository chosen, an address pasted or left) leaves every field editable, because
+   * a convenience that takes the keys of whoever goes on typing is a defect, not a loading state.
+   */
+  inspecting: { since: number; advancing: boolean } | null;
   onCancel: () => void;
   /** Why the last inspection failed, verbatim. */
   failure: unknown;
@@ -264,7 +268,10 @@ export function SourceStep({
     event.preventDefault();
     onSubmit();
   };
-  const busy = inspecting !== null;
+  // What disables the step's controls is the read Continue is waiting for, never one that only shows what was found
+  // before Continue is pressed: that read is under way from 80ms after a choice, in the middle of the next keystrokes,
+  // and a disabled field drops the key pressed on it and loses the focus it had.
+  const busy = inspecting?.advancing === true;
   const shown = form.source.trim();
   const startMode: SourceMode = github?.configured === true ? "github" : "manual";
   // The answer to what was typed or chosen: it reads under that, before the other ways of giving the code.
