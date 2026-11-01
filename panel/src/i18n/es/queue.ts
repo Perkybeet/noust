@@ -35,6 +35,7 @@ export const queue: Catalog<typeof en> = {
   cancel: {
     label: "Cancelar {name}",
     stopping: "Deteniendo…",
+    stoppingLabel: "Deteniendo: {name}",
     stoppingNote: "Se le pidió que se detenga y está terminando. La cola avanza cuando acabe.",
     reasons: {
       activating: "Su release se está activando, algo que no puede detenerse a medias. Termina, o devuelve lo que servía antes, por sí sola.",

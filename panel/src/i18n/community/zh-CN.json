@@ -3735,7 +3735,7 @@
   "common.flowDiagram.nodeName": "{kind} {label}",
   "common.flowDiagram.nodeNameWithState": "{kind} {label}：{state}",
   "common.flowDiagram.nodeNameWithDetail": "{kind} {label}，{detail}",
-  "common.flowDiagram.nodeNameFull": "{kind} {label}，{detail}：{state}",
+  "common.flowDiagram.nodeNameFull": "{kind} {label}：{state}，{detail}",
   "common.flowDiagram.summary": {
     "other": "{layers} 列中 {nodes} 个元素之间有 {count} 条连接。"
   },

@@ -91,7 +91,7 @@ export const common = {
     nodeName: "{kind} {label}",
     nodeNameWithState: "{kind} {label}: {state}",
     nodeNameWithDetail: "{kind} {label}, {detail}",
-    nodeNameFull: "{kind} {label}, {detail}: {state}",
+    nodeNameFull: "{kind} {label}: {state}, {detail}",
     summary: {
       one: "{count} connection between {nodes} elements in {layers} columns.",
       other: "{count} connections between {nodes} elements in {layers} columns.",

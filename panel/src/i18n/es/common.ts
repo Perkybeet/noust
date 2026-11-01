@@ -88,7 +88,7 @@ export const common: Catalog<typeof en> = {
     nodeName: "{kind} {label}",
     nodeNameWithState: "{kind} {label}: {state}",
     nodeNameWithDetail: "{kind} {label}, {detail}",
-    nodeNameFull: "{kind} {label}, {detail}: {state}",
+    nodeNameFull: "{kind} {label}: {state}, {detail}",
     summary: {
       one: "{count} conexión entre {nodes} elementos en {layers} columnas.",
       other: "{count} conexiones entre {nodes} elementos en {layers} columnas.",

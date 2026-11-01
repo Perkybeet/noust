@@ -268,7 +268,9 @@ function FleetStrip({ className }: { className?: string | undefined }) {
     >
       {view !== undefined ? (
         <Tooltip content={summary}>
-          <Link to="/fleet" aria-label={summary} className={cx("flex min-w-0 items-center gap-3", STRIP_LINK)}>
+          {/* The name is the link's own hidden text, as the services link's is: what the strip draws is no sequence of the sentence (WCAG 2.5.3). */}
+          <Link to="/fleet" className={cx("flex min-w-0 items-center gap-3", STRIP_LINK)}>
+            <span className="sr-only">{summary}</span>
             <span aria-hidden="true" className="hidden shrink-0 text-13 font-medium text-fg tabular-nums @min-[20rem]:inline">
               {t("shell.fleetStrip.servers", { count: total })}
             </span>

@@ -80,7 +80,7 @@ describe("the map", () => {
     for (const title of ["Names", "Applications", "Databases", "Scheduled work", "Data"]) {
       expect(within(figure).getByRole("list", { name: title })).toBeInTheDocument();
     }
-    expect(within(figure).getByRole("button", { name: "Application shop.example.com, Next.js: Running" })).toBeInTheDocument();
+    expect(within(figure).getByRole("button", { name: "Application shop.example.com: Running, Next.js" })).toBeInTheDocument();
     expect(within(figure).getByRole("button", { name: "Database shop_prod, postgresql" })).toBeInTheDocument();
     expect(screen.getByText("Applications: 1. Databases: 1. Scheduled jobs: 1.")).toBeInTheDocument();
     expect(screen.getByText(/Each line is a relation, not traffic/)).toBeInTheDocument();

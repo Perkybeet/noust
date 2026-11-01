@@ -780,7 +780,7 @@ describe("Settings > Notifications", () => {
     if (waiting === undefined) throw new Error("no delivery listed");
     expect(within(waiting).getByText("Trying again")).toBeInTheDocument();
     expect(within(waiting).getByText("HTTP 502 Bad Gateway")).toBeInTheDocument();
-    await user.click(within(waiting).getByRole("button", { name: "Send shop.example.com to slack now" }));
+    await user.click(within(waiting).getByRole("button", { name: "Send now: shop.example.com to slack" }));
     await waitFor(() => {
       expect(backend.callsTo("POST /api/notifications/deliveries/7/retry")).toHaveLength(1);
     });

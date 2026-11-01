@@ -171,8 +171,8 @@ describe("a site's three views", () => {
     const backend = fakeBackend(siteRoutes({ [`POST /api/sites/${SITE}/route`]: () => json(200, SMALL_ROUTE_LOGIN) }));
     const { user } = renderConsole(`/domains/sites/${SITE}?view=diagram`);
     const diagram = await screen.findByRole("figure", { name: `How ${SITE} answers` });
-    expect(within(diagram).getByRole("button", { name: /^Backend 127\.0\.0\.1:3000, Noust application shop\.example\.com: Not responding$/ })).toBeInTheDocument();
-    expect(within(diagram).getByRole("button", { name: /^Server shop\.example\.com, Also www\.shop\.example\.com: Expires in 60 days$/ })).toBeInTheDocument();
+    expect(within(diagram).getByRole("button", { name: /^Backend 127\.0\.0\.1:3000: Not responding, Noust application shop\.example\.com$/ })).toBeInTheDocument();
+    expect(within(diagram).getByRole("button", { name: /^Server shop\.example\.com: Expires in 60 days, Also www\.shop\.example\.com$/ })).toBeInTheDocument();
     expect(within(diagram).getByText(/1 element is not responding: 127\.0\.0\.1:3000\./)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Show the connections as a table" })).toBeInTheDocument();
     await expectNoAxeViolations(document.body);

@@ -51,7 +51,7 @@ export const internalCa: Catalog<typeof en> = {
   certRenewing: "Quedan {days} días, se renueva solo",
   certDaysLeft: "Quedan {days} días",
   renew: "Firmar de nuevo",
-  renewLabel: "Firmar {name} de nuevo",
+  renewLabel: "Firmar de nuevo: {name}",
   renewedToast: "Se firmó {name} de nuevo",
   renewFailed: "No se firmó {name} de nuevo",
   signTitle: "Firmar un certificado",

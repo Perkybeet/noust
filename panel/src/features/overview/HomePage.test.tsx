@@ -7,6 +7,7 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
+import { expectLabelInName } from "../../test/labelInName";
 import { MACHINE_METRICS } from "./MachineCharts";
 import { metricsReadFixture, overviewFixture } from "./testFixtures";
 
@@ -133,7 +134,9 @@ describe("Home", () => {
     // The system's own words, verbatim, under the sentence.
     expect(within(attention).getByText("npm ERR! code ELIFECYCLE")).toBeInTheDocument();
     expect(within(attention).getByRole("link", { name: "View log of the deploy of admin.example.com" })).toHaveAttribute("href", "/apps/admin.example.com/deployments/12");
-    expect(within(attention).getByRole("link", { name: "Open the service queue-worker" })).toHaveAttribute("href", "/server/services/queue-worker");
+    expect(within(attention).getByRole("link", { name: "Open service queue-worker" })).toHaveAttribute("href", "/server/services/queue-worker");
+    // Each card's action is named by the words it draws first, then what it is about (WCAG 2.5.3).
+    for (const action of within(attention).getAllByRole("link")) expectLabelInName(action);
     expect(within(attention).getByText("Certificate expires in 12 days")).toBeInTheDocument();
     // Only what is wrong has colour behind it: a failure is red, a warning amber.
     const card = (text: string): HTMLElement => {

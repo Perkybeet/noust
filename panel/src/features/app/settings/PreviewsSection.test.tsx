@@ -277,7 +277,7 @@ describe("pull request previews", () => {
     expect(within(ready).getByText("feature/checkout")).toBeInTheDocument();
     expect(within(ready).getByText("9f1c2e7")).toBeInTheDocument();
     expect(within(ready).getByRole("link", { name: READY.domain })).toHaveAttribute("href", `/apps/${READY.domain}`);
-    const open = within(ready).getByRole("link", { name: "Open the preview of #12 (opens in a new tab)" });
+    const open = within(ready).getByRole("link", { name: "Open preview of #12 (opens in a new tab)" });
     expect(open).toHaveAttribute("href", READY.url);
     expect(open).toHaveAttribute("target", "_blank");
     expect(open.getAttribute("rel")).toContain("noopener");

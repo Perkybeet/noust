@@ -799,7 +799,7 @@ export const server: Catalog<typeof en> = {
       beforeAfter: "{before} a {after}",
       freed: "{size} liberados",
       details: "Detalles",
-      detailFor: "Detalle de la limpieza {id}",
+      detailFor: "Detalles de la limpieza {id}",
       detailTitle: "Limpieza {id}",
       actionsLabel: "Lo que hizo cada acción",
       removedLabel: "Eliminado por {action}",

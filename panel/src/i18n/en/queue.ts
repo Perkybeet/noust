@@ -38,6 +38,7 @@ export const queue = {
   cancel: {
     label: "Cancel {name}",
     stopping: "Stopping…",
+    stoppingLabel: "Stopping: {name}",
     stoppingNote: "It was asked to stop and is winding down. The queue moves on when it has.",
     reasons: {
       activating: "Its release is being activated, which cannot be stopped halfway. It finishes, or puts back what served before, by itself.",

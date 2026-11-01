@@ -27,7 +27,12 @@ export interface ExternalLinkProps {
   inline?: boolean;
   /** What a non-http(s) `href` shows: nothing, or its text unlinked. */
   unlinked?: "hide" | "text";
-  /** A fuller name for assistive technology when the visible text needs its context. */
+  /**
+   * A fuller name for assistive technology when the visible text needs its context ("Open preview of pr-42" for
+   * "Open preview"). It begins with the words the link draws, in that order: whoever says what they see to a voice
+   * control must reach it (WCAG 2.5.3), which is why a name that rephrases the text ("Open the preview of pr-42")
+   * fails axe's `label-content-name-mismatch`. The link adds that it opens a new tab.
+   */
   label?: string;
   className?: string;
 }

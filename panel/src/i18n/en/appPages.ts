@@ -571,7 +571,7 @@ export const appPages = {
     statusLoadError: "Could not check how this application is measured",
     deploysInRangeTitle: "Deploys in this range",
     noDeploysInRange: "None. A deploy restarts the app, which usually shows as a drop in memory.",
-    deployMarkLabel: "Deploy {id}, {status}, {when}",
+    deployMarkLabel: "Deploy {id}, {when}, {status}",
     fixLabel: "Suggested fix",
     evidenceLabel: "What the system said",
     earlierStay: "Earlier readings stay in the charts.",

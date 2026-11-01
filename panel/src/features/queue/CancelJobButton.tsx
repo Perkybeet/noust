@@ -28,7 +28,7 @@ export function CancelJobButton({ entry, state, onAsk, reasonId, className }: Ca
   const name = entryTitle(entry, t.locale);
   if (state.kind === "stopping") {
     return (
-      <Button size="sm" variant="ghost" loading aria-label={t("queue.cancel.label", { name })} {...(className !== undefined ? { className } : {})}>
+      <Button size="sm" variant="ghost" loading aria-label={t("queue.cancel.stoppingLabel", { name })} {...(className !== undefined ? { className } : {})}>
         {t("queue.cancel.stopping")}
       </Button>
     );

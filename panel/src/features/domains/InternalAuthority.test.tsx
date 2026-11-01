@@ -128,7 +128,7 @@ describe("the private certificate authority", () => {
     expect(within(dialog).getByText("lan, home.arpa")).toBeInTheDocument();
     expect(within(dialog).getByText("10.0.0.0/8")).toBeInTheDocument();
     expect(within(dialog).getByText("internal-wiki")).toBeInTheDocument();
-    expect(within(dialog).getByRole("button", { name: "Sign internal-wiki again" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Sign again: internal-wiki" })).toBeInTheDocument();
     expect(document.body.textContent).not.toContain("PRIVATE KEY");
     await expectNoAxeViolations(dialog);
   });
@@ -191,7 +191,7 @@ describe("the private certificate authority", () => {
     });
 
     const dialog = await open(user);
-    await user.click(await within(dialog).findByRole("button", { name: "Sign internal-wiki again" }));
+    await user.click(await within(dialog).findByRole("button", { name: "Sign again: internal-wiki" }));
     await waitFor(() => {
       expect(backend.callsTo("POST /api/certs/ca/issued/internal-wiki/renew")).toHaveLength(1);
     });
