@@ -9,6 +9,7 @@ import { describe, expect, it, vi } from "vitest";
 import { expectNoAxeViolations } from "../../test/axe";
 import { Button } from "../ui/Button";
 import { Notice } from "../ui/Notice";
+import { Skeleton } from "../ui/Skeleton";
 import { AuthLayout } from "./AuthLayout";
 import { DashboardPage } from "./DashboardPage";
 import { DetailPage } from "./DetailPage";
@@ -398,6 +399,25 @@ describe("FileEditorPage (T6)", () => {
     await userEvent.click(screen.getByRole("button", { name: "Test and save" }));
     expect(onTest).toHaveBeenCalledOnce();
     expect(onTestAndSave).toHaveBeenCalledOnce();
+  });
+
+  it("says its facts are not ready while their place is held by a skeleton, and not otherwise", async () => {
+    const page = (loading: boolean) => (
+      <FileEditorPage
+        header={{ title: "example.net", mono: true }}
+        meta={loading ? <Skeleton className="h-3 w-48" /> : <span>/etc/nginx/sites-available/example.net</span>}
+        metaLoading={loading}
+        bar={{ changes: 0, onDiscard: () => undefined, onTest: () => undefined, onTestAndSave: () => undefined }}
+      >
+        <textarea aria-label="Site configuration" />
+      </FileEditorPage>
+    );
+    const waiting = await renderRouted(page(true));
+    const skeleton = waiting.container.querySelector("[data-slot='skeleton']");
+    expect(skeleton?.closest("[aria-busy='true']")).toBe(waiting.container.querySelector("[data-slot='meta']"));
+    waiting.unmount();
+    const { container } = await renderRouted(page(false));
+    expect(container.querySelector("[data-slot='meta']")).not.toHaveAttribute("aria-busy");
   });
 
   it("ends with its footer, the terminal's way, under the bar", async () => {

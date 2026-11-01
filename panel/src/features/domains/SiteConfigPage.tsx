@@ -388,6 +388,7 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
             ) : null}
           </div>
         }
+        metaLoading={config.isPending}
         meta={
           config.data ? (
             <>
@@ -408,9 +409,9 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
             </>
           ) : (
             // The line is there from the first frame, as tall as it will be: it arrives with the configuration and the
-            // editor under it used to move down by it.
+            // editor under it used to move down by it. A read that failed leaves the place empty: nothing is on its way.
             <span aria-hidden="true" className="flex h-5 items-center">
-              <Skeleton className="h-3 w-48" />
+              {config.isPending ? <Skeleton className="h-3 w-48" /> : null}
             </span>
           )
         }
