@@ -1,0 +1,192 @@
+# NetBox from the image the project publishes (netboxcommunity/netbox), with the variables and services of netbox-docker (github.com/netbox-community/netbox-docker, docker-compose.yml and env/).
+schema: 2
+name: netbox
+kind: compose
+title: "NetBox"
+slogan: "The premier source of truth powering network automation."
+description: "Documents a network and its infrastructure: IP addresses and prefixes, devices, racks, cables, circuits, virtual machines and tenants, with a REST and GraphQL API for automation. Runs with its own PostgreSQL and Redis; the administrator's password is generated."
+category: business
+tags: [network, ipam, dcim, inventory]
+logo: logo.svg
+version: "4.7.4"
+revision: 1
+updated: 2026-10-30
+homepage: https://netboxlabs.com/products/netbox/
+docs: https://netboxlabs.com/products/netbox/
+repository: https://github.com/netbox-community/netbox
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8080
+variables:
+  DB_PASSWORD:
+    generate: "password32"
+    description: "The password of the stack's PostgreSQL account."
+  APP_URL:
+    from: "url"
+    description: "The address people use to reach the application."
+  FQDN:
+    from: "fqdn"
+    description: "The host name people use."
+  REDIS_PASSWORD:
+    generate: "password32"
+    description: "The password of the stack's Redis."
+  REDIS_CACHE_PASSWORD:
+    generate: "password32"
+    description: "The password of the stack's cache."
+  SECRET_KEY:
+    generate: "password64"
+    description: "Signs sessions and hides stored secrets; keep it as it is."
+  ADMIN_PASSWORD:
+    generate: "password32"
+    description: "The password of the user admin."
+  ADMIN_EMAIL:
+    value: "admin@${FQDN}"
+    description: "The e-mail address of the user admin."
+health: {path: /login/, expect: "200", timeout: 600}
+compose: |
+  services:
+    netbox:
+      image: netboxcommunity/netbox:v4.7.4@sha256:69cd72d0b0e4928a90940a7011954aaa7060c75fddd8dc6cea2f19407bae45b1
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+        redis-cache:
+          condition: service_healthy
+      environment:
+        DB_HOST: db
+        DB_NAME: netbox
+        DB_USER: netbox
+        DB_PASSWORD: ${DB_PASSWORD}
+        REDIS_HOST: redis
+        REDIS_PASSWORD: ${REDIS_PASSWORD}
+        REDIS_DATABASE: '0'
+        REDIS_CACHE_HOST: redis-cache
+        REDIS_CACHE_PASSWORD: ${REDIS_CACHE_PASSWORD}
+        REDIS_CACHE_DATABASE: '1'
+        SECRET_KEY: ${SECRET_KEY}
+        CSRF_TRUSTED_ORIGINS: ${APP_URL}
+        MEDIA_ROOT: /opt/netbox/netbox/media
+        SKIP_SUPERUSER: 'false'
+        SUPERUSER_NAME: admin
+        SUPERUSER_EMAIL: ${ADMIN_EMAIL}
+        SUPERUSER_PASSWORD: ${ADMIN_PASSWORD}
+        GRAPHQL_ENABLED: 'true'
+        METRICS_ENABLED: 'false'
+        HOUSEKEEPING_INTERVAL: '86400'
+        RELEASE_CHECK_URL: https://api.github.com/repos/netbox-community/netbox/releases
+      volumes:
+        - netbox-media:/opt/netbox/netbox/media
+        - netbox-reports:/opt/netbox/netbox/reports
+        - netbox-scripts:/opt/netbox/netbox/scripts
+      ports:
+        - 127.0.0.1:${PORT}:8080
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - curl -f http://localhost:8080/login/ || exit 1
+        interval: 15s
+        timeout: 10s
+        retries: 20
+        start_period: 120s
+    netbox-worker:
+      image: netboxcommunity/netbox:v4.7.4@sha256:69cd72d0b0e4928a90940a7011954aaa7060c75fddd8dc6cea2f19407bae45b1
+      command:
+        - sh
+        - -c
+        - until curl -sf http://netbox:8080/login/ > /dev/null; do sleep 5; done; exec /opt/netbox/venv/bin/python
+          /opt/netbox/netbox/manage.py rqworker
+      environment:
+        DB_HOST: db
+        DB_NAME: netbox
+        DB_USER: netbox
+        DB_PASSWORD: ${DB_PASSWORD}
+        REDIS_HOST: redis
+        REDIS_PASSWORD: ${REDIS_PASSWORD}
+        REDIS_DATABASE: '0'
+        REDIS_CACHE_HOST: redis-cache
+        REDIS_CACHE_PASSWORD: ${REDIS_CACHE_PASSWORD}
+        REDIS_CACHE_DATABASE: '1'
+        SECRET_KEY: ${SECRET_KEY}
+        CSRF_TRUSTED_ORIGINS: ${APP_URL}
+        MEDIA_ROOT: /opt/netbox/netbox/media
+        SKIP_SUPERUSER: 'false'
+        SUPERUSER_NAME: admin
+        SUPERUSER_EMAIL: ${ADMIN_EMAIL}
+        SUPERUSER_PASSWORD: ${ADMIN_PASSWORD}
+        GRAPHQL_ENABLED: 'true'
+        METRICS_ENABLED: 'false'
+        HOUSEKEEPING_INTERVAL: '86400'
+        RELEASE_CHECK_URL: https://api.github.com/repos/netbox-community/netbox/releases
+      volumes:
+        - netbox-media:/opt/netbox/netbox/media
+        - netbox-reports:/opt/netbox/netbox/reports
+        - netbox-scripts:/opt/netbox/netbox/scripts
+      restart: unless-stopped
+    redis:
+      image: valkey/valkey:9.0.6-alpine@sha256:187679e3bd4036959631e3f03983ab2ba503ab21e6fd0454d508e909db2ee989
+      command:
+        - sh
+        - -c
+        - valkey-server --appendonly yes --requirepass $$REDIS_PASSWORD
+      environment:
+        REDIS_PASSWORD: ${REDIS_PASSWORD}
+      volumes:
+        - netbox-redis:/data
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - valkey-cli -a $$REDIS_PASSWORD ping | grep PONG
+        interval: 10s
+        timeout: 5s
+        retries: 10
+      restart: unless-stopped
+    redis-cache:
+      image: valkey/valkey:9.0.6-alpine@sha256:187679e3bd4036959631e3f03983ab2ba503ab21e6fd0454d508e909db2ee989
+      command:
+        - sh
+        - -c
+        - valkey-server --requirepass $$REDIS_PASSWORD
+      environment:
+        REDIS_PASSWORD: ${REDIS_CACHE_PASSWORD}
+      volumes:
+        - netbox-redis-cache:/data
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - valkey-cli -a $$REDIS_PASSWORD ping | grep PONG
+        interval: 10s
+        timeout: 5s
+        retries: 10
+      restart: unless-stopped
+    db:
+      image: postgres:17.11-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: netbox
+        POSTGRES_DB: netbox
+        POSTGRES_PASSWORD: ${DB_PASSWORD}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U netbox -d netbox
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - netbox-db:/var/lib/postgresql/data
+  volumes:
+    netbox-media:
+    netbox-reports:
+    netbox-scripts:
+    netbox-redis:
+    netbox-redis-cache:
+    netbox-db:
+notes:
+  - "Open {{ url }}. Sign in as admin with the password in ADMIN_PASSWORD (noust env show {{ domain }} --unmask). The first start takes a few minutes while the database is prepared."
+  - "Its data is in the Docker volumes netbox-media, netbox-reports, netbox-scripts, netbox-redis, netbox-redis-cache, netbox-db of this application, the databases dumped by Noust before every update: back them up before updating."

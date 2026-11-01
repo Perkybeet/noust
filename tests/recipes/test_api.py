@@ -79,7 +79,8 @@ def test_the_list_carries_what_a_catalogue_card_shows(client: TestClient) -> Non
         "mysql"
     ]
     assert items["wordpress"]["requires"][0].startswith("PHP-FPM")
-    assert items["vault"]["available"] is False and items["vault"]["unavailable_reason"]
+    assert items["joplin-server"]["available"] is False
+    assert items["joplin-server"]["unavailable_reason"]
 
 
 def test_available_recipes_come_first(client: TestClient) -> None:
@@ -97,11 +98,11 @@ def test_search_and_filters_narrow_the_list(client: TestClient) -> None:
         assert response.status_code == 200, response.text
         return {item["name"] for item in response.json()["items"]}
 
-    assert names(q="password manager") == {"vaultwarden"}
+    assert names(q="bitwarden manager") == {"vaultwarden"}
     assert names(q="DASHBOARD") >= {"grafana", "homepage"}
     assert names(category="media") >= {"jellyfin", "navidrome"}
-    assert names(category="media", tag="subsonic") == {"navidrome"}
-    assert names(kind="native") >= {"wordpress", "n8n", "umami", "uptime-kuma"}
+    assert names(category="media", tag="audio") == {"navidrome"}
+    assert names(kind="native") >= {"wordpress", "umami", "uptime-kuma"}
     assert not names(kind="native") & {"vaultwarden", "memos"}
     assert names(q="zzzz") == set()
     assert client.get("/api/recipes", params={"q": "memos"}).json()["total"] == 1
@@ -167,7 +168,7 @@ def test_a_native_recipe_in_full_keeps_the_shape_the_console_reads(client: TestC
     assert {"name": "WORDPRESS_AUTH_KEY", "generated": True} in wordpress["env"]
     assert wordpress["persistent_paths"] == []
     assert client.get("/api/recipes/uptime-kuma").json()["persistent_paths"] == ["data"]
-    assert client.get("/api/recipes/drupal").status_code == 404
+    assert client.get("/api/recipes/bogus-recipe").status_code == 404
 
 
 def test_every_route_declares_the_permission_it_needs() -> None:
@@ -280,7 +281,7 @@ def test_a_theme_that_is_not_light_or_dark_is_a_validation_error(client: TestCli
 
 def test_a_logo_of_a_recipe_that_does_not_exist_is_a_404(client: TestClient) -> None:
     """Not a 500, not an empty image."""
-    assert client.get("/api/recipes/drupal/logo").status_code == 404
+    assert client.get("/api/recipes/bogus-recipe/logo").status_code == 404
     assert client.get("/api/recipes/..%2f..%2fetc/logo").status_code in (404, 400)
 
 
@@ -359,8 +360,8 @@ def test_installing_without_a_required_variable_is_a_400_naming_it_and_queues_no
 @pytest.mark.parametrize(
     ("path", "body", "status"),
     [
-        ("/api/recipes/vault/install", {"domain": DOMAIN}, 400),
-        ("/api/recipes/drupal/install", {"domain": DOMAIN}, 404),
+        ("/api/recipes/joplin-server/install", {"domain": DOMAIN}, 400),
+        ("/api/recipes/bogus-recipe/install", {"domain": DOMAIN}, 404),
         ("/api/recipes/memos/install", {}, 422),
         ("/api/recipes/memos/install", {"domain": "not a domain"}, 400),
     ],
@@ -544,12 +545,12 @@ def test_a_listed_recipe_gives_its_reason_as_a_code_a_sentence_and_a_filter(
 ) -> None:
     """The console draws the reason in its own language and filters the listing by it."""
     everything = {i["name"]: i for i in client.get("/api/recipes").json()["items"]}
-    vault = everything["vault"]
+    joplin = everything["joplin-server"]
 
-    assert vault["unavailable_code"] == "licence"
-    assert vault["unavailable"] == {"code": "recipes.unavailable.licence", "params": {}}
-    assert vault["unavailable_text"] and vault["unavailable_hint"]
-    assert vault["unavailable_reason"]
+    assert joplin["unavailable_code"] == "licence"
+    assert joplin["unavailable"] == {"code": "recipes.unavailable.licence", "params": {}}
+    assert joplin["unavailable_text"] and joplin["unavailable_hint"]
+    assert joplin["unavailable_reason"]
     installed = everything["vaultwarden"]
     assert installed["unavailable_code"] is None and installed["unavailable"] is None
 
@@ -557,7 +558,7 @@ def test_a_listed_recipe_gives_its_reason_as_a_code_a_sentence_and_a_filter(
     assert out and all(item["available"] is False for item in out)
     assert all(i["available"] for i in client.get("/api/recipes?available=true").json()["items"])
     licence = client.get("/api/recipes", params={"unavailable_code": "licence"}).json()["items"]
-    assert "vault" in {item["name"] for item in licence}
+    assert "joplin-server" in {item["name"] for item in licence}
     assert all(item["unavailable_code"] == "licence" for item in licence)
     refused = client.get("/api/recipes", params={"unavailable_code": "because"})
     assert refused.status_code == 400 and "unavailable_code" in refused.text

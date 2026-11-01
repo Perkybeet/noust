@@ -1,0 +1,309 @@
+# Mailu: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/mailu
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+# Licence: LICENSE.md of Mailu/Mailu, read 2026-10-30: the MIT licence
+schema: 2
+name: mailu
+kind: compose
+title: "Mailu"
+slogan: "Insular email distribution - mail server as Docker images"
+description: "Full-featured open-source mail server as a set of Docker containers: SMTP (Postfix), IMAP (Dovecot), Rspamd antispam, admin UI with DKIM management and Roundcube webmail."
+category: communication
+tags: [email, mail-server, smtp, imap, antispam, webmail, communication]
+logo: logo.svg
+version: "2024.06"
+revision: 1
+updated: 2026-10-31
+homepage: https://mailu.io
+docs: https://mailu.io/2024.06/
+repository: https://github.com/Mailu/Mailu
+license: MIT
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SECRET_KEY:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for secret key."
+  DOMAIN:
+    from: "fqdn"
+    description: "The address people use to reach the application, as the template builds it."
+  SUBNET:
+    default: "172.16.0.0/12"
+    description: "Setting SUBNET of the application; the template leaves it to the operator."
+  INITIAL_ADMIN_ACCOUNT:
+    default: "admin"
+    description: "Setting INITIAL_ADMIN_ACCOUNT of the application; the template leaves it to the operator."
+  INITIAL_ADMIN_PW:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for initial admin pw."
+health: {path: /, expect: "200-399", timeout: 180}
+public_ports:
+  - {port: 25, protocol: tcp, purpose: "front: 25/tcp, which the template opens."}
+  - {port: 465, protocol: tcp, purpose: "front: 465/tcp, which the template opens."}
+  - {port: 587, protocol: tcp, purpose: "front: 587/tcp, which the template opens."}
+  - {port: 993, protocol: tcp, purpose: "front: 993/tcp, which the template opens."}
+compose: |
+  services:
+    front:
+      image: ghcr.io/mailu/nginx:2024.06@sha256:db40329ff3d72fd8e35e265ee1579303cf62f0670906d1fe86ad70d86a384b4a
+      restart: unless-stopped
+      environment:
+        SECRET_KEY: ${SECRET_KEY}
+        DOMAIN: ${DOMAIN}
+        HOSTNAMES: ${DOMAIN}
+        POSTMASTER: admin
+        TLS_FLAVOR: mail-letsencrypt
+        SUBNET: ${SUBNET}
+        ADMIN: 'true'
+        WEBMAIL: roundcube
+        API: 'false'
+        WEBDAV: none
+        ANTIVIRUS: none
+        SCAN_MACROS: 'false'
+        PORTS: 25,80,443,465,587,993,4190
+        MESSAGE_SIZE_LIMIT: '50000000'
+        FULL_TEXT_SEARCH: en
+        WEBROOT_REDIRECT: /webmail
+        WEB_ADMIN: /admin
+        WEB_WEBMAIL: /webmail
+        SITENAME: Mailu
+        WEBSITE: https://mailu.io
+        REAL_IP_FROM: ${SUBNET}
+        REAL_IP_HEADER: X-Forwarded-For
+        INITIAL_ADMIN_ACCOUNT: ${INITIAL_ADMIN_ACCOUNT}
+        INITIAL_ADMIN_DOMAIN: ${DOMAIN}
+        INITIAL_ADMIN_PW: ${INITIAL_ADMIN_PW}
+        INITIAL_ADMIN_MODE: ifmissing
+      ports:
+        - '25:25'
+        - 465:465
+        - 587:587
+        - 993:993
+        - 127.0.0.1:${PORT}:80
+      volumes:
+        - mailu-certs:/certs
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - curl -m3 -skfLo /dev/null http://127.0.0.1:10204/health
+        interval: 30s
+        timeout: 5s
+        retries: 3
+        start_period: 60s
+      depends_on:
+        admin:
+          condition: service_started
+    admin:
+      image: ghcr.io/mailu/admin:2024.06@sha256:cbd734f472040a359b8e251fc502e6fbd6f909be8ac2514091cc72bb1f9e88dd
+      restart: unless-stopped
+      environment:
+        SECRET_KEY: ${SECRET_KEY}
+        DOMAIN: ${DOMAIN}
+        HOSTNAMES: ${DOMAIN}
+        POSTMASTER: admin
+        TLS_FLAVOR: mail-letsencrypt
+        SUBNET: ${SUBNET}
+        ADMIN: 'true'
+        WEBMAIL: roundcube
+        API: 'false'
+        WEBDAV: none
+        ANTIVIRUS: none
+        SCAN_MACROS: 'false'
+        PORTS: 25,80,443,465,587,993,4190
+        MESSAGE_SIZE_LIMIT: '50000000'
+        FULL_TEXT_SEARCH: en
+        WEBROOT_REDIRECT: /webmail
+        WEB_ADMIN: /admin
+        WEB_WEBMAIL: /webmail
+        SITENAME: Mailu
+        WEBSITE: https://mailu.io
+        REAL_IP_FROM: ${SUBNET}
+        REAL_IP_HEADER: X-Forwarded-For
+        INITIAL_ADMIN_ACCOUNT: ${INITIAL_ADMIN_ACCOUNT}
+        INITIAL_ADMIN_DOMAIN: ${DOMAIN}
+        INITIAL_ADMIN_PW: ${INITIAL_ADMIN_PW}
+        INITIAL_ADMIN_MODE: ifmissing
+      volumes:
+        - mailu-data:/data
+        - mailu-dkim:/dkim
+      depends_on:
+        redis:
+          condition: service_healthy
+    imap:
+      image: ghcr.io/mailu/dovecot:2024.06@sha256:98ab7e7e79bb564b278a8656e386a1c56aac6e05cc0b4c56eb4cb9f296867fb7
+      restart: unless-stopped
+      environment:
+        SECRET_KEY: ${SECRET_KEY}
+        DOMAIN: ${DOMAIN}
+        HOSTNAMES: ${DOMAIN}
+        POSTMASTER: admin
+        TLS_FLAVOR: mail-letsencrypt
+        SUBNET: ${SUBNET}
+        ADMIN: 'true'
+        WEBMAIL: roundcube
+        API: 'false'
+        WEBDAV: none
+        ANTIVIRUS: none
+        SCAN_MACROS: 'false'
+        PORTS: 25,80,443,465,587,993,4190
+        MESSAGE_SIZE_LIMIT: '50000000'
+        FULL_TEXT_SEARCH: en
+        WEBROOT_REDIRECT: /webmail
+        WEB_ADMIN: /admin
+        WEB_WEBMAIL: /webmail
+        SITENAME: Mailu
+        WEBSITE: https://mailu.io
+        REAL_IP_FROM: ${SUBNET}
+        REAL_IP_HEADER: X-Forwarded-For
+        INITIAL_ADMIN_ACCOUNT: ${INITIAL_ADMIN_ACCOUNT}
+        INITIAL_ADMIN_DOMAIN: ${DOMAIN}
+        INITIAL_ADMIN_PW: ${INITIAL_ADMIN_PW}
+        INITIAL_ADMIN_MODE: ifmissing
+      volumes:
+        - mailu-mail:/mail
+      depends_on:
+        front:
+          condition: service_healthy
+    smtp:
+      image: ghcr.io/mailu/postfix:2024.06@sha256:a214af89b2b778bc31443c0da0b4e879a709ab08ff71c8343eabd49696da7d74
+      restart: unless-stopped
+      environment:
+        SECRET_KEY: ${SECRET_KEY}
+        DOMAIN: ${DOMAIN}
+        HOSTNAMES: ${DOMAIN}
+        POSTMASTER: admin
+        TLS_FLAVOR: mail-letsencrypt
+        SUBNET: ${SUBNET}
+        ADMIN: 'true'
+        WEBMAIL: roundcube
+        API: 'false'
+        WEBDAV: none
+        ANTIVIRUS: none
+        SCAN_MACROS: 'false'
+        PORTS: 25,80,443,465,587,993,4190
+        MESSAGE_SIZE_LIMIT: '50000000'
+        FULL_TEXT_SEARCH: en
+        WEBROOT_REDIRECT: /webmail
+        WEB_ADMIN: /admin
+        WEB_WEBMAIL: /webmail
+        SITENAME: Mailu
+        WEBSITE: https://mailu.io
+        REAL_IP_FROM: ${SUBNET}
+        REAL_IP_HEADER: X-Forwarded-For
+        INITIAL_ADMIN_ACCOUNT: ${INITIAL_ADMIN_ACCOUNT}
+        INITIAL_ADMIN_DOMAIN: ${DOMAIN}
+        INITIAL_ADMIN_PW: ${INITIAL_ADMIN_PW}
+        INITIAL_ADMIN_MODE: ifmissing
+      volumes:
+        - mailu-mailqueue:/queue
+      depends_on:
+        front:
+          condition: service_healthy
+    antispam:
+      image: ghcr.io/mailu/rspamd:2024.06@sha256:029bbbdb3a428c3fbc2de7f0bd64c004b41368aa29f1de289b6f4a011a3d197b
+      restart: unless-stopped
+      hostname: antispam
+      environment:
+        SECRET_KEY: ${SECRET_KEY}
+        DOMAIN: ${DOMAIN}
+        HOSTNAMES: ${DOMAIN}
+        POSTMASTER: admin
+        TLS_FLAVOR: mail-letsencrypt
+        SUBNET: ${SUBNET}
+        ADMIN: 'true'
+        WEBMAIL: roundcube
+        API: 'false'
+        WEBDAV: none
+        ANTIVIRUS: none
+        SCAN_MACROS: 'false'
+        PORTS: 25,80,443,465,587,993,4190
+        MESSAGE_SIZE_LIMIT: '50000000'
+        FULL_TEXT_SEARCH: en
+        WEBROOT_REDIRECT: /webmail
+        WEB_ADMIN: /admin
+        WEB_WEBMAIL: /webmail
+        SITENAME: Mailu
+        WEBSITE: https://mailu.io
+        REAL_IP_FROM: ${SUBNET}
+        REAL_IP_HEADER: X-Forwarded-For
+        INITIAL_ADMIN_ACCOUNT: ${INITIAL_ADMIN_ACCOUNT}
+        INITIAL_ADMIN_DOMAIN: ${DOMAIN}
+        INITIAL_ADMIN_PW: ${INITIAL_ADMIN_PW}
+        INITIAL_ADMIN_MODE: ifmissing
+      volumes:
+        - mailu-filter:/var/lib/rspamd
+      depends_on:
+        front:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+    webmail:
+      image: ghcr.io/mailu/webmail:2024.06@sha256:0920316a2dd40558d215c1d5a3aa5550c026a7182bd44b0844cd185e6c18fbd5
+      restart: unless-stopped
+      environment:
+        SECRET_KEY: ${SECRET_KEY}
+        DOMAIN: ${DOMAIN}
+        HOSTNAMES: ${DOMAIN}
+        POSTMASTER: admin
+        TLS_FLAVOR: mail-letsencrypt
+        SUBNET: ${SUBNET}
+        ADMIN: 'true'
+        WEBMAIL: roundcube
+        API: 'false'
+        WEBDAV: none
+        ANTIVIRUS: none
+        SCAN_MACROS: 'false'
+        PORTS: 25,80,443,465,587,993,4190
+        MESSAGE_SIZE_LIMIT: '50000000'
+        FULL_TEXT_SEARCH: en
+        WEBROOT_REDIRECT: /webmail
+        WEB_ADMIN: /admin
+        WEB_WEBMAIL: /webmail
+        SITENAME: Mailu
+        WEBSITE: https://mailu.io
+        REAL_IP_FROM: ${SUBNET}
+        REAL_IP_HEADER: X-Forwarded-For
+        INITIAL_ADMIN_ACCOUNT: ${INITIAL_ADMIN_ACCOUNT}
+        INITIAL_ADMIN_DOMAIN: ${DOMAIN}
+        INITIAL_ADMIN_PW: ${INITIAL_ADMIN_PW}
+        INITIAL_ADMIN_MODE: ifmissing
+      volumes:
+        - mailu-webmail:/data
+      depends_on:
+        front:
+          condition: service_healthy
+        imap:
+          condition: service_started
+    redis:
+      image: redis:alpine@sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537
+      restart: unless-stopped
+      volumes:
+        - mailu-redis:/data
+      healthcheck:
+        test:
+          - CMD
+          - redis-cli
+          - ping
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+  volumes:
+    mailu-certs:
+    mailu-data:
+    mailu-dkim:
+    mailu-mail:
+    mailu-mailqueue:
+    mailu-filter:
+    mailu-webmail:
+    mailu-redis:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes mailu-certs, mailu-data, mailu-dkim, mailu-mail, mailu-mailqueue, mailu-filter, mailu-webmail, mailu-redis of this application: back them up before updating."

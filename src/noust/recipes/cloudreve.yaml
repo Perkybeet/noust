@@ -1,0 +1,116 @@
+# Cloudreve: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/cloudreve.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: cloudreve
+kind: compose
+title: "Cloudreve"
+slogan: "A self-hosted file management and sharing system."
+description: "Self-hosted file management and sharing system with multi-cloud storage support. Compatible with local, OneDrive, S3, and various cloud providers."
+category: files
+tags: [file, sharing, cloud, storage, self-hosted, open-source, file-sharing, files]
+logo: logo.svg
+version: "4.19.1"
+revision: 1
+updated: 2026-10-30
+homepage: https://cloudreve.org
+docs: https://docs.cloudreve.org/
+repository: https://github.com/cloudreve/cloudreve
+license: GPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_CLOUDREVE:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_USER_POSTGRES:
+    generate: "user"
+    description: "The user name Noust generated for postgres."
+  SERVICE_PASSWORD_POSTGRES:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres."
+  SERVICE_PASSWORD_REDIS:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for redis."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    cloudreve:
+      image: cloudreve/cloudreve:4.19.1@sha256:5c6c5baf7fa5bc6e1bb9a7509c09dde00e80b618d180244eb1d5f7e36b358ea2
+      environment:
+        SERVICE_URL_CLOUDREVE: ${SERVICE_URL_CLOUDREVE}
+        CR_CONF_Database.Type: postgres
+        CR_CONF_Database.Host: postgres
+        CR_CONF_Database.User: ${SERVICE_USER_POSTGRES}
+        CR_CONF_Database.Password: ${SERVICE_PASSWORD_POSTGRES}
+        CR_CONF_Database.Name: ${POSTGRES_DB:-cloudreve-db}
+        CR_CONF_Database.Port: '5432'
+        CR_CONF_Redis.Server: redis:6379
+        CR_CONF_Redis.Password: ${SERVICE_PASSWORD_REDIS}
+      volumes:
+        - cloudreve-data:/cloudreve/data
+      healthcheck:
+        test:
+          - CMD
+          - nc
+          - -z
+          - localhost
+          - '5212'
+        interval: 20s
+        timeout: 10s
+        retries: 3
+      depends_on:
+        postgres:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:5212
+    postgres:
+      image: postgres:18-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
+      environment:
+        POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+        POSTGRES_DB: ${POSTGRES_DB:-cloudreve-db}
+      volumes:
+        - postgres-data:/var/lib/postgresql
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      restart: unless-stopped
+    redis:
+      image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
+      command: redis-server --requirepass ${SERVICE_PASSWORD_REDIS}
+      volumes:
+        - redis-data:/data
+      healthcheck:
+        test:
+          - CMD
+          - redis-cli
+          - -a
+          - ${SERVICE_PASSWORD_REDIS}
+          - ping
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      restart: unless-stopped
+  volumes:
+    cloudreve-data:
+    postgres-data:
+    redis-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_USER_POSTGRES and SERVICE_PASSWORD_POSTGRES and SERVICE_PASSWORD_REDIS in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes cloudreve-data, postgres-data, redis-data of this application: back them up before updating."

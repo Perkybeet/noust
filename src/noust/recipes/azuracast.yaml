@@ -1,0 +1,88 @@
+# AzuraCast: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/azuracast
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: azuracast
+kind: compose
+title: "AzuraCast"
+slogan: "A self-hosted web radio management suite with turnkey installer tools for the whole radio stack."
+description: "AzuraCast is a self-hosted, all-in-one web radio management suite. Easily manage your online radio stations with a powerful web interface."
+category: media
+tags: [radio, streaming, media, broadcasting, music, entertainment]
+logo: logo.svg
+version: "0.24.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://www.azuracast.com/
+docs: https://docs.azuracast.com/
+repository: https://github.com/AzuraCast/AzuraCast
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  MYSQL_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for mysql password."
+  MYSQL_ROOT_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for mysql root password."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    azuracast:
+      image: ghcr.io/azuracast/azuracast:0.24.0@sha256:2a4aa1e0b2fdc93170ef1dbc51ae2ea036053f0a74931692b23d0d7c072e5c06
+      restart: unless-stopped
+      volumes:
+        - azuracast-station-data:/var/azuracast/stations
+        - azuracast-data:/var/azuracast/www_tmp
+        - azuracast-uploads:/var/azuracast/uploads
+        - azuracast-backups:/var/azuracast/backups
+      environment:
+        LANG: en_US.UTF-8
+        AZURACAST_DC_REVISION: '1'
+        MYSQL_HOST: mariadb
+        MYSQL_PORT: '3306'
+        MYSQL_USER: azuracast
+        MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+        MYSQL_DATABASE: azuracast
+      depends_on:
+        mariadb:
+          condition: service_healthy
+      ports:
+        - 127.0.0.1:${PORT}:80
+    mariadb:
+      image: mariadb:11.4@sha256:d1891ede5a559f1086f55053bb8cc1569b0298338c4d72d71725a7f74f6ba620
+      restart: unless-stopped
+      volumes:
+        - mariadb-data:/var/lib/mysql
+      environment:
+        MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+        MYSQL_DATABASE: azuracast
+        MYSQL_USER: azuracast
+        MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      healthcheck:
+        test:
+          - CMD
+          - healthcheck.sh
+          - --connect
+          - --innodb_initialized
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+  volumes:
+    azuracast-station-data:
+    azuracast-data:
+    azuracast-uploads:
+    azuracast-backups:
+    mariadb-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes azuracast-station-data, azuracast-data, azuracast-uploads, azuracast-backups, mariadb-data of this application: back them up before updating."

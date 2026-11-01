@@ -1,0 +1,5 @@
+# How nginx proxies this application. Files of any size are uploaded through the page, so nginx's 1 MB default and 60 seconds are too little.
+max_body_size: 1g
+routes:
+  - path: /
+    read_timeout: 900

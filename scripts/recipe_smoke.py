@@ -464,6 +464,26 @@ class Project:
             check=False,
         )
 
+    def container_logs(self, name: str, tail: int = 400) -> str:
+        """
+        Read the end of one container's log.
+
+        Args:
+            name: The container's name, as :meth:`inspect` gives it.
+            tail: How many lines.
+
+        Returns:
+            What the container wrote to its output and its error output.
+        """
+        shown = subprocess.run(
+            ["docker", "logs", "--tail", str(tail), name],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+        return shown.stdout + shown.stderr
+
     def inspect(self) -> list[dict[str, Any]]:
         """
         Describe every container of the project.
@@ -497,6 +517,35 @@ class Project:
                 }
             )
         return found
+
+
+def failing_logs(project: Project, containers: Sequence[Mapping[str, Any]]) -> str:
+    """
+    Gather the end of the logs of the containers that did not stay up, then the project's own tail.
+
+    Args:
+        project: The Compose project.
+        containers: What :meth:`Project.inspect` returned.
+
+    Returns:
+        Text for the evidence: each failing container's first and last lines under its name, and the
+        project's last lines after them.
+    """
+    parts = []
+    for container in containers:
+        if (
+            container.get("restarts")
+            or container.get("exit_code")
+            or container["state"] == "restarting"
+            or container.get("health") == "unhealthy"
+        ):
+            lines = project.container_logs(str(container["name"])).splitlines()
+            # The first lines say what went wrong and the last say that it still does: a backtrace
+            # between them is neither.
+            shown = lines if len(lines) <= 70 else [*lines[:15], "[...]", *lines[-50:]]
+            parts.append(f"--- {container['name']}\n" + "\n".join(line[:200] for line in shown))
+    parts.append(project.run("logs", "--no-color", "--tail", "40").stdout[-1500:])
+    return "\n".join(parts)
 
 
 def smoke(
@@ -550,6 +599,10 @@ def smoke(
         started = project.run("up", "-d", "--wait-timeout", "180")
         if started.returncode:
             report.problems.append(f"docker compose up failed: {started.stderr.strip()[-300:]}")
+            # What did not start says why in its own log: a dependency that failed is a container
+            # that exited, and the sentence above only names it.
+            report.containers = project.inspect()
+            report.log_tail = failing_logs(project, report.containers)
             return report
         url = f"http://127.0.0.1:{port}{report.gate_path}"
         begin = time.monotonic()
@@ -575,7 +628,7 @@ def smoke(
                 f"the recipe expects {report.gate_expected or '200'}"
             )
             report.containers = project.inspect()
-            report.log_tail = project.run("logs", "--no-color", "--tail", "40").stdout[-4000:]
+            report.log_tail = failing_logs(project, report.containers)
             if isinstance(status, int):
                 report.suggested_health = suggest_health(
                     f"http://127.0.0.1:{port}", report.gate_path, status
@@ -613,6 +666,12 @@ def smoke(
         lines = project.run("logs", "--no-color", "--tail", "400").stdout.splitlines()
         errors = [line[:240] for line in lines if ERROR_LINE.search(line)]
         report.error_lines = {"count": len(errors), "first": errors[:5]}
+        if report.problems:
+            # A restart loop answers the gate and fails afterwards: the evidence needs the logs
+            # that say why, as it has them when the gate itself fails. The ones of the containers
+            # that restarted or left with an error come first: a database's chatter drowns them
+            # in the project's own tail.
+            report.log_tail = failing_logs(project, report.containers)
         return report
     finally:
         if keep:

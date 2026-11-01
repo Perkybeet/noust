@@ -22,8 +22,8 @@ category: monitoring
 tags: [error-tracking, sentry-compatible, apm, uptime]
 logo: logo.svg
 version: "6.2.6"
-revision: 1
-updated: 2026-10-20
+revision: 2
+updated: 2026-10-31
 homepage: https://glitchtip.com
 docs: https://glitchtip.com/documentation
 repository: https://gitlab.com/glitchtip/glitchtip-backend
@@ -33,6 +33,9 @@ needs:
   - Docker Engine with the Compose plugin
 port: 8300
 variables:
+  APP_DOMAIN:
+    from: fqdn
+    description: The host name people use.
   GLITCHTIP_DOMAIN:
     from: url
     description: The public address with its scheme; GlitchTip builds the DSNs and the links in its e-mails from it.
@@ -46,7 +49,7 @@ variables:
     default: "consolemail://"
     description: The SMTP address GlitchTip sends e-mail through, such as smtp://user:pass@mail.example.com:587. The default prints e-mail to the log.
   DEFAULT_FROM_EMAIL:
-    default: glitchtip@example.com
+    value: "glitchtip@${APP_DOMAIN}"
     description: The address e-mails come from.
   DB_PASSWORD:
     generate: password32

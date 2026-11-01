@@ -1,0 +1,112 @@
+# Mindsdb: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/mindsdb.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: mindsdb
+kind: compose
+title: "Mindsdb"
+slogan: "MindsDB is the platform for building AI from enterprise data, enabling smarter organizations."
+description: "Machine learning platform that brings AI to databases."
+category: ai
+tags: [mysql, postgresdb, machine-learning, ai]
+logo: logo.svg
+version: "26.1.0"
+revision: 1
+updated: 2026-10-31
+homepage: https://mindshub.ai
+docs: https://docs.mindsdb.com/what-is-mindsdb
+repository: https://github.com/mindsdb/mindshub
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_MINDSDB:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  OPENAI_API_KEY:
+    default: ""
+    secret: true
+    description: "Setting OPENAI_API_KEY of the application; the template leaves it to the operator."
+  LANGFUSE_HOST:
+    default: ""
+    description: "Setting LANGFUSE_HOST of the application; the template leaves it to the operator."
+  LANGFUSE_PUBLIC_KEY:
+    default: ""
+    secret: true
+    description: "Setting LANGFUSE_PUBLIC_KEY of the application; the template leaves it to the operator."
+  LANGFUSE_SECRET_KEY:
+    default: ""
+    secret: true
+    description: "Setting LANGFUSE_SECRET_KEY of the application; the template leaves it to the operator."
+  SERVICE_USER_POSTGRES:
+    generate: "user"
+    description: "The user name Noust generated for postgres."
+  SERVICE_PASSWORD_POSTGRES:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    mindsdb:
+      image: mindsdb/mindsdb:v26.1.0@sha256:163011c09299a95c97ce2e1b9f157683b3538c5b9167ddc258b95ac256c806bb
+      environment:
+        SERVICE_URL_MINDSDB: ${SERVICE_URL_MINDSDB}
+        SERVICE_URL_API_47335: /api
+        MINDSDB_DOCKER_ENV: 'true'
+        MINDSDB_STORAGE_DIR: /mindsdb/var
+        FLASK_DEBUG: ${FLASK_DEBUG:-1}
+        OPENAI_API_KEY: ${OPENAI_API_KEY}
+        LANGFUSE_HOST: ${LANGFUSE_HOST}
+        LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
+        LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
+        LANGFUSE_RELEASE: ${LANGFUSE_RELEASE:-local}
+        LANGFUSE_DEBUG: ${LANGFUSE_DEBUG:-False}
+        LANGFUSE_TIMEOUT: ${LANGFUSE_TIMEOUT:-10}
+        LANGFUSE_SAMPLE_RATE: ${LANGFUSE_SAMPLE_RATE:-1.0}
+        MINDSDB_DB_CON: postgresql://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@postgresql/${POSTGRES_DB:-mindsdb-db}
+      volumes:
+        - mindsdb-data:/mindsdb/var
+      depends_on:
+        postgresql:
+          condition: service_healthy
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - -f
+          - http://localhost:47334/api/util/ping
+        interval: 30s
+        timeout: 5s
+        retries: 15
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:47334
+    postgresql:
+      image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
+      volumes:
+        - mindsdb-postgresql-data:/var/lib/postgresql/data
+      environment:
+        POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+        POSTGRES_DB: ${POSTGRES_DB:-mindsdb-db}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+        interval: 10s
+        timeout: 5s
+        retries: 15
+      restart: unless-stopped
+  volumes:
+    mindsdb-data:
+    mindsdb-postgresql-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_USER_POSTGRES and SERVICE_PASSWORD_POSTGRES in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes mindsdb-data, mindsdb-postgresql-data of this application: back them up before updating."

@@ -1,0 +1,89 @@
+# Instatic: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/instatic
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: instatic
+kind: compose
+title: "Instatic"
+slogan: "The open-source alternative to Webflow, Framer and WordPress."
+description: "Instatic is a self-hosted, open-source visual CMS combining a canvas editor, content engine, and static site publisher, producing clean semantic HTML with no framework runtime shipped to visitors."
+category: cms
+tags: [cms, website-builder, static-site]
+logo: logo.svg
+version: "0.0.18"
+revision: 1
+updated: 2026-10-31
+homepage: https://instatic.com
+docs: https://github.com/corebunch/instatic/tree/main/docs
+repository: https://github.com/CoreBunch/Instatic
+license: MIT
+architectures: ["amd64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  DATABASE_URL:
+    default: "sqlite:/app/storage/data/cms.db"
+    description: "Setting DATABASE_URL of the application; the template leaves it to the operator."
+  UPLOADS_DIR:
+    default: "/app/storage/uploads"
+    description: "Setting UPLOADS_DIR of the application; the template leaves it to the operator."
+  STATIC_DIR:
+    default: "/app/dist"
+    description: "Setting STATIC_DIR of the application; the template leaves it to the operator."
+  INSTATIC_SECRET_KEY:
+    generate: "base64_32"
+    secret: true
+    description: "The secret Noust generated for instatic secret key."
+  PUBLIC_ORIGIN:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    instatic-init:
+      image: ghcr.io/corebunch/instatic:0.0.18@sha256:6015b42c00fd372822eb3df89d351b917f092c9065538c6db0ceb434f9504286
+      user: 0:0
+      entrypoint:
+        - chown
+        - -R
+        - bun:bun
+        - /app/storage
+      volumes:
+        - instatic-storage:/app/storage
+      restart: 'no'
+    instatic:
+      image: ghcr.io/corebunch/instatic:0.0.18@sha256:6015b42c00fd372822eb3df89d351b917f092c9065538c6db0ceb434f9504286
+      restart: unless-stopped
+      depends_on:
+        instatic-init:
+          condition: service_completed_successfully
+      volumes:
+        - instatic-storage:/app/storage
+      healthcheck:
+        test:
+          - CMD
+          - bun
+          - run
+          - server/healthcheck.ts
+        interval: 30s
+        timeout: 5s
+        retries: 5
+        start_period: 20s
+      ports:
+        - 127.0.0.1:${PORT}:3001
+      environment:
+        PORT: '3001'
+        DATABASE_URL: ${DATABASE_URL}
+        UPLOADS_DIR: ${UPLOADS_DIR}
+        STATIC_DIR: ${STATIC_DIR}
+        INSTATIC_SECRET_KEY: ${INSTATIC_SECRET_KEY}
+        PUBLIC_ORIGIN: ${PUBLIC_ORIGIN}
+  volumes:
+    instatic-storage:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume instatic-storage of this application: back it up before updating."

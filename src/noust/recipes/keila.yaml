@@ -1,0 +1,103 @@
+# Keila from the image the project publishes (pentacent/keila), with the variables its documentation names (www.keila.io/docs/installation and the project's docker-compose.yml).
+schema: 2
+name: keila
+kind: compose
+title: "Keila"
+slogan: "Open source newsletter tool: the self-hosted alternative to Mailchimp."
+description: "Writes and sends newsletters and campaigns: contacts, forms, segments, templates and tracking, through the SMTP service you give it. Runs with its own PostgreSQL; the root account's password is generated."
+category: communication
+tags: [newsletter, email, campaigns, marketing]
+logo: logo.svg
+version: "0.40.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://keila.io
+docs: https://keila.io
+repository: https://github.com/pentacent/keila
+license: AGPL-3.0-only
+architectures: ["amd64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 4000
+variables:
+  DB_PASSWORD:
+    generate: "password32"
+    description: "The password of the stack's PostgreSQL account."
+  FQDN:
+    from: "fqdn"
+    description: "The host name people use."
+  SECRET_KEY_BASE:
+    generate: "password64"
+    description: "Signs sessions; changing it signs everybody out."
+  ROOT_EMAIL:
+    value: "admin@${FQDN}"
+    description: "The e-mail address of the root account."
+  ROOT_PASSWORD:
+    generate: "password32"
+    description: "The password of the root account."
+  SMTP_HOST:
+    default: "localhost"
+    description: "The SMTP server that sends the application's mail. Keila does not start without one; change it to yours."
+  SMTP_PORT:
+    default: "587"
+    description: "The port of the SMTP server."
+  SMTP_USER:
+    default: ""
+    description: "The user of the SMTP server, when it asks for one."
+  SMTP_PASSWORD:
+    default: ""
+    secret: true
+    description: "The password of the SMTP server, when it asks for one."
+  SMTP_FROM:
+    value: "keila@${FQDN}"
+    description: "The address the mail is sent from."
+  SMTP_AUTH_METHOD:
+    default: "none"
+    description: "How the SMTP server is signed into: none, password or auto."
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    keila:
+      image: pentacent/keila:0.40.0@sha256:281cf4a0272fc4524b9950950121e607378c1144290e20bf58a8661c49cb230e
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        DB_URL: postgres://keila:${DB_PASSWORD}@db/keila
+        SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+        URL_HOST: ${FQDN}
+        URL_SCHEMA: https
+        URL_PORT: '443'
+        KEILA_USER: ${ROOT_EMAIL}
+        KEILA_PASSWORD: ${ROOT_PASSWORD}
+        MAILER_SMTP_HOST: ${SMTP_HOST}
+        MAILER_SMTP_PORT: ${SMTP_PORT}
+        MAILER_SMTP_USER: ${SMTP_USER}
+        MAILER_SMTP_PASSWORD: ${SMTP_PASSWORD}
+        MAILER_SMTP_FROM_EMAIL: ${SMTP_FROM}
+        MAILER_SMTP_AUTH_METHOD: ${SMTP_AUTH_METHOD}
+      ports:
+        - 127.0.0.1:${PORT}:4000
+    db:
+      image: postgres:17.11-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: keila
+        POSTGRES_DB: keila
+        POSTGRES_PASSWORD: ${DB_PASSWORD}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U keila -d keila
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - keila-db:/var/lib/postgresql/data
+  volumes:
+    keila-db:
+notes:
+  - "Open {{ url }}. Sign in with the e-mail in ROOT_EMAIL and the password in ROOT_PASSWORD (noust env show {{ domain }} --unmask). Sending needs an SMTP server: set the SMTP_* values in the application's environment and restart it."
+  - "Its data is in the Docker volume keila-db of this application, the databases dumped by Noust before every update: back it up before updating."

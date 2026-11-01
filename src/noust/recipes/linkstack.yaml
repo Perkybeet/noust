@@ -1,0 +1,79 @@
+# LinkStack: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/linkstack
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: linkstack
+kind: compose
+title: "LinkStack"
+slogan: "LinkStack - the ultimate solution for creating a personalized & professional profile page."
+description: "LinkStack is an open-source link-in-bio platform for sharing multiple links using a customizable landing page."
+category: cms
+tags: [bio, personal, cms, php]
+logo: logo.svg
+version: "4.8.8"
+revision: 1
+updated: 2026-10-30
+homepage: https://linkstack.org
+docs: https://docs.linkstack.org/
+repository: https://github.com/LinkStackOrg/LinkStack
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  main_domain:
+    from: "fqdn"
+    description: "The domain people use to reach the application."
+  admin_email:
+    value: "admin@${main_domain}"
+    description: "The address of the server administrator, shown on error pages."
+  mysql_root_password:
+    generate: "password32"
+    secret: true
+    description: "The password of the stack's MySQL administrator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    linkstack:
+      image: linkstackorg/linkstack:v4.8.8@sha256:deba986fc1f7391af629c0bbcca67a1508284176bd3accf69d041ecc887dc7dd
+      environment:
+        TZ: Europe/Berlin
+        SERVER_ADMIN: ${admin_email}
+        HTTP_SERVER_NAME: ${main_domain}
+        HTTPS_SERVER_NAME: ${main_domain}
+        LOG_LEVEL: info
+        PHP_MEMORY_LIMIT: 256M
+        UPLOAD_MAX_FILESIZE: 8M
+      volumes:
+        - linkstack-data:/htdocs
+      restart: unless-stopped
+      depends_on:
+        mysql:
+          condition: service_healthy
+      ports:
+        - 127.0.0.1:${PORT}:80
+    mysql:
+      image: mysql:8@sha256:a0225d1ea6631c8bc2385dc4c2faba17bbf1834ecf369e1659a9a382bd8d5dd7
+      environment:
+        MYSQL_ROOT_PASSWORD: ${mysql_root_password}
+      volumes:
+        - mysql-data:/var/lib/mysql
+      restart: unless-stopped
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - mysqladmin ping -h 127.0.0.1 --silent
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+  volumes:
+    linkstack-data:
+    mysql-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes linkstack-data, mysql-data of this application: back them up before updating."

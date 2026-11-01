@@ -1,0 +1,36 @@
+# MySpeed from the image the project publishes (germannewsmaker/myspeed), with the data directory its documentation names (docs.myspeed.dev/installation/docker).
+schema: 2
+name: myspeed
+kind: compose
+title: "MySpeed"
+slogan: "Speed test analysis software that shows your internet speed for up to 30 days."
+description: "Runs a speed test on a schedule and keeps the results: download, upload and ping over time, with a chart and notifications. Data is in one SQLite file."
+category: monitoring
+tags: [speedtest, internet, bandwidth, monitoring]
+logo: logo.svg
+version: "1.0.9"
+revision: 1
+updated: 2026-10-30
+homepage: https://myspeed.dev
+docs: https://myspeed.dev
+repository: https://github.com/gnmyt/MySpeed
+license: MIT
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 5216
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    myspeed:
+      image: germannewsmaker/myspeed:1.0.9@sha256:3a3e774b3f78d930a5a962d625b99bcb3d71730bfeb4a6b93e04fd38cfe7d9a9
+      restart: unless-stopped
+      volumes:
+        - myspeed-data:/myspeed/data
+      ports:
+        - 127.0.0.1:${PORT}:5216
+  volumes:
+    myspeed-data:
+notes:
+  - "Open {{ url }}. The first visit asks for a password: set it right after installing, because until then the first visitor can."
+  - "Its data is in the Docker volume myspeed-data of this application: back it up before updating."

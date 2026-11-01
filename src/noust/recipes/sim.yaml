@@ -1,0 +1,144 @@
+# Sim: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/sim
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: sim
+kind: compose
+title: "Sim"
+slogan: "Sim is the collaborative workspace to build, deploy, and monitor AI agents and workflows."
+description: "Open-source visual workflow builder for building and deploying AI agent workflows."
+category: ai
+tags: [ai, automation, workflow]
+logo: logo.svg
+version: "0.9.36"
+revision: 1
+updated: 2026-10-30
+homepage: https://www.sim.ai
+docs: https://docs.sim.ai
+repository: https://github.com/simstudioai/sim
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  POSTGRES_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres password."
+  SIM_APP_URL:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  BETTER_AUTH_SECRET:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for better auth secret."
+  ENCRYPTION_KEY:
+    generate: "hex64"
+    secret: true
+    description: "The secret Noust generated for encryption key."
+  API_ENCRYPTION_KEY:
+    generate: "hex64"
+    secret: true
+    description: "The secret Noust generated for api encryption key."
+  INTERNAL_API_SECRET:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for internal api secret."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    simstudio:
+      image: ghcr.io/simstudioai/simstudio:v0.9.36@sha256:25ecafce63ead179fb9e00258e9b03815615360b0d610f305618f75923bffba1
+      restart: unless-stopped
+      environment:
+        NODE_ENV: production
+        DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/simstudio
+        BETTER_AUTH_URL: ${SIM_APP_URL}
+        NEXT_PUBLIC_APP_URL: ${SIM_APP_URL}
+        BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+        ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+        API_ENCRYPTION_KEY: ${API_ENCRYPTION_KEY}
+        INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
+        SOCKET_SERVER_URL: http://realtime:3002
+      depends_on:
+        db:
+          condition: service_healthy
+        migrations:
+          condition: service_completed_successfully
+        realtime:
+          condition: service_healthy
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - -fsS
+          - http://127.0.0.1:3000
+        interval: 30s
+        timeout: 5s
+        retries: 5
+        start_period: 30s
+      ports:
+        - 127.0.0.1:${PORT}:3000
+    realtime:
+      image: ghcr.io/simstudioai/realtime:v0.9.36@sha256:097916d5e86afa486ddca267e42580aef90ad34e8adb418392135ecfdfda0a36
+      restart: unless-stopped
+      environment:
+        NODE_ENV: production
+        DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/simstudio
+        NEXT_PUBLIC_APP_URL: ${SIM_APP_URL}
+        BETTER_AUTH_URL: ${SIM_APP_URL}
+        BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+        INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
+      depends_on:
+        db:
+          condition: service_healthy
+        migrations:
+          condition: service_completed_successfully
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - -fsS
+          - http://127.0.0.1:3002/health
+        interval: 30s
+        timeout: 5s
+        retries: 5
+        start_period: 15s
+    migrations:
+      image: ghcr.io/simstudioai/migrations:v0.9.36@sha256:cad733300400b8d3457508f59993334b908bce7822f57acb1b298bd51893940b
+      working_dir: /app/packages/db
+      environment:
+        DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/simstudio
+      depends_on:
+        db:
+          condition: service_healthy
+      command:
+        - bun
+        - run
+        - db:migrate
+      restart: 'no'
+    db:
+      image: pgvector/pgvector:pg17@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        POSTGRES_DB: simstudio
+      volumes:
+        - postgres_data:/var/lib/postgresql/data
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U postgres
+        interval: 5s
+        timeout: 5s
+        retries: 5
+  volumes:
+    postgres_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume postgres_data of this application: back it up before updating."

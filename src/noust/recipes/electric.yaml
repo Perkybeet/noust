@@ -1,0 +1,74 @@
+# Electric from the image the project publishes (electricsql/electric), with the variables its documentation names (electric-sql.com/docs/guides/deployment, Docker).
+schema: 2
+name: electric
+kind: compose
+title: "Electric"
+slogan: "Real-time sync for Postgres."
+description: "Syncs subsets of a PostgreSQL database to web and mobile applications in real time over plain HTTP, so that an application reads its data locally and stays up to date. It runs with its own PostgreSQL, set for logical replication; requests carry a secret Noust generates."
+category: backend
+tags: [sync, postgres, realtime, local-first]
+logo: logo.svg
+version: "1.8.1"
+revision: 1
+updated: 2026-10-30
+homepage: https://electric.ax
+docs: https://electric.ax
+repository: https://github.com/electric-sql/electric
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  DB_PASSWORD:
+    generate: "password32"
+    description: "The password of the stack's PostgreSQL account."
+  API_SECRET:
+    generate: "password64"
+    description: "The secret that requests to the sync API must carry."
+health: {path: /v1/health, expect: "200", timeout: 120}
+compose: |
+  services:
+    electric:
+      image: electricsql/electric:1.8.1@sha256:efb6fa43859d67cb8c73439e0c8bc0f7a3daa467500fb06f2a924bcb2070c139
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        DATABASE_URL: postgresql://electric:${DB_PASSWORD}@db:5432/electric?sslmode=disable
+        ELECTRIC_SECRET: ${API_SECRET}
+        ELECTRIC_STORAGE_DIR: /app/persistent
+        ELECTRIC_USAGE_REPORTING: 'false'
+      volumes:
+        - electric-storage:/app/persistent
+      ports:
+        - 127.0.0.1:${PORT}:3000
+      user: 0:0
+    db:
+      image: postgres:17.11-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: electric
+        POSTGRES_DB: electric
+        POSTGRES_PASSWORD: ${DB_PASSWORD}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U electric -d electric
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - electric-db:/var/lib/postgresql/data
+      command:
+        - postgres
+        - -c
+        - wal_level=logical
+  volumes:
+    electric-storage:
+    electric-db:
+notes:
+  - "Open {{ url }}. It is a service for your applications, not a page: they call {{ url }}/v1/shape with the secret in API_SECRET (noust env show {{ domain }} --unmask). The database is set for logical replication; it is reachable only from this stack."
+  - "Its data is in the Docker volumes electric-storage, electric-db of this application, the databases dumped by Noust before every update: back them up before updating."

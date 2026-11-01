@@ -83,7 +83,13 @@ function factsItems(t: T, recipe: Recipe): KeyValueItem[] {
   if (version !== null) items.push({ label: t("catalog.detail.version"), value: version });
   if (updated !== null) items.push({ label: t("catalog.detail.updated"), value: formatDate(updated, {}, t.locale), mono: false, copy: false });
   items.push({ label: t("catalog.detail.category"), value: categoryWords(t, recipe.category), mono: false, copy: false });
-  if (recipe.license !== null && recipe.license !== undefined) items.push({ label: t("catalog.detail.license"), value: recipe.license });
+  if (recipe.license !== null && recipe.license !== undefined) {
+    items.push({
+      label: t("catalog.detail.license"),
+      value: !recipe.free_software ? t("catalog.detail.notFree", { license: recipe.license }) : recipe.license,
+      ...(!recipe.free_software ? { mono: false } : {}),
+    });
+  }
   if (recipe.architectures.length > 0) items.push({ label: t("catalog.detail.architectures"), value: joinList(recipe.architectures, t.locale), mono: false, copy: false });
   if (recipe.min_noust !== null && recipe.min_noust !== undefined) items.push({ label: t("catalog.detail.minNoust"), value: recipe.min_noust });
   return items;

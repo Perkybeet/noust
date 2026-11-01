@@ -1,0 +1,82 @@
+# PG Back Web: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/pgbackweb.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: pgbackweb
+kind: compose
+title: "PG Back Web"
+slogan: "Effortless PostgreSQL backups with a user-friendly web interface!"
+description: "Effortless PostgreSQL backups with a user-friendly web interface."
+category: files
+tags: [backup, postgresql, web-interface, files]
+logo: logo.svg
+version: "0.5.2"
+revision: 1
+updated: 2026-10-30
+homepage: https://github.com/eduardolat/pgbackweb
+docs: https://github.com/eduardolat/pgbackweb
+repository: https://github.com/eduardolat/pgbackweb
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_PGBACKWEB:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_PASSWORD_64_PGBACKWEB:
+    generate: "password64"
+    secret: true
+    description: "The secret Noust generated for pgbackweb."
+  SERVICE_USER_POSTGRES:
+    generate: "user"
+    description: "The user name Noust generated for postgres."
+  SERVICE_PASSWORD_POSTGRES:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    pgbackweb:
+      image: eduardolat/pgbackweb:0.5.2@sha256:cd902026c133fbd8b25fd2a8b5b1727dbac94ae4094e12c0321442af449cac5c
+      volumes:
+        - pgbackweb_backups:/backups
+      environment:
+        SERVICE_URL_PGBACKWEB: ${SERVICE_URL_PGBACKWEB}
+        PBW_ENCRYPTION_KEY: ${SERVICE_PASSWORD_64_PGBACKWEB}
+        PBW_POSTGRES_CONN_STRING: postgresql://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/${POSTGRES_DB:-pgbackweb-db}?sslmode=disable
+        TZ: ${TIME_ZONE:-UTC}
+      depends_on:
+        postgres:
+          condition: service_healthy
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8085
+    postgres:
+      image: postgres:17@sha256:31ba9c94a03ada9988f2bb493a22a75eef3a185884533e5cdbcd498ea835b08f
+      environment:
+        POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+        POSTGRES_DB: ${POSTGRES_DB:-pgbackweb-db}
+      volumes:
+        - pgbackweb_postgres_data:/var/lib/postgresql/data
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U ${SERVICE_USER_POSTGRES} -d pgbackweb
+        interval: 5s
+        timeout: 5s
+        retries: 5
+      restart: unless-stopped
+  volumes:
+    pgbackweb_backups:
+    pgbackweb_postgres_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_PASSWORD_64_PGBACKWEB and SERVICE_USER_POSTGRES and SERVICE_PASSWORD_POSTGRES in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes pgbackweb_backups, pgbackweb_postgres_data of this application: back them up before updating."

@@ -6,7 +6,7 @@ schema: 2
 name: speedtest-tracker
 kind: compose
 title: "Speedtest Tracker"
-slogan: "Speedtest Tracker is a self-hosted application that monitors the performance and uptime of your..."
+slogan: "A self-hosted application that monitors the performance and uptime of your internet connection."
 description: "Speedtest Tracker runs scheduled internet speed tests and stores the results in a self-hosted dashboard."
 category: monitoring
 tags: [monitoring, network, speedtest]

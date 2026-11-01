@@ -1,0 +1,36 @@
+# Alertmanager from the image the project publishes (prom/alertmanager), as its documentation describes the container (prometheus.io/docs/alerting/latest/alertmanager).
+schema: 2
+name: alertmanager
+kind: compose
+title: "Alertmanager"
+slogan: "Prometheus Alertmanager."
+description: "Receives the alerts Prometheus fires, groups and silences them and sends them to e-mail, chat or a pager. It starts with the example configuration, which you replace with your receivers. It has no accounts, so keep it behind an allow-list."
+category: monitoring
+tags: [alerts, prometheus, notifications, monitoring]
+logo: logo.svg
+version: "0.34.2"
+revision: 1
+updated: 2026-10-30
+homepage: https://prometheus.io
+docs: https://prometheus.io
+repository: https://github.com/prometheus/alertmanager
+license: Apache-2.0
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 9093
+health: {path: /-/healthy, expect: "200", timeout: 120}
+compose: |
+  services:
+    alertmanager:
+      image: prom/alertmanager:v0.34.2@sha256:39d8bb3966c694a124428a3a88fbcffd40bd069129ecd47c059f8a3f17c55f3b
+      restart: unless-stopped
+      volumes:
+        - alertmanager-data:/alertmanager
+      ports:
+        - 127.0.0.1:${PORT}:9093
+  volumes:
+    alertmanager-data:
+notes:
+  - "Open {{ url }}. It starts with the example configuration of the image, which sends nowhere. It has no sign-in: restrict who can reach it."
+  - "Its data is in the Docker volume alertmanager-data of this application: back it up before updating."

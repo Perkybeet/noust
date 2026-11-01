@@ -1,0 +1,43 @@
+# DbGate from the image the project publishes (dbgate/dbgate), with the variables and folder its documentation names (dbgate.org/docs/docker).
+schema: 2
+name: dbgate
+kind: compose
+title: "DbGate"
+slogan: "Database manager for MySQL, PostgreSQL, SQL Server, MongoDB, SQLite and others."
+description: "Browses, queries and edits many kinds of databases from one page: a SQL editor, a data grid, a schema compare, a diagram and imports and exports. The connections you add are kept on the server; a user name and a password Noust generates protect it."
+category: development
+tags: [database, sql, admin, mongodb]
+logo: logo.svg
+version: "7.3.3"
+revision: 1
+updated: 2026-10-30
+homepage: https://www.dbgate.io
+docs: https://www.dbgate.io
+repository: https://github.com/dbgate/dbgate
+license: GPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  ADMIN_PASSWORD:
+    generate: "password32"
+    description: "The password of the user admin."
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    dbgate:
+      image: dbgate/dbgate:7.3.3@sha256:c9b3c97af5cde488e2e722e8d96bbd80ded3ca7013deb2e14c8f095ae818e6d3
+      restart: unless-stopped
+      environment:
+        LOGIN: admin
+        PASSWORD: ${ADMIN_PASSWORD}
+      volumes:
+        - dbgate-data:/root/.dbgate
+      ports:
+        - 127.0.0.1:${PORT}:3000
+  volumes:
+    dbgate-data:
+notes:
+  - "Open {{ url }}. Sign in as admin with the password in ADMIN_PASSWORD (noust env show {{ domain }} --unmask). The connections you save keep their passwords on this server."
+  - "Its data is in the Docker volume dbgate-data of this application: back it up before updating."

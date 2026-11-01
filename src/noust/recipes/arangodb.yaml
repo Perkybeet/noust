@@ -1,0 +1,49 @@
+# ArangoDB: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/arangodb
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+# Licence: LICENSE of arangodb/arangodb, read 2026-10-30: BSL 1.1 whose grant allows internal production use, not a commercial offering of databases to third parties
+schema: 2
+name: arangodb
+kind: compose
+title: "ArangoDB"
+slogan: "A native multi-model database with flexible data models for documents, graphs and key-values."
+description: "Source-available (Business Source License 1.1), for your own use. ArangoDB is a native multi-model database with flexible data models for documents, graphs, and key-values. Build high performance applications using a convenient SQL-like query language or JavaScript extensions."
+category: files
+tags: [database, graph-database, nosql, files]
+logo: simple-icons:arangodb
+version: "3.12.4"
+revision: 1
+updated: 2026-10-31
+homepage: https://www.arangodb.com
+docs: https://www.arangodb.com/docs/
+repository: https://github.com/arangodb/arangodb
+license: BUSL-1.1
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  ARANGO_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for arango password."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    arangodb:
+      image: arangodb:3.12.4@sha256:b7cc8dbf5f24c0fe235b6e50a26dbcfaebaf9abe0d322acefcf3dab63b5a0102
+      restart: unless-stopped
+      environment:
+        ARANGO_ROOT_PASSWORD: ${ARANGO_PASSWORD}
+      volumes:
+        - data:/var/lib/arangodb3
+      ports:
+        - 127.0.0.1:${PORT}:8529
+  volumes:
+    data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume data of this application: back it up before updating."

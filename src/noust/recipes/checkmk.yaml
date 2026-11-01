@@ -1,0 +1,45 @@
+# Checkmk from the image the project publishes (checkmk/check-mk-raw), with the variables and volume its documentation names (docs.checkmk.com/latest/en/introduction_docker.html).
+schema: 2
+name: checkmk
+kind: compose
+title: "Checkmk"
+slogan: "Checkmk, the comprehensive IT monitoring solution."
+description: "Monitors servers, networks, containers and cloud services from agents it installs and plugins that discover what to watch, with dashboards, alerts and a rule-based configuration. This is the Raw edition: one site named cmk."
+category: monitoring
+tags: [monitoring, infrastructure, alerts, agents]
+logo: simple-icons:checkmk
+version: "2.4.0p39"
+revision: 1
+updated: 2026-10-30
+homepage: https://checkmk.com/
+docs: https://checkmk.com/
+repository: https://github.com/Checkmk/checkmk
+license: GPL-2.0-only
+architectures: ["amd64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 5000
+variables:
+  ADMIN_PASSWORD:
+    generate: "password32"
+    description: "The password of the user cmkadmin."
+health: {path: /cmk/check_mk/login.py, expect: "200", timeout: 300}
+compose: |
+  services:
+    checkmk:
+      image: checkmk/check-mk-raw:2.4.0p39@sha256:4667224df1b2e18116b6e2a9743f6e0d78f53fedd13598620bbfc72f0af10f47
+      restart: unless-stopped
+      environment:
+        CMK_SITE_ID: cmk
+        CMK_PASSWORD: ${ADMIN_PASSWORD}
+      volumes:
+        - checkmk-sites:/omd/sites
+      ports:
+        - 127.0.0.1:${PORT}:5000
+      tmpfs:
+        - /opt/omd/sites/cmk/tmp:uid=1000,gid=1000
+  volumes:
+    checkmk-sites:
+notes:
+  - "Open {{ url }}. Sign in as cmkadmin with the password in ADMIN_PASSWORD (noust env show {{ domain }} --unmask). The first start takes a few minutes while the site is created."
+  - "Its data is in the Docker volume checkmk-sites of this application: back it up before updating."

@@ -1,0 +1,50 @@
+# Ombi from the image the project publishes (ghcr.io/linuxserver/ombi), with the variables and folder its documentation names (docs.linuxserver.io/images/docker-ombi).
+schema: 2
+name: ombi
+kind: compose
+title: "Ombi"
+slogan: "Want a Movie or TV Show on Plex, Emby or Jellyfin? Use Ombi."
+description: "A page where the people of your media server ask for the movies and series they want, and an administrator approves them and sends them to Sonarr or Radarr. The first visit is a wizard that makes the administrator."
+category: media
+tags: [requests, plex, jellyfin, sonarr]
+logo: logo.svg
+version: "4.53.10"
+revision: 1
+updated: 2026-10-30
+homepage: https://github.com/Ombi-app/Ombi
+docs: https://github.com/Ombi-app/Ombi
+repository: https://github.com/Ombi-app/Ombi
+license: GPL-2.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3579
+variables:
+  PUID:
+    default: "0"
+    description: "The user ID the process runs as inside the container. 0 is root."
+  PGID:
+    default: "0"
+    description: "The group ID the process runs as inside the container."
+  TZ:
+    default: "UTC"
+    description: "The time zone, such as Europe/Madrid."
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    ombi:
+      image: ghcr.io/linuxserver/ombi:4.53.10@sha256:19d4f86713e7203d910b4aa431d7176e7a9a22f641beb1047da45aa989296509
+      restart: unless-stopped
+      environment:
+        PUID: ${PUID}
+        PGID: ${PGID}
+        TZ: ${TZ}
+      volumes:
+        - ombi-config:/config
+      ports:
+        - 127.0.0.1:${PORT}:3579
+  volumes:
+    ombi-config:
+notes:
+  - "Open {{ url }}. The first visit is a wizard that makes the administrator: do it right after installing."
+  - "Its data is in the Docker volume ombi-config of this application: back it up before updating."

@@ -1,0 +1,100 @@
+# Label Studio: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/labelstudio.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: labelstudio
+kind: compose
+title: "Label Studio"
+slogan: "Label Studio is a multi-type data labeling and annotation tool with standardized output format"
+description: "Open source data labeling platform."
+category: ai
+tags: [workflow, orchestration, data-pipeline, python, labelstudio, ai, elasticsearch, datasets]
+logo: logo.svg
+version: "1.23.2"
+revision: 1
+updated: 2026-10-31
+homepage: https://labelstud.io
+docs: https://labelstud.io/guide/
+repository: https://github.com/HumanSignal/label-studio
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_LABELSTUDIO:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_USER_POSTGRES:
+    generate: "user"
+    description: "The user name Noust generated for postgres."
+  SERVICE_PASSWORD_POSTGRES:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres."
+  SERVICE_PASSWORD_LABELSTUDIO:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for labelstudio."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    labelstudio:
+      image: heartexlabs/label-studio:1.23.2@sha256:afcc516a22775a39d0d66f4c2ddc95d01be3e3d3862b21fcf4f9de34b4ad4e12
+      depends_on:
+        postgres:
+          condition: service_healthy
+      environment:
+        SERVICE_URL_LABELSTUDIO: ${SERVICE_URL_LABELSTUDIO}
+        CSRF_TRUSTED_ORIGINS: ${SERVICE_URL_LABELSTUDIO}
+        EXPERIMENTAL_FEATURES: ${EXPERIMENTAL_FEATURES:-false}
+        DJANGO_DB: ${DJANGO_DB:-default}
+        POSTGRE_NAME: ${POSTGRES_DB:-labelstudio}
+        POSTGRE_USER: ${SERVICE_USER_POSTGRES}
+        POSTGRE_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+        POSTGRE_PORT: '5432'
+        POSTGRE_HOST: postgres
+        LABEL_STUDIO_HOST: ${SERVICE_URL_LABELSTUDIO}
+        SSRF_PROTECTION_ENABLED: ${SSRF_PROTECTION_ENABLED:-true}
+        LABEL_STUDIO_DISABLE_SIGNUP_WITHOUT_LINK: ${LABEL_STUDIO_DISABLE_SIGNUP_WITHOUT_LINK:-true}
+        DATA_UPLOAD_MAX_NUMBER_FILES: ${DATA_UPLOAD_MAX_NUMBER_FILES:-10000}
+        LABEL_STUDIO_USERNAME: ${LABEL_STUDIO_USERNAME:-admin@example.com}
+        LABEL_STUDIO_PASSWORD: ${SERVICE_PASSWORD_LABELSTUDIO}
+      volumes:
+        - labelstudio-data:/label-studio/data
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - curl -f http://localhost:8080/health || exit 1
+        interval: 5s
+        timeout: 20s
+        retries: 3
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8080
+    postgres:
+      image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
+      environment:
+        POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+        POSTGRES_DB: ${POSTGRES_DB:-labelstudio}
+      volumes:
+        - pg-data:/var/lib/postgresql/data
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -h localhost -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+        interval: 5s
+        timeout: 20s
+        retries: 3
+      restart: unless-stopped
+  volumes:
+    labelstudio-data:
+    pg-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_USER_POSTGRES and SERVICE_PASSWORD_POSTGRES and SERVICE_PASSWORD_LABELSTUDIO in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes labelstudio-data, pg-data of this application: back them up before updating."

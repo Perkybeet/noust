@@ -89,6 +89,17 @@ OTHER_STORES = {"clickhouse/clickhouse-server": "/var/lib/clickhouse", "valkey/v
 SECRET_NAME = re.compile(r"(PASSWORD|PASSWD|SECRET|TOKEN|_KEY|_PASS$|_PWD$)", re.IGNORECASE)
 
 
+def postgres_major(service: dict[str, Any]) -> int:
+    """The major version of a PostgreSQL image's tag, 0 when the tag does not start with one."""
+    tag = service["image"].split("@", 1)[0].rpartition(":")[2]
+    found = re.match(r"\d+", tag)
+    return int(found.group()) if found else 0
+
+
+#: What a switch looks like: a name with PASSWORD in it that holds a yes or a no is not a credential.
+FLAG = re.compile(r"(true|false|yes|no|on|off|0|1)", re.IGNORECASE)
+
+
 def compose_of(recipe: Recipe) -> dict[str, Any]:
     """The recipe's Compose document, parsed."""
     document = yaml.safe_load(recipe.compose or "")
@@ -161,6 +172,10 @@ def test_every_database_of_a_stack_keeps_its_data_in_a_named_volume(recipe: Reci
         ) or OTHER_STORES.get(reference)
         if expected is None:
             continue
+        if engine is not None and engine.flavour == "postgres" and postgres_major(service) >= 18:
+            # PostgreSQL 18 keeps its cluster in a directory named after the major version, below
+            # the one the image declares: the volume belongs on the parent (the image's own note).
+            expected = "/var/lib/postgresql"
         assert expected in mounts(service).values(), (recipe.name, service_name)
 
 
@@ -257,7 +272,7 @@ def test_no_credential_is_written_in_a_document(recipe: Recipe) -> None:
     """A secret reaches the stack through a variable Noust generated, never as a literal."""
     for service_name, service in services_of(recipe).items():
         for key, value in environment_of(service).items():
-            if not SECRET_NAME.search(key) or not value:
+            if not SECRET_NAME.search(key) or not value or FLAG.fullmatch(value):
                 continue
             assert "${" in value, (recipe.name, service_name, key)
 
@@ -313,14 +328,20 @@ def test_the_stacks_do_not_share_a_published_port() -> None:
         for port in recipe.public_ports:
             opened.setdefault((port.port, port.protocol), []).append(recipe.name)
 
-    shared = {key: names for key, names in opened.items() if len(names) > 1}
-    # Gitea and Forgejo are the same kind of server and both offer Git over SSH on 2222: the
-    # descriptions say so, and an operator who wants both changes one of them.
-    assert shared == {(2222, "tcp"): ["forgejo", "gitea"]} or shared == {
-        (2222, "tcp"): ["gitea", "forgejo"]
+    shared = {key: sorted(names) for key, names in opened.items() if len(names) > 1}
+    # Gitea and Forgejo are the same kind of server and both offer Git over SSH on 2222, and
+    # Pi-hole and Technitium are two DNS servers that answer on 53: the descriptions say so, and
+    # an operator who wants both changes one of them.
+    assert shared == {
+        (2222, "tcp"): ["forgejo", "gitea"],
+        (53, "tcp"): ["pi-hole", "technitium"],
+        (53, "udp"): ["pi-hole", "technitium"],
+        **{(port, "tcp"): ["mailu", "stalwart"] for port in (25, 465, 587, 993)},
     }
     for name in ("gitea", "forgejo"):
         assert "2222" in get_recipe(name).description
+    for name in ("pi-hole", "technitium"):
+        assert "port 53" in get_recipe(name).description
 
 
 def test_the_recipes_that_were_listed_as_unavailable_until_now_are_installable() -> None:

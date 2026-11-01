@@ -1,0 +1,172 @@
+# imgproxy: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/imgproxy
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: imgproxy
+kind: compose
+title: "imgproxy"
+slogan: "Fast and secure standalone server for resizing, processing, and converting images on the fly"
+description: "imgproxy is a fast and secure image processing server, fronted by nginx with built-in response caching for repeated transformations."
+category: media
+tags: [images, media, proxy, cdn, caching]
+logo: logo.svg
+version: "1.31.8-alpine"
+revision: 1
+updated: 2026-10-30
+homepage: https://imgproxy.net
+docs: https://docs.imgproxy.net/
+repository: https://github.com/imgproxy/imgproxy
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  IMGPROXY_KEY:
+    generate: "hex64"
+    secret: true
+    description: "The secret Noust generated for imgproxy key."
+  IMGPROXY_SALT:
+    generate: "hex64"
+    secret: true
+    description: "The secret Noust generated for imgproxy salt."
+  IMGPROXY_ENABLE_WEBP_DETECTION:
+    default: "true"
+    description: "Setting IMGPROXY_ENABLE_WEBP_DETECTION of the application; the template leaves it to the operator."
+  IMGPROXY_ENFORCE_WEBP:
+    default: "true"
+    description: "Setting IMGPROXY_ENFORCE_WEBP of the application; the template leaves it to the operator."
+  IMGPROXY_TTL:
+    default: "30600"
+    description: "Setting IMGPROXY_TTL of the application; the template leaves it to the operator."
+  IMGPROXY_DEVELOPMENT_ERRORS_MODE:
+    default: "false"
+    description: "Setting IMGPROXY_DEVELOPMENT_ERRORS_MODE of the application; the template leaves it to the operator."
+  IMGPROXY_READ_TIMEOUT:
+    default: "10"
+    description: "Setting IMGPROXY_READ_TIMEOUT of the application; the template leaves it to the operator."
+  IMGPROXY_WRITE_TIMEOUT:
+    default: "10"
+    description: "Setting IMGPROXY_WRITE_TIMEOUT of the application; the template leaves it to the operator."
+  IMGPROXY_KEEP_ALIVE_TIMEOUT:
+    default: "10"
+    description: "Setting IMGPROXY_KEEP_ALIVE_TIMEOUT of the application; the template leaves it to the operator."
+  IMGPROXY_DOWNLOAD_TIMEOUT:
+    default: "5"
+    description: "Setting IMGPROXY_DOWNLOAD_TIMEOUT of the application; the template leaves it to the operator."
+  IMGPROXY_CONCURRENCY:
+    default: ""
+    description: "Setting IMGPROXY_CONCURRENCY of the application; the template leaves it to the operator."
+  IMGPROXY_MAX_CLIENTS:
+    default: "10"
+    description: "Setting IMGPROXY_MAX_CLIENTS of the application; the template leaves it to the operator."
+  IMGPROXY_SO_REUSEPORT:
+    default: ""
+    description: "Setting IMGPROXY_SO_REUSEPORT of the application; the template leaves it to the operator."
+  IMGPROXY_USER_AGENT:
+    default: ""
+    description: "Setting IMGPROXY_USER_AGENT of the application; the template leaves it to the operator."
+  IMGPROXY_USE_ETAG:
+    default: "true"
+    description: "Setting IMGPROXY_USE_ETAG of the application; the template leaves it to the operator."
+  IMGPROXY_QUALITY:
+    default: "80"
+    description: "Setting IMGPROXY_QUALITY of the application; the template leaves it to the operator."
+  IMGPROXY_ALLOWED_SOURCES:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  IMGPROXY_ALLOW_ORIGIN:
+    default: "*"
+    description: "Setting IMGPROXY_ALLOW_ORIGIN of the application; the template leaves it to the operator."
+  IMGPROXY_MAX_SRC_FILE_SIZE:
+    default: "20971520"
+    description: "Setting IMGPROXY_MAX_SRC_FILE_SIZE of the application; the template leaves it to the operator."
+  IMGPROXY_MAX_SRC_RESOLUTION:
+    default: "50"
+    description: "Setting IMGPROXY_MAX_SRC_RESOLUTION of the application; the template leaves it to the operator."
+  IMGPROXY_LOG_LEVEL:
+    default: "error"
+    description: "Setting IMGPROXY_LOG_LEVEL of the application; the template leaves it to the operator."
+  NGINX_CACHE_LEVELS:
+    default: "1:2"
+    description: "Setting NGINX_CACHE_LEVELS of the application; the template leaves it to the operator."
+  NGINX_CACHE_KEYS_ZONE_SIZE:
+    default: "32m"
+    description: "Setting NGINX_CACHE_KEYS_ZONE_SIZE of the application; the template leaves it to the operator."
+  NGINX_CACHE_MAX_SIZE:
+    default: "500m"
+    description: "Setting NGINX_CACHE_MAX_SIZE of the application; the template leaves it to the operator."
+  NGINX_CACHE_INACTIVE:
+    default: "30d"
+    description: "Setting NGINX_CACHE_INACTIVE of the application; the template leaves it to the operator."
+  NGINX_CACHE_USE_TEMP_PATH:
+    default: "off"
+    description: "Setting NGINX_CACHE_USE_TEMP_PATH of the application; the template leaves it to the operator."
+  NGINX_CACHE_EXPIRES:
+    default: "30d"
+    description: "Setting NGINX_CACHE_EXPIRES of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    imgproxy:
+      image: darthsim/imgproxy:v4.0.20@sha256:f5db62d528ab08e7b12f14e759fd7d62c09aeabf2e629d0e2a3963da692d0130
+      restart: unless-stopped
+      environment:
+        IMGPROXY_KEY: ${IMGPROXY_KEY}
+        IMGPROXY_SALT: ${IMGPROXY_SALT}
+        IMGPROXY_ENABLE_WEBP_DETECTION: ${IMGPROXY_ENABLE_WEBP_DETECTION:-true}
+        IMGPROXY_ENFORCE_WEBP: ${IMGPROXY_ENFORCE_WEBP:-true}
+        IMGPROXY_TTL: ${IMGPROXY_TTL:-30600}
+        IMGPROXY_DEVELOPMENT_ERRORS_MODE: ${IMGPROXY_DEVELOPMENT_ERRORS_MODE:-false}
+        IMGPROXY_READ_TIMEOUT: ${IMGPROXY_READ_TIMEOUT:-10}
+        IMGPROXY_WRITE_TIMEOUT: ${IMGPROXY_WRITE_TIMEOUT:-10}
+        IMGPROXY_KEEP_ALIVE_TIMEOUT: ${IMGPROXY_KEEP_ALIVE_TIMEOUT:-10}
+        IMGPROXY_DOWNLOAD_TIMEOUT: ${IMGPROXY_DOWNLOAD_TIMEOUT:-5}
+        IMGPROXY_CONCURRENCY: ${IMGPROXY_CONCURRENCY:-}
+        IMGPROXY_MAX_CLIENTS: ${IMGPROXY_MAX_CLIENTS:-10}
+        IMGPROXY_SO_REUSEPORT: ${IMGPROXY_SO_REUSEPORT:-}
+        IMGPROXY_USER_AGENT: ${IMGPROXY_USER_AGENT:-}
+        IMGPROXY_USE_ETAG: ${IMGPROXY_USE_ETAG:-true}
+        IMGPROXY_QUALITY: ${IMGPROXY_QUALITY:-80}
+        IMGPROXY_ALLOWED_SOURCES: ${IMGPROXY_ALLOWED_SOURCES}
+        IMGPROXY_ALLOW_ORIGIN: ${IMGPROXY_ALLOW_ORIGIN:-*}
+        IMGPROXY_MAX_SRC_FILE_SIZE: ${IMGPROXY_MAX_SRC_FILE_SIZE:-20971520}
+        IMGPROXY_MAX_SRC_RESOLUTION: ${IMGPROXY_MAX_SRC_RESOLUTION:-50}
+        IMGPROXY_LOG_LEVEL: ${IMGPROXY_LOG_LEVEL:-error}
+    nginx:
+      image: nginx:1.31.8-alpine@sha256:785835ea65db4bba6f021acc0f3be91b0fef76a53fe41f8588c6698d2aed0606
+      restart: unless-stopped
+      environment:
+        NGINX_CACHE_LEVELS: ${NGINX_CACHE_LEVELS:-1:2}
+        NGINX_CACHE_KEYS_ZONE_SIZE: ${NGINX_CACHE_KEYS_ZONE_SIZE:-32m}
+        NGINX_CACHE_MAX_SIZE: ${NGINX_CACHE_MAX_SIZE:-500m}
+        NGINX_CACHE_INACTIVE: ${NGINX_CACHE_INACTIVE:-30d}
+        NGINX_CACHE_USE_TEMP_PATH: ${NGINX_CACHE_USE_TEMP_PATH:-off}
+        NGINX_CACHE_EXPIRES: ${NGINX_CACHE_EXPIRES:-30d}
+      depends_on:
+        imgproxy:
+          condition: service_started
+      volumes:
+        - nginx-cache:/tmp/cache
+      command:
+        - /bin/sh
+        - -c
+        - "cat <<EOF > /etc/nginx/conf.d/default.conf\nproxy_cache_path /tmp/cache levels=$${NGINX_CACHE_LEVELS}\
+          \ keys_zone=my_cache:$${NGINX_CACHE_KEYS_ZONE_SIZE} max_size=$${NGINX_CACHE_MAX_SIZE} inactive=$${NGINX_CACHE_INACTIVE}\
+          \ use_temp_path=$${NGINX_CACHE_USE_TEMP_PATH};\n\nserver {\n  listen 80 default_server;\n  listen\
+          \ [::]:80 default_server;\n\n  location / {\n    expires $${NGINX_CACHE_EXPIRES};\n    access_log\
+          \ off;\n    set \\$$handle_webp 0;\n    if (\\$$http_accept ~* \"image/webp\") {\n      set \\\
+          $$handle_webp 1;\n    }\n    proxy_cache my_cache;\n    proxy_cache_use_stale error timeout updating\
+          \ http_500 http_502 http_503 http_504;\n    proxy_cache_background_update on;\n    proxy_cache_lock\
+          \ on;\n    proxy_cache_key \"\\$$scheme\\$$host\\$$uri\\$$handle_webp\";\n    server_tokens off;\n\
+          \    proxy_pass http://imgproxy:8080;\n  }\n}\nEOF\nexec nginx -g 'daemon off;'\n"
+      ports:
+        - 127.0.0.1:${PORT}:80
+  volumes:
+    nginx-cache:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume nginx-cache of this application: back it up before updating."

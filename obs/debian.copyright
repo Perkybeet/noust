@@ -9,50 +9,107 @@ License: AGPL-3.0-or-later
 
 Files:
  src/noust/recipes/affine.yaml
+ src/noust/recipes/alexandrie.yaml
  src/noust/recipes/anythingllm.yaml
+ src/noust/recipes/apprise-api.yaml
  src/noust/recipes/babybuddy.yaml
+ src/noust/recipes/bentopdf.yaml
+ src/noust/recipes/browserless.yaml
+ src/noust/recipes/calibre-web-automated-book-downloader.yaml
+ src/noust/recipes/cap-captcha.yaml
+ src/noust/recipes/checkmate.yaml
  src/noust/recipes/chroma.yaml
+ src/noust/recipes/cloudreve.yaml
+ src/noust/recipes/cryptgeon.yaml
  src/noust/recipes/databasus.yaml
+ src/noust/recipes/docker-registry.yaml
  src/noust/recipes/docling.yaml
  src/noust/recipes/documenso.yaml
  src/noust/recipes/docuseal.yaml
  src/noust/recipes/dokuwiki.yaml
  src/noust/recipes/dozzle.yaml
  src/noust/recipes/drizzle-gateway.yaml
+ src/noust/recipes/duplicati.yaml
+ src/noust/recipes/easyappointments.yaml
  src/noust/recipes/elasticsearch.yaml
+ src/noust/recipes/engram.yaml
+ src/noust/recipes/evolutionapi.yaml
+ src/noust/recipes/fider.yaml
  src/noust/recipes/firefox.yaml
  src/noust/recipes/glance.yaml
  src/noust/recipes/glitchtip.yaml
  src/noust/recipes/gotenberg.yaml
  src/noust/recipes/gowa.yaml
+ src/noust/recipes/grimmory.yaml
+ src/noust/recipes/grist.yaml
  src/noust/recipes/grocy.yaml
  src/noust/recipes/heimdall.yaml
+ src/noust/recipes/heyform.yaml
  src/noust/recipes/homebox.yaml
+ src/noust/recipes/honcho.yaml
  src/noust/recipes/hoppscotch.yaml
  src/noust/recipes/influxdb.yaml
  src/noust/recipes/karakeep.yaml
  src/noust/recipes/kimai.yaml
+ src/noust/recipes/labelstudio.yaml
  src/noust/recipes/libretranslate.yaml
  src/noust/recipes/linkwarden.yaml
  src/noust/recipes/lowcoder.yaml
  src/noust/recipes/mage-ai.yaml
  src/noust/recipes/marimo.yaml
  src/noust/recipes/mealie.yaml
+ src/noust/recipes/metamcp.yaml
+ src/noust/recipes/metube.yaml
+ src/noust/recipes/mindsdb.yaml
+ src/noust/recipes/mixpost.yaml
+ src/noust/recipes/moodle.yaml
+ src/noust/recipes/newapi.yaml
+ src/noust/recipes/obsidian-livesync.yaml
  src/noust/recipes/once-campfire.yaml
  src/noust/recipes/onedev.yaml
+ src/noust/recipes/onetimesecret.yaml
+ src/noust/recipes/open-archiver.yaml
  src/noust/recipes/openobserve.yaml
+ src/noust/recipes/openpanel.yaml
+ src/noust/recipes/orangehrm.yaml
  src/noust/recipes/outline.yaml
+ src/noust/recipes/passbolt.yaml
+ src/noust/recipes/paymenter.yaml
+ src/noust/recipes/peertube.yaml
  src/noust/recipes/penpot.yaml
  src/noust/recipes/pgadmin.yaml
+ src/noust/recipes/pgbackweb.yaml
  src/noust/recipes/plane.yaml
+ src/noust/recipes/plunk.yaml
  src/noust/recipes/pocket-id.yaml
+ src/noust/recipes/portabase.yaml
+ src/noust/recipes/postiz.yaml
+ src/noust/recipes/prefect.yaml
  src/noust/recipes/privatebin.yaml
+ src/noust/recipes/pydio-cells.yaml
  src/noust/recipes/qdrant.yaml
  src/noust/recipes/rabbitmq.yaml
+ src/noust/recipes/rallly.yaml
  src/noust/recipes/rivet-engine.yaml
+ src/noust/recipes/rybbit.yaml
+ src/noust/recipes/ryot.yaml
+ src/noust/recipes/seaweedfs.yaml
+ src/noust/recipes/sequin.yaml
  src/noust/recipes/silverbullet.yaml
  src/noust/recipes/snipe-it.yaml
+ src/noust/recipes/sonarqube.yaml
+ src/noust/recipes/sure.yaml
+ src/noust/recipes/teable.yaml
+ src/noust/recipes/termix.yaml
+ src/noust/recipes/traccar.yaml
+ src/noust/recipes/usesend.yaml
+ src/noust/recipes/wakapi.yaml
  src/noust/recipes/weaviate.yaml
+ src/noust/recipes/web-check.yaml
+ src/noust/recipes/weblate.yaml
+ src/noust/recipes/windmill.yaml
+ src/noust/recipes/yamtrack.yaml
+ src/noust/recipes/zipline.yaml
 Copyright: 2025 Andras Bacsai
            2026 Yago López Prado
 Comment: Derived in part from the Docker Compose templates of Coolify
@@ -60,57 +117,116 @@ Comment: Derived in part from the Docker Compose templates of Coolify
 License: Apache-2.0
 
 Files:
+ src/noust/recipes/ackee.yaml
+ src/noust/recipes/adminer.yaml
+ src/noust/recipes/adventurelog.yaml
+ src/noust/recipes/agent-zero.yaml
+ src/noust/recipes/ampache.yaml
+ src/noust/recipes/answer.yaml
+ src/noust/recipes/arangodb.yaml
  src/noust/recipes/archivebox.yaml
+ src/noust/recipes/authelia.yaml
+ src/noust/recipes/authorizer.yaml
+ src/noust/recipes/azuracast.yaml
+ src/noust/recipes/blinko.yaml
  src/noust/recipes/bytestash.yaml
  src/noust/recipes/calibre.yaml
  src/noust/recipes/certmate.yaml
  src/noust/recipes/chatto.yaml
+ src/noust/recipes/chevereto.yaml
  src/noust/recipes/commafeed.yaml
  src/noust/recipes/cookie-cloud.yaml
+ src/noust/recipes/crawl4ai.yaml
  src/noust/recipes/cup.yaml
+ src/noust/recipes/cypht.yaml
  src/noust/recipes/dagu.yaml
  src/noust/recipes/databasement.yaml
  src/noust/recipes/directory-lister.yaml
  src/noust/recipes/discourse.yaml
  src/noust/recipes/docling-serve.yaml
+ src/noust/recipes/domain-locker.yaml
+ src/noust/recipes/drawnix.yaml
+ src/noust/recipes/emqx.yaml
+ src/noust/recipes/erpnext.yaml
+ src/noust/recipes/evershop.yaml
+ src/noust/recipes/ezbookkeeping.yaml
  src/noust/recipes/filegator.yaml
  src/noust/recipes/flaresolverr.yaml
  src/noust/recipes/flarum.yaml
  src/noust/recipes/flatnotes.yaml
+ src/noust/recipes/frappe-lending.yaml
+ src/noust/recipes/frappe-lms.yaml
+ src/noust/recipes/freellmapi.yaml
  src/noust/recipes/gel.yaml
  src/noust/recipes/go2rtc.yaml
+ src/noust/recipes/graylog.yaml
  src/noust/recipes/grimoire.yaml
+ src/noust/recipes/hortusfox.yaml
+ src/noust/recipes/hyperdx.yaml
+ src/noust/recipes/imgproxy.yaml
+ src/noust/recipes/instatic.yaml
+ src/noust/recipes/invoiceshelf.yaml
+ src/noust/recipes/ipfs.yaml
  src/noust/recipes/jellyseerr.yaml
+ src/noust/recipes/joomla.yaml
+ src/noust/recipes/kanbn.yaml
+ src/noust/recipes/kaneo.yaml
+ src/noust/recipes/kener.yaml
+ src/noust/recipes/kestra.yaml
+ src/noust/recipes/kitchenowl.yaml
  src/noust/recipes/komari-monitor.yaml
+ src/noust/recipes/kutt.yaml
  src/noust/recipes/languagetool.yaml
+ src/noust/recipes/lavalink.yaml
  src/noust/recipes/libredb-studio.yaml
+ src/noust/recipes/linkstack.yaml
  src/noust/recipes/lubelogger.yaml
+ src/noust/recipes/mailu.yaml
+ src/noust/recipes/mautic.yaml
  src/noust/recipes/mazanoke.yaml
+ src/noust/recipes/mcsmanager.yaml
  src/noust/recipes/nginx.yaml
+ src/noust/recipes/novu.yaml
+ src/noust/recipes/obscura.yaml
  src/noust/recipes/omni-tools.yaml
  src/noust/recipes/open-design.yaml
  src/noust/recipes/opencode.yaml
  src/noust/recipes/opengist.yaml
+ src/noust/recipes/openhabittracker.yaml
  src/noust/recipes/openseo.yaml
  src/noust/recipes/openspeedtest.yaml
  src/noust/recipes/otterwiki.yaml
  src/noust/recipes/owncast.yaml
  src/noust/recipes/paperclip.yaml
  src/noust/recipes/parseable.yaml
+ src/noust/recipes/postgres-pgadmin.yaml
  src/noust/recipes/postgresus.yaml
  src/noust/recipes/prometheus.yaml
  src/noust/recipes/pulse.yaml
  src/noust/recipes/qui.yaml
+ src/noust/recipes/rote.yaml
  src/noust/recipes/silex.yaml
+ src/noust/recipes/silo.yaml
+ src/noust/recipes/sim.yaml
  src/noust/recipes/speedtest-tracker.yaml
+ src/noust/recipes/spliit.yaml
  src/noust/recipes/steedos.yaml
+ src/noust/recipes/surrealdb.yaml
+ src/noust/recipes/tianji.yaml
+ src/noust/recipes/tooljet.yaml
  src/noust/recipes/trek.yaml
+ src/noust/recipes/tuwunel.yaml
  src/noust/recipes/unleash.yaml
  src/noust/recipes/upsnap.yaml
+ src/noust/recipes/verdaccio.yaml
  src/noust/recipes/versitygw.yaml
  src/noust/recipes/victoriametrics.yaml
+ src/noust/recipes/wallabag.yaml
+ src/noust/recipes/wuzapi.yaml
  src/noust/recipes/yourls.yaml
  src/noust/recipes/yuvomi.yaml
+ src/noust/recipes/zabbix.yaml
+ src/noust/recipes/zitadel.yaml
 Copyright: 2024 Dokploy and Carlos Ortiz
            2026 Yago López Prado
 Comment: Derived in part from the service templates of Dokploy
@@ -160,44 +276,112 @@ Comment: A mark of a project, taken from its repository, its brand kit or a coll
 License: AGPL-3+
 
 Files:
+ src/noust/recipes/assets/2fauth/logo.svg
  src/noust/recipes/assets/_simple-icons/apachecouchdb.svg
  src/noust/recipes/assets/_simple-icons/apachesuperset.svg
+ src/noust/recipes/assets/_simple-icons/authelia.svg
+ src/noust/recipes/assets/alertmanager/logo.svg
+ src/noust/recipes/assets/alexandrie/logo.svg
+ src/noust/recipes/assets/atuin/logo.svg
+ src/noust/recipes/assets/autobrr/logo.svg
  src/noust/recipes/assets/bazarr/logo.svg
+ src/noust/recipes/assets/bentopdf/logo.svg
+ src/noust/recipes/assets/browserless/logo.svg
  src/noust/recipes/assets/bytestash/logo.svg
+ src/noust/recipes/assets/chevereto/logo.svg
+ src/noust/recipes/assets/chhoto-url/logo.svg
  src/noust/recipes/assets/chroma/logo.svg
  src/noust/recipes/assets/cloudbeaver/logo.svg
  src/noust/recipes/assets/commafeed/logo.svg
+ src/noust/recipes/assets/copyparty/logo.svg
  src/noust/recipes/assets/cyberchef/logo.svg
  src/noust/recipes/assets/databasus/logo.svg
+ src/noust/recipes/assets/dbgate/logo.svg
  src/noust/recipes/assets/documenso/logo.svg
  src/noust/recipes/assets/dokuwiki/logo.svg
+ src/noust/recipes/assets/emqx/logo.svg
+ src/noust/recipes/assets/enclosed/logo.svg
  src/noust/recipes/assets/etherpad/logo.svg
+ src/noust/recipes/assets/feishin/logo.svg
+ src/noust/recipes/assets/filebrowser-quantum/logo.svg
  src/noust/recipes/assets/filegator/logo.svg
  src/noust/recipes/assets/flarum/logo.svg
  src/noust/recipes/assets/flatnotes/logo.svg
  src/noust/recipes/assets/garage/logo.svg
  src/noust/recipes/assets/gatus/logo.svg
  src/noust/recipes/assets/glitchtip/logo.svg
+ src/noust/recipes/assets/gotosocial/logo.svg
+ src/noust/recipes/assets/grist/logo.svg
+ src/noust/recipes/assets/heyform/logo.svg
+ src/noust/recipes/assets/homer/logo.svg
  src/noust/recipes/assets/infisical/logo.svg
+ src/noust/recipes/assets/jackett/logo.svg
  src/noust/recipes/assets/jellyseerr/logo.svg
+ src/noust/recipes/assets/jotty/logo.svg
+ src/noust/recipes/assets/keila/logo.svg
+ src/noust/recipes/assets/kestra/logo.svg
  src/noust/recipes/assets/kimai/logo.svg
+ src/noust/recipes/assets/kitchenowl/logo.svg
+ src/noust/recipes/assets/koillection/logo.svg
  src/noust/recipes/assets/librespeed/logo.svg
+ src/noust/recipes/assets/linkstack/logo.svg
+ src/noust/recipes/assets/livebook/logo.svg
  src/noust/recipes/assets/logto/logo.svg
+ src/noust/recipes/assets/loki/logo.svg
+ src/noust/recipes/assets/lunalytics/logo.svg
  src/noust/recipes/assets/mage-ai/logo.svg
  src/noust/recipes/assets/marimo/logo.svg
+ src/noust/recipes/assets/metube/logo.svg
  src/noust/recipes/assets/miniflux/logo.svg
+ src/noust/recipes/assets/mixpost/logo.svg
+ src/noust/recipes/assets/mongo-express/logo.svg
+ src/noust/recipes/assets/moodist/logo.svg
+ src/noust/recipes/assets/mstream/logo.svg
+ src/noust/recipes/assets/myspeed/logo.svg
+ src/noust/recipes/assets/netbox/logo.svg
  src/noust/recipes/assets/nocodb/logo.svg
+ src/noust/recipes/assets/ombi/logo.svg
  src/noust/recipes/assets/open-design/logo.svg
  src/noust/recipes/assets/open-webui/logo.svg
+ src/noust/recipes/assets/openlist/logo.svg
  src/noust/recipes/assets/openspeedtest/logo.svg
+ src/noust/recipes/assets/papra/logo.svg
  src/noust/recipes/assets/parseable/logo.svg
+ src/noust/recipes/assets/paymenter/logo.svg
  src/noust/recipes/assets/pgadmin/logo.svg
+ src/noust/recipes/assets/pgbackweb/logo.svg
  src/noust/recipes/assets/planka/logo.svg
+ src/noust/recipes/assets/portabase/logo.svg
+ src/noust/recipes/assets/postgres-pgadmin/logo.svg
  src/noust/recipes/assets/postgresus/logo.svg
+ src/noust/recipes/assets/rallly/logo.svg
+ src/noust/recipes/assets/readeck/logo.svg
  src/noust/recipes/assets/rivet-engine/logo.svg
+ src/noust/recipes/assets/romm/logo.svg
+ src/noust/recipes/assets/rybbit/logo.svg
+ src/noust/recipes/assets/ryot/logo.svg
+ src/noust/recipes/assets/semaphore/logo.svg
+ src/noust/recipes/assets/shaarli/logo.svg
  src/noust/recipes/assets/shlink/logo.svg
+ src/noust/recipes/assets/sonarqube/logo.svg
+ src/noust/recipes/assets/spliit/logo.svg
+ src/noust/recipes/assets/spoolman/logo.svg
+ src/noust/recipes/assets/sshwifty/logo.svg
  src/noust/recipes/assets/stirling-pdf/logo.svg
- src/noust/recipes/assets/versitygw/logo.svg
+ src/noust/recipes/assets/suwayomi/logo.svg
+ src/noust/recipes/assets/swingmusic/logo.svg
+ src/noust/recipes/assets/tautulli/logo.svg
+ src/noust/recipes/assets/termix/logo.svg
+ src/noust/recipes/assets/thelounge/logo.svg
+ src/noust/recipes/assets/tianji/logo.svg
+ src/noust/recipes/assets/victoria-logs/logo.svg
+ src/noust/recipes/assets/voidauth/logo.svg
+ src/noust/recipes/assets/wakapi/logo.svg
+ src/noust/recipes/assets/windmill/logo.svg
+ src/noust/recipes/assets/yamtrack/logo.svg
+ src/noust/recipes/assets/yopass/logo.svg
+ src/noust/recipes/assets/zabbix/logo.svg
+ src/noust/recipes/assets/zitadel/logo.svg
 Copyright: the authors each mark's LOGO-NOTICE names (src/noust/recipes/assets/<recipe>/LOGO-NOTICE)
 Comment: A mark of a project, taken from its repository, its brand kit or a collection of the
  logos of self-hosted software. The licence covers the file and not the brand: the LOGO-NOTICE
@@ -231,25 +415,47 @@ Comment: A mark of a project, taken from its repository, its brand kit or a coll
 License: CC-BY-3.0
 
 Files:
+ src/noust/recipes/assets/ackee/logo.svg
+ src/noust/recipes/assets/agent-zero/logo.svg
  src/noust/recipes/assets/archivebox/logo.svg
+ src/noust/recipes/assets/blinko/logo.svg
+ src/noust/recipes/assets/calibre-web-automated-book-downloader/logo.svg
  src/noust/recipes/assets/calibre/logo.svg
+ src/noust/recipes/assets/cryptgeon/logo.svg
+ src/noust/recipes/assets/cypht/logo.svg
  src/noust/recipes/assets/dagu/logo.svg
  src/noust/recipes/assets/docmost/logo.svg
+ src/noust/recipes/assets/domain-locker/logo.svg
+ src/noust/recipes/assets/fireshare/logo.svg
  src/noust/recipes/assets/go2rtc/logo.svg
  src/noust/recipes/assets/gotify/logo.svg
+ src/noust/recipes/assets/grimmory/logo.svg
  src/noust/recipes/assets/hermes-agent/logo.svg
+ src/noust/recipes/assets/hortusfox/logo.svg
+ src/noust/recipes/assets/hyperdx/logo.svg
+ src/noust/recipes/assets/kanbn/logo.svg
+ src/noust/recipes/assets/kaneo/logo.svg
+ src/noust/recipes/assets/kener/logo.svg
+ src/noust/recipes/assets/leafwiki/logo.svg
  src/noust/recipes/assets/linkwarden/logo.svg
  src/noust/recipes/assets/lowcoder/logo.svg
  src/noust/recipes/assets/mazanoke/logo.svg
+ src/noust/recipes/assets/mqttx-web/logo.svg
+ src/noust/recipes/assets/onetimesecret/logo.svg
  src/noust/recipes/assets/pairdrop/logo.svg
  src/noust/recipes/assets/privatebin/logo.svg
  src/noust/recipes/assets/qui/logo.svg
+ src/noust/recipes/assets/rsshub/logo.svg
+ src/noust/recipes/assets/seaweedfs/logo.svg
  src/noust/recipes/assets/sftpgo/logo.svg
+ src/noust/recipes/assets/speaches/logo.svg
  src/noust/recipes/assets/speedtest-tracker/logo.svg
- src/noust/recipes/assets/stalwart/logo.svg
+ src/noust/recipes/assets/super-productivity/logo.svg
  src/noust/recipes/assets/typesense/logo.svg
  src/noust/recipes/assets/upsnap/logo.svg
+ src/noust/recipes/assets/versitygw/logo.svg
  src/noust/recipes/assets/wallos/logo.svg
+ src/noust/recipes/assets/wastebin/logo.svg
  src/noust/recipes/assets/weaviate/logo.svg
 Copyright: the authors each mark's LOGO-NOTICE names (src/noust/recipes/assets/<recipe>/LOGO-NOTICE)
 Comment: A mark of a project, taken from its repository, its brand kit or a collection of the
@@ -258,6 +464,7 @@ Comment: A mark of a project, taken from its repository, its brand kit or a coll
 License: CC-BY-4.0
 
 Files:
+ src/noust/recipes/assets/_simple-icons/ipfs.svg
  src/noust/recipes/assets/_simple-icons/jenkins.svg
 Copyright: the authors each mark's LOGO-NOTICE names (src/noust/recipes/assets/<recipe>/LOGO-NOTICE)
 Comment: A mark of a project, taken from its repository, its brand kit or a collection of the
@@ -269,6 +476,7 @@ Files:
  src/noust/recipes/assets/_simple-icons/dolibarr.svg
  src/noust/recipes/assets/_simple-icons/forgejo.svg
  src/noust/recipes/assets/_simple-icons/openbao.svg
+ src/noust/recipes/assets/_simple-icons/peertube.svg
 Copyright: the authors each mark's LOGO-NOTICE names (src/noust/recipes/assets/<recipe>/LOGO-NOTICE)
 Comment: A mark of a project, taken from its repository, its brand kit or a collection of the
  logos of self-hosted software. The licence covers the file and not the brand: the LOGO-NOTICE
@@ -276,6 +484,7 @@ Comment: A mark of a project, taken from its repository, its brand kit or a coll
 License: CC-BY-SA-4.0
 
 Files:
+ src/noust/recipes/assets/_simple-icons/weblate.svg
  src/noust/recipes/assets/cookie-cloud/logo.png
  src/noust/recipes/assets/kavita/logo.svg
  src/noust/recipes/assets/lidarr/logo.svg
@@ -305,6 +514,7 @@ License: custom-brand-page
 
 Files:
  src/noust/recipes/assets/_simple-icons/keycloak.svg
+ src/noust/recipes/assets/_simple-icons/lemmy.svg
 Copyright: the authors each mark's LOGO-NOTICE names (src/noust/recipes/assets/<recipe>/LOGO-NOTICE)
 Comment: A mark of a project, taken from its repository, its brand kit or a collection of the
  logos of self-hosted software. The licence covers the file and not the brand: the LOGO-NOTICE

@@ -1,0 +1,41 @@
+# OpenList from the image the project publishes (openlistteam/openlist), with the data directory its documentation names (doc.oplist.org/guide/installation/docker).
+schema: 2
+name: openlist
+kind: compose
+title: "OpenList"
+slogan: "A file list program that supports multiple storages."
+description: "Puts the files of many storages (local disks, S3, WebDAV and cloud drives) behind one web page with search, previews and sharing. Its administrator's password is generated on the first start."
+category: files
+tags: [files, storage, webdav, cloud]
+logo: logo.svg
+version: "4.2.9"
+revision: 1
+updated: 2026-10-30
+homepage: https://doc.oplist.org
+docs: https://doc.oplist.org
+repository: https://github.com/OpenListTeam/OpenList
+license: AGPL-3.0-only
+architectures: ["386", "amd64", "arm", "arm64", "riscv64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 5244
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    openlist:
+      image: openlistteam/openlist:v4.2.9@sha256:897563beb674e7ad04edff14b0037dc8443ca3978570614005519df7eae06434
+      restart: unless-stopped
+      user: "0:0"
+      environment:
+        UMASK: '022'
+        PUID: '0'
+        PGID: '0'
+      volumes:
+        - openlist-data:/opt/openlist/data
+      ports:
+        - 127.0.0.1:${PORT}:5244
+  volumes:
+    openlist-data:
+notes:
+  - "Open {{ url }}. The administrator's password is printed once in the application's log the first time it starts (noust logs {{ domain }}); sign in as admin with it and change it."
+  - "Its data is in the Docker volume openlist-data of this application: back it up before updating."

@@ -6,7 +6,7 @@ schema: 2
 name: marimo
 kind: compose
 title: "Marimo"
-slogan: "An open-source reactive notebook for Python — reproducible, git-friendly, SQL built-in..."
+slogan: "An open-source reactive notebook for Python: reproducible, git-friendly, with SQL built in."
 description: "Open-source reactive notebook for Python."
 category: data
 tags: [notebook, python, data, analysis]

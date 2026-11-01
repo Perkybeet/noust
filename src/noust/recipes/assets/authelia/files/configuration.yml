@@ -1,0 +1,136 @@
+###############################################################
+#                   Authelia configuration                    #
+###############################################################
+
+# DEFAULT ADMIN CREDENTIALS:
+# Username: (auto-generated, check users_database.yml)
+# Password: AdminPass123!
+# Email: (auto-generated)
+#
+# IMPORTANT: Change the password after first login!
+# SECURITY NOTE: This template starts with one-factor auth for easier setup.
+# After configuring SMTP/notifications, change the policy to 'two_factor'
+
+# Server Configuration
+server:
+  address: 'tcp://0.0.0.0:9091'
+  headers:
+    csp_template: ''
+
+# Log Configuration
+log:
+  level: info
+  format: text
+
+# Theme
+theme: auto
+
+# TOTP Configuration
+totp:
+  disable: false
+  issuer: authelia.com
+  algorithm: sha1
+  digits: 6
+  period: 30
+  skew: 1
+  secret_size: 32
+
+# WebAuthn/FIDO2 Configuration
+webauthn:
+  disable: false
+  timeout: 60s
+  display_name: Authelia
+  attestation_conveyance_preference: indirect
+  user_verification: preferred
+
+# NTP Configuration
+ntp:
+  address: 'time.cloudflare.com:123'
+  version: 4
+  max_desync: 3s
+  disable_startup_check: false
+  disable_failure: false
+
+# Authentication Backend Configuration
+authentication_backend:
+  password_reset:
+    disable: false
+    custom_url: ''
+  refresh_interval: 5m
+  file:
+    path: /config/users_database.yml
+    watch: false
+    search:
+      email: false
+      case_insensitive: false
+    password:
+      algorithm: argon2
+      argon2:
+        variant: argon2id
+        iterations: 3
+        memory: 65536
+        parallelism: 4
+        key_length: 32
+        salt_length: 16
+
+# Password Policy
+password_policy:
+  standard:
+    enabled: false
+    min_length: 8
+    max_length: 0
+    require_uppercase: true
+    require_lowercase: true
+    require_number: true
+    require_special: true
+  zxcvbn:
+    enabled: false
+    min_score: 3
+
+# Session Configuration
+session:
+  name: authelia_session
+  domain: ${APP_DOMAIN}
+  same_site: lax
+  secret: ${SESSION_SECRET}
+  expiration: 1h
+  inactivity: 5m
+  remember_me_duration: 1M
+  redis:
+    host: redis
+    port: 6379
+    password: ${REDIS_PASSWORD}
+    database_index: 0
+    maximum_active_connections: 8
+    minimum_idle_connections: 0
+
+# Storage Configuration
+storage:
+  encryption_key: ${STORAGE_ENCRYPTION_KEY}
+  postgres:
+    host: postgres
+    port: 5432
+    database: authelia
+    schema: public
+    username: authelia
+    password: ${POSTGRES_PASSWORD}
+    timeout: 5s
+
+# Notifier Configuration
+notifier:
+  disable_startup_check: true
+  filesystem:
+    filename: /config/notification.txt
+
+# Regulation Configuration
+regulation:
+  max_retries: 3
+  find_time: 10m
+  ban_time: 12h
+
+# Access Control Configuration - MODIFIED FOR EASIER INITIAL SETUP
+access_control:
+  default_policy: deny
+  rules:
+    - domain: ${APP_DOMAIN}
+      policy: one_factor  # Changed from one_factor to two_factor for production

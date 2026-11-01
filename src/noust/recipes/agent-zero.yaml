@@ -1,0 +1,54 @@
+# Agent Zero: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/agent-zero
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+# Licence: LICENSE of agent0ai/agent-zero, read 2026-10-30: the MIT licence
+schema: 2
+name: agent-zero
+kind: compose
+title: "Agent Zero"
+slogan: "Agent Zero AI framework"
+description: "Agent Zero is an open-source autonomous AI agent framework with memory and tool use capabilities."
+category: ai
+tags: [ai, agent, automation]
+logo: logo.svg
+version: "1.9"
+revision: 1
+updated: 2026-10-31
+homepage: https://agent-zero.ai
+docs: https://www.agent-zero.ai/p/docs/
+repository: https://github.com/agent0ai/agent-zero
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  AUTH_LOGIN:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for auth login."
+  AUTH_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for auth password."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    agent-zero:
+      image: agent0ai/agent-zero:v1.9@sha256:a18a33c0e3dcc2f111979d6c874ead4be4a820513d3d3bfb931c5b47fcb301a9
+      restart: unless-stopped
+      environment:
+        AUTH_LOGIN: ${AUTH_LOGIN}
+        AUTH_PASSWORD: ${AUTH_PASSWORD}
+      volumes:
+        - agent-zero-data:/a0/usr
+      ports:
+        - 127.0.0.1:${PORT}:80
+  volumes:
+    agent-zero-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume agent-zero-data of this application: back it up before updating."

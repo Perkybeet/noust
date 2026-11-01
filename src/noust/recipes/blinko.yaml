@@ -1,0 +1,92 @@
+# Blinko: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/blinko
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: blinko
+kind: compose
+title: "Blinko"
+slogan: "An open-source, self-hosted personal AI note tool prioritizing privacy, built using TypeScript ."
+description: "Blinko is a modern web application for managing and organizing your digital content and workflows."
+category: ai
+tags: [productivity, organization, workflow, nextjs, ai]
+logo: logo.svg
+version: "1.6.3"
+revision: 1
+updated: 2026-10-28
+homepage: https://blinko.space
+docs: https://docs.blinko.space/
+repository: https://github.com/blinkospace/blinko
+license: GPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  NEXTAUTH_SECRET:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for nextauth secret."
+  POSTGRES_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres password."
+  DATABASE_URL:
+    value: "postgresql://postgres:${POSTGRES_PASSWORD}@blinko-postgres:5432/postgres"
+    secret: true
+    description: "Setting DATABASE_URL of the application; the template leaves it to the operator."
+  NEXTAUTH_URL:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  NEXT_PUBLIC_BASE_URL:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    blinko-website:
+      image: blinkospace/blinko:1.6.3@sha256:a0bc1924a0b963b63bc2ffb8dbda15c12729672291f74b8a2e15f86125ab6934
+      environment:
+        NODE_ENV: production
+        NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+        DATABASE_URL: ${DATABASE_URL}
+        NEXTAUTH_URL: ${NEXTAUTH_URL}
+        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL}
+      depends_on:
+        blinko-postgres:
+          condition: service_healthy
+      restart: unless-stopped
+      logging:
+        options:
+          max-size: 10m
+          max-file: '3'
+      ports:
+        - 127.0.0.1:${PORT}:1111
+    blinko-postgres:
+      image: postgres:14@sha256:0472f5295d05c211cc42b3daa5e84a128e390c5267b60ced9fe044bcf4edfdb8
+      restart: unless-stopped
+      environment:
+        POSTGRES_DB: postgres
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        TZ: Asia/Shanghai
+      volumes:
+        - blinko-db:/var/lib/postgresql/data
+      healthcheck:
+        test:
+          - CMD
+          - pg_isready
+          - -U
+          - postgres
+          - -d
+          - postgres
+        interval: 5s
+        timeout: 10s
+        retries: 5
+  volumes:
+    blinko-db:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume blinko-db of this application: back it up before updating."

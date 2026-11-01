@@ -17,6 +17,7 @@ from datetime import date
 from typing import Any
 
 from noust.core.exceptions import ValidationError
+from noust.recipes.licensing import is_free_software
 
 #: The recipe format this release writes. A file without ``schema`` is the
 #: 2.3 format (version 1) and is read as a native recipe.
@@ -796,6 +797,15 @@ class Recipe:
         }
 
     @property
+    def free_software(self) -> bool:
+        """
+        Whether the project's licence is a free software one; False means source-available or open core.
+
+        A recipe that declares no licence claims nothing, so it is not labelled.
+        """
+        return not self.license or is_free_software(self.license)
+
+    @property
     def logo_icon(self) -> str | None:
         """The slug of the simple-icons mark the recipe's logo names, or None."""
         return simple_icon_slug(self.logo)
@@ -875,6 +885,7 @@ class Recipe:
             "docs": self.docs,
             "repository": self.repository,
             "license": self.license,
+            "free_software": self.free_software,
             "min_noust": self.min_noust,
             "architectures": list(self.architectures),
             "category": self.category,

@@ -1,0 +1,68 @@
+# Mongo Express from the image the project publishes (mongo-express), with the variables its documentation names (github.com/mongo-express/mongo-express, README: Usage).
+schema: 2
+name: mongo-express
+kind: compose
+title: "Mongo Express"
+slogan: "Web-based MongoDB admin interface, written with Node.js and express."
+description: "Browses and edits the databases of a MongoDB server in the browser: collections, documents, indexes, imports and exports. It comes with its own MongoDB, and a user name and a password Noust generates."
+category: development
+tags: [mongodb, database, admin, nosql]
+logo: logo.svg
+version: "1.0.2"
+revision: 1
+updated: 2026-10-30
+homepage: https://github.com/mongo-express/mongo-express
+docs: https://github.com/mongo-express/mongo-express
+repository: https://github.com/mongo-express/mongo-express
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8081
+variables:
+  ADMIN_PASSWORD:
+    generate: "password32"
+    description: "The password of the user admin."
+  MONGO_PASSWORD:
+    generate: "password32"
+    description: "The password of the MongoDB administrator (root)."
+health: {path: /, expect: "200-399,401", timeout: 120}
+compose: |
+  services:
+    mongo-express:
+      image: mongo-express:1.0.2@sha256:1b23d7976f0210dbec74045c209e52fbb26d29b2e873d6c6fa3d3f0ae32c2a64
+      restart: unless-stopped
+      depends_on:
+        mongo:
+          condition: service_healthy
+      environment:
+        ME_CONFIG_MONGODB_URL: mongodb://root:${MONGO_PASSWORD}@mongo:27017/
+        ME_CONFIG_BASICAUTH: 'true'
+        ME_CONFIG_BASICAUTH_USERNAME: admin
+        ME_CONFIG_BASICAUTH_PASSWORD: ${ADMIN_PASSWORD}
+      ports:
+        - 127.0.0.1:${PORT}:8081
+    mongo:
+      image: mongo:8.0.34@sha256:b9924c330a8bbc5800fe9c69f04a84e221eca7b28fd049a0354147d9908fa142
+      environment:
+        MONGO_INITDB_ROOT_USERNAME: root
+        MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+      volumes:
+        - mongo-express-data:/data/db
+      healthcheck:
+        test:
+          - CMD
+          - mongosh
+          - --quiet
+          - --eval
+          - db.adminCommand('ping').ok
+        interval: 10s
+        timeout: 10s
+        retries: 10
+        start_period: 20s
+      restart: unless-stopped
+  volumes:
+    mongo-express-data:
+notes:
+  - "Open {{ url }}. Sign in as admin with the password in ADMIN_PASSWORD (noust env show {{ domain }} --unmask). It manages the MongoDB of this stack; to manage another server, change ME_CONFIG_MONGODB_URL in the application's environment."
+  - "Its data is in the Docker volume mongo-express-data of this application: back it up before updating."

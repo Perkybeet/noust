@@ -20,8 +20,8 @@ category: business
 tags: [time-tracking, invoicing, projects, timesheet]
 logo: logo.svg
 version: "2.70.0"
-revision: 1
-updated: 2026-10-20
+revision: 2
+updated: 2026-10-31
 homepage: https://www.kimai.org
 docs: https://www.kimai.org/documentation/
 repository: https://github.com/kimai/kimai
@@ -47,7 +47,7 @@ variables:
     default: "null://null"
     description: The SMTP address Kimai sends e-mail through, such as smtp://user:pass@mail.example.com:587. The default sends nothing.
   MAILER_FROM:
-    default: kimai@example.com
+    value: "kimai@${KIMAI_DOMAIN}"
     description: The address e-mails come from.
   DB_PASSWORD:
     generate: password32

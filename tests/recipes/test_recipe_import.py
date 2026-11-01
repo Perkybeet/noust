@@ -158,7 +158,7 @@ def test_what_waits_for_a_service_with_a_health_check_waits_for_it_to_answer(
         {
             "web": {"image": "o/app:1.0", "depends_on": ["db", "cache"]},
             "db": {"image": "postgres:16", "healthcheck": {"test": ["CMD", "pg_isready"]}},
-            "cache": {"image": "redis:7"},
+            "cache": {"image": "o/cache:7"},
         },
         ("web", 8080),
     )
@@ -252,6 +252,8 @@ def test_a_value_that_only_looks_like_a_secret_by_its_name_is_a_setting_not_a_se
         ("Z" * 64, "password64"),
         ("0123456789abcdef" * 4, "hex64"),
         ("0123456789abcdef" * 2, "hex32"),
+        ("0123456789abcdef" * 8, "hex64"),  # imgproxy's template asked for 128 digits
+        ("0123456789abcdef" * 3, "hex32"),
         ("A" * 43 + "=", "base64_32"),
         ("x" * 20, "password32"),
         (None, "password32"),
@@ -445,6 +447,95 @@ def test_the_docker_socket_makes_the_recipe_root_on_the_server_and_nothing_else_
         assert skipped.value.code == "host-mount"
 
 
+@pytest.mark.parametrize(
+    ("volume", "kept"),
+    [
+        ("${DB_DATA_LOCATION}:/var/lib/postgresql/data", "web-data:/var/lib/postgresql/data"),
+        ("${VOLUME_US:-./metadata}:/var/lib/postgresql/data", "web-data:/var/lib/postgresql/data"),
+        ("/apprise-api/config:/config", "web-config:/config"),
+        ("/tmp/kestra-wd:/tmp/kestra-wd", "web-kestra-wd:/tmp/kestra-wd"),
+        ("${MEDIA_PATH}:/media:ro", "web-media:/media:ro"),
+    ],
+)
+def test_a_folder_of_the_host_that_holds_a_service_s_data_becomes_a_named_volume(
+    tool: ModuleType, volume: str, kept: str
+) -> None:
+    """A template written for one person's server mounted the folder; the stack keeps it in a volume."""
+    draft = tool.Draft(name="demo")
+
+    assert tool.rewrite_mount(draft, "web", volume) == kept
+    assert kept.split(":", 1)[0] in draft.volumes
+
+
+@pytest.mark.parametrize(
+    "volume",
+    [
+        "/:/userdata:ro",
+        "/etc/nginx:/etc/nginx",
+        "/var/lib/docker/containers/:/var/lib/docker/containers/",
+        "/var/log:/logs",
+        "/etc/resolv.conf:/etc/resolv.conf:ro",
+        "/data/app.db:/app.db",
+        "/data:/etc/app.conf",
+        "/var/run/docker.sock:/docker.sock",
+    ],
+)
+def test_a_path_that_is_the_server_s_own_or_a_file_is_still_not_a_volume(
+    tool: ModuleType, volume: str
+) -> None:
+    """The system's folders, the root and single files stay a reason to skip."""
+    draft = tool.Draft(name="demo")
+
+    with pytest.raises(tool.Skip) as skipped:
+        tool.rewrite_mount(draft, "web", volume)
+
+    assert skipped.value.code == "host-mount"
+
+
+@pytest.mark.parametrize(
+    ("volume", "kept"),
+    [
+        ("data:/var/lib/postgresql/data/", "data:/var/lib/postgresql/data"),
+        ("plugins:/opt/Lavalink/plugins/:rw", "plugins:/opt/Lavalink/plugins:rw"),
+        ("data:/data", "data:/data"),
+        ("root:/", "root:/"),
+    ],
+)
+def test_a_named_volume_is_mounted_where_the_folder_has_no_closing_slash(
+    tool: ModuleType, volume: str, kept: str
+) -> None:
+    """Traccar's `.../data/` was not found by the check that a database keeps its data in a volume."""
+    draft = tool.Draft(name="demo")
+
+    assert tool.rewrite_mount(draft, "web", volume) == kept
+
+
+def test_a_postgresql_18_volume_is_mounted_on_the_parent_of_the_data_folder(
+    tool: ModuleType,
+) -> None:
+    """The 18 image refuses a volume at `/var/lib/postgresql/data`: Kestra's database kept failing."""
+    services = {
+        "db": {
+            "image": "postgres:18.6@sha256:" + "a" * 64,
+            "volumes": ["data:/var/lib/postgresql/data"],
+        },
+        "vectors": {
+            "image": "pgvector/pgvector:pg18",
+            "volumes": ["v:/var/lib/postgresql/data:rw"],
+        },
+        "old": {"image": "postgres:17.11-alpine", "volumes": ["o:/var/lib/postgresql/data"]},
+        "web": {"image": "o/app:18.1", "volumes": ["w:/var/lib/postgresql/data"]},
+    }
+
+    moved = tool.fix_postgres_data_directory(services)
+
+    assert moved == ["db", "vectors"]
+    assert services["db"]["volumes"] == ["data:/var/lib/postgresql"]
+    assert services["vectors"]["volumes"] == ["v:/var/lib/postgresql:rw"]
+    assert services["old"]["volumes"] == ["o:/var/lib/postgresql/data"]
+    assert services["web"]["volumes"] == ["w:/var/lib/postgresql/data"]
+
+
 def test_a_file_of_the_template_becomes_a_file_the_recipe_ships(tool: ModuleType) -> None:
     """Dokploy's ``./files/x`` is the recipe's asset, and a folder takes its files with it."""
     draft = tool.Draft(name="demo")
@@ -461,22 +552,61 @@ def test_a_file_of_the_template_becomes_a_file_the_recipe_ships(tool: ModuleType
     assert set(draft.shipped) == {"files/app.conf", "files/conf/a.yml", "files/conf/b.yml"}
 
 
-@pytest.mark.parametrize(
-    "body",
-    ["token = abc\n", "home = ${HOME}\n", "echo $USER\n"],
-)
-def test_a_file_that_holds_a_secret_or_a_reference_is_not_shipped(
-    tool: ModuleType, body: str
-) -> None:
-    """A recipe's file is the same for every install: nothing in it may be an install's own."""
+def test_a_file_that_holds_a_secret_nobody_named_is_not_shipped(tool: ModuleType) -> None:
+    """A recipe's file is the same for every install: a secret in it must come from a variable."""
     draft = tool.Draft(name="demo")
-    draft.files = {"files/app.conf": body}
-    draft.secret_files = {"files/app.conf"} if "token" in body else set()
+    draft.files = {"files/app.conf": "token = abc\n"}
+    draft.secret_files = {"files/app.conf"}
 
     with pytest.raises(tool.Skip) as skipped:
         tool.rewrite_mount(draft, "web", "./files/app.conf:/conf/app.conf")
 
     assert skipped.value.code == "template-files"
+
+
+@pytest.mark.parametrize(
+    ("body", "rendered"),
+    [("home = ${HOME}\n", "home = $${HOME}\n"), ("echo $USER\n", "echo $$USER\n")],
+)
+def test_a_dollar_of_a_file_s_own_is_written_for_the_renderer_and_the_file_is_rendered(
+    tool: ModuleType, body: str, rendered: str
+) -> None:
+    """The renderer reads `${NAME}` as a variable of the stack, so the file's own are doubled."""
+    draft = tool.Draft(name="demo")
+    draft.files = {"files/app.conf": body}
+
+    tool.rewrite_mount(draft, "web", "./files/app.conf:/conf/app.conf")
+
+    assert draft.rendered == {"files/app.conf": rendered} and draft.shipped == {}
+
+
+@pytest.mark.parametrize("folder", ["./nginx/ssl", "./data", "./kutt/custom", "./backups"])
+def test_a_folder_named_like_data_beside_the_template_is_the_service_s_to_keep_what_it_makes(
+    tool: ModuleType, folder: str
+) -> None:
+    """Dify mounts `./nginx/ssl`, which the template holds nothing in: a named volume is that folder."""
+    draft = tool.Draft(name="demo")
+
+    kept = tool.rewrite_mount(draft, "web", f"{folder}:/srv/x")
+
+    assert (
+        kept.endswith(":/srv/x")
+        and not kept.startswith("./")
+        and kept.split(":")[0] in draft.volumes
+    )
+
+
+@pytest.mark.parametrize("folder", ["./conf", "./config", "./../data"])
+def test_a_folder_that_is_configuration_or_leaves_the_template_is_left_to_a_person(
+    tool: ModuleType, folder: str
+) -> None:
+    """What the operator would have written, or a path out of the template's directory."""
+    draft = tool.Draft(name="demo")
+
+    with pytest.raises(tool.Skip) as skipped:
+        tool.rewrite_mount(draft, "web", f"{folder}:/srv/x")
+
+    assert skipped.value.code == "host-mount"
 
 
 def test_a_folder_the_template_meant_as_data_becomes_a_named_volume(tool: ModuleType) -> None:
@@ -675,3 +805,816 @@ def test_a_setting_whose_name_looks_like_a_secret_but_holds_a_duration_becomes_a
     assert draft.variables["TOKEN_EXPIRY"]["value"] == "24h"
     declared = tool.declare_variables(draft, "x: ${TOKEN_EXPIRY}")
     assert declared["TOKEN_EXPIRY"]["default"] == "24h"
+
+
+def test_two_variables_the_converter_gave_one_random_value_stay_one_secret(
+    tool: ModuleType,
+) -> None:
+    """Dokploy expands one `db_pass` into the database's and the application's variable alike."""
+    draft = draft_of(
+        tool,
+        {
+            "db": {"image": "o/db:1", "environment": {"DB_PASSWORD": "${DB_PASSWORD}"}},
+            "web": {"image": "o/app:1", "environment": {"APP_DB_PASSWORD": "${APP_DB_PASSWORD}"}},
+        },
+        ("web", 80),
+    )
+    value = "A" * 32
+    draft.variables = {
+        "DB_PASSWORD": {"origin": "generated", "secret": True, "value": value},
+        "APP_DB_PASSWORD": {"origin": "generated", "secret": True, "value": value},
+    }
+    draft.values = {"DB_PASSWORD": value, "APP_DB_PASSWORD": value}
+
+    declared = tool.declare_variables(draft, "a: ${DB_PASSWORD}\nb: ${APP_DB_PASSWORD}\n")
+
+    assert declared["DB_PASSWORD"]["generate"] == "password32"
+    assert declared["APP_DB_PASSWORD"]["value"] == "${DB_PASSWORD}"
+    assert declared["APP_DB_PASSWORD"]["secret"] is True
+
+
+@pytest.mark.parametrize(
+    ("image", "needle"),
+    [
+        ("postgres:17", "pg_isready"),
+        ("mariadb:11", "healthcheck.sh"),
+        ("mysql:8.4", "mysqladmin ping"),
+        ("valkey/valkey:9", "valkey-cli"),
+        ("redis:7", "redis-cli"),
+        ("mongo:8", "mongosh"),
+    ],
+)
+def test_a_database_without_a_health_check_gets_one_and_what_uses_it_waits_for_it(
+    tool: ModuleType, image: str, needle: str
+) -> None:
+    """Without it the application starts before the engine answers and restarts until it does."""
+    draft = draft_of(
+        tool,
+        {
+            "web": {"image": "o/app:1.0", "ports": ["127.0.0.1:${PORT}:80"], "depends_on": ["db"]},
+            "db": {"image": image},
+        },
+        ("web", 80),
+    )
+
+    tool.clean_services(draft)
+
+    check = draft.services["db"]["healthcheck"]
+    assert needle in " ".join(check["test"])
+    assert draft.services["web"]["depends_on"] == {"db": {"condition": "service_healthy"}}
+
+
+def test_a_database_that_has_its_own_health_check_keeps_it(tool: ModuleType) -> None:
+    """What a template wrote is what its authors tested."""
+    own = {"test": ["CMD", "true"], "interval": "5s"}
+    draft = draft_of(
+        tool,
+        {
+            "web": {"image": "o/app:1.0", "ports": ["127.0.0.1:${PORT}:80"], "depends_on": ["db"]},
+            "db": {"image": "postgres:17", "healthcheck": own},
+        },
+        ("web", 80),
+    )
+
+    tool.clean_services(draft)
+
+    assert draft.services["db"]["healthcheck"] == own
+
+
+def test_the_stack_s_env_file_becomes_the_variables_the_service_takes(tool: ModuleType) -> None:
+    """`env_file: .env` is every variable of the stack; the recipe has no file, so it names them."""
+    draft = draft_of(
+        tool,
+        {
+            "web": {
+                "image": "o/app:1.0",
+                "env_file": [{"path": ".env", "required": False}],
+                "environment": {"ONE": "own"},
+                "ports": ["127.0.0.1:${PORT}:80"],
+            },
+            "worker": {"image": "o/app:1.0", "env_file": ".env"},
+        },
+        ("web", 80),
+    )
+    draft.values = {"ONE": "x", "TWO": "y", "bad-name": "z"}
+
+    tool.clean_services(draft)
+
+    assert draft.services["web"]["environment"] == {"ONE": "own", "TWO": "${TWO}"}
+    assert draft.services["worker"]["environment"] == {"ONE": "${ONE}", "TWO": "${TWO}"}
+    assert "env_file" not in draft.services["web"] and "env_file" not in draft.services["worker"]
+
+
+def test_another_env_file_is_still_a_reason_to_skip(tool: ModuleType) -> None:
+    """A file the recipe does not ship cannot be read."""
+    draft = draft_of(
+        tool, {"web": {"image": "o/app:1.0", "env_file": ["./secrets.env"]}}, ("web", 80)
+    )
+
+    with pytest.raises(tool.Skip) as caught:
+        tool.clean_services(draft)
+
+    assert caught.value.code == "service-keys"
+
+
+def test_a_dollar_the_container_s_shell_reads_is_written_the_way_compose_passes_it_on(
+    tool: ModuleType,
+) -> None:
+    """A command with $(...) or $VAR is the shell's; Compose would read it as its own variable."""
+    shell = "export K=$(cat /run/k) && exec app --key $K --home $${HOME} ${REAL}"
+    draft = draft_of(
+        tool,
+        {
+            "web": {
+                "image": "o/app:1.0",
+                "command": ["sh", "-c", shell],
+                "healthcheck": {"test": ["CMD-SHELL", "curl -f http://localhost:$PORT/"]},
+            }
+        },
+        ("web", 80),
+    )
+
+    tool.clean_services(draft)
+
+    assert draft.services["web"]["command"][2] == (
+        "export K=$$(cat /run/k) && exec app --key $$K --home $${HOME} ${REAL}"
+    )
+    assert draft.services["web"]["healthcheck"]["test"][1] == "curl -f http://localhost:$$PORT/"
+
+
+def test_a_file_with_a_secret_the_template_made_is_shipped_to_be_rendered(
+    tool: ModuleType,
+) -> None:
+    """The secret in the file is the variable's, filled in when the file is written, never typed in it."""
+    secret = "Q" * 32
+    draft = draft_of(
+        tool,
+        {"web": {"image": "o/app:1.0", "volumes": ["./files/app.conf:/etc/app.conf"]}},
+        ("web", 80),
+    )
+    draft.variables = {"APP_SECRET": {"origin": "generated", "secret": True, "value": secret}}
+    draft.values = {"APP_SECRET": secret}
+    body = f"secret = {secret}\nurl = https://app.example.com\nhost = app.example.com\nprice = $5\n"
+    draft.files = {"files/app.conf": body}
+    draft.secret_files = {"files/app.conf"}
+
+    tool.clean_services(draft)
+
+    assert draft.services["web"]["volumes"] == ["./files/app.conf:/etc/app.conf"]
+    assert draft.shipped == {}
+    assert draft.rendered["files/app.conf"] == (
+        "secret = ${APP_SECRET}\nurl = ${APP_URL}\nhost = ${APP_DOMAIN}\nprice = $$5\n"
+    )
+
+
+def test_a_file_that_holds_a_secret_nobody_can_name_is_still_a_reason_to_skip(
+    tool: ModuleType,
+) -> None:
+    """A file flagged as secret in which no variable of the stack appears cannot be made safe."""
+    draft = draft_of(
+        tool,
+        {"web": {"image": "o/app:1.0", "volumes": ["./files/app.conf:/etc/app.conf"]}},
+        ("web", 80),
+    )
+    draft.files = {"files/app.conf": "token = abcdef0123456789\n"}
+    draft.secret_files = {"files/app.conf"}
+
+    with pytest.raises(tool.Skip) as caught:
+        tool.clean_services(draft)
+
+    assert caught.value.code == "template-files"
+
+
+def test_the_variables_a_rendered_file_names_are_declared_and_the_file_is_listed_to_render(
+    tool: ModuleType,
+) -> None:
+    """The loader checks every name a rendered file uses against the recipe's variables."""
+    draft = draft_of(tool, {"web": {"image": "o/app:1.0"}}, ("web", 80))
+    draft.rendered = {"files/app.conf": "a = ${APP_URL}\nb = ${APP_DOMAIN}\n"}
+
+    declared = tool.declare_variables(draft, "x: 1\n" + "\n".join(draft.rendered.values()))
+
+    assert declared["APP_URL"]["from"] == "url" and declared["APP_DOMAIN"]["from"] == "fqdn"
+
+
+# -- the long tail: ports a stack opens on purpose --------------------------------------------------
+
+
+def test_a_port_a_template_opens_to_the_network_is_declared_not_a_reason_to_skip_it(
+    tool: ModuleType,
+) -> None:
+    """The format has `public_ports` for what a stack opens on purpose (a WebRTC media port)."""
+    draft = draft_of(
+        tool,
+        {
+            "web": {
+                "image": "o/app:1.0",
+                "ports": ["127.0.0.1:${PORT}:80", "10000:10000/udp", "4443:4443"],
+            }
+        },
+        ("web", 80),
+    )
+
+    tool.clean_services(draft)
+
+    assert draft.services["web"]["ports"] == [
+        "127.0.0.1:${PORT}:80",
+        "10000:10000/udp",
+        "4443:4443",
+    ]
+    assert [(p["port"], p["protocol"]) for p in draft.public_ports] == [
+        (10000, "udp"),
+        (4443, "tcp"),
+    ]
+    assert all("web" in p["purpose"] for p in draft.public_ports)
+
+
+def test_the_port_a_template_hands_to_the_application_is_the_port_it_listens_on(
+    tool: ModuleType,
+) -> None:
+    """Coolify's `PORT: ${PORT}` is the host's port; inside the container the application listens on its own."""
+    draft = draft_of(
+        tool,
+        {
+            "web": {
+                "image": "o/app:1.0",
+                "ports": ["127.0.0.1:${PORT:-3000}:3001"],
+                "environment": {"PORT": "${PORT}", "PUBLIC": "http://localhost:${PORT:-3000}/"},
+            }
+        },
+        ("web", 3001),
+    )
+
+    tool.clean_services(draft)
+
+    assert draft.services["web"]["environment"] == {
+        "PORT": "3001",
+        "PUBLIC": "http://localhost:3001/",
+    }
+    assert draft.services["web"]["ports"] == ["127.0.0.1:${PORT}:3001"]
+
+
+def test_a_template_that_names_no_web_service_can_be_given_one_by_a_person(
+    tool: ModuleType, tmp_path: Path
+) -> None:
+    """The console of an object store is the web service nobody told the template about."""
+    template = tmp_path / "demo.yaml"
+    template.write_text(
+        "# slogan: A store\nservices:\n  store:\n    image: o/store:1.0\n    ports:\n      - '9001'\n"
+    )
+    source = tool.Source(key="demo", name="demo", coolify=template)
+
+    tool.ROUTES["demo"] = ("store", 9001)
+    try:
+        draft, _ = tool.convert_template(source)
+    finally:
+        del tool.ROUTES["demo"]
+
+    assert draft.routed == ("store", 9001)
+
+
+def test_the_web_service_a_person_chose_gets_its_loopback_port(tool: ModuleType) -> None:
+    """The template never published it, so the recipe does."""
+    draft = draft_of(tool, {"store": {"image": "o/store:1.0"}}, ("store", 9001))
+
+    tool.clean_services(draft)
+
+    assert draft.services["store"]["ports"] == ["127.0.0.1:${PORT}:9001"]
+
+
+@pytest.mark.parametrize(
+    ("template", "name"),
+    [("open_notebook", "open-notebook"), ("bolt.diy", "bolt-diy"), ("Plain-Name", "plain-name")],
+)
+def test_a_template_s_name_becomes_one_a_recipe_may_have(
+    tool: ModuleType, template: str, name: str
+) -> None:
+    """A recipe's name is letters, digits and dashes: `open_notebook` was drafted, run, and refused."""
+    assert tool.recipe_name(template) == name
+    assert tool.NAME_OK.fullmatch(name)
+
+
+@pytest.mark.parametrize(
+    ("value", "source"), [("app.example.com", "fqdn"), ("https://app.example.com", "url")]
+)
+def test_a_variable_that_holds_a_bare_host_name_is_the_domain_and_one_with_a_scheme_is_the_url(
+    tool: ModuleType, value: str, source: str
+) -> None:
+    """Tuwunel's SERVER_NAME was given `https://domain` and refused to start."""
+    draft = draft_of(tool, {"web": {"image": "o/app:1.0"}}, ("web", 80))
+    draft.variables = {"SERVER_NAME": {"origin": "domain", "secret": False, "value": value}}
+    draft.values = {"SERVER_NAME": value}
+
+    declared = tool.declare_variables(draft, "a: ${SERVER_NAME}\n")
+
+    assert declared["SERVER_NAME"]["from"] == source
+
+
+def test_a_file_a_coolify_template_writes_inline_becomes_a_file_the_recipe_ships(
+    tool: ModuleType, tmp_path: Path
+) -> None:
+    """`content:` of a bind volume is the file's text: it is shipped, and its references are the recipe's variables."""
+    template = tmp_path / "demo.yaml"
+    template.write_text(
+        "# slogan: A demo\n"
+        "services:\n"
+        "  web:\n"
+        "    image: o/app:1.0\n"
+        "    environment:\n"
+        "      - SERVICE_URL_WEB_80\n"
+        "      - DB_PASSWORD=$SERVICE_PASSWORD_DB\n"
+        "    volumes:\n"
+        "      - type: bind\n"
+        "        source: ./app.conf\n"
+        "        target: /etc/app.conf\n"
+        "        read_only: true\n"
+        "        content: |\n"
+        "          password = ${SERVICE_PASSWORD_DB}\n"
+        "          host $host;\n"
+    )
+    source = tool.Source(key="demo", name="demo", coolify=template)
+
+    draft, _ = tool.convert_template(source)
+    tool.clean_services(draft)
+
+    assert draft.services["web"]["volumes"] == ["./files/web/app.conf:/etc/app.conf:ro"]
+    assert (
+        draft.rendered["files/web/app.conf"]
+        == "password = ${SERVICE_PASSWORD_DB}\nhost $${host};\n"
+    )
+
+
+def test_in_a_rendered_file_only_a_variable_the_recipe_declares_stays_a_reference(
+    tool: ModuleType,
+) -> None:
+    """Everything else with a dollar is text for the program that reads the file."""
+    draft = tool.Draft(name="demo")
+    draft.variables = {"KNOWN": {"origin": "generated", "secret": True, "value": None}}
+
+    made = tool.render_body(
+        draft, "a=${KNOWN} b=$KNOWN c=${OTHER} d=$other e=$$ f=$(cmd) g=$", secret=False
+    )
+
+    assert made == "a=${KNOWN} b=${KNOWN} c=$${OTHER} d=$$other e=$$$$ f=$$(cmd) g=$$"
+
+
+def test_a_routed_port_the_image_does_not_expose_follows_the_one_port_it_does(
+    tool: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Dokploy routed Apache Answer to 9080, the image listens on 80, and nothing configures 9080."""
+    monkeypatch.setattr(
+        tool.recipe_draft, "image_config", lambda reference: {"ExposedPorts": {"80/tcp": {}}}
+    )
+    draft = draft_of(
+        tool,
+        {"web": {"image": "o/app:1.0@sha256:" + "a" * 64, "ports": ["127.0.0.1:${PORT}:9080"]}},
+        ("web", 9080),
+    )
+
+    tool.align_routed_port(draft)
+
+    assert draft.services["web"]["ports"] == ["127.0.0.1:${PORT}:80"] and draft.routed == (
+        "web",
+        80,
+    )
+
+
+@pytest.mark.parametrize(
+    ("exposed", "environment"),
+    [
+        ({"80/tcp": {}, "443/tcp": {}}, {}),
+        ({}, {}),
+        ({"80/tcp": {}}, {"LISTEN": "9080"}),
+        ({"9080/tcp": {}}, {}),
+    ],
+)
+def test_a_routed_port_is_left_alone_when_the_image_says_nothing_clear_or_the_template_sets_it(
+    tool: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    exposed: dict[str, dict[str, Any]],
+    environment: dict[str, str],
+) -> None:
+    """More than one port, none, a port the template configures: what the template says stands."""
+    monkeypatch.setattr(
+        tool.recipe_draft, "image_config", lambda reference: {"ExposedPorts": exposed}
+    )
+    draft = draft_of(
+        tool,
+        {
+            "web": {
+                "image": "o/app:1.0@sha256:" + "a" * 64,
+                "ports": ["127.0.0.1:${PORT}:9080"],
+                "environment": environment,
+            }
+        },
+        ("web", 9080),
+    )
+
+    tool.align_routed_port(draft)
+
+    assert draft.services["web"]["ports"] == ["127.0.0.1:${PORT}:9080"]
+
+
+def test_an_image_that_cannot_be_read_leaves_the_port_as_it_is(
+    tool: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The registry is asked; its failure is not the template's."""
+
+    def broken(reference: str) -> dict[str, Any]:
+        raise RuntimeError("registry down")
+
+    monkeypatch.setattr(tool.recipe_draft, "image_config", broken)
+    draft = draft_of(
+        tool, {"web": {"image": "o/app:1.0", "ports": ["127.0.0.1:${PORT}:9080"]}}, ("web", 9080)
+    )
+
+    tool.align_routed_port(draft)
+
+    assert draft.routed == ("web", 9080)
+
+
+def test_a_default_that_is_a_credential_becomes_a_generated_secret(tool: ModuleType) -> None:
+    """Zitadel's template said `AdminPassword123!`: the recipe starts closed, with a password of its own."""
+    draft = draft_of(tool, {"web": {"image": "o/app:1.0"}}, ("web", 80))
+    draft.variables = {
+        "ADMIN_PASSWORD": {"origin": "template", "secret": False, "value": "AdminPassword123!"},
+        "TOKEN_TTL": {"origin": "template", "secret": False, "value": "24h"},
+        "API_SECRET": {"origin": "template", "secret": False, "value": ""},
+    }
+    draft.values = {"ADMIN_PASSWORD": "AdminPassword123!", "TOKEN_TTL": "24h", "API_SECRET": ""}
+
+    declared = tool.declare_variables(
+        draft, "a: ${ADMIN_PASSWORD}\nb: ${TOKEN_TTL}\nc: ${API_SECRET}\n"
+    )
+
+    assert (
+        declared["ADMIN_PASSWORD"]["generate"] == "password32"
+        and declared["ADMIN_PASSWORD"]["secret"]
+    )
+    assert declared["TOKEN_TTL"]["default"] == "24h"
+    assert declared["API_SECRET"]["default"] == "" and declared["API_SECRET"]["secret"]
+
+
+def test_a_default_that_names_the_sample_domain_follows_the_deployment_s_domain(
+    tool: ModuleType,
+) -> None:
+    """`admin@app.example.com` is an address nobody reads."""
+    draft = draft_of(tool, {"web": {"image": "o/app:1.0"}}, ("web", 80))
+    draft.variables = {
+        "ADMIN_EMAIL": {"origin": "template", "secret": False, "value": "admin@app.example.com"}
+    }
+    draft.values = {"ADMIN_EMAIL": "admin@app.example.com"}
+
+    declared = tool.declare_variables(draft, "a: ${ADMIN_EMAIL}\n")
+
+    assert declared["ADMIN_EMAIL"]["value"] == "admin@${APP_DOMAIN}"
+    assert declared["APP_DOMAIN"]["from"] == "fqdn"
+
+
+def test_an_address_on_any_example_domain_follows_the_deployment_s_domain(tool: ModuleType) -> None:
+    """`wallabag@example.com` and `tickets@mail.example.org` are as unread as the sample domain's."""
+    draft = draft_of(tool, {"web": {"image": "o/app:1.0"}}, ("web", 80))
+    draft.variables = {
+        "FROM_EMAIL": {"origin": "template", "secret": False, "value": "wallabag@example.com"},
+        "MAIL_FROM": {"origin": "template", "secret": False, "value": "tickets@mail.example.org"},
+        "DOCS": {"origin": "template", "secret": False, "value": "https://docs.example.com/"},
+    }
+    draft.values = {name: entry["value"] for name, entry in draft.variables.items()}
+
+    declared = tool.declare_variables(draft, "a: ${FROM_EMAIL}\nb: ${MAIL_FROM}\nc: ${DOCS}\n")
+
+    assert declared["FROM_EMAIL"]["value"] == "wallabag@${APP_DOMAIN}"
+    assert declared["MAIL_FROM"]["value"] == "tickets@${APP_DOMAIN}"
+    assert declared["DOCS"] == {
+        "default": "https://docs.example.com/",
+        "description": declared["DOCS"]["description"],
+    }
+
+
+def test_a_setting_made_of_other_variables_is_a_value_filled_in_at_the_install(
+    tool: ModuleType,
+) -> None:
+    """Spliit's database address names the user, the password and the database it was given."""
+    draft = draft_of(tool, {"web": {"image": "o/app:1.0"}}, ("web", 80))
+    draft.variables = {
+        "DB_PASSWORD": {"origin": "generated", "secret": True, "value": "x" * 32},
+        "DB_NAME": {"origin": "template", "secret": False, "value": "app"},
+        "DB_URL": {
+            "origin": "template",
+            "secret": False,
+            "value": "postgresql://app:${DB_PASSWORD}@db:5432/${DB_NAME}",
+        },
+        "LOG_FORMAT": {"origin": "template", "secret": False, "value": "${DB_NAME}-log"},
+    }
+    draft.values = {name: entry["value"] for name, entry in draft.variables.items()}
+
+    declared = tool.declare_variables(
+        draft, "a: ${DB_PASSWORD}\nb: ${DB_NAME}\nc: ${DB_URL}\nd: ${LOG_FORMAT}\n"
+    )
+
+    assert declared["DB_URL"]["value"] == "postgresql://app:${DB_PASSWORD}@db:5432/${DB_NAME}"
+    assert declared["DB_URL"]["secret"] is True
+    assert declared["LOG_FORMAT"]["value"] == "${DB_NAME}-log"
+    assert "secret" not in declared["LOG_FORMAT"]
+
+
+def test_a_credential_written_as_the_default_of_a_reference_becomes_a_generated_secret(
+    tool: ModuleType,
+) -> None:
+    """Lavalink's `${LAVALINK_SERVER_PASSWORD:-youshallnotpass}` shipped a password everybody knows."""
+    draft = draft_of(tool, {"web": {"image": "o/app:1.0"}}, ("web", 80))
+
+    declared = tool.declare_variables(
+        draft,
+        "a: ${LAVALINK_SERVER_PASSWORD:-youshallnotpass}\n"
+        "b: ${TOKEN_TTL:-3600}\n"
+        "c: ${SECRET_FILE:-/run/secrets/x}\n"
+        "d: ${API_KEY:-}\n"
+        "e: ${SERVER_PORT:-2333}\n",
+    )
+
+    assert set(declared) == {"LAVALINK_SERVER_PASSWORD"}
+    assert declared["LAVALINK_SERVER_PASSWORD"]["generate"] == "password32"
+    assert declared["LAVALINK_SERVER_PASSWORD"]["secret"] is True
+
+
+def test_a_health_check_reads_the_containers_own_variable_not_composes(tool: ModuleType) -> None:
+    """Portabase's `pg_isready -U ${POSTGRES_USER}` asked for an empty user: the database never got healthy."""
+    draft = draft_of(tool, {"web": {"image": "o/app:1.0"}}, ("web", 80))
+    draft.variables = {"POSTGRES_DB": {"origin": "template", "secret": False, "value": "app"}}
+    spec = {
+        "environment": {"POSTGRES_USER": "${DB_USER}", "POSTGRES_DB": "${POSTGRES_DB}"},
+        "healthcheck": {
+            "test": ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h ${OTHER}"]
+        },
+    }
+
+    tool.container_env_in_healthcheck(draft, spec)
+
+    assert spec["healthcheck"]["test"][1] == (
+        "pg_isready -U $${POSTGRES_USER} -d ${POSTGRES_DB} -h ${OTHER}"
+    )
+
+
+def test_a_job_the_stack_waits_for_runs_once_and_every_other_service_restarts(
+    tool: ModuleType,
+) -> None:
+    """Kan's migration under `unless-stopped` started again when it ended: `up` never finished."""
+    draft = draft_of(
+        tool,
+        {
+            "web": {
+                "image": "o/app:1.0",
+                "depends_on": {"migrate": {"condition": "service_completed_successfully"}},
+            },
+            "migrate": {"image": "o/job:1.0"},
+            "db": {"image": "o/db:1.0"},
+        },
+        ("web", 80),
+    )
+
+    tool.clean_services(draft)
+
+    assert draft.services["migrate"]["restart"] == "no"
+    assert draft.services["web"]["restart"] == draft.services["db"]["restart"] == "unless-stopped"
+    assert draft.services["web"]["depends_on"]["migrate"] == {
+        "condition": "service_completed_successfully"
+    }
+
+
+def test_a_wget_health_check_asks_the_ipv4_loopback_not_localhost(tool: ModuleType) -> None:
+    """BusyBox wget tries `::1` and stops: Wanderer's PocketBase never looked healthy."""
+    draft = draft_of(tool, {"web": {"image": "o/app:1.0"}}, ("web", 80))
+    wget = {"test": "wget --spider -q http://localhost:8090/health || exit 1"}
+    curl = {"test": ["CMD-SHELL", "curl --fail http://localhost:3000/ || exit 1"]}
+    listed = {"test": ["CMD", "wget", "-qO-", "http://localhost:80/", "-T", "localhost.example"]}
+
+    for check in (wget, curl, listed):
+        tool.container_env_in_healthcheck(draft, {"healthcheck": check})
+
+    assert wget["test"] == "wget --spider -q http://127.0.0.1:8090/health || exit 1"
+    assert curl["test"][1] == "curl --fail http://localhost:3000/ || exit 1"
+    assert listed["test"] == [
+        "CMD",
+        "wget",
+        "-qO-",
+        "http://127.0.0.1:80/",
+        "-T",
+        "localhost.example",
+    ]
+
+
+def test_a_service_a_template_marks_run_once_is_a_job_the_web_service_waits_for(
+    tool: ModuleType,
+) -> None:
+    """Teable's `restart: no` migration restarted for ever under `unless-stopped`."""
+    draft = draft_of(
+        tool,
+        {
+            "web": {"image": "o/app:1.0", "depends_on": ["db"]},
+            "db": {"image": "o/db:1.0"},
+            "migrate": {"image": "o/job:1.0", "restart": "no"},
+            "backup": {"image": "o/job:1.0", "restart": False},
+        },
+        ("web", 80),
+    )
+
+    tool.clean_services(draft)
+
+    assert draft.services["migrate"]["restart"] == draft.services["backup"]["restart"] == "no"
+    assert draft.services["web"]["depends_on"]["db"]["condition"] == "service_started"
+    assert draft.services["web"]["depends_on"]["migrate"] == {
+        "condition": "service_completed_successfully"
+    }
+    assert draft.services["db"]["restart"] == "unless-stopped"
+
+
+def test_a_bare_name_in_a_services_environment_is_the_stacks_variable_of_that_name(
+    tool: ModuleType,
+) -> None:
+    """`- POSTGRES_PASSWORD` passes the `.env` value on: the database started with an empty password."""
+    draft = draft_of(tool, {"web": {"image": "o/app:1.0"}}, ("web", 80))
+    draft.values = {"POSTGRES_PASSWORD": "x" * 24, "POSTGRES_USER": "app"}
+
+    found = tool.pass_through_names(
+        draft, ["POSTGRES_PASSWORD", "POSTGRES_USER", "TZ=UTC", "NOBODY_SET_THIS"]
+    )
+
+    assert found == {
+        "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
+        "POSTGRES_USER": "${POSTGRES_USER}",
+        "TZ": "UTC",
+        "NOBODY_SET_THIS": "",
+    }
+    assert tool.pass_through_names(draft, {"TZ": "UTC", "A": None}) == {"TZ": "UTC", "A": ""}
+
+
+def test_what_follows_a_hash_in_a_template_s_env_line_is_its_comment_not_the_default(
+    tool: ModuleType,
+) -> None:
+    """Pastefy's `CLIENT_SECRET= # GitHub API Secret` was a default made of the comment."""
+    draft = draft_of(tool, {"web": {"image": "o/app:1.0"}}, ("web", 80))
+    draft.variables = {
+        "CLIENT_ID": {"origin": "template", "secret": False, "value": "# GitHub API"}
+    }
+    draft.values = {"CLIENT_ID": "# GitHub API"}
+
+    declared = tool.declare_variables(draft, "a: ${CLIENT_ID}\n")
+
+    assert declared["CLIENT_ID"]["default"] == ""
+
+
+def test_a_ssh_port_mapped_to_another_host_port_is_left_out_and_said(tool: ModuleType) -> None:
+    """Git over SSH on 2222 is a convenience; a recipe's public port is the same on both sides."""
+    draft = draft_of(
+        tool,
+        {"web": {"image": "o/app:1.0", "ports": ["127.0.0.1:${PORT}:80", "2222:22"]}},
+        ("web", 80),
+    )
+
+    tool.clean_services(draft)
+
+    assert draft.services["web"]["ports"] == ["127.0.0.1:${PORT}:80"]
+    assert draft.public_ports == [] and draft.left_out_ssh == ["web"]
+
+
+def test_another_port_mapped_to_a_different_host_port_is_still_a_reason_to_skip(
+    tool: ModuleType,
+) -> None:
+    """A recipe's public port is the same on both sides, and a service whose port moved needs it."""
+    draft = draft_of(
+        tool,
+        {"web": {"image": "o/app:1.0", "ports": ["127.0.0.1:${PORT}:80", "9000:9001"]}},
+        ("web", 80),
+    )
+
+    with pytest.raises(tool.Skip) as caught:
+        tool.clean_services(draft)
+
+    assert caught.value.code == "extra-port"
+
+
+@pytest.mark.parametrize("port", ["53:53/udp", "80:8080", "443:8443", "22:22", "5432:5432"])
+def test_a_port_the_server_itself_uses_is_still_a_reason_to_skip(
+    tool: ModuleType, port: str
+) -> None:
+    """A recipe that takes the host's DNS, web, SSH or database port would not start beside them."""
+    draft = draft_of(
+        tool,
+        {"web": {"image": "o/app:1.0", "ports": ["127.0.0.1:${PORT}:80", port]}},
+        ("web", 80),
+    )
+
+    with pytest.raises(tool.Skip) as caught:
+        tool.clean_services(draft)
+
+    assert caught.value.code == "extra-port"
+
+
+def test_a_port_with_a_variable_or_a_range_is_not_declared(tool: ModuleType) -> None:
+    """`public_ports` names a number; a template's variable or range is for a person to read."""
+    for odd in (
+        "${MEDIA_PORT}:${MEDIA_PORT}",
+        "50000-50100:50000-50100/udp",
+        "127.0.0.1:9000:9000",
+    ):
+        draft = draft_of(tool, {"web": {"image": "o/app:1.0", "ports": [odd]}}, ("web", 80))
+
+        with pytest.raises(tool.Skip) as caught:
+            tool.clean_services(draft)
+
+        assert caught.value.code == "extra-port", odd
+
+
+# -- the long tail: a lower floor of stars, licences a person read, repositories a person found -----
+
+
+def test_the_floor_of_stars_is_the_catalogue_s_unless_a_run_lowers_it(tool: ModuleType) -> None:
+    """1,000 stars is the rule; a run that looks for the long tail lowers it, and only the stars."""
+    small = facts(stars=300)
+
+    assert tool.not_eligible(small).code == "stars"
+    assert tool.not_eligible(small, min_stars=150) is None
+    assert tool.not_eligible(facts(stars=300, archived=True), min_stars=150).code == "archived"
+    stale = facts(stars=300, released="2020-01-01T00:00:00Z")
+    assert tool.not_eligible(stale, min_stars=150).code == "stale"
+
+
+def test_a_licence_a_person_read_makes_a_project_eligible_or_names_why_it_is_not(
+    tool: ModuleType,
+) -> None:
+    """GitHub says NOASSERTION for terms of a project's own; the reading is what the importer trusts."""
+    unknown = facts(license="NOASSERTION", repository="O/App")
+    readings = {
+        "o/app": {
+            "license": "LicenseRef-App-Community",
+            "accept": True,
+            "name": "App Community License",
+            "evidence": "LICENSE of o/app, read 2026-10-30: use for your own organisation is free",
+        }
+    }
+
+    accepted = tool.with_licence(unknown, readings)
+
+    assert tool.not_eligible(accepted) is None
+    assert accepted["license"] == "LicenseRef-App-Community"
+    assert accepted["licence_name"] == "App Community License"
+    refused = tool.with_licence(
+        unknown,
+        {"o/app": {"license": "LicenseRef-App", "accept": False, "evidence": "personal use only"}},
+    )
+    verdict = tool.not_eligible(refused)
+    assert verdict is not None and verdict.code == "licence" and "personal use only" in str(verdict)
+    assert tool.not_eligible(tool.with_licence(unknown, {})).code == "licence"
+    assert tool.with_licence(None, readings) is None
+
+
+def test_a_repository_a_person_found_wins_over_what_the_template_says(
+    tool: ModuleType, tmp_path: Path
+) -> None:
+    """Templates that name no repository are not left out for it."""
+    template = tmp_path / "demo.yaml"
+    template.write_text("# documentation: https://example.com/docs\nservices: {}\n")
+    source = tool.Source(key="demo", name="demo", coolify=template)
+
+    assert tool.find_repository(source) is None
+    assert tool.find_repository(source, {"demo": "owner/demo"}) == "owner/demo"
+    assert tool.find_repository(source, {"other": "owner/other"}) is None
+
+
+def test_a_recipe_of_a_source_available_project_says_so_and_cites_the_reading(
+    tool: ModuleType,
+) -> None:
+    """The label is in the description and the evidence is in the header, for a person to check."""
+    draft = draft_of(
+        tool,
+        {"web": {"image": "o/app:1.0@sha256:" + "a" * 64, "ports": ["127.0.0.1:${PORT}:3000"]}},
+        ("web", 3000),
+    )
+    draft.origin = "Dokploy"
+    draft.template = "blueprints/app"
+    source = tool.Source(key="app", name="app")
+    reading = tool.with_licence(
+        facts(
+            license="NOASSERTION",
+            repository="o/app",
+            description="Does a thing.",
+            homepage="",
+            html_url="https://github.com/o/app",
+        ),
+        {
+            "o/app": {
+                "license": "LicenseRef-App-Community",
+                "accept": True,
+                "name": "App Community License",
+                "evidence": "LICENSE of o/app, read 2026-10-30",
+            }
+        },
+    )
+    health = {"path": "/", "expect": "200", "timeout": 60}
+
+    text = tool.build_text(draft, source, reading, ["amd64"], logo="logo.svg", health=health)
+
+    assert "# Licence: LICENSE of o/app, read 2026-10-30" in text
+    assert "license: LicenseRef-App-Community" in text
+    assert "Source-available (App Community License), for your own use. Does a thing." in text

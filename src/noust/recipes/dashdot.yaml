@@ -1,0 +1,31 @@
+# dash. from the image the project publishes (mauricenino/dashdot), as its documentation describes the container (getdashdot.com/docs/installation/docker).
+schema: 2
+name: dashdot
+kind: compose
+title: "dash."
+slogan: "A modern server dashboard, running on the latest tech."
+description: "A glassmorphism dashboard of the machine it runs on: CPU, memory, storage, network and GPU, live. It has no accounts, so keep it behind an allow-list."
+category: monitoring
+tags: [dashboard, monitoring, system, server]
+logo: simple-icons:dash
+version: "6.3.4"
+revision: 1
+updated: 2026-10-30
+homepage: https://getdashdot.com/
+docs: https://getdashdot.com/
+repository: https://github.com/MauriceNino/dashdot
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3001
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    dashdot:
+      image: mauricenino/dashdot:6.3.4@sha256:434a54d2937411a06b09c50e55709cc7d3b092c0fe173a9e5c986f9b5a33c7c6
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:3001
+notes:
+  - "Open {{ url }}. It has no sign-in, and it shows the resources of the container it runs in: restrict who can reach it."

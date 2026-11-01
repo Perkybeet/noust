@@ -1,0 +1,68 @@
+# Drupal from the image the project publishes (drupal), as its documentation describes the container (hub.docker.com/_/drupal).
+# Licence: core/LICENSE.txt of drupal/drupal, read 2026-10-30: GNU General Public License, version 2 or later
+schema: 2
+name: drupal
+kind: compose
+title: "Drupal"
+slogan: "Open source content management platform."
+description: "A content management system for sites with many kinds of content, users and permissions, with thousands of modules and themes. It starts at its installer and runs with its own PostgreSQL."
+category: cms
+tags: [cms, content, php, website]
+logo: simple-icons:drupal
+version: "11.4.11-apache"
+revision: 1
+updated: 2026-10-30
+homepage: https://drupal.org/project/drupal
+docs: https://drupal.org/project/drupal
+repository: https://github.com/drupal/drupal
+license: GPL-2.0-or-later
+architectures: ["386", "amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  DB_PASSWORD:
+    generate: "password32"
+    description: "The password of the stack's PostgreSQL account."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    drupal:
+      image: drupal:11.4.11-apache@sha256:af3be8c20223e693669825b6c2f413e99fc81ae04dbf413607b6e6f4ef08ccc5
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      volumes:
+        - drupal-sites:/var/www/html/sites
+        - drupal-modules:/var/www/html/modules
+        - drupal-themes:/var/www/html/themes
+        - drupal-profiles:/var/www/html/profiles
+      ports:
+        - 127.0.0.1:${PORT}:80
+    db:
+      image: postgres:17.11-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: drupal
+        POSTGRES_DB: drupal
+        POSTGRES_PASSWORD: ${DB_PASSWORD}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U drupal -d drupal
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - drupal-db:/var/lib/postgresql/data
+  volumes:
+    drupal-sites:
+    drupal-modules:
+    drupal-themes:
+    drupal-profiles:
+    drupal-db:
+notes:
+  - "Open {{ url }}. The first visit is Drupal's installer: do it right after installing, with database type PostgreSQL, host db, name drupal, user drupal and the password in DB_PASSWORD (noust env show {{ domain }} --unmask)."
+  - "Its data is in the Docker volumes drupal-sites, drupal-modules, drupal-themes, drupal-profiles, drupal-db of this application, the databases dumped by Noust before every update: back them up before updating."

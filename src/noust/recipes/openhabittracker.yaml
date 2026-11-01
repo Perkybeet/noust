@@ -1,0 +1,64 @@
+# OpenHabitTracker: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/openhabittracker
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: openhabittracker
+kind: compose
+title: "OpenHabitTracker"
+slogan: "C# .NET 10 Blazor habit tracker application. Works on Web, Windows, Linux, Android, iOS and macOS."
+description: "Take notes, plan tasks and track habits - free, ad-free, open source, with all data on your own server. Native apps for Windows, Linux, Android, iOS and macOS sync to it."
+category: productivity
+tags: [productivity, notes, tasks, habits, self-hosted]
+logo: logo.svg
+version: "1.2.5"
+revision: 1
+updated: 2026-10-31
+homepage: https://openhabittracker.net
+docs: https://openhabittracker.net
+repository: https://github.com/Jinjinov/OpenHabitTracker
+license: GPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  OHT_USERNAME:
+    default: "admin"
+    description: "Setting OHT_USERNAME of the application; the template leaves it to the operator."
+  APP_DOMAIN:
+    from: "fqdn"
+    description: "The domain people use to reach the application."
+  OHT_EMAIL:
+    value: "admin@${APP_DOMAIN}"
+    description: "Setting OHT_EMAIL of the application; the template leaves it to the operator."
+  OHT_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for oht password."
+  OHT_JWT_SECRET:
+    generate: "password64"
+    secret: true
+    description: "The secret Noust generated for oht jwt secret."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    openhabittracker:
+      image: jinjinov/openhabittracker:1.2.5@sha256:c040b1b7c961554a6e60c2b84d916298056d9703f5e1da5b1e54b2720f14177b
+      environment:
+        AppSettings__UserName: ${OHT_USERNAME}
+        AppSettings__Email: ${OHT_EMAIL}
+        AppSettings__Password: ${OHT_PASSWORD}
+        AppSettings__JwtSecret: ${OHT_JWT_SECRET}
+      volumes:
+        - openhabittracker-data:/app/.OpenHabitTracker
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8080
+  volumes:
+    openhabittracker-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume openhabittracker-data of this application: back it up before updating."

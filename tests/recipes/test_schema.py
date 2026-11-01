@@ -511,6 +511,52 @@ def test_the_compose_document_is_held_to_what_an_untrusted_one_is(
     refused(compose_recipe(compose=text.replace(old, new)), message)
 
 
+JOB = (
+    "  migrate:\n    image: ghcr.io/o/job:1.0.0@{digest}\n    restart: {restart}\n"
+    '    environment:\n      SECRET: "${{SECRET}}"\n'
+)
+
+
+def with_job(restart: str, condition: str) -> str:
+    """The valid document with a second service that the first one waits for as a job."""
+    text = compose_document()
+    wait = f"    depends_on:\n      migrate:\n        condition: {condition}\n"
+    text = text.replace(
+        "    environment:\n      SECRET", wait + "    environment:\n      SECRET", 1
+    )
+    return text.replace(
+        "volumes:\n  data:", JOB.format(digest=DIGEST, restart=restart) + "volumes:\n  data:", 1
+    )
+
+
+@pytest.mark.parametrize("restart", ['"no"', "no", "on-failure"])
+def test_a_job_the_stack_waits_for_may_run_once_instead_of_restarting(restart: str) -> None:
+    """A migration under `unless-stopped` starts again when it ends, and nothing waits for it long enough."""
+    recipe = parse_recipe(
+        "demo", compose_recipe(compose=with_job(restart, "service_completed_successfully"))
+    )
+
+    assert {image.service for image in recipe.images} == {"web", "migrate"}
+
+
+@pytest.mark.parametrize(
+    ("restart", "condition"),
+    [
+        ('"no"', "service_started"),
+        ("on-failure", "service_healthy"),
+        ("always", "service_completed_successfully"),
+    ],
+)
+def test_only_a_job_that_is_waited_for_to_finish_may_skip_the_restart_policy(
+    restart: str, condition: str
+) -> None:
+    """A long-running service that never restarts would be down after the server's next reboot."""
+    refused(
+        compose_recipe(compose=with_job(restart, condition)),
+        "service migrate needs restart: unless-stopped",
+    )
+
+
 def test_the_document_may_mount_a_docker_socket_never() -> None:
     """The guard's own refusal is not weakened by the closed schema."""
     text = compose_document().replace("- data:/data", "- /var/run/docker.sock:/var/run/docker.sock")

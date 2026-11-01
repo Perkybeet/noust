@@ -1,0 +1,130 @@
+# Usesend: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/usesend.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: usesend
+kind: compose
+title: "Usesend"
+slogan: "Usesend is an open-source alternative to Resend, Sendgrid, Mailgun and Postmark etc."
+description: "Open source alternative to Resend, Sendgrid, Postmark etc."
+category: communication
+tags: [resend, mailer, marketing, emails, transaction, self-hosting, postmark, e-mail]
+logo: logo.svg
+version: "1.10.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://useSend.com
+docs: https://docs.usesend.com/self-hosting/overview
+repository: https://github.com/usesend/useSend
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_USER_POSTGRES:
+    generate: "user"
+    description: "The user name Noust generated for postgres."
+  SERVICE_PASSWORD_POSTGRES:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres."
+  SERVICE_URL_USESEND:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_BASE64_64_NEXTAUTHSECRET:
+    generate: "base64_64"
+    secret: true
+    description: "The secret Noust generated for nextauthsecret."
+  AWS_ACCESS_KEY:
+    required: true
+    description: "Needed to start the application; the installation asks for it."
+  AWS_SECRET_KEY:
+    required: true
+    description: "Needed to start the application; the installation asks for it."
+  AWS_DEFAULT_REGION:
+    required: true
+    description: "Needed to start the application; the installation asks for it."
+  GITHUB_ID:
+    required: true
+    description: "Needed to start the application; the installation asks for it."
+  GITHUB_SECRET:
+    required: true
+    description: "Needed to start the application; the installation asks for it."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    postgres:
+      image: postgres:16@sha256:1beaa3084eee2676f20a9cd9928f0bf2c5bf674f8e49f81017912183d377c61c
+      environment:
+        POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+        POSTGRES_DB: ${SERVICE_DB_POSTGRES:-usesend}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      volumes:
+        - usesend-postgres-data:/var/lib/postgresql/data
+      restart: unless-stopped
+    redis:
+      image: redis:7@sha256:b6b6e3dc0c0952737748e55d5d885272840c7e42ba41ab1d5489f693419882f5
+      volumes:
+        - usesend-redis-data:/data
+      command:
+        - redis-server
+        - --maxmemory-policy
+        - noeviction
+      healthcheck:
+        test:
+          - CMD
+          - redis-cli
+          - PING
+        interval: 5s
+        timeout: 10s
+        retries: 20
+      restart: unless-stopped
+    usesend:
+      image: usesend/usesend:v1.10.0@sha256:cd60aacbff4711d7fc09bd7620f64387be2b7bd1050e1d9d4992657e329fcba4
+      environment:
+        SERVICE_URL_USESEND: ${SERVICE_URL_USESEND}
+        DATABASE_URL: postgresql://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/${SERVICE_DB_POSTGRES:-usesend}
+        NEXTAUTH_URL: ${SERVICE_URL_USESEND}
+        NEXTAUTH_SECRET: ${SERVICE_BASE64_64_NEXTAUTHSECRET}
+        AWS_ACCESS_KEY: ${AWS_ACCESS_KEY:?}
+        AWS_SECRET_KEY: ${AWS_SECRET_KEY:?}
+        AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:?}
+        GITHUB_ID: ${GITHUB_ID:?}
+        GITHUB_SECRET: ${GITHUB_SECRET:?}
+        REDIS_URL: redis://redis:6379
+        NEXT_PUBLIC_IS_CLOUD: ${NEXT_PUBLIC_IS_CLOUD:-false}
+        API_RATE_LIMIT: ${API_RATE_LIMIT:-1}
+        HOSTNAME: 0.0.0.0
+      depends_on:
+        postgres:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - wget -qO- http://usesend:3000 || exit 1
+        interval: 5s
+        retries: 10
+        timeout: 2s
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:3000
+  volumes:
+    usesend-postgres-data:
+    usesend-redis-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_USER_POSTGRES and SERVICE_PASSWORD_POSTGRES in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes usesend-postgres-data, usesend-redis-data of this application: back them up before updating."

@@ -1,0 +1,88 @@
+# Calibre Web Automated Book Downloader: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/calibre-web-automated-book-downloader.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: calibre-web-automated-book-downloader
+kind: compose
+title: "Calibre Web Automated Book Downloader"
+slogan: "An intuitive web interface for searching and requesting book downloads."
+description: "An intuitive web interface for searching and requesting book downloads, designed to work..."
+category: media
+tags: [calibre, calibre-web, ebook, library, epub, ereader, kindle, book]
+logo: logo.svg
+version: "4.0.8"
+revision: 1
+updated: 2026-10-30
+homepage: https://github.com/calibrain/shelfmark
+docs: https://github.com/calibrain/calibre-web-automated-book-downloader
+repository: https://github.com/calibrain/shelfmark
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_CWA:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  TZ:
+    default: "UTC"
+    description: "Setting TZ of the application; the template leaves it to the operator."
+  SERVICE_URL_DOWNLOADER:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    calibre-web-automated:
+      image: crocodilestick/calibre-web-automated:v4.0.8@sha256:5e00373854247750cc3e4479b492ae09293ff5e06ed10177f226634d97888679
+      environment:
+        SERVICE_URL_CWA: ${SERVICE_URL_CWA}
+        PUID: ${PUID:-1000}
+        PGID: ${PGID:-1000}
+        TZ: ${TZ}
+        NETWORK_SHARE_MODE: ${NETWORK_SHARE_MODE:-false}
+      volumes:
+        - cwa-config:/config
+        - cwa-book-ingest:/cwa-book-ingest
+        - calibre-library:/calibre-library
+        - calibre-plugins:/config/.config/calibre/plugins
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - curl -fs http://localhost:8083 || exit 1
+        interval: 30s
+        timeout: 10s
+        retries: 3
+        start_period: 30s
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8083
+    calibre-web-downloader:
+      image: ghcr.io/calibrain/calibre-web-automated-book-downloader:1.5.1@sha256:acfa46b8be80f1e2f084a7703ff027ab274397feb24006114e92c05c140b62c3
+      environment:
+        SERVICE_URL_DOWNLOADER: ${SERVICE_URL_DOWNLOADER}
+        FLASK_PORT: ${FLASK_PORT:-8084}
+        LOG_LEVEL: ${LOG_LEVEL:-info}
+        BOOK_LANGUAGE: ${BOOK_LANGUAGE:-en}
+        USE_BOOK_TITLE: ${USE_BOOK_TITLE:-true}
+        TZ: ${TZ}
+        APP_ENV: ${APP_ENV:-prod}
+        UID: ${UID:-1000}
+        GID: ${GID:-100}
+        CWA_DB_PATH: ${CWA_DB_PATH:-/cwa-config/app.db}
+      volumes:
+        - cwa-book-ingest:/cwa-book-ingest
+        - cwa-config:/cwa-config
+      restart: unless-stopped
+  volumes:
+    cwa-config:
+    cwa-book-ingest:
+    calibre-library:
+    calibre-plugins:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes cwa-config, cwa-book-ingest, calibre-library, calibre-plugins of this application: back them up before updating."

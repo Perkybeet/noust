@@ -101,7 +101,15 @@ def print_recipe(logger: Logger, recipe: Recipe) -> None:
         if recipe.tags:
             logger.key_value("Tags", ", ".join(recipe.tags))
         if recipe.license:
-            logger.key_value("License", recipe.license)
+            logger.key_value(
+                "License",
+                recipe.license
+                + (
+                    ""
+                    if recipe.free_software
+                    else " (not free software: source-available or open core)"
+                ),
+            )
     logger.key_value("Kind", "compose: runs in Docker" if recipe.runs_in_docker else "native")
     if recipe.architectures:
         logger.key_value("Architectures", ", ".join(recipe.architectures))
@@ -272,6 +280,8 @@ def list_command(
             )
             continue
         badge = " [Docker]" if recipe.runs_in_docker else ""
+        # Said on the line, not only on the page of one recipe: the list is where it is chosen.
+        badge += " [not free software]" if recipe.license and not recipe.free_software else ""
         mine = " [yours]" if recipe.origin == "operator" else ""
         version = f" {recipe.version}" if recipe.version else ""
         logger.key_value(

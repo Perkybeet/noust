@@ -1,0 +1,37 @@
+# Sshwifty from the image the project publishes (niruix/sshwifty), with the variable its documentation names (github.com/nirui/sshwifty, README: Configuration).
+schema: 2
+name: sshwifty
+kind: compose
+title: "Sshwifty"
+slogan: "WebSSH & WebTelnet client."
+description: "An SSH and Telnet client in the browser: type a host, a user and a key and get a terminal, with saved presets. A shared key stops strangers from using the server as a jump host; it is generated."
+category: development
+tags: [ssh, telnet, terminal, remote]
+logo: logo.svg
+version: "0.4.12-beta-release"
+revision: 1
+updated: 2026-10-30
+homepage: https://sshwifty-demo.nirui.org
+docs: https://sshwifty-demo.nirui.org
+repository: https://github.com/nirui/sshwifty
+license: AGPL-3.0-only
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8182
+variables:
+  SHARED_KEY:
+    generate: "password32"
+    description: "The key people type to use the client; without it the server would be a jump host for everyone."
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    sshwifty:
+      image: niruix/sshwifty:0.4.12-beta-release@sha256:1a3ef74bd2e2dea175dee02763f918933f5f28954c3f7788883daede382c3f6b
+      restart: unless-stopped
+      environment:
+        SSHWIFTY_SHAREDKEY: ${SHARED_KEY}
+      ports:
+        - 127.0.0.1:${PORT}:8182
+notes:
+  - "Open {{ url }}. People are asked for the shared key in SHARED_KEY (noust env show {{ domain }} --unmask). Anybody who has it can open a connection from this server to any host it can reach."

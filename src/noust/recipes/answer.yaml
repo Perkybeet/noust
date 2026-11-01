@@ -1,0 +1,66 @@
+# Answer: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/answer
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: answer
+kind: compose
+title: "Answer"
+slogan: "A Q&A platform software for teams at any scales."
+description: "Answer is an open-source Q&A platform for building a self-hosted question-and-answer service."
+category: communication
+tags: [q-and-a, self-hosted, communication]
+logo: simple-icons:answer
+version: "2.0.3"
+revision: 1
+updated: 2026-10-30
+homepage: https://answer.apache.org
+docs: https://answer.apache.org/docs
+repository: https://github.com/apache/answer
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  POSTGRES_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres password."
+health: {path: /, expect: "200-399", timeout: 600}
+compose: |
+  services:
+    answer:
+      image: apache/answer:2.0.3@sha256:0863470d8293294b899f8b39a373df6d6250c3f3e412ea0e483924b41e23428f
+      restart: unless-stopped
+      volumes:
+        - answer-data:/data
+      depends_on:
+        db:
+          condition: service_healthy
+      ports:
+        - 127.0.0.1:${PORT}:80
+    db:
+      image: postgres:16@sha256:1beaa3084eee2676f20a9cd9928f0bf2c5bf674f8e49f81017912183d377c61c
+      restart: unless-stopped
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+        interval: 5s
+        timeout: 5s
+        retries: 5
+      volumes:
+        - db-data:/var/lib/postgresql/data
+      environment:
+        POSTGRES_DB: answer
+        POSTGRES_USER: ${POSTGRES_PASSWORD}
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  volumes:
+    answer-data:
+    db-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes answer-data, db-data of this application: back them up before updating."

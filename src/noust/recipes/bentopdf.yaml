@@ -1,0 +1,52 @@
+# BentoPDF: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/bento-pdf.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: bentopdf
+kind: compose
+title: "BentoPDF"
+slogan: "Process PDFs entirely in your browser. No uploads. No servers. Complete privacy."
+description: "BentoPDF is a lightweight PDF conversion microservice that exposes a simple HTTP API for generating PDFs."
+category: files
+tags: [pdf, manipulation, web, tool, converter, api, utility, files]
+logo: logo.svg
+version: "1.16.1"
+revision: 1
+updated: 2026-10-31
+homepage: https://bentopdf.com/
+docs: https://bentopdf.com/docs
+repository: https://github.com/alam00000/bentopdf
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_BENTOPDF:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    bento-pdf:
+      image: ghcr.io/alam00000/bentopdf:v1.16.1@sha256:d98223eb82661a9f6624a813ed7fc44ad4f80e761e24116a721e1cd891ac8c3f
+      environment:
+        SERVICE_URL_BENTOPDF: ${SERVICE_URL_BENTOPDF}
+      healthcheck:
+        test:
+          - CMD
+          - wget
+          - -q
+          - --spider
+          - http://127.0.0.1:8080
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8080
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."

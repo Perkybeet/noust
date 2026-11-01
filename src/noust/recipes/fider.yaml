@@ -1,0 +1,126 @@
+# Fider: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/fider.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: fider
+kind: compose
+title: "Fider"
+slogan: "Fider is a feedback platform for collecting and managing user feedback."
+description: "Fider is an open-source feedback portal for collecting, discussing, and prioritizing feature requests."
+category: utilities
+tags: [feedback, user-feedback, product, roadmap, self-hosted, utilities]
+logo: logo.svg
+version: "0.38.2"
+revision: 1
+updated: 2026-10-30
+homepage: https://fider.io
+docs: https://fider.io
+repository: https://github.com/getfider/fider
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_FIDER:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_USER_POSTGRES:
+    generate: "user"
+    description: "The user name Noust generated for postgres."
+  SERVICE_PASSWORD_POSTGRES:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres."
+  SERVICE_PASSWORD_64_FIDER:
+    generate: "password64"
+    secret: true
+    description: "The secret Noust generated for fider."
+  EMAIL_MAILGUN_API:
+    default: ""
+    description: "Setting EMAIL_MAILGUN_API of the application; the template leaves it to the operator."
+  EMAIL_MAILGUN_DOMAIN:
+    default: ""
+    description: "Setting EMAIL_MAILGUN_DOMAIN of the application; the template leaves it to the operator."
+  EMAIL_MAILGUN_REGION:
+    default: ""
+    description: "Setting EMAIL_MAILGUN_REGION of the application; the template leaves it to the operator."
+  EMAIL_SMTP_PASSWORD:
+    default: ""
+    secret: true
+    description: "Setting EMAIL_SMTP_PASSWORD of the application; the template leaves it to the operator."
+  EMAIL_SMTP_ENABLE_STARTTLS:
+    default: ""
+    description: "Setting EMAIL_SMTP_ENABLE_STARTTLS of the application; the template leaves it to the operator."
+  EMAIL_AWSSES_REGION:
+    default: ""
+    description: "Setting EMAIL_AWSSES_REGION of the application; the template leaves it to the operator."
+  EMAIL_AWSSES_ACCESS_KEY_ID:
+    default: ""
+    secret: true
+    description: "Setting EMAIL_AWSSES_ACCESS_KEY_ID of the application; the template leaves it to the operator."
+  EMAIL_AWSSES_SECRET_ACCESS_KEY:
+    default: ""
+    secret: true
+    description: "Setting EMAIL_AWSSES_SECRET_ACCESS_KEY of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    fider:
+      image: getfider/fider:v0.38.2@sha256:25d17db73c3d86292d75b29cda296343bbce8e6d3b313e7661525f30eb6d946c
+      environment:
+        SERVICE_URL_FIDER: ${SERVICE_URL_FIDER}
+        BASE_URL: ${SERVICE_URL_FIDER}
+        DATABASE_URL: postgres://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@database:5432/fider?sslmode=disable
+        JWT_SECRET: ${SERVICE_PASSWORD_64_FIDER}
+        EMAIL_NOREPLY: ${EMAIL_NOREPLY:-noreply@example.com}
+        EMAIL_MAILGUN_API: ${EMAIL_MAILGUN_API}
+        EMAIL_MAILGUN_DOMAIN: ${EMAIL_MAILGUN_DOMAIN}
+        EMAIL_MAILGUN_REGION: ${EMAIL_MAILGUN_REGION}
+        EMAIL_SMTP_HOST: ${EMAIL_SMTP_HOST:-smtp.mailgun.com}
+        EMAIL_SMTP_PORT: ${EMAIL_SMTP_PORT:-587}
+        EMAIL_SMTP_USERNAME: ${EMAIL_SMTP_USERNAME:-postmaster@mailgun.com}
+        EMAIL_SMTP_PASSWORD: ${EMAIL_SMTP_PASSWORD}
+        EMAIL_SMTP_ENABLE_STARTTLS: ${EMAIL_SMTP_ENABLE_STARTTLS}
+        EMAIL_AWSSES_REGION: ${EMAIL_AWSSES_REGION}
+        EMAIL_AWSSES_ACCESS_KEY_ID: ${EMAIL_AWSSES_ACCESS_KEY_ID}
+        EMAIL_AWSSES_SECRET_ACCESS_KEY: ${EMAIL_AWSSES_SECRET_ACCESS_KEY}
+      healthcheck:
+        test:
+          - CMD
+          - /app/fider
+          - ping
+        interval: 2s
+        timeout: 10s
+        retries: 10
+      restart: unless-stopped
+      depends_on:
+        database:
+          condition: service_healthy
+      ports:
+        - 127.0.0.1:${PORT}:3000
+    database:
+      image: postgres:17.11-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+      volumes:
+        - pg_data:/var/lib/postgresql/data
+      environment:
+        POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+        POSTGRES_DB: ${POSTGRES_DB:-fider}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+  volumes:
+    pg_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_USER_POSTGRES and SERVICE_PASSWORD_POSTGRES and SERVICE_PASSWORD_64_FIDER in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume pg_data of this application: back it up before updating."

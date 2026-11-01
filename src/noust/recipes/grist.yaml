@@ -1,0 +1,162 @@
+# Grist: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/grist.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: grist
+kind: compose
+title: "Grist"
+slogan: "Grist is a modern relational spreadsheet."
+description: "Grist is an open-source spreadsheet and database alternative that combines the flexibility of spreadsheets with the power of databases."
+category: data
+tags: [lowcode, nocode, spreadsheet, database, relational, productivity, self-hosted, data-management]
+logo: logo.svg
+version: "1.7.22"
+revision: 1
+updated: 2026-10-30
+homepage: https://www.getgrist.com
+docs: https://support.getgrist.com/
+repository: https://github.com/gristlabs/grist-core
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_GRIST:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_FQDN_GRIST:
+    from: "fqdn"
+    description: "The address people use to reach the application, as the template builds it."
+  OIDC_IDP_ISSUER:
+    required: true
+    description: "Needed to start the application; the installation asks for it."
+  OIDC_IDP_CLIENT_ID:
+    required: true
+    description: "Needed to start the application; the installation asks for it."
+  OIDC_IDP_CLIENT_SECRET:
+    required: true
+    description: "Needed to start the application; the installation asks for it."
+  SERVICE_REALBASE64_128:
+    generate: "base64_32"
+    secret: true
+    description: "The secret Noust generated for 128."
+  ALLOWED_WEBHOOK_DOMAINS:
+    default: ""
+    description: "Setting ALLOWED_WEBHOOK_DOMAINS of the application; the template leaves it to the operator."
+  SERVICE_USER_POSTGRES:
+    generate: "user"
+    description: "The user name Noust generated for postgres."
+  SERVICE_PASSWORD_POSTGRES:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres."
+  FREE_COACHING_CALL_URL:
+    default: ""
+    description: "Setting FREE_COACHING_CALL_URL of the application; the template leaves it to the operator."
+  CONTACT_SUPPORT_URL:
+    default: ""
+    description: "Setting CONTACT_SUPPORT_URL of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    grist:
+      image: gristlabs/grist:1.7.22@sha256:c2221950675081c79a06a44c27f8c65cc96c43d93d76f2b3214d8dbdff709355
+      environment:
+        SERVICE_URL_GRIST: ${SERVICE_URL_GRIST}
+        APP_HOME_URL: ${SERVICE_URL_GRIST}
+        APP_DOC_URL: ${SERVICE_URL_GRIST}
+        GRIST_DOMAIN: ${SERVICE_FQDN_GRIST}
+        TZ: ${TZ:-UTC}
+        GRIST_SUPPORT_ANON: ${SUPPORT_ANON:-false}
+        GRIST_FORCE_LOGIN: ${FORCE_LOGIN:-true}
+        COOKIE_MAX_AGE: ${COOKIE_MAX_AGE:-86400000}
+        GRIST_PAGE_TITLE_SUFFIX: ${PAGE_TITLE_SUFFIX:- - Suffix}
+        GRIST_HIDE_UI_ELEMENTS: ${HIDE_UI_ELEMENTS:-billing,sendToDrive,supportGrist,multiAccounts,tutorials}
+        GRIST_UI_FEATURES: ${UI_FEATURES:-helpCenter,billing,templates,createSite,multiSite,sendToDrive,tutorials,supportGrist}
+        GRIST_DEFAULT_EMAIL: ${DEFAULT_EMAIL:-?}
+        GRIST_ORG_IN_PATH: ${ORG_IN_PATH:-true}
+        GRIST_OIDC_SP_HOST: ${SERVICE_URL_GRIST}
+        GRIST_OIDC_IDP_SCOPES: ${OIDC_IDP_SCOPES:-openid profile email}
+        GRIST_OIDC_IDP_SKIP_END_SESSION_ENDPOINT: ${OIDC_IDP_SKIP_END_SESSION_ENDPOINT:-false}
+        GRIST_OIDC_IDP_ISSUER: ${OIDC_IDP_ISSUER:?}
+        GRIST_OIDC_IDP_CLIENT_ID: ${OIDC_IDP_CLIENT_ID:?}
+        GRIST_OIDC_IDP_CLIENT_SECRET: ${OIDC_IDP_CLIENT_SECRET:?}
+        GRIST_SESSION_SECRET: ${SERVICE_REALBASE64_128}
+        GRIST_HOME_INCLUDE_STATIC: ${HOME_INCLUDE_STATIC:-true}
+        GRIST_SANDBOX_FLAVOR: ${SANDBOX_FLAVOR:-gvisor}
+        ALLOWED_WEBHOOK_DOMAINS: ${ALLOWED_WEBHOOK_DOMAINS}
+        COMMENTS: ${COMMENTS:-true}
+        TYPEORM_TYPE: ${TYPEORM_TYPE:-postgres}
+        TYPEORM_DATABASE: ${POSTGRES_DATABASE:-grist-db}
+        TYPEORM_USERNAME: ${SERVICE_USER_POSTGRES}
+        TYPEORM_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+        TYPEORM_HOST: ${TYPEORM_HOST:-postgres}
+        TYPEORM_PORT: ${TYPEORM_PORT:-5432}
+        TYPEORM_LOGGING: ${TYPEORM_LOGGING:-false}
+        REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+        GRIST_HELP_CENTER: ${SERVICE_URL_GRIST}/help
+        GRIST_TERMS_OF_SERVICE_URL: ${SERVICE_URL_GRIST}/terms
+        FREE_COACHING_CALL_URL: ${FREE_COACHING_CALL_URL}
+        GRIST_CONTACT_SUPPORT_URL: ${CONTACT_SUPPORT_URL}
+      volumes:
+        - grist-data:/persist
+      depends_on:
+        postgres:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      healthcheck:
+        test:
+          - CMD
+          - node
+          - -e
+          - 'require(''http'').get(''http://localhost:8484/status'', res => process.exit(res.statusCode
+            === 200 ? 0 : 1))'
+          - '> /dev/null 2>&1'
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8484
+    postgres:
+      image: postgres:16@sha256:1beaa3084eee2676f20a9cd9928f0bf2c5bf674f8e49f81017912183d377c61c
+      environment:
+        POSTGRES_DB: ${POSTGRES_DATABASE:-grist-db}
+        POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+      volumes:
+        - grist_postgres_data:/var/lib/postgresql/data
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+        interval: 5s
+        timeout: 10s
+        retries: 20
+      restart: unless-stopped
+    redis:
+      image: redis:7@sha256:b6b6e3dc0c0952737748e55d5d885272840c7e42ba41ab1d5489f693419882f5
+      volumes:
+        - grist_redis_data:/data
+      healthcheck:
+        test:
+          - CMD
+          - redis-cli
+          - PING
+        interval: 5s
+        timeout: 10s
+        retries: 20
+      restart: unless-stopped
+  volumes:
+    grist-data:
+    grist_postgres_data:
+    grist_redis_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_USER_POSTGRES and SERVICE_PASSWORD_POSTGRES in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes grist-data, grist_postgres_data, grist_redis_data of this application: back them up before updating."

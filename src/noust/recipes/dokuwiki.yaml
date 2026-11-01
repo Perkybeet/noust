@@ -6,7 +6,7 @@ schema: 2
 name: dokuwiki
 kind: compose
 title: "DokuWiki"
-slogan: "A lightweight and easy-to-use wiki platform for creating and managing documentation and..."
+slogan: "A simple wiki that keeps its pages in plain text files, with no database."
 description: "A simple to use and highly versatile Open Source wiki software that doesn't require a database."
 category: productivity
 tags: [wiki, documentation, knowledge, base, productivity]

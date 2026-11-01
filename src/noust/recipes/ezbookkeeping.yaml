@@ -1,0 +1,119 @@
+# EZBookkeeping: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/ezbookkeeping
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: ezbookkeeping
+kind: compose
+title: "EZBookkeeping"
+slogan: "ezBookkeeping is an open source, powerful, self-hosted personal finance app that is easy to use."
+description: "EZBookkeeping is a self-hosted bookkeeping application that helps you manage your personal and business finances. It provides features for tracking income, expenses, accounts, and generating financial reports."
+category: business
+tags: [bookkeeping, finance, accounting, self-hosted, personal-finance, business-finance, business]
+logo: logo.svg
+version: "2.1.1"
+revision: 1
+updated: 2026-10-30
+homepage: https://ezbookkeeping.mayswind.net
+docs: https://github.com/mayswind/ezbookkeeping
+repository: https://github.com/mayswind/ezbookkeeping
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  MYSQL_ROOT_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for mysql root password."
+  MYSQL_DATABASE:
+    default: "ezbookkeeping"
+    description: "Setting MYSQL_DATABASE of the application; the template leaves it to the operator."
+  MYSQL_USER:
+    default: "ezbookkeeping"
+    description: "Setting MYSQL_USER of the application; the template leaves it to the operator."
+  MYSQL_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for mysql password."
+  EBK_SERVER_DOMAIN:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  EBK_SERVER_ENABLE_GZIP:
+    default: "true"
+    description: "Setting EBK_SERVER_ENABLE_GZIP of the application; the template leaves it to the operator."
+  EBK_DATABASE_TYPE:
+    default: "mysql"
+    description: "Setting EBK_DATABASE_TYPE of the application; the template leaves it to the operator."
+  EBK_DATABASE_HOST:
+    default: "mysql:3306"
+    description: "Setting EBK_DATABASE_HOST of the application; the template leaves it to the operator."
+  EBK_DATABASE_NAME:
+    default: "ezbookkeeping"
+    description: "Setting EBK_DATABASE_NAME of the application; the template leaves it to the operator."
+  EBK_DATABASE_USER:
+    default: "ezbookkeeping"
+    description: "Setting EBK_DATABASE_USER of the application; the template leaves it to the operator."
+  EBK_DATABASE_PASSWD:
+    value: "${MYSQL_PASSWORD}"
+    secret: true
+    description: "Setting EBK_DATABASE_PASSWD of the application; the template leaves it to the operator."
+  EBK_LOG_MODE:
+    default: "file"
+    description: "Setting EBK_LOG_MODE of the application; the template leaves it to the operator."
+  EBK_SECURITY_SECRET_KEY:
+    generate: "password64"
+    secret: true
+    description: "The secret Noust generated for ebk security secret key."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    mysql:
+      image: mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
+      restart: unless-stopped
+      environment:
+        MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+        MYSQL_DATABASE: ${MYSQL_DATABASE}
+        MYSQL_USER: ${MYSQL_USER}
+        MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      volumes:
+        - mysql-data:/var/lib/mysql
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - mysqladmin ping -h 127.0.0.1 --silent
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+    ezbookkeeping:
+      image: mayswind/ezbookkeeping:2.1.1@sha256:584e4d7f6fc1642773e840b56296f8782912e3bb17abfe3c49097508b198cdb7
+      restart: unless-stopped
+      depends_on:
+        mysql:
+          condition: service_healthy
+      environment:
+        EBK_SERVER_DOMAIN: ${EBK_SERVER_DOMAIN}
+        EBK_SERVER_ENABLE_GZIP: ${EBK_SERVER_ENABLE_GZIP}
+        EBK_DATABASE_TYPE: ${EBK_DATABASE_TYPE}
+        EBK_DATABASE_HOST: ${EBK_DATABASE_HOST}
+        EBK_DATABASE_NAME: ${EBK_DATABASE_NAME}
+        EBK_DATABASE_USER: ${EBK_DATABASE_USER}
+        EBK_DATABASE_PASSWD: ${EBK_DATABASE_PASSWD}
+        EBK_LOG_MODE: ${EBK_LOG_MODE}
+        EBK_SECURITY_SECRET_KEY: ${EBK_SECURITY_SECRET_KEY}
+      volumes:
+        - storage:/ezbookkeeping/storage
+        - logs:/ezbookkeeping/log
+      ports:
+        - 127.0.0.1:${PORT}:8080
+  volumes:
+    mysql-data:
+    storage:
+    logs:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes mysql-data, storage, logs of this application: back them up before updating."

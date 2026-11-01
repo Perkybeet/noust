@@ -1,0 +1,101 @@
+# Matrix Synapse from the image Element publishes (ghcr.io/element-hq/synapse), with the
+# PostgreSQL its documentation asks for outside a test (element-hq.github.io/synapse/latest/setup/
+# installation.html, docs/postgres.md and docs/usage/configuration/config_documentation.md) and the
+# configuration written out instead of generated: homeserver.yaml is a file of the recipe with this
+# stack's address and secrets filled in. The server name is the address the application answers on and
+# cannot change afterwards (user ids carry it); /.well-known/matrix/server is served by Synapse itself
+# (serve_server_wellknown), so federation reaches the server on 443 without the 8448 port. The
+# signing key is created by Synapse the first time it starts, in the data volume. The database needs
+# C collation and UTF-8 (POSTGRES_INITDB_ARGS), which Synapse checks and refuses to start without.
+# The image drops to user 991 and a new named volume belongs to root, so the signing key could not be
+# written: UID and GID 0 (the image's own switches) keep it running as the container's root, which
+# is the container's, not the host's.
+#
+# Registration is closed: accounts are made by the operator with register_new_matrix_user (the
+# first note). Federation is open, to the servers the matrix.org key server vouches for.
+schema: 2
+name: synapse
+kind: compose
+title: Matrix Synapse
+slogan: The reference homeserver of the Matrix network, for chat and calls that federate.
+description: "A Matrix homeserver: end-to-end encrypted chat, rooms and calls that federate with every other Matrix server, used with Element or any Matrix client. Runs with its own PostgreSQL. Registration is closed; you make the accounts."
+category: communication
+tags: [matrix, chat, federation, messaging, e2ee]
+logo: simple-icons:matrix
+version: "1.164.1"
+revision: 1
+updated: 2026-10-30
+homepage: https://element-hq.github.io/synapse/
+docs: https://element-hq.github.io/synapse/latest/
+repository: https://github.com/element-hq/synapse
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8008
+variables:
+  PUBLIC_URL:
+    from: url
+    description: The address people and other Matrix servers reach this server at.
+  SERVER_NAME:
+    from: fqdn
+    description: The Matrix server name, the part of every user id after the colon. It cannot change after the first start.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+  REGISTRATION_SECRET:
+    generate: password64
+    description: What register_new_matrix_user uses to make accounts while registration is closed.
+  MACAROON_SECRET:
+    generate: password64
+    description: Signs the access tokens Synapse hands out; changing it signs everybody out.
+  FORM_SECRET:
+    generate: password64
+    description: Signs the forms of the pages Synapse serves.
+health:
+  path: /health
+  expect: "200"
+  timeout: 120
+files:
+  homeserver.yaml: {asset: homeserver.yaml, render: true, mode: "0644"}
+  noust.nginx.yaml: noust.nginx.yaml
+compose: |
+  services:
+    synapse:
+      image: ghcr.io/element-hq/synapse:v1.164.1@sha256:fa4aa980f279bcf26d4e7ecc2a2c9a701c73f2ebe8841da9bdcf3b2fdf693d75
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
+        UID: "0"
+        GID: "0"
+      volumes:
+        - synapse-data:/data
+        - ./homeserver.yaml:/data/homeserver.yaml:ro
+      ports:
+        - "127.0.0.1:${PORT}:8008"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: synapse
+        POSTGRES_DB: synapse
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+        POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U synapse -d synapse"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - synapse-db:/var/lib/postgresql/data
+  volumes:
+    synapse-data:
+    synapse-db:
+notes:
+  - "Make the first account, an administrator, now: noust app exec {{ domain }} -- register_new_matrix_user -c /data/homeserver.yaml -a http://localhost:8008. It asks for the name and the password. Registration is closed, so nobody else can until you open it in the configuration."
+  - "The server name is {{ domain }} and user ids look like @name:{{ domain }}; it cannot change after the first start. Point a Matrix client (Element, for example) at {{ url }}. The signing key and the media are in the volume synapse-data, the rooms and accounts in the PostgreSQL of this stack (synapse-db, dumped by Noust before every update); back up both, and keep the signing key."
+  - "Federation uses the web server's own port: Synapse serves /.well-known/matrix/server on {{ url }}, so no other port needs opening. To allow sign-ups, change homeserver.yaml in the application's folder (enable_registration, and a way to verify who registers) and restart."

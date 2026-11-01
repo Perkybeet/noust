@@ -1,0 +1,131 @@
+# Weblate: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/weblate.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: weblate
+kind: compose
+title: "Weblate"
+slogan: "Weblate is a libre software web-based continuous localization system."
+description: "Weblate is a libre web-based continuous localization platform with tight version control integration, quality checks, and support for over 50 file formats including PO, XLIFF, JSON, and Android resources."
+category: utilities
+tags: [localization, translation, web, web-based, continuous, libre, software, i18n]
+logo: simple-icons:weblate
+version: "2026.10.1.4"
+revision: 1
+updated: 2026-10-30
+homepage: https://weblate.org/
+docs: https://weblate.org
+repository: https://github.com/WeblateOrg/weblate
+license: GPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_WEBLATE:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_FQDN_WEBLATE:
+    from: "fqdn"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_PASSWORD_WEBLATE:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for weblate."
+  SERVICE_PASSWORD_POSTGRES:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres."
+  SERVICE_USER_POSTGRES:
+    generate: "user"
+    description: "The user name Noust generated for postgres."
+  SERVICE_PASSWORD_REDIS:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for redis."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    weblate:
+      depends_on:
+        postgresql:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      image: weblate/weblate:2026.10.1.4@sha256:c74bf3c6f5cb52e4aa141e6f605c0f4fdefdcf1e89d1a9fbd011a79a4a83807d
+      environment:
+        SERVICE_URL_WEBLATE: ${SERVICE_URL_WEBLATE}
+        WEBLATE_SITE_DOMAIN: ${SERVICE_FQDN_WEBLATE}
+        WEBLATE_ADMIN_NAME: ${WEBLATE_ADMIN_NAME:-Admin}
+        WEBLATE_ADMIN_EMAIL: ${WEBLATE_ADMIN_EMAIL:-admin@example.com}
+        WEBLATE_ADMIN_PASSWORD: ${SERVICE_PASSWORD_WEBLATE}
+        DEFAULT_FROM_EMAIL: ${WEBLATE_ADMIN_EMAIL:-admin@example.com}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+        POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+        POSTGRES_DATABASE: ${POSTGRES_DB:-weblate}
+        POSTGRES_HOST: postgresql
+        POSTGRES_PORT: '5432'
+        REDIS_HOST: redis
+        REDIS_PORT: '6379'
+        REDIS_PASSWORD: ${SERVICE_PASSWORD_REDIS}
+      volumes:
+        - weblate-data:/app/data
+        - weblate-cache:/app/cache
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - -f
+          - http://127.0.0.1:8080
+        interval: 2s
+        timeout: 10s
+        retries: 30
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8080
+    postgresql:
+      image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
+      volumes:
+        - postgresql-data:/var/lib/postgresql/data
+      environment:
+        POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+        POSTGRES_DB: ${POSTGRES_DB:-weblate}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+    redis:
+      image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
+      command: '--appendonly yes --requirepass ${SERVICE_PASSWORD_REDIS}
+
+        '
+      environment:
+        REDIS_PASSWORD: ${SERVICE_PASSWORD_REDIS}
+      volumes:
+        - weblate-redis-data:/data
+      healthcheck:
+        test:
+          - CMD
+          - redis-cli
+          - ping
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+  volumes:
+    weblate-data:
+    weblate-cache:
+    postgresql-data:
+    weblate-redis-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_PASSWORD_WEBLATE and SERVICE_PASSWORD_POSTGRES and SERVICE_USER_POSTGRES and SERVICE_PASSWORD_REDIS in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes weblate-data, weblate-cache, postgresql-data, weblate-redis-data of this application: back them up before updating."

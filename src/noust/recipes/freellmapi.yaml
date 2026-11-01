@@ -1,0 +1,61 @@
+# FreeLLMAPI: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/freellmapi
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: freellmapi
+kind: compose
+title: "FreeLLMAPI"
+slogan: "7.4 billion tokens per month. 34 free LLM providers. 635 free model endpoints."
+description: "FreeLLMAPI aggregates free tiers from 29 LLM providers into a single OpenAI-compatible endpoint with smart routing, automatic failover, per-key rate tracking, and encrypted key storage."
+category: ai
+tags: [ai, proxy, llm, openai-compatible, developer-tools]
+logo: logo.svg
+version: "0.8.4"
+revision: 1
+updated: 2026-10-30
+homepage: https://freellmapi.co
+docs: https://github.com/tashfeenahmed/freellmapi/blob/main/docs/install.md
+repository: https://github.com/tashfeenahmed/freellmapi
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  ENCRYPTION_KEY:
+    generate: "hex64"
+    secret: true
+    description: "The secret Noust generated for encryption key."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    freellmapi:
+      image: ghcr.io/tashfeenahmed/freellmapi:v0.8.4@sha256:d162b053b634eb7ce2dbed693e350c89b8e423168d06b2686b790f64a998fbfe
+      restart: unless-stopped
+      environment:
+        NODE_ENV: production
+        PORT: '3001'
+        ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      volumes:
+        - freellmapi-data:/app/server/data
+      healthcheck:
+        test:
+          - CMD
+          - node
+          - -e
+          - fetch('http://127.0.0.1:3001/api/ping').then((res) => { if (!res.ok) process.exit(1); }).catch(()
+            => process.exit(1));
+        interval: 30s
+        timeout: 5s
+        start_period: 15s
+        retries: 3
+      ports:
+        - 127.0.0.1:${PORT}:3001
+  volumes:
+    freellmapi-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume freellmapi-data of this application: back it up before updating."

@@ -1,0 +1,80 @@
+# Cap (CAPTCHA): Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/cap-captcha.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+# Licence: LICENSE of tiagozip/cap, read 2026-10-30: the Apache License 2.0
+schema: 2
+name: cap-captcha
+kind: compose
+title: "Cap (CAPTCHA)"
+slogan: "The self-hosted CAPTCHA for the modern web."
+description: "The self-hosted CAPTCHA for the modern web."
+category: security
+tags: [captcha, security, privacy, proof-of-work]
+logo: logo.svg
+version: "3.0.4"
+revision: 1
+updated: 2026-10-31
+homepage: https://trycap.dev
+docs: https://capjs.js.org/guide/
+repository: https://github.com/tiagozip/cap
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_CAP:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_PASSWORD_ADMIN:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for admin."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    cap:
+      image: tiago2/cap:3.0.4@sha256:f2b2cb7dc86e9bd7d46ba6daeab685a2478e51570b7cf81bcb7acf917192af2d
+      environment:
+        SERVICE_URL_CAP: ${SERVICE_URL_CAP}
+        ADMIN_KEY: ${SERVICE_PASSWORD_ADMIN}
+        REDIS_URL: redis://valkey:6379
+      healthcheck:
+        test:
+          - CMD
+          - bun
+          - -e
+          - fetch('http://localhost:3000').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))
+        interval: 30s
+        timeout: 5s
+        retries: 3
+        start_period: 5s
+      depends_on:
+        valkey:
+          condition: service_healthy
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:3000
+    valkey:
+      image: valkey/valkey:9-alpine@sha256:bf09d58e96d6b4524a15396b65b242bbe18beebbcc15a04d8ee75ddac62fae0b
+      volumes:
+        - valkey-data:/data
+      command: valkey-server --save 60 1 --loglevel warning --maxmemory-policy noeviction
+      healthcheck:
+        test:
+          - CMD
+          - valkey-cli
+          - ping
+        interval: 5s
+        timeout: 3s
+        retries: 5
+      restart: unless-stopped
+  volumes:
+    valkey-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_PASSWORD_ADMIN in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume valkey-data of this application: back it up before updating."

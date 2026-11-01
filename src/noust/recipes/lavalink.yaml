@@ -1,0 +1,73 @@
+# Lavalink: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/lavalink
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: lavalink
+kind: compose
+title: "Lavalink"
+slogan: "Standalone audio sending node based on Lavaplayer."
+description: "Lavalink is an open source standalone audio sending node based on Lavaplayer."
+category: utilities
+tags: [voice, discord, utilities]
+logo: logo.svg
+version: "4.2.2"
+revision: 1
+updated: 2026-10-30
+homepage: https://lavalink.dev/
+docs: https://lavalink.dev/getting-started/index.html
+repository: https://github.com/lavalink-devs/Lavalink
+license: MIT
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  _JAVA_OPTIONS:
+    default: "-Xmx1G"
+    description: "Setting _JAVA_OPTIONS of the application; the template leaves it to the operator."
+  LAVALINK_SERVER_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for lavalink server password."
+  SERVER_PORT:
+    default: "2333"
+    description: "Setting SERVER_PORT of the application; the template leaves it to the operator."
+health: {path: /version, expect: "200-399,401", timeout: 180}
+files:
+  files/application.yml:
+    asset: files/application.yml
+    mode: "0644"
+compose: |
+  services:
+    lavalink:
+      image: ghcr.io/lavalink-devs/lavalink:4.2.2@sha256:87ae53e60dc147c9dddb28e126ce503a26bc8d1477ed8d99543614677882afff
+      restart: unless-stopped
+      user: "0:0"
+      environment:
+        _JAVA_OPTIONS: ${_JAVA_OPTIONS}
+        LAVALINK_SERVER_PASSWORD: ${LAVALINK_SERVER_PASSWORD}
+        SERVER_PORT: ${SERVER_PORT}
+      volumes:
+        - ./files/application.yml:/opt/Lavalink/application.yml:rw
+        - lavalink-plugins:/opt/Lavalink/plugins/:rw
+      healthcheck:
+        test: 'sh -c ''wget --header="Authorization: ${LAVALINK_SERVER_PASSWORD}" -qO- http://127.0.0.1:${SERVER_PORT}/v4/info
+          >/dev/null 2>&1 || exit 1''
+
+          '
+        interval: 100s
+        timeout: 5s
+        retries: 5
+        start_period: 30s
+      entrypoint: "sh -c 'until [ -w /opt/Lavalink/plugins ] ; do\n          echo \"waiting for /opt/Lavalink/plugins\
+        \ to be writable\";\n          sleep 1;\n       done;\n       exec java -jar /opt/Lavalink/Lavalink.jar'\n"
+      ports:
+        - 127.0.0.1:${PORT}:2333
+  volumes:
+    lavalink-plugins:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume lavalink-plugins of this application: back them up before updating."

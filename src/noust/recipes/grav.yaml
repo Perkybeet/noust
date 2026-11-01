@@ -1,0 +1,44 @@
+# Grav from the image the project publishes (ghcr.io/linuxserver/grav), with the variables and folder its documentation names (docs.linuxserver.io/images/docker-grav).
+schema: 2
+name: grav
+kind: compose
+title: "Grav"
+slogan: "A modern open source flat-file CMS."
+description: "A content management system with no database: pages are Markdown files in folders, with themes, plugins, a page editor in the admin and a very fast render. The first visit to the admin makes its administrator."
+category: cms
+tags: [cms, flat-file, markdown, php]
+logo: simple-icons:grav
+version: "2.2.17"
+revision: 1
+updated: 2026-10-31
+homepage: https://getgrav.org
+docs: https://getgrav.org
+repository: https://github.com/getgrav/grav
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  TZ:
+    default: "UTC"
+    description: "The time zone, such as Europe/Madrid."
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    grav:
+      image: ghcr.io/linuxserver/grav:2.2.17@sha256:24d3f01a2e47e88b8641b0f25b22614e8e827ac2bc76081a55cc33bafa59c65a
+      restart: unless-stopped
+      environment:
+        PUID: '1000'
+        PGID: '1000'
+        TZ: ${TZ}
+      volumes:
+        - grav-config:/config
+      ports:
+        - 127.0.0.1:${PORT}:80
+  volumes:
+    grav-config:
+notes:
+  - "Open {{ url }}. Open {{ url }}/admin: the first visit asks to create the administrator, so do it right after installing; until then anybody who reaches it can."
+  - "Its data is in the Docker volume grav-config of this application: back it up before updating."

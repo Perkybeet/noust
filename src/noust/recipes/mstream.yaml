@@ -1,0 +1,52 @@
+# mStream from the image the project publishes (ghcr.io/linuxserver/mstream), with the variables and folders its documentation names (docs.linuxserver.io/images/docker-mstream).
+schema: 2
+name: mstream
+kind: compose
+title: "mStream"
+slogan: "Personal music streaming server."
+description: "Streams your music library to a browser or a phone app, with playlists, search, a file explorer and shared links. The first visit makes the administrator; put the music in its volume."
+category: media
+tags: [music, streaming, player, library]
+logo: logo.svg
+version: "6.32.1"
+revision: 1
+updated: 2026-10-30
+homepage: https://github.com/IrosTheBeggar/mStream
+docs: https://github.com/IrosTheBeggar/mStream
+repository: https://github.com/IrosTheBeggar/mStream
+license: GPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  PUID:
+    default: "0"
+    description: "The user ID the process runs as inside the container. 0 is root."
+  PGID:
+    default: "0"
+    description: "The group ID the process runs as inside the container."
+  TZ:
+    default: "UTC"
+    description: "The time zone, such as Europe/Madrid."
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    mstream:
+      image: ghcr.io/linuxserver/mstream:6.32.1@sha256:aa3da8578195a97c7bb0caa5051b0c66ea318c12d753f711a2b35db0f139f724
+      restart: unless-stopped
+      environment:
+        PUID: ${PUID}
+        PGID: ${PGID}
+        TZ: ${TZ}
+      volumes:
+        - mstream-config:/config
+        - mstream-music:/music
+      ports:
+        - 127.0.0.1:${PORT}:3000
+  volumes:
+    mstream-config:
+    mstream-music:
+notes:
+  - "Open {{ url }}. Until an administrator exists the page is open to anybody who reaches it: create one right after installing. Put your music in the volume mstream-music."
+  - "Its data is in the Docker volumes mstream-config, mstream-music of this application: back them up before updating."

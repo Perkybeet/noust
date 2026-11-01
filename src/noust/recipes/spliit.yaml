@@ -1,0 +1,88 @@
+# Spliit: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/spliit
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: spliit
+kind: compose
+title: "Spliit"
+slogan: "Free and Open Source Alternative to Splitwise. Share expenses with your friends and family."
+description: "Spliit is a lightweight, self-hosted alternative to Auth0 and Clerk. Open-source, cost-effective, and developer-friendly, it provides secure authentication (OAuth, email/password, social logins) with full control over your data. No per-user fees, easy to integrate, and perfect for startups or privacy-focused projects."
+category: business
+tags: [budgeting, finance, money, business]
+logo: logo.svg
+version: "1.19.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://spliit.app
+docs: https://github.com/spliit-app
+repository: https://github.com/spliit-app/spliit
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  DB_USERNAME:
+    default: "spliit-admin"
+    description: "Setting DB_USERNAME of the application; the template leaves it to the operator."
+  DB_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for db password."
+  DB_DATABASE:
+    default: "spliit"
+    description: "Setting DB_DATABASE of the application; the template leaves it to the operator."
+  POSTGRES_PRISMA_URL:
+    value: "postgresql://${DB_USERNAME}:${DB_PASSWORD}@spliit-db:5432/${DB_DATABASE}"
+    secret: true
+    description: "Setting POSTGRES_PRISMA_URL of the application; the template leaves it to the operator."
+  POSTGRES_URL_NON_POOLING:
+    value: "postgresql://${DB_USERNAME}:${DB_PASSWORD}@spliit-db:5432/${DB_DATABASE}"
+    secret: true
+    description: "Setting POSTGRES_URL_NON_POOLING of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    spliit:
+      image: ghcr.io/spliit-app/spliit:1.19.0@sha256:2f0f44d58768bed6c7c9aed72f74e43a14599b459828cd87227a7c35ba29b9b8
+      restart: unless-stopped
+      depends_on:
+        spliit-db:
+          condition: service_healthy
+      ports:
+        - 127.0.0.1:${PORT}:3000
+      environment:
+        DB_USERNAME: ${DB_USERNAME}
+        DB_PASSWORD: ${DB_PASSWORD}
+        DB_DATABASE: ${DB_DATABASE}
+        POSTGRES_PRISMA_URL: ${POSTGRES_PRISMA_URL}
+        POSTGRES_URL_NON_POOLING: ${POSTGRES_URL_NON_POOLING}
+    spliit-db:
+      image: pgvector/pgvector:pg16@sha256:7b822b0aac60967beb1ea5e576b8602c94c300a157d187f385ae3e0da199b90a
+      volumes:
+        - spliit-db-data:/var/lib/postgresql/data
+      environment:
+        POSTGRES_USER: ${DB_USERNAME}
+        POSTGRES_PASSWORD: ${DB_PASSWORD}
+        POSTGRES_DB: ${DB_DATABASE:-spliit}
+        POSTGRES_INITDB_ARGS: --data-checksums
+      healthcheck:
+        test:
+          - CMD
+          - pg_isready
+          - -U
+          - ${DB_USERNAME}
+          - -d
+          - ${DB_DATABASE:-spliit}
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      restart: unless-stopped
+  volumes:
+    spliit-db-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume spliit-db-data of this application: back it up before updating."

@@ -1,0 +1,39 @@
+# Homer from the image the project publishes (b4bz/homer), with the /www/assets volume and INIT_ASSETS its container instructions document (github.com/bastienwirtz/homer/blob/main/docs/configuration.md and the README's Docker section).
+schema: 2
+name: homer
+kind: compose
+title: "Homer"
+slogan: "A very simple static homepage for your server."
+description: "A dashboard of links to your services, read from a YAML file: groups, icons, search and themes. It is static, with no sign-in and nothing to log into: whoever reaches the address sees the page, so keep to links you do not mind showing."
+category: utilities
+tags: [dashboard, homepage, links, static]
+logo: logo.svg
+version: "26.08.3"
+revision: 1
+updated: 2026-10-30
+homepage: https://homer-demo.netlify.app/
+docs: https://homer-demo.netlify.app/
+repository: https://github.com/bastienwirtz/homer
+license: Apache-2.0
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8080
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    homer:
+      image: b4bz/homer:v26.08.3@sha256:febc8967c9f7648ec37633ef3ae1ec90dbe8b7c46fecab80299f08f05be7ecb6
+      restart: unless-stopped
+      environment:
+        INIT_ASSETS: '1'
+      volumes:
+        - homer-assets:/www/assets
+      ports:
+        - 127.0.0.1:${PORT}:8080
+  volumes:
+    homer-assets:
+notes:
+  - "Open {{ url }}. It shows an example page until you write your own: the configuration is config.yml in the volume homer-assets."
+  - "Edit the page: noust app exec {{ domain }} -- vi /www/assets/config.yml, or copy a file over it with docker cp. There is no sign-in: do not put anything on the page that should stay private."
+  - "Its data is in the Docker volume homer-assets of this application: back it up before updating."

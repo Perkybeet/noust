@@ -58,10 +58,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
+from noust.recipes.logo_bounds import crop_to_figure, figure_bounds, figure_share  # noqa: E402
 from noust.recipes.logo_png import PNG_SIGNATURE, sanitize_png  # noqa: E402
 from noust.recipes.logo_sanitize import sanitize_svg  # noqa: E402
 from noust.recipes.logos import (  # noqa: E402
+    FORBIDS_ALTERING,
     NOTICE_FILE,
+    REPAINT_RULES,
     parse_logo_notice,
     simple_icon_slug,
     validate_svg,
@@ -321,6 +324,7 @@ def render_notice(
     copyright_line: str = "",
     terms: str = "",
     changes: str = CHANGES,
+    repaint: str = "",
 ) -> str:
     """
     Args:
@@ -331,6 +335,7 @@ def render_notice(
         copyright_line: The copyright line the licence asks to travel.
         terms: What the project's rules on its logo say, and where and when they were read.
         changes: What was done to the file.
+        repaint: What the console may do with the mark's colours (``no`` or ``white-black``).
 
     Returns:
         The ``LOGO-NOTICE``.
@@ -340,6 +345,8 @@ def render_notice(
         lines.append(f"Copyright: {copyright_line}")
     if terms:
         lines.append(f"Terms: {terms}")
+    if repaint:
+        lines.append(f"Repaint: {repaint}")
     lines.append(f"Retrieved: {retrieved.isoformat()}")
     lines.append(f"Changes: {changes}")
     return "\n".join(lines) + "\n"
@@ -355,6 +362,7 @@ def add_logo(
     retrieved: date,
     copyright_line: str = "",
     terms: str = "",
+    repaint: str = "",
     recipes_dir: Path = RECIPES,
 ) -> Path:
     """
@@ -369,6 +377,8 @@ def add_logo(
         retrieved: The day it was taken.
         copyright_line: The copyright line the licence asks to travel.
         terms: What the project's rules on its logo say.
+        repaint: What the console may do with the mark's colours when the project's rules say it
+            is not to be changed: ``no``, or ``white-black``. Required when the terms say so.
         recipes_dir: Where the recipes are.
 
     Returns:
@@ -381,10 +391,16 @@ def add_logo(
     """
     if name in FORBIDDEN:
         raise SystemExit(f"{name} is given the monogram: {FORBIDDEN[name]}")
-    notice = render_notice(
-        title, source, licence, retrieved, copyright_line=copyright_line, terms=terms
-    )
-    parse_logo_notice(name, notice)
+    if repaint not in ("", *REPAINT_RULES):
+        raise RecipeError(f"--repaint is one of {', '.join(REPAINT_RULES)}")
+    if FORBIDS_ALTERING.search(terms) and not repaint:
+        # The console draws a black mark in white on the dark stone: a project that says its mark is
+        # not to be changed must be asked what the console may do, not promised "shown unmodified".
+        raise RecipeError(
+            "the terms say the mark is not to be changed: say what the console may do with its "
+            f"colours with --repaint ({' or '.join(REPAINT_RULES)})"
+        )
+    changes = CHANGES
     folder = recipes_dir / "assets" / name
     folder.mkdir(parents=True, exist_ok=True)
     if data.startswith(PNG_SIGNATURE):
@@ -394,11 +410,64 @@ def add_logo(
         (folder / "logo.svg").unlink(missing_ok=True)
     else:
         written = folder / "logo.svg"
-        written.write_text(sanitize_svg(name, data, title=logo_title(title)), encoding="utf-8")
+        rewritten = sanitize_svg(name, data, title=logo_title(title))
+        # A file drawn for a banner has a picture far larger than its figure: the figure is given
+        # its own frame, and the notice says so.
+        cropped = crop_to_figure(rewritten)
+        if cropped != rewritten:
+            share = round((figure_share(rewritten) or 0) * 100)
+            changes += (
+                f"; the viewBox was cropped to the figure, which covered {share}% of the picture "
+                "(the shapes are not touched)"
+            )
+            rewritten = cropped
+        written.write_text(rewritten, encoding="utf-8")
         (folder / "logo.png").unlink(missing_ok=True)
+    notice = render_notice(
+        title,
+        source,
+        licence,
+        retrieved,
+        copyright_line=copyright_line,
+        terms=terms,
+        changes=changes,
+        repaint=repaint,
+    )
+    parse_logo_notice(name, notice)
     (folder / NOTICE_FILE).write_text(notice, encoding="utf-8")
     set_logo(recipes_dir / f"{name}.yaml", written.name)
     return written
+
+
+#: How much longer than tall (or the other way) a figure may be before a person is told to look for
+#: a squarer variant of the mark: the console draws a mark into a square, and at 32 pixels a figure
+#: three times wider than tall is ten pixels high.
+STRIP_ASPECT = 2.5
+
+
+def strip_warning(svg: str) -> str | None:
+    """
+    Args:
+        svg: A mark as it is now written.
+
+    Returns:
+        A sentence for the person adding it when the figure is a strip, else None.
+    """
+    from xml.etree import ElementTree as ET
+
+    box = figure_bounds(ET.fromstring(svg))  # noqa: S314 - a mark that just passed the policy
+    if box is None:
+        return None
+    width, height = box[2] - box[0], box[3] - box[1]
+    if width <= 0 or height <= 0 or max(width / height, height / width) <= STRIP_ASPECT:
+        return None
+    ratio = max(width / height, height / width)
+    return (
+        f"the figure is {ratio:.1f} times {'wider' if width > height else 'taller'} than "
+        "it is "
+        f"{'tall' if width > height else 'wide'}: at 32 pixels it is a strip. Look for a variant of "
+        "the mark made for small sizes (the symbol without the name, a square icon)"
+    )
 
 
 def monogram_letters(text: str) -> str | None:
@@ -463,6 +532,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--copyright", default="", help="add: the copyright line the licence asks for"
     )
     parser.add_argument("--terms", default="", help="add: what the project's rules on its logo say")
+    parser.add_argument(
+        "--repaint",
+        choices=REPAINT_RULES,
+        default="",
+        help="add: what the console may do with the colours when the rules say the mark is not to "
+        "be changed (no: draw it as it is; white-black: pure black on the light stone, pure "
+        "white on the dark one)",
+    )
     parser.add_argument("--retrieved", default=date.today().isoformat())
     parser.add_argument("--title", help="add: the project's name")
     args = parser.parse_args(argv)
@@ -481,11 +558,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                 retrieved=date.fromisoformat(args.retrieved),
                 copyright_line=args.copyright,
                 terms=args.terms,
+                repaint=args.repaint,
             )
         except RecipeError as exc:
             print(exc.message)
             return 1
         print(f"{written.relative_to(ROOT)}: {written.stat().st_size} bytes")
+        warning = (
+            strip_warning(written.read_text(encoding="utf-8")) if written.suffix == ".svg" else None
+        )
+        if warning:
+            print(f"warning: {warning}")
         return 0
 
     collection = load_collection(args.icons)

@@ -1,0 +1,9 @@
+<clickhouse>
+  <logger>
+    <level>warning</level>
+  </logger>
+  <custom_settings_prefixes>hyperdx</custom_settings_prefixes>
+  <max_server_memory_usage>2147483648</max_server_memory_usage>
+  <mark_cache_size>134217728</mark_cache_size>
+  <uncompressed_cache_size>67108864</uncompressed_cache_size>
+</clickhouse>

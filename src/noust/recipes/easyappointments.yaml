@@ -1,0 +1,85 @@
+# Easyappointments: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/easyappointments.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: easyappointments
+kind: compose
+title: "Easyappointments"
+slogan: "A free online appointment scheduler that lets customers book on your own website."
+description: "Easy!Appointments is a highly customizable web application that allows customers to book appointments with you via a sophisticated web interface."
+category: automation
+tags: [calendar, scheduling, database, appointments, booking, automation]
+logo: logo.svg
+version: "1.6.1"
+revision: 1
+updated: 2026-10-30
+homepage: https://easyappointments.org
+docs: https://easyappointments.org/
+repository: https://github.com/alextselegidis/easyappointments
+license: GPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_EASYAPPOINTMENTS:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_PASSWORD_EASYAPPOINTMENTS:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for easyappointments."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    easyappointments:
+      image: alextselegidis/easyappointments:1.6.1@sha256:6d3a927dc16db11827018bcbc708e6ee7d4be7f577e5d0967e90a1b08b71e2e0
+      environment:
+        SERVICE_URL_EASYAPPOINTMENTS: ${SERVICE_URL_EASYAPPOINTMENTS}
+        BASE_URL: ${SERVICE_URL_EASYAPPOINTMENTS}
+        DB_HOST: mysql
+        DB_NAME: easyappointments
+        DB_USERNAME: root
+        DB_PASSWORD: ${SERVICE_PASSWORD_EASYAPPOINTMENTS}
+      depends_on:
+        mysql:
+          condition: service_healthy
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - -f
+          - http://127.0.0.1
+        interval: 2s
+        timeout: 10s
+        retries: 30
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:80
+    mysql:
+      image: mysql:8@sha256:a0225d1ea6631c8bc2385dc4c2faba17bbf1834ecf369e1659a9a382bd8d5dd7
+      volumes:
+        - easyappointments-mysql-data:/var/lib/mysql
+      environment:
+        MYSQL_ROOT_PASSWORD: ${SERVICE_PASSWORD_EASYAPPOINTMENTS}
+        MYSQL_DATABASE: easyappointments
+      healthcheck:
+        test:
+          - CMD
+          - mysqladmin
+          - ping
+          - -h
+          - 127.0.0.1
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+  volumes:
+    easyappointments-mysql-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_PASSWORD_EASYAPPOINTMENTS in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume easyappointments-mysql-data of this application: back it up before updating."

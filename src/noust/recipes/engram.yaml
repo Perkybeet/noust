@@ -1,0 +1,97 @@
+# Engram: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/engram.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: engram
+kind: compose
+title: "Engram"
+slogan: "Persistent memory sync server for AI coding agents (MCP)."
+description: "Persistent memory for AI coding agents — self-hosted Engram Cloud sync server with a web dashboard, backed by PostgreSQL."
+category: ai
+tags: [ai, memory, mcp, agents, self-hosted, postgres, developer-tools]
+logo: logo.svg
+version: "1.20.0"
+revision: 1
+updated: 2026-10-28
+homepage: https://engram.gentlemanprogramming.com/
+docs: https://github.com/Gentleman-Programming/engram
+repository: https://github.com/Gentleman-Programming/engram
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_FQDN_ENGRAM:
+    from: "fqdn"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_USER_POSTGRES:
+    generate: "user"
+    description: "The user name Noust generated for postgres."
+  SERVICE_PASSWORD_POSTGRES:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres."
+  POSTGRES_DB:
+    default: "engram-db"
+    description: "Setting POSTGRES_DB of the application; the template leaves it to the operator."
+  SERVICE_BASE64_64_JWTSECRET:
+    generate: "base64_64"
+    secret: true
+    description: "The secret Noust generated for jwtsecret."
+  SERVICE_PASSWORD_64_CLOUDTOKEN:
+    generate: "password64"
+    secret: true
+    description: "The secret Noust generated for cloudtoken."
+  SERVICE_PASSWORD_64_ADMIN:
+    generate: "password64"
+    secret: true
+    description: "The secret Noust generated for admin."
+health: {path: /health, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    engram:
+      image: ghcr.io/gentleman-programming/engram:1.20.0@sha256:2ac75f5c362570aa438d0543fdf4ec3911ff9412664d79ec9d4f13f3a2678479
+      command:
+        - cloud
+        - serve
+      environment:
+        SERVICE_FQDN_ENGRAM: ${SERVICE_FQDN_ENGRAM}
+        ENGRAM_CLOUD_HOST: 0.0.0.0
+        ENGRAM_PORT: '8080'
+        ENGRAM_DATABASE_URL: postgres://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@postgresql:5432/${POSTGRES_DB}?sslmode=disable
+        ENGRAM_JWT_SECRET: ${SERVICE_BASE64_64_JWTSECRET}
+        ENGRAM_CLOUD_TOKEN: ${SERVICE_PASSWORD_64_CLOUDTOKEN}
+        ENGRAM_CLOUD_ADMIN: ${SERVICE_PASSWORD_64_ADMIN}
+        ENGRAM_CLOUD_ALLOWED_PROJECTS: ${ENGRAM_CLOUD_ALLOWED_PROJECTS:-*}
+      depends_on:
+        postgresql:
+          condition: service_healthy
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8080
+    postgresql:
+      image: postgres:18-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
+      environment:
+        POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+        POSTGRES_DB: ${POSTGRES_DB:-engram-db}
+      volumes:
+        - engram-postgresql-data:/var/lib/postgresql
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+  volumes:
+    engram-postgresql-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_USER_POSTGRES and SERVICE_PASSWORD_POSTGRES and SERVICE_PASSWORD_64_CLOUDTOKEN and SERVICE_PASSWORD_64_ADMIN in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume engram-postgresql-data of this application: back it up before updating."

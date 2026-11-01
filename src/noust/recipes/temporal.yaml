@@ -1,0 +1,75 @@
+# Temporal from the image the project publishes (temporalio/ui), as its documentation describes the stack (github.com/temporalio/docker-compose, postgresql).
+schema: 2
+name: temporal
+kind: compose
+title: "Temporal"
+slogan: "Durable execution platform for workflows that survive failures."
+description: "Runs long-lived workflows written in code (Go, Java, Python, TypeScript, .NET) and keeps their state, retries and timers through crashes and deploys, with a web console of every execution. The server and its PostgreSQL are in the stack; the console has no accounts, so keep it behind an allow-list."
+category: backend
+tags: [workflows, orchestration, durable-execution, sdk]
+logo: simple-icons:temporal
+version: "2.57.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://docs.temporal.io
+docs: https://docs.temporal.io
+repository: https://github.com/temporalio/temporal
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8080
+variables:
+  DB_PASSWORD:
+    generate: "password32"
+    description: "The password of the stack's PostgreSQL account."
+health: {path: /, expect: "200-399", timeout: 240}
+compose: |
+  services:
+    ui:
+      image: temporalio/ui:2.57.0@sha256:d944f959d0923c35cd991a17a0edbe087770eff843724b181933e0cfdd563ab2
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+        temporal:
+          condition: service_started
+      environment:
+        TEMPORAL_ADDRESS: temporal:7233
+        TEMPORAL_CORS_ORIGINS: http://localhost:3000
+      ports:
+        - 127.0.0.1:${PORT}:8080
+    temporal:
+      image: temporalio/auto-setup:1.29.7@sha256:f14912b699cf73015ad5c4fc18d522d4b014db90e794039214dfb7c022c2644f
+      environment:
+        DB: postgres12
+        DB_PORT: '5432'
+        POSTGRES_USER: temporal
+        POSTGRES_PWD: ${DB_PASSWORD}
+        POSTGRES_SEEDS: db
+      depends_on:
+        db:
+          condition: service_healthy
+      restart: unless-stopped
+    db:
+      image: postgres:17.11-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: temporal
+        POSTGRES_DB: temporal
+        POSTGRES_PASSWORD: ${DB_PASSWORD}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U temporal -d temporal
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - temporal-db:/var/lib/postgresql/data
+  volumes:
+    temporal-db:
+notes:
+  - "Open {{ url }}. Workers and clients reach the server at temporal:7233 from inside this stack's network; the port is not published, because it has no sign-in. The console has none either: restrict who can reach it."
+  - "Its data is in the Docker volume temporal-db of this application, the databases dumped by Noust before every update: back it up before updating."

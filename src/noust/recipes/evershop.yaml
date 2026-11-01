@@ -1,0 +1,71 @@
+# Evershop: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/evershop
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: evershop
+kind: compose
+title: "Evershop"
+slogan: "🛍️ Typescript E-commerce Platform"
+description: "Your All-in-One open source ecommerce solution."
+category: business
+tags: [e-commerce, shopping, business]
+logo: logo.svg
+version: "2.3.0"
+revision: 1
+updated: 2026-10-28
+homepage: https://evershop.io/
+docs: https://evershop.io/docs/development/getting-started/introduction
+repository: https://github.com/evershopcommerce/evershop
+license: GPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  DB_PORT:
+    default: "5432"
+    description: "Setting DB_PORT of the application; the template leaves it to the operator."
+  DB_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The password of the stack's PostgreSQL account."
+  DB_USER:
+    default: "postgres"
+    description: "Setting DB_USER of the application; the template leaves it to the operator."
+  DB_NAME:
+    default: "evershop"
+    description: "Setting DB_NAME of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    evershop-app:
+      image: evershop/evershop:2.3.0@sha256:2acdcd7ed59f45eaf1f36b529665ea38f556406571af0a287cf83d54f23f96ed
+      restart: unless-stopped
+      environment:
+        DB_HOST: database
+        DB_PORT: ${DB_PORT}
+        DB_PASSWORD: ${DB_PASSWORD}
+        DB_USER: ${DB_USER}
+        DB_NAME: ${DB_NAME}
+      depends_on:
+        database:
+          condition: service_started
+      ports:
+        - 127.0.0.1:${PORT}:3000
+    database:
+      image: postgres:16@sha256:1beaa3084eee2676f20a9cd9928f0bf2c5bf674f8e49f81017912183d377c61c
+      restart: unless-stopped
+      volumes:
+        - postgres-data:/var/lib/postgresql/data
+      environment:
+        POSTGRES_PASSWORD: ${DB_PASSWORD}
+        POSTGRES_USER: ${DB_USER}
+        POSTGRES_DB: ${DB_NAME}
+  volumes:
+    postgres-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volume postgres-data of this application: back it up before updating."

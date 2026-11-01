@@ -1,0 +1,36 @@
+# The Lounge from the image the project publishes (thelounge/thelounge), with the data directory its documentation names (thelounge.chat/docs/install-and-upgrade, Docker).
+schema: 2
+name: thelounge
+kind: compose
+title: "The Lounge"
+slogan: "Modern web IRC client designed for self-hosting."
+description: "An always-connected IRC client in the browser: it keeps you in your channels while you are away, with history, push notifications, link previews and file uploads. Private: accounts are made by the operator."
+category: communication
+tags: [irc, chat, client, bouncer]
+logo: logo.svg
+version: "4.5.2"
+revision: 1
+updated: 2026-10-30
+homepage: https://thelounge.chat
+docs: https://thelounge.chat
+repository: https://github.com/thelounge/thelounge
+license: MIT
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 9000
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    thelounge:
+      image: thelounge/thelounge:4.5.2@sha256:00b0f614c4414dbd195ed1ece958095d29c7013ad608c038717076bf8582cb22
+      restart: unless-stopped
+      volumes:
+        - thelounge-data:/var/opt/thelounge
+      ports:
+        - 127.0.0.1:${PORT}:9000
+  volumes:
+    thelounge-data:
+notes:
+  - "Open {{ url }}. Nobody can sign in yet: make the first user with `noust app exec {{ domain }} -- thelounge add NAME`, which asks for the password."
+  - "Its data is in the Docker volume thelounge-data of this application: back it up before updating."

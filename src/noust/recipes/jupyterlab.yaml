@@ -1,0 +1,42 @@
+# JupyterLab from the image the project publishes (quay.io/jupyter/base-notebook), with the variable and folder its documentation names (jupyter-docker-stacks.readthedocs.io).
+schema: 2
+name: jupyterlab
+kind: compose
+title: "JupyterLab"
+slogan: "JupyterLab computational environment."
+description: "Notebooks, a terminal, a file browser and a text editor in one page, for exploring data with Python. Protected by a token Noust generates. Anyone who signs in can run code as the notebook's user inside the container."
+category: development
+tags: [notebooks, python, data, jupyter]
+logo: logo.svg
+version: "lab-4.6.4"
+revision: 1
+updated: 2026-10-30
+homepage: https://jupyterlab.readthedocs.io/
+docs: https://jupyterlab.readthedocs.io/
+repository: https://github.com/jupyterlab/jupyterlab
+license: BSD-3-Clause
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8888
+variables:
+  TOKEN:
+    generate: "password32"
+    description: "The token people type to sign in."
+health: {path: /api, expect: "200", timeout: 120}
+compose: |
+  services:
+    jupyterlab:
+      image: quay.io/jupyter/base-notebook:lab-4.6.4@sha256:e7e1d8727cdca641ae97c4aa96afafc21b85eb8908da1a0dafa7ddb00c8e1554
+      restart: unless-stopped
+      environment:
+        JUPYTER_TOKEN: ${TOKEN}
+      volumes:
+        - jupyterlab-work:/home/jovyan/work
+      ports:
+        - 127.0.0.1:${PORT}:8888
+  volumes:
+    jupyterlab-work:
+notes:
+  - "Open {{ url }}. People sign in with the token in TOKEN (noust env show {{ domain }} --unmask). Whoever signs in can run any code inside the container, with the network of the server."
+  - "Its data is in the Docker volume jupyterlab-work of this application: back it up before updating."

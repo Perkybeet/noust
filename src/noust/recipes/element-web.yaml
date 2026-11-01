@@ -1,0 +1,42 @@
+# Element Web from the image the project publishes (ghcr.io/element-hq/element-web), with the config.json its documentation asks for (github.com/element-hq/element-web/blob/develop/docs/config.md and docs/install.md, Docker).
+schema: 2
+name: element-web
+kind: compose
+title: "Element Web"
+slogan: "A glossy Matrix web client, to chat on any homeserver."
+description: "The Element web client for Matrix: rooms, threads, calls and end-to-end encryption, pointed at the homeserver you choose. It is the client only; it keeps no chats of its own."
+category: communication
+tags: [matrix, chat, client, e2ee]
+logo: logo.svg
+version: "1.12.33"
+revision: 1
+updated: 2026-10-30
+homepage: https://element.io
+docs: https://element.io
+repository: https://github.com/element-hq/element-web
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  HOMESERVER_URL:
+    default: "https://matrix-client.matrix.org"
+    description: "The homeserver's address people sign in to; use the one of your Matrix Synapse if you run it."
+  SERVER_NAME:
+    default: "matrix.org"
+    description: "The homeserver's name, the part of a user id after the colon."
+health: {path: /, expect: "200-399", timeout: 120}
+files:
+  config.json: {asset: config.json, render: true, mode: "0644"}
+compose: |
+  services:
+    element-web:
+      image: ghcr.io/element-hq/element-web:v1.12.33@sha256:b0aa4b5a4fc1afaaff62e2dbd0c92d57e2b20724f3ccb2fef53aae949088c3d2
+      restart: unless-stopped
+      volumes:
+        - ./config.json:/app/config.json:ro
+      ports:
+        - 127.0.0.1:${PORT}:80
+notes:
+  - "Open {{ url }}. Sign in on the homeserver named in the configuration. To use another, change HOMESERVER_URL and SERVER_NAME in the application's environment and restart it."

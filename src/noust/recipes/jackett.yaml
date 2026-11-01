@@ -1,0 +1,50 @@
+# Jackett from the image the project publishes (ghcr.io/linuxserver/jackett), with the variables and folder its documentation names (docs.linuxserver.io/images/docker-jackett).
+schema: 2
+name: jackett
+kind: compose
+title: "Jackett"
+slogan: "API support for your favorite torrent trackers."
+description: "Translates the searches of Sonarr, Radarr, Lidarr and others into the queries of dozens of torrent trackers and gives them back in one format, with a page to set up each indexer. It has no password until you set one in the page, so keep it behind an allow-list."
+category: media
+tags: [indexers, torrents, sonarr, radarr]
+logo: logo.svg
+version: "0.24.1316"
+revision: 1
+updated: 2026-10-30
+homepage: https://github.com/Jackett/Jackett
+docs: https://github.com/Jackett/Jackett
+repository: https://github.com/Jackett/Jackett
+license: GPL-2.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 9117
+variables:
+  PUID:
+    default: "0"
+    description: "The user ID the process runs as inside the container. 0 is root."
+  PGID:
+    default: "0"
+    description: "The group ID the process runs as inside the container."
+  TZ:
+    default: "UTC"
+    description: "The time zone, such as Europe/Madrid."
+health: {path: /UI/Dashboard, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    jackett:
+      image: ghcr.io/linuxserver/jackett:0.24.1316@sha256:1c258a1128ad8d74830df6b813d6d9819787fcaafe45e8a133e2bce4f17d7ab9
+      restart: unless-stopped
+      environment:
+        PUID: ${PUID}
+        PGID: ${PGID}
+        TZ: ${TZ}
+      volumes:
+        - jackett-config:/config
+      ports:
+        - 127.0.0.1:${PORT}:9117
+  volumes:
+    jackett-config:
+notes:
+  - "Open {{ url }}. It has no password until you set one in the page (Admin password): do it right after installing, or restrict who can reach it."
+  - "Its data is in the Docker volume jackett-config of this application: back it up before updating."

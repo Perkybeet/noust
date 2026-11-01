@@ -1,7 +1,7 @@
 Mark of: VersityGW
-Source: https://github.com/homarr-labs/dashboard-icons/blob/83f32e08257b66fbd971ac8d7645f5b38d52e85d/svg/versitygw.svg
-Licence: Apache-2.0
-Copyright: Copyright (c) 2024 Bjorn Lammers, Meier Lukas, Thomas Camlong and Homarr Labs
-Terms: versity.com/brand, read 2026-10-29: the company publishes its logos
-Retrieved: 2026-10-29
+Source: https://github.com/selfhst/icons/blob/02dd039d62a8e7132f4828e69162fca30bd43bb5/svg/versity.svg
+Licence: CC-BY-4.0
+Copyright: selfh.st/icons and its contributors (https://github.com/selfhst/icons)
+Terms: versity.com/brand, read 2026-10-29: the company publishes its logos; this is the company's symbol as the collection draws it, which is licensed CC BY 4.0 and leaves the brand to its owner, in place of the 150 by 53 banner, which is a strip at 32 pixels
+Retrieved: 2026-10-30
 Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged

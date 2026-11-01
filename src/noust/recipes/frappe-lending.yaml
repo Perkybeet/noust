@@ -1,0 +1,538 @@
+# Frappe Lending: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/frappe-lending
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: frappe-lending
+kind: compose
+title: "Frappe Lending"
+slogan: "Open Source Lending software"
+description: "A comprehensive loan management system built on Frappe Framework. 100% open source and customizable for managing loans, repayments, and lending operations."
+category: business
+tags: [lending, finance, loans, payments, accounting, self-hosted, business]
+logo: logo.svg
+version: "15"
+revision: 1
+updated: 2026-10-31
+homepage: https://github.com/frappe/lending
+docs: https://docs.frappe.io/lending
+repository: https://github.com/frappe/lending
+license: GPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SITE_NAME:
+    default: "frappe.lending"
+    description: "Setting SITE_NAME of the application; the template leaves it to the operator."
+  MAIN_DOMAIN:
+    from: "fqdn"
+    description: "The address people use to reach the application, as the template builds it."
+  NGINX_PID:
+    default: ""
+    description: "Setting NGINX_PID of the application; the template leaves it to the operator."
+  CONFIGURE:
+    default: "1"
+    description: "Setting CONFIGURE of the application; the template leaves it to the operator."
+  DB_HOST:
+    default: "db"
+    description: "Setting DB_HOST of the application; the template leaves it to the operator."
+  REGENERATE_APPS_TXT:
+    default: "1"
+    description: "Setting REGENERATE_APPS_TXT of the application; the template leaves it to the operator."
+  CREATE_SITE:
+    default: "1"
+    description: "Setting CREATE_SITE of the application; the template leaves it to the operator."
+  main_domain:
+    default: ""
+    description: "Setting main_domain of the application; the template leaves it to the operator."
+  ADMIN_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for admin password."
+  DB_ROOT_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for db root password."
+  INSTALL_APP_ARGS:
+    default: "--install-app erpnext --install-app lending"
+    description: "Setting INSTALL_APP_ARGS of the application; the template leaves it to the operator."
+  MIGRATE:
+    default: "1"
+    description: "Setting MIGRATE of the application; the template leaves it to the operator."
+  ENABLE_DB:
+    default: "1"
+    description: "Setting ENABLE_DB of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 600}
+compose: |
+  services:
+    backend:
+      image: frappe/erpnext:v15@sha256:02c7443608b6af7d088a512aba3a62ecafdba2346be853ddce577194f856af49
+      pull_policy: ${PULL_POLICY:-always}
+      deploy: &id001
+        restart_policy:
+          condition: always
+      entrypoint:
+        - bash
+        - -c
+      command:
+        - "cd /home/frappe/frappe-bench; if [ -d \"apps/lending\" ] && ! ./env/bin/pip show lending > /dev/null\
+          \ 2>&1; then\n  echo \"Installing lending app in Python environment...\";\n  ./env/bin/pip install\
+          \ -e apps/lending || echo \"Failed to install lending\";\nfi; echo \"Waiting for site to be ready...\"\
+          ; export start=`date +%s`; while [ ! -f \"sites/sites.txt\" ] || [ ! -d \"sites/${SITE_NAME}\"\
+          \ ] || [ ! -f \"sites/${SITE_NAME}/site_config.json\" ]; do\n  echo \"Waiting for site ${SITE_NAME}\
+          \ to be created and ready...\";\n  sleep 2;\n  if (( `date +%s`-start > 300 )); then\n    echo\
+          \ \"Timeout waiting for site to be ready\";\n    echo \"Checking sites directory:\";\n    ls -la\
+          \ sites/ || echo \"sites directory not found\";\n    echo \"Checking sites.txt:\";\n    cat sites/sites.txt\
+          \ 2>/dev/null || echo \"sites.txt not found\";\n    break;\n  fi\ndone; if [ -f \"sites/sites.txt\"\
+          \ ] && [ -d \"sites/${SITE_NAME}\" ] && [ -f \"sites/${SITE_NAME}/site_config.json\" ]; then\n\
+          \  echo \"Site ${SITE_NAME} is ready!\";\n  echo \"sites.txt contents:\";\n  cat sites/sites.txt;\n\
+          \  echo \"Verifying site is accessible via bench...\";\n  bench --site ${SITE_NAME} list-apps\
+          \ > /dev/null 2>&1 && echo \"Site is accessible via bench\" || echo \"Warning: Site accessibility\
+          \ check via bench failed\";\n  echo \"Site directory structure:\";\n  ls -la sites/${SITE_NAME}/\
+          \ | head -10;\n  if [ -n \"${MAIN_DOMAIN}\" ]; then\n    echo \"Updating host_name and SSL settings\
+          \ to https://${MAIN_DOMAIN} (ensuring correct domain for emails)...\";\n    bench --site ${SITE_NAME}\
+          \ set-config host_name \"https://${MAIN_DOMAIN}\" || echo \"Warning: Could not update host_name\"\
+          ;\n    bench --site ${SITE_NAME} set-config host_url \"https://${MAIN_DOMAIN}\" || echo \"Warning:\
+          \ Could not update host_url\";\n    bench --site ${SITE_NAME} set-config use_ssl 1 || echo \"\
+          Warning: Could not set use_ssl\";\n    echo \"Verifying configuration...\";\n    bench --site\
+          \ ${SITE_NAME} get-config host_name 2>/dev/null || echo \"Could not read host_name (this is OK\
+          \ if site is not fully initialized)\";\n    echo \"Clearing cache to apply new domain settings...\"\
+          ;\n    bench --site ${SITE_NAME} clear-cache || echo \"Warning: Could not clear cache\";\n   \
+          \ bench --site ${SITE_NAME} clear-website-cache || echo \"Warning: Could not clear website cache\"\
+          ;\n  fi;\nelse\n  echo \"Warning: Site may not be fully ready, but starting backend anyway\";\n\
+          fi; echo \"Starting bench serve (production-ready)\"; export PYTHONUNBUFFERED=1; bench serve --port\
+          \ 8000 2>&1 | awk '!/127\\.0\\.0\\.1.*400/ {print}' || bench serve --port 8000;\n"
+      volumes:
+        - sites:/home/frappe/frappe-bench/sites
+        - apps:/home/frappe/frappe-bench/apps
+      environment:
+        SITE_NAME: ${SITE_NAME}
+        FRAPPE_SITE_NAME_HEADER: ${SITE_NAME}
+        MAIN_DOMAIN: ${MAIN_DOMAIN}
+      depends_on:
+        configurator:
+          condition: service_completed_successfully
+        create-site:
+          condition: service_completed_successfully
+      healthcheck:
+        test:
+          - CMD
+          - wait-for-it
+          - 0.0.0.0:8000
+        interval: 2s
+        timeout: 10s
+        retries: 30
+      restart: unless-stopped
+    frontend:
+      image: frappe/erpnext:v15@sha256:02c7443608b6af7d088a512aba3a62ecafdba2346be853ddce577194f856af49
+      pull_policy: ${PULL_POLICY:-always}
+      deploy: *id001
+      entrypoint:
+        - bash
+        - -c
+      command:
+        - "echo \"Starting Nginx with port_in_redirect fix...\"; nginx-entrypoint.sh & NGINX_PID=$$!; sleep\
+          \ 3; if [ -f /etc/nginx/conf.d/frappe.conf ]; then\n  if ! grep -q \"port_in_redirect off\" /etc/nginx/conf.d/frappe.conf;\
+          \ then\n    echo \"Applying port_in_redirect fix to prevent :8080 in URLs...\";\n    sed -i 's/listen\
+          \ 8080;/listen 8080;\\n    port_in_redirect off;\\n    absolute_redirect off;/' /etc/nginx/conf.d/frappe.conf;\n\
+          \    echo \"Nginx config updated - reloading...\";\n    sleep 1;\n    nginx -s reload 2>/dev/null\
+          \ || echo \"Nginx will use updated config on next reload\";\n  else\n    echo \"Nginx config already\
+          \ has port_in_redirect settings\";\n  fi\nelse\n  echo \"Warning: frappe.conf not found yet, will\
+          \ check again\";\n  sleep 2;\n  if [ -f /etc/nginx/conf.d/frappe.conf ]; then\n    if ! grep -q\
+          \ \"port_in_redirect off\" /etc/nginx/conf.d/frappe.conf; then\n      sed -i 's/listen 8080;/listen\
+          \ 8080;\\n    port_in_redirect off;\\n    absolute_redirect off;/' /etc/nginx/conf.d/frappe.conf;\n\
+          \      nginx -s reload 2>/dev/null || true;\n    fi\n  fi\nfi; wait ${NGINX_PID}\n"
+      depends_on:
+        backend:
+          condition: service_healthy
+        websocket:
+          condition: service_healthy
+      environment:
+        BACKEND: backend:8000
+        FRAPPE_SITE_NAME_HEADER: ${SITE_NAME}
+        SOCKETIO: websocket:9000
+        UPSTREAM_REAL_IP_ADDRESS: 127.0.0.1
+        UPSTREAM_REAL_IP_HEADER: X-Forwarded-For
+        UPSTREAM_REAL_IP_RECURSIVE: 'off'
+        USE_X_FORWARDED_HOST: '1'
+        PROXY_FIX: '1'
+        X_FORWARDED_PROTO: https
+      volumes:
+        - sites:/home/frappe/frappe-bench/sites
+        - apps:/home/frappe/frappe-bench/apps
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - curl -fsS http://127.0.0.1:8080/login || exit 1
+        interval: 30s
+        timeout: 5s
+        retries: 3
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8080
+    queue-default:
+      image: frappe/erpnext:v15@sha256:02c7443608b6af7d088a512aba3a62ecafdba2346be853ddce577194f856af49
+      pull_policy: ${PULL_POLICY:-always}
+      deploy: *id001
+      entrypoint:
+        - bash
+        - -c
+      command:
+        - "cd /home/frappe/frappe-bench; export start=`date +%s`; while [ ! -d \"apps/lending\" ]; do\n\
+          \  echo \"Waiting for apps to be available...\";\n  sleep 2;\n  if (( `date +%s`-start > 300 ));\
+          \ then\n    echo \"Timeout waiting for apps\";\n    break;\n  fi;\ndone; if [ -d \"apps/lending\"\
+          \ ] && ! ./env/bin/pip show lending > /dev/null 2>&1; then\n  echo \"Installing lending app in\
+          \ Python environment...\";\n  ./env/bin/pip install -e apps/lending || echo \"Failed to install\
+          \ lending\";\nfi; exec bench worker --queue default\n"
+      volumes:
+        - sites:/home/frappe/frappe-bench/sites
+        - apps:/home/frappe/frappe-bench/apps
+      healthcheck:
+        test:
+          - CMD
+          - wait-for-it
+          - redis-queue:6379
+        interval: 2s
+        timeout: 10s
+        retries: 30
+      depends_on:
+        configurator:
+          condition: service_completed_successfully
+      restart: unless-stopped
+    queue-long:
+      image: frappe/erpnext:v15@sha256:02c7443608b6af7d088a512aba3a62ecafdba2346be853ddce577194f856af49
+      pull_policy: ${PULL_POLICY:-always}
+      deploy: *id001
+      entrypoint:
+        - bash
+        - -c
+      command:
+        - "cd /home/frappe/frappe-bench; export start=`date +%s`; while [ ! -d \"apps/lending\" ]; do\n\
+          \  echo \"Waiting for apps to be available...\";\n  sleep 2;\n  if (( `date +%s`-start > 300 ));\
+          \ then\n    echo \"Timeout waiting for apps\";\n    break;\n  fi;\ndone; if [ -d \"apps/lending\"\
+          \ ] && ! ./env/bin/pip show lending > /dev/null 2>&1; then\n  echo \"Installing lending app in\
+          \ Python environment...\";\n  ./env/bin/pip install -e apps/lending || echo \"Failed to install\
+          \ lending\";\nfi; exec bench worker --queue long\n"
+      volumes:
+        - sites:/home/frappe/frappe-bench/sites
+        - apps:/home/frappe/frappe-bench/apps
+      healthcheck:
+        test:
+          - CMD
+          - wait-for-it
+          - redis-queue:6379
+        interval: 2s
+        timeout: 10s
+        retries: 30
+      depends_on:
+        configurator:
+          condition: service_completed_successfully
+      restart: unless-stopped
+    queue-short:
+      image: frappe/erpnext:v15@sha256:02c7443608b6af7d088a512aba3a62ecafdba2346be853ddce577194f856af49
+      pull_policy: ${PULL_POLICY:-always}
+      deploy: *id001
+      entrypoint:
+        - bash
+        - -c
+      command:
+        - "cd /home/frappe/frappe-bench; export start=`date +%s`; while [ ! -d \"apps/lending\" ]; do\n\
+          \  echo \"Waiting for apps to be available...\";\n  sleep 2;\n  if (( `date +%s`-start > 300 ));\
+          \ then\n    echo \"Timeout waiting for apps\";\n    break;\n  fi;\ndone; if [ -d \"apps/lending\"\
+          \ ] && ! ./env/bin/pip show lending > /dev/null 2>&1; then\n  echo \"Installing lending app in\
+          \ Python environment...\";\n  ./env/bin/pip install -e apps/lending || echo \"Failed to install\
+          \ lending\";\nfi; exec bench worker --queue short\n"
+      volumes:
+        - sites:/home/frappe/frappe-bench/sites
+        - apps:/home/frappe/frappe-bench/apps
+      healthcheck:
+        test:
+          - CMD
+          - wait-for-it
+          - redis-queue:6379
+        interval: 2s
+        timeout: 10s
+        retries: 30
+      depends_on:
+        configurator:
+          condition: service_completed_successfully
+      restart: unless-stopped
+    scheduler:
+      image: frappe/erpnext:v15@sha256:02c7443608b6af7d088a512aba3a62ecafdba2346be853ddce577194f856af49
+      pull_policy: ${PULL_POLICY:-always}
+      deploy: *id001
+      entrypoint:
+        - bash
+        - -c
+      command:
+        - "cd /home/frappe/frappe-bench; export start=`date +%s`; while [ ! -d \"apps/lending\" ]; do\n\
+          \  echo \"Waiting for apps to be available...\";\n  sleep 2;\n  if (( `date +%s`-start > 300 ));\
+          \ then\n    echo \"Timeout waiting for apps\";\n    break;\n  fi;\ndone; if [ -d \"apps/lending\"\
+          \ ] && ! ./env/bin/pip show lending > /dev/null 2>&1; then\n  echo \"Installing lending app in\
+          \ Python environment...\";\n  ./env/bin/pip install -e apps/lending || echo \"Failed to install\
+          \ lending\";\nfi; exec bench schedule\n"
+      healthcheck:
+        test:
+          - CMD
+          - wait-for-it
+          - redis-queue:6379
+        interval: 2s
+        timeout: 10s
+        retries: 30
+      depends_on:
+        configurator:
+          condition: service_completed_successfully
+      volumes:
+        - sites:/home/frappe/frappe-bench/sites
+        - apps:/home/frappe/frappe-bench/apps
+      restart: unless-stopped
+    websocket:
+      image: frappe/erpnext:v15@sha256:02c7443608b6af7d088a512aba3a62ecafdba2346be853ddce577194f856af49
+      pull_policy: ${PULL_POLICY:-always}
+      deploy: *id001
+      healthcheck:
+        test:
+          - CMD
+          - wait-for-it
+          - 0.0.0.0:9000
+        interval: 2s
+        timeout: 10s
+        retries: 30
+      command:
+        - node
+        - /home/frappe/frappe-bench/apps/frappe/socketio.js
+      depends_on:
+        configurator:
+          condition: service_completed_successfully
+      volumes:
+        - sites:/home/frappe/frappe-bench/sites
+        - apps:/home/frappe/frappe-bench/apps
+      restart: unless-stopped
+    configurator:
+      depends_on:
+        redis-cache:
+          condition: service_healthy
+        redis-queue:
+          condition: service_healthy
+      image: frappe/erpnext:v15@sha256:02c7443608b6af7d088a512aba3a62ecafdba2346be853ddce577194f856af49
+      pull_policy: ${PULL_POLICY:-always}
+      deploy:
+        mode: replicated
+        replicas: ${CONFIGURE:-0}
+        restart_policy:
+          condition: none
+      entrypoint:
+        - bash
+        - -c
+      command:
+        - '[[ $${REGENERATE_APPS_TXT} == "1" ]] && ls -1 apps > sites/apps.txt; [[ -n `grep -hs ^ sites/common_site_config.json
+          | jq -r ".db_host // empty"` ]] && exit 0; bench set-config -g db_host $$DB_HOST; bench set-config
+          -gp db_port $$DB_PORT; bench set-config -g redis_cache "redis://$$REDIS_CACHE"; bench set-config
+          -g redis_queue "redis://$$REDIS_QUEUE"; bench set-config -g redis_socketio "redis://$$REDIS_QUEUE";
+          bench set-config -gp socketio_port $$SOCKETIO_PORT;
+
+          '
+      environment:
+        DB_HOST: ${DB_HOST:-db}
+        DB_PORT: '3306'
+        REDIS_CACHE: redis-cache:6379
+        REDIS_QUEUE: redis-queue:6379
+        SOCKETIO_PORT: '9000'
+        REGENERATE_APPS_TXT: ${REGENERATE_APPS_TXT:-0}
+      volumes:
+        - sites:/home/frappe/frappe-bench/sites
+        - apps:/home/frappe/frappe-bench/apps
+      restart: 'no'
+    create-site:
+      depends_on:
+        redis-cache:
+          condition: service_healthy
+        redis-queue:
+          condition: service_healthy
+      image: frappe/erpnext:v15@sha256:02c7443608b6af7d088a512aba3a62ecafdba2346be853ddce577194f856af49
+      pull_policy: ${PULL_POLICY:-always}
+      deploy:
+        mode: replicated
+        replicas: ${CREATE_SITE:-0}
+        restart_policy:
+          condition: none
+      entrypoint:
+        - bash
+        - -c
+      command:
+        - "wait-for-it -t 120 $$DB_HOST:$$DB_PORT; wait-for-it -t 120 redis-cache:6379; wait-for-it -t 120\
+          \ redis-queue:6379; export start=`date +%s`; until [[ -n `grep -hs ^ sites/common_site_config.json\
+          \ | jq -r \".db_host // empty\"` ]] && \\\n  [[ -n `grep -hs ^ sites/common_site_config.json |\
+          \ jq -r \".redis_cache // empty\"` ]] && \\\n  [[ -n `grep -hs ^ sites/common_site_config.json\
+          \ | jq -r \".redis_queue // empty\"` ]];\ndo\n  echo \"Waiting for sites/common_site_config.json\
+          \ to be created\";\n  sleep 5;\n  if (( `date +%s`-start > 120 )); then\n    echo \"could not\
+          \ find sites/common_site_config.json with required keys\";\n    exit 1\n  fi\ndone; echo \"sites/common_site_config.json\
+          \ found\"; cd /home/frappe/frappe-bench; if [ -d \"sites/${SITE_NAME}\" ] && [ -f \"sites/${SITE_NAME}/site_config.json\"\
+          \ ]; then\n  echo \"Site ${SITE_NAME} already exists, skipping creation\";\n  bench use $${SITE_NAME}\
+          \ || echo \"Warning: Could not set current site\";\n  echo \"$${SITE_NAME}\" > sites/sites.txt\
+          \ || echo \"Warning: Could not update sites.txt\";\n  bench set-config -g default_site $${SITE_NAME}\
+          \ || echo \"Warning: Could not set default site\";\n  if [ -n \"$${ADMIN_PASSWORD}\" ]; then\n\
+          \    echo \"Updating admin password for existing site...\";\n    bench --site $${SITE_NAME} set-admin-password\
+          \ $${ADMIN_PASSWORD} || echo \"Warning: Could not update admin password (may need to be done manually)\"\
+          ;\n  fi;\n  if [ -n \"$${MAIN_DOMAIN}\" ]; then\n    echo \"Setting host_name and SSL settings\
+          \ to https://${MAIN_DOMAIN} (with HTTPS)...\";\n    bench --site $${SITE_NAME} set-config host_name\
+          \ \"https://$${MAIN_DOMAIN}\" || echo \"Warning: Could not set host_name\";\n    bench --site\
+          \ $${SITE_NAME} set-config host_url \"https://$${MAIN_DOMAIN}\" || echo \"Warning: Could not set\
+          \ host_url\";\n    bench --site $${SITE_NAME} set-config use_ssl 1 || echo \"Warning: Could not\
+          \ set use_ssl\";\n    echo \"Clearing cache to apply new domain settings...\";\n    bench --site\
+          \ $${SITE_NAME} clear-cache || echo \"Warning: Could not clear cache\";\n    bench --site $${SITE_NAME}\
+          \ clear-website-cache || echo \"Warning: Could not clear website cache\";\n  fi;\n  echo \"Verifying\
+          \ existing site is accessible...\";\n  bench --site $${SITE_NAME} list-apps > /dev/null 2>&1 &&\
+          \ echo \"Existing site is accessible and working\" || echo \"Warning: Site accessibility check\
+          \ failed\";\n  exit 0;\nfi; if [ ! -d \"apps/lending\" ]; then\n  echo \"Cloning lending app...\"\
+          ;\n  git clone https://github.com/frappe/lending.git apps/lending || echo \"Failed to clone lending\
+          \ app\";\nfi; if [ -d \"apps/lending\" ]; then\n  echo \"Installing lending app in Python environment...\"\
+          ;\n  ./env/bin/pip install -e apps/lending || echo \"Failed to install lending app\";\nfi; echo\
+          \ \"Regenerating apps.txt to include all apps...\"; ls -1 apps > sites/apps.txt || (echo \"frappe\"\
+          \ > sites/apps.txt && echo \"lending\" >> sites/apps.txt); echo \"apps.txt contents:\"; cat sites/apps.txt;\
+          \ bench set-mariadb-host $${DB_HOST:-db}; bench new-site --mariadb-user-host-login-scope='%' --admin-password=$${ADMIN_PASSWORD}\
+          \ --db-root-username=root --db-root-password=$${DB_ROOT_PASSWORD} $${INSTALL_APP_ARGS} $${SITE_NAME};\
+          \ if [ ! -d \"sites/${SITE_NAME}\" ]; then\n  echo \"ERROR: Site ${SITE_NAME} was not created\
+          \ successfully\";\n  exit 1;\nfi; echo \"Site ${SITE_NAME} created successfully\"; bench use $${SITE_NAME};\
+          \ echo \"Current site set to: $${SITE_NAME}\"; if [ -d \"apps/lending\" ]; then\n  echo \"Installing\
+          \ lending app on site...\";\n  bench --site $${SITE_NAME} install-app lending || echo \"Lending\
+          \ app may already be installed or failed to install\";\nfi; echo \"Building assets for all apps\
+          \ (this ensures lending JS is available)...\"; bench build --apps lending || echo \"Asset build\
+          \ completed\"; echo \"Clearing all caches...\"; bench --site $${SITE_NAME} clear-cache || echo\
+          \ \"Cache cleared\"; bench --site $${SITE_NAME} clear-website-cache || echo \"Website cache cleared\"\
+          ; echo \"Creating sites.txt for site resolution...\"; echo \"$${SITE_NAME}\" > sites/sites.txt\
+          \ || echo \"Warning: Could not create sites.txt\"; echo \"Site registered in sites.txt:\"; cat\
+          \ sites/sites.txt || echo \"sites.txt not found\"; echo \"Verifying site directory and config\
+          \ exist...\"; if [ -d \"sites/${SITE_NAME}\" ] && [ -f \"sites/${SITE_NAME}/site_config.json\"\
+          \ ]; then\n  echo \"Site directory and config verified successfully\";\nelse\n  echo \"Warning:\
+          \ Site directory or config file missing\";\n  ls -la sites/${SITE_NAME}/ 2>/dev/null || echo \"\
+          Site directory listing failed\";\nfi; echo \"Setting default site in common_site_config.json...\"\
+          ; bench set-config -g default_site $${SITE_NAME} || echo \"Warning: Could not set default site\"\
+          ; if [ -n \"$${MAIN_DOMAIN}\" ]; then\n  echo \"Setting host_name and SSL settings to https://${MAIN_DOMAIN}\
+          \ (with HTTPS)...\";\n  bench --site $${SITE_NAME} set-config host_name \"https://$${MAIN_DOMAIN}\"\
+          \ || echo \"Warning: Could not set host_name\";\n  bench --site $${SITE_NAME} set-config host_url\
+          \ \"https://$${MAIN_DOMAIN}\" || echo \"Warning: Could not set host_url\";\n  bench --site $${SITE_NAME}\
+          \ set-config use_ssl 1 || echo \"Warning: Could not set use_ssl\";\n  echo \"Clearing cache to\
+          \ apply new domain settings...\";\n  bench --site $${SITE_NAME} clear-cache || echo \"Warning:\
+          \ Could not clear cache\";\n  bench --site $${SITE_NAME} clear-website-cache || echo \"Warning:\
+          \ Could not clear website cache\";\nfi; echo \"Verifying site is accessible...\"; bench --site\
+          \ $${SITE_NAME} list-apps > /dev/null 2>&1 && echo \"Site is accessible and working\" || echo\
+          \ \"Warning: Site accessibility check failed\";\n"
+      volumes:
+        - sites:/home/frappe/frappe-bench/sites
+        - apps:/home/frappe/frappe-bench/apps
+      environment:
+        SITE_NAME: ${SITE_NAME}
+        MAIN_DOMAIN: ${main_domain}
+        ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+        DB_HOST: ${DB_HOST:-db}
+        DB_PORT: ${DB_PORT:-3306}
+        DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+        INSTALL_APP_ARGS: ${INSTALL_APP_ARGS}
+      restart: 'no'
+    migration:
+      image: frappe/erpnext:v15@sha256:02c7443608b6af7d088a512aba3a62ecafdba2346be853ddce577194f856af49
+      pull_policy: ${PULL_POLICY:-always}
+      deploy:
+        mode: replicated
+        replicas: ${MIGRATE:-0}
+        restart_policy:
+          condition: none
+      entrypoint:
+        - bash
+        - -c
+      command:
+        - 'curl -f http://${SITE_NAME}:8080/api/method/ping || echo "Site busy" && exit 0; bench --site
+          all set-config -p maintenance_mode 1; bench --site all set-config -p pause_scheduler 1; bench
+          --site all migrate; bench --site all set-config -p maintenance_mode 0; bench --site all set-config
+          -p pause_scheduler 0;
+
+          '
+      volumes:
+        - sites:/home/frappe/frappe-bench/sites
+        - apps:/home/frappe/frappe-bench/apps
+      restart: unless-stopped
+    db:
+      image: mariadb:10.6@sha256:f1c56f035ed268a0d7c2c2e06dc879f6319b997cb434cf822a4cfd72a7aa184d
+      deploy:
+        mode: replicated
+        replicas: ${ENABLE_DB:-0}
+        restart_policy:
+          condition: always
+      healthcheck:
+        test: mysqladmin ping -h localhost --password=${DB_ROOT_PASSWORD}
+        interval: 1s
+        retries: 20
+      command:
+        - --character-set-server=utf8mb4
+        - --collation-server=utf8mb4_unicode_ci
+        - --skip-character-set-client-handshake
+        - --skip-innodb-read-only-compressed
+      environment:
+        MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+        MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      volumes:
+        - db-data:/var/lib/mysql
+      restart: unless-stopped
+    redis-cache:
+      deploy:
+        restart_policy:
+          condition: always
+      image: redis:6.2-alpine@sha256:63d5174750e285bc3069c4519c53c8b6de6ebe70715140a6c9d21d6f04b77319
+      volumes:
+        - redis-cache-data:/data
+      healthcheck:
+        test:
+          - CMD
+          - redis-cli
+          - ping
+        interval: 5s
+        timeout: 5s
+        retries: 3
+      restart: unless-stopped
+    redis-queue:
+      deploy:
+        restart_policy:
+          condition: always
+      image: redis:6.2-alpine@sha256:63d5174750e285bc3069c4519c53c8b6de6ebe70715140a6c9d21d6f04b77319
+      volumes:
+        - redis-queue-data:/data
+      healthcheck:
+        test:
+          - CMD
+          - redis-cli
+          - ping
+        interval: 5s
+        timeout: 5s
+        retries: 3
+      restart: unless-stopped
+    redis-socketio:
+      deploy:
+        restart_policy:
+          condition: always
+      image: redis:6.2-alpine@sha256:63d5174750e285bc3069c4519c53c8b6de6ebe70715140a6c9d21d6f04b77319
+      volumes:
+        - redis-socketio-data:/data
+      healthcheck:
+        test:
+          - CMD
+          - redis-cli
+          - ping
+        interval: 5s
+        timeout: 5s
+        retries: 3
+      restart: unless-stopped
+  volumes:
+    sites:
+    apps:
+    db-data:
+    redis-cache-data:
+    redis-queue-data:
+    redis-socketio-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes sites, apps, db-data, redis-cache-data, redis-queue-data, redis-socketio-data of this application: back them up before updating."

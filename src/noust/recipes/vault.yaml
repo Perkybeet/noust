@@ -1,20 +1,67 @@
-# HashiCorp Vault has an official image (hashicorp/vault) and is under HashiCorp's
-# Business Source License, which is why it is listed and not installable. OpenBao
-# (openbao.yaml) is the open fork that replaces it in the catalogue.
+# HashiCorp Vault from its own image, configured as the project's container page documents it
+# (developer.hashicorp.com/vault/docs/configuration and the image's README on Docker Hub: the image
+# runs `server`, takes its configuration as JSON in VAULT_LOCAL_CONFIG, keeps the integrated Raft
+# storage under /vault/file and listens on 8200), the same shape as the OpenBao recipe, which is the
+# free fork of it.
+#
+# Vault is source-available. Its Business Source License 1.1 (LICENSE of hashicorp/vault, read on
+# 2026-10-30) lets you make production use of it, as long as that does not include offering it to
+# third parties on a hosted or embedded basis to compete with IBM's paid versions; a licence
+# that lets an operator run it for their own use is one the catalogue lists (n8n's, Outline's).
+# Noust redistributes none of it.
+#
+# A new Vault starts uninitialised and sealed, and what makes it usable (the unseal keys and the
+# root token) is the operator's, not something a recipe generates or hides. So the recipe does not
+# initialise it: the health gate accepts what a server in that state answers (501 not initialised,
+# 503 sealed; /v1/sys/health) and the first note walks the opening. mlock is disabled in the
+# configuration because the schema gives a container no IPC_LOCK capability; the project documents
+# that for containers.
 schema: 2
 name: vault
 kind: compose
 title: Vault
 slogan: Secrets management, encryption as a service and privileged access.
-description: "A tool for securely accessing secrets: API keys, passwords and certificates, with leasing, revocation, audit logging and encryption as a service."
+description: "Source-available (Business Source License 1.1) secrets management: API keys, passwords and certificates, with leasing, revocation, audit logging and encryption as a service. It starts sealed and empty: the opening ceremony is yours. OpenBao is its free fork."
 category: security
 tags: [secrets, encryption, pki, hashicorp]
 logo: simple-icons:vault
+version: "2.2.1"
+revision: 2
+updated: 2026-10-30
 homepage: https://developer.hashicorp.com/vault
 docs: https://developer.hashicorp.com/vault/docs
 repository: https://github.com/hashicorp/vault
 license: BUSL-1.1
-available: false
-unavailable_code: licence
-replaced_by: openbao
-unavailable_reason: "Vault is under HashiCorp's Business Source License (LICENSE in the repository, read 2026-10-06), which is not a licence that lets an operator run it for others. OpenBao, the Linux Foundation's open fork under the Mozilla Public License, is the catalogue's answer: same API and same opening ceremony, which its recipe walks. Not available in this release."
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8200
+variables:
+  VAULT_API_ADDR:
+    from: url
+    description: The address clients reach Vault at; it advertises it to them.
+health:
+  path: /v1/sys/health
+  expect: "200,429,472,473,501,503"
+  timeout: 120
+compose: |
+  services:
+    vault:
+      image: hashicorp/vault:2.2.1@sha256:962a92876e168d68eaaa24b0b8b49bbce1cb63024060a67bba95cd158a366fc2
+      restart: unless-stopped
+      command: ["server"]
+      environment:
+        VAULT_ADDR: "http://127.0.0.1:8200"
+        VAULT_LOCAL_CONFIG: '{"ui": true, "disable_mlock": true, "api_addr": "${VAULT_API_ADDR}", "cluster_addr": "http://127.0.0.1:8201", "storage": {"raft": {"path": "/vault/file", "node_id": "noust"}}, "listener": [{"tcp": {"address": "0.0.0.0:8200", "tls_disable": true}}]}'
+      volumes:
+        - vault-data:/vault/file
+      ports:
+        - "127.0.0.1:${PORT}:8200"
+  volumes:
+    vault-data:
+notes:
+  - "Vault is installed sealed and empty, and whoever initialises it first holds its keys: do the opening now, on this server, before you share the address. Initialise it: noust app exec {{ domain }} -- vault operator init -key-shares=5 -key-threshold=3. It prints five unseal keys and the root token once; copy them to a password manager or hand each key to a different person. Nothing keeps them for you."
+  - "Unseal it with three different keys, one command each: noust app exec {{ domain }} -- vault operator unseal KEY. Then sign in at {{ url }} with the root token, create the accounts and policies your applications need, and revoke the root token: vault token revoke."
+  - "Vault seals itself every time it restarts, an update included, and answers 503 until three keys are given again. Noust still treats it as up (a sealed server is a healthy one); the applications that read from it stop working until it is unsealed."
+  - "Everything it stores is in the Docker volume vault-data of this application, encrypted with a key only the unseal keys can open: back it up before updating, and keep the unseal keys apart from the backup."
+  - "Vault is under the Business Source License: you may use it in production for your own needs, not offer it to others as a competing hosted or embedded product. OpenBao (MPL-2.0) is the free fork with the same API."

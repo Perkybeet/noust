@@ -24,8 +24,8 @@ category: security
 tags: [sso, oidc, saml, ldap]
 logo: simple-icons:authentik
 version: "2026.8.3"
-revision: 1
-updated: 2026-10-06
+revision: 2
+updated: 2026-10-31
 homepage: https://goauthentik.io
 docs: https://docs.goauthentik.io
 repository: https://github.com/goauthentik/authentik
@@ -36,11 +36,14 @@ needs:
   - At least 2 GB of memory
 port: 9000
 variables:
+  APP_DOMAIN:
+    from: fqdn
+    description: The host name people use.
   AUTHENTIK_SECRET_KEY:
     generate: password64
     description: Signs sessions and encrypts what authentik stores. Changing it loses the encrypted data.
   AUTHENTIK_BOOTSTRAP_EMAIL:
-    default: akadmin@example.com
+    value: "akadmin@${APP_DOMAIN}"
     description: The akadmin account's e-mail address. authentik reads it only at the first start.
   AUTHENTIK_BOOTSTRAP_PASSWORD:
     generate: password32

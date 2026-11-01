@@ -1,0 +1,349 @@
+# Postiz: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/postiz.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: postiz
+kind: compose
+title: "Postiz"
+slogan: "Open source social media scheduling tool."
+description: "Postiz is a modern, open-source platform for managing and publishing content across multiple channels."
+category: cms
+tags: [post, everywhere, social, media, planning, cms, content-management, publishing]
+logo: simple-icons:postiz
+version: "2.10.1"
+revision: 1
+updated: 2026-10-31
+homepage: https://postiz.com
+docs: https://docs.postiz.com
+repository: https://github.com/gitroomhq/postiz-app
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_POSTIZ:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_PASSWORD_JWTSECRET:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for jwtsecret."
+  SERVICE_PASSWORD_POSTGRESQL:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgresql."
+  SERVICE_PASSWORD_REDIS:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for redis."
+  CLOUDFLARE_ACCOUNT_ID:
+    default: ""
+    description: "Setting CLOUDFLARE_ACCOUNT_ID of the application; the template leaves it to the operator."
+  CLOUDFLARE_ACCESS_KEY:
+    default: ""
+    secret: true
+    description: "Setting CLOUDFLARE_ACCESS_KEY of the application; the template leaves it to the operator."
+  CLOUDFLARE_SECRET_ACCESS_KEY:
+    default: ""
+    secret: true
+    description: "Setting CLOUDFLARE_SECRET_ACCESS_KEY of the application; the template leaves it to the operator."
+  CLOUDFLARE_BUCKETNAME:
+    default: ""
+    description: "Setting CLOUDFLARE_BUCKETNAME of the application; the template leaves it to the operator."
+  CLOUDFLARE_BUCKET_URL:
+    default: ""
+    description: "Setting CLOUDFLARE_BUCKET_URL of the application; the template leaves it to the operator."
+  CLOUDFLARE_REGION:
+    default: ""
+    description: "Setting CLOUDFLARE_REGION of the application; the template leaves it to the operator."
+  NEXT_PUBLIC_UPLOAD_STATIC_DIRECTORY:
+    default: ""
+    description: "Setting NEXT_PUBLIC_UPLOAD_STATIC_DIRECTORY of the application; the template leaves it to the operator."
+  RESEND_API_KEY:
+    default: ""
+    secret: true
+    description: "Setting RESEND_API_KEY of the application; the template leaves it to the operator."
+  EMAIL_FROM_ADDRESS:
+    default: ""
+    description: "Setting EMAIL_FROM_ADDRESS of the application; the template leaves it to the operator."
+  EMAIL_FROM_NAME:
+    default: ""
+    description: "Setting EMAIL_FROM_NAME of the application; the template leaves it to the operator."
+  EMAIL_PROVIDER:
+    default: ""
+    description: "Setting EMAIL_PROVIDER of the application; the template leaves it to the operator."
+  SERVICE_X_API:
+    default: ""
+    description: "Setting SERVICE_X_API of the application; the template leaves it to the operator."
+  SERVICE_X_SECRET:
+    default: ""
+    secret: true
+    description: "Setting SERVICE_X_SECRET of the application; the template leaves it to the operator."
+  SERVICE_LINKEDIN_ID:
+    default: ""
+    description: "Setting SERVICE_LINKEDIN_ID of the application; the template leaves it to the operator."
+  SERVICE_LINKEDIN_SECRET:
+    default: ""
+    secret: true
+    description: "Setting SERVICE_LINKEDIN_SECRET of the application; the template leaves it to the operator."
+  SERVICE_REDDIT_API:
+    default: ""
+    description: "Setting SERVICE_REDDIT_API of the application; the template leaves it to the operator."
+  SERVICE_REDDIT_SECRET:
+    default: ""
+    secret: true
+    description: "Setting SERVICE_REDDIT_SECRET of the application; the template leaves it to the operator."
+  SERVICE_GITHUB_ID:
+    default: ""
+    description: "Setting SERVICE_GITHUB_ID of the application; the template leaves it to the operator."
+  SERVICE_GITHUB_SECRET:
+    default: ""
+    secret: true
+    description: "Setting SERVICE_GITHUB_SECRET of the application; the template leaves it to the operator."
+  SERVICE_THREADS_ID:
+    default: ""
+    description: "Setting SERVICE_THREADS_ID of the application; the template leaves it to the operator."
+  SERVICE_THREADS_SECRET:
+    default: ""
+    secret: true
+    description: "Setting SERVICE_THREADS_SECRET of the application; the template leaves it to the operator."
+  SERVICE_FACEBOOK_ID:
+    default: ""
+    description: "Setting SERVICE_FACEBOOK_ID of the application; the template leaves it to the operator."
+  SERVICE_FACEBOOK_SECRET:
+    default: ""
+    secret: true
+    description: "Setting SERVICE_FACEBOOK_SECRET of the application; the template leaves it to the operator."
+  SERVICE_YOUTUBE_ID:
+    default: ""
+    description: "Setting SERVICE_YOUTUBE_ID of the application; the template leaves it to the operator."
+  SERVICE_YOUTUBE_SECRET:
+    default: ""
+    secret: true
+    description: "Setting SERVICE_YOUTUBE_SECRET of the application; the template leaves it to the operator."
+  SERVICE_TIKTOK_ID:
+    default: ""
+    description: "Setting SERVICE_TIKTOK_ID of the application; the template leaves it to the operator."
+  SERVICE_TIKTOK_SECRET:
+    default: ""
+    secret: true
+    description: "Setting SERVICE_TIKTOK_SECRET of the application; the template leaves it to the operator."
+  SERVICE_PINTEREST_ID:
+    default: ""
+    description: "Setting SERVICE_PINTEREST_ID of the application; the template leaves it to the operator."
+  SERVICE_PINTEREST_SECRET:
+    default: ""
+    secret: true
+    description: "Setting SERVICE_PINTEREST_SECRET of the application; the template leaves it to the operator."
+  SERVICE_DRIBBLE_ID:
+    default: ""
+    description: "Setting SERVICE_DRIBBLE_ID of the application; the template leaves it to the operator."
+  SERVICE_DRIBBLE_SECRET:
+    default: ""
+    secret: true
+    description: "Setting SERVICE_DRIBBLE_SECRET of the application; the template leaves it to the operator."
+  SERVICE_DISCORD_ID:
+    default: ""
+    description: "Setting SERVICE_DISCORD_ID of the application; the template leaves it to the operator."
+  SERVICE_DISCORD_SECRET:
+    default: ""
+    secret: true
+    description: "Setting SERVICE_DISCORD_SECRET of the application; the template leaves it to the operator."
+  SERVICE_DISCORD_TOKEN:
+    default: ""
+    secret: true
+    description: "Setting SERVICE_DISCORD_TOKEN of the application; the template leaves it to the operator."
+  SERVICE_SLACK_ID:
+    default: ""
+    description: "Setting SERVICE_SLACK_ID of the application; the template leaves it to the operator."
+  SERVICE_SLACK_SECRET:
+    default: ""
+    secret: true
+    description: "Setting SERVICE_SLACK_SECRET of the application; the template leaves it to the operator."
+  SLACK_SIGNING_SECRET:
+    default: ""
+    secret: true
+    description: "Setting SLACK_SIGNING_SECRET of the application; the template leaves it to the operator."
+  SERVICE_MASTODON_ID:
+    default: ""
+    description: "Setting SERVICE_MASTODON_ID of the application; the template leaves it to the operator."
+  SERVICE_MASTODON_SECRET:
+    default: ""
+    secret: true
+    description: "Setting SERVICE_MASTODON_SECRET of the application; the template leaves it to the operator."
+  INSTAGRAM_APP_ID:
+    default: ""
+    description: "Setting INSTAGRAM_APP_ID of the application; the template leaves it to the operator."
+  INSTAGRAM_APP_SECRET:
+    default: ""
+    secret: true
+    description: "Setting INSTAGRAM_APP_SECRET of the application; the template leaves it to the operator."
+  SERVICE_BEEHIIVE_KEY:
+    default: ""
+    secret: true
+    description: "Setting SERVICE_BEEHIIVE_KEY of the application; the template leaves it to the operator."
+  SERVICE_BEEHIIVE_PUBID:
+    default: ""
+    description: "Setting SERVICE_BEEHIIVE_PUBID of the application; the template leaves it to the operator."
+  SERVICE_OPENAI_KEY:
+    default: ""
+    secret: true
+    description: "Setting SERVICE_OPENAI_KEY of the application; the template leaves it to the operator."
+  NEXT_PUBLIC_DISCORD_SUPPORT:
+    default: ""
+    description: "Setting NEXT_PUBLIC_DISCORD_SUPPORT of the application; the template leaves it to the operator."
+  NEXT_PUBLIC_POLOTNO:
+    default: ""
+    description: "Setting NEXT_PUBLIC_POLOTNO of the application; the template leaves it to the operator."
+  STRIPE_PUBLISHABLE_KEY:
+    default: ""
+    secret: true
+    description: "Setting STRIPE_PUBLISHABLE_KEY of the application; the template leaves it to the operator."
+  STRIPE_SECRET_KEY:
+    default: ""
+    secret: true
+    description: "Setting STRIPE_SECRET_KEY of the application; the template leaves it to the operator."
+  STRIPE_SIGNING_KEY:
+    default: ""
+    secret: true
+    description: "Setting STRIPE_SIGNING_KEY of the application; the template leaves it to the operator."
+  STRIPE_SIGNING_KEY_CONNECT:
+    default: ""
+    secret: true
+    description: "Setting STRIPE_SIGNING_KEY_CONNECT of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    postiz:
+      image: ghcr.io/gitroomhq/postiz-app:v2.10.1@sha256:065d2780396b88c5a03853e912703bca007e28abdab748b4c370457e967064a3
+      environment:
+        SERVICE_URL_POSTIZ: ${SERVICE_URL_POSTIZ}
+        MAIN_URL: ${SERVICE_URL_POSTIZ}
+        FRONTEND_URL: ${SERVICE_URL_POSTIZ}
+        NEXT_PUBLIC_BACKEND_URL: ${SERVICE_URL_POSTIZ}/api
+        JWT_SECRET: ${SERVICE_PASSWORD_JWTSECRET}
+        DATABASE_URL: postgresql://postgres:${SERVICE_PASSWORD_POSTGRESQL}@postgres:5432/${POSTGRESQL_DATABASE:-postiz-db}
+        REDIS_URL: redis://default:${SERVICE_PASSWORD_REDIS}@redis:6379
+        BACKEND_INTERNAL_URL: http://localhost:3000
+        CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID}
+        CLOUDFLARE_ACCESS_KEY: ${CLOUDFLARE_ACCESS_KEY}
+        CLOUDFLARE_SECRET_ACCESS_KEY: ${CLOUDFLARE_SECRET_ACCESS_KEY}
+        CLOUDFLARE_BUCKETNAME: ${CLOUDFLARE_BUCKETNAME}
+        CLOUDFLARE_BUCKET_URL: ${CLOUDFLARE_BUCKET_URL}
+        CLOUDFLARE_REGION: ${CLOUDFLARE_REGION}
+        STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
+        UPLOAD_DIRECTORY: ${UPLOAD_DIRECTORY:-/uploads}
+        NEXT_PUBLIC_UPLOAD_DIRECTORY: ${NEXT_PUBLIC_UPLOAD_DIRECTORY:-/uploads}
+        NEXT_PUBLIC_UPLOAD_STATIC_DIRECTORY: ${NEXT_PUBLIC_UPLOAD_STATIC_DIRECTORY}
+        RESEND_API_KEY: ${RESEND_API_KEY}
+        EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS}
+        EMAIL_FROM_NAME: ${EMAIL_FROM_NAME}
+        EMAIL_PROVIDER: ${EMAIL_PROVIDER}
+        X_API_KEY: ${SERVICE_X_API}
+        X_API_SECRET: ${SERVICE_X_SECRET}
+        LINKEDIN_CLIENT_ID: ${SERVICE_LINKEDIN_ID}
+        LINKEDIN_CLIENT_SECRET: ${SERVICE_LINKEDIN_SECRET}
+        REDDIT_CLIENT_ID: ${SERVICE_REDDIT_API}
+        REDDIT_CLIENT_SECRET: ${SERVICE_REDDIT_SECRET}
+        GITHUB_CLIENT_ID: ${SERVICE_GITHUB_ID}
+        GITHUB_CLIENT_SECRET: ${SERVICE_GITHUB_SECRET}
+        THREADS_APP_ID: ${SERVICE_THREADS_ID}
+        THREADS_APP_SECRET: ${SERVICE_THREADS_SECRET}
+        FACEBOOK_APP_ID: ${SERVICE_FACEBOOK_ID}
+        FACEBOOK_APP_SECRET: ${SERVICE_FACEBOOK_SECRET}
+        YOUTUBE_CLIENT_ID: ${SERVICE_YOUTUBE_ID}
+        YOUTUBE_CLIENT_SECRET: ${SERVICE_YOUTUBE_SECRET}
+        TIKTOK_CLIENT_ID: ${SERVICE_TIKTOK_ID}
+        TIKTOK_CLIENT_SECRET: ${SERVICE_TIKTOK_SECRET}
+        PINTEREST_CLIENT_ID: ${SERVICE_PINTEREST_ID}
+        PINTEREST_CLIENT_SECRET: ${SERVICE_PINTEREST_SECRET}
+        DRIBBBLE_CLIENT_ID: ${SERVICE_DRIBBLE_ID}
+        DRIBBBLE_CLIENT_SECRET: ${SERVICE_DRIBBLE_SECRET}
+        DISCORD_CLIENT_ID: ${SERVICE_DISCORD_ID}
+        DISCORD_CLIENT_SECRET: ${SERVICE_DISCORD_SECRET}
+        DISCORD_BOT_TOKEN_ID: ${SERVICE_DISCORD_TOKEN}
+        SLACK_ID: ${SERVICE_SLACK_ID}
+        SLACK_SECRET: ${SERVICE_SLACK_SECRET}
+        SLACK_SIGNING_SECRET: ${SLACK_SIGNING_SECRET}
+        MASTODON_CLIENT_ID: ${SERVICE_MASTODON_ID}
+        MASTODON_CLIENT_SECRET: ${SERVICE_MASTODON_SECRET}
+        INSTAGRAM_APP_ID: ${INSTAGRAM_APP_ID}
+        INSTAGRAM_APP_SECRET: ${INSTAGRAM_APP_SECRET}
+        BEEHIIVE_API_KEY: ${SERVICE_BEEHIIVE_KEY}
+        BEEHIIVE_PUBLICATION_ID: ${SERVICE_BEEHIIVE_PUBID}
+        OPENAI_API_KEY: ${SERVICE_OPENAI_KEY}
+        NEXT_PUBLIC_DISCORD_SUPPORT: ${NEXT_PUBLIC_DISCORD_SUPPORT}
+        NEXT_PUBLIC_POLOTNO: ${NEXT_PUBLIC_POLOTNO}
+        IS_GENERAL: 'true'
+        NX_ADD_PLUGINS: ${NX_ADD_PLUGINS:-false}
+        NOT_SECURED: ${NOT_SECURED:-false}
+        FEE_AMOUNT: ${FEE_AMOUNT:-0.05}
+        STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY}
+        STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+        STRIPE_SIGNING_KEY: ${STRIPE_SIGNING_KEY}
+        STRIPE_SIGNING_KEY_CONNECT: ${STRIPE_SIGNING_KEY_CONNECT}
+      volumes:
+        - postiz_config:/config/
+        - postiz_uploads:/uploads/
+      depends_on:
+        postgres:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - wget -qO- http://127.0.0.1:5000/
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:5000
+    postgres:
+      image: postgres:14.5@sha256:135c62a8134dcef829a1e4f5568bfae44bcfa2c75659ff948f43c71964366aa4
+      volumes:
+        - postiz_postgresql_data:/var/lib/postgresql/data
+      environment:
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRESQL}
+        POSTGRES_DB: ${POSTGRESQL_DATABASE:-postiz-db}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB:-postiz-db}
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+    redis:
+      image: redis:7.2@sha256:0312984fbfeb2ff1d4382ecef45b50e7d65478a6a58cf12ce28d6de7a4142e45
+      environment:
+        REDIS_PASSWORD: ${SERVICE_PASSWORD_REDIS}
+      command: redis-server --requirepass ${SERVICE_PASSWORD_REDIS}
+      volumes:
+        - postiz_redis_data:/data
+      healthcheck:
+        test:
+          - CMD
+          - redis-cli
+          - -a
+          - ${SERVICE_PASSWORD_REDIS}
+          - ping
+        interval: 5s
+        timeout: 10s
+        retries: 20
+      restart: unless-stopped
+  volumes:
+    postiz_config:
+    postiz_uploads:
+    postiz_postgresql_data:
+    postiz_redis_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_PASSWORD_JWTSECRET and SERVICE_PASSWORD_POSTGRESQL and SERVICE_PASSWORD_REDIS in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes postiz_config, postiz_uploads, postiz_postgresql_data, postiz_redis_data of this application: back them up before updating."

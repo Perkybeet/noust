@@ -1,0 +1,103 @@
+# Joomla: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/joomla
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: joomla
+kind: compose
+title: "Joomla"
+slogan: "Home of the Joomla! Content Management System"
+description: "Joomla is a flexible open-source content management system for building websites, portals, and online applications."
+category: cms
+tags: [cms, website, php, mariadb]
+logo: simple-icons:joomla
+version: "6.1.0-apache"
+revision: 1
+updated: 2026-10-28
+homepage: https://www.joomla.org
+docs: https://manual.joomla.org/
+repository: https://github.com/joomla/joomla-cms
+license: GPL-2.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  APP_DOMAIN:
+    from: "fqdn"
+    description: "The domain people use to reach the application."
+  JOOMLA_DB_USER:
+    default: "joomla"
+    description: "Setting JOOMLA_DB_USER of the application; the template leaves it to the operator."
+  JOOMLA_DB_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for joomla db password."
+  JOOMLA_DB_NAME:
+    default: "joomla"
+    description: "Setting JOOMLA_DB_NAME of the application; the template leaves it to the operator."
+  JOOMLA_SITE_NAME:
+    default: "Joomla"
+    description: "Setting JOOMLA_SITE_NAME of the application; the template leaves it to the operator."
+  JOOMLA_ADMIN_USER:
+    default: "Joomla Administrator"
+    description: "Setting JOOMLA_ADMIN_USER of the application; the template leaves it to the operator."
+  JOOMLA_ADMIN_USERNAME:
+    generate: "user"
+    description: "The user name Noust generated for joomla admin username."
+  JOOMLA_ADMIN_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for joomla admin password."
+  JOOMLA_ADMIN_EMAIL:
+    value: "admin@${APP_DOMAIN}"
+    description: "Setting JOOMLA_ADMIN_EMAIL of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    joomla:
+      image: joomla:6.1.0-apache@sha256:399682b65a69c43a68778495d1235470cd965a4702b741344502ac5c8d51d305
+      restart: unless-stopped
+      depends_on:
+        joomla-db:
+          condition: service_healthy
+      environment:
+        JOOMLA_DB_HOST: joomla-db
+        JOOMLA_DB_USER: ${JOOMLA_DB_USER}
+        JOOMLA_DB_PASSWORD: ${JOOMLA_DB_PASSWORD}
+        JOOMLA_DB_NAME: ${JOOMLA_DB_NAME}
+        JOOMLA_SITE_NAME: ${JOOMLA_SITE_NAME}
+        JOOMLA_ADMIN_USER: ${JOOMLA_ADMIN_USER}
+        JOOMLA_ADMIN_USERNAME: ${JOOMLA_ADMIN_USERNAME}
+        JOOMLA_ADMIN_PASSWORD: ${JOOMLA_ADMIN_PASSWORD}
+        JOOMLA_ADMIN_EMAIL: ${JOOMLA_ADMIN_EMAIL}
+      volumes:
+        - joomla-data:/var/www/html
+      ports:
+        - 127.0.0.1:${PORT}:80
+    joomla-db:
+      image: mariadb:11.4@sha256:d1891ede5a559f1086f55053bb8cc1569b0298338c4d72d71725a7f74f6ba620
+      restart: unless-stopped
+      environment:
+        MARIADB_DATABASE: ${JOOMLA_DB_NAME}
+        MARIADB_USER: ${JOOMLA_DB_USER}
+        MARIADB_PASSWORD: ${JOOMLA_DB_PASSWORD}
+        MARIADB_RANDOM_ROOT_PASSWORD: '1'
+      volumes:
+        - joomla-db:/var/lib/mysql
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - healthcheck.sh --connect --innodb_initialized
+        interval: 10s
+        timeout: 5s
+        retries: 5
+        start_period: 30s
+  volumes:
+    joomla-data:
+    joomla-db:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes joomla-data, joomla-db of this application: back them up before updating."

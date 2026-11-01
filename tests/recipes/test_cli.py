@@ -38,17 +38,17 @@ def test_list_prints_the_catalogue_with_its_docker_badge_and_slogan() -> None:
         line for line in result.output.splitlines() if "Uptime Kuma" in line
     )
     assert "not available in this release" in next(
-        line for line in result.output.splitlines() if line.strip().startswith("vault:")
+        line for line in result.output.splitlines() if line.strip().startswith("joplin-server:")
     )
 
 
 def test_list_json_carries_the_catalogue_fields_and_filters() -> None:
     """Search, category, tag and kind, as the API's."""
     everything = json.loads(run("recipe", "list", "--json").output)
-    found = json.loads(run("recipe", "list", "--json", "-q", "password manager").output)
+    found = json.loads(run("recipe", "list", "--json", "-q", "bitwarden manager").output)
     media = json.loads(run("recipe", "list", "--json", "--category", "media").output)
     tagged = json.loads(
-        run("recipe", "list", "--json", "--category", "media", "--tag", "subsonic").output
+        run("recipe", "list", "--json", "--category", "media", "--tag", "audio").output
     )
     native = json.loads(run("recipe", "list", "--json", "--kind", "native").output)
 
@@ -56,7 +56,7 @@ def test_list_json_carries_the_catalogue_fields_and_filters() -> None:
     assert [item["name"] for item in found["items"]] == ["vaultwarden"]
     assert {item["name"] for item in media["items"]} >= {"jellyfin", "navidrome"}
     assert [item["name"] for item in tagged["items"]] == ["navidrome"]
-    assert {item["name"] for item in native["items"]} >= {"wordpress", "n8n"}
+    assert {item["name"] for item in native["items"]} >= {"wordpress", "uptime-kuma"}
     item = found["items"][0]
     assert item["slogan"] and item["category"] == "security" and item["runs_in_docker"] is True
     assert item["version"] and item["updated"] and item["logo"] == "simple-icons:vaultwarden"
@@ -112,10 +112,9 @@ def test_show_describes_a_native_recipe_with_its_source_and_database() -> None:
 
 def test_show_of_an_unavailable_recipe_says_why_and_nothing_more() -> None:
     """Listed, not deployable."""
-    output = run("recipe", "show", "vault").output
+    output = run("recipe", "show", "joplin-server").output
 
-    assert "Available" in output and "No" in output and "Business Source License" in output
-    assert "noust recipe show openbao" in output
+    assert "Available" in output and "No" in output and "Personal Use License" in output
     assert "Install it with" not in output
 
 
@@ -136,7 +135,7 @@ def test_show_json_is_the_full_description() -> None:
     assert described["kind"] == "compose" and described["images"][0]["digest"].startswith("sha256:")
     assert {entry["name"] for entry in described["variables"]} == {"PUID", "PGID"}
     assert described["public_ports"][0]["port"] == 22000
-    assert run("recipe", "show", "drupal").exit_code != 0
+    assert run("recipe", "show", "bogus-recipe").exit_code != 0
 
 
 # ---------------------------------------------------------------------------
@@ -359,8 +358,8 @@ def test_list_can_show_only_what_is_left_out_and_why() -> None:
     assert licence["items"] and all(
         item["unavailable_code"] == "licence" for item in licence["items"]
     )
-    vault = next(line for line in text.splitlines() if "Vault" in line)
-    assert "does not let an operator run it for others" in vault
+    joplin = next(line for line in text.splitlines() if "Joplin" in line)
+    assert "does not let an operator run it for others" in joplin
     assert run("recipe", "list", "--reason", "because").exit_code == 2
 
 

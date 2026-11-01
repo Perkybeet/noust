@@ -1,0 +1,163 @@
+# Rybbit: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/rybbit.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: rybbit
+kind: compose
+title: "Rybbit"
+slogan: "Open-source, privacy-first web analytics."
+description: "Open-source and privacy-friendly alternative to Google Analytics that is 10x more intuitive"
+category: analytics
+tags: [analytics, web, privacy, self-hosted, clickhouse, postgres]
+logo: logo.svg
+version: "2.2.3"
+revision: 1
+updated: 2026-10-31
+homepage: https://rybbit.com
+docs: https://rybbit.io/docs
+repository: https://github.com/rybbit-io/rybbit
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_RYBBIT:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_PASSWORD_CLICKHOUSE:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for clickhouse."
+  SERVICE_PASSWORD_POSTGRES:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres."
+  SERVICE_BASE64_64_BACKEND:
+    generate: "base64_64"
+    secret: true
+    description: "The secret Noust generated for backend."
+health: {path: /, expect: "200-399", timeout: 180}
+files:
+  files/rybbit_clickhouse/enable_json.xml:
+    asset: files/rybbit_clickhouse/enable_json.xml
+    mode: "0644"
+  files/rybbit_clickhouse/logging_rules.xml:
+    asset: files/rybbit_clickhouse/logging_rules.xml
+    mode: "0644"
+  files/rybbit_clickhouse/network.xml:
+    asset: files/rybbit_clickhouse/network.xml
+    mode: "0644"
+  files/rybbit_clickhouse/user_logging.xml:
+    asset: files/rybbit_clickhouse/user_logging.xml
+    mode: "0644"
+compose: |
+  services:
+    rybbit:
+      image: ghcr.io/rybbit-io/rybbit-client:v2.2.3@sha256:85bd4e508db1e1c4a7a102b5cb51e4e0ca2e9f1faab78dc9ea55b4cef23dcac4
+      environment:
+        SERVICE_URL_RYBBIT: ${SERVICE_URL_RYBBIT}
+        NODE_ENV: production
+        NEXT_PUBLIC_BACKEND_URL: ${SERVICE_URL_RYBBIT}
+        NEXT_PUBLIC_DISABLE_SIGNUP: ${DISABLE_SIGNUP:-false}
+      depends_on:
+        rybbit_backend:
+          condition: service_healthy
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - nc -z 127.0.0.1 3002
+        interval: 30s
+        timeout: 10s
+        retries: 3
+        start_period: 10s
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:3002
+    rybbit_backend:
+      image: ghcr.io/rybbit-io/rybbit-backend:v2.2.3@sha256:8cc56ab643bb831dbed39cd3ce979a978676b5ae458b004d224c6aea732ea4e6
+      environment:
+        NODE_ENV: production
+        TRUST_PROXY: 'true'
+        BASE_URL: ${SERVICE_URL_RYBBIT}
+        CLICKHOUSE_PASSWORD: ${SERVICE_PASSWORD_CLICKHOUSE}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+        BETTER_AUTH_SECRET: ${SERVICE_BASE64_64_BACKEND}
+        DISABLE_SIGNUP: ${DISABLE_SIGNUP:-false}
+        DISABLE_TELEMETRY: ${DISABLE_TELEMETRY:-true}
+        CLICKHOUSE_HOST: http://rybbit_clickhouse:8123
+        CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+        CLICKHOUSE_DB: ${CLICKHOUSE_DB:-analytics}
+        POSTGRES_HOST: rybbit_postgres
+        POSTGRES_PORT: '5432'
+        POSTGRES_DB: ${POSTGRES_DB:-analytics}
+        POSTGRES_USER: ${POSTGRES_USER:-frog}
+      depends_on:
+        rybbit_clickhouse:
+          condition: service_healthy
+        rybbit_postgres:
+          condition: service_healthy
+      healthcheck:
+        test:
+          - CMD
+          - wget
+          - --no-verbose
+          - --tries=1
+          - --spider
+          - http://127.0.0.1:3001/api/health
+        interval: 30s
+        timeout: 10s
+        retries: 3
+        start_period: 10s
+      restart: unless-stopped
+    rybbit_postgres:
+      image: postgres:17.4@sha256:304ab813518754228f9f792f79d6da36359b82d8ecf418096c636725f8c930ad
+      environment:
+        POSTGRES_DB: ${POSTGRES_DB:-analytics}
+        POSTGRES_USER: ${POSTGRES_USER:-frog}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+      volumes:
+        - postgres_data:/var/lib/postgresql/data
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+        interval: 30s
+        timeout: 10s
+        retries: 3
+      restart: unless-stopped
+    rybbit_clickhouse:
+      image: clickhouse/clickhouse-server:25.4.2@sha256:5311f717b7a3ee1e8ed2c198fee498c636ba6c2da3e39dbe45769088ebc858d0
+      environment:
+        CLICKHOUSE_DB: ${CLICKHOUSE_DB:-analytics}
+        CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+        CLICKHOUSE_PASSWORD: ${SERVICE_PASSWORD_CLICKHOUSE}
+      healthcheck:
+        test:
+          - CMD
+          - wget
+          - --no-verbose
+          - --tries=1
+          - --spider
+          - http://127.0.0.1:8123/ping
+        interval: 30s
+        timeout: 10s
+        retries: 3
+        start_period: 10s
+      volumes:
+        - clickhouse_data:/var/lib/clickhouse
+        - ./files/rybbit_clickhouse/enable_json.xml:/etc/clickhouse-server/config.d/enable_json.xml
+        - ./files/rybbit_clickhouse/logging_rules.xml:/etc/clickhouse-server/config.d/logging_rules.xml
+        - ./files/rybbit_clickhouse/network.xml:/etc/clickhouse-server/config.d/network.xml
+        - ./files/rybbit_clickhouse/user_logging.xml:/etc/clickhouse-server/config.d/user_logging.xml
+      restart: unless-stopped
+  volumes:
+    postgres_data:
+    clickhouse_data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_PASSWORD_CLICKHOUSE and SERVICE_PASSWORD_POSTGRES in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes postgres_data, clickhouse_data of this application: back them up before updating."

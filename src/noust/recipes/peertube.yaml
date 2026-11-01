@@ -1,0 +1,134 @@
+# Peertube: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/peertube.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: peertube
+kind: compose
+title: "Peertube"
+slogan: "Free, open-source and decentralized video platform."
+description: "ActivityPub-federated video streaming platform using P2P directly in your web browser"
+category: communication
+tags: [video, fediverse, activitypub, youtube, streaming, self-hosted, communication]
+logo: simple-icons:peertube
+version: "8.2.4"
+revision: 1
+updated: 2026-10-31
+homepage: https://joinpeertube.org/
+docs: https://docs.joinpeertube.org/install/docker
+repository: https://github.com/Chocobozzz/PeerTube
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_PEERTUBE:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_FQDN_PEERTUBE:
+    from: "fqdn"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_HEX_32_PEERTUBESECRET:
+    generate: "hex32"
+    secret: true
+    description: "The secret Noust generated for service hex 32 peertubesecret."
+  SERVICE_USER_POSTGRESQL:
+    generate: "user"
+    description: "The user name Noust generated for postgresql."
+  SERVICE_PASSWORD_POSTGRESQL:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgresql."
+  PEERTUBE_ADMIN_EMAIL:
+    required: true
+    description: "Needed to start the application; the installation asks for it."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    peertube:
+      image: chocobozzz/peertube:v8.2.4@sha256:313889b4a79f1b956a4c46023cfc17afdaa1e5c0a67352aff556f523f841dfbf
+      environment:
+        SERVICE_URL_PEERTUBE: ${SERVICE_URL_PEERTUBE}
+        PEERTUBE_WEBSERVER_HOSTNAME: ${SERVICE_FQDN_PEERTUBE}
+        PEERTUBE_WEBSERVER_PORT: ${PEERTUBE_WEBSERVER_PORT:-443}
+        PEERTUBE_WEBSERVER_HTTPS: ${PEERTUBE_WEBSERVER_HTTPS:-true}
+        PEERTUBE_TRUST_PROXY: '["127.0.0.1", "loopback", "172.16.0.0/12"]'
+        PEERTUBE_SECRET: ${SERVICE_HEX_32_PEERTUBESECRET}
+        PEERTUBE_DB_HOSTNAME: postgres
+        PEERTUBE_DB_USERNAME: ${SERVICE_USER_POSTGRESQL}
+        PEERTUBE_DB_PASSWORD: ${SERVICE_PASSWORD_POSTGRESQL}
+        PEERTUBE_DB_NAME: ${POSTGRES_DB:-peertube}
+        PEERTUBE_DB_SSL: 'false'
+        PEERTUBE_REDIS_HOSTNAME: redis
+        PEERTUBE_SMTP_HOSTNAME: postfix
+        PEERTUBE_SMTP_PORT: '25'
+        PEERTUBE_SMTP_FROM: noreply@${SERVICE_FQDN_PEERTUBE}
+        PEERTUBE_SMTP_TLS: 'false'
+        PEERTUBE_SMTP_DISABLE_STARTTLS: 'false'
+        PEERTUBE_ADMIN_EMAIL: ${PEERTUBE_ADMIN_EMAIL:?}
+      volumes:
+        - peertube-data:/data
+        - peertube-config:/config
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - -f
+          - http://localhost:9000/api/v1/ping
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      depends_on:
+        postgres:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:9000
+    postgres:
+      image: postgres:17-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+      environment:
+        POSTGRES_USER: ${SERVICE_USER_POSTGRESQL}
+        POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRESQL}
+        POSTGRES_DB: ${POSTGRES_DB:-peertube}
+      volumes:
+        - db-data:/var/lib/postgresql/data
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB:-peertube}
+        interval: 5s
+        timeout: 5s
+        retries: 10
+      restart: unless-stopped
+    redis:
+      image: redis:8-alpine@sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537
+      volumes:
+        - redis-data:/data
+      healthcheck:
+        test:
+          - CMD
+          - redis-cli
+          - ping
+        interval: 5s
+        timeout: 5s
+        retries: 10
+      restart: unless-stopped
+    postfix:
+      image: mwader/postfix-relay:1.2.17@sha256:3ff7e7cb535f17570faabd9df3036ea65e69e3507c491e4ff8938189225a3382
+      environment:
+        POSTFIX_myhostname: ${SERVICE_FQDN_PEERTUBE}
+      restart: unless-stopped
+  volumes:
+    peertube-data:
+    peertube-config:
+    db-data:
+    redis-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_USER_POSTGRESQL and SERVICE_PASSWORD_POSTGRESQL in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes peertube-data, peertube-config, db-data, redis-data of this application: back them up before updating."

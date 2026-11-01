@@ -1,0 +1,93 @@
+# RomM from the image the project publishes (rommapp/romm), with the settings its documentation names (docs.romm.app/latest/Getting-Started/Quick-Start-Guide and the project's example docker-compose.yml).
+schema: 2
+name: romm
+kind: compose
+title: "RomM"
+slogan: "A beautiful, powerful, self-hosted ROM manager and player."
+description: "Scans your ROM collection, matches it with game metadata and artwork, and lets you browse, download and play in the browser. Runs with its own MariaDB."
+category: media
+tags: [roms, games, retro, emulation]
+logo: logo.svg
+version: "5.4.1"
+revision: 1
+updated: 2026-10-30
+homepage: https://romm.app
+docs: https://romm.app
+repository: https://github.com/rommapp/romm
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8080
+variables:
+  DB_PASSWORD:
+    generate: "password32"
+    description: "The password of the stack's Mariadb account."
+  DB_ROOT_PASSWORD:
+    generate: "password32"
+    description: "The password of the stack's Mariadb administrator."
+  AUTH_SECRET:
+    generate: "hex64"
+    description: "Signs sessions; changing it signs everybody out."
+health: {path: /api/heartbeat, expect: "200", timeout: 120}
+files:
+  noust.nginx.yaml: noust.nginx.yaml
+compose: |
+  services:
+    romm:
+      image: rommapp/romm:5.4.1@sha256:8677fb7b81b1d3db20b849e989a1dadc2a11159e51eb34a2acdcb01102274edf
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        DB_HOST: db
+        DB_PORT: '3306'
+        DB_NAME: romm
+        DB_USER: romm
+        DB_PASSWD: ${DB_PASSWORD}
+        ROMM_AUTH_SECRET_KEY: ${AUTH_SECRET}
+        IGDB_CLIENT_ID:
+        IGDB_CLIENT_SECRET:
+        SCREENSCRAPER_USER:
+        SCREENSCRAPER_PASSWORD:
+        STEAMGRIDDB_API_KEY:
+      volumes:
+        - romm-library:/romm/library
+        - romm-resources:/romm/resources
+        - romm-assets:/romm/assets
+        - romm-config:/romm/config
+        - romm-redis:/redis-data
+      ports:
+        - 127.0.0.1:${PORT}:8080
+    db:
+      image: mariadb:11.8.9@sha256:c4124d1afa875e47f2892edf26b482fa54f796e2f342d3717a04ca091a22a9bd
+      restart: unless-stopped
+      environment:
+        MARIADB_USER: romm
+        MARIADB_DATABASE: romm
+        MARIADB_PASSWORD: ${DB_PASSWORD}
+        MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      healthcheck:
+        test:
+          - CMD
+          - healthcheck.sh
+          - --connect
+          - --innodb_initialized
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 30s
+      volumes:
+        - romm-db:/var/lib/mysql
+  volumes:
+    romm-library:
+    romm-resources:
+    romm-assets:
+    romm-config:
+    romm-redis:
+    romm-db:
+notes:
+  - "Open {{ url }}. The first visit runs a setup that makes the administrator: do it right after installing."
+  - "Put your ROMs in the volume romm-library (docker cp, or mount it where you keep them), in one folder per platform. Metadata providers (IGDB, ScreenScraper, SteamGridDB) are optional and are set in the application's environment."
+  - "Its data is in the Docker volumes romm-library, romm-resources, romm-assets, romm-config, romm-redis, romm-db of this application, the databases dumped by Noust before every update: back them up before updating."

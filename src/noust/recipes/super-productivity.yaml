@@ -1,0 +1,31 @@
+# Super Productivity from the image the project publishes (johannesjo/super-productivity), as its documentation describes the web app's container (github.com/johannesjo/super-productivity, README: Self-hosting).
+schema: 2
+name: super-productivity
+kind: compose
+title: "Super Productivity"
+slogan: "An advanced todo list app with timeboxing and integrated issue trackers."
+description: "A task manager with time tracking, timeboxing and integrations with Jira, GitHub, GitLab and others. This is the web app: your data stays in your browser unless you set up a sync."
+category: productivity
+tags: [tasks, todo, time-tracking, planner]
+logo: logo.svg
+version: "19.3.1"
+revision: 1
+updated: 2026-10-30
+homepage: https://github.com/super-productivity/super-productivity
+docs: https://github.com/super-productivity/super-productivity
+repository: https://github.com/super-productivity/super-productivity
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    super-productivity:
+      image: johannesjo/super-productivity:v19.3.1@sha256:abe3e0b325965e27c90830a8f6422023e3147114a570ff374a61263224c2b3c8
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:80
+notes:
+  - "Open {{ url }}. Nothing to set up on the server: the page keeps its data in the browser of whoever opens it."

@@ -1,0 +1,81 @@
+# Koillection from the image the project publishes (koillection/koillection), with the settings its documentation names (github.com/benjaminjonard/koillection, wiki: Installation with Docker).
+schema: 2
+name: koillection
+kind: compose
+title: "Koillection"
+slogan: "Manage any kind of collection: books, games, coins, stamps, wines."
+description: "Catalogues what you collect: items with fields, photos, prices and wishlists, in collections you can share or keep private. Runs with its own PostgreSQL."
+category: productivity
+tags: [collections, inventory, catalogue, wishlist]
+logo: logo.svg
+version: "1.8.5"
+revision: 1
+updated: 2026-10-30
+homepage: https://github.com/koillection/koillection/wiki
+docs: https://github.com/koillection/koillection/wiki
+repository: https://github.com/benjaminjonard/koillection
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  DB_PASSWORD:
+    generate: "password32"
+    description: "The password of the stack's PostgreSQL account."
+  APP_SECRET:
+    generate: "hex32"
+    description: "Signs sessions and tokens."
+  HTTPS:
+    from: "https"
+    description: "Whether the site is served over https."
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    koillection:
+      image: koillection/koillection:1.8.5@sha256:9724f42ab4729c50533fef6512dbae3c2aa5f03a89271e305952e2aaa2e839d6
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        APP_ENV: prod
+        APP_DEBUG: '0'
+        APP_SECRET: ${APP_SECRET}
+        HTTPS_ENABLED: ${HTTPS}
+        DB_DRIVER: pdo_pgsql
+        DB_NAME: koillection
+        DB_HOST: db
+        DB_PORT: '5432'
+        DB_USER: koillection
+        DB_PASSWORD: ${DB_PASSWORD}
+        DB_VERSION: '17'
+        PHP_TZ: UTC
+        UPLOAD_MAX_FILESIZE: 20M
+      volumes:
+        - koillection-uploads:/uploads
+      ports:
+        - 127.0.0.1:${PORT}:80
+    db:
+      image: postgres:17.11-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: koillection
+        POSTGRES_DB: koillection
+        POSTGRES_PASSWORD: ${DB_PASSWORD}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U koillection -d koillection
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - koillection-db:/var/lib/postgresql/data
+  volumes:
+    koillection-uploads:
+    koillection-db:
+notes:
+  - "Open {{ url }}. The first visit registers the first account, which becomes the administrator: do it right after installing."
+  - "Its data is in the Docker volumes koillection-uploads, koillection-db of this application, the databases dumped by Noust before every update: back them up before updating."

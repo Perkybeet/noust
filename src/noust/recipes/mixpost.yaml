@@ -1,0 +1,112 @@
+# Mixpost: Derived in part from Coolify's template https://github.com/coollabsio/coolify/blob/next/templates/compose/mixpost.yaml
+# (Apache-2.0, Copyright 2025 Andras Bacsai), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: mixpost
+kind: compose
+title: "Mixpost"
+slogan: "Self-hosted social media management software for scheduling, publishing and analysing posts."
+description: "Mixpost is an open-source social media management tool that allows you to create, schedule, and publish posts across multiple social media platforms from a single interface."
+category: automation
+tags: [social, media, marketing, content, management, automation, self-hosted, social-media]
+logo: logo.svg
+version: "2.6.0"
+revision: 1
+updated: 2026-10-30
+homepage: https://mixpost.app
+docs: https://docs.mixpost.app/lite
+repository: https://github.com/inovector/mixpost
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  SERVICE_URL_MIXPOST:
+    from: "url"
+    description: "The address people use to reach the application, as the template builds it."
+  SERVICE_BASE64_MIXPOST:
+    generate: "base64_32"
+    secret: true
+    description: "The secret Noust generated for mixpost."
+  SERVICE_USER_MYSQL:
+    generate: "user"
+    description: "The user name Noust generated for mysql."
+  SERVICE_PASSWORD_MYSQL:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for mysql."
+  SERVICE_PASSWORD_MYSQLROOT:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for mysqlroot."
+health: {path: /robots.txt, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    mixpost:
+      image: inovector/mixpost:v2.6.0@sha256:36b22da97fa45a27edff9c619e3b36ec5f8e87edbc9f9c42689178c6078f8a96
+      environment:
+        SERVICE_URL_MIXPOST: ${SERVICE_URL_MIXPOST}
+        APP_NAME: Mixpost
+        APP_KEY: ${SERVICE_BASE64_MIXPOST}
+        APP_DEBUG: 'false'
+        APP_DOMAIN: ${SERVICE_URL_MIXPOST}
+        APP_URL: ${SERVICE_URL_MIXPOST}
+        DB_DATABASE: ${MYSQL_DATABASE:-mixpost_db}
+        DB_USERNAME: ${SERVICE_USER_MYSQL}
+        DB_PASSWORD: ${SERVICE_PASSWORD_MYSQL}
+        SSL_EMAIL: ${SSL_EMAIL:-user@example.com}
+      volumes:
+        - mixpost-storage:/var/www/html/storage/app
+        - mixpost-logs:/var/www/html/storage/logs
+      depends_on:
+        mysql:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:80
+    mysql:
+      image: mysql/mysql-server:8.0@sha256:d6c8301b7834c5b9c2b733b10b7e630f441af7bc917c74dba379f24eeeb6a313
+      environment:
+        MYSQL_DATABASE: ${MYSQL_DATABASE:-mixpost_db}
+        MYSQL_USER: ${SERVICE_USER_MYSQL}
+        MYSQL_PASSWORD: ${SERVICE_PASSWORD_MYSQL}
+        MYSQL_ROOT_PASSWORD: ${SERVICE_PASSWORD_MYSQLROOT}
+      volumes:
+        - mixpost-mysql:/var/lib/mysql
+      healthcheck:
+        test:
+          - CMD
+          - mysqladmin
+          - ping
+          - -h
+          - 127.0.0.1
+          - -uroot
+          - -p${SERVICE_PASSWORD_MYSQLROOT}
+        interval: 5s
+        timeout: 20s
+        retries: 10
+      restart: unless-stopped
+    redis:
+      image: redis:alpine@sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537
+      healthcheck:
+        test:
+          - CMD
+          - redis-cli
+          - --raw
+          - incr
+          - ping
+      restart: unless-stopped
+  volumes:
+    mixpost-storage:
+    mixpost-logs:
+    mixpost-mysql:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "The user name and the password Noust generated for the application are SERVICE_USER_MYSQL and SERVICE_PASSWORD_MYSQL and SERVICE_PASSWORD_MYSQLROOT in its environment (noust env show {{ domain }} --unmask); the application's own sign-in may use them or ask you to create an account."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes mixpost-storage, mixpost-logs, mixpost-mysql of this application: back them up before updating."

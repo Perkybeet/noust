@@ -6,7 +6,7 @@ schema: 2
 name: directory-lister
 kind: compose
 title: "Directory Lister"
-slogan: "📂 Directory Lister is the easiest way to expose the contents of any web-accessible folder for..."
+slogan: "The easiest way to expose the contents of any web-accessible folder."
 description: "Directory Lister is a simple PHP application that lists the contents of any web-accessible directory and allows navigation there within."
 category: utilities
 tags: [file-manager, directory-listing, php, utilities]

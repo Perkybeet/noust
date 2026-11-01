@@ -1,0 +1,39 @@
+# Lunalytics from the image the project publishes (ksjaay/lunalytics), with the data directory its documentation names (lunalytics.xyz/docs/installation/docker).
+# Licence: LICENSE of KSJaay/Lunalytics, read 2026-10-30: the GNU AGPL version 3 or later
+schema: 2
+name: lunalytics
+kind: compose
+title: "Lunalytics"
+slogan: "Open source website monitoring and status pages for teams."
+description: "Watches websites and services over HTTP, TCP and ping, keeps their history, sends notifications and publishes status pages. Data is in a SQLite file."
+category: monitoring
+tags: [uptime, monitoring, status-page, alerts]
+logo: logo.svg
+version: "0.10.23"
+revision: 1
+updated: 2026-10-30
+homepage: https://lunalytics.xyz
+docs: https://lunalytics.xyz
+repository: https://github.com/KSJaay/Lunalytics
+license: AGPL-3.0-or-later
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 2308
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    lunalytics:
+      image: ksjaay/lunalytics:0.10.23@sha256:b1e44f9e647e3e240400eafc914facafbfad2cc87d6c4f02d823226dd9731511
+      restart: unless-stopped
+      environment:
+        NODE_ENV: production
+      volumes:
+        - lunalytics-data:/app/data
+      ports:
+        - 127.0.0.1:${PORT}:2308
+  volumes:
+    lunalytics-data:
+notes:
+  - "Open {{ url }}. The first visit registers the first account, which becomes the owner: do it right after installing."
+  - "Its data is in the Docker volume lunalytics-data of this application: back it up before updating."

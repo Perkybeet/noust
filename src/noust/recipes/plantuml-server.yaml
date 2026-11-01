@@ -1,0 +1,31 @@
+# PlantUML Server from the image the project publishes (plantuml/plantuml-server), as its documentation describes the container (github.com/plantuml/plantuml-server, README: Docker).
+schema: 2
+name: plantuml-server
+kind: compose
+title: "PlantUML Server"
+slogan: "PlantUML Server is a web application to generate UML diagrams on-the-fly."
+description: "Turns PlantUML text into UML diagrams (sequence, class, component, state and more) as images, through an editor page and URLs that editors and wikis embed. It has no accounts: keep it behind an allow-list if the diagrams are private."
+category: development
+tags: [uml, diagrams, plantuml, documentation]
+logo: logo.svg
+version: "1.2026.9"
+revision: 1
+updated: 2026-10-30
+homepage: https://plantuml.com/
+docs: https://plantuml.com/
+repository: https://github.com/plantuml/plantuml-server
+license: GPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8080
+health: {path: /, expect: "200-399", timeout: 120}
+compose: |
+  services:
+    plantuml-server:
+      image: plantuml/plantuml-server:v1.2026.9@sha256:065c66adc6728ba6dd353a29d4ada73f8358b68549a0f710c4bf46b43c103618
+      restart: unless-stopped
+      ports:
+        - 127.0.0.1:${PORT}:8080
+notes:
+  - "Open {{ url }}. The editor is at {{ url }}; wikis and editors embed {{ url }}/png/<encoded text>."

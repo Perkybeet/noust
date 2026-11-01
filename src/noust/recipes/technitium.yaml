@@ -1,0 +1,51 @@
+# Technitium DNS Server from the image the project publishes (technitium/dns-server), with the variables, volume and ports its documentation names (github.com/TechnitiumSoftware/DnsServer, DockerHub README).
+schema: 2
+name: technitium
+kind: compose
+title: "Technitium DNS Server"
+slogan: "Block ads & malware, and self-host your DNS server for privacy & security."
+description: "An authoritative and recursive DNS server with a web console: zones and records, blocking lists, conditional forwarding, DNS over HTTPS and TLS, and a query log. It answers DNS on port 53 of this server; the administrator's password is generated."
+category: utilities
+tags: [dns, ad-blocking, resolver, privacy]
+logo: logo.svg
+version: "15.6.2"
+revision: 1
+updated: 2026-10-30
+homepage: https://technitium.com/dns/
+docs: https://technitium.com/dns/
+repository: https://github.com/TechnitiumSoftware/DnsServer
+license: GPL-3.0-only
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 5380
+variables:
+  FQDN:
+    from: "fqdn"
+    description: "The host name people use."
+  ADMIN_PASSWORD:
+    generate: "password32"
+    description: "The password of the user admin."
+health: {path: /, expect: "200-399", timeout: 120}
+public_ports:
+  - {port: 53, protocol: tcp, purpose: "DNS over TCP, which clients and other servers ask."}
+  - {port: 53, protocol: udp, purpose: "DNS over UDP, which clients and other servers ask."}
+compose: |
+  services:
+    technitium:
+      image: technitium/dns-server:15.6.2@sha256:eb48ac5c135f4ab936b536f74f853d53e15ab39ef37fdbc9598a089b90d9f245
+      restart: unless-stopped
+      environment:
+        DNS_SERVER_DOMAIN: ${FQDN}
+        DNS_SERVER_ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      volumes:
+        - technitium-config:/etc/dns
+      ports:
+        - 127.0.0.1:${PORT}:5380
+        - 53:53/tcp
+        - 53:53/udp
+  volumes:
+    technitium-config:
+notes:
+  - "Open {{ url }}. Sign in as admin with the password in ADMIN_PASSWORD (noust env show {{ domain }} --unmask). Port 53 answers anybody who asks: an open resolver is abused for attacks, so restrict who may query it (the console's settings, or the firewall) before pointing devices at it. If another service on this server holds port 53, free it first."
+  - "Its data is in the Docker volume technitium-config of this application: back it up before updating."

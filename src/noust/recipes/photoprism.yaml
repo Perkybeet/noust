@@ -1,0 +1,87 @@
+# PhotoPrism from the image the project publishes (photoprism/photoprism), with the variables and volumes its documentation names (docs.photoprism.app/getting-started/docker-compose).
+# Licence: LICENSE of photoprism/photoprism, read 2026-10-30: GNU Affero General Public License, version 3
+schema: 2
+name: photoprism
+kind: compose
+title: "PhotoPrism"
+slogan: "AI-powered photos app for the decentralized web."
+description: "Browses, organises and shares a photo library: it indexes originals (RAW and video too), recognises faces and places, builds albums and a map, and speaks WebDAV for phones. Runs with its own MariaDB; the administrator's password is generated."
+category: media
+tags: [photos, gallery, albums, ai]
+logo: logo.svg
+version: "261029"
+revision: 1
+updated: 2026-10-30
+homepage: https://www.photoprism.app
+docs: https://www.photoprism.app
+repository: https://github.com/photoprism/photoprism
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 2342
+variables:
+  DB_PASSWORD:
+    generate: "password32"
+    description: "The password of the stack's Mariadb account."
+  DB_ROOT_PASSWORD:
+    generate: "password32"
+    description: "The password of the stack's Mariadb administrator."
+  APP_URL:
+    from: "url"
+    description: "The address people use to reach the application."
+  ADMIN_PASSWORD:
+    generate: "password32"
+    description: "The password of the account admin."
+health: {path: /api/v1/status, expect: "200", timeout: 240}
+compose: |
+  services:
+    photoprism:
+      image: photoprism/photoprism:261029@sha256:9409cf8e5a6ebcbe3170d14537556cbc20997aaa307096d6eeedbfc5eeef6719
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        PHOTOPRISM_ADMIN_USER: admin
+        PHOTOPRISM_ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+        PHOTOPRISM_AUTH_MODE: password
+        PHOTOPRISM_SITE_URL: ${APP_URL}/
+        PHOTOPRISM_DATABASE_DRIVER: mysql
+        PHOTOPRISM_DATABASE_SERVER: db:3306
+        PHOTOPRISM_DATABASE_NAME: photoprism
+        PHOTOPRISM_DATABASE_USER: photoprism
+        PHOTOPRISM_DATABASE_PASSWORD: ${DB_PASSWORD}
+        PHOTOPRISM_UPLOAD_NSFW: 'true'
+      volumes:
+        - photoprism-originals:/photoprism/originals
+        - photoprism-storage:/photoprism/storage
+      ports:
+        - 127.0.0.1:${PORT}:2342
+    db:
+      image: mariadb:11.8.9@sha256:c4124d1afa875e47f2892edf26b482fa54f796e2f342d3717a04ca091a22a9bd
+      restart: unless-stopped
+      environment:
+        MARIADB_USER: photoprism
+        MARIADB_DATABASE: photoprism
+        MARIADB_PASSWORD: ${DB_PASSWORD}
+        MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      healthcheck:
+        test:
+          - CMD
+          - healthcheck.sh
+          - --connect
+          - --innodb_initialized
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 30s
+      volumes:
+        - photoprism-db:/var/lib/mysql
+  volumes:
+    photoprism-originals:
+    photoprism-storage:
+    photoprism-db:
+notes:
+  - "Open {{ url }}. Sign in as admin with the password in ADMIN_PASSWORD (noust env show {{ domain }} --unmask). Your photos go in the volume photoprism-originals, or upload them from the page."
+  - "Its data is in the Docker volumes photoprism-originals, photoprism-storage, photoprism-db of this application, the databases dumped by Noust before every update: back them up before updating."

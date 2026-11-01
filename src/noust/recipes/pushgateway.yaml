@@ -1,0 +1,40 @@
+# Pushgateway from the image the project publishes (prom/pushgateway), as its documentation describes the container (github.com/prometheus/pushgateway, README).
+schema: 2
+name: pushgateway
+kind: compose
+title: "Pushgateway"
+slogan: "Push acceptor for ephemeral and batch jobs."
+description: "Holds the metrics that short-lived jobs push before they exit, so that Prometheus can scrape them later. It has a page that lists the groups it holds, and no accounts, so keep it behind an allow-list."
+category: monitoring
+tags: [prometheus, metrics, batch-jobs, monitoring]
+logo: logo.svg
+version: "1.11.5"
+revision: 1
+updated: 2026-10-30
+homepage: https://github.com/prometheus/pushgateway
+docs: https://github.com/prometheus/pushgateway
+repository: https://github.com/prometheus/pushgateway
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 9091
+health: {path: /-/healthy, expect: "200", timeout: 120}
+compose: |
+  services:
+    pushgateway:
+      image: prom/pushgateway:v1.11.5@sha256:bf6442633f6129d3e3f9861fa14c77bc012d74b33a1dd213d7b458b89ce3cc5d
+      restart: unless-stopped
+      volumes:
+        - pushgateway-data:/pushgateway
+      ports:
+        - 127.0.0.1:${PORT}:9091
+      command:
+        - --persistence.file=/pushgateway/metrics
+        - --persistence.interval=5m
+      user: 0:0
+  volumes:
+    pushgateway-data:
+notes:
+  - "Open {{ url }}. Jobs push to {{ url }}/metrics/job/<name>, and Prometheus scrapes {{ url }}/metrics. It has no sign-in: restrict who can reach it."
+  - "Its data is in the Docker volume pushgateway-data of this application: back it up before updating."

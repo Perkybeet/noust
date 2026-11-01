@@ -1,0 +1,68 @@
+# Hasura GraphQL Engine from the image the project publishes (hasura/graphql-engine), with the settings its documentation names (hasura.io/docs/2.0/deployment/graphql-engine-flags/reference and the docker-compose example in the project's install-manifests).
+schema: 2
+name: hasura
+kind: compose
+title: "Hasura GraphQL Engine"
+slogan: "Instant GraphQL and REST APIs on your databases."
+description: "Gives a PostgreSQL database a GraphQL API with permissions, subscriptions and event triggers, and a console to model it. Runs with its own PostgreSQL for the metadata; the console asks for the admin secret."
+category: backend
+tags: [graphql, api, postgres, backend]
+logo: simple-icons:hasura
+version: "2.51.3"
+revision: 1
+updated: 2026-10-30
+homepage: https://hasura.io
+docs: https://hasura.io
+repository: https://github.com/hasura/graphql-engine
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8080
+variables:
+  DB_PASSWORD:
+    generate: "password32"
+    description: "The password of the stack's PostgreSQL account."
+  ADMIN_SECRET:
+    generate: "password32"
+    description: "The secret the console and every admin request ask for."
+health: {path: /healthz, expect: "200", timeout: 120}
+compose: |
+  services:
+    hasura:
+      image: hasura/graphql-engine:v2.51.3@sha256:61a4e2e52776ea964c4f63b08ab072b70870d23a12b2838dc864858aef6bc8ca
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        HASURA_GRAPHQL_METADATA_DATABASE_URL: postgres://hasura:${DB_PASSWORD}@db:5432/hasura
+        HASURA_GRAPHQL_DATABASE_URL: postgres://hasura:${DB_PASSWORD}@db:5432/hasura
+        HASURA_GRAPHQL_ENABLE_CONSOLE: 'true'
+        HASURA_GRAPHQL_ADMIN_SECRET: ${ADMIN_SECRET}
+        HASURA_GRAPHQL_ENABLE_TELEMETRY: 'false'
+      ports:
+        - 127.0.0.1:${PORT}:8080
+    db:
+      image: postgres:17.11-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: hasura
+        POSTGRES_DB: hasura
+        POSTGRES_PASSWORD: ${DB_PASSWORD}
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U hasura -d hasura
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - hasura-db:/var/lib/postgresql/data
+  volumes:
+    hasura-db:
+notes:
+  - "Open {{ url }}. The console asks for the admin secret: it is ADMIN_SECRET in the application's environment (noust env show {{ domain }} --unmask)."
+  - "Hasura keeps its metadata in the PostgreSQL of this stack. To expose your own database, add its connection string as a data source in the console."
+  - "Its data is in the Docker volume hasura-db of this application, the databases dumped by Noust before every update: back it up before updating."

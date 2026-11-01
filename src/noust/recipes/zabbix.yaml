@@ -1,0 +1,135 @@
+# Zabbix: Derived in part from Dokploy's template https://github.com/Dokploy/templates/tree/main/blueprints/zabbix
+# (MIT, Copyright 2024 Dokploy and Carlos Ortiz), changed into a recipe: every image pinned to a release and the
+# digest its registry serves, the web port on the loopback address, credentials generated,
+# and nothing the closed schema refuses. The template's authors keep their rights in it.
+schema: 2
+name: zabbix
+kind: compose
+title: "Zabbix"
+slogan: "Official Zabbix Dockerfiles"
+description: "Zabbix is an open-source enterprise-grade monitoring platform for networks, servers, virtual machines, and cloud services. This template includes PostgreSQL, Nginx frontend, SNMP traps, and Java gateway."
+category: monitoring
+tags: [monitoring, infrastructure, observability, alerting]
+logo: logo.svg
+version: "7.4.16-ubuntu"
+revision: 1
+updated: 2026-10-30
+homepage: https://www.zabbix.com
+docs: https://www.zabbix.com/documentation/current/en/manual/installation/containers
+repository: https://github.com/zabbix/zabbix-docker
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  POSTGRES_DB:
+    default: "zabbix"
+    description: "Setting POSTGRES_DB of the application; the template leaves it to the operator."
+  POSTGRES_USER:
+    default: "zabbix"
+    description: "Setting POSTGRES_USER of the application; the template leaves it to the operator."
+  POSTGRES_PASSWORD:
+    generate: "password32"
+    secret: true
+    description: "The secret Noust generated for postgres password."
+  PHP_TZ:
+    default: "UTC"
+    description: "Setting PHP_TZ of the application; the template leaves it to the operator."
+  ZBX_SERVER_NAME:
+    default: "Dokploy Zabbix Monitoring"
+    description: "Setting ZBX_SERVER_NAME of the application; the template leaves it to the operator."
+health: {path: /, expect: "200-399", timeout: 180}
+compose: |
+  services:
+    postgres:
+      image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
+      restart: unless-stopped
+      environment:
+        POSTGRES_DB: ${POSTGRES_DB}
+        POSTGRES_USER: ${POSTGRES_USER}
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      volumes:
+        - zabbix-postgres-data:/var/lib/postgresql/data
+      healthcheck:
+        test:
+          - CMD-SHELL
+          - pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}
+        interval: 10s
+        timeout: 5s
+        retries: 5
+    zabbix-java-gateway:
+      image: zabbix/zabbix-java-gateway:7.4.16-ubuntu@sha256:88065f7e6a972a7f3ae9ceb9bf213adc2116bb308e3292fddac2029325d332e1
+      restart: unless-stopped
+    zabbix-snmptraps:
+      image: zabbix/zabbix-snmptraps:7.4.16-ubuntu@sha256:5ec7bd55e740bbdaaf102ac55630e67fefb6544cc6001a2b0148a66120d0908b
+      restart: unless-stopped
+      volumes:
+        - zabbix-snmptraps:/var/lib/zabbix/snmptraps
+        - zabbix-mibs:/var/lib/zabbix/mibs
+    zabbix-server-pgsql:
+      image: zabbix/zabbix-server-pgsql:7.4.16-ubuntu@sha256:a0defb074b965a7cab93d1e97c2dd254f784c0348225761ac271e714e485f705
+      restart: unless-stopped
+      environment:
+        DB_SERVER_HOST: postgres
+        POSTGRES_USER: ${POSTGRES_USER}
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        POSTGRES_DB: ${POSTGRES_DB}
+        ZBX_ENABLE_SNMP_TRAPS: 'true'
+        ZBX_JAVAGATEWAY: zabbix-java-gateway
+      depends_on:
+        postgres:
+          condition: service_healthy
+        zabbix-java-gateway:
+          condition: service_started
+        zabbix-snmptraps:
+          condition: service_started
+      volumes:
+        - zabbix-server-data:/var/lib/zabbix
+        - zabbix-snmptraps:/var/lib/zabbix/snmptraps
+        - zabbix-mibs:/var/lib/zabbix/mibs
+      healthcheck:
+        test:
+          - CMD
+          - pgrep
+          - zabbix_server
+        interval: 10s
+        timeout: 5s
+        retries: 5
+    zabbix-web-nginx-pgsql:
+      image: zabbix/zabbix-web-nginx-pgsql:7.4.16-ubuntu@sha256:5612779bb280256e8d53c8b7fe99a31568fcb21364ce94520aa7e8ccf88419c2
+      restart: unless-stopped
+      environment:
+        DB_SERVER_HOST: postgres
+        POSTGRES_USER: ${POSTGRES_USER}
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        POSTGRES_DB: ${POSTGRES_DB}
+        ZBX_SERVER_HOST: zabbix-server-pgsql
+        PHP_TZ: ${PHP_TZ}
+        ZBX_SERVER_NAME: ${ZBX_SERVER_NAME}
+      depends_on:
+        postgres:
+          condition: service_healthy
+        zabbix-server-pgsql:
+          condition: service_healthy
+      healthcheck:
+        test:
+          - CMD
+          - curl
+          - -f
+          - http://localhost:8080/
+        interval: 30s
+        timeout: 10s
+        retries: 3
+      ports:
+        - 127.0.0.1:${PORT}:8080
+  volumes:
+    zabbix-postgres-data:
+    zabbix-snmptraps:
+    zabbix-mibs:
+    zabbix-server-data:
+notes:
+  - "Open {{ url }}. The first start can take a minute while the application prepares itself."
+  - "If the application asks you to create the first account, do it right after installing: until someone does, the first visitor can."
+  - "Settings that Noust generated are in this application's environment (noust env show {{ domain }}); secrets are masked there, and --unmask shows them."
+  - "Its data is in the Docker volumes zabbix-postgres-data, zabbix-snmptraps, zabbix-mibs, zabbix-server-data of this application: back them up before updating."
