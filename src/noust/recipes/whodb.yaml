@@ -7,7 +7,7 @@ slogan: "A lightweight next-gen data explorer for Postgres, MySQL, SQLite, Mongo
 description: "Explores and edits the data of many database engines from the browser: a grid, a scratchpad of queries, an explorer of the schema and a natural-language assistant if you give it a model. It has no accounts of its own, so keep it behind an allow-list."
 category: development
 tags: [database, sql, explorer, admin]
-logo: logo.svg
+logo: logo.png
 version: "0.138.0"
 revision: 1
 updated: 2026-10-30

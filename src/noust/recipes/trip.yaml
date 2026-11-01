@@ -7,7 +7,7 @@ slogan: "Minimalist POI map tracker and trip planner."
 description: "Plans trips on a map: places of interest with categories and photos, day-by-day itineraries, checklists, expenses, attachments and shared trips, with accounts for each traveller and optional single sign-on. Data is kept in a SQLite file."
 category: productivity
 tags: [travel, trips, maps, planner]
-logo: logo.svg
+logo: logo.png
 version: "1.50.1"
 revision: 1
 updated: 2026-10-30

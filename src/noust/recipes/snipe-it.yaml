@@ -10,7 +10,7 @@ slogan: "Snipe-IT is an open-source asset management platform built for IT depar
 description: "Snipe-IT is an open-source IT asset management system for tracking hardware, software licenses, and more. Self-host it on your own server with Dokploy, which deploys Snipe-IT as a Docker Compose service in a few clicks."
 category: utilities
 tags: [inventory, open-source, asset-management, business, self-hosted, utilities]
-logo: logo.svg
+logo: logo.png
 version: "8.7.1"
 revision: 1
 updated: 2026-10-28

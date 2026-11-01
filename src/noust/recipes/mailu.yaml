@@ -11,7 +11,7 @@ slogan: "Insular email distribution - mail server as Docker images"
 description: "Full-featured open-source mail server as a set of Docker containers: SMTP (Postfix), IMAP (Dovecot), Rspamd antispam, admin UI with DKIM management and Roundcube webmail."
 category: communication
 tags: [email, mail-server, smtp, imap, antispam, webmail, communication]
-logo: logo.svg
+logo: logo.png
 version: "2024.06"
 revision: 1
 updated: 2026-10-31

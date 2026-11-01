@@ -10,7 +10,7 @@ slogan: "A self-hosted, open-source email archiving solution with full-text sear
 description: "Self-hosted, open-source email archiving solution with full-text search."
 category: search
 tags: [email, archiving, compliance, search]
-logo: logo.svg
+logo: logo.png
 version: "0.6.2"
 revision: 1
 updated: 2026-10-30

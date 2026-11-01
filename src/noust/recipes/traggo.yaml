@@ -7,7 +7,7 @@ slogan: "Tag-based time tracking."
 description: "Tracks your time with tags instead of projects: start a timer, tag it with as many tags as you like and then see a dashboard of how the hours were spent by any combination of tags. Accounts for several users; the first one's password is generated."
 category: productivity
 tags: [time-tracking, tags, dashboard, productivity]
-logo: logo.svg
+logo: logo.png
 version: "0.8.3"
 revision: 1
 updated: 2026-10-30

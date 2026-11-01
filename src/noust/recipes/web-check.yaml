@@ -10,7 +10,7 @@ slogan: "All-in-one OSINT tool for analysing any website"
 description: "Web-Check is a powerful all-in-one website analyzer that provides detailed insights into any website's security, performance, and functionality."
 category: security
 tags: [osint, website, analysis, website-analyzer, security, performance, seo]
-logo: logo.svg
+logo: logo.png
 version: "2.3.11"
 revision: 1
 updated: 2026-10-31

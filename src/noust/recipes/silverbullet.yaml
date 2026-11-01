@@ -15,7 +15,7 @@ slogan: "A programmable note-taking app for Markdown, with notes stored as plain
 description: "A web notebook where every page is a Markdown file, with links between pages, queries over your notes and a plug-in system in Lua. Works offline in the browser and syncs back to the server. Starts behind a sign-in."
 category: productivity
 tags: [notes, markdown, pkm, wiki]
-logo: logo.svg
+logo: logo.png
 version: "2.12.1"
 revision: 1
 updated: 2026-10-20

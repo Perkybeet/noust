@@ -7,7 +7,7 @@ slogan: "A free and open source comics, manga and digital book server."
 description: "Serves a library of comics, manga and ebooks (CBZ, CBR, EPUB, PDF) with a web reader, OPDS for apps, and accounts with permissions. Data is in a SQLite file."
 category: media
 tags: [comics, manga, books, opds]
-logo: logo.svg
+logo: logo.png
 version: "0.1.11"
 revision: 1
 updated: 2026-10-30

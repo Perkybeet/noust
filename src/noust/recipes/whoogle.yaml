@@ -7,7 +7,7 @@ slogan: "A self-hosted, ad-free, privacy-respecting metasearch engine."
 description: "Google results without ads, JavaScript, AMP links, cookies or tracking, fetched by your server. Protected by a user name and a password Noust generates, so it is not an open proxy."
 category: search
 tags: [search, privacy, proxy, metasearch]
-logo: logo.svg
+logo: logo.png
 version: "1.2.4"
 revision: 1
 updated: 2026-10-30

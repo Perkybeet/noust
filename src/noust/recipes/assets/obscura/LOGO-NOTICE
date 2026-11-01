@@ -1,0 +1,7 @@
+Mark of: Obscura Browser
+Source: https://github.com/h4ckf0r0day/obscura/blob/8534b401898ed17b62f69bdc3d5eb186bffb0d60/assets/icon.png
+Licence: Apache-2.0
+Copyright: the contributors of h4ckf0r0day/obscura
+Terms: Terms of Service of obscura.sh (section 06), read 2026-11-01: 'These Terms grant you no rights in our trademarks or branding', for its hosted service, and they leave the open-source Engine to its Apache-2.0 licence; no other rule on the project's logo was found in its repository or its documents; shown here to identify the software a recipe installs
+Retrieved: 2026-11-01
+Changes: written again with the picture's header and pixels only; the artwork is unchanged

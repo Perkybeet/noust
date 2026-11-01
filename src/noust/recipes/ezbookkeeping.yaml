@@ -10,7 +10,7 @@ slogan: "ezBookkeeping is an open source, powerful, self-hosted personal finance
 description: "EZBookkeeping is a self-hosted bookkeeping application that helps you manage your personal and business finances. It provides features for tracking income, expenses, accounts, and generating financial reports."
 category: business
 tags: [bookkeeping, finance, accounting, self-hosted, personal-finance, business-finance, business]
-logo: logo.svg
+logo: logo.png
 version: "2.1.1"
 revision: 1
 updated: 2026-10-30

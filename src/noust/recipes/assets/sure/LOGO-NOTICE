@@ -1,0 +1,7 @@
+Mark of: Sure
+Source: https://github.com/we-promise/sure/blob/5ed9103303417f4ea99111cef4be7e3b7cde578f/app/assets/images/logomark-color.svg
+Licence: AGPL-3.0-only
+Copyright: the contributors of we-promise/sure
+Terms: README.md of we-promise/sure, read 2026-11-01: "Maybe" is a trademark of Maybe Finance, Inc. and neither the name nor its logo may be used in forks, while "Sure" is not a trademark and names this community fork; the file shown is Sure's own mark (the word Sure), not Maybe's; shown here to identify the software a recipe installs
+Retrieved: 2026-11-01
+Changes: rewritten by scripts/recipe_logos.py into the elements the console's policy allows (editor data, styles and metadata removed, numbers rounded); the artwork is unchanged

@@ -7,7 +7,7 @@ slogan: "A free and open source statistics app for Jellyfin."
 description: "Keeps the history of what your Jellyfin server plays: who watched what, when and for how long, with graphs by user, library and device, and a backup of the data. It runs with its own PostgreSQL; the first visit makes its administrator."
 category: media
 tags: [jellyfin, statistics, media, history]
-logo: logo.svg
+logo: logo.png
 version: "1.1.12"
 revision: 1
 updated: 2026-10-30

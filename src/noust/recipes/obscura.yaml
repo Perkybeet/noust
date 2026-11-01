@@ -10,7 +10,7 @@ slogan: "The headless browser for AI agents and web scraping"
 description: "Headless browser for AI agents with authenticated remote MCP and Chrome DevTools Protocol endpoints."
 category: ai
 tags: [ai, browser, automation, mcp, cdp]
-logo: logo.svg
+logo: logo.png
 version: "2.10.2-alpine"
 revision: 1
 updated: 2026-10-31

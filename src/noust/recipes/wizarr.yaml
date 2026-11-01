@@ -7,7 +7,7 @@ slogan: "Invite and onboard users to Plex, Jellyfin and Emby."
 description: "Sends people an invitation link that creates their account on your media server, with a short guide to the apps. Keeps its invitations and users in its own database."
 category: media
 tags: [invitations, plex, jellyfin, emby, users]
-logo: logo.svg
+logo: logo.png
 version: "2026.10.1"
 revision: 1
 updated: 2026-10-30

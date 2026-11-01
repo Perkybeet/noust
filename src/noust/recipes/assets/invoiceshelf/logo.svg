@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="InvoiceShelf">
-  <title>InvoiceShelf</title>
-  <rect width="64" height="64" rx="14" fill="#24292f"/>
-  <text x="32" y="41" text-anchor="middle" font-family="sans-serif" font-size="26" font-weight="700" fill="#ffffff">IN</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" role="img" viewBox="0 0 48 48" fill="none"><title>InvoiceShelf</title><defs><linearGradient id="invoiceshelf-1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b4be6"/><stop offset="1" stop-color="#2a2175"/></linearGradient></defs><rect width="48" height="48" rx="11" fill="url(#invoiceshelf-1)"/><g transform="translate(23 24) scale(.8) translate(-24 -24)"><path d="M12 11a4 4 0 0 1 4-4h16a4 4 0 0 1 4 4v22l-2 4-2-4-2 4-2-4-2 4-2-4-2 4-2-4-2 4-2-4-2 4-2-4Z" stroke="#fff" stroke-width="3" stroke-linejoin="round"/><path d="M17 16h14M17 21.5h9" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".7"/><circle cx="33" cy="33" r="11.4" fill="#3c309f"/><circle cx="33" cy="33" r="9" fill="#fff"/><path d="M29.2 33.2l2.6 2.7 4.6-5.6" stroke="#5b4be6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g></svg>

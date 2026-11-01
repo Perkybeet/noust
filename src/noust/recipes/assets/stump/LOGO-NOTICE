@@ -1,0 +1,7 @@
+Mark of: Stump
+Source: https://github.com/stumpapp/stump/blob/d0f51c8e6da74d584a2a4cda8d9db02337de73ca/packages/browser/public/assets/favicon-512x512.png
+Licence: MIT
+Copyright: Copyright (c) 2022 Aaron Leopold
+Terms: no rule on the project's logo was found in its repository, its documents or its site (checked 2026-11-01)
+Retrieved: 2026-11-01
+Changes: scaled to 256 pixels and written again with the picture's header and pixels only; the artwork is unchanged
