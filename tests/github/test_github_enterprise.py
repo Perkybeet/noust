@@ -31,7 +31,7 @@ from noust.integrations.github import client as github_client
 from noust.integrations.github import service
 from noust.integrations.github.webhooks import apps_following, parse_push
 from noust.managers.source_manager import SourceManager
-from noust.validators.source import github_repository
+from noust.validators.source import github_repository, validate_source
 from tests.github.fakes import FAKE_SIGNATURE_HEX, FakeGitHub, token_route
 
 HOST = "ghe.corp.example"
@@ -123,6 +123,35 @@ class TestTheHost:
         assert github_host.integration_repository("https://ghe.corp.example:8443/you/app.git") == (
             "you/app"
         )
+
+    def test_the_source_written_for_a_host_with_a_port_is_one_an_application_can_have(
+        self, config: Config
+    ) -> None:
+        config.set("github.host", "ghe.corp.example:8443")
+
+        source = github_host.source_for("you/app")
+
+        assert source == "https://ghe.corp.example:8443/you/app.git"
+        assert validate_source(source) == ("git", source)
+        assert github_host.integration_repository(source) == "you/app"
+        assert github_app.is_github_https(source)
+
+    def test_the_same_host_on_another_port_is_not_the_integrations(self, config: Config) -> None:
+        config.set("github.host", "ghe.corp.example:8443")
+
+        for source in (
+            "https://ghe.corp.example:9999/you/app.git",
+            "https://ghe.corp.example:9999/you/app",
+        ):
+            assert validate_source(source)[0] == "git"
+            assert github_host.integration_repository(source) is None, source
+            assert not github_app.is_github_https(source), source
+        # On the default port it is the integration's by name, which is how a webhook's payload
+        # (html_url) spells it, but the App's token is scoped to the port it was given for.
+        assert github_host.integration_repository("https://ghe.corp.example/you/app.git") == (
+            "you/app"
+        )
+        assert not github_app.is_github_https("https://ghe.corp.example/you/app.git")
 
     def test_the_config_key_refuses_what_is_not_a_host(self, config: Config) -> None:
         with pytest.raises(ConfigError):

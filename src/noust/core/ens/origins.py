@@ -25,6 +25,12 @@ a list of:
   repositories could install nothing from the catalogue. ``local`` also covers it, as it did before
   the word existed: a folder of this server is a directory of this server.
 
+A port is not compared. An entry names a host and a path and cannot name a port (it is refused where
+it is saved), and a source on ``git.example.com:8443`` is ``git.example.com``: the rule says which
+machine code may come from, as it did for an ssh remote on another port, and the same machine's other
+services are not told apart from it. What a port does decide is the credential a source is cloned
+with (:func:`noust.core.repositories.repository_port`), which is never sent to another port.
+
 An empty list allows everything, as every earlier version did. The list is a
 security setting (``security.*``, changed by the ``security`` role), so an
 administrator cannot allow a repository of their own to themselves.
@@ -159,7 +165,11 @@ def describe_origin(source: str, kind: str | None = None) -> Origin:
             if part
         )
     if not host:
-        split = urlsplit(text)
+        try:
+            split = urlsplit(text)
+        except ValueError:
+            # Not an address (a bracket that is no IPv6 literal): no host, so no entry allows it.
+            return Origin(kind, None, (), text)
         host = split.hostname or ""
         segments = tuple(part for part in split.path.split("/") if part)
     host = host.lower().rstrip(".")

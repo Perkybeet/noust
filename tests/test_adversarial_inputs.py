@@ -497,6 +497,77 @@ class TestSources:
             assert "::" not in result.split("/", 1)[0]
 
 
+#: What may stand after the host's colon in an https, http or git:// address: digits of every
+#: script, signs, spaces, the payloads, and runs that are a port with something after it.
+PORT_TEXT = st.one_of(
+    st.text(alphabet="0123456789", max_size=7),
+    # The digits of other scripts are digits to int() and to \d, and not to a port.
+    st.text(alphabet=NASTY + "0123456789" + chr(0x0660) + chr(0xFF10), max_size=8),
+    st.sampled_from(PAYLOADS),
+    st.builds(
+        lambda number, tail: f"{number}{tail}",
+        st.integers(min_value=-5, max_value=70000),
+        st.sampled_from(["", ":", ":80", "@", ".0", "e1", "/x", "\n", " "]),
+    ),
+)
+
+
+class TestAPortInAWebAddress:
+    @SETTINGS
+    @given(port=PORT_TEXT, scheme=st.sampled_from(["https", "http", "git"]))
+    def test_a_port_is_a_number_from_1_to_65535_written_one_way_or_the_address_is_refused(
+        self, port: str, scheme: str
+    ) -> None:
+        accepted, result = verdict(source.validate_source, f"{scheme}://git.example.com:{port}/t/a")
+
+        if not accepted:
+            return
+        _kind, normalised = result
+        parsed = source.parse_git_url(normalised)
+        assert parsed["host"] == "git.example.com", normalised
+        if parsed["port"] is not None:
+            assert 1 <= parsed["port"] <= 65535
+            # One spelling per endpoint: it is the name a credential is kept under.
+            assert f"git.example.com:{parsed['port']}/" in normalised, normalised
+
+    @SETTINGS
+    @given(port=PORT_TEXT, scheme=st.sampled_from(["https", "http", "git"]))
+    def test_git_is_never_handed_a_port_that_is_not_one(self, port: str, scheme: str) -> None:
+        from urllib.parse import urlparse
+
+        from noust.managers.source_manager import validate_git_remote_url
+
+        accepted, result = verdict(
+            validate_git_remote_url, f"{scheme}://git.example.com:{port}/team/app.git"
+        )
+
+        if accepted:
+            parts = urlparse(result)
+            assert parts.port != 0 and not parts.netloc.endswith(":"), result
+
+    @SETTINGS
+    @given(port=PORT_TEXT, scheme=st.sampled_from(["https", "http", "git", "ssh"]))
+    def test_nothing_that_reads_an_address_crashes_on_its_port(
+        self, port: str, scheme: str
+    ) -> None:
+        from noust.core.ens.origins import describe_origin
+        from noust.core.repositories import repository_key, repository_port
+        from noust.integrations import webhook
+        from noust.integrations.forges import statuses
+
+        url = f"{scheme}://git.example.com:{port}/team/app.git"
+
+        verdict(source.parse_url_remote, url)
+        verdict(source.parse_git_url, url)
+        verdict(source.github_repository, url, ("ghe.example.com:8443", "ghe.example.com"))
+        verdict(source.github_repository, url)
+        verdict(webhook.forge_of, url)
+        verdict(statuses.repo_of, url)
+        verdict(repository_key, url)
+        verdict(repository_port, url)
+        verdict(describe_origin, url, "git")
+
+
 # ---------------------------------------------------------------------------
 # Health check path, ports, containers
 # ---------------------------------------------------------------------------

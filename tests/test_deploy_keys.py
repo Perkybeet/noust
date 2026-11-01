@@ -629,6 +629,22 @@ class TestView:
         assert view.ssh_url == "git@github.com:acme/web.git"
         assert any("git@github.com:acme/web.git" in warning for warning in view.warnings)
 
+    def test_the_ssh_url_suggested_for_an_https_port_leaves_the_port_behind(
+        self, manager: DeployKeyManager, store: NoustStore
+    ) -> None:
+        # The port of an https address is the web server's: ssh answers on its own.
+        store.create_app(
+            App(
+                domain="web.example.com",
+                app_type="nodejs",
+                source="https://git.example.com:8443/acme/web.git",
+            )
+        )
+        manager.generate("web.example.com")
+        view = manager.view("web.example.com")
+        assert view.repository == "git.example.com/acme/web"
+        assert view.ssh_url == "git@git.example.com:acme/web.git"
+
     def test_the_server_wide_key_is_shown_as_the_fallback(
         self, manager: DeployKeyManager, app: App, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:

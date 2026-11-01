@@ -37,8 +37,24 @@ GIT_SSH_URL_PATTERN = re.compile(
     rf"^ssh://(?:(?P<user>{_SSH_USER})@)?(?P<host>{_SSH_HOST})(?::(?P<port>\d{{1,5}}))?"
     r"/(?P<path>[\w./~+-]*?[\w~+-][\w./~+-]*?)(?:\.git)?/?$"
 )
-GIT_HTTPS_PATTERN = re.compile(r"^https?://(?P<host>[\w.-]+)/(?P<path>[\w./-]+?)(?:\.git)?$")
-GIT_PROTOCOL_PATTERN = re.compile(r"^git://(?P<host>[\w.-]+)/(?P<path>[\w./-]+?)(?:\.git)?$")
+#: A port as a URL spells it: ASCII digits, no sign and no leading zero, so one endpoint has one
+#: spelling (``08443`` and ``8443`` would otherwise be two names for one credential's scope). The
+#: range is judged by :func:`parse_url_remote`, which a pattern cannot say.
+_URL_PORT = r"[1-9][0-9]{0,4}"
+
+#: ``http[s]://host[:port]/path`` and ``git://host[:port]/path``. The host is a name or an IPv4
+#: address: no user (a credential is taken off the address before it is judged, see
+#: ``noust.managers.source_manager.split_url_credentials``) and no IPv6 literal.
+GIT_HTTPS_PATTERN = re.compile(
+    rf"^https?://(?P<host>[\w.-]+)(?::(?P<port>{_URL_PORT}))?/(?P<path>[\w./-]+?)(?:\.git)?$"
+)
+GIT_PROTOCOL_PATTERN = re.compile(
+    rf"^git://(?P<host>[\w.-]+)(?::(?P<port>{_URL_PORT}))?/(?P<path>[\w./-]+?)(?:\.git)?$"
+)
+
+#: What follows the host of a URL that says a port, whatever it says; read only to name a port
+#: that is not one (:func:`_bad_port`).
+_PORT_TEXT = re.compile(r"(?:https?|git)://[\w.-]+:(?P<port>[^/@?#]*)/.*", re.DOTALL)
 
 #: The host whose repositories this server's GitHub App can clone.
 GITHUB_HOST = "github.com"
@@ -82,6 +98,142 @@ class SshRemote:
     host: str
     port: int | None
     path: str
+
+
+@dataclass(frozen=True)
+class UrlRemote:
+    """
+    A repository reached over https, http or the ``git://`` protocol.
+
+    Attributes:
+        scheme: ``https``, ``http`` or ``git``.
+        host: The server's name or address, without its port.
+        port: The port the address names, or None when it names none.
+        path: The repository's path on the server, without ``.git`` and without a slash at
+            either end.
+    """
+
+    scheme: str
+    host: str
+    port: int | None
+    path: str
+
+    @property
+    def authority(self) -> str:
+        """The host with its port when the address names one: what a client connects to."""
+        return f"{self.host}:{self.port}" if self.port is not None else self.host
+
+
+def parse_url_remote(url: str) -> UrlRemote | None:
+    """
+    Read an https, http or ``git://`` repository address.
+
+    The sibling of :func:`parse_ssh_remote` for the other transports, so the validator, the
+    allowed origins, the credentials and the forge's pages agree on which host and port an
+    address means (rule 3). A ``#branch`` is not part of an address here: take it off first, as
+    :func:`parse_git_url` does.
+
+    Args:
+        url: A source as given, without credentials or ``#branch``.
+
+    Returns:
+        The remote, or None when the text is not one: another scheme, a user or an IPv6 literal
+        before the path, a port that is not 1-65535 or is written with a sign or a leading zero,
+        or no repository path after the host.
+    """
+    text = url.strip()
+    match = GIT_HTTPS_PATTERN.fullmatch(text) or GIT_PROTOCOL_PATTERN.fullmatch(text)
+    if match is None:
+        return None
+    port = match.group("port")
+    if port is not None and int(port) > 65535:
+        return None
+    return UrlRemote(
+        scheme=text.split("://", 1)[0],
+        host=match.group("host"),
+        port=int(port) if port is not None else None,
+        path=match.group("path").strip("/").removesuffix(".git"),
+    )
+
+
+def _bad_port(text: str) -> str | None:
+    """
+    Find the port an address names when it is not one.
+
+    Args:
+        text: A source as given.
+
+    Returns:
+        What stands after the host's colon, when the address is an http, https or ``git://`` one
+        that says a port and :func:`parse_url_remote` does not accept it; None otherwise.
+    """
+    found = _PORT_TEXT.fullmatch(text.strip())
+    if found is None or parse_url_remote(text) is not None:
+        return None
+    return found.group("port")
+
+
+def _port_refusal(port: str) -> str:
+    """
+    Say why a port is not one.
+
+    Args:
+        port: What stands after the host's colon.
+
+    Returns:
+        The sentence, which says what a port is.
+    """
+    shown = port if len(port) <= 20 and port.isprintable() else "that"
+    what = "there is no port after the colon" if not port else f"{shown!r} is not a port"
+    return f"{what}: write a number from 1 to 65535, without a sign or a leading zero"
+
+
+def url_authority_problem(url: str) -> str | None:
+    """
+    Say why the host and port of a URL cannot be handed to git, when they cannot.
+
+    The last look before git, for a URL that did not go through :func:`validate_source`: the
+    validator is stricter (no sign, no leading zero), but every reader downstream of this (the
+    credential's scope, the forge's address) takes the port to be a number, and Python's own
+    parser raises on a bracket that is no IPv6 literal.
+
+    Args:
+        url: A URL with a scheme, as ``urlsplit`` reads it.
+
+    Returns:
+        A sentence naming the problem (a port that is not a number from 1 to 65535, an empty
+        one, a bracket that is no IPv6 literal); None when the authority is usable.
+    """
+    try:
+        parts = urlsplit(url)
+        port = parts.port
+    except ValueError:
+        return "The host or the port in it is not one: a port is a number from 1 to 65535."
+    if port == 0 or parts.netloc.endswith(":"):
+        return "A port is a number from 1 to 65535; leave the colon out for the default."
+    return None
+
+
+def ssh_equivalent(url: str | None) -> str | None:
+    """
+    Spell an https repository URL the way ssh reaches it.
+
+    Args:
+        url: A repository URL, or None when it is not known.
+
+    Returns:
+        ``git@host:owner/repo.git``, or None when the URL is not http(s). A URL that names a
+        port gets ``ssh://git@host:<ssh-port>/owner/repo.git``: the port is the web server's, and
+        ssh answers on its own, which only the operator knows.
+    """
+    if not url:
+        return None
+    remote = parse_url_remote(url.split("#")[0])
+    if remote is None or remote.scheme not in ("http", "https"):
+        return None
+    if remote.port is not None:
+        return f"ssh://git@{remote.host}:<ssh-port>/{remote.path}.git"
+    return f"git@{remote.host}:{remote.path}.git"
 
 
 def parse_ssh_remote(url: str) -> SshRemote | None:
@@ -170,6 +322,27 @@ def github_repository_parts(full_name: str) -> tuple[str, str]:
     return match.group("owner"), match.group("repo")
 
 
+#: The port each web scheme answers on when an address names none.
+_WEB_DEFAULT_PORTS = {"http": 80, "https": 443}
+
+
+def _names_another_server(scheme: str, port: int | None) -> bool:
+    """
+    Tell whether an address's port makes it a different server from the host's own.
+
+    Args:
+        scheme: The address's scheme.
+        port: The port it names, or None.
+
+    Returns:
+        True for an http(s) address on a port other than its scheme's default. An ssh or
+        ``git://`` address names the port of another service, and the default port written out
+        is the same server as none.
+    """
+    default = _WEB_DEFAULT_PORTS.get(scheme.lower())
+    return default is not None and port is not None and port != default
+
+
 def github_repository(source: str | None, hosts: Sequence[str] | None = None) -> str | None:
     """
     Name the GitHub repository a source clones, whichever way it is spelled.
@@ -185,7 +358,10 @@ def github_repository(source: str | None, hosts: Sequence[str] | None = None) ->
         hosts: The hosts whose repositories count: ``github.com`` unless the
             caller serves a GitHub Enterprise host
             (:func:`noust.core.github_host.integration_repository`). ``github:`` shorthand
-            always names github.com, so it only counts when github.com is one of them.
+            always names github.com, so it only counts when github.com is one of them. An
+            https address on a port other than 443 is another server and counts only when
+            the host is listed with that port (``ghe.example.com:8443``); an address with
+            no port, or an ssh one, counts by the host's name.
 
     Returns:
         ``owner/repo`` as written in the source, or None when the source is
@@ -211,12 +387,23 @@ def github_repository(source: str | None, hosts: Sequence[str] | None = None) ->
             return None
         path = ssh.group("path")
     else:
-        parts = urlsplit(stripped)
+        try:
+            parts = urlsplit(stripped)
+            port = parts.port
+        except ValueError:
+            # A port that is not one, or a bracket that is not an IPv6 literal, names no
+            # service, and a payload can say anything.
+            return None
         if parts.scheme.lower() not in ("https", "http", "ssh", "git"):
             return None
         hostname = (parts.hostname or "").lower()
-        authority = f"{hostname}:{parts.port}" if parts.port else hostname
-        if hostname not in wanted and authority not in wanted:
+        # The port of an ssh or git:// address is another service's (ssh answers on its own),
+        # and the default of http(s) is the same as none; only another http(s) port is a
+        # different server on the same host, and it must be the one the host was given with.
+        if _names_another_server(parts.scheme, port):
+            if f"{hostname}:{port}" not in wanted:
+                return None
+        elif hostname not in wanted:
             return None
         path = parts.path
     # The lazy repository group leaves a ``.git`` suffix to the optional
@@ -418,12 +605,8 @@ def is_git_url(source: str) -> bool:
     if parse_ssh_remote(source) is not None:
         return True
 
-    # Check HTTPS format
-    if GIT_HTTPS_PATTERN.fullmatch(source):
-        return True
-
-    # Check git:// protocol
-    if GIT_PROTOCOL_PATTERN.fullmatch(source):
+    # Check https, http and git:// (with or without a port)
+    if parse_url_remote(source) is not None:
         return True
 
     # Check for .git suffix with valid URL
@@ -524,11 +707,10 @@ def parse_git_url(url: str) -> dict:
     # HTTPS and git:// share a shape. git:// used to fall through here with
     # no host, so a transport is_git_url and the remote URL check accept was
     # refused as "Could not determine Git host".
-    match = GIT_HTTPS_PATTERN.fullmatch(url) or GIT_PROTOCOL_PATTERN.fullmatch(url)
-    if match:
-        result["scheme"] = url.split("://", 1)[0].lower()
-        result["host"] = match.group("host")
-        fill(match.group("path"))
+    http_remote = parse_url_remote(url)
+    if http_remote is not None:
+        result.update(scheme=http_remote.scheme, host=http_remote.host, port=http_remote.port)
+        fill(http_remote.path)
         return result
 
     return result
@@ -548,6 +730,11 @@ def validate_git_url(url: str) -> tuple[bool, str]:
         return False, "Git URL cannot be empty"
 
     url = url.strip()
+
+    # A port that is not one would otherwise be reported as a host that could not be found.
+    bad_port = _bad_port(url)
+    if bad_port is not None:
+        return False, _port_refusal(bad_port)
 
     # Check for valid patterns
     if not is_git_url(url):
@@ -691,6 +878,10 @@ def validate_source(
         # Convert to GitHub URL
         github_url = f"https://github.com/{source}.git"
         return "git", github_url
+
+    bad_port = _bad_port(source)
+    if bad_port is not None:
+        raise SourceError(f"Invalid Git URL: {_port_refusal(bad_port)}")
 
     raise SourceError(
         f"Invalid source: '{source}'",
