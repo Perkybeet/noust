@@ -253,9 +253,15 @@ class TestWhenAStepFails:
         assert world.records.server() is None and world.secrets.read(KEY_SECRET) is None
         assert ["systemctl", "disable", "--now", "knot"] in world.commands()
 
-    def test_a_failure_on_a_server_that_was_set_up_keeps_what_it_had(self, world: World) -> None:
+    def test_a_failure_on_a_server_that_was_set_up_keeps_what_it_had(
+        self, world: World, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         world.servers.setup(PRIMARY, hostname="ns1.example.net")
         before = world.records.server()
+        # The failed change happens a second later: what is put back keeps its own time of change.
+        monkeypatch.setattr(
+            "noust.core.authdns_store.utc_now_iso", lambda *_: "2099-01-01T00:00:00+00:00"
+        )
         key = world.servers.transfer_key()
         world.firewall.refuse = "never"
         world.runner.script(["systemctl", "is-active"], stdout="active\n")

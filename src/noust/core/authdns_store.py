@@ -403,13 +403,17 @@ class AuthDnsStore:
         )
         return None if row is None else _server(row)
 
-    def save_server(self, server: AuthDnsServer, *, actor: str | None = None) -> AuthDnsServer:
+    def save_server(
+        self, server: AuthDnsServer, *, actor: str | None = None, restoring: bool = False
+    ) -> AuthDnsServer:
         """
         Record this server's part, replacing what was there.
 
         Args:
             server: What to keep.
             actor: Who sets it.
+            restoring: Put back a row read before a change that failed, as it was: its time of
+                change is its own, not now (the change did not happen).
 
         Returns:
             What was kept.
@@ -438,7 +442,7 @@ class AuthDnsStore:
             if server.primary_address is None
             else check_address(server.primary_address, field_name="primary_address")
         )
-        now = utc_now_iso("seconds")
+        now = server.updated_at if restoring and server.updated_at else utc_now_iso("seconds")
         previous = self.server()
         created = previous.created_at if previous is not None else now
         created_by = previous.created_by if previous is not None else _actor(actor)

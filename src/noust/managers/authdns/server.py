@@ -627,7 +627,7 @@ class AuthDnsServers:
             if new_key:
                 self.secrets.delete(KEY_SECRET)
         else:
-            self.records.save_server(previous)
+            self.records.save_server(previous, restoring=True)
 
     # -- secondaries ---------------------------------------------------------------------
 
