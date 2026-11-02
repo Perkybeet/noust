@@ -61,6 +61,9 @@ from noust.web.permissions.scopes import (
 )
 from noust.web.server import create_app
 
+# The architecture fixture serves one console over one store to every test of the module.
+pytestmark = pytest.mark.shares_module_store
+
 SRC = Path(noust.__file__).resolve().parent
 REPO = SRC.parent.parent
 

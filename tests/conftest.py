@@ -142,6 +142,10 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
+        "shares_module_store: the module's own fixture opens the store its tests share",
+    )
+    config.addinivalue_line(
+        "markers",
         "allow_sockets: permit this test to open real network connections",
     )
     config.addinivalue_line(
@@ -541,8 +545,27 @@ def isolated_metrics_store(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(module, "_store", None)
 
 
+@pytest.fixture(autouse=True, scope="module")
+def store_per_module() -> Iterator[None]:
+    """
+    Every test module starts without a store and leaves none behind.
+
+    ``isolated_store_paths`` keeps a store that was there before a test began, since that is
+    how a module's own fixture shares one with its tests. Kept across modules, the same rule
+    handed a module the store an earlier module had left open (with its applications: a second
+    ``docs.example.com`` refused as a conflict), depending on which modules a worker ran first.
+    """
+    from noust.core import store as store_module
+
+    store_module.NoustStore.reset_instance()
+    yield
+    store_module.NoustStore.reset_instance()
+
+
 @pytest.fixture(autouse=True)
-def isolated_store_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+def isolated_store_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> Iterator[None]:
     """
     Point the store's default locations inside the test's own directory.
 
@@ -554,9 +577,15 @@ def isolated_store_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Ite
     test run as root can never touch ``/var/lib/noust``. Tests that pin their
     own paths still do; their monkeypatch runs after this one.
 
+    A store open when the test begins is closed, unless the module says its own fixture opened
+    it (``shares_module_store``): whatever else left one open (a job an earlier test queued and
+    did not wait for, which opened the store after that test's teardown) would hand this test
+    another test's database, with its applications.
+
     Args:
         tmp_path: Per-test temporary directory.
         monkeypatch: Patching helper, scoped to the test.
+        request: The test, for its markers.
     """
     from noust.core import store as store_module
 
@@ -565,14 +594,10 @@ def isolated_store_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Ite
     # The class itself: a test may replace the name with a fake for its own
     # duration, and that fake is still in place when this teardown runs.
     store_class = store_module.NoustStore
-    stale = store_class._instance
-    # Read without the property: that job may still be inside the store's __init__ on its own thread,
-    # where the instance exists (__new__ made it) and its path does not yet.
-    stale_path = getattr(stale, "_db_path", None)
-    if stale is not None and (stale_path is None or not stale_path.parent.exists()):
-        # A job an earlier test queued and did not wait for opened the store after that test's
-        # teardown, in its directory, which tmp_path's retention has removed since: inherited, it
-        # fails this test with "Cannot open the Noust database" at a path that is not its own.
+    if (
+        store_class._instance is not None
+        and request.node.get_closest_marker("shares_module_store") is None
+    ):
         store_class.reset_instance()
     before = store_class._instance
     yield
