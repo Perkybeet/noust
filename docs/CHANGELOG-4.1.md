@@ -463,6 +463,14 @@ the weight budget require; the script every page loads is held to 398 KiB gzippe
 
 ### The console
 
+- **The terminal shows its program on a busy console.** It waited for output with `select`, which refuses a
+  descriptor numbered 1024 or above, and took the refusal for the end of the session: on a console holding many
+  sockets, files and database connections, a terminal opened and showed nothing while its program ran. It waits
+  with `poll` now, and a failure of the wait ends the session with its reason in the log.
+- **The API reference opens in seconds on a small server.** The description of the API (over a thousand
+  operations) was built on the first request that asked for it, again for each request that arrived meanwhile,
+  and walked again on every request: on a two-core machine the page waited past ten seconds. It is built once,
+  in the background as the console starts, and a request that arrives during the build waits for that one.
 - **Settings > Notifications fits a phone** and offers only the languages the server writes in.
 - **Cancel on a new application no longer starts the read it stopped.**
 - **The previews page decides whether a source is on GitHub by reading the start of the source**, not by finding
