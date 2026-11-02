@@ -951,7 +951,7 @@ async def lifespan(app: FastAPI):
     # central about to forward a call here. A thread of its own, so a failure is only a log line.
     from noust.web.api.openapi import warm_up
 
-    warm_up(app)
+    warming = warm_up(app)
     try:
         yield
     except asyncio.CancelledError:
@@ -962,6 +962,11 @@ async def lifespan(app: FastAPI):
         if not shutting_down():
             raise
     finally:
+        # The build ends before the console does: a thread still building it after the app has stopped reads
+        # what the next app (or the next test) set up, not this one's. Waited for here, on the way out, where
+        # nothing else is left to serve.
+        if warming.is_alive():
+            warming.join(15)
         settings_watcher.stop()
         stop_worker()
         fleet_probe.stop()
