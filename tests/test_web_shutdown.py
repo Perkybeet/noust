@@ -205,6 +205,31 @@ def test_the_lifespan_sweeps_stale_inspection_checkouts(monkeypatch: pytest.Monk
     asyncio.run(exercise())
 
 
+def test_the_lifespan_builds_the_api_schema_before_anyone_asks_for_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The first visit to the API reference, or a central's first call, should not wait for it."""
+    from noust.web.api import openapi as openapi_module
+
+    _quiet_lifespan(monkeypatch)
+    warmed: list[FastAPI] = []
+
+    def warm_up(app: FastAPI) -> threading.Thread:
+        warmed.append(app)
+        thread = threading.Thread(target=lambda: None)
+        thread.start()
+        return thread
+
+    monkeypatch.setattr(openapi_module, "warm_up", warm_up)
+    app = FastAPI()
+
+    async def exercise() -> None:
+        async with server_module.lifespan(app):
+            assert warmed == [app]
+
+    asyncio.run(exercise())
+
+
 def test_the_lifespan_cancelled_by_a_second_ctrl_c_ends_quietly(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
