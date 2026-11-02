@@ -501,6 +501,9 @@ withFleet("Add a server, guided: an address that gives no host key is refused wi
 // starts and tears down its own, and is free to stop the node mid-test.
 
 test("a node that stops answering says so, on its own pages and the Fleet page's attention", async ({ page, problems }) => {
+  // Two servers of its own, each building the API's description before it answers (seconds on a loaded runner), and
+  // one stopped under the page: the time is the servers' start and stop, not a wait on what the test asserts.
+  test.setTimeout(150_000);
   const node = await startConsoleServer([], { env: { NOUST_E2E_FLEET_APP: NODE_APP } });
   const central = await startConsoleServer([
     "--totp",
