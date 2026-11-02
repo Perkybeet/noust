@@ -946,6 +946,12 @@ async def lifespan(app: FastAPI):
     from noust.deployers.helpers.sandbox import sweep_at_start
 
     await asyncio.to_thread(sweep_at_start)
+    # Last, so the console is answering before this takes its share of the processor: the schema
+    # takes seconds to build, and the first to ask for it is a person on the API reference or a
+    # central about to forward a call here. A thread of its own, so a failure is only a log line.
+    from noust.web.api.openapi import warm_up
+
+    warm_up(app)
     try:
         yield
     except asyncio.CancelledError:

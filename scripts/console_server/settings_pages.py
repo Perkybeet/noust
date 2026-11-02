@@ -7,7 +7,10 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI
 
 # ---------------------------------------------------------------------------
 # Settings (the console's Settings pages)
@@ -51,6 +54,22 @@ def warm_recipe_library() -> None:
     from noust.recipes import search_recipes
 
     search_recipes()
+
+
+def warm_api_schema(app: FastAPI) -> None:
+    """
+    Build the API's schema before the server says it is ready.
+
+    Settings > API reference fetches it, and building it walks every route: three seconds on an
+    idle machine, and past the ten a test waits for on the two cores of a CI runner, where it was
+    asked for twice (the page's first request is cancelled and sent again) and each build took the
+    other's time. Like the recipe library, it is a cost of a process that has just started and not
+    of the page that asks, and whichever test of a worker came first paid it.
+
+    Args:
+        app: The application the server serves.
+    """
+    app.openapi()
 
 
 def pin_settings_update_check(*, up_to_date: bool = False) -> str:

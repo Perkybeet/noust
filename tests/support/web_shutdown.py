@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import threading
+
 import pytest
 
 from noust.web import server as server_module
@@ -37,3 +39,8 @@ def _quiet_lifespan(monkeypatch: pytest.MonkeyPatch) -> None:
 
     # Nor is looking for this machine's stale tunnels.
     monkeypatch.setattr(tunnels_module, "sweep_stale_tunnels", lambda: [])
+
+    from noust.web.api import openapi as openapi_module
+
+    # Nor is building the schema of an application that has no routes.
+    monkeypatch.setattr(openapi_module, "warm_up", lambda app: threading.Thread())

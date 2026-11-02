@@ -15,6 +15,7 @@ every other test uses.
 
 from __future__ import annotations
 
+import errno
 import os
 import signal
 import sys
@@ -38,6 +39,7 @@ from noust.core.runner import (
     SubprocessRunner,
     terminate_all_processes,
 )
+from tests.support.busy_process import descriptors_taken_up_to
 
 
 class Clock:
@@ -260,6 +262,37 @@ class TestSubprocessPty:
         handle = SubprocessRunner().pty(["pwd"], cwd=tmp_path, **LIMITS)
         try:
             assert str(tmp_path.resolve()).encode() in _drain(handle)
+        finally:
+            handle.close()
+
+    def test_a_terminal_opened_in_a_busy_process_still_answers(self):
+        # The console holds a descriptor for every socket, file and database
+        # connection it has open, and select() cannot wait on a number past
+        # FD_SETSIZE (1024): it raised, the read took that for the end of the
+        # session, and the person saw an empty terminal while the program ran.
+        with descriptors_taken_up_to(1030):
+            handle = SubprocessRunner().pty(["sh", "-c", "echo up; exit 3"], **LIMITS)
+            try:
+                assert b"up" in _drain(handle)
+                assert handle.exit_code == 3
+                assert handle.end_reason == PTY_END_EXITED
+            finally:
+                handle.close()
+
+    def test_a_terminal_that_cannot_be_waited_on_is_ended_and_says_why(self, monkeypatch, caplog):
+        def refuse(descriptor: int, timeout: float) -> bool:
+            raise OSError(errno.ENOMEM, "Cannot allocate memory")
+
+        monkeypatch.setattr(runner_module, "wait_readable", refuse)
+        handle = SubprocessRunner().pty(["sleep", "30"], **LIMITS)
+        try:
+            with caplog.at_level("WARNING", logger=runner_module.__name__):
+                assert handle.read(0.2) is None
+            # Not a silent end: the program is stopped, the session says it is
+            # over, and the log carries the system's own words.
+            assert handle.end_reason is not None
+            assert not _pid_alive(handle.pid)
+            assert "Cannot allocate memory" in caplog.text
         finally:
             handle.close()
 

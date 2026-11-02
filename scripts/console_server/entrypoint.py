@@ -65,6 +65,7 @@ from .settings_pages import (
     model_telegram_bot_api,
     pin_settings_update_check,
     seed_settings_api_tokens,
+    warm_api_schema,
     warm_recipe_library,
 )
 
@@ -237,6 +238,7 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
     seed_settings_api_tokens()
     pin_settings_update_check(up_to_date=args.shown_version is not None)
     warm_recipe_library()
+    warm_api_schema(app)
 
     sock = bind(args.host, args.port)
     host, port = sock.getsockname()[:2]

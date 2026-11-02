@@ -20,6 +20,7 @@ operator who wants to see what the panel they are running actually exposes.
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable, Iterator
 from typing import Any
 
@@ -194,24 +195,38 @@ def install_openapi(app: FastAPI) -> None:
 
     Wrapped rather than rebuilt so the document stays FastAPI's own, cached
     exactly as FastAPI caches it, whoever asks: this route, the export
-    script or a test.
+    script or a test. FastAPI keeps the document it builds but takes no lock
+    while it builds it, so two requests on a cold application each built the
+    whole of it (seconds of work, over a thousand operations) and each took
+    twice as long: one build at a time here, and the extensions are added to a
+    document once, when it is built, not to the same one on every request.
 
     Args:
         app: The application.
     """
     build = app.openapi
+    lock = threading.Lock()
+    annotated: dict[str, Any] | None = None
 
     def openapi() -> dict[str, Any]:
         """
         Returns:
             The application's OpenAPI document, annotated.
         """
-        return annotate_version(
-            annotate_approval(
-                annotate_permissions(annotate_elevation(build(), app.routes), app.routes),
-                app.routes,
-            )
-        )
+        nonlocal annotated
+        with lock:
+            schema = build()
+            # FastAPI hands back the same document until it is told the routes
+            # changed (``app.openapi_schema = None``), and then a new one.
+            if schema is not annotated:
+                annotate_version(
+                    annotate_approval(
+                        annotate_permissions(annotate_elevation(schema, app.routes), app.routes),
+                        app.routes,
+                    )
+                )
+                annotated = schema
+            return schema
 
     # FastAPI documents overriding app.openapi as the way to customise the
     # schema; mypy objects to assigning to a method, hence setattr.
@@ -242,3 +257,27 @@ def get_openapi_schema(
     # and returns dict[str, Any] rather than Any.
     app: FastAPI = request.app
     return app.openapi()
+
+
+def warm_up(app: FastAPI) -> threading.Thread:
+    """
+    Build the application's schema in the background, so the first request finds it built.
+
+    The document takes seconds to build, and what asks for it first is a person
+    on the API reference page or a central about to forward a call to this
+    server (it reads which calls need sudo mode from it). A request that arrives
+    while this runs waits for it instead of building a second one.
+
+    Args:
+        app: The application, with :func:`install_openapi` already applied.
+
+    Returns:
+        The started thread.
+    """
+
+    # Nothing catches here: a build that fails is a defect, and the thread's own
+    # report of it (the traceback, in the journal) is the log; the request that
+    # asks for the schema meets the same error.
+    thread = threading.Thread(target=app.openapi, name="noust-openapi-warm-up", daemon=True)
+    thread.start()
+    return thread

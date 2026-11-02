@@ -78,7 +78,6 @@ import os
 import queue
 import re
 import secrets as _secrets
-import select
 import shutil
 import signal
 import struct
@@ -95,6 +94,7 @@ from typing import IO, Any, Literal
 
 from noust.core import paths
 from noust.core.exceptions import ConfigError, NoustError
+from noust.core.fd_wait import wait_readable
 
 _log = logging.getLogger(__name__)
 
@@ -1120,18 +1120,17 @@ class _SubprocessPty(PtyHandle):
                 return None
             wait = max(0.0, min(timeout, self.limit_remaining(), self.idle_remaining()))
             try:
-                ready, _, _ = select.select([self._master], [], [], wait)
-            except (OSError, ValueError):
-                return None
-            if not ready:
-                return b""
-            try:
+                if not wait_readable(self._master, wait):
+                    return b""
                 data = os.read(self._master, PTY_READ_CHUNK)
             except BlockingIOError:
                 return b""
             except OSError as exc:
                 # EIO is how Linux says every other side of the terminal is
                 # closed: the program ended, and what it wrote has been read.
+                # Anything else (the system could not even wait) is logged and
+                # ends the session too: a read that returned None with the
+                # program still running was how a failure here went unseen.
                 if exc.errno not in (errno.EIO, errno.EBADF):
                     _log.warning("Reading a terminal failed: %s", exc)
                 self._finished()
