@@ -1054,6 +1054,72 @@ class TestSMTPSettings:
         assert response.status_code == 200, response.text
         assert stored_value(config_path, "monitor.email_recipients") == ["ops@example.com"]
 
+    @pytest.mark.parametrize(
+        "change",
+        [
+            {"host": "mail.example.org"},
+            {"port": 587, "use_ssl": False, "use_tls": True},
+            {"username": "someone-else"},
+        ],
+    )
+    def test_the_same_password_typed_again_follows_the_server(
+        self, client: TestClient, config_path: Path, change: dict[str, Any]
+    ) -> None:
+        """
+        The regression: a caller that sends the password it already knows, with a new server or
+        transport, was told to "enter the password again" - which it just had. What the guard
+        keeps out is a credential that never saw the password, not one that typed it; the blank
+        (or placeholder) password is still the one that cannot move.
+        """
+        assert client.put("/api/config/smtp", json=self._STORED_SMTP).status_code == 200
+
+        response = client.put("/api/config/smtp", json={**self._STORED_SMTP, **change})
+
+        assert response.status_code == 200, response.text
+        assert stored_value(config_path, "monitor.smtp.password") == "hunter2"
+        for key, value in change.items():
+            assert stored_value(config_path, f"monitor.smtp.{key}") == value
+
+    def test_the_generic_patch_of_the_block_with_the_same_password_typed_is_accepted(
+        self, client: TestClient, config_path: Path
+    ) -> None:
+        assert client.put("/api/config/smtp", json=self._STORED_SMTP).status_code == 200
+        smtp = {**self._STORED_SMTP, "host": "mail.example.org"}
+        smtp.pop("recipients")
+
+        response = client.patch("/api/config", json={"path": "monitor.smtp", "value": smtp})
+
+        assert response.status_code == 200, response.text
+        assert stored_value(config_path, "monitor.smtp.host") == "mail.example.org"
+        assert stored_value(config_path, "monitor.smtp.password") == "hunter2"
+
+    def test_the_generic_patch_of_the_block_with_the_placeholder_is_still_refused(
+        self, client: TestClient, config_path: Path
+    ) -> None:
+        assert client.put("/api/config/smtp", json=self._STORED_SMTP).status_code == 200
+        smtp = {**self._STORED_SMTP, "host": "smtp.attacker.example", "password": REDACTED}
+        smtp.pop("recipients")
+
+        response = client.patch("/api/config", json={"path": "monitor.smtp", "value": smtp})
+
+        assert response.status_code == 422, response.text
+        assert set(response.json()["fields"]) == {"password"}
+        assert stored_value(config_path, "monitor.smtp.host") == "smtp.example.com"
+
+    def test_the_whole_config_put_with_the_password_typed_is_accepted(
+        self, client: TestClient, config_path: Path
+    ) -> None:
+        assert client.put("/api/config/smtp", json=self._STORED_SMTP).status_code == 200
+        shown = client.get("/api/config").json()["config"]
+        shown["monitor"]["smtp"]["host"] = "mail.example.org"
+        shown["monitor"]["smtp"]["password"] = "hunter2"
+
+        response = client.put("/api/config", json={"config": shown})
+
+        assert response.status_code == 200, response.text
+        assert stored_value(config_path, "monitor.smtp.host") == "mail.example.org"
+        assert stored_value(config_path, "monitor.smtp.password") == "hunter2"
+
     def test_a_blank_password_with_nothing_stored_is_not_a_redirection(
         self, client: TestClient, config_path: Path
     ) -> None:
