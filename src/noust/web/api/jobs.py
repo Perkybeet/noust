@@ -337,7 +337,7 @@ def _from_record(record: JobRecord) -> JobResponse:
         error=record.error,
         logs=[],
         metadata=subject,
-        title=title_for(record.type, subject, record.name).to_dict(),
+        title=CodedText(**title_for(record.type, subject, record.name).to_dict()),
         actor=record.actor,
     )
     # What the queue says about a job is in this process's memory, not in the
