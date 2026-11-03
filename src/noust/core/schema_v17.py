@@ -51,9 +51,23 @@ CREATE TABLE IF NOT EXISTS account_dashboards (
 """
 HOME_COLUMNS: list[Column] = []
 
-# Owned by the software lane: the ledger of what Noust installed on the server (item 118). Empty
-# until that lane writes it.
-SOFTWARE_SQL = ""
+# Owned by the software lane: the ledger of what Noust installed on the server (item 118), one row
+# per component of ``managers/server/components.py``. ``packages`` and ``repository_files`` are JSON
+# lists (what the install brought, and the source and key files Noust added so that a removal can
+# take them back out); ``via`` names the installer that did it. Nothing here names an application
+# or a database, so a team's scope has no way to it. ``noust.core.software_ledger`` judges every
+# value before it is written. The ledger starts empty on a server that exists: what was there
+# before is recognised by the marks Noust leaves, not by a row nobody wrote.
+SOFTWARE_SQL = """
+CREATE TABLE IF NOT EXISTS installed_software (
+    component TEXT PRIMARY KEY,
+    packages TEXT NOT NULL DEFAULT '[]',
+    repository_files TEXT NOT NULL DEFAULT '[]',
+    installed_at TEXT NOT NULL,
+    actor TEXT,
+    via TEXT NOT NULL
+);
+"""
 SOFTWARE_COLUMNS: list[Column] = []
 
 
