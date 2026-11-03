@@ -3761,13 +3761,13 @@ class Compliance:
         Needs: permission `security.manage`."""
         return self._call("PUT", "/api/compliance", query=None, body=body)
 
-    def check_compliance(self, *, framework: Union[list[str], None] = None) -> "NoustWebApiComplianceCheckResponse":
+    def check_compliance(self, *, framework: Union[list[str], None] = None, format: Union[Literal["json", "markdown"], None] = None) -> "NoustWebApiComplianceCheckResponse":
         """GET /api/compliance/check
 
         Check Compliance
 
         Needs: permission `compliance.read`."""
-        return self._call("GET", "/api/compliance/check", query={"framework": framework}, body=None)
+        return self._call("GET", "/api/compliance/check", query={"framework": framework, "format": format}, body=None)
 
     def plan_change(self, body: "ChangeRequest") -> "PlanInfo":
         """POST /api/compliance/plan

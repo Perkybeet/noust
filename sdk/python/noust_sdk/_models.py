@@ -11333,10 +11333,14 @@ NoustWebApiCloudProviderOut = TypedDict("NoustWebApiCloudProviderOut", {
 })
 
 NoustWebApiComplianceCheckResponse = TypedDict("NoustWebApiComplianceCheckResponse", {
+    "checked_at": NotRequired[str],
     "disclaimer": Required[str],
+    "enabled": NotRequired[list[str]],
     "errors": Required[dict[str, str]],
     "frameworks": Required[list["CheckFramework"]],
+    "host": NotRequired[str],
     "verdict": Required[str],
+    "version": NotRequired[str],
 })
 
 NoustWebApiDatabasesBackupsPolicyDestination = TypedDict("NoustWebApiDatabasesBackupsPolicyDestination", {

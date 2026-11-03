@@ -11386,13 +11386,19 @@ export interface paths {
          *
          *     Reads the server's state (the last hardening report, the accounts, the backups);
          *     a pass means the technical control is in force, never that the server complies.
+         *     By default it judges the frameworks that are on, and nothing when none is: a server
+         *     that never turned one on is not shown a report in red. ``format=markdown`` is the
+         *     same result as a document to hand to an auditor, with its SHA-256 in the
+         *     ``X-Noust-Report-SHA256`` header.
          *
          *     Args:
+         *         request: The request.
          *         framework: Frameworks to judge; the ones that are on by default.
-         *         _session: The authenticated payload.
+         *         format: ``json`` (the result) or ``markdown`` (a download).
+         *         session: The authenticated payload.
          *
          *     Returns:
-         *         The findings per framework.
+         *         The findings per framework, or their Markdown rendering as an attachment.
          *
          *     Raises:
          *         ValidationError: For a framework that does not exist.
@@ -66668,18 +66674,41 @@ export interface components {
          *         frameworks: One per framework judged.
          *         errors: Areas that could not be read.
          *         disclaimer: What a pass does and does not mean.
+         *         enabled: The frameworks that are on right now, in catalog order, whichever were
+         *             judged. Empty when nothing is on: then a check that names no framework
+         *             judges nothing and ``verdict`` is ``ok`` because nothing was asked for.
+         *         checked_at: When, ISO 8601 UTC.
+         *         host: This server's name.
+         *         version: The Noust it runs.
          */
         noust__web__api__compliance__CheckResponse: {
+            /**
+             * Checked At
+             * @default
+             */
+            checked_at: string;
             /** Disclaimer */
             disclaimer: string;
+            /** Enabled */
+            enabled?: string[];
             /** Errors */
             errors: {
                 [key: string]: string;
             };
             /** Frameworks */
             frameworks: components["schemas"]["CheckFramework"][];
+            /**
+             * Host
+             * @default
+             */
+            host: string;
             /** Verdict */
             verdict: string;
+            /**
+             * Version
+             * @default
+             */
+            version: string;
         };
         /**
          * PolicyDestination
@@ -80519,6 +80548,7 @@ export interface operations {
         parameters: {
             query?: {
                 framework?: string[] | null;
+                format?: "json" | "markdown";
             };
             header?: never;
             path?: never;
@@ -80533,6 +80563,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["noust__web__api__compliance__CheckResponse"];
+                    "text/markdown": unknown;
                 };
             };
             /** @description Validation Error */

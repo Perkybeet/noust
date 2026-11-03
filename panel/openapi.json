@@ -66062,11 +66062,23 @@
         "type": "object"
       },
       "noust__web__api__compliance__CheckResponse": {
-        "description": "The result of the compliance check.\n\nAttributes:\n    verdict: The worst verdict among the frameworks.\n    frameworks: One per framework judged.\n    errors: Areas that could not be read.\n    disclaimer: What a pass does and does not mean.",
+        "description": "The result of the compliance check.\n\nAttributes:\n    verdict: The worst verdict among the frameworks.\n    frameworks: One per framework judged.\n    errors: Areas that could not be read.\n    disclaimer: What a pass does and does not mean.\n    enabled: The frameworks that are on right now, in catalog order, whichever were\n        judged. Empty when nothing is on: then a check that names no framework\n        judges nothing and ``verdict`` is ``ok`` because nothing was asked for.\n    checked_at: When, ISO 8601 UTC.\n    host: This server's name.\n    version: The Noust it runs.",
         "properties": {
+          "checked_at": {
+            "default": "",
+            "title": "Checked At",
+            "type": "string"
+          },
           "disclaimer": {
             "title": "Disclaimer",
             "type": "string"
+          },
+          "enabled": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Enabled",
+            "type": "array"
           },
           "errors": {
             "additionalProperties": {
@@ -66082,8 +66094,18 @@
             "title": "Frameworks",
             "type": "array"
           },
+          "host": {
+            "default": "",
+            "title": "Host",
+            "type": "string"
+          },
           "verdict": {
             "title": "Verdict",
+            "type": "string"
+          },
+          "version": {
+            "default": "",
+            "title": "Version",
             "type": "string"
           }
         },
@@ -87632,7 +87654,7 @@
     },
     "/api/compliance/check": {
       "get": {
-        "description": "Judge this server framework by framework, with the clause of each finding.\n\nReads the server's state (the last hardening report, the accounts, the backups);\na pass means the technical control is in force, never that the server complies.\n\nArgs:\n    framework: Frameworks to judge; the ones that are on by default.\n    _session: The authenticated payload.\n\nReturns:\n    The findings per framework.\n\nRaises:\n    ValidationError: For a framework that does not exist.",
+        "description": "Judge this server framework by framework, with the clause of each finding.\n\nReads the server's state (the last hardening report, the accounts, the backups);\na pass means the technical control is in force, never that the server complies.\nBy default it judges the frameworks that are on, and nothing when none is: a server\nthat never turned one on is not shown a report in red. ``format=markdown`` is the\nsame result as a document to hand to an auditor, with its SHA-256 in the\n``X-Noust-Report-SHA256`` header.\n\nArgs:\n    request: The request.\n    framework: Frameworks to judge; the ones that are on by default.\n    format: ``json`` (the result) or ``markdown`` (a download).\n    session: The authenticated payload.\n\nReturns:\n    The findings per framework, or their Markdown rendering as an attachment.\n\nRaises:\n    ValidationError: For a framework that does not exist.",
         "operationId": "check_compliance_api_compliance_check_get",
         "parameters": [
           {
@@ -87653,6 +87675,20 @@
               ],
               "title": "Framework"
             }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "json",
+              "enum": [
+                "json",
+                "markdown"
+              ],
+              "title": "Format",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -87662,7 +87698,8 @@
                 "schema": {
                   "$ref": "#/components/schemas/noust__web__api__compliance__CheckResponse"
                 }
-              }
+              },
+              "text/markdown": {}
             },
             "description": "Successful Response"
           },
