@@ -66,15 +66,45 @@ def usage(store: NoustStore | None = None) -> WebserverUsage:
     Returns:
         The counts.
     """
-    store = store or get_store()
-    applications: dict[str, int] = {}
+    applications, sites = _grouped(store or get_store())
+    return WebserverUsage(
+        {name: len(domains) for name, domains in applications.items()},
+        {name: len(domains) for name, domains in sites.items()},
+    )
+
+
+def names_behind(webserver: str, store: NoustStore | None = None) -> tuple[list[str], list[str]]:
+    """
+    Name what is behind one web server, as :func:`usage` counts it.
+
+    Args:
+        webserver: ``nginx`` or ``apache``.
+        store: The store; the process-wide one by default.
+
+    Returns:
+        The domains of its applications, and those of the sites that belong to no application.
+    """
+    applications, sites = _grouped(store or get_store())
+    return applications.get(webserver, []), sites.get(webserver, [])
+
+
+def _grouped(store: NoustStore) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
+    """
+    Args:
+        store: The store.
+
+    Returns:
+        The domains of the applications by the web server each remembers, and those of the sites
+        that belong to no application by theirs: the one reading both answers share.
+    """
+    applications: dict[str, list[str]] = {}
     for app in store.list_apps():
-        applications[app.webserver] = applications.get(app.webserver, 0) + 1
-    sites: dict[str, int] = {}
+        applications.setdefault(app.webserver, []).append(app.domain)
+    sites: dict[str, list[str]] = {}
     for site in store.list_sites():
         if site.app_id is None:
-            sites[site.webserver] = sites.get(site.webserver, 0) + 1
-    return WebserverUsage(applications, sites)
+            sites.setdefault(site.webserver, []).append(site.domain)
+    return applications, sites
 
 
 def suggested_command(webserver: str) -> str:

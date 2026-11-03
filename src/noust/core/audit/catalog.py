@@ -573,6 +573,8 @@ EVENTS: dict[str, EventSpec] = {
             "server.time": "The clock, time zone or NTP was changed.",
             "server.hostname": "The hostname was changed.",
             "server.users": "A system account was changed.",
+            "server.software_install": "A piece of software was installed from Server > Software.",
+            "server.software_remove": "A piece of software was removed from the server, or its removal was refused.",
             "incident.freeze": "An incident evidence package was taken.",
             "incident.unfreeze": "The console's incident lockdown was lifted.",
             "apps.inventory": "An application's owner, criticality or classification changed.",

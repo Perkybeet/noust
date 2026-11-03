@@ -97,3 +97,40 @@ class PreflightError(ServerError):
         """
         super().__init__(message, details)
         self.blockers = blockers or []
+
+
+class SoftwareRefusedError(ServerError):
+    """
+    A guard of the software manager refused to install or remove a component.
+
+    Attributes:
+        reason: Which guard: ``never``, ``dependents``, ``takes_never``, ``takes_in_use``,
+            ``not_installed``, ``cannot_tell`` or ``not_installable``. The console branches on it.
+        dependents: What depends on the component, as ``{"kind", "names"}``, so a console shows
+            them rather than parses the sentence.
+        blockers: One sentence per reason found, in the order they were found.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        details: str = "",
+        *,
+        reason: str,
+        dependents: list[dict[str, Any]] | None = None,
+        blockers: list[str] | None = None,
+        coded: Any = None,
+    ):
+        """
+        Args:
+            message: What was refused.
+            details: What to do about it.
+            reason: Which guard refused.
+            dependents: What depends on the component.
+            blockers: Every reason found.
+            coded: The sentence as a code and its values, for the console to translate.
+        """
+        super().__init__(message, details, coded=coded)
+        self.reason = reason
+        self.dependents = dependents or []
+        self.blockers = blockers or []
