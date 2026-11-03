@@ -57093,6 +57093,9 @@ export interface components {
          *     point it at a server of its own and send itself a test email. There is no
          *     way to explicitly blank the password through this endpoint; ``noust config
          *     set monitor.smtp.password ''`` still does that directly.
+         *
+         *     ``recipients`` works the same way: left out, the stored list stays; an empty
+         *     list is the explicit way to clear it.
          */
         SMTPConfig: {
             /**
@@ -57121,9 +57124,9 @@ export interface components {
             port: number;
             /**
              * Recipients
-             * @description Addresses the monitor's reports and test message are sent to
+             * @description Addresses the monitor's reports and test message are sent to. Leave it out (or null) to keep the ones already stored; an empty list clears them
              */
-            recipients?: string[];
+            recipients?: string[] | null;
             /**
              * Use Ssl
              * @description Connect with implicit TLS (SMTPS), usually port 465

@@ -1004,6 +1004,56 @@ class TestSMTPSettings:
         assert stored_value(config_path, "monitor.smtp.password") == "hunter2"
         assert stored_value(config_path, "monitor.email_recipients") == ["oncall@example.com"]
 
+    def test_a_body_without_recipients_leaves_the_stored_ones(
+        self, client: TestClient, config_path: Path
+    ) -> None:
+        """
+        The regression: ``recipients`` defaulted to an empty list, so a client that sent the
+        server's settings and nothing about recipients (a script changing the sender, say)
+        emptied the list the monitor's reports go to, and the next alert had nobody to reach.
+        """
+        assert client.put("/api/config/smtp", json=self._STORED_SMTP).status_code == 200
+        without = {k: v for k, v in self._STORED_SMTP.items() if k != "recipients"}
+
+        response = client.put(
+            "/api/config/smtp", json={**without, "password": "", "from_address": "a@example.com"}
+        )
+
+        assert response.status_code == 200, response.text
+        assert stored_value(config_path, "monitor.email_recipients") == ["ops@example.com"]
+        assert stored_value(config_path, "monitor.smtp.from_address") == "a@example.com"
+        assert client.get("/api/config/smtp").json()["recipients"] == ["ops@example.com"]
+
+    def test_null_recipients_leave_them_too(self, client: TestClient, config_path: Path) -> None:
+        assert client.put("/api/config/smtp", json=self._STORED_SMTP).status_code == 200
+
+        response = client.put(
+            "/api/config/smtp", json={**self._STORED_SMTP, "password": "", "recipients": None}
+        )
+
+        assert response.status_code == 200, response.text
+        assert stored_value(config_path, "monitor.email_recipients") == ["ops@example.com"]
+
+    def test_an_empty_list_still_clears_them_because_it_says_so(
+        self, client: TestClient, config_path: Path
+    ) -> None:
+        assert client.put("/api/config/smtp", json=self._STORED_SMTP).status_code == 200
+
+        response = client.put(
+            "/api/config/smtp", json={**self._STORED_SMTP, "password": "", "recipients": []}
+        )
+
+        assert response.status_code == 200, response.text
+        assert stored_value(config_path, "monitor.email_recipients") == []
+
+    def test_recipients_sent_with_the_first_write_are_stored(
+        self, client: TestClient, config_path: Path
+    ) -> None:
+        response = client.put("/api/config/smtp", json=self._STORED_SMTP)
+
+        assert response.status_code == 200, response.text
+        assert stored_value(config_path, "monitor.email_recipients") == ["ops@example.com"]
+
     def test_a_blank_password_with_nothing_stored_is_not_a_redirection(
         self, client: TestClient, config_path: Path
     ) -> None:

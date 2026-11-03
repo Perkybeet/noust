@@ -274,6 +274,9 @@ class SMTPConfig(BaseModel):
     point it at a server of its own and send itself a test email. There is no
     way to explicitly blank the password through this endpoint; ``noust config
     set monitor.smtp.password ''`` still does that directly.
+
+    ``recipients`` works the same way: left out, the stored list stays; an empty
+    list is the explicit way to clear it.
     """
 
     host: str = Field("", description="SMTP server hostname; empty means not configured")
@@ -292,9 +295,12 @@ class SMTPConfig(BaseModel):
     from_address: str = Field(
         "", description="Envelope sender address; falls back to the username when empty"
     )
-    recipients: list[str] = Field(
-        default_factory=list,
-        description="Addresses the monitor's reports and test message are sent to",
+    recipients: list[str] | None = Field(
+        None,
+        description=(
+            "Addresses the monitor's reports and test message are sent to. Leave it out (or "
+            "null) to keep the ones already stored; an empty list clears them"
+        ),
     )
 
 
@@ -1055,7 +1061,10 @@ def update_smtp_config(
             "from_address": body.from_address,
         },
     )
-    config.set("monitor.email_recipients", body.recipients)
+    # A body that says nothing about recipients is not asking for none: an empty list is how a
+    # caller says that, and an omitted field used to be read as one.
+    if body.recipients is not None:
+        config.set("monitor.email_recipients", body.recipients)
     _refuse_smtp_password_move(before, config)
     persist(config)
     _audit_write(request, session, changed=["monitor"])

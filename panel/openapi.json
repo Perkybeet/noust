@@ -47668,7 +47668,7 @@
         "type": "object"
       },
       "SMTPConfig": {
-        "description": "SMTP settings for the monitor's email notifications and test message.\n\n``password`` is write-only: it is never sent back by ``GET /config/smtp``\n(see :class:`SMTPSettingsResponse`), so unlike a secret round-tripped\nthrough the generic ``PUT``/``PATCH /api/config`` there is no\n:data:`~noust.core.config.REDACTED` placeholder for the console to echo\nback untouched. Instead an empty ``password`` keeps whatever is already\nstored - but only while it would still go where it went before: the same\nhost, port, username and transport. Changing any of those with a blank\npassword is refused (see :func:`_refuse_smtp_password_move`), so a\ncredential that may write this section but never saw the password cannot\npoint it at a server of its own and send itself a test email. There is no\nway to explicitly blank the password through this endpoint; ``noust config\nset monitor.smtp.password ''`` still does that directly.",
+        "description": "SMTP settings for the monitor's email notifications and test message.\n\n``password`` is write-only: it is never sent back by ``GET /config/smtp``\n(see :class:`SMTPSettingsResponse`), so unlike a secret round-tripped\nthrough the generic ``PUT``/``PATCH /api/config`` there is no\n:data:`~noust.core.config.REDACTED` placeholder for the console to echo\nback untouched. Instead an empty ``password`` keeps whatever is already\nstored - but only while it would still go where it went before: the same\nhost, port, username and transport. Changing any of those with a blank\npassword is refused (see :func:`_refuse_smtp_password_move`), so a\ncredential that may write this section but never saw the password cannot\npoint it at a server of its own and send itself a test email. There is no\nway to explicitly blank the password through this endpoint; ``noust config\nset monitor.smtp.password ''`` still does that directly.\n\n``recipients`` works the same way: left out, the stored list stays; an empty\nlist is the explicit way to clear it.",
         "properties": {
           "from_address": {
             "default": "",
@@ -47697,12 +47697,19 @@
             "type": "integer"
           },
           "recipients": {
-            "description": "Addresses the monitor's reports and test message are sent to",
-            "items": {
-              "type": "string"
-            },
-            "title": "Recipients",
-            "type": "array"
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Addresses the monitor's reports and test message are sent to. Leave it out (or null) to keep the ones already stored; an empty list clears them",
+            "title": "Recipients"
           },
           "use_ssl": {
             "default": true,

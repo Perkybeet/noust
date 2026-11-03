@@ -8223,7 +8223,7 @@ SMTPConfig = TypedDict("SMTPConfig", {
     "host": NotRequired[str],
     "password": NotRequired[str],
     "port": NotRequired[int],
-    "recipients": NotRequired[list[str]],
+    "recipients": NotRequired[Union[list[str], None]],
     "use_ssl": NotRequired[bool],
     "use_tls": NotRequired[bool],
     "username": NotRequired[str],

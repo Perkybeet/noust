@@ -474,7 +474,7 @@ announced.
 | `POST`, `DELETE /api/alerts/rules/{name}/acknowledge` | Take a firing alert (`?subject=` an application), or hand it back |
 | `POST /api/monitor/test-email` | Send a test email; a failure carries the SMTP server's own reply verbatim in `output` |
 | `GET /api/config/smtp` | SMTP settings and recipients; the password is never returned, only whether one is set |
-| `PUT /api/config/smtp` | Update them (sudo mode); a blank password keeps the one already stored |
+| `PUT /api/config/smtp` | Update them (sudo mode); a blank password keeps the one already stored, and so does a body that leaves `recipients` out (an empty list clears them) |
 
 ## Troubleshooting
 
