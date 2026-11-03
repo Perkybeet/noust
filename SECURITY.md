@@ -24,9 +24,10 @@ that. CI fails when the table does not list the version being released as suppor
 
 Please report privately, never in a public issue, a pull request or a discussion:
 
-- **GitHub**: open a private advisory at
-  <https://github.com/Perkybeet/noust/security/advisories/new> (preferred: it keeps the
-  report, the fix and the advisory in one place, and nobody but the maintainers sees it), or
+- **GitHub**: use private vulnerability reporting: the repository's Security tab, "Report a
+  vulnerability", or directly <https://github.com/Perkybeet/noust/security/advisories/new>
+  (preferred: it keeps the report, the fix and the advisory in one place, and nobody but the
+  maintainers sees it), or
 - **email**: yago.lopez.adeje@gmail.com, with `[noust security]` in the subject.
   <!-- OWNER-TODO(security-address): when the project has a domain, create a dedicated
   address (security@<domain>), list it here and as a `Contact:` in

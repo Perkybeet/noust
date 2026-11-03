@@ -1,6 +1,6 @@
 name: Recipe request
 description: Ask for an application to be added to the catalogue of ready-made services
-labels: ["recipe", "needs-triage"]
+labels: ["enhancement", "area/recipes", "needs-triage"]
 body:
   - type: markdown
     attributes:

@@ -18,7 +18,21 @@ Noust is free software under the AGPL-3.0-or-later. By contributing you agree th
    contribution under other terms, so that Noust can also be offered under a separate commercial
    licence alongside the AGPL, which stays.
 
+The [Contributor License Agreement](CLA.md) says the same in the terms a lawyer reads. You sign it
+once, with a comment on your first pull request (the check on the pull request says which words), and
+the signature is kept in the `cla-signatures` branch. The maintainer and the dependency bots do not
+sign.
+
 For a licence on other terms, write to yago.lopez.adeje@gmail.com.
+
+### Taking part
+
+Everyone who takes part follows the [code of conduct](CODE_OF_CONDUCT.md). A question goes to
+[Discussions](https://github.com/Perkybeet/noust/discussions), a defect or a request to an
+[issue](https://github.com/Perkybeet/noust/issues/new/choose), and a vulnerability to the private
+report in [SECURITY.md](SECURITY.md). [docs/SUPPORT.md](docs/SUPPORT.md) says what to include and how
+issues are labelled. A pull request starts from the template in `.github/PULL_REQUEST_TEMPLATE.md`,
+which is the short list of what the four rules below ask for.
 
 ---
 
