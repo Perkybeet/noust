@@ -1,0 +1,66 @@
+name: CLA
+
+# The Contributor License Agreement (CLA.md) is signed once, with a comment on a first pull
+# request, and the signature is kept in a branch of its own (CONTRIBUTING.md, "The licence of a
+# contribution").
+#
+# `pull_request_target` runs this file as it is on the default branch, with a token that can
+# write, so what keeps it safe is what it does not do: it never checks out the pull request, it
+# runs no shell, and the only thing it reads of a contribution is the list of who committed it.
+# `issue_comment` is how a signature reaches it, and the condition below lets in only a comment
+# on a pull request that says the words or asks to check again.
+#
+# The token holds the four permissions the action documents, for this job only: it comments on
+# the pull request (pull-requests), writes the signature to the branch (contents), re-runs the
+# check after a signature (actions) and sets its status (statuses).
+#
+# The signatures branch has to exist, hold the file below, and not be protected: the action
+# writes to it with the job's own token and does not create the branch. Once, by the maintainer:
+#
+#   git switch --orphan cla-signatures
+#   mkdir -p signatures/version1
+#   echo '{"signedContributors": []}' > signatures/version1/cla.json
+#   git add signatures && git commit -m "cla: the list of signatures starts empty"
+#   git push origin cla-signatures
+#
+# A person on the allow-list below needs no signature: the maintainer, and the two bots that
+# open pull requests. The names are exact on purpose: the action reads a `*` as an unanchored
+# pattern, which would let in anyone whose name contains a bot's.
+#
+# The action's own habit of locking a pull request when it closes is off: it locks one closed
+# without merging as well, and the signature is already in the file, with the comment's id and
+# time, whatever happens to the comment afterwards. That is also why `closed` is not listed.
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  cla:
+    name: CLA signed
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+      statuses: write
+    if: >-
+      github.event_name == 'pull_request_target' ||
+      (github.event.issue.pull_request &&
+      (github.event.comment.body == 'recheck' ||
+      github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA'))
+    steps:
+      - uses: contributor-assistant/github-action@ca4a40a7d1004f18d9960b404b97e5f30a505a08 # v2.6.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          path-to-document: https://github.com/Perkybeet/noust/blob/main/CLA.md
+          path-to-signatures: signatures/version1/cla.json
+          branch: cla-signatures
+          lock-pullrequest-aftermerge: "false"
+          allowlist: Perkybeet,dependabot[bot],dependabot,github-actions[bot],github-actions

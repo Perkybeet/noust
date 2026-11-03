@@ -7,6 +7,11 @@ body:
       value: |
         A request that starts from the job you are trying to do is easier to weigh than one that
         starts from a solution. Please look through the open issues first.
+
+        A question about how to do something belongs in
+        [Discussions](https://github.com/Perkybeet/noust/discussions/categories/q-a), and an idea
+        you want to talk over before it is a request in
+        [Ideas](https://github.com/Perkybeet/noust/discussions/categories/ideas).
   - type: textarea
     id: job
     attributes:
@@ -24,15 +29,19 @@ body:
     attributes:
       label: Area
       options:
-        - Deploying applications
-        - Domains, certificates or the web server
+        - Applications and deploys
         - Databases
+        - Domains and certificates
+        - Network, DNS and the web server
+        - The server (services, monitoring, software, updates)
+        - Security, accounts and access
         - Backups and restore
-        - Monitoring and notifications
+        - Console (the browser)
         - Fleet (a central and its servers)
-        - Console
         - Command line
-        - Installation or documentation
+        - Documentation
+        - Installing or updating Noust
+        - Recipes (the catalogue)
         - Other
     validations:
       required: true

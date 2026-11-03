@@ -39,6 +39,8 @@ PINNED_BY_COMMIT = (
     "anchore/sbom-action",
     "sigstore/cosign-installer",
     "actions/dependency-review-action",
+    # Runs with a token that can write, on a pull request from anyone (CLA.md).
+    "contributor-assistant/github-action",
 )
 
 
@@ -185,7 +187,9 @@ class TestTheSecurityWorkflow:
 
 
 class TestPinning:
-    @pytest.mark.parametrize("name", ["security.yml", "release.yml", "ci.yml", "supply-chain.yml"])
+    @pytest.mark.parametrize(
+        "name", ["security.yml", "release.yml", "ci.yml", "supply-chain.yml", "cla.yml"]
+    )
     def test_the_actions_that_guard_the_build_are_pinned_by_commit(self, name: str) -> None:
         for use in uses_of(load(name)):
             action, _, ref = use.partition("@")
