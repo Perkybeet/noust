@@ -53,6 +53,7 @@ from noust.core.exceptions import (
     RollbackError,
 )
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, get_fs
+from noust.core.job_titles import title_for
 from noust.core.redact import Scrubber, app_secret_values, scrubber_for, secret_env_values
 from noust.core.store import DeploymentTrigger, JobRecord, NoustStore, get_store
 from noust.core.teams import ownership_target
@@ -393,6 +394,7 @@ class Job:
             "error": self.error,
             "logs": [log.to_dict() for log in self.logs[-MAX_SERIALISED_LOGS:]],
             "metadata": self.metadata,
+            "title": title_for(self.type.value, self.metadata, self.name).to_dict(),
             "actor": self.actor,
             "state": visible_state(self.status),
             "queue_position": self.queue_position,
