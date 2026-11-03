@@ -126,6 +126,10 @@ src/noust/
                     `web`, with the error that says how to install its dependencies
     fleet_tokens.py what the name of a fleet token says of its central (`fleet-<central>`); the
                     audit trail and the central's calls both ask it
+    job_titles.py   what a background job is, as one sentence of `server_text` (code and values),
+                    derived from its type and subject: every client says a job the same way
+    account_dashboards.py  the panels of the console's Home, per account: the one reader and writer
+                    of `account_dashboards` (`validators/dashboards.py` judges the document)
   validators/       names, environments, sources, ports, domains
   managers/         adapters: web server, systemd, certs, backups, databases, source, cron
     diagnose.py     why an app is down: read-only probes, most likely cause first
@@ -211,6 +215,8 @@ src/noust/
     events.py       the /events SSE stream the console listens to
     jobs.py         background jobs, persisted with their logs
     job_reconcile.py  a job in a transient systemd unit is followed again after a restart
+    operations.py   the closed list of long operations that answer on their request and are not
+                    jobs, announced as the `operation` event and listed while they run
     gateway_client.py  the console's own API called back as whoever asked (the manifest's plan
                     and apply run on it): the engine is a client, never a second implementation
     manifest_jobs.py  applying a manifest as a job, outside the deploy queue it feeds

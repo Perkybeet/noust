@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1129 operations.
+1135 operations.
 
 ## Access
 
@@ -483,6 +483,15 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/dns/records` | List Records | `apps.read` |  |  |
 | POST | `/api/dns/sweep` | Sweep Records | `server.manage` |  |  |
 
+## Dashboards
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| GET | `/api/auth/dashboards` | List Dashboards | `self` |  |  |
+| POST | `/api/auth/dashboards/order` | Order Dashboards | `self` |  |  |
+| PUT | `/api/auth/dashboards/{dashboard_id}` | Save Dashboard | `self` |  |  |
+| DELETE | `/api/auth/dashboards/{dashboard_id}` | Delete Dashboard | `self` |  |  |
+
 ## Databases
 
 | Method | Path | What it does | Permission | Sudo | Approval |
@@ -744,6 +753,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/fleet/enroll` | Enroll Server | `fleet.manage` | yes | yes |
 | POST | `/api/fleet/enroll/host-key` | Scan Host Key | `fleet.manage` |  |  |
 | GET | `/api/fleet/jobs` | List Jobs | `fleet.read` |  |  |
+| GET | `/api/fleet/jobs/active` | Fleet Jobs Active | `fleet.read` |  |  |
 | GET | `/api/fleet/jobs/{job_id}` | Get Fleet Job | `fleet.read` |  |  |
 | POST | `/api/fleet/jobs/{job_id}/retry` | Retry Job | `fleet.manage` |  |  |
 | GET | `/api/fleet/link` | Link Status | `fleet.manage` |  |  |
@@ -846,6 +856,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/jobs/{job_id}` | Get Job | `apps.read` |  |  |
 | POST | `/api/jobs/{job_id}/cancel` | Cancel Job | `apps.operate` |  |  |
 | GET | `/api/jobs/{job_id}/log` | Get Job Log | `apps.read` |  |  |
+| GET | `/api/operations/active` | Active Operations Now | `apps.read` |  |  |
 
 ## Log drains
 

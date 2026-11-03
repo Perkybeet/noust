@@ -20,6 +20,34 @@ them before the rest):
   `panel/openapi.baseline.json` in the same commit (`python scripts/api_compat.py --update
   --accept-breaking`).
 
+## 4.2.0
+
+API version 1. Everything here is additive: no operation is removed or deprecated, no response code
+changes, and `python scripts/api_compat.py` keeps passing against the schema of 4.1.0.
+
+### Added
+
+- **Home panels, one set per account.** `GET /api/auth/dashboards`, `PUT /api/auth/dashboards/{dashboard_id}`,
+  `DELETE /api/auth/dashboards/{dashboard_id}` and `POST /api/auth/dashboards/order` (permission `self`)
+  keep each account's panels of the console's Home: a name, whether it follows the server or the
+  fleet, and a closed version 1 layout on a grid of 12 columns (40 widgets, 20 panels per account, 32 KB).
+  They are under `/api/auth`, so a central never forwards them. The master token, which is no account,
+  is answered `400`.
+- **Every job says what it is.** A job (`GET /api/jobs`, `/api/jobs/{id}`, `/api/jobs/active`, the queue,
+  the `job` event) carries `title`, `{code, params}`: a sentence of the server's catalog for the console
+  to say in its language. `name` is unchanged.
+- **Long operations that are not jobs are announced.** The `operation` event of `/events` (a `start` and
+  an `end` with `id`, `title`, `target`, `domain`, `actor`, `at` and the result) and
+  `GET /api/operations/active` (permission `apps.read`) cover starting, stopping and restarting
+  applications, services and database engines, running a cron entry, verifying a backup, the monitor's
+  install and scan, a probe's check, a node's test, the firewall's install, importing Compose, syncing
+  and moving an environment, clearing the build cache, applying a build or a declaration, rebooting or
+  shutting the server down, reloading the sites, applying the fleet's settings and turning on or
+  rotating backup encryption. None of those routes changes its response code.
+- **What every server of a fleet runs now.** `GET /api/fleet/jobs/active` (permission `fleet.read`): one
+  row per server with its jobs and operations and a `status` (`ok`, `unsupported` for a server that has
+  not been updated to 4.2, `unreachable`); it never fails as a whole.
+
 ## 4.1.0
 
 API version 1. This section is everything that differs from 4.0.0, the schema that release shipped. The

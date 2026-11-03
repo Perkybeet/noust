@@ -7827,6 +7827,116 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/dashboards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Dashboards
+         * @description List the panels of the account asking.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its panels in order, and the limits.
+         *
+         *     Raises:
+         *         ValidationError: 400 when the principal is not an account.
+         */
+        get: operations["list_dashboards_api_auth_dashboards_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/dashboards/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Order Dashboards
+         * @description Put the account's panels in the order given.
+         *
+         *     Args:
+         *         body: The id of every panel, each once.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The panels in their new order.
+         *
+         *     Raises:
+         *         ValidationError: 400 when the principal is not an account, or the list does not name
+         *             every panel of the account exactly once.
+         */
+        post: operations["order_dashboards_api_auth_dashboards_order_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/dashboards/{dashboard_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Dashboard
+         * @description Create a panel, or replace the one the account has under that id.
+         *
+         *     A new panel goes last; one that exists keeps its place.
+         *
+         *     Args:
+         *         dashboard_id: The panel's id, the person's own.
+         *         body: Its name, scope and layout.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The panel as it is now.
+         *
+         *     Raises:
+         *         ValidationError: 400 when the principal is not an account, anything in the body is not
+         *             valid (the error's ``fields`` names it), or the account keeps 20 panels already and
+         *             this one is new.
+         */
+        put: operations["save_dashboard_api_auth_dashboards__dashboard_id__put"];
+        post?: never;
+        /**
+         * Delete Dashboard
+         * @description Delete one of the account's panels.
+         *
+         *     Args:
+         *         dashboard_id: The panel's id.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The panels that are left.
+         *
+         *     Raises:
+         *         ValidationError: 400 when the principal is not an account.
+         *         ResourceNotFoundError: 404 when the account has no panel by that id, whoever has one.
+         */
+        delete: operations["delete_dashboard_api_auth_dashboards__dashboard_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/elevate": {
         parameters: {
             query?: never;
@@ -18978,6 +19088,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/fleet/jobs/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fleet Jobs Active
+         * @description What every server is running now: its jobs and the long operations that are not jobs.
+         *
+         *     Asks each node's ``/api/jobs/active`` and ``/api/operations/active`` through its tunnel, all
+         *     at once and each with its own time limit. A row says how the server answered: ``ok``;
+         *     ``unsupported``, for a node that has not been updated to offer the route (it answers 404 and
+         *     will count its tasks when it is); or ``unreachable``. A server that is down or old never
+         *     fails the view, and this central's own row is there when its role is ``server``. Declared
+         *     before ``/jobs/{job_id}``, which would take ``active`` for a job.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *
+         *     Returns:
+         *         One row per server, with its ``jobs`` and its ``operations``.
+         */
+        get: operations["fleet_jobs_active_api_fleet_jobs_active_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/fleet/jobs/{job_id}": {
         parameters: {
             query?: never;
@@ -22778,6 +22924,30 @@ export interface paths {
          *         writes to ``panel/openapi.json``.
          */
         get: operations["get_openapi_schema_api_openapi_json_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/operations/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Active Operations Now
+         * @description List the long operations that are running now.
+         *
+         *     Returns:
+         *         What runs, oldest first. For a principal that does not see every team, only the
+         *         operations on an application it sees: what is about the machine is the instance's.
+         */
+        get: operations["active_operations_now_api_operations_active_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -39695,6 +39865,120 @@ export interface components {
             total: number;
         };
         /**
+         * DashboardBody
+         * @description What a panel is saved as.
+         *
+         *     Attributes:
+         *         name: What it is called, 1 to 60 characters.
+         *         scope: ``server`` or ``fleet``.
+         *         layout: The document, version 1. Judged in full by the server; see
+         *             :mod:`noust.validators.dashboards`.
+         */
+        DashboardBody: {
+            /** Layout */
+            layout: {
+                [key: string]: unknown;
+            };
+            /** Name */
+            name: string;
+            /** Scope */
+            scope: string;
+        };
+        /**
+         * DashboardLimits
+         * @description What a panel and an account may hold, so a client need not hard-code it.
+         *
+         *     Attributes:
+         *         dashboards: Panels an account keeps.
+         *         widgets: Widgets in one panel.
+         *         columns: Columns of the grid a widget is placed on.
+         *         document_bytes: Bytes of a panel's layout, as it is stored.
+         *         settings_bytes: Bytes of one widget's settings.
+         */
+        DashboardLimits: {
+            /**
+             * Columns
+             * @default 12
+             */
+            columns: number;
+            /**
+             * Dashboards
+             * @default 20
+             */
+            dashboards: number;
+            /**
+             * Document Bytes
+             * @default 32768
+             */
+            document_bytes: number;
+            /**
+             * Settings Bytes
+             * @default 2048
+             */
+            settings_bytes: number;
+            /**
+             * Widgets
+             * @default 40
+             */
+            widgets: number;
+        };
+        /**
+         * DashboardOrder
+         * @description The order the panels are kept in.
+         *
+         *     Attributes:
+         *         order: The id of every panel the account has, each once.
+         */
+        DashboardOrder: {
+            /** Order */
+            order: string[];
+        };
+        /**
+         * DashboardOut
+         * @description One panel.
+         *
+         *     Attributes:
+         *         id: The id the person gave it.
+         *         name: What it is called.
+         *         scope: ``server`` (follows the server in the selector) or ``fleet``.
+         *         position: Its place among the account's panels, from 0.
+         *         layout: The document: ``{version: 1, widgets: [{id, type, x, y, w, h, settings}]}``.
+         *         created_at: When it was first saved, UNIX seconds.
+         *         updated_at: When it was last saved, UNIX seconds.
+         */
+        DashboardOut: {
+            /** Created At */
+            created_at: number;
+            /** Id */
+            id: string;
+            /** Layout */
+            layout: {
+                [key: string]: unknown;
+            };
+            /** Name */
+            name: string;
+            /** Position */
+            position: number;
+            /** Scope */
+            scope: string;
+            /** Updated At */
+            updated_at: number;
+        };
+        /**
+         * DashboardsResponse
+         * @description The panels of the account asking.
+         *
+         *     Attributes:
+         *         dashboards: In the order the account keeps them; empty when it never saved one (the
+         *             console then draws its own defaults).
+         *         limits: What a panel and an account may hold.
+         */
+        DashboardsResponse: {
+            /** Dashboards */
+            dashboards: components["schemas"]["DashboardOut"][];
+            limits?: components["schemas"]["DashboardLimits"];
+        };
+        /**
          * DatabaseInfoResponse
          * @description One database, as the engine and the store together describe it.
          *
@@ -47016,6 +47300,8 @@ export interface components {
             state: string;
             /** Status */
             status: string;
+            /** @description What the job is, as a sentence of the server's catalog (code and values) for the console to say in its language; name is the same in English */
+            title?: components["schemas"]["CodedText"] | null;
             /** Total Steps */
             total_steps: number;
             /** Type */
@@ -50064,6 +50350,42 @@ export interface components {
             stats?: {
                 [key: string]: number;
             } | null;
+        };
+        /**
+         * OperationOut
+         * @description One operation that is running.
+         *
+         *     Attributes:
+         *         id: Names its start and its end in the ``operation`` event.
+         *         title: What it is, as a sentence of the server's catalog (code and values).
+         *         target: Its subject (an application, a service, a node), or null for the whole server.
+         *         domain: The application it concerns, when its subject is one.
+         *         actor: Who asked, as the audit trail names them.
+         *         started_at: When it started, ISO 8601 in UTC.
+         */
+        OperationOut: {
+            /** Actor */
+            actor?: string | null;
+            /** Domain */
+            domain?: string | null;
+            /** Id */
+            id: string;
+            /** Started At */
+            started_at: string;
+            /** Target */
+            target?: string | null;
+            title: components["schemas"]["CodedText"];
+        };
+        /**
+         * OperationsResponse
+         * @description The operations running now.
+         *
+         *     Attributes:
+         *         operations: Oldest first. A team member's holds only what concerns its own applications.
+         */
+        OperationsResponse: {
+            /** Operations */
+            operations: components["schemas"]["OperationOut"][];
         };
         /**
          * OsOut
@@ -76992,6 +77314,125 @@ export interface operations {
             };
         };
     };
+    list_dashboards_api_auth_dashboards_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardsResponse"];
+                };
+            };
+        };
+    };
+    order_dashboards_api_auth_dashboards_order_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DashboardOrder"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_dashboard_api_auth_dashboards__dashboard_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dashboard_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DashboardBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_dashboard_api_auth_dashboards__dashboard_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dashboard_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     elevate_api_auth_elevate_post: {
         parameters: {
             query?: never;
@@ -89258,6 +89699,40 @@ export interface operations {
             };
         };
     };
+    fleet_jobs_active_api_fleet_jobs_active_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_fleet_job_api_fleet_jobs__job_id__get: {
         parameters: {
             query?: never;
@@ -93136,6 +93611,26 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    active_operations_now_api_operations_active_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationsResponse"];
                 };
             };
         };
