@@ -638,6 +638,15 @@ class DatabaseEngineError(DatabaseError):
     pass
 
 
+class EngineInUseError(DatabaseEngineError):
+    """
+    Removing an engine was refused because it holds databases, or because Noust cannot tell.
+
+    A conflict with the state of the server, not a fault: the same removal is fine once the
+    databases have been dropped or moved, and ``details`` says how.
+    """
+
+
 class DatabaseBackupError(DatabaseError):
     """Raised when database backup/restore operations fail."""
 

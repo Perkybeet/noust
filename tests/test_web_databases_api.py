@@ -174,6 +174,7 @@ def test_uninstalling_an_engine_queues_the_job_once_elevated(
 ) -> None:
     """Elevating opens the window uninstalling an engine needs."""
     created = _capture_queued_jobs(monkeypatch)
+    engines["postgresql"].dbs.clear()
     elevate(client)
 
     response = client.post("/api/databases/engines/postgresql/uninstall?purge=true")
@@ -183,11 +184,45 @@ def test_uninstalling_an_engine_queues_the_job_once_elevated(
     assert created[0]["kwargs"] == {"engine": "postgresql", "action": "uninstall", "purge": True}
 
 
+def test_an_engine_that_holds_databases_is_refused_at_once_naming_them(
+    client: TestClient, engines, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The manager's refusal is the answer, and no job is queued to fail an hour later."""
+    created = _capture_queued_jobs(monkeypatch)
+    elevate(client)
+
+    response = client.post("/api/databases/engines/postgresql/uninstall")
+
+    assert response.status_code == 409, response.text
+    assert "appdb" in response.json()["detail"]
+    assert "noust db drop appdb --engine postgresql" in response.json()["hint"]
+    assert not created
+
+
+def test_the_route_records_nothing_when_it_queues_the_removal(
+    client: TestClient, engines, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The manager records the removal when it finishes: a queued job is not an engine removed."""
+    from noust.core import audit
+
+    _capture_queued_jobs(monkeypatch)
+    engines["postgresql"].dbs.clear()
+    recorded: list[str] = []
+    monkeypatch.setattr(audit, "record", lambda event, **kwargs: recorded.append(event))
+    elevate(client)
+
+    response = client.post("/api/databases/engines/postgresql/uninstall")
+
+    assert response.status_code == 202, response.text
+    assert "db.uninstall" not in recorded
+
+
 def test_uninstalling_an_engine_with_the_master_token_is_exempt(
     app: FastAPI, engines, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Automation presenting the master token needs no elevation either."""
     created = _capture_queued_jobs(monkeypatch)
+    engines["postgresql"].dbs.clear()
     token = get_token_manager().generate_master_token()
     anon = TestClient(app, client=("testclient", 50000), follow_redirects=False)
 
