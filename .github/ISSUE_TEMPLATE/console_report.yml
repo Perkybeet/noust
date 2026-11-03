@@ -1,0 +1,75 @@
+name: Report from the console
+description: What the console's Report a problem opens; you can also fill it in by hand
+title: "[Console] "
+labels: ["bug", "from-console", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is the form the console opens from **Report a problem**, with what it knows already
+        filled in. The console prepared this page and downloaded a file, and nothing is posted
+        until you submit: what is public is what you read here and in that file.
+
+        The file holds the support report (the version, the installation, the machine, the state of
+        the applications, the last lines of the journal, with secrets masked), what the browser
+        knows (the page you were on, the console's version, the browser, its last errors) and the
+        images you chose. **Read it before you attach it**: a report is a copy of your server.
+
+        **A security problem is not a bug report.** Report it privately, see
+        [SECURITY.md](https://github.com/Perkybeet/noust/blob/main/SECURITY.md).
+  - type: input
+    id: version
+    attributes:
+      label: Noust version
+      description: The console fills it in. Output of `noust --version` otherwise.
+      placeholder: "4.2.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where does it happen
+      description: The part of Noust the page you were on belongs to.
+      options:
+        - Applications and deploys
+        - Databases
+        - Domains and certificates
+        - Network, DNS and the web server
+        - The server (services, monitoring, software, updates)
+        - Security, accounts and access
+        - Backups and restore
+        - Console (the browser)
+        - Fleet (a central and its servers)
+        - Command line
+        - Documentation
+        - Installing or updating Noust
+        - Recipes (the catalogue)
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what you saw instead. Paste errors verbatim; they are the most useful part.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: The shortest list that makes it happen again.
+      placeholder: |
+        1. Open ...
+        2. ...
+  - type: textarea
+    id: attachment
+    attributes:
+      label: The report file from the console
+      description: |
+        Drag the file the console downloaded into this box (a .zip, .md or .txt file, up to 25 MB).
+        It has the support report, the browser's own information and your images, so the
+        maintainer does not have to ask for them one at a time.
+      placeholder: Drop the file here, then wait for its link to appear before you submit.
+    validations:
+      required: true

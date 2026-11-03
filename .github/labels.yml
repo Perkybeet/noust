@@ -1,59 +1,90 @@
 # The labels an issue or a pull request carries, and what each means (docs/SUPPORT.md,
-# "How issues are triaged"). Apply with any label synchroniser; the file is the definition.
+# "How issues are triaged"). This file is the definition: tests/test_github_templates.py holds
+# every form to it, so a form cannot apply a label the repository lacks (GitHub applies nothing
+# then, without saying so).
+#
+# Apply it with `gh label create NAME --color COLOR --description TEXT --force` for each entry.
+# GitHub's own `invalid` and the labels Dependabot creates (`dependencies`, `javascript`,
+# `github_actions`) are on the repository and are not defined here.
+#
+# Colours are quiet on purpose: the type, the triage state and the area each read as a group.
+
+# What the issue is.
 - name: bug
-  color: d73a4a
+  color: c0504d
   description: Something does not work as documented
 - name: enhancement
-  color: a2eeef
+  color: 4f81a8
   description: A capability or improvement that does not exist yet
+- name: question
+  color: 8a7bb0
+  description: How to do something; usually answered in Discussions
+- name: duplicate
+  color: 9ca3af
+  description: Already reported; closed with a link to the original
+- name: wontfix
+  color: b4b9c0
+  description: Will not be changed, with the reason in the thread
+
+# Where it stands.
 - name: needs-triage
-  color: ededed
+  color: d6b656
   description: Not looked at yet; removed when it has an area and a verdict
 - name: needs-info
-  color: fbca04
+  color: d0a14a
   description: Waiting for the reporter (version, support report, steps)
 - name: confirmed
-  color: 0e8a16
+  color: 5a9a6e
   description: Reproduced, or clearly a defect from the report
-- name: wontfix
-  color: ffffff
-  description: Will not be changed, with the reason in the thread
-- name: duplicate
-  color: cfd3d7
-  description: Already reported; closed with a link to the original
-- name: security
-  color: b60205
-  description: Handled privately under SECURITY.md; never discussed in a public issue
-- name: console
-  color: 5319e7
-  description: The browser console
-- name: cli
-  color: 5319e7
-  description: The command line
-- name: deploy
-  color: 5319e7
-  description: Deploying, updating, rolling back or building applications
-- name: web-server
-  color: 5319e7
-  description: Domains, certificates, nginx or Apache
-- name: databases
-  color: 5319e7
-  description: Database engines, users, backups of data
-- name: backups
-  color: 5319e7
-  description: Backups, restore, destinations, disaster recovery
-- name: fleet
-  color: 5319e7
-  description: A central and its servers
-- name: recipe
-  color: 5319e7
-  description: An application for the catalogue of ready-made services
-- name: packaging
-  color: 5319e7
-  description: Installer, apt, dnf, zypper, PyPI, container image
-- name: documentation
-  color: 0075ca
-  description: Missing, wrong or unclear documentation
+
+# Where it came from, and how to join in.
+- name: from-console
+  color: 6e63a8
+  description: Opened from the console's Report a problem, with its report file
 - name: good first issue
-  color: 7057ff
+  color: 7d70b5
   description: Small, well described, a good way into the code
+- name: help wanted
+  color: 3f8a84
+  description: A change the maintainer would welcome from someone else
+
+# Which part of the product. A vulnerability is never reported in a public issue (SECURITY.md).
+- name: area/apps
+  color: 5f7f9c
+  description: Applications - create, deploy, update, roll back, settings
+- name: area/databases
+  color: 5f7f9c
+  description: Database engines, users, instances and moving data
+- name: area/domains
+  color: 5f7f9c
+  description: Domains, certificates and sites
+- name: area/network
+  color: 5f7f9c
+  description: DNS, the web server, routes, tunnels and published ports
+- name: area/server
+  color: 5f7f9c
+  description: The server itself - services, monitoring, software, updates
+- name: area/security
+  color: 5f7f9c
+  description: Accounts, roles, tokens, audit and compliance
+- name: area/backups
+  color: 5f7f9c
+  description: Backups, restore, destinations and disaster recovery
+- name: area/console
+  color: 5f7f9c
+  description: The browser console
+- name: area/fleet
+  color: 5f7f9c
+  description: A central and its servers
+- name: area/cli
+  color: 5f7f9c
+  description: The command line
+- name: area/docs
+  color: 5f7f9c
+  description: Missing, wrong or unclear documentation
+- name: area/packaging
+  color: 5f7f9c
+  description: The installer, apt, dnf, zypper, PyPI and the container image
+- name: area/recipes
+  color: 5f7f9c
+  description: Applications for the catalogue of ready-made services

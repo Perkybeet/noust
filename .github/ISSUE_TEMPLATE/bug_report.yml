@@ -10,14 +10,19 @@ body:
         which collects what a maintainer would otherwise ask for one question at a time and
         masks secrets before it prints anything.
 
+        If you are in the console, **Report a problem** in the help menu opens a form like this one
+        with part of it already filled in, and gives you a file to attach.
+
         **A security problem is not a bug report.** Report it privately, see
         [SECURITY.md](https://github.com/Perkybeet/noust/blob/main/SECURITY.md).
+        **A question is not a bug report either**: ask it in
+        [Discussions](https://github.com/Perkybeet/noust/discussions/categories/q-a).
   - type: input
     id: version
     attributes:
       label: Noust version
       description: Output of `noust --version`.
-      placeholder: "3.3.1"
+      placeholder: "4.2.0"
     validations:
       required: true
   - type: dropdown
@@ -47,15 +52,19 @@ body:
     attributes:
       label: Where does it happen
       options:
-        - Console (the browser)
-        - Command line
-        - Deploying an application
-        - Domains, certificates or the web server
+        - Applications and deploys
         - Databases
+        - Domains and certificates
+        - Network, DNS and the web server
+        - The server (services, monitoring, software, updates)
+        - Security, accounts and access
         - Backups and restore
+        - Console (the browser)
         - Fleet (a central and its servers)
-        - Installation or update of Noust itself
+        - Command line
         - Documentation
+        - Installing or updating Noust
+        - Recipes (the catalogue)
         - Other
     validations:
       required: true

@@ -1056,7 +1056,9 @@ embed Noust in a closed product), write to yago.lopez.adeje@gmail.com.
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/Perkybeet/noust/issues)
+- **Questions and ideas**: [GitHub Discussions](https://github.com/Perkybeet/noust/discussions)
+- **Bugs and requests**: [GitHub Issues](https://github.com/Perkybeet/noust/issues/new/choose); from the console, **Report a problem** opens the form filled in ([how](docs/SUPPORT.md))
+- **A vulnerability**: privately, see [SECURITY.md](SECURITY.md)
 - **Email**: yago.lopez.adeje@gmail.com
 
 ---
