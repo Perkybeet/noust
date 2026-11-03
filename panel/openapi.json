@@ -103130,6 +103130,74 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/fleet/software": {
+      "get": {
+        "description": "The software of every server: how much of what Noust manages is installed, and how much of\nthat Noust installed.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n\nReturns:\n    One row per server: ``installed``, ``total``, ``by_noust``, ``managed``, ``family`` and\n    its page on that server's console. A server that runs a Noust of before 4.2 is\n    ``unsupported``: it will count its software when it is updated.",
+        "operationId": "fleet_software_api_fleet_software_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fleet Software",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.read"
+      }
+    },
     "/api/fleet/sources": {
       "get": {
         "description": "Show what this central does so that its servers deploy from GitHub.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The App and whether GitHub can reach this central, each server's access to clone with, how\n    many events are in each state and how many deployments are followed.",

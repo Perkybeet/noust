@@ -1316,6 +1316,40 @@ def _build_dns(view: NodeView) -> builtins.list[dict[str, Any]]:
     ]
 
 
+def _build_software(view: NodeView) -> builtins.list[dict[str, Any]]:
+    """
+    One row per server: how much of the software Noust manages is installed, and how much of
+    that Noust installed (item 118).
+
+    Args:
+        view: The server.
+
+    Returns:
+        The row, with the page of the server where the list is. A server that runs a Noust
+        without the route is ``unsupported`` and has none: the central never turns "cannot say"
+        into "nothing installed".
+    """
+    answer = _dict(view.parts.get("software"))
+    if answer is None:
+        return []
+    items = _list(answer, "items")
+    installed = [item for item in items if item.get("installed")]
+    return [
+        _row(
+            view,
+            "/server/software",
+            {
+                "managed": bool(answer.get("managed")),
+                "reason": answer.get("reason"),
+                "family": answer.get("family"),
+                "installed": len(installed),
+                "total": len(items),
+                "by_noust": sum(1 for item in installed if item.get("origin") == "noust"),
+            },
+        )
+    ]
+
+
 def _build_alerts(view: NodeView) -> builtins.list[dict[str, Any]]:
     """
     One row per alert rule, with whether any of its subjects is firing.
@@ -1713,6 +1747,14 @@ RESOURCES: dict[str, Resource] = {
             max_stale=300.0,
             build=_build_dns,
             sort=_by_node_then("role"),
+        ),
+        Resource(
+            "software",
+            (Part("software", "/api/server/software"),),
+            ttl=60.0,
+            max_stale=3600.0,
+            build=_build_software,
+            sort=_by_node_then("family"),
         ),
         Resource(
             "alerts",

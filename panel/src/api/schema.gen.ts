@@ -19808,6 +19808,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/fleet/software": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fleet Software
+         * @description The software of every server: how much of what Noust manages is installed, and how much of
+         *     that Noust installed.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *
+         *     Returns:
+         *         One row per server: ``installed``, ``total``, ``by_noust``, ``managed``, ``family`` and
+         *         its page on that server's console. A server that runs a Noust of before 4.2 is
+         *         ``unsupported``: it will count its software when it is updated.
+         */
+        get: operations["fleet_software_api_fleet_software_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/fleet/sources": {
         parameters: {
             query?: never;
@@ -90461,6 +90493,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FleetSettingRemovedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fleet_software_api_fleet_software_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetViewOut"];
                 };
             };
             /** @description Validation Error */

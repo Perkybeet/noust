@@ -1433,6 +1433,7 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/fleet/placements/{domain}/upstreams` | GET `fleet.read` | The servers written for a load balancer (`format` `nginx`, `list` or `json`; `port`), marking those that serve now |
 | `/api/fleet/servers` | GET `fleet.read` |  |
 | `/api/fleet/servers/{node}/labels` | PUT `fleet.manage` |  |
+| `/api/fleet/software` | GET `fleet.read` | Each server's software in a row (`installed`, `total`, `by_noust`, `managed`, `family`): the fleet's view of `/api/server/software`. A server that runs a Noust of before 4.2 is `unsupported`, never an empty list |
 | `/api/fleet/summary` | GET `fleet.read` |  |
 | `/api/fleet/updates` | GET `fleet.read` |  |
 | `/api/nodes` | GET `fleet.read`; POST `fleet.manage`, sudo, four-eyes |  |

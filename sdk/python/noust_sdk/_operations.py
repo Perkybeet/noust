@@ -679,6 +679,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("fleet", "get_upstreams"): ("GET", "/api/fleet/placements/{domain}/upstreams", "fleet.read", False),
     ("fleet", "fleet_servers"): ("GET", "/api/fleet/servers", "fleet.read", False),
     ("fleet", "set_labels"): ("PUT", "/api/fleet/servers/{node}/labels", "fleet.manage", False),
+    ("fleet", "fleet_software"): ("GET", "/api/fleet/software", "fleet.read", False),
     ("fleet", "fleet_summary"): ("GET", "/api/fleet/summary", "fleet.read", False),
     ("fleet", "fleet_updates"): ("GET", "/api/fleet/updates", "fleet.read", False),
     ("fleet", "view_activity"): ("GET", "/api/views/activity", "audit.read", False),
@@ -6080,7 +6081,7 @@ class Domains:
 
 
 class Fleet:
-    """Fleet: 67 operations."""
+    """Fleet: 68 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -6526,6 +6527,14 @@ class Fleet:
 
         Needs: permission `fleet.manage`."""
         return self._call("PUT", f"/api/fleet/servers/{quote(str(node), safe='')}/labels", query=None, body=body)
+
+    def fleet_software(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None) -> "FleetViewOut":
+        """GET /api/fleet/software
+
+        Fleet Software
+
+        Needs: permission `fleet.read`."""
+        return self._call("GET", "/api/fleet/software", query={"node": node, "refresh": refresh}, body=None)
 
     def fleet_summary(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None) -> "FleetViewOut":
         """GET /api/fleet/summary
