@@ -35,7 +35,7 @@ from typing import Any
 import pytest
 
 import noust
-from noust.core import schema_v14, schema_v16
+from noust.core import schema_v14, schema_v16, schema_v17
 from noust.core.accounts import AuthPolicy
 from noust.core.store import NoustStore
 from noust.core.teams import ScopedStore
@@ -888,7 +888,7 @@ def fragment_tables() -> dict[str, set[str]]:
         than the teams' own.
     """
     found: dict[str, set[str]] = {}
-    for module in (schema_v14, schema_v16):
+    for module in (schema_v14, schema_v16, schema_v17):
         for name in vars(module):
             if not name.endswith("_SQL") or name.removesuffix("_SQL") == TEAMS_FRAGMENT:
                 continue
@@ -910,7 +910,7 @@ def fragment_altered_tables() -> set[str]:
     """
     return {
         table
-        for module in (schema_v14, schema_v16)
+        for module in (schema_v14, schema_v16, schema_v17)
         for name in vars(module)
         if name.endswith("_COLUMNS") and name.removesuffix("_COLUMNS") != TEAMS_FRAGMENT
         for table, _column, _definition in getattr(module, name)

@@ -12,8 +12,10 @@
 
 ## Before asking for review
 
-- [ ] `pytest`, `ruff check src/noust tests`, `ruff format --check src/noust tests` and `mypy` pass
-- [ ] A change under `panel/src` also has `npm run lint`, `npm run typecheck` and `npm test` passing, and `src/noust/web/static` rebuilt
-- [ ] A new API route declares its permission, a new audit event is in the catalog, and a new dependency is declared in the four places (`CONTRIBUTING.md`)
-- [ ] Nothing runs a process except `CommandRunner`, and no `except Exception` outside an error boundary
+- [ ] Tests written first for what changed, and `pytest` passes on the files touched
+- [ ] `ruff check src/noust tests`, `ruff format --check src/noust tests` and `mypy` pass
 - [ ] Text a person reads is in both languages (`panel/src/i18n`), and the documentation that describes the behaviour is updated
+- [ ] A change under `panel/` has `npm run lint`, `npm run typecheck` and `npm test` passing, and `src/noust/web/static` rebuilt with `npm run build`
+- [ ] The four rules of `CONTRIBUTING.md` hold: nothing runs a process but `CommandRunner`, no `except Exception` outside an error boundary, one implementation of each thing, guards at the chokepoint
+- [ ] The contribution is mine to send under the AGPL-3.0-or-later, anything from elsewhere is named here with its licence, and I have signed the [CLA](https://github.com/Perkybeet/noust/blob/main/CLA.md) (a comment on this pull request, once)
+- [ ] No secrets: no token, key or password, and no real customer's name, in the code, the fixtures, the logs or the screenshots
