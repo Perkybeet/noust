@@ -826,6 +826,9 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
 
 #: Tables with a column that looks like an owner and is not one, and why.
 NOT_OWNED: dict[str, str] = {
+    "installed_software": "what Noust installed on the server (nginx, cloudflared, an engine's "
+    "packages): the server's, with no column that names an application or a database, and its "
+    "routes under /api/server/software are the instance's",
     "secret_providers": "the secret managers a deploy can fetch from: the server's, which decides "
     "what any team's deploy can reach (the optional team only narrows who may name one)",
     "console_exposure": "the name the console itself is published on: the server's, not an application's",

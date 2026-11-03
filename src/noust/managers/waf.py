@@ -43,6 +43,7 @@ from noust.core.exceptions import ValidationError
 from noust.managers.server.errors import UnsupportedHostError
 from noust.managers.server.host import PackageFamily, detect_platform
 from noust.managers.server.pkg import backend_for
+from noust.managers.server.software_record import record_install
 from noust.managers.webserver import WAF_ANCHOR_SITE, WebServerManager
 
 #: The one-line site that loads the rules at the http level; it sorts before the sites.
@@ -441,6 +442,7 @@ class Waf:
                 output="\n".join(p for p in (result.stdout.strip(), result.stderr.strip()) if p),
             )
         audit.record("sites.waf", target="server", details={"action": "install"})
+        record_install("waf", via="waf", packages=list(PACKAGES))
         return list(PACKAGES)
 
     def render_rules(self) -> str:

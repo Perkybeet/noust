@@ -1319,6 +1319,15 @@ BindingsResponse = TypedDict("BindingsResponse", {
     "total": Required[int],
 })
 
+BlockerOut = TypedDict("BlockerOut", {
+    "code": Required[str],
+    "dependents": NotRequired[list["DependentOut"]],
+    "hint": NotRequired[Union[str, None]],
+    "params": NotRequired[dict[str, Any]],
+    "reason": Required[str],
+    "text": Required[str],
+})
+
 BootOut = TypedDict("BootOut", {
     "boot_id": Required[str],
     "first": Required[str],
@@ -2809,6 +2818,11 @@ DeliveryOut = TypedDict("DeliveryOut", {
     "ref": NotRequired[Union[str, None]],
     "repository": Required[str],
     "state": Required[str],
+})
+
+DependentOut = TypedDict("DependentOut", {
+    "kind": Required[str],
+    "names": NotRequired[list[str]],
 })
 
 DeployKeyCreateRequest = TypedDict("DeployKeyCreateRequest", {
@@ -4621,6 +4635,20 @@ ImageCheckResponse = TypedDict("ImageCheckResponse", {
     "reason": Required[str],
 })
 
+ImpactOut = TypedDict("ImpactOut", {
+    "also_removes": NotRequired[list[str]],
+    "blockers": NotRequired[list["BlockerOut"]],
+    "dependents": NotRequired[list["DependentOut"]],
+    "id": Required[str],
+    "installed": Required[bool],
+    "needs_confirmation": Required[bool],
+    "origin": NotRequired[Union[str, None]],
+    "removable": Required[bool],
+    "removes": NotRequired[list[str]],
+    "repository_files": NotRequired[list[str]],
+    "severity": Required[str],
+})
+
 ImportAppRequest = TypedDict("ImportAppRequest", {
     "document": Required["AppExportDocument"],
     "domain": NotRequired[Union[str, None]],
@@ -4698,6 +4726,10 @@ InspectSourceRequest = TypedDict("InspectSourceRequest", {
     "branch": NotRequired[Union[str, None]],
     "github_installation_id": NotRequired[Union[int, None]],
     "source": Required[str],
+})
+
+InstallRequest = TypedDict("InstallRequest", {
+    "epel": NotRequired[bool],
 })
 
 InstallResponse = TypedDict("InstallResponse", {
@@ -7775,6 +7807,10 @@ RemovePlanResponse = TypedDict("RemovePlanResponse", {
     "warnings": Required[list[str]],
 })
 
+RemoveRequest = TypedDict("RemoveRequest", {
+    "confirm_unknown_origin": NotRequired[bool],
+})
+
 RemovedResponse = TypedDict("RemovedResponse", {
     "removed": Required[str],
     "success": Required[bool],
@@ -9350,6 +9386,30 @@ SlowQueryResponse = TypedDict("SlowQueryResponse", {
     "total_ms": NotRequired[Union[float, None]],
 })
 
+SoftwareItemOut = TypedDict("SoftwareItemOut", {
+    "dependents": NotRequired[list["DependentOut"]],
+    "id": Required[str],
+    "installable": Required[bool],
+    "installed": Required[bool],
+    "installed_at": NotRequired[Union[str, None]],
+    "installed_by": NotRequired[Union[str, None]],
+    "installed_via": NotRequired[Union[str, None]],
+    "origin": NotRequired[Union[str, None]],
+    "packages": NotRequired[list[str]],
+    "purpose": Required[str],
+    "purpose_code": Required[str],
+    "removable": Required[bool],
+    "severity": Required[str],
+    "version": NotRequired[Union[str, None]],
+})
+
+SoftwareOut = TypedDict("SoftwareOut", {
+    "family": Required[str],
+    "items": NotRequired[list["SoftwareItemOut"]],
+    "managed": Required[bool],
+    "reason": NotRequired[Union[str, None]],
+})
+
 SourceChangeRequest = TypedDict("SourceChangeRequest", {
     "branch": NotRequired[Union[str, None]],
     "check": NotRequired[bool],
@@ -9660,6 +9720,7 @@ StreamResultResponse = TypedDict("StreamResultResponse", {
 StreamSupportModel = TypedDict("StreamSupportModel", {
     "available": Required[bool],
     "hint": NotRequired[Union[str, None]],
+    "install": NotRequired[Union[str, None]],
     "loader": Required[str],
     "module": Required[str],
     "problem": NotRequired[Union[str, None]],

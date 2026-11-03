@@ -40,6 +40,7 @@ from noust.managers.authdns.knotconf import CONFIG_MARKER
 from noust.managers.server.errors import ConfirmationRequiredError, UnsupportedHostError
 from noust.managers.server.host import PackageFamily, detect_platform
 from noust.managers.server.security_fail2ban import EPEL_PACKAGES
+from noust.managers.server.software_record import packages_named_in, record_install
 
 __all__ = [
     "BACKUP_SUFFIX",
@@ -369,6 +370,7 @@ class KnotEngine:
                     f"Installing failed: {' '.join(argv)}",
                     output=(result.stderr or result.stdout).strip() or None,
                 )
+        record_install("knot", via="knot", packages=packages_named_in("knot", commands))
         return self.require_version()
 
     # -- the configuration ---------------------------------------------------------------

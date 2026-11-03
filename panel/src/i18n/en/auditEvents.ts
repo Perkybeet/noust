@@ -230,6 +230,8 @@ export const auditEvents = {
     server_hostname: "Server name changed",
     server_reboot: "Restart or shutdown requested",
     server_refresh: "Package list refreshed",
+    server_software_install: "Software installed",
+    server_software_remove: "Software removed, or its removal refused",
     server_ssh: "SSH changed",
     server_storage: "Storage cleaned or swap changed",
     server_time: "Clock or time zone changed",

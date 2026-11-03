@@ -98,7 +98,8 @@ class TestWhatIsNotDeclared:
 
     def test_a_declared_probe_that_names_an_acting_verb_is_a_simulation(self) -> None:
         acting = {"install", "remove", "upgrade", "full-upgrade", "dist-upgrade", "restart", "stop"}
-        simulation = {"-s", "--dry-run"}
+        # dnf has no dry run for a removal: --assumeno answers its confirmation with no.
+        simulation = {"-s", "--dry-run", "--assumeno"}
 
         for probe in READ_ONLY_PROBES:
             words = {str(part) for part in probe}

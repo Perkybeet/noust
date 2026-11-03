@@ -192,7 +192,12 @@ def check_command(ctx: Context) -> None:
     if support.available:
         ctx.logger.success(f"nginx can publish ports (stream module: {support.module})")
         return
-    ctx.logger.error(support.problem or "nginx cannot publish a port", details=support.hint or "")
+    details = support.hint or ""
+    if support.install:
+        details = (
+            f"{details}\nOr have Noust install it: noust server software install {support.install}"
+        ).strip()
+    ctx.logger.error(support.problem or "nginx cannot publish a port", details=details)
 
 
 @cli.command("remove")

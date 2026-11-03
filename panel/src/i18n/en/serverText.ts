@@ -845,6 +845,182 @@ export const serverText = {
       hint: "List the roles with: {command}",
     },
   },
+  software: {
+    apache: {
+      purpose: {
+        text: "The Apache web server, for the sites that run behind it",
+      },
+    },
+    auto_updates: {
+      purpose: {
+        text: "Installs the system's security updates by itself",
+      },
+    },
+    certbot: {
+      purpose: {
+        text: "Gets and renews HTTPS certificates from Let's Encrypt and other authorities",
+      },
+    },
+    chrony: {
+      purpose: {
+        text: "Keeps the clock right by network time, which certificates and logs rely on",
+      },
+    },
+    cloudflared: {
+      purpose: {
+        text: "The connector a Cloudflare Tunnel runs through, to reach this server without opening a port",
+      },
+    },
+    curl: {
+      never: {
+        text: "Noust downloads the keys and the installers it verifies with it",
+      },
+      purpose: {
+        text: "Downloads the signing keys and the installers Noust verifies before it trusts them",
+      },
+    },
+    docker: {
+      purpose: {
+        text: "Runs container and Compose applications, and the database engines Noust runs in containers",
+      },
+    },
+    fail2ban: {
+      purpose: {
+        text: "Bans the addresses that guess passwords or probe the web server",
+      },
+    },
+    firewall: {
+      never: {
+        text: "Noust opens and closes ports through it, and it is what keeps the server closed",
+      },
+      purpose: {
+        text: "The firewall Noust opens and closes ports through, for published ports and for the databases it exposes",
+      },
+    },
+    git: {
+      never: {
+        text: "Every deployment from a repository needs it",
+      },
+      purpose: {
+        text: "Fetches the source of every application that deploys from a repository",
+      },
+    },
+    gnupg: {
+      never: {
+        text: "Noust checks the signing key of every repository it adds with it",
+      },
+      purpose: {
+        text: "Checks the signing key of every repository Noust adds",
+      },
+    },
+    knot: {
+      purpose: {
+        text: "Knot DNS, the name server of Noust's own DNS zones",
+      },
+    },
+    mongodb: {
+      purpose: {
+        text: "MongoDB, a document database for applications",
+      },
+    },
+    mysql: {
+      purpose: {
+        text: "MySQL or MariaDB, a database engine for applications",
+      },
+    },
+    nginx: {
+      purpose: {
+        text: "The web server that serves applications and ends their HTTPS",
+      },
+    },
+    nginx_stream_module: {
+      purpose: {
+        text: "Lets nginx publish a TCP or UDP port, such as a database or a game server",
+      },
+    },
+    nodejs: {
+      purpose: {
+        text: "Builds and runs Node.js applications",
+      },
+    },
+    noust: {
+      never: {
+        text: "Removing it would take Noust, and the console you are using, off this server",
+      },
+      purpose: {
+        text: "Noust itself, with the Python libraries it is built on",
+      },
+    },
+    php: {
+      purpose: {
+        text: "PHP-FPM, which runs PHP applications",
+      },
+    },
+    postgresql: {
+      purpose: {
+        text: "PostgreSQL, a database engine for applications",
+      },
+    },
+    rclone: {
+      purpose: {
+        text: "Uploads backups to remote destinations",
+      },
+    },
+    redis: {
+      purpose: {
+        text: "Redis or Valkey, a key-value store and cache for applications",
+      },
+    },
+    sshd: {
+      never: {
+        text: "Removing it would lock you out of this machine",
+      },
+      purpose: {
+        text: "The SSH server: how you, and a central, reach this machine",
+      },
+    },
+    systemd: {
+      never: {
+        text: "Everything on this server, Noust included, runs under it",
+      },
+      purpose: {
+        text: "The service manager every application, site and unit of Noust runs under",
+      },
+    },
+    waf: {
+      purpose: {
+        text: "ModSecurity and the OWASP Core Rule Set: the web application firewall of a site",
+      },
+    },
+    refused: {
+      cannot_tell: {
+        text: "Noust cannot tell what depends on {component}",
+        hint: "{reason} Removing it without knowing could break what depends on it.",
+      },
+      dependents: {
+        text: "{component} cannot be removed while something depends on it: {dependents}",
+        hint: "Stop using it first (remove or move what is listed), then remove it.",
+      },
+      never: {
+        text: "{component} is never removed",
+      },
+      not_installed: {
+        text: "{component} is not installed",
+      },
+      takes_in_use: {
+        text: "Removing {component} would also remove {other}, which is in use: {dependents}",
+        hint: "Nothing was removed. Stop using {other} first.",
+      },
+      takes_never: {
+        text: "Removing {component} would also remove {other}, which is never removed",
+        hint: "Nothing was removed.",
+      },
+      unknown_origin: {
+        text: "Noust did not install {component}",
+        hint: "Other things on the system may use it. Repeat the request confirming it to remove it anyway.",
+      },
+    },
+  },
   sources: {
     central_only: {
       text: "Only the central that manages this server can lease it access to GitHub",

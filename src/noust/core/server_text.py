@@ -1069,6 +1069,84 @@ CATALOG: dict[str, str] = {
     "operations.fleet_settings_apply": "Apply the fleet's settings",
     "operations.encryption_enable": "Turn on backup encryption",
     "operations.encryption_rotate": "Rotate the backup encryption key",
+    # -- The server's software (noust.managers.server.components): what Noust uses each piece for, --
+    # and why one is not removed (item 118). A removal is refused with one of the sentences of
+    # ``software.refused``; a piece that is never removed says why in its own ``.never``.
+    "software.noust.purpose": "Noust itself, with the Python libraries it is built on",
+    "software.noust.never": (
+        "Removing it would take Noust, and the console you are using, off this server"
+    ),
+    "software.systemd.purpose": (
+        "The service manager every application, site and unit of Noust runs under"
+    ),
+    "software.systemd.never": "Everything on this server, Noust included, runs under it",
+    "software.sshd.purpose": "The SSH server: how you, and a central, reach this machine",
+    "software.sshd.never": "Removing it would lock you out of this machine",
+    "software.firewall.purpose": (
+        "The firewall Noust opens and closes ports through, for published ports and for the "
+        "databases it exposes"
+    ),
+    "software.firewall.never": (
+        "Noust opens and closes ports through it, and it is what keeps the server closed"
+    ),
+    "software.git.purpose": "Fetches the source of every application that deploys from a repository",
+    "software.git.never": "Every deployment from a repository needs it",
+    "software.curl.purpose": (
+        "Downloads the signing keys and the installers Noust verifies before it trusts them"
+    ),
+    "software.curl.never": "Noust downloads the keys and the installers it verifies with it",
+    "software.gnupg.purpose": "Checks the signing key of every repository Noust adds",
+    "software.gnupg.never": "Noust checks the signing key of every repository it adds with it",
+    "software.nginx.purpose": "The web server that serves applications and ends their HTTPS",
+    "software.apache.purpose": "The Apache web server, for the sites that run behind it",
+    "software.certbot.purpose": "Gets and renews HTTPS certificates from Let's Encrypt and other authorities",
+    "software.nodejs.purpose": "Builds and runs Node.js applications",
+    "software.php.purpose": "PHP-FPM, which runs PHP applications",
+    "software.docker.purpose": (
+        "Runs container and Compose applications, and the database engines Noust runs in containers"
+    ),
+    "software.postgresql.purpose": "PostgreSQL, a database engine for applications",
+    "software.mysql.purpose": "MySQL or MariaDB, a database engine for applications",
+    "software.redis.purpose": "Redis or Valkey, a key-value store and cache for applications",
+    "software.mongodb.purpose": "MongoDB, a document database for applications",
+    "software.cloudflared.purpose": (
+        "The connector a Cloudflare Tunnel runs through, to reach this server without opening a port"
+    ),
+    "software.nginx_stream_module.purpose": (
+        "Lets nginx publish a TCP or UDP port, such as a database or a game server"
+    ),
+    "software.waf.purpose": "ModSecurity and the OWASP Core Rule Set: the web application firewall of a site",
+    "software.knot.purpose": "Knot DNS, the name server of Noust's own DNS zones",
+    "software.fail2ban.purpose": "Bans the addresses that guess passwords or probe the web server",
+    "software.chrony.purpose": "Keeps the clock right by network time, which certificates and logs rely on",
+    "software.auto_updates.purpose": "Installs the system's security updates by itself",
+    "software.rclone.purpose": "Uploads backups to remote destinations",
+    # -- Why a piece of software is not removed or installed here (noust.managers.server.software) --
+    "software.refused.never": "{component} is never removed",
+    "software.refused.not_installed": "{component} is not installed",
+    "software.refused.dependents": (
+        "{component} cannot be removed while something depends on it: {dependents}"
+    ),
+    "software.refused.dependents.hint": (
+        "Stop using it first (remove or move what is listed), then remove it."
+    ),
+    "software.refused.takes_never": (
+        "Removing {component} would also remove {other}, which is never removed"
+    ),
+    "software.refused.takes_never.hint": "Nothing was removed.",
+    "software.refused.takes_in_use": (
+        "Removing {component} would also remove {other}, which is in use: {dependents}"
+    ),
+    "software.refused.takes_in_use.hint": "Nothing was removed. Stop using {other} first.",
+    "software.refused.cannot_tell": "Noust cannot tell what depends on {component}",
+    "software.refused.cannot_tell.hint": (
+        "{reason} Removing it without knowing could break what depends on it."
+    ),
+    "software.refused.unknown_origin": "Noust did not install {component}",
+    "software.refused.unknown_origin.hint": (
+        "Other things on the system may use it. Repeat the request confirming it to remove it "
+        "anyway."
+    ),
 }
 
 

@@ -89,6 +89,7 @@ from noust.web.api.fleet_dns import router as fleet_dns_router
 from noust.web.api.fleet_placements import router as fleet_placements_router
 from noust.web.api.fleet_self import router as fleet_self_router
 from noust.web.api.fleet_settings import router as fleet_settings_router
+from noust.web.api.fleet_software import router as fleet_software_router
 from noust.web.api.fleet_sources import router as fleet_sources_router
 from noust.web.api.git_credentials import router as git_credentials_router
 from noust.web.api.gitlab import router as gitlab_router
@@ -462,6 +463,8 @@ router.include_router(fleet_builders_router, prefix="/fleet/builders", tags=["Fl
 router.include_router(fleet_databases_router, prefix="/fleet/databases", tags=["Fleet"])
 # Noust DNS on the fleet: a primary and secondaries set up as a bulk action, and the view of them.
 router.include_router(fleet_dns_router, prefix="/fleet/dns", tags=["Fleet"])
+# The software of every server: how much is installed and how much of it Noust installed.
+router.include_router(fleet_software_router, prefix="/fleet/software", tags=["Fleet"])
 # Guided enrollment of a server: its host key, then the job that installs and joins it.
 router.include_router(node_enroll_router, prefix="/fleet/enroll", tags=["Fleet"])
 # Servers created at a cloud provider: accounts, the cloud-init library and the machines.

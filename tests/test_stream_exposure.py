@@ -169,6 +169,46 @@ def test_a_build_without_the_module_names_the_package_to_install(
     assert support.hint is not None and "libnginx-mod-stream" in support.hint
 
 
+def test_a_build_without_the_module_offers_to_install_it_from_the_registry(
+    streams: StreamExposures, runner: FakeRunner
+) -> None:
+    # The notice used to be a dead end: it named the package and had nothing to install it with.
+    runner.script(("nginx", "-V"), stderr=NO_STREAM_V)
+
+    support = streams.support()
+
+    assert support.install == "nginx_stream_module"
+    assert support.to_dict()["install"] == "nginx_stream_module"
+
+
+def test_a_module_nothing_loads_offers_it_too(streams: StreamExposures, runner: FakeRunner) -> None:
+    runner.script(("nginx", "-T"), stdout=dump(module=False))
+
+    assert streams.support().install == "nginx_stream_module"
+
+
+def test_a_server_without_nginx_offers_nginx(streams: StreamExposures, runner: FakeRunner) -> None:
+    runner.only_knows("apt-get", "systemctl")
+
+    assert streams.support().install == "nginx"
+
+
+def test_where_noust_installs_no_stream_package_nothing_is_offered(
+    streams: StreamExposures, runner: FakeRunner
+) -> None:
+    # openSUSE ships nginx with the stream module built in: there is no package to install.
+    runner.only_knows("zypper", "nginx")
+    runner.script(("nginx", "-V"), stderr=NO_STREAM_V)
+
+    support = streams.support()
+
+    assert support.available is False and support.install is None
+
+
+def test_what_works_offers_nothing(streams: StreamExposures) -> None:
+    assert streams.support().install is None
+
+
 def test_a_module_nothing_loads_is_reported(streams: StreamExposures, runner: FakeRunner) -> None:
     runner.script(("nginx", "-T"), stdout=dump(module=False))
 

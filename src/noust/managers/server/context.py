@@ -29,6 +29,7 @@ from noust.managers.server.identity import IdentityManager
 from noust.managers.server.journal import JournalReader
 from noust.managers.server.power import PowerManager
 from noust.managers.server.power_records import PowerRecords
+from noust.managers.server.software import SoftwareManager
 from noust.managers.server.storage import StorageManager
 from noust.managers.server.storage_policy import CleanupSchedule
 from noust.managers.server.swap import SwapManager
@@ -172,6 +173,20 @@ class ServerContext:
             "swap",
             lambda: SwapManager(
                 runner=self._runner, fs=self._fs, host=self.host, platform=self.platform
+            ),
+        )
+
+    @property
+    def software(self) -> SoftwareManager:
+        """The software manager: what is installed, who depends on it, installing and removing."""
+        return self._once(  # type: ignore[return-value]
+            "software",
+            lambda: SoftwareManager(
+                runner=self._runner,
+                fs=self._fs,
+                host=self.host,
+                platform=self.platform,
+                cache=self.cache,
             ),
         )
 

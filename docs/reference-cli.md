@@ -13543,7 +13543,7 @@ Manage this server: updates, reboots, disks, swap, the clock and the journal.
 noust server [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`cleanup`](#noust-server-cleanup), [`cleanup-schedule`](#noust-server-cleanup-schedule), [`hostname`](#noust-server-hostname), [`logs`](#noust-server-logs), [`migrate`](#noust-server-migrate), [`processes`](#noust-server-processes), [`reboot`](#noust-server-reboot), [`security`](#noust-server-security), [`shutdown`](#noust-server-shutdown), [`status`](#noust-server-status), [`storage`](#noust-server-storage), [`swap`](#noust-server-swap), [`time`](#noust-server-time), [`updates`](#noust-server-updates)
+Subcommands: [`cleanup`](#noust-server-cleanup), [`cleanup-schedule`](#noust-server-cleanup-schedule), [`hostname`](#noust-server-hostname), [`logs`](#noust-server-logs), [`migrate`](#noust-server-migrate), [`processes`](#noust-server-processes), [`reboot`](#noust-server-reboot), [`security`](#noust-server-security), [`shutdown`](#noust-server-shutdown), [`software`](#noust-server-software), [`status`](#noust-server-status), [`storage`](#noust-server-storage), [`swap`](#noust-server-swap), [`time`](#noust-server-time), [`updates`](#noust-server-updates)
 
 ### noust server cleanup
 
@@ -14226,6 +14226,64 @@ noust server shutdown [OPTIONS]
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust server software
+
+What the server is made of: what is installed, who depends on it, installing and removing it.
+
+```bash
+noust server software [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`install`](#noust-server-software-install), [`list`](#noust-server-software-list), [`remove`](#noust-server-software-remove)
+
+### noust server software install
+
+Install a piece of software, unless it is installed.
+
+```bash
+noust server software install [OPTIONS] COMPONENT
+```
+
+Arguments: `component`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--epel` | Allow enabling EPEL, where Knot DNS and fail2ban come from on RHEL and its rebuilds. |  |
+| `-y`, `--yes` | Do not ask. |  |
+| `--json` | Print what was done as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust server software list
+
+List every piece of software Noust manages: installed or not, who depends on it.
+
+```bash
+noust server software list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the software as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust server software remove
+
+Remove a piece of software, never purging what it leaves in /etc.
+
+```bash
+noust server software remove [OPTIONS] COMPONENT
+```
+
+Arguments: `component`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--plan` | Only show what would be removed, and what stops it. |  |
+| `--confirm-unknown-origin` | Remove something Noust did not install: other things on the system may use it. |  |
+| `-y`, `--yes` | Do not ask. |  |
+| `--json` | Print the plan, or what was done, as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust server status

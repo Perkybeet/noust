@@ -27,7 +27,6 @@ from noust.web.api.databases.common import (
     SupportNoticeResponse,
     queue,
     service,
-    session_actor,
 )
 from noust.web.api.deps import CodedText, JobAcceptedResponse, NoustErrorRoute, require_elevated
 from noust.web.jobs import JobType, database_engine_job
@@ -616,7 +615,9 @@ def uninstall_engine(
     """
     Queue the removal of an engine, with sudo mode.
 
-    Removing an engine can take every database it hosts with it.
+    The manager refuses while the engine holds databases, and the route asks it first so the
+    answer is immediate (409, naming them) instead of a job that fails. The manager records the
+    event when the removal finishes, fails or is refused, so this route records nothing.
 
     Args:
         engine: Engine name.
@@ -625,9 +626,12 @@ def uninstall_engine(
 
     Returns:
         The queued job.
+
+    Raises:
+        EngineInUseError: The engine holds databases (409).
     """
     manager = service(session).manager(engine)
-    manager.refuse_in_container("uninstall")
+    manager.refuse_uninstall()
     accepted = queue(
         session,
         job_type=JobType.CUSTOM,
@@ -638,12 +642,6 @@ def uninstall_engine(
         metadata={"engine": manager.ENGINE_NAME, "purge": purge},
         message=f"Removal queued for {manager.DISPLAY_NAME}",
         pass_actor=False,
-    )
-    audit.record(
-        "db.uninstall",
-        actor=session_actor(session),
-        target=f"db:{manager.ENGINE_NAME}",
-        details={"job": accepted.job_id, "purge": purge},
     )
     return accepted
 

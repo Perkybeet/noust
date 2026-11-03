@@ -14676,7 +14676,9 @@ export interface paths {
          * Uninstall Engine
          * @description Queue the removal of an engine, with sudo mode.
          *
-         *     Removing an engine can take every database it hosts with it.
+         *     The manager refuses while the engine holds databases, and the route asks it first so the
+         *     answer is immediate (409, naming them) instead of a job that fails. The manager records the
+         *     event when the removal finishes, fails or is refused, so this route records nothing.
          *
          *     Args:
          *         engine: Engine name.
@@ -14685,6 +14687,9 @@ export interface paths {
          *
          *     Returns:
          *         The queued job.
+         *
+         *     Raises:
+         *         EngineInUseError: The engine holds databases (409).
          */
         post: operations["uninstall_engine_api_databases_engines__engine__uninstall_post"];
         delete?: never;
@@ -19944,6 +19949,38 @@ export interface paths {
          *         NoustPermissionError: 403 without the permission of that kind.
          */
         delete: operations["remove_setting_api_fleet_settings__resource___name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/software": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fleet Software
+         * @description The software of every server: how much of what Noust manages is installed, and how much of
+         *     that Noust installed.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *
+         *     Returns:
+         *         One row per server: ``installed``, ``total``, ``by_noust``, ``managed``, ``family`` and
+         *         its page on that server's console. A server that runs a Noust of before 4.2 is
+         *         ``unsupported``: it will count its software when it is updated.
+         */
+        get: operations["fleet_software_api_fleet_software_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -26308,6 +26345,140 @@ export interface paths {
          *         The queued job.
          */
         post: operations["remove_ssh_key_api_server_security_ssh_keys_remove_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/software": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Software
+         * @description Every piece of software Noust manages: installed or not, its version, who installed it, who
+         *     depends on it.
+         *
+         *     Kept for a minute; ``refresh`` asks the machine again. A system whose packages Noust does not
+         *     change answers with ``managed`` false and why, and the list as it is.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         refresh: Ask again whatever the age of the last answer.
+         *
+         *     Returns:
+         *         The software.
+         */
+        get: operations["list_software_api_server_software_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/software/{component}/impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Software Impact
+         * @description What removing a component would do and whether it may, changing nothing.
+         *
+         *     Asks the package manager for a simulation, so it takes about a second.
+         *
+         *     Args:
+         *         component: The registry's id.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The packages, what else would go, the repository files, and what stands in the way.
+         *
+         *     Raises:
+         *         ResourceNotFoundError: The registry has no such component (404).
+         */
+        get: operations["software_impact_api_server_software__component__impact_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/software/{component}/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Install Software
+         * @description Queue the installation of a component, with sudo mode.
+         *
+         *     What can be refused before a job exists is refused here: an id the registry does not have
+         *     (404), a system Noust installs nothing on (409 ``software_refused``), another package manager
+         *     running (409 ``host_busy``). The job installs it through the installer that already knows it.
+         *
+         *     Args:
+         *         component: The registry's id.
+         *         request: The request, whose client fail2ban never bans.
+         *         session: The authenticated, elevated session.
+         *         body: ``epel`` to agree to enable EPEL where the component comes from it.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         ResourceNotFoundError: The registry has no such component (404).
+         */
+        post: operations["install_software_api_server_software__component__install_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/software/{component}/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove Software
+         * @description Queue the removal of a component, with sudo mode. Never a purge.
+         *
+         *     The manager's own check runs first and answers at once: 409 ``software_refused`` with its
+         *     ``reason`` and what depends on the component, or 409 ``confirmation_required`` for one whose
+         *     origin is not Noust's. The repository and the key Noust added go with the package.
+         *
+         *     Args:
+         *         component: The registry's id.
+         *         session: The authenticated, elevated session.
+         *         body: ``confirm_unknown_origin`` to go ahead with something Noust did not install.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         ResourceNotFoundError: The registry has no such component (404).
+         */
+        post: operations["remove_software_api_server_software__component__remove_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -35711,6 +35882,35 @@ export interface components {
             total: number;
         };
         /**
+         * BlockerOut
+         * @description A reason a component is not removed now.
+         *
+         *     Attributes:
+         *         reason: ``never``, ``dependents``, ``takes_never``, ``takes_in_use``, ``not_installed``
+         *             or ``cannot_tell``.
+         *         text: The sentence, in English.
+         *         hint: What to do about it, when the sentence has a fix.
+         *         code: The sentence's code in the console's catalog.
+         *         params: The values the sentence is said with.
+         *         dependents: What depends on the component, where that is the reason.
+         */
+        BlockerOut: {
+            /** Code */
+            code: string;
+            /** Dependents */
+            dependents?: components["schemas"]["DependentOut"][];
+            /** Hint */
+            hint?: string | null;
+            /** Params */
+            params?: {
+                [key: string]: unknown;
+            };
+            /** Reason */
+            reason: string;
+            /** Text */
+            text: string;
+        };
+        /**
          * BootOut
          * @description One boot the journal remembers.
          */
@@ -40573,6 +40773,22 @@ export interface components {
             repository: string;
             /** State */
             state: string;
+        };
+        /**
+         * DependentOut
+         * @description Something that stops working without a component.
+         *
+         *     Attributes:
+         *         kind: ``application``, ``site``, ``database``, ``tunnel``, ``published_port``,
+         *             ``certificate``, ``zone``, ``destination``, ``instance``, ``console`` or
+         *             ``unreadable`` (an engine that runs and cannot be asked what it holds).
+         *         names: Which ones, by the name the operator knows them by.
+         */
+        DependentOut: {
+            /** Kind */
+            kind: string;
+            /** Names */
+            names?: string[];
         };
         /**
          * DeployKeyCreateRequest
@@ -46070,6 +46286,47 @@ export interface components {
             reason: string;
         };
         /**
+         * ImpactOut
+         * @description What removing a component would do, decided before anything is touched.
+         *
+         *     Attributes:
+         *         id: The component.
+         *         installed: Whether it is on the machine.
+         *         origin: ``noust``, ``unknown`` or null.
+         *         severity: ``never``, ``critical_while`` or ``removable``.
+         *         dependents: What depends on it.
+         *         removes: Its own packages that are installed.
+         *         also_removes: What else the package manager says would go with them.
+         *         repository_files: The repository source and key files Noust would take back out.
+         *         blockers: Why it cannot be removed now; none means it can.
+         *         removable: Whether nothing stands in the way.
+         *         needs_confirmation: Its origin is unknown, so removing it needs the operator's yes.
+         */
+        ImpactOut: {
+            /** Also Removes */
+            also_removes?: string[];
+            /** Blockers */
+            blockers?: components["schemas"]["BlockerOut"][];
+            /** Dependents */
+            dependents?: components["schemas"]["DependentOut"][];
+            /** Id */
+            id: string;
+            /** Installed */
+            installed: boolean;
+            /** Needs Confirmation */
+            needs_confirmation: boolean;
+            /** Origin */
+            origin?: string | null;
+            /** Removable */
+            removable: boolean;
+            /** Removes */
+            removes?: string[];
+            /** Repository Files */
+            repository_files?: string[];
+            /** Severity */
+            severity: string;
+        };
+        /**
          * ImportAppRequest
          * @description An export document to create an application from.
          */
@@ -46341,6 +46598,20 @@ export interface components {
              * @description Git URL, archive URL or local path
              */
             source: string;
+        };
+        /**
+         * InstallRequest
+         * @description What an install may be told beyond which component.
+         *
+         *     Attributes:
+         *         epel: Agree to enable EPEL, where Knot and fail2ban come from it on RHEL and its rebuilds.
+         */
+        InstallRequest: {
+            /**
+             * Epel
+             * @default false
+             */
+            epel: boolean;
         };
         /**
          * InstallResponse
@@ -55769,6 +56040,22 @@ export interface components {
             warnings: string[];
         };
         /**
+         * RemoveRequest
+         * @description What a removal needs besides which component.
+         *
+         *     Attributes:
+         *         confirm_unknown_origin: The operator knows Noust did not install it and other things on
+         *             the system may use it. Without it, a component of unknown origin is a question
+         *             (409 ``confirmation_required``).
+         */
+        RemoveRequest: {
+            /**
+             * Confirm Unknown Origin
+             * @default false
+             */
+            confirm_unknown_origin: boolean;
+        };
+        /**
          * RemovedResponse
          * @description A confirmation that something was removed.
          *
@@ -60819,6 +61106,77 @@ export interface components {
             total_ms?: number | null;
         };
         /**
+         * SoftwareItemOut
+         * @description One component, as the page shows it.
+         *
+         *     Attributes:
+         *         id: The registry's id.
+         *         purpose: What Noust uses it for, in English.
+         *         purpose_code: The same sentence as a code of the console's catalog.
+         *         severity: ``never``, ``critical_while`` or ``removable``.
+         *         installed: Whether it is on the machine.
+         *         version: The version, when it is installed and the package manager says one.
+         *         origin: ``noust``, ``unknown``, or null when it is not installed. What was installed
+         *             before the ledger existed is ``noust`` only when a file Noust writes is there.
+         *         installable: Whether Noust installs it on this system.
+         *         removable: Whether Noust would remove it now.
+         *         dependents: What depends on it.
+         *         packages: Its packages that are installed.
+         *         installed_at: When Noust installed it, from the ledger.
+         *         installed_by: As whom.
+         *         installed_via: Through which installer.
+         */
+        SoftwareItemOut: {
+            /** Dependents */
+            dependents?: components["schemas"]["DependentOut"][];
+            /** Id */
+            id: string;
+            /** Installable */
+            installable: boolean;
+            /** Installed */
+            installed: boolean;
+            /** Installed At */
+            installed_at?: string | null;
+            /** Installed By */
+            installed_by?: string | null;
+            /** Installed Via */
+            installed_via?: string | null;
+            /** Origin */
+            origin?: string | null;
+            /** Packages */
+            packages?: string[];
+            /** Purpose */
+            purpose: string;
+            /** Purpose Code */
+            purpose_code: string;
+            /** Removable */
+            removable: boolean;
+            /** Severity */
+            severity: string;
+            /** Version */
+            version?: string | null;
+        };
+        /**
+         * SoftwareOut
+         * @description The software of the server.
+         *
+         *     Attributes:
+         *         managed: Whether Noust changes this system's packages.
+         *         reason: Why it does not, when it does not.
+         *         family: ``apt``, ``dnf``, ``zypper`` or ``none``.
+         *         items: One per component, in the order the page shows them.
+         */
+        SoftwareOut: {
+            /** Family */
+            family: string;
+            /** Items */
+            items?: components["schemas"]["SoftwareItemOut"][];
+            /** Managed */
+            managed: boolean;
+            /** Reason */
+            reason?: string | null;
+        };
+        /**
          * SourceChangeRequest
          * @description The source an application should deploy from.
          */
@@ -61846,12 +62204,17 @@ export interface components {
          *         loader: ``present``, ``installable``, ``foreign`` or ``manual``.
          *         problem: What is missing, when something is.
          *         hint: How to fix it: a command, or the line to add.
+         *         install: The software component that supplies what is missing (``nginx``,
+         *             ``nginx_stream_module``), to install with ``POST /api/server/software/{id}/install``;
+         *             null when Noust installs nothing for it here.
          */
         StreamSupportModel: {
             /** Available */
             available: boolean;
             /** Hint */
             hint?: string | null;
+            /** Install */
+            install?: string | null;
             /** Loader */
             loader: string;
             /** Module */
@@ -90618,6 +90981,40 @@ export interface operations {
             };
         };
     };
+    fleet_software_api_fleet_software_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     sources_status_api_fleet_sources_get: {
         parameters: {
             query?: never;
@@ -97229,6 +97626,138 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RemoveKeyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_software_api_server_software_get: {
+        parameters: {
+            query?: {
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SoftwareOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    software_impact_api_server_software__component__impact_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                component: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImpactOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    install_software_api_server_software__component__install_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                component: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["InstallRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_software_api_server_software__component__remove_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                component: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RemoveRequest"] | null;
             };
         };
         responses: {

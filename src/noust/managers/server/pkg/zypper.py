@@ -22,6 +22,7 @@ import xml.etree.ElementTree as ET
 from collections.abc import Callable, Sequence
 from datetime import datetime, timezone
 
+from noust.core.runner import CommandResult
 from noust.managers.server.errors import ServerError, UnsupportedHostError
 from noust.managers.server.host import read_text
 from noust.managers.server.pkg.base import (
@@ -39,10 +40,14 @@ from noust.managers.server.pkg.base import (
     env_with,
     file_age_seconds,
     iso_from_mtime,
+    named_packages,
 )
 
 #: ``zypper needs-rebooting`` exits with this when a reboot is due.
 EXIT_REBOOT_NEEDED = 102
+
+#: ``zypper remove`` exits with this when the package asked for is not installed.
+EXIT_CAPABILITY_NOT_FOUND = 104
 
 #: How long zypper waits for another zypper (or PackageKit) to let go, in seconds.
 #: Its default is not to wait: it exits 7 at once.
@@ -279,6 +284,18 @@ class ZypperBackend(PackageBackend):
 
     def install_lean_argv(self, packages: Sequence[str]) -> list[str]:
         return ["zypper", "--non-interactive", "install", "--no-recommends", *packages]
+
+    def remove_argv(self, packages: Sequence[str]) -> list[str]:
+        return ["zypper", "--non-interactive", "remove", *named_packages(packages)]
+
+    def simulate_remove_argv(self, packages: Sequence[str]) -> list[str]:
+        return ["zypper", "--non-interactive", "remove", "--dry-run", *named_packages(packages)]
+
+    def removal_names(self, result: CommandResult) -> list[str]:
+        # 104 is "package not found": nothing is installed to remove.
+        if result.exit_code != EXIT_CAPABILITY_NOT_FOUND:
+            self.require(result, "Could not simulate the removal")
+        return parse_removed(result.stdout)
 
     def repair_commands(self) -> list[list[str]]:
         return []

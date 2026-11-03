@@ -7920,6 +7920,53 @@
         "title": "BindingsResponse",
         "type": "object"
       },
+      "BlockerOut": {
+        "description": "A reason a component is not removed now.\n\nAttributes:\n    reason: ``never``, ``dependents``, ``takes_never``, ``takes_in_use``, ``not_installed``\n        or ``cannot_tell``.\n    text: The sentence, in English.\n    hint: What to do about it, when the sentence has a fix.\n    code: The sentence's code in the console's catalog.\n    params: The values the sentence is said with.\n    dependents: What depends on the component, where that is the reason.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "dependents": {
+            "items": {
+              "$ref": "#/components/schemas/DependentOut"
+            },
+            "title": "Dependents",
+            "type": "array"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "params": {
+            "additionalProperties": true,
+            "title": "Params",
+            "type": "object"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "text",
+          "code"
+        ],
+        "title": "BlockerOut",
+        "type": "object"
+      },
       "BootOut": {
         "description": "One boot the journal remembers.",
         "properties": {
@@ -16548,6 +16595,27 @@
           "created_at"
         ],
         "title": "DeliveryOut",
+        "type": "object"
+      },
+      "DependentOut": {
+        "description": "Something that stops working without a component.\n\nAttributes:\n    kind: ``application``, ``site``, ``database``, ``tunnel``, ``published_port``,\n        ``certificate``, ``zone``, ``destination``, ``instance``, ``console`` or\n        ``unreadable`` (an engine that runs and cannot be asked what it holds).\n    names: Which ones, by the name the operator knows them by.",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Names",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "DependentOut",
         "type": "object"
       },
       "DeployKeyCreateRequest": {
@@ -26966,6 +27034,86 @@
         "title": "ImageCheckResponse",
         "type": "object"
       },
+      "ImpactOut": {
+        "description": "What removing a component would do, decided before anything is touched.\n\nAttributes:\n    id: The component.\n    installed: Whether it is on the machine.\n    origin: ``noust``, ``unknown`` or null.\n    severity: ``never``, ``critical_while`` or ``removable``.\n    dependents: What depends on it.\n    removes: Its own packages that are installed.\n    also_removes: What else the package manager says would go with them.\n    repository_files: The repository source and key files Noust would take back out.\n    blockers: Why it cannot be removed now; none means it can.\n    removable: Whether nothing stands in the way.\n    needs_confirmation: Its origin is unknown, so removing it needs the operator's yes.",
+        "properties": {
+          "also_removes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Also Removes",
+            "type": "array"
+          },
+          "blockers": {
+            "items": {
+              "$ref": "#/components/schemas/BlockerOut"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "dependents": {
+            "items": {
+              "$ref": "#/components/schemas/DependentOut"
+            },
+            "title": "Dependents",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "installed": {
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "needs_confirmation": {
+            "title": "Needs Confirmation",
+            "type": "boolean"
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin"
+          },
+          "removable": {
+            "title": "Removable",
+            "type": "boolean"
+          },
+          "removes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Removes",
+            "type": "array"
+          },
+          "repository_files": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Repository Files",
+            "type": "array"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "installed",
+          "severity",
+          "removable",
+          "needs_confirmation"
+        ],
+        "title": "ImpactOut",
+        "type": "object"
+      },
       "ImportAppRequest": {
         "description": "An export document to create an application from.",
         "properties": {
@@ -27403,6 +27551,18 @@
           "source"
         ],
         "title": "InspectSourceRequest",
+        "type": "object"
+      },
+      "InstallRequest": {
+        "description": "What an install may be told beyond which component.\n\nAttributes:\n    epel: Agree to enable EPEL, where Knot and fail2ban come from it on RHEL and its rebuilds.",
+        "properties": {
+          "epel": {
+            "default": false,
+            "title": "Epel",
+            "type": "boolean"
+          }
+        },
+        "title": "InstallRequest",
         "type": "object"
       },
       "InstallResponse": {
@@ -45294,6 +45454,18 @@
         "title": "RemovePlanResponse",
         "type": "object"
       },
+      "RemoveRequest": {
+        "description": "What a removal needs besides which component.\n\nAttributes:\n    confirm_unknown_origin: The operator knows Noust did not install it and other things on\n        the system may use it. Without it, a component of unknown origin is a question\n        (409 ``confirmation_required``).",
+        "properties": {
+          "confirm_unknown_origin": {
+            "default": false,
+            "title": "Confirm Unknown Origin",
+            "type": "boolean"
+          }
+        },
+        "title": "RemoveRequest",
+        "type": "object"
+      },
       "RemovedResponse": {
         "description": "A confirmation that something was removed.\n\nAttributes:\n    success: Always true.\n    removed: What it was.",
         "properties": {
@@ -54623,6 +54795,156 @@
         "title": "SlowQueryResponse",
         "type": "object"
       },
+      "SoftwareItemOut": {
+        "description": "One component, as the page shows it.\n\nAttributes:\n    id: The registry's id.\n    purpose: What Noust uses it for, in English.\n    purpose_code: The same sentence as a code of the console's catalog.\n    severity: ``never``, ``critical_while`` or ``removable``.\n    installed: Whether it is on the machine.\n    version: The version, when it is installed and the package manager says one.\n    origin: ``noust``, ``unknown``, or null when it is not installed. What was installed\n        before the ledger existed is ``noust`` only when a file Noust writes is there.\n    installable: Whether Noust installs it on this system.\n    removable: Whether Noust would remove it now.\n    dependents: What depends on it.\n    packages: Its packages that are installed.\n    installed_at: When Noust installed it, from the ledger.\n    installed_by: As whom.\n    installed_via: Through which installer.",
+        "properties": {
+          "dependents": {
+            "items": {
+              "$ref": "#/components/schemas/DependentOut"
+            },
+            "title": "Dependents",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "installable": {
+            "title": "Installable",
+            "type": "boolean"
+          },
+          "installed": {
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "installed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Installed At"
+          },
+          "installed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Installed By"
+          },
+          "installed_via": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Installed Via"
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin"
+          },
+          "packages": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Packages",
+            "type": "array"
+          },
+          "purpose": {
+            "title": "Purpose",
+            "type": "string"
+          },
+          "purpose_code": {
+            "title": "Purpose Code",
+            "type": "string"
+          },
+          "removable": {
+            "title": "Removable",
+            "type": "boolean"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "id",
+          "purpose",
+          "purpose_code",
+          "severity",
+          "installed",
+          "installable",
+          "removable"
+        ],
+        "title": "SoftwareItemOut",
+        "type": "object"
+      },
+      "SoftwareOut": {
+        "description": "The software of the server.\n\nAttributes:\n    managed: Whether Noust changes this system's packages.\n    reason: Why it does not, when it does not.\n    family: ``apt``, ``dnf``, ``zypper`` or ``none``.\n    items: One per component, in the order the page shows them.",
+        "properties": {
+          "family": {
+            "title": "Family",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SoftwareItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "managed": {
+            "title": "Managed",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "managed",
+          "family"
+        ],
+        "title": "SoftwareOut",
+        "type": "object"
+      },
       "SourceChangeRequest": {
         "description": "The source an application should deploy from.",
         "properties": {
@@ -56472,7 +56794,7 @@
         "type": "object"
       },
       "StreamSupportModel": {
-        "description": "Whether nginx here can publish a port, and what is missing.\n\nAttributes:\n    available: Everything needed is in place or Noust can put it in place.\n    module: ``static``, ``dynamic`` or ``missing``.\n    loader: ``present``, ``installable``, ``foreign`` or ``manual``.\n    problem: What is missing, when something is.\n    hint: How to fix it: a command, or the line to add.",
+        "description": "Whether nginx here can publish a port, and what is missing.\n\nAttributes:\n    available: Everything needed is in place or Noust can put it in place.\n    module: ``static``, ``dynamic`` or ``missing``.\n    loader: ``present``, ``installable``, ``foreign`` or ``manual``.\n    problem: What is missing, when something is.\n    hint: How to fix it: a command, or the line to add.\n    install: The software component that supplies what is missing (``nginx``,\n        ``nginx_stream_module``), to install with ``POST /api/server/software/{id}/install``;\n        null when Noust installs nothing for it here.",
         "properties": {
           "available": {
             "title": "Available",
@@ -56488,6 +56810,17 @@
               }
             ],
             "title": "Hint"
+          },
+          "install": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Install"
           },
           "loader": {
             "title": "Loader",
@@ -94149,7 +94482,7 @@
     },
     "/api/databases/engines/{engine}/uninstall": {
       "post": {
-        "description": "Queue the removal of an engine, with sudo mode.\n\nRemoving an engine can take every database it hosts with it.\n\nArgs:\n    engine: Engine name.\n    purge: Also remove configuration and data.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.",
+        "description": "Queue the removal of an engine, with sudo mode.\n\nThe manager refuses while the engine holds databases, and the route asks it first so the\nanswer is immediate (409, naming them) instead of a job that fails. The manager records the\nevent when the removal finishes, fails or is refused, so this route records nothing.\n\nArgs:\n    engine: Engine name.\n    purge: Also remove configuration and data.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    EngineInUseError: The engine holds databases (409).",
         "operationId": "uninstall_engine_api_databases_engines__engine__uninstall_post",
         "parameters": [
           {
@@ -103248,6 +103581,74 @@
         ],
         "x-noust-permission": "fleet.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/fleet/software": {
+      "get": {
+        "description": "The software of every server: how much of what Noust manages is installed, and how much of\nthat Noust installed.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n\nReturns:\n    One row per server: ``installed``, ``total``, ``by_noust``, ``managed``, ``family`` and\n    its page on that server's console. A server that runs a Noust of before 4.2 is\n    ``unsupported``: it will count its software when it is updated.",
+        "operationId": "fleet_software_api_fleet_software_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fleet Software",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.read"
       }
     },
     "/api/fleet/sources": {
@@ -113459,6 +113860,219 @@
           }
         },
         "summary": "Remove Ssh Key",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "server.host_access",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/server/software": {
+      "get": {
+        "description": "Every piece of software Noust manages: installed or not, its version, who installed it, who\ndepends on it.\n\nKept for a minute; ``refresh`` asks the machine again. A system whose packages Noust does not\nchange answers with ``managed`` false and why, and the list as it is.\n\nArgs:\n    session: The authenticated session.\n    refresh: Ask again whatever the age of the last answer.\n\nReturns:\n    The software.",
+        "operationId": "list_software_api_server_software_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SoftwareOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Software",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "server.read"
+      }
+    },
+    "/api/server/software/{component}/impact": {
+      "get": {
+        "description": "What removing a component would do and whether it may, changing nothing.\n\nAsks the package manager for a simulation, so it takes about a second.\n\nArgs:\n    component: The registry's id.\n    session: The authenticated session.\n\nReturns:\n    The packages, what else would go, the repository files, and what stands in the way.\n\nRaises:\n    ResourceNotFoundError: The registry has no such component (404).",
+        "operationId": "software_impact_api_server_software__component__impact_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "component",
+            "required": true,
+            "schema": {
+              "title": "Component",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImpactOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Software Impact",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "server.read"
+      }
+    },
+    "/api/server/software/{component}/install": {
+      "post": {
+        "description": "Queue the installation of a component, with sudo mode.\n\nWhat can be refused before a job exists is refused here: an id the registry does not have\n(404), a system Noust installs nothing on (409 ``software_refused``), another package manager\nrunning (409 ``host_busy``). The job installs it through the installer that already knows it.\n\nArgs:\n    component: The registry's id.\n    request: The request, whose client fail2ban never bans.\n    session: The authenticated, elevated session.\n    body: ``epel`` to agree to enable EPEL where the component comes from it.\n\nReturns:\n    The queued job.\n\nRaises:\n    ResourceNotFoundError: The registry has no such component (404).",
+        "operationId": "install_software_api_server_software__component__install_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "component",
+            "required": true,
+            "schema": {
+              "title": "Component",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/InstallRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Install Software",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "server.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/server/software/{component}/remove": {
+      "post": {
+        "description": "Queue the removal of a component, with sudo mode. Never a purge.\n\nThe manager's own check runs first and answers at once: 409 ``software_refused`` with its\n``reason`` and what depends on the component, or 409 ``confirmation_required`` for one whose\norigin is not Noust's. The repository and the key Noust added go with the package.\n\nArgs:\n    component: The registry's id.\n    session: The authenticated, elevated session.\n    body: ``confirm_unknown_origin`` to go ahead with something Noust did not install.\n\nReturns:\n    The queued job.\n\nRaises:\n    ResourceNotFoundError: The registry has no such component (404).",
+        "operationId": "remove_software_api_server_software__component__remove_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "component",
+            "required": true,
+            "schema": {
+              "title": "Component",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RemoveRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Software",
         "tags": [
           "Server"
         ],

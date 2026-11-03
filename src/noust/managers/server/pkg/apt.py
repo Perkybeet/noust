@@ -49,6 +49,7 @@ from noust.managers.server.pkg.base import (
     env_with,
     file_age_seconds,
     iso_from_mtime,
+    named_packages,
 )
 
 #: ``Inst bash [5.2.21-2ubuntu4] (5.2.21-2ubuntu4.1 Ubuntu:24.04/noble-updates [amd64])``.
@@ -335,6 +336,42 @@ class AptBackend(PackageBackend):
 
     def install_lean_argv(self, packages: Sequence[str]) -> list[str]:
         return [*self._apply_base(), "install", "--no-install-recommends", *packages]
+
+    def remove_argv(self, packages: Sequence[str]) -> list[str]:
+        return ["apt-get", "remove", "-y", *named_packages(packages)]
+
+    def simulate_remove_argv(self, packages: Sequence[str]) -> list[str]:
+        return [
+            "apt-get",
+            "-s",
+            "-o",
+            "Debug::NoLocking=1",
+            "remove",
+            *named_packages(packages),
+        ]
+
+    def removal_names(self, result: CommandResult) -> list[str]:
+        self.require(result, "Could not simulate the removal")
+        return parse_removals(result.stdout)
+
+    def versions_argv(self, packages: Sequence[str]) -> list[str]:
+        return [
+            "dpkg-query",
+            "-W",
+            "-f",
+            "${Package} ${db:Status-Abbrev} ${Version}\\n",
+            *packages,
+        ]
+
+    def read_versions(self, result: CommandResult, packages: Sequence[str]) -> dict[str, str]:
+        asked = set(packages)
+        found: dict[str, str] = {}
+        for line in result.stdout.splitlines():
+            parts = line.split(maxsplit=2)
+            # "ii" is installed and configured; "rc" is removed with its configuration kept.
+            if len(parts) == 3 and parts[0] in asked and parts[1].startswith("ii"):
+                found[parts[0]] = parts[2].strip()
+        return found
 
     def installed_argv(self, packages: Sequence[str]) -> list[str]:
         return ["dpkg-query", "-W", "-f", "${Package} ${db:Status-Abbrev}\\n", *packages]

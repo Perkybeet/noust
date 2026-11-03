@@ -69,6 +69,7 @@ from noust.core.exceptions import (
     DomainConflictError,
     DomainError,
     DomainOverlapError,
+    EngineInUseError,
     FleetUnavailableError,
     IntegrationError,
     NodeError,
@@ -173,6 +174,8 @@ _STATUS_BY_ERROR: tuple[tuple[type[NoustError], int], ...] = (
     (AccountNotFoundError, 404),
     (AuthenticationFailed, 401),
     (DatabaseExistsError, 409),
+    # An engine that still holds databases is a state of the server the operator changes.
+    (EngineInUseError, 409),
     (DomainConflictError, 409),
     # An authority that already exists is a state of the server, not a fault.
     (CertificateConflictError, 409),

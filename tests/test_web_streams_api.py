@@ -113,6 +113,7 @@ def test_nothing_published_and_what_nginx_offers(client: TestClient) -> None:
         "loader": "installable",
         "problem": None,
         "hint": None,
+        "install": None,
     }
 
 

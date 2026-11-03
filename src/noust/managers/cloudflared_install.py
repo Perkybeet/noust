@@ -49,6 +49,7 @@ from noust.managers.database.rpm_flavours import (
 )
 from noust.managers.server.host import HostPaths, Platform, detect_platform
 from noust.managers.server.pkg import backend_for
+from noust.managers.server.software_record import record_install
 
 #: Where Cloudflare keeps its packages, for the messages.
 PACKAGE_REPOSITORY = "https://pkg.cloudflare.com/"
@@ -212,6 +213,9 @@ class CloudflaredInstaller:
             "tunnels.install_connector",
             target="package:cloudflared",
             details={"path": path, "family": platform.family.value},
+        )
+        record_install(
+            "cloudflared", via="cloudflared", packages=[PACKAGE], host=self._host or flavours.HOST
         )
         return CloudflaredInstall(path, True, self._version(path))
 

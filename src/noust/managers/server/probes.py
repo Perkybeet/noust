@@ -34,6 +34,8 @@ READ_ONLY_PROBES: tuple[tuple[object, ...], ...] = (
     # apt: the simulation is what the upgrade would do, and changes nothing.
     ("apt-get", "-s", "-o", "Debug::NoLocking=1", "--with-new-pkgs", "upgrade"),
     ("apt-get", "-s", "-o", "Debug::NoLocking=1", "full-upgrade"),
+    # What removing packages would take with them: the simulation, never the removal.
+    ("apt-get", "-s", "-o", "Debug::NoLocking=1", "remove", ...),
     ("apt-mark", "showhold"),
     ("dpkg", "--audit"),
     ("dpkg-query", "-W", ...),
@@ -45,6 +47,7 @@ READ_ONLY_PROBES: tuple[tuple[object, ...], ...] = (
     ("dnf", "-q", "updateinfo", "list", "--security"),
     ("dnf", "needs-restarting", "-r"),
     ("dnf", "needs-restarting", "-s"),
+    ("dnf", "--assumeno", "remove", ...),
     ("rpm", "-q", ...),
     # zypper.
     (
@@ -57,6 +60,7 @@ READ_ONLY_PROBES: tuple[tuple[object, ...], ...] = (
         "*",
     ),
     ("zypper", "--non-interactive", "dist-upgrade", "--dry-run"),
+    ("zypper", "--non-interactive", "remove", "--dry-run", ...),
     ("zypper", "needs-rebooting"),
     ("zypper", "ps", "-sss"),
     # systemd: state and listings, never a verb that acts.

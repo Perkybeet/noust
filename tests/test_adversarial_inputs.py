@@ -47,6 +47,7 @@ from noust.validators import (
     health,
     names,
     object_names,
+    package,
     port,
     source,
 )
@@ -664,6 +665,26 @@ class TestPorts:
         if accepted:
             assert isinstance(result, int) and not isinstance(result, bool)
             assert 1 <= result <= 65535
+
+
+class TestPackageNames:
+    @SETTINGS
+    @given(value=st.one_of(HOSTILE, st.integers(), st.none(), st.binary(max_size=20)))
+    def test_a_name_is_a_word_that_cannot_be_an_option_a_path_or_a_pattern(
+        self, value: object
+    ) -> None:
+        accepted, result = verdict(package.validate_package, value)
+
+        if accepted:
+            assert isinstance(result, str)
+            assert re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9+._-]{0,99}", result)
+
+    @pytest.mark.parametrize("payload", [p for p in PAYLOADS if p])
+    def test_a_payload_is_refused_or_comes_back_as_nothing_but_a_name(self, payload: str) -> None:
+        # The name that comes back is stripped, and it is the one that is used.
+        accepted, result = verdict(package.validate_package, payload)
+
+        assert not accepted or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9+._-]*", result)
 
 
 class TestContainerReferences:

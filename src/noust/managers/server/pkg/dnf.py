@@ -21,6 +21,7 @@ import configparser
 import re
 from collections.abc import Callable, Sequence
 
+from noust.core.runner import CommandResult
 from noust.managers.server.errors import ServerError
 from noust.managers.server.host import natural_key, newest_installed_kernel, running_kernel
 from noust.managers.server.pkg.base import (
@@ -36,6 +37,7 @@ from noust.managers.server.pkg.base import (
     RestartProbe,
     UpdateScope,
     file_age_seconds,
+    named_packages,
 )
 
 #: ``check-update`` exits 100 when there are updates, 0 when there are none.
@@ -62,6 +64,50 @@ AUTOMATIC_TIMERS = (
     "dnf-automatic.timer",
     DNF5_TIMER,
 )
+
+
+#: What dnf says when none of the packages asked for is installed.
+_NOTHING_TO_REMOVE = re.compile(
+    r"No packages marked for removal|No match for argument|Nothing to do", re.IGNORECASE
+)
+
+#: What dnf says after printing a transaction it was told not to run (``--assumeno``).
+_ABORTED = re.compile(r"Operation aborted", re.IGNORECASE)
+
+#: The sections of a transaction that name packages to remove, in dnf 4 and dnf 5.
+_REMOVING_SECTION = re.compile(r"Removing(?: [a-z ]+)?:")
+
+
+def parse_removal_transaction(text: str) -> list[str]:
+    """
+    Read which packages a ``dnf remove --assumeno`` would take out (dnf 4 and dnf 5).
+
+    Args:
+        text: What dnf printed.
+
+    Returns:
+        The names under ``Removing:``, ``Removing dependent packages:`` and ``Removing unused
+        dependencies:``, in order. A name dnf 4 wraps onto its own line is joined to the row it
+        starts, and the summary that follows the last section is not read.
+    """
+    names: list[str] = []
+    inside = False
+    for raw in text.splitlines():
+        if _REMOVING_SECTION.fullmatch(raw.strip()) and not raw.startswith(" "):
+            inside = True
+            continue
+        if not inside:
+            continue
+        if not raw.strip() or not raw.startswith(" "):
+            # The blank line and "Transaction Summary" end the sections; a heading of the next
+            # one is a line that starts in the first column too.
+            inside = False
+            continue
+        first = raw.split()[0]
+        # A wrapped row continues on a line whose first word is the architecture.
+        if first not in _ARCHES:
+            names.append(first)
+    return names
 
 
 def _split_name_arch(token: str) -> tuple[str, str]:
@@ -306,6 +352,24 @@ class DnfBackend(PackageBackend):
 
     def install_lean_argv(self, packages: Sequence[str]) -> list[str]:
         return ["dnf", "-y", "--setopt=install_weak_deps=False", "install", *packages]
+
+    def remove_argv(self, packages: Sequence[str]) -> list[str]:
+        return ["dnf", "-y", "remove", *named_packages(packages)]
+
+    def simulate_remove_argv(self, packages: Sequence[str]) -> list[str]:
+        # --assumeno answers the confirmation with no, after the transaction is printed: the
+        # simulation dnf has for a removal. Its exit code is 1 for that, which is not a failure.
+        return ["dnf", "--assumeno", "remove", *named_packages(packages)]
+
+    def removal_names(self, result: CommandResult) -> list[str]:
+        text = f"{result.stdout}\n{result.stderr}"
+        names = parse_removal_transaction(result.stdout)
+        if names or result.success:
+            return names
+        if _NOTHING_TO_REMOVE.search(text) or _ABORTED.search(text):
+            return []
+        self.require(result, "Could not simulate the removal")
+        return []
 
     def repair_commands(self) -> list[list[str]]:
         return []
