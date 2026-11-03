@@ -296,7 +296,9 @@ def set_command(ctx: Context, token_id: int, allow_ips: tuple[str, ...], any_ip:
 
 @cli.command("revoke")
 @click.argument("token_id", type=int)
-@click.option("-f", "--force", is_flag=True, help="Do not ask for confirmation.")
+@click.option(
+    "-f", "-y", "--force", "--yes", "force", is_flag=True, help="Do not ask for confirmation."
+)
 @pass_context
 def revoke_command(ctx: Context, token_id: int, force: bool) -> None:
     """
