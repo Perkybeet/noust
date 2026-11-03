@@ -608,6 +608,17 @@ class TestFail2ban:
         assert ("fail2ban-client", "-t") in steps
         assert ("systemctl", "enable", "--now", "fail2ban") in steps
 
+    def test_what_it_installed_is_written_in_the_ledger_of_installed_software(self, runner, host):
+        from noust.core.software_ledger import SoftwareLedger
+
+        runner.only_knows("apt-get", "systemctl", "sshd")
+
+        Fail2ban(_probe(runner, host)).install(ignore=[])
+
+        row = SoftwareLedger().get("fail2ban")
+        assert row is not None
+        assert (row.via, row.packages) == ("fail2ban", ("fail2ban", "python3-systemd"))
+
     def test_install_on_a_server_with_empty_package_lists_updates_them_first(self, host):
         runner = _scripted(EmptyListsSshd(host))
 

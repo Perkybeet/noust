@@ -388,6 +388,29 @@ def test_the_packages_are_installed_through_the_package_manager(
     assert runner.envs[-1] == {"DEBIAN_FRONTEND": "noninteractive"}
 
 
+def test_what_the_waf_installed_is_written_in_the_ledger(
+    waf: Waf, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from noust.core.software_ledger import SoftwareLedger
+    from noust.managers.server.host import Platform
+
+    class Backend:
+        def install(self, packages: Any, *, timeout: int) -> Any:
+            return runner.run(["apt-get", "install", "-y", *packages], timeout=timeout)
+
+    monkeypatch.setattr(Waf, "_installable", lambda self: True)
+    monkeypatch.setattr(
+        "noust.managers.waf.detect_platform", lambda *a, **k: Platform.__new__(Platform)
+    )
+    monkeypatch.setattr("noust.managers.waf.backend_for", lambda *a, **k: Backend())
+
+    waf.install()
+
+    row = SoftwareLedger().get("waf")
+    assert row is not None
+    assert (row.via, row.packages) == ("waf", tuple(PACKAGES))
+
+
 def test_a_server_with_empty_package_lists_updates_them_before_installing_the_waf(
     waf: Waf, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

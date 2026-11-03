@@ -26,6 +26,7 @@ from noust.core.exceptions import DependencyError, PrerequisiteError
 from noust.core.fs import DryRunFileSystem, get_fs, set_fs
 from noust.core.package_family import PackageFamily
 from noust.core.runner import DryRunRunner, FakeRunner, set_runner
+from noust.core.software_ledger import SoftwareLedger
 from noust.managers import cloudflared_install
 from noust.managers.cloudflared_install import (
     CLOUDFLARE_KEY,
@@ -119,6 +120,32 @@ def test_on_apt_it_adds_the_repository_with_the_verified_key_then_installs(
     assert argvs[0][-1] == "https://pkg.cloudflare.com/cloudflare-main.gpg"
     assert [call[:2] for call in argvs[1:]] == [("apt-get", "update"), ("apt-get", "install")]
     assert argvs[-1] == ("apt-get", "install", "-y", "cloudflared")
+
+
+def test_what_it_installed_is_written_in_the_ledger_with_the_files_it_added(
+    host: Path, runner: FakeRunner
+) -> None:
+    serve_the_pinned_key(runner)
+    # gpg writes the key; the fake runner does not, so the file stands where gpg would put it.
+    (host / "usr/share/keyrings/noust-cloudflared.gpg").write_bytes(b"key")
+
+    installer(runner).install()
+
+    row = SoftwareLedger().get("cloudflared")
+    assert row is not None
+    assert (row.via, row.packages) == ("cloudflared", ("cloudflared",))
+    assert row.repository_files == (
+        "/etc/apt/sources.list.d/noust-cloudflared.list",
+        "/usr/share/keyrings/noust-cloudflared.gpg",
+    )
+
+
+def test_a_server_that_has_it_is_not_written_down_as_installed_by_noust(
+    host: Path, runner: FakeRunner
+) -> None:
+    installer(runner, which=lambda program: PATH).install()
+
+    assert SoftwareLedger().get("cloudflared") is None
 
 
 def test_a_server_that_has_it_is_left_alone(host: Path, runner: FakeRunner) -> None:

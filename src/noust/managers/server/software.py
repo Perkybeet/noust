@@ -42,7 +42,6 @@ from typing import Any, Protocol
 
 from noust.central import is_hub, require_server_role
 from noust.core import audit
-from noust.core.audit.context import current_actor
 from noust.core.exceptions import NoustError
 from noust.core.fs import FileSystem, get_fs, is_rehearsal
 from noust.core.runner import CommandRunner, get_runner
@@ -50,6 +49,7 @@ from noust.core.server_text import ServerText, say
 from noust.core.software_ledger import InstalledSoftware, SoftwareLedger
 from noust.core.teams.model import ResourceNotFoundError
 from noust.managers.server import components as registry
+from noust.managers.server import software_record
 from noust.managers.server.component_dependents import Dependent
 from noust.managers.server.components import Component, Installer, Severity
 from noust.managers.server.errors import (
@@ -670,11 +670,7 @@ class SoftwareManager:
         Returns:
             The files Noust writes for it that exist, below the host's root.
         """
-        found: list[Path] = []
-        for pattern in component.marks:
-            relative = pattern.lstrip("/")
-            found.extend(sorted(self.host.root.glob(relative)))
-        return found
+        return software_record.marks_present(component, self.host)
 
     def _dependents(self, component: Component) -> tuple[tuple[Dependent, ...], ServerText | None]:
         """
@@ -1027,27 +1023,21 @@ class SoftwareManager:
         self, component: Component, packages: tuple[str, ...], repository_files: tuple[str, ...]
     ) -> None:
         """
-        Write the install in the ledger.
-
-        A ledger that cannot be written does not undo an install that worked: the install is
-        recognised by its marks all the same, and the failure is in the log.
+        Write the install in the ledger, through the one place that does.
 
         Args:
             component: The component.
             packages: What is installed of it.
             repository_files: The repository files Noust added.
         """
-        actor = current_actor()
-        try:
-            self.ledger.record(
-                component.id,
-                packages=packages,
-                repository_files=repository_files,
-                via=component.installer.value,
-                actor=actor.label if actor else None,
-            )
-        except (NoustError, sqlite3.Error, OSError) as exc:
-            log.warning("Could not record that %s was installed: %s", component.id, exc)
+        software_record.record_install(
+            component.id,
+            via=component.installer.value,
+            packages=packages,
+            repository_files=repository_files,
+            host=self.host,
+            ledger=self.ledger,
+        )
 
     # -- removing --------------------------------------------------------------------------------------
 

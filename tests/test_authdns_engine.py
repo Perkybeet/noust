@@ -111,6 +111,36 @@ class TestInstalling:
         assert ["apt-get", "install", "-y", "knot"] in calls(runner)
         assert output[0] == "$ apt-get install -y knot"
 
+    def test_what_it_installed_is_written_in_the_ledger_and_what_was_there_is_not(
+        self, runner: FakeRunner, engine: KnotEngine, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from noust.core.software_ledger import SoftwareLedger
+
+        monkeypatch.setattr(
+            "noust.managers.authdns.engine.detect_platform",
+            lambda _runner: platform(PackageFamily.APT, "debian"),
+        )
+        runner.script(["knotd", "--version"], stdout="knotd, Knot DNS 3.4.6\n")
+        runner._known_programs = {"knotd", "knotc", "keymgr"}
+        assert engine.install() == (3, 4, 6)
+        assert SoftwareLedger().get("knot") is None
+
+        runner._known_programs = {"apt-get"}
+        real_run = runner.run
+
+        def run(argv: Any, **kwargs: Any) -> Any:
+            result = real_run(argv, **kwargs)
+            if list(argv)[:2] == ["apt-get", "install"] and runner._known_programs is not None:
+                runner._known_programs |= {"knotd", "knotc", "keymgr"}
+            return result
+
+        monkeypatch.setattr(runner, "run", run)
+
+        engine.install()
+
+        row = SoftwareLedger().get("knot")
+        assert row is not None and (row.via, row.packages) == ("knot", ("knot",))
+
     def test_a_machine_that_has_it_installs_nothing(
         self, runner: FakeRunner, engine: KnotEngine
     ) -> None:

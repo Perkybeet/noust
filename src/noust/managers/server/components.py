@@ -46,6 +46,7 @@ __all__ = [
     "Installer",
     "Severity",
     "component",
+    "component_of_engine",
     "ids",
     "other_components",
     "owner_of",
@@ -517,6 +518,21 @@ def component(component_id: str) -> Component | None:
         allow-list: an id that is not here is never looked up anywhere else.
     """
     return _BY_ID.get(component_id)
+
+
+def component_of_engine(engine: str) -> Component | None:
+    """
+    Args:
+        engine: A database engine's manager name (``postgresql``, ``mysql``, ``redis``).
+
+    Returns:
+        The component that engine is, or None for one that is only ever an instance in a
+        container.
+    """
+    for item in COMPONENTS:
+        if item.engine == engine:
+            return item
+    return None
 
 
 def other_components(component_id: str) -> tuple[Component, ...]:

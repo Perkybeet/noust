@@ -33,6 +33,8 @@ from noust.managers.database.flavours import (
     resolve_flavour,
 )
 from noust.managers.database.rpm_flavours import rpm_release
+from noust.managers.server.components import component_of_engine
+from noust.managers.server.software_record import record_install
 
 
 @dataclass(frozen=True)
@@ -171,6 +173,11 @@ def install_engine(decided: EnginePlan) -> InstallOutcome:
             already_installed=True,
         )
     manager.install(decided.plan)
+    # Every way an engine is installed ends here (the console, the command, a recipe), so the
+    # ledger of installed software is written once, whichever it was.
+    engine = component_of_engine(manager.ENGINE_NAME)
+    if engine is not None:
+        record_install(engine.id, via="database_engine")
     version = manager.get_version()
     warnings: list[str] = []
     notice = manager.support(version)
