@@ -128,6 +128,22 @@ class TestReading:
 
         assert own_counts()["token_max_days"] is True
 
+    def test_a_profile_that_is_not_one_says_so(self, app: Any, real_config: Config) -> None:
+        viewer = Person(app, "vera", "viewer")
+        before = viewer.get("/api/compliance").json()
+        real_config.set("security.profile", "off")
+
+        body = viewer.get("/api/compliance").json()
+
+        assert (before["legacy_profile_valid"], before["legacy_profile_read_as"]) == (
+            True,
+            "standard",
+        )
+        assert body["legacy_profile"] == "off"
+        assert body["legacy_profile_valid"] is False
+        assert body["legacy_profile_read_as"] == "ens-medium"
+        assert next(f for f in body["frameworks"] if f["id"] == "ens-media")["enabled"] is True
+
     def test_nobody_anonymous_does(self, app: Any) -> None:
         anonymous = TestClient(app, client=("testclient", 50000))
 

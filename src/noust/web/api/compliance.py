@@ -146,13 +146,20 @@ class ComplianceState(BaseModel):
     Attributes:
         frameworks: Every framework, in catalog order.
         controls: Every control, in catalog order.
-        legacy_profile: What ``security.profile`` holds.
+        legacy_profile: What ``security.profile`` holds, as written.
+        legacy_profile_valid: Whether that is a value Noust knows (empty, ``standard`` or
+            a spelling of ``ens-medium``). False for a typo, which is read strict.
+        legacy_profile_read_as: What it is read as, ``standard`` or ``ens-medium``. A value
+            that is not valid is read as ``ens-medium``, so ENS MEDIA is on through it
+            (``source: profile`` on that framework) until the value is corrected.
         unknown: Names in ``security.frameworks`` this version does not know.
     """
 
     frameworks: list[FrameworkInfo]
     controls: list[ControlInfo]
     legacy_profile: str
+    legacy_profile_valid: bool = True
+    legacy_profile_read_as: str = "standard"
     unknown: list[str]
 
 

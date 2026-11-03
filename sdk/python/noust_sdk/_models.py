@@ -2013,6 +2013,8 @@ ComplianceState = TypedDict("ComplianceState", {
     "controls": Required[list["ControlInfo"]],
     "frameworks": Required[list["FrameworkInfo"]],
     "legacy_profile": Required[str],
+    "legacy_profile_read_as": NotRequired[str],
+    "legacy_profile_valid": NotRequired[bool],
     "unknown": Required[list[str]],
 })
 

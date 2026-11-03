@@ -11695,7 +11695,7 @@
         "type": "object"
       },
       "ComplianceState": {
-        "description": "The frameworks and the controls.\n\nAttributes:\n    frameworks: Every framework, in catalog order.\n    controls: Every control, in catalog order.\n    legacy_profile: What ``security.profile`` holds.\n    unknown: Names in ``security.frameworks`` this version does not know.",
+        "description": "The frameworks and the controls.\n\nAttributes:\n    frameworks: Every framework, in catalog order.\n    controls: Every control, in catalog order.\n    legacy_profile: What ``security.profile`` holds, as written.\n    legacy_profile_valid: Whether that is a value Noust knows (empty, ``standard`` or\n        a spelling of ``ens-medium``). False for a typo, which is read strict.\n    legacy_profile_read_as: What it is read as, ``standard`` or ``ens-medium``. A value\n        that is not valid is read as ``ens-medium``, so ENS MEDIA is on through it\n        (``source: profile`` on that framework) until the value is corrected.\n    unknown: Names in ``security.frameworks`` this version does not know.",
         "properties": {
           "controls": {
             "items": {
@@ -11714,6 +11714,16 @@
           "legacy_profile": {
             "title": "Legacy Profile",
             "type": "string"
+          },
+          "legacy_profile_read_as": {
+            "default": "standard",
+            "title": "Legacy Profile Read As",
+            "type": "string"
+          },
+          "legacy_profile_valid": {
+            "default": true,
+            "title": "Legacy Profile Valid",
+            "type": "boolean"
           },
           "unknown": {
             "items": {

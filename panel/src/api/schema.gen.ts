@@ -37718,7 +37718,12 @@ export interface components {
          *     Attributes:
          *         frameworks: Every framework, in catalog order.
          *         controls: Every control, in catalog order.
-         *         legacy_profile: What ``security.profile`` holds.
+         *         legacy_profile: What ``security.profile`` holds, as written.
+         *         legacy_profile_valid: Whether that is a value Noust knows (empty, ``standard`` or
+         *             a spelling of ``ens-medium``). False for a typo, which is read strict.
+         *         legacy_profile_read_as: What it is read as, ``standard`` or ``ens-medium``. A value
+         *             that is not valid is read as ``ens-medium``, so ENS MEDIA is on through it
+         *             (``source: profile`` on that framework) until the value is corrected.
          *         unknown: Names in ``security.frameworks`` this version does not know.
          */
         ComplianceState: {
@@ -37728,6 +37733,16 @@ export interface components {
             frameworks: components["schemas"]["FrameworkInfo"][];
             /** Legacy Profile */
             legacy_profile: string;
+            /**
+             * Legacy Profile Read As
+             * @default standard
+             */
+            legacy_profile_read_as: string;
+            /**
+             * Legacy Profile Valid
+             * @default true
+             */
+            legacy_profile_valid: boolean;
             /** Unknown */
             unknown: string[];
         };

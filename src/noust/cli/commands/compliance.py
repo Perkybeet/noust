@@ -146,6 +146,17 @@ def status_command(ctx: Context) -> None:
     logger.key_value("Controls on by their own setting", str(len(own)))
     for name in state["unknown"]:
         logger.warning(f"security.frameworks names {name!r}, which this version does not know.")
+    if not state["legacy_profile_valid"]:
+        # Read strict on purpose (a typo in a security setting must not turn it off), so the
+        # one thing to do is say it: ENS MEDIA is on through this value and nobody chose it.
+        logger.warning(
+            f"security.profile is {state['legacy_profile']!r}, which is not a profile: it is "
+            f"read as {state['legacy_profile_read_as']}, so ENS MEDIA is on."
+        )
+        logger.info("Set it to what you mean:")
+        logger.info('    noust config set security.profile standard --reason "fix the profile"')
+        logger.info("  or, to keep ENS MEDIA on deliberately:")
+        logger.info('    noust config set security.profile ens-medium --reason "keep ENS MEDIA"')
     if not on:
         logger.info("See them with: noust compliance frameworks")
     else:
