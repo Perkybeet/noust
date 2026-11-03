@@ -64,7 +64,7 @@ from noust.core.fs import SECRET_MODE, get_fs
 from noust.core.package_family import PackageFamily, detect_family
 from noust.core.runner import CommandResult, CommandRunner, DryRunRunner, get_runner
 from noust.managers.base_manager import BaseManager
-from noust.managers.database import engine_removal, flavours
+from noust.managers.database import engine_removal
 from noust.managers.database.eol import support_notice
 from noust.managers.database.flavours import (
     FLAVOURS,
@@ -1610,9 +1610,9 @@ class BaseDatabaseManager(BaseManager):
             self.logger.warning(f"Could not stop {self.DISPLAY_NAME} before removal: {exc}")
 
         if family is PackageFamily.APT or family is PackageFamily.NONE:
-            self._uninstall_apt(purge)
+            engine_removal.remove_apt_packages(self, purge)
         else:
-            engine_removal.remove_rpm_packages(self, family)
+            engine_removal.remove_rpm_packages(self)
 
         if purge:
             for path in self.PURGE_PATHS:
@@ -1640,38 +1640,6 @@ class BaseDatabaseManager(BaseManager):
             behind when they go (PostgreSQL's meta packages do: see its override).
         """
         return self._package_sets()
-
-    def _uninstall_apt(self, purge: bool) -> None:
-        """
-        Remove the engine's packages with apt.
-
-        Args:
-            purge: Purge instead of remove.
-
-        Raises:
-            DatabaseEngineError: When every package set fails to be removed.
-        """
-        action = "purge" if purge else "remove"
-        failures: list[str] = []
-        removal = self._removal_sets()
-        for packages in removal:
-            result = self._exec(
-                ["apt-get", action, "-y", *packages],
-                env=APT_ENV,
-                timeout=PACKAGE_TIMEOUT,
-            )
-            if not result.success:
-                failures.append(f"{' '.join(packages)}: {result.stderr.strip()}")
-
-        if len(failures) == len(removal):
-            raise DatabaseEngineError(
-                f"Failed to remove {self.DISPLAY_NAME}",
-                details="\n".join(failures) or f"Run: apt-get {action} -y manually.",
-            )
-        # The repository Noust added for this engine goes with it, as it does on the RPM
-        # families: with nothing installed from it, it only makes every later apt run fetch it.
-        for path in flavours.apt_repository_files(self.ENGINE_NAME):
-            self.fs.remove(path)
 
     def service_unit(self) -> str:
         """

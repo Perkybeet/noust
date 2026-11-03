@@ -29,7 +29,6 @@ from typing import TYPE_CHECKING
 
 from noust.core import audit
 from noust.core.exceptions import DatabaseEngineError, DatabaseError, EngineInUseError, NoustError
-from noust.core.package_family import PackageFamily
 from noust.core.store import get_store
 from noust.managers.database import flavours
 from noust.managers.database.rpm_flavours import (
@@ -37,6 +36,7 @@ from noust.managers.database.rpm_flavours import (
     key_file_of,
     repository_files,
 )
+from noust.managers.server.errors import UnsupportedHostError
 
 if TYPE_CHECKING:
     from noust.managers.database.base import BaseDatabaseManager
@@ -158,7 +158,49 @@ def _record(
     audit.record(EVENT, target=f"db:{manager.ENGINE_NAME}", outcome=outcome, details=details)
 
 
-def remove_rpm_packages(manager: BaseDatabaseManager, family: PackageFamily) -> None:
+def remove_apt_packages(manager: BaseDatabaseManager, purge: bool) -> None:
+    """
+    Remove the engine's packages with apt, and the repository Noust added for it.
+
+    A removal is the backend's (:meth:`~noust.managers.server.pkg.base.PackageBackend.remove_argv`),
+    so apt's way of removing is spelled once. A purge is the one thing the backend never does and
+    is the operator's explicit request to delete the engine's configuration with it.
+
+    Args:
+        manager: The host's engine manager.
+        purge: Purge instead of remove.
+
+    Raises:
+        DatabaseEngineError: When every package set fails to be removed, or this machine's
+            packages are not managed by Noust.
+    """
+    backend = manager._package_backend()
+    action = "purge" if purge else "remove"
+    failures: list[str] = []
+    removal = manager._removal_sets()
+    for packages in removal:
+        try:
+            argv = ["apt-get", "purge", "-y", *packages] if purge else backend.remove_argv(packages)
+        except UnsupportedHostError as exc:
+            raise DatabaseEngineError(
+                f"Noust cannot remove {manager.DISPLAY_NAME} here", details=exc.details
+            ) from exc
+        result = manager._exec(argv, env=backend.env(), timeout=PACKAGE_TIMEOUT)
+        if not result.success:
+            failures.append(f"{' '.join(packages)}: {result.stderr.strip()}")
+
+    if len(failures) == len(removal):
+        raise DatabaseEngineError(
+            f"Failed to remove {manager.DISPLAY_NAME}",
+            details="\n".join(failures) or f"Run: apt-get {action} -y manually.",
+        )
+    # The repository Noust added for this engine goes with it, as it does on the RPM families:
+    # with nothing installed from it, it only makes every later apt run fetch it.
+    for path in flavours.apt_repository_files(manager.ENGINE_NAME):
+        manager.fs.remove(path)
+
+
+def remove_rpm_packages(manager: BaseDatabaseManager) -> None:
     """
     Remove the engine's packages with dnf or zypper.
 
@@ -168,7 +210,6 @@ def remove_rpm_packages(manager: BaseDatabaseManager, family: PackageFamily) -> 
 
     Args:
         manager: The host's engine manager.
-        family: The package manager.
 
     Raises:
         DatabaseEngineError: When no package of the flavour is installed, or the package
@@ -183,12 +224,7 @@ def remove_rpm_packages(manager: BaseDatabaseManager, family: PackageFamily) -> 
             f"No package of {manager.DISPLAY_NAME} is installed",
             details="'rpm -qa' lists none of its packages. Nothing was removed.",
         )
-    argv = (
-        ["dnf", "-y", "remove", *names]
-        if family is PackageFamily.DNF
-        else ["zypper", "--non-interactive", "remove", *names]
-    )
-    result = manager._exec(argv, env=backend.env(), timeout=PACKAGE_TIMEOUT)
+    result = manager._exec(backend.remove_argv(names), env=backend.env(), timeout=PACKAGE_TIMEOUT)
     if not result.success:
         raise DatabaseEngineError(
             f"Failed to remove {manager.DISPLAY_NAME}",

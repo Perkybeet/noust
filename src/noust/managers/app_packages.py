@@ -50,6 +50,7 @@ from noust.managers.server.errors import UnsupportedHostError
 from noust.managers.server.host import HostPaths, Platform, detect_platform
 from noust.managers.server.pkg import PackageBackend, backend_for
 from noust.managers.server.pkg.base import INSTALL_TIMEOUT
+from noust.validators.package import validate_package
 
 __all__ = [
     "MAX_PACKAGES",
@@ -65,41 +66,11 @@ __all__ = [
 #: The configuration key naming the packages applications may declare.
 POLICY_KEY = "security.app_packages"
 
-#: What a package name is: a word of letters, digits and ``+._-`` that does not begin with a
-#: symbol, so it can never be read as an option, a path or a version pin.
-_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9+._-]{0,99}")
-
 #: What a policy entry is: a name, or a glob over names.
 _PATTERN = re.compile(r"[A-Za-z0-9*?\[\]][A-Za-z0-9+._*?\[\]-]{0,99}")
 
 #: The most packages one application may declare: a list this long is a mistake.
 MAX_PACKAGES = 50
-
-
-def validate_package(name: str) -> str:
-    """
-    Check that a text is a package name.
-
-    Args:
-        name: What the operator typed.
-
-    Returns:
-        The name, stripped.
-
-    Raises:
-        ValidationError: It is not a name of letters, digits and ``+._-`` starting with a
-            letter or digit; versions, paths, options and spaces are not names.
-    """
-    text = name.strip() if isinstance(name, str) else ""
-    if not _NAME.fullmatch(text):
-        raise ValidationError(
-            f"{name!r} is not a package name",
-            details="A package name is letters, digits and + . _ - only, starting with a letter "
-            "or a digit (libvips-dev, fonts-noto-core). A version, a path or an option is not "
-            "a name.",
-            field="packages",
-        )
-    return text
 
 
 def validate_packages(names: Sequence[str]) -> tuple[str, ...]:

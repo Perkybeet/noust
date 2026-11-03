@@ -1,0 +1,12 @@
+Package                       Arch   Version                    Repository       Size
+Removing:
+ nginx                        x86_64 2:1.26.2-1.fc41            <unknown>     1.7 MiB
+Removing dependent packages:
+ nginx-mod-stream             x86_64 2:1.26.2-1.fc41            <unknown>    94.0 KiB
+Removing unused dependencies:
+ nginx-filesystem             noarch 2:1.26.2-1.fc41            <unknown>     0.0   B
+
+Transaction Summary:
+ Removing:           3 packages
+
+Operation aborted by the user.
