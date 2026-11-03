@@ -67,6 +67,7 @@ from noust.web.api.compose import router as compose_router
 from noust.web.api.config import router as config_router
 from noust.web.api.console_exposure import router as console_exposure_router
 from noust.web.api.cron import router as cron_router
+from noust.web.api.dashboards import router as dashboards_router
 from noust.web.api.databases import apps_router as databases_apps_router
 from noust.web.api.databases import router as databases_router
 from noust.web.api.deploy_freezes import router as deploy_freezes_router
@@ -431,6 +432,8 @@ router.include_router(central_router, prefix="/central", tags=["Central"])
 router.include_router(fleet_self_router, prefix="/auth/fleet", tags=["Fleet"])
 # Under /auth like the rest of one's own credentials, so no fleet token reaches it.
 router.include_router(passkeys_router, prefix="/auth/passkeys", tags=["Passkeys"])
+# The panels of Home are the operator's own, one set across the fleet: under /auth for the same reason.
+router.include_router(dashboards_router, prefix="/auth/dashboards", tags=["Dashboards"])
 # Single sign-in through an identity provider (4.0): the same place, for the same reason.
 router.include_router(oidc_router, prefix="/auth/oidc", tags=["Single sign-on"])
 router.include_router(ldap_router, prefix="/auth/ldap", tags=["Single sign-on"])
