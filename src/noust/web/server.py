@@ -109,6 +109,7 @@ from noust.web.auth import (
     settle_credential_failures,
     shared_address,
 )
+from noust.web.config_watch import ConfigWatchMiddleware
 from noust.web.events import (
     AppStatePublisher,
     announce_app_mutation,
@@ -1126,6 +1127,9 @@ def create_app(config: SecurityConfig | None = None) -> FastAPI:
     # whitelist, the rate limiter, the audit trail or the router see the
     # path, and a refusal the security layer makes still names the API version.
     app.add_middleware(ApiVersionMiddleware)
+    # Outermost of all: a change another process made to config.yaml (a framework turned on at
+    # the terminal) is read before the request, or the WebSocket, that comes after it.
+    app.add_middleware(ConfigWatchMiddleware)
 
     from noust.web.api import router as api_router
     from noust.web.api.deps import API_PATH_PREFIX, handle_http_exception, install_error_handlers
