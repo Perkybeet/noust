@@ -1356,6 +1356,10 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/server/security/ssh/fixes/{fix}` | GET `server.read`; POST `server.host_access`, sudo |  |
 | `/api/server/security/ssh/keys` | GET `server.read`; POST `server.host_access`, sudo |  |
 | `/api/server/security/ssh/keys/remove` | POST `server.host_access`, sudo |  |
+| `/api/server/software` | GET `server.read` | The software Noust manages (nginx, certbot, an engine, cloudflared, the stream module...): installed or not, its version, who installed it (`noust`, or `unknown` when nothing says so), who depends on it |
+| `/api/server/software/{component}/impact` | GET `server.read` | What removing it would do: its packages, what else the package manager says would go, the repository files Noust would take back out, and what stops it |
+| `/api/server/software/{component}/install` | POST `server.manage`, sudo | A job. Also the permission each function has always taken (`server.host_access` for Knot, the stream module and packages no function installed before; `databases.manage` for an engine). A system Noust installs nothing on is 409 `software_refused` with `reason` `not_installable` |
+| `/api/server/software/{component}/remove` | POST `server.host_access`, sudo | A job, never a purge. 409 `software_refused` with `reason` (`never`, `dependents`, `takes_never`, `takes_in_use`, `not_installed`, `cannot_tell`), what depends on it in `dependents` and the sentence in `coded`; 409 `confirmation_required` for an origin that is not Noust's, repeated with `confirm_unknown_origin`. An engine also needs `databases.manage` |
 | `/api/server/storage` | GET `server.read` |  |
 | `/api/server/storage/analyze` | POST `server.read` | Measure what takes space; it changes nothing, so a read-only credential may ask |
 | `/api/server/storage/analyze/latest` | GET `server.read` |  |

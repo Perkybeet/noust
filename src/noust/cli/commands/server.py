@@ -1567,3 +1567,18 @@ def _attach_migration_commands() -> None:
 
 
 _attach_migration_commands()
+
+
+def _attach_software_commands() -> None:
+    """
+    Add ``software``: what the server is made of, and installing and removing it.
+
+    It lives in :mod:`noust.cli.commands.server_software`, which imports nothing from this
+    module at load time.
+    """
+    from noust.cli.commands import server_software
+
+    server_software.register(cli)
+
+
+_attach_software_commands()

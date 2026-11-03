@@ -48,6 +48,9 @@ class StreamSupportModel(BaseModel):
         loader: ``present``, ``installable``, ``foreign`` or ``manual``.
         problem: What is missing, when something is.
         hint: How to fix it: a command, or the line to add.
+        install: The software component that supplies what is missing (``nginx``,
+            ``nginx_stream_module``), to install with ``POST /api/server/software/{id}/install``;
+            null when Noust installs nothing for it here.
     """
 
     available: bool
@@ -55,6 +58,7 @@ class StreamSupportModel(BaseModel):
     loader: str
     problem: str | None = None
     hint: str | None = None
+    install: str | None = None
 
 
 class StreamFirewallModel(BaseModel):

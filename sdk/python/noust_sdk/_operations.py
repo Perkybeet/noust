@@ -940,6 +940,10 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("server", "get_ssh_keys"): ("GET", "/api/server/security/ssh/keys", "server.read", False),
     ("server", "add_ssh_key"): ("POST", "/api/server/security/ssh/keys", "server.host_access", True),
     ("server", "remove_ssh_key"): ("POST", "/api/server/security/ssh/keys/remove", "server.host_access", True),
+    ("server", "list_software"): ("GET", "/api/server/software", "server.read", False),
+    ("server", "software_impact"): ("GET", "/api/server/software/{component}/impact", "server.read", False),
+    ("server", "install_software"): ("POST", "/api/server/software/{component}/install", "server.manage", True),
+    ("server", "remove_software"): ("POST", "/api/server/software/{component}/remove", "server.host_access", True),
     ("server", "get_storage"): ("GET", "/api/server/storage", "server.read", False),
     ("server", "analyze_storage"): ("POST", "/api/server/storage/analyze", "server.read", False),
     ("server", "get_last_analysis"): ("GET", "/api/server/storage/analyze/latest", "server.read", False),
@@ -8438,7 +8442,7 @@ class SelfBackup:
 
 
 class Server:
-    """Server: 76 operations."""
+    """Server: 80 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -8802,6 +8806,38 @@ class Server:
 
         Needs: permission `server.host_access`, sudo mode."""
         return self._call("POST", "/api/server/security/ssh/keys/remove", query=None, body=body)
+
+    def list_software(self, *, refresh: Union[bool, None] = None) -> "SoftwareOut":
+        """GET /api/server/software
+
+        List Software
+
+        Needs: permission `server.read`."""
+        return self._call("GET", "/api/server/software", query={"refresh": refresh}, body=None)
+
+    def software_impact(self, component: str) -> "ImpactOut":
+        """GET /api/server/software/{component}/impact
+
+        Software Impact
+
+        Needs: permission `server.read`."""
+        return self._call("GET", f"/api/server/software/{quote(str(component), safe='')}/impact", query=None, body=None)
+
+    def install_software(self, component: str, *, body: Union["InstallRequest", None] = None) -> "JobAcceptedResponse":
+        """POST /api/server/software/{component}/install
+
+        Install Software
+
+        Needs: permission `server.manage`, sudo mode."""
+        return self._call("POST", f"/api/server/software/{quote(str(component), safe='')}/install", query=None, body=body)
+
+    def remove_software(self, component: str, *, body: Union["RemoveRequest", None] = None) -> "JobAcceptedResponse":
+        """POST /api/server/software/{component}/remove
+
+        Remove Software
+
+        Needs: permission `server.host_access`, sudo mode."""
+        return self._call("POST", f"/api/server/software/{quote(str(component), safe='')}/remove", query=None, body=body)
 
     def get_storage(self) -> "StorageOut":
         """GET /api/server/storage

@@ -125,6 +125,14 @@ two unit files, and still leaves
 | `noust-app-*`, `noust-build`, `noust-tunnel` | The accounts (`userdel`), when no unit runs as them |
 | `/etc/systemd/system/noust-*` | The units listed above that you chose to keep |
 
+The system packages Noust installed (nginx, certbot, a database engine, cloudflared, fail2ban...) are not
+Noust's: they stay, and the servers and applications that use them keep working. From 4.2 Noust keeps a
+ledger of what it installed, with the repository and the key it added for each, so that
+`noust server software list` says which of them it put there and which were there before, and `noust
+server software remove NAME` takes one out, with its repository and key, when nothing depends on it. It
+never removes Noust itself, systemd, sshd, the firewall, git, curl or gnupg, and never purges what a
+package left in `/etc`.
+
 A server that came through 3.x may still carry links under the product's old names beside these
 paths; `noust setup retire-links` removes the ones nothing uses, and `rm` removes any that is left.
 

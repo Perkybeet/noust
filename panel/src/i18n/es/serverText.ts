@@ -733,6 +733,182 @@ export const serverText: Catalog<typeof en> = {
       hint: "Lista los roles con: {command}",
     },
   },
+  software: {
+    apache: {
+      purpose: {
+        text: "El servidor web Apache, para los sitios que corren detrás de él",
+      },
+    },
+    auto_updates: {
+      purpose: {
+        text: "Instala por sí solo las actualizaciones de seguridad del sistema",
+      },
+    },
+    certbot: {
+      purpose: {
+        text: "Obtiene y renueva los certificados HTTPS de Let's Encrypt y de otras autoridades",
+      },
+    },
+    chrony: {
+      purpose: {
+        text: "Mantiene el reloj en hora por red, de lo que dependen los certificados y los registros",
+      },
+    },
+    cloudflared: {
+      purpose: {
+        text: "El conector por el que pasa un túnel de Cloudflare, para llegar a este servidor sin abrir un puerto",
+      },
+    },
+    curl: {
+      never: {
+        text: "Noust descarga con él las claves y los instaladores que comprueba",
+      },
+      purpose: {
+        text: "Descarga las claves de firma y los instaladores que Noust comprueba antes de fiarse de ellos",
+      },
+    },
+    docker: {
+      purpose: {
+        text: "Ejecuta las aplicaciones de contenedor y de Compose, y los motores de bases de datos que Noust corre en contenedores",
+      },
+    },
+    fail2ban: {
+      purpose: {
+        text: "Bloquea las direcciones que prueban contraseñas o sondean el servidor web",
+      },
+    },
+    firewall: {
+      never: {
+        text: "Noust abre y cierra puertos con él, y es lo que mantiene cerrado el servidor",
+      },
+      purpose: {
+        text: "El cortafuegos por el que Noust abre y cierra puertos, para los puertos publicados y para las bases de datos que expone",
+      },
+    },
+    git: {
+      never: {
+        text: "Todo despliegue desde un repositorio lo necesita",
+      },
+      purpose: {
+        text: "Descarga el código de toda aplicación que se despliega desde un repositorio",
+      },
+    },
+    gnupg: {
+      never: {
+        text: "Noust comprueba con él la clave de firma de cada repositorio que añade",
+      },
+      purpose: {
+        text: "Comprueba la clave de firma de cada repositorio que Noust añade",
+      },
+    },
+    knot: {
+      purpose: {
+        text: "Knot DNS, el servidor de nombres de las zonas DNS propias de Noust",
+      },
+    },
+    mongodb: {
+      purpose: {
+        text: "MongoDB, una base de datos de documentos para las aplicaciones",
+      },
+    },
+    mysql: {
+      purpose: {
+        text: "MySQL o MariaDB, un motor de bases de datos para las aplicaciones",
+      },
+    },
+    nginx: {
+      purpose: {
+        text: "El servidor web que sirve las aplicaciones y termina su HTTPS",
+      },
+    },
+    nginx_stream_module: {
+      purpose: {
+        text: "Permite que nginx publique un puerto TCP o UDP, como el de una base de datos o el de un servidor de juegos",
+      },
+    },
+    nodejs: {
+      purpose: {
+        text: "Compila y ejecuta aplicaciones Node.js",
+      },
+    },
+    noust: {
+      never: {
+        text: "Quitarlo sacaría a Noust, y la consola que estás usando, de este servidor",
+      },
+      purpose: {
+        text: "Noust mismo, con las bibliotecas de Python sobre las que está hecho",
+      },
+    },
+    php: {
+      purpose: {
+        text: "PHP-FPM, que ejecuta las aplicaciones PHP",
+      },
+    },
+    postgresql: {
+      purpose: {
+        text: "PostgreSQL, un motor de bases de datos para las aplicaciones",
+      },
+    },
+    rclone: {
+      purpose: {
+        text: "Sube las copias de seguridad a destinos remotos",
+      },
+    },
+    redis: {
+      purpose: {
+        text: "Redis o Valkey, un almacén de clave-valor y caché para las aplicaciones",
+      },
+    },
+    sshd: {
+      never: {
+        text: "Quitarlo te dejaría sin acceso a esta máquina",
+      },
+      purpose: {
+        text: "El servidor SSH: por donde entras tú, y una central, a esta máquina",
+      },
+    },
+    systemd: {
+      never: {
+        text: "Todo lo de este servidor, Noust incluido, corre bajo él",
+      },
+      purpose: {
+        text: "El gestor de servicios bajo el que corren todas las aplicaciones, los sitios y las unidades de Noust",
+      },
+    },
+    waf: {
+      purpose: {
+        text: "ModSecurity y las reglas OWASP Core Rule Set: el cortafuegos de aplicaciones web de un sitio",
+      },
+    },
+    refused: {
+      cannot_tell: {
+        text: "Noust no puede saber qué depende de {component}",
+        hint: "{reason} Quitarlo sin saberlo podría romper lo que dependa de él.",
+      },
+      dependents: {
+        text: "{component} no se puede quitar mientras algo dependa de él: {dependents}",
+        hint: "Deja de usarlo primero (quita o mueve lo que sale en la lista) y luego quítalo.",
+      },
+      never: {
+        text: "{component} no se quita nunca",
+      },
+      not_installed: {
+        text: "{component} no está instalado",
+      },
+      takes_in_use: {
+        text: "Quitar {component} quitaría también {other}, que está en uso: {dependents}",
+        hint: "No se ha quitado nada. Deja de usar {other} primero.",
+      },
+      takes_never: {
+        text: "Quitar {component} quitaría también {other}, que no se quita nunca",
+        hint: "No se ha quitado nada.",
+      },
+      unknown_origin: {
+        text: "Noust no instaló {component}",
+        hint: "Otras cosas del sistema pueden usarlo. Repite la petición confirmándolo para quitarlo igualmente.",
+      },
+    },
+  },
   sources: {
     central_only: {
       text: "Solo la central que gestiona este servidor puede cederle acceso a GitHub",

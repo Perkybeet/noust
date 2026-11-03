@@ -55,12 +55,13 @@ from noust.core.exceptions import (
     ValidationError,
 )
 from noust.core.fs import FileSystem, get_fs, is_rehearsal
-from noust.core.package_family import PackageFamily, install_hint
+from noust.core.package_family import PackageFamily, install_hint, package_family
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import NoustStore, get_store
 from noust.core.stream_store import CLOSING, OPEN, OPENING, StreamExposure, StreamStore
 from noust.managers.database.exposure import listening_sockets
 from noust.managers.port_claims import PortClaims
+from noust.managers.server import components
 from noust.managers.server.security_firewall import Firewall, RuleRequest
 from noust.managers.server.security_probe import SecurityProbe
 from noust.managers.siteconf import ParseError, parse
@@ -89,6 +90,9 @@ MAX_TIMEOUT = 86400
 DEFAULT_TIMEOUT = 3600
 
 _PROBE_TIMEOUT = 15
+
+#: The component of the software registry that supplies nginx's stream module.
+STREAM_MODULE = "nginx_stream_module"
 _FIREWALL_COMMENT = "noust stream"
 
 
@@ -105,6 +109,9 @@ class StreamSupport:
             has to include the directory) or ``manual`` (add a block to ``nginx.conf``).
         problem: What is missing, when something is.
         hint: How to fix it, as a command or as the line to add.
+        install: The software component that supplies what is missing, to install from
+            Server > Software (``nginx``, or ``nginx_stream_module``): None when nothing is
+            missing that Noust installs here.
     """
 
     available: bool
@@ -112,6 +119,7 @@ class StreamSupport:
     loader: str
     problem: str | None = None
     hint: str | None = None
+    install: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -124,6 +132,7 @@ class StreamSupport:
             "loader": self.loader,
             "problem": self.problem,
             "hint": self.hint,
+            "install": self.install,
         }
 
 
@@ -325,6 +334,7 @@ class StreamExposures:
                 "manual",
                 "nginx is not installed",
                 install_hint("nginx", runner=runner),
+                self._supplied_by("nginx"),
             )
         version = runner.run(["nginx", "-V"], timeout=_PROBE_TIMEOUT)
         built = _WITH_STREAM.search(f"{version.stdout}\n{version.stderr}")
@@ -346,6 +356,7 @@ class StreamExposures:
                     },
                     runner=runner,
                 ),
+                self._supplied_by(STREAM_MODULE),
             )
         kind = "dynamic" if built.group("kind") == "dynamic" else "static"
         dump = runner.run(["nginx", "-T"], timeout=_PROBE_TIMEOUT)
@@ -382,6 +393,7 @@ class StreamExposures:
                     },
                     runner=runner,
                 ),
+                self._supplied_by(STREAM_MODULE),
             )
         loader = self._loader_state(tree)
         if loader == "present":
@@ -404,6 +416,23 @@ class StreamExposures:
             "Add this at the top level of nginx.conf (beside http), then run the command "
             f"again: stream {{ {self.include_line} }}",
         )
+
+    def _supplied_by(self, component_id: str) -> str | None:
+        """
+        Say which component of the software registry supplies what is missing, when Noust
+        installs it on this system.
+
+        Args:
+            component_id: ``nginx`` or ``nginx_stream_module``.
+
+        Returns:
+            The id, or None where Noust installs no package for it (openSUSE builds the stream
+            module into nginx) or does not manage this system's packages.
+        """
+        found = components.component(component_id)
+        if found is None or not found.installable_on(package_family(self.runner)):
+            return None
+        return component_id
 
     def _loader_state(self, tree: Tree) -> str:
         """

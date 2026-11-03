@@ -431,6 +431,70 @@ class TestEveryGuardRefusesWithItsReason:
             software.install("fail2ban")
 
 
+class TestAskingBeforeQueueing:
+    """A caller that queues a job asks the guards first, to answer at once."""
+
+    def test_check_remove_is_the_guard_and_changes_nothing(
+        self, runner: FakeRunner, host, events: list
+    ) -> None:
+        installed(runner, nginx="1.24")
+        webapp("shop.example.com")
+
+        with pytest.raises(SoftwareRefusedError) as raised:
+            machine(runner, host).check_remove("nginx")
+
+        assert raised.value.reason == "dependents"
+        assert not removals(runner)
+        assert [(e, k["outcome"]) for e, k in events] == [("server.software_remove", "denied")]
+
+    def test_check_remove_lets_through_what_may_go_and_says_what_it_would_do(
+        self, runner: FakeRunner, host, events: list
+    ) -> None:
+        installed(runner, fail2ban="1.0")
+        runner.script(["apt-get", "-s"], stdout="Remv fail2ban [1.0]\n")
+
+        decided = machine(runner, host).check_remove("fail2ban", confirm_unknown_origin=True)
+
+        assert decided.removes == ("fail2ban",)
+        assert not removals(runner) and events == []
+
+    def test_check_remove_asks_for_the_yes_an_unknown_origin_needs(
+        self, runner: FakeRunner, host
+    ) -> None:
+        installed(runner, fail2ban="1.0")
+        runner.script(["apt-get", "-s"], stdout="Remv fail2ban [1.0]\n")
+
+        with pytest.raises(ConfirmationRequiredError):
+            machine(runner, host).check_remove("fail2ban")
+
+    def test_check_install_refuses_where_noust_installs_nothing_and_records_it(
+        self, runner: FakeRunner, host, events: list
+    ) -> None:
+        with pytest.raises(SoftwareRefusedError) as raised:
+            machine(runner, host, family="zypper").check_install("nginx_stream_module")
+
+        assert raised.value.reason == "not_installable"
+        assert [(e, k["outcome"]) for e, k in events] == [("server.software_install", "denied")]
+
+    def test_check_install_lets_through_what_is_installable_or_already_there(
+        self, runner: FakeRunner, host, events: list
+    ) -> None:
+        machine(runner, host).check_install("nginx")
+        installed(runner, nginx="1.24")
+        machine(runner, host).check_install("nginx")
+
+        assert events == []
+        assert not [c for c in runner.calls if c[:2] == ("apt-get", "install")]
+
+    def test_check_install_knows_no_id_the_registry_does_not_have(
+        self, runner: FakeRunner, host
+    ) -> None:
+        from noust.core.teams.model import ResourceNotFoundError
+
+        with pytest.raises(ResourceNotFoundError):
+            machine(runner, host).check_install("nope")
+
+
 class TestOriginUnknown:
     def test_it_is_removed_only_with_the_operators_yes(
         self, runner: FakeRunner, host, events: list

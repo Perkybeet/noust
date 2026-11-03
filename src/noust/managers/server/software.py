@@ -892,23 +892,10 @@ class SoftwareManager:
             SoftwareRefusedError: Noust does not install it on this system.
             ServerError: The package manager failed; the error carries its own words.
         """
-        component = self.component(component_id)
-        self._managed()
+        component, there = self._check_install(component_id)
+        if there is not None:
+            return InstallResult(component.id, False, there)
         family = self.platform.family
-        looked = self._look()
-        packages = tuple(
-            name for name in component.candidates_on(family) if name in looked.versions
-        )
-        if self._presence(component, packages, looked)[0]:
-            return InstallResult(component.id, False, packages)
-        if not component.installable_on(family):
-            error = SoftwareRefusedError(
-                f"Noust does not install {component.id} on this system",
-                "Install it with the system's package manager; Noust manages it from there.",
-                reason="not_installable",
-            )
-            self._record(INSTALL_EVENT, component, "denied", reason=error.message)
-            raise error
         before = set(self._marks_present(component))
         try:
             self._run_installer(component, options or InstallOptions(), on_output)
@@ -929,6 +916,60 @@ class SoftwareManager:
         self._remember(component, brought, added)
         self._record(INSTALL_EVENT, component, "ok", packages=list(brought))
         return InstallResult(component.id, True, brought, added)
+
+    def check_install(self, component_id: str) -> None:
+        """
+        Refuse now what :meth:`install` would refuse, changing nothing.
+
+        For a caller that queues the install and would rather answer at once than let a job fail.
+        The refusal is recorded here, as it is when ``install`` makes it.
+
+        Args:
+            component_id: The component.
+
+        Raises:
+            ResourceNotFoundError: The registry has none of that id.
+            RoleError: This Noust is a hub.
+            UnsupportedHostError: The system's packages are not changed by Noust.
+            SoftwareRefusedError: Noust does not install it on this system.
+        """
+        self._check_install(component_id)
+
+    def _check_install(self, component_id: str) -> tuple[Component, tuple[str, ...] | None]:
+        """
+        Judge an install.
+
+        Args:
+            component_id: The component.
+
+        Returns:
+            The component, and its installed packages when it is there already (nothing is
+            left to refuse then), else None.
+
+        Raises:
+            ResourceNotFoundError: The registry has none of that id.
+            RoleError: This Noust is a hub.
+            UnsupportedHostError: The system's packages are not changed by Noust.
+            SoftwareRefusedError: Noust does not install it on this system.
+        """
+        component = self.component(component_id)
+        self._managed()
+        family = self.platform.family
+        looked = self._look()
+        packages = tuple(
+            name for name in component.candidates_on(family) if name in looked.versions
+        )
+        if self._presence(component, packages, looked)[0]:
+            return component, packages
+        if not component.installable_on(family):
+            error = SoftwareRefusedError(
+                f"Noust does not install {component.id} on this system",
+                "Install it with the system's package manager; Noust manages it from there.",
+                reason="not_installable",
+            )
+            self._record(INSTALL_EVENT, component, "denied", reason=error.message)
+            raise error
+        return component, None
 
     def _run_installer(
         self,
@@ -1039,6 +1080,55 @@ class SoftwareManager:
             ServerError: The package manager failed; the error carries its own words.
         """
         component = self.component(component_id)
+        decided = self.check_remove(component_id, confirm_unknown_origin=confirm_unknown_origin)
+        try:
+            withdrawn = self._take_out(component, decided, on_output)
+        except (NoustError, OSError) as exc:
+            self._record(REMOVE_EVENT, component, "failure", reason=_first_line(exc))
+            raise
+        finally:
+            self.cache.invalidate("software.inventory")
+        if is_rehearsal():
+            return RemoveResult(
+                component.id, decided.removes, decided.also_removes, withdrawn, rehearsal=True
+            )
+        self.ledger.forget(component.id)
+        self._record(
+            REMOVE_EVENT,
+            component,
+            "ok",
+            packages=list(decided.removes),
+            withdrawn=list(withdrawn),
+            origin=decided.origin,
+        )
+        return RemoveResult(component.id, decided.removes, decided.also_removes, withdrawn)
+
+    def check_remove(self, component_id: str, *, confirm_unknown_origin: bool = False) -> Impact:
+        """
+        Refuse now what :meth:`remove` would refuse, changing nothing.
+
+        This is the guard, and the only one: a removal asks it first, and a caller that queues the
+        removal asks it to answer at once instead of letting a job fail. A refusal is recorded
+        here, as ``denied``, whoever asked.
+
+        Args:
+            component_id: The component.
+            confirm_unknown_origin: The operator knows Noust did not install it and other things
+                on the system may use it.
+
+        Returns:
+            What removing it would do, when nothing stands in the way.
+
+        Raises:
+            ResourceNotFoundError: The registry has none of that id.
+            RoleError: This Noust is a hub.
+            UnsupportedHostError: The system's packages are not changed by Noust.
+            SoftwareRefusedError: A guard refused; its ``reason`` says which.
+            ConfirmationRequiredError: Its origin is unknown and ``confirm_unknown_origin`` is
+                false.
+            ServerError: The package manager could not be asked.
+        """
+        component = self.component(component_id)
         decided = self.impact(component_id)
         if decided.blockers:
             blocker = decided.blockers[0]
@@ -1062,27 +1152,7 @@ class SoftwareManager:
             confirmation.coded = say("software.refused.unknown_origin", component=component.id)
             self._record(REMOVE_EVENT, component, "denied", reason="unknown_origin")
             raise confirmation
-        try:
-            withdrawn = self._take_out(component, decided, on_output)
-        except (NoustError, OSError) as exc:
-            self._record(REMOVE_EVENT, component, "failure", reason=_first_line(exc))
-            raise
-        finally:
-            self.cache.invalidate("software.inventory")
-        if is_rehearsal():
-            return RemoveResult(
-                component.id, decided.removes, decided.also_removes, withdrawn, rehearsal=True
-            )
-        self.ledger.forget(component.id)
-        self._record(
-            REMOVE_EVENT,
-            component,
-            "ok",
-            packages=list(decided.removes),
-            withdrawn=list(withdrawn),
-            origin=decided.origin,
-        )
-        return RemoveResult(component.id, decided.removes, decided.also_removes, withdrawn)
+        return decided
 
     def _take_out(
         self,

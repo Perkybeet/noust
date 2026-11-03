@@ -232,6 +232,34 @@ def test_the_check_says_what_is_missing(manager: Fake, log: list[str]) -> None:
     manager.support_answer = SUPPORT
 
 
+def test_the_check_says_how_to_have_noust_install_what_is_missing(
+    manager: Fake, log: list[str]
+) -> None:
+    # The notice named the package and had nothing to install it with.
+    manager.support_answer = StreamSupport(
+        False,
+        "missing",
+        "manual",
+        "This nginx was built without the stream module",
+        "apt install libnginx-mod-stream",
+        install="nginx_stream_module",
+    )
+
+    result = invoke(["stream", "check"])
+
+    assert result.exit_code == 0, result.output
+    assert any("noust server software install nginx_stream_module" in line for line in log)
+    manager.support_answer = SUPPORT
+
+
+def test_the_command_the_check_suggests_is_one_that_exists() -> None:
+    result = CliRunner().invoke(
+        root_cli, ["server", "software", "install", "nginx_stream_module", "--help"]
+    )
+
+    assert result.exit_code == 0, result.output
+
+
 def test_removing_asks_unless_told_not_to(manager: Fake, log: list[str]) -> None:
     declined = invoke(["stream", "remove", "minecraft"], input_text="n\n")
     assert declined.exit_code == 0

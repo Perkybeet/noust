@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1129 operations.
+1133 operations.
 
 ## Access
 
@@ -1143,6 +1143,10 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/server/security/ssh/keys` | Get Ssh Keys | `server.read` |  |  |
 | POST | `/api/server/security/ssh/keys` | Add Ssh Key | `server.host_access` | yes |  |
 | POST | `/api/server/security/ssh/keys/remove` | Remove Ssh Key | `server.host_access` | yes |  |
+| GET | `/api/server/software` | List Software | `server.read` |  |  |
+| GET | `/api/server/software/{component}/impact` | Software Impact | `server.read` |  |  |
+| POST | `/api/server/software/{component}/install` | Install Software | `server.manage` | yes |  |
+| POST | `/api/server/software/{component}/remove` | Remove Software | `server.host_access` | yes |  |
 | GET | `/api/server/storage` | Get Storage | `server.read` |  |  |
 | POST | `/api/server/storage/analyze` | Analyze Storage | `server.read` |  |  |
 | GET | `/api/server/storage/analyze/latest` | Get Last Analysis | `server.read` |  |  |
