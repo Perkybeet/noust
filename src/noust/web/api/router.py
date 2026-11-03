@@ -113,6 +113,7 @@ from noust.web.api.nodes import router as nodes_router
 from noust.web.api.notifications import router as notifications_router
 from noust.web.api.oidc import router as oidc_router
 from noust.web.api.openapi import router as openapi_router
+from noust.web.api.operations import router as operations_router
 from noust.web.api.overview import router as overview_router
 from noust.web.api.passkeys import router as passkeys_router
 from noust.web.api.previews import router as previews_router
@@ -168,6 +169,7 @@ from noust.web.api.webserver_move import router as webserver_router
 from noust.web.api.workspaces import router as workspaces_router
 from noust.web.api.zero_downtime import router as zero_downtime_router
 from noust.web.auth import require_auth
+from noust.web.operations import track_operation
 
 __all__ = ["install_error_handlers", "router"]
 
@@ -209,8 +211,15 @@ def node_proxy_router() -> APIRouter:
 # four-eyes guard, which must never open an approval for a resource the caller
 # may not know exists. The four-eyes guard too: a root-equivalent route cannot
 # forget it (noust.web.api.approvals).
+# The last one only watches: it tells the long operations that answer on their request (a list the
+# server holds, noust.web.operations), after every guard has let the request through.
 router = APIRouter(
-    dependencies=[Depends(require_auth), Depends(enforce_scope), Depends(require_approval)]
+    dependencies=[
+        Depends(require_auth),
+        Depends(enforce_scope),
+        Depends(require_approval),
+        Depends(track_operation),
+    ]
 )
 
 router.include_router(auth_router, prefix="/auth", tags=["Authentication"])
@@ -259,6 +268,7 @@ router.include_router(timeline_router, prefix="/timeline", tags=["Timeline"])
 router.include_router(app_metrics_router, prefix="/apps", tags=["Metrics"])
 # The jobs router carries its own "/jobs" prefix.
 router.include_router(jobs_router, tags=["Jobs"])
+router.include_router(operations_router, prefix="/operations", tags=["Jobs"])
 router.include_router(config_router, prefix="/config", tags=["Configuration"])
 # The console's own reach: published on a name of its own, over TLS (4.0).
 router.include_router(console_exposure_router, prefix="/console", tags=["Console"])

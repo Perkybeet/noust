@@ -623,17 +623,17 @@ def announce_app_mutation(method: str, path: str, status_code: int) -> None:
 
 def _frame_domain(frame: str) -> str | None:
     """
-    Read the domain an ``app`` frame of the hub is about.
+    Read the domain an ``app`` or ``operation`` frame of the hub is about.
 
     Args:
         frame: A rendered frame, ``event: <name>`` and ``data: <json>``.
 
     Returns:
-        The domain, or None for a frame that names none, which a team member's
-        stream does not carry.
+        The domain, or None for a frame that names none (an operation about the whole
+        server, say), which a team member's stream does not carry.
     """
     name, _, rest = frame.partition("\n")
-    if name != "event: app":
+    if name not in ("event: app", "event: operation"):
         return None
     try:
         payload = json.loads(rest.removeprefix("data: ").strip())

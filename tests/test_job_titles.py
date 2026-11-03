@@ -16,7 +16,6 @@ history as for what is running.
 from __future__ import annotations
 
 import re
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -24,47 +23,7 @@ import pytest
 from noust.core import job_titles, server_text
 from noust.core.server_text import CATALOG, ServerText
 from noust.web.jobs import Job, JobType
-
-ROOT = Path(__file__).resolve().parents[1]
-CONSOLE_CATALOGS = {
-    "English": ROOT / "panel" / "src" / "i18n" / "en" / "serverText.ts",
-    "Spanish": ROOT / "panel" / "src" / "i18n" / "es" / "serverText.ts",
-}
-
-
-def sentences_of(path: Path) -> dict[str, str]:
-    """
-    Read the sentences of a console catalog (``serverText.ts``) as ``code`` to its ``text``.
-
-    The files are an object literal of nested keys with a string under each ``text`` and ``hint``;
-    nothing else is in them, so a small reader is all a test needs and no JavaScript runs.
-    """
-    source = re.sub(r"/\*.*?\*/", "", path.read_text(encoding="utf-8"), flags=re.S)
-    tokens = re.findall(r'"(?:[^"\\]|\\.)*"|[A-Za-z_][A-Za-z0-9_]*|[{}:,]', source)
-    found: dict[str, str] = {}
-    trail: list[str] = []
-    index = tokens.index("{")  # the object that serverText is
-    key = ""
-    while index < len(tokens):
-        token = tokens[index]
-        if token == "{":
-            trail.append(key)
-        elif token == "}":
-            trail.pop()
-        elif token == ":" and tokens[index + 1] not in ("{",):
-            value = tokens[index + 1]
-            if key == "text" and value.startswith('"'):
-                found[".".join(part for part in trail[1:])] = _unquote(value)
-        elif token not in (",", ":"):
-            key = token
-        index += 1
-    return found
-
-
-def _unquote(literal: str) -> str:
-    import json
-
-    return json.loads(literal)
+from tests.support.console_catalog import CONSOLE_CATALOGS, sentences_of
 
 
 def title(job_type: str, metadata: dict[str, Any] | None = None, name: str = "") -> ServerText:

@@ -455,6 +455,9 @@ class TestEveryRouteIsHeldToTheScope:
             "GET /api/terminal/sessions",
             "DELETE /api/terminal/sessions/{session_id}",
             "GET /api/jobs/active",
+            # The long operations that are not jobs: the handler keeps to the applications the
+            # caller sees, and what is about the machine is the instance's.
+            "GET /api/operations/active",
             "GET /api/jobs/queue",
             "GET /api/logs/search",
             "POST /api/jobs/update-many",
