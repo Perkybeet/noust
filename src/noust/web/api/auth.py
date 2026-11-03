@@ -2185,8 +2185,10 @@ class ApiTokenRequest(BaseModel):
         permissions: Permissions to narrow it to instead of its scope's; all
             must be held by the issuing account.
         allowed_cidrs: Networks it is accepted from; any when omitted.
-        allow_elevated: Let it act where sudo mode is asked. Off by default,
-            refused under the ENS profile.
+        allow_elevated: Let it act where sudo mode is asked, with nobody confirming each
+            time. Off by default; only whoever governs accounts (``accounts.manage``) may
+            issue one, never where the ``restricted_tokens`` control is on, and each action
+            it takes there is audited as ``auth.token.elevated``.
         team: Bind the token to this team (and, with ``project`` and
             ``environment``, to a project or an environment of it): it sees
             that and nothing else of the server (I-34).
@@ -2402,6 +2404,8 @@ def create_api_token(
         allow_elevated=body.allow_elevated,
         created_by=actor_label(session),
         bound=bound,
+        # Never None here: a route that left the issuer out would be asking as root.
+        issuer_permissions=frozenset(session.get("permissions") or ()),
     )
 
     audit_event(
@@ -2413,6 +2417,7 @@ def create_api_token(
         detail=(
             f"issued token '{issued['name']}' with scope '{issued['scope']}'"
             + (f", bound to {bound[0]} {bound[1]}" if bound is not None else "")
+            + (", acting in sudo mode" if issued.get("allow_elevated") else "")
         ),
     )
     return ApiTokenCreated(

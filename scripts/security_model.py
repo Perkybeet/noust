@@ -233,9 +233,14 @@ GUARANTEES: tuple[Guarantee, ...] = (
         "of identity (a single-sign-on user's provider never stands in for the second factor). "
         "Where approvals are on, a root-equivalent change waits for a second person, and the "
         "approver cannot be the requester. The master token is break-glass, not the normal way "
-        "in, and is reduced to account recovery under the ENS profile.",
-        "`web/api/deps.py` (`require_elevated`), `core/accounts/approvals.py`, "
-        "`web/permissions/roles.py`.",
+        "in, and is reduced to account recovery under the ENS profile. An API token never opens "
+        "sudo mode, so one made for an account is refused wherever it is asked; the one way "
+        "round is explicit (`noust token create --elevated`, `allow_elevated` in the API), "
+        "issued only by whoever governs accounts, listed as such, refused wherever the "
+        "`restricted_tokens` control is on, and every action it takes there is audited as "
+        "`auth.token.elevated` with the token's name.",
+        "`web/api/deps.py` (`require_elevated`, `ensure_elevated`), `web/auth/tokens.py` "
+        "(`create_api_token`), `core/accounts/approvals.py`, `web/permissions/roles.py`.",
         (
             "tests/test_permission_routes.py::TestTheRoles::test_operators_restart_renew_and_deploy_but_do_not_change",
             "tests/test_permission_routes.py::TestTheRoles::test_admin_does_not_govern_security_accounts_or_the_audit_under_the_ens_matrix",
@@ -245,8 +250,14 @@ GUARANTEES: tuple[Guarantee, ...] = (
             "tests/test_web_oidc.py::TestTheWholeSignIn::test_the_provider_alone_is_never_the_whole_sign_in",
             "tests/test_approvals.py::TestExecution::test_only_the_requester_executes",
             "tests/test_approvals.py::TestDeciding::test_security_approves_and_the_requester_executes_once",
+            "tests/test_elevated_tokens.py::TestOverHttp::test_a_token_that_was_not_made_to_is_asked_for_sudo_mode",
+            "tests/test_elevated_tokens.py::TestOverHttp::test_one_that_was_acts_and_every_action_is_recorded_with_its_name",
+            "tests/test_elevated_tokens.py::TestAtTheChokepoint::test_somebody_who_does_not_may_not_issue_it_even_for_themselves",
+            "tests/test_elevated_tokens.py::TestFromTheCommandLine::test_it_is_refused_where_tokens_are_restricted",
         ),
-        "Four-eyes approval is off by default and a single-person installation cannot use it.",
+        "Four-eyes approval is off by default and a single-person installation cannot use it. "
+        "A token issued to act in sudo mode is a standing exemption: nobody confirms what it does, "
+        "so its power is its owner's role and its trail is the audit log.",
     ),
     Guarantee(
         6,

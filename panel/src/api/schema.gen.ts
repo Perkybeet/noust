@@ -32423,8 +32423,10 @@ export interface components {
          *         permissions: Permissions to narrow it to instead of its scope's; all
          *             must be held by the issuing account.
          *         allowed_cidrs: Networks it is accepted from; any when omitted.
-         *         allow_elevated: Let it act where sudo mode is asked. Off by default,
-         *             refused under the ENS profile.
+         *         allow_elevated: Let it act where sudo mode is asked, with nobody confirming each
+         *             time. Off by default; only whoever governs accounts (``accounts.manage``) may
+         *             issue one, never where the ``restricted_tokens`` control is on, and each action
+         *             it takes there is audited as ``auth.token.elevated``.
          *         team: Bind the token to this team (and, with ``project`` and
          *             ``environment``, to a project or an environment of it): it sees
          *             that and nothing else of the server (I-34).
