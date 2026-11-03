@@ -2596,6 +2596,39 @@ CronRunsResponse = TypedDict("CronRunsResponse", {
     "total": Required[int],
 })
 
+DashboardBody = TypedDict("DashboardBody", {
+    "layout": Required[dict[str, Any]],
+    "name": Required[str],
+    "scope": Required[str],
+})
+
+DashboardLimits = TypedDict("DashboardLimits", {
+    "columns": NotRequired[int],
+    "dashboards": NotRequired[int],
+    "document_bytes": NotRequired[int],
+    "settings_bytes": NotRequired[int],
+    "widgets": NotRequired[int],
+})
+
+DashboardOrder = TypedDict("DashboardOrder", {
+    "order": Required[list[str]],
+})
+
+DashboardOut = TypedDict("DashboardOut", {
+    "created_at": Required[float],
+    "id": Required[str],
+    "layout": Required[dict[str, Any]],
+    "name": Required[str],
+    "position": Required[int],
+    "scope": Required[str],
+    "updated_at": Required[float],
+})
+
+DashboardsResponse = TypedDict("DashboardsResponse", {
+    "dashboards": Required[list["DashboardOut"]],
+    "limits": NotRequired["DashboardLimits"],
+})
+
 DatabaseInfoResponse = TypedDict("DatabaseInfoResponse", {
     "actions": NotRequired[list[str]],
     "app": NotRequired[Union[str, None]],
@@ -4983,6 +5016,7 @@ JobResponse = TypedDict("JobResponse", {
     "started_at": NotRequired[Union[str, None]],
     "state": NotRequired[str],
     "status": Required[str],
+    "title": NotRequired[Union["CodedText", None]],
     "total_steps": Required[int],
     "type": Required[str],
     "waiting_for": NotRequired[Union[str, None]],
@@ -6027,6 +6061,19 @@ ObservationListResponse = TypedDict("ObservationListResponse", {
     "count": Required[int],
     "observations": Required[list["ObservationEntry"]],
     "stats": NotRequired[Union[dict[str, int], None]],
+})
+
+OperationOut = TypedDict("OperationOut", {
+    "actor": NotRequired[Union[str, None]],
+    "domain": NotRequired[Union[str, None]],
+    "id": Required[str],
+    "started_at": Required[str],
+    "target": NotRequired[Union[str, None]],
+    "title": Required["CodedText"],
+})
+
+OperationsResponse = TypedDict("OperationsResponse", {
+    "operations": Required[list["OperationOut"]],
 })
 
 OsOut = TypedDict("OsOut", {

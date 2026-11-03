@@ -1678,3 +1678,142 @@ class TestALogoThatIsServedFromTheConsolesOwnOrigin:
                 kinds.append(result[offset + 4 : offset + 8])
                 offset += 12 + length
             assert set(kinds) <= {b"IHDR", b"PLTE", b"tRNS", b"sRGB", b"IDAT", b"IEND"}
+
+
+# ---------------------------------------------------------------------------
+# The panels of the console's Home
+# ---------------------------------------------------------------------------
+
+#: Any JSON-shaped value, as a hostile client could send as a layout.
+ANY_JSON = st.recursive(
+    st.none() | st.booleans() | st.integers() | st.floats() | st.text(max_size=20),
+    lambda inner: st.lists(inner, max_size=4)
+    | st.dictionaries(st.text(max_size=10), inner, max_size=4),
+    max_leaves=40,
+)
+
+
+def one_widget(**changes: Any) -> dict[str, Any]:
+    widget: dict[str, Any] = {
+        "id": "a",
+        "type": "a",
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1,
+        "settings": {},
+    }
+    return {"version": 1, "widgets": [{**widget, **changes}]}
+
+
+class TestThePanelsOfTheHome:
+    """A person writes the document a panel is kept as; the server keeps it for the console to draw."""
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_the_id_of_a_panel_is_a_short_slug_and_never_the_name_of_a_route(
+        self, value: str
+    ) -> None:
+        from noust.validators import dashboards
+
+        accepted, result = verdict(dashboards.check_dashboard_id, value)
+
+        # It is a segment of a path and a primary key.
+        if accepted:
+            assert result == value and result != "order"
+            assert re.fullmatch(r"[a-z0-9][a-z0-9-]{0,39}", result), result
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_the_name_of_a_panel_is_one_line_of_text(self, value: str) -> None:
+        from noust.validators import dashboards
+
+        accepted, result = verdict(dashboards.check_dashboard_name, value)
+
+        if accepted:
+            assert result == value.strip() and 1 <= len(result) <= 60
+            assert not CONTROL.search(result)
+            assert not re.search("[\u202a-\u202e\u2066-\u2069]", result)
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_a_panel_follows_the_server_or_the_fleet_and_nothing_else(self, value: str) -> None:
+        from noust.validators import dashboards
+
+        accepted, result = verdict(dashboards.check_dashboard_scope, value)
+
+        if accepted:
+            assert result in ("server", "fleet")
+
+    @SETTINGS
+    @given(value=ANY_JSON)
+    def test_whatever_shape_a_layout_has_it_is_judged_without_failing(self, value: Any) -> None:
+        import json
+
+        from noust.validators import dashboards
+
+        accepted, result = verdict(dashboards.check_layout, value)
+
+        # What is accepted is exactly the closed document, small enough to keep and to send back.
+        if accepted:
+            assert set(result) == {"version", "widgets"} and result["version"] == 1
+            assert len(result["widgets"]) <= dashboards.MAX_WIDGETS
+            assert len(dashboards.layout_text(result).encode()) <= dashboards.MAX_DOCUMENT_BYTES
+            assert json.loads(dashboards.layout_text(result)) == result
+
+    @SETTINGS
+    @given(
+        ident=HOSTILE,
+        kind=HOSTILE,
+        key=HOSTILE,
+        setting=st.one_of(HOSTILE, st.integers(), st.floats(), st.booleans()),
+        x=st.integers(min_value=-5, max_value=20),
+        w=st.integers(min_value=-5, max_value=20),
+    )
+    def test_a_widget_that_is_accepted_is_inert_where_it_is_kept_and_on_the_grid(
+        self, ident: str, kind: str, key: str, setting: Any, x: int, w: int
+    ) -> None:
+        from noust.validators import dashboards
+
+        document = one_widget(id=ident, type=kind, x=x, w=w, settings={key: setting})
+        accepted, result = verdict(dashboards.check_layout, document)
+
+        if accepted:
+            (widget,) = result["widgets"]
+            assert re.fullmatch(r"[a-z0-9][a-z0-9-]{0,39}", widget["id"])
+            assert re.fullmatch(r"[a-z][a-z0-9-]{0,40}", widget["type"])
+            assert 0 <= widget["x"] and 1 <= widget["w"] and widget["x"] + widget["w"] <= 12
+            for name, value in widget["settings"].items():
+                assert re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,39}", name)
+                assert isinstance(value, (str, int, float, bool))
+                if isinstance(value, str):
+                    assert not CONTROL.search(value) and len(value) <= 200
+
+    @pytest.mark.parametrize("payload", [p for p in PAYLOADS if p])
+    def test_a_payload_where_a_slug_goes_is_refused(self, payload: str) -> None:
+        from noust.validators import dashboards
+
+        for check in (dashboards.check_dashboard_id, dashboards.check_dashboard_scope):
+            with pytest.raises(NoustError):
+                check(payload)
+        for field in ("id", "type"):
+            with pytest.raises(NoustError):
+                dashboards.check_layout(one_widget(**{field: payload}))
+        with pytest.raises(NoustError):
+            dashboards.check_layout(one_widget(settings={payload: 1}))
+
+    @pytest.mark.parametrize("payload", [p for p in PAYLOADS if p])
+    def test_a_payload_as_the_value_of_a_setting_is_refused_unless_it_is_plain_text(
+        self, payload: str
+    ) -> None:
+        from noust.validators import dashboards
+
+        accepted, _ = verdict(dashboards.check_layout, one_widget(settings={"a": payload}))
+
+        # Text that reorders what is drawn around it, or ends a line, or is long, is not a setting.
+        plain = (
+            not CONTROL.search(payload)
+            and not re.search("[\u202a-\u202e\u2066-\u2069\ufeff]", payload)
+            and len(payload) <= 200
+        )
+        assert accepted == plain

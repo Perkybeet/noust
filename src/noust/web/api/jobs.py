@@ -38,6 +38,7 @@ from noust.core.exceptions import (
     NoustError,
     ValidationError,
 )
+from noust.core.job_titles import title_for
 from noust.core.store import JobRecord
 from noust.core.teams import scoped_store
 from noust.deployers.lifecycle import (
@@ -47,7 +48,7 @@ from noust.deployers.lifecycle import (
 )
 from noust.validators.names import validate_filename
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
+from noust.web.api.deps import CodedText, NoustErrorRoute, require_elevated, strict_domain
 from noust.web.auth import actor_label
 from noust.web.jobs import (
     Job,
@@ -161,6 +162,11 @@ class JobResponse(BaseModel):
     error: str | None = None
     logs: list[dict[str, Any]] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
+    title: CodedText | None = Field(
+        default=None,
+        description="What the job is, as a sentence of the server's catalog (code and values) "
+        "for the console to say in its language; name is the same in English",
+    )
     actor: str | None = None
     deployment_id: int | None = None
     state: str = Field(
@@ -311,6 +317,8 @@ def _from_record(record: JobRecord) -> JobResponse:
         if isinstance(parsed, dict):
             result = parsed
 
+    # The store keeps the application of a job and nothing else of its subject.
+    subject = {"domain": record.domain} if record.domain else {}
     response = JobResponse(
         id=record.id,
         type=record.type,
@@ -328,7 +336,8 @@ def _from_record(record: JobRecord) -> JobResponse:
         deployment_id=_deployment_id_of(result),
         error=record.error,
         logs=[],
-        metadata={"domain": record.domain} if record.domain else {},
+        metadata=subject,
+        title=CodedText(**title_for(record.type, subject, record.name).to_dict()),
         actor=record.actor,
     )
     # What the queue says about a job is in this process's memory, not in the

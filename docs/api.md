@@ -408,6 +408,36 @@ with its **values**:
   `state` `cancelled` for a job that waited and `cancelling` for one that was building; from
   the moment its release is being activated it is `409 cancel_refused`, as it is for a job
   that ended or that cannot be interrupted (a restore, an in-place build).
+- **Every job says what it is.** Beside its English `name`, a job carries `title`: `{code, params}`, a
+  sentence of the server's catalog ([Sentences with a code](#sentences-with-a-code)) such as
+  `jobs.title.deploy` with `{"domain": "shop.example.com"}`. Every type of job has one, and a job
+  that does not know its subject says its type's sentence without it (`jobs.title.deploy_any`). It is
+  derived from the job's type and subject, so jobs in the history have it too, and it is in the `job`
+  event. `name` is unchanged.
+- **Long operations that are not jobs.** Starting, stopping and restarting an application, a service
+  or a database engine, running a cron entry, verifying a backup, installing or scanning with the
+  monitor, checking a probe, testing a node, installing the web application firewall, importing a
+  Compose project, syncing or moving an application's environment, clearing its build cache, applying
+  its build or a declaration, rebooting or shutting the server down, reloading the sites, applying
+  the fleet's settings and turning on or rotating backup encryption keep answering `200` when they
+  are done; none changes its response code. While one runs it is announced as the `operation` event
+  and listed by `GET /api/operations/active` (`{operations: [{id, title, target, domain, actor,
+  started_at}]}`, permission `apps.read`). The list is closed. A principal that does not see every
+  team gets the operations on its own applications only; one about the whole server (a reboot, a
+  service) is the instance's. A central lists what its servers run with `GET /api/fleet/jobs/active`:
+  one row per server with its `jobs` and `operations` and a `status` (`ok`; `unsupported` for a
+  server that has not been updated to offer the route and answers 404; `unreachable`), never failing
+  as a whole.
+- **Home panels.** Each account keeps its own panels of the console's Home under `/api/auth/dashboards`:
+  `GET` lists them with the limits (`{dashboards, limits}`), `PUT /api/auth/dashboards/{id}` creates
+  or replaces one (`{name, scope, layout}`; `scope` is `server` or `fleet`), `DELETE` removes one and
+  `POST /api/auth/dashboards/order` takes `{order: [ids]}`, every id once. `layout` is the closed
+  document `{version: 1, widgets: [{id, type, x, y, w, h, settings}]}` on a grid of 12 columns: at
+  most 40 widgets, 20 panels per account, 32 KB per document and 2 KB of scalar settings per
+  widget; a key it does not have is a `400` naming the field (`layout.widgets[2].w`). They are under
+  `/api/auth`, so a central never forwards them to a node and a fleet token never reaches them: a
+  panel is the operator's, one set across the whole fleet. The master token has no account and is
+  answered `400`.
 - **The deploy queue.** A push or a request that arrives while an application builds waits
   its turn (`409 app_busy` is for an operation of another kind): `GET /api/jobs/queue` lists
   what runs and what waits, with the limits, and every job carries `state` (`queued`,
@@ -475,7 +505,8 @@ stream ends, and the reconnection answers `401`.
 |---|---|---|
 | `machine` | Every 5 seconds | `{hostname, uptime_s, load: [1m, 5m, 15m], load_history, cpu_percent, memory: {used, total, percent}, disk: {used, total, percent}, units: {running, failed, stopped, scheduled}, apps: {running, failed, stopped, static}}`. `scheduled` counts the services a timer starts (a backup, a cron job) between two runs: waiting, not stopped. Same object as `GET /api/system/machine`. |
 | `metrics` | Every 2 seconds | A flat map of the latest samples: `cpu.percent`, `mem.used_bytes`, `mem.total_bytes`, `swap.used_bytes`, `disk.used_bytes`, `disk.total_bytes`, `net.rx_bytes_s`, `net.tx_bytes_s`, `load.1m`, and per application `app.<domain>.cpu.percent`, `app.<domain>.mem.bytes`. |
-| `job` | On every job transition and log line | The job as `GET /api/jobs/{id}` returns it, with `logs` trimmed to the newest entry, plus `domain`, `message`, `level` and `finished`. |
+| `job` | On every job transition and log line | The job as `GET /api/jobs/{id}` returns it (with its `title`), with `logs` trimmed to the newest entry, plus `domain`, `message`, `level` and `finished`. |
+| `operation` | When a long operation that is not a job starts and when it ends | `{id, phase, title, target, domain, actor, at}` with `phase` `start` or `end`, and `result` (`ok` or `failed`) at the end. `title` is a sentence with a code; `domain` is the application it concerns, if any. A principal that does not see every team receives only those with a `domain` it sees. |
 | `state` | With every `job` event | `{id, state}` for the job, and again for its domain when it has one. `state` is `busy`, `active`, `failed` or `idle`. |
 | `notice` | When a job completes, fails or is cancelled | `{text, state}`: a one-line message for a toast. |
 | `app` | When an application changes (a job on it ends, an action on it succeeds) | The application as `GET /api/apps/{domain}` returns it; `{domain, status: "deploying"}` while a deploy, update or restore runs; `{domain, deleted: true}` when it is gone. |
@@ -1148,6 +1179,7 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/jobs/cert` | POST `apps.manage` |  |
 | `/api/jobs/cleanup` | DELETE `audit.manage` | Forget finished jobs in memory; the history stays |
 | `/api/jobs/queue` | GET `apps.read` | What runs, what waits and the limits: `{running, queued, builds_running, max_concurrent_builds, queue_limit, builds_queued}` |
+| `/api/operations/active` | GET `apps.read` | The long operations that answer on their request and are not jobs, while they run: `{operations}`. A team member's holds only those on its own applications |
 | `/api/jobs/delete` | POST `apps.manage`, sudo | `{domain, remove_files, remove_ssl, remove_adopted_directory}` |
 | `/api/jobs/rollback` | POST `apps.deploy` | `{domain, backup_id, schema_changed_ok}`: restore a backup. `409 schema_changed` unless confirmed |
 | `/api/jobs/update` | POST `apps.deploy` | `{domain, force}` |
@@ -1399,6 +1431,7 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/fleet/activity` | GET `fleet.read` | Deprecated: use `/api/views/activity` |
 | `/api/fleet/apps` | GET `fleet.read` | Deprecated: use `/api/views/apps` |
 | `/api/fleet/backups` | GET `fleet.read` | Deprecated: use `/api/views/backups` |
+| `/api/fleet/jobs/active` | GET `fleet.read` | What every server runs now: one row per server with its `jobs` and `operations`, and its `status` (`ok`, `unsupported` for a server not yet updated, `unreachable`) |
 | `/api/fleet/certificates` | GET `fleet.read` | Deprecated: use `/api/views/certificates` |
 | `/api/fleet/cloud/accounts` | GET `fleet.manage`; POST `fleet.manage`, sudo, four-eyes | The provider accounts (Hetzner, DigitalOcean, Vultr) this central creates servers with; adding one checks its token with the provider and keeps it as a secret. The token is left out of the approval's fingerprint and of every response (only its last four characters are shown) |
 | `/api/fleet/cloud/accounts/{name}` | DELETE `fleet.manage`, sudo | Remove an account and its token (`force` when servers made with it are still on record) |
@@ -1493,6 +1526,9 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/auth/2fa/disable` | POST `self`, sudo |  |
 | `/api/auth/2fa/enroll` | POST `self` |  |
 | `/api/auth/accounts` | GET `accounts.read`; POST `accounts.manage`, sudo, four-eyes |  |
+| `/api/auth/dashboards` | GET `self` | The caller's panels of Home, in order, with the limits |
+| `/api/auth/dashboards/order` | POST `self` | `{order}`: every panel's id once, in the order wanted |
+| `/api/auth/dashboards/{dashboard_id}` | PUT `self`; DELETE `self` | Create or replace a panel (`{name, scope, layout}`); delete it |
 | `/api/auth/accounts/{username}` | GET `accounts.read`; PATCH `accounts.manage`, sudo, four-eyes; DELETE `accounts.manage`, sudo |  |
 | `/api/auth/accounts/{username}/disable` | POST `accounts.manage`, sudo |  |
 | `/api/auth/accounts/{username}/enable` | POST `accounts.manage`, sudo |  |

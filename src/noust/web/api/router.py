@@ -67,6 +67,7 @@ from noust.web.api.compose import router as compose_router
 from noust.web.api.config import router as config_router
 from noust.web.api.console_exposure import router as console_exposure_router
 from noust.web.api.cron import router as cron_router
+from noust.web.api.dashboards import router as dashboards_router
 from noust.web.api.databases import apps_router as databases_apps_router
 from noust.web.api.databases import router as databases_router
 from noust.web.api.deploy_freezes import router as deploy_freezes_router
@@ -112,6 +113,7 @@ from noust.web.api.nodes import router as nodes_router
 from noust.web.api.notifications import router as notifications_router
 from noust.web.api.oidc import router as oidc_router
 from noust.web.api.openapi import router as openapi_router
+from noust.web.api.operations import router as operations_router
 from noust.web.api.overview import router as overview_router
 from noust.web.api.passkeys import router as passkeys_router
 from noust.web.api.previews import router as previews_router
@@ -167,6 +169,7 @@ from noust.web.api.webserver_move import router as webserver_router
 from noust.web.api.workspaces import router as workspaces_router
 from noust.web.api.zero_downtime import router as zero_downtime_router
 from noust.web.auth import require_auth
+from noust.web.operations import track_operation
 
 __all__ = ["install_error_handlers", "router"]
 
@@ -208,8 +211,15 @@ def node_proxy_router() -> APIRouter:
 # four-eyes guard, which must never open an approval for a resource the caller
 # may not know exists. The four-eyes guard too: a root-equivalent route cannot
 # forget it (noust.web.api.approvals).
+# The last one only watches: it tells the long operations that answer on their request (a list the
+# server holds, noust.web.operations), after every guard has let the request through.
 router = APIRouter(
-    dependencies=[Depends(require_auth), Depends(enforce_scope), Depends(require_approval)]
+    dependencies=[
+        Depends(require_auth),
+        Depends(enforce_scope),
+        Depends(require_approval),
+        Depends(track_operation),
+    ]
 )
 
 router.include_router(auth_router, prefix="/auth", tags=["Authentication"])
@@ -258,6 +268,7 @@ router.include_router(timeline_router, prefix="/timeline", tags=["Timeline"])
 router.include_router(app_metrics_router, prefix="/apps", tags=["Metrics"])
 # The jobs router carries its own "/jobs" prefix.
 router.include_router(jobs_router, tags=["Jobs"])
+router.include_router(operations_router, prefix="/operations", tags=["Jobs"])
 router.include_router(config_router, prefix="/config", tags=["Configuration"])
 # The console's own reach: published on a name of its own, over TLS (4.0).
 router.include_router(console_exposure_router, prefix="/console", tags=["Console"])
@@ -431,6 +442,8 @@ router.include_router(central_router, prefix="/central", tags=["Central"])
 router.include_router(fleet_self_router, prefix="/auth/fleet", tags=["Fleet"])
 # Under /auth like the rest of one's own credentials, so no fleet token reaches it.
 router.include_router(passkeys_router, prefix="/auth/passkeys", tags=["Passkeys"])
+# The panels of Home are the operator's own, one set across the fleet: under /auth for the same reason.
+router.include_router(dashboards_router, prefix="/auth/dashboards", tags=["Dashboards"])
 # Single sign-in through an identity provider (4.0): the same place, for the same reason.
 router.include_router(oidc_router, prefix="/auth/oidc", tags=["Single sign-on"])
 router.include_router(ldap_router, prefix="/auth/ldap", tags=["Single sign-on"])

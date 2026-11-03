@@ -455,6 +455,9 @@ class TestEveryRouteIsHeldToTheScope:
             "GET /api/terminal/sessions",
             "DELETE /api/terminal/sessions/{session_id}",
             "GET /api/jobs/active",
+            # The long operations that are not jobs: the handler keeps to the applications the
+            # caller sees, and what is about the machine is the instance's.
+            "GET /api/operations/active",
             "GET /api/jobs/queue",
             "GET /api/logs/search",
             "POST /api/jobs/update-many",
@@ -852,6 +855,10 @@ NOT_OWNED: dict[str, str] = {
     "fleet_node_settings": "whether a central pushes the fleet's settings to a server or leaves it "
     "independent, and whether it should look at it again: the central's own, reached only through "
     "/api/fleet/settings, which is the instance's",
+    "account_dashboards": "the panels of the console's Home that a person keeps: the account's own, "
+    "reached only through /api/auth/dashboards, which is open to every account and answers about "
+    "the caller alone. It names no application or database: a widget's data is read through the "
+    "routes of what it shows, each held to the caller's teams",
 }
 
 #: Prefixes whose routes belong to what the tables above hold. None of them may be "open": a route

@@ -15354,6 +15354,145 @@
         "title": "CronRunsResponse",
         "type": "object"
       },
+      "DashboardBody": {
+        "description": "What a panel is saved as.\n\nAttributes:\n    name: What it is called, 1 to 60 characters.\n    scope: ``server`` or ``fleet``.\n    layout: The document, version 1. Judged in full by the server; see\n        :mod:`noust.validators.dashboards`.",
+        "properties": {
+          "layout": {
+            "additionalProperties": true,
+            "title": "Layout",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "scope",
+          "layout"
+        ],
+        "title": "DashboardBody",
+        "type": "object"
+      },
+      "DashboardLimits": {
+        "description": "What a panel and an account may hold, so a client need not hard-code it.\n\nAttributes:\n    dashboards: Panels an account keeps.\n    widgets: Widgets in one panel.\n    columns: Columns of the grid a widget is placed on.\n    document_bytes: Bytes of a panel's layout, as it is stored.\n    settings_bytes: Bytes of one widget's settings.",
+        "properties": {
+          "columns": {
+            "default": 12,
+            "title": "Columns",
+            "type": "integer"
+          },
+          "dashboards": {
+            "default": 20,
+            "title": "Dashboards",
+            "type": "integer"
+          },
+          "document_bytes": {
+            "default": 32768,
+            "title": "Document Bytes",
+            "type": "integer"
+          },
+          "settings_bytes": {
+            "default": 2048,
+            "title": "Settings Bytes",
+            "type": "integer"
+          },
+          "widgets": {
+            "default": 40,
+            "title": "Widgets",
+            "type": "integer"
+          }
+        },
+        "title": "DashboardLimits",
+        "type": "object"
+      },
+      "DashboardOrder": {
+        "description": "The order the panels are kept in.\n\nAttributes:\n    order: The id of every panel the account has, each once.",
+        "properties": {
+          "order": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Order",
+            "type": "array"
+          }
+        },
+        "required": [
+          "order"
+        ],
+        "title": "DashboardOrder",
+        "type": "object"
+      },
+      "DashboardOut": {
+        "description": "One panel.\n\nAttributes:\n    id: The id the person gave it.\n    name: What it is called.\n    scope: ``server`` (follows the server in the selector) or ``fleet``.\n    position: Its place among the account's panels, from 0.\n    layout: The document: ``{version: 1, widgets: [{id, type, x, y, w, h, settings}]}``.\n    created_at: When it was first saved, UNIX seconds.\n    updated_at: When it was last saved, UNIX seconds.",
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "layout": {
+            "additionalProperties": true,
+            "title": "Layout",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "scope",
+          "position",
+          "layout",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "DashboardOut",
+        "type": "object"
+      },
+      "DashboardsResponse": {
+        "description": "The panels of the account asking.\n\nAttributes:\n    dashboards: In the order the account keeps them; empty when it never saved one (the\n        console then draws its own defaults).\n    limits: What a panel and an account may hold.",
+        "properties": {
+          "dashboards": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardOut"
+            },
+            "title": "Dashboards",
+            "type": "array"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/DashboardLimits"
+          }
+        },
+        "required": [
+          "dashboards"
+        ],
+        "title": "DashboardsResponse",
+        "type": "object"
+      },
       "DatabaseInfoResponse": {
         "description": "One database, as the engine and the store together describe it.\n\nAttributes:\n    owner: The owning role or account. Null for engines with no such\n        concept: MySQL/MariaDB and Redis have none, and MongoDB grants\n        roles to users rather than owning a database with one.\n    tables: Tables or collections; null when the listing does not count\n        them.\n    keys: Keys in a Redis slot.\n    tracked: Recorded by Noust: backed up with its application, linkable.\n    missing: Recorded by Noust but gone from the engine.\n    unverified: Recorded by Noust, on an engine that could not be read.\n    app: The application it belongs to, whose backups include it.\n    apps: Every application linked to it.\n    detected_apps: Applications whose environment names it, without a\n        recorded link.\n    username: The account Noust provisioned for it.\n    engine_version: The engine's version.\n    last_backup: When its newest dump was taken.\n    team: The slug of the team it belongs to; None for one an engine holds\n        that Noust never recorded, which belongs to nobody.\n    project: The slug of its project.\n    environment: The slug of its environment.\n    tags: Its tags, sorted.\n    noust_state: What Noust knows of it, apart from where it runs: ``added`` (Noust manages\n        it), ``not_added`` (the engine holds it and Noust does not manage it), ``missing`` or\n        ``unverified`` (see ``missing`` and ``unverified``). ``engine`` is the key of the\n        server it runs on (``GET /api/databases/servers``).\n    actions: What can be done to it now: ``add_to_noust`` for one that is ``not_added``\n        (``POST .../databases/{engine}/{name}/adopt``).",
         "properties": {
@@ -29068,6 +29207,17 @@
             "title": "Status",
             "type": "string"
           },
+          "title": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the job is, as a sentence of the server's catalog (code and values) for the console to say in its language; name is the same in English"
+          },
           "total_steps": {
             "title": "Total Steps",
             "type": "integer"
@@ -34849,6 +34999,79 @@
           "count"
         ],
         "title": "ObservationListResponse",
+        "type": "object"
+      },
+      "OperationOut": {
+        "description": "One operation that is running.\n\nAttributes:\n    id: Names its start and its end in the ``operation`` event.\n    title: What it is, as a sentence of the server's catalog (code and values).\n    target: Its subject (an application, a service, a node), or null for the whole server.\n    domain: The application it concerns, when its subject is one.\n    actor: Who asked, as the audit trail names them.\n    started_at: When it started, ISO 8601 in UTC.",
+        "properties": {
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "started_at": {
+            "title": "Started At",
+            "type": "string"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          },
+          "title": {
+            "$ref": "#/components/schemas/CodedText"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "started_at"
+        ],
+        "title": "OperationOut",
+        "type": "object"
+      },
+      "OperationsResponse": {
+        "description": "The operations running now.\n\nAttributes:\n    operations: Oldest first. A team member's holds only what concerns its own applications.",
+        "properties": {
+          "operations": {
+            "items": {
+              "$ref": "#/components/schemas/OperationOut"
+            },
+            "title": "Operations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "operations"
+        ],
+        "title": "OperationsResponse",
         "type": "object"
       },
       "OsOut": {
@@ -82717,6 +82940,168 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/auth/dashboards": {
+      "get": {
+        "description": "List the panels of the account asking.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Its panels in order, and the limits.\n\nRaises:\n    ValidationError: 400 when the principal is not an account.",
+        "operationId": "list_dashboards_api_auth_dashboards_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Dashboards",
+        "tags": [
+          "Dashboards"
+        ],
+        "x-noust-permission": "self"
+      }
+    },
+    "/api/auth/dashboards/order": {
+      "post": {
+        "description": "Put the account's panels in the order given.\n\nArgs:\n    body: The id of every panel, each once.\n    session: The authenticated session.\n\nReturns:\n    The panels in their new order.\n\nRaises:\n    ValidationError: 400 when the principal is not an account, or the list does not name\n        every panel of the account exactly once.",
+        "operationId": "order_dashboards_api_auth_dashboards_order_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DashboardOrder"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Order Dashboards",
+        "tags": [
+          "Dashboards"
+        ],
+        "x-noust-permission": "self"
+      }
+    },
+    "/api/auth/dashboards/{dashboard_id}": {
+      "delete": {
+        "description": "Delete one of the account's panels.\n\nArgs:\n    dashboard_id: The panel's id.\n    session: The authenticated session.\n\nReturns:\n    The panels that are left.\n\nRaises:\n    ValidationError: 400 when the principal is not an account.\n    ResourceNotFoundError: 404 when the account has no panel by that id, whoever has one.",
+        "operationId": "delete_dashboard_api_auth_dashboards__dashboard_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "dashboard_id",
+            "required": true,
+            "schema": {
+              "title": "Dashboard Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Dashboard",
+        "tags": [
+          "Dashboards"
+        ],
+        "x-noust-permission": "self"
+      },
+      "put": {
+        "description": "Create a panel, or replace the one the account has under that id.\n\nA new panel goes last; one that exists keeps its place.\n\nArgs:\n    dashboard_id: The panel's id, the person's own.\n    body: Its name, scope and layout.\n    session: The authenticated session.\n\nReturns:\n    The panel as it is now.\n\nRaises:\n    ValidationError: 400 when the principal is not an account, anything in the body is not\n        valid (the error's ``fields`` names it), or the account keeps 20 panels already and\n        this one is new.",
+        "operationId": "save_dashboard_api_auth_dashboards__dashboard_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "dashboard_id",
+            "required": true,
+            "schema": {
+              "title": "Dashboard Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DashboardBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Dashboard",
+        "tags": [
+          "Dashboards"
+        ],
+        "x-noust-permission": "self"
+      }
+    },
     "/api/auth/elevate": {
       "post": {
         "description": "Confirm the caller's identity again, opening sudo mode.\n\nD5: deleting an application, a database, a service or a site, writing raw\nconfiguration or a unit file, running a write against a database console,\nrevealing a ``.env`` in clear, issuing an API token and turning\ntwo-factor authentication off all require a cookie session to have\ncalled this recently; see :func:`noust.web.api.deps.require_elevated`.\n\nThe window stays open while it is used: it ends ``auth.sudo.idle_minutes``\nafter the last elevated action, and never later than\n``auth.sudo.max_minutes`` after this confirmation\n(:meth:`noust.web.auth.TokenManager.extend_elevation`).\n\nA session already proved the account's password and second factor when it\nsigned in, so an account confirms with one factor: a code from its\nauthenticator or a backup code here, or a passkey at\n``/api/auth/passkeys/elevate``. The password is asked as well only when\nthe policy says so (``auth.sudo.require_password``, always under the ENS\nprofile). An account without a second factor cannot enter sudo mode. The\nmaster token confirms as it signs in: the console's two-factor code when\nthat is enabled, the master token otherwise. A wrong factor is counted by\nthe same lockout a login failure is, through the same chokepoint.\n\nArgs:\n    request: The incoming request.\n    body: The factors.\n    session: The authenticated session being elevated.\n\nReturns:\n    The new elevation deadline.\n\nRaises:\n    HTTPException: 401 with ``error`` ``invalid_totp`` (an account's\n        wrong code), ``totp_required`` (an account's missing one) or\n        ``invalid_credentials`` (an account that must give its password\n        too, whatever was wrong) for an account; ``totp_required``,\n        ``invalid_totp`` or ``invalid_token`` for the master token, when\n        the factors do not verify; 403 ``notice_required`` before the\n        usage notice is accepted.",
@@ -101283,6 +101668,74 @@
         "x-noust-permission": "fleet.read"
       }
     },
+    "/api/fleet/jobs/active": {
+      "get": {
+        "description": "What every server is running now: its jobs and the long operations that are not jobs.\n\nAsks each node's ``/api/jobs/active`` and ``/api/operations/active`` through its tunnel, all\nat once and each with its own time limit. A row says how the server answered: ``ok``;\n``unsupported``, for a node that has not been updated to offer the route (it answers 404 and\nwill count its tasks when it is); or ``unreachable``. A server that is down or old never\nfails the view, and this central's own row is there when its role is ``server``. Declared\nbefore ``/jobs/{job_id}``, which would take ``active`` for a job.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n\nReturns:\n    One row per server, with its ``jobs`` and its ``operations``.",
+        "operationId": "fleet_jobs_active_api_fleet_jobs_active_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fleet Jobs Active",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.read"
+      }
+    },
     "/api/fleet/jobs/{job_id}": {
       "get": {
         "description": "Describe one fleet job, with every server's state and words.\n\nArgs:\n    job_id: The job.\n    session: The authenticated session.\n\nReturns:\n    The job: ``status`` (``running``, ``succeeded``, ``failed``,\n    ``aborted``, ``interrupted``), ``summary`` and ``nodes``.\n\nRaises:\n    HTTPException: 404 for an unknown job.",
@@ -107301,6 +107754,29 @@
           "OpenAPI"
         ],
         "x-noust-permission": "self"
+      }
+    },
+    "/api/operations/active": {
+      "get": {
+        "description": "List the long operations that are running now.\n\nReturns:\n    What runs, oldest first. For a principal that does not see every team, only the\n    operations on an application it sees: what is about the machine is the instance's.",
+        "operationId": "active_operations_now_api_operations_active_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Active Operations Now",
+        "tags": [
+          "Jobs"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/overview": {

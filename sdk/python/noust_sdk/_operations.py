@@ -424,6 +424,10 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("dns", "verify_provider"): ("POST", "/api/dns/providers/{name}/verify", "server.manage", False),
     ("dns", "list_records"): ("GET", "/api/dns/records", "apps.read", False),
     ("dns", "sweep_records"): ("POST", "/api/dns/sweep", "server.manage", False),
+    ("dashboards", "list_dashboards"): ("GET", "/api/auth/dashboards", "self", False),
+    ("dashboards", "order_dashboards"): ("POST", "/api/auth/dashboards/order", "self", False),
+    ("dashboards", "save_dashboard"): ("PUT", "/api/auth/dashboards/{dashboard_id}", "self", False),
+    ("dashboards", "delete_dashboard"): ("DELETE", "/api/auth/dashboards/{dashboard_id}", "self", False),
     ("databases", "list_app_databases"): ("GET", "/api/apps/{domain}/databases", "databases.read", False),
     ("databases", "provision_app_database"): ("POST", "/api/apps/{domain}/databases", "databases.write", False),
     ("databases", "link_app_database"): ("POST", "/api/apps/{domain}/databases/link", "databases.write", False),
@@ -661,6 +665,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("fleet", "enroll_server"): ("POST", "/api/fleet/enroll", "fleet.manage", True),
     ("fleet", "scan_host_key"): ("POST", "/api/fleet/enroll/host-key", "fleet.manage", False),
     ("fleet", "list_jobs"): ("GET", "/api/fleet/jobs", "fleet.read", False),
+    ("fleet", "fleet_jobs_active"): ("GET", "/api/fleet/jobs/active", "fleet.read", False),
     ("fleet", "get_fleet_job"): ("GET", "/api/fleet/jobs/{job_id}", "fleet.read", False),
     ("fleet", "retry_job"): ("POST", "/api/fleet/jobs/{job_id}/retry", "fleet.manage", False),
     ("fleet", "link_status"): ("GET", "/api/fleet/link", "fleet.manage", False),
@@ -743,6 +748,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("jobs", "get_job"): ("GET", "/api/jobs/{job_id}", "apps.read", False),
     ("jobs", "cancel_job"): ("POST", "/api/jobs/{job_id}/cancel", "apps.operate", False),
     ("jobs", "get_job_log"): ("GET", "/api/jobs/{job_id}/log", "apps.read", False),
+    ("jobs", "active_operations_now"): ("GET", "/api/operations/active", "apps.read", False),
     ("log_drains", "list_drains"): ("GET", "/api/log-drains", "settings.read", False),
     ("log_drains", "save_drain"): ("PUT", "/api/log-drains/{name}", "settings.manage", True),
     ("log_drains", "delete_drain"): ("DELETE", "/api/log-drains/{name}", "settings.manage", True),
@@ -4435,6 +4441,46 @@ class DNS:
 
 
 
+class Dashboards:
+    """Dashboards: 4 operations."""
+
+    def __init__(self, call: Call) -> None:
+        self._call = call
+
+    def list_dashboards(self) -> "DashboardsResponse":
+        """GET /api/auth/dashboards
+
+        List Dashboards
+
+        Needs: permission `self`."""
+        return self._call("GET", "/api/auth/dashboards", query=None, body=None)
+
+    def order_dashboards(self, body: "DashboardOrder") -> "DashboardsResponse":
+        """POST /api/auth/dashboards/order
+
+        Order Dashboards
+
+        Needs: permission `self`."""
+        return self._call("POST", "/api/auth/dashboards/order", query=None, body=body)
+
+    def save_dashboard(self, dashboard_id: str, body: "DashboardBody") -> "DashboardOut":
+        """PUT /api/auth/dashboards/{dashboard_id}
+
+        Save Dashboard
+
+        Needs: permission `self`."""
+        return self._call("PUT", f"/api/auth/dashboards/{quote(str(dashboard_id), safe='')}", query=None, body=body)
+
+    def delete_dashboard(self, dashboard_id: str) -> "DashboardsResponse":
+        """DELETE /api/auth/dashboards/{dashboard_id}
+
+        Delete Dashboard
+
+        Needs: permission `self`."""
+        return self._call("DELETE", f"/api/auth/dashboards/{quote(str(dashboard_id), safe='')}", query=None, body=None)
+
+
+
 class Databases:
     """Databases: 159 operations."""
 
@@ -6076,7 +6122,7 @@ class Domains:
 
 
 class Fleet:
-    """Fleet: 67 operations."""
+    """Fleet: 68 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -6376,6 +6422,14 @@ class Fleet:
 
         Needs: permission `fleet.read`."""
         return self._call("GET", "/api/fleet/jobs", query={"limit": limit}, body=None)
+
+    def fleet_jobs_active(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None) -> "FleetViewOut":
+        """GET /api/fleet/jobs/active
+
+        Fleet Jobs Active
+
+        Needs: permission `fleet.read`."""
+        return self._call("GET", "/api/fleet/jobs/active", query={"node": node, "refresh": refresh}, body=None)
 
     def get_fleet_job(self, job_id: str) -> "FleetJobOut":
         """GET /api/fleet/jobs/{job_id}
@@ -6934,7 +6988,7 @@ class Integrations:
 
 
 class Jobs:
-    """Jobs: 16 operations."""
+    """Jobs: 17 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -7066,6 +7120,14 @@ class Jobs:
 
         Needs: permission `apps.read`."""
         return self._call("GET", f"/api/jobs/{quote(str(job_id), safe='')}/log", query={"tail": tail}, body=None)
+
+    def active_operations_now(self) -> "OperationsResponse":
+        """GET /api/operations/active
+
+        Active Operations Now
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", "/api/operations/active", query=None, body=None)
 
 
 
@@ -10704,6 +10766,7 @@ class Api:
     console: Console
     cron_jobs: CronJobs
     dns: DNS
+    dashboards: Dashboards
     databases: Databases
     deploy_keys: DeployKeys
     deployments: Deployments
@@ -10766,6 +10829,7 @@ class Api:
         self.console = Console(call)
         self.cron_jobs = CronJobs(call)
         self.dns = DNS(call)
+        self.dashboards = Dashboards(call)
         self.databases = Databases(call)
         self.deploy_keys = DeployKeys(call)
         self.deployments = Deployments(call)

@@ -304,6 +304,8 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/deploy", INSTANCE, methods=("POST",)),
     _rule("/api/jobs", SCOPED),
     _rule("/api/jobs/active", SCOPED),
+    # What runs on a request and is not a job: the handler lists the ones on the caller's applications.
+    _rule("/api/operations/active", SCOPED),
     _rule("/api/jobs/queue", SCOPED),
     _rule("/api/jobs/cleanup", INSTANCE),
     _rule("/api/jobs/update", RESOURCE, _BODY_DOMAIN),

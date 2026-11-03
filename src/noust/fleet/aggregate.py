@@ -1154,6 +1154,34 @@ def _activity_params(params: Mapping[str, Any]) -> dict[str, Any]:
     return {"limit": max(1, min(limit, 200))}
 
 
+def _build_jobs_active(view: NodeView) -> builtins.list[dict[str, Any]]:
+    """
+    One row per server: what it is running now, and how it answered.
+
+    A server that has not been updated to offer ``/api/operations/active`` still gives its jobs
+    (the outcome says ``unsupported``); one that offers neither, or is down, has its row empty and
+    its status says why, so the console can say "this server will count its tasks when it is
+    updated" rather than showing nothing.
+
+    Args:
+        view: The server.
+
+    Returns:
+        One row: ``status`` (how the server answered), ``jobs`` and ``operations``.
+    """
+    return [
+        _row(
+            view,
+            "/activity",
+            {
+                "status": view.outcome.status,
+                "jobs": _list(view.parts.get("jobs"), "jobs"),
+                "operations": _list(view.parts.get("operations"), "operations"),
+            },
+        )
+    ]
+
+
 def _build_logs(view: NodeView) -> builtins.list[dict[str, Any]]:
     """
     One row per matching log line, as its server found it, and a row for each thing
@@ -1782,6 +1810,19 @@ RESOURCES: dict[str, Resource] = {
             build=_build_logs,
             sort=_sort_logs,
             params=_logs_params,
+        ),
+        Resource(
+            "jobs_active",
+            (
+                Part("jobs", "/api/jobs/active"),
+                Part("operations", "/api/operations/active", required=False, title="Operations"),
+            ),
+            # What is running now: a few seconds old at most, and never the last good answer of a
+            # server that stopped answering (it would say a task runs that may have ended).
+            ttl=3.0,
+            max_stale=0.0,
+            build=_build_jobs_active,
+            per_node=True,
         ),
         Resource(
             "activity",
