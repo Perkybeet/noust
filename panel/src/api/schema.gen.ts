@@ -17926,6 +17926,11 @@ export interface paths {
          * Ens Check
          * @description Compare this server with the ens-medium profile, check by check.
          *
+         *     Judges only a server where a framework of the ENS family is on. Without one the
+         *     answer says ``enabled: false`` and carries no findings: a server that never asked
+         *     for the ENS is not told it fails it (``GET /api/compliance/check`` says how far it
+         *     is from any framework, on or off).
+         *
          *     Args:
          *         request: The request.
          *         session: Authenticated session, injected.
@@ -42675,6 +42680,9 @@ export interface components {
          *         findings: One per check, in catalog order.
          *         indicators: The op.mon.2 figures.
          *         errors: Areas that could not be read, verbatim.
+         *         enabled: Whether a framework of the ENS family is on. When it is not, nothing
+         *             is judged: ``findings`` is empty and ``verdict`` is ``ok`` because no
+         *             control was asked for, not because the server passes.
          */
         EnsCheckResponse: {
             /** Checked At */
@@ -42683,6 +42691,11 @@ export interface components {
             counts: {
                 [key: string]: number;
             };
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
             /** Errors */
             errors?: {
                 [key: string]: string;

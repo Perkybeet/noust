@@ -21041,7 +21041,7 @@
         "type": "object"
       },
       "EnsCheckResponse": {
-        "description": "The result of the compliance check.\n\nAttributes:\n    profile: ``standard`` or ``ens-medium``.\n    checked_at: When, ISO 8601 UTC.\n    host: The server's name.\n    version: The Noust it runs.\n    verdict: ``ok``, ``warning`` or ``fail``: the worst finding.\n    counts: Findings per status.\n    findings: One per check, in catalog order.\n    indicators: The op.mon.2 figures.\n    errors: Areas that could not be read, verbatim.",
+        "description": "The result of the compliance check.\n\nAttributes:\n    profile: ``standard`` or ``ens-medium``.\n    checked_at: When, ISO 8601 UTC.\n    host: The server's name.\n    version: The Noust it runs.\n    verdict: ``ok``, ``warning`` or ``fail``: the worst finding.\n    counts: Findings per status.\n    findings: One per check, in catalog order.\n    indicators: The op.mon.2 figures.\n    errors: Areas that could not be read, verbatim.\n    enabled: Whether a framework of the ENS family is on. When it is not, nothing\n        is judged: ``findings`` is empty and ``verdict`` is ``ok`` because no\n        control was asked for, not because the server passes.",
         "properties": {
           "checked_at": {
             "title": "Checked At",
@@ -21053,6 +21053,11 @@
             },
             "title": "Counts",
             "type": "object"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
           },
           "errors": {
             "additionalProperties": {
@@ -99288,7 +99293,7 @@
     },
     "/api/ens/check": {
       "get": {
-        "description": "Compare this server with the ens-medium profile, check by check.\n\nArgs:\n    request: The request.\n    session: Authenticated session, injected.\n    refresh: Probe the hardening checks again.\n\nReturns:\n    The findings, their counts and verdict, and the op.mon.2 indicators.",
+        "description": "Compare this server with the ens-medium profile, check by check.\n\nJudges only a server where a framework of the ENS family is on. Without one the\nanswer says ``enabled: false`` and carries no findings: a server that never asked\nfor the ENS is not told it fails it (``GET /api/compliance/check`` says how far it\nis from any framework, on or off).\n\nArgs:\n    request: The request.\n    session: Authenticated session, injected.\n    refresh: Probe the hardening checks again.\n\nReturns:\n    The findings, their counts and verdict, and the op.mon.2 indicators.",
         "operationId": "ens_check_api_ens_check_get",
         "parameters": [
           {

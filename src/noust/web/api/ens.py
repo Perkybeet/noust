@@ -74,6 +74,9 @@ class EnsCheckResponse(BaseModel):
         findings: One per check, in catalog order.
         indicators: The op.mon.2 figures.
         errors: Areas that could not be read, verbatim.
+        enabled: Whether a framework of the ENS family is on. When it is not, nothing
+            is judged: ``findings`` is empty and ``verdict`` is ``ok`` because no
+            control was asked for, not because the server passes.
     """
 
     profile: str
@@ -85,6 +88,7 @@ class EnsCheckResponse(BaseModel):
     findings: list[EnsFinding]
     indicators: dict[str, Any] = Field(default_factory=dict)
     errors: dict[str, str] = Field(default_factory=dict)
+    enabled: bool = True
 
 
 class EnsBaselineItem(BaseModel):
@@ -248,7 +252,7 @@ def _exposure() -> checks.ConsoleExposure:
     )
 
 
-def _run(refresh: bool) -> tuple[checks.ComplianceCheck, checks.Facts]:
+def _run(refresh: bool, even_if_off: bool = False) -> tuple[checks.ComplianceCheck, checks.Facts]:
     from noust.web.server import get_token_manager
 
     return checks.run_check(
@@ -256,7 +260,8 @@ def _run(refresh: bool) -> tuple[checks.ComplianceCheck, checks.Facts]:
             token_manager=get_token_manager(),
             exposure=_exposure,
             refresh_hardening=refresh,
-        )
+        ),
+        even_if_off=even_if_off,
     )
 
 
@@ -272,6 +277,11 @@ RefreshQuery = Annotated[
 def ens_check(request: Request, session: Session, refresh: RefreshQuery = False) -> Any:
     """
     Compare this server with the ens-medium profile, check by check.
+
+    Judges only a server where a framework of the ENS family is on. Without one the
+    answer says ``enabled: false`` and carries no findings: a server that never asked
+    for the ENS is not told it fails it (``GET /api/compliance/check`` says how far it
+    is from any framework, on or off).
 
     Args:
         request: The request.
@@ -310,7 +320,9 @@ def ens_report(
     Returns:
         The report, or its Markdown rendering as an attachment.
     """
-    result, facts = _run(refresh)
+    # A report is what a person asks for to hand to an auditor: it judges whether or not
+    # the ENS is on, which is how a server finds out how far it is.
+    result, facts = _run(refresh, even_if_off=True)
     built = report.build_report(result, facts)
     record(
         "compliance.read",

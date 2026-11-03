@@ -49,7 +49,9 @@ def events(action: str) -> list[dict[str, Any]]:
 
 
 def canned(*statuses: str) -> Any:
-    def run(sources: Any = None) -> tuple[checks.ComplianceCheck, checks.Facts]:
+    def run(
+        sources: Any = None, even_if_off: bool = False
+    ) -> tuple[checks.ComplianceCheck, checks.Facts]:
         from datetime import datetime, timezone
 
         facts = checks.Facts(profile="ens-medium", now=datetime.now(timezone.utc))
@@ -97,6 +99,56 @@ class TestEnsCheck:
 
         assert events("compliance.read")
         assert not events("cli.command")
+
+
+class TestEnsCheckWithoutAnEnsFramework:
+    """Nothing asked for the ENS: the command says so instead of failing a standard nobody chose."""
+
+    def test_it_judges_nothing_and_exits_clean(self, real_config, store) -> None:
+        result = CliRunner().invoke(cli, ["ens", "check"])
+
+        assert result.exit_code == 0, result.output
+        assert "no ens framework is on" in result.output.lower()
+        assert "ENS-PRF-01" not in result.output
+
+    def test_the_command_it_suggests_is_one_that_works(
+        self, real_config, store, monkeypatch
+    ) -> None:
+        from datetime import datetime, timezone
+
+        output = CliRunner().invoke(cli, ["ens", "check"]).output
+        suggested = "noust compliance check --framework ens-media"
+        assert suggested in output
+        facts = checks.Facts(profile="standard", now=datetime.now(timezone.utc))
+        facts.audit_health = {"sinks": []}
+        facts.accounts = []
+        facts.backups = []
+        monkeypatch.setattr(checks, "gather", lambda sources=None: facts)
+
+        result = CliRunner().invoke(cli, suggested.split()[1:])
+
+        assert result.exit_code in (0, 1, 2), result.output
+        assert "ENS MEDIA (off)" in result.output
+
+    def test_json_says_the_ens_is_not_enabled(self, real_config, store) -> None:
+        result = CliRunner().invoke(cli, ["ens", "check", "--json"])
+
+        body = json.loads(result.output)
+        assert result.exit_code == 0
+        assert body["enabled"] is False and body["findings"] == []
+
+    def test_the_evidence_report_still_judges(
+        self, real_config, store, tmp_path, monkeypatch
+    ) -> None:
+        from datetime import datetime, timezone
+
+        facts = checks.Facts(profile="standard", now=datetime.now(timezone.utc))
+        monkeypatch.setattr(checks, "gather", lambda sources=None: facts)
+
+        result = CliRunner().invoke(cli, ["ens", "report", "--json"])
+
+        assert result.exit_code == 0, result.output
+        assert json.loads(result.output)["verdict"] in ("ok", "warning", "fail")
 
 
 class TestEnsReport:

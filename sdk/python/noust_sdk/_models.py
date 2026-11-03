@@ -3559,6 +3559,7 @@ EnsBaselineItem = TypedDict("EnsBaselineItem", {
 EnsCheckResponse = TypedDict("EnsCheckResponse", {
     "checked_at": Required[str],
     "counts": Required[dict[str, int]],
+    "enabled": NotRequired[bool],
     "errors": NotRequired[dict[str, str]],
     "findings": Required[list["EnsFinding"]],
     "host": Required[str],
