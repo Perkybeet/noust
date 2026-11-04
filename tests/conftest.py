@@ -273,6 +273,27 @@ def machine_ports_unread(request: pytest.FixtureRequest, monkeypatch: pytest.Mon
 
 
 @pytest.fixture(autouse=True)
+def platform_detected_per_test() -> Iterator[None]:
+    """
+    Make every test detect the platform from its own runner and its own files.
+
+    :func:`noust.managers.server.host.detect_platform` remembers the platform for the
+    life of the process, because a console's machine does not change under it. A worker
+    of the suite runs hundreds of tests, each with a machine of its own: a transactional
+    system one test modelled answered the next test's removal of a database engine, which
+    then refused to remove it. The module is only looked up, never imported, so a test
+    that never reached it pays nothing.
+    """
+    host = sys.modules.get("noust.managers.server.host")
+    if host is not None:
+        host.reset_platform_cache()
+    yield
+    host = sys.modules.get("noust.managers.server.host")
+    if host is not None:
+        host.reset_platform_cache()
+
+
+@pytest.fixture(autouse=True)
 def preview_dns_offline(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
     """
     Keep the build of a preview from resolving its name through the public DNS.
