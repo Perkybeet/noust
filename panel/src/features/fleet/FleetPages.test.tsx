@@ -22,19 +22,12 @@ async function rowOf(list: HTMLElement, text: string): Promise<HTMLElement> {
   });
 }
 
-/** What needs attention, as Home draws it: the section under its heading. */
-async function board(): Promise<HTMLElement> {
-  const heading = await screen.findByRole("heading", { name: "Needs attention", level: 2 });
-  const section = heading.closest("section");
-  if (section === null) throw new Error("no board");
-  return section;
-}
-
-function card(title: string): HTMLElement {
-  const heading = screen.getByRole("heading", { name: title, level: 2 });
-  const section = heading.closest("section");
-  if (section === null) throw new Error(`no card ${title}`);
-  return section;
+/** A widget of the fleet's panel: the slab under its title. */
+async function widget(title: string): Promise<HTMLElement> {
+  const heading = await screen.findByRole("heading", { name: title, level: 2 });
+  const slab = heading.closest("article");
+  if (slab === null) throw new Error(`no widget ${title}`);
+  return slab;
 }
 
 function rows(caption: string): Promise<HTMLElement> {
@@ -42,43 +35,28 @@ function rows(caption: string): Promise<HTMLElement> {
 }
 
 describe("the fleet's Home", () => {
-  it("says who did not answer in the servers' own words, what needs attention on each server, and the fleet in courses", { timeout: 30_000 }, async () => {
+  it("is titled by the panel of the fleet, puts what needs attention on a line that names its server and opens the fix there, and draws the fleet in courses", { timeout: 30_000 }, async () => {
     fakeBackend(fleetRoutes());
     const { container } = renderConsole("/fleet");
-    expect(await screen.findByRole("heading", { level: 1, name: "Home" })).toBeInTheDocument();
+    // The panel that opens at the fleet's address titles the page: there is no "Home" over it.
+    expect(await screen.findByRole("heading", { level: 1, name: "Fleet" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 1, name: "Home" })).not.toBeInTheDocument();
 
-    // Partial, never blank: db-1's last answer is shown, with why it is old.
-    expect(await screen.findByText("2 of 4 servers did not answer fully")).toBeInTheDocument();
-    // The console's own sentence and fix, then what the server said, verbatim, in mono: never
-    // the backend's English prose standing in for the sentence.
-    const troubled = screen.getByRole("list", { name: "Servers that did not answer fully" });
-    expect(within(troubled).getByText("db-1 did not answer: its rows are its last answer.")).toBeInTheDocument();
-    expect(troubled).toHaveTextContent("Check the connection with noust node test db-1.");
-    expect(within(troubled).queryByText("Check it with 'noust node test db-1'.")).not.toBeInTheDocument();
-    const said = within(troubled).getByRole("region", { name: "What db-1 said" });
-    expect(said).toHaveTextContent("The tunnel to db-1 did not open");
-    expect(said).toHaveTextContent(SSH_TIMEOUT);
-    expect(screen.getByText("It runs an older Noust, which does not offer GET /api/overview.")).toBeInTheDocument();
-    expect(troubled).toHaveTextContent("Update Noust on old-1 to see everything here.");
-
-    // What needs attention on a server is a card that names the server and opens the fix there.
-    const attention = await board();
-    expect(within(attention).getByRole("link", { name: "api.example.com" })).toHaveAttribute("href", "/n/web-2/apps/api.example.com");
+    // What needs attention on a server is a line that names the server and opens the fix there.
+    const attention = await widget("Needs attention");
+    expect(await within(attention).findByText("api.example.com")).toBeInTheDocument();
     expect(within(attention).getByText("web-2")).toBeInTheDocument();
-
-    // What was run on several servers at once is on Home too, each action opening its job.
-    const actions = card("Recent actions");
-    expect(await within(actions).findByRole("link", { name: "Renew certificates" })).toHaveAttribute("href", "/fleet/jobs/fj-1");
+    expect(within(attention).getByRole("link", { name: "Diagnose api.example.com" })).toHaveAttribute("href", "/n/web-2/apps/api.example.com/diagnose");
 
     // The fleet in courses: a course for each server, each name opening that server, and the one that does not answer says so.
-    const courses = await screen.findByRole("list", { name: "Servers and their applications" });
+    const courses = await within(await widget("Servers of the fleet")).findByRole("list", { name: "Servers and their applications" });
     expect(within(courses).getByRole("link", { name: "web-2" })).toHaveAttribute("href", "/n/web-2/server");
     expect(within(courses).getByRole("link", { name: /^api\.example\.com\s*Failed$/ })).toHaveAttribute("href", "/n/web-2/apps/api.example.com");
     expect(within(courses).getByText("Not answering")).toBeInTheDocument();
     await expectNoAxeViolations(container, { page: true });
   });
 
-  it("counts an alert that fires on a server among what needs attention, and opens it where alerts are", { timeout: 30_000 }, async () => {
+  it("counts an alert that fires on a server among what needs attention, with the server it fires on, and lists it among the alerts", { timeout: 30_000 }, async () => {
     // The fleet reads each server's own list, so what the server lists is what the fleet counts:
     // an alert is there because the server says so (managers/overview.py), not because a console added it.
     const alert = {
@@ -94,10 +72,15 @@ describe("the fleet's Home", () => {
     };
     fakeBackend({ ...fleetRoutes(), "GET /api/fleet/summary": () => json(200, view) });
     renderConsole("/fleet");
-    const attention = await board();
-    const link = await within(attention).findByRole("link", { name: "disk-high" });
-    expect(link).toHaveAttribute("href", "/n/db-1/alerts");
+    const attention = await widget("Needs attention");
+    expect(await within(attention).findByText("disk-high")).toBeInTheDocument();
     expect(within(attention).getByText("db-1")).toBeInTheDocument();
+    expect(within(attention).getByText("This alert is firing.")).toBeInTheDocument();
+    expect(within(attention).getByRole("button", { name: "Acknowledge disk-high" })).toBeInTheDocument();
+    // It is among the alerts that fire as well, with the server it fires on.
+    const firing = await widget("Active alerts");
+    expect(await within(firing).findByText("disk-high")).toBeInTheDocument();
+    expect(within(firing).getByText("db-1")).toBeInTheDocument();
   });
 
   it("names the context: All servers in the selector, the fleet in the strip, and no server over the title", { timeout: 30_000 }, async () => {
@@ -119,6 +102,25 @@ describe("the fleet's Home", () => {
 });
 
 describe("the fleet's views", () => {
+  it("says who did not answer in the servers' own words, on Servers, and shows the last answer rather than a blank", { timeout: 30_000 }, async () => {
+    fakeBackend(fleetRoutes());
+    const { container } = renderConsole("/fleet/servers");
+    // Partial, never blank: db-1's last answer is shown, with why it is old.
+    expect(await screen.findByText("2 of 4 servers did not answer fully")).toBeInTheDocument();
+    // The console's own sentence and fix, then what the server said, verbatim, in mono: never
+    // the backend's English prose standing in for the sentence.
+    const troubled = screen.getByRole("list", { name: "Servers that did not answer fully" });
+    expect(within(troubled).getByText("db-1 did not answer: its rows are its last answer.")).toBeInTheDocument();
+    expect(troubled).toHaveTextContent("Check the connection with noust node test db-1.");
+    expect(within(troubled).queryByText("Check it with 'noust node test db-1'.")).not.toBeInTheDocument();
+    const said = within(troubled).getByRole("region", { name: "What db-1 said" });
+    expect(said).toHaveTextContent("The tunnel to db-1 did not open");
+    expect(said).toHaveTextContent(SSH_TIMEOUT);
+    expect(screen.getByText("It runs an older Noust, which does not offer GET /api/overview.")).toBeInTheDocument();
+    expect(troubled).toHaveTextContent("Update Noust on old-1 to see everything here.");
+    await expectNoAxeViolations(container, { page: true });
+  });
+
   it("lists every server's applications, each naming its server and opening there, with the server as the first filter", { timeout: 30_000 }, async () => {
     fakeBackend({ ...fleetRoutes(), "GET /api/apps/types": () => json(200, { types: [{ type: "python", name: "Python", default_port: 8000 }] }) });
     const { container, user, location } = renderConsole("/fleet/apps");
@@ -438,16 +440,31 @@ describe("a bulk action", () => {
 describe("in Spanish", () => {
   it("speaks Spanish around the servers' own words, with no violations", { timeout: 30_000 }, async () => {
     fakeBackend(fleetRoutes());
-    const { container } = renderConsole("/fleet");
+    const { container } = renderConsole("/fleet/servers");
     await screen.findByText("2 of 4 servers did not answer fully");
     await act(async () => {
       await setLocale("es");
     });
-    expect(await screen.findByRole("heading", { level: 1, name: "Inicio" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Servidores" })).toBeInTheDocument();
     expect(screen.getByText("2 de 4 servidores no respondieron del todo")).toBeInTheDocument();
     // The sentence is Spanish; the system's own words, under it, are never translated.
     expect(screen.getByText("db-1 no respondió: sus filas son su última respuesta.")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Lo que dijo db-1" })).toHaveTextContent("The tunnel to db-1 did not open");
+    await expectNoAxeViolations(container, { page: true });
+  });
+
+  it("titles the fleet's panel Flota and speaks Spanish on what needs attention, with no violations", { timeout: 30_000 }, async () => {
+    fakeBackend(fleetRoutes());
+    const { container } = renderConsole("/fleet");
+    await screen.findByRole("heading", { level: 1, name: "Fleet" });
+    await act(async () => {
+      await setLocale("es");
+    });
+    expect(await screen.findByRole("heading", { level: 1, name: "Flota" })).toBeInTheDocument();
+    const attention = await widget("Requiere atención");
+    expect(await within(attention).findByText("api.example.com")).toBeInTheDocument();
+    expect(within(attention).getByRole("link", { name: "Diagnosticar api.example.com" })).toHaveAttribute("href", "/n/web-2/apps/api.example.com/diagnose");
+    expect(within(await widget("Servidores de la flota")).getByText("No responde")).toBeInTheDocument();
     await expectNoAxeViolations(container, { page: true });
   });
 });
