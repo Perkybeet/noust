@@ -435,17 +435,111 @@ describe("FileEditorPage (T6)", () => {
   });
 });
 
+/** The part of a template with this `data-slot`, or a failure that says which one is missing. */
+function slot(template: HTMLElement, name: string): HTMLElement {
+  const found = template.querySelector<HTMLElement>(`[data-slot='${name}']`);
+  if (found === null) throw new Error(`the template has no "${name}" slot`);
+  return found;
+}
+
 describe("AuthLayout (T7)", () => {
-  it("is one column of 400px: the machine, the title, the form and the terminal's way", async () => {
+  it("is one slab: the identity in a hollow on the left, the form on the right, the licence under it", () => {
     render(
-      <AuthLayout title="Sign in" description="Use an access token." host="web-1.example.com" footer={<p>noust web token</p>}>
+      <AuthLayout
+        title="Sign in"
+        description="Use an access token."
+        tagline="Your apps and servers, kept safe."
+        footer={<p>noust web token</p>}
+        legal={<p>Free software under the AGPL.</p>}
+      >
         <form aria-label="Sign in form" />
       </AuthLayout>,
     );
-    expect(screen.getByRole("main").firstElementChild).toHaveClass("max-w-auth");
+    const slab = screen.getByRole("main");
+    expect(slab).toHaveAttribute("data-template", "auth");
+    expect(slab).toHaveClass("max-w-auth");
+    expect([...slab.children].map((part) => part.getAttribute("data-slot"))).toEqual(["identity", "form"]);
+
+    // The hollow: the logo first, the drawing (decoration, said by the sentence) and the sentence.
+    const identity = slot(slab, "identity");
+    const form = slot(slab, "form");
+    expect(within(identity).getByRole("img", { name: "Noust" })).toBeInTheDocument();
+    expect(identity.querySelector("svg[aria-hidden='true'][viewBox='0 0 400 230']")).not.toBeNull();
+    expect(within(identity).getByText("Your apps and servers, kept safe.")).toBeInTheDocument();
+
+    // The form: the title, its sentence, the form and the terminal's way, in that order.
     expect(screen.getByRole("heading", { level: 1, name: "Sign in" })).toHaveAttribute("data-page-title");
-    expect(screen.getByText("web-1.example.com")).toHaveAttribute("translate", "no");
-    const { container } = render(<div />);
+    expect(form).toContainElement(screen.getByRole("heading", { level: 1 }));
+    expect([...form.querySelectorAll("[data-slot]")].map((part) => part.getAttribute("data-slot"))).toEqual(["content", "footer"]);
+    expect(within(form).getByText("Use an access token.")).toBeInTheDocument();
+    expect(within(form).getByText("noust web token")).toBeInTheDocument();
+
+    // The licence is not part of the slab: it is the page's contentinfo, after it.
+    const legal = screen.getByRole("contentinfo");
+    expect(slab).not.toContainElement(legal);
+    expect(legal).toHaveTextContent("Free software under the AGPL.");
+  });
+
+  it("draws the logo at half its size, so the mark's axis of symmetry is on a pixel of the screen", () => {
+    render(
+      <AuthLayout title="Sign in">
+        <form aria-label="Sign in form" />
+      </AuthLayout>,
+    );
+    const logo = screen.getByRole("img", { name: "Noust" });
+    // 36 units tall at 18px is a scale of 1/2, and 254 units wide is exactly 127px: the mark's centre (x = 70) is 35px
+    // from the left edge, a whole pixel, and so is every stone's mirror (the browser's check is in access-slab.spec.ts).
+    expect(logo).toHaveAttribute("height", "18");
+    expect(logo).toHaveAttribute("width", "127");
+    expect(logo).toHaveAttribute("viewBox", "0 0 254 36");
+  });
+
+  it("puts the drawing above the form on a phone and beside it from 1024px", () => {
+    render(
+      <AuthLayout title="Sign in" tagline="Your apps and servers, kept safe.">
+        <form aria-label="Sign in form" />
+      </AuthLayout>,
+    );
+    const slab = screen.getByRole("main");
+    expect(slab).toHaveClass("flex-col", "lg:flex-row");
+    // The sentence is for the wide slab: on a phone the drawing is what the hollow holds.
+    expect(screen.getByText("Your apps and servers, kept safe.")).toHaveClass("hidden", "lg:block");
+  });
+
+  it("shows nothing of the server, and only the line its operator chose when there is one", () => {
+    const { rerender } = render(
+      <AuthLayout title="Sign in">
+        <form aria-label="Sign in form" />
+      </AuthLayout>,
+    );
+    expect(document.querySelector("[data-slot='label']")).toBeNull();
+    rerender(
+      <AuthLayout title="Sign in" label="web-01 (production)">
+        <form aria-label="Sign in form" />
+      </AuthLayout>,
+    );
+    expect(document.querySelector("[data-slot='label']")).toHaveTextContent("web-01 (production)");
+    expect(screen.getByText("web-01 (production)")).toHaveAttribute("translate", "no");
+  });
+
+  it("is drawn inside another page for the gallery, without a second main", async () => {
+    const { container } = render(
+      <AuthLayout as="div" title="Sign in" legal={<p>Licence</p>}>
+        <form aria-label="Sign in form" />
+      </AuthLayout>,
+    );
+    expect(screen.queryByRole("main")).toBeNull();
+    expect(container.querySelector("[data-template='auth']")?.tagName).toBe("DIV");
+    expect(screen.queryByRole("contentinfo")).toBeNull();
     await expectNoAxeViolations(container);
+  });
+
+  it("has no accessibility violations as a page", async () => {
+    const { container } = render(
+      <AuthLayout title="Sign in" description="Use an access token." tagline="Your apps and servers, kept safe." legal={<p>Licence</p>}>
+        <form aria-label="Sign in form" />
+      </AuthLayout>,
+    );
+    await expectNoAxeViolations(container, { page: true });
   });
 });

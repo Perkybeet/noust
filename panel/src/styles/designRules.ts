@@ -371,6 +371,10 @@ export const KIT_HEIGHTS: Readonly<Record<string, readonly Height[]>> = {
   "app/Shell.tsx": ["seated"],
   "app/ThemeSwitch.tsx": ["carved"],
   "app/LanguageSwitch.tsx": ["carved"],
+  // the screens before the console: the slab is seated, the hollow of its identity is carved into it, and the
+  // doors under the form are pressed
+  "components/page/AuthLayout.tsx": ["carved", "seated"],
+  "components/page/AuthDoors.tsx": ["raised"],
 };
 
 /** The heights a source draws, by the utilities it writes. */

@@ -185,9 +185,6 @@ export const ssoAdmin: Catalog<typeof en> = {
     },
     linkedToast: "Se vinculó a {account} con {provider}",
   },
-  signIn: {
-    localLink: "Iniciar sesión con contraseña o llave de acceso",
-  },
   command: "Configurar proveedores desde un terminal",
   commandProviders: "noust auth oidc set corp --issuer https://sso.example.com/realms/acme --client-id noust --prompt-secret",
 };

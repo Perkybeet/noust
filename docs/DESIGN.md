@@ -554,7 +554,7 @@ stylesheets are scanned for the same.
 | `--width-settings-nav` | 200px | T3's side navigation, T5's step rail |
 | `--width-settings` | 880px | T3's content |
 | `--width-wizard` | 736px | T5's step |
-| `--width-auth` | 400px | T7's column |
+| `--width-auth` | 992px | T7's slab |
 | `--width-dialog-sm / md / lg / xl` | 440 / 560 / 720 / 1280px | A question / a form of up to six fields / two columns or steps / looking closely |
 | `--width-drawer-md / lg` | 480 / 720px | Forms and a row's detail / logs |
 | `--width-search` | 288px | Every `FilterBar` search box |
@@ -883,25 +883,37 @@ Domains > example.net  * Serving                                        [Disable
 
 ### T7 Access: `AuthLayout`
 
-For: sign in, a sealed central, the legal notice.
+For: sign in and the checks around it (second factor, notice), the first account, an invitation, a
+new password, a sealed central. All of them are the same slab.
 
 ```
-                 +-------------------------------------+
-                 | [mark] | web-1.example.com          |   <- the machine, first
-                 |        | Noust console 3.1.0        |
-                 |                                     |
-                 | Sign in                             |
-                 | Use an access token or a passkey.   |
-                 | [Access token.....................] |
-                 | [            Sign in              ] |   <- control-lg
-                 | Lost it?  $ noust web token         |
-                 +-------------------------------------+
-                           one column of 400px
+        +------------------------------------------------------------+
+        | +-------------------------+                                |
+        | | [noust]                 |   Sign in                      |
+        | |                         |   With your Noust account.     |
+        | |   (a noust, from the    |   [Username or email.........] |
+        | |    side, a boat in it)  |   [Password..................] |
+        | |                         |   [         Sign in          ]  |   <- control-lg
+        | | Your apps and servers,  |   -- other ways to sign in --  |
+        | | kept safe.              |   [Passkey][Your company][Token]|   <- AuthDoors
+        | +-------------------------+                                |
+        +------------------------------------------------------------+
+         (c) Yago Lopez Prado. Free software under the AGPL-3.0-or-later.
+                                  one slab of 992px
 ```
 
-- One column of 400px in the middle of the screen, the machine's name above everything (nobody
-  types a token into the wrong server), one field, one large button, the terminal's way under it.
-- The `h1` is the page title role (24px) and takes focus on arrival.
+- One slab of 992px in the middle of the screen. On the left, carved in as a hollow (`elev-carved-fine`),
+  the identity: the logo, `NoustSide` (a noust drawn from the side, in the greys of the stone with the
+  boat in the accent) and one sentence. On the right, the form: the `h1` (`display text-32`, it takes
+  focus on arrival), its sentence, the form and the terminal's way. Below 1024px the hollow is a band
+  across the top of the slab (the logo and the drawing at the slab's width, no sentence) and the form
+  follows it.
+- The licence notice is the page's `footer`, under the slab and outside it.
+- Before sign-in nothing of the server is shown: not its name, not its version. The one exception is the
+  line its operator chose (`auth.login_label`), under the sentence of the hollow.
+- The other ways to sign in are `AuthDoors`: the password form first and, under it, two or three equal
+  doors (passkey, your company when one is configured, access token). A door opens its way in the form's
+  place, with a link back to the password.
 
 ### Patterns shared by the templates
 
