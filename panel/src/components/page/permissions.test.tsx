@@ -96,6 +96,34 @@ describe("GuardedButton", () => {
     expect(await screen.findByRole("dialog")).toHaveTextContent("First add a provider account");
   });
 
+  it("stays disabled, with no lock, for a role that may when the page itself cannot yet, and says what to do first", async () => {
+    const user = userEvent.setup();
+    const { container } = renderWith(
+      <GuardedButton permission="fleet.manage" variant="primary" icon={<span data-testid="plus" />} unavailable="First add a provider account: it is the one the machine is paid with.">
+        Create a server
+      </GuardedButton>,
+      ["fleet.manage"],
+    );
+    expect(screen.getByRole("button", { name: "Create a server" })).toBeDisabled();
+    // Nothing is denied to this person, so no lock: the icon the button was given is the one it keeps.
+    expect(screen.getByTestId("plus")).toBeInTheDocument();
+    expect(container.querySelector("svg.lucide-lock-keyhole")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Why you cannot do this yet" }));
+    expect(await screen.findByRole("dialog", { name: "Why not yet" })).toHaveTextContent("First add a provider account");
+  });
+
+  it("gives the role's reason before the page's: what a role may not do is not fixed by adding an account", () => {
+    const { container } = renderWith(
+      <GuardedButton permission="fleet.manage" unavailable="Add an account first.">
+        Create a server
+      </GuardedButton>,
+      [],
+    );
+    expect(container.querySelector("svg.lucide-lock-keyhole")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Why you cannot do this" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Why you cannot do this yet" })).not.toBeInTheDocument();
+  });
+
   it("has no accessibility violations, held or not", async () => {
     const view = renderWith(<GuardedButton permission="apps.manage">Add</GuardedButton>, ["apps.manage"]);
     await expectNoAxeViolations(view.container);

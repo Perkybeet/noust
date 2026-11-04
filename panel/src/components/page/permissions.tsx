@@ -38,8 +38,14 @@ export function Can({ permission, children }: { permission: string; children: Re
 export type GuardedButtonProps = ButtonProps & {
   /** The permission the action takes, as the server names it (`apps.manage`): the declaration the design rules count. */
   permission: string;
-  /** Why it is not available, when "it takes this permission" is not all there is to say (a page's own rule). Already translated. */
+  /** What to say instead of "it takes this permission", for a role that cannot (a page's own rule). Already translated. */
   reason?: ReactNode;
+  /**
+   * Why it cannot be done yet, whoever asks (there is no account to create a server with): the button stays,
+   * disabled, with no lock, because nothing is denied to this person, and the "?" says what to do first. Already
+   * translated. The role's own reason comes first: what a role may not do is not fixed by adding an account.
+   */
+  unavailable?: ReactNode;
 };
 
 /**
@@ -47,10 +53,22 @@ export type GuardedButtonProps = ButtonProps & {
  * instead of its icon and a "?" that says why one press away, because it tells a reader that the thing exists and that
  * somebody can do it. Where the role may, it is the `Button` it wraps, unchanged.
  */
-export function GuardedButton({ permission, reason, children, ...button }: GuardedButtonProps) {
+export function GuardedButton({ permission, reason, unavailable, children, ...button }: GuardedButtonProps) {
   const t = useT();
   const can = useCan(permission);
-  if (can) return <Button {...button}>{children}</Button>;
+  if (can && unavailable === undefined) return <Button {...button}>{children}</Button>;
+  if (can) {
+    return (
+      <span data-slot="guarded-action" className="inline-flex items-center gap-1">
+        <Button {...button} variant="secondary" disabled>
+          {children}
+        </Button>
+        <HelpPopover label={t("common.readOnly.notYetLabel")} title={t("common.readOnly.notYetTitle")}>
+          <p className="text-13 text-fg-muted">{unavailable}</p>
+        </HelpPopover>
+      </span>
+    );
+  }
   return (
     <span data-slot="guarded-action" className="inline-flex items-center gap-1">
       <Button {...button} variant="secondary" disabled icon={<ICONS.locked aria-hidden="true" />}>

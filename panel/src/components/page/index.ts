@@ -18,6 +18,8 @@ export type { GuardedButtonProps } from "./permissions";
 export { RestoreDialog } from "./RestoreDialog";
 export type { RestoreChoice, RestoreDialogProps, RestoreTarget, RestoreWords } from "./RestoreDialog";
 export type { ResourceMeterProps } from "./ResourceMeter";
+export { SaidLines } from "./SaidLines";
+export type { SaidLine, SaidLinesProps } from "./SaidLines";
 export { Section, Sections } from "./Section";
 export type { SectionProps } from "./Section";
 export { SegmentedControl } from "./SegmentedControl";

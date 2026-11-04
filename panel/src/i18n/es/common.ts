@@ -295,6 +295,8 @@ export const common: Catalog<typeof en> = {
   readOnly: {
     line: "Tu rol, {role}, puede ver esta página, no cambiarla. Cambiarla pide el permiso {permission}.",
     lineNoRole: "Este acceso puede ver esta página, no cambiarla. Cambiarla pide el permiso {permission}.",
+    notYetLabel: "Por qué aún no puedes hacerlo",
+    notYetTitle: "Por qué todavía no",
     whyLabel: "Por qué no puedes hacerlo",
     whyTitle: "Por qué no puedes",
     why: "Esto pide el permiso {permission}, que tu rol no tiene. Quien gestione los roles puede añadírselo, en Ajustes, Roles.",

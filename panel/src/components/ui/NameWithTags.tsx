@@ -7,16 +7,23 @@ import { Mono } from "./Mono";
 import { Popover } from "./Popover";
 
 export interface NameWithTagsProps {
-  /** What the row is called. */
-  name: ReactNode;
+  /** What the row is called. Left out where the tags are a column of their own (a server's labels). */
+  name?: ReactNode;
   /** The name is a system value (a database, a unit, a repository): it is set in mono and is not translated. */
   mono?: boolean;
+  /** The tags are system values (`region=eu`), set in mono. */
+  monoTags?: boolean;
   /** Every tag, in order. The first `shown` follow the name; the rest wait behind "+N". */
   tags: readonly string[];
   /** How many tags follow the name before "+N": two by default, one where the name is long. */
   shown?: number;
   /** Names the popover of the tags: "Tags of tienda_prod". Already translated; defaults to the plain count. */
   title?: string;
+  /**
+   * Draws a tag as something other than its text: a link to the thing it names (an application's tag opens the
+   * application). The pebble around it, and the "+N", are the same; the accessible name of the "+N" lists the words.
+   */
+  renderTag?: (tag: string) => ReactNode;
   className?: string;
 }
 
@@ -26,21 +33,23 @@ export interface NameWithTagsProps {
  * the row and touched its edge, and a cell that grew pushed the one beside it). Tags are never stacked under a name.
  * The name gives way first: it is cut at the end of its line, with the whole of it as its title.
  */
-export function NameWithTags({ name, mono = false, tags, shown = 2, title, className }: NameWithTagsProps) {
+export function NameWithTags({ name, mono = false, monoTags = false, tags, shown = 2, title, renderTag, className }: NameWithTagsProps) {
   const t = useT();
   const first = tags.slice(0, shown);
   const rest = tags.slice(shown);
   return (
     <span data-slot="name-with-tags" className={cx("flex min-w-0 items-center gap-2", className)}>
-      <span translate="no" {...(typeof name === "string" ? { title: name } : {})} className="min-w-0 shrink truncate font-medium text-fg">
-        {mono ? <Mono>{name}</Mono> : name}
-      </span>
+      {name !== undefined ? (
+        <span translate="no" {...(typeof name === "string" ? { title: name } : {})} className="min-w-0 shrink truncate font-medium text-fg">
+          {mono ? <Mono>{name}</Mono> : name}
+        </span>
+      ) : null}
       {first.length > 0 ? (
         <span className="flex shrink-0 items-center gap-1">
           {first.map((tag) => (
-            <Badge key={tag} className="max-w-36 truncate font-normal">
+            <Badge key={tag} mono={monoTags} className="max-w-36 truncate font-normal">
               <span translate="no" className="truncate">
-                {tag}
+                {renderTag === undefined ? tag : renderTag(tag)}
               </span>
             </Badge>
           ))}
@@ -64,8 +73,8 @@ export function NameWithTags({ name, mono = false, tags, shown = 2, title, class
           <ul className="flex flex-wrap gap-1">
             {tags.map((tag) => (
               <li key={tag}>
-                <Badge className="font-normal">
-                  <span translate="no">{tag}</span>
+                <Badge mono={monoTags} className="font-normal">
+                  <span translate="no">{renderTag === undefined ? tag : renderTag(tag)}</span>
                 </Badge>
               </li>
             ))}

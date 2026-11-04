@@ -412,6 +412,29 @@ describe("DataTable", () => {
       expect(screen.getByRole("table", { name: "Applications" })).toBeInTheDocument();
     });
 
+    it("draws no slab of its own inside a surface that already is one, whether it is a table or the lines of a phone's list", () => {
+      wide(true);
+      const { container, rerender } = render(<DataTable embedded caption="Applications" columns={columns} rows={rows} getRowId={(row) => row.domain} />);
+      const region = container.querySelector("[role=region]");
+      expect(region).not.toHaveClass("elev-seated");
+      expect(region?.className).not.toContain("border-border");
+      expect(region?.className).not.toContain("rounded-card");
+      wide(false);
+      rerender(<DataTable embedded caption="Applications" columns={columns} rows={rows} getRowId={(row) => row.domain} />);
+      const list = screen.getByRole("list", { name: "Applications" });
+      expect(list.className).toContain("divide-y");
+      for (const line of within(list).getAllByRole("listitem")) {
+        expect(line).not.toHaveClass("elev-seated");
+        expect(line.className).not.toContain("rounded-card");
+      }
+    });
+
+    it("keeps its own slab when it is not embedded: a table that stands alone is a seated card", () => {
+      wide(true);
+      const { container } = render(<DataTable caption="Applications" columns={columns} rows={rows} getRowId={(row) => row.domain} />);
+      expect(container.querySelector("[role=region]")).toHaveClass("elev-seated", "rounded-card");
+    });
+
     it("has no accessibility violations", async () => {
       wide(false);
       const { container } = render(

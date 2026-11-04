@@ -59,6 +59,15 @@ describe("NameWithTags", () => {
     expect(screen.getByText("production")).toHaveAttribute("translate", "no");
   });
 
+  it("draws a tag as the link it stands for, in the same pebble, the +N included", async () => {
+    const user = userEvent.setup();
+    render(<NameWithTags name="ghcr.io" tags={["shop.example.com", "api.example.com", "queue-worker"]} shown={1} renderTag={(tag) => <a href={`#${tag}`}>{tag}</a>} />);
+    expect(screen.getByRole("link", { name: "shop.example.com" })).toHaveAttribute("href", "#shop.example.com");
+    await user.click(screen.getByRole("button", { name: /more tags/ }));
+    const popup = await screen.findByRole("dialog");
+    expect(within(popup).getByRole("link", { name: "queue-worker" })).toHaveAttribute("href", "#queue-worker");
+  });
+
   it("says the count in Spanish", async () => {
     await act(async () => {
       await setLocale("es");

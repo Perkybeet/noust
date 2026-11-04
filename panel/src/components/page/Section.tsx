@@ -85,17 +85,20 @@ export function Section({
 
 /**
  * The body of a page: sections 32px apart. Pages use it right after the PageHeader so the
- * rhythm is the same everywhere.
+ * rhythm is the same everywhere. A page made of `SurfaceSection`s sets `surfaces`: each is a slab with
+ * its own room inside, so the slabs are 24px apart, as the cards of a grid are.
  */
 export function Sections({
   children,
+  surfaces = false,
   className,
 }: {
   children: ReactNode;
+  surfaces?: boolean;
   className?: string;
 }) {
   return (
-    <div className={cx("flex min-w-0 flex-col gap-8", className)}>
+    <div className={cx("flex min-w-0 flex-col", surfaces ? "gap-6" : "gap-8", className)}>
       {children}
     </div>
   );
