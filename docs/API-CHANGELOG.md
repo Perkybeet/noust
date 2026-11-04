@@ -85,6 +85,11 @@ under Changed: one field that becomes optional, one refusal that is new and one 
     site created without HTTPS from one that came well by the code (`sites.created.without_tls` and
     `sites.created.without_tls_because` are the warnings, and so is `sites.created.not_loaded`, which said
     only that the web server would not load it), never by looking for words in `message`.
+  - The new-application wizard: `POST /api/apps/inspect` carries `verdict_coded` beside `verdict` and
+    `suggestion_coded` beside `suggestion` (a sentence of its own: what to install). A source nothing
+    recognised is still a `400` whose `detail` and `hint` are English, and the body now carries `coded`: the
+    hint is the fix of that sentence, the entry of the server's catalog that ends in `.hint`. The text of the
+    sentence for a missing program says "noust setup init" without the backticks it had.
 
 ### Changed
 

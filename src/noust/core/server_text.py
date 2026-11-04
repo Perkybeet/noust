@@ -57,6 +57,25 @@ _SEND_AGAIN = (
     "within {minutes} minutes."
 )
 
+#: What a source nothing deploys is told to do, said by several sentences of the wizard below: as
+#: a container, with a Dockerfile or with Railpack, which says whether this server has it.
+_CONTAINER_ROUTE = (
+    "Deploy it as a container: add a Dockerfile to the repository and deploy it with --type "
+    "container. Without a Dockerfile, install Railpack ({setup_command}), which builds it into a "
+    "container by itself: --type container --builder railpack."
+)
+_CONTAINER_ROUTE_RAILPACK = (
+    "Deploy it as a container, which Railpack builds without a Dockerfile (it is installed "
+    "here): {command}. Or add a Dockerfile and deploy it with --type container."
+)
+
+#: What a Turborepo that is not a monorepo Noust deploys is told, whatever it lacks.
+_TURBO_FIX = (
+    "The monorepo type needs turbo.json, a workspace config and at least two apps under apps/, "
+    "each with its own package.json. With a single app, move it to the root of the repository; "
+    "or add a compose.yaml at the root that builds the apps and deploy it as Docker Compose."
+)
+
 #: Every sentence, by code. Grouped by the area that says it. ``tests/test_server_text.py`` holds
 #: it to the code: a code asked for and absent fails, and a sentence nobody says fails.
 CATALOG: dict[str, str] = {
@@ -1434,6 +1453,123 @@ CATALOG: dict[str, str] = {
     "sites.disabled": "Site disabled: {domain}",
     "sites.deleted": "Site deleted: {domain}",
     "sites.reloaded": "{webserver} reloaded",
+    # -- The new-application wizard (noust.deployers.inspect): what Noust found in a source -----
+    # The verdict, and what to do about it. A source nothing recognised is refused with one of the
+    # ``inspect.*`` sentences and its fix (the entry that ends in .hint); a source that was
+    # recognised and that this server cannot build yet has its fix as a sentence of its own,
+    # because the fix is the deployer's.
+    "inspect.can_deploy": "Noust can deploy this as {type}.",
+    "inspect.can_deploy_also": (
+        "Noust can deploy this as {type}. It also looks like {others}; choose that type instead "
+        "to deploy it that way."
+    ),
+    "inspect.container_dockerfile": (
+        "Noust can deploy this as a container, built from its Dockerfile."
+    ),
+    "inspect.container_dockerfile_also": (
+        "Noust can deploy this as a container, built from its Dockerfile. It also looks like "
+        "{others}; choose that type instead to deploy it that way."
+    ),
+    "inspect.container_railpack": (
+        "Noust can deploy this as a container, built by Railpack: it has no Dockerfile."
+    ),
+    "inspect.container_railpack_also": (
+        "Noust can deploy this as a container, built by Railpack: it has no Dockerfile. It also "
+        "looks like {others}; choose that type instead to deploy it that way."
+    ),
+    "inspect.missing_programs": "This is a {type} project, but this server does not have {programs}.",
+    "inspect.install_toolchain": "Install the toolchain with: {command}. Then deploy it.",
+    "inspect.install_deno": (
+        "Install Deno 2 system-wide, where the build account can run it ({command}, or the "
+        "installer of {url} with {env_command}). Then deploy it."
+    ),
+    "inspect.install_setup_init": "Install what it needs with {command}, then deploy it.",
+    "inspect.dockerfile.unreadable": (
+        "The repository has a {dockerfile}, but it could not be read as one."
+    ),
+    "inspect.dockerfile.unreadable.hint": (
+        "Deploy it as a container: {command}. Check the {dockerfile} is a file, not a link, and "
+        "is committed on this branch."
+    ),
+    "inspect.stack.no_program": (
+        "This is a {stack} project ({marker}), but Noust found no program to run in it."
+    ),
+    "inspect.stack.no_program.hint": _CONTAINER_ROUTE,
+    "inspect.stack.no_program_with_railpack": (
+        "This is a {stack} project ({marker}), but Noust found no program to run in it."
+    ),
+    "inspect.stack.no_program_with_railpack.hint": _CONTAINER_ROUTE_RAILPACK,
+    "inspect.stack.no_deployer": (
+        "This is a {stack} project ({marker}); Noust has no {stack} deployer."
+    ),
+    "inspect.stack.no_deployer.hint": _CONTAINER_ROUTE,
+    "inspect.stack.no_deployer_with_railpack": (
+        "This is a {stack} project ({marker}); Noust has no {stack} deployer."
+    ),
+    "inspect.stack.no_deployer_with_railpack.hint": _CONTAINER_ROUTE_RAILPACK,
+    "inspect.dotnet.no_web_project": (
+        "This is a .NET project ({marker}), but Noust found no web project to run in it."
+    ),
+    "inspect.dotnet.no_web_project.hint": _CONTAINER_ROUTE,
+    "inspect.dotnet.no_web_project_with_railpack": (
+        "This is a .NET project ({marker}), but Noust found no web project to run in it."
+    ),
+    "inspect.dotnet.no_web_project_with_railpack.hint": _CONTAINER_ROUTE_RAILPACK,
+    "inspect.package_json.unreadable": "package.json cannot be read as JSON.",
+    "inspect.package_json.unreadable.hint": "Fix package.json and inspect again ({error}).",
+    "inspect.package_json.no_start": (
+        "package.json has no start script, no main entry and no framework Noust recognises "
+        "(Next.js, Vite, Nuxt, SvelteKit, Astro, Remix, Angular)."
+    ),
+    "inspect.package_json.no_start.hint": (
+        'Add a start script to package.json ({example_command}) or a "main" entry, so Noust '
+        "knows how to run it; or choose the type explicitly."
+    ),
+    "inspect.subprojects": ("Nothing Noust deploys at the root of the repository; found {found}."),
+    "inspect.subprojects.hint": (
+        "Noust deploys a repository from its root, or one application per project of it: a "
+        "JavaScript monorepo (npm, Yarn, pnpm, Lerna, Nx or Turborepo workspaces) is read with "
+        "'{detect_command}' and each application created with '{create_command}', on releases and "
+        "watching only its own files. Otherwise deploy each project from a repository of its "
+        "own, or add a compose.yaml at the root that builds them and deploy it as Docker Compose."
+    ),
+    "inspect.no_match": "Nothing in the repository matches an application type Noust deploys.",
+    "inspect.no_match.hint": (
+        "Noust recognises a project by the files at the root of the repository ({examples}, or a "
+        "package.json with a start script). Check the branch, or choose a type explicitly "
+        "instead of relying on auto-detection."
+    ),
+    # A Turborepo that is close to a monorepo and is not one: what it lacks, as one sentence for
+    # each way of lacking it.
+    "inspect.turbo.no_workspace_no_apps": (
+        "The repository uses Turborepo (turbo.json) but is not a monorepo Noust deploys: no "
+        'workspace (pnpm-workspace.yaml, or "workspaces" in package.json); no app under apps/ '
+        "has a package.json."
+    ),
+    "inspect.turbo.no_workspace_no_apps.hint": _TURBO_FIX,
+    "inspect.turbo.no_workspace_one_app": (
+        "The repository uses Turborepo (turbo.json) but is not a monorepo Noust deploys: no "
+        'workspace (pnpm-workspace.yaml, or "workspaces" in package.json); only apps/{app}/ '
+        "has a package.json under apps/."
+    ),
+    "inspect.turbo.no_workspace_one_app.hint": _TURBO_FIX,
+    "inspect.turbo.no_workspace": (
+        "The repository uses Turborepo (turbo.json) but is not a monorepo Noust deploys: no "
+        'workspace (pnpm-workspace.yaml, or "workspaces" in package.json).'
+    ),
+    "inspect.turbo.no_workspace.hint": _TURBO_FIX,
+    "inspect.turbo.no_apps": (
+        "The repository uses Turborepo (turbo.json) but is not a monorepo Noust deploys: no app "
+        "under apps/ has a package.json."
+    ),
+    "inspect.turbo.no_apps.hint": _TURBO_FIX,
+    "inspect.turbo.one_app": (
+        "The repository uses Turborepo (turbo.json) but is not a monorepo Noust deploys: only "
+        "apps/{app}/ has a package.json under apps/."
+    ),
+    "inspect.turbo.one_app.hint": _TURBO_FIX,
+    "inspect.turbo.other": "The repository uses Turborepo (turbo.json) but is not a monorepo Noust deploys.",
+    "inspect.turbo.other.hint": _TURBO_FIX,
 }
 
 

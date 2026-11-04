@@ -861,6 +861,116 @@ export const serverText: Catalog<typeof en> = {
       text: "Este {kind} es mayor que los {limit} bytes que puede ocupar un ajuste",
     },
   },
+  inspect: {
+    can_deploy: {
+      text: "Noust puede desplegar esto como {type}.",
+    },
+    can_deploy_also: {
+      text: "Noust puede desplegar esto como {type}. También se parece a {others}; elige ese tipo en su lugar para desplegarlo así.",
+    },
+    container_dockerfile: {
+      text: "Noust puede desplegar esto como un contenedor, construido con su Dockerfile.",
+    },
+    container_dockerfile_also: {
+      text: "Noust puede desplegar esto como un contenedor, construido con su Dockerfile. También se parece a {others}; elige ese tipo en su lugar para desplegarlo así.",
+    },
+    container_railpack: {
+      text: "Noust puede desplegar esto como un contenedor, construido con Railpack: no tiene Dockerfile.",
+    },
+    container_railpack_also: {
+      text: "Noust puede desplegar esto como un contenedor, construido con Railpack: no tiene Dockerfile. También se parece a {others}; elige ese tipo en su lugar para desplegarlo así.",
+    },
+    dockerfile: {
+      unreadable: {
+        text: "El repositorio tiene un {dockerfile}, pero no se pudo leer como tal.",
+        hint: "Despliégalo como contenedor: {command}. Comprueba que el {dockerfile} es un archivo, no un enlace, y que está confirmado en esta rama.",
+      },
+    },
+    dotnet: {
+      no_web_project: {
+        text: "Es un proyecto .NET ({marker}), pero Noust no encontró ningún proyecto web que ejecutar en él.",
+        hint: "Despliégalo como contenedor: añade un Dockerfile al repositorio y despliégalo con --type container. Sin Dockerfile, instala Railpack ({setup_command}), que lo construye como contenedor por sí solo: --type container --builder railpack.",
+      },
+      no_web_project_with_railpack: {
+        text: "Es un proyecto .NET ({marker}), pero Noust no encontró ningún proyecto web que ejecutar en él.",
+        hint: "Despliégalo como contenedor, que Railpack construye sin Dockerfile (está instalado aquí): {command}. O añade un Dockerfile y despliégalo con --type container.",
+      },
+    },
+    install_deno: {
+      text: "Instala Deno 2 para todo el sistema, donde la cuenta de compilación pueda ejecutarlo ({command}, o el instalador de {url} con {env_command}). Después despliégalo.",
+    },
+    install_setup_init: {
+      text: "Instala lo que necesita con {command} y después despliégalo.",
+    },
+    install_toolchain: {
+      text: "Instala las herramientas con: {command}. Después despliégalo.",
+    },
+    missing_programs: {
+      text: "Es un proyecto {type}, pero este servidor no tiene {programs}.",
+    },
+    no_match: {
+      text: "Nada del repositorio coincide con un tipo de aplicación que Noust despliegue.",
+      hint: "Noust reconoce un proyecto por los archivos de la raíz del repositorio ({examples}, o un package.json con un script start). Revisa la rama, o elige un tipo explícitamente en vez de fiarte de la detección automática.",
+    },
+    package_json: {
+      no_start: {
+        text: "package.json no tiene un script start, ni una entrada main, ni ningún framework que Noust reconozca (Next.js, Vite, Nuxt, SvelteKit, Astro, Remix, Angular).",
+        hint: "Añade un script start a package.json ({example_command}) o una entrada \"main\", para que Noust sepa cómo ejecutarlo; o elige el tipo explícitamente.",
+      },
+      unreadable: {
+        text: "package.json no se puede leer como JSON.",
+        hint: "Arregla package.json y vuelve a inspeccionar ({error}).",
+      },
+    },
+    stack: {
+      no_deployer: {
+        text: "Es un proyecto {stack} ({marker}); Noust no tiene un desplegador de {stack}.",
+        hint: "Despliégalo como contenedor: añade un Dockerfile al repositorio y despliégalo con --type container. Sin Dockerfile, instala Railpack ({setup_command}), que lo construye como contenedor por sí solo: --type container --builder railpack.",
+      },
+      no_deployer_with_railpack: {
+        text: "Es un proyecto {stack} ({marker}); Noust no tiene un desplegador de {stack}.",
+        hint: "Despliégalo como contenedor, que Railpack construye sin Dockerfile (está instalado aquí): {command}. O añade un Dockerfile y despliégalo con --type container.",
+      },
+      no_program: {
+        text: "Es un proyecto {stack} ({marker}), pero Noust no encontró ningún programa que ejecutar en él.",
+        hint: "Despliégalo como contenedor: añade un Dockerfile al repositorio y despliégalo con --type container. Sin Dockerfile, instala Railpack ({setup_command}), que lo construye como contenedor por sí solo: --type container --builder railpack.",
+      },
+      no_program_with_railpack: {
+        text: "Es un proyecto {stack} ({marker}), pero Noust no encontró ningún programa que ejecutar en él.",
+        hint: "Despliégalo como contenedor, que Railpack construye sin Dockerfile (está instalado aquí): {command}. O añade un Dockerfile y despliégalo con --type container.",
+      },
+    },
+    subprojects: {
+      text: "En la raíz del repositorio no hay nada que Noust despliegue; se encontró {found}.",
+      hint: "Noust despliega un repositorio desde su raíz, o una aplicación por proyecto: un monorepo de JavaScript (workspaces de npm, Yarn, pnpm, Lerna, Nx o Turborepo) se lee con '{detect_command}' y cada aplicación se crea con '{create_command}', con versiones y vigilando solo sus propios archivos. Si no, despliega cada proyecto desde un repositorio propio, o añade en la raíz un compose.yaml que los construya y despliégalo como Docker Compose.",
+    },
+    turbo: {
+      no_apps: {
+        text: "El repositorio usa Turborepo (turbo.json), pero no es un monorepo que Noust despliegue: ninguna app de apps/ tiene un package.json.",
+        hint: "El tipo monorepo necesita turbo.json, una configuración de workspace y al menos dos apps en apps/, cada una con su propio package.json. Con una sola app, llévala a la raíz del repositorio; o añade en la raíz un compose.yaml que construya las apps y despliégalo como Docker Compose.",
+      },
+      no_workspace: {
+        text: "El repositorio usa Turborepo (turbo.json), pero no es un monorepo que Noust despliegue: no hay workspace (pnpm-workspace.yaml, o \"workspaces\" en package.json).",
+        hint: "El tipo monorepo necesita turbo.json, una configuración de workspace y al menos dos apps en apps/, cada una con su propio package.json. Con una sola app, llévala a la raíz del repositorio; o añade en la raíz un compose.yaml que construya las apps y despliégalo como Docker Compose.",
+      },
+      no_workspace_no_apps: {
+        text: "El repositorio usa Turborepo (turbo.json), pero no es un monorepo que Noust despliegue: no hay workspace (pnpm-workspace.yaml, o \"workspaces\" en package.json); ninguna app de apps/ tiene un package.json.",
+        hint: "El tipo monorepo necesita turbo.json, una configuración de workspace y al menos dos apps en apps/, cada una con su propio package.json. Con una sola app, llévala a la raíz del repositorio; o añade en la raíz un compose.yaml que construya las apps y despliégalo como Docker Compose.",
+      },
+      no_workspace_one_app: {
+        text: "El repositorio usa Turborepo (turbo.json), pero no es un monorepo que Noust despliegue: no hay workspace (pnpm-workspace.yaml, o \"workspaces\" en package.json); solo apps/{app}/ tiene un package.json en apps/.",
+        hint: "El tipo monorepo necesita turbo.json, una configuración de workspace y al menos dos apps en apps/, cada una con su propio package.json. Con una sola app, llévala a la raíz del repositorio; o añade en la raíz un compose.yaml que construya las apps y despliégalo como Docker Compose.",
+      },
+      one_app: {
+        text: "El repositorio usa Turborepo (turbo.json), pero no es un monorepo que Noust despliegue: solo apps/{app}/ tiene un package.json en apps/.",
+        hint: "El tipo monorepo necesita turbo.json, una configuración de workspace y al menos dos apps en apps/, cada una con su propio package.json. Con una sola app, llévala a la raíz del repositorio; o añade en la raíz un compose.yaml que construya las apps y despliégalo como Docker Compose.",
+      },
+      other: {
+        text: "El repositorio usa Turborepo (turbo.json), pero no es un monorepo que Noust despliegue.",
+        hint: "El tipo monorepo necesita turbo.json, una configuración de workspace y al menos dos apps en apps/, cada una con su propio package.json. Con una sola app, llévala a la raíz del repositorio; o añade en la raíz un compose.yaml que construya las apps y despliégalo como Docker Compose.",
+      },
+    },
+  },
   invitation: {
     mail_failed: {
       text: "No se pudo enviar la invitación por correo: {reason}",

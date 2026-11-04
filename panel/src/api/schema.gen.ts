@@ -61382,6 +61382,9 @@ export interface components {
          *             is: false when a program the type needs is missing.
          *         verdict: What Noust found, in a sentence.
          *         suggestion: What to do before deploying, when there is something.
+         *         verdict_coded: ``verdict`` as a code and its values, for the console to translate.
+         *         suggestion_coded: ``suggestion`` as a code and its values, when it is a sentence of
+         *             its own (what to install); null when there is none.
          */
         SourceInspectionResponse: {
             /** App Type */
@@ -61416,11 +61419,15 @@ export interface components {
              * @description What to do before deploying, when there is something
              */
             suggestion?: string | null;
+            /** @description The suggestion as a code and its values, when it has one */
+            suggestion_coded?: components["schemas"]["CodedText"] | null;
             /**
              * Verdict
              * @description What Noust found, in a sentence
              */
             verdict?: string | null;
+            /** @description The verdict as a code and its values */
+            verdict_coded?: components["schemas"]["CodedText"] | null;
         };
         /**
          * SourceOptionsRequest

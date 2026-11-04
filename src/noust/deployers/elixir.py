@@ -45,8 +45,9 @@ from noust.core.exceptions import DeploymentError
 from noust.core.fs import FileSystem
 from noust.core.package_family import PackageFamily
 from noust.core.runner import CommandResult, CommandRunner
+from noust.core.server_text import ServerText
 from noust.deployers.base import COMMAND_TIMEOUT, BaseDeployer
-from noust.deployers.compiled import has_container_file, install_suggestion_for
+from noust.deployers.compiled import has_container_file, install_command_for, install_suggestion_for
 from noust.deployers.helpers.sandbox import BuildPhase
 from noust.deployers.helpers.unit_launch import systemd_command
 from noust.deployers.registry import DeployerRegistry
@@ -600,7 +601,7 @@ class ElixirDeployer(BaseDeployer):
     # Reporting -------------------------------------------------------------------------
 
     @classmethod
-    def install_suggestion(cls, runner: CommandRunner) -> str | None:
+    def install_suggestion(cls, runner: CommandRunner) -> ServerText | None:
         """
         Say how to get the toolchain, for ``noust inspect``.
 
@@ -623,7 +624,7 @@ class ElixirDeployer(BaseDeployer):
             The pre-flight line, with the install command for this server's package manager.
         """
         line = super()._missing_dependencies_issue(missing)
-        suggestion = install_suggestion_for(self.TOOLCHAIN_PACKAGES, self.runner, sentence=False)
+        suggestion = install_command_for(self.TOOLCHAIN_PACKAGES, self.runner)
         return f"{line}. Install it with: {suggestion}" if suggestion else line
 
     def get_template_context(self) -> dict[str, Any]:

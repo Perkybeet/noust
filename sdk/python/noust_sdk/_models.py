@@ -9457,7 +9457,9 @@ SourceInspectionResponse = TypedDict("SourceInspectionResponse", {
     "platform_proposal": NotRequired[Union["PlatformProposalResponse", None]],
     "start_command": Required[str],
     "suggestion": NotRequired[Union[str, None]],
+    "suggestion_coded": NotRequired[Union["CodedText", None]],
     "verdict": NotRequired[Union[str, None]],
+    "verdict_coded": NotRequired[Union["CodedText", None]],
 })
 
 SourceOptionsRequest = TypedDict("SourceOptionsRequest", {

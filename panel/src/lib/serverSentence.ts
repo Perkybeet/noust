@@ -37,6 +37,20 @@ function strings(values: Values): Record<string, string> {
 }
 
 /**
+ * The sentence an error carries beside its English `detail` and `hint` (`coded` in an error body, which
+ * the API client keeps with the members beyond the contract), when it carries one.
+ */
+export function codedOf(error: unknown): CodedText | null {
+  const extra: unknown = typeof error === "object" && error !== null ? (error as { extra?: unknown }).extra : undefined;
+  if (typeof extra !== "object" || extra === null) return null;
+  const coded: unknown = (extra as Record<string, unknown>)["coded"];
+  if (typeof coded !== "object" || coded === null) return null;
+  const { code, params } = coded as { code?: unknown; params?: unknown };
+  if (typeof code !== "string") return null;
+  return { code, params: typeof params === "object" && params !== null ? (params as CodedText["params"]) : {} };
+}
+
+/**
  * The words of a sentence as text: this console's, or the English the server sent beside the code. Where a
  * page draws it, `ServerText` is the component; this is for what is said outside a render (a toast) or inside
  * a string (a title).

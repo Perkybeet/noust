@@ -872,6 +872,116 @@ export const serverText = {
       text: "This {kind} is larger than the {limit} bytes a setting may be",
     },
   },
+  inspect: {
+    can_deploy: {
+      text: "Noust can deploy this as {type}.",
+    },
+    can_deploy_also: {
+      text: "Noust can deploy this as {type}. It also looks like {others}; choose that type instead to deploy it that way.",
+    },
+    container_dockerfile: {
+      text: "Noust can deploy this as a container, built from its Dockerfile.",
+    },
+    container_dockerfile_also: {
+      text: "Noust can deploy this as a container, built from its Dockerfile. It also looks like {others}; choose that type instead to deploy it that way.",
+    },
+    container_railpack: {
+      text: "Noust can deploy this as a container, built by Railpack: it has no Dockerfile.",
+    },
+    container_railpack_also: {
+      text: "Noust can deploy this as a container, built by Railpack: it has no Dockerfile. It also looks like {others}; choose that type instead to deploy it that way.",
+    },
+    dockerfile: {
+      unreadable: {
+        text: "The repository has a {dockerfile}, but it could not be read as one.",
+        hint: "Deploy it as a container: {command}. Check the {dockerfile} is a file, not a link, and is committed on this branch.",
+      },
+    },
+    dotnet: {
+      no_web_project: {
+        text: "This is a .NET project ({marker}), but Noust found no web project to run in it.",
+        hint: "Deploy it as a container: add a Dockerfile to the repository and deploy it with --type container. Without a Dockerfile, install Railpack ({setup_command}), which builds it into a container by itself: --type container --builder railpack.",
+      },
+      no_web_project_with_railpack: {
+        text: "This is a .NET project ({marker}), but Noust found no web project to run in it.",
+        hint: "Deploy it as a container, which Railpack builds without a Dockerfile (it is installed here): {command}. Or add a Dockerfile and deploy it with --type container.",
+      },
+    },
+    install_deno: {
+      text: "Install Deno 2 system-wide, where the build account can run it ({command}, or the installer of {url} with {env_command}). Then deploy it.",
+    },
+    install_setup_init: {
+      text: "Install what it needs with {command}, then deploy it.",
+    },
+    install_toolchain: {
+      text: "Install the toolchain with: {command}. Then deploy it.",
+    },
+    missing_programs: {
+      text: "This is a {type} project, but this server does not have {programs}.",
+    },
+    no_match: {
+      text: "Nothing in the repository matches an application type Noust deploys.",
+      hint: "Noust recognises a project by the files at the root of the repository ({examples}, or a package.json with a start script). Check the branch, or choose a type explicitly instead of relying on auto-detection.",
+    },
+    package_json: {
+      no_start: {
+        text: "package.json has no start script, no main entry and no framework Noust recognises (Next.js, Vite, Nuxt, SvelteKit, Astro, Remix, Angular).",
+        hint: "Add a start script to package.json ({example_command}) or a \"main\" entry, so Noust knows how to run it; or choose the type explicitly.",
+      },
+      unreadable: {
+        text: "package.json cannot be read as JSON.",
+        hint: "Fix package.json and inspect again ({error}).",
+      },
+    },
+    stack: {
+      no_deployer: {
+        text: "This is a {stack} project ({marker}); Noust has no {stack} deployer.",
+        hint: "Deploy it as a container: add a Dockerfile to the repository and deploy it with --type container. Without a Dockerfile, install Railpack ({setup_command}), which builds it into a container by itself: --type container --builder railpack.",
+      },
+      no_deployer_with_railpack: {
+        text: "This is a {stack} project ({marker}); Noust has no {stack} deployer.",
+        hint: "Deploy it as a container, which Railpack builds without a Dockerfile (it is installed here): {command}. Or add a Dockerfile and deploy it with --type container.",
+      },
+      no_program: {
+        text: "This is a {stack} project ({marker}), but Noust found no program to run in it.",
+        hint: "Deploy it as a container: add a Dockerfile to the repository and deploy it with --type container. Without a Dockerfile, install Railpack ({setup_command}), which builds it into a container by itself: --type container --builder railpack.",
+      },
+      no_program_with_railpack: {
+        text: "This is a {stack} project ({marker}), but Noust found no program to run in it.",
+        hint: "Deploy it as a container, which Railpack builds without a Dockerfile (it is installed here): {command}. Or add a Dockerfile and deploy it with --type container.",
+      },
+    },
+    subprojects: {
+      text: "Nothing Noust deploys at the root of the repository; found {found}.",
+      hint: "Noust deploys a repository from its root, or one application per project of it: a JavaScript monorepo (npm, Yarn, pnpm, Lerna, Nx or Turborepo workspaces) is read with '{detect_command}' and each application created with '{create_command}', on releases and watching only its own files. Otherwise deploy each project from a repository of its own, or add a compose.yaml at the root that builds them and deploy it as Docker Compose.",
+    },
+    turbo: {
+      no_apps: {
+        text: "The repository uses Turborepo (turbo.json) but is not a monorepo Noust deploys: no app under apps/ has a package.json.",
+        hint: "The monorepo type needs turbo.json, a workspace config and at least two apps under apps/, each with its own package.json. With a single app, move it to the root of the repository; or add a compose.yaml at the root that builds the apps and deploy it as Docker Compose.",
+      },
+      no_workspace: {
+        text: "The repository uses Turborepo (turbo.json) but is not a monorepo Noust deploys: no workspace (pnpm-workspace.yaml, or \"workspaces\" in package.json).",
+        hint: "The monorepo type needs turbo.json, a workspace config and at least two apps under apps/, each with its own package.json. With a single app, move it to the root of the repository; or add a compose.yaml at the root that builds the apps and deploy it as Docker Compose.",
+      },
+      no_workspace_no_apps: {
+        text: "The repository uses Turborepo (turbo.json) but is not a monorepo Noust deploys: no workspace (pnpm-workspace.yaml, or \"workspaces\" in package.json); no app under apps/ has a package.json.",
+        hint: "The monorepo type needs turbo.json, a workspace config and at least two apps under apps/, each with its own package.json. With a single app, move it to the root of the repository; or add a compose.yaml at the root that builds the apps and deploy it as Docker Compose.",
+      },
+      no_workspace_one_app: {
+        text: "The repository uses Turborepo (turbo.json) but is not a monorepo Noust deploys: no workspace (pnpm-workspace.yaml, or \"workspaces\" in package.json); only apps/{app}/ has a package.json under apps/.",
+        hint: "The monorepo type needs turbo.json, a workspace config and at least two apps under apps/, each with its own package.json. With a single app, move it to the root of the repository; or add a compose.yaml at the root that builds the apps and deploy it as Docker Compose.",
+      },
+      one_app: {
+        text: "The repository uses Turborepo (turbo.json) but is not a monorepo Noust deploys: only apps/{app}/ has a package.json under apps/.",
+        hint: "The monorepo type needs turbo.json, a workspace config and at least two apps under apps/, each with its own package.json. With a single app, move it to the root of the repository; or add a compose.yaml at the root that builds the apps and deploy it as Docker Compose.",
+      },
+      other: {
+        text: "The repository uses Turborepo (turbo.json) but is not a monorepo Noust deploys.",
+        hint: "The monorepo type needs turbo.json, a workspace config and at least two apps under apps/, each with its own package.json. With a single app, move it to the root of the repository; or add a compose.yaml at the root that builds the apps and deploy it as Docker Compose.",
+      },
+    },
+  },
   invitation: {
     mail_failed: {
       text: "The invitation could not be mailed: {reason}",
