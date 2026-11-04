@@ -209,7 +209,7 @@ function Landing({ target, followedJob, onGone }: { target: LandingTarget; follo
     <JobProgress
       state={followedJob.job?.status === "pending" ? "queued" : "running"}
       title={t("newApp.deploy.deploying", { domain: target.domain })}
-      step={followedJob.job === null ? null : stepWords(followedJob.job.type, followedJob.job.current_step, t.locale)}
+      step={followedJob.job === null ? null : stepWords(followedJob.job.type, followedJob.job.current_step, t.locale, followedJob.job.current_step_coded)}
       description={t("newApp.deploy.buildLogSoon")}
     />
   );

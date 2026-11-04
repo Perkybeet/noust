@@ -47593,6 +47593,8 @@ export interface components {
             created_at: string;
             /** Current Step */
             current_step: string;
+            /** @description current_step as a sentence of the server's catalog (code and values), when it is one; each entry of logs carries its own under coded */
+            current_step_coded?: components["schemas"]["CodedText"] | null;
             /** Deployment Id */
             deployment_id?: number | null;
             /** Description */

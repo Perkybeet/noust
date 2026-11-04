@@ -19,6 +19,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Body, Depends
 from pydantic import BaseModel, Field
 
+from noust.core.server_text import say
 from noust.core.teams import scoped_store
 from noust.deployers.recorder import CapturingLogger
 from noust.managers import app_identity
@@ -111,11 +112,11 @@ def identity_migrate_job(
     logger = CapturingLogger(verbose=False)
     if job_context is not None:
         job_context.set_metadata("domain", domain)
-        job_context.update("Moving the application to its own account", 10)
+        job_context.update(say("jobs.step.identity.moving"), 10)
         logger.attach_sink(job_context.log)
     done = app_identity.migrate(domain, actor=actor, logger=logger, shared_group=shared_group)
     if job_context is not None:
-        job_context.update("Done", 100)
+        job_context.update(say("jobs.step.done"), 100)
     return done.to_dict()
 
 

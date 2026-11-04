@@ -989,6 +989,261 @@ export const serverText = {
     },
   },
   jobs: {
+    step: {
+      backup: {
+        complete: {
+          text: "Backup complete",
+        },
+        creating: {
+          text: "Creating backup",
+        },
+        upload_complete: {
+          text: "Upload complete",
+        },
+        uploading: {
+          text: "Uploading to {destination}",
+        },
+      },
+      bundle: {
+        active: {
+          text: "Release active",
+        },
+        building: {
+          text: "Building to ship",
+        },
+        packed: {
+          text: "Packed, waiting to be fetched",
+        },
+        receiving: {
+          text: "Receiving the release",
+        },
+      },
+      certificate: {
+        created: {
+          text: "Certificate created",
+        },
+        requesting: {
+          text: "Requesting certificate",
+        },
+        serving: {
+          text: "Serving it",
+        },
+      },
+      clone: {
+        complete: {
+          text: "Clone complete",
+        },
+      },
+      complete: {
+        text: "Complete",
+      },
+      delete: {
+        complete: {
+          text: "Deletion complete",
+        },
+      },
+      deploy: {
+        complete: {
+          text: "Deployment complete",
+        },
+        copying_data: {
+          text: "Copying the data",
+        },
+        database: {
+          text: "Creating the {engine} database",
+        },
+        deploying: {
+          text: "Deploying",
+        },
+        preparing: {
+          text: "Preparing deployment",
+        },
+        recipe: {
+          text: "Preparing the {recipe} recipe",
+        },
+      },
+      disk: {
+        giving_limit: {
+          text: "Giving the limit to the kernel",
+        },
+        measuring: {
+          text: "Measuring the application's directory",
+        },
+        taking_limit: {
+          text: "Taking the limit off the kernel",
+        },
+      },
+      domains: {
+        deleted: {
+          text: "The certificate is deleted",
+        },
+        deleting: {
+          text: "Deleting the certificate of {name}",
+        },
+        extended: {
+          text: "Certificate covers every domain",
+        },
+        extending: {
+          text: "Extending the certificate to every domain",
+        },
+        giving_back: {
+          text: "Giving it back",
+        },
+        in_place: {
+          text: "The certificate is in place",
+        },
+        ordering: {
+          text: "Ordering the certificate of its own",
+        },
+        removed: {
+          text: "Certificate covers only the remaining domains",
+        },
+        removing: {
+          text: "Removing the domain from the certificate",
+        },
+      },
+      done: {
+        text: "Done",
+      },
+      engine: {
+        installing: {
+          text: "Installing {engine}",
+        },
+        uninstalling: {
+          text: "Uninstalling {engine}",
+        },
+      },
+      exec: {
+        finished: {
+          text: "Command finished",
+        },
+        running: {
+          text: "Running a command in {domain}",
+        },
+      },
+      hardening: {
+        changing: {
+          text: "Changing the sandbox of the application's unit",
+        },
+      },
+      identity: {
+        moving: {
+          text: "Moving the application to its own account",
+        },
+      },
+      import: {
+        complete: {
+          text: "Import complete",
+        },
+      },
+      migrate: {
+        complete: {
+          text: "Migration complete",
+        },
+        moving: {
+          text: "Moving the tree onto releases",
+        },
+        planning: {
+          text: "Planning the migration",
+        },
+      },
+      packages: {
+        installing: {
+          text: "Installing the system packages",
+        },
+      },
+      pitr: {
+        recovering: {
+          text: "Point-in-time recovery: {action}",
+        },
+      },
+      promote: {
+        complete: {
+          text: "Promotion complete",
+        },
+      },
+      renewal: {
+        complete: {
+          text: "Renewal complete",
+        },
+        none_due: {
+          text: "No certificate was due for renewal",
+        },
+        renewing: {
+          text: "Renewing certificates",
+        },
+        unreadable: {
+          text: "certbot's certificate list could not be read, so which ones were renewed is unknown",
+        },
+      },
+      replicas: {
+        starting: {
+          text: "Starting the copies and asking each one if it answers",
+        },
+      },
+      restore: {
+        complete: {
+          text: "Restore complete",
+        },
+        downloading: {
+          text: "Downloading and restoring backup",
+        },
+        restoring: {
+          text: "Restoring backup",
+        },
+      },
+      rollback: {
+        complete: {
+          text: "Rollback complete",
+        },
+        rolling_back: {
+          text: "Rolling back",
+        },
+        to_deployment: {
+          text: "Going back to deployment {deployment}",
+        },
+      },
+      sandbox: {
+        building: {
+          text: "Building the current commit in the sandbox",
+        },
+      },
+      staged: {
+        building: {
+          text: "Building without activating",
+        },
+        built: {
+          text: "Built, waiting to be promoted",
+        },
+        promoted: {
+          text: "Promoted",
+        },
+        promoting: {
+          text: "Making the release serve",
+        },
+      },
+      tuning: {
+        tuning: {
+          text: "Tuning the application's unit",
+        },
+      },
+      update: {
+        complete: {
+          text: "Update complete",
+        },
+        unit_not_running: {
+          text: "Restarted, but the unit is not running: check its logs",
+        },
+      },
+      zero_downtime: {
+        off: {
+          text: "Turning zero downtime off",
+        },
+        on: {
+          text: "Turning zero downtime on",
+        },
+      },
+    },
     title: {
       app_exec: { text: "Run a command in {domain}" },
       app_exec_any: { text: "Run a command in an application" },

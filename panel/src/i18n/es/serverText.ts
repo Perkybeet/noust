@@ -978,6 +978,261 @@ export const serverText: Catalog<typeof en> = {
     },
   },
   jobs: {
+    step: {
+      backup: {
+        complete: {
+          text: "Copia de seguridad completada",
+        },
+        creating: {
+          text: "Creando la copia de seguridad",
+        },
+        upload_complete: {
+          text: "Subida completada",
+        },
+        uploading: {
+          text: "Subiendo a {destination}",
+        },
+      },
+      bundle: {
+        active: {
+          text: "Versión activa",
+        },
+        building: {
+          text: "Compilando para enviar",
+        },
+        packed: {
+          text: "Empaquetada, a la espera de que la recojan",
+        },
+        receiving: {
+          text: "Recibiendo la versión",
+        },
+      },
+      certificate: {
+        created: {
+          text: "Certificado creado",
+        },
+        requesting: {
+          text: "Pidiendo el certificado",
+        },
+        serving: {
+          text: "Sirviéndolo",
+        },
+      },
+      clone: {
+        complete: {
+          text: "Clonado completado",
+        },
+      },
+      complete: {
+        text: "Completado",
+      },
+      delete: {
+        complete: {
+          text: "Eliminación completada",
+        },
+      },
+      deploy: {
+        complete: {
+          text: "Despliegue completado",
+        },
+        copying_data: {
+          text: "Copiando los datos",
+        },
+        database: {
+          text: "Creando la base de datos {engine}",
+        },
+        deploying: {
+          text: "Desplegando",
+        },
+        preparing: {
+          text: "Preparando el despliegue",
+        },
+        recipe: {
+          text: "Preparando la receta {recipe}",
+        },
+      },
+      disk: {
+        giving_limit: {
+          text: "Pasando el límite al kernel",
+        },
+        measuring: {
+          text: "Midiendo el directorio de la aplicación",
+        },
+        taking_limit: {
+          text: "Quitando el límite al kernel",
+        },
+      },
+      domains: {
+        deleted: {
+          text: "El certificado está borrado",
+        },
+        deleting: {
+          text: "Borrando el certificado de {name}",
+        },
+        extended: {
+          text: "El certificado cubre todos los dominios",
+        },
+        extending: {
+          text: "Ampliando el certificado a todos los dominios",
+        },
+        giving_back: {
+          text: "Devolviéndolo",
+        },
+        in_place: {
+          text: "El certificado está en su sitio",
+        },
+        ordering: {
+          text: "Pidiendo un certificado propio",
+        },
+        removed: {
+          text: "El certificado cubre solo los dominios que quedan",
+        },
+        removing: {
+          text: "Quitando el dominio del certificado",
+        },
+      },
+      done: {
+        text: "Hecho",
+      },
+      engine: {
+        installing: {
+          text: "Instalando {engine}",
+        },
+        uninstalling: {
+          text: "Desinstalando {engine}",
+        },
+      },
+      exec: {
+        finished: {
+          text: "Comando terminado",
+        },
+        running: {
+          text: "Ejecutando un comando en {domain}",
+        },
+      },
+      hardening: {
+        changing: {
+          text: "Cambiando el aislamiento de la unidad de la aplicación",
+        },
+      },
+      identity: {
+        moving: {
+          text: "Pasando la aplicación a su propia cuenta",
+        },
+      },
+      import: {
+        complete: {
+          text: "Importación completada",
+        },
+      },
+      migrate: {
+        complete: {
+          text: "Migración completada",
+        },
+        moving: {
+          text: "Pasando el árbol a versiones",
+        },
+        planning: {
+          text: "Planificando la migración",
+        },
+      },
+      packages: {
+        installing: {
+          text: "Instalando los paquetes del sistema",
+        },
+      },
+      pitr: {
+        recovering: {
+          text: "Recuperación a un momento dado: {action}",
+        },
+      },
+      promote: {
+        complete: {
+          text: "Promoción completada",
+        },
+      },
+      renewal: {
+        complete: {
+          text: "Renovación completada",
+        },
+        none_due: {
+          text: "Ningún certificado tocaba renovarse",
+        },
+        renewing: {
+          text: "Renovando certificados",
+        },
+        unreadable: {
+          text: "No se pudo leer la lista de certificados de certbot, así que no se sabe cuáles se renovaron",
+        },
+      },
+      replicas: {
+        starting: {
+          text: "Arrancando las copias y preguntando a cada una si responde",
+        },
+      },
+      restore: {
+        complete: {
+          text: "Restauración completada",
+        },
+        downloading: {
+          text: "Descargando y restaurando la copia de seguridad",
+        },
+        restoring: {
+          text: "Restaurando la copia de seguridad",
+        },
+      },
+      rollback: {
+        complete: {
+          text: "Vuelta atrás completada",
+        },
+        rolling_back: {
+          text: "Volviendo atrás",
+        },
+        to_deployment: {
+          text: "Volviendo al despliegue {deployment}",
+        },
+      },
+      sandbox: {
+        building: {
+          text: "Compilando el commit actual en el entorno aislado",
+        },
+      },
+      staged: {
+        building: {
+          text: "Compilando sin activar",
+        },
+        built: {
+          text: "Compilada, a la espera de promoverla",
+        },
+        promoted: {
+          text: "Promovida",
+        },
+        promoting: {
+          text: "Poniendo la versión en servicio",
+        },
+      },
+      tuning: {
+        tuning: {
+          text: "Ajustando la unidad de la aplicación",
+        },
+      },
+      update: {
+        complete: {
+          text: "Actualización completada",
+        },
+        unit_not_running: {
+          text: "Se reinició, pero la unidad no está en marcha: mira sus registros",
+        },
+      },
+      zero_downtime: {
+        off: {
+          text: "Desactivando las actualizaciones sin cortes",
+        },
+        on: {
+          text: "Activando las actualizaciones sin cortes",
+        },
+      },
+    },
     title: {
       app_exec: { text: "Ejecutar un comando en {domain}" },
       app_exec_any: { text: "Ejecutar un comando en una aplicación" },

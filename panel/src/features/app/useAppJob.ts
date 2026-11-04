@@ -6,6 +6,7 @@ import { getLocale } from "../../app/locale";
 import type { Locale } from "../../app/locale";
 import { translate } from "../../i18n";
 import type { MessageKey } from "../../i18n";
+import { newestLine } from "../../lib/serverSentence";
 
 /** How a job on an app is named while it runs and when it ends (the backend's JobType). */
 const JOB_KEYS: Readonly<Record<string, { running: MessageKey; title: MessageKey; failed: MessageKey }>> = {
@@ -50,10 +51,9 @@ const RUNNING = new Set(["pending", "running"]);
  */
 const NOT_A_STATE = new Set(["app_exec", "disk"]);
 
-/** The newest line the job logged, which is what it is doing now. */
+/** The newest line the job logged, which is what it is doing now: in the console's language when it is the server's own sentence. */
 export function jobStep(job: Job): string | null {
-  const message = job.logs?.at(-1)?.["message"];
-  return typeof message === "string" && message.trim() !== "" ? message.trim() : null;
+  return newestLine(job.logs, getLocale());
 }
 
 export interface AppJob {

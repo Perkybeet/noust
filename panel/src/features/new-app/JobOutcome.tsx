@@ -163,7 +163,7 @@ export function JobOutcome({ kind, target, followedJob }: JobOutcomeProps) {
       <JobProgress
         state={job?.status === "pending" ? "queued" : "running"}
         title={t(kind === "import" ? "newApp.deploy.importing" : "newApp.deploy.deploying", { domain: target.domain })}
-        step={job === null ? null : stepWords(job.type, job.current_step, t.locale)}
+        step={job === null ? null : stepWords(job.type, job.current_step, t.locale, job.current_step_coded)}
         description={t("newApp.deploy.stays")}
         {...(log !== undefined ? { action: log } : {})}
       />

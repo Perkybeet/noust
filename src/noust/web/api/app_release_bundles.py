@@ -34,6 +34,7 @@ from pydantic import BaseModel, Field
 from noust.core import deploy_guard
 from noust.core.appdir.releases import is_release_id
 from noust.core.exceptions import ValidationError
+from noust.core.server_text import say
 from noust.core.store import DeploymentTrigger
 from noust.deployers.bundle_spool import BUNDLE_UPLOADS, MAX_READ_BYTES, BundleSpool, SpooledBundle
 from noust.deployers.recorder import CapturingLogger
@@ -193,7 +194,7 @@ def bundle_release_job(
     logger = CapturingLogger(verbose=False)
     if job_context is not None:
         job_context.set_metadata("domain", domain)
-        job_context.update("Building to ship", 10)
+        job_context.update(say("jobs.step.bundle.building"), 10)
         logger.attach_sink(job_context.log)
     spool = _spool()
     bundle_id, destination = spool.reserve()
@@ -218,7 +219,7 @@ def bundle_release_job(
         if not whole:
             spool.abandon(bundle_id)
     if job_context is not None:
-        job_context.update("Packed, waiting to be fetched", 100)
+        job_context.update(say("jobs.step.bundle.packed"), 100)
     return {"domain": domain, "status": "packed", "bundle": spooled.to_dict()}
 
 
@@ -249,7 +250,7 @@ def receive_bundle_job(
     logger = CapturingLogger(verbose=False)
     if job_context is not None:
         job_context.set_metadata("domain", domain)
-        job_context.update("Receiving the release", 10)
+        job_context.update(say("jobs.step.bundle.receiving"), 10)
         logger.attach_sink(job_context.log)
     store = _uploads()
     try:
@@ -271,7 +272,7 @@ def receive_bundle_job(
         # The file is the release's whole tree: it does not stay on a disk once it has been tried.
         store.discard(upload_id)
     if job_context is not None:
-        job_context.update("Release active", 100)
+        job_context.update(say("jobs.step.bundle.active"), 100)
     return {
         "domain": reception.domain,
         "status": "received",

@@ -5042,6 +5042,7 @@ JobResponse = TypedDict("JobResponse", {
     "completed_at": NotRequired[Union[str, None]],
     "created_at": Required[str],
     "current_step": Required[str],
+    "current_step_coded": NotRequired[Union["CodedText", None]],
     "deployment_id": NotRequired[Union[int, None]],
     "description": Required[str],
     "error": NotRequired[Union[str, None]],

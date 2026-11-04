@@ -90,6 +90,15 @@ under Changed: one field that becomes optional, one refusal that is new and one 
     recognised is still a `400` whose `detail` and `hint` are English, and the body now carries `coded`: the
     hint is the fix of that sentence, the entry of the server's catalog that ends in `.hint`. The text of the
     sentence for a missing program says "noust setup init" without the backticks it had.
+  - What a job is doing: a job (`GET /api/jobs`, `/api/jobs/{id}`, `/api/jobs/active`, the `job` event) carries
+    `current_step_coded` beside `current_step`, and each entry of `logs` carries `coded` (null for a line a tool
+    printed), when the step or the line is one of the server's sentences: the standard jobs (deploy, update,
+    rollback, backup, restore, upload, delete, migrate, point-in-time recovery, a database engine's
+    installation, a certificate, a command in an application, the renewal) and the jobs of an application's
+    own pages (sandbox test, system packages, hardening, tuning, identity, replicas, zero downtime, staged
+    builds, release bundles, the disk limit, clone, import and the certificates of its domains). The jobs of the
+    server's own pages (updates, security, swap, software, backups of the console, DNS, tunnels) keep saying
+    their steps as text.
 
 ### Changed
 

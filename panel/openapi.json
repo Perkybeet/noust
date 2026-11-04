@@ -29326,6 +29326,17 @@
             "title": "Current Step",
             "type": "string"
           },
+          "current_step_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "current_step as a sentence of the server's catalog (code and values), when it is one; each entry of logs carries its own under coded"
+          },
           "deployment_id": {
             "anyOf": [
               {
