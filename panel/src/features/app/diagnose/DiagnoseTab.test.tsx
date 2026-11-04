@@ -257,7 +257,7 @@ describe("the Diagnose tab", () => {
     const checks = await screen.findByRole("region", { name: "Comprobaciones" });
     expect(within(checks).getByText("Pool de PHP-FPM")).toBeInTheDocument();
     expect(within(checks).queryByText("Php fpm")).not.toBeInTheDocument();
-    expect(within(checks).getAllByText(/El pool de PHP-FPM no responde a la comprobación de salud/).length).toBeGreaterThan(0);
+    expect(within(checks).getAllByText(/El pool de PHP-FPM no responde a la comprobación de arranque/).length).toBeGreaterThan(0);
     await openTheRest();
     expect(screen.getByText("Contenedores del worker")).toBeInTheDocument();
   });

@@ -405,7 +405,7 @@ export const serverText: Catalog<typeof en> = {
         text: "PHP-FPM rechaza su configuración; mira {command} más abajo.",
       },
       no_answer: {
-        text: "El pool de PHP-FPM no responde a la comprobación de salud; mira los errores de PHP más abajo.",
+        text: "El pool de PHP-FPM no responde a la comprobación de arranque; mira los errores de PHP más abajo.",
       },
       no_record: {
         text: "No hay registro de la aplicación",
@@ -1042,7 +1042,7 @@ export const serverText: Catalog<typeof en> = {
           text: "Creando la base de datos {engine}",
         },
         deploying: {
-          text: "Desplegando",
+          text: "Desplegando la aplicación",
         },
         preparing: {
           text: "Preparando el despliegue",
@@ -1092,7 +1092,7 @@ export const serverText: Catalog<typeof en> = {
         },
       },
       done: {
-        text: "Hecho",
+        text: "Todo hecho",
       },
       engine: {
         installing: {

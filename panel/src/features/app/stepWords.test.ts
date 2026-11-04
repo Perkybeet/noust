@@ -43,7 +43,7 @@ describe("stepWords", () => {
     expect(stepWords("backup", "Creating backup", "es", creating)).toBe("Creando la copia de seguridad");
     expect(stepWords("restore", "Uploading to s3-main", "es", { code: "jobs.step.backup.uploading", params: { destination: "s3-main" } })).toBe("Subiendo a s3-main");
     // The deploy's own step is the server's sentence now, and said the same way.
-    expect(stepWords("deploy", "Deploying", "es", { code: "jobs.step.deploy.deploying", params: {} })).toBe("Desplegando");
+    expect(stepWords("deploy", "Deploying", "es", { code: "jobs.step.deploy.deploying", params: {} })).toBe("Desplegando la aplicación");
     // In English it is the English the server sent, which is the catalog's.
     expect(stepWords("backup", "Creating backup", "en", creating)).toBe("Creating backup");
   });

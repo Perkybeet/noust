@@ -416,7 +416,7 @@ export const serverText = {
         text: "PHP-FPM refuses its configuration; see {command} below.",
       },
       no_answer: {
-        text: "The PHP-FPM pool does not answer the health check; see PHP's errors below.",
+        text: "The PHP-FPM pool does not answer the startup check; see PHP's errors below.",
       },
       no_record: {
         text: "No application record",
@@ -1053,7 +1053,7 @@ export const serverText = {
           text: "Creating the {engine} database",
         },
         deploying: {
-          text: "Deploying",
+          text: "Deploying the application",
         },
         preparing: {
           text: "Preparing deployment",
@@ -1103,7 +1103,7 @@ export const serverText = {
         },
       },
       done: {
-        text: "Done",
+        text: "All done",
       },
       engine: {
         installing: {
