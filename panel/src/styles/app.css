@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "./tokens.css";
 @import "./fonts.css";
+@import "./widgets.css";
 @import "uplot/dist/uPlot.min.css" layer(components);
 
 /*

@@ -11,7 +11,9 @@ describe("which resource has a second column", () => {
     expect(columnKindOf("/server")).toBe("server");
     expect(columnKindOf("/server/services/noust-web")).toBe("server");
     expect(columnKindOf("/settings/tokens")).toBe("settings");
-    for (const path of ["/", "/apps", "/apps/new", "/domains/sites", "/fleet/apps", "/alerts", "/account"]) expect(columnKindOf(path), path).toBeNull();
+    for (const path of ["/apps", "/apps/new", "/domains/sites", "/fleet/apps", "/alerts", "/account"]) expect(columnKindOf(path), path).toBeNull();
+    // Home has the panels in it, the server's and the fleet's.
+    for (const path of ["/", "/fleet", "/fleet/"]) expect(columnKindOf(path), path).toBe("home");
   });
 
   it("has Databases' list, its database servers and one server's settings, and not a database's own page, which has its tabs", () => {

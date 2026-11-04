@@ -225,7 +225,6 @@ describe("3. the budgets", () => {
   it("knows which area a path is under, the longest start of it, and the fleet's faces are their area's", () => {
     const area = (path: string): string | undefined => areaOf(path)?.id;
     expect(area("/")).toBe("overview");
-    expect(area("/map")).toBe("overview");
     expect(area("/fleet")).toBe("overview");
     expect(area("/apps")).toBe("apps");
     expect(area("/apps/shop.example.net/deployments/3")).toBe("apps");
@@ -433,7 +432,6 @@ describe("6. the palette finds every screen", () => {
     expect(byId.get("settings.notifications")).toBe("Settings › Channels");
     expect(byId.get("backups.schedules")).toBe("Backups › Schedules");
     expect(byId.get("server.terminal")).toBe("Servers › Terminal");
-    expect(byId.get("overview.map")).toBe("Home › Map");
     expect(byId.get("catalog.installed")).toBe("Catalog › Installed recipes");
     for (const entry of DESTS.filter((candidate) => candidate.parent !== undefined && !candidate.to.includes("$") && !isInterim(candidate))) {
       expect(byId.get(entry.id)?.split(" › ").length, entry.id).toBeGreaterThanOrEqual(2);
@@ -644,7 +642,8 @@ describe("what the pages draw from the register", () => {
     // The fleet's views are the faces of the areas; its pages draw only the strips of the two areas that have a second view.
     same(FLEET_APPS_SCREENS, "fleet.apps");
     same(FLEET_SERVERS_SCREENS, "fleet.servers");
-    expect(tabsOf(OVERVIEW_SCREENS).map((tab) => tab.to)).toEqual(["/", "/map"]);
+    // Home has no second view (the map left in 4.2): its strip is the area alone.
+    expect(tabsOf(OVERVIEW_SCREENS).map((tab) => tab.to)).toEqual(["/"]);
     expect(tabsOf(PROJECTS_SCREENS).map((tab) => tab.to)).toEqual(["/projects", "/projects/teams"]);
   });
 

@@ -5,7 +5,7 @@ import type { Namespace } from "./types";
 
 export const ROUTE_NAMESPACES: Readonly<Record<string, readonly Namespace[]>> = {
   "/_console": [],
-  "/_console/": ["accounts", "activity", "appPages", "apps", "auditEvents", "auth", "backups", "common", "fleet", "fleetCompare", "fleetSettings", "inbox", "map", "nav", "overview", "queue", "server", "serverText", "settings", "shell", "timeline"],
+  "/_console/": ["activity", "appPages", "apps", "auditEvents", "auth", "common", "databases", "dbServers", "fleet", "fleetSettings", "inbox", "nav", "overview", "queue", "server", "serverText", "settings", "widgets"],
   "/_console/account": ["account", "auth", "nav", "server", "settings"],
   "/_console/account/": ["account", "accounts", "auth", "settings"],
   "/_console/account/security": ["account", "appPages", "apps", "auth", "common", "queue", "settings"],
@@ -82,7 +82,7 @@ export const ROUTE_NAMESPACES: Readonly<Record<string, readonly Namespace[]>> = 
   "/_console/domains/sites/$site": ["activity", "appPages", "apps", "auditEvents", "auth", "common", "domains", "nav", "network", "noustDns", "queue", "server", "serverText", "teams"],
   "/_console/domains/tunnels": ["common", "domains", "nav", "network", "noustDns", "server", "serverText"],
   "/_console/fleet": ["apps", "common", "databases", "enroll", "fleet", "fleetSettings", "nav", "placements", "servers", "settings"],
-  "/_console/fleet/": ["accounts", "activity", "appPages", "apps", "auditEvents", "auth", "backups", "common", "fleet", "fleetCompare", "fleetSettings", "inbox", "map", "nav", "overview", "queue", "server", "serverText", "settings", "shell", "timeline"],
+  "/_console/fleet/": ["activity", "appPages", "apps", "auditEvents", "auth", "common", "databases", "dbServers", "fleet", "fleetSettings", "inbox", "nav", "overview", "queue", "server", "serverText", "settings", "widgets"],
   "/_console/fleet/activity": ["activity", "appPages", "apps", "audit", "auditEvents", "auth", "common", "fleet", "fleetSettings", "operation", "queue", "serverText"],
   "/_console/fleet/alerts": ["activity", "alerts", "appPages", "apps", "auditEvents", "auth", "common", "fleet", "fleetSettings", "nav", "operation", "queue", "serverText", "settings"],
   "/_console/fleet/apps": ["appTags", "apps", "common", "fleet", "fleetSettings", "nav", "placements", "runtime", "serverText", "servers", "teams"],
@@ -95,7 +95,7 @@ export const ROUTE_NAMESPACES: Readonly<Record<string, readonly Namespace[]>> = 
   "/_console/integrations/github/callback": ["settings"],
   "/_console/integrations/gitlab/callback": ["gitlab"],
   "/_console/logs": ["activity", "apps", "auditEvents", "auth", "common", "fleet", "fleetCompare", "fleetSettings", "logs", "operation", "server", "serverText", "timeline"],
-  "/_console/map": ["common", "map", "nav", "overview", "runtime", "shell"],
+  "/_console/map": [],
   "/_console/projects/": ["appPages", "apps", "common", "databases", "nav", "queue", "teams"],
   "/_console/projects/$team/$project": ["account", "accounts", "activity", "alerts", "apiReference", "appPages", "approvals", "apps", "audit", "auditEvents", "auth", "catalog", "common", "compliance", "connections", "databases", "domains", "environment", "fleet", "fleetSettings", "manifestPreview", "mcpSettings", "nav", "network", "noustDns", "promotion", "queue", "registries", "rollout", "runtime", "server", "serverText", "servers", "settings", "ssoAdmin", "teams", "variables"],
   "/_console/projects/teams": ["appPages", "apps", "common", "nav", "queue", "teams"],

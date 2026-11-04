@@ -345,6 +345,15 @@ export const KIT_HEIGHTS: Readonly<Record<string, readonly Height[]>> = {
   "components/page/JobProgress.tsx": ["seated"],
   "components/page/DangerZone.tsx": ["seated"],
   "components/ui/FleetCourses.tsx": ["carved", "seated", "raised"],
+  // Home's grid: the hollow a widget leaves in its place while it is held
+  "components/widgets/WidgetGrid.tsx": ["carved"],
+  // the gallery's cards are pressed (and dragged), and the phone's sheet over the page is a seated slab
+  "components/widgets/Gallery.tsx": ["raised"],
+  "components/widgets/GallerySheet.tsx": ["seated"],
+  // and its widgets: the tracks of a bar and a strip of days are carved, the shortcuts are pressed
+  "components/widgets/bodies/MachineBodies.tsx": ["carved"],
+  "components/widgets/bodies/ProtectionBodies.tsx": ["carved"],
+  "components/widgets/bodies/ShortcutBodies.tsx": ["raised"],
   // raised: what is pressed
   "components/ui/Button.tsx": ["raised"],
   "components/ui/IconButton.tsx": ["raised"],
