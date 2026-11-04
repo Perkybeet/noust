@@ -159,6 +159,7 @@ export const overview: Catalog<typeof en> = {
     deleteDescription: "El panel desaparece del Inicio de todos los servidores. Los widgets no cambian en ningún otro sitio.",
     newTitle: "Nuevo panel",
     newDescription: "Un panel es una página de Inicio con los widgets que elijas. Se guarda en tu cuenta y lo ves en cualquier servidor de la flota.",
+    newDescriptionHere: "Un panel es una página de Inicio con los widgets que elijas. Se guarda en este navegador: el token de acceso no tiene cuenta donde guardarlo.",
     nameDefault: "Mi panel",
     nameRequired: "Ponle un nombre al panel.",
     scopeLegend: "De qué servidor",
@@ -173,7 +174,6 @@ export const overview: Catalog<typeof en> = {
     startEmptyDescription: "Empiezas desde la galería de widgets.",
     create: "Crear y personalizar",
     limit: "Una cuenta guarda {count} paneles como máximo. Elimina uno para hacer otro.",
-    browserOnly: "Estos paneles se guardan en este navegador: el token de acceso no tiene cuenta donde guardarlos.",
   },
   fleet: {
     label: "Servidores y sus aplicaciones",

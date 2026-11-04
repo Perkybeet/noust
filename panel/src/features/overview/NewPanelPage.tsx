@@ -59,7 +59,7 @@ export function NewPanelPage({ scope: opened }: { scope: PanelScope }) {
   };
 
   return (
-    <DashboardPage header={{ title: t("overview.panels.newTitle"), description: t("overview.panels.newDescription") }}>
+    <DashboardPage header={{ title: t("overview.panels.newTitle"), description: t(panels.persistence === "browser" ? "overview.panels.newDescriptionHere" : "overview.panels.newDescription") }}>
       <form onSubmit={submit} noValidate className="flex max-w-wizard flex-col gap-6">
         <Field label={t("common.words.name")} error={problem?.field === "name" ? problem.text : null}>
           <Input
@@ -94,7 +94,6 @@ export function NewPanelPage({ scope: opened }: { scope: PanelScope }) {
           ]}
         />
         {problem?.field === "limit" ? <InlineMessage tone="error">{problem.text}</InlineMessage> : null}
-        {panels.persistence === "browser" ? <InlineMessage tone="info">{t("overview.panels.browserOnly")}</InlineMessage> : null}
         <div className="flex gap-2">
           <Button type="submit" variant="primary">
             {t("overview.panels.create")}

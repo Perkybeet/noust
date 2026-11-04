@@ -156,6 +156,7 @@ export const overview = {
     deleteDescription: "The panel goes from the Home of every server. The widgets are not affected anywhere else.",
     newTitle: "New panel",
     newDescription: "A panel is a page of Home with the widgets you choose. It is kept in your account and you see it on any server of the fleet.",
+    newDescriptionHere: "A panel is a page of Home with the widgets you choose. It is kept in this browser: the access token has no account to keep it in.",
     nameDefault: "My panel",
     nameRequired: "Give the panel a name.",
     scopeLegend: "Which server",
@@ -170,7 +171,6 @@ export const overview = {
     startEmptyDescription: "You begin from the gallery of widgets.",
     create: "Create and customize",
     limit: "An account keeps {count} panels at most. Delete one to make another.",
-    browserOnly: "These panels are kept in this browser: the access token has no account to keep them in.",
   },
   fleet: {
     label: "Servers and their applications",

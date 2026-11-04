@@ -7,6 +7,7 @@ import type { Placed } from "../../components/widgets/model";
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
+import type { SessionInfo } from "../../api/queries/auth";
 import { NODES, SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import { flushPanelStore, readPanelCache } from "./panelStore";
@@ -65,12 +66,19 @@ const EMPTY = overviewFixture({
   backups: { ...overviewFixture().backups, apps: 0, scheduled: 0, with_backup_24h: 0 },
 });
 
-/** The access token is no account: the server answers it 400 and the browser keeps the panels. */
+/** The access token is no account: the server would answer 400, so the console does not ask and the browser keeps the panels. */
 const NO_ACCOUNT: RouteHandler = () => problem(400, "validation_error", "Only an account keeps panels");
+
+/** The session of an account, which is the one that keeps its panels on the server. */
+const AS_ACCOUNT: Record<string, RouteHandler> = {
+  "GET /api/auth/session": () => json(200, { ...SESSION, account: { username: "ana", role: "admin" } as NonNullable<SessionInfo["account"]> }),
+};
 
 function routes(extra: Record<string, RouteHandler> = {}, overview = OVERVIEW): Record<string, RouteHandler> {
   return {
     ...signedInRoutes(),
+    // A test that answers the server's panels is signed in as an account: only an account is asked for them.
+    ...("GET /api/auth/dashboards" in extra ? AS_ACCOUNT : {}),
     "GET /api/overview": () => json(200, overview),
     "GET /api/apps": () => json(200, APPS),
     "GET /api/auth/dashboards": NO_ACCOUNT,
@@ -235,7 +243,8 @@ describe("Home, the panels an account keeps", () => {
   it("asks the server for nothing about panels when the panel is an access token's", async () => {
     const { backend } = await home();
     await widgetsOnPage();
-    expect(backend.callsTo("GET /api/auth/dashboards")).toHaveLength(1);
+    // It would answer 400, which a browser logs as an error on every page that draws Home.
+    expect(backend.callsTo("GET /api/auth/dashboards")).toHaveLength(0);
     expect(backend.callsTo("PUT /api/auth/dashboards/server")).toHaveLength(0);
   });
 });

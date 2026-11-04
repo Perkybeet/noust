@@ -3,7 +3,8 @@
  *
  * An account's are kept by the server (`/api/auth/dashboards`, one set across the whole fleet, which a central never
  * forwards to a node), and this browser keeps a copy so Home draws at once and its changes cannot be lost to a slow
- * request. The access token is no account: the server answers it 400, and the copy in this browser is all there is.
+ * request. The access token is no account: it is not asked (the server would answer 400), and the copy in this browser is
+ * all there is.
  * Either way the panel on screen is the store's (`panelStore`), which is changed the moment a person arranges
  * something; the server hears of it a moment after they stop (the writes of a run of changes are one request), and a
  * change the server has not yet heard of is sent again the next time Home opens.
@@ -13,6 +14,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 import type { QueryClient } from "@tanstack/react-query";
 
+import { sessionQuery } from "../../api/queries/auth";
 import { dashboardKeys, dashboardsQuery, deleteDashboard, saveDashboard } from "../../api/queries/dashboards";
 import type { DashboardOut, Dashboards } from "../../api/queries/dashboards";
 import { isApiError } from "../../api/errors";
@@ -67,9 +69,12 @@ export function usePanels(): Panels {
   const can = useCan();
   const hasFleet = useHasFleet();
   const queryClient = useQueryClient();
-  const remote = useQuery(dashboardsQuery());
+  // Only an account keeps panels on the server. The access token is not asked what it would refuse: the browser would
+  // log each refusal as an error on every page that draws Home.
+  const { data: account } = useQuery({ ...sessionQuery(), select: (session) => session.account ?? null });
+  const remote = useQuery({ ...dashboardsQuery(), enabled: account !== undefined && account !== null });
   const cache = usePanelCache();
-  const persistence = isApiError(remote.error) && remote.error.status === 400 ? "browser" : "account";
+  const persistence = account === null || (isApiError(remote.error) && remote.error.status === 400) ? "browser" : "account";
   const offerFleet = hasFleet && can("fleet.read");
 
   // The server's list, once it is read: taken in, except what was changed here and has not got there yet.
