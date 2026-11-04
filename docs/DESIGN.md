@@ -1450,6 +1450,26 @@ wizard's last step), its row in Activity, and a toast when it ends if the operat
 page. The live log opens in a drawer. Start and success are announced politely, a failure
 assertively, with the error verbatim; an event is announced once, by one channel.
 
+**The task centre** (4.2, item 114) follows every job and every long operation of every server from the
+top bar, whichever page started it. One store (`features/tasks/store.ts`) holds them, fed by the reads of the
+server (`/api/jobs/active`, the history, `/api/operations/active`, and a central's `/api/fleet/jobs/active`) and
+by the `job` and `operation` events; nothing else writes it and no screen keeps a state of its own for the
+centre. The icon counts what runs in the shape and colour of work in progress; its panel puts yours first
+(running, then queued), then "Now on the server" (what you did not start), then what ended lately with its
+result (a failure says where it stopped and what the tool printed, verbatim), and on "All servers" it is
+grouped by server, a server not yet updated saying it will count its tasks when it is.
+
+- **Pinning is a choice.** A running task can be pinned as a chip at the foot of every page, with its progress
+  and step; it keeps its result until it is let go, and a reload keeps the pin. Nothing is pinned by itself.
+- **The end is told once, to the one it concerns.** A task of yours that ends while you are on another page
+  is one toast with "See"; on its own page (or the page of the application it acts on) it says nothing,
+  because you are looking at it; and the server's own notice for it is not said a second time. What is not
+  yours keeps the server's notice.
+- **The browser's notification is offered, never started.** The first time you leave a long task of yours, a
+  toast offers it; only your yes asks the browser for its permission, and it is shown only while the tab is hidden.
+- **A task has a page** (Activity > Tasks > one): its steps (a deploy's five phases), who and where, its log as
+  it is written, Pin, Cancel where the queue allows it and Try again for a failed deploy.
+
 ### 6.5 Errors and system output
 
 An error is: what failed (four words: "Could not load applications"), the fix above (the

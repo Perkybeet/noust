@@ -1,4 +1,4 @@
-import { area } from "../../app/navCore";
+import { area, strip, tab } from "../../app/navCore";
 
 // Scheduled tasks are what runs by itself, with what runs. Logs, Alerts and Activity are what
 // happens, each an area of its own. The register is app/nav.ts; these are groups of it.
@@ -9,7 +9,8 @@ export const CRON_SCREENS = [
 export const LOGS_SCREENS = [
   area("logs", "/logs", "logSearch.nav.label", { scope: "both", group: "happens", shortcut: ["g", "l"], goTo: "nav.logs.goTo", keywords: "logSearch.nav.keywords" }),
 ];
-export const ACTIVITY_SCREENS = [
+// Activity is what happened (its views) and, beside them, the tasks the server is running (the task centre's history).
+export const ACTIVITY_SCREENS = strip(
   area("activity", "/activity", "nav.activity.label", {
     scope: "both",
     group: "happens",
@@ -18,4 +19,5 @@ export const ACTIVITY_SCREENS = [
     goTo: "nav.activity.goTo",
     keywords: "nav.activity.keywords",
   }),
-];
+  (activity) => [tab(activity, "tasks", "nav.activityTasks.label", { keywords: "nav.activityTasks.keywords", command: "nav.activityTasks.command" })],
+);

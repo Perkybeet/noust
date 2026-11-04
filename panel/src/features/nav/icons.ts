@@ -141,6 +141,7 @@ const COLUMN_OBJECT: Readonly<Record<string, ObjectName>> = {
   "activity.view.changes": "activity",
   "activity.view.deployments": "deployment",
   "activity.view.access": "signIn",
+  "activity.tasks": "work",
   // What the fleet draws for an area, in "All servers".
   fleet: "overview",
   "fleet.servers": "node",

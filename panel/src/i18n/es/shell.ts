@@ -26,6 +26,10 @@ export const shell: Catalog<typeof en> = {
     needs: { one: "Bandeja, {count} cosa requiere tu atención", other: "Bandeja, {count} cosas requieren tu atención" },
     clear: "Bandeja, nada requiere tu atención",
   },
+  tasks: {
+    label: "Tareas: {running} en marcha, {queued} en cola",
+    idle: "Tareas, nada en marcha",
+  },
   search: {
     label: "Buscar",
     placeholder: "Buscar apps, bases de datos, dominios, servidores, ajustes y acciones",

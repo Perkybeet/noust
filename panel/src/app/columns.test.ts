@@ -222,7 +222,9 @@ describe("the column of an area", () => {
       ["/logs", { source: "system" }],
     ]);
     const [activity] = areaColumn("activity", everything);
-    expect(activity?.items.map((item) => item.search)).toEqual([undefined, { kind: "deployments" }, { kind: "access" }]);
+    // The views, then the tasks the server runs (a page of its own, no view of this one).
+    expect(activity?.items.map((item) => item.search)).toEqual([undefined, { kind: "deployments" }, { kind: "access" }, undefined]);
+    expect(activity?.items.at(-1)?.to).toBe("/activity/tasks");
   });
 
   it("leaves out what a role cannot see, and Projects where nobody organised theirs", () => {

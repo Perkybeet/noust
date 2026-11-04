@@ -41,8 +41,14 @@ function entriesOf(job: Job | null | undefined): JobEntry[] {
  * phases are still there after a panel restart.
  */
 export function useDeploymentJob(deployment: Deployment | undefined): DeploymentJob {
-  const jobId = deployment?.job_id ?? null;
-  const running = deployment !== undefined && RUNNING_DEPLOY.has(deployment.status);
+  return useJobRecord(deployment?.job_id ?? null, deployment !== undefined && RUNNING_DEPLOY.has(deployment.status));
+}
+
+/**
+ * The same, for a job whose id is known without a deployment: a task's own page (features/tasks). `running` says
+ * whether to follow it over its WebSocket or to read what it left.
+ */
+export function useJobRecord(jobId: string | null, running: boolean): DeploymentJob {
   const stream = useJobStream(running ? jobId : null);
   const rest = useQuery({ ...jobQuery(jobId ?? ""), enabled: jobId !== null && !running });
   const log = useQuery({ ...jobLogQuery(jobId ?? ""), enabled: jobId !== null && !running });
