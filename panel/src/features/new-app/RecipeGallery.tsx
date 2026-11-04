@@ -14,6 +14,9 @@ import { RecipeLogo } from "../catalog/RecipeLogo";
 import type { CatalogSearch } from "../catalog/model";
 import { popularRecipes } from "../catalog/popular";
 
+/** The name the step's page size is remembered under (`noust.pageSize.recipes-in-step`), apart from the catalog page's. */
+const WIZARD_RECIPES_LIST = "recipes-in-step";
+
 /** How many tiles the popular recipes make: the room held for them while the catalog is read. */
 const POPULAR_PLACEHOLDERS = ["a", "b", "c", "d"] as const;
 
@@ -49,7 +52,9 @@ export function RecipeGallery({ query, browse = false, opening, failure, onChoos
     return (
       <div className="flex flex-col gap-4">
         {browsing && !typed ? <CatalogFilterBar search={filters} onSearchChange={(next) => setFilters(next)} catalog={catalog} /> : null}
-        <CatalogResults catalog={catalog} search={search} opening={opening} onClear={() => setFilters({})} onChoose={onChoose} {...(notice !== undefined ? { notice } : {})} />
+        {/* Paged like the catalog's page: the whole catalog is 440 cards, a page of 32,000px in this column (item 117). The
+            size is this step's own: "All" chosen on the catalog's page is not a choice about a step of a wizard. */}
+        <CatalogResults paged pageList={WIZARD_RECIPES_LIST} catalog={catalog} search={search} opening={opening} onClear={() => setFilters({})} onChoose={onChoose} {...(notice !== undefined ? { notice } : {})} />
         <CommandHint command="noust recipe list" label={t("common.words.fromTerminal")} />
       </div>
     );
