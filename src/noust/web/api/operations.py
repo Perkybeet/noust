@@ -13,10 +13,13 @@ that predates this route answers 404, which the central reads as "not updated ye
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from typing import Annotated
+
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from noust.core.teams import ScopedStore, current_scope
+from noust.web.api.auth import get_current_session
 from noust.web.api.deps import CodedText, NoustErrorRoute
 from noust.web.operations import Running, active_operations
 
@@ -74,9 +77,18 @@ class OperationsResponse(BaseModel):
 
 
 @router.get("/active", response_model=OperationsResponse)
-def active_operations_now() -> OperationsResponse:
+def active_operations_now(
+    session: Annotated[dict, Depends(get_current_session)],
+) -> OperationsResponse:
     """
     List the long operations that are running now.
+
+    The session is asked for by name, as every route of the jobs does: the router's guard already
+    refuses a request without one, and this keeps the route in the graph the authentication test
+    reads whatever version of FastAPI includes the routers.
+
+    Args:
+        session: The caller's session.
 
     Returns:
         What runs, oldest first. For a principal that does not see every team, only the

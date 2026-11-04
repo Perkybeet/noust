@@ -326,8 +326,12 @@ class TestTheJob:
             run_job(world)
             trail = world.client.get("/api/audit?limit=50", headers=world.master).json()["items"]
 
-        changes = [e for e in trail if e["resource"] == f"/api/apps/{SHOP}/health"]
+        on_route = [e for e in trail if e["resource"] == f"/api/apps/{SHOP}/health"]
+        # The change, and the use of the person's elevated token that made it: both are the person's.
+        changes = [e for e in on_route if e["action"] != "auth.token.elevated"]
         assert [e["actor"] for e in changes] == ["token:alice-token"]
+        elevated = [e for e in on_route if e["action"] == "auth.token.elevated"]
+        assert [e["actor"] for e in elevated] == ["token:alice-token"]
         asked = [e for e in trail if e["action"] == "manifest.apply"]
         assert [e["actor"] for e in asked] == ["token:alice-token"]
         assert "healthz" not in str(asked)
