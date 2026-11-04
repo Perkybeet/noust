@@ -12,7 +12,7 @@ export function DeployKeysSettings() {
   const t = useT();
   useDocumentTitle(t("connections.deployKeys.nav.label"), 1);
   return (
-    <Sections>
+    <Sections surfaces>
       <DeployKeysSection />
     </Sections>
   );

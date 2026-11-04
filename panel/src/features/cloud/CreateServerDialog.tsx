@@ -480,7 +480,12 @@ export function CreateServerDialog({ open, onClose, account: initialAccount, onA
             if (!create.isPending) setStep("options");
           },
         }}
-        next={{ label: t("cloud.create.submit"), loading: create.isPending, onClick: () => create.mutate() }}
+        next={{
+          label: t("cloud.create.submit"),
+          loading: create.isPending,
+          // design-exception: write-without-permission opened only from "Create a server", the page's primary action, which is guarded by fleet.manage
+          onClick: () => create.mutate(),
+        }}
       />
     );
   } else {

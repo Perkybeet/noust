@@ -5,11 +5,12 @@ import { useState } from "react";
 import { githubKeys, githubStatusQuery, removeGitHubApp, syncGitHubInstallations } from "../../../api/queries/github";
 import type { GitHubInstallation, GitHubStatus } from "../../../api/queries/github";
 import { CommandHint } from "../../../components/page/CommandHint";
-import { KeyValueList, KeyValueListSkeleton } from "../../../components/page/KeyValueList";
 import { QueryState } from "../../../components/page/QueryState";
-import { Section } from "../../../components/page/Section";
+import { RowMenu } from "../../../components/page/RowMenu";
 import { Stepper } from "../../../components/page/Stepper";
 import { Subsection } from "../../../components/page/Subsection";
+import { SurfaceSection } from "../../../components/page/SurfaceSection";
+import { Can, useCan } from "../../../components/page/permissions";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -17,12 +18,13 @@ import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
 import { ExternalLink } from "../../../components/ui/ExternalLink";
-import { IconButton } from "../../../components/ui/IconButton";
 import { ICONS } from "../../../components/ui/icons";
-import { Menu, MenuItem } from "../../../components/ui/Menu";
+import { MenuItem } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
-import { StatusGlyph, StatusPill } from "../../../components/ui/StatusPill";
+import { ResourceCard } from "../../../components/ui/ResourceCard";
+import { Skeleton } from "../../../components/ui/Skeleton";
+import { StatusPill } from "../../../components/ui/StatusPill";
 import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
@@ -33,6 +35,9 @@ import { accountTypeWords, hooksState, repositorySelectionWords } from "./github
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 const EXPOSE_COMMAND = "noust web expose-hooks hooks.example.com";
+
+/** What every change of the App takes (the server's, `routes_integrations.py`). */
+const MANAGE = "apps.manage";
 
 type SetupStep = "create" | "install";
 
@@ -51,17 +56,17 @@ function installationColumns(t: T): readonly Column<GitHubInstallation>[] {
     {
       id: "account",
       header: t("settings.integrations.github.installations.columnAccount"),
-      cell: (installation) => <Mono>{installation.account}</Mono>,
-    },
-    {
-      id: "type",
-      header: t("settings.integrations.github.installations.columnType"),
-      cell: (installation) => <Badge>{accountTypeWords(installation.account_type, t.locale)}</Badge>,
+      // The kind of account is a tag of its name, on its line.
+      cell: (installation) => (
+        <span className="flex min-w-0 items-center gap-2">
+          <Mono>{installation.account}</Mono>
+          <Badge>{accountTypeWords(installation.account_type, t.locale)}</Badge>
+        </span>
+      ),
     },
     {
       id: "repositories",
       header: t("settings.integrations.github.installations.columnRepositories"),
-      hideBelow: "sm",
       cell: (installation) => <span className="text-13 text-fg">{repositorySelectionWords(installation.repository_selection, t.locale)}</span>,
     },
   ];
@@ -98,6 +103,7 @@ function InstallStep({ status }: { status: GitHubStatus }) {
         <ExternalLink href={status.install_url} button="primary">
           {t("settings.integrations.github.installations.installOnGitHub")}
         </ExternalLink>
+        {/* design-exception: write-without-permission the step is drawn only for apps.manage, in the section that holds it */}
         <Button icon={<RotateCw aria-hidden="true" />} loading={sync.isPending} onClick={() => sync.mutate()}>
           {t("settings.integrations.github.installations.syncInstallations")}
         </Button>
@@ -114,7 +120,8 @@ function EventsHelp({ status }: { status: GitHubStatus }) {
     return (
       <div className="flex min-w-0 flex-col gap-3">
         <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("settings.integrations.github.webhook.unexposedDescription")}</p>
-        <CommandHint command={EXPOSE_COMMAND} />
+        {/* The console cannot expose a domain: the terminal does, on this machine. */}
+        <CommandHint command={EXPOSE_COMMAND} reason="solo-terminal" />
       </div>
     );
   }
@@ -137,15 +144,10 @@ function EventsHelp({ status }: { status: GitHubStatus }) {
 function EventsTask({ status }: { status: GitHubStatus }) {
   const t = useT();
   return (
-    <Card>
-      <Subsection title={t("settings.integrations.github.steps.events")}>
-        <p className="flex items-center gap-2 text-13 font-medium text-fg">
-          <StatusGlyph state="warning" size={10} className="text-warn" />
-          {t("settings.integrations.github.webhook.pushesWaiting")}
-        </p>
-        <EventsHelp status={status} />
-      </Subsection>
-    </Card>
+    <Subsection title={t("settings.integrations.github.steps.events")}>
+      <StatusPill state="warning" label={t("settings.integrations.github.webhook.pushesWaiting")} size="sm" className="self-start" />
+      <EventsHelp status={status} />
+    </Subsection>
   );
 }
 
@@ -161,87 +163,98 @@ function Setup({ status, step }: { status: GitHubStatus; step: SetupStep }) {
   ] as const;
   const current = steps.find((candidate) => candidate.id === step) ?? steps[0];
   return (
-    <Card>
-      <div className="flex min-w-0 flex-col gap-6 md:flex-row">
-        <Stepper steps={steps} current={step} className="shrink-0 md:w-48" />
-        <div className="flex min-w-0 flex-1 flex-col gap-3 md:border-l md:border-border md:pl-6">
-          <Subsection title={current.label}>
-            {step === "create" ? (
-              <>
-                <GitHubHost key={statusHost(status)} status={status} />
-                <CreateGitHubApp />
-              </>
-            ) : (
-              <InstallStep status={status} />
-            )}
-          </Subsection>
-        </div>
+    <div className="flex min-w-0 flex-col gap-6 md:flex-row">
+      <Stepper steps={steps} current={step} className="shrink-0 md:w-48" />
+      <div className="flex min-w-0 flex-1 flex-col gap-3 md:border-l md:border-border md:pl-6">
+        <Subsection title={current.label}>
+          {step === "create" ? (
+            <>
+              <GitHubHost key={statusHost(status)} status={status} />
+              <CreateGitHubApp />
+            </>
+          ) : (
+            <InstallStep status={status} />
+          )}
+        </Subsection>
       </div>
-    </Card>
+    </div>
   );
 }
 
-/** The App itself: its name, owner and page on GitHub, and where it delivers. */
-function AppFacts({ status }: { status: GitHubStatus }) {
+/**
+ * The App itself, as a card: its name, whether GitHub delivers its pushes, who owns it and on which GitHub, its page
+ * there, and what can be done with it (sync, remove). The actions are the role's: a menu drawn only for who manages
+ * applications.
+ */
+function AppCard({ status, onRemove }: { status: GitHubStatus; onRemove: () => void }) {
   const t = useT();
+  const sync = useSync();
+  const name = status.name ?? status.slug ?? "GitHub";
   const state = hooksState(status);
   return (
-    <Card padding="sm">
-      <KeyValueList
-        items={[
-          { label: t("settings.integrations.github.appFacts.app"), value: status.name ?? status.slug ?? null, mono: false },
-          { label: t("settings.integrations.github.appFacts.owner"), value: status.owner ?? null },
-          { label: t("githubHost.fact"), value: statusHost(status), hint: t("githubHost.factDescription") },
-          {
-            label: t("settings.integrations.github.appFacts.events"),
-            value:
-              state === "active" ? (
-                <span className="inline-flex items-center gap-2 text-13 text-fg">
-                  <StatusGlyph state="running" size={10} className="text-ok" />
-                  {t("settings.integrations.github.webhook.activeTitle")}
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-2 text-13 text-fg">
-                  <StatusGlyph state="warning" size={10} className="text-warn" />
-                  {state === "unexposed" ? t("settings.integrations.github.webhook.unexposedTitle") : t("settings.integrations.github.webhook.inactiveTitle")}
-                </span>
-              ),
-            copy: false,
-            mono: false,
-            ...(state === "active" && status.hooks_url ? { hint: <Mono tone="muted" className="break-all">{status.hooks_url}</Mono> } : {}),
-          },
-          {
-            label: t("settings.integrations.github.appFacts.onGitHub"),
-            value: status.html_url ? <ExternalLink href={status.html_url}>{status.html_url.replace(/^https:\/\//, "")}</ExternalLink> : null,
-            copy: false,
-          },
-        ]}
-      />
-    </Card>
+    <ResourceCard
+      name={name}
+      untranslated
+      icon={OBJECT_ICONS.integration}
+      status={
+        state === "active" ? (
+          <StatusPill state="running" label={t("settings.integrations.github.webhook.activeTitle")} size="sm" />
+        ) : (
+          <StatusPill state="warning" label={state === "unexposed" ? t("settings.integrations.github.webhook.unexposedTitle") : t("settings.integrations.github.webhook.inactiveTitle")} size="sm" />
+        )
+      }
+      facts={[
+        ...(status.owner ? [{ label: t("settings.integrations.github.appFacts.owner"), value: <Mono>{status.owner}</Mono> }] : []),
+        {
+          label: t("githubHost.fact"),
+          value: (
+            <>
+              <Mono>{statusHost(status)}</Mono>
+              <span className="block text-12 text-fg-muted">{t("githubHost.factDescription")}</span>
+            </>
+          ),
+        },
+      ]}
+      actions={
+        <Can permission={MANAGE}>
+          <RowMenu name={name}>
+            {/* design-exception: write-without-permission the menu is drawn only for apps.manage, by Can */}
+            <MenuItem icon={<RotateCw />} disabled={sync.isPending} onClick={() => sync.mutate()}>
+              {t("settings.integrations.github.installations.sync")}
+            </MenuItem>
+            <MenuItem destructive icon={<ICONS.delete />} onClick={onRemove}>
+              {t("settings.integrations.github.remove.action")}
+            </MenuItem>
+          </RowMenu>
+        </Can>
+      }
+    >
+      {status.html_url ? <ExternalLink href={status.html_url}>{status.html_url.replace(/^https:\/\//, "")}</ExternalLink> : null}
+    </ResourceCard>
   );
 }
 
 /** The accounts the App is installed on, and the way to add or refresh them. */
 function Installations({ status }: { status: GitHubStatus }) {
   const t = useT();
-  const sync = useSync();
+  const canManage = useCan(MANAGE);
   return (
     <Card
       padding="none"
-      title={t("settings.integrations.github.installations.title")} icon={OBJECT_ICONS.integration}
+      level={3}
+      title={t("settings.integrations.github.installations.title")}
       description={t("settings.integrations.github.installations.description")}
-      footer={
-        <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" icon={<RotateCw aria-hidden="true" />} loading={sync.isPending} onClick={() => sync.mutate()}>
-            {t("settings.integrations.github.installations.sync")}
-          </Button>
+      actions={
+        canManage ? (
           <ExternalLink href={status.install_url} button="secondary" size="sm">
             {t("settings.integrations.github.installations.installOnAnother")}
           </ExternalLink>
-        </div>
+        ) : undefined
       }
+      className="overflow-hidden"
     >
       <DataTable
+        embedded
         caption={t("settings.integrations.github.installations.tableCaption")}
         columns={installationColumns(t)}
         rows={status.installations}
@@ -283,14 +296,6 @@ function RemoveApp({ status, open, onOpenChange, onRemoved }: { status: GitHubSt
   );
 }
 
-function GitHubSkeleton() {
-  return (
-    <Card padding="sm">
-      <KeyValueListSkeleton rows={4} />
-    </Card>
-  );
-}
-
 /**
  * The App's state beside the section's title, readable at a glance: connected in the running
  * green, not connected in the stopped grey, and a setup left half done as waiting (the still,
@@ -306,13 +311,14 @@ function GitHubState({ status }: { status: GitHubStatus | undefined }) {
 }
 
 /**
- * Settings > Integrations > GitHub: the state first, then what is left to set up - create this
- * server's own GitHub App, install it on the accounts that hold the repositories, let GitHub
- * deliver its events - and, once it exists, its facts and installations. Removing it is in
- * "More actions", behind the App's name. Every change goes through "Confirm it's you".
+ * Settings > Integrations > GitHub: a slab with the state beside its title, then what is left to set up - create this
+ * server's own GitHub App, install it on the accounts that hold the repositories, let GitHub deliver its events - and,
+ * once it exists, the App as a card beside where it is installed. Removing it is in the card's menu, behind its name.
+ * Every change goes through "Confirm it's you".
  */
 export function GitHubIntegration() {
   const t = useT();
+  const canManage = useCan(MANAGE);
   const query = useQuery(githubStatusQuery());
   const [removing, setRemoving] = useState(false);
   // Removing the App leaves it on GitHub; where to delete it stays on screen until then.
@@ -320,25 +326,11 @@ export function GitHubIntegration() {
   const status = query.data;
 
   return (
-    <Section
-      title={t("settings.integrations.github.title")} icon={OBJECT_ICONS.integration}
+    <SurfaceSection
+      title={t("settings.integrations.github.title")}
+      icon={OBJECT_ICONS.source}
+      status={<GitHubState status={status} />}
       description={t("settings.integrations.github.description")}
-      badge={<GitHubState status={status} />}
-      actions={
-        status?.configured === true ? (
-          <Menu align="end" trigger={<IconButton label={t("settings.integrations.github.moreActions")} icon={<ICONS.more />} tooltip={false} />}>
-            <MenuItem
-              destructive
-              icon={<ICONS.delete />}
-              onClick={() => {
-                setRemoving(true);
-              }}
-            >
-              {t("settings.integrations.github.remove.action")}
-            </MenuItem>
-          </Menu>
-        ) : undefined
-      }
     >
       <div className="flex min-w-0 flex-col gap-4">
         {removedAt !== undefined && status?.configured !== true ? (
@@ -347,21 +339,25 @@ export function GitHubIntegration() {
             <ExternalLink href={removedAt}>{t("settings.integrations.github.deleteOnGitHub")}</ExternalLink>
           </Notice>
         ) : null}
-        <QueryState query={query} label={t("settings.integrations.github.loadingLabel")} skeleton={<GitHubSkeleton />}>
+        <QueryState query={query} label={t("settings.integrations.github.loadingLabel")} skeleton={<Skeleton className="h-32 w-full rounded-card" />}>
           {(loaded) => {
             const step = setupStep(loaded);
             return (
               <>
                 {step !== null ? <Setup status={loaded} step={step} /> : null}
                 {step === null && hooksState(loaded) !== "active" ? <EventsTask status={loaded} /> : null}
-                {loaded.configured ? <AppFacts status={loaded} /> : null}
-                {loaded.configured && loaded.installations.length > 0 ? <Installations status={loaded} /> : null}
+                {loaded.configured ? (
+                  <div className="flex min-w-0 flex-col gap-4">
+                    <AppCard status={loaded} onRemove={() => setRemoving(true)} />
+                    {loaded.installations.length > 0 ? <Installations status={loaded} /> : null}
+                  </div>
+                ) : null}
               </>
             );
           }}
         </QueryState>
       </div>
-      {status?.configured === true ? (
+      {status?.configured === true && canManage ? (
         <RemoveApp
           status={status}
           open={removing}
@@ -371,6 +367,6 @@ export function GitHubIntegration() {
           }}
         />
       ) : null}
-    </Section>
+    </SurfaceSection>
   );
 }

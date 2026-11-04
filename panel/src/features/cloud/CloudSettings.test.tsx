@@ -165,11 +165,89 @@ describe("Settings > Cloud", () => {
     expect(backend.callsTo("GET /api/fleet/cloud/servers").length).toBeLessThanOrEqual(3);
   });
 
-  it("asks for an account before a server can be created", async () => {
+  it("asks for an account before a server can be created: the page's action waits and says what for, and the first time has its button", async () => {
     cloudBackend({ accounts: [], machines: [] });
+    const { user } = renderConsole("/settings/cloud");
+    expect(await screen.findByText("Add the token of Hetzner Cloud, DigitalOcean or Vultr and you can create servers without leaving here.")).toBeInTheDocument();
+    expect(await screen.findByText("No server created here yet")).toBeInTheDocument();
+    const header = screen.getByRole("heading", { level: 1 }).closest("header");
+    if (header === null) throw new Error("no page header");
+    // Nothing is denied to this person, so no lock: the action waits for an account, and the "?" says so.
+    const create = within(header).getByRole("button", { name: "Create a server" });
+    expect(create).toBeDisabled();
+    await user.click(within(header).getByRole("button", { name: "Why you cannot do this yet" }));
+    expect(await screen.findByRole("dialog", { name: "Why not yet" })).toHaveTextContent("Add a provider account first, then create a server.");
+    // The one primary button of the page is the first time's own: it starts what the page cannot do yet.
+    expect(document.querySelectorAll("button[data-variant=primary]")).toHaveLength(1);
+    expect(within(screen.getByRole("region", { name: "Provider accounts" })).getByRole("button", { name: "Add an account" })).toHaveAttribute("data-variant", "primary");
+  });
+
+  it("is three slabs that say what they are, with the page's one action in its header and a note about the rule behind a ?", { timeout: 30_000 }, async () => {
+    cloudBackend();
     renderConsole("/settings/cloud");
-    expect(await screen.findByText("No provider account yet")).toBeInTheDocument();
-    expect(await screen.findByText("Add a provider account first, then create a server.")).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Boot scripts" })).toBeInTheDocument();
+    for (const name of ["Provider accounts", "Servers created here", "Boot scripts"]) {
+      const slab = screen.getByRole("region", { name });
+      expect(within(slab).getByRole("heading", { level: 2, name })).toBeInTheDocument();
+      expect(slab.querySelector("[data-slot=surface-section]")).not.toBeNull();
+    }
+    const header = screen.getByRole("heading", { level: 1 }).closest("header");
+    if (header === null) throw new Error("no page header");
+    expect(within(header).getByRole("button", { name: "Create a server" })).toHaveAttribute("data-variant", "primary");
+    // The long rule is behind the "?" and not a paragraph of the page; no command repeats a button.
+    expect(screen.queryByText(/Noust's own part of the document/)).not.toBeInTheDocument();
+    expect(document.querySelector("[data-reason], code")).toBeNull();
+  });
+
+  it("tells what the provider said about the machine that did not make it, as it said it, and that it is billed", { timeout: 30_000 }, async () => {
+    cloudBackend();
+    renderConsole("/settings/cloud");
+    const said = await screen.findByLabelText("What the provider said about the servers that did not make it");
+    expect(said).toHaveTextContent("web-6: the provider said The server never answered on port 22 after 300 seconds.");
+    expect(said).toHaveTextContent("It is billed until you delete it.");
+    expect(within(said).getByText("The server never answered on port 22 after 300 seconds.")).toHaveAttribute("translate", "no");
+  });
+
+  it("puts \"Built in\" on the line of the script's name, as a tag, so every row has the one height", { timeout: 30_000 }, async () => {
+    cloudBackend();
+    renderConsole("/settings/cloud");
+    const name = await screen.findByText("swap-2g");
+    expect(name.closest("[data-slot=name-with-tags]")).toHaveTextContent("swap-2g");
+    expect(name.closest("[data-slot=name-with-tags]")).toHaveTextContent("Built in");
+    expect(screen.getByText("my-tools").closest("[data-slot=name-with-tags]")).not.toHaveTextContent("Built in");
+  });
+
+  it("counts the servers of each account and gives the token's state on its row", { timeout: 30_000 }, async () => {
+    cloudBackend();
+    renderConsole("/settings/cloud");
+    const row = (await screen.findAllByText("hetzner-prod")).map((cell) => cell.closest<HTMLElement>("tr, li")).find((tr) => tr?.textContent.includes("...wxyz"));
+    if (!row) throw new Error("no account row");
+    expect(within(row).getByText("Hetzner Cloud")).toBeInTheDocument();
+    // web-5 and web-6 were made with it.
+    expect(within(row).getByText("2")).toBeInTheDocument();
+    expect(within(row).getByText("...wxyz")).toBeInTheDocument();
+  });
+
+  it("shows the rows to a role that cannot manage the fleet and nothing it could press: no add, no row menu, the action locked, one line on top", { timeout: 30_000 }, async () => {
+    fakeBackend({
+      ...fleetRoutes(centralSession({}, { permissions: ["self", "fleet.read"], role: "viewer" })),
+      "GET /api/fleet/cloud/providers": () => json(200, PROVIDERS),
+      "GET /api/fleet/cloud/accounts": () => json(200, [ACCOUNT]),
+      "GET /api/fleet/cloud/servers": () => json(200, [READY, FAILED]),
+      "GET /api/fleet/cloud/scripts": () => json(200, SCRIPTS),
+    });
+    const { container } = renderConsole("/settings/cloud");
+    expect(await screen.findByText("swap-2g")).toBeInTheDocument();
+    expect(screen.getByText("...wxyz")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add an account" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "New script" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Actions for / })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete the machine of web-6" })).not.toBeInTheDocument();
+    const create = screen.getByRole("button", { name: "Create a server" });
+    expect(create).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Why you cannot do this" })).toBeInTheDocument();
+    expect(container.querySelector("[data-slot=read-only]")).toHaveTextContent("Your role, viewer, can see this page and not change it. Changing it takes the permission fleet.manage.");
+    await expectNoAxeViolations(container, { page: true });
   });
 
   it("adds an account: the token is sent once, checked, and gone from the page", { timeout: 30_000 }, async () => {
@@ -309,8 +387,8 @@ describe("Settings > Cloud", () => {
       extra: { "DELETE /api/fleet/cloud/servers/web-6": () => json(200, { node: "web-6", warnings: [] }) },
     });
     const { user } = renderConsole("/settings/cloud");
-    await user.click(await screen.findByRole("button", { name: "Actions for web-6" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Delete the machine" }));
+    // The machine that did not make it is billed until it is deleted: its row has the way to do it, not a menu.
+    await user.click(await screen.findByRole("button", { name: "Delete the machine of web-6" }));
     const dialog = await screen.findByRole("alertdialog", { name: "Delete the machine of web-6?" });
     expect(within(dialog).getByText(/destroyed at the provider/)).toBeInTheDocument();
     const action = within(dialog).getByRole("button", { name: "Delete machine" });

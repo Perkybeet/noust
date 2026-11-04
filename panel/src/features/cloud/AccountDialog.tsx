@@ -76,8 +76,10 @@ export function AccountDialog({ existing, open, onOpenChange }: AccountDialogPro
       close(false);
     };
     if (existing === undefined) {
+      // design-exception: write-without-permission opened only from "Add an account" and the row menu, which are drawn only for fleet.manage
       addAccount.mutate({ name: name.trim(), provider, token: token.trim(), note: note.trim() }, { onSuccess: done });
     } else {
+      // design-exception: write-without-permission opened only from the account's row menu, which is drawn only for fleet.manage
       replaceToken.mutate({ name: existing.name, token: token.trim() }, { onSuccess: done });
     }
     // The request has left: nothing of the token stays on this page, whatever the answer.

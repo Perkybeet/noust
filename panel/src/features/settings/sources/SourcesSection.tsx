@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { ErrorBlock, QueryState } from "../../../components/page/QueryState";
-import { Section } from "../../../components/page/Section";
+import { SurfaceSection } from "../../../components/page/SurfaceSection";
+import { Can } from "../../../components/page/permissions";
 import { Button } from "../../../components/ui/Button";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
@@ -92,7 +93,8 @@ function FailedPushes({ t }: { t: T }) {
       getRowId={(delivery) => delivery.id}
       density="compact"
       rowActions={(delivery) => (
-        <Button size="sm" variant="ghost" loading={retry.isPending && retry.variables === delivery.id} aria-label={t("connections.deliveries.retryLabel", { repository: delivery.repository, server: delivery.node })} onClick={() => retry.mutate(delivery.id)}>
+        <Button size="sm" variant="ghost" loading={retry.isPending && retry.variables === delivery.id} aria-label={t("connections.deliveries.retryLabel", { repository: delivery.repository, server: delivery.node })} // design-exception: write-without-permission the retry of a delivery is in a section whose actions are fleet.manage
+          onClick={() => retry.mutate(delivery.id)}>
           <span className="max-sm:sr-only">{t("common.words.retry")}</span>
         </Button>
       )}
@@ -118,14 +120,16 @@ export function SourcesSection() {
   });
   const renewing = renew.isPending ? (renew.variables ?? "") : null;
   return (
-    <Section
+    <SurfaceSection
       title={t("connections.title")}
       icon={OBJECT_ICONS.integration}
       description={t("connections.description")}
       actions={
-        <Button size="sm" variant="secondary" icon={<VERB_ICONS.refresh aria-hidden="true" />} loading={renew.isPending && renew.variables === null} onClick={() => renew.mutate(null)}>
-          {t("connections.renew.all")}
-        </Button>
+        <Can permission="fleet.manage">
+          <Button size="sm" variant="secondary" icon={<VERB_ICONS.refresh aria-hidden="true" />} loading={renew.isPending && renew.variables === null} onClick={() => renew.mutate(null)}>
+            {t("connections.renew.all")}
+          </Button>
+        </Can>
       }
     >
       <QueryState query={query} label={t("connections.loading")} skeleton={<Skeleton className="h-32 w-full rounded-card" />}>
@@ -139,7 +143,8 @@ export function SourcesSection() {
               getRowId={(node) => node.node}
               density="compact"
               rowActions={(node) => (
-                <Button size="sm" variant="ghost" icon={<VERB_ICONS.refresh aria-hidden="true" />} loading={renewing === node.node} aria-label={t("connections.renew.label", { server: node.node })} onClick={() => renew.mutate(node.node)}>
+                <Button size="sm" variant="ghost" icon={<VERB_ICONS.refresh aria-hidden="true" />} loading={renewing === node.node} aria-label={t("connections.renew.label", { server: node.node })} // design-exception: write-without-permission the renewal of a server is in a section whose actions are fleet.manage
+                onClick={() => renew.mutate(node.node)}>
                   <span className="max-sm:sr-only">{t("connections.renew.one")}</span>
                 </Button>
               )}
@@ -155,6 +160,6 @@ export function SourcesSection() {
           </div>
         )}
       </QueryState>
-    </Section>
+    </SurfaceSection>
   );
 }

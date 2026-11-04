@@ -11,8 +11,9 @@ export const gitlab: Catalog<typeof en> = {
   columnHost: "GitLab",
   columnAccount: "Cuenta",
   columnState: "Última comprobación",
-  emptyTitle: "GitLab no está conectado",
-  emptyDescription: "Conecta con un token de acceso, o inicia sesión con GitLab cuando su aplicación OAuth esté registrada aquí.",
+  firstUse: "Conecta gitlab.com o tu propio GitLab para crear aplicaciones desde sus proyectos y clonar los privados.",
+  refusalsLabel: "Lo que respondió GitLab",
+  refusalSaid: "{name}: GitLab respondió {said}",
   signIn: {
     token: "Token de acceso",
     oauth: "Iniciar sesión con GitLab",
@@ -24,6 +25,8 @@ export const gitlab: Catalog<typeof en> = {
   state: {
     ok: "Funciona",
     unchecked: "Sin comprobar",
+    connected: "Conectado",
+    notConnected: "Sin conectar",
   },
   actions: {
     test: "Comprobar la conexión",

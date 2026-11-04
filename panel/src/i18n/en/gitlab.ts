@@ -13,8 +13,9 @@ export const gitlab = {
   columnHost: "GitLab",
   columnAccount: "Account",
   columnState: "Last check",
-  emptyTitle: "GitLab is not connected",
-  emptyDescription: "Connect with an access token, or sign in with GitLab once its OAuth application is registered here.",
+  firstUse: "Connect gitlab.com or your own GitLab to create applications from its projects and to clone the private ones.",
+  refusalsLabel: "What GitLab answered",
+  refusalSaid: "{name}: GitLab answered {said}",
   signIn: {
     token: "Access token",
     oauth: "Sign in with GitLab",
@@ -26,6 +27,8 @@ export const gitlab = {
   state: {
     ok: "Works",
     unchecked: "Not checked",
+    connected: "Connected",
+    notConnected: "Not connected",
   },
   actions: {
     test: "Check the connection",
