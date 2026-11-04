@@ -125,6 +125,8 @@ export const OBJECT_ICONS = {
   site: PanelTop,
   dns: Network,
   upstream: Network,
+  network: Network,
+  networkInterface: Wifi,
   tunnel: Cable,
   port: EthernetPort,
   backup: Archive,

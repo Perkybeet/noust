@@ -36,8 +36,10 @@ import { DOMAINS_SCREENS } from "../features/nav/domains";
 import { FLEET_SCREENS } from "../features/nav/fleet";
 import { iconOf, sectionIcon } from "../features/nav/icons";
 import { ACTIVITY_SCREENS, CRON_SCREENS, LOGS_SCREENS } from "../features/nav/machine";
+import { NETWORK_SCREENS } from "../features/nav/network";
 import { OVERVIEW_SCREENS } from "../features/nav/overview";
 import { PROJECTS_SCREENS } from "../features/nav/projects";
+import { SECURITY_SCREENS } from "../features/nav/security";
 import { SERVER_SCREENS, SERVICE_SCREENS } from "../features/nav/server";
 import { RENAMED, SETTINGS_SCREENS, groupSettings } from "../features/nav/settings";
 import { TEAM_SCREENS } from "../features/nav/team";
@@ -69,10 +71,12 @@ for (const group of [
   DATABASES_SCREENS,
   CRON_SCREENS,
   DOMAINS_SCREENS,
+  NETWORK_SCREENS,
   LOGS_SCREENS,
   ALERTS_SCREENS,
   ACTIVITY_SCREENS,
   BACKUPS_SCREENS,
+  SECURITY_SCREENS,
   SERVER_SCREENS,
   SERVICE_SCREENS,
   DATABASE_SCREENS,
@@ -186,11 +190,10 @@ export function sidebarFor(ctx: NavContext = {}): Dest[][] {
 
 /**
  * Where an area opens: its fleet face from the fleet's pages, where it has one, and its own page otherwise.
- * Servers is the exception that makes a fleet usable: where the console holds one, it opens the list of
- * servers from anywhere (`hasFleet`), because choosing a server is picking a row of it, not a scope to be in.
+ * Server is no exception since 4.2: with a server chosen it opens that server's page, and from "All servers" the
+ * list of them; the central is one more server of the list, so choosing it is choosing it in the selector.
  */
-export function areaTarget(entry: Dest, scope: Scope, hasFleet = false): ConsolePath {
-  if (entry.id === "server" && hasFleet) return entry.fleetTo ?? entry.to;
+export function areaTarget(entry: Dest, scope: Scope): ConsolePath {
   return scope === "fleet" ? (entry.fleetTo ?? entry.to) : entry.to;
 }
 
@@ -267,12 +270,12 @@ export function areaOf(pathname: string): Dest | undefined {
  * The `g` shortcuts, in the order the shortcut list shows them, of one scope (or of all). The areas
  * are in both: the same two keys open each from a server and from the fleet.
  */
-export function shortcuts(scope?: Scope, hasFleet = false): { id: string; keys: readonly string[]; description: PlainKey; to: ConsolePath }[] {
+export function shortcuts(scope?: Scope): { id: string; keys: readonly string[]; description: PlainKey; to: ConsolePath }[] {
   return REGISTERED.flatMap((entry) => {
     if (entry.shortcut === undefined || entry.goTo === undefined) return [];
     if (scope !== undefined && entry.scope !== "both" && entry.scope !== scope) return [];
     // The fleet's pages open an area at its fleet face, where it has one.
-    return [{ id: entry.id, keys: entry.shortcut, description: entry.goTo, to: scope === undefined ? entry.to : areaTarget(entry, scope, hasFleet) }];
+    return [{ id: entry.id, keys: entry.shortcut, description: entry.goTo, to: scope === undefined ? entry.to : areaTarget(entry, scope) }];
   });
 }
 

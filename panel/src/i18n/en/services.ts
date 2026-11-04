@@ -5,7 +5,6 @@ export const services = {
     scheduled: "Scheduled",
   },
   tabs: {
-    label: "Service sections",
     overview: "Overview",
     logs: "Logs",
   },

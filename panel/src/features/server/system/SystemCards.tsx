@@ -46,16 +46,19 @@ function CardSkeleton({ title }: { title: string }) {
   );
 }
 
-/** The four cards of the machine view as they stand before their answers: one row of two is as tall as the taller of them. */
+/**
+ * The four cards of the machine view as they stand before their answers: one row of two is as tall as the taller of them.
+ * A busy region of its own, since the four are waited for together and no card draws one around its own shape.
+ */
 export function MachineSkeleton() {
   const t = useT();
   return (
-    <div className="grid min-w-0 items-start gap-6 lg:grid-cols-2 2xl:grid-cols-4">
+    <LoadingRegion label={t("common.queryState.loading", { label: t("server.system.views.machine") })} className="grid items-start gap-6 lg:grid-cols-2 2xl:grid-cols-4">
       <CardSkeleton title={t("server.clock.title")} />
       <CardSkeleton title={t("server.hostname.title")} />
       <CardSkeleton title={t("server.os.title")} />
       <CardSkeleton title={t("server.power.cardTitle")} />
-    </div>
+    </LoadingRegion>
   );
 }
 

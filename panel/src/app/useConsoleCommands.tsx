@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams, useRouterState } from "@tanstack/react-router";
-import { BookOpen, BookText, Box, FileUp, Keyboard, Landmark, LogOut, Monitor, Moon, Plus, Sun, Unplug } from "lucide-react";
+import { BookOpen, BookText, Box, FileUp, Keyboard, LogOut, Monitor, Moon, Plus, Sun, Unplug } from "lucide-react";
 import { useMemo } from "react";
 
 import { appQuery, appTypesQuery, appsQuery } from "../api/queries/apps";
@@ -348,23 +348,6 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void, onV
                     run: () => {
                       void navigate({ to: "/fleet", search: { node: undefined } }).then(() => {
                         announce(t("fleet.selector.switchedAll"));
-                      });
-                    },
-                  },
-                ]
-              : []),
-            ...(hasFleet && context.kind !== "central"
-              ? [
-                  {
-                    id: "server:central",
-                    group: "Servers" as const,
-                    label: t("fleet.selector.viewCentral", { name: thisServerName }),
-                    icon: <Landmark />,
-                    keywords: t("fleet.selector.keywords"),
-                    kind: "navigate" as const,
-                    run: () => {
-                      void navigate({ to: "/settings/central", search: { node: undefined } }).then(() => {
-                        announce(t("fleet.selector.switchedCentral"));
                       });
                     },
                   },

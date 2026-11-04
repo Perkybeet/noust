@@ -39,7 +39,7 @@ export const shell: Catalog<typeof en> = {
     scopeHint: "para cambiar de servidor",
     noMatchesHint: "Prueba con el nombre de una página, un ajuste o una aplicación, > para acciones o @ para otro servidor.",
     noMatchesCli: "El terminal lo puede todo: {command}",
-    scope: { server: "Servidor", application: "Aplicación", all: "Todos los servidores", central: "Esta central" },
+    scope: { server: "Servidor", application: "Aplicación", all: "Todos los servidores" },
   },
   commandGroups: {
     recent: "Recientes",

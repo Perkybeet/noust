@@ -93,38 +93,42 @@ describe("Network and ports", () => {
     });
 
     expect(await screen.findByText("The firewall is off")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Turn it on" })).toHaveAttribute("href", "/server/network?view=firewall");
+    expect(screen.getByRole("link", { name: "Turn it on" })).toHaveAttribute("href", "/network/firewall");
     expect(screen.queryByRole("button", { name: "Open a port" })).toBeNull();
   });
 
-  it("shows the firewall and the interfaces as views of the same section, and no view is called just Ports", async () => {
+  it("shows the firewall and the interfaces as sections of Network, in its column, and none is called just Ports", async () => {
     const { user } = network("/server/network", {
       "GET /api/system/network": () => json(200, { interfaces: [] }),
     });
-    await user.click(await screen.findByRole("radio", { name: "Firewall" }));
-    expect(await screen.findByText("Add rule")).toBeInTheDocument();
-    expect(screen.getAllByRole("radio").map((radio) => radio.getAttribute("aria-label") ?? radio.textContent)).toEqual(["Listening ports", "Firewall", "Interfaces"]);
+    const sections = await screen.findByRole("navigation", { name: "Network sections" });
+    expect(within(sections).getAllByRole("link").map((link) => link.textContent.replace(/\d+$/, ""))).toEqual(["Published ports", "Tunnels", "Firewall", "Listening ports", "Interfaces"]);
+    expect(screen.queryByRole("radio")).toBeNull();
 
-    await user.click(screen.getByRole("radio", { name: "Interfaces" }));
+    await user.click(within(sections).getByRole("link", { name: "Firewall" }));
+    expect(await screen.findByText("Add rule")).toBeInTheDocument();
+    await user.click(within(screen.getByRole("navigation", { name: "Network sections" })).getByRole("link", { name: "Interfaces" }));
     expect(await screen.findByText("No network interface was reported.")).toBeInTheDocument();
   });
 
-  it("leads to Domains for an application published on a port of its own, in every view", async () => {
+  it("leads to Published ports, the first section of Network, from every view", async () => {
     const { user } = network("/server/network");
-    const link = await screen.findByRole("link", { name: "Published ports" });
-    expect(link).toHaveAttribute("href", "/domains/ports");
+    // The page's own sentence and the column's entry say the same thing: the page's is the one in the main landmark.
+    expect(await within(await screen.findByRole("main")).findByRole("link", { name: "Published ports" })).toHaveAttribute("href", "/network");
 
-    await user.click(screen.getByRole("radio", { name: "Firewall" }));
-    expect(screen.getByRole("link", { name: "Published ports" })).toHaveAttribute("href", "/domains/ports");
+    await user.click(within(screen.getByRole("navigation", { name: "Network sections" })).getByRole("link", { name: "Firewall" }));
+    expect(await within(screen.getByRole("main")).findByRole("link", { name: "Published ports" })).toHaveAttribute("href", "/network");
   });
 
-  it("opens the firewall where the Security tab had it", async () => {
-    network("/server/security?view=firewall");
-    expect(await screen.findByRole("radio", { name: "Firewall", checked: true })).toBeInTheDocument();
+  it("opens the firewall where the Security tab had it, and where the Network tab did", async () => {
+    const { location } = network("/server/security?view=firewall");
+    expect(await screen.findByText("Add rule")).toBeInTheDocument();
+    expect(location().pathname).toBe("/network/firewall");
+    expect(within(screen.getByRole("navigation", { name: "Network sections" })).getByRole("link", { name: /^Firewall/ })).toHaveAttribute("aria-current", "page");
   });
 
   it("shows what the firewall does about each port that listens, and says what Docker published around it", async () => {
-    network("/server/network?view=firewall");
+    network("/network/firewall");
 
     expect(await screen.findByText("Docker publishes 1 port around the firewall")).toBeInTheDocument();
     expect(screen.getByText(/^active · incoming traffic/)).toHaveAttribute("data-state", "running");

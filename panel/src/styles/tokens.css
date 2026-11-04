@@ -243,6 +243,13 @@
   --elev-raised-chosen-high: inset 0 0 0 2px var(--accent), 0 3px 0 var(--joint);
   --elev-raised-chosen-pressed: inset 0 0 0 2px var(--accent), 0 1px 0 var(--joint);
   --backdrop: light-dark(rgb(46 53 48 / 0.5), rgb(8 10 9 / 0.66));
+  /*
+   * The page ground as it looks under the veil: the same stone and the same share of it as --backdrop, mixed in,
+   * so the ground takes this tone while a veil is up. A veil is fixed to the window and does not reach the room
+   * the scrollbar keeps (scrollbar-gutter: stable), which would show the plain ground as a light strip beside it.
+   * Its numbers are --backdrop's: styles/veil.test.ts holds the two together.
+   */
+  --bg-veiled: light-dark(color-mix(in srgb, rgb(46 53 48) 50%, var(--bg)), color-mix(in srgb, rgb(8 10 9) 66%, var(--bg)));
 
   /*
    * Motion. Each curve has a job: what enters decelerates, what leaves accelerates and takes

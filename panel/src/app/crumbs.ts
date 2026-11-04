@@ -46,7 +46,7 @@ function standIn(entry: Dest): Dest {
  * The steps of the page at `route` (the matched route's path, `fullPath`, parameters included). `scope`
  * is whose pages these are: an area opens at its fleet face from the fleet's pages.
  */
-export function crumbsFor(route: string, scope: Scope, hasFleet = false): CrumbStep[] {
+export function crumbsFor(route: string, scope: Scope): CrumbStep[] {
   const path = route.length > 1 ? route.replace(/\/+$/, "") : route;
   const found = entryOf(path);
   if (found === undefined) return [];
@@ -60,7 +60,7 @@ export function crumbsFor(route: string, scope: Scope, hasFleet = false): CrumbS
     steps.push({
       id: entry.id,
       name: resource ? { param } : { key: entry.label },
-      to: entry.kind === "area" ? areaTarget(entry, scope, hasFleet) : entry.to,
+      to: entry.kind === "area" ? areaTarget(entry, scope) : entry.to,
       resource,
       entry,
     });

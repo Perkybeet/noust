@@ -2,10 +2,7 @@ import { Link, Outlet } from "@tanstack/react-router";
 import { Cloud } from "lucide-react";
 import { useState } from "react";
 
-import { LinkTabs } from "../../app/LinkTabs";
 import { useRenderedPathname } from "../../app/renderedPath";
-import { tabsOf } from "../../app/navCore";
-import { FLEET_APPS_SCREENS, FLEET_SERVERS_SCREENS } from "../nav/fleet";
 import { DetailPage } from "../../components/page/DetailPage";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -21,10 +18,10 @@ import { FleetActionsProvider } from "./BulkActionDialog";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /**
- * The faces of an area that is a page of its own (Activity, Backups, Alerts): the same page as the area's, with
+ * The faces of an area that is a page of its own (Activity, Backups, Alerts, and Network and Security, the machine's areas): the same page as the area's, with
  * its own header, a title of its own and the server filter, so the fleet's header is not drawn over it.
  */
-const OWN_HEADER: ReadonlySet<string> = new Set(["/fleet/activity", "/fleet/backups", "/fleet/alerts"]);
+const OWN_HEADER: ReadonlySet<string> = new Set(["/fleet/activity", "/fleet/backups", "/fleet/alerts", "/fleet/network", "/fleet/security"]);
 
 export interface FleetLayoutProps {
   /** Set when a hub was asked for one of the pages it does not have. */
@@ -128,19 +125,6 @@ export function FleetLayout({ hub, adding: addingProp, onAddingChange }: FleetLa
               }),
         }}
         {...(notices !== null ? { banner: notices } : {})}
-        {...(!(onAppsViews || onServersViews)
-          ? {}
-          : {
-              // A fleet with no server draws no views, but keeps their room: whether it is empty is known after the first frame,
-              // and a strip that vanished then moved the page under it.
-              tabs: empty ? (
-                <div aria-hidden="true" className="h-10" />
-              ) : onAppsViews ? (
-                <LinkTabs label={t("fleet.page.tabsLabel")} tabs={tabsOf(FLEET_APPS_SCREENS)} />
-              ) : (
-                <LinkTabs label={t("fleet.page.serversTabsLabel")} tabs={tabsOf(FLEET_SERVERS_SCREENS)} />
-              ),
-            })}
       >
         {empty ? (
           <EmptyState

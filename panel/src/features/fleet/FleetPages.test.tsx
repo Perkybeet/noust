@@ -227,17 +227,17 @@ describe("the fleet's views", () => {
     await expectNoAxeViolations(container, { page: true });
   });
 
-  it("reaches the updates of every server from the servers' list, since the bar has no item for them", { timeout: 30_000 }, async () => {
+  it("reaches the updates of every server from the column of Server, since the bar has no item for them", { timeout: 30_000 }, async () => {
     fakeBackend(fleetRoutes());
     const { user } = renderConsole("/fleet/servers");
-    const views = await screen.findByRole("navigation", { name: "Fleet server views" });
+    const views = await screen.findByRole("navigation", { name: "Server sections" });
     expect(within(views).getByRole("link", { name: "Servers" })).toHaveAttribute("aria-current", "page");
     await user.click(within(views).getByRole("link", { name: "Updates" }));
     const updates = await rows("Noust and system updates of every server");
     expect(within(await rowOf(updates, "web-2")).getByText("3 for security")).toBeInTheDocument();
-    // The strip stays beside the view, with the other one to go back to.
-    expect(within(screen.getByRole("navigation", { name: "Fleet server views" })).getByRole("link", { name: "Updates" })).toHaveAttribute("aria-current", "page");
-    // The summary and the other views draw no strip of theirs.
+    // The column stays beside the view, with the other one to go back to; the page draws no strip of them.
+    expect(within(screen.getByRole("navigation", { name: "Server sections" })).getByRole("link", { name: "Updates" })).toHaveAttribute("aria-current", "page");
+    expect(screen.queryByRole("navigation", { name: "Fleet server views" })).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Fleet application views" })).not.toBeInTheDocument();
   });
 });

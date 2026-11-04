@@ -1,23 +1,16 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { inPlace } from "../../../app/searchNavigation";
-import { SecurityTab } from "../../../features/server/security/SecurityTab";
 import { validateSecuritySearch } from "../../../features/server/security/data";
 
-/** Security and SSH: the hardening checks, SSH and the bans as `?view=`. The firewall is Network and ports'. */
+/**
+ * Security and SSH moved out of the Server in 4.2: its views are the sections of Security. The firewall, which was a view of
+ * this tab in 4.0, is Network's.
+ */
 export const Route = createFileRoute("/_console/server/security")({
   validateSearch: validateSecuritySearch,
   beforeLoad: ({ search }) => {
-    // The firewall was a view of the Security tab in 4.0: its old address opens it where it is now.
+    const to = search.view === undefined ? "/security" : ({ ssh: "/security/ssh", bans: "/security/blocks", firewall: "/network/firewall" } as const)[search.view];
     // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect protocol
-    if (search.view === "firewall") throw redirect({ to: "/server/network", search: { view: "firewall" }, replace: true });
+    throw redirect({ to, replace: true });
   },
-  component: SecurityRoute,
 });
-
-function SecurityRoute() {
-  const search = Route.useSearch();
-  const navigate = Route.useNavigate();
-  const view = search.view === undefined || search.view === "firewall" ? "checks" : search.view;
-  return <SecurityTab view={view} onViewChange={(next) => void navigate({ search: next === "checks" ? {} : { view: next }, ...inPlace({ replace: true }) })} />;
-}

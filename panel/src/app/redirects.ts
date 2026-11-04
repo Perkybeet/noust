@@ -29,8 +29,16 @@ export const REDIRECT_ROWS = [
   // firewall is Network and ports (the firewall's old address is a view of the Security tab,
   // `?view=firewall`, which the route sends on with its search). The ports an application is published
   // on stay in Domains (/domains/ports, Published ports): that is a way to reach it.
-  { from: "/server/updates", to: "/server/system", state: "live", plain: true },
   { from: "/server/storage", to: "/server/files", state: "live", plain: true },
+  // 4.2: the machine's network and its security are areas of the bar, and the views of the System section are
+  // sections of the server. The old addresses carry the view they asked for (`?view=`), which each route's
+  // `beforeLoad` reads: the firewall of Security's old tab was Network's already, and the interfaces of the
+  // System tab of 4.0. What each used to be called is a palette keyword (RENAMED).
+  { from: "/domains/ports", to: "/network", state: "live", plain: true },
+  { from: "/domains/tunnels", to: "/network/tunnels", state: "live", plain: true },
+  { from: "/server/network", to: "/network/listening", state: "live" },
+  { from: "/server/security", to: "/security", state: "live", plain: true },
+  { from: "/server/system", to: "/server/updates", state: "live", plain: true },
   // 4.1: what warns an operator is an area of the bar.
   // The page of Alerts has no filters to carry: what the old address carried is dropped.
   { from: "/settings/alerts", to: "/alerts", state: "live", plain: true },

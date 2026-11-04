@@ -55,6 +55,7 @@ export const APP_SETTINGS_SCREENS: Strip = [
   setting("security", "runtime.nav.security", "runtime"),
   setting("access", "network.access.nav", "access"),
   setting("protection", "network.protection.nav", "access", { keywords: "appSettings.keywords.protection" }),
-  setting("export", "appSettings.nav.export", "danger", { intent: "danger" }),
+  // Taking an application to another server is not dangerous (3.4): it has its own group of the column, "Move elsewhere".
+  setting("export", "appSettings.nav.export", "danger", { intent: "move" }),
   setting("delete", "common.words.delete", "danger", { intent: "danger" }),
 ];

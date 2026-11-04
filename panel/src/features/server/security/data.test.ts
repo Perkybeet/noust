@@ -41,7 +41,7 @@ describe("the Security tab's data", () => {
 
   it("opens the tab that does an action's fix, the failed units on the services list", () => {
     expect(actionTarget("GET /api/services?noust_only=false&state=failed")).toBe("/server/services");
-    expect(actionTarget("POST /api/server/updates/restarts")).toBe("/server/system");
+    expect(actionTarget("POST /api/server/updates/restarts")).toBe("/server/updates");
     expect(actionTarget("POST /api/server/power/reboot")).toBe("reboot");
     expect(actionTarget("PUT /api/server/swap")).toBe("/server/files");
     expect(actionTarget("POST /api/server/hostname")).toBeNull();

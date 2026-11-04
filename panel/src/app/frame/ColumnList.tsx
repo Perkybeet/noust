@@ -3,6 +3,7 @@ import type { LucideIcon } from "lucide-react";
 import { useId, useMemo } from "react";
 import type { ReactNode } from "react";
 
+import { Badge } from "../../components/ui/Badge";
 import { SlidingIndicator } from "../../components/ui/SlidingIndicator";
 import { cx } from "../../lib/cx";
 import { currentItem } from "../columns";
@@ -20,6 +21,8 @@ export interface ListItem {
   exact?: boolean;
   /** A count after the name, `null` while it loads: its room is kept, so the list does not change when it arrives. */
   count?: number | null;
+  /** A small word after the name that says something about the section as a whole ("All the fleet"). */
+  tag?: string;
 }
 
 export interface ListGroup {
@@ -46,11 +49,13 @@ const ITEM =
  */
 export function ColumnList({ label, groups, currentKey }: { label: string; groups: readonly ListGroup[]; currentKey?: string }) {
   const route = useRouterState({ select: (state) => state.matches.at(-1)?.fullPath ?? "" });
+  const search = useRouterState({ select: (state) => state.location.search as Record<string, unknown> });
   const ids = useId();
   const all = useMemo(() => groups.flatMap((group) => group.items), [groups]);
   // A list whose views are one page with another filter (Databases' engines) says which is current itself:
-  // the route alone cannot tell them apart.
-  const current = currentKey === undefined ? currentItem(all, route) : all.find((item) => item.key === currentKey);
+  // the route alone cannot tell them apart. The fixed views of an area (Logs: the system's) are told apart by
+  // the search they set, which `currentItem` reads.
+  const current = currentKey === undefined ? currentItem(all, route, search) : all.find((item) => item.key === currentKey);
   return (
     // A section is another page of the same area: the focus stays on its link (data-keep-focus), as it does on a strip of tabs.
     <nav aria-label={label} data-keep-focus="" className="relative isolate flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-3 pb-4 scroll-thin">
@@ -75,9 +80,9 @@ export function ColumnList({ label, groups, currentKey }: { label: string; group
                     to={item.to}
                     params={item.params as never}
                     {...(item.search !== undefined ? { search: item.search as never } : {})}
-                    // Where views are one page with another filter (Databases' engines) the search is part of which one is
-                    // current; everywhere else a filter on the page leaves the section current.
-                    activeOptions={{ exact: true, includeSearch: currentKey !== undefined }}
+                    // Which section is current is decided above (`currentItem`), and the router must not mark another
+                    // one: a view of one page (Logs: the system's, Databases' engines) shares its path with the page.
+                    activeOptions={{ exact: true, includeSearch: true }}
                     {...(current === item ? { "aria-current": "page" as const } : {})}
                     className={ITEM}
                   >
@@ -88,6 +93,7 @@ export function ColumnList({ label, groups, currentKey }: { label: string; group
                     ) : null}
                     {/* A name that does not fit takes a second line: Spanish runs longer than the column, and a cut name is another name. */}
                     <span className="min-w-0 flex-1">{item.label}</span>
+                    {item.tag !== undefined ? <Badge>{item.tag}</Badge> : null}
                     {item.count !== undefined ? (
                       <span className={cx("mono min-w-5 rounded-chip bg-bg-sunken px-1 text-center text-12 text-fg-muted", item.count === null && "invisible")}>{item.count ?? 0}</span>
                     ) : null}

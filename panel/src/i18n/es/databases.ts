@@ -14,9 +14,6 @@ export const databases: Catalog<typeof en> = {
     title: "Bases de datos",
     newDatabase: "Nueva base de datos",
   },
-  tabs: {
-    label: "Secciones de bases de datos",
-  },
   adopt: {
     action: { one: "Añadir {count} base de datos a Noust", other: "Añadir {count} bases de datos a Noust" },
     nothing: "Todas las bases de datos están añadidas a Noust",
@@ -76,8 +73,6 @@ export const databases: Catalog<typeof en> = {
     filterLabel: "Filtrar bases de datos",
     searchLabel: "Buscar bases de datos",
     searchPlaceholder: "Nombre, motor o aplicación",
-    engineLabel: "Motor",
-    everyEngine: "Todos los motores",
     backupsLabel: "Copias",
     backupsAll: "Todas",
     backupsNone: "Sin programación ({count})",
@@ -487,7 +482,6 @@ export const databases: Catalog<typeof en> = {
     action: "Eliminar base de datos",
   },
   layout: {
-    sections: "Secciones de la base de datos",
     stateOnline: "Disponible",
     stateMissing: "No encontrada",
     ownerFact: "Propiedad de {owner}",

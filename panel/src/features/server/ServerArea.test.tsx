@@ -66,9 +66,10 @@ describe("the Server area", () => {
         .map((link) => link.textContent),
     ).toEqual([
       "Status",
-      "System and updates23",
-      "Security and SSH3",
-      "Network and ports",
+      "This server",
+      "Processes",
+      "Resource monitor",
+      "Updates23",
       "Services",
       "Web server",
       "Files",
@@ -89,9 +90,9 @@ describe("the Server area", () => {
     if (first === undefined || second === undefined) throw new Error("fewer than two rows");
     // The critical finding first; pending security updates are a warning, as on the Overview.
     expect(first).toHaveTextContent("Docker publishes ports around the firewall");
-    expect(within(first).getByRole("link", { name: "Review" })).toHaveAttribute("href", "/server/network?view=firewall");
+    expect(within(first).getByRole("link", { name: "Review" })).toHaveAttribute("href", "/network/firewall");
     expect(second).toHaveTextContent("4 security updates are pending.");
-    expect(within(second).getByRole("link", { name: "Install" })).toHaveAttribute("href", "/server/system");
+    expect(within(second).getByRole("link", { name: "Install" })).toHaveAttribute("href", "/server/updates");
     expect(within(second).getByText("Warning")).toHaveClass("sr-only");
     await expectNoAxeViolations(screen.getByRole("main"));
   });
@@ -547,10 +548,12 @@ describe("the Security tab", () => {
     const { user } = server("/server/security");
     await screen.findByRole("list", { name: "Open findings" });
     await expectNoAxeViolations(screen.getByRole("main"));
-    await user.click(screen.getByRole("radio", { name: "SSH" }));
+    // The views are sections of Security, in the column.
+    const sections = await screen.findByRole("navigation", { name: "Security sections" });
+    await user.click(within(sections).getByRole("link", { name: "SSH" }));
     await screen.findByRole("region", { name: "Authorized SSH keys" });
     await expectNoAxeViolations(screen.getByRole("main"));
-    await user.click(screen.getByRole("radio", { name: "Brute force" }));
+    await user.click(within(sections).getByRole("link", { name: "Brute force" }));
     expect(
       await screen.findByText("fail2ban is not installed."),
     ).toBeInTheDocument();
@@ -568,11 +571,10 @@ describe("fail2ban watching nginx", () => {
   };
 
   it("offers it once fail2ban runs, asks first, and sends the choice", async () => {
-    const { user, backend } = server("/server/security", {
+    const { user, backend } = server("/security/blocks", {
       "GET /api/server/security/fail2ban": () => json(200, RUNNING),
       "POST /api/server/security/fail2ban/web": () => json(202, { job_id: "j9", status: "pending", message: "queued" }),
     });
-    await user.click(await screen.findByRole("radio", { name: "Brute force" }));
 
     expect(await screen.findByText("Off. fail2ban only watches SSH.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Watch nginx" }));
@@ -587,11 +589,10 @@ describe("fail2ban watching nginx", () => {
   });
 
   it("says when it is on and offers to stop", async () => {
-    const { user, backend } = server("/server/security", {
+    const { user, backend } = server("/security/blocks", {
       "GET /api/server/security/fail2ban": () => json(200, { ...RUNNING, web_jails: true }),
       "POST /api/server/security/fail2ban/web": () => json(202, { job_id: "j9", status: "pending", message: "queued" }),
     });
-    await user.click(await screen.findByRole("radio", { name: "Brute force" }));
 
     expect(await screen.findByText(/bans an address that keeps being refused a password/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Stop watching nginx" }));
@@ -605,10 +606,9 @@ describe("fail2ban watching nginx", () => {
   });
 
   it("is not offered without nginx or before fail2ban runs", async () => {
-    const { user } = server("/server/security", {
+    server("/security/blocks", {
       "GET /api/server/security/fail2ban": () => json(200, { ...RUNNING, web_available: false }),
     });
-    await user.click(await screen.findByRole("radio", { name: "Brute force" }));
 
     await screen.findByText("fail2ban is running");
     expect(screen.queryByText("Watch nginx too")).not.toBeInTheDocument();

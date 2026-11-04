@@ -7,7 +7,6 @@ import { isApiError, request } from "../../api/client";
 import { databaseKeys, databaseOverviewQuery, enginesQuery } from "../../api/queries/databases";
 import type { DatabaseOverview } from "../../api/queries/databases";
 import { jobKeys } from "../../api/queries/jobs";
-import { LinkTabs } from "../../app/LinkTabs";
 import type { PageHeaderProps } from "../../app/PageHeader";
 import { DetailPage } from "../../components/page/DetailPage";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -30,7 +29,6 @@ import { can, engineFamily, engineName } from "./engines";
 import { FixOwnerDialog } from "./FixOwnerDialog";
 import { MoveDatabaseDialog } from "./instances/MoveDatabaseDialog";
 import { DatabaseJobProvider, DatabaseJobSlot, useDatabaseJob, useHasDatabaseJob } from "./jobs";
-import { databaseTabs } from "./tabs";
 import { TEXT_LINK } from "./ui";
 import { ICONS } from "../../components/ui/icons";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
@@ -233,7 +231,6 @@ function LayoutBody({ engine, name }: LayoutBodyProps) {
         }}
         {...(banner !== undefined ? { banner } : {})}
         {...(hasJob ? { job: <DatabaseJobSlot /> } : {})}
-        tabs={<LinkTabs label={t("databases.layout.sections")} tabs={databaseTabs(engine, name, capabilities)} />}
       >
         <Outlet />
       </DetailPage>
@@ -277,10 +274,10 @@ function LayoutBody({ engine, name }: LayoutBodyProps) {
 }
 
 /**
- * One database, as a T2 page: a header that stays put on every tab (its name, whether it is
+ * One database, as a T2 page: a header that stays put on every section (its name, whether it is
  * there, its engine, size, owner and who uses it, "Back up now" and the rest in the menu), the
- * job in hand, and its sections as tabs whose state is the URL, drawn from what its engine can
- * do. Dropping it follows the job here and, once it has gone, goes back to the list.
+ * job in hand, and the section the column has open (its sections come from what its engine can do).
+ * Dropping it follows the job here and, once it has gone, goes back to the list.
  */
 export function DatabaseLayout({ engine, name }: LayoutBodyProps) {
   const navigate = useNavigate();

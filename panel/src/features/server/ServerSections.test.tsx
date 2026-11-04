@@ -39,8 +39,10 @@ describe("the central's permissions", () => {
     onWeb2("/n/web-2/server/central", ["/api/auth/fleet/self"], { [`GET ${SELF_PATH}`]: () => json(200, SELF) });
 
     expect(await screen.findByText("web-2 lets the central: Operate and update.")).toBeInTheDocument();
-    const column = screen.getByRole("navigation", { name: "Server sections" });
-    expect(within(column).getByRole("link", { name: "Central's permissions" })).toHaveAttribute("aria-current", "page");
+    const column = await screen.findByRole("navigation", { name: "Server sections" });
+    await waitFor(() => {
+      expect(within(column).getByRole("link", { name: "Central's permissions" })).toHaveAttribute("aria-current", "page");
+    });
     // The level it has now is marked, in the fleet's own words.
     const now = screen.getByRole("radio", { name: /Operate and update/ });
     expect(now).toBeChecked();
@@ -289,17 +291,25 @@ describe("Noust's own update, beside the system's", () => {
     expect(screen.queryByRole("button", { name: "Update Noust" })).toBeNull();
   });
 
-  it("opens on the updates, and the machine, the processes and the resources are views beside them", async () => {
+  it("opens on the updates, and the machine, the processes and the resources are sections beside them", async () => {
     const { user } = system({ "GET /api/system/version": () => json(200, VERSION), "GET /api/system/update": () => json(200, METHOD) });
-    expect(await screen.findByRole("radio", { name: "Updates", checked: true })).toBeInTheDocument();
+    const sections = await screen.findByRole("navigation", { name: "Server sections" });
+    await waitFor(() => {
+      expect(within(sections).getByRole("link", { name: /^System updates/ })).toHaveAttribute("aria-current", "page");
+    });
+    // The views are the column's sections now, and the page draws no switch of them.
+    expect(screen.queryByRole("radio", { name: "System updates" })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("radio", { name: "This server" }));
+    await user.click(within(sections).getByRole("link", { name: "This server" }));
     expect(await screen.findByText("Operating system")).toBeInTheDocument();
   });
 
-  it("keeps the 4.0 address of the updates and of the storage, which went to where they are now", async () => {
+  it("keeps the 4.0 and 4.1 addresses of the updates and of the storage, which go to where they are now", async () => {
     fakeBackend({ ...signedInRoutes(), ...serverRoutes() });
-    renderConsole("/server/updates");
-    expect(await screen.findByRole("radio", { name: "Updates", checked: true })).toBeInTheDocument();
+    const { location } = renderConsole("/server/system");
+    await waitFor(() => {
+      expect(location().pathname).toBe("/server/updates");
+    });
+    expect(await screen.findByRole("navigation", { name: "Server sections" })).toBeInTheDocument();
   });
 });

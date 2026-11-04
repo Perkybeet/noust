@@ -208,7 +208,10 @@ describe("the applications list", () => {
 
   it("has no strip of views for a server nobody organised, and no second link to the recipes: the catalog is an area of the bar", async () => {
     await appsAt();
-    expect(screen.queryByRole("navigation", { name: "Applications sections" })).not.toBeInTheDocument();
+    // The column lists the applications alone: Projects is a section of a server somebody organised, and the page draws no strip.
+    const column = await screen.findByRole("navigation", { name: "Applications sections" });
+    expect(within(column).getAllByRole("link").map((link) => link.textContent)).toEqual(["Applications"]);
+    expect(within(screen.getByRole("main")).queryByRole("navigation", { name: "Applications sections" })).not.toBeInTheDocument();
     // The header keeps one primary action and no second link to the same recipes.
     expect(screen.queryByRole("link", { name: "From a recipe" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "New application" }).className).toContain("bg-accent");

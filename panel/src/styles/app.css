@@ -161,6 +161,72 @@
   }
 }
 
+/*
+ * The context column entering a resource (NV-22): the new list comes in from the side it lies on,
+ * decelerating, and the old one goes out the other way in less time, accelerating. A resource is to the
+ * right of its area ("forward"); going back reverses both. Only opacity and transform, and the durations
+ * are 0 under reduced motion (tokens.css).
+ */
+@keyframes column-in-forward {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes column-in-back {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes column-out-forward {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+}
+
+@keyframes column-out-back {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+}
+
+.column-enter-forward {
+  animation: column-in-forward var(--duration-enter) var(--ease-enter) both;
+}
+
+.column-enter-back {
+  animation: column-in-back var(--duration-enter) var(--ease-enter) both;
+}
+
+.column-exit-forward {
+  animation: column-out-forward var(--duration-fast) var(--ease-exit) both;
+}
+
+.column-exit-back {
+  animation: column-out-back var(--duration-fast) var(--ease-exit) both;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -221,6 +287,12 @@
     /* The scrollbar's room is always kept, so a short tab after a long one (or a dialog that
        locks scrolling) does not slide the page sideways by the scrollbar's width. */
     scrollbar-gutter: stable;
+  }
+
+  /* While a veil is up (a dialog, a drawer, the bar opened over the page) the ground takes its tone: the veil
+     is fixed to the window and stops short of the scrollbar's room, which would stay a light strip beside it. */
+  html:has(.bg-backdrop:not([data-ending-style])) {
+    background: var(--bg-veiled);
   }
 
   body {

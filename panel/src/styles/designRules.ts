@@ -355,6 +355,8 @@ export const KIT_HEIGHTS: Readonly<Record<string, readonly Height[]>> = {
   "app/frame/areas.tsx": ["raised"],
   "app/frame/BottomBar.tsx": ["raised"],
   "app/frame/AreasSheet.tsx": ["raised"],
+  // the phone's selector at the top of the page: one raised button that opens the sheet of the column's list
+  "app/frame/SectionSelector.tsx": ["raised"],
   "app/frame/ColumnList.tsx": ["raised"],
   "app/Topbar.tsx": ["carved"],
   "app/Shell.tsx": ["seated"],

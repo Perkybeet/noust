@@ -6,7 +6,7 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { json } from "../../test/fakes";
 import { DOMAIN, ELEVATED, IN_PLACE_APP, jobOf, accepted, renderSettings } from "./settings/testKit";
 import { SETTINGS_SECTIONS } from "./settings/sections";
-import { appTabs } from "./tabs";
+import { appColumn } from "../../app/columns";
 import { isAdopted } from "./adopted";
 
 /** A site Noust adopted: a unit the operator wrote behind nginx, with no source and no build. */
@@ -42,10 +42,20 @@ describe("what the console knows of an adopted site", () => {
     expect(isAdopted(undefined)).toBe(false);
   });
 
-  it("leaves out the tabs of what Noust does not manage", () => {
-    const names = (tabs: ReturnType<typeof appTabs>) => tabs.map((tab) => tab.to);
-    expect(names(appTabs(DOMAIN))).toContain("/apps/$domain/deployments");
-    expect(names(appTabs(DOMAIN, {}, { adopted: true }))).toEqual(["/apps/$domain", "/apps/$domain/logs", "/apps/$domain/metrics", "/apps/$domain/settings"]);
+  it("leaves out the sections of what Noust does not manage", () => {
+    const everything = { staged: true } as const;
+    const names = (adopted: boolean) => appColumn(everything, adopted).flatMap((group) => group.items.map((item) => item.to));
+    expect(names(false)).toContain("/apps/$domain/deployments");
+    expect(names(true)).toEqual([
+      "/apps/$domain",
+      "/apps/$domain/logs",
+      "/apps/$domain/metrics",
+      "/apps/$domain/settings",
+      "/apps/$domain/diagnose",
+      "/apps/$domain/terminal",
+      "/apps/$domain/files",
+      "/apps/$domain/settings/delete",
+    ]);
   });
 
   it("keeps General and Delete of the settings and nothing about building", () => {
@@ -65,13 +75,13 @@ describe("an adopted site's page", () => {
     expect(within(top).queryByRole("button", { name: "Update" })).not.toBeInTheDocument();
     expect(within(top).queryByRole("button", { name: "Roll back" })).not.toBeInTheDocument();
     expect(within(top).getByText("Adopted site")).toBeInTheDocument();
-    const nav = screen.getByRole("navigation", { name: "Application sections" });
+    const nav = await screen.findByRole("navigation", { name: "Application sections" });
     expect(within(nav).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Logs", "Metrics", "Settings"]);
   });
 
   it("lists the operator's unit, site and directory on the overview, kept as they are", async () => {
     const { user } = await renderSettings("", "General", ADOPTED_APP, routes);
-    await user.click(within(screen.getByRole("navigation", { name: "Application sections" })).getByRole("link", { name: "Overview" }));
+    await user.click(within(await screen.findByRole("navigation", { name: "Application sections" })).getByRole("link", { name: "Overview" }));
 
     expect(await screen.findByText("It was running before Noust met it, and its unit, its site and its files are yours. Noust shows it, restarts its unit and reads its logs; it does not build, update, roll back or rewrite it.")).toBeInTheDocument();
     const what = (await screen.findByRole("heading", { name: "What Noust adopted" })).closest("section") ?? document.body;

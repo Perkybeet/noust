@@ -2,13 +2,8 @@
 export const server = {
   title: "Server",
   tabs: {
-    label: "Server sections",
     overview: "Status",
-    system: "System and updates",
     systemKeywords: "update upgrade packages apt reboot time zone clock host name processes noust version",
-    security: "Security and SSH",
-    securityKeywords: "ssh keys passwords firewall fail2ban hardening checks",
-    network: "Network and ports",
     networkKeywords: "port open close listen firewall nginx publish interface who uses",
     services: "Services",
     webserver: "Web server",
@@ -831,7 +826,7 @@ export const server = {
   system: {
     viewsLabel: "System view",
     views: {
-      updates: "Updates",
+      updates: "System updates",
       machine: "This server",
       processes: "Processes",
       monitor: "Resource monitor",

@@ -116,15 +116,7 @@ function AttentionAction({ item }: { item: AttentionItem }) {
         </Link>
       );
     case "tab":
-      return item.action.to === "/server/security" ? (
-        <Link to="/server/security" search={item.action.view !== undefined && item.action.view !== "checks" ? { view: item.action.view as "ssh" } : {}} className={className}>
-          {label}
-        </Link>
-      ) : item.action.to === "/server/network" ? (
-        <Link to="/server/network" search={{ view: "firewall" }} className={className}>
-          {label}
-        </Link>
-      ) : (
+      return (
         <Link to={item.action.to} className={className}>
           {label}
         </Link>

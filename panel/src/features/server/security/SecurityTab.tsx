@@ -29,7 +29,8 @@ import type { SecurityView } from "./data";
 
 export interface SecurityTabProps {
   view: SecurityView;
-  onViewChange: (view: SecurityView) => void;
+  /** The views are sections of Security, one route each (4.2): without this there is no switch to draw. */
+  onViewChange?: (view: SecurityView) => void;
 }
 
 /**
@@ -99,17 +100,19 @@ function Security({ view, onViewChange }: SecurityTabProps) {
           </Button>
         }
       />
-      <SegmentedControl<SecurityView>
-        label={t("server.security.viewsLabel")}
-        value={view}
-        onValueChange={onViewChange}
-        options={[
-          { value: "checks", label: t("server.security.views.checks") },
-          { value: "ssh", label: t("server.security.views.ssh") },
-          { value: "bans", label: t("server.security.views.bans") },
-        ]}
-        className="self-start"
-      />
+      {onViewChange === undefined ? null : (
+        <SegmentedControl<SecurityView>
+          label={t("server.security.viewsLabel")}
+          value={view}
+          onValueChange={onViewChange}
+          options={[
+            { value: "checks", label: t("server.security.views.checks") },
+            { value: "ssh", label: t("server.security.views.ssh") },
+            { value: "bans", label: t("server.security.views.bans") },
+          ]}
+          className="self-start"
+        />
+      )}
       {view === "ssh" ? <SshView /> : view === "bans" ? <BansView /> : <ChecksView />}
     </div>
   );

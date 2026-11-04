@@ -1,7 +1,6 @@
 import { Outlet, useRouterState } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { LinkTabs } from "../../app/LinkTabs";
 import { tabsOf } from "../../app/navCore";
 import { DetailPage } from "../../components/page/DetailPage";
 import { useT } from "../../i18n";
@@ -43,7 +42,6 @@ export function AlertsLayout() {
         // Empty (and boxless) unless the section on screen puts its primary action here.
         primaryAction: <span ref={setSlot} className="contents" />,
       }}
-      tabs={<LinkTabs label={t("nav.landmarks.alertsSections")} tabs={tabs} />}
     >
       <PrimarySlot.Provider value={slot}>
         <Outlet />

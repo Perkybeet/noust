@@ -33,7 +33,7 @@ async function shellAt(path: string, width = 1024) {
 const main = () => screen.getByRole("navigation", { name: "Main" });
 
 /** The areas of the bar, in the order it draws them, and Settings under them. */
-const AREAS = ["Home", "Applications", "Catalog", "Databases", "Scheduled tasks", "Domains", "Logs", "Alerts", "Activity", "Backups", "Servers", "Settings"];
+const AREAS = ["Home", "Applications", "Catalog", "Databases", "Scheduled tasks", "Domains", "Network", "Logs", "Alerts", "Activity", "Backups", "Security", "Server", "Settings"];
 const TITLES = ["Applications and data", "Network", "Observe", "Protect", "Infrastructure"];
 
 beforeEach(() => {
@@ -55,7 +55,8 @@ describe("the main bar", () => {
     const nav = main();
     const names = within(nav).getAllByRole("link").map((link) => link.textContent);
     expect(names).toEqual(AREAS);
-    for (const title of TITLES) expect(within(nav).getByText(title)).toBeVisible();
+    // "Network" is a title and an area, so the title is the one drawn as a paragraph.
+    for (const title of TITLES) expect(within(nav).getAllByText(title).find((text) => text.tagName === "P")).toBeVisible();
     // A group is a list named by its title, so a screen reader can jump to it.
     expect(within(nav).getByRole("list", { name: "Applications and data" })).toBeInTheDocument();
     expect(within(within(nav).getByRole("list", { name: "Applications and data" })).getAllByRole("link").map((link) => link.textContent)).toEqual([
@@ -72,7 +73,7 @@ describe("the main bar", () => {
     await shellAt("/apps", 1366);
     const nav = main();
     for (const title of TITLES) {
-      const text = within(nav).getByText(title);
+      const text = within(nav).getAllByText(title).find((candidate) => candidate.tagName === "P");
       expect(text).toHaveClass("sr-only");
     }
     expect(within(nav).getByRole("list", { name: "Network" })).toBeInTheDocument();
@@ -141,7 +142,7 @@ describe("the main bar", () => {
     const nav = await screen.findByRole("navigation", { name: "Main" });
     expect(await within(nav).findByRole("link", { name: "Applications 1 failed" })).toBeInTheDocument();
     expect(within(nav).getByRole("link", { name: "Domains 1 failed 1 certificate needs renewing" })).toBeInTheDocument();
-    expect(within(nav).getByRole("link", { name: "Servers 1 failed" })).toBeInTheDocument();
+    expect(within(nav).getByRole("link", { name: "Server 1 failed" })).toBeInTheDocument();
     expect(within(nav).getByRole("link", { name: "Databases" })).toBeInTheDocument();
   });
 
@@ -305,7 +306,7 @@ describe("from 1024 to 1439 px, the main bar is folded and the column is beside 
     const { user } = await shellAt("/", 1024);
     await user.click(screen.getByRole("button", { name: "Unfold the bar" }));
     expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
-    expect(within(main()).getByText("Network")).not.toHaveClass("sr-only");
+    expect(within(main()).getAllByText("Network").find((text) => text.tagName === "P")).not.toHaveClass("sr-only");
     await user.keyboard("{Escape}");
     expect(document.querySelector('[data-frame="veil"]')).toBeNull();
   });
@@ -358,7 +359,7 @@ describe("a phone", () => {
     expect(document.querySelector('[data-frame="rail"]')).toBeNull();
     await user.click(within(foot).getByRole("button", { name: "More" }));
     const sheet = await screen.findByRole("dialog", { name: "All areas" });
-    for (const title of TITLES) expect(within(sheet).getByText(title)).toBeVisible();
+    for (const title of TITLES) expect(within(sheet).getAllByText(title).find((text) => text.tagName === "P")).toBeVisible();
     expect(within(sheet).getByRole("link", { name: "Backups" })).toBeInTheDocument();
     expect(within(sheet).getByRole("link", { name: "Catalog" })).toBeInTheDocument();
     expect(within(sheet).getByRole("link", { name: "Settings" })).toBeInTheDocument();

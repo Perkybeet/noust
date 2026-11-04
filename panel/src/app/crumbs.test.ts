@@ -13,12 +13,14 @@ describe("the breadcrumbs the register gives a page", () => {
     }
   });
 
-  it("makes the Servers step the list of servers where there is a fleet, and the machine's own page where there is none", () => {
-    expect(crumbsFor("/server/network", "server", true)[0]?.to).toBe("/fleet/servers");
-    expect(crumbsFor("/server/network", "server", false)[0]?.to).toBe("/server");
-    expect(crumbsFor("/server/network", "server")[0]?.to).toBe("/server");
+  it("makes the Server step the page of the server the person is on, and the list of servers from All servers", () => {
+    expect(crumbsFor("/server/files", "server")[0]?.to).toBe("/server");
+    expect(crumbsFor("/server/files", "fleet")[0]?.to).toBe("/fleet/servers");
     // Only that area: an application's step is where it was.
-    expect(crumbsFor("/apps/$domain/deployments", "server", true)[0]?.to).toBe("/apps");
+    expect(crumbsFor("/apps/$domain/deployments", "server")[0]?.to).toBe("/apps");
+    // The machine's other areas open their own page, and the list of servers from All servers.
+    expect(crumbsFor("/network/firewall", "server")[0]?.to).toBe("/network");
+    expect(crumbsFor("/network/firewall", "fleet")[0]?.to).toBe("/fleet/network");
   });
 
   it("says the area, the application by its domain, and the section, for an application's page", () => {

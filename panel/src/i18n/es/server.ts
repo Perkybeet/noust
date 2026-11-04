@@ -4,13 +4,8 @@ import type { Catalog } from "../types";
 export const server: Catalog<typeof en> = {
   title: "Servidor",
   tabs: {
-    label: "Secciones del servidor",
     overview: "Estado",
-    system: "Sistema y actualizaciones",
     systemKeywords: "actualizar actualizaciones paquetes apt reinicio hora zona horaria reloj nombre procesos versión de noust",
-    security: "Seguridad y SSH",
-    securityKeywords: "ssh claves contraseñas cortafuegos fail2ban endurecimiento comprobaciones",
-    network: "Red y puertos",
     networkKeywords: "puerto abrir cerrar escuchar cortafuegos nginx publicar interfaz quién usa",
     services: "Servicios",
     webserver: "Servidor web",
@@ -847,7 +842,7 @@ export const server: Catalog<typeof en> = {
   system: {
     viewsLabel: "Vista del sistema",
     views: {
-      updates: "Actualizaciones",
+      updates: "Actualizaciones del sistema",
       machine: "Este servidor",
       processes: "Procesos",
       monitor: "Monitor de recursos",

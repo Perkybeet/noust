@@ -37,9 +37,11 @@ describe("Settings, the hub", () => {
     hub();
     const { container } = renderConsole("/settings");
     await screen.findByRole("heading", { level: 1, name: "Settings" });
-    for (const group of GROUPS) {
+    // A server on its own has no fleet to set up: that group is for the console that manages others.
+    for (const group of GROUPS.filter((title) => title !== "Fleet")) {
       expect(await screen.findByRole("heading", { level: 2, name: group })).toBeInTheDocument();
     }
+    expect(screen.queryByRole("heading", { level: 2, name: "Fleet" })).toBeNull();
     // A door says where it goes and what is inside, so it is found by its purpose and not by its name.
     const channels = screen.getByRole("link", { name: /^Channels Where messages go when something happens/ });
     expect(channels).toHaveAttribute("href", "/settings/notifications");

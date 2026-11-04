@@ -9,15 +9,16 @@
  * `navigate()` and every tab keeps the operator on the server they are on, typed as before,
  * with no feature aware of it. Leaving a node is an explicit `node: undefined`.
  *
- * Every page belongs to one of three contexts, and the address says which (`contextOf`):
+ * Every page belongs to one of three kinds, and the address says which (`contextOf`); the selector has two places:
  *
  * - **a server**: every page of a server, this one's at `/...` and a node's at `/n/<node>/...`;
  * - **all servers**: the Fleet (`/fleet/...`), the whole fleet at once;
- * - **this central**: what belongs to the central whatever server is selected - its servers,
- *   accounts, security, tokens and seal, and the GitHub callback.
+ * - **the instance**: what belongs to the central whichever server is selected - its accounts, security,
+ *   tokens and seal, and the GitHub callback. It is no server's page: the selector stays where it was
+ *   (`useSelection`), and its sections say "All the fleet" instead of moving it.
  *
- * The last two never carry a node, in either direction; the server the operator came from is
- * remembered apart (nodes/lastServer.ts), so leaving them goes back to it.
+ * The last two never carry a node, in either direction; what the operator had chosen is remembered apart
+ * (nodes/lastServer.ts), so leaving them goes back to it.
  */
 
 import type { LocationRewrite } from "@tanstack/react-router";
@@ -29,9 +30,8 @@ export const NODE_SEARCH_KEY = "node";
 export const FLEET_PATHS: readonly string[] = ["/fleet"];
 
 /**
- * The central's own pages ("This central"): its settings that no server can hold for it, and
- * the GitHub App's fixed callback. A node refuses a central on its sign-in, tokens and
- * two-factor on purpose, so these can never be a node's.
+ * The instance's own pages: its settings that no server can hold for it, and the GitHub App's fixed callback.
+ * A node refuses a central on its sign-in, tokens and two-factor on purpose, so these can never be a node's.
  */
 export const CENTRAL_PATHS: readonly string[] = [
   "/settings/servers",
@@ -78,8 +78,8 @@ export type ConsoleContext = { kind: "server"; node: string | null } | { kind: "
 
 /**
  * The context of a page, from the router's pathname (without `/n/...`) and the node it names:
- * the fleet's pages are "All servers", the central's own "This central", every other page a
- * server's (this one's when `node` is null).
+ * the fleet's pages are "All servers", the instance's own are `central` (no server's), every other
+ * page a server's (this one's when `node` is null).
  */
 export function contextOf(pathname: string, node: string | null): ConsoleContext {
   if (FLEET_PATHS.some((prefix) => under(pathname, prefix))) return { kind: "fleet" };

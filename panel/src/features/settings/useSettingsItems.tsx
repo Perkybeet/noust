@@ -7,7 +7,7 @@ import type { SettingsNavItem } from "../../components/page/SettingsLayout";
 import { useT } from "../../i18n";
 import type { PlainKey } from "../../i18n";
 import { useHasFleet, useReturnServer, useServerList } from "../../nodes/servers";
-import { useConsoleContext } from "../../nodes/useNode";
+import { useConsoleContext, useSelection } from "../../nodes/useNode";
 import { useCentral } from "../central/central";
 import { iconOf } from "../nav/icons";
 import { RENAMED, SETTINGS_SCREENS, groupSettings } from "../nav/settings";
@@ -59,8 +59,10 @@ export function useSettingsItems(): SettingsView {
   const { hostname } = useServerList();
   const { data: session } = useQuery(sessionQuery());
 
+  const selection = useSelection(central.role === "hub");
+  // A page of the instance is no server's: the server the sections that are a server's lead to is the one the selector is on.
   const onCentral = context.kind === "central";
-  const serverNode = context.kind === "server" ? context.node : (back?.node ?? null);
+  const serverNode = context.kind === "server" ? context.node : selection.kind === "server" ? selection.node : (back?.node ?? null);
   const serverName = serverNode ?? hostname ?? t("fleet.selector.thisServer");
   const centralName = hostname ?? t("fleet.selector.central");
   const permissions = session?.permissions;

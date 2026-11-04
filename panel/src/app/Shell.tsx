@@ -8,20 +8,19 @@ import { useT } from "../i18n";
 import { NodeNotice } from "../nodes/NodeNotice";
 import { PageServerContext } from "../nodes/pageServer";
 import { useHasFleet } from "../nodes/servers";
-import { useNode } from "../nodes/useNode";
 import { useServerEvents } from "../realtime/events";
 import { cx } from "../lib/cx";
 import { columnKindOf } from "./columns";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { focusPageTitle } from "./focus";
 import { BottomBar } from "./frame/BottomBar";
-import { Crumbs } from "./frame/Crumbs";
-import { NavColumnContext } from "./frame/columnContext";
 import { NavColumn } from "./frame/NavColumn";
+import { SectionSelector } from "./frame/SectionSelector";
 import { AreasSheet } from "./frame/AreasSheet";
 import { Rail } from "./frame/Rail";
 import { usePageServerName } from "./frame/usePageServerName";
 import { shortcuts as registeredShortcuts } from "./nav";
+import { setHomeCustomising } from "./homeCustomising";
 import { useNavLayout } from "./navLayout";
 import { useNavScope } from "./useNavScope";
 import PaletteHost from "./PaletteHost";
@@ -93,14 +92,13 @@ export function Shell() {
   useServerEvents();
   const pageServer = usePageServerName();
   const hasFleet = useHasFleet();
-  const { node: onNode } = useNode();
   const scope = useNavScope();
   const layout = useNavLayout();
   const { width } = usePreferences();
   const [accountOpen, setAccountOpen] = useState(false);
   const sessionDescription = useSessionDescription();
-  // The second column is the frame's from 1024 px; on a phone it is the page's section selector.
-  const columnKind = layout.phone ? null : columnKindOf(pathname);
+  // Every area has a column. From 1024 px it is the frame's, beside the main bar; on a phone it is the section selector at the top of the page.
+  const columnKind = columnKindOf(pathname);
 
   useEffect(
     () =>
@@ -108,6 +106,8 @@ export function Shell() {
         if (!event.pathChanged || event.fromLocation === undefined) return;
         setNavOpen(false);
         setRailOpen(false);
+        // Customising Home ends when the person leaves it: they never come back to a half-edited page they did not mean to open.
+        setHomeCustomising(false);
         focusPageTitle();
       }),
     [router],
@@ -146,7 +146,7 @@ export function Shell() {
       void navigate({ to });
     };
     // The letters of the scope on screen: `g a` is the server's Applications on a server and the fleet's on the fleet.
-    const navShortcuts = registeredShortcuts(scope, hasFleet && onNode === null).map((entry) => ({ keys: entry.keys, description: t(entry.description), run: go(entry.to) }));
+    const navShortcuts = registeredShortcuts(scope).map((entry) => ({ keys: entry.keys, description: t(entry.description), run: go(entry.to) }));
     return [
       ...navShortcuts,
       // The fleet is a scope, not a destination of a server's bar: one key leads to it from a server.
@@ -175,7 +175,7 @@ export function Shell() {
       },
       { keys: ["?"], description: t("shell.shortcuts.showShortcuts"), run: openShortcuts },
     ];
-  }, [navigate, router, openPalette, openShortcuts, t, scope, hasFleet, onNode]);
+  }, [navigate, router, openPalette, openShortcuts, t, scope, hasFleet]);
 
   useKeyboardShortcuts(bindings);
 
@@ -190,19 +190,19 @@ export function Shell() {
   }, []);
 
   return (
-    <NavColumnContext value={columnKind}>
+    <>
       <div className="flex min-h-dvh bg-bg text-fg">
         <SkipLink />
         {layout.phone ? null : <Rail layout={layout} open={railOpen} onOpenChange={setRailOpen} />}
-        {columnKind !== null ? <NavColumn kind={columnKind} /> : null}
+        {columnKind !== null && !layout.phone ? <NavColumn kind={columnKind} /> : null}
         <div className="flex min-w-0 flex-1 flex-col">
           <Topbar onOpenPalette={openPalette} onOpenShortcuts={openShortcuts} />
           <main id="main" tabIndex={-1} className="flex-1 outline-none">
             {/* The shell caps the page at --width-page (L-1) unless the person chose the whole width; each
                 template sets its own inner grid from the width tokens, so a header and its content always share edges. */}
             <div className={cx("mx-auto w-full px-4 pt-6 sm:px-6 lg:px-8 lg:pt-8", width === "full" ? "max-w-none" : "max-w-page", layout.phone ? "pb-24" : "pb-16")}>
-              {/* On a phone the trail has no room in the top bar: it is the first line of the page. */}
-              {layout.phone ? <Crumbs className="mb-4" /> : null}
+              {/* On a phone the column is a selector that says where the page is and opens its sections as a sheet: never tabs. */}
+              {layout.phone && columnKind !== null ? <SectionSelector kind={columnKind} /> : null}
               <PageServerContext value={pageServer}>
                 <NodeNotice />
                 <ErrorBoundary resetKey={pathname}>
@@ -251,6 +251,6 @@ export function Shell() {
         </Suspense>
       ) : null}
       </div>
-    </NavColumnContext>
+    </>
   );
 }

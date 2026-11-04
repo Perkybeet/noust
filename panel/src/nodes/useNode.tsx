@@ -13,9 +13,10 @@ import type { ReactNode } from "react";
 import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef } from "react";
 
 import { focusPageTitle } from "../app/focus";
+import { areaOf } from "../app/nav";
 import { contextOf, nodeFromSearch, serverPath, switchTarget } from "../app/nodeRoute";
 import type { ConsoleContext } from "../app/nodeRoute";
-import { rememberServer } from "./lastServer";
+import { rememberAll, rememberServer, useLastServer } from "./lastServer";
 
 export interface SelectedNode {
   /** The node's name on this central, or null for this server. */
@@ -38,9 +39,9 @@ const PageContext = createContext<ConsoleContext>(THIS_SERVER_CONTEXT);
  * job sockets start again on the new server, so nothing keeps showing the previous one.
  * Focus, which was on the control that switched, goes to the new page's heading.
  *
- * It also says which of the three contexts the page is in (a server, all servers, this
- * central) and remembers each server the operator is on, so the fleet's and the central's
- * pages can lead back to it.
+ * It also says which context the page is in (a server, all servers, or a page of the instance that
+ * belongs to no server) and remembers what the operator chose, so the fleet's and the instance's
+ * pages can lead back to it and leave the selector where it was.
  */
 export function NodeScope({ children }: { children: ReactNode }) {
   const node = useRouterState({ select: (state) => nodeFromSearch(state.location.search) });
@@ -60,6 +61,7 @@ export function NodeScope({ children }: { children: ReactNode }) {
   }, [node]);
   useEffect(() => {
     if (context.kind === "server") rememberServer(context.node);
+    else if (context.kind === "fleet") rememberAll();
   }, [context]);
   return (
     <NodeContext value={value}>
@@ -88,11 +90,29 @@ export function useNode(): SelectedNode {
 }
 
 /**
- * Which context the page on screen is in: a server's page, the fleet's ("All servers") or
- * the central's own ("This central"). This server's outside the signed-in console.
+ * Which context the page on screen is in: a server's page, the fleet's ("All servers"), or a page of the instance
+ * that is no server's (the accounts, the tokens, the compliance: `central`). This server's outside the signed-in
+ * console. The selector has two places, not three: an instance page leaves it where it was (`useSelection`).
  */
 export function useConsoleContext(): ConsoleContext {
   return useContext(PageContext);
+}
+
+/** What the selector says: the whole fleet, or one server (null: this one). */
+export type Selection = { kind: "all" } | { kind: "server"; node: string | null };
+
+/**
+ * What the selector is on. It follows the page where the page has a place (a server's, or the fleet's), and on a
+ * page of the instance, which has none, it stays where the operator had put it: the server they were on, or the
+ * whole fleet. A hub has no server of its own, so it starts on the fleet.
+ */
+export function useSelection(hub = false): Selection {
+  const context = useConsoleContext();
+  const last = useLastServer();
+  if (context.kind === "fleet") return { kind: "all" };
+  if (context.kind === "server") return { kind: "server", node: context.node };
+  if (last?.all === true || (last === null && hub)) return { kind: "all" };
+  return { kind: "server", node: last?.node ?? null };
 }
 
 /**
@@ -123,9 +143,28 @@ export function useNodeLink(): NodeLinks {
 }
 
 /**
- * Switches the console to another server (null: this one), staying on the same page when
- * every server has it and going to the server's overview otherwise (see `switchTarget`).
- * From the fleet's or the central's pages it always goes to the server chosen, this one too.
+ * Where "All servers" opens from a page: the fleet's face of the area the page is in, where the area has one, and the
+ * fleet's summary otherwise. The area is kept, as a server's is.
+ */
+export function allServersTarget(pathname: string): "/fleet" | "/fleet/apps" | "/fleet/certificates" | "/fleet/backups" | "/fleet/servers" | "/fleet/activity" | "/fleet/alerts" | "/fleet/network" | "/fleet/security" {
+  const face = areaOf(pathname)?.fleetTo;
+  return (face ?? "/fleet") as ReturnType<typeof allServersTarget>;
+}
+
+/**
+ * Where a server opens from the fleet's pages: the area the fleet's page is the face of, on that server. The summary
+ * of the fleet is the server's own home.
+ */
+function serverTargetFromFleet(pathname: string): string {
+  const area = areaOf(pathname);
+  return area === undefined ? "/" : area.to;
+}
+
+/**
+ * Switches the console to another server (null: this one), staying on the same page when every server has it and
+ * going to the list of its area otherwise (see `switchTarget`). From the fleet's pages it opens the area the page
+ * is the face of, on the server chosen. On a page of the instance, which is no server's, nothing is opened: only
+ * the selector moves, and the next page the person opens is the chosen server's.
  */
 export function useSwitchNode(): (target: string | null) => Promise<void> {
   const router = useRouter();
@@ -133,9 +172,15 @@ export function useSwitchNode(): (target: string | null) => Promise<void> {
   return useCallback(
     async (target: string | null) => {
       const { location, matches } = router.state;
-      const onServer = contextOf(location.pathname, null).kind === "server";
-      if (onServer && nodeFromSearch(location.search) === target) return;
-      const to = switchTarget(location.pathname, matches.at(-1)?.routeId);
+      const kind = contextOf(location.pathname, null).kind;
+      if (kind === "central") {
+        rememberServer(target);
+        return;
+      }
+      if (kind === "server" && nodeFromSearch(location.search) === target) return;
+      // A resource the other server may not have (an application) leaves the person in its area, not at the server's home.
+      const same = switchTarget(location.pathname, matches.at(-1)?.routeId);
+      const to = kind === "fleet" ? serverTargetFromFleet(location.pathname) : same === "/" && location.pathname !== "/" ? serverTargetFromFleet(location.pathname) : same;
       await navigate({ to, search: { node: target ?? undefined } });
     },
     [router, navigate],

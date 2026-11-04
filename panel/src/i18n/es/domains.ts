@@ -22,7 +22,6 @@ export const domains: Catalog<typeof en> = {
   theSite: "El sitio",
 
   page: {
-    tabsLabel: "Secciones de Dominios",
   },
 
   /** Each section of the Domains area: its tab, its title (never the area's name again) and its one sentence. */

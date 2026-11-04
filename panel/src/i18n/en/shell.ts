@@ -45,7 +45,7 @@ export const shell = {
     scopeHint: "to switch server",
     noMatchesHint: "Try the name of a page, a setting or an application, > for actions or @ for another server.",
     noMatchesCli: "The terminal can do everything: {command}",
-    scope: { server: "Server", application: "Application", all: "All servers", central: "This central" },
+    scope: { server: "Server", application: "Application", all: "All servers" },
   },
   commandGroups: {
     recent: "Recent",
