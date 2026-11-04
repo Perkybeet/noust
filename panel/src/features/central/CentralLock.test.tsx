@@ -48,7 +48,7 @@ describe("a sealed central", () => {
     expect(screen.getByText(/a passphrase that is not stored anywhere/)).toBeInTheDocument();
     // The machine is named first, so a passphrase is never typed into the wrong one.
     expect(screen.getByText("web-01")).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { level: 1, name: "Home" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 1, name: "This server" })).not.toBeInTheDocument();
     await expectNoAxeViolations(container, { page: true });
 
     const field = screen.getByLabelText("Passphrase");
@@ -67,7 +67,8 @@ describe("a sealed central", () => {
     await user.clear(field);
     await user.type(field, "correct horse");
     await user.click(screen.getByRole("button", { name: "Unlock" }));
-    expect(await screen.findByRole("heading", { level: 1, name: "Home" })).toBeInTheDocument();
+    // The page that opens is the panel of this server, which titles it.
+    expect(await screen.findByRole("heading", { level: 1, name: "This server" })).toBeInTheDocument();
     expect(backend.callsTo("POST /api/central/unlock").map((call) => call.body)).toEqual([
       { passphrase: "wrong one" },
       { passphrase: "wrong one" },
@@ -94,7 +95,8 @@ describe("a sealed central", () => {
     sealedCentral();
     const { user } = renderConsole("/fleet");
     await user.click(await screen.findByRole("button", { name: "Continue without unlocking" }));
-    expect(await screen.findByRole("heading", { level: 1, name: "Home" })).toBeInTheDocument();
+    // The address was the fleet's, so the page that opens is the fleet's own panel.
+    expect(await screen.findByRole("heading", { level: 1, name: "Fleet" })).toBeInTheDocument();
     expect(screen.getByText("Its servers are out of reach until you unlock its sealed secrets.")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Unlock" }));
