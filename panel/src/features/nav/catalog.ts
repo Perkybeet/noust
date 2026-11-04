@@ -9,7 +9,7 @@ import type { Strip } from "../../app/navCore";
 export const CATALOG_TABS: Strip = strip(
   area("catalog", "/catalog", "nav.catalog.label", {
     scope: "both",
-    group: "where",
+    group: "runs",
     shortcut: ["g", "t"],
     goTo: "nav.catalog.goTo",
     keywords: "nav.catalog.keywords",

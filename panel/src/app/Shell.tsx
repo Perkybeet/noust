@@ -18,7 +18,7 @@ import { BottomBar } from "./frame/BottomBar";
 import { Crumbs } from "./frame/Crumbs";
 import { NavColumnContext } from "./frame/columnContext";
 import { NavColumn } from "./frame/NavColumn";
-import { OneBar, OneBarNav } from "./frame/OneBar";
+import { AreasSheet } from "./frame/AreasSheet";
 import { Rail } from "./frame/Rail";
 import { usePageServerName } from "./frame/usePageServerName";
 import { shortcuts as registeredShortcuts } from "./nav";
@@ -29,6 +29,7 @@ import { usePreferences } from "./preferences";
 import { useRenderedPathname } from "./renderedPath";
 import { shortcutKey, useKeyboardShortcuts } from "./shortcuts";
 import type { KeyBinding } from "./shortcuts";
+import { SessionMenu, useSessionDescription } from "./SessionMenu";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { Topbar } from "./Topbar";
 import type { AppVerb } from "./verbCommands";
@@ -66,10 +67,10 @@ function SkipLink() {
 const APP_PATH = /^\/apps\/([^/]+)(?:\/|$)/;
 
 /**
- * The frame around every signed-in page: the navigation (the double bar, one bar, or a phone's bar at
- * the foot, by the width of the window and what the person chose), the top bar with the breadcrumbs and
- * the machine strip, the page, and the three overlays anyone can summon from anywhere (palette,
- * shortcuts, the phone's menu). It also opens the live event stream and moves focus to each new page's
+ * The frame around every signed-in page: the navigation (the main bar and the context column, or a
+ * phone's bar at the foot, by the width of the window), the top bar with the breadcrumbs and the
+ * machine strip, the page, and the overlays anyone can summon from anywhere (palette, shortcuts, the
+ * phone's sheets). It also opens the live event stream and moves focus to each new page's
  * heading.
  */
 export function Shell() {
@@ -83,7 +84,7 @@ export function Shell() {
   const [paletteReady, setPaletteReady] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
-  // The main bar opened over the page, where there is no room for it beside (1280 to 1439 px).
+  // The main bar opened over the page, where there is no room for it beside (1024 to 1439 px).
   const [railOpen, setRailOpen] = useState(false);
   const returnFocus = useRef<HTMLElement | null>(null);
   // Choosing a page in the menu hands focus to that page's heading, not back to the button.
@@ -96,8 +97,10 @@ export function Shell() {
   const scope = useNavScope();
   const layout = useNavLayout();
   const { width } = usePreferences();
-  // The second column is the double bar's: a resource with sections has one, and nothing else does.
-  const columnKind = layout.presentation === "double" ? columnKindOf(pathname) : null;
+  const [accountOpen, setAccountOpen] = useState(false);
+  const sessionDescription = useSessionDescription();
+  // The second column is the frame's from 1024 px; on a phone it is the page's section selector.
+  const columnKind = layout.phone ? null : columnKindOf(pathname);
 
   useEffect(
     () =>
@@ -190,7 +193,7 @@ export function Shell() {
     <NavColumnContext value={columnKind}>
       <div className="flex min-h-dvh bg-bg text-fg">
         <SkipLink />
-        {layout.presentation === "double" ? <Rail layout={layout} open={railOpen} onOpenChange={setRailOpen} /> : layout.phone ? null : <OneBar layout={layout} />}
+        {layout.phone ? null : <Rail layout={layout} open={railOpen} onOpenChange={setRailOpen} />}
         {columnKind !== null ? <NavColumn kind={columnKind} /> : null}
         <div className="flex min-w-0 flex-1 flex-col">
           <Topbar onOpenPalette={openPalette} onOpenShortcuts={openShortcuts} />
@@ -218,11 +221,25 @@ export function Shell() {
           />
         ) : null}
 
-        <Drawer open={navOpen} onOpenChange={setNavOpen} title={t("shell.menu.title")} finalFocus={!menuNavigated}>
-          <div className="flex min-h-full flex-col justify-between gap-8">
-            <OneBarNav onNavigate={closeMenuAfterNavigation} className="-mx-2" />
-          </div>
-        </Drawer>
+        {layout.phone ? (
+          <>
+            <AreasSheet
+              open={navOpen}
+              onOpenChange={setNavOpen}
+              onNavigate={closeMenuAfterNavigation}
+              finalFocus={!menuNavigated}
+              onOpenAccount={() => {
+                setNavOpen(false);
+                setAccountOpen(true);
+              }}
+            />
+            <Drawer open={accountOpen} onOpenChange={setAccountOpen} placement="bottom" title={t("shell.session.title")} description={sessionDescription}>
+              <div className="px-4">
+                <SessionMenu onClose={() => setAccountOpen(false)} onOpenShortcuts={openShortcuts} />
+              </div>
+            </Drawer>
+          </>
+        ) : null}
 
       {paletteReady ? (
         <PaletteHost open={paletteOpen} onOpenChange={setPaletteOpen} onOpenShortcuts={openShortcuts} onVerb={runVerb} returnFocus={() => returnFocus.current} />

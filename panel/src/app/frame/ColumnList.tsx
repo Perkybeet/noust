@@ -52,7 +52,8 @@ export function ColumnList({ label, groups, currentKey }: { label: string; group
   // the route alone cannot tell them apart.
   const current = currentKey === undefined ? currentItem(all, route) : all.find((item) => item.key === currentKey);
   return (
-    <nav aria-label={label} className="relative isolate flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-3 pb-4 scroll-thin">
+    // A section is another page of the same area: the focus stays on its link (data-keep-focus), as it does on a strip of tabs.
+    <nav aria-label={label} data-keep-focus="" className="relative isolate flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-3 pb-4 scroll-thin">
       <SlidingIndicator className="rounded-control bg-surface" />
       {groups.map((group, position) => {
         const headingId = `${ids}-${String(position)}`;

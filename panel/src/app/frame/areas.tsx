@@ -1,7 +1,7 @@
 /**
- * The areas of the main bar as a page draws them, whichever bar it is (the rail of the double bar, the
- * one bar, the foot of a phone): which are offered, where each opens, which is current and what is
- * worth counting beside it. One answer, so the three bars never disagree about any of it.
+ * The areas of the main bar as a page draws them, wherever they are drawn (the rail, the foot of a
+ * phone and the sheet of all the areas): which are offered, where each opens, which is current and what
+ * is worth counting beside it. One answer, so the three never disagree about any of it.
  */
 
 import { useQuery } from "@tanstack/react-query";
@@ -159,13 +159,14 @@ const ROW =
   "hover:bg-surface-raised hover:text-fg focus-visible:-outline-offset-2 " +
   "aria-[current=page]:bg-transparent aria-[current=page]:text-fg aria-[current=page]:hover:transform-none aria-[current=page]:hover:shadow-none";
 
-export type AreaLinkVariant = "rail" | "folded" | "single" | "bottom";
+export type AreaLinkVariant = "rail" | "folded" | "sheet" | "bottom";
 
 const VARIANT: Record<AreaLinkVariant, string> = {
   // Less room on the right than on the left: the longest name (Tareas programadas) fits the bar whole in Spanish.
   rail: "h-10 gap-3 pr-2 pl-3 text-14 font-medium",
   folded: "size-11 justify-center text-14 font-medium",
-  single: "h-9 gap-2.5 px-3 text-14 font-medium",
+  // The phone's sheet of areas: two to a row, each as tall as a thumb needs.
+  sheet: "h-11 gap-2.5 px-3 text-14 font-medium",
   // A name that needs two lines (Bases de datos) takes them, from the top, so every icon of the foot is on one line.
   bottom: "h-14 w-full flex-col justify-start gap-0.5 px-1 pt-1.5 text-12 font-medium",
 };

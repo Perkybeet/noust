@@ -106,6 +106,7 @@
   --spacing-icon-lg: var(--icon-lg);
   --spacing-icon-xl: var(--icon-xl);
   --spacing-editor: var(--height-editor);
+  --spacing-sheet: var(--height-sheet);
   --container-measure: var(--measure);
   --container-measure-help: var(--measure-help);
   --container-page: var(--width-page);
@@ -123,7 +124,6 @@
   --container-rail: var(--width-rail);
   --container-rail-folded: var(--width-rail-folded);
   --container-column: var(--width-column);
-  --container-sidebar: var(--width-sidebar);
 
   --animate-spin: spin 0.8s linear infinite;
   --animate-pulse-once: pulse-once 0.9s var(--ease-out) 1;

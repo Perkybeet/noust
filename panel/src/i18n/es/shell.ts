@@ -5,9 +5,6 @@ export const shell: Catalog<typeof en> = {
   sidebarOverview: "Consola Noust, resumen",
   version: "Versión {version}",
   skipToContent: "Saltar al contenido",
-  menu: {
-    title: "Menú",
-  },
   session: {
     label: "Sesión y preferencias",
     labelOf: "{initials}: Sesión y preferencias",

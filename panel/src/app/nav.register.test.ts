@@ -163,7 +163,7 @@ describe("3. the budgets", () => {
     expect(sections.filter((entry) => !grouped.includes(entry.id)).map((entry) => entry.id)).toEqual([]);
   });
 
-  it("keeps the bar to twelve areas in six groups, and Settings pinned under them (NV-3)", () => {
+  it("keeps the bar to six groups, and Settings pinned under them (NV-3)", () => {
     const bar = sidebarFor();
     expect(bar.length).toBeLessThanOrEqual(6);
     expect(bar.flat().length).toBe(11);
@@ -171,15 +171,17 @@ describe("3. the budgets", () => {
     expect(dest("settings").group).toBe("pinned");
   });
 
-  it("draws the bar of 4.1: twelve areas, the same with or without a fleet (2 of the navigation design)", () => {
+  it("draws the bar of 4.2 in its titled groups, the same with or without a fleet (3.1 of the 4.2 design)", () => {
     expect(sidebarFor().map((group) => group.map((entry) => entry.to))).toEqual([
       ["/"],
-      ["/apps", "/databases", "/cron"],
+      ["/apps", "/catalog", "/databases", "/cron"],
       ["/domains"],
       ["/logs", "/alerts", "/activity"],
       ["/backups"],
-      ["/server", "/catalog"],
+      ["/server"],
     ]);
+    // Each group but Home's has a title, and the title is a catalog text: the bar draws it beside its joint.
+    expect(sidebarFor().map((group) => group[0]?.group)).toEqual(["home", "runs", "reach", "happens", "safe", "where"]);
     // The recipes are the catalog's, an area of its own, at the addresses they always had.
     expect(paths(tabsOf(CATALOG_SCREENS))).toEqual(["/catalog", "/catalog/installed"]);
     // Projects is the second view of the list, for a server whose people organised theirs.
@@ -265,7 +267,7 @@ describe("4. the names", () => {
     const areas = DESTS.filter((entry) => entry.kind === "area");
     const names = areas.map(label);
     expect(new Set(names).size, names.join(", ")).toBe(names.length);
-    expect(names).toEqual(["Home", "Applications", "Databases", "Scheduled tasks", "Domains", "Logs", "Alerts", "Activity", "Backups", "Servers", "Catalog", "Settings"]);
+    expect(names).toEqual(["Home", "Applications", "Catalog", "Databases", "Scheduled tasks", "Domains", "Logs", "Alerts", "Activity", "Backups", "Servers", "Settings"]);
   });
 
   it("never gives two tabs of one strip the same name", () => {
@@ -364,6 +366,7 @@ describe("5. the shortcuts", () => {
       ["g", "o", "/"],
       ["g", "a", "/apps"],
       ["g", "p", "/projects"],
+      ["g", "t", "/catalog"],
       ["g", "b", "/databases"],
       ["g", "c", "/cron"],
       ["g", "n", "/domains"],
@@ -372,12 +375,12 @@ describe("5. the shortcuts", () => {
       ["g", "y", "/activity"],
       ["g", "k", "/backups"],
       ["g", "v", "/server"],
-      ["g", "t", "/catalog"],
       ["g", "s", "/settings"],
     ]);
     expect(shortcuts("fleet").map((shortcut) => [...shortcut.keys, shortcut.to])).toEqual([
       ["g", "o", "/fleet"],
       ["g", "a", "/fleet/apps"],
+      ["g", "t", "/catalog"],
       ["g", "b", "/databases"],
       ["g", "c", "/cron"],
       ["g", "n", "/fleet/certificates"],
@@ -386,7 +389,6 @@ describe("5. the shortcuts", () => {
       ["g", "y", "/fleet/activity"],
       ["g", "k", "/fleet/backups"],
       ["g", "v", "/fleet/servers"],
-      ["g", "t", "/catalog"],
       ["g", "u", "/fleet/updates"],
       ["g", "s", "/settings"],
     ]);

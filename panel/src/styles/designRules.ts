@@ -354,6 +354,7 @@ export const KIT_HEIGHTS: Readonly<Record<string, readonly Height[]>> = {
   "app/frame/Rail.tsx": ["raised"],
   "app/frame/areas.tsx": ["raised"],
   "app/frame/BottomBar.tsx": ["raised"],
+  "app/frame/AreasSheet.tsx": ["raised"],
   "app/frame/ColumnList.tsx": ["raised"],
   "app/Topbar.tsx": ["carved"],
   "app/Shell.tsx": ["seated"],

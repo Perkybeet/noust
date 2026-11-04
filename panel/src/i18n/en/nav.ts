@@ -12,32 +12,32 @@ export const nav = {
     alertsSections: "Alerts sections",
     catalogSections: "Catalog sections",
   },
-  /** The titles of the groups of the main bar, drawn when it is one bar (the double bar separates them by space). */
+  /** The titles of the groups of the main bar: small, in sentence case, beside a joint. Home and Settings are not in a group. */
   groups: {
-    runs: "What runs",
-    reach: "How it is reached",
-    happens: "What is happening",
-    safe: "Kept safe",
-    where: "Where it runs",
-    manage: "How it is managed",
+    runs: "Applications and data",
+    reach: "Network",
+    happens: "Observe",
+    safe: "Protect",
+    where: "Infrastructure",
   },
   /** What an application's sections are for: the titles of the groups of its second column. */
   intents: { use: "Use", configure: "Configure", fix: "Fix", danger: "Danger" },
   /** The main bar's own controls. */
   rail: {
+    /** The name of the landmark of the main bar. */
+    landmark: "Navigation",
     fold: "Fold the bar",
     unfold: "Unfold the bar",
-  },
-  /** The choice between the double bar and one bar, drawn in the bar itself. */
-  presentation: {
-    label: "Navigation",
-    double: "Double bar",
-    single: "One bar",
   },
   /** The bar at the foot of a phone: four areas and the rest. */
   bottomBar: {
     label: "Areas",
     more: "More",
+  },
+  /** The sheet "More" opens on a phone: every area in its group, then Settings and the account. */
+  sheet: {
+    title: "All areas",
+    account: "Your account",
   },
   /** The switch beside a breadcrumb that lists its siblings. */
   crumbs: {

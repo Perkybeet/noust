@@ -59,13 +59,13 @@ const BY_ID = new Map<string, Dest>();
 /** Every screen, in the order its list draws it. */
 export const DESTS: readonly Dest[] = REGISTERED;
 
-// The twelve areas of the bar in the order it draws them (home; what runs; how it is reached; what
-// happens; what is kept safe; where it runs), then what is under them, then the fleet's faces, Settings
-// and the account.
+// The areas of the bar in the order it draws them (home; applications and data; network; observe;
+// protect; infrastructure), then what is under them, then the fleet's faces, Settings and the account.
 for (const group of [
   OVERVIEW_SCREENS,
   APPS_SCREENS,
   PROJECTS_SCREENS,
+  CATALOG_SCREENS,
   DATABASES_SCREENS,
   CRON_SCREENS,
   DOMAINS_SCREENS,
@@ -74,7 +74,6 @@ for (const group of [
   ACTIVITY_SCREENS,
   BACKUPS_SCREENS,
   SERVER_SCREENS,
-  CATALOG_SCREENS,
   SERVICE_SCREENS,
   DATABASE_SCREENS,
   APP_SCREENS,
@@ -233,7 +232,7 @@ export function staticPrefix(to: string): string {
 }
 
 /** The area, or the resource, an entry belongs to: where its chain of parents ends. */
-function rootOf(entry: Dest): Dest {
+export function rootOf(entry: Dest): Dest {
   let current = entry;
   for (let guard = 0; current.parent !== undefined && guard < 8; guard += 1) current = dest(current.parent);
   return current;

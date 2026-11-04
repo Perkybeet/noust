@@ -11,7 +11,7 @@ import { areaTarget, dest } from "../nav";
 import type { NavLayout } from "../navLayout";
 import { setRailFold } from "../preferences";
 import { AreaLink, useAreas } from "./areas";
-import { PresentationSwitch } from "./PresentationSwitch";
+import { AreaGroup, GROUP_TITLES } from "./Joint";
 
 /**
  * The fold button: its name says what it does, and `aria-expanded` says what it is. Unfolded it folds the
@@ -49,11 +49,12 @@ function FoldButton({ folded, open, controls, onPress }: { folded: boolean; open
 }
 
 /**
- * The main bar of the double bar: the areas with their icon and their name, in groups set apart by
- * space, Settings under them, and its own controls at the foot. It is drawn unfolded (an icon is not a
- * name: twelve of them are not understood at first, and a phone has no tooltip) and folds to icons by
- * a button, which keeps the choice. From 1280 to 1439 px there is no room for it unfolded: it is folded
- * and opens over the page without pushing it, and closes by a choice, by Escape or by pressing the veil.
+ * The main bar: the areas with their icon and their name, in groups that carry a small title and a
+ * joint, Settings under them, and its own control at the foot. It is drawn unfolded from 1440 px (an
+ * icon is not a name: thirteen of them are not understood at first, and a phone has no tooltip) and folds
+ * to icons by a button, which keeps the choice; folded, a group is only its joint. From 1024 to 1439 px
+ * there is no room for it unfolded: it is folded and opens over the page without pushing it, and closes
+ * by a choice, by Escape or by pressing the veil.
  *
  * The current area is the raised piece under it, which slides to the one chosen when the page changes
  * (SlidingIndicator): the bar and the second column each have their own.
@@ -83,6 +84,8 @@ export function Rail({ layout, open, onOpenChange }: { layout: NavLayout; open: 
   };
   const home = areas.groups[0]?.[0]?.entry ?? dest("overview");
   const homeTarget = areaTarget(home, areas.scope);
+  const variant = folded ? "folded" : "rail";
+  const closeOver = over ? { onNavigate: () => onOpenChange(false) } : {};
 
   return (
     <div data-frame="rail" className={cx("relative shrink-0", layout.rail === "folded" ? "w-rail-folded" : "w-rail")}>
@@ -91,7 +94,7 @@ export function Rail({ layout, open, onOpenChange }: { layout: NavLayout; open: 
         <div aria-hidden="true" data-frame="veil" onClick={() => onOpenChange(false)} className="fixed inset-0 z-backdrop bg-backdrop" />
       ) : null}
       <aside
-        aria-label={t("nav.presentation.label")}
+        aria-label={t("nav.rail.landmark")}
         className={cx(
           "flex h-dvh flex-col bg-bg-rail py-3.5",
           folded ? "items-center px-0" : "px-3",
@@ -111,28 +114,25 @@ export function Rail({ layout, open, onOpenChange }: { layout: NavLayout; open: 
         <nav
           id={navId}
           aria-label={t("nav.landmarks.main")}
-          className={cx("relative isolate mt-3.5 flex min-h-0 flex-1 flex-col overflow-y-auto scroll-thin", folded ? "items-center" : "-mx-1 px-1")}
+          className={cx("relative isolate mt-3 flex min-h-0 flex-1 flex-col overflow-y-auto scroll-thin", folded ? "items-center" : "-mx-1 px-1")}
         >
           <SlidingIndicator className="rounded-control bg-surface" />
-          <div className="flex flex-col gap-3.5">
-            {areas.groups.map((group) => (
-              <ul key={group[0]?.entry.id} className="flex flex-col gap-0.5">
-                {group.map((item) => (
-                  <li key={item.entry.id}>
-                    <AreaLink item={item} variant={folded ? "folded" : "rail"} {...(over ? { onNavigate: () => onOpenChange(false) } : {})} />
-                  </li>
-                ))}
-              </ul>
-            ))}
-          </div>
-          <ul className="mt-auto pt-3.5">
+          {areas.groups.map((group) => (
+            <AreaGroup key={group[0]?.entry.id} title={GROUP_TITLES[group[0]?.entry.group ?? ""]} folded={folded}>
+              {group.map((item) => (
+                <li key={item.entry.id}>
+                  <AreaLink item={item} variant={variant} {...closeOver} />
+                </li>
+              ))}
+            </AreaGroup>
+          ))}
+          <ul className="mt-auto pt-3">
             <li>
-              <AreaLink item={areas.settings} variant={folded ? "folded" : "rail"} {...(over ? { onNavigate: () => onOpenChange(false) } : {})} />
+              <AreaLink item={areas.settings} variant={variant} {...closeOver} />
             </li>
           </ul>
         </nav>
         <div className={cx("mt-2 flex shrink-0 flex-col gap-1", folded && "items-center")}>
-          <PresentationSwitch presentation="double" compact={folded} />
           <FoldButton folded={layout.rail === "folded"} open={over} controls={navId} onPress={press} />
         </div>
       </aside>

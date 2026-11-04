@@ -208,13 +208,14 @@
   --width-drawer-md: 30rem;
   --width-drawer-lg: 45rem;
   --width-search: 18rem;
-  /* The navigation: the main bar unfolded and folded to icons, the second column, and the one bar. */
+  /* The navigation: the main bar unfolded and folded to icons, and the second column. */
   --width-rail: 13rem;
   --width-rail-folded: 4.25rem;
   --width-column: 16rem;
-  --width-sidebar: 16.5rem;
   /* A file editor or a full log takes the screen, less the header and its bar. */
   --height-editor: max(24rem, calc(100dvh - 20rem));
+  /* The most a sheet from the foot of a phone takes: it never covers the page whole, so the page is still there behind it. */
+  --height-sheet: 85dvh;
 
   /*
    * Elevation. Three heights and one light that falls from above, made of hard edges: a tone,

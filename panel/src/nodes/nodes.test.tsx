@@ -331,6 +331,7 @@ describe("the three contexts", () => {
     expect(within(nav).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
       "/fleet",
       "/fleet/apps",
+      "/n/web-2/catalog",
       "/n/web-2/databases",
       "/n/web-2/cron",
       "/fleet/certificates",
@@ -339,7 +340,6 @@ describe("the three contexts", () => {
       "/fleet/activity",
       "/fleet/backups",
       "/fleet/servers",
-      "/n/web-2/catalog",
       "/n/web-2/settings",
     ]);
     // Settings still lead to the server the operator came from.

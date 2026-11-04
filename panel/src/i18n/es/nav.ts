@@ -17,26 +17,25 @@ export const nav: Catalog<typeof en> = {
     catalogSections: "Secciones del catálogo",
   },
   groups: {
-    runs: "Lo que corre",
-    reach: "Cómo se llega",
-    happens: "Lo que pasa",
-    safe: "Para no perder nada",
-    where: "Dónde corre",
-    manage: "Cómo se gestiona",
+    runs: "Aplicaciones y datos",
+    reach: "Red",
+    happens: "Observar",
+    safe: "Proteger",
+    where: "Infraestructura",
   },
   intents: { use: "Usar", configure: "Configurar", fix: "Arreglar", danger: "Peligro" },
   rail: {
+    landmark: "Navegación",
     fold: "Plegar la barra",
     unfold: "Desplegar la barra",
-  },
-  presentation: {
-    label: "Navegación",
-    double: "Doble barra",
-    single: "Una barra",
   },
   bottomBar: {
     label: "Áreas",
     more: "Más",
+  },
+  sheet: {
+    title: "Todas las áreas",
+    account: "Tu cuenta",
   },
   crumbs: {
     switch: "Cambiar {name}",
