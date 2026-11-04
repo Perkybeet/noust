@@ -419,3 +419,77 @@ describe("the three heights, by role", () => {
     });
   });
 });
+
+/**
+ * Who can do what, and why a page shows a command (design 11.1.4 and item 123). The two rules count what a page still
+ * owes, per file, against a baseline that only goes down; the pages redrawn with the content kit owe nothing.
+ */
+describe("what a page declares: the permission of its writes and the reason of its commands", () => {
+  const PAGE = "features/x/Page.tsx";
+  const count = (rule: string, source: string, path = PAGE): number => countRules(path, source)[rule] ?? 0;
+
+  it.each(["remove.mutate(name);", "await save.mutateAsync({ name });", "<Button onClick={() => test.mutate(login.name)}>Test</Button>"])(
+    "counts the write in %s as one that declares no permission",
+    (source) => {
+      expect(count("write-without-permission", source)).toBe(1);
+    },
+  );
+
+  it("counts a write once per call, however many a file has", () => {
+    expect(count("write-without-permission", "a.mutate(1);\nb.mutate(2);\nc.mutateAsync(3);")).toBe(3);
+  });
+
+  it("lets a declaration cover a write, one for one, and never more than there are", () => {
+    const writes = "a.mutate(1);\nb.mutate(2);\nc.mutate(3);";
+    expect(count("write-without-permission", `const can = useCan("apps.manage");\n${writes}`)).toBe(2);
+    expect(count("write-without-permission", `<GuardedButton permission="apps.manage" />\n<Can permission="apps.manage" />\n${writes}`)).toBe(1);
+    expect(count("write-without-permission", `<GuardedButton /><Can /><ReadOnlyLine />\n${writes}`)).toBe(0);
+    expect(count("write-without-permission", 'if (org.can("apps.manage")) {}\n')).toBe(0);
+  });
+
+  it("reads a team's own question as a declaration, and a variable called can as none", () => {
+    expect(count("write-without-permission", 'const ok = org.can("apps.manage", team);\nsave.mutate(1);')).toBe(0);
+    expect(count("write-without-permission", "const can = 3;\nsave.mutate(1);")).toBe(1);
+  });
+
+  it("counts only a feature: the kit and the gallery are not pages", () => {
+    expect(count("write-without-permission", "save.mutate(1);", "components/ui/Setting.tsx")).toBe(0);
+    expect(count("write-without-permission", "save.mutate(1);", "app/Shell.tsx")).toBe(0);
+  });
+
+  it("is excused by a design-exception with its reason, like every rule", () => {
+    expect(count("write-without-permission", "// design-exception: write-without-permission the server refuses what a role cannot do and this is a read\nsave.mutate(1);")).toBe(0);
+  });
+
+  it.each([
+    '<CommandHint command="noust list" />',
+    '<CommandHint command="noust list" label={t("common.words.fromTerminal")} />',
+    '<CommandHint\n  command="noust web expose-hooks hooks.example.com"\n  label={t("x")}\n/>',
+    "<CommandHint command={`noust app ${name} => x`} label=\"a\" />",
+  ])("counts the command in %s: it says no reason", (source) => {
+    expect(count("command-hint-reason", source)).toBe(1);
+  });
+
+  it.each([
+    '<CommandHint command="noust central seal" reason="solo-terminal" />',
+    '<CommandHint\n  command="noust fleet authorize"\n  label={t("x")}\n  reason="otro-servidor"\n/>',
+    '<CommandHint reason="salida-del-sistema" command="nginx -t" />',
+  ])("lets %s through: it says why it is there", (source) => {
+    expect(count("command-hint-reason", source)).toBe(0);
+  });
+
+  it("counts every command of a file, the one with a reason beside the ones without", () => {
+    const source = '<CommandHint command="a" reason="solo-terminal" />\n<CommandHint command="b" />\n<CommandHint command="c" label="d" />';
+    expect(count("command-hint-reason", source)).toBe(2);
+  });
+
+  it("finds the four example pages clean: they draw no command and declare what they write", () => {
+    const EXAMPLES = ["features/cloud/", "features/settings/registries/", "features/settings/DeployKeys", "features/settings/IntegrationsSettings"];
+    const owing = DESIGN_RULES.filter((rule) => rule.id === "write-without-permission" || rule.id === "command-hint-reason").flatMap((rule) =>
+      Object.keys(CURRENT[rule.id] ?? {})
+        .filter((path) => EXAMPLES.some((prefix) => path.startsWith(prefix)))
+        .map((path) => `${rule.id}: ${path}`),
+    );
+    expect(owing, "The pages redrawn with the content kit owe no permission and no command (K1)").toEqual([]);
+  });
+});

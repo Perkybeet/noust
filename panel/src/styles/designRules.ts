@@ -20,6 +20,11 @@ export interface DesignRule {
   applies: (path: string) => boolean;
   /** Also enforced by ESLint outside the kit, with a legacy list of files not yet migrated. */
   lint?: boolean;
+  /**
+   * What covers a match, one for one: the declarations that offset the matches of a file. A file with five writes and
+   * two declarations counts three, so a declared action lowers the count and an undeclared one cannot hide behind it.
+   */
+  covered?: RegExp;
 }
 
 /** The kit: the components, the app shell (PageHeader, LinkTabs, the top bar) and the gallery. */
@@ -58,6 +63,16 @@ export const SIDE_STRIPE =
  */
 export const ICON_TILE =
   /(?<=["'`])(?=[^"'`\n]*\bsize-(?:8|9|10|11|12|14)\b)(?=[^"'`\n]*\bitems-center\b)(?=[^"'`\n]*\bjustify-center\b)(?=[^"'`\n]*\brounded-(?:control|card|chip)\b)(?=[^"'`\n]*\bbg-(?:surface|bg-sunken|accent-soft|ok-soft|warn-soft|fail-soft|idle-soft|accent|surface-raised)\b)[^"'`\n]*/g;
+
+/**
+ * What declares the permission an action takes: the page's own primary action (`GuardedButton`), what is drawn only
+ * for who may (`Can`), a question the page asks of the session (`useCan(`, a team's `org.can(`) or a page that says it
+ * is read only (`ReadOnlyLine`). Each covers one write of the file.
+ */
+export const WRITE_DECLARATION = /<GuardedButton\b|<Can\b|<ReadOnlyLine\b|\buseCan\(|\bcan\(\s*["'`]/g;
+
+/** A `<CommandHint ... />` that never says `reason=`: its attributes are read up to the closing `/>`, `=>` and all. */
+export const COMMAND_HINT_WITHOUT_REASON = /<CommandHint\b(?:(?!\breason=)(?:[^/]|\/(?!>)))*\/>/g;
 
 export const DESIGN_RULES: readonly DesignRule[] = [
   {
@@ -290,6 +305,21 @@ export const DESIGN_RULES: readonly DesignRule[] = [
     applies: outsideKit,
   },
   {
+    // Atlas pattern 1 and design 11.1.4: a reader saw every action of a page and met a 403 on pressing it.
+    id: "write-without-permission",
+    fix: "Declare the permission the action takes: a GuardedButton for the page's primary action, Can (or RowMenu inside it) for a row's, and a ReadOnlyLine at the top of the page (components/page/permissions.tsx).",
+    pattern: /\.mutate(?:Async)?\(/g,
+    covered: WRITE_DECLARATION,
+    applies: (path) => path.startsWith("features/"),
+  },
+  {
+    // Item 123: the terminal is the terminal and the web is the web; a command stays only for one of three reasons.
+    id: "command-hint-reason",
+    fix: "Say why the page shows a command (reason: solo-terminal, otro-servidor or salida-del-sistema) or take it out: the console does what the CLI does.",
+    pattern: COMMAND_HINT_WITHOUT_REASON,
+    applies: everywhere,
+  },
+  {
     id: "page-without-template",
     fix: "Compose the page from a template (ListPage, DetailPage, SettingsLayout, DashboardPage, Wizard, FileEditorPage, AuthLayout).",
     pattern: /<PageHeader\b/g,
@@ -434,6 +464,7 @@ export function countRules(path: string, source: string): Record<string, number>
     for (const match of source.matchAll(new RegExp(rule.pattern.source, "g"))) {
       if (!excused(lineOf(match.index), rule.id)) count += 1;
     }
+    if (rule.covered !== undefined) count = Math.max(0, count - [...source.matchAll(new RegExp(rule.covered.source, "g"))].length);
     if (count > 0) counts[rule.id] = count;
   }
   return counts;
