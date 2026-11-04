@@ -18,16 +18,23 @@ import { DESTS, isUnder } from "./nav";
 import { shown } from "./navCore";
 import type { ConsolePath, Dest, Intent, NavContext } from "./navCore";
 
-/** Which resource's sections the column holds. `databases` is a list with views to put in it: its two sections and its engines. */
-export type ColumnKind = "app" | "server" | "settings" | "databases";
+/**
+ * Which resource's sections the column holds. `databases` is a list with views to put in it: its two sections and its engines;
+ * `home` is Home's panels, and, while one is customized, the gallery of widgets (features/overview/HomeColumn).
+ */
+export type ColumnKind = "app" | "server" | "settings" | "databases" | "home";
 
 const APP_PAGE = /^\/apps\/(?!new(?:\/|$))[^/]+(?:\/|$)/;
 
 /** The pages of Databases that have the column: the list, the database servers and one server's settings; a database's own page has its tabs. */
 const DATABASES_PAGE = /^\/databases(?:\/servers|\/engines\/[^/]+\/settings)?\/?$/;
 
-/** The column a path has, or none: an application's page, the server's, Databases, or one of Settings. */
+/** Home, and the fleet's: the two addresses a panel is drawn at. */
+const HOME_PAGE = /^\/(?:fleet\/?)?$/;
+
+/** The column a path has, or none: an application's page, the server's, Databases, Home or one of Settings. */
 export function columnKindOf(pathname: string): ColumnKind | null {
+  if (HOME_PAGE.test(pathname)) return "home";
   if (APP_PAGE.test(pathname)) return "app";
   if (isUnder(pathname, "/server")) return "server";
   if (isUnder(pathname, "/settings")) return "settings";

@@ -13,6 +13,7 @@ import { ICONS } from "../../components/ui/icons";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { isAdopted } from "../../features/app/adopted";
 import { SERVER_CAPABILITY, securityOverviewQuery, summaryQuery } from "../../features/server/queries";
+import { useHomeAddress } from "../../features/overview/search";
 import { useSettingsItems } from "../../features/settings/useSettingsItems";
 import { useT } from "../../i18n";
 import { useNodeCapability } from "../../nodes/capability";
@@ -174,11 +175,31 @@ function SettingsColumn() {
   );
 }
 
+// Home's column carries the gallery and with it every widget: it is a chunk of its own, drawn with Home, never by the script every page loads.
+const HomeColumn = lazy(() => import("../../features/overview/HomeColumn").then((module) => ({ default: module.HomeColumn })));
+
+/** Home's column: its panels, or, while one is customized, the gallery of widgets. */
+function HomeColumnHost() {
+  const t = useT();
+  const { customising } = useHomeAddress();
+  return (
+    <Suspense
+      fallback={
+        <div className="shrink-0 px-4 pt-4 pb-3">
+          <p className="display min-w-0 truncate text-24 text-fg">{t("nav.overview.label")}</p>
+        </div>
+      }
+    >
+      <HomeColumn customising={customising} />
+    </Suspense>
+  );
+}
+
 /**
  * The second column of the double bar: the context of the resource the page is under (an application's
  * sections, the server's, Settings), beside the main bar and at the same height. It exists only where
- * the resource has sections, and Home has none: its fleet is a filter and each server leads to its page.
- * The column and the main bar each have their own raised piece.
+ * the resource has sections, or views to put in it: Home's panels, which are the gallery while one is
+ * customized. The column and the main bar each have their own raised piece.
  */
 export function NavColumn({ kind }: { kind: ColumnKind }) {
   const t = useT();
@@ -186,10 +207,10 @@ export function NavColumn({ kind }: { kind: ColumnKind }) {
   // Named by what it is about, so the two columns of the frame are told apart by a screen reader: the bar is
   // "Navigation" and this is the application, the machine or Settings.
   const name =
-    kind === "app" ? (domain ?? t("nav.apps.label")) : kind === "server" ? t("nav.server.label") : kind === "databases" ? t("nav.databases.label") : t("nav.settings.label");
+    kind === "app" ? (domain ?? t("nav.apps.label")) : kind === "server" ? t("nav.server.label") : kind === "databases" ? t("nav.databases.label") : kind === "home" ? t("nav.overview.label") : t("nav.settings.label");
   return (
     <aside aria-label={name} data-frame="column" data-column={kind} className="sticky top-0 flex h-dvh w-column shrink-0 flex-col bg-bg-column">
-      {kind === "app" ? <AppColumn /> : kind === "server" ? <ServerColumn /> : kind === "databases" ? (
+      {kind === "home" ? <HomeColumnHost /> : kind === "app" ? <AppColumn /> : kind === "server" ? <ServerColumn /> : kind === "databases" ? (
         <Suspense
           fallback={
             <div className="shrink-0 px-4 pt-4 pb-3">

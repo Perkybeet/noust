@@ -101,14 +101,14 @@ async function pressAndRead(target: Locator, listSelector: string): Promise<{ pr
 }
 
 test.describe("the double bar", () => {
-  test("at 1440 px has the bar unfolded with its names, no second column on Home, and one on an application", async ({ page, consoleServer }) => {
+  test("at 1440 px has the bar unfolded with its names, Home's panels in the second column, and an application's sections in it on an application", async ({ page, consoleServer }) => {
     await openAt(page, consoleServer, 1440, "/");
     const bar = mainBar(page);
     await expect(bar.getByRole("link", { name: "Applications" })).toBeVisible();
     // Unfolded: 208px, and the names are text.
     expect(Math.round((await boxOf(page.locator('[data-frame="rail"]'))).width)).toBe(208);
     await expect(bar.getByText("Applications", { exact: true })).toBeVisible();
-    await expect(page.locator('[data-frame="column"]')).toHaveCount(0);
+    await expect(column(page, "Panels").getByRole("link", { name: /This server/ })).toHaveAttribute("aria-current", "page");
     expect(await overflowsSideways(page)).toBe(false);
     await expectNoA11yViolations(page, "Home, the double bar at 1440");
 

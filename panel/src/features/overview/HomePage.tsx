@@ -75,7 +75,8 @@ function PanelPage({ scope, panelId, customising }: HomePageProps) {
   if (panel === undefined) return null;
   if (!panels.ready) {
     return (
-      <DashboardPage header={{ title: panel.name }}>
+      // The line under the title is there already, so the widgets do not move down when the panel is known.
+      <DashboardPage header={{ title: panel.name, meta: <Follows panel={panel} /> }}>
         <PanelSkeleton layout={defaultLayout(panel.scope, can)} columns={4} title={t("nav.overview.label")} />
       </DashboardPage>
     );

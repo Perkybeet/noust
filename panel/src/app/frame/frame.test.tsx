@@ -155,11 +155,14 @@ describe("one bar (below 1280 px)", () => {
 });
 
 describe("the double bar (1440 px and wider)", () => {
-  it("is a bar of areas with their names, and no second column on Home", async () => {
+  it("is a bar of areas with their names, and Home's panels in the second column", async () => {
     await shellAt("/", 1440);
     expect(within(main()).getByRole("link", { name: "Applications" })).toBeVisible();
     expect(document.querySelector('[data-frame="rail"]')).not.toBeNull();
-    expect(document.querySelector('[data-frame="column"]')).toBeNull();
+    const column = await screen.findByRole("navigation", { name: "Panels" });
+    expect(column.closest('[data-frame="column"]')).not.toBeNull();
+    expect(within(column).getByRole("link", { name: /This server/ })).toHaveAttribute("aria-current", "page");
+    expect(within(column).getByRole("link", { name: "New panel" })).toBeVisible();
     // The names are text, not tooltips: the bar is unfolded.
     expect(within(main()).getByText("Applications")).not.toHaveClass("sr-only");
   });
