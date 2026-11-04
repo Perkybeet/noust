@@ -22,8 +22,14 @@ from typing import Any
 
 import pytest
 
+from noust.core import server_text
 from noust.core.database_exposures import ExposureStore
-from noust.core.exceptions import DependencyError, SecurityError, ValidationError
+from noust.core.exceptions import (
+    DependencyError,
+    PrerequisiteError,
+    SecurityError,
+    ValidationError,
+)
 from noust.core.fs import DryRunFileSystem
 from noust.core.runner import FakeRunner
 from noust.core.store import App, NoustStore
@@ -235,6 +241,100 @@ def test_nginx_not_installed_is_said_first(streams: StreamExposures, runner: Fak
     assert streams.support().problem == "nginx is not installed"
 
 
+# -- what nginx lacks, as sentences with a code ----------------------------------------
+
+
+def _said(support: Any) -> tuple[str, str | None]:
+    """The code of the sentence a support answer carries, and the text it sends beside it."""
+    assert support.coded is not None, support
+    assert support.problem == support.coded.text
+    return support.coded.code, support.hint
+
+
+def test_every_way_nginx_cannot_publish_is_a_sentence_the_console_can_translate(
+    streams: StreamExposures, runner: FakeRunner
+) -> None:
+    # Each answer that says something is wrong carries the code the console translates by, and its
+    # English text and fix are those of the catalog, so the CLI, the API and the console say one thing.
+    runner.only_knows("systemctl")
+    assert _said(streams.support())[0] == "streams.support.no_nginx"
+
+    runner.only_knows("apt-get", "nginx")
+    runner.script(("nginx", "-V"), stderr=NO_STREAM_V)
+    code, hint = _said(streams.support())
+    assert code == "streams.support.no_stream_module"
+    assert hint is not None and "apt install libnginx-mod-stream" in hint
+
+    runner.script(("nginx", "-V"), stderr=DEBIAN_V)
+    runner.script(("nginx", "-T"), stdout=dump(module=False))
+    assert _said(streams.support())[0] == "streams.support.module_not_loaded"
+
+    runner.script(("nginx", "-T"), stderr="nginx: [emerg] unexpected end of file", exit_code=1)
+    code, hint = _said(streams.support())
+    assert code == "streams.support.config_unreadable"
+    # nginx's own words are not a sentence of Noust's: they travel as they came.
+    assert hint is not None and "unexpected end of file" in hint
+    assert server_text.say(code).hint is None
+
+    runner.script(
+        ("nginx", "-T"), stdout=dump(extra="\nstream {\n    upstream a { server 1.1.1.1:1; }\n}\n")
+    )
+    code, hint = _said(streams.support())
+    assert code == "streams.support.foreign_block"
+    assert hint is not None and streams.include_line in hint
+
+    conf = NGINX_CONF.replace("include /etc/nginx/modules-enabled/*.conf;\n", "")
+    runner.script(("nginx", "-T"), stdout=dump(conf=conf))
+    code, hint = _said(streams.support())
+    assert code == "streams.support.no_stream_block"
+    assert hint is not None and "stream {" in hint
+
+
+def test_a_machine_with_no_stream_package_says_what_its_distribution_does_instead(
+    streams: StreamExposures, runner: FakeRunner
+) -> None:
+    # openSUSE builds the module in: the fix is a sentence about nginx, not an install command.
+    runner.only_knows("zypper", "nginx")
+    runner.script(("nginx", "-V"), stderr=NO_STREAM_V)
+
+    support = streams.support()
+
+    assert _said(support)[0] == "streams.support.no_stream_module_suse"
+    assert support.hint is not None and "nginx.org" in support.hint
+
+
+def test_the_command_to_run_is_a_value_the_console_sets_in_mono_never_translated(
+    streams: StreamExposures, runner: FakeRunner
+) -> None:
+    runner.only_knows("apt-get", "nginx")
+    runner.script(("nginx", "-V"), stderr=NO_STREAM_V)
+
+    support = streams.support()
+
+    assert support.coded is not None
+    assert support.coded.params == {"command": "apt install libnginx-mod-stream"}
+    assert server_text.commands_of(support.coded.code) == ("command",)
+
+
+def test_a_server_that_can_publish_says_nothing_is_wrong(streams: StreamExposures) -> None:
+    support = streams.support()
+
+    assert support.coded is None and support.to_dict()["coded"] is None
+
+
+def test_a_refusal_to_publish_carries_the_sentence_with_its_code(
+    streams: StreamExposures, runner: FakeRunner
+) -> None:
+    runner.script(("nginx", "-V"), stderr=NO_STREAM_V)
+    runner.only_knows("apt-get", "nginx")
+
+    with pytest.raises(PrerequisiteError) as refused:
+        streams.plan("minecraft", protocol="tcp", listen_port=25565, target_port=25565)
+
+    assert refused.value.coded is not None
+    assert refused.value.coded.code == "streams.support.no_stream_module"
+
+
 # -- the questions about a port ---------------------------------------------------
 
 
@@ -376,6 +476,54 @@ def test_a_target_nothing_listens_on_and_an_open_port_are_warned_about(
     text = " ".join(plan.warnings)
     assert "Nothing listens on 127.0.0.1:6379" in text
     assert "open to everyone" in text and "authentication" in text
+
+
+def test_what_a_plan_warns_of_is_sentences_with_codes_beside_their_english(
+    streams: StreamExposures,
+) -> None:
+    plan = streams.plan("redis", protocol="tcp", listen_port=26379, target_port=6379)
+
+    assert [(w.code, w.params) for w in plan.warnings_coded] == [
+        ("streams.plan.nothing_listens", {"target": "127.0.0.1:6379"}),
+        ("streams.plan.open_to_everyone_without_login", {"protocol": "TCP", "port": 26379}),
+    ]
+    assert plan.warnings == tuple(w.text for w in plan.warnings_coded)
+    assert [w["code"] for w in plan.to_dict()["warnings_coded"]] == [
+        "streams.plan.nothing_listens",
+        "streams.plan.open_to_everyone_without_login",
+    ]
+
+
+def test_a_port_open_to_everyone_that_can_take_it_says_only_that(
+    streams: StreamExposures,
+) -> None:
+    plan = streams.plan("minecraft", protocol="udp", listen_port=19132, target_port=19132)
+
+    assert [w.code for w in plan.warnings_coded] == ["streams.plan.open_to_everyone"]
+
+
+def test_what_the_firewall_came_to_is_a_sentence_with_a_code(
+    streams: StreamExposures, firewall: FakeFirewall
+) -> None:
+    opened = open_port(streams, sources=["203.0.113.0/24"])
+
+    assert opened.firewall_coded is not None
+    assert opened.firewall_coded.code == "streams.firewall.allowed_one"
+    assert opened.firewall == opened.firewall_coded.text
+    assert opened.to_dict()["firewall_coded"] == opened.firewall_coded.to_dict()
+
+    firewall.already = {"198.51.100.0/24"}
+    nothing = streams.open(
+        "other",
+        protocol="tcp",
+        listen_port=25566,
+        target_port=25566,
+        sources=["198.51.100.0/24"],
+    )
+
+    assert nothing.firewall_coded is not None
+    assert nothing.firewall_coded.code == "streams.firewall.unchanged_because"
+    assert nothing.firewall_coded.params == {"note": "it is already allowed"}
 
 
 def test_a_source_that_is_everyone_is_the_same_as_no_source(streams: StreamExposures) -> None:

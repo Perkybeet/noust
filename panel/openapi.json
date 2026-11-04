@@ -56676,7 +56676,7 @@
         "type": "object"
       },
       "StreamPlanResponse": {
-        "description": "What publishing a port would do.\n\nAttributes:\n    exposure: The exposure as it would be recorded.\n    config: The text of its nginx file.\n    file: Where that file goes.\n    loader: ``present``, or ``write`` when Noust would write the block that carries it.\n    support: What nginx offers.\n    warnings: Things that are probably wrong and do not stop it.\n    firewall: The rules the firewall would be asked for.",
+        "description": "What publishing a port would do.\n\nAttributes:\n    exposure: The exposure as it would be recorded.\n    config: The text of its nginx file.\n    file: Where that file goes.\n    loader: ``present``, or ``write`` when Noust would write the block that carries it.\n    support: What nginx offers.\n    warnings: Things that are probably wrong and do not stop it.\n    firewall: The rules the firewall would be asked for.\n    warnings_coded: ``warnings`` as codes and values, in the same order.",
         "properties": {
           "config": {
             "title": "Config",
@@ -56709,6 +56709,13 @@
               "type": "string"
             },
             "title": "Warnings",
+            "type": "array"
+          },
+          "warnings_coded": {
+            "items": {
+              "$ref": "#/components/schemas/CodedText"
+            },
+            "title": "Warnings Coded",
             "type": "array"
           }
         },
@@ -56790,7 +56797,7 @@
         "type": "object"
       },
       "StreamResultResponse": {
-        "description": "What publishing or closing a port did.\n\nAttributes:\n    exposure: The exposure.\n    warnings: Things the operator should know.\n    firewall: A sentence on the firewall.",
+        "description": "What publishing or closing a port did.\n\nAttributes:\n    exposure: The exposure.\n    warnings: Things the operator should know.\n    firewall: A sentence on the firewall.\n    warnings_coded: ``warnings`` as codes and values, in the same order.\n    firewall_coded: ``firewall`` as a code and its values; null when there is none.",
         "properties": {
           "exposure": {
             "$ref": "#/components/schemas/StreamExposureModel"
@@ -56799,11 +56806,28 @@
             "title": "Firewall",
             "type": "string"
           },
+          "firewall_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "warnings": {
             "items": {
               "type": "string"
             },
             "title": "Warnings",
+            "type": "array"
+          },
+          "warnings_coded": {
+            "items": {
+              "$ref": "#/components/schemas/CodedText"
+            },
+            "title": "Warnings Coded",
             "type": "array"
           }
         },
@@ -56816,11 +56840,21 @@
         "type": "object"
       },
       "StreamSupportModel": {
-        "description": "Whether nginx here can publish a port, and what is missing.\n\nAttributes:\n    available: Everything needed is in place or Noust can put it in place.\n    module: ``static``, ``dynamic`` or ``missing``.\n    loader: ``present``, ``installable``, ``foreign`` or ``manual``.\n    problem: What is missing, when something is.\n    hint: How to fix it: a command, or the line to add.\n    install: The software component that supplies what is missing (``nginx``,\n        ``nginx_stream_module``), to install with ``POST /api/server/software/{id}/install``;\n        null when Noust installs nothing for it here.",
+        "description": "Whether nginx here can publish a port, and what is missing.\n\nAttributes:\n    available: Everything needed is in place or Noust can put it in place.\n    module: ``static``, ``dynamic`` or ``missing``.\n    loader: ``present``, ``installable``, ``foreign`` or ``manual``.\n    problem: What is missing, when something is.\n    hint: How to fix it: a command, or the line to add.\n    install: The software component that supplies what is missing (``nginx``,\n        ``nginx_stream_module``), to install with ``POST /api/server/software/{id}/install``;\n        null when Noust installs nothing for it here.\n    coded: ``problem`` and ``hint`` as a code and its values, for the console to translate;\n        null when nothing is wrong. A ``hint`` that is nginx's own output has no code.",
         "properties": {
           "available": {
             "title": "Available",
             "type": "boolean"
+          },
+          "coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "hint": {
             "anyOf": [
@@ -108218,7 +108252,7 @@
     },
     "/api/operations/active": {
       "get": {
-        "description": "List the long operations that are running now.\n\nReturns:\n    What runs, oldest first. For a principal that does not see every team, only the\n    operations on an application it sees: what is about the machine is the instance's.",
+        "description": "List the long operations that are running now.\n\nThe session is asked for by name, as every route of the jobs does: the router's guard already\nrefuses a request without one, and this keeps the route in the graph the authentication test\nreads whatever version of FastAPI includes the routers.\n\nArgs:\n    session: The caller's session.\n\nReturns:\n    What runs, oldest first. For a principal that does not see every team, only the\n    operations on an application it sees: what is about the machine is the instance's.",
         "operationId": "active_operations_now_api_operations_active_get",
         "responses": {
           "200": {

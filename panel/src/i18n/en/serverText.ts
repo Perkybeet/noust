@@ -1087,6 +1087,69 @@ export const serverText = {
       hint: "The servers it manages have no address GitHub could call: the App's webhook is this central's. On a server with a web server, give it a name of its own: {command}. Behind a proxy of your own, say where it answers: {config_command}",
     },
   },
+  streams: {
+    firewall: {
+      allowed_one: {
+        text: "{backend} now allows 1 rule for it",
+      },
+      allowed_several: {
+        text: "{backend} now allows {count} rules for it",
+      },
+      unchanged: {
+        text: "The firewall was not changed",
+      },
+      unchanged_because: {
+        text: "The firewall was not changed: {note}",
+      },
+    },
+    plan: {
+      nothing_listens: {
+        text: "Nothing listens on {target} yet: visitors will be refused until the service is running",
+      },
+      open_to_everyone: {
+        text: "{protocol} {port} will be open to everyone",
+      },
+      open_to_everyone_without_login: {
+        text: "{protocol} {port} will be open to everyone; a service without its own authentication should be restricted to known addresses",
+      },
+    },
+    support: {
+      config_unparsable: {
+        text: "nginx's configuration is not readable: {reason}",
+      },
+      config_unreadable: {
+        text: "nginx cannot read its own configuration",
+      },
+      foreign_block: {
+        text: "nginx.conf already has a stream block that does not include Noust's ports",
+        hint: "Add this line inside it, then run the command again: {line_command}",
+      },
+      module_not_loaded: {
+        text: "The stream module is built as a module and nothing loads it",
+        hint: "Install the module with: {command}",
+      },
+      module_not_loaded_suse: {
+        text: "The stream module is built as a module and nothing loads it",
+        hint: "Add {line_command} at the top of nginx.conf.",
+      },
+      no_nginx: {
+        text: "nginx is not installed",
+        hint: "Install it with: {command}",
+      },
+      no_stream_block: {
+        text: "nginx.conf has no stream block for Noust's ports",
+        hint: "Add this at the top level of nginx.conf (beside http), then run the command again: {block_command}",
+      },
+      no_stream_module: {
+        text: "This nginx was built without the stream module",
+        hint: "Install the module with: {command}",
+      },
+      no_stream_module_suse: {
+        text: "This nginx was built without the stream module",
+        hint: "openSUSE ships nginx with stream; install the nginx package from the distribution or from nginx.org.",
+      },
+    },
+  },
   terminal: {
     disabled: {
       text: "Terminals are turned off on this server",

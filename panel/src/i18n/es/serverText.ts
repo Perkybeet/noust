@@ -1076,6 +1076,69 @@ export const serverText: Catalog<typeof en> = {
       hint: "Los servidores que gestiona no tienen una dirección a la que GitHub pueda llamar: el webhook de la App es de esta central. En un servidor con servidor web, dale un nombre propio: {command}. Detrás de un proxy tuyo, di dónde responde: {config_command}",
     },
   },
+  streams: {
+    firewall: {
+      allowed_one: {
+        text: "{backend} ahora permite 1 regla para este puerto",
+      },
+      allowed_several: {
+        text: "{backend} ahora permite {count} reglas para este puerto",
+      },
+      unchanged: {
+        text: "No se ha cambiado el cortafuegos",
+      },
+      unchanged_because: {
+        text: "No se ha cambiado el cortafuegos: {note}",
+      },
+    },
+    plan: {
+      nothing_listens: {
+        text: "Todavía no escucha nada en {target}: los visitantes serán rechazados hasta que el servicio esté en marcha",
+      },
+      open_to_everyone: {
+        text: "{protocol} {port} estará abierto a todo el mundo",
+      },
+      open_to_everyone_without_login: {
+        text: "{protocol} {port} estará abierto a todo el mundo; un servicio sin autenticación propia debería limitarse a direcciones conocidas",
+      },
+    },
+    support: {
+      config_unparsable: {
+        text: "La configuración de nginx no se puede leer: {reason}",
+      },
+      config_unreadable: {
+        text: "nginx no puede leer su propia configuración",
+      },
+      foreign_block: {
+        text: "nginx.conf ya tiene un bloque stream que no incluye los puertos de Noust",
+        hint: "Añade esta línea dentro y vuelve a intentarlo: {line_command}",
+      },
+      module_not_loaded: {
+        text: "El módulo stream está compilado como módulo y nada lo carga",
+        hint: "Instala el módulo con: {command}",
+      },
+      module_not_loaded_suse: {
+        text: "El módulo stream está compilado como módulo y nada lo carga",
+        hint: "Añade {line_command} al principio de nginx.conf.",
+      },
+      no_nginx: {
+        text: "nginx no está instalado",
+        hint: "Instálalo con: {command}",
+      },
+      no_stream_block: {
+        text: "nginx.conf no tiene un bloque stream para los puertos de Noust",
+        hint: "Añade esto en el nivel superior de nginx.conf (junto a http) y vuelve a intentarlo: {block_command}",
+      },
+      no_stream_module: {
+        text: "Este nginx se compiló sin el módulo stream",
+        hint: "Instala el módulo con: {command}",
+      },
+      no_stream_module_suse: {
+        text: "Este nginx se compiló sin el módulo stream",
+        hint: "openSUSE incluye nginx con stream; instala el paquete nginx de la distribución o de nginx.org.",
+      },
+    },
+  },
   terminal: {
     disabled: {
       text: "Los terminales están desactivados en este servidor",

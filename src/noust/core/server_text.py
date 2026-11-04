@@ -1147,6 +1147,54 @@ CATALOG: dict[str, str] = {
         "Other things on the system may use it. Repeat the request confirming it to remove it "
         "anyway."
     ),
+    # -- Publishing a TCP or UDP port: what nginx here lacks (noust.managers.stream_exposure) ----
+    # Where a distribution builds the stream module into nginx there is no package to install, so
+    # the fix is its own sentence and not an install command: a second code for the same problem.
+    "streams.support.no_nginx": "nginx is not installed",
+    "streams.support.no_nginx.hint": "Install it with: {command}",
+    "streams.support.no_stream_module": "This nginx was built without the stream module",
+    "streams.support.no_stream_module.hint": "Install the module with: {command}",
+    "streams.support.no_stream_module_suse": "This nginx was built without the stream module",
+    "streams.support.no_stream_module_suse.hint": (
+        "openSUSE ships nginx with stream; install the nginx package from the distribution or "
+        "from nginx.org."
+    ),
+    "streams.support.module_not_loaded": (
+        "The stream module is built as a module and nothing loads it"
+    ),
+    "streams.support.module_not_loaded.hint": "Install the module with: {command}",
+    "streams.support.module_not_loaded_suse": (
+        "The stream module is built as a module and nothing loads it"
+    ),
+    "streams.support.module_not_loaded_suse.hint": "Add {line_command} at the top of nginx.conf.",
+    # nginx's own words are the fix of this one (what `nginx -T` printed), so it has none here.
+    "streams.support.config_unreadable": "nginx cannot read its own configuration",
+    "streams.support.config_unparsable": "nginx's configuration is not readable: {reason}",
+    "streams.support.foreign_block": (
+        "nginx.conf already has a stream block that does not include Noust's ports"
+    ),
+    "streams.support.foreign_block.hint": (
+        "Add this line inside it, then run the command again: {line_command}"
+    ),
+    "streams.support.no_stream_block": "nginx.conf has no stream block for Noust's ports",
+    "streams.support.no_stream_block.hint": (
+        "Add this at the top level of nginx.conf (beside http), then run the command again: "
+        "{block_command}"
+    ),
+    # -- Publishing a TCP or UDP port: what a plan warns of, and what the firewall came to ------
+    "streams.plan.nothing_listens": (
+        "Nothing listens on {target} yet: visitors will be refused until the service is running"
+    ),
+    "streams.plan.open_to_everyone": "{protocol} {port} will be open to everyone",
+    "streams.plan.open_to_everyone_without_login": (
+        "{protocol} {port} will be open to everyone; a service without its own authentication "
+        "should be restricted to known addresses"
+    ),
+    # One rule and several, because the plural of "rule" is not a suffix in every language.
+    "streams.firewall.allowed_one": "{backend} now allows 1 rule for it",
+    "streams.firewall.allowed_several": "{backend} now allows {count} rules for it",
+    "streams.firewall.unchanged": "The firewall was not changed",
+    "streams.firewall.unchanged_because": "The firewall was not changed: {note}",
 }
 
 

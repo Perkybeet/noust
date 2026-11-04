@@ -9701,6 +9701,7 @@ StreamPlanResponse = TypedDict("StreamPlanResponse", {
     "loader": Required[str],
     "support": Required["StreamSupportModel"],
     "warnings": Required[list[str]],
+    "warnings_coded": NotRequired[list["CodedText"]],
 })
 
 StreamRequest = TypedDict("StreamRequest", {
@@ -9717,11 +9718,14 @@ StreamRequest = TypedDict("StreamRequest", {
 StreamResultResponse = TypedDict("StreamResultResponse", {
     "exposure": Required["StreamExposureModel"],
     "firewall": Required[str],
+    "firewall_coded": NotRequired[Union["CodedText", None]],
     "warnings": Required[list[str]],
+    "warnings_coded": NotRequired[list["CodedText"]],
 })
 
 StreamSupportModel = TypedDict("StreamSupportModel", {
     "available": Required[bool],
+    "coded": NotRequired[Union["CodedText", None]],
     "hint": NotRequired[Union[str, None]],
     "install": NotRequired[Union[str, None]],
     "loader": Required[str],

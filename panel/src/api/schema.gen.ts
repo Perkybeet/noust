@@ -22991,6 +22991,13 @@ export interface paths {
          * Active Operations Now
          * @description List the long operations that are running now.
          *
+         *     The session is asked for by name, as every route of the jobs does: the router's guard already
+         *     refuses a request without one, and this keeps the route in the graph the authentication test
+         *     reads whatever version of FastAPI includes the routers.
+         *
+         *     Args:
+         *         session: The caller's session.
+         *
          *     Returns:
          *         What runs, oldest first. For a principal that does not see every team, only the
          *         operations on an application it sees: what is about the machine is the instance's.
@@ -62159,6 +62166,7 @@ export interface components {
          *         support: What nginx offers.
          *         warnings: Things that are probably wrong and do not stop it.
          *         firewall: The rules the firewall would be asked for.
+         *         warnings_coded: ``warnings`` as codes and values, in the same order.
          */
         StreamPlanResponse: {
             /** Config */
@@ -62175,6 +62183,8 @@ export interface components {
             support: components["schemas"]["StreamSupportModel"];
             /** Warnings */
             warnings: string[];
+            /** Warnings Coded */
+            warnings_coded?: components["schemas"]["CodedText"][];
         };
         /**
          * StreamRequest
@@ -62225,13 +62235,18 @@ export interface components {
          *         exposure: The exposure.
          *         warnings: Things the operator should know.
          *         firewall: A sentence on the firewall.
+         *         warnings_coded: ``warnings`` as codes and values, in the same order.
+         *         firewall_coded: ``firewall`` as a code and its values; null when there is none.
          */
         StreamResultResponse: {
             exposure: components["schemas"]["StreamExposureModel"];
             /** Firewall */
             firewall: string;
+            firewall_coded?: components["schemas"]["CodedText"] | null;
             /** Warnings */
             warnings: string[];
+            /** Warnings Coded */
+            warnings_coded?: components["schemas"]["CodedText"][];
         };
         /**
          * StreamSupportModel
@@ -62246,10 +62261,13 @@ export interface components {
          *         install: The software component that supplies what is missing (``nginx``,
          *             ``nginx_stream_module``), to install with ``POST /api/server/software/{id}/install``;
          *             null when Noust installs nothing for it here.
+         *         coded: ``problem`` and ``hint`` as a code and its values, for the console to translate;
+         *             null when nothing is wrong. A ``hint`` that is nginx's own output has no code.
          */
         StreamSupportModel: {
             /** Available */
             available: boolean;
+            coded?: components["schemas"]["CodedText"] | null;
             /** Hint */
             hint?: string | null;
             /** Install */

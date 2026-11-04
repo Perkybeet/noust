@@ -61,6 +61,14 @@ under Changed: one field that becomes optional, one refusal that is new and one 
   `GET /api/ens/check` carries `enabled`: with no ENS framework on it judges nothing.
 - **What an unknown security profile was read as.** `GET /api/compliance` carries `legacy_profile_valid` and
   `legacy_profile_read_as`.
+- **More of what the server says carries a code** ([api.md](api.md#sentences-with-a-code)): beside the English
+  text a client already read, never instead of it, and the text of the sentences below is unchanged unless
+  its line says so.
+  - Published ports: `GET /api/streams` carries `support.coded` (nginx missing, built without the stream module,
+    nothing loading it, an unreadable or foreign configuration; a fix that is nginx's own output stays in
+    `support.hint` with no code of its own). `POST /api/streams/plan` and `POST /api/streams` carry
+    `warnings_coded` beside `warnings`, and the latter `firewall_coded` beside `firewall`, which now says
+    "1 rule" and "N rules" where it said "rule(s)". A refusal to publish (`409`) carries `coded`.
 
 ### Changed
 
