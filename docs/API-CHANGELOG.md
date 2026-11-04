@@ -80,6 +80,11 @@ under Changed: one field that becomes optional, one refusal that is new and one 
     carries `reason_coded` beside `reason` and `warnings_coded` beside `warnings`; and a run of
     `GET /api/server/storage/history` (and the result of a cleanup job) carries `reason_coded` beside `reason`
     when the reason is one of the server's sentences, which the history keeps as text and reads back.
+  - Sites: the answer of creating, enabling, disabling, deleting and saving the configuration of a site
+    (`SiteActionResponse`) and of `POST /api/sites/reload` carries `coded` beside `message`. A client tells a
+    site created without HTTPS from one that came well by the code (`sites.created.without_tls` and
+    `sites.created.without_tls_because` are the warnings, and so is `sites.created.not_loaded`, which said
+    only that the web server would not load it), never by looking for words in `message`.
 
 ### Changed
 

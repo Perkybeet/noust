@@ -45015,8 +45015,18 @@
         "type": "object"
       },
       "ReloadResponse": {
-        "description": "Response for a web server reload.",
+        "description": "Response for a web server reload.\n\nAttributes:\n    success: It reloaded.\n    message: What was done, in a sentence.\n    webserver: The web server that was reloaded.\n    coded: ``message`` as a code and its values.",
         "properties": {
+          "coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "message": {
             "title": "Message",
             "type": "string"
@@ -52843,8 +52853,18 @@
         "type": "object"
       },
       "SiteActionResponse": {
-        "description": "Response for site actions.",
+        "description": "Response for site actions.\n\nAttributes:\n    success: The action was done.\n    message: What was done, in a sentence.\n    site: The site's domain.\n    coded: ``message`` as a code and its values, for the console to say it in its own\n        language and to tell a warning from a success by the code, never by the words.",
         "properties": {
+          "coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "message": {
             "title": "Message",
             "type": "string"

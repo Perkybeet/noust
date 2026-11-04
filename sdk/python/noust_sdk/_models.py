@@ -7719,6 +7719,7 @@ ReleasesResponse = TypedDict("ReleasesResponse", {
 })
 
 ReloadResponse = TypedDict("ReloadResponse", {
+    "coded": NotRequired[Union["CodedText", None]],
     "message": Required[str],
     "success": Required[bool],
     "webserver": Required[str],
@@ -9063,6 +9064,7 @@ SinkOut = TypedDict("SinkOut", {
 })
 
 SiteActionResponse = TypedDict("SiteActionResponse", {
+    "coded": NotRequired[Union["CodedText", None]],
     "message": Required[str],
     "site": Required[str],
     "success": Required[bool],

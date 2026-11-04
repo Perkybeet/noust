@@ -1180,6 +1180,40 @@ export const serverText = {
       hint: "List the roles with: {command}",
     },
   },
+  sites: {
+    config_updated: {
+      text: "Configuration updated for {domain}. Reload {webserver} to apply it.",
+    },
+    created: {
+      not_loaded: {
+        text: "Site created: {domain}, but {webserver} did not load it: {error}",
+      },
+      reload: {
+        text: "Site created: {domain}. Reload {webserver} to serve it.",
+      },
+      with_ssl: {
+        text: "Site created with SSL: {domain}.",
+      },
+      without_tls: {
+        text: "Site created: {domain}. TLS was requested but not enabled.",
+      },
+      without_tls_because: {
+        text: "Site created: {domain}. TLS was requested but not enabled: {error}.",
+      },
+    },
+    deleted: {
+      text: "Site deleted: {domain}",
+    },
+    disabled: {
+      text: "Site disabled: {domain}",
+    },
+    enabled: {
+      text: "Site enabled: {domain}",
+    },
+    reloaded: {
+      text: "{webserver} reloaded",
+    },
+  },
   software: {
     apache: {
       purpose: {

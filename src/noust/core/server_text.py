@@ -1418,6 +1418,22 @@ CATALOG: dict[str, str] = {
         "cloud-init is configured with a swap: section, so it recreates the swap on every boot. "
         "Remove that section, or leave the swap to cloud-init."
     ),
+    # -- Domains > Sites (noust.web.api.sites): what a site action did. The console tells a site ----
+    # that came without HTTPS, or that its web server would not load, from one that came well by
+    # these codes: ``sites.created.without_tls``, ``sites.created.without_tls_because`` and
+    # ``sites.created.not_loaded`` are the three that are a warning and not a success.
+    "sites.created.with_ssl": "Site created with SSL: {domain}.",
+    "sites.created.reload": "Site created: {domain}. Reload {webserver} to serve it.",
+    "sites.created.without_tls": "Site created: {domain}. TLS was requested but not enabled.",
+    "sites.created.without_tls_because": (
+        "Site created: {domain}. TLS was requested but not enabled: {error}."
+    ),
+    "sites.created.not_loaded": "Site created: {domain}, but {webserver} did not load it: {error}",
+    "sites.config_updated": "Configuration updated for {domain}. Reload {webserver} to apply it.",
+    "sites.enabled": "Site enabled: {domain}",
+    "sites.disabled": "Site disabled: {domain}",
+    "sites.deleted": "Site deleted: {domain}",
+    "sites.reloaded": "{webserver} reloaded",
 }
 
 

@@ -55830,8 +55830,15 @@ export interface components {
         /**
          * ReloadResponse
          * @description Response for a web server reload.
+         *
+         *     Attributes:
+         *         success: It reloaded.
+         *         message: What was done, in a sentence.
+         *         webserver: The web server that was reloaded.
+         *         coded: ``message`` as a code and its values.
          */
         ReloadResponse: {
+            coded?: components["schemas"]["CodedText"] | null;
             /** Message */
             message: string;
             /** Success */
@@ -60191,8 +60198,16 @@ export interface components {
         /**
          * SiteActionResponse
          * @description Response for site actions.
+         *
+         *     Attributes:
+         *         success: The action was done.
+         *         message: What was done, in a sentence.
+         *         site: The site's domain.
+         *         coded: ``message`` as a code and its values, for the console to say it in its own
+         *             language and to tell a warning from a success by the code, never by the words.
          */
         SiteActionResponse: {
+            coded?: components["schemas"]["CodedText"] | null;
             /** Message */
             message: string;
             /** Site */

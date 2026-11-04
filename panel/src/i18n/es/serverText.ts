@@ -1169,6 +1169,40 @@ export const serverText: Catalog<typeof en> = {
       hint: "Lista los roles con: {command}",
     },
   },
+  sites: {
+    config_updated: {
+      text: "Configuración actualizada de {domain}. Recarga {webserver} para aplicarla.",
+    },
+    created: {
+      not_loaded: {
+        text: "Sitio creado: {domain}, pero {webserver} no lo cargó: {error}",
+      },
+      reload: {
+        text: "Sitio creado: {domain}. Recarga {webserver} para servirlo.",
+      },
+      with_ssl: {
+        text: "Sitio creado con SSL: {domain}.",
+      },
+      without_tls: {
+        text: "Sitio creado: {domain}. Se pidió TLS, pero no se activó.",
+      },
+      without_tls_because: {
+        text: "Sitio creado: {domain}. Se pidió TLS, pero no se activó: {error}.",
+      },
+    },
+    deleted: {
+      text: "Sitio eliminado: {domain}",
+    },
+    disabled: {
+      text: "Sitio desactivado: {domain}",
+    },
+    enabled: {
+      text: "Sitio activado: {domain}",
+    },
+    reloaded: {
+      text: "{webserver} recargado",
+    },
+  },
   software: {
     apache: {
       purpose: {
