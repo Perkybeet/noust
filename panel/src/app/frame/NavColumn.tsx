@@ -1,13 +1,12 @@
 import { useParams } from "@tanstack/react-router";
 import { Suspense, lazy } from "react";
 
-import { HomeColumn } from "../../features/overview/HomeColumn";
+import { useHomeAddress } from "../../features/overview/search";
 import { useT } from "../../i18n";
 import { useHasFleet } from "../../nodes/servers";
 import { useConsoleContext, useNode } from "../../nodes/useNode";
 import { depthOf } from "../columns";
 import type { ColumnKind } from "../columns";
-import { useHomeCustomising } from "../homeCustomising";
 import { AccountColumn, AreaColumn, SectionsSkeleton, columnLabel } from "./columnBodies";
 import { ColumnHead } from "./ColumnHead";
 import { ColumnLayers } from "./ColumnLayers";
@@ -16,6 +15,9 @@ import { SettingsColumn } from "./SettingsColumn";
 // The databases' column draws the engines with their logos and reads the servers: it is a chunk of its own, so the
 // script every page loads does not carry what only /databases draws.
 const DatabasesColumn = lazy(() => import("./DatabasesColumn"));
+
+// Home's column carries the gallery and with it every widget: a chunk of its own, drawn with Home and never by the script every page loads.
+const HomeColumn = lazy(() => import("../../features/overview/HomeColumn").then((module) => ({ default: module.HomeColumn })));
 
 // The sections of an application, a database, a service, a team and a server read the details of each: one chunk, drawn
 // only where one is entered.
@@ -103,7 +105,7 @@ function useWhere(kind: ColumnKind): Where {
   const params = useParams({ strict: false });
   const context = useConsoleContext();
   const hasFleet = useHasFleet();
-  const customising = useHomeCustomising();
+  const { customising } = useHomeAddress();
   return { kind, params, customising, fleet: context.kind === "fleet", hasFleet };
 }
 
@@ -111,9 +113,9 @@ function useWhere(kind: ColumnKind): Where {
  * The second column of the frame: the sections of the area the page is under, or of the resource it
  * enters, beside the main bar and at the same height. Every area has one (NV-22). Where a person enters a
  * resource the list slides to its sections, with the way back to the area, and slides back out
- * (ColumnLayers); Home's is the lane of Home's (`features/overview/HomeColumn`), and while Home is being
- * customised it is a level deeper, as the gallery of widgets. The column and the main bar each have their
- * own raised piece.
+ * (ColumnLayers); Home's is drawn by Home (`features/overview/HomeColumn`: its panels), and while Home is
+ * being customised (`?customise` in its address) it is a level deeper, as the gallery of widgets. The column
+ * and the main bar each have their own raised piece.
  */
 export function NavColumn({ kind }: { kind: ColumnKind }) {
   const t = useT();

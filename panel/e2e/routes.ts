@@ -117,7 +117,6 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "activity", path: "/activity" },
   // 3.4: one search over the logs of every application.
   { name: "logs", path: "/logs" },
-  { name: "map", path: "/map" },
   { name: "server", path: "/server" },
   // 4.2: the views of the System section are sections of the server, and Security and Network are areas of their own.
   { name: "server-machine", path: "/server/machine" },

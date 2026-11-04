@@ -6,7 +6,6 @@ export const nav = {
     settingsSections: "Settings sections",
     teamSections: "Team sections",
     accountSections: "Account sections",
-    overviewSections: "Home sections",
     serverSections: "Server sections",
     databaseSections: "Database sections",
     serviceSections: "Service sections",

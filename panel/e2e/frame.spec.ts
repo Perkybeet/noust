@@ -153,6 +153,8 @@ test.describe("the main bar and the column", () => {
     // Home has a column too: the content does not jump from one side to the other between two areas.
     await expect(page.locator('[data-frame="column"]')).toHaveCount(1);
     expect(Math.round((await boxOf(page.locator('[data-frame="column"]'))).width)).toBe(256);
+    // Home's own list is in it: the panels, the one that comes with the console open.
+    await expect(column(page, "Panels").getByRole("link", { name: /This server/ })).toHaveAttribute("aria-current", "page");
     expect(await overflowsSideways(page)).toBe(false);
     await expectNoA11yViolations(page, "Home, the frame at 1440");
 

@@ -141,10 +141,11 @@ export function ownerColumns<Row extends OwnedRow>(t: T, scope: Scope, labels: L
 
 /** A column of rows of one kind drawn in a table of rows that hold one: the table keeps its own row shape. */
 export function inRows<Row, Outer>(column: Column<Row>, pick: (outer: Outer) => Row): Column<Outer> {
-  const { sortValue, cell, ...rest } = column;
+  const { sortValue, cell, stacked, ...rest } = column;
   return {
     ...rest,
     cell: (outer) => cell(pick(outer)),
     ...(sortValue !== undefined ? { sortValue: (outer: Outer) => sortValue(pick(outer)) } : {}),
+    ...(stacked !== undefined ? { stacked: (outer: Outer) => stacked(pick(outer)) } : {}),
   };
 }

@@ -1,0 +1,41 @@
+/*
+ * What Home's widgets need beyond the tokens.
+ *
+ * A widget's composition follows the room its body has, not the window: the body is a size container
+ * named `w`, and these variants read its width and its height, so one widget reads well as a tile, a
+ * half-width panel or a band across the page, at any window size (docs/DESIGN.md, Home's panels). The
+ * thresholds are in rem, so a larger text size gives a widget the same number of words it had.
+ */
+@custom-variant w-mid (@container w (min-width: 18rem));
+@custom-variant w-wide (@container w (min-width: 30rem));
+@custom-variant w-xwide (@container w (min-width: 48rem));
+@custom-variant w-tall (@container w (min-height: 13rem));
+
+@utility widget-body {
+  container-type: size;
+  container-name: w;
+}
+
+/* The sheet of a phone rises from the foot, follows a finger that swipes it down, and leaves faster than it came. */
+.sheet-popup {
+  transform: translateY(var(--drawer-swipe-movement-y, 0px));
+  transition: transform var(--duration-enter) var(--ease-enter);
+}
+.sheet-popup[data-starting-style],
+.sheet-popup[data-ending-style] {
+  transform: translateY(100%);
+}
+.sheet-popup[data-ending-style] {
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-exit);
+}
+.sheet-popup[data-swiping] {
+  transition-duration: 0s;
+}
+
+/* The page under a picked-up widget does not select text while it is dragged, and the pointer says so. */
+html.widget-dragging,
+html.widget-dragging * {
+  user-select: none;
+  cursor: grabbing !important;
+}

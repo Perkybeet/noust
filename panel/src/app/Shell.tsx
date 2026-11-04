@@ -20,7 +20,6 @@ import { AreasSheet } from "./frame/AreasSheet";
 import { Rail } from "./frame/Rail";
 import { usePageServerName } from "./frame/usePageServerName";
 import { shortcuts as registeredShortcuts } from "./nav";
-import { setHomeCustomising } from "./homeCustomising";
 import { useNavLayout } from "./navLayout";
 import { useNavScope } from "./useNavScope";
 import PaletteHost from "./PaletteHost";
@@ -106,8 +105,6 @@ export function Shell() {
         if (!event.pathChanged || event.fromLocation === undefined) return;
         setNavOpen(false);
         setRailOpen(false);
-        // Customising Home ends when the person leaves it: they never come back to a half-edited page they did not mean to open.
-        setHomeCustomising(false);
         focusPageTitle();
       }),
     [router],

@@ -1,5 +1,5 @@
 import { screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { GitHubRepository, GitHubStatus } from "../../api/queries/github";
 import { expectNoAxeViolations } from "../../test/axe";
@@ -382,6 +382,70 @@ const NO_APP: GitHubStatus = {
 
 afterEach(() => {
   window.sessionStorage.clear();
+  vi.restoreAllMocks();
+});
+
+/** The elements `scrollIntoView` was called on since the spy was made, as the ids of the repository rows among them. */
+function scrolledRows(spy: { mock: { contexts: unknown[] } }): string[] {
+  return spy.mock.contexts.filter((element): element is HTMLElement => element instanceof HTMLElement && element.getAttribute("role") === "option").map((row) => row.textContent);
+}
+
+describe("the list of repositories the App reaches", () => {
+  it(
+    "clips its own visually hidden labels, so a long list cannot lengthen the page past its box",
+    { timeout: 20_000 },
+    async () => {
+      // item 117: every row has a screen-reader-only label (absolutely positioned); with no positioned
+      // ancestor they were laid out against the page, outside the list's clip, and the page grew by a row's
+      // height per repository - a page of blank background with the content scrolled out of it.
+      wizard(STATUS);
+      const list = await screen.findByRole("listbox", { name: "Repositories" });
+      expect(within(list).getAllByText(/^default branch /).length).toBeGreaterThan(0);
+      expect(list).toHaveClass("relative", "overflow-y-auto");
+    },
+  );
+
+  it(
+    "scrolls to the repository the keyboard moved to, and never because the pointer passed over one",
+    { timeout: 20_000 },
+    async () => {
+      const spy = vi.spyOn(Element.prototype, "scrollIntoView");
+      const { user } = wizard(STATUS).harness;
+      const search = await screen.findByRole("combobox", { name: "Repository" });
+      const options = within(screen.getByRole("listbox", { name: "Repositories" })).getAllByRole("option");
+      const [, storefront, blog] = options;
+      if (!storefront || !blog) throw new Error("missing options");
+      // Whatever the step itself scrolled on its way in is not the list's doing.
+      spy.mockClear();
+
+      await user.hover(blog);
+      await user.hover(storefront);
+      await user.hover(blog);
+      expect(blog).toHaveAttribute("aria-selected", "true");
+      expect(scrolledRows(spy)).toEqual([]);
+
+      await user.click(search);
+      await user.keyboard("{ArrowUp}");
+      await waitFor(() => {
+        expect(scrolledRows(spy)).toEqual([expect.stringContaining("acme/storefront")]);
+      });
+    },
+  );
+
+  it(
+    "brings the first match into view when what is typed changes the list",
+    { timeout: 20_000 },
+    async () => {
+      const spy = vi.spyOn(Element.prototype, "scrollIntoView");
+      const { user } = wizard(STATUS).harness;
+      const search = await screen.findByRole("combobox", { name: "Repository" });
+      spy.mockClear();
+      await user.type(search, "blog");
+      await waitFor(() => {
+        expect(scrolledRows(spy).at(-1)).toContain("yago/blog");
+      });
+    },
+  );
 });
 
 describe("connecting GitHub without leaving the wizard", () => {

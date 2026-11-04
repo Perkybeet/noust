@@ -10,7 +10,6 @@ export const nav: Catalog<typeof en> = {
     settingsSections: "Secciones de los ajustes",
     teamSections: "Secciones del equipo",
     accountSections: "Secciones de la cuenta",
-    overviewSections: "Secciones de Inicio",
     serverSections: "Secciones del servidor",
     databaseSections: "Secciones de la base de datos",
     serviceSections: "Secciones del servicio",

@@ -66,7 +66,7 @@ function targets(): Target[] {
 /**
  * What a page offers to go on from, as a person sees it: the links of its navigation landmarks (the
  * sidebar, the strips, the lists of Settings), and any other visible link that goes to a screen of
- * the register (the Overview's link to the Map, a list's row that opens a resource). Of the links to
+ * the register (a list's row that opens a resource). Of the links to
  * the same kind of resource, such as the applications, the first: they are one click each, and the
  * walk does not need every row.
  */
@@ -274,7 +274,6 @@ test.describe("from the page of its own area", () => {
   /** A screen is looked for most often from the area it belongs to: the palette finds it there as well as from anywhere. */
   const FROM_ITS_AREA = [
     { from: "/apps", name: "Recipes", to: "/catalog" },
-    { from: "/", name: "Map", to: "/map" },
     { from: "/server", name: "Terminal", to: "/server/terminal" },
     { from: "/backups", name: "Schedules", to: "/backups/schedules" },
     { from: "/domains", name: "DNS", to: "/domains/dns" },

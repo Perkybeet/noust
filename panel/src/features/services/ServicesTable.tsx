@@ -38,6 +38,8 @@ function columnsFor(t: T, mixed: boolean, memory: boolean, appOf: ((service: Ser
       id: "name",
       header: t("services.table.unit"),
       card: "title",
+      // The tags are under the unit's name and the line saying which app it runs: with them the cell keeps its room.
+      stacked: (row) => (row.tags?.length ?? 0) > 0,
       cell: (row) => {
         const app = appOf?.(row) ?? null;
         return (

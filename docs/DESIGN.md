@@ -1549,6 +1549,12 @@ forms go in a drawer.
   on the state column (`STATE_RANK`).
 - Density per D-2; truncation is a last resort, with the full value in a tooltip, and system
   values are truncated in mono.
+- A cell has no vertical padding: its height is a minimum, a row is as tall as its tallest content,
+  and a 32px control and the row's border already fill 44px. A cell that stacks lines (a name with its
+  tags under it) says so with `Column.stacked` and keeps 6px above and below, so its content never touches
+  the row's border; a row without such a cell is as tall as it always was. On a phone a card holds its
+  name and its facts in blocks, never in a paragraph, because what a cell holds may be a list. *Enforced
+  by:* `e2e/table-cells.spec.ts`.
 - Headers are 12px, 500, `text-muted`, sortable with `aria-sort`.
 - Paging is the operator's: 20 rows to a page to start with, 50, 100 or all on request, kept
   per list, with "Showing X-Y of Z" and a page-size control that is always where the rows are

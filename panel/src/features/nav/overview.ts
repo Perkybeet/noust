@@ -1,6 +1,6 @@
-import { area, strip, tab } from "../../app/navCore";
+import { area, strip } from "../../app/navCore";
 
-/** Home and the Map under it (D-6). The register is app/nav.ts; this is one group of it. */
+/** Home, the panels of widgets. The register is app/nav.ts; this is one group of it. */
 export const OVERVIEW_SCREENS = strip(
   area("overview", "/", "nav.overview.label", {
     scope: "both",
@@ -12,5 +12,5 @@ export const OVERVIEW_SCREENS = strip(
     // The first tab of its strip is named as the page is, until the page is renamed with the area (4.1, O5-INICIO-APPS).
     rootLabel: "overview.title",
   }),
-  (overview) => [tab(overview, "map", "map.title", { command: "shell.commands.openMap", keywords: "shell.commands.openMapKeywords" })],
+  () => [],
 );

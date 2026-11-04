@@ -50,12 +50,33 @@ afterEach(() => {
 });
 
 describe("every area has a column", () => {
-  it("is there on Home, where the column of Home is drawn", async () => {
+  it("is there on Home, where the panels are, and the gallery of widgets takes its place while one is customised", async () => {
     await shellAt("/");
     const column = document.querySelector('[data-frame="column"]');
     expect(column).not.toBeNull();
     expect(column).toHaveAttribute("data-column", "overview");
     expect(column).toHaveAccessibleName("Home");
+    // Home draws its own list (features/overview/HomeColumn): the panels, the one that comes with the console open.
+    const panels = await screen.findByRole("navigation", { name: "Panels" });
+    expect(columnOf(panels)).toBe(column);
+    expect(within(panels).getByRole("link", { name: /This server/ })).toHaveAttribute("aria-current", "page");
+    expect(within(panels).getByRole("link", { name: "New panel" })).toBeVisible();
+  });
+
+  it("has Home's column on the fleet's face of Home too, and no tab strip in the page of either", async () => {
+    await shellAt("/fleet", 1440, { "GET /api/nodes": () => json(200, { items: NODES }) });
+    const column = document.querySelector('[data-frame="column"]');
+    expect(column).toHaveAttribute("data-column", "overview");
+    await screen.findByRole("navigation", { name: "Panels" });
+    expect(within(screen.getByRole("main")).queryByRole("navigation", { name: /sections/ })).toBeNull();
+  });
+
+  it("slides to the gallery while a panel is customised, and back to the panels when it is not", async () => {
+    await shellAt("/?customise=true");
+    await waitFor(() => {
+      expect(document.querySelector('[data-frame="column"]')?.textContent).toContain("Add widgets");
+    });
+    expect(screen.queryByRole("navigation", { name: "Panels" })).toBeNull();
   });
 
   it("lists Network's sections in the groups the register gives, the first of them being the area's own page", async () => {

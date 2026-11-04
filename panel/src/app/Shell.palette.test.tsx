@@ -82,7 +82,8 @@ async function search(user: ReturnType<typeof renderConsole>["user"], text: stri
 
 describe("the command palette", () => {
   it("reads nothing for its index until it is opened", async () => {
-    const { backend } = await open();
+    // Home draws the certificates of the server, so the page is one that reads none of the palette's lists.
+    const { backend } = await open({}, "/cron");
     expect(backend.callsTo("GET /api/databases/databases")).toHaveLength(0);
     expect(backend.callsTo("GET /api/certs")).toHaveLength(0);
     expect(backend.callsTo("GET /api/sites")).toHaveLength(0);

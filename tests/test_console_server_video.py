@@ -43,11 +43,21 @@ def test_the_shown_version_is_a_version(version: str) -> None:
 
 def test_a_shown_version_has_no_update_to_offer(monkeypatch: pytest.MonkeyPatch) -> None:
     import noust
+    from noust.core.update_checker import UpdateChecker
     from scripts.console_server.settings_pages import pin_settings_update_check
 
+    # The pin is for the sandbox's process and lasts as long as it does; here it is put back,
+    # or every later test of the update check in this worker reads the pinned answers.
+    for name in (
+        "_fetch_published_version",
+        "_fetch_offer",
+        "_detect_installation_method",
+    ):
+        monkeypatch.setattr(UpdateChecker, name, UpdateChecker.__dict__[name])
     monkeypatch.setattr(noust, "__version__", "4.1.0")
     assert pin_settings_update_check(up_to_date=True) == "4.1.0"
     assert pin_settings_update_check() == "4.2.0"
+    assert UpdateChecker._fetch_offer("pip").installable == "4.2.0", "never PyPI"
 
 
 def test_the_shop_push_is_the_commit_of_the_story() -> None:

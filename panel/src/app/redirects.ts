@@ -45,6 +45,8 @@ export const REDIRECT_ROWS = [
   { from: "/settings/probes", to: "/alerts/probes", state: "live", plain: true },
   // 4.1: the engines are database servers, and the page that listed them is the section of that name.
   { from: "/databases/engines", to: "/databases/servers", state: "live", plain: true },
+  // 4.2: Home is a panel of widgets and the map was its second view; Home has none now.
+  { from: "/map", to: "/", state: "live", plain: true },
 ] as const;
 
 /**

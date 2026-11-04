@@ -7,6 +7,7 @@ import { runOnNode } from "../../api/nodeScope";
 import { fleetKeys } from "../fleet/data";
 import type { OverviewAttentionItem } from "../../api/queries/overview";
 import { Button, buttonClassName } from "../../components/ui/Button";
+import { textLinkClassName } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
@@ -43,7 +44,7 @@ function wordsOf(t: T, action: OpenAction): { label: string; aria: string } {
  * is on it, and it never resolves the alert: the row changes in place, which is the answer, so
  * there is no toast for it (a toast is for what is not on screen).
  */
-function AlertButton({ action, node, iconFor }: { action: AlertAction; node: string | null | undefined; iconFor: ((action: AttentionAction) => ReactNode) | undefined }) {
+function AlertButton({ action, node, iconFor, ghost = false }: { action: AlertAction; node: string | null | undefined; iconFor: ((action: AttentionAction) => ReactNode) | undefined; ghost?: boolean }) {
   const t = useT();
   const queryClient = useQueryClient();
   const reopening = action.kind === "reopen";
@@ -66,7 +67,7 @@ function AlertButton({ action, node, iconFor }: { action: AlertAction; node: str
   return (
     <Button
       size="sm"
-      variant={reopening ? "ghost" : "secondary"}
+      variant={reopening || ghost ? "ghost" : "secondary"}
       {...(icon !== undefined && icon !== null ? { icon } : {})}
       loading={change.isPending}
       aria-label={t(reopening ? "inbox.actions.reopenAria" : "inbox.actions.acknowledgeAria", { subject: action.name })}
@@ -90,14 +91,19 @@ export interface AttentionActionButtonProps {
    * opens there and an alert is taken there. A node's name, or null for this server; left out, the page's own.
    */
   node?: string | null | undefined;
+  /**
+   * What the action looks like: a button, or, in a line of a list that is a line and not a card (Home's
+   * widget of what needs attention), a link in the accent. The words and where it leads are the same.
+   */
+  appearance?: "button" | "link";
 }
 
 /** The one button of a row that needs attention: the fix, or the screen that fixes it (2.7). */
-export function AttentionActionButton({ item, onNavigate, iconFor, node }: AttentionActionButtonProps) {
+export function AttentionActionButton({ item, onNavigate, iconFor, node, appearance = "button" }: AttentionActionButtonProps) {
   const t = useT();
   const action = attentionAction(item);
   if (action === null) return null;
-  if (action.mode === "alert") return <AlertButton action={action} node={node} iconFor={iconFor} />;
+  if (action.mode === "alert") return <AlertButton action={action} node={node} iconFor={iconFor} {...(appearance === "link" ? { ghost: true } : {})} />;
   const { label, aria } = wordsOf(t, action);
   const { to, params, search } = action.target;
   const icon = iconFor?.(action);
@@ -108,7 +114,7 @@ export function AttentionActionButton({ item, onNavigate, iconFor, node }: Atten
       {...(search !== undefined || node !== undefined ? { search: { ...search, node: node ?? undefined } as never } : {})}
       aria-label={aria}
       {...(onNavigate ? { onClick: onNavigate } : {})}
-      className={buttonClassName("secondary", "sm")}
+      className={appearance === "link" ? textLinkClassName("ui") : buttonClassName("secondary", "sm")}
     >
       {icon}
       {label}

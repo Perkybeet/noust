@@ -89,8 +89,10 @@ describe("choosing applications", () => {
     // The first column is the title by default, and the checkbox column is before it: the domain is named as the
     // title, or it falls to the line of values, cut to what is left of it beside the type and the last deploy.
     const link = within(card).getByRole("link", { name: "shop.example.com" });
-    expect(link.closest("p")).toHaveClass("text-14");
-    expect(card.querySelectorAll("p")).toHaveLength(2);
+    expect(link.closest(".text-14")).toHaveClass("font-medium", "truncate");
+    // The title and the line of values are blocks, not paragraphs: what a cell holds may be a list (item 122).
+    expect(card.querySelectorAll("p")).toHaveLength(0);
+    expect(card.querySelectorAll(".text-14.font-medium, .text-12.text-fg-muted")).toHaveLength(2);
   });
 
   it("forgets a choice the filters have since hidden", async () => {

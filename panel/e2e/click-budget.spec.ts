@@ -701,8 +701,8 @@ test.describe("from any page", () => {
   });
 
   /**
-   * The twelve pages an operator is most likely to look for by name, as the palette words them and where they are:
-   * the five that were not found at all (a tab of an area, the terminal, the export to Prometheus) and seven that were.
+   * The eleven pages an operator is most likely to look for by name, as the palette words them and where they are:
+   * the five that were not found at all (a tab of an area, the terminal, the export to Prometheus) and six that were.
    */
   const FINDINGS: readonly { name: string; to: string; was?: { name: string; to: string } }[] = [
     { name: "Terminal", to: "/server/terminal" },
@@ -715,12 +715,11 @@ test.describe("from any page", () => {
     { name: "Channels", to: "/settings/notifications", was: { name: "Notifications", to: "/settings/notifications" } },
     { name: "Accounts", to: "/settings/accounts" },
     { name: "API tokens", to: "/settings/tokens", was: { name: "Tokens", to: "/settings/tokens" } },
-    { name: "Map", to: "/map" },
     { name: "Sign-in security", to: "/account/security", was: { name: "Security", to: "/settings/security" } },
   ];
 
-  test("T14: every one of twelve pages is found by its name with the keyboard alone, and in two clicks with the pointer", async ({ page, consoleServer }) => {
-    // Twelve pages, two loads each; an older console that finds none of them waits for each.
+  test("T14: every one of eleven pages is found by its name with the keyboard alone, and in two clicks with the pointer", async ({ page, consoleServer }) => {
+    // Eleven pages, two loads each; an older console that finds none of them waits for each.
     test.setTimeout(300_000);
     await startAt(page, consoleServer, "T14", "/databases", async () => {
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();

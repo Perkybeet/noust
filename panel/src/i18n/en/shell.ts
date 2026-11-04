@@ -76,8 +76,6 @@ export const shell = {
       update: "Update {domain}",
       updateKeywords: "update deploy pull build new release",
     },
-    openMap: "Open the map of this server",
-    openMapKeywords: "map graph diagram topology overview applications databases dependencies",
     newApplication: "New application",
     newApplicationKeywords: "deploy create",
     newFromRecipe: "New application from a recipe",

@@ -5,6 +5,7 @@ import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem } from "../../test/fakes";
+import { screenWidth } from "../app/testRoutes";
 import { APPS_VIEW, APPS_VIEWS, JOB, PLAN, SSH_TIMEOUT, SUMMARY_VIEW, centralSession, fleetRoutes } from "./testFixtures";
 
 /**
@@ -404,6 +405,23 @@ describe("a bulk action", () => {
     await waitFor(() => {
       expect(backend.callsTo("PUT /api/fleet/servers/web-2/labels").at(-1)?.body).toEqual({ labels: { env: "staging", team: "web" } });
     });
+  });
+
+  it("gives room above and below the labels of a server that has several, which wrap to more lines than a row has (item 122)", { timeout: 30_000 }, async () => {
+    // The labels are a column of the table; a phone's card leaves them to the menu.
+    screenWidth(1440);
+    fakeBackend(fleetRoutes());
+    renderConsole("/fleet/servers");
+    const table = await screen.findByRole("region", { name: "Servers of this fleet" });
+    const labelsCell = async (server: string): Promise<HTMLElement> => {
+      const row = (await within(table).findByText(server)).closest("tr");
+      const cell = row ? within(row).getAllByText(/^(env|role)=/)[0]?.closest("td") : undefined;
+      if (!cell) throw new Error(`no labels cell for ${server}`);
+      return cell;
+    };
+    // db-1 carries two labels; web-2 one, which fits the row's own height and leaves it as it was.
+    expect(await labelsCell("db-1")).toHaveClass("py-1.5");
+    expect(await labelsCell("web-2")).not.toHaveClass("py-1.5");
   });
 
   it("says why a view could not be put together at all, in the central's words", { timeout: 20_000 }, async () => {

@@ -94,6 +94,9 @@ function RepositoryPicker({
   const activeId = activeRepository ? optionId(base, activeRepository) : undefined;
   const input = useRef<HTMLInputElement>(null);
   const reopened = useRef(onCancel !== null);
+  // The list follows the keyboard (and what is typed, which moves the first match), never the pointer: a row under
+  // the pointer is made active by the pointer, and scrolling to it moves the next one under the pointer.
+  const followKeyboard = useRef(false);
 
   useEffect(() => {
     // Opened by "Change repository": the operator is here to search.
@@ -101,7 +104,8 @@ function RepositoryPicker({
   }, []);
 
   useEffect(() => {
-    if (activeId === undefined) return;
+    if (activeId === undefined || !followKeyboard.current) return;
+    followKeyboard.current = false;
     document.getElementById(activeId)?.scrollIntoView({ block: "nearest" });
   }, [activeId]);
 
@@ -112,6 +116,7 @@ function RepositoryPicker({
       return;
     }
     if (matches.length === 0) return;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Home" || event.key === "End") followKeyboard.current = true;
     if (event.key === "ArrowDown") {
       event.preventDefault();
       setActive((activeIndex + 1) % matches.length);
@@ -147,6 +152,7 @@ function RepositoryPicker({
           aria-autocomplete="list"
           value={query}
           onValueChange={(value: string) => {
+            followKeyboard.current = true;
             setQuery(value);
             setActive(0);
           }}
@@ -160,7 +166,9 @@ function RepositoryPicker({
         />
       </Field>
       <Card padding="none" className={cx("overflow-hidden", matches.length === 0 && "hidden")}>
-      <div id={listId} role="listbox" aria-label={t("newApp.github.repositories")} className="max-h-72 min-h-0 overflow-y-auto p-1 scroll-thin">
+      {/* `relative`: the containing block of each row's visually hidden label. Without it the labels are laid out
+          against the page, outside this scroll box, and a list of 1,500 repositories made the page 54,000px tall. */}
+      <div id={listId} role="listbox" aria-label={t("newApp.github.repositories")} className="relative max-h-72 min-h-0 overflow-y-auto p-1 scroll-thin">
         {matches.map((repository, position) => {
           const selected = repository === activeRepository;
           const [owner, name] = repository.full_name.split("/");
@@ -176,6 +184,8 @@ function RepositoryPicker({
               aria-disabled={disabled || undefined}
               tabIndex={-1}
               onMouseMove={() => {
+                // The pointer chose this row, so it is already where the eye is: no scrolling to it.
+                followKeyboard.current = false;
                 if (!selected) setActive(position);
               }}
               onMouseDown={(event) => {

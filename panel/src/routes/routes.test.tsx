@@ -12,7 +12,7 @@ import { fakeBackend, json, signedInRoutes } from "../test/fakes";
  * every path answers with its own page, headed by its title.
  */
 const PAGES: [path: string, heading: string, content: string][] = [
-  ["/", "Home", "Needs attention"],
+  ["/", "This server", "Needs attention"],
   ["/apps", "Applications", "Applications"],
   ["/apps/new", "New application", "Source"],
   ["/apps/shop.example.com", "shop.example.com", "Health"],

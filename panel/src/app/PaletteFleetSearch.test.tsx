@@ -29,7 +29,7 @@ describe("the palette on a fleet", () => {
   it("asks the central for what the words match on every server, and opens the thing on its own server", async () => {
     const backend = fakeBackend({ ...fleetRoutes(centralSession()), "GET /api/views/search": () => json(200, search([HIT])) });
     const { user, location } = renderConsole("/fleet");
-    await screen.findByRole("heading", { level: 1, name: "Home" });
+    await screen.findByRole("heading", { level: 1, name: "Fleet" });
     await user.keyboard("{Control>}k{/Control}");
     await user.type(await screen.findByRole("combobox"), "ledger");
     // Found by the central, on another server, named beside its name.
@@ -54,7 +54,7 @@ describe("the palette on a fleet", () => {
       return realSet(handler, delay, ...args);
     }) as typeof window.setTimeout);
     const { user } = renderConsole("/fleet");
-    await screen.findByRole("heading", { level: 1, name: "Home" });
+    await screen.findByRole("heading", { level: 1, name: "Fleet" });
     await user.keyboard("{Control>}k{/Control}");
     const field = await screen.findByRole("combobox");
     await user.type(field, "a");
