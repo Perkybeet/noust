@@ -95,7 +95,7 @@ export const ROUTE_NAMESPACES: Readonly<Record<string, readonly Namespace[]>> = 
   "/_console/integrations/github/callback": ["settings"],
   "/_console/integrations/gitlab/callback": ["gitlab"],
   "/_console/logs": ["activity", "apps", "auditEvents", "auth", "common", "fleet", "fleetCompare", "fleetSettings", "logs", "operation", "server", "serverText", "timeline"],
-  "/_console/map": ["common", "map", "nav", "overview", "runtime", "shell"],
+  "/_console/map": [],
   "/_console/projects/": ["appPages", "apps", "common", "databases", "nav", "queue", "teams"],
   "/_console/projects/$team/$project": ["account", "accounts", "activity", "alerts", "apiReference", "appPages", "approvals", "apps", "audit", "auditEvents", "auth", "catalog", "common", "compliance", "connections", "databases", "domains", "environment", "fleet", "fleetSettings", "manifestPreview", "mcpSettings", "nav", "network", "noustDns", "promotion", "queue", "registries", "rollout", "runtime", "server", "serverText", "servers", "settings", "ssoAdmin", "teams", "variables"],
   "/_console/projects/teams": ["appPages", "apps", "common", "nav", "queue", "teams"],

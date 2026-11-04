@@ -152,7 +152,6 @@ export const OBJECT_ICONS = {
   shortcuts: Zap,
   /** What the security checks found on the machine. */
   security: Shield,
-  map: Waypoints,
   settings: Settings,
   // What watches, and tells.
   alert: Siren,

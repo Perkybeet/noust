@@ -81,8 +81,9 @@ describe("one bar (below 1280 px)", () => {
     expect(within(main()).getByRole("link", { name: "Catalog" })).not.toHaveAttribute("aria-current");
   });
 
-  it("keeps Home lit on the Map, which is its second view, and nothing else", async () => {
-    await shellAt("/map");
+  it("opens Home from the address the map had, with Home lit and nothing else", async () => {
+    const { location } = await shellAt("/map");
+    expect(location().pathname).toBe("/");
     const current = within(main()).getAllByRole("link").filter((link) => link.getAttribute("aria-current") === "page");
     expect(current.map((link) => link.textContent)).toEqual(["Home"]);
   });

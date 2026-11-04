@@ -59,7 +59,7 @@
     { "route": "/cron", "slug": "guides/runtime", "source": "docs/runtime.md", "anchor": "scheduled-tasks-what-ran-and-what-did-not" },
     { "route": "/logs", "slug": "guides/logs", "source": "docs/logs.md" },
     { "route": "/activity", "slug": "reference/console/overview", "source": "docs/console-overview.md", "anchor": "activity" },
-    { "route": "/map", "slug": "reference/console/overview", "source": "docs/console-overview.md", "anchor": "map" },
+    { "route": "/map", "slug": "reference/console/overview", "source": "docs/console-overview.md", "anchor": "overview" },
 
     { "route": "/server", "slug": "reference/console/server", "source": "docs/console-server.md", "anchor": "server" },
     { "route": "/server/system", "slug": "reference/console/server", "source": "docs/console-server.md", "anchor": "server" },

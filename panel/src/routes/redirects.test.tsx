@@ -79,6 +79,14 @@ describe("an old address that is live", () => {
     // Teams are the second tab of Projects: the same title, the tab marked.
     expect(await screen.findByRole("heading", { level: 1, name: "Projects" })).toBeInTheDocument();
   });
+
+  it("opens Home's panel from the address the map had, and drops what the address carried", async () => {
+    const { location } = open("/map?q=acme");
+    // The map was Home's second view; Home is a panel of widgets now and has no second view.
+    expect(await screen.findByRole("heading", { level: 1, name: "This server" })).toBeInTheDocument();
+    expect(location().pathname).toBe("/");
+    expect(location().search).toEqual({});
+  });
 });
 
 describe("an old address that is pending", () => {
