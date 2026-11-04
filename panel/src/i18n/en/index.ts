@@ -103,4 +103,5 @@ export { time } from "./time";
 export { timeline } from "./timeline";
 export { variables } from "./variables";
 export { volumeBackups } from "./volumeBackups";
+export { widgets } from "./widgets";
 export { workspaces } from "./workspaces";

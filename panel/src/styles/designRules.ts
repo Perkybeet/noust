@@ -345,6 +345,8 @@ export const KIT_HEIGHTS: Readonly<Record<string, readonly Height[]>> = {
   "components/page/JobProgress.tsx": ["seated"],
   "components/page/DangerZone.tsx": ["seated"],
   "components/ui/FleetCourses.tsx": ["carved", "seated", "raised"],
+  // Home's grid: the hollow a widget leaves in its place while it is held
+  "components/widgets/WidgetGrid.tsx": ["carved"],
   // raised: what is pressed
   "components/ui/Button.tsx": ["raised"],
   "components/ui/IconButton.tsx": ["raised"],
