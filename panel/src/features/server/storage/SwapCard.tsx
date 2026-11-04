@@ -17,6 +17,7 @@ import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
+import { ServerText } from "../../../components/ui/ServerText";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { ICONS } from "../../../components/ui/icons";
 import { useT } from "../../../i18n";
@@ -99,7 +100,11 @@ function SwapPanel({ data }: { data: Swap }) {
     >
       <div className="flex flex-col gap-3">
         <KeyValueList items={items} />
-        {!data.supported ? <p className="text-13 text-fg-muted">{data.reason}</p> : null}
+        {!data.supported ? (
+          <p className="text-13 text-fg-muted">
+            <ServerText coded={data.reason_coded} text={data.reason} />
+          </p>
+        ) : null}
         {data.supported && none && data.recommended ? (
           <p className="text-13 text-pretty text-fg-muted">
             <span className="font-medium text-fg">{t("server.swap.recommendedTitle")}.</span> {t("server.swap.recommended", { memory: formatBytes(data.memory_bytes, t.locale) })}
@@ -126,9 +131,9 @@ function SwapPanel({ data }: { data: Swap }) {
             </Button>
           </div>
         ) : null}
-        {data.warnings.map((warning) => (
+        {data.warnings.map((warning, index) => (
           <p key={warning} className="text-12 text-fg-muted">
-            {warning}
+            <ServerText coded={data.warnings_coded?.[index]} text={warning} />
           </p>
         ))}
       </div>

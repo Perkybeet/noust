@@ -103,4 +103,36 @@ describe("the Docker networks of a stack", () => {
     expect(await within(card).findByText(/Aislada: todas las redes son de la pila/)).toBeInTheDocument();
     expect(screen.getByRole("list", { name: "Redes de la pila" })).toBeInTheDocument();
   });
+
+  it("says what is worth knowing about a network, and why there is none, in Spanish", { timeout: 20_000 }, async () => {
+    await act(() => setLocale("es"));
+    const shared = {
+      ...PROXY,
+      findings_coded: [
+        { code: "networks.finding.shared_one", params: { members: "traefik" } },
+        { code: "networks.finding.made_elsewhere", params: {} },
+      ],
+    };
+    await networks({ app: DOMAIN, applicable: true, reason: "", containers: ["shop-web-1"], isolated: false, networks: [shared] });
+
+    expect(await screen.findByText("Está compartida: traefik también está en ella.")).toBeInTheDocument();
+    expect(screen.getByText("No la creó Compose: se hizo a mano o con otra herramienta.")).toBeInTheDocument();
+    expect(screen.queryByText(/It is shared/)).not.toBeInTheDocument();
+  });
+
+  it("says in Spanish that an application outside Docker has no network", { timeout: 20_000 }, async () => {
+    await act(() => setLocale("es"));
+    await networks({
+      app: DOMAIN,
+      applicable: false,
+      reason: "This application does not run in Docker, so it has no Docker network.",
+      reason_coded: { code: "networks.not_applicable", params: {} },
+      containers: [],
+      isolated: false,
+      networks: [],
+    });
+
+    expect(await screen.findByText("Esta aplicación no se ejecuta en Docker, así que no tiene red de Docker.")).toBeInTheDocument();
+    expect(screen.queryByText(/does not run in Docker/)).not.toBeInTheDocument();
+  });
 });

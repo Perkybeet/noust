@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { loadCatalog } from "../../../i18n";
+
 import { causeFallback, checkLabel, checkStatus, headline, leadingCheck, openChecks, opensByDefault, tally, verdictAnnouncement, verdictView } from "./view";
 
 const CHECK = { name: "port", status: "fail", summary: "Nothing is listening on port 3000", evidence: "" };
@@ -60,6 +62,20 @@ describe("what is said", () => {
     expect(verdictAnnouncement("shop.example.com", { domain: "shop.example.com", verdict: "down", probable_cause: "Port mismatch.", checks: [] })).toBe(
       "shop.example.com: Down. Port mismatch.",
     );
+  });
+});
+
+describe("what is announced", () => {
+  it("says the cause in the console's language when the server sent its code", async () => {
+    await loadCatalog("es");
+    const diagnosis = {
+      domain: "shop.example.com",
+      verdict: "down",
+      probable_cause: "The process is running but not listening on port 3000.",
+      probable_cause_coded: { code: "diagnose.cause.port_silent", params: { port: 3000 } },
+      checks: [],
+    };
+    expect(verdictAnnouncement("shop.example.com", diagnosis, "es")).toBe("shop.example.com: Caída. El proceso está en marcha, pero no escucha en el puerto 3000.");
   });
 });
 

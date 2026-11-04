@@ -23,6 +23,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from noust.core import legacy_names
+from noust.core.server_text import say
 from noust.core.teams import scoped_store
 from noust.deployers.app_clone import deploy_through_job
 from noust.deployers.app_export import (
@@ -335,7 +336,7 @@ def import_app_job(
 
     report = apply_import(plan, deploy=deploy, logger=logger, actor=actor)
     if job_context is not None:
-        job_context.update("Import complete", 100)
+        job_context.update(say("jobs.step.import.complete"), 100)
     return report_summary(report)
 
 

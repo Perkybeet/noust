@@ -486,6 +486,8 @@ export const appPages: Catalog<typeof en> = {
       disk: "Espacio en disco",
       blueGreen: "Copia que sirve",
       zeroDowntime: "Actualizaciones sin cortes",
+      phpFpm: "Pool de PHP-FPM",
+      containers: "Contenedores del worker",
     },
     headline: {
       unit: "La aplicación se cierra al arrancar",

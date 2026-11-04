@@ -296,8 +296,12 @@ def test_the_diagnosis_reads_the_pool(php: SimpleNamespace) -> None:
     assert "[pool www]" not in check.evidence
     assert result.verdict == "down"
     assert result.probable_cause is not None and "health check" in result.probable_cause
+    # The pool's cause is said once, as the sentence of its check and as the cause of the verdict.
+    assert check.coded is not None and check.coded.code == "diagnose.php_fpm.no_answer"
+    assert result.probable_cause_coded == check.coded
     unit = next(c for c in result.checks if c.name == "unit")
     assert unit.status == "skip" and "PHP-FPM pool" in unit.summary
+    assert unit.coded is not None and unit.coded.code == "diagnose.unit.skipped_php"
 
 
 def test_the_diagnosis_says_a_stopped_pool_is_stopped(php: SimpleNamespace) -> None:
@@ -307,6 +311,9 @@ def test_the_diagnosis_says_a_stopped_pool_is_stopped(php: SimpleNamespace) -> N
     result = diagnose(DOMAIN, http_get=lambda url, headers: (502, None))
 
     assert result.probable_cause is not None and "noust start" in result.probable_cause
+    assert result.probable_cause_coded is not None
+    assert result.probable_cause_coded.code == "diagnose.php_fpm.pool_disabled"
+    assert result.probable_cause_coded.params == {"command": f"noust start {DOMAIN}"}
 
 
 def test_the_machine_tally_counts_php_by_its_pool(

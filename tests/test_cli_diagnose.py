@@ -231,7 +231,8 @@ def test_diagnose_local_json_flag(runner: FakeRunner, store: FakeStore) -> None:
         "disk",
     } == names
     for check in payload["checks"]:
-        assert set(check) == {"name", "status", "summary", "evidence"}
+        assert set(check) == {"name", "status", "summary", "evidence", "coded"}
+        assert check["coded"]["code"].startswith("diagnose.")
 
 
 def test_diagnose_global_json_flag(runner: FakeRunner, store: FakeStore) -> None:

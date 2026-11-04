@@ -59,4 +59,16 @@ describe("jobStep", () => {
     expect(jobStep({ ...JOB, logs: [] })).toBeNull();
     expect(jobStep({ ...JOB, logs: [{ message: "  " }] })).toBeNull();
   });
+
+  it("is said in the console's language when the line is one of the server's own sentences, and as it came when it is not", async () => {
+    await loadCatalog("es");
+    const { setLocale } = await import("../../app/locale");
+    await setLocale("es");
+    const coded = { ...JOB, logs: [{ message: "Creating backup", step: 20, coded: { code: "jobs.step.backup.creating", params: {} } }] };
+    // What a tool printed has no code, and is never paraphrased.
+    const printed = { ...JOB, logs: [{ message: "pg_dump: dumping contents of table users", step: 20, coded: null }] };
+
+    expect(jobStep(coded)).toBe("Creando la copia de seguridad");
+    expect(jobStep(printed)).toBe("pg_dump: dumping contents of table users");
+  });
 });

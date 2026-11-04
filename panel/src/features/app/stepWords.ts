@@ -2,6 +2,7 @@ import { getLocale } from "../../app/locale";
 import type { Locale } from "../../app/locale";
 import { translate } from "../../i18n";
 import type { MessageKey } from "../../i18n";
+import { asCoded, sentenceKey, serverSentence } from "../../lib/serverSentence";
 import { phaseOf, stepOf } from "./deployments/phases";
 
 /** The jobs whose steps are the deploy pipeline's, which the console knows by name. */
@@ -39,9 +40,13 @@ const PHASE_DOING = {
  * @param type The job's type (the backend's JobType).
  * @param step What the job is doing, as the server says it: its current step or its newest line.
  * @param locale The console's language.
+ * @param coded The sentence the server sent for the step (`current_step_coded`), when it did: a step of
+ *   any kind of job that has one is said in the console's language, with no need to know it by name.
  */
-export function stepWords(type: string, step: string | null | undefined, locale: Locale = getLocale()): string | null {
+export function stepWords(type: string, step: string | null | undefined, locale: Locale = getLocale(), coded: unknown = null): string | null {
   if (step === null || step === undefined || step.trim() === "") return null;
+  const sentence = asCoded(coded);
+  if (sentence !== null && sentenceKey(sentence, "text") !== null) return serverSentence(locale, sentence, step, "text");
   if (locale === "en" || !DEPLOY_JOBS.has(type)) return step;
   const name = (stepOf(step) ?? step).trim().replace(/(?:\.{3}|…)$/, "");
   for (const [pattern, key] of FIXED_STEPS) if (pattern.test(name)) return translate(locale, key);

@@ -36,4 +36,22 @@ describe("stepWords", () => {
     // A database engine's installation is not the deploy's install phase.
     expect(stepWords("database_install", "Installing the postgresql engine", "es")).toBe("Installing the postgresql engine");
   });
+
+  it("says the step of any kind of job in Spanish when the server sent its sentence, with no need to know the job by name", async () => {
+    await loadCatalog("es");
+    const creating = { code: "jobs.step.backup.creating", params: {} };
+    expect(stepWords("backup", "Creating backup", "es", creating)).toBe("Creando la copia de seguridad");
+    expect(stepWords("restore", "Uploading to s3-main", "es", { code: "jobs.step.backup.uploading", params: { destination: "s3-main" } })).toBe("Subiendo a s3-main");
+    // The deploy's own step is the server's sentence now, and said the same way.
+    expect(stepWords("deploy", "Deploying", "es", { code: "jobs.step.deploy.deploying", params: {} })).toBe("Desplegando la aplicación");
+    // In English it is the English the server sent, which is the catalog's.
+    expect(stepWords("backup", "Creating backup", "en", creating)).toBe("Creating backup");
+  });
+
+  it("falls back to the server's English for a code this console does not know, and to the old reading for no code", async () => {
+    await loadCatalog("es");
+    expect(stepWords("backup", "Something new", "es", { code: "jobs.step.from.a.newer.server", params: {} })).toBe("Something new");
+    expect(stepWords("backup", "Creating backup", "es", null)).toBe("Creating backup");
+    expect(stepWords("deploy", "Obtaining SSL certificate", "es", null)).toBe("Obteniendo el certificado");
+  });
 });

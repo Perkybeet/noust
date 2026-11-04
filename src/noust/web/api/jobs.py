@@ -155,6 +155,11 @@ class JobResponse(BaseModel):
     progress: int
     total_steps: int
     current_step: str
+    current_step_coded: CodedText | None = Field(
+        default=None,
+        description="current_step as a sentence of the server's catalog (code and values), when "
+        "it is one; each entry of logs carries its own under coded",
+    )
     created_at: str
     started_at: str | None = None
     completed_at: str | None = None

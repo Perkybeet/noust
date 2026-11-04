@@ -662,6 +662,63 @@ def test_the_inspection_carries_the_compatibility_verdict(
     assert isinstance(seen["cancel"], threading.Event)
 
 
+def test_the_verdict_and_what_to_do_travel_as_codes_beside_their_english(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The wizard says them in the console's language; the English is always sent."""
+    from noust.core.server_text import say
+
+    verdict = say("inspect.missing_programs", type="Python", programs="python3")
+    suggestion = say("inspect.install_setup_init", command="noust setup init")
+
+    def inspected(source: str, **_: Any) -> Any:
+        return _inspection(
+            compatible=False,
+            verdict=verdict.text,
+            suggestion=suggestion.text,
+            verdict_coded=verdict,
+            suggestion_coded=suggestion,
+        )
+
+    monkeypatch.setattr(apps_api, "inspect_source", inspected)
+
+    body = client.post("/api/apps/inspect", json={"source": "https://example.com/app.git"}).json()
+
+    assert body["verdict_coded"] == {
+        "code": "inspect.missing_programs",
+        "params": {"type": "Python", "programs": "python3"},
+    }
+    assert body["suggestion_coded"] == {
+        "code": "inspect.install_setup_init",
+        "params": {"command": "noust setup init"},
+    }
+    assert body["verdict"] == verdict.text and body["suggestion"] == suggestion.text
+
+
+def test_a_source_nothing_recognised_is_refused_with_the_sentence_and_its_code(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from noust.core.exceptions import DeploymentError
+    from noust.core.server_text import say
+
+    said = say("inspect.no_match", examples="package.json, go.mod")
+
+    def unmatched(source: str, **_: Any) -> Any:
+        raise DeploymentError(said.text, details=said.hint or "", coded=said)
+
+    monkeypatch.setattr(apps_api, "inspect_source", unmatched)
+
+    response = client.post("/api/apps/inspect", json={"source": "https://example.com/mystery.git"})
+
+    assert response.status_code == 400, response.text
+    body = response.json()
+    assert body["detail"] == said.text and body["hint"] == said.hint
+    assert body["coded"] == {
+        "code": "inspect.no_match",
+        "params": {"examples": "package.json, go.mod"},
+    }
+
+
 class _LeavingClient:
     """A request whose client disconnects after a few polls."""
 

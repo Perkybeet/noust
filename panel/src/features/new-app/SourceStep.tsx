@@ -14,9 +14,12 @@ import { Disclosure } from "../../components/ui/Disclosure";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Notice } from "../../components/ui/Notice";
+import { ServerText } from "../../components/ui/ServerText";
+import type { CodedText } from "../../components/ui/ServerText";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { useT } from "../../i18n";
 import type { PlainKey } from "../../i18n";
+import { codedOf } from "../../lib/serverSentence";
 import { ArchiveUpload } from "../app/upload/ArchiveUpload";
 import { PasteDockerfile } from "../app/upload/PasteDockerfile";
 import { ConnectGitHub } from "./ConnectGitHub";
@@ -95,7 +98,7 @@ function Inspecting({ source, branch, since, onCancel }: { source: string; branc
  * make it deployable - often a file to add, shown as one - and anything a tool printed,
  * verbatim. The type can still be chosen by hand.
  */
-function VerdictFailure({ failure, source, onManual }: { failure: { detail: string; hint: string | null; output: string | null }; source: string; onManual: () => void }) {
+function VerdictFailure({ failure, source, onManual }: { failure: { detail: string; hint: string | null; output: string | null; coded: CodedText | null }; source: string; onManual: () => void }) {
   const t = useT();
   return (
     <Notice
@@ -105,8 +108,10 @@ function VerdictFailure({ failure, source, onManual }: { failure: { detail: stri
       action={<Button size="sm" onClick={onManual}>{t("newApp.source.chooseType")}</Button>}
     >
       <div className="flex min-w-0 flex-col gap-2">
-        <p className="text-fg">{failure.detail}</p>
-        {failure.hint !== null ? <Suggestion text={failure.hint} /> : null}
+        <p className="text-fg">
+          <ServerText coded={failure.coded} text={failure.detail} />
+        </p>
+        {failure.hint !== null ? <Suggestion text={failure.hint} coded={failure.coded} part="hint" /> : null}
         {failure.output !== null && failure.output.trim() !== "" ? (
           <SystemOutput label={t("newApp.source.cannotDeployOutput", { source })} maxHeight="max-h-48" className="rounded-control border border-border bg-surface px-3 py-2">
             {failure.output}
@@ -146,7 +151,7 @@ function InspectFailure({ failure, source, onManual, onRetry }: { failure: unkno
     );
   }
   if (isApiError(failure) && VERDICT_ERRORS.has(failure.error) && failure.status === 400) {
-    return <VerdictFailure failure={failure} source={source} onManual={onManual} />;
+    return <VerdictFailure failure={{ detail: failure.detail, hint: failure.hint, output: failure.output, coded: codedOf(failure) }} source={source} onManual={onManual} />;
   }
   if (isApiError(failure) && failure.error === "deploymenterror") {
     // An older backend answered an unclassified source 500 deploymenterror.

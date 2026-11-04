@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 from noust.core.app_replica_store import MAX_COPIES, check_copies
 from noust.core.exceptions import ValidationError
 from noust.core.logger import Logger
+from noust.core.server_text import say
 from noust.core.teams import scoped_store
 from noust.deployers.recorder import CapturingLogger
 from noust.managers.app_replicas import ReplicaManager, eligibility_problem
@@ -113,11 +114,11 @@ def replicas_job(
     logger = CapturingLogger(verbose=False)
     if job_context is not None:
         job_context.set_metadata("domain", domain)
-        job_context.update("Starting the copies and asking each one if it answers", 10)
+        job_context.update(say("jobs.step.replicas.starting"), 10)
         logger.attach_sink(job_context.log)
     change = ReplicaManager(log=logger).set_copies(domain, copies, actor=actor)
     if job_context is not None:
-        job_context.update("Done", 100)
+        job_context.update(say("jobs.step.done"), 100)
     return {
         "domain": change.domain,
         "copies": change.copies,

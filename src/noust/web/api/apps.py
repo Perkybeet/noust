@@ -100,6 +100,7 @@ from noust.terminal.targets import validate_service
 from noust.validators.environment import EnvironmentValidationError
 from noust.validators.source import is_upload_tree, validate_source
 from noust.web.api.app_container import ContainerSettingsRequest, request_to_changes
+from noust.web.api.app_inspection import SourceInspectionResponse, inspection_response
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import (
     JobAcceptedResponse,
@@ -107,10 +108,6 @@ from noust.web.api.deps import (
     ensure_elevated,
     require_elevated,
     strict_domain,
-)
-from noust.web.api.platform_proposal import (
-    PlatformProposalResponse,
-    platform_proposal_response,
 )
 from noust.web.api.recipe_root import confirm_root_equivalent
 from noust.web.api.scope import resolve_target_for
@@ -1384,68 +1381,6 @@ class InspectSourceRequest(BaseModel):
     )
 
 
-class EnvKeyResponse(BaseModel):
-    """One environment variable discovered in a repository's .env.example."""
-
-    name: str
-    default: str | None = None
-    secret: bool
-    required: bool
-
-
-class SourceInspectionResponse(BaseModel):
-    """
-    What a repository is, discovered before anything is deployed from it.
-
-    Attributes:
-        app_type: The application type the new-app wizard would deploy as;
-            the first entry of ``detected_types``.
-        detected_types: Every registered application type that recognised
-            the repository, most specific first (registry priority order).
-        package_manager: The Node package manager the repository's lock file
-            implies, or None when it is not a Node project.
-        install_command: Argv the chosen deployer would run to install
-            dependencies. Empty when the type has none.
-        build_command: Argv the chosen deployer would run to build the
-            project. Empty when there is nothing to build.
-        start_command: Shell command the chosen deployer would run as the
-            service's ``ExecStart``. Empty for a static site.
-        default_port: Port the chosen deployer uses when none is requested.
-        env_keys: Environment variables discovered from ``.env.example``.
-        branch: The branch inspected, or the checkout's current branch when
-            none was requested.
-        commit: Short commit hash of the checkout, empty when the source is
-            not a Git repository.
-        compatible: Whether this server can deploy it as ``app_type`` as it
-            is: false when a program the type needs is missing.
-        verdict: What Noust found, in a sentence.
-        suggestion: What to do before deploying, when there is something.
-    """
-
-    app_type: str
-    detected_types: list[str]
-    package_manager: str | None
-    install_command: list[str]
-    build_command: list[str]
-    start_command: str
-    default_port: int
-    env_keys: list[EnvKeyResponse]
-    branch: str
-    commit: str
-    compatible: bool | None = Field(
-        default=None, description="Whether this server can deploy it as app_type as it is"
-    )
-    verdict: str | None = Field(default=None, description="What Noust found, in a sentence")
-    suggestion: str | None = Field(
-        default=None, description="What to do before deploying, when there is something"
-    )
-    platform_proposal: PlatformProposalResponse | None = Field(
-        default=None,
-        description="What the repository's Vercel, Railway, Render or Heroku configuration "
-        "proposes, for the wizard to prefill; null when it carries none",
-    )
-
-
 #: How often the inspect endpoint asks whether its client is still there.
 _DISCONNECT_POLL_SECONDS = 0.25
 
@@ -1561,34 +1496,11 @@ async def inspect_app_source(
     try:
         result = await _run_until_disconnected(request, cancel, work)
     except DeploymentError as exc:
-        raise ValidationError(exc.message, details=exc.details) from exc
+        raise ValidationError(exc.message, details=exc.details, coded=exc.coded) from exc
     except CommandCancelled:
         _logger.info("Inspection of %s cancelled: the client went away", body.source)
         return Response(status_code=_CLIENT_CLOSED_REQUEST)
-    return SourceInspectionResponse(
-        app_type=result.app_type,
-        detected_types=result.detected_types,
-        package_manager=result.package_manager,
-        install_command=result.install_command,
-        build_command=result.build_command,
-        start_command=result.start_command,
-        default_port=result.default_port,
-        env_keys=[
-            EnvKeyResponse(
-                name=key.name,
-                default=key.default,
-                secret=key.secret,
-                required=key.required,
-            )
-            for key in result.env_keys
-        ],
-        branch=result.branch,
-        commit=result.commit,
-        compatible=result.compatible,
-        verdict=result.verdict or None,
-        suggestion=result.suggestion,
-        platform_proposal=platform_proposal_response(getattr(result, "platform_proposal", None)),
-    )
+    return inspection_response(result)
 
 
 class AppTypeInfo(BaseModel):

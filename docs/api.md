@@ -365,7 +365,15 @@ with its **values**:
   reason that is asked for; on `problem`/`hint` of `GET /api/tunnels`' `support`; `coded` and
   `notes_coded` next to `text` and `notes` on a line of `GET /api/system/doctor`, `key` and
   `explain_coded` on its sections; `email_error_coded` on an invitation; `server.coded` next to
-  `server.reason` and `server.how` on `GET /api/terminal/status`. A field that is `null` or
+  `server.reason` and `server.how` on `GET /api/terminal/status`. Since 4.2 also: `support.coded`,
+  `warnings_coded` and `firewall_coded` of the published ports; `coded` on each check of
+  `GET /api/apps/{domain}/diagnose` and `probable_cause_coded` beside `probable_cause`;
+  `findings_coded` and `reason_coded` of a stack's networks; `effect_coded` of a cleanup, `reason_coded`
+  and `warnings_coded` of the swap and `reason_coded` of a cleanup's run; `coded` of what creating,
+  enabling, disabling, deleting, saving and reloading a site did; `verdict_coded` and `suggestion_coded`
+  of an inspection; and `current_step_coded` and the `coded` of each log entry of a job. An error whose
+  `detail` is one of the server's sentences carries it as `coded`, and its `hint` is that sentence's fix.
+  A field that is `null` or
   absent is a sentence nobody coded: another program's output, or a line from a module that has
   not been given codes yet. Show it as written.
 - A client translates by the code and puts the values in: the console's catalog has the sentence

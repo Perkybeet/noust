@@ -1,6 +1,7 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
@@ -237,6 +238,91 @@ describe("the Ports tab", () => {
     await waitFor(() => {
       expect(backend.callsTo("DELETE /api/streams/minecraft")).toHaveLength(1);
     });
+  });
+});
+
+describe("the Ports tab in Spanish", () => {
+  it("says what nginx lacks in Spanish, and its install command as it is", { timeout: 20_000 }, async () => {
+    await act(() => setLocale("es"));
+    network("/domains/ports", {
+      "GET /api/streams": () =>
+        json(200, {
+          exposures: [],
+          support: {
+            available: false,
+            module: "missing",
+            loader: "manual",
+            problem: "This nginx was built without the stream module",
+            hint: "Install the module with: apt install libnginx-mod-stream",
+            coded: { code: "streams.support.no_stream_module", params: { command: "apt install libnginx-mod-stream" } },
+          },
+        }),
+    });
+
+    expect(await screen.findByText("Este nginx se compiló sin el módulo stream")).toBeInTheDocument();
+    expect(screen.getByText("apt install libnginx-mod-stream")).toBeInTheDocument();
+    expect(screen.getByText(/Instala el módulo con:/)).toBeInTheDocument();
+    // No English of the server's is left on the page.
+    expect(screen.queryByText(/built without the stream module/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Install the module with/)).not.toBeInTheDocument();
+  });
+
+  it("says nginx's own output as it came when that is the fix", async () => {
+    await act(() => setLocale("es"));
+    network("/domains/ports", {
+      "GET /api/streams": () =>
+        json(200, {
+          exposures: [],
+          support: {
+            available: false,
+            module: "dynamic",
+            loader: "manual",
+            problem: "nginx cannot read its own configuration",
+            hint: "nginx: [emerg] unexpected end of file",
+            coded: { code: "streams.support.config_unreadable", params: {} },
+          },
+        }),
+    });
+
+    expect(await screen.findByText("nginx no puede leer su propia configuración")).toBeInTheDocument();
+    expect(screen.getByText("nginx: [emerg] unexpected end of file")).toBeInTheDocument();
+  });
+
+  it("says what the check warns of, and what the firewall came to, in Spanish", { timeout: 20_000 }, async () => {
+    await act(() => setLocale("es"));
+    const plan = {
+      exposure: { ...MINECRAFT, state: "opening" },
+      config: "server {}",
+      file: "/etc/nginx/noust-stream/minecraft.conf",
+      loader: "present",
+      support: STREAM_SUPPORT,
+      warnings: ["Nothing listens on 127.0.0.1:25565 yet: visitors will be refused until the service is running"],
+      warnings_coded: [{ code: "streams.plan.nothing_listens", params: { target: "127.0.0.1:25565" } }],
+      firewall: [],
+    };
+    const { user } = network("/domains/ports", {
+      "POST /api/streams/plan": () => json(200, plan),
+      "POST /api/streams": () =>
+        json(201, {
+          exposure: MINECRAFT,
+          warnings: [],
+          firewall: "ufw now allows 1 rule for it",
+          firewall_coded: { code: "streams.firewall.allowed_one", params: { backend: "ufw" } },
+        }),
+    });
+
+    await user.click(first(await screen.findAllByRole("button", { name: "Publicar un puerto" })));
+    const dialog = await screen.findByRole("dialog", { name: "Publicar un puerto" });
+    await user.type(within(dialog).getByLabelText("Nombre"), "minecraft");
+    await user.type(within(dialog).getByLabelText("Puerto público"), "25565");
+    await user.type(within(dialog).getByLabelText("Puerto del servicio"), "25565");
+    await user.click(within(dialog).getByRole("button", { name: "Comprobar" }));
+
+    expect(await within(dialog).findByText(/Todavía no escucha nada en 127\.0\.0\.1:25565/)).toBeInTheDocument();
+    expect(within(dialog).queryByText(/Nothing listens on/)).not.toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Publicar" }));
+    expect(await screen.findByText("ufw ahora permite 1 regla para este puerto")).toBeInTheDocument();
   });
 });
 

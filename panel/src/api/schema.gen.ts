@@ -22991,6 +22991,13 @@ export interface paths {
          * Active Operations Now
          * @description List the long operations that are running now.
          *
+         *     The session is asked for by name, as every route of the jobs does: the router's guard already
+         *     refuses a request without one, and this keeps the route in the graph the authentication test
+         *     reads whatever version of FastAPI includes the routers.
+         *
+         *     Args:
+         *         session: The caller's session.
+         *
          *     Returns:
          *         What runs, oldest first. For a principal that does not see every team, only the
          *         operations on an application it sees: what is about the machine is the instance's.
@@ -37521,6 +37528,14 @@ export interface components {
         /**
          * CleanupPlanOut
          * @description What a cleanup would do.
+         *
+         *     Attributes:
+         *         action: The action.
+         *         commands: The commands it would run, as text.
+         *         effect: What it does, in a sentence.
+         *         needs_confirmation: It takes something the operator may want back.
+         *         items: What it would remove, when the action can list it.
+         *         effect_coded: ``effect`` as a code and its values, for the console to translate.
          */
         CleanupPlanOut: {
             /** Action */
@@ -37529,6 +37544,7 @@ export interface components {
             commands: string[];
             /** Effect */
             effect: string;
+            effect_coded?: components["schemas"]["CodedText"] | null;
             /** Items */
             items?: string[];
             /** Needs Confirmation */
@@ -37628,6 +37644,8 @@ export interface components {
          *         freed_bytes: The total freed, when known.
          *         actions: What each action did.
          *         reason: Why nothing ran, when it did not.
+         *         reason_coded: ``reason`` as a code and its values, when it is a sentence of the
+         *             server's catalog.
          *         actor: Who asked; empty for the timer.
          */
         CleanupRunOut: {
@@ -37649,6 +37667,7 @@ export interface components {
             percent_before?: number | null;
             /** Reason */
             reason?: string | null;
+            reason_coded?: components["schemas"]["CodedText"] | null;
             /** Started At */
             started_at: string;
             /** Status */
@@ -41370,8 +41389,11 @@ export interface components {
          *         status: ``"ok"``, ``"warn"``, ``"fail"`` or ``"skip"``.
          *         summary: One line, in Noust's own words.
          *         evidence: Raw output the probe collected, verbatim.
+         *         coded: ``summary`` as a code and its values, for the console to translate; null for
+         *             a check nobody gave a code.
          */
         DiagnoseCheck: {
+            coded?: components["schemas"]["CodedText"] | null;
             /**
              * Evidence
              * @default
@@ -41398,6 +41420,8 @@ export interface components {
          *         probable_cause: One sentence naming the most likely explanation, or
          *             ``None`` when the checks disagree with each other or are all clean.
          *         checks: Every probe that ran, in the order it ran in.
+         *         probable_cause_coded: ``probable_cause`` as a code and its values; null when there
+         *             is no cause.
          */
         DiagnoseResponse: {
             /** Checks */
@@ -41406,6 +41430,7 @@ export interface components {
             domain: string;
             /** Probable Cause */
             probable_cause: string | null;
+            probable_cause_coded?: components["schemas"]["CodedText"] | null;
             /** Verdict */
             verdict: string;
         };
@@ -47568,6 +47593,8 @@ export interface components {
             created_at: string;
             /** Current Step */
             current_step: string;
+            /** @description current_step as a sentence of the server's catalog (code and values), when it is one; each entry of logs carries its own under coded */
+            current_step_coded?: components["schemas"]["CodedText"] | null;
             /** Deployment Id */
             deployment_id?: number | null;
             /** Description */
@@ -55805,8 +55832,15 @@ export interface components {
         /**
          * ReloadResponse
          * @description Response for a web server reload.
+         *
+         *     Attributes:
+         *         success: It reloaded.
+         *         message: What was done, in a sentence.
+         *         webserver: The web server that was reloaded.
+         *         coded: ``message`` as a code and its values.
          */
         ReloadResponse: {
+            coded?: components["schemas"]["CodedText"] | null;
             /** Message */
             message: string;
             /** Success */
@@ -60166,8 +60200,16 @@ export interface components {
         /**
          * SiteActionResponse
          * @description Response for site actions.
+         *
+         *     Attributes:
+         *         success: The action was done.
+         *         message: What was done, in a sentence.
+         *         site: The site's domain.
+         *         coded: ``message`` as a code and its values, for the console to say it in its own
+         *             language and to tell a warning from a success by the code, never by the words.
          */
         SiteActionResponse: {
+            coded?: components["schemas"]["CodedText"] | null;
             /** Message */
             message: string;
             /** Site */
@@ -61342,6 +61384,9 @@ export interface components {
          *             is: false when a program the type needs is missing.
          *         verdict: What Noust found, in a sentence.
          *         suggestion: What to do before deploying, when there is something.
+         *         verdict_coded: ``verdict`` as a code and its values, for the console to translate.
+         *         suggestion_coded: ``suggestion`` as a code and its values, when it is a sentence of
+         *             its own (what to install); null when there is none.
          */
         SourceInspectionResponse: {
             /** App Type */
@@ -61376,11 +61421,15 @@ export interface components {
              * @description What to do before deploying, when there is something
              */
             suggestion?: string | null;
+            /** @description The suggestion as a code and its values, when it has one */
+            suggestion_coded?: components["schemas"]["CodedText"] | null;
             /**
              * Verdict
              * @description What Noust found, in a sentence
              */
             verdict?: string | null;
+            /** @description The verdict as a code and its values */
+            verdict_coded?: components["schemas"]["CodedText"] | null;
         };
         /**
          * SourceOptionsRequest
@@ -61803,12 +61852,15 @@ export interface components {
          *         shared: Containers that are not the stack's are on it.
          *         members: The containers on it.
          *         findings: What is worth knowing about it, as Docker reported it.
+         *         findings_coded: ``findings`` as codes and values, in the same order.
          */
         StackNetworkModel: {
             /** Driver */
             driver: string;
             /** Findings */
             findings: string[];
+            /** Findings Coded */
+            findings_coded?: components["schemas"]["CodedText"][];
             /** Id */
             id: string;
             /** Internal */
@@ -61847,6 +61899,7 @@ export interface components {
          *         app: The application's domain.
          *         applicable: It is a stack Docker runs.
          *         reason: Why not, when it is not.
+         *         reason_coded: ``reason`` as a code and its values; null when it is applicable.
          *         containers: The names of the stack's containers.
          *         isolated: Every network is the stack's own and nothing else is on it.
          *         networks: The networks.
@@ -61867,6 +61920,7 @@ export interface components {
              * @default
              */
             reason: string;
+            reason_coded?: components["schemas"]["CodedText"] | null;
         };
         /**
          * StageRequest
@@ -62159,6 +62213,7 @@ export interface components {
          *         support: What nginx offers.
          *         warnings: Things that are probably wrong and do not stop it.
          *         firewall: The rules the firewall would be asked for.
+         *         warnings_coded: ``warnings`` as codes and values, in the same order.
          */
         StreamPlanResponse: {
             /** Config */
@@ -62175,6 +62230,8 @@ export interface components {
             support: components["schemas"]["StreamSupportModel"];
             /** Warnings */
             warnings: string[];
+            /** Warnings Coded */
+            warnings_coded?: components["schemas"]["CodedText"][];
         };
         /**
          * StreamRequest
@@ -62225,13 +62282,18 @@ export interface components {
          *         exposure: The exposure.
          *         warnings: Things the operator should know.
          *         firewall: A sentence on the firewall.
+         *         warnings_coded: ``warnings`` as codes and values, in the same order.
+         *         firewall_coded: ``firewall`` as a code and its values; null when there is none.
          */
         StreamResultResponse: {
             exposure: components["schemas"]["StreamExposureModel"];
             /** Firewall */
             firewall: string;
+            firewall_coded?: components["schemas"]["CodedText"] | null;
             /** Warnings */
             warnings: string[];
+            /** Warnings Coded */
+            warnings_coded?: components["schemas"]["CodedText"][];
         };
         /**
          * StreamSupportModel
@@ -62246,10 +62308,13 @@ export interface components {
          *         install: The software component that supplies what is missing (``nginx``,
          *             ``nginx_stream_module``), to install with ``POST /api/server/software/{id}/install``;
          *             null when Noust installs nothing for it here.
+         *         coded: ``problem`` and ``hint`` as a code and its values, for the console to translate;
+         *             null when nothing is wrong. A ``hint`` that is nginx's own output has no code.
          */
         StreamSupportModel: {
             /** Available */
             available: boolean;
+            coded?: components["schemas"]["CodedText"] | null;
             /** Hint */
             hint?: string | null;
             /** Install */
@@ -62397,6 +62462,7 @@ export interface components {
             noust_swapfile: boolean;
             /** Reason */
             reason: string;
+            reason_coded?: components["schemas"]["CodedText"] | null;
             /** Recommended */
             recommended: boolean;
             /** Suggested Bytes */
@@ -62411,6 +62477,8 @@ export interface components {
             used_bytes: number;
             /** Warnings */
             warnings: string[];
+            /** Warnings Coded */
+            warnings_coded?: components["schemas"]["CodedText"][];
         };
         /**
          * SwapSummary

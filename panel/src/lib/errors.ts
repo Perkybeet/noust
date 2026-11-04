@@ -1,4 +1,6 @@
 import { queueFullHint } from "../api/errors";
+import { getLocale } from "../app/locale";
+import { codedOf, serverSentence } from "./serverSentence";
 
 /**
  * The parts of an error as the console shows it: the suggested fix above, the system's own
@@ -21,9 +23,21 @@ function field(value: unknown, key: string): string | null {
 
 /**
  * Extracts hint, verbatim detail and any tool output from anything thrown. API errors carry
- * `detail`, `hint` and `output` (the backend error contract); plain errors carry a message.
+ * `detail`, `hint` and `output` (the backend error contract); plain errors carry a message. When
+ * the error carries the sentence of the server's catalog that its `detail` says (`coded`), the
+ * detail and the fix are said in this console's language, and the English the server sent is what
+ * is shown when this console has no text for the code.
  */
 export function describeError(error: unknown): DescribedError {
-  const detail = field(error, "detail") ?? field(error, "message") ?? String(error);
-  return { hint: queueFullHint(error) ?? field(error, "hint"), detail, output: field(error, "output") };
+  const english = field(error, "detail") ?? field(error, "message") ?? String(error);
+  const englishHint = queueFullHint(error) ?? field(error, "hint");
+  const coded = codedOf(error);
+  if (coded === null) return { hint: englishHint, detail: english, output: field(error, "output") };
+  const locale = getLocale();
+  const fix = serverSentence(locale, coded, englishHint, "hint");
+  return {
+    hint: fix === "" ? null : fix,
+    detail: serverSentence(locale, coded, english, "text"),
+    output: field(error, "output"),
+  };
 }

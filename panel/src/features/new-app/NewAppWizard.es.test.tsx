@@ -6,6 +6,7 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { chooseWay } from "../../test/ways";
 import { fakeBackend, json, signedInRoutes } from "../../test/fakes";
+import type { RouteHandler } from "../../test/fakes";
 import { EXPORT, RECIPES, WORDPRESS } from "./testFixtures";
 import type { Inspection } from "./wizard";
 
@@ -44,7 +45,7 @@ const INSPECTION: Inspection = {
   },
 };
 
-function wizard() {
+function wizard(extra: Record<string, RouteHandler> = {}) {
   const backend = fakeBackend({
     ...signedInRoutes(),
     "GET /api/config/webserver": () => json(200, { webserver: "nginx" }),
@@ -60,6 +61,7 @@ function wizard() {
     "POST /api/apps/inspect": () => json(200, INSPECTION),
     "GET /api/recipes": () => json(200, RECIPES),
     "GET /api/recipes/wordpress": () => json(200, WORDPRESS),
+    ...extra,
   });
   return { backend, harness: renderConsole("/apps/new") };
 }
@@ -183,5 +185,61 @@ describe("the new-app wizard in Spanish", () => {
       expect(screen.getByText(/^Hay 2 campos que corregir antes de continuar, empezando por (STRIPE_KEY|DATABASE_URL)\.$/)).toBeInTheDocument();
     });
     await expectNoAxeViolations(screen.getByRole("main"));
+  });
+
+  it("says in Spanish what the server found in a source it cannot deploy here, and what to do first", { timeout: 20_000 }, async () => {
+    await inSpanish();
+    const { harness } = wizard({
+      "POST /api/apps/inspect": () =>
+        json(200, {
+          ...INSPECTION,
+          app_type: "python",
+          detected_types: ["python"],
+          compatible: false,
+          verdict: "This is a Python project, but this server does not have python3.",
+          verdict_coded: { code: "inspect.missing_programs", params: { type: "Python", programs: "python3" } },
+          suggestion: "Install what it needs with noust setup init, then deploy it.",
+          suggestion_coded: { code: "inspect.install_setup_init", params: { command: "noust setup init" } },
+        }),
+    });
+    const { user } = harness;
+
+    await screen.findByRole("heading", { level: 1, name: "Nueva aplicación" });
+    await user.type(screen.getByLabelText("Qué desplegar"), "/var/www/src/storefront");
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    await screen.findByRole("heading", { level: 2, name: "Dirección" });
+    await user.type(screen.getByLabelText("Dominio"), "storefront.example.com");
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+
+    const found = await screen.findByRole("group", { name: "Lo que ha encontrado Noust" });
+    expect(within(found).getByText("Es un proyecto Python, pero este servidor no tiene python3.")).toBeInTheDocument();
+    expect(within(found).getByText(/Instala lo que necesita con/)).toBeInTheDocument();
+    // The command is a value: shown as it is, in mono, never translated.
+    expect(within(found).getByText("noust setup init")).toHaveAttribute("translate", "no");
+    expect(within(found).queryByText(/does not have python3/)).not.toBeInTheDocument();
+  });
+
+  it("says in Spanish why a source nothing recognised cannot be deployed, and what would help", { timeout: 20_000 }, async () => {
+    await inSpanish();
+    const { harness } = wizard({
+      "POST /api/apps/inspect": () =>
+        json(400, {
+          error: "validationerror",
+          detail: "Nothing in the repository matches an application type Noust deploys.",
+          hint: "Noust recognises a project by the files at the root of the repository (go.mod, package.json, or a package.json with a start script). Check the branch, or choose a type explicitly instead of relying on auto-detection.",
+          fields: null,
+          output: null,
+          coded: { code: "inspect.no_match", params: { examples: "go.mod, package.json" } },
+        }),
+    });
+    const { user } = harness;
+
+    await screen.findByRole("heading", { level: 1, name: "Nueva aplicación" });
+    await user.type(screen.getByLabelText("Qué desplegar"), "https://github.com/acme/api.git");
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+
+    expect(await screen.findByText("Nada del repositorio coincide con un tipo de aplicación que Noust despliegue.")).toBeInTheDocument();
+    expect(screen.getByText(/Noust reconoce un proyecto por los archivos de la raíz del repositorio \(go\.mod, package\.json/)).toBeInTheDocument();
+    expect(screen.queryByText(/Nothing in the repository matches/)).not.toBeInTheDocument();
   });
 });

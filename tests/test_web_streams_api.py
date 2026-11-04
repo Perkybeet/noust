@@ -114,7 +114,41 @@ def test_nothing_published_and_what_nginx_offers(client: TestClient) -> None:
         "problem": None,
         "hint": None,
         "install": None,
+        "coded": None,
     }
+
+
+def test_what_nginx_lacks_travels_as_a_code_beside_its_english(
+    client: TestClient, runner: FakeRunner
+) -> None:
+    runner.script(("nginx", "-V"), stderr=NO_STREAM_V)
+
+    support = client.get("/api/streams").json()["support"]
+
+    assert support["problem"] == "This nginx was built without the stream module"
+    assert support["coded"]["code"] == "streams.support.no_stream_module"
+    assert set(support["coded"]["params"]) == {"command"}
+    assert support["hint"].endswith(support["coded"]["params"]["command"])
+
+
+def test_a_plan_says_what_it_warns_of_with_codes(client: TestClient) -> None:
+    body = client.post("/api/streams/plan", json=BODY).json()
+
+    assert [w["code"] for w in body["warnings_coded"]] == [
+        "streams.plan.nothing_listens",
+        "streams.plan.open_to_everyone",
+    ]
+    assert len(body["warnings"]) == len(body["warnings_coded"])
+
+
+def test_what_the_firewall_came_to_has_a_code_too(client: TestClient) -> None:
+    opened = client.post("/api/streams", json={**BODY, "sources": ["203.0.113.0/24"]}).json()
+
+    assert opened["firewall_coded"] == {
+        "code": "streams.firewall.allowed_one",
+        "params": {"backend": "ufw"},
+    }
+    assert [w["code"] for w in opened["warnings_coded"]] == ["streams.plan.nothing_listens"]
 
 
 def test_planning_shows_the_file_and_the_rules_and_changes_nothing(
@@ -143,7 +177,7 @@ def test_publishing_and_closing_a_port(client: TestClient, firewall: FakeFirewal
     assert body["exposure"]["firewall"]["made"] == [
         {"port": 25565, "proto": "tcp", "source": "203.0.113.0/24"}
     ]
-    assert "ufw now allows 1 rule(s)" in body["firewall"]
+    assert "ufw now allows 1 rule" in body["firewall"]
     listed = client.get("/api/streams").json()["exposures"]
     assert [e["name"] for e in listed] == ["minecraft"]
 
@@ -184,6 +218,7 @@ def test_a_server_that_cannot_publish_is_a_409_with_the_fix(
     body = response.json()
     assert "built without the stream module" in body["detail"]
     assert "libnginx-mod-stream" in body["hint"]
+    assert body["coded"]["code"] == "streams.support.no_stream_module"
 
 
 def test_nginx_refusing_the_configuration_is_a_400_with_nginxs_own_words(

@@ -61,6 +61,44 @@ under Changed: one field that becomes optional, one refusal that is new and one 
   `GET /api/ens/check` carries `enabled`: with no ENS framework on it judges nothing.
 - **What an unknown security profile was read as.** `GET /api/compliance` carries `legacy_profile_valid` and
   `legacy_profile_read_as`.
+- **More of what the server says carries a code** ([api.md](api.md#sentences-with-a-code)): beside the English
+  text a client already read, never instead of it, and the text of the sentences below is unchanged unless
+  its line says so.
+  - Published ports: `GET /api/streams` carries `support.coded` (nginx missing, built without the stream module,
+    nothing loading it, an unreadable or foreign configuration; a fix that is nginx's own output stays in
+    `support.hint` with no code of its own). `POST /api/streams/plan` and `POST /api/streams` carry
+    `warnings_coded` beside `warnings`, and the latter `firewall_coded` beside `firewall`, which now says
+    "1 rule" and "N rules" where it said "rule(s)". A refusal to publish (`409`) carries `coded`.
+  - Diagnosis: every check of `GET /api/apps/{domain}/diagnose` carries `coded` beside `summary`, and the
+    response `probable_cause_coded` beside `probable_cause`, for the checks `unit`, `port`, `http_direct`,
+    `http_nginx`, `journal`, `nginx_log`, `certificate`, `last_deployment`, `oom`, `disk`, `blue_green`,
+    `zero_downtime`, `php_fpm` and `containers`. `evidence` is what the system printed and has no code.
+    A count says "1 day" and "N days" where it said "day(s)". `noust diagnose --json` prints the same fields.
+  - A Compose stack's Docker networks: `GET /api/apps/{domain}/networks` carries `findings_coded` beside each
+    network's `findings` and `reason_coded` beside `reason`.
+  - Files: `GET /api/server/storage/cleanup/plan` carries `effect_coded` beside `effect`; `GET /api/server/swap`
+    carries `reason_coded` beside `reason` and `warnings_coded` beside `warnings`; and a run of
+    `GET /api/server/storage/history` (and the result of a cleanup job) carries `reason_coded` beside `reason`
+    when the reason is one of the server's sentences, which the history keeps as text and reads back.
+  - Sites: the answer of creating, enabling, disabling, deleting and saving the configuration of a site
+    (`SiteActionResponse`) and of `POST /api/sites/reload` carries `coded` beside `message`. A client tells a
+    site created without HTTPS from one that came well by the code (`sites.created.without_tls` and
+    `sites.created.without_tls_because` are the warnings, and so is `sites.created.not_loaded`, which said
+    only that the web server would not load it), never by looking for words in `message`.
+  - The new-application wizard: `POST /api/apps/inspect` carries `verdict_coded` beside `verdict` and
+    `suggestion_coded` beside `suggestion` (a sentence of its own: what to install). A source nothing
+    recognised is still a `400` whose `detail` and `hint` are English, and the body now carries `coded`: the
+    hint is the fix of that sentence, the entry of the server's catalog that ends in `.hint`. The text of the
+    sentence for a missing program says "noust setup init" without the backticks it had.
+  - What a job is doing: a job (`GET /api/jobs`, `/api/jobs/{id}`, `/api/jobs/active`, the `job` event) carries
+    `current_step_coded` beside `current_step`, and each entry of `logs` carries `coded` (null for a line a tool
+    printed), when the step or the line is one of the server's sentences: the standard jobs (deploy, update,
+    rollback, backup, restore, upload, delete, migrate, point-in-time recovery, a database engine's
+    installation, a certificate, a command in an application, the renewal) and the jobs of an application's
+    own pages (sandbox test, system packages, hardening, tuning, identity, replicas, zero downtime, staged
+    builds, release bundles, the disk limit, clone, import and the certificates of its domains). The jobs of the
+    server's own pages (updates, security, swap, software, backups of the console, DNS, tunnels) keep saying
+    their steps as text.
 
 ### Changed
 

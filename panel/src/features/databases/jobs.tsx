@@ -25,6 +25,8 @@ import type { LogLine } from "../../components/ui/LogViewer";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { getLocale } from "../../app/locale";
+import { newestLine } from "../../lib/serverSentence";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** What a job on a database does, which names it while it runs and once it ends. */
@@ -148,10 +150,9 @@ export function jobState(status: string): JobState {
   }
 }
 
-/** The newest line the job logged, verbatim: what it is doing now. */
+/** The newest line the job logged, in the console's language when it is the server's own sentence: what it is doing now. */
 export function jobStep(job: Job): string | null {
-  const message = job.logs?.at(-1)?.["message"];
-  return typeof message === "string" && message.trim() !== "" ? message.trim() : null;
+  return newestLine(job.logs, getLocale());
 }
 
 /** Every line a job logged so far, oldest first, verbatim. */

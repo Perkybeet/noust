@@ -23,6 +23,7 @@ from pydantic import BaseModel
 from noust.core.appdir.layout import app_root
 from noust.core.appdir.releases import ReleaseManager
 from noust.core.audit import record as audit_record
+from noust.core.server_text import say
 from noust.core.teams import TeamStore, current_scope, scoped_store
 from noust.deployers.app_clone import (
     ClonePlan,
@@ -245,7 +246,7 @@ def clone_app_job(
         logger.substep(line)
     report = apply_clone(plan, deploy=deploy_through_job(job_context), logger=logger, actor=actor)
     if job_context is not None:
-        job_context.update("Clone complete", 100)
+        job_context.update(say("jobs.step.clone.complete"), 100)
     return report_summary(report)
 
 

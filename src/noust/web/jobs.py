@@ -55,8 +55,10 @@ from noust.core.exceptions import (
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, get_fs
 from noust.core.job_titles import title_for
 from noust.core.redact import Scrubber, app_secret_values, scrubber_for, secret_env_values
+from noust.core.server_text import ServerText, say
 from noust.core.store import DeploymentTrigger, JobRecord, NoustStore, get_store
 from noust.core.teams import ownership_target
+from noust.web.job_log import JobLogEntry, scrub_sentence
 
 logger = logging.getLogger(__name__)
 
@@ -277,38 +279,6 @@ class QueueSnapshot:
 
 
 @dataclass
-class JobLogEntry:
-    """
-    A single log entry for a job.
-
-    Attributes:
-        timestamp: When the entry was recorded.
-        level: One of ``info``, ``warning``, ``error`` or ``success``.
-        message: The message itself.
-        step: Progress value at the time of the entry.
-    """
-
-    timestamp: datetime
-    level: str
-    message: str
-    step: int | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        """
-        Render the entry as JSON-serialisable data.
-
-        Returns:
-            The entry as a dictionary.
-        """
-        return {
-            "timestamp": self.timestamp.isoformat(),
-            "level": self.level,
-            "message": self.message,
-            "step": self.step,
-        }
-
-
-@dataclass
 class Job:
     """
     A unit of work executed off the request path.
@@ -322,6 +292,7 @@ class Job:
         progress: Progress between 0 and ``total_steps``.
         total_steps: Denominator of ``progress``.
         current_step: Name of the step in progress.
+        current_step_coded: ``current_step`` as a sentence with a code, when it is one.
         created_at: When the job was queued.
         started_at: When the worker picked it up.
         completed_at: When it finished, whatever the outcome.
@@ -353,6 +324,7 @@ class Job:
     progress: int = 0
     total_steps: int = 100
     current_step: str = ""
+    current_step_coded: ServerText | None = None
     created_at: datetime = field(default_factory=datetime.now)
     started_at: datetime | None = None
     completed_at: datetime | None = None
@@ -387,6 +359,9 @@ class Job:
             "progress": self.progress,
             "total_steps": self.total_steps,
             "current_step": self.current_step,
+            "current_step_coded": self.current_step_coded.to_dict()
+            if self.current_step_coded
+            else None,
             "created_at": self.created_at.isoformat(),
             "started_at": self.started_at.isoformat() if self.started_at else None,
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
@@ -402,7 +377,9 @@ class Job:
             "cancel_requested": self.cancel_requested_by is not None,
         }
 
-    def add_log(self, message: str, level: str = "info", step: int | None = None) -> None:
+    def add_log(
+        self, message: str | ServerText, level: str = "info", step: int | None = None
+    ) -> None:
         """
         Append a log entry to the job, scrubbed of its secrets.
 
@@ -410,16 +387,20 @@ class Job:
         the in-memory tail, the log file and every live update alike.
 
         Args:
-            message: The message to record.
+            message: The message to record: text, or one of the server's sentences, whose
+                code travels beside its text.
             level: Severity, one of ``info``, ``warning``, ``error``, ``success``.
             step: Progress value to attach, defaulting to the current progress.
         """
+        coded = scrub_sentence(message, self.scrubber) if isinstance(message, ServerText) else None
+        text = coded.text if coded is not None else self.scrubber.scrub(str(message))
         self.logs.append(
             JobLogEntry(
                 timestamp=datetime.now(),
                 level=level,
-                message=self.scrubber.scrub(message),
+                message=text,
                 step=step if step is not None else self.progress,
+                coded=coded,
             )
         )
 
@@ -456,25 +437,26 @@ class JobContext:
         """True once the job has been cancelled."""
         return self._job.status == JobStatus.CANCELLED
 
-    def update(self, step_name: str, progress: int) -> None:
+    def update(self, step_name: str | ServerText, progress: int) -> None:
         """
         Record the step in progress.
 
         Args:
-            step_name: Name of the step.
+            step_name: Name of the step: text, or one of the server's sentences.
             progress: Progress value, clamped to the job's total.
         """
-        self._job.current_step = self._job.scrubber.scrub(step_name)
-        self._job.progress = min(progress, self._job.total_steps)
         self._job.add_log(step_name, "info", progress)
+        self._job.current_step = self._job.logs[-1].message
+        self._job.current_step_coded = self._job.logs[-1].coded
+        self._job.progress = min(progress, self._job.total_steps)
         self._notify(self._job)
 
-    def log(self, message: str, level: str = "info") -> None:
+    def log(self, message: str | ServerText, level: str = "info") -> None:
         """
         Record a message without changing progress.
 
         Args:
-            message: The message.
+            message: The message: text, or one of the server's sentences.
             level: Severity.
         """
         self._job.add_log(message, level)
@@ -2194,7 +2176,7 @@ def deploy_app_job(
     context.set_metadata("domain", domain)
     context.set_metadata("app_type", app_type)
 
-    context.update("Preparing deployment", 5)
+    context.update(say("jobs.step.deploy.preparing"), 5)
     plan = None
     settings: dict[str, Any] = {
         "source": source,
@@ -2208,7 +2190,7 @@ def deploy_app_job(
         from noust.core.logger import Logger
         from noust.recipes.deploy import plan_recipe
 
-        context.update(f"Preparing the {recipe} recipe", 7)
+        context.update(say("jobs.step.deploy.recipe", recipe=recipe), 7)
         plan = plan_recipe(
             recipe,
             domain,
@@ -2233,7 +2215,7 @@ def deploy_app_job(
         from noust.deployers.recorder import CapturingLogger
         from noust.managers.database.service import DatabaseService
 
-        context.update(f"Creating the {database['engine']} database", 8)
+        context.update(say("jobs.step.deploy.database", engine=database["engine"]), 8)
         logger = CapturingLogger(verbose=False)
         logger.attach_sink(context.log)
         databases = DatabaseService(logger=logger)
@@ -2256,7 +2238,7 @@ def deploy_app_job(
             # Before the first build, so the branch's migrations run over a copy of real data.
             from noust.managers.database.seeding import copy_database
 
-            context.update("Copying the data", 9)
+            context.update(say("jobs.step.deploy.copying_data"), 9)
             try:
                 copy_database(
                     databases,
@@ -2305,7 +2287,7 @@ def deploy_app_job(
         **database_options,
     )
 
-    context.update("Deploying", 10)
+    context.update(say("jobs.step.deploy.deploying"), 10)
     try:
         if not deployer.deploy():
             raise DeploymentError(
@@ -2351,7 +2333,7 @@ def deploy_app_job(
         )
         for note in result["notes"]:
             context.log(note)
-    context.update("Deployment complete", 100)
+    context.update(say("jobs.step.deploy.complete"), 100)
     return result
 
 
@@ -2395,7 +2377,7 @@ def promote_app_job(
     )
     for warning in outcome.warnings:
         context.log(warning, "warning")
-    context.update("Promotion complete", 100)
+    context.update(say("jobs.step.promote.complete"), 100)
     return {
         "domain": target,
         "source": domain,
@@ -2503,11 +2485,11 @@ def run_update(
     )
 
     if outcome.restarted and not outcome.active:
-        context.log("Restarted, but the unit is not running: check its logs", "warning")
+        context.log(say("jobs.step.update.unit_not_running"), "warning")
     if outcome.warnings:
         context.log(f"Deployed with warnings: {outcome.warnings}", "warning")
 
-    context.update("Update complete", 100)
+    context.update(say("jobs.step.update.complete"), 100)
     return {
         "domain": domain,
         "status": "updated",
@@ -2593,7 +2575,7 @@ def delete_app_job(
             "warning",
         )
 
-    context.update("Deletion complete", 100)
+    context.update(say("jobs.step.delete.complete"), 100)
     return {
         "domain": domain,
         "status": "deleted",
@@ -2642,15 +2624,15 @@ def migrate_app_job(
     context = _require_context(job_context)
     context.set_metadata("domain", domain)
 
-    context.update("Planning the migration", 10)
+    context.update(say("jobs.step.migrate.planning"), 10)
     plan = migration.plan_migration(domain, persist)
     for warning in plan.warnings:
         context.log(warning, "warning")
 
-    context.update("Moving the tree onto releases", 30)
+    context.update(say("jobs.step.migrate.moving"), 30)
     result = migration.migrate(domain, plan, trigger="panel")
 
-    context.update("Migration complete", 100)
+    context.update(say("jobs.step.migrate.complete"), 100)
     return {
         "domain": result.domain,
         "status": "migrated",
@@ -2709,7 +2691,7 @@ def backup_app_job(
 
     context = _require_context(job_context)
     context.set_metadata("domain", domain)
-    context.update("Creating backup", 20)
+    context.update(say("jobs.step.backup.creating"), 20)
 
     metadata = BackupManager(verbose=False).create(
         domain=domain,
@@ -2724,7 +2706,7 @@ def backup_app_job(
         tags=tags or [],
     )
 
-    context.update("Backup complete", 100)
+    context.update(say("jobs.step.backup.complete"), 100)
     return {
         "domain": domain,
         "status": "backup_created",
@@ -2775,7 +2757,7 @@ def restore_backup_job(
 
     domain = target_domain or backup.domain
     context.set_metadata("domain", domain)
-    context.update("Restoring backup", 30)
+    context.update(say("jobs.step.restore.restoring"), 30)
 
     if not manager.restore(
         backup_id=backup_id,
@@ -2789,7 +2771,7 @@ def restore_backup_job(
             details="Verify the archive with 'noust backup verify' and retry.",
         )
 
-    context.update("Restore complete", 100)
+    context.update(say("jobs.step.restore.complete"), 100)
     return {"domain": domain, "backup_id": backup_id, "status": "restored"}
 
 
@@ -2829,11 +2811,11 @@ def push_backup_job(
             details="List the available backups with 'noust backup list'.",
         )
     context.set_metadata("domain", backup.domain)
-    context.update(f"Uploading to {destination_name}", 20)
+    context.update(say("jobs.step.backup.uploading", destination=destination_name), 20)
 
     summary = BackupDestinationManager().push(backup, destination_name, backup_manager=manager)
 
-    context.update("Upload complete", 100)
+    context.update(say("jobs.step.backup.upload_complete"), 100)
     return {"domain": backup.domain, "backup_id": backup_id, **summary}
 
 
@@ -2870,7 +2852,7 @@ def restore_from_destination_job(
     context = _require_context(job_context)
     context.set_metadata("backup_id", backup_id)
     context.set_metadata("destination", destination_name)
-    context.update("Downloading and restoring backup", 10)
+    context.update(say("jobs.step.restore.downloading"), 10)
 
     # The one remote restore: staged under the backup directory with a free
     # space check, the sidecar matched to its folder, cleaned up afterwards.
@@ -2883,7 +2865,7 @@ def restore_from_destination_job(
     )
     context.set_metadata("domain", domain)
 
-    context.update("Restore complete", 100)
+    context.update(say("jobs.step.restore.complete"), 100)
     return {
         "domain": domain,
         "backup_id": backup_id,
@@ -2920,7 +2902,7 @@ def rollback_app_job(
     context = _require_context(job_context)
     context.set_metadata("domain", domain)
     context.set_metadata("backup_id", backup_id)
-    context.update("Rolling back", 20)
+    context.update(say("jobs.step.rollback.rolling_back"), 20)
 
     if not RollbackManager(verbose=False).rollback(
         domain=domain, backup_id=backup_id, trigger="panel", schema_changed_ok=schema_changed_ok
@@ -2930,7 +2912,7 @@ def rollback_app_job(
             details="Check that a backup exists with 'noust backup list'.",
         )
 
-    context.update("Rollback complete", 100)
+    context.update(say("jobs.step.rollback.complete"), 100)
     return {"domain": domain, "backup_id": backup_id, "status": "rolled_back"}
 
 
@@ -2961,7 +2943,7 @@ def rollback_deployment_job(
     context = _require_context(job_context)
     context.set_metadata("domain", domain)
     context.set_metadata("deployment_id", deployment_id)
-    context.update(f"Going back to deployment {deployment_id}", 20)
+    context.update(say("jobs.step.rollback.to_deployment", deployment=deployment_id), 20)
 
     outcome = rollback_to_deployment(
         domain,
@@ -2970,7 +2952,7 @@ def rollback_deployment_job(
         schema_changed_ok=schema_changed_ok,
     )
 
-    context.update("Rollback complete", 100)
+    context.update(say("jobs.step.rollback.complete"), 100)
     return {
         "domain": domain,
         "deployment_id": deployment_id,
@@ -3018,7 +3000,7 @@ def database_pitr_job(
     if not isinstance(manager, PostgresManager):
         raise DatabaseEngineError("Point-in-time recovery is for PostgreSQL")
     pitr = PitrManager(manager)
-    context.update(f"Point-in-time recovery: {action}", 10)
+    context.update(say("jobs.step.pitr.recovering", action=action), 10)
 
     result: dict[str, Any]
     if action == "enable":
@@ -3049,7 +3031,7 @@ def database_pitr_job(
             f"Unsupported point-in-time recovery action: {action}",
             details="Use enable, disable, base, sync, fetch or restore.",
         )
-    context.update("Complete", 100)
+    context.update(say("jobs.step.complete"), 100)
     return {"engine": "postgresql", "action": action, "status": "completed", "result": result}
 
 
@@ -3093,9 +3075,9 @@ def database_engine_job(
     manager = database_service.manager(engine)
 
     if action == "install":
-        context.update(f"Installing {manager.DISPLAY_NAME}", 20)
+        context.update(say("jobs.step.engine.installing", engine=manager.DISPLAY_NAME), 20)
         outcome = database_service.install_engine(engine, flavour=flavour, version=version)
-        context.update("Complete", 100)
+        context.update(say("jobs.step.complete"), 100)
         return {
             "engine": engine,
             "action": action,
@@ -3103,7 +3085,7 @@ def database_engine_job(
             "installed": outcome.to_dict(),
         }
     if action == "uninstall":
-        context.update(f"Uninstalling {manager.DISPLAY_NAME}", 20)
+        context.update(say("jobs.step.engine.uninstalling", engine=manager.DISPLAY_NAME), 20)
         manager.uninstall(purge=purge)
     else:
         raise DatabaseEngineError(
@@ -3111,7 +3093,7 @@ def database_engine_job(
             details="Use 'install' or 'uninstall'.",
         )
 
-    context.update("Complete", 100)
+    context.update(say("jobs.step.complete"), 100)
     return {"engine": engine, "action": action, "status": "completed"}
 
 
@@ -3162,7 +3144,7 @@ def cert_create_job(
 
     context = _require_context(job_context)
     context.set_metadata("domain", domain)
-    context.update("Requesting certificate", 20)
+    context.update(say("jobs.step.certificate.requesting"), 20)
 
     webroot_path: Path | None
     if webroot:
@@ -3186,9 +3168,9 @@ def cert_create_job(
     )
 
     covered = manager.certificate_domains(domain, domains, include_www)
-    context.update("Serving it", 90)
+    context.update(say("jobs.step.certificate.serving"), 90)
     served = serve_ordered(domain)
-    context.update("Certificate created", 100)
+    context.update(say("jobs.step.certificate.created"), 100)
     return {
         "domain": domain,
         "domains": covered,
@@ -3230,7 +3212,7 @@ def exec_app_job(
 
     context = _require_context(job_context)
     context.set_metadata("domain", domain)
-    context.update(f"Running a command in {domain}", 5)
+    context.update(say("jobs.step.exec.running", domain=domain), 5)
     outcome = run_exec(domain, argv, service=service, timeout=timeout, on_line=context.log)
     summary = {
         "exit_code": outcome.exit_code,
@@ -3256,7 +3238,7 @@ def exec_app_job(
             f"The command exited with status {outcome.exit_code}",
             details="What it printed is in this job's log.",
         )
-    context.update("Command finished", 100)
+    context.update(say("jobs.step.exec.finished"), 100)
     return summary
 
 
@@ -3285,22 +3267,20 @@ def cert_renew_job(
 
     context = _require_context(job_context)
     context.set_metadata("domain", domain or "all")
-    context.update("Renewing certificates", 20)
+    context.update(say("jobs.step.renewal.renewing"), 20)
 
     renewed = CertManager(verbose=False).renew_and_report(domain=domain, force=force)
 
     if renewed is None:
-        context.log(
-            "certbot's certificate list could not be read, so which ones were renewed is unknown"
-        )
+        context.log(say("jobs.step.renewal.unreadable"))
     elif not renewed:
-        context.log("No certificate was due for renewal")
+        context.log(say("jobs.step.renewal.none_due"))
     for certificate in renewed or []:
         context.log(
             f"Renewed {certificate.name} ({', '.join(certificate.domains)}), "
             f"valid until {certificate.expiry or 'an expiry certbot did not print'}"
         )
-    context.update("Renewal complete", 100)
+    context.update(say("jobs.step.renewal.complete"), 100)
     return {
         "domain": domain,
         "status": "renewed",

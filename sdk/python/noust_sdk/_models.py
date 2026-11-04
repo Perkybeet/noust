@@ -1850,6 +1850,7 @@ CleanupPlanOut = TypedDict("CleanupPlanOut", {
     "action": Required[str],
     "commands": Required[list[str]],
     "effect": Required[str],
+    "effect_coded": NotRequired[Union["CodedText", None]],
     "items": NotRequired[list[str]],
     "needs_confirmation": Required[bool],
 })
@@ -1886,6 +1887,7 @@ CleanupRunOut = TypedDict("CleanupRunOut", {
     "percent_after": NotRequired[Union[float, None]],
     "percent_before": NotRequired[Union[float, None]],
     "reason": NotRequired[Union[str, None]],
+    "reason_coded": NotRequired[Union["CodedText", None]],
     "started_at": Required[str],
     "status": Required[str],
     "trigger": Required[str],
@@ -2992,6 +2994,7 @@ DestinationListResponse = TypedDict("DestinationListResponse", {
 })
 
 DiagnoseCheck = TypedDict("DiagnoseCheck", {
+    "coded": NotRequired[Union["CodedText", None]],
     "evidence": NotRequired[str],
     "name": Required[str],
     "status": Required[str],
@@ -3002,6 +3005,7 @@ DiagnoseResponse = TypedDict("DiagnoseResponse", {
     "checks": Required[list["DiagnoseCheck"]],
     "domain": Required[str],
     "probable_cause": Required[Union[str, None]],
+    "probable_cause_coded": NotRequired[Union["CodedText", None]],
     "verdict": Required[str],
 })
 
@@ -5038,6 +5042,7 @@ JobResponse = TypedDict("JobResponse", {
     "completed_at": NotRequired[Union[str, None]],
     "created_at": Required[str],
     "current_step": Required[str],
+    "current_step_coded": NotRequired[Union["CodedText", None]],
     "deployment_id": NotRequired[Union[int, None]],
     "description": Required[str],
     "error": NotRequired[Union[str, None]],
@@ -7715,6 +7720,7 @@ ReleasesResponse = TypedDict("ReleasesResponse", {
 })
 
 ReloadResponse = TypedDict("ReloadResponse", {
+    "coded": NotRequired[Union["CodedText", None]],
     "message": Required[str],
     "success": Required[bool],
     "webserver": Required[str],
@@ -9059,6 +9065,7 @@ SinkOut = TypedDict("SinkOut", {
 })
 
 SiteActionResponse = TypedDict("SiteActionResponse", {
+    "coded": NotRequired[Union["CodedText", None]],
     "message": Required[str],
     "site": Required[str],
     "success": Required[bool],
@@ -9451,7 +9458,9 @@ SourceInspectionResponse = TypedDict("SourceInspectionResponse", {
     "platform_proposal": NotRequired[Union["PlatformProposalResponse", None]],
     "start_command": Required[str],
     "suggestion": NotRequired[Union[str, None]],
+    "suggestion_coded": NotRequired[Union["CodedText", None]],
     "verdict": NotRequired[Union[str, None]],
+    "verdict_coded": NotRequired[Union["CodedText", None]],
 })
 
 SourceOptionsRequest = TypedDict("SourceOptionsRequest", {
@@ -9581,6 +9590,7 @@ SshUnitOut = TypedDict("SshUnitOut", {
 StackNetworkModel = TypedDict("StackNetworkModel", {
     "driver": Required[str],
     "findings": Required[list[str]],
+    "findings_coded": NotRequired[list["CodedText"]],
     "id": Required[str],
     "internal": Required[bool],
     "ipv6": Required[bool],
@@ -9600,6 +9610,7 @@ StackNetworksResponse = TypedDict("StackNetworksResponse", {
     "isolated": Required[bool],
     "networks": Required[list["StackNetworkModel"]],
     "reason": NotRequired[str],
+    "reason_coded": NotRequired[Union["CodedText", None]],
 })
 
 StageRequest = TypedDict("StageRequest", {
@@ -9701,6 +9712,7 @@ StreamPlanResponse = TypedDict("StreamPlanResponse", {
     "loader": Required[str],
     "support": Required["StreamSupportModel"],
     "warnings": Required[list[str]],
+    "warnings_coded": NotRequired[list["CodedText"]],
 })
 
 StreamRequest = TypedDict("StreamRequest", {
@@ -9717,11 +9729,14 @@ StreamRequest = TypedDict("StreamRequest", {
 StreamResultResponse = TypedDict("StreamResultResponse", {
     "exposure": Required["StreamExposureModel"],
     "firewall": Required[str],
+    "firewall_coded": NotRequired[Union["CodedText", None]],
     "warnings": Required[list[str]],
+    "warnings_coded": NotRequired[list["CodedText"]],
 })
 
 StreamSupportModel = TypedDict("StreamSupportModel", {
     "available": Required[bool],
+    "coded": NotRequired[Union["CodedText", None]],
     "hint": NotRequired[Union[str, None]],
     "install": NotRequired[Union[str, None]],
     "loader": Required[str],
@@ -9795,6 +9810,7 @@ SwapOut = TypedDict("SwapOut", {
     "memory_bytes": Required[int],
     "noust_swapfile": Required[bool],
     "reason": Required[str],
+    "reason_coded": NotRequired[Union["CodedText", None]],
     "recommended": Required[bool],
     "suggested_bytes": Required[int],
     "supported": Required[bool],
@@ -9802,6 +9818,7 @@ SwapOut = TypedDict("SwapOut", {
     "total_bytes": Required[int],
     "used_bytes": Required[int],
     "warnings": Required[list[str]],
+    "warnings_coded": NotRequired[list["CodedText"]],
 })
 
 SwapSummary = TypedDict("SwapSummary", {

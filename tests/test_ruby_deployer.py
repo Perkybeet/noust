@@ -365,7 +365,13 @@ class TestMissingToolchain:
 
     def test_inspect_suggests_the_same(self) -> None:
         runner = FakeRunner().only_knows("dnf")
-        assert RubyDeployer.install_suggestion(runner) == (
+        suggestion = RubyDeployer.install_suggestion(runner)
+        assert suggestion is not None and suggestion.text == (
             "Install the toolchain with: dnf install ruby ruby-devel rubygem-bundler gcc make "
             "redhat-rpm-config. Then deploy it."
         )
+        # The command is a value of the sentence, shown as it is and never translated.
+        assert suggestion.code == "inspect.install_toolchain"
+        assert suggestion.params == {
+            "command": "dnf install ruby ruby-devel rubygem-bundler gcc make redhat-rpm-config"
+        }

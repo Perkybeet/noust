@@ -5,6 +5,7 @@ import { Card } from "../../components/ui/Card";
 import { ICONS } from "../../components/ui/icons";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
+import { ServerText } from "../../components/ui/ServerText";
 import { useT } from "../../i18n";
 import { formatCount } from "../../lib/format";
 import { Suggestion } from "./Suggestion";
@@ -41,16 +42,16 @@ function Verdict({ inspection, types }: { inspection: Inspection; types: readonl
   const t = useT();
   // "It can be deployed" is said in the console's words; the backend's prose is kept only
   // where it carries what the console cannot say itself (what is missing on this server).
-  const verdict =
-    inspection.compatible === true && inspection.app_type
-      ? t("newApp.readout.canDeploy", { type: typeName(types, inspection.app_type) })
-      : (inspection.verdict ?? null);
+  const said = inspection.compatible === true && inspection.app_type ? t("newApp.readout.canDeploy", { type: typeName(types, inspection.app_type) }) : null;
+  const verdict = said ?? inspection.verdict ?? null;
   const suggestion = inspection.suggestion ?? null;
   if (verdict === null && suggestion === null) return null;
   const body = (
     <div className="flex min-w-0 flex-col gap-1.5">
-      {verdict !== null ? <p className="text-pretty text-fg">{verdict}</p> : null}
-      {suggestion !== null ? <Suggestion text={suggestion} /> : null}
+      {verdict !== null ? (
+        <p className="text-pretty text-fg">{said ?? <ServerText coded={inspection.verdict_coded} text={verdict} />}</p>
+      ) : null}
+      {suggestion !== null ? <Suggestion text={suggestion} coded={inspection.suggestion_coded} /> : null}
     </div>
   );
   if (inspection.compatible === false) {

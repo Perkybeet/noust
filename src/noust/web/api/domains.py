@@ -29,6 +29,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from noust.core.domain_certificates import check_mode
+from noust.core.server_text import say
 from noust.core.store import DomainKind, DomainRecord
 from noust.core.teams import scoped_store
 from noust.deployers.certificates import check_choice
@@ -289,10 +290,10 @@ def certificate_job(app_domain: str, job_context: JobContext | None = None) -> d
     """
     if job_context is not None:
         job_context.set_metadata("domain", app_domain)
-        job_context.update("Extending the certificate to every domain", 20)
+        job_context.update(say("jobs.step.domains.extending"), 20)
     change = issue_certificate(app_domain)
     if job_context is not None:
-        job_context.update("Certificate covers every domain", 100)
+        job_context.update(say("jobs.step.domains.extended"), 100)
     return {"domain": change.app, "domains": [record.domain for record in change.domains]}
 
 
@@ -337,10 +338,10 @@ def reduce_certificate_job(
     """
     if job_context is not None:
         job_context.set_metadata("domain", app_domain)
-        job_context.update("Removing the domain from the certificate", 20)
+        job_context.update(say("jobs.step.domains.removing"), 20)
     change = reduce_certificate(app_domain)
     if job_context is not None:
-        job_context.update("Certificate covers only the remaining domains", 100)
+        job_context.update(say("jobs.step.domains.removed"), 100)
     return {"domain": change.app, "reduced": change.certificate_reduced}
 
 
@@ -609,10 +610,10 @@ def release_certificate_job(
     """
     if job_context is not None:
         job_context.set_metadata("domain", app_domain)
-        job_context.update(f"Deleting the certificate of {name}", 20)
+        job_context.update(say("jobs.step.domains.deleting", name=name), 20)
     removed = release_certificate(app_domain, name)
     if job_context is not None:
-        job_context.update("The certificate is deleted", 100)
+        job_context.update(say("jobs.step.domains.deleted"), 100)
     return {"domain": app_domain, "name": name, "removed": removed}
 
 
@@ -646,13 +647,18 @@ def name_certificate_job(
     if job_context is not None:
         job_context.set_metadata("domain", app_domain)
         job_context.update(
-            "Ordering the certificate of its own" if certificate == "own" else "Giving it back", 20
+            say(
+                "jobs.step.domains.ordering"
+                if certificate == "own"
+                else "jobs.step.domains.giving_back"
+            ),
+            20,
         )
     change = set_certificate(
         app_domain, name, certificate, challenge=challenge, dns_provider=dns_provider
     )
     if job_context is not None:
-        job_context.update("The certificate is in place", 100)
+        job_context.update(say("jobs.step.domains.in_place"), 100)
     return {
         "domain": app_domain,
         "name": change.name,
