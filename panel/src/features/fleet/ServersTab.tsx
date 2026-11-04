@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { BellOff, BellRing, Download, FileUp, KeyRound, Link2, Play, RotateCw, Tags, UsersRound, X } from "lucide-react";
+import { Bell, BellOff, Download, FileUp, KeyRound, Link2, Play, RotateCw, Tags, UsersRound, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { sessionQuery } from "../../api/queries/auth";
@@ -263,7 +263,7 @@ function ServerMenu({
             {t("fleet.servers.editLabels")}
           </MenuItem>
           {paused ? (
-            <MenuItem icon={<BellRing />} onClick={onResume}>
+            <MenuItem icon={<Bell />} onClick={onResume}>
               {t("servers.settings.monitoring.resume")}
             </MenuItem>
           ) : (
