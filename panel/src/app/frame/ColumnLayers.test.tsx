@@ -3,9 +3,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ColumnLayers, SLIDE_MS } from "./ColumnLayers";
 
-function Column({ layerKey, depth, name }: { layerKey: string; depth: number; name: string }) {
+function Column({ layerKey, depth, name, settled }: { layerKey: string; depth: number; name: string; settled?: boolean }) {
   return (
-    <ColumnLayers layerKey={layerKey} depth={depth}>
+    <ColumnLayers layerKey={layerKey} depth={depth} {...(settled !== undefined ? { settled } : {})}>
       <p>{name}</p>
     </ColumnLayers>
   );
@@ -39,6 +39,19 @@ describe("the column's body when the list changes", () => {
     expect(layer("leaving")).toBeNull();
     expect(layer("current")?.className).not.toContain("column-enter");
     expect(screen.queryByText("Applications")).toBeNull();
+  });
+
+  it("changes in place when what decides which list it is arrives, and slides again after it", () => {
+    vi.useFakeTimers();
+    // Before the console knows whether it holds a fleet, the machine's list is a guess: the real one replaces it without a movement.
+    const view = render(<Column layerKey="server" depth={0} name="Server" settled={false} />);
+    view.rerender(<Column layerKey="server:this" depth={1} name="This server, in the list" settled />);
+    expect(layer("leaving")).toBeNull();
+    expect(layer("current")).toHaveTextContent("This server, in the list");
+    expect(layer("current")?.className).not.toContain("column-enter");
+    // And what the person does next moves as ever.
+    view.rerender(<Column layerKey="servers" depth={0} name="Servers" settled />);
+    expect(layer("current")?.className).toContain("column-enter-back");
   });
 
   it("slides back out of a resource the other way", () => {

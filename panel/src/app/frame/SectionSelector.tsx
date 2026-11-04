@@ -1,8 +1,9 @@
 import { useParams, useRouter, useRouterState } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 
 import { VIEWS } from "../../features/nav/views";
+import { useHomeAddress } from "../../features/overview/search";
 import { Drawer } from "../../components/ui/Drawer";
 import { useT } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
@@ -35,6 +36,20 @@ function useTitle(kind: ColumnKind): string {
     default:
       return t(dest(kind).label);
   }
+}
+
+// Home's sections are its panels, whose names are the person's own: read where the panels are, in a chunk of their own.
+const HomePanelName = lazy(() => import("./HomePanelName"));
+
+/** The line under "Home" on a phone: the panel that is open, which is the server's or the fleet's until the panels are known. */
+function HomeSection() {
+  const t = useT();
+  const { scope } = useHomeAddress();
+  return (
+    <Suspense fallback={t(scope === "fleet" ? "overview.panels.fleet" : "overview.panels.server")}>
+      <HomePanelName />
+    </Suspense>
+  );
 }
 
 /**
@@ -90,12 +105,12 @@ export function SectionSelector({ kind }: { kind: ColumnKind }) {
           <span translate={resource ? "no" : undefined} className="block truncate text-12 text-fg-muted">
             {title}
           </span>
-          <span className="block truncate text-14 font-medium text-fg">{section ?? title}</span>
+          <span className="block truncate text-14 font-medium text-fg">{kind === "overview" ? <HomeSection /> : (section ?? title)}</span>
         </span>
         <span className="text-12 text-fg-muted">{t("nav.column.sections")}</span>
         <ChevronDown aria-hidden="true" className="size-icon-md shrink-0 text-fg-faint" />
       </button>
-      <Drawer open={open} onOpenChange={setOpen} placement="bottom" title={resource ? columnLabel(kind, t, title) : t("nav.column.sectionsOf", { area: title })}>
+      <Drawer open={open} onOpenChange={setOpen} placement="bottom" title={resource ? columnLabel(kind, t, title) : kind === "overview" ? t("overview.panels.list") : t("nav.column.sectionsOf", { area: title })}>
         <div className="flex min-h-0 flex-1 flex-col">
           <ColumnContent kind={kind} />
         </div>

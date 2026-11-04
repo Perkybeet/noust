@@ -17,7 +17,7 @@ import { expect, expectNoA11yViolations, settle, signIn, startConsoleServer, tes
 import type { ConsoleServer, RunningServer } from "./fixtures";
 import { confirmItsYou } from "./settings.helpers";
 
-const SECTIONS = ["Status", "This server", "Processes", "Resource monitor", "Updates", "Services", "Web server", "Files", "Terminal"] as const;
+const SECTIONS = ["Status", "This server", "Processes", "Resource monitor", "System updates", "Services", "Web server", "Files", "Terminal"] as const;
 
 function column(page: Page) {
   return page.getByRole("navigation", { name: "Server sections" });
@@ -203,9 +203,13 @@ withFleet("on a fleet Servers opens the list, a row opens that server, and its p
   // under test are not about that wait, so it is spent here, once, and not inside the 10 s a page is given to arrive.
   const reached = await page.request.get("/api/nodes/fleet-node/api/system/version", { timeout: 90_000 });
   expect(reached.ok(), await reached.text()).toBe(true);
-  // The sidebar's link says how many services failed after its name ("Servers 1 failed") once the counts arrive, which is
-  // sometime after the first heading: an exact name found the link only until then. And it leads to the fleet's list only
-  // once the console knows it is a central's, so it is pressed when it does.
+  // With a server chosen (this one) the bar's link is that server's own page, "Server"; the list of servers is what All servers
+  // shows there ("Servers"), which the selector chooses. The bar's link says how many services failed after its name
+  // ("Servers 1 failed") once the counts arrive, sometime after the first heading, and leads to the fleet's list only once
+  // the console knows it is a central's, so it is pressed when it does.
+  await page.getByRole("button", { name: /^Server: / }).click();
+  await page.getByRole("menuitemradio", { name: /^All servers/ }).click();
+  await expect(page).toHaveURL(/\/fleet$/);
   const servers = page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: /^Servers\b/ });
   await expect(servers).toHaveAttribute("href", /\/fleet\/servers$/);
   await servers.click();

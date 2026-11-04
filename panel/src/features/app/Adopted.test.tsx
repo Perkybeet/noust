@@ -76,7 +76,9 @@ describe("an adopted site's page", () => {
     expect(within(top).queryByRole("button", { name: "Roll back" })).not.toBeInTheDocument();
     expect(within(top).getByText("Adopted site")).toBeInTheDocument();
     const nav = await screen.findByRole("navigation", { name: "Application sections" });
-    expect(within(nav).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Logs", "Metrics", "Settings"]);
+    // What Noust does not manage is not in the column; the unit's own sections are, and so are the way to find out why it is down
+    // and the one to stop managing it, which the old strip kept in a menu and in the settings.
+    expect(within(nav).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Logs", "Metrics", "Settings", "Diagnose", "Delete"]);
   });
 
   it("lists the operator's unit, site and directory on the overview, kept as they are", async () => {

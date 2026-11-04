@@ -446,7 +446,7 @@ describe("6. the palette finds every screen", () => {
 
   it("says where each one lives, in words", () => {
     const byId = new Map(entries.map((entry) => [entry.id, entry.path]));
-    expect(byId.get("server.updates")).toBe("Servers › Updates");
+    expect(byId.get("server.updates")).toBe("Servers › System updates");
     expect(byId.get("network.tunnels")).toBe("Network › Tunnels");
     expect(byId.get("security.ssh")).toBe("Security › SSH");
     expect(byId.get("alerts.probes")).toBe("Alerts › Probes");

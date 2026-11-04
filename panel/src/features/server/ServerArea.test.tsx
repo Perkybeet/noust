@@ -59,7 +59,7 @@ describe("the Server area", () => {
       expect(screen.getAllByText("Critical").length).toBeGreaterThan(0);
     });
     expect(screen.getAllByText("web-01").length).toBeGreaterThan(0);
-    const tabs = screen.getByRole("navigation", { name: "Server sections" });
+    const tabs = await screen.findByRole("navigation", { name: "Server sections" });
     expect(
       within(tabs)
         .getAllByRole("link")
@@ -69,7 +69,7 @@ describe("the Server area", () => {
       "This server",
       "Processes",
       "Resource monitor",
-      "Updates23",
+      "System updates23",
       "Services",
       "Web server",
       "Files",

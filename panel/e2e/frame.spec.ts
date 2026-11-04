@@ -609,10 +609,23 @@ test.describe("a veil", () => {
       const sections = await boxOf(page.locator('[data-frame="column"]'));
       // Not by role: with a dialog open the page behind it is hidden from the accessibility tree, which is its job.
       const top = await boxOf(page.locator("header").first());
-      const points = { bar: [rail.x + rail.width / 2, 450], column: [sections.x + sections.width / 2, 450], top: [top.x + top.width / 2, top.y + top.height / 2] };
-      for (const [name, [x, y]] of Object.entries(points)) {
-        const covered = await page.evaluate(([px, py]) => document.elementFromPoint(px ?? 0, py ?? 0)?.classList.contains("bg-backdrop") ?? false, [x, y]);
-        expect(covered, `the veil is over the ${name}`).toBe(true);
+      const points = {
+        bar: { x: rail.x + rail.width / 2, y: 450, within: '[data-frame="rail"]' },
+        column: { x: sections.x + sections.width / 2, y: 450, within: '[data-frame="column"]' },
+        top: { x: top.x + top.width / 2, y: top.y + top.height / 2, within: "header" },
+      };
+      for (const [name, point] of Object.entries(points)) {
+        // From the top down at that point: the veil comes before anything of the bar, which is under it. (The dialog's own
+        // transparent layer is above both, so the first element is not the veil's.)
+        const order = await page.evaluate((at) => {
+          const stack = document.elementsFromPoint(at.x, at.y);
+          const veilAt = stack.findIndex((element) => element.classList.contains("bg-backdrop"));
+          const barAt = stack.findIndex((element) => element.closest(at.within) !== null);
+          return { veilAt, barAt };
+        }, point);
+        expect(order.veilAt, `the veil is at the ${name}`).toBeGreaterThanOrEqual(0);
+        expect(order.barAt, `the ${name} is at its point`).toBeGreaterThanOrEqual(0);
+        expect(order.veilAt, `the veil is over the ${name}`).toBeLessThan(order.barAt);
       }
       // The ground takes the veil's tone, so the scrollbar's room is not a light strip beside the veiled window.
       await expect.poll(() => ground(page)).toBe(veiled);

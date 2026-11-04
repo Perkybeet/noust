@@ -3,7 +3,7 @@ import { Suspense, lazy } from "react";
 
 import { useHomeAddress } from "../../features/overview/search";
 import { useT } from "../../i18n";
-import { useHasFleet } from "../../nodes/servers";
+import { useHasFleet, useServerList } from "../../nodes/servers";
 import { useConsoleContext, useNode } from "../../nodes/useNode";
 import { depthOf } from "../columns";
 import type { ColumnKind } from "../columns";
@@ -104,7 +104,9 @@ function depthOfList({ kind, customising, fleet, hasFleet }: Where): number {
 function useWhere(kind: ColumnKind): Where {
   const params = useParams({ strict: false });
   const context = useConsoleContext();
-  const hasFleet = useHasFleet();
+  const { node } = useNode();
+  // A page of a server of the list is a fleet's whatever the list says yet: the address is the proof.
+  const hasFleet = useHasFleet() || node !== null;
   const { customising } = useHomeAddress();
   return { kind, params, customising, fleet: context.kind === "fleet", hasFleet };
 }
@@ -121,12 +123,15 @@ export function NavColumn({ kind }: { kind: ColumnKind }) {
   const t = useT();
   const where = useWhere(kind);
   const { node } = useNode();
+  const servers = useServerList();
+  // The machine's column is one of two lists, by whether there is a fleet: until the servers are known the first is a guess.
+  const settled = kind !== "server" || where.hasFleet || servers.loaded;
   // Named by what it is about, so the two columns of the frame are told apart by a screen reader: the bar is
   // "Navigation" and this is the application, the machine or Settings.
   const name = kind === "overview" ? t("nav.overview.label") : columnLabel(kind, t, where.params["domain"]);
   return (
     <aside aria-label={name} data-frame="column" data-column={kind} className="sticky top-0 flex h-dvh w-column shrink-0 flex-col bg-bg-column">
-      <ColumnLayers layerKey={layerKeyOf(where, node)} depth={depthOfList(where)}>
+      <ColumnLayers layerKey={layerKeyOf(where, node)} depth={depthOfList(where)} settled={settled}>
         <ColumnBody {...where} />
       </ColumnLayers>
     </aside>

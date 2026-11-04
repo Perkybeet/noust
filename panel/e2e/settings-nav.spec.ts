@@ -6,9 +6,11 @@
 
 import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
 
-const GROUPS = ["People and access", "Notifications and channels", "Connections", "Security and frameworks", "API", "Fleet", "Noust"];
+// A server on its own has six: the seventh, Fleet, is for the console that manages others (4.2: Settings > Servers is gone, and the group has the
+// fleet's own settings and what a central may do on a node only where there is a fleet).
+const GROUPS = ["People and access", "Notifications and channels", "Connections", "Security and frameworks", "API", "Noust"];
 
-test("the sections are in seven groups that say what they are for, in the order of the design", async ({ page, consoleServer }) => {
+test("the sections are in groups that say what they are for, in the order of the design", async ({ page, consoleServer }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, consoleServer, "/settings/general");
   const list = page.getByRole("navigation", { name: "Settings sections" });
@@ -83,5 +85,9 @@ test("on a phone the hub is the index page, with its groups, and a section has i
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await expectNoA11yViolations(page, "the settings hub on a phone");
   await channels.click();
-  await expect(page.getByRole("link", { name: "All sections" })).toBeVisible();
+  // The way back is the selector at the top of the page (4.2): it says the section and opens the list of every one.
+  const selector = page.getByRole("main").getByRole("button", { name: /Channels/ });
+  await expect(selector).toBeVisible();
+  await selector.click();
+  await expect(page.getByRole("dialog").getByRole("navigation", { name: "Settings sections" })).toBeVisible();
 });

@@ -215,6 +215,15 @@ describe("a phone", () => {
     expect(within(screen.getByRole("main")).getByRole("button", { name: /System/ })).toBeInTheDocument();
   });
 
+  it("says the panel Home is on under Home, and opens the panels in the sheet", async () => {
+    const { user } = await shellAt("/", 390);
+    const selector = await within(screen.getByRole("main")).findByRole("button", { name: /This server/ });
+    expect(selector).toHaveTextContent("Home");
+    await user.click(selector);
+    const sheet = await screen.findByRole("dialog", { name: "Panels" });
+    expect(within(await within(sheet).findByRole("navigation", { name: "Panels" })).getByRole("link", { name: /This server/ })).toHaveAttribute("aria-current", "page");
+  });
+
   it("has no column at its side: the page has the whole width", async () => {
     await shellAt("/apps", 390);
     expect(document.querySelector('[data-frame="column"]')).toBeNull();

@@ -25,18 +25,21 @@ interface Leaving {
  *
  * `layerKey` names the list: a new key is a new list. The caller gives the node as a self-contained element
  * (it reads its own data), so the layer that is leaving keeps working for the 140 ms it takes to go.
+ *
+ * `settled` is false while what decides which list this is has not arrived (whether the console holds a fleet):
+ * the list that is drawn then is a guess, and the answer replacing it in place is not a movement of the person.
  */
-export function ColumnLayers({ layerKey, depth, children }: { layerKey: string; depth: number; children: ReactNode }) {
+export function ColumnLayers({ layerKey, depth, settled = true, children }: { layerKey: string; depth: number; settled?: boolean; children: ReactNode }) {
   const reduced = useMediaQuery(REDUCED_MOTION);
-  const [current, setCurrent] = useState({ key: layerKey, depth, node: children });
+  const [current, setCurrent] = useState({ key: layerKey, depth, settled, node: children });
   const [leaving, setLeaving] = useState<Leaving | null>(null);
   const [entering, setEntering] = useState<Direction | null>(null);
 
   // The list changed: derived during the render, so the old list never paints a frame in the new one's place.
   if (current.key !== layerKey) {
     const direction: Direction | null = depth > current.depth ? "forward" : depth < current.depth ? "back" : null;
-    setCurrent({ key: layerKey, depth, node: children });
-    if (direction !== null && !reduced) {
+    setCurrent({ key: layerKey, depth, settled, node: children });
+    if (direction !== null && !reduced && current.settled) {
       setLeaving({ key: current.key, node: current.node, direction });
       setEntering(direction);
     } else {
@@ -44,6 +47,8 @@ export function ColumnLayers({ layerKey, depth, children }: { layerKey: string; 
       setEntering(null);
     }
   }
+
+  if (current.key === layerKey && current.settled !== settled) setCurrent({ ...current, settled });
 
   const moving = leaving !== null || entering !== null;
   useEffect(() => {
