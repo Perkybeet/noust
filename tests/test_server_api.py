@@ -504,6 +504,7 @@ class TestStorage:
 
         assert body["commands"] == ["journalctl --rotate", "journalctl --vacuum-size=100M"]
         assert body["needs_confirmation"] is False
+        assert body["effect_coded"] == {"code": "storage.effect.journal", "params": {}}
         assert api.jobs.queued == []
         assert not api.machine.runner.ran("journalctl", "--rotate")
 
@@ -571,6 +572,19 @@ class TestSwap:
         assert body["recommended"] is True
         assert body["supported"] is True
         assert body["suggested_bytes"] == 2 * 1024**3
+        assert body["reason_coded"] is None and body["warnings_coded"] == []
+
+    def test_why_a_container_has_no_swap_and_what_to_know_travel_with_codes(self, api) -> None:
+        api.machine.ctx._platform = platform_for("apt", container="lxc")
+        api.machine.ctx._built.clear()
+
+        body = api.client.get("/api/server/swap").json()
+
+        assert body["supported"] is False
+        assert body["reason_coded"] == {
+            "code": "swap.unsupported_container",
+            "params": {"container": "lxc"},
+        }
 
     def test_making_swap_is_a_job(self, api) -> None:
         response = api.client.post("/api/server/swap", json={"size_mb": 2048})

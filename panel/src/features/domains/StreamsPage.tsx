@@ -25,9 +25,11 @@ import { Select } from "../../components/ui/Select";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { Textarea } from "../../components/ui/Textarea";
+import { ServerText, useServerSentence } from "../../components/ui/ServerText";
 import { TextLink } from "../../components/ui/TextLink";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
+import { sentenceKey } from "../../lib/serverSentence";
 import { useNode } from "../../nodes/useNode";
 import { listOf } from "../app/settings/access";
 import { DomainsListPage } from "./DomainsListPage";
@@ -71,6 +73,7 @@ function bodyOf(draft: Draft): { body: StreamBody } | { field: keyof Draft; mess
 
 function PublishDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const t = useT();
+  const say = useServerSentence();
   const queryClient = useQueryClient();
   const formId = useId();
   const [draft, setDraft] = useState<Draft>(EMPTY);
@@ -85,7 +88,7 @@ function PublishDialog({ open, onClose }: { open: boolean; onClose: () => void }
     mutationFn: (body: StreamBody) => request("post", "/api/streams", { body }),
     onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: networkKeys.streams });
-      toast.success(t("network.ports.publishedToast", { name: result.exposure.name }), { description: result.firewall });
+      toast.success(t("network.ports.publishedToast", { name: result.exposure.name }), { description: say(result.firewall_coded, result.firewall) });
       close(true);
     },
   });
@@ -191,9 +194,9 @@ function PublishDialog({ open, onClose }: { open: boolean; onClose: () => void }
               ]}
             />
             {plan.plan.loader === "write" ? <p className="text-13 text-fg-muted">{t("network.ports.planLoader")}</p> : null}
-            {plan.plan.warnings.map((warning) => (
+            {plan.plan.warnings.map((warning, index) => (
               <Notice key={warning} tone="warning">
-                {warning}
+                <ServerText coded={plan.plan.warnings_coded?.[index]} text={warning} />
               </Notice>
             ))}
           </div>
@@ -220,6 +223,7 @@ function stateOf(exposure: StreamExposure): "running" | "deploying" | "warning" 
  */
 export function StreamsPage() {
   const t = useT();
+  const say = useServerSentence();
   const queryClient = useQueryClient();
   const { node } = useNode();
   const streams = useQuery(streamsQuery());
@@ -257,8 +261,15 @@ export function StreamsPage() {
       {...(support !== undefined && !support.available
         ? {
             notice: (
-              <Notice tone="warning" title={support.problem ?? t("network.ports.unavailable")}>
-                {support.hint ? <SystemOutput label={t("network.ports.unavailable")}>{support.hint}</SystemOutput> : null}
+              <Notice tone="warning" title={support.problem ? say(support.coded, support.problem) : t("network.ports.unavailable")}>
+                {/* A fix that is a sentence of Noust's is said in this language, its command in mono; one that is nginx's own output is shown as it came. */}
+                {support.coded && sentenceKey(support.coded, "hint") !== null ? (
+                  <p className="text-13 text-pretty">
+                    <ServerText coded={support.coded} text={support.hint} part="hint" />
+                  </p>
+                ) : support.hint ? (
+                  <SystemOutput label={t("network.ports.unavailable")}>{support.hint}</SystemOutput>
+                ) : null}
               </Notice>
             ),
           }

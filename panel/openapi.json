@@ -10746,7 +10746,7 @@
         "type": "object"
       },
       "CleanupPlanOut": {
-        "description": "What a cleanup would do.",
+        "description": "What a cleanup would do.\n\nAttributes:\n    action: The action.\n    commands: The commands it would run, as text.\n    effect: What it does, in a sentence.\n    needs_confirmation: It takes something the operator may want back.\n    items: What it would remove, when the action can list it.\n    effect_coded: ``effect`` as a code and its values, for the console to translate.",
         "properties": {
           "action": {
             "title": "Action",
@@ -10762,6 +10762,16 @@
           "effect": {
             "title": "Effect",
             "type": "string"
+          },
+          "effect_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "items": {
             "items": {
@@ -10901,7 +10911,7 @@
         "type": "object"
       },
       "CleanupRunOut": {
-        "description": "One run in the history of cleanups.\n\nAttributes:\n    id: Its number.\n    trigger: ``schedule``, ``manual`` or ``policy``.\n    status: ``ok``, ``partial``, ``failed`` or ``skipped``.\n    started_at: When it began.\n    ended_at: When it ended.\n    mount: The fullest writable disk.\n    percent_before: How full it was before.\n    percent_after: How full it was after.\n    freed_bytes: The total freed, when known.\n    actions: What each action did.\n    reason: Why nothing ran, when it did not.\n    actor: Who asked; empty for the timer.",
+        "description": "One run in the history of cleanups.\n\nAttributes:\n    id: Its number.\n    trigger: ``schedule``, ``manual`` or ``policy``.\n    status: ``ok``, ``partial``, ``failed`` or ``skipped``.\n    started_at: When it began.\n    ended_at: When it ended.\n    mount: The fullest writable disk.\n    percent_before: How full it was before.\n    percent_after: How full it was after.\n    freed_bytes: The total freed, when known.\n    actions: What each action did.\n    reason: Why nothing ran, when it did not.\n    reason_coded: ``reason`` as a code and its values, when it is a sentence of the\n        server's catalog.\n    actor: Who asked; empty for the timer.",
         "properties": {
           "actions": {
             "items": {
@@ -10990,6 +11000,16 @@
               }
             ],
             "title": "Reason"
+          },
+          "reason_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "started_at": {
             "title": "Started At",
@@ -17658,8 +17678,18 @@
         "type": "object"
       },
       "DiagnoseCheck": {
-        "description": "One diagnostic probe's result.\n\nMirrors :class:`noust.managers.diagnose.Check` field for field: this module\nonly translates it to HTTP, it does not reinterpret it.\n\nAttributes:\n    name: Stable identifier for the probe, such as ``\"unit\"`` or ``\"port\"``.\n    status: ``\"ok\"``, ``\"warn\"``, ``\"fail\"`` or ``\"skip\"``.\n    summary: One line, in Noust's own words.\n    evidence: Raw output the probe collected, verbatim.",
+        "description": "One diagnostic probe's result.\n\nMirrors :class:`noust.managers.diagnose.Check` field for field: this module\nonly translates it to HTTP, it does not reinterpret it.\n\nAttributes:\n    name: Stable identifier for the probe, such as ``\"unit\"`` or ``\"port\"``.\n    status: ``\"ok\"``, ``\"warn\"``, ``\"fail\"`` or ``\"skip\"``.\n    summary: One line, in Noust's own words.\n    evidence: Raw output the probe collected, verbatim.\n    coded: ``summary`` as a code and its values, for the console to translate; null for\n        a check nobody gave a code.",
         "properties": {
+          "coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "evidence": {
             "default": "",
             "title": "Evidence",
@@ -17687,7 +17717,7 @@
         "type": "object"
       },
       "DiagnoseResponse": {
-        "description": "The full answer to \"why is this app down\".\n\nMirrors :class:`noust.managers.diagnose.Diagnosis`, which is also what\n``noust diagnose --json`` prints - the console and the CLI read the same\nshape.\n\nAttributes:\n    domain: The domain that was diagnosed.\n    verdict: ``\"healthy\"``, ``\"degraded\"`` or ``\"down\"``.\n    probable_cause: One sentence naming the most likely explanation, or\n        ``None`` when the checks disagree with each other or are all clean.\n    checks: Every probe that ran, in the order it ran in.",
+        "description": "The full answer to \"why is this app down\".\n\nMirrors :class:`noust.managers.diagnose.Diagnosis`, which is also what\n``noust diagnose --json`` prints - the console and the CLI read the same\nshape.\n\nAttributes:\n    domain: The domain that was diagnosed.\n    verdict: ``\"healthy\"``, ``\"degraded\"`` or ``\"down\"``.\n    probable_cause: One sentence naming the most likely explanation, or\n        ``None`` when the checks disagree with each other or are all clean.\n    checks: Every probe that ran, in the order it ran in.\n    probable_cause_coded: ``probable_cause`` as a code and its values; null when there\n        is no cause.",
         "properties": {
           "checks": {
             "items": {
@@ -17710,6 +17740,16 @@
               }
             ],
             "title": "Probable Cause"
+          },
+          "probable_cause_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "verdict": {
             "title": "Verdict",
@@ -29285,6 +29325,17 @@
           "current_step": {
             "title": "Current Step",
             "type": "string"
+          },
+          "current_step_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "current_step as a sentence of the server's catalog (code and values), when it is one; each entry of logs carries its own under coded"
           },
           "deployment_id": {
             "anyOf": [
@@ -44975,8 +45026,18 @@
         "type": "object"
       },
       "ReloadResponse": {
-        "description": "Response for a web server reload.",
+        "description": "Response for a web server reload.\n\nAttributes:\n    success: It reloaded.\n    message: What was done, in a sentence.\n    webserver: The web server that was reloaded.\n    coded: ``message`` as a code and its values.",
         "properties": {
+          "coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "message": {
             "title": "Message",
             "type": "string"
@@ -52803,8 +52864,18 @@
         "type": "object"
       },
       "SiteActionResponse": {
-        "description": "Response for site actions.",
+        "description": "Response for site actions.\n\nAttributes:\n    success: The action was done.\n    message: What was done, in a sentence.\n    site: The site's domain.\n    coded: ``message`` as a code and its values, for the console to say it in its own\n        language and to tell a warning from a success by the code, never by the words.",
         "properties": {
+          "coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "message": {
             "title": "Message",
             "type": "string"
@@ -55128,7 +55199,7 @@
         "type": "object"
       },
       "SourceInspectionResponse": {
-        "description": "What a repository is, discovered before anything is deployed from it.\n\nAttributes:\n    app_type: The application type the new-app wizard would deploy as;\n        the first entry of ``detected_types``.\n    detected_types: Every registered application type that recognised\n        the repository, most specific first (registry priority order).\n    package_manager: The Node package manager the repository's lock file\n        implies, or None when it is not a Node project.\n    install_command: Argv the chosen deployer would run to install\n        dependencies. Empty when the type has none.\n    build_command: Argv the chosen deployer would run to build the\n        project. Empty when there is nothing to build.\n    start_command: Shell command the chosen deployer would run as the\n        service's ``ExecStart``. Empty for a static site.\n    default_port: Port the chosen deployer uses when none is requested.\n    env_keys: Environment variables discovered from ``.env.example``.\n    branch: The branch inspected, or the checkout's current branch when\n        none was requested.\n    commit: Short commit hash of the checkout, empty when the source is\n        not a Git repository.\n    compatible: Whether this server can deploy it as ``app_type`` as it\n        is: false when a program the type needs is missing.\n    verdict: What Noust found, in a sentence.\n    suggestion: What to do before deploying, when there is something.",
+        "description": "What a repository is, discovered before anything is deployed from it.\n\nAttributes:\n    app_type: The application type the new-app wizard would deploy as;\n        the first entry of ``detected_types``.\n    detected_types: Every registered application type that recognised\n        the repository, most specific first (registry priority order).\n    package_manager: The Node package manager the repository's lock file\n        implies, or None when it is not a Node project.\n    install_command: Argv the chosen deployer would run to install\n        dependencies. Empty when the type has none.\n    build_command: Argv the chosen deployer would run to build the\n        project. Empty when there is nothing to build.\n    start_command: Shell command the chosen deployer would run as the\n        service's ``ExecStart``. Empty for a static site.\n    default_port: Port the chosen deployer uses when none is requested.\n    env_keys: Environment variables discovered from ``.env.example``.\n    branch: The branch inspected, or the checkout's current branch when\n        none was requested.\n    commit: Short commit hash of the checkout, empty when the source is\n        not a Git repository.\n    compatible: Whether this server can deploy it as ``app_type`` as it\n        is: false when a program the type needs is missing.\n    verdict: What Noust found, in a sentence.\n    suggestion: What to do before deploying, when there is something.\n    verdict_coded: ``verdict`` as a code and its values, for the console to translate.\n    suggestion_coded: ``suggestion`` as a code and its values, when it is a sentence of\n        its own (what to install); null when there is none.",
         "properties": {
           "app_type": {
             "title": "App Type",
@@ -55224,6 +55295,17 @@
             "description": "What to do before deploying, when there is something",
             "title": "Suggestion"
           },
+          "suggestion_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The suggestion as a code and its values, when it has one"
+          },
           "verdict": {
             "anyOf": [
               {
@@ -55235,6 +55317,17 @@
             ],
             "description": "What Noust found, in a sentence",
             "title": "Verdict"
+          },
+          "verdict_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The verdict as a code and its values"
           }
         },
         "required": [
@@ -56034,7 +56127,7 @@
         "type": "object"
       },
       "StackNetworkModel": {
-        "description": "One network a stack is on, or defines.\n\nAttributes:\n    name: Its Docker name.\n    id: Its id, shortened.\n    logical: Its name in the compose file.\n    driver: ``bridge``, ``overlay``, ``host``...\n    scope: ``local`` or ``swarm``.\n    internal: Containers on it cannot reach the outside.\n    ipv6: IPv6 is enabled on it.\n    subnets: Its address ranges.\n    owner: The Compose project that made it.\n    shared: Containers that are not the stack's are on it.\n    members: The containers on it.\n    findings: What is worth knowing about it, as Docker reported it.",
+        "description": "One network a stack is on, or defines.\n\nAttributes:\n    name: Its Docker name.\n    id: Its id, shortened.\n    logical: Its name in the compose file.\n    driver: ``bridge``, ``overlay``, ``host``...\n    scope: ``local`` or ``swarm``.\n    internal: Containers on it cannot reach the outside.\n    ipv6: IPv6 is enabled on it.\n    subnets: Its address ranges.\n    owner: The Compose project that made it.\n    shared: Containers that are not the stack's are on it.\n    members: The containers on it.\n    findings: What is worth knowing about it, as Docker reported it.\n    findings_coded: ``findings`` as codes and values, in the same order.",
         "properties": {
           "driver": {
             "title": "Driver",
@@ -56045,6 +56138,13 @@
               "type": "string"
             },
             "title": "Findings",
+            "type": "array"
+          },
+          "findings_coded": {
+            "items": {
+              "$ref": "#/components/schemas/CodedText"
+            },
+            "title": "Findings Coded",
             "type": "array"
           },
           "id": {
@@ -56112,7 +56212,7 @@
         "type": "object"
       },
       "StackNetworksResponse": {
-        "description": "The networks of an application.\n\nAttributes:\n    app: The application's domain.\n    applicable: It is a stack Docker runs.\n    reason: Why not, when it is not.\n    containers: The names of the stack's containers.\n    isolated: Every network is the stack's own and nothing else is on it.\n    networks: The networks.",
+        "description": "The networks of an application.\n\nAttributes:\n    app: The application's domain.\n    applicable: It is a stack Docker runs.\n    reason: Why not, when it is not.\n    reason_coded: ``reason`` as a code and its values; null when it is applicable.\n    containers: The names of the stack's containers.\n    isolated: Every network is the stack's own and nothing else is on it.\n    networks: The networks.",
         "properties": {
           "app": {
             "title": "App",
@@ -56144,6 +56244,16 @@
             "default": "",
             "title": "Reason",
             "type": "string"
+          },
+          "reason_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -56676,7 +56786,7 @@
         "type": "object"
       },
       "StreamPlanResponse": {
-        "description": "What publishing a port would do.\n\nAttributes:\n    exposure: The exposure as it would be recorded.\n    config: The text of its nginx file.\n    file: Where that file goes.\n    loader: ``present``, or ``write`` when Noust would write the block that carries it.\n    support: What nginx offers.\n    warnings: Things that are probably wrong and do not stop it.\n    firewall: The rules the firewall would be asked for.",
+        "description": "What publishing a port would do.\n\nAttributes:\n    exposure: The exposure as it would be recorded.\n    config: The text of its nginx file.\n    file: Where that file goes.\n    loader: ``present``, or ``write`` when Noust would write the block that carries it.\n    support: What nginx offers.\n    warnings: Things that are probably wrong and do not stop it.\n    firewall: The rules the firewall would be asked for.\n    warnings_coded: ``warnings`` as codes and values, in the same order.",
         "properties": {
           "config": {
             "title": "Config",
@@ -56709,6 +56819,13 @@
               "type": "string"
             },
             "title": "Warnings",
+            "type": "array"
+          },
+          "warnings_coded": {
+            "items": {
+              "$ref": "#/components/schemas/CodedText"
+            },
+            "title": "Warnings Coded",
             "type": "array"
           }
         },
@@ -56790,7 +56907,7 @@
         "type": "object"
       },
       "StreamResultResponse": {
-        "description": "What publishing or closing a port did.\n\nAttributes:\n    exposure: The exposure.\n    warnings: Things the operator should know.\n    firewall: A sentence on the firewall.",
+        "description": "What publishing or closing a port did.\n\nAttributes:\n    exposure: The exposure.\n    warnings: Things the operator should know.\n    firewall: A sentence on the firewall.\n    warnings_coded: ``warnings`` as codes and values, in the same order.\n    firewall_coded: ``firewall`` as a code and its values; null when there is none.",
         "properties": {
           "exposure": {
             "$ref": "#/components/schemas/StreamExposureModel"
@@ -56799,11 +56916,28 @@
             "title": "Firewall",
             "type": "string"
           },
+          "firewall_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "warnings": {
             "items": {
               "type": "string"
             },
             "title": "Warnings",
+            "type": "array"
+          },
+          "warnings_coded": {
+            "items": {
+              "$ref": "#/components/schemas/CodedText"
+            },
+            "title": "Warnings Coded",
             "type": "array"
           }
         },
@@ -56816,11 +56950,21 @@
         "type": "object"
       },
       "StreamSupportModel": {
-        "description": "Whether nginx here can publish a port, and what is missing.\n\nAttributes:\n    available: Everything needed is in place or Noust can put it in place.\n    module: ``static``, ``dynamic`` or ``missing``.\n    loader: ``present``, ``installable``, ``foreign`` or ``manual``.\n    problem: What is missing, when something is.\n    hint: How to fix it: a command, or the line to add.\n    install: The software component that supplies what is missing (``nginx``,\n        ``nginx_stream_module``), to install with ``POST /api/server/software/{id}/install``;\n        null when Noust installs nothing for it here.",
+        "description": "Whether nginx here can publish a port, and what is missing.\n\nAttributes:\n    available: Everything needed is in place or Noust can put it in place.\n    module: ``static``, ``dynamic`` or ``missing``.\n    loader: ``present``, ``installable``, ``foreign`` or ``manual``.\n    problem: What is missing, when something is.\n    hint: How to fix it: a command, or the line to add.\n    install: The software component that supplies what is missing (``nginx``,\n        ``nginx_stream_module``), to install with ``POST /api/server/software/{id}/install``;\n        null when Noust installs nothing for it here.\n    coded: ``problem`` and ``hint`` as a code and its values, for the console to translate;\n        null when nothing is wrong. A ``hint`` that is nginx's own output has no code.",
         "properties": {
           "available": {
             "title": "Available",
             "type": "boolean"
+          },
+          "coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "hint": {
             "anyOf": [
@@ -57187,6 +57331,16 @@
             "title": "Reason",
             "type": "string"
           },
+          "reason_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "recommended": {
             "title": "Recommended",
             "type": "boolean"
@@ -57223,6 +57377,13 @@
               "type": "string"
             },
             "title": "Warnings",
+            "type": "array"
+          },
+          "warnings_coded": {
+            "items": {
+              "$ref": "#/components/schemas/CodedText"
+            },
+            "title": "Warnings Coded",
             "type": "array"
           }
         },
@@ -108218,7 +108379,7 @@
     },
     "/api/operations/active": {
       "get": {
-        "description": "List the long operations that are running now.\n\nReturns:\n    What runs, oldest first. For a principal that does not see every team, only the\n    operations on an application it sees: what is about the machine is the instance's.",
+        "description": "List the long operations that are running now.\n\nThe session is asked for by name, as every route of the jobs does: the router's guard already\nrefuses a request without one, and this keeps the route in the graph the authentication test\nreads whatever version of FastAPI includes the routers.\n\nArgs:\n    session: The caller's session.\n\nReturns:\n    What runs, oldest first. For a principal that does not see every team, only the\n    operations on an application it sees: what is about the machine is the instance's.",
         "operationId": "active_operations_now_api_operations_active_get",
         "responses": {
           "200": {

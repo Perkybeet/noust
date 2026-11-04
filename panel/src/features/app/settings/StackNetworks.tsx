@@ -7,6 +7,7 @@ import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Mono } from "../../../components/ui/Mono";
+import { ServerText } from "../../../components/ui/ServerText";
 import { SkeletonCard } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
@@ -38,11 +39,15 @@ export function StackNetworksCard({ domain }: { domain: string }) {
       </Card>
     );
   }
-  const { networks, isolated, applicable, reason } = view.data;
+  const { networks, isolated, applicable, reason, reason_coded: reasonCoded } = view.data;
   return (
     <Card title={title} icon={SETTINGS_ICONS.stackNetworks} description={description}>
       <div className="flex flex-col gap-4">
-        {!applicable ? <p className="text-13 text-fg-muted">{reason}</p> : null}
+        {!applicable ? (
+          <p className="text-13 text-fg-muted">
+            <ServerText coded={reasonCoded} text={reason} />
+          </p>
+        ) : null}
         {applicable && networks.length === 0 ? <EmptyState variant="inline" title={t("composeSettings.networks.none")} /> : null}
         {applicable && networks.length > 0 ? (
           <p className="text-14" role="status">
@@ -69,8 +74,10 @@ export function StackNetworksCard({ domain }: { domain: string }) {
                     </li>
                   ))}
                 </ul>
-                {network.findings.map((finding) => (
-                  <InlineMessage key={finding}>{finding}</InlineMessage>
+                {network.findings.map((finding, index) => (
+                  <InlineMessage key={finding}>
+                    <ServerText coded={network.findings_coded?.[index]} text={finding} />
+                  </InlineMessage>
                 ))}
               </li>
             ))}

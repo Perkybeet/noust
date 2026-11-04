@@ -137,6 +137,14 @@ class TestReading:
 
         assert status.supported is False
         assert "lxc" in status.reason
+        assert status.reason_coded is not None
+        assert status.reason_coded.code == "swap.unsupported_container"
+        assert status.reason_coded.params == {"container": "lxc"}
+        assert status.reason == status.reason_coded.text
+        assert status.to_dict()["reason_coded"] == {
+            "code": "swap.unsupported_container",
+            "params": {"container": "lxc"},
+        }
 
     def test_a_cloud_init_that_configures_swap_is_a_warning(self, host) -> None:
         (host.root / "etc/cloud").mkdir(parents=True)
@@ -147,6 +155,15 @@ class TestReading:
         status = _manager(FakeRunner(), host).status()
 
         assert any("cloud-init" in warning for warning in status.warnings)
+        assert [w.code for w in status.warnings_coded] == ["swap.cloud_init"]
+        assert status.warnings == [w.text for w in status.warnings_coded]
+        assert status.to_dict()["warnings_coded"] == [{"code": "swap.cloud_init", "params": {}}]
+
+    def test_a_machine_that_can_have_swap_says_nothing_is_wrong(self, host) -> None:
+        status = _manager(FakeRunner(), host).status()
+
+        assert status.reason == "" and status.reason_coded is None
+        assert status.warnings == [] and status.warnings_coded == []
 
 
 class TestMaking:

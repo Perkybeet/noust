@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ApiError } from "../api/errors";
+import { loadCatalog } from "../i18n";
 import { describeError } from "./errors";
 
 describe("describeError", () => {
@@ -56,5 +57,47 @@ describe("describeError", () => {
   it("has no output when the error does not carry one", () => {
     expect(describeError({ detail: "Not found", output: null }).output).toBeNull();
     expect(describeError({ detail: "Not found" }).output).toBeNull();
+  });
+
+  it("says a sentence of the server's catalog in this console's language when the error carries its code", async () => {
+    await loadCatalog("es");
+    const { setLocale } = await import("../app/locale");
+    await setLocale("es");
+    const refused = new ApiError(
+      409,
+      "prerequisiteerror",
+      "nginx is not installed",
+      "Install it with: apt install nginx",
+      null,
+      null,
+      null,
+      null,
+      { coded: { code: "streams.support.no_nginx", params: { command: "apt install nginx" } } },
+    );
+
+    expect(describeError(refused)).toEqual({
+      detail: "nginx no está instalado",
+      hint: "Instálalo con: apt install nginx",
+      output: null,
+    });
+  });
+
+  it("keeps the server's English where this console has no text for the code, and where a fix is a program's output", async () => {
+    await loadCatalog("es");
+    const { setLocale } = await import("../app/locale");
+    await setLocale("es");
+    const newer = new ApiError(400, "validationerror", "Something new.", "Do the new thing.", null, null, null, null, {
+      coded: { code: "a.code.this.console.lacks", params: {} },
+    });
+    const output = new ApiError(409, "prerequisiteerror", "nginx cannot read its own configuration", "nginx: [emerg] unexpected end of file", null, null, null, null, {
+      coded: { code: "streams.support.config_unreadable", params: {} },
+    });
+
+    expect(describeError(newer)).toEqual({ detail: "Something new.", hint: "Do the new thing.", output: null });
+    expect(describeError(output)).toEqual({
+      detail: "nginx no puede leer su propia configuración",
+      hint: "nginx: [emerg] unexpected end of file",
+      output: null,
+    });
   });
 });

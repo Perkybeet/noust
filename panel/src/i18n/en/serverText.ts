@@ -194,6 +194,310 @@ export const serverText = {
     stack_not_restored: { text: "The update of {domain} did not pass its startup check; what was serving could not be put back entirely" },
     stack_unhealthy: { text: "The update of {domain} did not pass its startup check" },
   },
+  diagnose: {
+    blue_green: {
+      idle_failed: {
+        text: "{serving} serves on port {port}; {idle} is {idle_state}; its last start failed, so {serving} kept serving",
+      },
+      idle_failed_release: {
+        text: "{serving} serves release {release} on port {port}; {idle} is {idle_state}; its last start failed, so {serving} kept serving",
+      },
+      leftover: {
+        text: "{unit}.service still runs beside the instances; the next activation will refuse to start blue on port {port}",
+      },
+      no_instance: {
+        text: "Zero-downtime mode is on but no instance is recorded as serving",
+      },
+      off: {
+        text: "Not in zero-downtime mode",
+      },
+      serving: {
+        text: "{serving} serves on port {port}; {idle} is {idle_state}",
+      },
+      serving_release: {
+        text: "{serving} serves release {release} on port {port}; {idle} is {idle_state}",
+      },
+      upstream_mismatch: {
+        text: "nginx proxies to {upstream_port}, but {serving} serves on {port}",
+      },
+      upstream_none: {
+        text: "nginx proxies to no upstream, but {serving} serves on {port}",
+      },
+    },
+    cause: {
+      certificate_expired: {
+        text: "The TLS certificate for {domain} expired on {expiry}.",
+      },
+      crash_loop: {
+        text: "The process exits with status {status} at start; see the last journal lines below.",
+      },
+      disk_full: {
+        text: "The disk holding the apps directory is {percent}% full.",
+      },
+      nginx_status: {
+        text: "The app answers directly, but nginx returns {status} for {domain}; nginx cannot reach the app.",
+      },
+      nginx_unreachable: {
+        text: "The app answers directly, but nginx cannot connect ({error}) for {domain}; nginx cannot reach the app.",
+      },
+      no_unit: {
+        text: "No systemd unit found for {unit}; it has never been started or its unit was removed.",
+      },
+      oom: {
+        text: "Killed by the kernel for running out of memory (limit or machine).",
+      },
+      port_elsewhere: {
+        text: "Listening on {actual_port}, Noust routes to {recorded_port}.",
+      },
+      port_silent: {
+        text: "The process is running but not listening on port {port}.",
+      },
+      unit_failed: {
+        text: "The unit failed to start (Result={result}, exit status {status}); see the last journal lines below.",
+      },
+      upstream_mismatch: {
+        text: "nginx proxies {domain} to {upstream_port}, but the {serving} instance listens on {port}.",
+      },
+      upstream_none: {
+        text: "nginx proxies {domain} to no upstream, but the {serving} instance listens on {port}.",
+      },
+      worker: {
+        text: "The worker's {summary}; see their output below.",
+      },
+      worker_port: {
+        text: "{domain} publishes no port, yet port {port} is recorded for it: clear it with {command}.",
+      },
+    },
+    certificate: {
+      bad_expiry: {
+        text: "Unreadable expiry date for {label}",
+      },
+      expired: {
+        text: "The certificate for {label} expired on {expiry}",
+      },
+      expires_one: {
+        text: "The certificate for {label} expires in 1 day",
+      },
+      expires_several: {
+        text: "The certificate for {label} expires in {days} days",
+      },
+      missing: {
+        text: "TLS is enabled for {domain} but no certificate was found",
+      },
+      no_expiry: {
+        text: "Could not read the expiry date for {label}",
+      },
+      none: {
+        text: "No certificate found for {domain}",
+      },
+      valid_one: {
+        text: "The certificate for {label} is valid for 1 more day",
+      },
+      valid_several: {
+        text: "The certificate for {label} is valid for {days} more days",
+      },
+    },
+    check: {
+      incomplete: {
+        text: "Could not complete this check",
+      },
+    },
+    containers: {
+      no_app: {
+        text: "No application recorded",
+      },
+      publishes_port: {
+        text: "The stack publishes a port: judged as a web below",
+      },
+      worker: {
+        text: "A worker: {summary}",
+      },
+      worker_with_port: {
+        text: "A worker: {summary}; port {port} is recorded for it, and it publishes none. Clear it with: {command}",
+      },
+    },
+    disk: {
+      usage: {
+        text: "{free} free ({percent}% used) on the filesystem holding {path}",
+      },
+    },
+    http_direct: {
+      no_port: {
+        text: "No backend port to probe directly",
+      },
+      status: {
+        text: "HTTP {status} from 127.0.0.1:{port}",
+      },
+      unreachable: {
+        text: "Could not reach the app directly on port {port}",
+      },
+    },
+    http_nginx: {
+      status: {
+        text: "HTTP {status} from nginx for Host: {domain}",
+      },
+      unreachable: {
+        text: "Could not reach nginx for {domain}",
+      },
+    },
+    journal: {
+      empty: {
+        text: "No journal entries for {unit_file}",
+      },
+      lines_one: {
+        text: "Last journal line for {unit_file}",
+      },
+      lines_several: {
+        text: "Last {count} journal lines for {unit_file}",
+      },
+      no_unit: {
+        text: "No unit named {unit} to read logs from",
+      },
+      skipped_php: {
+        text: "PHP application: it runs in its PHP-FPM pool, checked under php_fpm, no unit to read logs from",
+      },
+      skipped_static: {
+        text: "Static site: served directly by the web server, no unit to read logs from",
+      },
+      unreadable: {
+        text: "Could not read the journal for {unit_file}",
+      },
+    },
+    last_deployment: {
+      cancelled: {
+        text: "The last deployment was cancelled; what served before still serves",
+      },
+      cancelled_by: {
+        text: "The last deployment was cancelled by {actor}; what served before still serves",
+      },
+      failed: {
+        text: "The last deployment failed",
+      },
+      failed_with: {
+        text: "The last deployment failed: {error}",
+      },
+      none: {
+        text: "No deployment recorded for this domain",
+      },
+      state: {
+        text: "The last deployment is {status}",
+      },
+      succeeded: {
+        text: "The last deployment succeeded",
+      },
+    },
+    nginx_log: {
+      clean: {
+        text: "No nginx error log lines mention this domain",
+      },
+      lines_one: {
+        text: "1 nginx error log line mentions this domain or an upstream",
+      },
+      lines_several: {
+        text: "{count} nginx error log lines mention this domain or an upstream",
+      },
+      unreadable: {
+        text: "Could not read {path}",
+      },
+    },
+    oom: {
+      found: {
+        text: "The kernel log shows OOM activity in the last 7 days",
+      },
+      none: {
+        text: "No OOM kills in the kernel log in the last 7 days",
+      },
+      unreadable: {
+        text: "Could not read the kernel log",
+      },
+    },
+    php_fpm: {
+      config_refused: {
+        text: "PHP-FPM refuses its configuration; see {command} below.",
+      },
+      no_answer: {
+        text: "The PHP-FPM pool does not answer the startup check; see PHP's errors below.",
+      },
+      no_record: {
+        text: "No application record",
+      },
+      ok: {
+        text: "The PHP-FPM pool answers ({service} {state})",
+      },
+      pool_disabled: {
+        text: "The PHP-FPM pool is disabled (stopped); start it with {command}.",
+      },
+      pool_missing: {
+        text: "The PHP-FPM pool file {pool_file} is missing; redeploy with {command}.",
+      },
+      service_down: {
+        text: "{service}, which runs every PHP pool, is {state}.",
+      },
+    },
+    port: {
+      elsewhere: {
+        text: "The app listens on {actual_port}, not the recorded port {recorded_port}",
+      },
+      listening: {
+        text: "Port {port} is listening",
+      },
+      listening_process: {
+        text: "Port {port} is listening ({processes})",
+      },
+      not_recorded: {
+        text: "No port recorded for this app",
+      },
+      silent: {
+        text: "Nothing is listening on port {port}",
+      },
+      skipped_php: {
+        text: "PHP application: it runs in its PHP-FPM pool, checked under php_fpm, no backend port to check",
+      },
+      skipped_static: {
+        text: "Static site: served directly by the web server, no backend port to check",
+      },
+    },
+    unit: {
+      active: {
+        text: "{unit_file} is active (running)",
+      },
+      active_unmanaged: {
+        text: "{unit_file} is active (running) (not managed by Noust)",
+      },
+      failed: {
+        text: "{unit_file} failed (Result={result})",
+      },
+      failed_unmanaged: {
+        text: "{unit_file} failed (not managed by Noust) (Result={result})",
+      },
+      missing: {
+        text: "No systemd unit found for {unit}",
+      },
+      restarting: {
+        text: "{unit_file} is restarting ({restarts} restarts so far)",
+      },
+      restarting_unmanaged: {
+        text: "{unit_file} is restarting (not managed by Noust) ({restarts} restarts so far)",
+      },
+      skipped_php: {
+        text: "PHP application: it runs in its PHP-FPM pool, checked under php_fpm, no unit",
+      },
+      skipped_static: {
+        text: "Static site: served directly by the web server, no unit",
+      },
+      state: {
+        text: "{unit_file} is {active_state}/{sub_state}",
+      },
+      state_unmanaged: {
+        text: "{unit_file} is {active_state}/{sub_state} (not managed by Noust)",
+      },
+    },
+    zero_downtime: {
+      could: {
+        text: "Its updates restart it in place; it could update without a cut",
+      },
+    },
+  },
   doctor: {
     config: {
       apps_dir_missing: {
@@ -568,6 +872,116 @@ export const serverText = {
       text: "This {kind} is larger than the {limit} bytes a setting may be",
     },
   },
+  inspect: {
+    can_deploy: {
+      text: "Noust can deploy this as {type}.",
+    },
+    can_deploy_also: {
+      text: "Noust can deploy this as {type}. It also looks like {others}; choose that type instead to deploy it that way.",
+    },
+    container_dockerfile: {
+      text: "Noust can deploy this as a container, built from its Dockerfile.",
+    },
+    container_dockerfile_also: {
+      text: "Noust can deploy this as a container, built from its Dockerfile. It also looks like {others}; choose that type instead to deploy it that way.",
+    },
+    container_railpack: {
+      text: "Noust can deploy this as a container, built by Railpack: it has no Dockerfile.",
+    },
+    container_railpack_also: {
+      text: "Noust can deploy this as a container, built by Railpack: it has no Dockerfile. It also looks like {others}; choose that type instead to deploy it that way.",
+    },
+    dockerfile: {
+      unreadable: {
+        text: "The repository has a {dockerfile}, but it could not be read as one.",
+        hint: "Deploy it as a container: {command}. Check the {dockerfile} is a file, not a link, and is committed on this branch.",
+      },
+    },
+    dotnet: {
+      no_web_project: {
+        text: "This is a .NET project ({marker}), but Noust found no web project to run in it.",
+        hint: "Deploy it as a container: add a Dockerfile to the repository and deploy it with --type container. Without a Dockerfile, install Railpack ({setup_command}), which builds it into a container by itself: --type container --builder railpack.",
+      },
+      no_web_project_with_railpack: {
+        text: "This is a .NET project ({marker}), but Noust found no web project to run in it.",
+        hint: "Deploy it as a container, which Railpack builds without a Dockerfile (it is installed here): {command}. Or add a Dockerfile and deploy it with --type container.",
+      },
+    },
+    install_deno: {
+      text: "Install Deno 2 system-wide, where the build account can run it ({command}, or the installer of {url} with {env_command}). Then deploy it.",
+    },
+    install_setup_init: {
+      text: "Install what it needs with {command}, then deploy it.",
+    },
+    install_toolchain: {
+      text: "Install the toolchain with: {command}. Then deploy it.",
+    },
+    missing_programs: {
+      text: "This is a {type} project, but this server does not have {programs}.",
+    },
+    no_match: {
+      text: "Nothing in the repository matches an application type Noust deploys.",
+      hint: "Noust recognises a project by the files at the root of the repository ({examples}, or a package.json with a start script). Check the branch, or choose a type explicitly instead of relying on auto-detection.",
+    },
+    package_json: {
+      no_start: {
+        text: "package.json has no start script, no main entry and no framework Noust recognises (Next.js, Vite, Nuxt, SvelteKit, Astro, Remix, Angular).",
+        hint: "Add a start script to package.json ({example_command}) or a \"main\" entry, so Noust knows how to run it; or choose the type explicitly.",
+      },
+      unreadable: {
+        text: "package.json cannot be read as JSON.",
+        hint: "Fix package.json and inspect again ({error}).",
+      },
+    },
+    stack: {
+      no_deployer: {
+        text: "This is a {stack} project ({marker}); Noust has no {stack} deployer.",
+        hint: "Deploy it as a container: add a Dockerfile to the repository and deploy it with --type container. Without a Dockerfile, install Railpack ({setup_command}), which builds it into a container by itself: --type container --builder railpack.",
+      },
+      no_deployer_with_railpack: {
+        text: "This is a {stack} project ({marker}); Noust has no {stack} deployer.",
+        hint: "Deploy it as a container, which Railpack builds without a Dockerfile (it is installed here): {command}. Or add a Dockerfile and deploy it with --type container.",
+      },
+      no_program: {
+        text: "This is a {stack} project ({marker}), but Noust found no program to run in it.",
+        hint: "Deploy it as a container: add a Dockerfile to the repository and deploy it with --type container. Without a Dockerfile, install Railpack ({setup_command}), which builds it into a container by itself: --type container --builder railpack.",
+      },
+      no_program_with_railpack: {
+        text: "This is a {stack} project ({marker}), but Noust found no program to run in it.",
+        hint: "Deploy it as a container, which Railpack builds without a Dockerfile (it is installed here): {command}. Or add a Dockerfile and deploy it with --type container.",
+      },
+    },
+    subprojects: {
+      text: "Nothing Noust deploys at the root of the repository; found {found}.",
+      hint: "Noust deploys a repository from its root, or one application per project of it: a JavaScript monorepo (npm, Yarn, pnpm, Lerna, Nx or Turborepo workspaces) is read with '{detect_command}' and each application created with '{create_command}', on releases and watching only its own files. Otherwise deploy each project from a repository of its own, or add a compose.yaml at the root that builds them and deploy it as Docker Compose.",
+    },
+    turbo: {
+      no_apps: {
+        text: "The repository uses Turborepo (turbo.json) but is not a monorepo Noust deploys: no app under apps/ has a package.json.",
+        hint: "The monorepo type needs turbo.json, a workspace config and at least two apps under apps/, each with its own package.json. With a single app, move it to the root of the repository; or add a compose.yaml at the root that builds the apps and deploy it as Docker Compose.",
+      },
+      no_workspace: {
+        text: "The repository uses Turborepo (turbo.json) but is not a monorepo Noust deploys: no workspace (pnpm-workspace.yaml, or \"workspaces\" in package.json).",
+        hint: "The monorepo type needs turbo.json, a workspace config and at least two apps under apps/, each with its own package.json. With a single app, move it to the root of the repository; or add a compose.yaml at the root that builds the apps and deploy it as Docker Compose.",
+      },
+      no_workspace_no_apps: {
+        text: "The repository uses Turborepo (turbo.json) but is not a monorepo Noust deploys: no workspace (pnpm-workspace.yaml, or \"workspaces\" in package.json); no app under apps/ has a package.json.",
+        hint: "The monorepo type needs turbo.json, a workspace config and at least two apps under apps/, each with its own package.json. With a single app, move it to the root of the repository; or add a compose.yaml at the root that builds the apps and deploy it as Docker Compose.",
+      },
+      no_workspace_one_app: {
+        text: "The repository uses Turborepo (turbo.json) but is not a monorepo Noust deploys: no workspace (pnpm-workspace.yaml, or \"workspaces\" in package.json); only apps/{app}/ has a package.json under apps/.",
+        hint: "The monorepo type needs turbo.json, a workspace config and at least two apps under apps/, each with its own package.json. With a single app, move it to the root of the repository; or add a compose.yaml at the root that builds the apps and deploy it as Docker Compose.",
+      },
+      one_app: {
+        text: "The repository uses Turborepo (turbo.json) but is not a monorepo Noust deploys: only apps/{app}/ has a package.json under apps/.",
+        hint: "The monorepo type needs turbo.json, a workspace config and at least two apps under apps/, each with its own package.json. With a single app, move it to the root of the repository; or add a compose.yaml at the root that builds the apps and deploy it as Docker Compose.",
+      },
+      other: {
+        text: "The repository uses Turborepo (turbo.json) but is not a monorepo Noust deploys.",
+        hint: "The monorepo type needs turbo.json, a workspace config and at least two apps under apps/, each with its own package.json. With a single app, move it to the root of the repository; or add a compose.yaml at the root that builds the apps and deploy it as Docker Compose.",
+      },
+    },
+  },
   invitation: {
     mail_failed: {
       text: "The invitation could not be mailed: {reason}",
@@ -575,6 +989,261 @@ export const serverText = {
     },
   },
   jobs: {
+    step: {
+      backup: {
+        complete: {
+          text: "Backup complete",
+        },
+        creating: {
+          text: "Creating backup",
+        },
+        upload_complete: {
+          text: "Upload complete",
+        },
+        uploading: {
+          text: "Uploading to {destination}",
+        },
+      },
+      bundle: {
+        active: {
+          text: "Release active",
+        },
+        building: {
+          text: "Building to ship",
+        },
+        packed: {
+          text: "Packed, waiting to be fetched",
+        },
+        receiving: {
+          text: "Receiving the release",
+        },
+      },
+      certificate: {
+        created: {
+          text: "Certificate created",
+        },
+        requesting: {
+          text: "Requesting certificate",
+        },
+        serving: {
+          text: "Serving it",
+        },
+      },
+      clone: {
+        complete: {
+          text: "Clone complete",
+        },
+      },
+      complete: {
+        text: "Complete",
+      },
+      delete: {
+        complete: {
+          text: "Deletion complete",
+        },
+      },
+      deploy: {
+        complete: {
+          text: "Deployment complete",
+        },
+        copying_data: {
+          text: "Copying the data",
+        },
+        database: {
+          text: "Creating the {engine} database",
+        },
+        deploying: {
+          text: "Deploying the application",
+        },
+        preparing: {
+          text: "Preparing deployment",
+        },
+        recipe: {
+          text: "Preparing the {recipe} recipe",
+        },
+      },
+      disk: {
+        giving_limit: {
+          text: "Giving the limit to the kernel",
+        },
+        measuring: {
+          text: "Measuring the application's directory",
+        },
+        taking_limit: {
+          text: "Taking the limit off the kernel",
+        },
+      },
+      domains: {
+        deleted: {
+          text: "The certificate is deleted",
+        },
+        deleting: {
+          text: "Deleting the certificate of {name}",
+        },
+        extended: {
+          text: "Certificate covers every domain",
+        },
+        extending: {
+          text: "Extending the certificate to every domain",
+        },
+        giving_back: {
+          text: "Giving it back",
+        },
+        in_place: {
+          text: "The certificate is in place",
+        },
+        ordering: {
+          text: "Ordering the certificate of its own",
+        },
+        removed: {
+          text: "Certificate covers only the remaining domains",
+        },
+        removing: {
+          text: "Removing the domain from the certificate",
+        },
+      },
+      done: {
+        text: "All done",
+      },
+      engine: {
+        installing: {
+          text: "Installing {engine}",
+        },
+        uninstalling: {
+          text: "Uninstalling {engine}",
+        },
+      },
+      exec: {
+        finished: {
+          text: "Command finished",
+        },
+        running: {
+          text: "Running a command in {domain}",
+        },
+      },
+      hardening: {
+        changing: {
+          text: "Changing the sandbox of the application's unit",
+        },
+      },
+      identity: {
+        moving: {
+          text: "Moving the application to its own account",
+        },
+      },
+      import: {
+        complete: {
+          text: "Import complete",
+        },
+      },
+      migrate: {
+        complete: {
+          text: "Migration complete",
+        },
+        moving: {
+          text: "Moving the tree onto releases",
+        },
+        planning: {
+          text: "Planning the migration",
+        },
+      },
+      packages: {
+        installing: {
+          text: "Installing the system packages",
+        },
+      },
+      pitr: {
+        recovering: {
+          text: "Point-in-time recovery: {action}",
+        },
+      },
+      promote: {
+        complete: {
+          text: "Promotion complete",
+        },
+      },
+      renewal: {
+        complete: {
+          text: "Renewal complete",
+        },
+        none_due: {
+          text: "No certificate was due for renewal",
+        },
+        renewing: {
+          text: "Renewing certificates",
+        },
+        unreadable: {
+          text: "certbot's certificate list could not be read, so which ones were renewed is unknown",
+        },
+      },
+      replicas: {
+        starting: {
+          text: "Starting the copies and asking each one if it answers",
+        },
+      },
+      restore: {
+        complete: {
+          text: "Restore complete",
+        },
+        downloading: {
+          text: "Downloading and restoring backup",
+        },
+        restoring: {
+          text: "Restoring backup",
+        },
+      },
+      rollback: {
+        complete: {
+          text: "Rollback complete",
+        },
+        rolling_back: {
+          text: "Rolling back",
+        },
+        to_deployment: {
+          text: "Going back to deployment {deployment}",
+        },
+      },
+      sandbox: {
+        building: {
+          text: "Building the current commit in the sandbox",
+        },
+      },
+      staged: {
+        building: {
+          text: "Building without activating",
+        },
+        built: {
+          text: "Built, waiting to be promoted",
+        },
+        promoted: {
+          text: "Promoted",
+        },
+        promoting: {
+          text: "Making the release serve",
+        },
+      },
+      tuning: {
+        tuning: {
+          text: "Tuning the application's unit",
+        },
+      },
+      update: {
+        complete: {
+          text: "Update complete",
+        },
+        unit_not_running: {
+          text: "Restarted, but the unit is not running: check its logs",
+        },
+      },
+      zero_downtime: {
+        off: {
+          text: "Turning zero downtime off",
+        },
+        on: {
+          text: "Turning zero downtime on",
+        },
+      },
+    },
     title: {
       app_exec: { text: "Run a command in {domain}" },
       app_exec_any: { text: "Run a command in an application" },
@@ -666,6 +1335,37 @@ export const serverText = {
       words: {
         text: "Use lower-case letters, digits, '-' and '_', starting with a letter, at most {max} characters.",
       },
+    },
+  },
+  networks: {
+    finding: {
+      default_bridge: {
+        text: "It is Docker's default bridge: every container started without a network is on it, and they reach each other by address.",
+      },
+      host: {
+        text: "It is the host's own network: the containers have no network of their own.",
+      },
+      internal: {
+        text: "It is internal: containers on it cannot reach the outside.",
+      },
+      made_elsewhere: {
+        text: "Compose did not make it: it was made by hand or by another tool.",
+      },
+      owned_by_another: {
+        text: "It belongs to the stack {owner}, which made it.",
+      },
+      shared_many: {
+        text: "It is shared: {members} and {more} more are on it too.",
+      },
+      shared_one: {
+        text: "It is shared: {members} is on it too.",
+      },
+      shared_several: {
+        text: "It is shared: {members} are on it too.",
+      },
+    },
+    not_applicable: {
+      text: "This application does not run in Docker, so it has no Docker network.",
     },
   },
   operations: {
@@ -843,6 +1543,40 @@ export const serverText = {
     unknown: {
       text: "There is no role named {name}",
       hint: "List the roles with: {command}",
+    },
+  },
+  sites: {
+    config_updated: {
+      text: "Configuration updated for {domain}. Reload {webserver} to apply it.",
+    },
+    created: {
+      not_loaded: {
+        text: "Site created: {domain}, but {webserver} did not load it: {error}",
+      },
+      reload: {
+        text: "Site created: {domain}. Reload {webserver} to serve it.",
+      },
+      with_ssl: {
+        text: "Site created with SSL: {domain}.",
+      },
+      without_tls: {
+        text: "Site created: {domain}. TLS was requested but not enabled.",
+      },
+      without_tls_because: {
+        text: "Site created: {domain}. TLS was requested but not enabled: {error}.",
+      },
+    },
+    deleted: {
+      text: "Site deleted: {domain}",
+    },
+    disabled: {
+      text: "Site disabled: {domain}",
+    },
+    enabled: {
+      text: "Site enabled: {domain}",
+    },
+    reloaded: {
+      text: "{webserver} reloaded",
     },
   },
   software: {
@@ -1085,6 +1819,107 @@ export const serverText = {
     webhook_unreachable: {
       text: "GitHub cannot reach this central, so a push to a repository its servers deploy deploys nothing",
       hint: "The servers it manages have no address GitHub could call: the App's webhook is this central's. On a server with a web server, give it a name of its own: {command}. Behind a proxy of your own, say where it answers: {config_command}",
+    },
+  },
+  storage: {
+    effect: {
+      docker_build_cache: {
+        text: "Deletes build cache older than a week. The next build is slower for it.",
+      },
+      docker_dangling_images: {
+        text: "Deletes images that have no name and no container. Named images are kept, and so is every noust_previous image.",
+      },
+      docker_image: {
+        text: "Deletes the image {image}, without --force: Docker refuses if a container uses it.",
+      },
+      journal: {
+        text: "Rotates the journal and deletes archived files beyond the limit. The active file is not touched.",
+      },
+      pkg_cache: {
+        text: "Deletes the downloaded package files.",
+      },
+      releases: {
+        text: "Deletes the releases each application keeps beyond its own limit. The active release and the one a rollback goes to always stay.",
+      },
+    },
+    run: {
+      below_threshold: {
+        text: "{mount} is {percent}% full, below the {threshold}% the policy waits for",
+      },
+      policy_off: {
+        text: "the cleanup policy is switched off",
+      },
+    },
+  },
+  streams: {
+    firewall: {
+      allowed_one: {
+        text: "{backend} now allows 1 rule for it",
+      },
+      allowed_several: {
+        text: "{backend} now allows {count} rules for it",
+      },
+      unchanged: {
+        text: "The firewall was not changed",
+      },
+      unchanged_because: {
+        text: "The firewall was not changed: {note}",
+      },
+    },
+    plan: {
+      nothing_listens: {
+        text: "Nothing listens on {target} yet: visitors will be refused until the service is running",
+      },
+      open_to_everyone: {
+        text: "{protocol} {port} will be open to everyone",
+      },
+      open_to_everyone_without_login: {
+        text: "{protocol} {port} will be open to everyone; a service without its own authentication should be restricted to known addresses",
+      },
+    },
+    support: {
+      config_unparsable: {
+        text: "nginx's configuration is not readable: {reason}",
+      },
+      config_unreadable: {
+        text: "nginx cannot read its own configuration",
+      },
+      foreign_block: {
+        text: "nginx.conf already has a stream block that does not include Noust's ports",
+        hint: "Add this line inside it, then run the command again: {line_command}",
+      },
+      module_not_loaded: {
+        text: "The stream module is built as a module and nothing loads it",
+        hint: "Install the module with: {command}",
+      },
+      module_not_loaded_suse: {
+        text: "The stream module is built as a module and nothing loads it",
+        hint: "Add {line_command} at the top of nginx.conf.",
+      },
+      no_nginx: {
+        text: "nginx is not installed",
+        hint: "Install it with: {command}",
+      },
+      no_stream_block: {
+        text: "nginx.conf has no stream block for Noust's ports",
+        hint: "Add this at the top level of nginx.conf (beside http), then run the command again: {block_command}",
+      },
+      no_stream_module: {
+        text: "This nginx was built without the stream module",
+        hint: "Install the module with: {command}",
+      },
+      no_stream_module_suse: {
+        text: "This nginx was built without the stream module",
+        hint: "openSUSE ships nginx with stream; install the nginx package from the distribution or from nginx.org.",
+      },
+    },
+  },
+  swap: {
+    cloud_init: {
+      text: "cloud-init is configured with a swap: section, so it recreates the swap on every boot. Remove that section, or leave the swap to cloud-init.",
+    },
+    unsupported_container: {
+      text: "This is a container ({container}), where swap belongs to the host: swapon is refused inside it.",
     },
   },
   terminal: {

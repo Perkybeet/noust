@@ -238,6 +238,12 @@ class TestRunning:
         assert runner.calls == []
         (recorded,) = schedule.history.list()
         assert recorded.reason == run.reason and recorded.trigger == "schedule"
+        # The sentence is the catalog's, read back from what the history keeps as text, so a row
+        # written before the code existed says it in the console's language too.
+        assert recorded.reason_coded is not None
+        assert recorded.reason_coded.code == "storage.run.below_threshold"
+        assert recorded.reason_coded.params == {"mount": "/", "percent": "42", "threshold": 80}
+        assert recorded.to_dict()["reason_coded"] == recorded.reason_coded.to_dict()
         assert (recorded.mount, recorded.percent_before) == ("/", 42.0)
 
     def test_at_the_threshold_the_actions_run_in_order_and_the_run_says_how_full_the_disk_was(
@@ -278,6 +284,7 @@ class TestRunning:
         run = schedule.run(trigger="schedule")
 
         assert run.status == "skipped" and "switched off" in (run.reason or "")
+        assert run.reason_coded is not None and run.reason_coded.code == "storage.run.policy_off"
         assert runner.calls == []
 
     def test_a_failing_action_is_a_result_beside_the_ones_that_worked(
@@ -486,3 +493,11 @@ class TestTheHistory:
             cursor.execute("UPDATE storage_cleanup_runs SET actions = 'not json'")
 
         assert history.list()[0].actions == []
+
+
+def test_a_reason_that_is_not_a_sentence_of_the_catalog_has_no_code() -> None:
+    run = CleanupRun(trigger="policy", reason="something went wrong in general")
+
+    assert run.reason_coded is None
+    assert run.to_dict()["reason_coded"] is None
+    assert CleanupRun(trigger="policy").reason_coded is None

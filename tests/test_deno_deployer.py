@@ -299,4 +299,5 @@ class TestInstall:
     def test_inspect_suggests_the_same_on_any_distribution(self) -> None:
         suggestion = DenoDeployer.install_suggestion(FakeRunner().only_knows("dnf"))
         assert suggestion is not None
-        assert "Deno 2" in suggestion
+        assert "Deno 2" in suggestion.text
+        assert suggestion.code == "inspect.install_deno"

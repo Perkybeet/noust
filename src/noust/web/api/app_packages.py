@@ -22,6 +22,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
+from noust.core.server_text import say
 from noust.deployers.recorder import CapturingLogger
 from noust.managers.app_packages import MAX_PACKAGES, AppPackages, PackageState
 from noust.web.api.auth import get_current_session
@@ -149,11 +150,11 @@ def install_packages_job(
     logger = CapturingLogger(verbose=False)
     if job_context is not None:
         job_context.set_metadata("domain", domain)
-        job_context.update("Installing the system packages", 10)
+        job_context.update(say("jobs.step.packages.installing"), 10)
         logger.attach_sink(job_context.log)
     change = AppPackages().install(domain, actor=actor, logger=logger)
     if job_context is not None:
-        job_context.update("Done", 100)
+        job_context.update(say("jobs.step.done"), 100)
     return {
         "domain": domain,
         "installed": list(change.installed_now),

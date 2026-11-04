@@ -43,6 +43,7 @@ from noust.core.exceptions import DeploymentError
 from noust.core.fs import FileSystem
 from noust.core.package_family import PackageFamily, install_hint
 from noust.core.runner import CommandRunner
+from noust.core.server_text import ServerText, say
 from noust.deployers.base import BaseDeployer
 from noust.deployers.helpers.container_image import DOCKERFILE_NAMES
 from noust.deployers.registry import DeployerRegistry
@@ -70,25 +71,37 @@ _MODULE_DIRECTIVE = re.compile(r"^module\s+(\S+)[ \t]*(?:\r?\n|\Z)", re.MULTILIN
 _GO_SWITCHES_TOOLCHAINS = (1, 21)
 
 
-def install_suggestion_for(
-    packages: Mapping[PackageFamily, str], runner: CommandRunner, *, sentence: bool = True
-) -> str | None:
+def install_command_for(packages: Mapping[PackageFamily, str], runner: CommandRunner) -> str | None:
     """
     Say how to install a toolchain on this server, and only on this server.
 
     Args:
         packages: The packages that provide it, by package manager.
         runner: Used to tell which package manager this server has.
-        sentence: Wrap the command in the sentence ``noust inspect`` shows; the bare command
-            otherwise.
 
     Returns:
-        The text; None when no package is known for this server.
+        The command; None when no package is known for this server.
     """
     hint = install_hint(packages, runner=runner) if packages else ""
-    if not hint:
-        return None
-    return f"Install the toolchain with: {hint}. Then deploy it." if sentence else hint
+    return hint or None
+
+
+def install_suggestion_for(
+    packages: Mapping[PackageFamily, str], runner: CommandRunner
+) -> ServerText | None:
+    """
+    Say how to install a toolchain on this server, in the sentence ``noust inspect`` shows.
+
+    Args:
+        packages: The packages that provide it, by package manager.
+        runner: Used to tell which package manager this server has.
+
+    Returns:
+        The sentence, with the command as a value the console shows as it is; None when no
+        package is known for this server.
+    """
+    command = install_command_for(packages, runner)
+    return say("inspect.install_toolchain", command=command) if command else None
 
 
 def has_container_file(path: Path) -> bool:
@@ -333,7 +346,7 @@ class CompiledDeployer(BaseDeployer):
         return {"PORT": str(self.port), "HOST": "127.0.0.1"}
 
     @classmethod
-    def install_suggestion(cls, runner: CommandRunner) -> str | None:
+    def install_suggestion(cls, runner: CommandRunner) -> ServerText | None:
         """
         Say how to get the toolchain, for ``noust inspect``.
 
@@ -341,7 +354,8 @@ class CompiledDeployer(BaseDeployer):
             runner: Used to tell which package manager this server has.
 
         Returns:
-            The command, with the next step; None when no package is known for this server.
+            The sentence with the command and the next step; None when no package is known for
+            this server.
         """
         return install_suggestion_for(cls.TOOLCHAIN_PACKAGES, runner)
 
@@ -356,7 +370,7 @@ class CompiledDeployer(BaseDeployer):
             The pre-flight line, with the install command for this server's package manager.
         """
         line = super()._missing_dependencies_issue(missing)
-        hint = install_suggestion_for(self.TOOLCHAIN_PACKAGES, self.runner, sentence=False)
+        hint = install_command_for(self.TOOLCHAIN_PACKAGES, self.runner)
         return f"{line}. Install it with: {hint}" if hint else line
 
 

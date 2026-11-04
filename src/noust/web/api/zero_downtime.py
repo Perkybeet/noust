@@ -18,6 +18,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
+from noust.core.server_text import say
 from noust.core.store import MAX_DRAIN_SECONDS
 from noust.core.teams import scoped_store
 from noust.deployers.bluegreen import (
@@ -163,11 +164,13 @@ def zero_downtime_job(
     logger = CapturingLogger(verbose=False)
     if job_context is not None:
         job_context.set_metadata("domain", domain)
-        job_context.update("Turning zero downtime " + ("on" if enabled else "off"), 10)
+        job_context.update(
+            say("jobs.step.zero_downtime.on" if enabled else "jobs.step.zero_downtime.off"), 10
+        )
         logger.attach_sink(job_context.log)
     change = set_zero_downtime(domain, enabled, drain_seconds=drain_seconds, logger=logger)
     if job_context is not None:
-        job_context.update("Done", 100)
+        job_context.update(say("jobs.step.done"), 100)
     return {
         "domain": change.domain,
         "enabled": change.enabled,

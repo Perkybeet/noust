@@ -488,6 +488,8 @@ export const appPages = {
       disk: "Disk space",
       blueGreen: "Copy that serves",
       zeroDowntime: "Updates without a cut",
+      phpFpm: "PHP-FPM pool",
+      containers: "Worker's containers",
     },
     headline: {
       unit: "The app stops when it starts",

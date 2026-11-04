@@ -21,6 +21,7 @@ import { StatusPill } from "../../../components/ui/StatusPill";
 import type { Status } from "../../../components/ui/StatusPill";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { TextLink } from "../../../components/ui/TextLink";
+import { useServerSentence } from "../../../components/ui/ServerText";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { cx } from "../../../lib/cx";
@@ -190,6 +191,7 @@ function Verdict({
   onRunAgain: () => void;
   t: T;
 }) {
+  const say = useServerSentence();
   const view = verdictView(diagnosis.verdict, t.locale);
   const counts = tally(diagnosis.checks);
   const healthy = view.tone === "ok";
@@ -263,12 +265,12 @@ function Verdict({
             </p>
           </div>
           {diagnosis.probable_cause ? (
-            // The correlation's own words, verbatim, under the product's reading of them.
+            // The correlation's own words, under the product's reading of them: Noust's sentence, in this language.
             <SystemOutput
               label={t("appPages.diagnose.whatTheChecksFound")}
               className="rounded-control border border-border bg-bg-sunken px-3 py-2"
             >
-              {diagnosis.probable_cause}
+              {say(diagnosis.probable_cause_coded, diagnosis.probable_cause)}
             </SystemOutput>
           ) : null}
         </div>
@@ -329,6 +331,7 @@ function CheckRow({
   open: boolean;
   t: T;
 }) {
+  const say = useServerSentence();
   const evidence = check.evidence.trim() !== "";
   const next = nextStep(check, domain, t);
   const label = checkLabel(check.name, t.locale);
@@ -339,7 +342,7 @@ function CheckRow({
         {label}
       </span>
       <span className="min-w-0 flex-1 basis-60 text-13 leading-5 text-pretty text-fg-muted">
-        {check.summary}
+        {say(check.coded, check.summary)}
       </span>
     </>
   );

@@ -20,6 +20,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from noust.core.exceptions import ValidationError
+from noust.core.server_text import say
 from noust.core.teams import scoped_store
 from noust.deployers import hardening as hardening_engine
 from noust.deployers.recorder import CapturingLogger
@@ -127,7 +128,7 @@ def hardening_job(
     logger = CapturingLogger(verbose=False)
     if job_context is not None:
         job_context.set_metadata("domain", domain)
-        job_context.update("Changing the sandbox of the application's unit", 10)
+        job_context.update(say("jobs.step.hardening.changing"), 10)
         logger.attach_sink(job_context.log)
     change = hardening_engine.set_hardening(
         domain,
@@ -138,7 +139,7 @@ def hardening_job(
         logger=logger,
     )
     if job_context is not None:
-        job_context.update("Done", 100)
+        job_context.update(say("jobs.step.done"), 100)
     return {
         "domain": change.domain,
         "profile": change.profile,
