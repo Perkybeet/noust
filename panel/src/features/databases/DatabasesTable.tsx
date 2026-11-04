@@ -196,6 +196,8 @@ export function DatabasesTable({ databases, servers, engines, policies, dumps, c
       // The name is what the row is about: the table gives way elsewhere before it cuts a name that runs to 24 letters.
       width: "min-w-52",
       card: "title",
+      // The tags are under the name: the cell keeps its room, and a database without them keeps its row's height.
+      stacked: (database) => (database.tags?.length ?? 0) > 0,
       sortValue: (database) => database.name,
       cell: (database) => (
         <span className="flex min-w-0 flex-col gap-1">
