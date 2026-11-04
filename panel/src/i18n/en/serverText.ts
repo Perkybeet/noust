@@ -1422,6 +1422,36 @@ export const serverText = {
       hint: "The servers it manages have no address GitHub could call: the App's webhook is this central's. On a server with a web server, give it a name of its own: {command}. Behind a proxy of your own, say where it answers: {config_command}",
     },
   },
+  storage: {
+    effect: {
+      docker_build_cache: {
+        text: "Deletes build cache older than a week. The next build is slower for it.",
+      },
+      docker_dangling_images: {
+        text: "Deletes images that have no name and no container. Named images are kept, and so is every noust_previous image.",
+      },
+      docker_image: {
+        text: "Deletes the image {image}, without --force: Docker refuses if a container uses it.",
+      },
+      journal: {
+        text: "Rotates the journal and deletes archived files beyond the limit. The active file is not touched.",
+      },
+      pkg_cache: {
+        text: "Deletes the downloaded package files.",
+      },
+      releases: {
+        text: "Deletes the releases each application keeps beyond its own limit. The active release and the one a rollback goes to always stay.",
+      },
+    },
+    run: {
+      below_threshold: {
+        text: "{mount} is {percent}% full, below the {threshold}% the policy waits for",
+      },
+      policy_off: {
+        text: "the cleanup policy is switched off",
+      },
+    },
+  },
   streams: {
     firewall: {
       allowed_one: {
@@ -1483,6 +1513,14 @@ export const serverText = {
         text: "This nginx was built without the stream module",
         hint: "openSUSE ships nginx with stream; install the nginx package from the distribution or from nginx.org.",
       },
+    },
+  },
+  swap: {
+    cloud_init: {
+      text: "cloud-init is configured with a swap: section, so it recreates the swap on every boot. Remove that section, or leave the swap to cloud-init.",
+    },
+    unsupported_container: {
+      text: "This is a container ({container}), where swap belongs to the host: swapon is refused inside it.",
     },
   },
   terminal: {

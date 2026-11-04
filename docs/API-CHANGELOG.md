@@ -76,6 +76,10 @@ under Changed: one field that becomes optional, one refusal that is new and one 
     A count says "1 day" and "N days" where it said "day(s)". `noust diagnose --json` prints the same fields.
   - A Compose stack's Docker networks: `GET /api/apps/{domain}/networks` carries `findings_coded` beside each
     network's `findings` and `reason_coded` beside `reason`.
+  - Files: `GET /api/server/storage/cleanup/plan` carries `effect_coded` beside `effect`; `GET /api/server/swap`
+    carries `reason_coded` beside `reason` and `warnings_coded` beside `warnings`; and a run of
+    `GET /api/server/storage/history` (and the result of a cleanup job) carries `reason_coded` beside `reason`
+    when the reason is one of the server's sentences, which the history keeps as text and reads back.
 
 ### Changed
 

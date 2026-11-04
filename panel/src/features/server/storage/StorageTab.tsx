@@ -28,6 +28,7 @@ import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
 import { Meter } from "../../../components/ui/Progress";
+import { ServerText } from "../../../components/ui/ServerText";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
@@ -199,7 +200,9 @@ function CleanupDialog({ action, onClose }: { action: string; onClose: () => voi
       ) : (
         <div className="flex flex-col gap-3">
           {/* What the action takes, in Noust's words. */}
-          <p className="text-13 text-fg">{plan.data.effect}</p>
+          <p className="text-13 text-fg">
+            <ServerText coded={plan.data.effect_coded} text={plan.data.effect} />
+          </p>
           {(plan.data.items ?? []).length > 0 ? (
             <ul aria-label={t("server.storage.itemsLabel")} className="flex flex-col gap-0.5 text-12">
               {(plan.data.items ?? []).map((item) => (

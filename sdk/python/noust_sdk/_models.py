@@ -1850,6 +1850,7 @@ CleanupPlanOut = TypedDict("CleanupPlanOut", {
     "action": Required[str],
     "commands": Required[list[str]],
     "effect": Required[str],
+    "effect_coded": NotRequired[Union["CodedText", None]],
     "items": NotRequired[list[str]],
     "needs_confirmation": Required[bool],
 })
@@ -1886,6 +1887,7 @@ CleanupRunOut = TypedDict("CleanupRunOut", {
     "percent_after": NotRequired[Union[float, None]],
     "percent_before": NotRequired[Union[float, None]],
     "reason": NotRequired[Union[str, None]],
+    "reason_coded": NotRequired[Union["CodedText", None]],
     "started_at": Required[str],
     "status": Required[str],
     "trigger": Required[str],
@@ -9803,6 +9805,7 @@ SwapOut = TypedDict("SwapOut", {
     "memory_bytes": Required[int],
     "noust_swapfile": Required[bool],
     "reason": Required[str],
+    "reason_coded": NotRequired[Union["CodedText", None]],
     "recommended": Required[bool],
     "suggested_bytes": Required[int],
     "supported": Required[bool],
@@ -9810,6 +9813,7 @@ SwapOut = TypedDict("SwapOut", {
     "total_bytes": Required[int],
     "used_bytes": Required[int],
     "warnings": Required[list[str]],
+    "warnings_coded": NotRequired[list["CodedText"]],
 })
 
 SwapSummary = TypedDict("SwapSummary", {

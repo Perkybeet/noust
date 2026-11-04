@@ -37528,6 +37528,14 @@ export interface components {
         /**
          * CleanupPlanOut
          * @description What a cleanup would do.
+         *
+         *     Attributes:
+         *         action: The action.
+         *         commands: The commands it would run, as text.
+         *         effect: What it does, in a sentence.
+         *         needs_confirmation: It takes something the operator may want back.
+         *         items: What it would remove, when the action can list it.
+         *         effect_coded: ``effect`` as a code and its values, for the console to translate.
          */
         CleanupPlanOut: {
             /** Action */
@@ -37536,6 +37544,7 @@ export interface components {
             commands: string[];
             /** Effect */
             effect: string;
+            effect_coded?: components["schemas"]["CodedText"] | null;
             /** Items */
             items?: string[];
             /** Needs Confirmation */
@@ -37635,6 +37644,8 @@ export interface components {
          *         freed_bytes: The total freed, when known.
          *         actions: What each action did.
          *         reason: Why nothing ran, when it did not.
+         *         reason_coded: ``reason`` as a code and its values, when it is a sentence of the
+         *             server's catalog.
          *         actor: Who asked; empty for the timer.
          */
         CleanupRunOut: {
@@ -37656,6 +37667,7 @@ export interface components {
             percent_before?: number | null;
             /** Reason */
             reason?: string | null;
+            reason_coded?: components["schemas"]["CodedText"] | null;
             /** Started At */
             started_at: string;
             /** Status */
@@ -62426,6 +62438,7 @@ export interface components {
             noust_swapfile: boolean;
             /** Reason */
             reason: string;
+            reason_coded?: components["schemas"]["CodedText"] | null;
             /** Recommended */
             recommended: boolean;
             /** Suggested Bytes */
@@ -62440,6 +62453,8 @@ export interface components {
             used_bytes: number;
             /** Warnings */
             warnings: string[];
+            /** Warnings Coded */
+            warnings_coded?: components["schemas"]["CodedText"][];
         };
         /**
          * SwapSummary

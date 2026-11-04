@@ -36,6 +36,7 @@ from typing import Any
 from noust.core.exceptions import DependencyError, ValidationError
 from noust.core.fs import DryRunFileSystem, FileSystem, get_fs
 from noust.core.runner import CommandRunner, get_runner
+from noust.core.server_text import ServerText, say
 from noust.core.timeutil import utc_now_iso
 from noust.deployers.helpers.compose_retention import PREVIOUS_TAGS as PREVIOUS_TAGS_OF_STACKS
 from noust.managers.server.errors import (
@@ -232,6 +233,7 @@ class CleanupPlan:
         effect: What it does, in a sentence.
         needs_confirmation: It takes something the operator may want back.
         items: What it would remove, when the action can list it.
+        effect_coded: ``effect`` as a sentence with a code, for the console to translate.
     """
 
     action: str
@@ -239,6 +241,30 @@ class CleanupPlan:
     effect: str
     needs_confirmation: bool
     items: tuple[str, ...] = ()
+    effect_coded: ServerText | None = None
+
+
+def _plan(
+    action: str,
+    commands: tuple[str, ...],
+    effect: ServerText,
+    needs_confirmation: bool,
+    items: tuple[str, ...] = (),
+) -> CleanupPlan:
+    """
+    Make a plan out of the sentence that says what it does.
+
+    Args:
+        action: The action.
+        commands: The commands it would run, as text.
+        effect: What it does; its text is the plan's ``effect``.
+        needs_confirmation: It takes something the operator may want back.
+        items: What it would remove, when the action can list it.
+
+    Returns:
+        The plan, whose effect and code are one thing.
+    """
+    return CleanupPlan(action, commands, effect.text, needs_confirmation, items, effect)
 
 
 @dataclass
@@ -896,52 +922,39 @@ class StorageManager:
             UnsupportedHostError: This machine has nothing to clean that way.
         """
         if action == "journal":
-            return CleanupPlan(
+            return _plan(
                 action,
                 tuple(" ".join(argv) for argv in self._journal_commands(**params)),
-                "Rotates the journal and deletes archived files beyond the limit. The active "
-                "file is not touched.",
+                say("storage.effect.journal"),
                 False,
             )
         if action == "pkg-cache":
             argv = self._pkg_cache_argv()
-            return CleanupPlan(
-                action, (" ".join(argv),), "Deletes the downloaded package files.", False
-            )
+            return _plan(action, (" ".join(argv),), say("storage.effect.pkg_cache"), False)
         if action == "docker-build-cache":
             argv = self._docker_build_cache_argv()
-            return CleanupPlan(
-                action,
-                (" ".join(argv),),
-                "Deletes build cache older than a week. The next build is slower for it.",
-                True,
-            )
+            return _plan(action, (" ".join(argv),), say("storage.effect.docker_build_cache"), True)
         if action == "docker-dangling-images":
             argv = ["docker", "image", "prune", "-f"]
-            return CleanupPlan(
-                action,
-                (" ".join(argv),),
-                "Deletes images that have no name and no container. Named images are kept, "
-                "and so is every noust_previous image.",
-                True,
+            return _plan(
+                action, (" ".join(argv),), say("storage.effect.docker_dangling_images"), True
             )
         if action == "docker-image":
             image = self._image_target(params.get("target"))
             argv = ["docker", "image", "rm", image]
-            return CleanupPlan(
+            return _plan(
                 action,
                 (" ".join(argv),),
-                f"Deletes the image {image}, without --force: Docker refuses if a container uses it.",
+                say("storage.effect.docker_image", image=image),
                 True,
                 items=(image,),
             )
         if action == "releases":
             doomed = self._doomed_releases()
-            return CleanupPlan(
+            return _plan(
                 action,
                 (),
-                "Deletes the releases each application keeps beyond its own limit. The active "
-                "release and the one a rollback goes to always stay.",
+                say("storage.effect.releases"),
                 False,
                 items=tuple(f"{domain}: {release}" for domain, release in doomed),
             )

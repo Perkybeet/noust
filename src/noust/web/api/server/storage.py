@@ -27,7 +27,7 @@ from noust.managers.server.errors import (
 )
 from noust.managers.server.storage import CLEANUP_ACTIONS, Analysis
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import JobAcceptedResponse, require_elevated
+from noust.web.api.deps import CodedText, JobAcceptedResponse, require_elevated
 from noust.web.api.server.common import (
     ServerRoute,
     accepted,
@@ -419,6 +419,10 @@ def _swap_out() -> SwapOut:
         reason=status.reason,
         noust_swapfile=status.noust_swapfile,
         warnings=status.warnings,
+        reason_coded=(
+            CodedText(**status.reason_coded.to_dict()) if status.reason_coded is not None else None
+        ),
+        warnings_coded=[CodedText(**warning.to_dict()) for warning in status.warnings_coded],
     )
 
 

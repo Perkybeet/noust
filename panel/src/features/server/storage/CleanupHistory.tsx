@@ -16,6 +16,7 @@ import { Drawer } from "../../../components/ui/Drawer";
 import { EmptyCell } from "../../../components/ui/EmptyCell";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Mono } from "../../../components/ui/Mono";
+import { ServerText } from "../../../components/ui/ServerText";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import type { Status } from "../../../components/ui/StatusPill";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
@@ -99,7 +100,11 @@ function RunDrawer({ run, onClose }: { run: CleanupRun; onClose: () => void }) {
           </p>
         ) : null}
         {/* Why a run did nothing, in Noust's own words. */}
-        {run.reason ? <p className="text-13 text-fg-muted">{run.reason}</p> : null}
+        {run.reason ? (
+          <p className="text-13 text-fg-muted">
+            <ServerText coded={run.reason_coded} text={run.reason} />
+          </p>
+        ) : null}
         {actions.length > 0 ? (
           <ul aria-label={t("server.storage.history.actionsLabel")} className="flex flex-col divide-y divide-border">
             {actions.map((action, index) => {

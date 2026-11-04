@@ -1382,6 +1382,42 @@ CATALOG: dict[str, str] = {
         "Compose did not make it: it was made by hand or by another tool."
     ),
     "networks.finding.internal": "It is internal: containers on it cannot reach the outside.",
+    # -- Files > Storage (noust.managers.server.storage): what a cleanup would do, one sentence ----
+    # for each action, said before anything is deleted.
+    "storage.effect.journal": (
+        "Rotates the journal and deletes archived files beyond the limit. The active file is "
+        "not touched."
+    ),
+    "storage.effect.pkg_cache": "Deletes the downloaded package files.",
+    "storage.effect.docker_build_cache": (
+        "Deletes build cache older than a week. The next build is slower for it."
+    ),
+    "storage.effect.docker_dangling_images": (
+        "Deletes images that have no name and no container. Named images are kept, and so is "
+        "every noust_previous image."
+    ),
+    "storage.effect.docker_image": (
+        "Deletes the image {image}, without --force: Docker refuses if a container uses it."
+    ),
+    "storage.effect.releases": (
+        "Deletes the releases each application keeps beyond its own limit. The active release "
+        "and the one a rollback goes to always stay."
+    ),
+    # -- Files > Storage: why a scheduled cleanup did nothing. The history keeps these as text, so ---
+    # a row written before the codes read back as the sentence it is (``read_back``).
+    "storage.run.policy_off": "the cleanup policy is switched off",
+    "storage.run.below_threshold": (
+        "{mount} is {percent}% full, below the {threshold}% the policy waits for"
+    ),
+    # -- Files > Swap (noust.managers.server.swap): why a swap file cannot be made, and what to know --
+    "swap.unsupported_container": (
+        "This is a container ({container}), where swap belongs to the host: swapon is refused "
+        "inside it."
+    ),
+    "swap.cloud_init": (
+        "cloud-init is configured with a swap: section, so it recreates the swap on every boot. "
+        "Remove that section, or leave the swap to cloud-init."
+    ),
 }
 
 

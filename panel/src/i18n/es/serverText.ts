@@ -1411,6 +1411,36 @@ export const serverText: Catalog<typeof en> = {
       hint: "Los servidores que gestiona no tienen una dirección a la que GitHub pueda llamar: el webhook de la App es de esta central. En un servidor con servidor web, dale un nombre propio: {command}. Detrás de un proxy tuyo, di dónde responde: {config_command}",
     },
   },
+  storage: {
+    effect: {
+      docker_build_cache: {
+        text: "Borra la caché de compilación de más de una semana. La próxima compilación será más lenta por ello.",
+      },
+      docker_dangling_images: {
+        text: "Borra las imágenes que no tienen nombre ni contenedor. Las imágenes con nombre se conservan, igual que todas las noust_previous.",
+      },
+      docker_image: {
+        text: "Borra la imagen {image}, sin --force: Docker se niega si un contenedor la usa.",
+      },
+      journal: {
+        text: "Rota el diario y borra los archivos archivados que pasen del límite. El archivo activo no se toca.",
+      },
+      pkg_cache: {
+        text: "Borra los archivos de paquetes descargados.",
+      },
+      releases: {
+        text: "Borra las versiones que cada aplicación guarda por encima de su propio límite. La versión activa y a la que llevaría una vuelta atrás se conservan siempre.",
+      },
+    },
+    run: {
+      below_threshold: {
+        text: "{mount} está al {percent}%, por debajo del {threshold}% que espera la política",
+      },
+      policy_off: {
+        text: "la política de limpieza está desactivada",
+      },
+    },
+  },
   streams: {
     firewall: {
       allowed_one: {
@@ -1472,6 +1502,14 @@ export const serverText: Catalog<typeof en> = {
         text: "Este nginx se compiló sin el módulo stream",
         hint: "openSUSE incluye nginx con stream; instala el paquete nginx de la distribución o de nginx.org.",
       },
+    },
+  },
+  swap: {
+    cloud_init: {
+      text: "cloud-init está configurado con una sección swap:, así que vuelve a crear el swap en cada arranque. Quita esa sección o deja el swap a cloud-init.",
+    },
+    unsupported_container: {
+      text: "Esto es un contenedor ({container}), donde el swap es del anfitrión: swapon se rechaza dentro de él.",
     },
   },
   terminal: {

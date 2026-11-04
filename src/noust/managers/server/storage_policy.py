@@ -38,6 +38,7 @@ from typing import Any
 from noust.core import paths
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.notifications.composers_watch import compose_cleanup
+from noust.core.server_text import ServerText, read_back, say
 from noust.core.store import NoustStore, get_store
 from noust.core.timeutil import utc_now_iso
 from noust.managers.server.errors import ServerError
@@ -253,6 +254,22 @@ class CleanupRun:
     reason: str | None = None
     actor: str | None = None
 
+    @property
+    def reason_coded(self) -> ServerText | None:
+        """
+        ``reason`` as the sentence of the catalog it is, for the console to translate.
+
+        The history keeps the reason as text, so a row written before the codes (and one a
+        reader gets back from the store) is read as the sentence its words are. A reason that is
+        not one of them (something went wrong in general, a mount whose name has a space) has
+        no code and is shown as written.
+        """
+        return read_back(
+            self.reason,
+            ("storage.run.policy_off", "storage.run.below_threshold"),
+            integers=("threshold",),
+        )
+
     def finish(self) -> None:
         """Settle the status and the total from the actions, and stamp the end."""
         self.ended_at = utc_now_iso()
@@ -285,6 +302,7 @@ class CleanupRun:
             "freed_bytes": self.freed_bytes,
             "actions": [action.to_dict() for action in self.actions],
             "reason": self.reason,
+            "reason_coded": self.reason_coded.to_dict() if self.reason_coded else None,
             "actor": self.actor,
         }
 
@@ -549,7 +567,7 @@ class CleanupSchedule:
         if trigger == "schedule" and not policy.enabled:
             # A timer that outlived its policy (the policy was switched off by hand
             # while the unit was running) does nothing and says so.
-            run.reason = "the cleanup policy is switched off"
+            run.reason = say("storage.run.policy_off").text
             run.finish()
             return self.history.record(run)
         if (
@@ -558,10 +576,12 @@ class CleanupSchedule:
             and run.percent_before is not None
             and run.percent_before < policy.threshold_percent
         ):
-            run.reason = (
-                f"{run.mount} is {run.percent_before:g}% full, below the {policy.threshold_percent}% "
-                "the policy waits for"
-            )
+            run.reason = say(
+                "storage.run.below_threshold",
+                mount=str(run.mount),
+                percent=f"{run.percent_before:g}",
+                threshold=policy.threshold_percent,
+            ).text
             run.finish()
             return self.history.record(run)
         for action in policy.actions:

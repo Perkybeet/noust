@@ -10746,7 +10746,7 @@
         "type": "object"
       },
       "CleanupPlanOut": {
-        "description": "What a cleanup would do.",
+        "description": "What a cleanup would do.\n\nAttributes:\n    action: The action.\n    commands: The commands it would run, as text.\n    effect: What it does, in a sentence.\n    needs_confirmation: It takes something the operator may want back.\n    items: What it would remove, when the action can list it.\n    effect_coded: ``effect`` as a code and its values, for the console to translate.",
         "properties": {
           "action": {
             "title": "Action",
@@ -10762,6 +10762,16 @@
           "effect": {
             "title": "Effect",
             "type": "string"
+          },
+          "effect_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "items": {
             "items": {
@@ -10901,7 +10911,7 @@
         "type": "object"
       },
       "CleanupRunOut": {
-        "description": "One run in the history of cleanups.\n\nAttributes:\n    id: Its number.\n    trigger: ``schedule``, ``manual`` or ``policy``.\n    status: ``ok``, ``partial``, ``failed`` or ``skipped``.\n    started_at: When it began.\n    ended_at: When it ended.\n    mount: The fullest writable disk.\n    percent_before: How full it was before.\n    percent_after: How full it was after.\n    freed_bytes: The total freed, when known.\n    actions: What each action did.\n    reason: Why nothing ran, when it did not.\n    actor: Who asked; empty for the timer.",
+        "description": "One run in the history of cleanups.\n\nAttributes:\n    id: Its number.\n    trigger: ``schedule``, ``manual`` or ``policy``.\n    status: ``ok``, ``partial``, ``failed`` or ``skipped``.\n    started_at: When it began.\n    ended_at: When it ended.\n    mount: The fullest writable disk.\n    percent_before: How full it was before.\n    percent_after: How full it was after.\n    freed_bytes: The total freed, when known.\n    actions: What each action did.\n    reason: Why nothing ran, when it did not.\n    reason_coded: ``reason`` as a code and its values, when it is a sentence of the\n        server's catalog.\n    actor: Who asked; empty for the timer.",
         "properties": {
           "actions": {
             "items": {
@@ -10990,6 +11000,16 @@
               }
             ],
             "title": "Reason"
+          },
+          "reason_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "started_at": {
             "title": "Started At",
@@ -57258,6 +57278,16 @@
             "title": "Reason",
             "type": "string"
           },
+          "reason_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "recommended": {
             "title": "Recommended",
             "type": "boolean"
@@ -57294,6 +57324,13 @@
               "type": "string"
             },
             "title": "Warnings",
+            "type": "array"
+          },
+          "warnings_coded": {
+            "items": {
+              "$ref": "#/components/schemas/CodedText"
+            },
+            "title": "Warnings Coded",
             "type": "array"
           }
         },
