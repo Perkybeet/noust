@@ -22,8 +22,9 @@ them before the rest):
 
 ## 4.2.0
 
-API version 1. Everything here is additive: no operation is removed or deprecated, no response code
-changes, and `python scripts/api_compat.py` keeps passing against the schema of 4.1.0.
+API version 1. No operation is removed or deprecated, no documented response code changes, and
+`python scripts/api_compat.py` keeps passing against the schema of 4.1.0. What a client may notice is
+under Changed: one field that becomes optional, one refusal that is new and one that is tighter.
 
 ### Added
 
@@ -47,6 +48,27 @@ changes, and `python scripts/api_compat.py` keeps passing against the schema of 
 - **What every server of a fleet runs now.** `GET /api/fleet/jobs/active` (permission `fleet.read`): one
   row per server with its jobs and operations and a `status` (`ok`, `unsupported` for a server that has
   not been updated to 4.2, `unreachable`); it never fails as a whole.
+- **The server's software.** `GET /api/server/software` (permission `server.read`) lists every component
+  Noust uses: whether it is installed, its version, who installed it (`noust` or `unknown`) and what
+  depends on it. `GET /api/server/software/{component}/impact` says what a removal would take with it.
+  `POST /api/server/software/{component}/install` keeps the permission each feature had for its install;
+  `POST /api/server/software/{component}/remove` needs `server.host_access` and sudo mode (and
+  `databases.manage` for an engine), is refused with its reason while something uses the component, and
+  never purges. `GET /api/fleet/software` (permission `fleet.read`) gives one row per server, `unsupported`
+  for a server that has not been updated to 4.2.
+- **Compliance reports per active framework.** `GET /api/compliance/check` carries `enabled`, `checked_at`,
+  `host` and `version`, and `format=markdown` downloads the report (with `X-Noust-Report-SHA256`).
+  `GET /api/ens/check` carries `enabled`: with no ENS framework on it judges nothing.
+- **What an unknown security profile was read as.** `GET /api/compliance` carries `legacy_profile_valid` and
+  `legacy_profile_read_as`.
+
+### Changed
+
+- `PUT /api/config/smtp`: `recipients` is optional; leaving it out keeps the list, an empty list clears it.
+- `POST /api/auth/tokens`: `allow_elevated` needs `accounts.manage` from whoever issues the token. Before,
+  an operator in sudo mode could issue one to themselves.
+- `DELETE` of a database engine (uninstall) answers `409` naming the databases while the engine holds any.
+  The `409` bodies of the server's refusals carry `coded` as well as the sentence.
 
 ## 4.1.0
 
