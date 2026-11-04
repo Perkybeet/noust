@@ -78,8 +78,9 @@ Three corollaries the rest of the document applies everywhere:
   question for one resource, typing the name for what cannot be undone.
 - **Nothing moves when data arrives**: space is reserved from the first frame (layout shift
   0.05 or less on every page), and switching a tab never slides the page sideways.
-- **The terminal is a first-class way in**: where the CLI does the same thing, the view says
-  the command.
+- **The terminal is a way in, not a repeated hint**: the console does what the command does, so a page
+  shows a command only when it has a reason (6.16, CL-1): the terminal alone can do it, it is for another
+  server, or the system's own output names it.
 
 ---
 
@@ -506,7 +507,7 @@ to say it.
   Icons, CC0, with the brands' notice in `components/ui/logos/`), so no request leaves the console to
   draw one and `img-src` stays `'self'`. An icon of the console's own stands bare: a tile behind
   it says nothing and is a tic (2.12). *Enforced by:* the ratchet rule `icon-tile`.
-- **IL-3** An explanation is a `HelpPopover`: an "i" button that opens a popover. A `Tooltip` only
+- **IL-3** An explanation is a `HelpPopover`: a "?" button that opens a popover. A `Tooltip` only
   names an icon (an `IconButton` does it for its label), because a touch screen has no hover and
   what is said in a tooltip is lost to anyone who cannot rest a pointer on it. *Enforced by:* the
   ratchet rule `tooltip-by-hand`.
@@ -606,8 +607,8 @@ Rules common to all:
 - **Above the fold** at 1440: the state, the primary action and the start of the main content.
   At 390: the state and the primary action.
 - **An `h2` never repeats the `h1` or the tab's name** ("Backups" under "Backups").
-- **The CLI hint** (`CommandHint`) appears once per view, in the template's `footer`; in T3 once
-  per subsection, at its end.
+- **The CLI hint** (`CommandHint`) is shown only with its `reason` (CL-1) and then once per view, in the
+  template's `footer`; in T3 once per subsection, at its end. A command that repeats a button is not shown.
 - **What is destroyed** lives in T3's last subsection ("Delete") or behind `More actions` with a
   confirmation, and every destructive option in it starts **unchecked**.
 
@@ -928,7 +929,7 @@ new password, a sealed central. All of them are the same slab.
 | Drawer | A row's detail with the page behind it: 480px for forms and detail, 720px for logs |
 | Dialog | sm 440 a question, md 560 a form of up to six fields, lg 720 two columns or steps, xl 1280 only to look closely (an enlarged chart) |
 | Danger | In T3's last subsection or behind `More actions` with a confirmation; destructive options unchecked by default |
-| CLI hint | Once, at the foot of the view (T3: at the end of each subsection) |
+| CLI hint | Only with a reason (`solo-terminal`, `otro-servidor`, `salida-del-sistema`), once, at the foot of the view (T3: at the end of each subsection) |
 | State colours | Green only for running, serving, succeeded, and something that is on: a feature in the header of its card (`Card status`), or an on/off label in a row, a list or a fact (`StatusPill`, 6.1); never a block |
 
 ---
@@ -975,8 +976,9 @@ at any character, never cut, with its `CopyButton`. Not for a fact among facts (
 `KeyValueList` row copies its own) and not for output the system printed (`SystemOutput`).
 
 **`SectionSwitch`** and **`SwitchedRegion`** (owner item 106). The master switch of a whole section
-("Alerts", "Backups"): one `Switch` with its name beside it in the header of the page, next to the
-page's action, and the list it governs wrapped in a `SwitchedRegion`, which draws its content text in the
+("Alerts", "Backups"): one `Switch` with its name beside it in the header of the page, on the line of the
+title (`PageHeader master`, `SettingsMasterSwitch` in Settings: it belongs to what it governs and is never at the
+far end of the header, HD-1), and the list it governs wrapped in a `SwitchedRegion`, which draws its content text in the
 muted tone when the section is off so that a page of rules that do nothing does not look as if it did
 (a change of tone, never an opacity: the page must stay 4.5:1 and stay reachable). The name never changes with
 the state (SW-3); a switch that cannot be moved says why beside it (`disabled` requires `reason`).
@@ -1073,7 +1075,7 @@ height with one focus ring, two buttons with their own names. A menu of differen
 
 **`Tooltip`**. Names an icon, and nothing else (IL-3); never the only place something is said, never
 on a button that already has text. **`Popover`**: small panels (the session menu), never a
-confirmation. **`HelpPopover`** (`label`, `title`, `children`): the "i" beside a name that needs
+confirmation. **`HelpPopover`** (`label`, `title`, `children`): the "?" beside a name that needs
 explaining, a button that opens a popover, which a touch screen can use.
 
 **`SlidingIndicator`** (`variant` `raised | flat`, `activeSelector`, `className`). The piece of 2.7 (M-5), drawn
@@ -1280,7 +1282,8 @@ apart. The `primaryAction` is wrapped so that it steps aside while a `SaveBar` h
 (`DemotePrimary`): a `Dialog`, a `Drawer` and a `ConfirmDialog` reset it, since a dialog has a
 primary of its own.
 
-**`KeyValueList`**. Facts about one thing, one per row; system values in mono and copyable, cut at the
+**`KeyValueList`** (`pasted` per item). Facts about one thing, one per row; a value that is pasted into another place
+(`pasted`: a webhook address) wears its copy button always and wraps, so what is copied is what is seen; system values in mono and copyable, cut at the
 end of their line with the whole as their title. A value that is a sentence (`mono: false`) is never
 cut: it takes the lines it needs, and `wrap` gives a card too narrow for a host name or a kernel the
 same for its system values. Not tabular data.
@@ -1395,6 +1398,14 @@ editor with no bar places a `LeaveGuard` itself; a dialog or a drawer asks when 
 beside the step from 1536px (16rem at least) and follows it below that. `SettingsLayout` renders only
 the navigation the screen shows (the side list from 640px, the index on a phone's index route),
 so the page has one navigation landmark in a browser and in a unit test alike.
+
+**The content kit of 4.2** (items 109, 121, 122, 123), each with its specimen in `/__design`, "Components (4.2)", and its rules in 6.16:
+**`SurfaceSection`** (`title`, `icon`, `description`, `help`, `status`, `actions`, `flush`, `level`, `loading`): a section that is a slab, its head
+row saying what it is. **`FirstUse`** (`action`, `secondary`, `drawing`): the first time inside a section. **`ResourceCard`** (`name`, `icon`
+or `logo`, `status`, `facts`, `actions`): a thing that exists. **`NameWithTags`** (`tags`, `shown`, `renderTag`): a name and its tags on one
+line, "+N" for the rest. **`SaidLines`** (`label`, `lines`): what a system answered about what failed, under the table. **`GuardedButton`**,
+**`Can`**, **`ReadOnlyLine`**, `useCan` (`components/page/permissions.tsx`): who can do what. `DataTable embedded` draws a table inside a
+slab with no slab of its own.
 
 **`ICONS`**, **`ICON_SIZE`** (`components/ui/icons.ts`) and **`useMediaQuery`**, `SM_UP`,
 `LG_UP`: section 2.8 and the `sm`/`lg` breakpoints in code.
@@ -1716,6 +1727,48 @@ Four questions, answered in four places: **where am I** (the scope selector, and
 - **DB-2** A data-gap message under a chart or a log ("not recorded yet") is one line under its
   title, not a `Notice`. *Enforced by:* ratchet `notice-info-bare`.
 
+### 6.16 Content that says what each thing is, and who can change it
+
+A page of several subjects is read by its shapes before its words (owner items 109, 121, 122 and 123). The rules,
+each held by the test it names:
+
+- **CT-1** A page of more than one subject is made of `SurfaceSection`s: the head row (the object's icon, the title, one
+  line, the section's own action and, if the rule is long, a "?") and the content inside. A heading over loose
+  paragraphs, each with the weight of the next, is not drawn. Slabs are 24px apart (`Sections surfaces`). A table that
+  sits in one is `embedded`, with its rows edge to edge under the head. *Enforced by:* `SurfaceSection.test.tsx`,
+  `DataTable.test.tsx`; G-2.
+- **CT-2** The first time of a thing inside a section is `FirstUse`: a drawing, one sentence that says what it gives you
+  and the button that starts it (or none, where the page's header holds it). Never a muted line with the button
+  somewhere else. The first time of a whole page stays `EmptyState variant="firstUse"` (IL-1). *Enforced by:*
+  `FirstUse.test.tsx`, the ratchet `inline-empty-by-hand`; G-7.
+- **CT-3** The facts of one thing are `KeyValueList` pairs; a value that is pasted somewhere else (`pasted`) wears
+  its copy button always. *Enforced by:* `KeyValueList.test.tsx`; ratchet `copy-box-by-hand`.
+- **CT-4** A thing that exists, and is the point of its section, is a `ResourceCard`: icon or logo, name, state, two or
+  three facts, actions. More than a few of them is a table (G-2). *Enforced by:* `ResourceCard.test.tsx`.
+- **CT-5** A name's tags are on its line (`NameWithTags`): the first ones as pebbles, "+N" for the rest in a popover,
+  and the row is the one height every row is. Tags are never stacked under the name. *Enforced by:*
+  `NameWithTags.test.tsx`; `Column.stacked` stays only for a cell that really holds more than one line.
+- **CT-6** The long rule is behind a "?" (`HelpPopover`), a real button that a finger and a keyboard open. The page shows the
+  state; the explanation is asked for. *Enforced by:* `HelpPopover.test.tsx`; ratchet `tooltip-by-hand`.
+- **PM-1** An action declares the permission it takes (the server's own name, `apps.manage`). The page's primary
+  action is a `GuardedButton`: for a role that cannot, it stays, disabled, with a lock and the reason one press away,
+  because it tells a reader that the thing exists and who can do it. The actions of a row, a menu or a toolbar are
+  inside `Can` (or the table is given no `rowActions`): they are not drawn, because a disabled button repeated on every
+  row is noise. A page says once, at its top, that it can only be read (`ReadOnlyLine`). A button that is disabled for
+  something other than the role (no account yet) says so in its "?" (`unavailable`), without the lock. A form or a
+  dialog opened from a declared action says so on its write with a `design-exception: write-without-permission`
+  and the action that gates it. *Enforced by:* `permissions.test.tsx`; ratchet `write-without-permission` (each
+  `.mutate(` of a feature is covered by one declaration of the file: `GuardedButton`, `Can`, `ReadOnlyLine`, `useCan(`,
+  `can("...")`; the counts may only go down; the four pages of K1 owe none).
+- **CL-1** A `CommandHint` has a `reason`: `solo-terminal` (the console cannot do it), `otro-servidor` (it is for another
+  server), `salida-del-sistema` (the system's own output names it). The reason leads the command when no label does.
+  A command that repeats a button is taken out. *Enforced by:* `CommandHint.test.tsx`; ratchet `command-hint-reason`
+  (the commands with no reason, which may only go down; the four pages of K1 owe none).
+- **HD-1** A header is as wide as its content: the title and its actions end where the content does, and never at the edge of
+  the window (`DetailPage measure="settings"` for a settings section and the account). The master switch of what a page
+  governs is on the title's line, right after it (`PageHeader master`, `SettingsMasterSwitch`). *Enforced by:*
+  `templates.test.tsx`, `PageHeader.test.tsx`, `NotificationSettings.test.tsx`.
+
 ---
 
 ## 7. Content
@@ -1850,6 +1903,7 @@ lint`, the E2E suite).
 | Construction | `app.css` | Tailwind's palette, type scale, shadows and radii do not exist; only token utilities compile |
 | Tokens | `styles/tokens.test.ts` (`lib/contrast.ts` does the maths) | Every text pair 4.5:1, every control boundary 3:1, tinted borders 1.4:1, hairlines visible; surfaces, edges and text are stone (chroma under 0.02, the stone's hue); height by luminance in both themes; the joint and the edges of every height seen against the stone they sit on; every `--elev-*` made of hard edges (nothing blurrier than 2px, no translucent black); the `viz` pair's contrast, colour-vision distance, hue distance, lightness and chroma; every colour token has a utility and at least one verified pair; each curve and duration of the motion and its zero with reduced motion; the fonts' stacks, their metric-matched fallbacks (declared and scaled, the title's twice) and that nothing is fetched or inlined; the values of radii, control heights, layers, widths, measures, icon sizes and the seven type sizes; `scrollbar-gutter: stable` |
 | Lint | `eslint.config.js`, `no-restricted-syntax` and `no-restricted-imports` | Outside the kit (`components/`, `app/`, `dev/`) and the legacy list: raw hex, arbitrary dimensions (`max-w-[...]`, `h-[...]`, `rounded-[...]`, `z-[...]`), colour functions, hand-written `h1`-`h4`, `<label>`, `style=`, severity icons imported from lucide instead of `icons.ts`, and the icon of an object imported from lucide instead of `objectIcons.ts` (everywhere, the kit included) |
+| Content and who can do what | `components/page/permissions.test.tsx`, `SurfaceSection.test.tsx`, `components/ui/{FirstUse,ResourceCard,NameWithTags,HelpPopover}.test.tsx`, `styles/design-rules.test.ts` | The pieces of 6.16, each with axe in both themes; a write that declares no permission and a command with no reason, counted per file against a baseline that only goes down (PM-1, CL-1) |
 | Ratchet | `styles/design-rules.test.ts`, rules in `styles/designRules.ts`, counts in `styles/design-baseline.json` | Per rule and per file, counts that may only go down (the rule ids below); ESLint's legacy list only shrinks; the `viz` colours stay inside `Chart`; no component of the system is left unused except those still waiting for their pages |
 | The tics and the heights | `styles/design-rules.test.ts` (`KIT_HEIGHTS` in `styles/designRules.ts`) | The list of 2.12, with samples that must be caught and samples that must not, in the sources and in the three stylesheets (a gradient, a blur, capitals, a wide tracking, a coloured side, a coloured one-sided shadow); each kit piece has the height of its role and no other, and a piece with no role that draws a height fails (a raised panel and a carved button are cases that must be caught) |
 | A field is found | `styles/tokens.test.ts`, `e2e/field-edge.spec.ts` | Each theme's strong edge of the carved hollow is 3:1 against the page, a panel and a raised surface; in the browser, the pixels painted on a field, a checkbox and a switch say the same, and the other edge stays under 3:1 (C-12, A-10) |
@@ -1894,6 +1948,8 @@ The ratchet's rules (`designRules.ts`):
 | `confirm-hand-rolled` | `AlertDialog.Popup` outside `ConfirmDialog` (a hand-written danger button is the structural rule `danger-button-outside-confirm`) | `ConfirmDialog` |
 | `page-without-template` | `<PageHeader>` written by a feature | a template's `header` prop |
 | `feature-state-notice` | a `Notice` whose title or text is an on/off key (`.on`, `.offTitle`, `.enabled`...) | `Card status`, a `Setting` row |
+| `write-without-permission` | each `.mutate(`/`.mutateAsync(` of a feature, less one for each declaration of the file (`GuardedButton`, `Can`, `ReadOnlyLine`, `useCan(`, `can("...")`) | `GuardedButton`, `Can`, `ReadOnlyLine` (PM-1) |
+| `command-hint-reason` | a `<CommandHint` with no `reason` | a `reason`, or take the command out (CL-1) |
 | `object-icon-import` (lint) | an object's icon (`Database`, `Globe`, `ScrollText`, `Users`...) imported from lucide outside the two maps | `OBJECT_ICONS`, `VERB_ICONS` (2.8) |
 
 The structural rules (`designStructure.ts`), found in the syntax tree:
