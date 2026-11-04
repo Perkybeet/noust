@@ -1,7 +1,10 @@
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
-import type { Placed, SizeKey } from "./model";
+import type { Placed, Settings, SizeKey } from "./model";
+
+/** What a panel follows: the server chosen in the selector, or every server of the fleet. */
+export type PanelScope = "server" | "fleet";
 
 /**
  * What the grid draws of one widget: the head (an icon, the title, and a link to where the whole list
@@ -21,3 +24,14 @@ export interface WidgetFace {
 
 /** The face of the widget a placed item stands for, or null when this console has no such widget. */
 export type FaceOf = (item: Placed) => WidgetFace | null;
+
+/** What every widget's body is given. */
+export interface WidgetBodyProps {
+  /** The size the widget has now: the body reads the room it has too (`widget-body`), this is for what only the size can say. */
+  size: SizeKey;
+  scope: PanelScope;
+  /** What the person set on this widget: the metric of a chart. */
+  settings: Settings;
+  /** Said by a widget that has settings of its own, so the choice is kept with the panel. */
+  onSettings?: (next: Settings) => void;
+}

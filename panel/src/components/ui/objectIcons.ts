@@ -2,6 +2,7 @@ import {
   Archive,
   ArrowRight,
   BadgeInfo,
+  BellRing,
   Blocks,
   BookCheck,
   Bot,
@@ -135,6 +136,8 @@ export const OBJECT_ICONS = {
   log: ScrollText,
   activity: History,
   service: ServerCog,
+  /** What the server is doing now: Home's widget of work in progress. */
+  work: ListTodo,
   file: FolderOpen,
   terminal: SquareTerminal,
   diagnose: Stethoscope,
@@ -145,10 +148,16 @@ export const OBJECT_ICONS = {
   team: Users,
   project: FolderKanban,
   overview: Gauge,
+  /** What a person does every day, a tile of them: Home's shortcuts. */
+  shortcuts: Zap,
+  /** What the security checks found on the machine. */
+  security: Shield,
   map: Waypoints,
   settings: Settings,
   // What watches, and tells.
   alert: Siren,
+  /** An alert that is firing now, as against the rule that watches. */
+  firing: BellRing,
   probe: Radar,
   channel: Megaphone,
   logShipping: FileOutput,

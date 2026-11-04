@@ -49,11 +49,14 @@ export interface HomeData {
 
 const NONE: readonly OverviewAttentionItem[] = [];
 
-/** This server's Home, or the selected node's: the page is on it, so its links stay there. */
-export function useServerHome(): HomeData {
-  const overview = useQuery(overviewQuery());
-  const apps = useQuery(appsQuery());
-  const attention = useAttention();
+/**
+ * This server's Home, or the selected node's: the page is on it, so its links stay there. `enabled` is false for
+ * the panel that is the whole fleet, which reads the fleet's own answers and asks this server nothing of its own.
+ */
+export function useServerHome(enabled = true): HomeData {
+  const overview = useQuery({ ...overviewQuery(), enabled });
+  const apps = useQuery({ ...appsQuery(), enabled });
+  const attention = useAttention(false, enabled);
   const servers = useMemo(() => {
     if (overview.data === undefined || apps.data === undefined) return undefined;
     const homeApps: HomeApp[] = apps.data.apps.map((app) => ({ domain: app.domain, status: app.status }));
@@ -87,11 +90,11 @@ function scheduledOf(row: FleetRow): number {
   return typeof scheduled === "number" ? scheduled : 0;
 }
 
-/** The whole fleet's Home: every server's own list, applications and activity, side by side. */
-export function useFleetHome(): HomeData {
-  const summary = useQuery(fleetViewQuery("summary"));
-  const views = useQuery(appsViewQuery());
-  const extras = useExtraAttention();
+/** The whole fleet's Home: every server's own list, applications and activity, side by side. `enabled` is false for a panel of one server. */
+export function useFleetHome(enabled = true): HomeData {
+  const summary = useQuery({ ...fleetViewQuery("summary"), enabled });
+  const views = useQuery({ ...appsViewQuery(), enabled });
+  const extras = useExtraAttention(false, enabled);
   const servers = useMemo(() => {
     if (summary.data === undefined || views.data === undefined) return undefined;
     const rows = [...summary.data.items].sort((a, b) => (a["local"] === true ? -1 : b["local"] === true ? 1 : (textOf(a["name"]) ?? "").localeCompare(textOf(b["name"]) ?? "")));
@@ -135,4 +138,11 @@ export function useFleetHome(): HomeData {
     },
     retrying: summary.isRefetching || views.isRefetching,
   };
+}
+
+/** The Home a panel draws from: its servers, what needs attention and what happened, for one server or for the whole fleet. */
+export function useScopedHome(scope: "server" | "fleet"): HomeData {
+  const server = useServerHome(scope === "server");
+  const fleet = useFleetHome(scope === "fleet");
+  return scope === "fleet" ? fleet : server;
 }

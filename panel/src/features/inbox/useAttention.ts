@@ -46,12 +46,12 @@ export function refreshAttention(queryClient: QueryClient): void {
  * what needs attention, because a fleet reads each server's own list and would never count what
  * only a console added.
  */
-export function useExtraAttention(deep = false): readonly OverviewAttentionItem[] {
+export function useExtraAttention(deep = false, enabled = true): readonly OverviewAttentionItem[] {
   const { data: permissions } = useQuery({ ...sessionQuery(), select: (session) => session.permissions });
   const can = (permission: string): boolean => permissions?.includes(permission) ?? false;
-  const approvals = useQuery({ ...approvalsQuery("requested"), enabled: permissions !== undefined, refetchInterval: POLL_MS, retry: false });
-  const version = useQuery({ ...versionQuery(), enabled: can("server.manage"), retry: false });
-  const recipes = useQuery({ ...installedRecipesQuery(), enabled: deep && can("apps.read"), staleTime: RECIPES_STALE_MS, retry: false });
+  const approvals = useQuery({ ...approvalsQuery("requested"), enabled: enabled && permissions !== undefined, refetchInterval: POLL_MS, retry: false });
+  const version = useQuery({ ...versionQuery(), enabled: enabled && can("server.manage"), retry: false });
+  const recipes = useQuery({ ...installedRecipesQuery(), enabled: enabled && deep && can("apps.read"), staleTime: RECIPES_STALE_MS, retry: false });
   return useMemo(
     () => [...approvalItems(approvals.data), ...noustItems(version.data), ...recipeItems(recipes.data)],
     [approvals.data, version.data, recipes.data],
@@ -80,12 +80,12 @@ export interface Attention {
  * Overview's own list (a service that runs and answers nothing), and the bell must not add a read of
  * the whole list to every page.
  */
-export function useAttention(deep = false): Attention {
+export function useAttention(deep = false, enabled = true): Attention {
   const { data: permissions } = useQuery({ ...sessionQuery(), select: (session) => session.permissions });
-  const readsServer = permissions?.includes("server.read") ?? false;
+  const readsServer = enabled && (permissions?.includes("server.read") ?? false);
   const overview = useQuery({ ...overviewQuery(), enabled: readsServer, refetchInterval: OVERVIEW_POLL_MS, retry: false });
   const apps = useQuery({ ...appsQuery(), enabled: false });
-  const extras = useExtraAttention(deep);
+  const extras = useExtraAttention(deep, enabled);
   return useMemo(() => {
     const base = overview.data === undefined ? NONE : attentionItems(overview.data, apps.data?.apps);
     const items = mergeAttention(base, extras);
