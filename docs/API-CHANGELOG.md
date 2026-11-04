@@ -74,6 +74,8 @@ under Changed: one field that becomes optional, one refusal that is new and one 
     `http_nginx`, `journal`, `nginx_log`, `certificate`, `last_deployment`, `oom`, `disk`, `blue_green`,
     `zero_downtime`, `php_fpm` and `containers`. `evidence` is what the system printed and has no code.
     A count says "1 day" and "N days" where it said "day(s)". `noust diagnose --json` prints the same fields.
+  - A Compose stack's Docker networks: `GET /api/apps/{domain}/networks` carries `findings_coded` beside each
+    network's `findings` and `reason_coded` beside `reason`.
 
 ### Changed
 

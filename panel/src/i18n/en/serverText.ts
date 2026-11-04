@@ -972,6 +972,37 @@ export const serverText = {
       },
     },
   },
+  networks: {
+    finding: {
+      default_bridge: {
+        text: "It is Docker's default bridge: every container started without a network is on it, and they reach each other by address.",
+      },
+      host: {
+        text: "It is the host's own network: the containers have no network of their own.",
+      },
+      internal: {
+        text: "It is internal: containers on it cannot reach the outside.",
+      },
+      made_elsewhere: {
+        text: "Compose did not make it: it was made by hand or by another tool.",
+      },
+      owned_by_another: {
+        text: "It belongs to the stack {owner}, which made it.",
+      },
+      shared_many: {
+        text: "It is shared: {members} and {more} more are on it too.",
+      },
+      shared_one: {
+        text: "It is shared: {members} is on it too.",
+      },
+      shared_several: {
+        text: "It is shared: {members} are on it too.",
+      },
+    },
+    not_applicable: {
+      text: "This application does not run in Docker, so it has no Docker network.",
+    },
+  },
   operations: {
     app_apply: { text: "Apply a declaration to {target}" },
     app_move: { text: "Move {target} to another project" },

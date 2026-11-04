@@ -961,6 +961,37 @@ export const serverText: Catalog<typeof en> = {
       },
     },
   },
+  networks: {
+    finding: {
+      default_bridge: {
+        text: "Es el puente por defecto de Docker: todo contenedor que se arranca sin una red está en él, y se alcanzan entre sí por la dirección.",
+      },
+      host: {
+        text: "Es la red propia del anfitrión: los contenedores no tienen una red propia.",
+      },
+      internal: {
+        text: "Es interna: los contenedores que están en ella no pueden salir al exterior.",
+      },
+      made_elsewhere: {
+        text: "No la creó Compose: se hizo a mano o con otra herramienta.",
+      },
+      owned_by_another: {
+        text: "Pertenece a la pila {owner}, que la creó.",
+      },
+      shared_many: {
+        text: "Está compartida: {members} y {more} más también están en ella.",
+      },
+      shared_one: {
+        text: "Está compartida: {members} también está en ella.",
+      },
+      shared_several: {
+        text: "Está compartida: {members} también están en ella.",
+      },
+    },
+    not_applicable: {
+      text: "Esta aplicación no se ejecuta en Docker, así que no tiene red de Docker.",
+    },
+  },
   operations: {
     app_apply: { text: "Aplicar una declaración a {target}" },
     app_move: { text: "Mover {target} a otro proyecto" },

@@ -28,6 +28,7 @@ from typing import Any
 
 from noust.core.exceptions import DeploymentError
 from noust.core.runner import CommandRunner, get_runner
+from noust.core.server_text import ServerText, say
 from noust.core.store import is_compose_backed
 from noust.deployers.compose_adopt import (
     PROJECT_LABEL,
@@ -95,6 +96,7 @@ class StackNetwork:
         owner: The Compose project that made it, empty when none did.
         members: The containers on it.
         findings: What is worth knowing about it, one sentence each.
+        findings_coded: ``findings`` as sentences with a code, in the same order.
     """
 
     name: str
@@ -108,6 +110,7 @@ class StackNetwork:
     owner: str
     members: tuple[Member, ...]
     findings: tuple[str, ...] = ()
+    findings_coded: tuple[ServerText, ...] = ()
 
     @property
     def shared(self) -> bool:
@@ -132,6 +135,7 @@ class StackNetwork:
             "shared": self.shared,
             "members": [member.to_dict() for member in self.members],
             "findings": list(self.findings),
+            "findings_coded": [finding.to_dict() for finding in self.findings_coded],
         }
 
 
@@ -144,6 +148,7 @@ class StackNetworks:
         app: The application's domain.
         applicable: It is a stack Docker runs.
         reason: Why not, when it is not.
+        reason_coded: ``reason`` as a sentence with a code; None when it is applicable.
         containers: The names of the stack's containers, running or not.
         networks: The networks they are on, and the ones the stack made.
         isolated: Every network is the stack's own and nothing else is on it.
@@ -152,6 +157,7 @@ class StackNetworks:
     app: str
     applicable: bool = True
     reason: str = ""
+    reason_coded: ServerText | None = None
     containers: tuple[str, ...] = ()
     networks: tuple[StackNetwork, ...] = field(default_factory=tuple)
 
@@ -172,6 +178,7 @@ class StackNetworks:
             "app": self.app,
             "applicable": self.applicable,
             "reason": self.reason,
+            "reason_coded": self.reason_coded.to_dict() if self.reason_coded else None,
             "containers": list(self.containers),
             "isolated": self.isolated,
             "networks": [network.to_dict() for network in self.networks],
@@ -194,11 +201,8 @@ def stack_networks(app: Any, *, runner: CommandRunner | None = None) -> StackNet
         DeploymentError: Docker cannot be asked.
     """
     if not is_compose_backed(getattr(app, "app_type", None)):
-        return StackNetworks(
-            app=app.domain,
-            applicable=False,
-            reason="This application does not run in Docker, so it has no Docker network.",
-        )
+        why = say("networks.not_applicable")
+        return StackNetworks(app=app.domain, applicable=False, reason=why.text, reason_coded=why)
     runner = runner if runner is not None else get_runner()
     identity = stack_identity(app)
     own = [c for c in list_stack_containers(runner=runner) if identity.matches(c)]
@@ -331,10 +335,15 @@ def _network(
         owner=owner,
         members=members,
     )
-    return replace(network, findings=_findings(network, projects))
+    notes = _findings(network, projects)
+    return replace(
+        network,
+        findings=tuple(note.text for note in notes),
+        findings_coded=notes,
+    )
 
 
-def _findings(network: StackNetwork, projects: set[str]) -> tuple[str, ...]:
+def _findings(network: StackNetwork, projects: set[str]) -> tuple[ServerText, ...]:
     """
     Args:
         network: A network of the stack.
@@ -343,22 +352,28 @@ def _findings(network: StackNetwork, projects: set[str]) -> tuple[str, ...]:
     Returns:
         What is worth knowing about it, as facts Docker reported.
     """
-    notes: list[str] = []
+    notes: list[ServerText] = []
     if network.driver == "host":
-        notes.append("It is the host's own network: the containers have no network of their own.")
+        notes.append(say("networks.finding.host"))
     elif network.name == "bridge":
-        notes.append(
-            "It is Docker's default bridge: every container started without a network is on it, "
-            "and they reach each other by address."
-        )
+        notes.append(say("networks.finding.default_bridge"))
     others = [member.name for member in network.members if not member.own]
-    if others:
-        listed = ", ".join(others[:5]) + (f" and {len(others) - 5} more" if len(others) > 5 else "")
-        notes.append(f"It is shared: {listed} {'is' if len(others) == 1 else 'are'} on it too.")
+    if len(others) > 5:
+        notes.append(
+            say(
+                "networks.finding.shared_many",
+                members=", ".join(others[:5]),
+                more=len(others) - 5,
+            )
+        )
+    elif len(others) > 1:
+        notes.append(say("networks.finding.shared_several", members=", ".join(others)))
+    elif others:
+        notes.append(say("networks.finding.shared_one", members=others[0]))
     if network.owner and network.owner not in projects:
-        notes.append(f"It belongs to the stack {network.owner}, which made it.")
+        notes.append(say("networks.finding.owned_by_another", owner=network.owner))
     elif not network.owner and network.name not in DOCKER_DEFAULTS:
-        notes.append("Compose did not make it: it was made by hand or by another tool.")
+        notes.append(say("networks.finding.made_elsewhere"))
     if network.internal:
-        notes.append("It is internal: containers on it cannot reach the outside.")
+        notes.append(say("networks.finding.internal"))
     return tuple(notes)

@@ -9583,6 +9583,7 @@ SshUnitOut = TypedDict("SshUnitOut", {
 StackNetworkModel = TypedDict("StackNetworkModel", {
     "driver": Required[str],
     "findings": Required[list[str]],
+    "findings_coded": NotRequired[list["CodedText"]],
     "id": Required[str],
     "internal": Required[bool],
     "ipv6": Required[bool],
@@ -9602,6 +9603,7 @@ StackNetworksResponse = TypedDict("StackNetworksResponse", {
     "isolated": Required[bool],
     "networks": Required[list["StackNetworkModel"]],
     "reason": NotRequired[str],
+    "reason_coded": NotRequired[Union["CodedText", None]],
 })
 
 StageRequest = TypedDict("StageRequest", {

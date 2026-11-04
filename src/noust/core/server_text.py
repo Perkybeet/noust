@@ -1360,6 +1360,28 @@ CATALOG: dict[str, str] = {
         "{domain} publishes no port, yet port {port} is recorded for it: clear it with {command}."
     ),
     "diagnose.cause.disk_full": "The disk holding the apps directory is {percent}% full.",
+    # -- The Docker networks of a Compose stack (noust.managers.stack_networks): what is worth ------
+    # knowing about each, read from Docker and never changed. Who else is on a network is said for
+    # one container, for several and for many (the first five by name), because the verb and the
+    # count do not follow one rule in every language.
+    "networks.not_applicable": (
+        "This application does not run in Docker, so it has no Docker network."
+    ),
+    "networks.finding.host": (
+        "It is the host's own network: the containers have no network of their own."
+    ),
+    "networks.finding.default_bridge": (
+        "It is Docker's default bridge: every container started without a network is on it, "
+        "and they reach each other by address."
+    ),
+    "networks.finding.shared_one": "It is shared: {members} is on it too.",
+    "networks.finding.shared_several": "It is shared: {members} are on it too.",
+    "networks.finding.shared_many": "It is shared: {members} and {more} more are on it too.",
+    "networks.finding.owned_by_another": "It belongs to the stack {owner}, which made it.",
+    "networks.finding.made_elsewhere": (
+        "Compose did not make it: it was made by hand or by another tool."
+    ),
+    "networks.finding.internal": "It is internal: containers on it cannot reach the outside.",
 }
 
 

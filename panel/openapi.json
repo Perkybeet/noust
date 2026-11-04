@@ -56054,7 +56054,7 @@
         "type": "object"
       },
       "StackNetworkModel": {
-        "description": "One network a stack is on, or defines.\n\nAttributes:\n    name: Its Docker name.\n    id: Its id, shortened.\n    logical: Its name in the compose file.\n    driver: ``bridge``, ``overlay``, ``host``...\n    scope: ``local`` or ``swarm``.\n    internal: Containers on it cannot reach the outside.\n    ipv6: IPv6 is enabled on it.\n    subnets: Its address ranges.\n    owner: The Compose project that made it.\n    shared: Containers that are not the stack's are on it.\n    members: The containers on it.\n    findings: What is worth knowing about it, as Docker reported it.",
+        "description": "One network a stack is on, or defines.\n\nAttributes:\n    name: Its Docker name.\n    id: Its id, shortened.\n    logical: Its name in the compose file.\n    driver: ``bridge``, ``overlay``, ``host``...\n    scope: ``local`` or ``swarm``.\n    internal: Containers on it cannot reach the outside.\n    ipv6: IPv6 is enabled on it.\n    subnets: Its address ranges.\n    owner: The Compose project that made it.\n    shared: Containers that are not the stack's are on it.\n    members: The containers on it.\n    findings: What is worth knowing about it, as Docker reported it.\n    findings_coded: ``findings`` as codes and values, in the same order.",
         "properties": {
           "driver": {
             "title": "Driver",
@@ -56065,6 +56065,13 @@
               "type": "string"
             },
             "title": "Findings",
+            "type": "array"
+          },
+          "findings_coded": {
+            "items": {
+              "$ref": "#/components/schemas/CodedText"
+            },
+            "title": "Findings Coded",
             "type": "array"
           },
           "id": {
@@ -56132,7 +56139,7 @@
         "type": "object"
       },
       "StackNetworksResponse": {
-        "description": "The networks of an application.\n\nAttributes:\n    app: The application's domain.\n    applicable: It is a stack Docker runs.\n    reason: Why not, when it is not.\n    containers: The names of the stack's containers.\n    isolated: Every network is the stack's own and nothing else is on it.\n    networks: The networks.",
+        "description": "The networks of an application.\n\nAttributes:\n    app: The application's domain.\n    applicable: It is a stack Docker runs.\n    reason: Why not, when it is not.\n    reason_coded: ``reason`` as a code and its values; null when it is applicable.\n    containers: The names of the stack's containers.\n    isolated: Every network is the stack's own and nothing else is on it.\n    networks: The networks.",
         "properties": {
           "app": {
             "title": "App",
@@ -56164,6 +56171,16 @@
             "default": "",
             "title": "Reason",
             "type": "string"
+          },
+          "reason_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [

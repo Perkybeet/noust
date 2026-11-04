@@ -61816,12 +61816,15 @@ export interface components {
          *         shared: Containers that are not the stack's are on it.
          *         members: The containers on it.
          *         findings: What is worth knowing about it, as Docker reported it.
+         *         findings_coded: ``findings`` as codes and values, in the same order.
          */
         StackNetworkModel: {
             /** Driver */
             driver: string;
             /** Findings */
             findings: string[];
+            /** Findings Coded */
+            findings_coded?: components["schemas"]["CodedText"][];
             /** Id */
             id: string;
             /** Internal */
@@ -61860,6 +61863,7 @@ export interface components {
          *         app: The application's domain.
          *         applicable: It is a stack Docker runs.
          *         reason: Why not, when it is not.
+         *         reason_coded: ``reason`` as a code and its values; null when it is applicable.
          *         containers: The names of the stack's containers.
          *         isolated: Every network is the stack's own and nothing else is on it.
          *         networks: The networks.
@@ -61880,6 +61884,7 @@ export interface components {
              * @default
              */
             reason: string;
+            reason_coded?: components["schemas"]["CodedText"] | null;
         };
         /**
          * StageRequest

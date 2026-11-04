@@ -50,6 +50,7 @@ from noust.managers.stack_databases import set_backup_before_update
 from noust.managers.stack_networks import stack_networks
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import (
+    CodedText,
     ErrorResponse,
     NoustErrorRoute,
     error_response,
@@ -426,6 +427,7 @@ class StackNetworkModel(BaseModel):
         shared: Containers that are not the stack's are on it.
         members: The containers on it.
         findings: What is worth knowing about it, as Docker reported it.
+        findings_coded: ``findings`` as codes and values, in the same order.
     """
 
     name: str
@@ -440,6 +442,7 @@ class StackNetworkModel(BaseModel):
     shared: bool
     members: list[NetworkMemberModel]
     findings: list[str]
+    findings_coded: list[CodedText] = Field(default_factory=list)
 
 
 class StackNetworksResponse(BaseModel):
@@ -450,6 +453,7 @@ class StackNetworksResponse(BaseModel):
         app: The application's domain.
         applicable: It is a stack Docker runs.
         reason: Why not, when it is not.
+        reason_coded: ``reason`` as a code and its values; null when it is applicable.
         containers: The names of the stack's containers.
         isolated: Every network is the stack's own and nothing else is on it.
         networks: The networks.
@@ -458,6 +462,7 @@ class StackNetworksResponse(BaseModel):
     app: str
     applicable: bool
     reason: str = ""
+    reason_coded: CodedText | None = None
     containers: list[str]
     isolated: bool
     networks: list[StackNetworkModel]
