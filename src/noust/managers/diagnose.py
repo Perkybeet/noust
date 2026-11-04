@@ -1189,13 +1189,13 @@ def _decide(
                 domain=ctx.domain,
                 upstream_port=blue_green["upstream_port"],
                 serving=str(blue_green.get("serving")),
-                port=blue_green.get("port"),
+                port=blue_green["port"],
             )
         return "down", say(
             "diagnose.cause.upstream_none",
             domain=ctx.domain,
             serving=str(blue_green.get("serving")),
-            port=blue_green.get("port"),
+            port=blue_green["port"],
         )
 
     if port.get("recorded_port") is not None and not port.get("listening"):

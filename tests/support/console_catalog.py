@@ -25,15 +25,16 @@ CONSOLE_CATALOGS = {
 }
 
 
-def sentences_of(path: Path) -> dict[str, str]:
+def sentences_of(path: Path, part: str = "text") -> dict[str, str]:
     """
     Read the sentences of a console catalog.
 
     Args:
         path: One of :data:`CONSOLE_CATALOGS`.
+        part: ``text`` for the sentences, ``hint`` for their fixes.
 
     Returns:
-        ``code`` to the ``text`` of the sentence (the ``hint`` of a fix is not read).
+        ``code`` to the ``text`` of the sentence (or to its ``hint``, when asked for that).
     """
     source = re.sub(r"/\*.*?\*/", "", path.read_text(encoding="utf-8"), flags=re.S)
     tokens = re.findall(r'"(?:[^"\\]|\\.)*"|[A-Za-z_][A-Za-z0-9_]*|[{}:,]', source)
@@ -49,7 +50,7 @@ def sentences_of(path: Path) -> dict[str, str]:
             trail.pop()
         elif token == ":" and tokens[index + 1] != "{":
             value = tokens[index + 1]
-            if key == "text" and value.startswith('"'):
+            if key == part and value.startswith('"'):
                 found[".".join(trail[1:])] = json.loads(value)
         elif token not in (",", ":"):
             key = token
