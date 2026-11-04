@@ -19,8 +19,14 @@ export function TagChips({ tags }: { tags: readonly string[] | undefined }) {
   return (
     <ul aria-label={t("appTags.resource.chips")} className="flex min-w-0 flex-wrap items-center gap-1">
       {tags.map((tag) => (
-        <li key={tag}>
-          <Badge mono>{tag}</Badge>
+        // A tag is up to 32 letters, wider than a phone's card has beside its menu: it ends in an ellipsis there,
+        // with the whole tag in its title, instead of being cut by the box that holds the name.
+        <li key={tag} className="max-w-full min-w-0">
+          <Badge mono className="max-w-full min-w-0">
+            <span title={tag} className="min-w-0 truncate">
+              {tag}
+            </span>
+          </Badge>
         </li>
       ))}
     </ul>

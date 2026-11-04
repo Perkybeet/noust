@@ -135,7 +135,6 @@ describe("the recipes inside the wizard", () => {
     const { backend, harness } = wizard("/apps/new?start=recipe");
     const { user } = harness;
     const list = await screen.findByRole("list", { name: "Recipes" });
-    // The wizard lists every recipe: it is where one is picked, not browsed.
     expect(await within(list).findByRole("heading", { level: 3, name: "Vaultwarden" })).toBeInTheDocument();
     // What this release cannot install is listed after the others with its reason, not among the ones to pick.
     expect(within(list).queryByRole("heading", { name: "Ghost" })).not.toBeInTheDocument();
@@ -150,5 +149,52 @@ describe("the recipes inside the wizard", () => {
     // No page of the recipe in the middle of the wizard: the card only has its Use button.
     expect(screen.queryByRole("link", { name: /^Details of/ })).not.toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
+  });
+
+  it("are paged as the catalog's page is, so the step is a page of cards and never every recipe at once (item 117)", { timeout: 40_000 }, async () => {
+    // Browsing all of them drew the 440 cards of the real catalog in one column of the step: a page of 32,000px
+    // and 23,000 elements that read as a scroll without end.
+    const { harness } = wizard("/apps/new?start=recipe");
+    const { user } = harness;
+    const list = await screen.findByRole("list", { name: "Recipes" });
+    expect(await within(list).findByRole("heading", { level: 3, name: "Vaultwarden" })).toBeInTheDocument();
+    expect(within(list).getAllByRole("heading", { level: 3 })).toHaveLength(20);
+    expect(within(list).queryByRole("heading", { level: 3, name: "Tool 20" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Showing 1–20 of 24/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Next page" }));
+    expect(await within(screen.getByRole("list", { name: "Recipes" })).findByRole("heading", { level: 3, name: "Tool 20" })).toBeInTheDocument();
+    expect(within(screen.getByRole("list", { name: "Recipes" })).getAllByRole("heading", { level: 3 })).toHaveLength(4);
+    expect(screen.getByText(/Showing 21–24 of 24/)).toBeInTheDocument();
+    // It is still the step: a card chosen on the second page is the one that is read.
+    expect(screen.getByRole("heading", { level: 2, name: "Source" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Use Tool 20" })).toBeInTheDocument();
+  });
+
+  it("remember their own page size, apart from the one the catalog's page remembers", { timeout: 40_000 }, async () => {
+    // "All" chosen on the catalog's page is a choice about that page: here it would bring the 430 cards back.
+    window.localStorage.setItem("noust.pageSize.recipes", "all");
+    const { harness } = wizard("/apps/new?start=recipe");
+    const { user } = harness;
+    const list = await screen.findByRole("list", { name: "Recipes" });
+    expect(await within(list).findByRole("heading", { level: 3, name: "Vaultwarden" })).toBeInTheDocument();
+    expect(within(list).getAllByRole("heading", { level: 3 })).toHaveLength(20);
+    await user.click(screen.getByRole("combobox", { name: "Rows per page" }));
+    await user.click(await screen.findByRole("option", { name: "50" }));
+    await waitFor(() => expect(within(screen.getByRole("list", { name: "Recipes" })).getAllByRole("heading", { level: 3 })).toHaveLength(24));
+    expect(window.localStorage.getItem("noust.pageSize.recipes-in-step")).toBe("50");
+    expect(window.localStorage.getItem("noust.pageSize.recipes")).toBe("all");
+  });
+
+  it("pages what is typed in the box too, and starts again at the first page for each search", { timeout: 40_000 }, async () => {
+    const { harness } = wizard("/apps/new");
+    const { user } = harness;
+    await user.type(await screen.findByLabelText("What to deploy"), "recipe");
+    expect(await screen.findByText(/Showing 1–20 of 22/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Next page" }));
+    expect(await screen.findByText(/Showing 21–22 of 22/)).toBeInTheDocument();
+    // Another search that finds the same recipes begins at the first page again.
+    await user.type(screen.getByLabelText("What to deploy"), " a");
+    expect(await screen.findByText(/Showing 1–20 of 22/)).toBeInTheDocument();
   });
 });

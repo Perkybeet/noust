@@ -38,6 +38,13 @@ export interface Column<T> {
    * empty (nothing, or an `EmptyCell`) is left out of the line rather than drawn as a dash.
    */
   card?: "title" | "status" | "meta" | "control" | "hidden";
+  /**
+   * Whether this row's cell holds more than one line (a name with its tags under it). It then keeps room above
+   * and below its content, so the content never touches the row's border. Not every cell does: a row is as tall as
+   * its tallest content, a 32px control already fills the minimum with its border, and a cell of one or two short
+   * lines would make every row of the table taller for nothing.
+   */
+  stacked?: (row: T) => boolean;
 }
 
 export interface DataTableProps<T> {
@@ -97,6 +104,9 @@ export interface DataTableProps<T> {
 
 /** What a table does under 640px when it is not told: the console's lists are cards on a phone (DESIGN 6.8). */
 const DEFAULT_MOBILE: NonNullable<DataTableProps<unknown>["mobile"]> = "cards";
+
+/** The room a cell that stacks lines keeps above and below them: a cell has none otherwise, and its height is a minimum. */
+const STACKED = "py-1.5";
 
 /** The smallest page size: a list this short has nothing to page, so no control is drawn. */
 const SMALLEST_PAGE = 20;
@@ -366,6 +376,7 @@ export function DataTable<T>({
                           className={cx(
                             cellHeight,
                             "px-3 whitespace-nowrap text-fg first:pl-4",
+                            column.stacked?.(row) === true && STACKED,
                             layout === "fixed" && "truncate",
                             column.align === "end" && "text-right",
                             column.mono && "mono text-12",
@@ -469,7 +480,9 @@ function CardRows<T>({
           ))
         : rows.map((row) => {
             const id = getRowId(row);
-            const title = titles.map((column) => <span key={column.id}>{column.cell(row)}</span>);
+            // What opens the row is a button, whose content is phrasing; a name beside a paragraph or a list is a block.
+            const Piece = onRowActivate ? "span" : "div";
+            const title = titles.map((column) => <Piece key={column.id}>{column.cell(row)}</Piece>);
             const control = controls.map((column) => ({ column, content: column.cell(row) })).filter((entry) => !isEmptyValue(entry.content));
             const values = meta.map((column) => ({ column, content: column.cell(row) })).filter((entry) => !isEmptyValue(entry.content));
             return (
@@ -500,19 +513,20 @@ function CardRows<T>({
                       {title}
                     </button>
                   ) : (
-                    <p className="min-w-0 truncate text-14 font-medium text-fg">{title}</p>
+                    // A `div`: a name with its tags under it holds a list, which is not valid inside a paragraph.
+                    <div className="min-w-0 truncate text-14 font-medium text-fg">{title}</div>
                   )}
                   {values.length > 0 ? (
-                    <p className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5 text-12 text-fg-muted">
+                    <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5 text-12 text-fg-muted">
                       {values.map(({ column, content }) => (
                         // Each fact has its own place, apart from the next by room and not by a mark: a mark inside the
                         // fact wrapped alone to a line of its own when the line was full.
-                        <span key={column.id} className={cx("min-w-0", column.mono && "mono")}>
+                        <div key={column.id} className={cx("min-w-0", column.mono && "mono")}>
                           <span className="sr-only">{`${column.header}: `}</span>
                           {content}
-                        </span>
+                        </div>
                       ))}
-                    </p>
+                    </div>
                   ) : null}
                 </div>
                 {rowActions ? <div className="shrink-0">{rowActions(row)}</div> : null}

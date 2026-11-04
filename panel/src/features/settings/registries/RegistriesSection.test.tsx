@@ -108,6 +108,15 @@ describe("the registry accounts of the server, in Settings", () => {
     await expectNoAxeViolations(container);
   });
 
+  it("has one terminal hint, the section's, and not a second one under it (item 121)", { timeout: 40_000 }, async () => {
+    const { section } = await integrations();
+    await within(section).findByRole("table", { name: "Registry accounts" });
+    // The page used to close with "From a terminal", right after the section's own "The same, from a terminal".
+    expect(screen.getAllByText("noust registry list")).toHaveLength(1);
+    expect(screen.queryByText("From a terminal")).not.toBeInTheDocument();
+    expect(within(section).getByText("The same, from a terminal")).toBeInTheDocument();
+  });
+
   it("says there are none yet", async () => {
     const { section } = await integrations({ "GET /api/registries": () => json(200, { logins: [], kinds: KINDS }) });
     expect(await within(section).findByText("No registry accounts")).toBeInTheDocument();

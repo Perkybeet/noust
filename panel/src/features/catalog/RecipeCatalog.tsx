@@ -187,6 +187,8 @@ export interface CatalogResultsProps {
   detail?: boolean;
   /** Pages at the operator's size (20, 50, 100 or all) instead of listing every recipe. */
   paged?: boolean;
+  /** The list the page size is remembered for: each list has its own (the catalogue's page by default), so a choice made there does not reach where the same cards are a step. */
+  pageList?: string;
   /** The heading level of each recipe's name: 2 under a page's title, 3 (the default) inside a step. */
   level?: 2 | 3;
   /** What stands above the grid: a failure to read the recipe that was chosen. */
@@ -199,9 +201,9 @@ export interface CatalogResultsProps {
  * Paging is the operator's (design 6.8): shown only when the page is asked to page, and only
  * once there are more recipes than the smallest page.
  */
-export function CatalogResults({ catalog, search, onClear, onChoose, opening = null, detail = false, paged = false, level = 3, notice }: CatalogResultsProps) {
+export function CatalogResults({ catalog, search, onClear, onChoose, opening = null, detail = false, paged = false, pageList = CATALOG_LIST, level = 3, notice }: CatalogResultsProps) {
   const t = useT();
-  const [pageSize, setPageSize] = usePageSize(CATALOG_LIST);
+  const [pageSize, setPageSize] = usePageSize(pageList);
   // The page is forgotten with the filters it was a page of: a new search starts at the first.
   const searchKey = JSON.stringify(search);
   const [at, setAt] = useState<{ key: string; page: number }>({ key: searchKey, page: 0 });

@@ -1,4 +1,3 @@
-import { CommandHint } from "../../../components/page/CommandHint";
 import { Sections } from "../../../components/page/Section";
 import { useDocumentTitle } from "../../../app/documentTitle";
 import { useT } from "../../../i18n";
@@ -15,7 +14,6 @@ export function RegistriesSettings() {
   return (
     <Sections>
       <RegistriesSection />
-      <CommandHint command="noust registry list" label={t("common.words.fromTerminal")} />
     </Sections>
   );
 }

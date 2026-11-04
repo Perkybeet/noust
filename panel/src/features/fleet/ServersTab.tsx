@@ -145,6 +145,8 @@ function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>, handlers: Row
       hideBelow: "md",
       // A phone hides the column as a narrow table would: the labels are edited from the menu.
       card: "hidden",
+      // Several labels wrap to more lines than the row has: the cell keeps its room, and a server with one does not grow.
+      stacked: (row) => !originOf(row).local && labelsOf(row).length > 1,
       cell: (row) => {
         const labels = labelsOf(row);
         if (originOf(row).local) return <EmptyCell reason={t("fleet.labels.notForCentral")} />;
