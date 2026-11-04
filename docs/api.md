@@ -94,7 +94,14 @@ one from a browser session needs sudo mode.
 `POST /api/auth/tokens` takes `name`, `scope` (`read`, `deploy` or `admin`), `expires_hours`,
 `permissions` (a list to narrow it to, each held by the issuing account), `allowed_cidrs` (the
 networks it is accepted from) and `allow_elevated` (whether it may call routes that need sudo
-mode; off by default, refused under the ENS profile). A token acts for its owner and never holds
+mode; off by default, refused wherever the `restricted_tokens` control is on, as the ENS frameworks
+do). A token cannot confirm sudo mode, so one made for an account is refused on those routes unless
+it was made to be an exception, and that is a decision of whoever governs accounts: only an account
+with `accounts.manage` (in sudo mode, as every issue of a token from a browser session is) can set
+`allow_elevated`, `noust token create NAME --owner USER --elevated` is the same from the terminal,
+`noust token list` and `GET /api/auth/tokens` show which tokens have it, and every action such a
+token takes where sudo mode is asked is recorded in the audit trail as `auth.token.elevated`, with
+the token's name, the method and the path. A token acts for its owner and never holds
 more than the owner's permissions, whatever its scope; if the owner's role changes or the owner
 is disabled, the token follows at its next request. Under the `ens-medium` profile every token
 expires within `auth.tokens.max_days` (90).

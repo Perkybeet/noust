@@ -119,6 +119,7 @@ EVENTS: dict[str, EventSpec] = {
             "auth.token.create": "An API token was issued.",
             "auth.token.revoke": "An API token was revoked.",
             "auth.token.update": "The networks an API token is accepted from were changed.",
+            "auth.token.elevated": "An API token acted where sudo mode is asked, which only a token issued for it may.",
             "auth.passkey.register": "A passkey was registered.",
             "auth.passkey.remove": "A passkey was removed.",
             "auth.passkey.reset": "Every passkey of an account or of the master token was removed.",

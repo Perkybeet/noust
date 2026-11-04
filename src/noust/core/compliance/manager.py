@@ -224,7 +224,10 @@ class ComplianceManager:
         Returns:
             ``frameworks`` (each with whether it is on, why, and what enabling it
             would change), ``controls`` (each as it stands, with which framework
-            forces it), ``legacy_profile`` and any unknown name in the list.
+            forces it), ``legacy_profile`` (what ``security.profile`` holds, as written),
+            whether that is a value (``legacy_profile_valid``) and how it is read
+            (``legacy_profile_read_as``: a value Noust does not know is read as
+            ``ens-medium``), and any unknown name in the list.
         """
         on = self.enabled()
         explicit = set(resolve.listed(self.config))
@@ -244,10 +247,13 @@ class ComplianceManager:
                     "requirement_count": len(framework.all_requirements()),
                 }
             )
+        written = profile.read_config(self.config, "security.profile", "standard")
         return {
             "frameworks": listing,
             "controls": [item.to_dict() for item in current.values()],
-            "legacy_profile": profile.read_config(self.config, "security.profile", "standard"),
+            "legacy_profile": written,
+            "legacy_profile_valid": profile.is_recognised(written),
+            "legacy_profile_read_as": profile.normalise_profile(written),
             "unknown": resolve.unknown_names(self.config),
         }
 

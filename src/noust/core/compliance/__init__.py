@@ -16,6 +16,7 @@ Compliance as controls and the frameworks that switch them on (item 83).
 - :mod:`~noust.core.compliance.manager`: planning and applying a change of
   frameworks and controls, for ``noust compliance`` and the console.
 - :mod:`~noust.core.compliance.check`: ``noust compliance check``, per framework.
+- :mod:`~noust.core.compliance.report`: the document a check leaves behind, with its digest.
 - :mod:`~noust.core.compliance.docs`: the generator of ``docs/COMPLIANCE.md``.
 
 A preset turns on technical controls that help with a framework. It never makes a

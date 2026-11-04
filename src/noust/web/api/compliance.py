@@ -11,6 +11,8 @@ caller's permission, sudo mode and the audit record with the person behind it.
 
 - ``GET /api/compliance`` says what is on and what forces what (``settings.read``:
   anybody signed in sees which frameworks protect the server).
+- ``GET /api/compliance/check`` judges each framework that is on, clause by clause, and as
+  Markdown (``format=markdown``) is the document to hand to an auditor (``compliance.read``).
 - ``POST /api/compliance/plan`` says what a change would do, writing nothing
   (``security.manage``).
 - ``PUT /api/compliance`` makes it (``security.manage``). Turning a framework on, or a
@@ -24,12 +26,14 @@ fleet request can hold.
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
 from noust.core.compliance import check as compliance_check
+from noust.core.compliance import report as compliance_report
 from noust.core.compliance.manager import ComplianceManager, Plan
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute, ensure_elevated
@@ -142,13 +146,20 @@ class ComplianceState(BaseModel):
     Attributes:
         frameworks: Every framework, in catalog order.
         controls: Every control, in catalog order.
-        legacy_profile: What ``security.profile`` holds.
+        legacy_profile: What ``security.profile`` holds, as written.
+        legacy_profile_valid: Whether that is a value Noust knows (empty, ``standard`` or
+            a spelling of ``ens-medium``). False for a typo, which is read strict.
+        legacy_profile_read_as: What it is read as, ``standard`` or ``ens-medium``. A value
+            that is not valid is read as ``ens-medium``, so ENS MEDIA is on through it
+            (``source: profile`` on that framework) until the value is corrected.
         unknown: Names in ``security.frameworks`` this version does not know.
     """
 
     frameworks: list[FrameworkInfo]
     controls: list[ControlInfo]
     legacy_profile: str
+    legacy_profile_valid: bool = True
+    legacy_profile_read_as: str = "standard"
     unknown: list[str]
 
 
@@ -307,12 +318,22 @@ class CheckResponse(BaseModel):
         frameworks: One per framework judged.
         errors: Areas that could not be read.
         disclaimer: What a pass does and does not mean.
+        enabled: The frameworks that are on right now, in catalog order, whichever were
+            judged. Empty when nothing is on: then a check that names no framework
+            judges nothing and ``verdict`` is ``ok`` because nothing was asked for.
+        checked_at: When, ISO 8601 UTC.
+        host: This server's name.
+        version: The Noust it runs.
     """
 
     verdict: str
     frameworks: list[CheckFramework]
     errors: dict[str, str]
     disclaimer: str
+    enabled: list[str] = Field(default_factory=list)
+    checked_at: str = ""
+    host: str = ""
+    version: str = ""
 
 
 def _state() -> dict[str, Any]:
@@ -437,29 +458,43 @@ def change_compliance(
     }
 
 
-@router.get("/check", response_model=CheckResponse)
+@router.get(
+    "/check",
+    response_model=CheckResponse,
+    responses={200: {"content": {"text/markdown": {}}}},
+)
 def check_compliance(
+    request: Request,
     framework: Annotated[list[str] | None, Query()] = None,
-    _session: dict[str, Any] = Depends(get_current_session),
+    format: Annotated[Literal["json", "markdown"], Query()] = "json",
+    session: dict[str, Any] = Depends(get_current_session),
 ) -> Any:
     """
     Judge this server framework by framework, with the clause of each finding.
 
     Reads the server's state (the last hardening report, the accounts, the backups);
     a pass means the technical control is in force, never that the server complies.
+    By default it judges the frameworks that are on, and nothing when none is: a server
+    that never turned one on is not shown a report in red. ``format=markdown`` is the
+    same result as a document to hand to an auditor, with its SHA-256 in the
+    ``X-Noust-Report-SHA256`` header.
 
     Args:
+        request: The request.
         framework: Frameworks to judge; the ones that are on by default.
-        _session: The authenticated payload.
+        format: ``json`` (the result) or ``markdown`` (a download).
+        session: The authenticated payload.
 
     Returns:
-        The findings per framework.
+        The findings per framework, or their Markdown rendering as an attachment.
 
     Raises:
         ValidationError: For a framework that does not exist.
     """
+    from noust.core.audit import record
     from noust.core.compliance import frameworks
     from noust.core.exceptions import ValidationError
+    from noust.web.permissions.principal import actor_of
 
     names = [name.strip().lower() for name in (framework or [])]
     for name in names:
@@ -469,4 +504,21 @@ def check_compliance(
                 details=f"The frameworks are: {', '.join(frameworks.FRAMEWORK_IDS)}.",
                 field="framework",
             )
-    return compliance_check.run(names or None).to_dict()
+    result = compliance_check.run(names or None)
+    details: dict[str, Any] = {"verdict": result.verdict, "format": format}
+    if format == "markdown":
+        built = compliance_report.build(result)
+        details["sha256"] = built["sha256"]
+        record(
+            "compliance.read", actor=actor_of(session), target="compliance:check", details=details
+        )
+        return PlainTextResponse(
+            compliance_report.render_markdown(built),
+            media_type="text/markdown; charset=utf-8",
+            headers={
+                "Content-Disposition": f'attachment; filename="compliance-report-{built["host"]}.md"',
+                "X-Noust-Report-SHA256": built["sha256"],
+            },
+        )
+    record("compliance.read", actor=actor_of(session), target="compliance:check", details=details)
+    return result.to_dict()

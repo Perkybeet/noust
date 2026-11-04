@@ -11496,13 +11496,19 @@ export interface paths {
          *
          *     Reads the server's state (the last hardening report, the accounts, the backups);
          *     a pass means the technical control is in force, never that the server complies.
+         *     By default it judges the frameworks that are on, and nothing when none is: a server
+         *     that never turned one on is not shown a report in red. ``format=markdown`` is the
+         *     same result as a document to hand to an auditor, with its SHA-256 in the
+         *     ``X-Noust-Report-SHA256`` header.
          *
          *     Args:
+         *         request: The request.
          *         framework: Frameworks to judge; the ones that are on by default.
-         *         _session: The authenticated payload.
+         *         format: ``json`` (the result) or ``markdown`` (a download).
+         *         session: The authenticated payload.
          *
          *     Returns:
-         *         The findings per framework.
+         *         The findings per framework, or their Markdown rendering as an attachment.
          *
          *     Raises:
          *         ValidationError: For a framework that does not exist.
@@ -18040,6 +18046,11 @@ export interface paths {
         /**
          * Ens Check
          * @description Compare this server with the ens-medium profile, check by check.
+         *
+         *     Judges only a server where a framework of the ENS family is on. Without one the
+         *     answer says ``enabled: false`` and carries no findings: a server that never asked
+         *     for the ENS is not told it fails it (``GET /api/compliance/check`` says how far it
+         *     is from any framework, on or off).
          *
          *     Args:
          *         request: The request.
@@ -32753,8 +32764,10 @@ export interface components {
          *         permissions: Permissions to narrow it to instead of its scope's; all
          *             must be held by the issuing account.
          *         allowed_cidrs: Networks it is accepted from; any when omitted.
-         *         allow_elevated: Let it act where sudo mode is asked. Off by default,
-         *             refused under the ENS profile.
+         *         allow_elevated: Let it act where sudo mode is asked, with nobody confirming each
+         *             time. Off by default; only whoever governs accounts (``accounts.manage``) may
+         *             issue one, never where the ``restricted_tokens`` control is on, and each action
+         *             it takes there is audited as ``auth.token.elevated``.
          *         team: Bind the token to this team (and, with ``project`` and
          *             ``environment``, to a project or an environment of it): it sees
          *             that and nothing else of the server (I-34).
@@ -38077,7 +38090,12 @@ export interface components {
          *     Attributes:
          *         frameworks: Every framework, in catalog order.
          *         controls: Every control, in catalog order.
-         *         legacy_profile: What ``security.profile`` holds.
+         *         legacy_profile: What ``security.profile`` holds, as written.
+         *         legacy_profile_valid: Whether that is a value Noust knows (empty, ``standard`` or
+         *             a spelling of ``ens-medium``). False for a typo, which is read strict.
+         *         legacy_profile_read_as: What it is read as, ``standard`` or ``ens-medium``. A value
+         *             that is not valid is read as ``ens-medium``, so ENS MEDIA is on through it
+         *             (``source: profile`` on that framework) until the value is corrected.
          *         unknown: Names in ``security.frameworks`` this version does not know.
          */
         ComplianceState: {
@@ -38087,6 +38105,16 @@ export interface components {
             frameworks: components["schemas"]["FrameworkInfo"][];
             /** Legacy Profile */
             legacy_profile: string;
+            /**
+             * Legacy Profile Read As
+             * @default standard
+             */
+            legacy_profile_read_as: string;
+            /**
+             * Legacy Profile Valid
+             * @default true
+             */
+            legacy_profile_valid: boolean;
             /** Unknown */
             unknown: string[];
         };
@@ -43175,6 +43203,9 @@ export interface components {
          *         findings: One per check, in catalog order.
          *         indicators: The op.mon.2 figures.
          *         errors: Areas that could not be read, verbatim.
+         *         enabled: Whether a framework of the ENS family is on. When it is not, nothing
+         *             is judged: ``findings`` is empty and ``verdict`` is ``ok`` because no
+         *             control was asked for, not because the server passes.
          */
         EnsCheckResponse: {
             /** Checked At */
@@ -43183,6 +43214,11 @@ export interface components {
             counts: {
                 [key: string]: number;
             };
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
             /** Errors */
             errors?: {
                 [key: string]: string;
@@ -57668,6 +57704,9 @@ export interface components {
          *     point it at a server of its own and send itself a test email. There is no
          *     way to explicitly blank the password through this endpoint; ``noust config
          *     set monitor.smtp.password ''`` still does that directly.
+         *
+         *     ``recipients`` works the same way: left out, the stored list stays; an empty
+         *     list is the explicit way to clear it.
          */
         SMTPConfig: {
             /**
@@ -57696,9 +57735,9 @@ export interface components {
             port: number;
             /**
              * Recipients
-             * @description Addresses the monitor's reports and test message are sent to
+             * @description Addresses the monitor's reports and test message are sent to. Leave it out (or null) to keep the ones already stored; an empty list clears them
              */
-            recipients?: string[];
+            recipients?: string[] | null;
             /**
              * Use Ssl
              * @description Connect with implicit TLS (SMTPS), usually port 465
@@ -67340,18 +67379,41 @@ export interface components {
          *         frameworks: One per framework judged.
          *         errors: Areas that could not be read.
          *         disclaimer: What a pass does and does not mean.
+         *         enabled: The frameworks that are on right now, in catalog order, whichever were
+         *             judged. Empty when nothing is on: then a check that names no framework
+         *             judges nothing and ``verdict`` is ``ok`` because nothing was asked for.
+         *         checked_at: When, ISO 8601 UTC.
+         *         host: This server's name.
+         *         version: The Noust it runs.
          */
         noust__web__api__compliance__CheckResponse: {
+            /**
+             * Checked At
+             * @default
+             */
+            checked_at: string;
             /** Disclaimer */
             disclaimer: string;
+            /** Enabled */
+            enabled?: string[];
             /** Errors */
             errors: {
                 [key: string]: string;
             };
             /** Frameworks */
             frameworks: components["schemas"]["CheckFramework"][];
+            /**
+             * Host
+             * @default
+             */
+            host: string;
             /** Verdict */
             verdict: string;
+            /**
+             * Version
+             * @default
+             */
+            version: string;
         };
         /**
          * PolicyDestination
@@ -81310,6 +81372,7 @@ export interface operations {
         parameters: {
             query?: {
                 framework?: string[] | null;
+                format?: "json" | "markdown";
             };
             header?: never;
             path?: never;
@@ -81324,6 +81387,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["noust__web__api__compliance__CheckResponse"];
+                    "text/markdown": unknown;
                 };
             };
             /** @description Validation Error */

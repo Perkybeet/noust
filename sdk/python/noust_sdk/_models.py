@@ -2022,6 +2022,8 @@ ComplianceState = TypedDict("ComplianceState", {
     "controls": Required[list["ControlInfo"]],
     "frameworks": Required[list["FrameworkInfo"]],
     "legacy_profile": Required[str],
+    "legacy_profile_read_as": NotRequired[str],
+    "legacy_profile_valid": NotRequired[bool],
     "unknown": Required[list[str]],
 })
 
@@ -3606,6 +3608,7 @@ EnsBaselineItem = TypedDict("EnsBaselineItem", {
 EnsCheckResponse = TypedDict("EnsCheckResponse", {
     "checked_at": Required[str],
     "counts": Required[dict[str, int]],
+    "enabled": NotRequired[bool],
     "errors": NotRequired[dict[str, str]],
     "findings": Required[list["EnsFinding"]],
     "host": Required[str],
@@ -8303,7 +8306,7 @@ SMTPConfig = TypedDict("SMTPConfig", {
     "host": NotRequired[str],
     "password": NotRequired[str],
     "port": NotRequired[int],
-    "recipients": NotRequired[list[str]],
+    "recipients": NotRequired[Union[list[str], None]],
     "use_ssl": NotRequired[bool],
     "use_tls": NotRequired[bool],
     "username": NotRequired[str],
@@ -11440,10 +11443,14 @@ NoustWebApiCloudProviderOut = TypedDict("NoustWebApiCloudProviderOut", {
 })
 
 NoustWebApiComplianceCheckResponse = TypedDict("NoustWebApiComplianceCheckResponse", {
+    "checked_at": NotRequired[str],
     "disclaimer": Required[str],
+    "enabled": NotRequired[list[str]],
     "errors": Required[dict[str, str]],
     "frameworks": Required[list["CheckFramework"]],
+    "host": NotRequired[str],
     "verdict": Required[str],
+    "version": NotRequired[str],
 })
 
 NoustWebApiDatabasesBackupsPolicyDestination = TypedDict("NoustWebApiDatabasesBackupsPolicyDestination", {

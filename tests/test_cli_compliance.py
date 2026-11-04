@@ -14,6 +14,7 @@ names the clause of each finding; and the old ``noust ens`` still works.
 from __future__ import annotations
 
 import json
+import shlex
 from collections.abc import Iterator
 from datetime import datetime, timezone
 from pathlib import Path
@@ -71,6 +72,47 @@ class TestReading:
 
         assert result.exit_code == 0, result.output
         assert "none" in result.output
+
+    def test_status_says_when_the_profile_is_not_a_value_and_how_it_is_read(
+        self, real_config: Config
+    ) -> None:
+        real_config.set("security.profile", "off")
+
+        output = run("status").output
+
+        assert "security.profile is 'off'" in output
+        assert "not a profile" in output
+        assert "read as ens-medium" in output
+        assert "ENS MEDIA" in output
+
+    def test_the_fix_it_prints_is_one_that_works(self, real_config: Config) -> None:
+        real_config.set("security.profile", "off")
+        marker = "noust config set security.profile"
+        printed = [
+            line[line.index(marker) :].strip()
+            for line in run("status").output.splitlines()
+            if marker in line
+        ]
+        assert printed, "the warning names the command that fixes it"
+
+        fixed = CliRunner().invoke(cli, shlex.split(printed[0])[1:])
+
+        assert fixed.exit_code == 0, fixed.output
+        state = json.loads(run("status", "--json").output)
+        assert state["legacy_profile_valid"] is True
+        assert not any(f["enabled"] for f in state["frameworks"])
+
+    def test_a_valid_profile_has_no_warning(self, real_config: Config) -> None:
+        real_config.set("security.profile", "ens-medium")
+
+        assert "not a profile" not in run("status").output
+
+    def test_status_as_json_says_it_too(self, real_config: Config) -> None:
+        real_config.set("security.profile", "off")
+
+        body = json.loads(run("status", "--json").output)
+
+        assert body["legacy_profile"] == "off" and body["legacy_profile_valid"] is False
 
     def test_status_as_json(self, real_config: Config) -> None:
         body = json.loads(run("status", "--json").output)

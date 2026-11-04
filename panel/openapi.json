@@ -2020,7 +2020,7 @@
         "type": "object"
       },
       "ApiTokenRequest": {
-        "description": "Request to issue an API token.\n\nAttributes:\n    name: Human-chosen name, unique across all tokens ever issued.\n    scope: ``read``, ``deploy`` or ``admin``; narrowed to what the\n        issuing account holds.\n    expires_hours: Lifetime in hours; omit for a token that only dies by\n        revocation (under the ENS profile, the longest allowed).\n    permissions: Permissions to narrow it to instead of its scope's; all\n        must be held by the issuing account.\n    allowed_cidrs: Networks it is accepted from; any when omitted.\n    allow_elevated: Let it act where sudo mode is asked. Off by default,\n        refused under the ENS profile.\n    team: Bind the token to this team (and, with ``project`` and\n        ``environment``, to a project or an environment of it): it sees\n        that and nothing else of the server (I-34).\n    project: Bind it to this project of the team.\n    environment: Bind it to this environment of the project.",
+        "description": "Request to issue an API token.\n\nAttributes:\n    name: Human-chosen name, unique across all tokens ever issued.\n    scope: ``read``, ``deploy`` or ``admin``; narrowed to what the\n        issuing account holds.\n    expires_hours: Lifetime in hours; omit for a token that only dies by\n        revocation (under the ENS profile, the longest allowed).\n    permissions: Permissions to narrow it to instead of its scope's; all\n        must be held by the issuing account.\n    allowed_cidrs: Networks it is accepted from; any when omitted.\n    allow_elevated: Let it act where sudo mode is asked, with nobody confirming each\n        time. Off by default; only whoever governs accounts (``accounts.manage``) may\n        issue one, never where the ``restricted_tokens`` control is on, and each action\n        it takes there is audited as ``auth.token.elevated``.\n    team: Bind the token to this team (and, with ``project`` and\n        ``environment``, to a project or an environment of it): it sees\n        that and nothing else of the server (I-34).\n    project: Bind it to this project of the team.\n    environment: Bind it to this environment of the project.",
         "properties": {
           "allow_elevated": {
             "default": false,
@@ -11742,7 +11742,7 @@
         "type": "object"
       },
       "ComplianceState": {
-        "description": "The frameworks and the controls.\n\nAttributes:\n    frameworks: Every framework, in catalog order.\n    controls: Every control, in catalog order.\n    legacy_profile: What ``security.profile`` holds.\n    unknown: Names in ``security.frameworks`` this version does not know.",
+        "description": "The frameworks and the controls.\n\nAttributes:\n    frameworks: Every framework, in catalog order.\n    controls: Every control, in catalog order.\n    legacy_profile: What ``security.profile`` holds, as written.\n    legacy_profile_valid: Whether that is a value Noust knows (empty, ``standard`` or\n        a spelling of ``ens-medium``). False for a typo, which is read strict.\n    legacy_profile_read_as: What it is read as, ``standard`` or ``ens-medium``. A value\n        that is not valid is read as ``ens-medium``, so ENS MEDIA is on through it\n        (``source: profile`` on that framework) until the value is corrected.\n    unknown: Names in ``security.frameworks`` this version does not know.",
         "properties": {
           "controls": {
             "items": {
@@ -11761,6 +11761,16 @@
           "legacy_profile": {
             "title": "Legacy Profile",
             "type": "string"
+          },
+          "legacy_profile_read_as": {
+            "default": "standard",
+            "title": "Legacy Profile Read As",
+            "type": "string"
+          },
+          "legacy_profile_valid": {
+            "default": true,
+            "title": "Legacy Profile Valid",
+            "type": "boolean"
           },
           "unknown": {
             "items": {
@@ -21248,7 +21258,7 @@
         "type": "object"
       },
       "EnsCheckResponse": {
-        "description": "The result of the compliance check.\n\nAttributes:\n    profile: ``standard`` or ``ens-medium``.\n    checked_at: When, ISO 8601 UTC.\n    host: The server's name.\n    version: The Noust it runs.\n    verdict: ``ok``, ``warning`` or ``fail``: the worst finding.\n    counts: Findings per status.\n    findings: One per check, in catalog order.\n    indicators: The op.mon.2 figures.\n    errors: Areas that could not be read, verbatim.",
+        "description": "The result of the compliance check.\n\nAttributes:\n    profile: ``standard`` or ``ens-medium``.\n    checked_at: When, ISO 8601 UTC.\n    host: The server's name.\n    version: The Noust it runs.\n    verdict: ``ok``, ``warning`` or ``fail``: the worst finding.\n    counts: Findings per status.\n    findings: One per check, in catalog order.\n    indicators: The op.mon.2 figures.\n    errors: Areas that could not be read, verbatim.\n    enabled: Whether a framework of the ENS family is on. When it is not, nothing\n        is judged: ``findings`` is empty and ``verdict`` is ``ok`` because no\n        control was asked for, not because the server passes.",
         "properties": {
           "checked_at": {
             "title": "Checked At",
@@ -21260,6 +21270,11 @@
             },
             "title": "Counts",
             "type": "object"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
           },
           "errors": {
             "additionalProperties": {
@@ -48048,7 +48063,7 @@
         "type": "object"
       },
       "SMTPConfig": {
-        "description": "SMTP settings for the monitor's email notifications and test message.\n\n``password`` is write-only: it is never sent back by ``GET /config/smtp``\n(see :class:`SMTPSettingsResponse`), so unlike a secret round-tripped\nthrough the generic ``PUT``/``PATCH /api/config`` there is no\n:data:`~noust.core.config.REDACTED` placeholder for the console to echo\nback untouched. Instead an empty ``password`` keeps whatever is already\nstored - but only while it would still go where it went before: the same\nhost, port, username and transport. Changing any of those with a blank\npassword is refused (see :func:`_refuse_smtp_password_move`), so a\ncredential that may write this section but never saw the password cannot\npoint it at a server of its own and send itself a test email. There is no\nway to explicitly blank the password through this endpoint; ``noust config\nset monitor.smtp.password ''`` still does that directly.",
+        "description": "SMTP settings for the monitor's email notifications and test message.\n\n``password`` is write-only: it is never sent back by ``GET /config/smtp``\n(see :class:`SMTPSettingsResponse`), so unlike a secret round-tripped\nthrough the generic ``PUT``/``PATCH /api/config`` there is no\n:data:`~noust.core.config.REDACTED` placeholder for the console to echo\nback untouched. Instead an empty ``password`` keeps whatever is already\nstored - but only while it would still go where it went before: the same\nhost, port, username and transport. Changing any of those with a blank\npassword is refused (see :func:`_refuse_smtp_password_move`), so a\ncredential that may write this section but never saw the password cannot\npoint it at a server of its own and send itself a test email. There is no\nway to explicitly blank the password through this endpoint; ``noust config\nset monitor.smtp.password ''`` still does that directly.\n\n``recipients`` works the same way: left out, the stored list stays; an empty\nlist is the explicit way to clear it.",
         "properties": {
           "from_address": {
             "default": "",
@@ -48077,12 +48092,19 @@
             "type": "integer"
           },
           "recipients": {
-            "description": "Addresses the monitor's reports and test message are sent to",
-            "items": {
-              "type": "string"
-            },
-            "title": "Recipients",
-            "type": "array"
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Addresses the monitor's reports and test message are sent to. Leave it out (or null) to keep the ones already stored; an empty list clears them",
+            "title": "Recipients"
           },
           "use_ssl": {
             "default": true,
@@ -66613,11 +66635,23 @@
         "type": "object"
       },
       "noust__web__api__compliance__CheckResponse": {
-        "description": "The result of the compliance check.\n\nAttributes:\n    verdict: The worst verdict among the frameworks.\n    frameworks: One per framework judged.\n    errors: Areas that could not be read.\n    disclaimer: What a pass does and does not mean.",
+        "description": "The result of the compliance check.\n\nAttributes:\n    verdict: The worst verdict among the frameworks.\n    frameworks: One per framework judged.\n    errors: Areas that could not be read.\n    disclaimer: What a pass does and does not mean.\n    enabled: The frameworks that are on right now, in catalog order, whichever were\n        judged. Empty when nothing is on: then a check that names no framework\n        judges nothing and ``verdict`` is ``ok`` because nothing was asked for.\n    checked_at: When, ISO 8601 UTC.\n    host: This server's name.\n    version: The Noust it runs.",
         "properties": {
+          "checked_at": {
+            "default": "",
+            "title": "Checked At",
+            "type": "string"
+          },
           "disclaimer": {
             "title": "Disclaimer",
             "type": "string"
+          },
+          "enabled": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Enabled",
+            "type": "array"
           },
           "errors": {
             "additionalProperties": {
@@ -66633,8 +66667,18 @@
             "title": "Frameworks",
             "type": "array"
           },
+          "host": {
+            "default": "",
+            "title": "Host",
+            "type": "string"
+          },
           "verdict": {
             "title": "Verdict",
+            "type": "string"
+          },
+          "version": {
+            "default": "",
+            "title": "Version",
             "type": "string"
           }
         },
@@ -88345,7 +88389,7 @@
     },
     "/api/compliance/check": {
       "get": {
-        "description": "Judge this server framework by framework, with the clause of each finding.\n\nReads the server's state (the last hardening report, the accounts, the backups);\na pass means the technical control is in force, never that the server complies.\n\nArgs:\n    framework: Frameworks to judge; the ones that are on by default.\n    _session: The authenticated payload.\n\nReturns:\n    The findings per framework.\n\nRaises:\n    ValidationError: For a framework that does not exist.",
+        "description": "Judge this server framework by framework, with the clause of each finding.\n\nReads the server's state (the last hardening report, the accounts, the backups);\na pass means the technical control is in force, never that the server complies.\nBy default it judges the frameworks that are on, and nothing when none is: a server\nthat never turned one on is not shown a report in red. ``format=markdown`` is the\nsame result as a document to hand to an auditor, with its SHA-256 in the\n``X-Noust-Report-SHA256`` header.\n\nArgs:\n    request: The request.\n    framework: Frameworks to judge; the ones that are on by default.\n    format: ``json`` (the result) or ``markdown`` (a download).\n    session: The authenticated payload.\n\nReturns:\n    The findings per framework, or their Markdown rendering as an attachment.\n\nRaises:\n    ValidationError: For a framework that does not exist.",
         "operationId": "check_compliance_api_compliance_check_get",
         "parameters": [
           {
@@ -88366,6 +88410,20 @@
               ],
               "title": "Framework"
             }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "json",
+              "enum": [
+                "json",
+                "markdown"
+              ],
+              "title": "Format",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -88375,7 +88433,8 @@
                 "schema": {
                   "$ref": "#/components/schemas/noust__web__api__compliance__CheckResponse"
                 }
-              }
+              },
+              "text/markdown": {}
             },
             "description": "Successful Response"
           },
@@ -100006,7 +100065,7 @@
     },
     "/api/ens/check": {
       "get": {
-        "description": "Compare this server with the ens-medium profile, check by check.\n\nArgs:\n    request: The request.\n    session: Authenticated session, injected.\n    refresh: Probe the hardening checks again.\n\nReturns:\n    The findings, their counts and verdict, and the op.mon.2 indicators.",
+        "description": "Compare this server with the ens-medium profile, check by check.\n\nJudges only a server where a framework of the ENS family is on. Without one the\nanswer says ``enabled: false`` and carries no findings: a server that never asked\nfor the ENS is not told it fails it (``GET /api/compliance/check`` says how far it\nis from any framework, on or off).\n\nArgs:\n    request: The request.\n    session: Authenticated session, injected.\n    refresh: Probe the hardening checks again.\n\nReturns:\n    The findings, their counts and verdict, and the op.mon.2 indicators.",
         "operationId": "ens_check_api_ens_check_get",
         "parameters": [
           {

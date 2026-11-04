@@ -274,6 +274,9 @@ class SMTPConfig(BaseModel):
     point it at a server of its own and send itself a test email. There is no
     way to explicitly blank the password through this endpoint; ``noust config
     set monitor.smtp.password ''`` still does that directly.
+
+    ``recipients`` works the same way: left out, the stored list stays; an empty
+    list is the explicit way to clear it.
     """
 
     host: str = Field("", description="SMTP server hostname; empty means not configured")
@@ -292,9 +295,12 @@ class SMTPConfig(BaseModel):
     from_address: str = Field(
         "", description="Envelope sender address; falls back to the username when empty"
     )
-    recipients: list[str] = Field(
-        default_factory=list,
-        description="Addresses the monitor's reports and test message are sent to",
+    recipients: list[str] | None = Field(
+        None,
+        description=(
+            "Addresses the monitor's reports and test message are sent to. Leave it out (or "
+            "null) to keep the ones already stored; an empty list clears them"
+        ),
     )
 
 
@@ -521,7 +527,9 @@ def update_config(
     before = config.to_dict()
     smtp_before = _smtp_destination(config)
     config.replace(body.config)
-    _refuse_smtp_password_move(smtp_before, config)
+    monitor = body.config.get("monitor")
+    named = _names_the_smtp_password(monitor.get("smtp") if isinstance(monitor, dict) else None)
+    _refuse_smtp_password_move(smtp_before, config, entered=named)
     path = persist(config)
 
     after = config.to_dict()
@@ -568,7 +576,8 @@ def patch_config(
     if isinstance(value, str):
         value = coerce_config_value(config.get(body.path, NO_DEFAULT), value)
     config.set(body.path, value)
-    _refuse_smtp_password_move(smtp_before, config)
+    named = body.path == "monitor.smtp" and _names_the_smtp_password(value)
+    _refuse_smtp_password_move(smtp_before, config, entered=named)
     path = persist(config)
     _audit_write(request, session, changed=[body.path.split(".", 1)[0]])
 
@@ -964,7 +973,24 @@ def _smtp_destination(config: Config) -> tuple[tuple[Any, ...], str]:
     return destination, str(config.get("monitor.smtp.password", "") or "")
 
 
-def _refuse_smtp_password_move(before: tuple[tuple[Any, ...], str], config: Config) -> None:
+def _names_the_smtp_password(block: Any) -> bool:
+    """
+    Report whether a write to ``monitor.smtp`` typed the password itself.
+
+    Args:
+        block: The ``monitor.smtp`` mapping the caller sent, or anything else.
+
+    Returns:
+        True for a real password: not blank, and not the placeholder the console echoes
+        back for a secret it never saw.
+    """
+    password = block.get("password") if isinstance(block, dict) else None
+    return isinstance(password, str) and password not in ("", REDACTED)
+
+
+def _refuse_smtp_password_move(
+    before: tuple[tuple[Any, ...], str], config: Config, *, entered: bool = False
+) -> None:
     """
     Refuse a write that would send the stored SMTP password somewhere new.
 
@@ -978,9 +1004,17 @@ def _refuse_smtp_password_move(before: tuple[tuple[Any, ...], str], config: Conf
     Every API write of the configuration passes here, after the change is
     applied in memory and before it is persisted.
 
+    A caller that typed the password has not been kept away from it, whatever
+    it typed: what the guard stops is a credential that never saw the secret, and
+    one that sends it back has. Before this was told apart, a script that sent the
+    password it knew together with a new server or transport was asked to "enter the
+    password again" and could only get through by clearing it first.
+
     Args:
         before: :func:`_smtp_destination` of the configuration as stored.
         config: The configuration with the change applied, not yet written.
+        entered: The write named the password itself (see
+            :func:`_names_the_smtp_password`) rather than leaving it to be kept.
 
     Raises:
         HTTPException: 422 on ``password`` when a password is stored, the
@@ -988,7 +1022,7 @@ def _refuse_smtp_password_move(before: tuple[tuple[Any, ...], str], config: Conf
     """
     destination, password = _smtp_destination(config)
     old_destination, old_password = before
-    if not old_password or password != old_password or destination == old_destination:
+    if entered or not old_password or password != old_password or destination == old_destination:
         return
     raise HTTPException(
         status_code=422,
@@ -1055,8 +1089,11 @@ def update_smtp_config(
             "from_address": body.from_address,
         },
     )
-    config.set("monitor.email_recipients", body.recipients)
-    _refuse_smtp_password_move(before, config)
+    # A body that says nothing about recipients is not asking for none: an empty list is how a
+    # caller says that, and an omitted field used to be read as one.
+    if body.recipients is not None:
+        config.set("monitor.email_recipients", body.recipients)
+    _refuse_smtp_password_move(before, config, entered=bool(body.password))
     persist(config)
     _audit_write(request, session, changed=["monitor"])
     return MessageResponse(message="SMTP configuration updated")

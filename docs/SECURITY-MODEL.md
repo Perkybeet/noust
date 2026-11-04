@@ -127,9 +127,9 @@ central that has been compromised, an application that has been compromised.
 
 **The failure it answers.** A confirmation that stays valid for hours is not a fresh proof. Coolify's password confirmation lasts three hours (`password_timeout` is 10800 in `config/auth.php:113`; 4.4.0, read on 2026-10-13); Noust's sudo mode closes fifteen minutes after the last elevated action, and a window it opened never outlives its ceiling.
 
-**The guarantee.** Five roles with least privilege. Actions that are destructive or root-equivalent need sudo mode, a fresh proof of who is asking with a password or a passkey, for every kind of identity (a single-sign-on user's provider never stands in for the second factor). Where approvals are on, a root-equivalent change waits for a second person, and the approver cannot be the requester. The master token is break-glass, not the normal way in, and is reduced to account recovery under the ENS profile.
+**The guarantee.** Five roles with least privilege. Actions that are destructive or root-equivalent need sudo mode, a fresh proof of who is asking with a password or a passkey, for every kind of identity (a single-sign-on user's provider never stands in for the second factor). Where approvals are on, a root-equivalent change waits for a second person, and the approver cannot be the requester. The master token is break-glass, not the normal way in, and is reduced to account recovery under the ENS profile. An API token never opens sudo mode, so one made for an account is refused wherever it is asked; the one way round is explicit (`noust token create --elevated`, `allow_elevated` in the API), issued only by whoever governs accounts, listed as such, refused wherever the `restricted_tokens` control is on, and every action it takes there is audited as `auth.token.elevated` with the token's name.
 
-**How it is enforced.** `web/api/deps.py` (`require_elevated`), `core/accounts/approvals.py`, `web/permissions/roles.py`.
+**How it is enforced.** `web/api/deps.py` (`require_elevated`, `ensure_elevated`), `web/auth/tokens.py` (`create_api_token`), `core/accounts/approvals.py`, `web/permissions/roles.py`.
 
 **What fails if it stops holding.**
 
@@ -141,8 +141,12 @@ central that has been compromised, an application that has been compromised.
   - `tests/test_web_oidc.py::TestTheWholeSignIn::test_the_provider_alone_is_never_the_whole_sign_in`
   - `tests/test_approvals.py::TestExecution::test_only_the_requester_executes`
   - `tests/test_approvals.py::TestDeciding::test_security_approves_and_the_requester_executes_once`
+  - `tests/test_elevated_tokens.py::TestOverHttp::test_a_token_that_was_not_made_to_is_asked_for_sudo_mode`
+  - `tests/test_elevated_tokens.py::TestOverHttp::test_one_that_was_acts_and_every_action_is_recorded_with_its_name`
+  - `tests/test_elevated_tokens.py::TestAtTheChokepoint::test_somebody_who_does_not_may_not_issue_it_even_for_themselves`
+  - `tests/test_elevated_tokens.py::TestFromTheCommandLine::test_it_is_refused_where_tokens_are_restricted`
 
-**What it does not cover.** Four-eyes approval is off by default and a single-person installation cannot use it.
+**What it does not cover.** Four-eyes approval is off by default and a single-person installation cannot use it. A token issued to act in sudo mode is a standing exemption: nobody confirms what it does, so its power is its owner's role and its trail is the audit log.
 
 ### 6. The sign-in surface is limited by a client that cannot choose its own identity
 
@@ -485,11 +489,11 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **534** events.
+The catalogue holds **535** events.
 
 | Category | Events |
 |---|---|
-| access | 48 |
+| access | 49 |
 | account | 40 |
 | config | 30 |
 | change | 354 |

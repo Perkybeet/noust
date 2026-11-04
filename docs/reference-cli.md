@@ -15629,6 +15629,7 @@ Arguments: `name`
 | `--project` | Bind it to this project of the team. |  |
 | `--env` | Bind it to this environment. |  |
 | `--allow-ip` | Accept the token only from this address or network (repeat). Omitted: from anywhere. |  |
+| `--elevated` | Let the token act where sudo mode is asked, with nobody confirming each time (needs --owner). Every action it takes there is in the audit trail. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust token list
@@ -15656,7 +15657,7 @@ Arguments: `token_id`
 
 | Option | What it does | Default |
 |---|---|---|
-| `-f`, `--force` | Do not ask for confirmation. |  |
+| `-f`, `-y`, `--force`, `--yes` | Do not ask for confirmation. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust token set

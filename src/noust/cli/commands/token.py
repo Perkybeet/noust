@@ -95,6 +95,22 @@ def _bound(access: AccessStore, record: dict[str, Any]) -> str:
     return access.scope_label(str(record["bound_kind"]), int(record["bound_id"])) or "(deleted)"
 
 
+def _sudo(record: dict[str, Any]) -> str:
+    """
+    Args:
+        record: A token record.
+
+    Returns:
+        Whether the token acts where sudo mode is asked: ``yes`` for one made to, ``no``
+        for one that is refused there, ``legacy`` for one issued before 3.1, which was
+        never asked (the rule it keeps until it is revoked).
+    """
+    allowed = record.get("allow_elevated")
+    if allowed is None:
+        return "legacy"
+    return "yes" if allowed else "no"
+
+
 def _expires(record: dict[str, Any]) -> str:
     """
     Args:
@@ -145,12 +161,24 @@ def list_command(ctx: Context) -> None:
 
     access = AccessStore()
     logger.table(
-        ["ID", "Name", "Scope", "Bound to", "From", "Created", "Expires", "Last used", "Revoked"],
+        [
+            "ID",
+            "Name",
+            "Scope",
+            "Sudo",
+            "Bound to",
+            "From",
+            "Created",
+            "Expires",
+            "Last used",
+            "Revoked",
+        ],
         [
             [
                 str(record["id"]),
                 record["name"],
                 record["scope"],
+                _sudo(record),
                 _bound(access, record),
                 ", ".join(record.get("allowed_cidrs") or []) or "anywhere",
                 _fmt(record["created_at"]),
@@ -202,6 +230,14 @@ def list_command(ctx: Context) -> None:
     multiple=True,
     help="Accept the token only from this address or network (repeat). Omitted: from anywhere.",
 )
+@click.option(
+    "--elevated",
+    is_flag=True,
+    help=(
+        "Let the token act where sudo mode is asked, with nobody confirming each time "
+        "(needs --owner). Every action it takes there is in the audit trail."
+    ),
+)
 @pass_context
 def create_command(
     ctx: Context,
@@ -214,6 +250,7 @@ def create_command(
     project: str | None,
     environment: str | None,
     allow_ips: tuple[str, ...],
+    elevated: bool,
 ) -> None:
     """
     Issue a named, scoped API token. NAME must be unique across every token
@@ -222,7 +259,18 @@ def create_command(
     The token is printed exactly once, here. Store it now: Noust only ever
     keeps a salted hash of it, the same as the master token, so it cannot be
     shown again.
+
+    A token made for an account is refused wherever sudo mode is asked, because a
+    token cannot confirm anything. --elevated is the explicit way to make one that
+    is not (a pipeline that changes settings over the API): it needs --owner, it
+    shows in 'noust token list', every action it takes there is audited, and a
+    server whose compliance controls restrict tokens refuses it.
     """
+    if elevated and not owner:
+        raise click.UsageError(
+            "--elevated needs --owner: sudo mode is a person's, and a token that acts in it "
+            "must name whose."
+        )
     manager = token_manager()
     account = manager.accounts.require(owner) if owner else None
     bound = access_manager().bound_scope(team=team, project=project, environment=environment)
@@ -235,11 +283,26 @@ def create_command(
         permissions=list(permissions) or None,
         allowed_cidrs=list(allow_ips) or None,
         bound=bound,
+        allow_elevated=elevated,
     )
 
     logger = ctx.logger
     where = f", bound to {AccessStore().scope_label(*bound)}" if bound is not None else ""
-    logger.success(f"API token issued: {issued['name']} (scope: {issued['scope']}{where})")
+    sudo = ", acts in sudo mode" if elevated else ""
+    logger.success(f"API token issued: {issued['name']} (scope: {issued['scope']}{where}{sudo})")
+    if not ctx.dry_run:
+        from noust.core.audit import record
+
+        record(
+            "auth.token.create",
+            target=f"token:{issued['id']}",
+            details={
+                "name": issued["name"],
+                "scope": issued["scope"],
+                "owner": owner,
+                "sudo_mode": bool(issued.get("allow_elevated")),
+            },
+        )
     logger.blank()
     click.echo(f"Token: {issued['token']}")
     logger.blank()
@@ -252,6 +315,11 @@ def create_command(
         logger.warning("Rehearsal: this token was not saved and will not authenticate.")
     else:
         logger.warning("This is the only time the token is shown. Store it now.")
+        if elevated:
+            logger.warning(
+                "This token acts in sudo mode: nobody confirms what it does. Each action is in "
+                f"the audit trail (auth.token.elevated). End it with: noust token revoke {issued['id']}"
+            )
 
 
 @cli.command("set")
@@ -296,7 +364,9 @@ def set_command(ctx: Context, token_id: int, allow_ips: tuple[str, ...], any_ip:
 
 @cli.command("revoke")
 @click.argument("token_id", type=int)
-@click.option("-f", "--force", is_flag=True, help="Do not ask for confirmation.")
+@click.option(
+    "-f", "-y", "--force", "--yes", "force", is_flag=True, help="Do not ask for confirmation."
+)
 @pass_context
 def revoke_command(ctx: Context, token_id: int, force: bool) -> None:
     """

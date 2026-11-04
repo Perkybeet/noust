@@ -130,6 +130,34 @@ def test_revoke_with_force_skips_the_prompt_and_revokes(
     assert "Revoked API token: ci-script" in result.output
 
 
+@pytest.mark.parametrize("flag", ["--yes", "-y", "--force", "-f"])
+def test_revoke_takes_every_spelling_of_the_flag_that_answers_the_question(
+    cli_runner: CliRunner, state_dir: Path, flag: str
+) -> None:
+    """
+    ``--yes`` is how every other command that asks is told not to; this one only knew ``--force``,
+    so a script written the way the rest of the CLI is failed with "no such option".
+    """
+    cli_runner.invoke(root_cli, ["token", "create", "ci-script"])
+
+    result = cli_runner.invoke(root_cli, ["token", "revoke", "1", flag])
+
+    assert result.exit_code == 0, result.output
+    assert "Revoked API token: ci-script" in result.output
+    listed = json.loads(cli_runner.invoke(root_cli, ["token", "list", "--json"]).output)
+    assert listed["tokens"][0]["revoked_at"] is not None
+
+
+def test_revoke_still_asks_without_the_flag(cli_runner: CliRunner, state_dir: Path) -> None:
+    cli_runner.invoke(root_cli, ["token", "create", "ci-script"])
+
+    result = cli_runner.invoke(root_cli, ["token", "revoke", "1"], input="n\n")
+
+    assert "Cancelled" in result.output
+    listed = json.loads(cli_runner.invoke(root_cli, ["token", "list", "--json"]).output)
+    assert listed["tokens"][0]["revoked_at"] is None
+
+
 def test_revoking_an_unknown_id_fails_loudly(cli_runner: CliRunner, state_dir: Path) -> None:
     result = cli_runner.invoke(root_cli, ["token", "revoke", "999", "--force"])
 
