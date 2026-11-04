@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 
 import { Button } from "../components/ui/Button";
 import { MenuItem } from "../components/ui/Menu";
+import { SectionSwitch } from "../components/ui/SectionSwitch";
 import { StatusPill } from "../components/ui/StatusPill";
 import { expectNoAxeViolations } from "../test/axe";
 import { PageHeader } from "./PageHeader";
@@ -127,6 +128,22 @@ describe("PageHeader", () => {
     const chip = screen.getByRole("button", { name: "3 not applied" });
     expect(chip.parentElement).toBe(heading.parentElement);
     expect(heading.parentElement).toHaveTextContent(/Running\s*3 not applied/);
+  });
+
+  it("puts the master switch of what it governs on the title's line, after the title, and not among the actions at the far end", async () => {
+    await renderRouted(
+      <PageHeader
+        title="Channels"
+        master={<SectionSwitch label="Send notifications" checked onCheckedChange={() => undefined} />}
+        primaryAction={<Button variant="primary">Add a channel</Button>}
+      />,
+    );
+    const heading = screen.getByRole("heading", { level: 1 });
+    const master = screen.getByRole("switch", { name: "Send notifications" });
+    // The switch is a sibling of the title, in the same line; the action is in the group at the end of the header.
+    expect(heading.parentElement).toContainElement(master);
+    expect(heading.compareDocumentPosition(master) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Add a channel" }).closest("header")?.firstElementChild).not.toContainElement(screen.getByRole("button", { name: "Add a channel" }));
   });
 
   it("has no accessibility violations", async () => {

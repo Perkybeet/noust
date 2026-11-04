@@ -104,6 +104,7 @@ const NAV: { title: string; links: [string, string][] }[] = [
       ["k42-tags", "Tags in a table"],
       ["k42-help", "Help ?"],
       ["k42-roles", "What each role can do"],
+      ["k42-header", "A header as wide as its content"],
       ["k42-hints", "Command with its reason"],
     ],
   },

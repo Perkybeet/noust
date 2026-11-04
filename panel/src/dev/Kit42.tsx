@@ -3,7 +3,9 @@ import { useMemo } from "react";
 import type { ReactNode } from "react";
 
 import { authKeys } from "../api/queries/auth";
+import { PageHeader } from "../app/PageHeader";
 import { Can, CommandHint, GuardedButton, KeyValueList, ReadOnlyLine, RowMenu, SurfaceSection } from "../components/page";
+import { SectionSwitch } from "../components/ui/SectionSwitch";
 import { Button, DataTable, FirstUse, HelpPopover, MenuItem, Mono, NameWithTags, ResourceCard, StatusPill } from "../components/ui";
 import type { Column } from "../components/ui";
 import { LogoTile } from "../components/ui/LogoTile";
@@ -256,6 +258,27 @@ function Hints() {
   );
 }
 
+function HeaderMeasure() {
+  return (
+    <Section
+      id="k42-header"
+      title="A header as wide as its content"
+      description="The title and its actions end where the content does, never at the edge of the window. The master switch of what the page governs is on the title's line, right after it: it belongs to the thing it turns on and off."
+    >
+      <Stage>
+        <div className="max-w-settings" data-gallery-specimen="header-measure">
+          <PageHeader
+            title="Channels"
+            master={<SectionSwitch label="Send notifications" checked onCheckedChange={() => undefined} />}
+            primaryAction={<Button variant="primary" icon={<ICONS.add aria-hidden="true" />}>Add a channel</Button>}
+          />
+          <div className="rounded-card border border-border bg-surface p-4 text-13 text-fg-muted">The content: 880px wide, as far as the header goes.</div>
+        </div>
+      </Stage>
+    </Section>
+  );
+}
+
 /** Components of 4.2: the content kit (design 3.6). Everything a page needs to say what each thing is before it is read. */
 export function Kit42() {
   return (
@@ -267,6 +290,7 @@ export function Kit42() {
       <Tags />
       <Help />
       <Roles />
+      <HeaderMeasure />
       <Hints />
     </>
   );

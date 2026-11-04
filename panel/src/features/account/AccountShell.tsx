@@ -21,7 +21,7 @@ export function AccountShell({ children }: { children: ReactNode }) {
   const { data: session } = useQuery(sessionQuery());
   const withoutAccount = session !== undefined && (session.account === null || session.account === undefined);
   return (
-    <DetailPage header={{ title: t("account.title"), description: t("account.description") }}>
+    <DetailPage measure="settings" header={{ title: t("account.title"), description: t("account.description") }}>
       <SettingsLayout label={t("nav.landmarks.accountSections")} items={[]} carried>
         <div className="flex min-w-0 flex-col gap-8">
           {withoutAccount ? (

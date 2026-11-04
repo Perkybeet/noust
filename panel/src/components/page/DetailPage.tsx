@@ -21,6 +21,13 @@ export interface DetailPageProps {
   tabs?: ReactNode;
   /** The active tab (an Outlet). It never repeats the page's or the tab's title in an h2. */
   children: ReactNode;
+  /**
+   * How wide the page is, header and content together: `page` (the shell's column, the default) or `settings` (the
+   * width of a settings subsection, `--width-settings`). A header is as wide as its content, so the title and its
+   * actions end where the content does and never at the edge of the window, a screen away from what they govern
+   * (owner item 109: the master switch of Notifications at the far right of a page 880px wide).
+   */
+  measure?: "page" | "settings";
   className?: string;
 }
 
@@ -29,10 +36,10 @@ export interface DetailPageProps {
  * header and the tabs are the layout route's, so they keep their place and height while the
  * tabs change beneath them.
  */
-export function DetailPage({ header, banner, job, tabs, children, className }: DetailPageProps) {
+export function DetailPage({ header, banner, job, tabs, children, measure = "page", className }: DetailPageProps) {
   const between = banner !== undefined || job !== undefined || tabs !== undefined;
   return (
-    <div data-template="detail" className={cx("flex min-w-0 flex-col", className)}>
+    <div data-template="detail" data-measure={measure} className={cx("flex min-w-0 flex-col", measure === "settings" && "max-w-settings", className)}>
       <div data-slot="header">
         <PageHeader {...header} flush />
       </div>

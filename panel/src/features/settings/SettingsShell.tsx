@@ -10,7 +10,7 @@ import { Notice } from "../../components/ui/Notice";
 import { useT } from "../../i18n";
 import { useReturnServer } from "../../nodes/servers";
 import { SETTINGS_SCREENS } from "../nav/settings";
-import { PrimarySlot } from "./SettingsPrimaryAction";
+import { MasterSlot, PrimarySlot } from "./SettingsPrimaryAction";
 import { useSettingsItems } from "./useSettingsItems";
 
 export { SettingsPrimaryAction } from "./SettingsPrimaryAction";
@@ -38,6 +38,7 @@ export function SettingsShell({ children }: { children: ReactNode }) {
   const back = useReturnServer();
   const leaf = useRouterState({ select: (state) => state.matches.at(-1)?.fullPath });
   const [slot, setSlot] = useState<HTMLElement | null>(null);
+  const [master, setMaster] = useState<HTMLElement | null>(null);
   const { items, onCentral, hasFleet } = useSettingsItems();
   const hub = leaf === undefined || HUB_ROUTES.includes(leaf);
   const current = items.find((item) => item.to === leaf);
@@ -49,21 +50,29 @@ export function SettingsShell({ children }: { children: ReactNode }) {
     // T3 under the title of the section (the T2 header, with no tabs): the header is the layout's, the
     // same on every section, and the section is its title.
     <DetailPage
+      // A section is as wide as its header: the title and its actions end where the content does.
+      measure={hub ? "page" : "settings"}
       header={{
         title: hub ? t("settings.page.title") : (current?.label ?? (named !== undefined ? t(named.label) : t("settings.page.title"))),
         // A section of the whole instance says so where it is read, as the column does: opening it never moves the selector.
         ...(hasFleet && !hub && current?.central === true ? { meta: <Badge>{t("nav.column.fleetWide")}</Badge> } : {}),
         // Empty (and boxless) unless the section on screen puts its primary action here.
         primaryAction: <span ref={setSlot} className="contents" />,
+        // Empty too: the switch that governs the whole section, beside its title (rule 106).
+        master: <span ref={setMaster} className="contents" />,
       }}
     >
       <div data-scope={onCentral ? "central" : "server"} className="min-w-0">
         {hub ? (
-          <PrimarySlot.Provider value={slot}>{children}</PrimarySlot.Provider>
+          <PrimarySlot.Provider value={slot}>
+            <MasterSlot.Provider value={master}>{children}</MasterSlot.Provider>
+          </PrimarySlot.Provider>
         ) : (
           <SettingsLayout label={t("nav.landmarks.settingsSections")} items={items} index={false} backTo="/settings" carried>
             {onCentral && hasFleet && back !== null && back.node !== null && current?.central === true ? <NodeAccessNote node={back.node} /> : null}
-            <PrimarySlot.Provider value={slot}>{children}</PrimarySlot.Provider>
+            <PrimarySlot.Provider value={slot}>
+              <MasterSlot.Provider value={master}>{children}</MasterSlot.Provider>
+            </PrimarySlot.Provider>
           </SettingsLayout>
         )}
       </div>
