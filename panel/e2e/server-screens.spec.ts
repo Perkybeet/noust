@@ -22,16 +22,18 @@ const SIZES: readonly { suffix: string; size: { width: number; height: number } 
 
 const PAGES: readonly { name: string; path: string }[] = [
   { name: "server-overview", path: "/server" },
-  { name: "server-system", path: "/server/system" },
-  { name: "server-system-machine", path: "/server/system?view=machine" },
-  { name: "server-system-monitor", path: "/server/system?view=monitor" },
-  { name: "server-security", path: "/server/security" },
-  { name: "server-security-ssh", path: "/server/security?view=ssh" },
-  { name: "server-security-bans", path: "/server/security?view=bans" },
-  { name: "server-network", path: "/server/network" },
-  { name: "server-network-firewall", path: "/server/network?view=firewall" },
-  { name: "server-network-published", path: "/server/network?view=published" },
-  { name: "server-network-interfaces", path: "/server/network?view=interfaces" },
+  { name: "server-updates", path: "/server/updates" },
+  { name: "server-machine", path: "/server/machine" },
+  { name: "server-processes", path: "/server/processes" },
+  { name: "server-monitor", path: "/server/monitor" },
+  { name: "security-checks", path: "/security" },
+  { name: "security-ssh", path: "/security/ssh" },
+  { name: "security-blocks", path: "/security/blocks" },
+  { name: "network-published", path: "/network" },
+  { name: "network-tunnels", path: "/network/tunnels" },
+  { name: "network-listening", path: "/network/listening" },
+  { name: "network-firewall", path: "/network/firewall" },
+  { name: "network-interfaces", path: "/network/interfaces" },
   { name: "server-services", path: "/server/services" },
   { name: "server-webserver", path: "/server/webserver" },
   { name: "server-files", path: "/server/files" },
@@ -79,7 +81,7 @@ for (const language of ["en", "es"] as const) {
       const dir = path.join(OUT, testInfo.project.name, language);
       await page.setViewportSize({ width: 1440, height: 900 });
       if (language === "es") await useSpanish(page);
-      await signInDirect(page, consoleServer, "/server/system");
+      await signInDirect(page, consoleServer, "/server/updates");
       await page.getByRole("button", { name: language === "es" ? /^Instalar las de seguridad/ : /^Install security updates/ }).click();
       await expect(page.getByRole("dialog")).toBeVisible();
       await settle(page);
@@ -97,7 +99,7 @@ for (const language of ["en", "es"] as const) {
       await settle(page);
       await page.screenshot({ path: path.join(dir, "dialog-reboot.png") });
       await page.keyboard.press("Escape");
-      await page.goto("/server/security");
+      await page.goto("/security");
       const fix = page.getByRole("button", { name: language === "es" ? "Arreglar…" : "Fix…" }).first();
       await fix.click();
       // The fix is a change that asks for the server's name before it applies: an alert dialog too.

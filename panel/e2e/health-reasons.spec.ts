@@ -29,7 +29,7 @@ test("the server's verdict stands beside the reasons that make it, each with whe
     await expect(item.getByRole("link").or(item.getByRole("button"))).toHaveCount(1);
   }
   const exposed = reasons.getByRole("listitem").filter({ hasText: "A database or internal service is reachable from the internet" });
-  await expect(exposed.getByRole("link", { name: "Review" })).toHaveAttribute("href", "/server/network?view=firewall");
+  await expect(exposed.getByRole("link", { name: "Review" })).toHaveAttribute("href", "/network/firewall");
   const disk = reasons.getByRole("listitem").filter({ hasText: /^Warning\/srv is \d+% full/ });
   await expect(disk.getByRole("link", { name: "Free space" })).toHaveAttribute("href", "/server/files");
   await settle(page);

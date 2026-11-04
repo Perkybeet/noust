@@ -1,9 +1,10 @@
 /**
- * The frame of the console in a browser (docs/DESIGN.md, NV-20 and NV-21): the double bar and one bar at
- * the three widths that matter (390, 1366 and 1440 px), in both themes (the light and dark projects),
- * with axe and the Content Security Policy watching, and the movement of the raised piece of the current
- * item in the main bar and in the second column. The register's rules are nav.register.test.ts's and the
- * layout's are app/navLayout.test.ts's; what only a browser can say is here: where each bar is, how wide,
+ * The frame of the console in a browser (docs/DESIGN.md, NV-20 to NV-22): the one frame of 4.2, a main bar and
+ * the context column, at the widths that matter (1920, 1440, 1280 and 390 px), in both themes (the light and dark
+ * projects), with the keyboard and with reduced motion, with axe and the Content Security Policy watching, and the
+ * movement of the raised piece of the current item in the main bar and in the second column, and of the column
+ * itself when a resource is entered. The register's rules are nav.register.test.ts's and columns.test.ts's, and
+ * the layout's are app/navLayout.test.ts's; what only a browser can say is here: where each bar is, how wide,
  * that nothing scrolls sideways, that the piece really slides, for how long, and where it ends.
  *
  * Run on a production build (NOUST_E2E_STATIC=<dir>): the development build repeats requests and meets the
@@ -20,22 +21,17 @@ import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures
 
 const FRAMES = process.env.NOUST_FRAME_FRAMES;
 const APP = "/apps/shop.example.net";
+const TITLES = ["Applications and data", "Network", "Observe", "Protect", "Infrastructure"];
 
-type Presentation = "double" | "single";
-
-/** Saves the presentation before any script of the console runs, the way the bar's own choice does. */
-async function prefer(page: Page, presentation: Presentation, rail?: "folded"): Promise<void> {
-  await page.addInitScript(
-    ({ presentation: nav, rail: fold }) => {
-      if (nav === "single") window.localStorage.setItem("noust.nav", "single");
-      if (fold !== undefined) window.localStorage.setItem("noust.rail", fold);
-    },
-    { presentation, rail },
-  );
+/** Saves the fold before any script of the console runs, the way the bar's own button does. */
+async function prefer(page: Page, rail?: "folded"): Promise<void> {
+  await page.addInitScript((fold: string | null) => {
+    if (fold !== null) window.localStorage.setItem("noust.rail", fold);
+  }, rail ?? null);
 }
 
-async function openAt(page: Page, server: Parameters<typeof signIn>[1], width: number, url: string, presentation: Presentation = "double", rail?: "folded"): Promise<void> {
-  await prefer(page, presentation, rail);
+async function openAt(page: Page, server: Parameters<typeof signIn>[1], width: number, url: string, rail?: "folded"): Promise<void> {
+  await prefer(page, rail);
   await page.setViewportSize({ width, height: 900 });
   await signIn(page, server, url);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
@@ -60,9 +56,11 @@ function expectSameBox(actual: Box, expected: Box): void {
 }
 
 const mainBar = (page: Page) => page.getByRole("navigation", { name: "Main" });
+/** The title of a group of areas: a paragraph, since "Network" is the name of a group and of an area. */
+const groupTitle = (scope: Locator, title: string) => scope.locator("p").getByText(title, { exact: true });
 const column = (page: Page, name: string) => page.getByRole("navigation", { name });
 
-/** Whether the page scrolls sideways: it never may, at 390 px or at any other (L-4). */
+/** Whether the page scrolls sideways: it never may, at 390px or at any other (L-4). */
 async function overflowsSideways(page: Page): Promise<boolean> {
   return page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
 }
@@ -100,24 +98,70 @@ async function pressAndRead(target: Locator, listSelector: string): Promise<{ pr
   }, listSelector);
 }
 
-test.describe("the double bar", () => {
-  test("at 1440 px has the bar unfolded with its names, no second column on Home, and one on an application", async ({ page, consoleServer }) => {
+/** What the two layers of the column say about their movement, read in the frames after `target` is pressed. */
+async function slideOf(target: Locator): Promise<{ enter: string; exit: string; enterName: string; exitName: string } | null> {
+  return target.evaluate(async (element) => {
+    (element as HTMLElement).click();
+    for (let frame = 0; frame < 120; frame += 1) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const leaving = document.querySelector('[data-frame="column"] [data-layer="leaving"]');
+      const current = document.querySelector('[data-frame="column"] [data-layer="current"]');
+      if (leaving !== null && current !== null && getComputedStyle(current).animationName !== "none") {
+        const entering = getComputedStyle(current);
+        const exiting = getComputedStyle(leaving);
+        return { enter: entering.animationDuration, exit: exiting.animationDuration, enterName: entering.animationName, exitName: exiting.animationName };
+      }
+    }
+    return null;
+  });
+}
+
+/** The folded bar of a window under 1440 px: 68px, opened over the page by its button without moving it. */
+async function foldedBarOpensOverThePage(page: Page): Promise<void> {
+  const rail = page.locator('[data-frame="rail"]');
+  expect(Math.round((await boxOf(rail)).width)).toBe(68);
+  const before = await boxOf(page.getByRole("main"));
+  await page.getByRole("button", { name: "Unfold the bar" }).click();
+  const close = page.getByRole("button", { name: "Close" });
+  await expect(close).toHaveAttribute("aria-expanded", "true");
+  // Over the page: the bar is 208px wide and the page did not move.
+  expect(Math.round((await boxOf(rail.locator("nav"))).width)).toBeGreaterThanOrEqual(180);
+  expectSameBox(await boxOf(page.getByRole("main")), before);
+  await expect(page.locator('[data-frame="veil"]')).toBeVisible();
+  await expect(groupTitle(mainBar(page), "Network")).toBeVisible();
+  await settle(page);
+  await expectNoA11yViolations(page, "the bar opened over the page");
+  await page.keyboard.press("Escape");
+  await expect(page.locator('[data-frame="veil"]')).toHaveCount(0);
+  await page.getByRole("button", { name: "Unfold the bar" }).click();
+  await page.mouse.click(1000, 500);
+  await expect(page.locator('[data-frame="veil"]')).toHaveCount(0);
+  // The column is there beside the folded bar: both fit.
+  await expect(column(page, "Application sections")).toBeVisible();
+  expect(await overflowsSideways(page)).toBe(false);
+}
+
+test.describe("the main bar and the column", () => {
+  test("at 1440 px has the bar unfolded with its names in titled groups, and a column on Home and on an application", async ({ page, consoleServer }) => {
     await openAt(page, consoleServer, 1440, "/");
     const bar = mainBar(page);
     await expect(bar.getByRole("link", { name: "Applications" })).toBeVisible();
-    // Unfolded: 208px, and the names are text.
+    // Unfolded: 208px, the names are text, and each group has its title and its joint.
     expect(Math.round((await boxOf(page.locator('[data-frame="rail"]'))).width)).toBe(208);
     await expect(bar.getByText("Applications", { exact: true })).toBeVisible();
-    await expect(page.locator('[data-frame="column"]')).toHaveCount(0);
+    for (const title of TITLES) await expect(groupTitle(bar, title)).toBeVisible();
+    // Home has a column too: the content does not jump from one side to the other between two areas.
+    await expect(page.locator('[data-frame="column"]')).toHaveCount(1);
+    expect(Math.round((await boxOf(page.locator('[data-frame="column"]'))).width)).toBe(256);
     expect(await overflowsSideways(page)).toBe(false);
-    await expectNoA11yViolations(page, "Home, the double bar at 1440");
+    await expectNoA11yViolations(page, "Home, the frame at 1440");
 
     await page.goto(`${APP}/deployments`);
     await expect(page.getByRole("heading", { level: 1, name: "shop.example.net" })).toBeVisible();
     const sections = column(page, "Application sections");
     await expect(sections).toBeVisible();
     expect(Math.round((await boxOf(page.locator('[data-frame="column"]'))).width)).toBe(256);
-    for (const group of ["Use", "Configure", "Fix", "Danger"]) await expect(sections.getByText(group, { exact: true })).toBeVisible();
+    for (const group of ["Use", "Configure", "Fix", "Move elsewhere", "Danger"]) await expect(sections.getByText(group, { exact: true })).toBeVisible();
     await expect(sections.getByRole("link", { name: "Deployments" })).toHaveAttribute("aria-current", "page");
     // The sections are in the column, so the page does not draw them again.
     await expect(page.getByRole("navigation", { name: "Application sections" })).toHaveCount(1);
@@ -127,7 +171,37 @@ test.describe("the double bar", () => {
     await expect(crumbs.locator('[aria-current="page"]')).toHaveText("Deployments");
     expect(await overflowsSideways(page)).toBe(false);
     await settle(page);
-    await expectNoA11yViolations(page, "an application, the double bar at 1440");
+    await expectNoA11yViolations(page, "an application, the frame at 1440");
+  });
+
+  test("at 1920 px keeps both bars open and the page in its own column, with nothing scrolling sideways", async ({ page, consoleServer }) => {
+    await openAt(page, consoleServer, 1920, "/apps");
+    expect(Math.round((await boxOf(page.locator('[data-frame="rail"]'))).width)).toBe(208);
+    expect(Math.round((await boxOf(page.locator('[data-frame="column"]'))).width)).toBe(256);
+    await expect(column(page, "Applications sections")).toBeVisible();
+    expect(await overflowsSideways(page)).toBe(false);
+    await settle(page);
+    await expectNoA11yViolations(page, "Applications, the frame at 1920");
+  });
+
+  test("gives every area a column with its own sections, and none leaves it", async ({ page, consoleServer }) => {
+    await openAt(page, consoleServer, 1440, "/network");
+    const network = column(page, "Network sections");
+    await expect(network.getByRole("link", { name: "Published ports" })).toHaveAttribute("aria-current", "page");
+    for (const name of ["Tunnels", "Firewall", "Listening ports", "Interfaces"]) await expect(network.getByRole("link", { name })).toBeVisible();
+    await network.getByRole("link", { name: "Firewall" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Firewall" })).toBeVisible();
+    await expect(network.getByRole("link", { name: "Firewall" })).toHaveAttribute("aria-current", "page");
+    // The area is still Network in the bar, and the column is the same one.
+    await expect(mainBar(page).getByRole("link", { name: "Network" })).toHaveAttribute("aria-current", "page");
+    await expect(page.locator('[data-frame="column"]')).toHaveCount(1);
+    await page.goto("/security");
+    const security = column(page, "Security sections");
+    for (const name of ["Checks", "SSH", "Brute force"]) await expect(security.getByRole("link", { name })).toBeVisible();
+    await page.goto("/logs");
+    await column(page, "Logs sections").getByRole("link", { name: "System" }).click();
+    await expect(page).toHaveURL(/source=system/);
+    await expect(column(page, "Logs sections").getByRole("link", { name: "System" })).toHaveAttribute("aria-current", "page");
   });
 
   test("folds to icons by a button that says what it does, keeps the choice, and names each icon on focus", async ({ page, consoleServer }) => {
@@ -137,6 +211,9 @@ test.describe("the double bar", () => {
     await fold.click();
     await expect(page.getByRole("button", { name: "Unfold the bar" })).toHaveAttribute("aria-expanded", "false");
     expect(Math.round((await boxOf(page.locator('[data-frame="rail"]'))).width)).toBe(68);
+    // Folded, a group is its joint alone; its title stays for a screen reader.
+    await expect(groupTitle(mainBar(page), "Network")).toHaveClass(/sr-only/);
+    await expect(mainBar(page).getByRole("list", { name: "Network" })).toBeVisible();
     // The icon is a link with its name, and says it in a tooltip when the keyboard reaches it.
     await mainBar(page).getByRole("link", { name: "Home" }).focus();
     await page.keyboard.press("Tab");
@@ -149,41 +226,29 @@ test.describe("the double bar", () => {
     await expect(page.getByRole("button", { name: "Unfold the bar" })).toBeVisible();
   });
 
-  test("at 1366 px is folded, opens over the page without pushing it, and closes by Escape or a press outside", async ({ page, consoleServer }) => {
-    await openAt(page, consoleServer, 1366, `${APP}/logs`);
-    const rail = page.locator('[data-frame="rail"]');
-    expect(Math.round((await boxOf(rail)).width)).toBe(68);
-    const before = await boxOf(page.getByRole("main"));
-    await page.getByRole("button", { name: "Unfold the bar" }).click();
-    const close = page.getByRole("button", { name: "Close" });
-    await expect(close).toHaveAttribute("aria-expanded", "true");
-    // Over the page: the bar is 208px wide and the page did not move.
-    expect(Math.round((await boxOf(rail.locator("nav"))).width)).toBeGreaterThanOrEqual(180);
-    expectSameBox(await boxOf(page.getByRole("main")), before);
-    await expect(page.locator('[data-frame="veil"]')).toBeVisible();
-    await settle(page);
-    await expectNoA11yViolations(page, "the bar opened over the page");
-    await page.keyboard.press("Escape");
-    await expect(page.locator('[data-frame="veil"]')).toHaveCount(0);
-    await page.getByRole("button", { name: "Unfold the bar" }).click();
-    await page.mouse.click(1300, 500);
-    await expect(page.locator('[data-frame="veil"]')).toHaveCount(0);
-    // The column is there beside the folded bar: both fit.
+  for (const width of [1366, 1280, 1024]) {
+    test(`at ${String(width)} px is folded, opens over the page without pushing it, and closes by Escape or a press outside`, async ({ page, consoleServer }) => {
+      await openAt(page, consoleServer, width, `${APP}/logs`);
+      await foldedBarOpensOverThePage(page);
+    });
+  }
+
+  test("at 1280 px keeps the column beside the folded bar and the page in what is left, with axe watching", async ({ page, consoleServer }) => {
+    await openAt(page, consoleServer, 1280, `${APP}/logs`);
     await expect(column(page, "Application sections")).toBeVisible();
+    expect(Math.round((await boxOf(page.locator('[data-frame="rail"]'))).width)).toBe(68);
     expect(await overflowsSideways(page)).toBe(false);
+    await settle(page);
+    await expectNoA11yViolations(page, "an application, the frame at 1280");
   });
 
-  test("changes to one bar from the bar's own choice and back, and the choice is the browser's", async ({ page, consoleServer }) => {
-    await openAt(page, consoleServer, 1440, `${APP}/metrics`);
-    const choice = page.getByRole("radiogroup", { name: "Navigation" });
-    await choice.getByRole("radio", { name: "One bar" }).click();
-    await expect(page.locator('[data-frame="rail"]')).toHaveCount(0);
-    await expect(mainBar(page).getByText("What runs")).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Application sections" })).toBeVisible();
-    await page.reload();
-    await expect(mainBar(page).getByText("What runs")).toBeVisible();
-    await page.getByRole("radiogroup", { name: "Navigation" }).getByRole("radio", { name: "Double bar" }).click();
-    await expect(page.locator('[data-frame="rail"]')).toBeVisible();
+  test("offers no choice of bar: the account menu has the theme, the language and the width, and nothing about bars", async ({ page, consoleServer }) => {
+    await openAt(page, consoleServer, 1440, "/");
+    await page.getByRole("button", { name: /Session and preferences/ }).click();
+    await expect(page.getByText("Page width", { exact: true })).toBeVisible();
+    await expect(page.getByRole("radiogroup", { name: "Navigation" })).toHaveCount(0);
+    await expect(page.getByText("One bar", { exact: true })).toHaveCount(0);
+    await expect(mainBar(page).getByText("What runs")).toHaveCount(0);
   });
 
   test("follows the keyboard: tab reaches the fold button after the areas, with the focus ring on it", async ({ page, consoleServer }) => {
@@ -192,40 +257,62 @@ test.describe("the double bar", () => {
     const fold = page.getByRole("button", { name: "Fold the bar" });
     await mainBar(page).getByRole("link", { name: "Settings" }).focus();
     await page.keyboard.press("Tab");
-    // The choice of bar comes first, then the fold: both are buttons of the bar.
-    await page.keyboard.press("Tab");
     await expect(fold).toBeFocused();
     await expect(fold).toHaveAttribute("aria-controls", /.+/);
   });
+
+  test("keeps the focus on a section of the column when it is chosen, and the column is reached by Tab after the bar", async ({ page, consoleServer }) => {
+    await openAt(page, consoleServer, 1440, `${APP}/deployments`);
+    const logs = column(page, "Application sections").getByRole("link", { name: "Logs" });
+    await logs.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("heading", { level: 1, name: "shop.example.net" })).toBeVisible();
+    await expect(logs).toBeFocused();
+    await expect(logs).toHaveAttribute("aria-current", "page");
+  });
 });
 
-test.describe("one bar", () => {
-  test("at 1440 px has the areas in titled groups and the sections as tabs in the page", async ({ page, consoleServer }) => {
-    await openAt(page, consoleServer, 1440, `${APP}/deployments`, "single");
-    const bar = mainBar(page);
-    for (const title of ["What runs", "How it is reached", "What is happening", "Kept safe", "Where it runs", "How it is managed"]) await expect(bar.getByText(title, { exact: true })).toBeVisible();
-    await expect(page.locator('[data-frame="column"]')).toHaveCount(0);
-    await expect(page.getByRole("navigation", { name: "Application sections" })).toBeVisible();
-    expect(Math.round((await boxOf(page.getByRole("complementary", { name: "Navigation" }))).width)).toBe(264);
-    expect(await overflowsSideways(page)).toBe(false);
-    await settle(page);
-    await expectNoA11yViolations(page, "an application, one bar at 1440");
+test.describe("entering a resource", () => {
+  test("slides the column to the application's sections, decelerating in and accelerating out in less time, and back", async ({ page, consoleServer }) => {
+    await openAt(page, consoleServer, 1440, "/apps");
+    const forward = await slideOf(page.getByRole("link", { name: "shop.example.net" }).first());
+    expect(forward).toEqual({ enter: "0.24s", exit: "0.14s", enterName: "column-in-forward", exitName: "column-out-forward" });
+    await expect(column(page, "Application sections")).toBeVisible();
+    // The leaving list is gone after the slide: the column never holds two at rest.
+    await expect(page.locator('[data-frame="column"] [data-layer="leaving"]')).toHaveCount(0);
+    // The head says where the way back leads and has the switch to the other applications.
+    const column1 = page.locator('[data-frame="column"]');
+    await expect(column1.getByRole("link", { name: "Applications" })).toBeVisible();
+    await expect(column1.getByRole("button", { name: "Switch application" })).toBeVisible();
+
+    const back = await slideOf(column1.getByRole("link", { name: "Applications" }));
+    expect(back).toEqual({ enter: "0.24s", exit: "0.14s", enterName: "column-in-back", exitName: "column-out-back" });
+    await expect(column(page, "Applications sections")).toBeVisible();
+    await expect(page.locator('[data-frame="column"] [data-layer="leaving"]')).toHaveCount(0);
   });
 
-  test("at 1366 px is what was saved, and at 1024 px the only one: there is no room for two", async ({ page, consoleServer }) => {
-    await openAt(page, consoleServer, 1366, "/apps", "single");
-    await expect(mainBar(page).getByText("What runs")).toBeVisible();
-    await page.setViewportSize({ width: 1100, height: 900 });
-    await expect(page.getByRole("radiogroup", { name: "Navigation" })).toHaveCount(0);
-    await expect(mainBar(page).getByText("What runs")).toBeVisible();
-    expect(await overflowsSideways(page)).toBe(false);
-    await settle(page);
-    await expectNoA11yViolations(page, "one bar at 1100");
+  test("is instant with reduced motion: the new list is there at once and the old one never lingers", async ({ page, consoleServer }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await openAt(page, consoleServer, 1440, "/apps");
+    await page.getByRole("link", { name: "shop.example.net" }).first().click();
+    await expect(column(page, "Application sections")).toBeVisible();
+    await expect(page.locator('[data-frame="column"] [data-layer="leaving"]')).toHaveCount(0);
+    expect(await page.locator('[data-frame="column"] [data-layer="current"]').evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
+  });
+
+  test("jumps to another application without going back to the list, in the same section", async ({ page, consoleServer }) => {
+    await openAt(page, consoleServer, 1440, `${APP}/logs`);
+    await page.getByRole("button", { name: "Switch application" }).click();
+    const other = page.getByRole("menuitem").filter({ hasNotText: "shop.example.net" }).first();
+    const name = (await other.textContent())?.trim() ?? "";
+    await other.click();
+    await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/apps/${name.replace(/\./g, "\\.")}/logs`));
   });
 });
 
 test.describe("a phone", () => {
-  test("has four areas at the foot and the rest in the menu, and nothing scrolls sideways", async ({ page, consoleServer }) => {
+  test("has four areas at the foot and every area in its group in the sheet More opens, with the account, and nothing scrolls sideways", async ({ page, consoleServer }) => {
     await openAt(page, consoleServer, 390, "/");
     const foot = page.getByRole("navigation", { name: "Areas" });
     await expect(foot).toBeVisible();
@@ -235,20 +322,48 @@ test.describe("a phone", () => {
     await settle(page);
     await expectNoA11yViolations(page, "Home on a phone");
     await foot.getByRole("button", { name: "More" }).click();
-    const menu = page.getByRole("dialog", { name: "Menu" });
-    await expect(menu.getByRole("link", { name: "Backups" })).toBeVisible();
-    await menu.getByRole("link", { name: "Backups" }).click();
+    const sheet = page.getByRole("dialog", { name: "All areas" });
+    for (const title of TITLES) await expect(groupTitle(sheet, title)).toBeVisible();
+    await expect(sheet.getByRole("link", { name: "Catalog" })).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "Your account" })).toBeVisible();
+    await settle(page);
+    await expectNoA11yViolations(page, "the sheet of all the areas");
+    await sheet.getByRole("link", { name: "Backups" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(foot.getByRole("link", { name: "Home" })).not.toHaveAttribute("aria-current", "page");
   });
 
-  test("puts the trail on the first line of the page, and the application's sections as tabs", async ({ page, consoleServer }) => {
+  test("draws the column as a selector at the top of the page that opens a sheet with the same list, never tabs", async ({ page, consoleServer }) => {
     await openAt(page, consoleServer, 390, `${APP}/deployments`);
-    await expect(page.getByRole("main").getByRole("navigation", { name: "Breadcrumb" })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Application sections" })).toBeVisible();
+    const selector = page.getByRole("main").getByRole("button", { name: /Deployments/ });
+    await expect(selector).toBeVisible();
+    // No strip of sections in the page: they are behind the selector.
+    await expect(page.getByRole("navigation", { name: "Application sections" })).toHaveCount(0);
     expect(await overflowsSideways(page)).toBe(false);
     await settle(page);
     await expectNoA11yViolations(page, "an application on a phone");
+    await selector.click();
+    const sheet = page.getByRole("dialog");
+    const sections = sheet.getByRole("navigation", { name: "Application sections" });
+    await expect(sections).toBeVisible();
+    for (const group of ["Use", "Configure", "Fix", "Move elsewhere", "Danger"]) await expect(sections.getByText(group, { exact: true })).toBeVisible();
+    await expect(sections.getByRole("link", { name: "Deployments" })).toHaveAttribute("aria-current", "page");
+    await settle(page);
+    await expectNoA11yViolations(page, "the sheet of an application's sections");
+    await sections.getByRole("link", { name: "Logs" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByRole("main").getByRole("button", { name: /Logs/ })).toBeVisible();
+  });
+
+  test("has the selector on an area that is one page too, and the account in the sheet More opens", async ({ page, consoleServer }) => {
+    await openAt(page, consoleServer, 390, "/logs");
+    await expect(page.getByRole("main").getByRole("button", { name: /Applications/ })).toBeVisible();
+    await page.getByRole("navigation", { name: "Areas" }).getByRole("button", { name: "More" }).click();
+    await page.getByRole("dialog", { name: "All areas" }).getByRole("button", { name: "Your account" }).click();
+    const session = page.getByRole("dialog", { name: "Session" });
+    await expect(session.getByRole("button", { name: "Sign out" })).toBeVisible();
+    await settle(page);
+    await expectNoA11yViolations(page, "the session on a phone");
   });
 });
 
@@ -373,7 +488,7 @@ test.describe("the raised piece of the current item", () => {
     expect(link.right).toBeLessThanOrEqual(strip.right + 0.5);
   });
 
-  test("the frame in both presentations and three frames of the slide, for the report", async ({ page, consoleServer }) => {
+  test("the frame at its widths and three frames of the slide, for the report", async ({ page, consoleServer }) => {
     test.skip(FRAMES === undefined, "NOUST_FRAME_FRAMES names the directory the pictures are written to.");
     const theme = test.info().project.name;
     const out = (name: string): string => path.join(FRAMES ?? ".", `${name}-${theme}.png`);
@@ -383,6 +498,9 @@ test.describe("the raised piece of the current item", () => {
     await page.goto(APP);
     await settle(page);
     await page.screenshot({ path: out("aplicacion") });
+    await page.goto("/network");
+    await settle(page);
+    await page.screenshot({ path: out("red") });
     await page.goto("/settings/tokens");
     await settle(page);
     await page.screenshot({ path: out("ajustes") });
@@ -392,24 +510,34 @@ test.describe("the raised piece of the current item", () => {
     await page.screenshot({ path: out("inicio-plegada") });
     await page.getByRole("button", { name: "Unfold the bar" }).click();
 
-    await page.getByRole("radiogroup", { name: "Navigation" }).getByRole("radio", { name: "One bar" }).click();
-    await page.goto(APP);
-    await settle(page);
-    await page.screenshot({ path: out("aplicacion-una-barra") });
-    await page.getByRole("radiogroup", { name: "Navigation" }).getByRole("radio", { name: "Double bar" }).click();
-
-    await page.setViewportSize({ width: 1366, height: 768 });
+    await page.setViewportSize({ width: 1920, height: 1080 });
     await page.goto("/apps");
     await settle(page);
-    await page.screenshot({ path: out("aplicaciones-1366") });
+    await page.screenshot({ path: out("aplicaciones-1920") });
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto(APP);
+    await settle(page);
+    await page.screenshot({ path: out("aplicacion-1280") });
     await page.getByRole("button", { name: "Unfold the bar" }).click();
-    await page.screenshot({ path: out("aplicaciones-1366-abierta") });
+    await page.screenshot({ path: out("aplicacion-1280-abierta") });
     await page.keyboard.press("Escape");
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/");
     await settle(page);
     await page.screenshot({ path: out("inicio-390") });
+    await page.goto(`${APP}/deployments`);
+    await settle(page);
+    await page.screenshot({ path: out("aplicacion-390") });
+    await page.getByRole("main").getByRole("button", { name: /Deployments/ }).click();
+    await settle(page);
+    await page.screenshot({ path: out("aplicacion-390-hoja") });
+    await page.keyboard.press("Escape");
+    await page.getByRole("navigation", { name: "Areas" }).getByRole("button", { name: "More" }).click();
+    await settle(page);
+    await page.screenshot({ path: out("mas-areas-390") });
+    await page.keyboard.press("Escape");
 
     // Three frames of the slide in the main bar: the click and the pause are one task of the page, so the
     // transition cannot run to its end in the time a round trip takes.
@@ -437,4 +565,60 @@ test.describe("the raised piece of the current item", () => {
       await page.screenshot({ path: out(`deslizamiento-${name}`), clip: { x: clip.x, y: clip.y, width: clip.width, height: Math.min(clip.height, 620) } });
     }
   });
+});
+
+test.describe("a veil", () => {
+  /** The colour a token paints, as the browser computes it (a probe, since the token's own text is a light-dark() of a mix). */
+  async function paint(page: Page, token: string): Promise<string> {
+    return page.evaluate((name) => {
+      const probe = document.createElement("div");
+      probe.style.background = `var(${name})`;
+      document.body.append(probe);
+      const colour = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return colour;
+    }, token);
+  }
+
+  const ground = (page: Page) => page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor);
+
+  for (const width of [1440, 1920]) {
+    test(`at ${String(width)} px covers the main bar and the column as it covers the page, and gives the ground its tone`, async ({ page, consoleServer }) => {
+      await openAt(page, consoleServer, width, "/apps");
+      const plain = await paint(page, "--bg");
+      const veiled = await paint(page, "--bg-veiled");
+      expect(veiled, "the veiled ground is another tone than the plain one").not.toBe(plain);
+      expect(await ground(page)).toBe(plain);
+
+      await page.keyboard.press("Control+k");
+      const veil = page.locator(".bg-backdrop");
+      await expect(page.getByRole("dialog")).toBeVisible();
+      await expect(veil).toBeVisible();
+      await settle(page);
+
+      // The veil is the whole window but for the room the scrollbar keeps (scrollbar-gutter: stable), which it does
+      // not reach and which the ground fills below: nothing of the frame is left out of it.
+      const viewport = page.viewportSize();
+      const box = await boxOf(veil);
+      expect([box.x, box.y, Math.round(box.height)]).toEqual([0, 0, viewport?.height ?? 0]);
+      expect((viewport?.width ?? 0) - Math.round(box.width), "all the veil leaves out is the scrollbar's room").toBeLessThanOrEqual(20);
+      // And it is what is on top where the bars are: the main bar, the column and the top bar are under it, not over it.
+      const rail = await boxOf(page.locator('[data-frame="rail"]'));
+      const sections = await boxOf(page.locator('[data-frame="column"]'));
+      // Not by role: with a dialog open the page behind it is hidden from the accessibility tree, which is its job.
+      const top = await boxOf(page.locator("header").first());
+      const points = { bar: [rail.x + rail.width / 2, 450], column: [sections.x + sections.width / 2, 450], top: [top.x + top.width / 2, top.y + top.height / 2] };
+      for (const [name, [x, y]] of Object.entries(points)) {
+        const covered = await page.evaluate(([px, py]) => document.elementFromPoint(px ?? 0, py ?? 0)?.classList.contains("bg-backdrop") ?? false, [x, y]);
+        expect(covered, `the veil is over the ${name}`).toBe(true);
+      }
+      // The ground takes the veil's tone, so the scrollbar's room is not a light strip beside the veiled window.
+      await expect.poll(() => ground(page)).toBe(veiled);
+      if (FRAMES !== undefined) await page.screenshot({ path: path.join(FRAMES, `velo-${String(width)}-${test.info().project.name}.png`) });
+
+      await page.keyboard.press("Escape");
+      await expect(veil).toHaveCount(0);
+      await expect.poll(() => ground(page)).toBe(plain);
+    });
+  }
 });

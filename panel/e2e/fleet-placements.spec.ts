@@ -82,7 +82,7 @@ withFleet("a recorded placement is compared on the page, and its servers are wri
 
   // On several servers is the second view of the fleet's applications: the sidebar opens the first.
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Applications" }).click();
-  await page.getByRole("navigation", { name: "Fleet application views" }).getByRole("link", { name: "On several servers" }).click();
+  await page.getByRole("navigation", { name: "Applications sections" }).getByRole("link", { name: "On several servers" }).click();
   await expect(page).toHaveURL(/\/fleet\/placements$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Applications");
   await expect(page.getByRole("heading", { level: 3, name: NODE_APP })).toBeVisible();
@@ -130,13 +130,13 @@ withFleet("going from the fleet's Applications to On several servers never draws
   await page.evaluate(() => {
     (window as unknown as { __noustTitles: { value: number } }).__noustTitles.value = document.querySelectorAll("h1").length;
   });
-  await page.getByRole("navigation", { name: "Fleet application views" }).getByRole("link", { name: "On several servers" }).click();
+  await page.getByRole("navigation", { name: "Applications sections" }).getByRole("link", { name: "On several servers" }).click();
   await expect(page).toHaveURL(/\/fleet\/placements$/);
   await expect.poll(() => requested, { message: "the second view's code was asked for" }).toBe(true);
   release();
   // Counts, not a lookup of one: while two pages are drawn a lookup that expects one is an error, not a wait.
-  await expect(page.getByRole("navigation", { name: "Fleet application views" })).toHaveCount(1);
-  await expect(page.getByRole("navigation", { name: "Fleet application views" }).getByRole("link", { name: "On several servers" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("navigation", { name: "Applications sections" })).toHaveCount(1);
+  await expect(page.getByRole("navigation", { name: "Applications sections" }).getByRole("link", { name: "On several servers" })).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
   const peak = await page.evaluate(() => (window as unknown as { __noustTitles: { value: number } }).__noustTitles.value);
   expect(peak, "the most titles the page had at once while it changed views").toBe(1);

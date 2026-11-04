@@ -16,7 +16,7 @@ Where the system lives:
 | Primitives: buttons, fields, notices, tables... | `panel/src/components/ui/` |
 | Page kit and the seven templates | `panel/src/components/page/` |
 | Page header and URL tabs | `panel/src/app/PageHeader.tsx`, `panel/src/app/LinkTabs.tsx` |
-| The frame: the main bar, the second column, one bar, the phone's bar, the breadcrumbs | `panel/src/app/frame/`, with the layout rules in `panel/src/app/navLayout.ts` and the saved choices in `panel/src/app/preferences.ts` |
+| The frame: the main bar, the second column, the phone's bar and section selector, the breadcrumbs | `panel/src/app/frame/`, with the layout rules in `panel/src/app/navLayout.ts` and the saved choices in `panel/src/app/preferences.ts` |
 | The executable specification | the gallery, `/__design` (development builds only; `panel/src/dev/`) |
 | Enforcement | `styles/tokens.test.ts`, `styles/design-rules.test.ts`, `styles/design-structure.test.ts`, `styles/setting-copy.test.ts`, `styles/concept-doors.test.ts`, `styles/dead-class.test.ts`, `i18n/verbs.test.ts`, `i18n/glossary.test.ts`, `eslint.config.js`, `e2e/design-contract.spec.ts`, `e2e/indicator.spec.ts`, `e2e/field-edge.spec.ts`, `e2e/tab-switch-layout.spec.ts`, `e2e/leave-guard.spec.ts`, `e2e/settings-length.spec.ts` |
 
@@ -145,7 +145,7 @@ ground):
 inside a plot and nowhere else. **ANSI** (`--ansi-blue`, `--ansi-magenta`, `--ansi-cyan`): a
 program's own colours reproduced in `LogViewer`, nothing else. **Illustration** (`--il-stroke`,
 `--il-stroke-2`): the grey stroke of a drawing and the fill of a meter that is not a problem.
-**Veil** (`--backdrop`): behind a modal.
+**Veil** (`--backdrop`): behind a modal, over the main bar and the column as over the page; the ground under it is `--bg-veiled` while it is up, so the room of the scrollbar, which a fixed veil does not reach, is not a light strip beside it.
 
 Rules:
 
@@ -181,7 +181,7 @@ Rules:
   drawn with `--accent`, which is why the two never go beside a violet that means "press".
 - **C-11** The current navigation item is the raised piece under it, and nothing else is: the
   sliding indicator of 2.7 draws it (a tone, a light edge on top and a darker joint beneath, 2.6) in
-  the main bar, in the second column, in one bar and at the foot of a phone, each with its own piece,
+  the main bar, in the second column and at the foot of a phone, each with its own piece,
   and `aria-current="page"` is the item's own state, so a screen reader and a test agree with the eye.
   Its label is `--text` and its icon `--accent-text`, against `--text-muted` and `--text-faint` for
   the others, and it does not get heavier (Y-2): a shape, a tone and a colour, never a colour alone.
@@ -535,14 +535,15 @@ stylesheets are scanned for the same.
 
 ## 3. Layout and widths
 
-- **L-1** The shell is the navigation, a sticky 56px top bar and the page, and the navigation has
-  three forms that the window's width and a saved choice decide (`app/navLayout.ts`, NV-20): the
-  **double bar**, a main bar of areas (`--width-rail`, 208px, or `--width-rail-folded`, 68px, folded to
-  icons) and, only where the resource has sections, a second column (`--width-column`, 256px) with its
-  context; **one bar** (`--width-sidebar`, 264px) with the areas in titled groups and the sections as tabs
-  or a list in the page; and, on a phone, a bar at the foot with four areas and a menu. The page is in a
-  column capped at `--width-page` (1600px) with 16 / 24 / 32px of padding, or as wide as the window when
-  the person chose the whole width.
+- **L-1** The shell is the navigation, a sticky 56px top bar and the page, and the navigation has two
+  forms that only the window's width decides (`app/navLayout.ts`, NV-20): from 1024px, a **main bar**
+  of areas in titled groups (`--width-rail`, 208px, or `--width-rail-folded`, 68px, folded to icons)
+  and, always, a **second column** (`--width-column`, 256px) with the context of the area or the
+  resource the page is under; and, on a phone, a bar at the foot with four areas and "More", and the
+  column as a section selector at the top of the page. There is no other presentation and nothing to
+  choose between them: no "one bar", and no strip of tabs that lists sections. The page is in a column
+  capped at `--width-page` (1600px) with 16 / 24 / 32px of padding, or as wide as the window when the
+  person chose the whole width.
 - **L-2** Every template sets its own inner grid from the width tokens. A content column MUST
   NOT have a `max-w` narrower than its own header (the header and the content start and end on
   the same edges):
@@ -557,16 +558,18 @@ stylesheets are scanned for the same.
 | `--width-dialog-sm / md / lg / xl` | 440 / 560 / 720 / 1280px | A question / a form of up to six fields / two columns or steps / looking closely |
 | `--width-drawer-md / lg` | 480 / 720px | Forms and a row's detail / logs |
 | `--width-search` | 288px | Every `FilterBar` search box |
-| `--width-rail`, `--width-rail-folded` | 208 / 68px | The main bar of the double bar, unfolded and folded to icons |
-| `--width-column` | 256px | The second column of an application, the server, Databases and Settings |
-| `--width-sidebar` | 264px | The one bar |
+| `--width-rail`, `--width-rail-folded` | 208 / 68px | The main bar, unfolded and folded to icons |
+| `--width-column` | 256px | The second column of every area and every resource |
 | `--measure`, `--measure-help` | 68ch, 52ch | Prose, help |
 
 - **L-3** Layout breakpoints: `sm` (640px), `lg` (1024px), and the navigation's own, which are the
-  frame's and not a page's: 1024, 1280 and 1440px (`navLayout.ts`). Below 640 is a phone (one column,
-  tables as card rows); below 1024 the areas are at the foot of the screen and the rest is a drawer; from
-  1024 the bar is at the side; from 1280 there is room for two bars, with the main one folded to icons
-  until 1440; from 1440 the saved choices decide. `md` and `xl` only hide columns or widen grids.
+  frame's and not a page's: 1024 and 1440px (`navLayout.ts`). Below 640 is a phone (one column, tables as
+  card rows); below 1024 the areas are at the foot of the screen, "More" opens a sheet with all of them in
+  their groups, and the column is a section selector at the top of the page that opens a sheet with the
+  same list; from 1024 the main bar and the column are always both there, because two open bars need
+  about 1410px: from 1024 to 1439 the main bar is folded to icons and unfolds over the page without
+  pushing it, and from 1440 it is unfolded and the saved fold decides. `md` and `xl` only hide columns or
+  widen grids.
 - **L-4** A page never scrolls sideways at 390px or at 200% zoom; only a table, a log or a tab
   strip scrolls inside itself.
 - **L-5** The root keeps the scrollbar's room (`html { scrollbar-gutter: stable }`), and so do
@@ -657,9 +660,12 @@ servers.
   headers, offering an action that is possible right now. A filter that matches nothing shows an
   inline empty state with "Clear filters".
 
-### T2 Detail with tabs: `DetailPage`
+### T2 Detail: `DetailPage`
 
-For: an application, a database, a service, a site, a fleet node, a deployment.
+For: an application, a database, a service, a site, a fleet node, a deployment. The sections of a resource
+are not tabs under its header: they are the second column, which slides to them when the resource is
+entered (NV-22, NV-23). The `tabs` slot is for the views of one thing (a site's Text, Structure and
+Diagram; a zone's Records, DNSSEC and Delegation), never for pages.
 
 ```
 Applications >
@@ -668,9 +674,8 @@ shop.example.net  * Running  Next.js . :3001 . shop.example.net ->  [Restart] [S
 | x The service keeps failing to start. systemd gave up after 5 restarts.       [Diagnose]    |  <- banner, every tab
 +--------------------------------------------------------------------------------------------+
 [o Updating shop.example.net  npm ci]                                                            <- the job in hand
-[Overview] [Deployments] [Logs] [Metrics] [Environment] [Database] [Domains] [Settings]
 --------------------------------------------------------------------------------------------
-  the active tab: a list (T1 body), a log, charts, or settings (T3). No h2 repeating the tab.
+  the open section (the column says which): a list (T1 body), a log, charts, or settings (T3). No h2 repeating it.
 ```
 
 ```tsx
@@ -685,16 +690,17 @@ shop.example.net  * Running  Next.js . :3001 . shop.example.net ->  [Restart] [S
 ```
 
 - The header and the tabs belong to the layout route: the same height and place on every tab.
-- Eight tabs at most. A tab that repeats another area's view (Server > Logs, a fleet strip that
-  mirrors the sidebar) is a filter of that view, not a tab (NV-3, 6.14). A view reached from a
-  state rather than browsed (an application's Diagnose) keeps its URL but leaves the strip: the
-  status banner, the header's `More actions` and the Overview's "Needs attention" link to it.
+- A section of the resource that repeats another area's view (Server > Logs, a fleet face that
+  mirrors the sidebar) is a filter of that view, not a section (NV-3, 6.14). A view reached from a
+  state rather than browsed (an application's Diagnose) is in the column's "Fix" group, and the status
+  banner, the header's `More actions` and the Overview's "Needs attention" link to it too.
 - Settings that are saved but do not run yet are a chip in the header's status line ("3 not
   applied") that opens the review, not a full-width banner on every tab (FM-5).
-- Tabs are URLs (`LinkTabs`), never local state. A count on a tab (`count`) is `null` while it
-  loads: its room is kept, so the strip does not change width when it arrives.
-- When the resource is broken, a status banner between the header and the tabs says the cause
-  and the fix, on every tab, not only on the first.
+- A strip of view tabs, where a page has one (NV-23), is made of URLs (`LinkTabs`) or of one state
+  (`Tabs`), and a count on it (`count`) is `null` while it loads: its room is kept, so the strip does not
+  change width when it arrives. A count on a section is the column's.
+- When the resource is broken, a status banner between the header and the page says the cause
+  and the fix, on every section, not only on the first.
 - At 390 the tab strip scrolls with faded edges and the active tab centred; the header keeps
   the primary action visible beside `More actions`.
 
@@ -735,9 +741,9 @@ grow).
   split (FM-8, NV-9).
 - The side list is titled by what each section is for (NV-11), holds 8 items per group at most, 7 groups and 26 in all (NV-3), and
   grows a filter box from 12 entries (`SETTINGS_FILTER_FROM`; an item's `keywords` are the old
-  names that still find it). In the double bar the list is the second column and the box is at its
-  head, above the groups; the page then draws the section alone (`carried`). One bar and the
-  phone's index draw the list and the box in the page.
+  names that still find it). The list is the second column and the box is at its head, above the
+  groups; the page draws the section alone. On a phone the column is the section selector at the top of
+  the page and its sheet has the same list and the same box; `/settings` itself is the hub of doors.
 - A subsection's one primary action that is not a Save ("Invite a person", "Create token")
   goes in the page's header through `SettingsPrimaryAction` (`features/settings/SettingsShell`),
   never in a section.
@@ -1577,12 +1583,12 @@ where it runs; in the machine strip; and in every confirmation, sudo dialog and 
 page: the owner asked that a header never repeat the server (4.1, item 92). No tint of frame or
 background tells servers apart: colour already means state. A hub offers no local pages, and the
 selector is always visible when there are nodes. A lone server with no nodes draws none of it. The
-three scopes are one server, "All servers" (the fleet's pages) and "This central" (the central's own
-pages); the main bar is the same twelve areas on all of them and each area opens at its fleet face where
-it has one (NV-10, section 6.14), so the destinations are never the last server's under another's name.
-The selector is a stage on the way to the fleet being a filter and no longer a place (4.1, D4 of the
-central's design), and goes with it.
-
+two scopes are one server and "All servers" (the fleet's pages): the central is one more server of the
+list, marked "central", and there is no third place. The main bar is the same areas on both and each
+area opens at its fleet face where it has one (NV-10, section 6.14), so the destinations are never the
+last server's under another's name. The pages that belong to the instance and to no server (the
+accounts, the tokens, the compliance, the audit) leave the selector where it was and say "All the
+fleet" beside their name, which is why the server a person was on is still the one they come back to.
 ### 6.12 Notifications: which channel says it
 
 An event is said in one channel, never two:
@@ -1636,18 +1642,18 @@ service counts); numbers that change every few seconds are never live regions.
 
 ### 6.14 Navigation and where things live
 
-Four questions, answered in four places: **where am I** (the scope selector, and team > project > environment above the title), **what is here** (the main bar's twelve areas and, inside one, the second column), **how is it set up** (Settings, grouped by whose it is) and **how do I get anywhere** (the palette). Nothing answers two of them.
+Four questions, answered in four places: **where am I** (the scope selector, and team > project > environment above the title), **what is here** (the main bar's thirteen areas and, inside one, the second column), **how is it set up** (Settings, grouped by whose it is) and **how do I get anywhere** (the palette). Nothing answers two of them.
 
-- **NV-1** Every screen is declared once in `app/nav.ts`: path, parent, kind (`area`, `tab`, `section`, `hidden`), scope, label, command, keywords (the old names included), icon, shortcut, permission, and for an area where its fleet face is (`fleetTo`) and for a section what it is for (`intent`). The main bar, the second column, the tab strips, the settings navigation, the breadcrumbs, the `g` shortcuts and the palette read it; no component lists destinations of its own. The bar and the strip under a header are two presentations of the same entries (`app/columns.ts`), so they cannot differ. *Enforced by:* `app/nav.register.test.ts` (a route with no entry and an entry with no route fail); `app/columns.test.ts`; ratchet `destination-outside-register` (a `LinkTab[]` or `NavItem[]` literal outside `app/nav.ts`; 7 files to 0).
-- **NV-2** Four levels; the first three are routes: L1 area (the main bar), L2 section (the second column, or tabs under the header with one bar), L3 subsection (T3's side list), L4 detail (drawer, dialog, anchor or search parameter). Never more than two bars: the main bar and the second column. A URL has four segments at most after `/n/<server>/`. A fifth level is never a route. *Enforced by:* `nav.register.test.ts` (the depth of every route).
-- **NV-3** Budgets. The main bar: twelve areas in six groups, with Settings pinned under them, the same with or without a fleet (Home; what runs: Applications, Databases, Scheduled tasks; how it is reached: Domains; what happens: Logs, Alerts, Activity; what is kept safe: Backups; where it runs: Servers, Catalog). Tab strip: 8; a tab that repeats another area's view is a filter of that view, not a tab. A settings list: 8 items per group and 7 groups, 26 in all (the server's and the instance's lists of 4.0 are one now, grouped by what a section is for). Over budget a destination is merged, moved to Settings or left to the palette; there is no ninth tab. The budgets are regression guards, not a dogma (nothing backs a universal "three clicks"): what is held is the click count of the reference tasks and "name, then Enter" in the palette; a change that raises a budget says so and why. *Enforced by:* `nav.register.test.ts`; `e2e/click-budget.spec.ts`.
+- **NV-1** Every screen is declared once in `app/nav.ts`: path, parent, kind (`area`, `tab`, `section`, `hidden`), scope, label, command, keywords (the old names included), icon, shortcut, permission, and for an area where its fleet face is (`fleetTo`), for a section what it is for (`intent`) and the group of its column it is drawn in (`column`). The main bar, the second column and its sheet on a phone, the settings navigation, the breadcrumbs, the `g` shortcuts and the palette read it; no component lists destinations of its own. The bar and the column read the same entries (`app/columns.ts`, and `features/nav/views.ts` for the fixed views of an area that is one page), so they cannot differ. *Enforced by:* `app/nav.register.test.ts` (a route with no entry and an entry with no route fail); `app/columns.test.ts`; ratchet `destination-outside-register` (a `LinkTab[]` or `NavItem[]` literal outside `app/nav.ts`; 7 files to 0).
+- **NV-2** Four levels; the first three are routes: L1 area (the main bar), L2 section (the second column), L3 subsection (T3's side list), L4 detail (drawer, dialog, anchor or search parameter). Never more than two bars: the main bar and the second column, and the sections of a resource take the place of the area's in the same column (NV-22). A URL has four segments at most after `/n/<server>/`. A fifth level is never a route. *Enforced by:* `nav.register.test.ts` (the depth of every route).
+- **NV-3** Budgets. The main bar: thirteen areas in six titled groups, with Settings pinned under them, the same with or without a fleet (Home; Applications and data: Applications, Catalog, Databases, Scheduled tasks; Network: Domains, Network; Observe: Logs, Alerts, Activity; Protect: Backups, Security; Infrastructure: Server, which is Servers on All servers). A column: about sixteen entries, grouped (an application's has seventeen, in five groups, and the one over is accepted: 4.2 design, 10.3). A strip of view tabs, where a page has one (NV-23): 8; a section that repeats another area's view is a filter of that view, not a section. A settings list: 8 items per group and 7 groups, 26 in all (the server's and the instance's lists of 4.0 are one now, grouped by what a section is for). Over budget a destination is merged, moved to Settings or left to the palette; there is no ninth tab. The budgets are regression guards, not a dogma (nothing backs a universal "three clicks"): what is held is the click count of the reference tasks and "name, then Enter" in the palette; a change that raises a budget says so and why. *Enforced by:* `nav.register.test.ts`; `e2e/click-budget.spec.ts`.
 - **NV-4** What earns a sidebar destination: a noun the operator says every day or every week; it lists what exists on the server or shows what happened; most installations use it. Not one-time setup, not configuration (that is Settings), not a catalogue of what to create (a tab of what it creates), not another destination's filtered view, not a module that is off. *Enforced by:* G-8 (the PR carries the register entry and these answers); `nav.register.test.ts` for the count.
-- **NV-5** Names. An area's label is one or two words and a noun, without "and" ("Domains", not "Domains and certificates"), and is the glossary's (1 of the 4.1 navigation design); the same word in the bar, the title, the tab and the palette. Two areas never share a name; a scoped view of the same concept may ("Logs" inside an application). A renamed destination keeps its old name as a palette keyword for at least one minor release (`RENAMED`: Overview, Cron, Server, Recipes and Projects are found by their 4.0 names). *Enforced by:* `nav.register.test.ts` (no "and", no duplicate, the twelve names, `RENAMED` among the keywords).
+- **NV-5** Names. An area's label is one or two words and a noun, without "and" ("Domains", not "Domains and certificates"), and is the glossary's (1 of the 4.1 navigation design); the same word in the bar, the title, the tab and the palette. Two areas never share a name; a scoped view of the same concept may ("Logs" inside an application). A renamed destination keeps its old name as a palette keyword for at least one minor release (`RENAMED`: Overview, Cron, Server, Recipes and Projects are found by their 4.0 names). *Enforced by:* `nav.register.test.ts` (no "and", no duplicate, the thirteen names, `RENAMED` among the keywords).
 - **NV-6** Shortcuts. Every area has `g` and a letter, listed in `?`, and a letter is taken in the same change as the destination; the same two keys open an area at its fleet face from the fleet's pages. A shortcut matches the character the key produces when it is a Latin letter or a symbol, and the letter of the physical key (`event.code`) when it is not, so it works on AZERTY, QWERTZ and non-Latin layouts. *Enforced by:* `nav.register.test.ts` (every area, no collision); `app/shortcuts.test.ts` with AZERTY, QWERTZ and Cyrillic fixtures.
 - **NV-7** Where a setting lives. The first yes wins. It follows the person, not the machine: **Account**. It concerns one resource: **that resource's settings**. It concerns a group of resources (team, project, environment): **that group's page**. It is a setting of Noust, found by what it is for: **Settings > People and access, Notifications and channels, Connections, Security and frameworks, API, Fleet or Noust**. Whose a section is (the selected server's, the central's whichever server is selected, the fleet's) is its `owner` and decides where a node's console sends it, not which group it is under. It is used once, or by few: **an "Advanced" disclosure inside its section, or the CLI with a `CommandHint`**. Ties go to the place nearer to what it changes. *Enforced by:* the `owner` of every settings entry in the register (a test fails without one); G-9.
 - **NV-8** One home per concept. A concept has one canonical page; anywhere else it is a link, the same component filtered to that scope, or a read-only summary that says where it is managed. Theme and language live in the account menu only. The concepts with more than one editable home are listed with their reason, and the list only gets shorter. *Enforced by:* ratchet `concept-doors` (13 today).
 - **NV-9** A settings section is one subject and fits in one and a half screens at 1440 px. Two sections of less than a screen on one subject are one section; one over a screen and a half is split. No section is called "Integrations" with unrelated cards, "Other" or "Misc"; "General" is only the first section of a scope. *Enforced by:* `e2e/settings-length.spec.ts`.
-- **NV-10** Scope and content are apart. The scope is chosen in the scope selector of the top bar, never in the bar's list or a tab, and the bar is the same twelve areas on every scope: from the fleet's pages each area that has a fleet face (Home, Applications, Domains, Backups, Servers, Activity) opens it, and each that has none leads back to the server the person came from, which is what Settings has always done. No page header names the server (6.11). Where there is nothing to tell apart (one server, one team, one project) none of it is drawn. The server's name is always on screen: in the selector, in the machine strip, in the second column of an application and in every confirmation. *Enforced by:* `app/frame/frame.test.tsx` (the same twelve areas on the fleet's pages, at their faces); `e2e/fleet-screens.spec.ts` and `e2e/servers-lane.spec.ts` (a lone server draws no selector).
+- **NV-10** Scope and content are apart. The scope is chosen in the scope selector of the top bar, never in the bar's list or a tab, and there are two: one server, and All servers. The central is one more server of the list, marked as the central; there is no "This central" and no third place. The bar is the same areas on both: from All servers each area that has a fleet face (Home, Applications, Domains, Backups, Servers, Activity, Alerts) opens it, the areas of a machine (Network, Security, Servers) list the servers with a summary of the area, and choosing one is choosing it in the selector; each area that has neither leads back to the server the person came from. The sections of Settings that are of the whole instance (accounts, tokens, compliance, audit...) carry the label "All the fleet" beside their name and in the header of their page, and opening one never changes the selector. No page header names the server (6.11). Where there is nothing to tell apart (one server, one team, one project) none of it is drawn. The server's name is always on screen: in the selector, in the machine strip, in the second column of an application and in every confirmation. *Enforced by:* `app/frame/frame.test.tsx` (the same areas on the fleet's pages, at their faces); `nodes/nodes.test.tsx` (two contexts, and a selector that does not move on the pages of the instance); `e2e/fleet-screens.spec.ts` and `e2e/servers-lane.spec.ts` (a lone server draws no selector).
 - **NV-11** Settings groups say what their sections are for (people and access, notifications and channels, connections, security and frameworks, API, fleet, Noust), the same on a lone server and on a fleet, so a person who does not know where a setting is finds it by its purpose. A section is in exactly one group. The list has a filter box from 12 items. `/settings` is the hub: every section as a door under its group, with one line on what is inside and, where it is known, what is true now (`SettingsHome`), so a first visit shows everything before the second column is read. The title of a section is its own name, never "Settings" repeated (NV-15). *Enforced by:* `nav.register.test.ts`; `e2e/settings-nav.spec.ts` (the list never outgrows the window at 1440 by 900: it scrolls inside, below the top bar, with its group headings and its filter).
 - **NV-12** Disclosure has two levels: the visible section and one `Disclosure` inside it. Never an "Advanced" route or tab. A module that is off is absent, not disabled; it is found through the empty state of the area that would use it, the palette and the CLI hint. What a role may not see is absent from the palette too. *Enforced by:* `nav.register.test.ts` (no entry named "Advanced"); the palette coverage test (permissions).
 - **NV-13** Off-strip views (Diagnose, Terminal, Files) keep a URL but need a contextual way in (a banner, a header action, a link from the Overview) and a palette entry. A view with neither is deleted. *Enforced by:* `nav.register.test.ts` (every `hidden` entry names where it is reached from and is in the palette).
@@ -1657,8 +1663,11 @@ Four questions, answered in four places: **where am I** (the scope selector, and
 - **NV-17** Toast, inbox, activity. A toast acknowledges what the operator just did and is not visible on screen; what failed on its own or needs a decision stays in the inbox until resolved; Activity is the history. *Enforced by:* `e2e/inbox.spec.ts` (a failing alert is in the inbox after its toast is gone, and is acknowledged in the row).
 - **NV-18** Changing the structure. Structure and look do not change in one release. A structural change ships in a major version; every URL that changes redirects, the old names stay as keywords, and the release notes carry the table of where each thing is now. *Enforced by:* `routes/redirects.test.tsx` (the `REDIRECTS` table of `app/nav.ts`).
 - **NV-19** Icons. One icon for each object the console is about, from one map of the kit (`components/ui/objectIcons.ts`, `OBJECT_ICONS`): the register reads it (`features/nav/icons.ts` says which object each area and each section of a list on the side is), and so do the sections' heads (`Section icon`) and the buttons that act on an object, so a screen, a heading and a button of one thing look like one thing. The sidebar, the lists on the side (Settings, an application's settings, the account) and the palette draw it at 16px (`size-icon-md`) in the quiet colour of the list (`text-fg-faint`, `text-fg` on the current section: colour is for state), red only on the destructive section, and `aria-hidden`. A tab has none of its own, because no strip draws one (its width is the budget): the palette shows the icon of its area. No two entries of one list share an icon (I-5). *Enforced by:* `nav.register.test.ts` (the table holds the areas and the sections and nothing else; none repeats in a list); `components/page/SettingsLayout.test.tsx`; `components/page/Section.test.tsx`.
-- **NV-20** The two presentations. The double bar (a main bar of areas, and a second column only where the resource has sections: an application, the server, Settings, and the lists that have saved views) and one bar (the same entries as tabs or a list in the page) are one register drawn twice, and the choice between them is in the bar itself, drawn as two small windows with a name each, and in the account menu; it is saved in the browser like the theme. By width, below 1280px there is one bar, from 1280 to 1439px the main bar is folded to icons and unfolds over the page without pushing it (its button says Close, Escape and a press outside dismiss it), and from 1440px the saved choices (the presentation, the fold, the width of the page) decide. The main bar is drawn unfolded by default, with an icon and a name, because twelve icons are not understood at first and a phone has no tooltip; it folds by a button with `aria-expanded`, and a folded icon says its name on hover and on focus. Nothing folds by use. Home has no second column: its fleet is a filter and each server leads to its page. *Enforced by:* `app/navLayout.test.ts` (every edge of the width rules); `app/preferences.test.ts`; `app/frame/frame.test.tsx`; `e2e/frame.spec.ts` (the three widths, both presentations, both themes).
+- **NV-20** The frame. One main bar and one second column from 1024px, whatever the person likes: there is no presentation to choose, no "one bar" and no switch for it, and the account menu has none. By width, below 1024px the areas are a bar at the foot (four areas and "More", which opens a sheet with all of them in their groups, then Settings and the account) and the column is the section selector at the top of the page, which opens a sheet with the same list (never tabs); from 1024 to 1439px the main bar is folded to icons and unfolds over the page without pushing it (its button says Close, Escape and a press outside dismiss it), because two open bars need about 1410px; and from 1440px it is unfolded and the saved choices (the fold, the width of the page) decide. The main bar is drawn unfolded by default, with an icon and a name, because thirteen icons are not understood at first and a phone has no tooltip; its groups carry a small title in sentence case and a joint (a dark line with the lit edge under it, the joint between two courses of the wall), which is all there is of a group when the bar is folded; it folds by a button with `aria-expanded`, and a folded icon says its name on hover and on focus. Nothing folds by use. *Enforced by:* `app/navLayout.test.ts` (every edge of the width rules); `app/preferences.test.ts`; `app/frame/frame.test.tsx`; `e2e/frame.spec.ts` (the widths 1920, 1440, 1280 and 390, with the keyboard and with reduced motion, both themes).
 - **NV-21** The frame moves with the person. The raised piece of the current item slides to the new one when the route changes (the browser's back and forward too), in the main bar and in the second column, each with its own piece, by the move curve of 2.7 and never with `ease-in-out`; it does not slide when the page loads, when the bar folds or the window resizes, or with reduced motion. *Enforced by:* `components/ui/SlidingIndicator.test.tsx`; `e2e/frame.spec.ts` (the transition that runs, its duration and where it ends).
+- **NV-22** Every area has a column, and so has every resource a person enters. An area with several pages lists them; an area that is one page lists its fixed views, presets of its own filters that live in the address and save nothing (`features/nav/views.ts`); Home lists its panels. Where a resource is entered (an application, a database, a service, a team, a server on a fleet) the column slides to its sections with the way back to the area ("‹ Applications") and a switch to its siblings, so a person jumps to another without going back to the list; the new list comes in decelerating and the old goes out accelerating and in less time, and with reduced motion it is instant. The column never disappears and a third never appears, so the content does not jump from one side to the other between two areas. Names come from the register: the same entries, drawn in the column, in the phone's sheet and in the palette. *Enforced by:* `app/columns.test.ts` (every area of the register has a column, and a resource's has its area's way back); `app/nav.register.test.ts`; `app/frame/frame.test.tsx` and `e2e/frame.spec.ts` (the slide, its two durations, reduced motion).
+- **NV-23** Tabs only change the view of one thing. A strip of tabs never lists the pages of an area or the sections of a resource: that is the column's (NV-22). What stays a strip is the choice between ways of looking at the same object on the same page (a site's Text, Structure and Diagram; a zone's Records, DNSSEC and Delegation), each a view of one thing. A page whose sections were tabs in 4.1 (Alerts, Backups, Catalog, Projects, Fleet, Account, Domains, a database, a service, the views of Server) has them in the column. *Enforced by:* ratchet `link-tabs-in-feature` (`LinkTabs` written outside the kit and the shell: 15 files to 2 in 4.2, Home's and the Map's, which the Home lane removes); `app/columns.test.ts` (a section of a resource is not a tab of its page).
+- **NV-24** No entry of a column leaves its column. Every entry of every column resolves to a route whose column is that column (an entry's own, or the resource's under it); what lives in another area is linked from the content, with the words of the page, and never listed as a section. The way back to the area is the one exit, and it is the head's. *Enforced by:* `app/columns.test.ts` (each entry of each column, with its parameters filled in, is under the column it is listed in).
 
 ### 6.15 Observability and data
 
@@ -1966,7 +1975,7 @@ NOUST_E2E_STATIC=/tmp/noust-dev-build npx playwright test design-contract tab-sw
 | Program colours | `--ansi-blue`, `--ansi-magenta`, `--ansi-cyan` |
 | Illustration | `--il-stroke`, `--il-stroke-2` |
 | Height | `--elev-carved`, `--elev-carved-fine`, `--elev-seated`, `--elev-raised`, `-high`, `-pressed`, and the same for `-accent`, `-fail` and `-chosen` |
-| Veil | `--backdrop` |
+| Veil | `--backdrop`, `--bg-veiled` |
 | Type | `--font-sans`, `--font-display`, `--font-mono`, `--fs-12` ... `--fs-32`, `--lh-12` ... `--lh-32`, `--stretch-title` 90%, `--stretch-display` 78%, `--tracking-title`, `--tracking-display` |
 | Measure | `--measure` 68ch, `--measure-help` 52ch |
 | Space | `--space` 0.25rem |

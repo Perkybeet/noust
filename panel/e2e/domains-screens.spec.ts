@@ -197,8 +197,8 @@ const SCREENS: readonly Screen[] = [
       await expect(page.getByText(/Not ready|No está listo/)).toBeVisible();
     },
   },
-  { name: "tunnels", path: "/domains/tunnels" },
-  { name: "ports", path: "/domains/ports" },
+  { name: "tunnels", path: "/network/tunnels" },
+  { name: "ports", path: "/network" },
 ];
 
 test.describe("domains screens @screens", () => {

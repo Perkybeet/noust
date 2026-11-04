@@ -2,7 +2,7 @@
  * The Domains area against the real backend: each section has a title of its own (never the area's name
  * again) and a tab, a domain is put on an application from the area in one dialog, the card of the names no
  * site serves is apart from the table, Noust DNS asks for its acceptance before it installs, and a server
- * without cloudflared says what a tunnel needs instead of failing a form. Both themes, with the CSP and
+ * without cloudflared says what a tunnel needs instead of failing a form (the tunnels are Network's since 4.2). Both themes, with the CSP and
  * console gates of the `problems` fixture and axe on every state.
  */
 
@@ -13,11 +13,9 @@ const SECTIONS = [
   { tab: /^Sites/, path: "/domains/sites", title: "Sites" },
   { tab: /^Certificates/, path: "/domains/certificates", title: "Certificates" },
   { tab: /^DNS/, path: "/domains/dns", title: "DNS" },
-  { tab: /^Tunnels/, path: "/domains/tunnels", title: "Tunnels" },
-  { tab: /^Published ports/, path: "/domains/ports", title: "Published ports" },
 ] as const;
 
-test("every section is a tab with a title of its own, and moving between them is one click", async ({ page, consoleServer }) => {
+test("every section is in the column with a title of its own, and moving between them is one click", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/domains");
   const tabs = page.getByRole("navigation", { name: "Domains sections" });
   for (const section of SECTIONS) {
@@ -88,7 +86,7 @@ test("Noust DNS says what it takes on and asks for the acceptance before it inst
 });
 
 test("a server without cloudflared says what a tunnel needs, and offers to install it", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/domains/tunnels");
+  await signIn(page, consoleServer, "/network/tunnels");
   await expect(page.getByText("No tunnels yet")).toBeVisible();
   await expect(page.getByText("It also needs cloudflared, the connector, which is not installed.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Install cloudflared" })).toBeVisible();
