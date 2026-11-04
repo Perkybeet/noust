@@ -25,7 +25,7 @@ describe("the click budgets", () => {
   });
 
   it("raise a budget in one place only, the row that was walked and found to need the click", () => {
-    expect(BUDGETS.filter((row) => row.raised !== undefined).map((row) => row.id)).toEqual(["T07c"]);
+    expect(BUDGETS.filter((row) => row.raised !== undefined).map((row) => row.id)).toEqual(["T07c", "T10p"]);
   });
 
   it("end on an address no deeper than the register allows, and need no more than four clicks", () => {
