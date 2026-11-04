@@ -8,6 +8,8 @@ export interface PopoverProps {
   trigger: ReactElement<Record<string, unknown>>;
   title?: string;
   description?: ReactNode;
+  /** Controls of the popover's own, at the end of the title's row (a link to the whole list, a close button). */
+  headerAction?: ReactNode;
   children?: ReactNode;
   side?: "top" | "bottom" | "left" | "right";
   align?: "start" | "center" | "end";
@@ -23,6 +25,7 @@ export function Popover({
   trigger,
   title,
   description,
+  headerAction,
   children,
   side = "bottom",
   align = "center",
@@ -46,12 +49,28 @@ export function Popover({
               className,
             )}
           >
-            {title !== undefined ? <BasePopover.Title className="title text-16">{title}</BasePopover.Title> : null}
-            {description !== undefined ? (
-              <BasePopover.Description className={cx("text-13 text-fg-muted", title !== undefined && "mt-1")}>
-                {description}
-              </BasePopover.Description>
-            ) : null}
+            {headerAction !== undefined ? (
+              <div className="flex items-start gap-3">
+                <div className="min-w-0 flex-1">
+                  {title !== undefined ? <BasePopover.Title className="title text-16">{title}</BasePopover.Title> : null}
+                  {description !== undefined ? (
+                    <BasePopover.Description className={cx("text-13 text-fg-muted", title !== undefined && "mt-1")}>
+                      {description}
+                    </BasePopover.Description>
+                  ) : null}
+                </div>
+                {headerAction}
+              </div>
+            ) : (
+              <>
+                {title !== undefined ? <BasePopover.Title className="title text-16">{title}</BasePopover.Title> : null}
+                {description !== undefined ? (
+                  <BasePopover.Description className={cx("text-13 text-fg-muted", title !== undefined && "mt-1")}>
+                    {description}
+                  </BasePopover.Description>
+                ) : null}
+              </>
+            )}
             {children !== undefined ? (
               <div className={cx(title !== undefined || description !== undefined ? "mt-3" : "")}>{children}</div>
             ) : null}

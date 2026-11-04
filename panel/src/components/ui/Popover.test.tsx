@@ -32,6 +32,19 @@ describe("Popover", () => {
     });
   });
 
+  it("holds controls of its own at the end of the title's row, beside the title and the description", async () => {
+    render(
+      <Popover title="Tasks" description="On web-01" headerAction={<a href="#history">History</a>} trigger={<Button>Open</Button>}>
+        <p>Body</p>
+      </Popover>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Open" }));
+    const popup = await screen.findByRole("dialog", { name: "Tasks" });
+    expect(popup).toHaveAccessibleDescription("On web-01");
+    expect(screen.getByRole("link", { name: "History" })).toBeInTheDocument();
+    expect(screen.getByText("Body")).toBeInTheDocument();
+  });
+
   it("has no accessibility violations when open", async () => {
     render(<Example />);
     await userEvent.click(screen.getByRole("button", { name: "Releases" }));
