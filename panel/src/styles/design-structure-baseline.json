@@ -66,6 +66,7 @@
       "features/catalog/CatalogPackage.tsx": 1,
       "features/new-app/RemoteImport.tsx": 1
     },
+    "link-tabs-in-feature": {},
     "live-switch": {},
     "native-details": {
       "features/app/diagnose/DiagnoseTab.tsx": 2

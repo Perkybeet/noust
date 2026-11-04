@@ -136,11 +136,6 @@ export const SETTINGS_SCREENS: Strip = [
     command: "fleetSettings.nav.command",
     permission: "fleet.read",
   }),
-  setting("servers", "servers.nav.settingsTab.label", "fleet", "fleet", {
-    central: true,
-    keywords: "servers.nav.settingsTab.keywords",
-    command: "servers.nav.settingsTab.command",
-  }),
   setting("central", "nav.settingsTabs.central.label", "fleet", "fleet", {
     central: true,
     when: "fleet",
@@ -201,8 +196,14 @@ export const RENAMED: Readonly<Record<string, readonly PlainKey[]>> = {
   "databases.servers": ["nav.renamed.engines"],
   backups: ["nav.renamed.backups"],
   server: ["nav.renamed.server"],
-  // The updates of 4.0 are a part of System now; "System updates" typed whole still opens it, ahead of the alert rule that names them.
-  "server.system": ["nav.renamed.systemUpdates"],
+  // The updates of 4.0 are a section of the server again (4.2); "System updates" typed whole still opens it, ahead of the alert rule that names them.
+  "server.updates": ["nav.renamed.systemUpdates"],
+  // What 4.1 had under the Server and under Domains, and 4.2 moved to areas of their own, and Settings > Servers, which is the fleet's list.
+  security: ["nav.renamed.serverSecurity"],
+  "network.listening": ["nav.renamed.serverNetwork"],
+  network: ["nav.renamed.domainsPorts"],
+  "network.tunnels": ["nav.renamed.domainsTunnels"],
+  "fleet.servers": ["nav.renamed.settingsServers"],
   domains: ["nav.renamed.domains"],
   "domains.sites": ["nav.renamed.webServerSites"],
   catalog: ["nav.renamed.recipes"],

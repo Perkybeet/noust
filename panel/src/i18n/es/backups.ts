@@ -28,7 +28,6 @@ export const backups: Catalog<typeof en> = {
   },
 
   tabs: {
-    label: "Secciones de las copias de seguridad",
     backups: "Copias",
     schedules: "Programaciones",
     destinations: "Destinos",

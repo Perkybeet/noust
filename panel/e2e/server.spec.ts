@@ -50,8 +50,8 @@ test("schedules a reboot with its pre-checks in view, shows it on every tab and 
   await expect(page.getByText(/^Reboot scheduled for/)).toHaveCount(0);
 });
 
-test("the updates tab lists security updates first and shows the plan before installing", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/server/system");
+test("the updates section lists security updates first and shows the plan before installing", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer, "/server/updates");
   const table = page.getByRole("region", { name: "Pending updates" });
   const first = table.getByRole("row").nth(1);
   await expect(first).toContainText("linux-image-6.8.0-47-generic");
@@ -78,8 +78,8 @@ test("the updates tab lists security updates first and shows the plan before ins
   await all.getByRole("button", { name: "Cancel" }).click();
 });
 
-test("the security tab shows its findings, SSH as it runs, the firewall against what listens and the bans", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/server/security");
+test("Security shows its findings, SSH as it runs, the firewall against what listens and the bans", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer, "/security");
   const findings = page.getByRole("list", { name: "Open findings" });
   await expect(findings.getByText("SSH accepts passwords", { exact: true })).toBeVisible();
   await settle(page);
@@ -94,25 +94,25 @@ test("the security tab shows its findings, SSH as it runs, the firewall against 
   await expectNoA11yViolations(page, "the fix dialog");
   await fix.getByRole("button", { name: "Cancel" }).click();
 
-  await page.getByRole("radio", { name: "SSH" }).click();
-  await expect(page).toHaveURL(/view=ssh/);
+  await page.getByRole("navigation", { name: "Security sections" }).getByRole("link", { name: "SSH" }).click();
+  await expect(page).toHaveURL(/\/security\/ssh$/);
   await expect(page.getByRole("heading", { name: "Effective settings" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Authorized SSH keys" }).getByText("yago@laptop")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the SSH view");
 
-  // The firewall is Network and ports' since 4.1: its old address (a view of this tab) opens it where it is.
+  // The firewall is Network's: its old address (a view of this tab in 4.0) opens it where it is.
   await page.goto("/server/security?view=firewall");
-  await expect(page).toHaveURL(/\/server\/network\?view=firewall/);
+  await expect(page).toHaveURL(/\/network\/firewall$/);
   const ports = page.getByRole("region", { name: "Ports that listen" });
   await expect(ports.getByRole("row").filter({ hasText: "5432/tcp" }).getByText("Exposed")).toBeVisible();
   await expect(page.getByText("1 internal service is reachable from the internet")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the firewall view");
 
-  // The bans stay with Security: back to it for the last view.
-  await page.goto("/server/security");
-  await page.getByRole("radio", { name: "Brute force" }).click();
+  // The bans stay with Security: back to it for the last section.
+  await page.goto("/security");
+  await page.getByRole("navigation", { name: "Security sections" }).getByRole("link", { name: "Brute force" }).click();
   await expect(page.getByRole("list", { name: "Addresses banned by sshd" }).getByText("185.220.101.4")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the bans view");
@@ -130,7 +130,7 @@ test("the storage, logs and system tabs show the machine", async ({ page, consol
   await settle(page);
   await expectNoA11yViolations(page, "the logs tab");
 
-  await page.goto("/server/system?view=machine");
+  await page.goto("/server/machine");
   await expect(page.getByText("Europe/Madrid")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Reboot and shutdown" })).toBeVisible();
   await settle(page);
@@ -138,7 +138,7 @@ test("the storage, logs and system tabs show the machine", async ({ page, consol
 });
 
 test("the resource monitor shows its unit and open findings under System", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/server/system?view=monitor");
+  await signIn(page, consoleServer, "/server/monitor");
   const monitor = page.locator("section", { has: page.getByRole("heading", { name: "Resource monitor" }) });
   await expect(monitor).toBeVisible();
   await expect(monitor.getByText("Running")).toBeVisible();
@@ -146,7 +146,7 @@ test("the resource monitor shows its unit and open findings under System", async
 });
 
 test("acknowledging an open finding of the resource monitor removes it", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/server/system?view=monitor");
+  await signIn(page, consoleServer, "/server/monitor");
   const monitor = page.locator("section", { has: page.getByRole("heading", { name: "Resource monitor" }) });
   await expect(monitor.getByText("xmrig")).toBeVisible();
 

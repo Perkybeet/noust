@@ -30,7 +30,7 @@ describe("the fleet's frame while the next page of the fleet arrives", () => {
     const { user, location } = renderConsole("/fleet/apps");
     // The applications of the fleet have a header of their own; the layout draws none above it.
     expect(await screen.findByRole("heading", { level: 1, name: "Applications" })).toBeInTheDocument();
-    const views = await screen.findByRole("navigation", { name: "Fleet application views" });
+    const views = await screen.findByRole("navigation", { name: "Applications sections" });
 
     held.path = "/fleet/placements";
     held.until = new Promise<void>((resolve) => {
@@ -43,7 +43,7 @@ describe("the fleet's frame while the next page of the fleet arrives", () => {
     // The router is already at the new address and the page on screen is still the old one: a layout that follows the
     // address drew its own title above it.
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-    expect(screen.getAllByRole("navigation", { name: "Fleet application views" })).toHaveLength(1);
+    expect(screen.getAllByRole("navigation", { name: "Applications sections" })).toHaveLength(1);
     expect(screen.queryByRole("heading", { level: 3, name: SHOP })).not.toBeInTheDocument();
 
     act(() => {

@@ -1,11 +1,11 @@
 /**
- * The Server area (T2): the machine's header, what is pending on it, the job in hand, and the
- * seven tabs, each a URL. The header and the tabs belong to this layout, so they keep their
- * place and height whichever tab is open.
+ * The Server area (T2): the machine's header, what is pending on it and the job in hand, over the
+ * section the second column has open. The header belongs to this layout, so it keeps its place and
+ * height whichever section is open.
  *
  * On a central with a node selected every read and action goes to that node through the
  * proxy, and the node is named above the title. A node whose Noust predates this area answers
- * none of it: its tabs say so, except Services, which every version has.
+ * none of it: its sections say so, except Services, which every version has.
  */
 
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -14,10 +14,6 @@ import { ListChecks, Power, RotateCw } from "lucide-react";
 
 import { request } from "../../api/client";
 import { sessionQuery } from "../../api/queries/auth";
-import { LinkTabs } from "../../app/LinkTabs";
-import type { LinkTab } from "../../app/LinkTabs";
-import { useColumnCarries } from "../../app/frame/columnContext";
-import { tabsOf, withCounts } from "../../app/navCore";
 import { DetailPage } from "../../components/page/DetailPage";
 import { Button } from "../../components/ui/Button";
 import { MenuItem, MenuSeparator } from "../../components/ui/Menu";
@@ -30,7 +26,6 @@ import { formatDuration } from "../../lib/format";
 import { useNodeCapability } from "../../nodes/capability";
 import { useNode } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
-import { SERVER_SCREENS } from "../nav/server";
 import { useHasPermission } from "../terminal/queries";
 import { attentionItems, verdictOf } from "./attention";
 import type { Verdict } from "./attention";
@@ -69,8 +64,6 @@ function Layout() {
   const { node } = useNode();
   const { data: sessionHostname } = useQuery({ ...sessionQuery(), select: (session) => session.hostname });
   const power = usePowerDialog();
-  // The double bar's second column holds the sections: the strip under the header is for one bar.
-  const columnHasTabs = useColumnCarries("server");
   const jobs = useServerJob();
   const hasJob = useHasServerJob();
   const navigate = useNavigate();
@@ -97,11 +90,6 @@ function Layout() {
   const verdict = loaded ? verdictOf(attentionItems(summary.data, security.data)) : null;
   const pending = (changes.data ?? []).filter((change) => change.status === "pending");
   const scheduled = summary.data?.power.scheduled ?? null;
-  const counts = security.data?.counts;
-  const openFindings = counts ? counts.critical + counts.warning : null;
-
-  // The central's permissions exist for a server a central manages: on a fleet, any server but the central itself.
-  const tabs: readonly LinkTab[] = withCounts(tabsOf(SERVER_SCREENS, { when: { fleet: node !== null } }), available ? { "/server/system": summary.data?.updates.pending ?? null, "/server/security": openFindings } : {});
 
   const banner =
     pending.length > 0 || scheduled !== null ? (
@@ -154,7 +142,6 @@ function Layout() {
       }}
       banner={banner}
       job={hasJob ? <ServerJobSlot /> : undefined}
-      {...(columnHasTabs ? {} : { tabs: <LinkTabs label={t("server.tabs.label")} tabs={tabs} /> })}
     >
       <Outlet />
     </DetailPage>

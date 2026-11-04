@@ -40,7 +40,7 @@ test("the page of the Teams tab is the page /teams always was", async ({ page, c
   await expect.poll(pathnameOf(page)).toBe("/projects/teams");
   // Teams are the second tab of Projects: the same title, the tab marked.
   await expect(page.getByRole("heading", { level: 1, name: "Projects" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Project sections" }).getByRole("link", { name: "Teams" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("navigation", { name: "Applications sections" }).getByRole("link", { name: "Teams" })).toHaveAttribute("aria-current", "page");
   await settle(page);
   await expectNoA11yViolations(page, "the teams list, at its new address");
 });

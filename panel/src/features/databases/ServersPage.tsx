@@ -30,7 +30,7 @@ export function ServersPage({ engine }: ServersPageProps) {
   const t = useT();
   const { node } = useNode();
   const actions = useServerActions();
-  const { header, tabs, dialogs } = useDatabasesHeader("servers", actions);
+  const { header, dialogs } = useDatabasesHeader("servers", actions);
   const serverList = useDatabaseServers();
   const engines = useQuery({ ...enginesQuery(), enabled: serverList.problems.length > 0 });
   const { data: hostname } = useQuery({ ...sessionQuery(), select: (session) => session.hostname });
@@ -42,7 +42,6 @@ export function ServersPage({ engine }: ServersPageProps) {
     <>
       <ListPage
         header={header}
-        tabs={tabs}
         {...(notice !== undefined ? { notice } : {})}
         {...(servers === undefined ? {} : { footer: <CommandHint command="noust db servers" label={t("common.words.fromTerminal")} /> })}
       >

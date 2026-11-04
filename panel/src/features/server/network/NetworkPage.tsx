@@ -1,9 +1,9 @@
 /**
  * Network and ports (4.1, task 11: open a port, or see who uses one). What is open to the network
- * and who holds each port is the first view; the firewall that decides who may reach them and the
- * interfaces are the others, each a URL (`?view=`). The question "who uses port 5432?" is the search
- * box of the first one. Publishing an application on a port of its own is a way to reach it, so it is
- * Domains' (Published ports), and a line here leads there.
+ * and who holds each port is the listening ports; the firewall that decides who may reach them and the
+ * interfaces are the others, each a section of Network (4.2: the column lists them, and the route says
+ * which view this is). The question "who uses port 5432?" is the search box of the first one. Publishing
+ * an application on a port of its own is the section of Network that comes first, and a line here leads there.
  */
 
 import { useQuery } from "@tanstack/react-query";
@@ -26,11 +26,13 @@ import type { NetworkSearch, NetworkView } from "./data";
 export interface NetworkPageProps {
   search: NetworkSearch;
   onSearchChange: (search: NetworkSearch, options?: { replace?: boolean }) => void;
+  /** The view this page is: the route's, since each is a section of Network. Without it the address's `?view=` says. */
+  view?: NetworkView;
 }
 
-function Network({ search, onSearchChange }: NetworkPageProps) {
+function Network({ search, onSearchChange, view: fixed }: NetworkPageProps) {
   const t = useT();
-  const view: NetworkView = search.view ?? "ports";
+  const view: NetworkView = fixed ?? search.view ?? "ports";
   const firewall = useQuery(firewallQuery());
   // A port is opened through the firewall; with none filtering, every port that listens is open already.
   const active = firewall.data?.firewall.active === true;
@@ -53,7 +55,7 @@ function Network({ search, onSearchChange }: NetworkPageProps) {
       <p className="max-w-measure text-13 text-pretty text-fg-muted">
         {t.rich("serverPorts.publishedElsewhere", {
           link: (
-            <TextLink key="link" to="/domains/ports" size="inline">
+            <TextLink key="link" to="/network" size="inline">
               {t("domains.sections.ports.tab")}
             </TextLink>
           ),
@@ -63,23 +65,25 @@ function Network({ search, onSearchChange }: NetworkPageProps) {
         <Notice tone="warning" title={t("serverPorts.firewallOff.title")}>
           <p>
             {t("serverPorts.firewallOff.body")}{" "}
-            <TextLink to="/server/network" search={{ view: "firewall" }} size="inline">
+            <TextLink to="/network/firewall" size="inline">
               {t("serverPorts.firewallOff.link")}
             </TextLink>
           </p>
         </Notice>
       ) : null}
-      <SegmentedControl<NetworkView>
-        label={t("serverPorts.viewsLabel")}
-        value={view}
-        onValueChange={setView}
-        options={[
-          { value: "ports", label: t("serverPorts.views.ports") },
-          { value: "firewall", label: t("serverPorts.views.firewall") },
-          { value: "interfaces", label: t("serverPorts.views.interfaces") },
-        ]}
-        className="self-start"
-      />
+      {fixed === undefined ? (
+        <SegmentedControl<NetworkView>
+          label={t("serverPorts.viewsLabel")}
+          value={view}
+          onValueChange={setView}
+          options={[
+            { value: "ports", label: t("serverPorts.views.ports") },
+            { value: "firewall", label: t("serverPorts.views.firewall") },
+            { value: "interfaces", label: t("serverPorts.views.interfaces") },
+          ]}
+          className="self-start"
+        />
+      ) : null}
       {view === "firewall" ? (
         <FirewallView />
       ) : view === "interfaces" ? (

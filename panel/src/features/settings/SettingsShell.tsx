@@ -2,10 +2,10 @@ import { useRouterState } from "@tanstack/react-router";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
-import { useColumnCarries } from "../../app/frame/columnContext";
 import { CommandHint } from "../../components/page/CommandHint";
 import { DetailPage } from "../../components/page/DetailPage";
 import { SettingsLayout } from "../../components/page/SettingsLayout";
+import { Badge } from "../../components/ui/Badge";
 import { Notice } from "../../components/ui/Notice";
 import { useT } from "../../i18n";
 import { useReturnServer } from "../../nodes/servers";
@@ -30,9 +30,8 @@ const HUB_ROUTES: readonly string[] = ["/settings", "/settings/"];
  * two-factor and tokens are managed there: a node refuses a central on those on purpose, so a
  * compromised central cannot lock anyone out.
  *
- * The list is in the page with one bar and is the second column of the double bar
- * (app/frame/NavColumn.tsx), which reads the same `useSettingsItems`: where the column has it, the
- * page does not repeat it.
+ * The list is the second column (app/frame/SettingsColumn.tsx), which reads the same `useSettingsItems`,
+ * and on a phone the sheet behind the section selector: the page never repeats it.
  */
 export function SettingsShell({ children }: { children: ReactNode }) {
   const t = useT();
@@ -40,7 +39,6 @@ export function SettingsShell({ children }: { children: ReactNode }) {
   const leaf = useRouterState({ select: (state) => state.matches.at(-1)?.fullPath });
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   const { items, onCentral, hasFleet } = useSettingsItems();
-  const carried = useColumnCarries("settings");
   const hub = leaf === undefined || HUB_ROUTES.includes(leaf);
   const current = items.find((item) => item.to === leaf);
   // A section the list does not offer here (fleet settings on a server that is not a central, reached by its address)
@@ -53,6 +51,8 @@ export function SettingsShell({ children }: { children: ReactNode }) {
     <DetailPage
       header={{
         title: hub ? t("settings.page.title") : (current?.label ?? (named !== undefined ? t(named.label) : t("settings.page.title"))),
+        // A section of the whole instance says so where it is read, as the column does: opening it never moves the selector.
+        ...(hasFleet && !hub && current?.central === true ? { meta: <Badge>{t("nav.column.fleetWide")}</Badge> } : {}),
         // Empty (and boxless) unless the section on screen puts its primary action here.
         primaryAction: <span ref={setSlot} className="contents" />,
       }}
@@ -61,7 +61,7 @@ export function SettingsShell({ children }: { children: ReactNode }) {
         {hub ? (
           <PrimarySlot.Provider value={slot}>{children}</PrimarySlot.Provider>
         ) : (
-          <SettingsLayout label={t("nav.landmarks.settingsSections")} items={items} index={false} backTo="/settings" carried={carried}>
+          <SettingsLayout label={t("nav.landmarks.settingsSections")} items={items} index={false} backTo="/settings" carried>
             {onCentral && hasFleet && back !== null && back.node !== null && current?.central === true ? <NodeAccessNote node={back.node} /> : null}
             <PrimarySlot.Provider value={slot}>{children}</PrimarySlot.Provider>
           </SettingsLayout>

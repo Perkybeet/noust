@@ -149,7 +149,8 @@ export function ProcessesView() {
 
 export interface SystemTabProps {
   view: SystemView;
-  onViewChange: (view: SystemView) => void;
+  /** The views are sections of the server, one route each (4.2): without this there is no switch to draw. */
+  onViewChange?: (view: SystemView) => void;
 }
 
 function MachineView() {
@@ -176,18 +177,20 @@ function System({ view, onViewChange }: SystemTabProps) {
   const t = useT();
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      <SegmentedControl<SystemView>
-        label={t("server.system.viewsLabel")}
-        value={view}
-        onValueChange={onViewChange}
-        options={[
-          { value: "updates", label: t("server.system.views.updates") },
-          { value: "machine", label: t("server.system.views.machine") },
-          { value: "processes", label: t("server.system.views.processes") },
-          { value: "monitor", label: t("server.system.views.monitor") },
-        ]}
-        className="self-start"
-      />
+      {onViewChange === undefined ? null : (
+        <SegmentedControl<SystemView>
+          label={t("server.system.viewsLabel")}
+          value={view}
+          onValueChange={onViewChange}
+          options={[
+            { value: "updates", label: t("server.system.views.updates") },
+            { value: "machine", label: t("server.system.views.machine") },
+            { value: "processes", label: t("server.system.views.processes") },
+            { value: "monitor", label: t("server.system.views.monitor") },
+          ]}
+          className="self-start"
+        />
+      )}
       {view === "updates" ? (
         <>
           <NoustUpdate />

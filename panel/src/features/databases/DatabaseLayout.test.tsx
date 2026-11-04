@@ -22,7 +22,7 @@ describe("a database's page", () => {
   it("names the database, its engine, owner and application, and draws its tabs from what the engine can do", async () => {
     await pageAt("/databases/postgresql/example_production");
     expect(await screen.findByText("Online")).toBeInTheDocument();
-    const tabs = screen.getByRole("navigation", { name: "Database sections" });
+    const tabs = await screen.findByRole("navigation", { name: "Database sections" });
     expect(within(tabs).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Data", "Query", "Backups", "Users", "Connect", "Metrics"]);
     expect(screen.getByRole("button", { name: "Back up now" })).toHaveAttribute("data-variant", "primary");
     expect(await screen.findByText("Every day at 02:00")).toBeInTheDocument();
@@ -48,7 +48,7 @@ describe("a database's page", () => {
     const onOverview = await screen.findByText(address);
     expect(onOverview).not.toHaveClass("truncate");
     expect(onOverview).toHaveClass("break-all");
-    await user.click(within(screen.getByRole("navigation", { name: "Database sections" })).getByRole("link", { name: "Connect" }));
+    await user.click(within(await screen.findByRole("navigation", { name: "Database sections" })).getByRole("link", { name: "Connect" }));
     // The same address is also the tunnel's step 2 (in full, in a box of its own): the application's row is the first.
     const onConnect = (await screen.findAllByText(address))[0];
     expect(onConnect).not.toHaveClass("truncate");
@@ -78,7 +78,7 @@ describe("a database's page", () => {
     await pageAt("/databases/postgresql/example_production", {
       "GET /api/databases/databases/postgresql/example_production/overview": () => json(200, { ...OVERVIEW, capabilities: ["dump", "keys", "metrics"] }),
     });
-    const tabs = screen.getByRole("navigation", { name: "Database sections" });
+    const tabs = await screen.findByRole("navigation", { name: "Database sections" });
     await waitFor(() => expect(within(tabs).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Keys", "Backups", "Connect", "Metrics"]));
   });
 

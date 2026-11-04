@@ -136,12 +136,12 @@ export function typedFriction(action: string | null | undefined): boolean {
 /** Where an `action` fix is done, by the route the API names: the tab that does it. */
 export function actionTarget(
   endpoint: string | null | undefined,
-): "/server/system" | "/server/files" | "/server/services" | "reboot" | null {
+): "/server/updates" | "/server/files" | "/server/services" | "reboot" | null {
   if (endpoint === null || endpoint === undefined) return null;
   if (endpoint.includes("/power/reboot")) return "reboot";
   // The failed units: the services list, every unit, filtered to the failed ones.
   if (endpoint.startsWith("GET /api/services")) return "/server/services";
-  if (endpoint.includes("/updates")) return "/server/system";
+  if (endpoint.includes("/updates")) return "/server/updates";
   if (endpoint.includes("/swap") || endpoint.includes("/storage")) return "/server/files";
   return null;
 }

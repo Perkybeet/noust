@@ -1,6 +1,6 @@
 /**
- * The network pages against the real backend: the Domains page's DNS, Tunnels and Published ports tabs are
- * one click apart and each says what is missing in the server's own words (the sandbox has no
+ * The network pages against the real backend: Domains' DNS section and Network's Tunnels and Published ports
+ * are one click from their columns and each says what is missing in the server's own words (the sandbox has no
  * DNS account, no cloudflared and an nginx without the stream module), and an application's
  * Access settings are two clicks from its Settings. Runs in both themes, with the CSP and
  * console gates of the `problems` fixture and axe on every state.
@@ -8,7 +8,7 @@
 
 import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
 
-test("the DNS, Tunnels and Published ports tabs are one click from the domains, and each says what it holds", async ({ page, consoleServer }) => {
+test("DNS is one click from the domains, and Network has the tunnels and the published ports, each saying what it holds", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/domains");
   const tabs = page.getByRole("navigation", { name: "Domains sections" });
   await expect(tabs.getByRole("link", { name: /^Domains/ })).toHaveAttribute("aria-current", "page");
@@ -19,8 +19,18 @@ test("the DNS, Tunnels and Published ports tabs are one click from the domains, 
   await settle(page);
   await expectNoA11yViolations(page, "the DNS tab");
 
-  await tabs.getByRole("link", { name: /^Tunnels/ }).click();
-  await expect(page).toHaveURL(/\/domains\/tunnels$/);
+  // The tunnels and the published ports are Network's, not Domains': another area, and its own column.
+  await expect(tabs.getByRole("link", { name: /^Tunnels/ })).toHaveCount(0);
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Network" }).click();
+  await expect(page).toHaveURL(/\/network$/);
+  const network = page.getByRole("navigation", { name: "Network sections" });
+  await expect(network.getByRole("link", { name: /^Published ports/ })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("button", { name: "Publish a port" }).first()).toBeVisible();
+  await settle(page);
+  await expectNoA11yViolations(page, "the Published ports section");
+
+  await network.getByRole("link", { name: /^Tunnels/ }).click();
+  await expect(page).toHaveURL(/\/network\/tunnels$/);
   // The sandbox has no cloudflared: the page says what a tunnel needs, in the console's words, and offers to install it.
   await expect(page.getByText("It also needs cloudflared, the connector, which is not installed.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Install cloudflared" })).toBeVisible();
@@ -28,11 +38,6 @@ test("the DNS, Tunnels and Published ports tabs are one click from the domains, 
   await settle(page);
   await expectNoA11yViolations(page, "the Tunnels tab");
 
-  await tabs.getByRole("link", { name: /^Published ports/ }).click();
-  await expect(page).toHaveURL(/\/domains\/ports$/);
-  await expect(page.getByRole("button", { name: "Publish a port" }).first()).toBeVisible();
-  await settle(page);
-  await expectNoA11yViolations(page, "the Published ports tab");
 });
 
 test("an application's Access settings are two clicks from its Settings", async ({ page, consoleServer }) => {

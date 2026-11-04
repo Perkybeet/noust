@@ -99,11 +99,12 @@ describe("the DNS tab", () => {
     expect(within(row).getByText("Cloudflare")).toBeInTheDocument();
     expect(within(row).getByText("Made without asking")).toBeInTheDocument();
     expect(within(row).getByText("Works")).toBeInTheDocument();
-    // The strip the tab belongs to names its sister tabs and counts what each holds.
-    const tabs = screen.getByRole("navigation", { name: "Domains sections" });
+    // The column the section belongs to names its sister sections; the tunnels and the published ports are Network's now.
+    const tabs = await screen.findByRole("navigation", { name: "Domains sections" });
     expect(within(tabs).getByRole("link", { name: /^DNS/ })).toHaveAttribute("aria-current", "page");
-    expect(within(tabs).getByRole("link", { name: /^Tunnels/ })).toBeInTheDocument();
-    expect(within(tabs).getByRole("link", { name: /^Published ports/ })).toBeInTheDocument();
+    expect(within(tabs).getByRole("link", { name: /^Noust DNS/ })).toBeInTheDocument();
+    expect(within(tabs).queryByRole("link", { name: /^Tunnels/ })).not.toBeInTheDocument();
+    expect(within(tabs).queryByRole("link", { name: /^Published ports/ })).not.toBeInTheDocument();
     await expectNoAxeViolations(document.body);
   });
 

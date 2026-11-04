@@ -268,8 +268,8 @@ export function StreamsPage() {
           <p className="max-w-measure text-13 text-pretty text-fg-muted">
             {t.rich("network.ports.whatListens", {
               link: (
-                <TextLink key="link" to="/server/network" size="inline">
-                  {t("server.tabs.network")}
+                <TextLink key="link" to="/network/listening" size="inline">
+                  {t("serverPorts.views.ports")}
                 </TextLink>
               ),
             })}

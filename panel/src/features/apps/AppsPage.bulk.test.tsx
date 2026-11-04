@@ -83,7 +83,7 @@ describe("choosing applications", () => {
       "GET /api/deployments": () => json(200, { items: [], total: 0, next_before_id: null }),
     });
     renderConsole("/apps");
-    const list = await screen.findByRole("list", { name: /Applications/ });
+    const list = await screen.findByRole("list", { name: "Applications" });
     const card = (await within(list).findByRole("checkbox", { name: "Select shop.example.com" })).closest("li") as HTMLElement;
 
     // The first column is the title by default, and the checkbox column is before it: the domain is named as the

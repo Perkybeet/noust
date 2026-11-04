@@ -554,6 +554,13 @@ export const STRUCTURE_RULES: readonly StructureRule[] = [
     find: (file) => destinationLiterals(file),
   },
   {
+    id: "link-tabs-in-feature",
+    fix: "Tabs only change the view of one thing (NV-23): the pages of an area and the sections of a resource are the second column's (NV-22), read from the register. Do not draw a strip of them in the page.",
+    applies: outsideKit,
+    hint: /LinkTabs/,
+    find: (file) => openings(file).filter((node) => node.tagName.getText() === "LinkTabs"),
+  },
+  {
     id: "own-back-link",
     fix: "A page of detail has breadcrumbs that name its parent list; it draws no back link of its own (NV-15).",
     applies: outsideKit,

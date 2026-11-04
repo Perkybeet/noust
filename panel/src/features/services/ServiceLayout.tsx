@@ -1,6 +1,6 @@
 /**
  * One service (T2): its header with its state and actions, a banner when it is broken or belongs
- * to an application, and two tabs, Overview and Logs. Its unit file is a page of its own (T6),
+ * to an application, over the section the column has open (Overview or Logs). Its unit file is a page of its own (T6),
  * never on the same page as the logs or the delete action, which lives behind More actions.
  */
 
@@ -8,9 +8,6 @@ import { Link, Outlet, useNavigate } from "@tanstack/react-router";
 import { Cog, Play, RotateCw, Square } from "lucide-react";
 import { useState } from "react";
 
-import { LinkTabs } from "../../app/LinkTabs";
-import type { LinkTab } from "../../app/LinkTabs";
-import { tabsOf } from "../../app/navCore";
 import { DetailPage } from "../../components/page/DetailPage";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -25,7 +22,6 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
-import { SERVICE_SCREENS } from "../nav/server";
 import { serviceState } from "./data";
 import { useServiceActions } from "./useServiceActions";
 import { useServiceRecord } from "./useServiceRecord";
@@ -67,7 +63,6 @@ export function ServiceLayout({ name }: { name: string }) {
   const view = service ? serviceState(service) : null;
   const settled = !record.appPending;
   const managed = service !== undefined && !record.foreign;
-  const tabs: readonly LinkTab[] = tabsOf(SERVICE_SCREENS).map((tab) => ({ ...tab, params: { name } }));
 
   // design-exception: notice-stack the three banners are the branches of one chain, so the page draws at most one of them
   const notice =
@@ -103,8 +98,8 @@ export function ServiceLayout({ name }: { name: string }) {
     ) : record.error !== null ? (
       <ErrorBlock error={record.error} title={t("services.detail.loadFailed", { name })} onRetry={record.refetch} retrying={record.refetching} />
     ) : undefined;
-  // Until it is known whether the unit is an application's, the tabs and the tab are not drawn
-  // (below); their shapes stand in the banner's place, which whatever comes next takes over.
+  // Until it is known whether the unit is an application's, the section is not drawn (below); its shape
+  // stands in the banner's place, which whatever comes next takes over.
   const banner =
     notice === undefined && !settled ? (
       <LoadingRegion label={t("services.detail.loading")} className="flex flex-col gap-8">
@@ -184,10 +179,6 @@ export function ServiceLayout({ name }: { name: string }) {
             : {}),
         }}
         banner={banner}
-        // Until it is known whether the unit is an application's, whose banner goes above the
-        // tabs, the tabs and the tab wait: they appear once, in place, instead of dropping by
-        // the banner's height when the applications arrive.
-        {...(settled ? { tabs: <LinkTabs label={t("services.tabs.label")} tabs={tabs} /> } : {})}
       >
         {settled ? <Outlet /> : null}
       </DetailPage>

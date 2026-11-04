@@ -153,6 +153,12 @@ const CASES: Readonly<Record<string, Case>> = {
     bad: 1,
     good: 'import type { LinkTab } from "../../app/LinkTabs";\nconst crumbs = { breadcrumbs: [{ label: "A", to: "/a" }] };',
   },
+  "link-tabs-in-feature": {
+    path: "features/x/Layout.tsx",
+    source: 'export const A = () => <DetailPage header={h} tabs={<LinkTabs label="x" tabs={t} />}><Outlet /></DetailPage>;',
+    bad: 1,
+    good: 'export const A = () => <DetailPage header={h}><Outlet /></DetailPage>;',
+  },
   "own-back-link": {
     path: "features/x/Page.tsx",
     source: 'export const A = () => <TextLink to="/x"><ChevronLeft aria-hidden="true" />{t("x.back")}</TextLink>;',

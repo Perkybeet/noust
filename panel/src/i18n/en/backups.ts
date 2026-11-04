@@ -26,7 +26,6 @@ export const backups = {
   },
 
   tabs: {
-    label: "Backup sections",
     backups: "Backups",
     schedules: "Schedules",
     destinations: "Destinations",

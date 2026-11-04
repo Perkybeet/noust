@@ -1,9 +1,12 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 
-/** System updates joined the System section in 4.1, where they are its first view: the old address goes there. */
+import { SystemTab } from "../../../features/server/system/SystemTab";
+
+/** What is waiting to be updated, and Noust's own version: the system's updates, which the 4.1 System section opened on. */
 export const Route = createFileRoute("/_console/server/updates")({
-  beforeLoad: () => {
-    // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect protocol
-    throw redirect({ to: "/server/system", replace: true });
-  },
+  component: UpdatesRoute,
 });
+
+function UpdatesRoute() {
+  return <SystemTab view="updates" />;
+}

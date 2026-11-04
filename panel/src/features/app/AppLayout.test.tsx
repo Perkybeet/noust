@@ -1,5 +1,5 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
@@ -96,7 +96,9 @@ describe("an application's page", () => {
       expect(live).toHaveAttribute("href", `https://${DOMAIN}`);
     });
     expect(live).toHaveAttribute("target", "_blank");
-    expect(screen.getByRole("navigation", { name: "Application sections" })).toBeInTheDocument();
+    // The sections are the column's: the page does not draw them under its header.
+    expect(await screen.findByRole("navigation", { name: "Application sections" })).toBeInTheDocument();
+    expect(within(screen.getByRole("main")).queryByRole("navigation", { name: "Application sections" })).not.toBeInTheDocument();
     // Update is the one primary action; the other daily verbs sit beside it, never behind a menu.
     expect(within(top).getByRole("button", { name: "Update" })).toHaveAttribute("data-variant", "primary");
     expect(within(top).getByRole("button", { name: "Restart" })).toHaveAttribute("data-variant", "secondary");
@@ -186,34 +188,16 @@ describe("an application's page", () => {
     await expectNoAxeViolations(document.body, { page: true });
   });
 
-  it("keeps eight sections on the strip: Diagnose is reached from the menu, the banner and the Overview", async () => {
+  it("reaches Diagnose from the Fix group of the column and from the menu", async () => {
     const { user, location } = await appAt({ [`GET /api/apps/${DOMAIN}/diagnose`]: () => new Promise<Response>(() => undefined) });
-    const tabs = await screen.findByRole("navigation", { name: "Application sections" });
-    const names = within(tabs)
-      .getAllByRole("link")
-      .map((link) => link.textContent);
-    expect(names.length).toBeLessThanOrEqual(8);
-    expect(within(tabs).queryByRole("link", { name: "Diagnose" })).not.toBeInTheDocument();
+    const sections = await screen.findByRole("navigation", { name: "Application sections" });
+    expect(within(sections).getByRole("link", { name: "Diagnose" })).toHaveAttribute("href", `/apps/${DOMAIN}/diagnose`);
+    expect(within(sections).getAllByRole("link").length).toBeLessThanOrEqual(17);
     await user.click(await within(header()).findByRole("button", { name: "More actions" }));
     await user.click(await screen.findByRole("menuitem", { name: "Diagnose" }));
     await waitFor(() => {
       expect(location().pathname).toBe(`/apps/${DOMAIN}/diagnose`);
     });
-  });
-
-  it("switches sections where the operator is: the page does not jump to the top", async () => {
-    const { user, location } = await appAt();
-    const tabs = await screen.findByRole("navigation", { name: "Application sections" });
-    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
-    try {
-      await user.click(within(tabs).getByRole("link", { name: "Deployments" }));
-      await waitFor(() => {
-        expect(location().pathname).toBe(`/apps/${DOMAIN}/deployments`);
-      });
-      expect(scrollTo).not.toHaveBeenCalled();
-    } finally {
-      scrollTo.mockRestore();
-    }
   });
 
   it("keeps every daily verb in view on a phone: Update, then Restart, Stop and Roll back as named icons", async () => {
@@ -585,7 +569,7 @@ describe("in Spanish", () => {
 });
 
 describe("while the app is read", () => {
-  it("holds the tabs and the tab until it knows whether a banner goes above them", async () => {
+  it("holds the page's sections until it knows whether a banner goes above them", async () => {
     let answer: (response: Response) => void = () => undefined;
     await appAt({
       [`GET /api/apps/${DOMAIN}`]: () =>
@@ -602,14 +586,14 @@ describe("while the app is read", () => {
 });
 
 describe("an app whose last deploy failed", () => {
-  it("says so between the header and the tabs, verbatim, with the log one step away", async () => {
+  it("says so under the header, over every section, verbatim, with the log one step away", async () => {
     await appAt();
     const line = await screen.findByText("npm ERR!");
     expect(line).toHaveAttribute("translate", "no");
     const title = screen.getByText(/^The last deploy failed/);
-    const tabs = screen.getByRole("navigation", { name: "Application sections" });
-    // Above the tabs, so every tab shows it.
-    expect(title.compareDocumentPosition(tabs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // In the page, over every section (the next test), and not in the column: the column lists, the page says.
+    expect(within(screen.getByRole("main")).getByText(/^The last deploy failed/)).toBe(title);
+    expect(within(await screen.findByRole("navigation", { name: "Application sections" })).queryByText(/^The last deploy failed/)).toBeNull();
     expect(screen.getByText("The version that was live before is still serving.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View log" })).toHaveAttribute("href", `/apps/${DOMAIN}/deployments/12`);
   });
@@ -846,8 +830,8 @@ describe("the job in hand", () => {
     expect(link).toHaveAttribute("href", `/apps/${DOMAIN}/deployments/13`);
     expect(screen.getByRole("button", { name: /^Cancel/ })).toBeInTheDocument();
     // The Deployments tab counts what is building.
-    const tabs = screen.getByRole("navigation", { name: "Application sections" });
-    expect(within(tabs).getByRole("link", { name: /^Deployments\s*1$/ })).toBeInTheDocument();
+    const tabs = await screen.findByRole("navigation", { name: "Application sections" });
+    expect(await within(tabs).findByRole("link", { name: /^Deployments\s*1$/ })).toBeInTheDocument();
   });
 
   it("opens the deployment a push started as soon as its deploy moves on, without reading the page again", async () => {
@@ -874,7 +858,7 @@ describe("the job in hand", () => {
     expect(await screen.findByRole("link", { name: "View log" })).toHaveAttribute("href", `/apps/${DOMAIN}/deployments/14`);
     expect(screen.queryByRole("button", { name: "View log" })).not.toBeInTheDocument();
     // The Deployments tab counts it too.
-    const tabs = screen.getByRole("navigation", { name: "Application sections" });
+    const tabs = await screen.findByRole("navigation", { name: "Application sections" });
     expect(await within(tabs).findByRole("link", { name: /^Deployments\s*1$/ })).toBeInTheDocument();
   });
 

@@ -9,7 +9,6 @@ import { Button } from "../../components/ui/Button";
 import { useT } from "../../i18n";
 import { CatalogPackageDialog } from "./CatalogPackage";
 import { CatalogProblems } from "./CatalogProblems";
-import { CatalogTabs } from "./CatalogTabs";
 import { OwnRecipesDialog } from "./OwnRecipes";
 
 export interface CatalogFrameProps {
@@ -53,7 +52,6 @@ export function CatalogFrame({ filters, notice, command, children }: CatalogFram
             </>
           ),
         }}
-        tabs={<CatalogTabs />}
         {...(shownNotice !== undefined ? { notice: shownNotice } : {})}
         {...(filters !== undefined ? { filters } : {})}
         footer={<CommandHint command={command} label={t("common.words.fromTerminal")} />}

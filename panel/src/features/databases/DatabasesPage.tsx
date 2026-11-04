@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 
 import { sessionQuery } from "../../api/queries/auth";
 import { databaseBackupsQuery, databasesQuery, enginesQuery, exposureQuery, policiesQuery } from "../../api/queries/databases";
-import { useColumnCarries } from "../../app/frame/columnContext";
 import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { ListPage } from "../../components/page/ListPage";
@@ -30,7 +29,6 @@ import { isFiltered } from "./search";
 import type { DatabasesSearch } from "./search";
 import { useDatabasesHeader } from "./listHeader";
 import { newestDumps, policiesById } from "./protection";
-import { engineGroups } from "./servers";
 import { ServerSlabs } from "./servers/ServerSlabs";
 import { useDatabaseServers } from "./servers/useDatabaseServers";
 import { useServerActions } from "./servers/useServerActions";
@@ -62,7 +60,7 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
   const t = useT();
   const { node } = useNode();
   const actions = useServerActions();
-  const { header, tabs, dialogs, openCreate } = useDatabasesHeader("databases", actions);
+  const { header, dialogs, openCreate } = useDatabasesHeader("databases", actions);
   const list = useQuery(databasesQuery());
   const serverList = useDatabaseServers();
   const engines = useQuery(enginesQuery());
@@ -71,7 +69,6 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
   const exposure = useQuery(exposureQuery());
   const { data: hostname } = useQuery({ ...sessionQuery(), select: (session) => session.hostname });
   const machine = node ?? hostname ?? "";
-  const carried = useColumnCarries("databases");
   const listed = list.data !== undefined;
   const [settleExpired, setSettleExpired] = useState(false);
   useEffect(() => {
@@ -90,7 +87,6 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
   const shown = useMemo(() => filterDatabases(owner.shown, search, byPolicy, servers ?? []), [owner.shown, search, byPolicy, servers]);
   const shownServers = useMemo(() => (servers ?? []).filter((server) => search.engine === undefined || server.flavour === search.engine || server.key === search.engine), [servers, search.engine]);
   const tagNames = useMemo(() => [...new Set(all.flatMap((database) => database.tags ?? []))].sort(), [all]);
-  const engineChoices = useMemo(() => engineGroups(servers ?? [], everything), [servers, everything]);
 
   const set = (patch: SearchPatch, replace = false): void => {
     const next: SearchPatch = { ...search, ...patch };
@@ -142,7 +138,7 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
   if (list.isError && list.data === undefined) {
     return (
       <>
-        <ListPage header={header} tabs={tabs} arrival={ANSWERED}>
+        <ListPage header={header} arrival={ANSWERED}>
           <ErrorBlock error={list.error} title={t("databases.list.couldNotLoad")} onRetry={() => void list.refetch()} retrying={list.isRefetching} />
         </ListPage>
         {dialogs}
@@ -168,16 +164,7 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
       }}
       filters={
         <>
-          {/* With the side column the engines are there; without it (one bar, a phone) they are a filter here. */}
-          {!carried ? (
-            <Select
-              aria-label={t("databases.list.engineLabel")}
-              value={search.engine ?? ALL}
-              onValueChange={(value) => set({ engine: value === ALL ? undefined : value })}
-              options={[{ value: ALL, label: t("databases.list.everyEngine") }, ...engineChoices.map((group) => ({ value: group.flavour, label: group.name }))]}
-              className="min-w-40"
-            />
-          ) : null}
+          {/* The engines are in the column (and, on a phone, in its sheet): they narrow this list from there. */}
           {/* What the rows say one by one, counted: the way to get at the ones without a schedule. */}
           {unprotected > 0 || search.backups !== undefined ? (
             <SegmentedControl<"all" | "attention">
@@ -265,7 +252,6 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
     <>
       <ListPage
         header={header}
-        tabs={tabs}
         // The notice, the filters and the rows arrive together, as new elements: placeholders
         // drawn under a notice not yet known would only be pushed down the page when it came.
         arrival={loading ? WAITING : ANSWERED}

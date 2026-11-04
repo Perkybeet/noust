@@ -16,9 +16,6 @@ export const databases = {
     title: "Databases",
     newDatabase: "New database",
   },
-  tabs: {
-    label: "Databases sections",
-  },
   adopt: {
     action: { one: "Add {count} database to Noust", other: "Add {count} databases to Noust" },
     nothing: "Every database is added to Noust",
@@ -78,8 +75,6 @@ export const databases = {
     filterLabel: "Filter databases",
     searchLabel: "Search databases",
     searchPlaceholder: "Name, engine or application",
-    engineLabel: "Engine",
-    everyEngine: "Every engine",
     backupsLabel: "Backups",
     backupsAll: "All",
     backupsNone: "No schedule ({count})",
@@ -486,7 +481,6 @@ export const databases = {
     action: "Drop database",
   },
   layout: {
-    sections: "Database sections",
     stateOnline: "Online",
     stateMissing: "Not found",
     ownerFact: "Owned by {owner}",

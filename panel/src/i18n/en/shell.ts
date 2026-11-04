@@ -9,9 +9,6 @@ export const shell = {
   sidebarOverview: "Noust Console, overview",
   version: "Version {version}",
   skipToContent: "Skip to content",
-  menu: {
-    title: "Menu",
-  },
   session: {
     label: "Session and preferences",
     /** The same button for a person: its name starts with the initials drawn on it, so what is said is what is read (label in name). */
@@ -48,7 +45,7 @@ export const shell = {
     scopeHint: "to switch server",
     noMatchesHint: "Try the name of a page, a setting or an application, > for actions or @ for another server.",
     noMatchesCli: "The terminal can do everything: {command}",
-    scope: { server: "Server", application: "Application", all: "All servers", central: "This central" },
+    scope: { server: "Server", application: "Application", all: "All servers" },
   },
   commandGroups: {
     recent: "Recent",

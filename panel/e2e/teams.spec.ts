@@ -206,7 +206,7 @@ serial("a second team brings the switcher, which narrows the lists and is rememb
   // /teams is the Teams view of Projects now: the same header, the Teams tab current.
   await expect(page).toHaveURL(/\/projects\/teams$/);
   await expect(page.getByRole("heading", { level: 1, name: "Projects" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Project sections" }).getByRole("link", { name: /^Teams/ })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("navigation", { name: "Applications sections" }).getByRole("link", { name: /^Teams/ })).toHaveAttribute("aria-current", "page");
   await elevate(page, consoleServer);
   // One team called default: nothing to switch, and the page says a team is not a machine.
   await expect(page.getByTestId("team-switcher")).toHaveCount(0);

@@ -11,7 +11,7 @@ import { ICONS } from "../../components/ui/icons";
 import { Select } from "../../components/ui/Select";
 import { useT } from "../../i18n";
 import { ProjectsTable } from "./ProjectsTable";
-import { ProjectsTabs, projectsHeader } from "./ProjectsTabs";
+import { projectsHeader } from "./ProjectsTabs";
 import type { ProjectsSearch } from "./search";
 import { useOrganization } from "./useOrganization";
 import { useProjectActions } from "./useProjectActions";
@@ -71,11 +71,10 @@ export function ProjectsPage({ search, onSearchChange }: ProjectsPageProps) {
       </Button>
     ) : undefined,
   );
-  const tabs = <ProjectsTabs />;
 
   if (org.error !== null && org.error !== undefined && !org.available) {
     return (
-      <ListPage header={header} tabs={tabs}>
+      <ListPage header={header}>
         <ErrorBlock error={org.error} title={t("teams.couldNotLoad")} onRetry={org.reload} />
       </ListPage>
     );
@@ -83,7 +82,7 @@ export function ProjectsPage({ search, onSearchChange }: ProjectsPageProps) {
 
   if (org.available && !org.loading && all.length === 0) {
     return (
-      <ListPage header={header} tabs={tabs}>
+      <ListPage header={header}>
         <EmptyState
           variant="firstUse"
           icon={<OBJECT_ICONS.project />}
@@ -109,7 +108,6 @@ export function ProjectsPage({ search, onSearchChange }: ProjectsPageProps) {
   return (
     <ListPage
       header={header}
-      tabs={tabs}
       filters={
         <FilterBar
           label={t("teams.projects.filterLabel")}

@@ -1,7 +1,7 @@
 import { Menu as BaseMenu } from "@base-ui/react/menu";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Check, ChevronsUpDown, Landmark, Plus } from "lucide-react";
+import { Check, ChevronsUpDown, Plus } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { sessionQuery } from "../api/queries/auth";
@@ -13,14 +13,14 @@ import { POPUP_MOTION } from "../components/ui/Tooltip";
 import { useCentral } from "../features/central/central";
 import { useT } from "../i18n";
 import { cx } from "../lib/cx";
+import { rememberAll } from "./lastServer";
 import { NODE_STATE, nodeStatus, useHasFleet, useServerList } from "./servers";
 import type { NodeRecord } from "./servers";
-import { useConsoleContext, useSwitchNode } from "./useNode";
+import { allServersTarget, useConsoleContext, useSelection, useSwitchNode } from "./useNode";
 import { OBJECT_ICONS } from "../components/ui/objectIcons";
 
 /** Radio values that are not a server; no node name can be one (names are [a-z0-9-]). */
 const ALL_SERVERS = "@all";
-const THIS_CENTRAL = "@central";
 const THIS_SERVER = "@this";
 
 const ITEM = cx(
@@ -69,12 +69,12 @@ function NodeItem({ node }: { node: NodeRecord }) {
 export type ScopePlacement = "sidebar" | "topbar";
 
 /**
- * Which scope the console is in, and the way to another: one server (this one or a node), "All
- * servers" (the fleet's pages) or "This central" (the central's own settings, which use the
- * fleet's bar). It is the head of the sidebar from `lg` and the top bar below it (the caller
- * chooses with a media query, never with CSS, which would draw both and repeat their ids): a menu
- * in a drawer is not on screen, and the server's name must always be (DESIGN 6.11, NV-10). Nothing
- * is drawn on a lone server with no nodes: there is nothing to tell apart.
+ * Which scope the console is in, and the way to another: one server (a node, or this one: the central is one
+ * more server of the list, marked as such) or "All servers" (the fleet's pages). There are two, not three
+ * (4.2): a page of the instance (the accounts, the tokens, the compliance) belongs to no server and leaves the
+ * selector where it was. The selector is in the top bar (the caller chooses with a media query, never with CSS,
+ * which would draw both and repeat their ids): a menu in a drawer is not on screen, and the server's name must
+ * always be (DESIGN 6.11, NV-10). Nothing is drawn on a lone server with no nodes: there is nothing to tell apart.
  *
  * A menu of radio items (Base UI: arrow keys, Home/End, typeahead, Escape), so a screen reader
  * hears which one is checked, and each switch is announced.
@@ -86,10 +86,12 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
   const { role } = useCentral();
   const switchNode = useSwitchNode();
   const navigate = useNavigate();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const servers = useServerList();
+  const selection = useSelection(role === "hub");
   const { data: permissions } = useQuery({ ...sessionQuery(), select: (session) => session.permissions });
 
-  const node = context.kind === "server" ? context.node : null;
+  const node = selection.kind === "server" ? selection.node : null;
   if (!hasFleet && node === null) return null;
 
   const hostname = servers.hostname ?? t("fleet.selector.thisServer");
@@ -99,31 +101,33 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
   // reachable one needs nothing beside its name.
   const trouble = currentView !== null && currentView.state !== "running" ? currentView : null;
   const serverName = node ?? hostname;
-  const value = context.kind === "fleet" ? ALL_SERVERS : context.kind === "central" ? THIS_CENTRAL : (node ?? THIS_SERVER);
+  const value = selection.kind === "all" ? ALL_SERVERS : (node ?? THIS_SERVER);
+  // The machine this console runs on is a server of the list like any other, and marked as the central where it manages others.
+  const centralMark = hasFleet && role !== "hub";
   const mayAdd = permissions?.includes("fleet.manage") ?? false;
   const total = servers.nodes.length + (role === "hub" ? 0 : 1);
   const needing = servers.nodes.filter((candidate) => NODE_STATE[nodeStatus(candidate)].state !== "running" && NODE_STATE[nodeStatus(candidate)].state !== "unknown").length;
 
   const label =
-    context.kind === "fleet"
+    selection.kind === "all"
       ? t("fleet.selector.triggerAll")
-      : context.kind === "central"
-        ? t("fleet.selector.triggerCentral", { name: hostname })
-        : trouble
-          ? t("fleet.selector.triggerWithStatus", { name: serverName, status: t(trouble.label) })
+      : trouble
+        ? t("fleet.selector.triggerWithStatus", { name: serverName, status: t(trouble.label) })
+        : node === null && centralMark
+          ? t("fleet.selector.triggerCentral", { name: serverName })
           : t("fleet.selector.trigger", { name: serverName });
 
   const choose = (chosen: unknown): void => {
     if (typeof chosen !== "string" || chosen === value) return;
     if (chosen === ALL_SERVERS) {
-      void navigate({ to: "/fleet", search: { node: undefined } }).then(() => {
+      // A page of the instance has no place of its own: only the selector moves. Anywhere else the fleet's face of the area opens.
+      if (context.kind === "central") {
+        rememberAll();
         announce(t("fleet.selector.switchedAll"));
-      });
-      return;
-    }
-    if (chosen === THIS_CENTRAL) {
-      void navigate({ to: "/settings/central", search: { node: undefined } }).then(() => {
-        announce(t("fleet.selector.switchedCentral"));
+        return;
+      }
+      void navigate({ to: allServersTarget(pathname), search: { node: undefined } }).then(() => {
+        announce(t("fleet.selector.switchedAll"));
       });
       return;
     }
@@ -138,7 +142,7 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
   let icon: ReactNode;
   let name: ReactNode;
   let line: ReactNode;
-  if (context.kind === "fleet") {
+  if (selection.kind === "all") {
     icon = <OBJECT_ICONS.node aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />;
     // On a phone the icon says "servers" and the name is for a screen reader: "Todos..." was all that fitted.
     name = <span className={cx("min-w-0 truncate font-medium", !side && "max-sm:sr-only")}>{t("fleet.selector.all")}</span>;
@@ -153,25 +157,6 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
         ) : null}
       </>
     );
-  } else if (context.kind === "central") {
-    // On a phone the top bar has no room left for the icon beside the name (the bar scrolled sideways on every central page).
-    icon = <Landmark aria-hidden="true" className={cx("size-icon-md shrink-0 text-fg-muted", !side && "max-sm:hidden")} />;
-    name = (
-      <>
-        <span className={cx("shrink-0 font-medium", !side && "max-sm:sr-only")}>{t("fleet.selector.central")}</span>
-        {/* The space is for axe, which reads the two as one word without it: the trigger's name holds what is drawn (WCAG 2.5.3). */}{" "}
-        {side ? null : (
-          <Mono truncate className="min-w-0 font-medium">
-            {hostname}
-          </Mono>
-        )}
-      </>
-    );
-    line = (
-      <Mono tone="muted" truncate>
-        {hostname}
-      </Mono>
-    );
   } else {
     icon = <OBJECT_ICONS.server aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />;
     name = (
@@ -180,6 +165,7 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
         <Mono truncate className="min-w-0 font-medium">
           {serverName}
         </Mono>{" "}
+        {node === null && centralMark && !trouble ? <Badge className="max-sm:hidden">{t("fleet.selector.centralMark")}</Badge> : null}
         {trouble && !side ? <span className={cx("shrink-0 text-12 font-medium max-sm:hidden", stateTextClass(trouble.state))}>{t(trouble.label)}</span> : null}
       </>
     );
@@ -217,7 +203,7 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
           </span>
         ) : (
           <>
-            {context.kind === "fleet" || context.kind === "central" ? icon : null}
+            {selection.kind === "all" ? icon : null}
             {name}
           </>
         )}
@@ -245,19 +231,6 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
                       <span className="text-12 text-fg-muted">{t("fleet.selector.allDescription", { count: servers.nodes.length + (role === "hub" ? 0 : 1) })}</span>
                     </span>
                   </BaseMenu.RadioItem>
-                  <BaseMenu.RadioItem value={THIS_CENTRAL} closeOnClick className={ITEM}>
-                    <ItemCheck />
-                    <Landmark aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="flex min-w-0 items-center gap-1.5">
-                        <span className="shrink-0 font-medium">{t("fleet.selector.central")}</span>{" "}
-                        <Mono tone="muted" truncate>
-                          {hostname}
-                        </Mono>
-                      </span>{" "}
-                      <span className="text-12 text-fg-muted">{t("fleet.selector.centralDescription")}</span>
-                    </span>
-                  </BaseMenu.RadioItem>
                 </BaseMenu.Group>
               ) : null}
               <BaseMenu.Group>
@@ -274,6 +247,11 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
                         <>
                           {" "}
                           <Badge>{t("fleet.selector.hub")}</Badge>
+                        </>
+                      ) : centralMark ? (
+                        <>
+                          {" "}
+                          <Badge>{t("fleet.selector.centralMark")}</Badge>
                         </>
                       ) : null}
                       {servers.version !== null ? (

@@ -9,8 +9,8 @@
  * - the selector switches to the node, and the node's own, differently-seeded application
  *   shows where the central's never do;
  * - a deep link to a node's page survives a reload;
- * - the selector's three contexts: a server, All servers, This central, and the way back;
- * - a node's own settings stay on the node, and the central's say whose they are;
+ * - the selector's two places: a server and All servers, the area kept on the way, and an instance page that leaves it where it was;
+ * - a node's own settings stay on the node, and the central's say "All the fleet" without moving the selector;
  * - the Fleet's views list this server and the node together, each row naming its server;
  * - a bulk action is planned, run as a job and followed server by server;
  * - the Add server dialog catches a console token pasted as a join code, and a code the
@@ -158,28 +158,40 @@ withFleet("the Fleet's views show this server and the node, each row naming its 
   }
 });
 
-withFleet("the selector says which of the three contexts the console is in, and the bar follows it", async ({ page, consoleServer }) => {
+withFleet("the selector has two places, a server and All servers, keeps the area on the way, and the bar follows it", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/n/${NODE_NAME}/apps`);
   await page.getByRole("button", { name: `Server: ${NODE_NAME}` }).click();
+  // The central is one more server of the list, marked as such: there is no "This central".
+  await expect(page.getByRole("menuitemradio", { name: /^This central/ })).toHaveCount(0);
   await page.getByRole("menuitemradio", { name: /^All servers/ }).click();
-  await expect(page).toHaveURL(/\/fleet$/);
+  // The area is kept: the fleet's face of Applications.
+  await expect(page).toHaveURL(/\/fleet\/apps$/);
   await expect(page.getByRole("button", { name: "Server: all servers" })).toBeVisible();
 
-  // Never a silent jump, and no back link: the bar is the same twelve areas, each at its fleet face where it has one,
+  // Never a silent jump, and no back link: the bar is the same areas, each at its fleet face where it has one,
   // and the selector is the way to a server (docs/DESIGN.md NV-10).
   const main = page.getByRole("navigation", { name: "Main" });
-  await expect(main.getByRole("link")).toHaveCount(12);
+  await expect(main.getByRole("link")).toHaveCount(14);
   await expect(main.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/fleet");
   await expect(main.getByRole("link", { name: "Domains" })).toHaveAttribute("href", "/fleet/certificates");
+  await expect(main.getByRole("link", { name: "Network" })).toHaveAttribute("href", "/fleet/network");
   // An area with no fleet face leads back to the server the operator came from.
   await expect(main.getByRole("link", { name: "Databases" })).toHaveAttribute("href", `/n/${NODE_NAME}/databases`);
   await expect(page.getByRole("link", { name: /^Back to / })).toHaveCount(0);
   // Settings still lead to the server the operator came from.
   await expect(page.getByRole("link", { name: "Settings", exact: true })).toHaveAttribute("href", `/n/${NODE_NAME}/settings`);
+  // The machine's areas are the list of servers from here: choosing one is choosing it in the selector.
+  await main.getByRole("link", { name: "Network" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Network" })).toBeVisible();
+  await page.getByRole("link", { name: new RegExp(`^Open Network on ${NODE_NAME}`) }).click();
+  await expect(page).toHaveURL(new RegExp(`/n/${NODE_NAME}/network$`));
+  await expect(page.getByRole("button", { name: `Server: ${NODE_NAME}` })).toBeVisible();
 
+  await page.getByRole("button", { name: `Server: ${NODE_NAME}` }).click();
+  await page.getByRole("menuitemradio", { name: /^All servers/ }).click();
   await page.getByRole("button", { name: "Server: all servers" }).click();
   await page.getByRole("menuitemradio", { name: new RegExp(`^${NODE_NAME}`) }).click();
-  await expect(page).toHaveURL(new RegExp(`/n/${NODE_NAME}$`));
+  await expect(page).toHaveURL(new RegExp(`/n/${NODE_NAME}/network$`));
   await expect(page.getByRole("button", { name: `Server: ${NODE_NAME}` })).toBeVisible();
   await expect(main.getByRole("link", { name: "Applications" })).toHaveAttribute("href", `/n/${NODE_NAME}/apps`);
 });
@@ -197,10 +209,11 @@ withFleet("the fleet's pages fit a phone, in Spanish: the selector gives way to 
     await settle(page);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow, `${path} scrolls sideways by ${String(overflow)}px at 390`).toBeLessThanOrEqual(0);
-    // The session's button is on screen: the top bar kept the buttons at its right.
-    const session = page.getByRole("banner").getByRole("button", { name: "Sesión y preferencias" });
-    await expect(session).toBeVisible();
-    expect((await session.boundingBox())?.x ?? 999).toBeLessThan(390 - 30);
+    // The top bar kept the buttons at its right, and the account is one press from the foot: it moved into the sheet "Más" opens.
+    const search = page.getByRole("banner").getByRole("button", { name: "Buscar" });
+    await expect(search).toBeVisible();
+    expect((await search.boundingBox())?.x ?? 999).toBeLessThan(390 - 30);
+    await expect(page.getByRole("navigation", { name: "Áreas" }).getByRole("button", { name: "Más" })).toBeVisible();
   }
 });
 
@@ -213,9 +226,11 @@ withFleet("a node's own settings stay on the node; the central's say whose they 
   await settle(page);
   await expectNoA11yViolations(page, "a node's own settings");
 
-  await sections.getByRole("link", { name: "API tokens" }).click();
+  await sections.getByRole("link", { name: /^API tokens/ }).click();
   await expect(page).toHaveURL(/\/settings\/tokens$/);
-  await expect(page.getByRole("button", { name: /^Server: this central/ })).toBeVisible();
+  // The instance's page is no server's: the selector stays on the node, and the section says it is for the whole fleet.
+  await expect(page.getByRole("button", { name: `Server: ${NODE_NAME}` })).toBeVisible();
+  await expect(sections.getByRole("link", { name: /^API tokens/ }).getByText("All the fleet")).toBeVisible();
   await expect(page.getByText(`Sign-in, two-factor and API tokens of ${NODE_NAME} are managed on ${NODE_NAME}`)).toBeVisible();
   await expect(sections.getByRole("link", { name: "General" })).toHaveAttribute("href", `/n/${NODE_NAME}/settings/general`);
   await settle(page);
@@ -676,7 +691,7 @@ withPartialFleet("a node that is down and one on an older Noust: the views answe
 
   // Updates is the second view of the fleet's Servers, a tab of that page and no longer a link of the bar.
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: /^Servers\b/ }).click();
-  await page.getByRole("navigation", { name: "Fleet server views" }).getByRole("link", { name: "Updates" }).click();
+  await page.getByRole("navigation", { name: "Server sections" }).getByRole("link", { name: "Updates" }).click();
   const updates = page.getByRole("region", { name: "Noust and system updates of every server" });
   await expect(updates.getByRole("row").filter({ hasText: "old-1" })).toContainText("3.0.0");
   await settle(page);

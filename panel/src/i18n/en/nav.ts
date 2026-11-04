@@ -6,37 +6,68 @@ export const nav = {
     settingsSections: "Settings sections",
     teamSections: "Team sections",
     accountSections: "Account sections",
-    projectSections: "Project sections",
     serverSections: "Server sections",
-    alertsSections: "Alerts sections",
-    catalogSections: "Catalog sections",
+    databaseSections: "Database sections",
+    serviceSections: "Service sections",
+    /** The sections of an area that has no landmark of its own: "Network sections". */
+    areaSections: "{area} sections",
   },
-  /** The titles of the groups of the main bar, drawn when it is one bar (the double bar separates them by space). */
+  /** The titles of the groups of the main bar: small, in sentence case, beside a joint. Home and Settings are not in a group. */
   groups: {
-    runs: "What runs",
-    reach: "How it is reached",
-    happens: "What is happening",
-    safe: "Kept safe",
-    where: "Where it runs",
-    manage: "How it is managed",
+    runs: "Applications and data",
+    reach: "Network",
+    happens: "Observe",
+    safe: "Protect",
+    where: "Infrastructure",
   },
   /** What an application's sections are for: the titles of the groups of its second column. */
-  intents: { use: "Use", configure: "Configure", fix: "Fix", danger: "Danger" },
+  intents: { use: "Use", configure: "Configure", fix: "Fix", move: "Move elsewhere", danger: "Danger" },
+  /** The titles of the groups of the column of an area whose sections are of different kinds. */
+  columnGroups: {
+    publish: "Publish",
+    machine: "This machine",
+    running: "What runs",
+    tools: "Tools",
+    fleet: "Fleet",
+    dns: "DNS",
+    servers: "Servers",
+  },
+  /** The fixed views of an area that is one page: what its column lists (features/nav/views.ts). */
+  views: {
+    logsApps: "Applications",
+    logsSystem: "System",
+    activityChanges: "Changes",
+    activityDeployments: "Deployments",
+    activityAccess: "Sign-ins",
+  },
+  /** The column itself, and the sheet it becomes on a phone. */
+  column: {
+    switch: "Switch",
+    switchApp: "Switch application",
+    switchDatabase: "Switch database",
+    switchService: "Switch service",
+    switchServer: "Switch server",
+    sections: "Sections",
+    sectionsOf: "Sections of {area}",
+    /** After the name of a section of Settings that is of every server, not of the one chosen. */
+    fleetWide: "All the fleet",
+  },
   /** The main bar's own controls. */
   rail: {
+    /** The name of the landmark of the main bar. */
+    landmark: "Navigation",
     fold: "Fold the bar",
     unfold: "Unfold the bar",
-  },
-  /** The choice between the double bar and one bar, drawn in the bar itself. */
-  presentation: {
-    label: "Navigation",
-    double: "Double bar",
-    single: "One bar",
   },
   /** The bar at the foot of a phone: four areas and the rest. */
   bottomBar: {
     label: "Areas",
     more: "More",
+  },
+  /** The sheet "More" opens on a phone: every area in its group, then Settings and the account. */
+  sheet: {
+    title: "All areas",
+    account: "Your account",
   },
   /** The switch beside a breadcrumb that lists its siblings. */
   crumbs: {
@@ -78,12 +109,17 @@ export const nav = {
   activity: { label: "Activity", keywords: "jobs history deployments", goTo: "Go to activity" },
   alerts: { label: "Alerts", goTo: "Go to alerts" },
   logs: { goTo: "Go to logs" },
-  server: { label: "Servers", keywords: "server machine health cpu memory disk processes monitor", goTo: "Go to servers" },
+  /** The area is "Servers" over every server (and the central's list) and "Server" on one. */
+  server: { label: "Servers", labelOne: "Server", allServers: "All servers", keywords: "server machine health cpu memory disk processes monitor", goTo: "Go to servers" },
+  network: { label: "Network", keywords: "ports firewall tunnels interfaces listen publish open close cloudflare nginx stream", goTo: "Go to network" },
+  security: { label: "Security", keywords: "ssh keys passwords firewall fail2ban hardening checks brute force bans", goTo: "Go to security" },
   settings: { label: "Settings", keywords: "preferences configuration", goTo: "Go to settings" },
   /** The fleet's views, each the face of an area of the bar (features/nav/fleet.ts). */
   fleetBar: {
     overview: { label: "Overview" },
     servers: { label: "Servers" },
+    network: { label: "Network" },
+    security: { label: "Security" },
     apps: { label: "Applications" },
     certificates: { label: "Certificates" },
     backups: { label: "Backups" },
@@ -188,6 +224,13 @@ export const nav = {
     terminal: { keywords: "shell ssh console command line" },
     files: { keywords: "browse edit upload download folder" },
     diagnose: { keywords: "troubleshoot why down broken health check" },
+    firewall: { keywords: "ufw firewalld nftables iptables rules allow deny open close port" },
+    interfaces: { keywords: "network cards addresses ip ethernet eth0 mac mtu" },
+    ssh: { keywords: "sshd keys authorized password login root port fail2ban" },
+    blocks: { keywords: "fail2ban banned blocked ips jail brute force unban" },
+    processes: { keywords: "top ps cpu memory heavy running programs kill" },
+    monitor: { keywords: "resources cpu memory disk network load charts usage history" },
+    updates: { keywords: "update upgrade packages apt dnf security patches reboot noust version" },
   },
   /** What these screens were called before the 4.0 navigation: still search words in the palette (RENAMED). */
   renamed: {
@@ -216,5 +259,10 @@ export const nav = {
     accounts: "Accounts",
     variables: "Variables",
     general: "Settings",
+    serverSecurity: "Security and SSH",
+    serverNetwork: "Network and ports",
+    domainsPorts: "Domains, published ports",
+    domainsTunnels: "Domains, tunnels",
+    settingsServers: "Settings, Servers",
   },
 } as const;

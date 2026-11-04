@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { TunnelsPage } from "../../../features/domains/TunnelsPage";
-
-/** Cloudflare Tunnels: an application's way in with no public address and no open port. */
+/** Cloudflare Tunnels are a section of Network since 4.2: the old address goes there. */
 export const Route = createFileRoute("/_console/domains/tunnels")({
-  component: TunnelsPage,
+  beforeLoad: () => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect protocol
+    throw redirect({ to: "/network/tunnels", replace: true });
+  },
 });

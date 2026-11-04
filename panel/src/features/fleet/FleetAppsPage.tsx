@@ -4,8 +4,6 @@ import { Play, X } from "lucide-react";
 import { useMemo } from "react";
 
 import { appsViewQuery } from "../../api/queries/views";
-import { LinkTabs } from "../../app/LinkTabs";
-import { tabsOf } from "../../app/navCore";
 import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { ListPage } from "../../components/page/ListPage";
@@ -23,7 +21,6 @@ import { AppsTable } from "../apps/AppsTable";
 import { useTypeName } from "../apps/data";
 import type { Deployment } from "../apps/data";
 import { filterByOwner } from "../teams/organization";
-import { FLEET_APPS_SCREENS } from "../nav/fleet";
 import { fleetApps, placesOf, serverSegments } from "./appsView";
 import { useFleetActions } from "./BulkActionDialog";
 import { PartialNotice } from "./parts";
@@ -94,12 +91,11 @@ export function FleetAppsPage({ search, onSearchChange }: FleetAppsPageProps) {
       </Link>
     ),
   };
-  const tabs = <LinkTabs label={t("fleet.page.tabsLabel")} tabs={tabsOf(FLEET_APPS_SCREENS)} />;
 
-  // design-exception: hand-error-ternary the failure replaces the list but the page's own header and tabs stay around it, as in the applications page
+  // design-exception: hand-error-ternary the failure replaces the list but the page's own header stays around it, as in the applications page
   if (view.isError && view.data === undefined) {
     return (
-      <ListPage header={header} tabs={tabs}>
+      <ListPage header={header}>
         <ErrorBlock error={view.error} title={t("fleet.page.loadFailed")} onRetry={() => void view.refetch()} retrying={view.isRefetching} />
       </ListPage>
     );
@@ -113,7 +109,6 @@ export function FleetAppsPage({ search, onSearchChange }: FleetAppsPageProps) {
   return (
     <ListPage
       header={header}
-      tabs={tabs}
       notice={
         view.data !== undefined && (view.data.partial || view.data.refusals.length > 0) ? (
           <div className="flex flex-col gap-3">

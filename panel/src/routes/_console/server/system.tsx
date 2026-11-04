@@ -1,23 +1,17 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { inPlace } from "../../../app/searchNavigation";
-import { SystemTab } from "../../../features/server/system/SystemTab";
 import { validateSystemSearch } from "../../../features/server/system/data";
 
-/** System and updates: what is waiting to be updated, the machine, what runs on it and what it uses, as `?view=`. */
+/**
+ * System and updates was one section with four views in 4.1 (`?view=`); each is a section of the server now, and the old
+ * address goes to the one it asked for (what it opened on without a view, the updates, is still where it goes). The
+ * interfaces were a view of it in 4.0: they are Network's.
+ */
 export const Route = createFileRoute("/_console/server/system")({
   validateSearch: validateSystemSearch,
   beforeLoad: ({ search }) => {
-    // The interfaces were a view of the System tab in 4.0; they are Network and ports' now.
+    const to = search.view === undefined ? "/server/updates" : ({ network: "/network/interfaces", machine: "/server/machine", processes: "/server/processes", monitor: "/server/monitor" } as const)[search.view];
     // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect protocol
-    if (search.view === "network") throw redirect({ to: "/server/network", replace: true });
+    throw redirect({ to, replace: true });
   },
-  component: SystemRoute,
 });
-
-function SystemRoute() {
-  const search = Route.useSearch();
-  const navigate = Route.useNavigate();
-  const view = search.view === undefined || search.view === "network" ? "updates" : search.view;
-  return <SystemTab view={view} onViewChange={(next) => void navigate({ search: next === "updates" ? {} : { view: next }, ...inPlace({ replace: true }) })} />;
-}

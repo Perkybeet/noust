@@ -5,9 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 import { sessionQuery } from "../api/queries/auth";
 import { searchViewQuery } from "../api/queries/views";
 import type { SearchHit } from "../api/queries/views";
+import { useCentral } from "../features/central/central";
 import { useT } from "../i18n";
 import { useHasFleet, useServerList } from "../nodes/servers";
-import { useConsoleContext, useNode } from "../nodes/useNode";
+import { useSelection } from "../nodes/useNode";
 import { CommandPalette } from "./CommandPalette";
 import type { PaletteScope } from "./CommandPalette";
 import { FLEET_SEARCH_LIMIT, fleetSearchCommands } from "./fleetSearchCommands";
@@ -16,20 +17,21 @@ import type { AppVerb } from "./verbCommands";
 import type { AppInfo } from "../features/apps/data";
 
 /**
- * What the palette says it is working in: the application on screen, the fleet, this central, or the
+ * What the palette says it is working in: the application on screen, the fleet, or the
  * server when there is more than one to tell apart. Nothing on a lone server (NV-10).
  */
 export function usePaletteScope(): PaletteScope | undefined {
   const t = useT();
-  const context = useConsoleContext();
   const hasFleet = useHasFleet();
+  const { role } = useCentral();
   const { hostname } = useServerList();
-  const { node } = useNode();
+  // The selector's place, which a page of the instance (no server's) leaves where it was.
+  const selection = useSelection(role === "hub");
   const params = useParams({ strict: false });
   const domain = typeof params.domain === "string" ? params.domain : null;
-  if (context.kind === "fleet" && hasFleet) return { label: t("shell.search.scope.all") };
-  if (context.kind === "central" && hasFleet) return { label: t("shell.search.scope.central") };
+  if (selection.kind === "all" && hasFleet) return { label: t("shell.search.scope.all") };
   if (domain !== null) return { label: t("shell.search.scope.application"), name: domain };
+  const node = selection.kind === "server" ? selection.node : null;
   if (hasFleet || node !== null) {
     const name = node ?? hostname;
     return { label: t("shell.search.scope.server"), ...(name !== null ? { name } : {}) };

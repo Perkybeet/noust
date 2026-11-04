@@ -2,11 +2,6 @@
 export const servers = {
   nav: {
     fleet: { keywords: "servers nodes central vps machines", },
-    settingsTab: {
-      label: "Servers",
-      keywords: "fleet nodes central ssh tunnel add server join code",
-      command: "Servers settings",
-    },
   },
 
   reachability: {

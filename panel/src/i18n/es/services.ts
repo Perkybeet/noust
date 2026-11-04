@@ -7,7 +7,6 @@ export const services: Catalog<typeof en> = {
     scheduled: "Programado",
   },
   tabs: {
-    label: "Secciones del servicio",
     overview: "Resumen",
     logs: "Registros",
   },

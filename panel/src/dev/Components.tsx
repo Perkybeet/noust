@@ -387,6 +387,15 @@ function Overlays() {
               <LogViewer lines={SAMPLE_BUILD_LOG} height={320} className="mt-5" label="Build log" />
             </Drawer>
           </Item>
+          <Item label="Sheet (Drawer, placement bottom)">
+            <Drawer title="All areas" placement="bottom" trigger={<Button data-testid="open-sheet">More</Button>}>
+              <ul className="flex flex-col gap-1 px-4 text-14 text-fg-muted">
+                <li>Applications</li>
+                <li>Databases</li>
+                <li>Domains</li>
+              </ul>
+            </Drawer>
+          </Item>
         </Row>
       </Stage>
     </Section>

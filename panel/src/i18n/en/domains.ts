@@ -24,7 +24,6 @@ export const domains = {
   theSite: "The site",
 
   page: {
-    tabsLabel: "Domains sections",
   },
 
   /** Each section of the Domains area: its tab, its title (never the area's name again) and its one sentence. */

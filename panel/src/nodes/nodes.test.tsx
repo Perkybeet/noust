@@ -56,7 +56,7 @@ describe("a page on a node", () => {
     // A node's own settings are the node's; the central's sections never carry it (see below).
     expect(screen.getAllByRole("link", { name: "Settings" })[0]).toHaveAttribute("href", "/n/web-2/settings");
 
-    fireEvent.click(within(nav).getByRole("link", { name: /^Servers/ }));
+    fireEvent.click(within(nav).getByRole("link", { name: /^Server\b/ }));
     // A server's page is titled by the server: on a node, the node.
     await screen.findByRole("heading", { level: 1, name: "web-2" });
     // Services live under Server now: the sidebar opens Server, on the node.
@@ -67,14 +67,25 @@ describe("a page on a node", () => {
     expect(location().search).toMatchObject({ node: "web-2" });
   });
 
-  it("opens the list of servers from the bar on the central, where picking a server is a row of it", async () => {
+  it("opens the server's own page from the bar, and the list of servers only from All servers", async () => {
     const { location } = await consoleAt("/apps");
     const nav = screen.getByRole("navigation", { name: "Main" });
-    // The servers are read after the first frame: the bar holds a fleet once they have answered.
+    // The central is one more server of the list: with it chosen, Server is its own page, never the list.
+    await waitFor(() => {
+      expect(within(nav).getByRole("link", { name: /^Server\b/ })).toHaveAttribute("href", "/server");
+    });
+    fireEvent.click(within(nav).getByRole("link", { name: /^Server\b/ }));
+    await waitFor(() => {
+      expect(location().pathname).toBe("/server");
+    });
+  });
+
+  it("opens the list of servers from the bar on All servers, where picking a server is a row of it", async () => {
+    const { location } = await consoleAt("/fleet/apps");
+    const nav = screen.getByRole("navigation", { name: "Main" });
     await waitFor(() => {
       expect(within(nav).getByRole("link", { name: /^Servers/ })).toHaveAttribute("href", "/fleet/servers");
     });
-
     fireEvent.click(within(nav).getByRole("link", { name: /^Servers/ }));
     await waitFor(() => {
       expect(location().pathname).toBe("/fleet/servers");
@@ -176,22 +187,22 @@ describe("the server selector", () => {
 
   it("names the server on screen, lists every server with its state and version, and has no violations", async () => {
     const { user } = await consoleAt("/apps");
-    const button = await trigger("Server: web-01");
+    const button = await trigger(/^Server: web-01/);
     expect(button).toHaveTextContent("web-01");
     await user.click(button);
-    const menu = await screen.findByRole("menu", { name: "Server: web-01" });
+    const menu = await screen.findByRole("menu", { name: /^Server: web-01/ });
     const items = within(menu).getAllByRole("menuitemradio");
-    // Three kinds of context, none pretending to be another: all servers, this central, a server.
+    // Two places, none pretending to be another: all servers, or a server. The central is one more server of the list, marked as such.
     expect(items.map((item) => item.textContent)).toEqual([
       "All servers The fleet at once: 3 servers",
-      "This central web-01 Its servers, security and API tokens",
-      "web-01 This server · Noust 2.0.0",
+      "web-01 This server central · Noust 2.0.0",
       "web-2 Reachable · Noust 2.0.0",
       "db-1 Unreachable · Noust 1.9.0",
     ]);
-    expect(items[2]).toHaveAttribute("aria-checked", "true");
+    expect(items[1]).toHaveAttribute("aria-checked", "true");
     expect(items[0]).toHaveAttribute("aria-checked", "false");
-    expect(items[3]).toHaveAttribute("aria-checked", "false");
+    expect(items[2]).toHaveAttribute("aria-checked", "false");
+    expect(screen.queryByRole("menuitemradio", { name: /^This central/ })).toBeNull();
     await expectNoAxeViolations(menu);
     await user.keyboard("{Escape}");
     await waitFor(() => {
@@ -203,7 +214,7 @@ describe("the server selector", () => {
   it("switches to a node on the same page, says so, and moves on with its data", async () => {
     const { user, history, backend } = await consoleAt("/apps");
     await screen.findByRole("link", { name: "shop.example.com" });
-    await user.click(await trigger("Server: web-01"));
+    await user.click(await trigger(/^Server: web-01/));
     await user.click(await screen.findByRole("menuitemradio", { name: /^web-2/ }));
     await waitFor(() => {
       expect(history.location.pathname).toBe("/n/web-2/apps");
@@ -217,28 +228,28 @@ describe("the server selector", () => {
     expect(backend.callsTo("GET /api/nodes/web-2/api/apps").length).toBeGreaterThan(0);
   });
 
-  it("goes to the overview when the page is about something the other server may not have", async () => {
+  it("stays in the area, at its list, when the page is about something the other server may not have", async () => {
     fleet(NODES, { "GET /api/nodes/web-2/api/apps/api.web2.example": () => json(200, WEB2_APPS[0]) });
     const { user, history } = renderConsole("/n/web-2/apps/api.web2.example/logs");
     await screen.findByRole("heading", { level: 1, name: "api.web2.example" });
     await user.click(await trigger("Server: web-2"));
     await user.click(await screen.findByRole("menuitemradio", { name: /^web-01/ }));
     await waitFor(() => {
-      expect(history.location.pathname).toBe("/");
+      expect(history.location.pathname).toBe("/apps");
     });
-    expect(await trigger("Server: web-01")).toBeInTheDocument();
+    expect(await trigger(/^Server: web-01/)).toBeInTheDocument();
   });
 
   it("works from the keyboard", async () => {
     const { user, history } = await consoleAt("/server/services");
-    const button = await trigger("Server: web-01");
+    const button = await trigger(/^Server: web-01/);
     button.focus();
     await user.keyboard("{Enter}");
-    const menu = await screen.findByRole("menu", { name: "Server: web-01" });
+    const menu = await screen.findByRole("menu", { name: /^Server: web-01/ });
     await waitFor(() => {
       expect(within(menu).getAllByRole("menuitemradio")[0]).toHaveFocus();
     });
-    await user.keyboard("{ArrowDown}{ArrowDown}{ArrowDown}{Enter}");
+    await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
     await waitFor(() => {
       expect(history.location.pathname).toBe("/n/web-2/server/services");
     });
@@ -258,12 +269,11 @@ describe("the server selector", () => {
   it("speaks Spanish", async () => {
     await act(() => setLocale("es"));
     const { user } = await consoleAt("/apps");
-    await user.click(await trigger("Servidor: web-01"));
-    const menu = await screen.findByRole("menu", { name: "Servidor: web-01" });
+    await user.click(await trigger(/^Servidor: web-01/));
+    const menu = await screen.findByRole("menu", { name: /^Servidor: web-01/ });
     expect(within(menu).getAllByRole("menuitemradio").map((item) => item.textContent)).toEqual([
       "Todos los servidores Toda la flota a la vez: 3 servidores",
-      "Esta central web-01 Sus servidores, su seguridad y sus tokens de API",
-      "web-01 Este servidor · Noust 2.0.0",
+      "web-01 Este servidor central · Noust 2.0.0",
       "web-2 Accesible · Noust 2.0.0",
       "db-1 Inaccesible · Noust 1.9.0",
     ]);
@@ -272,7 +282,7 @@ describe("the server selector", () => {
 
   it("is in the command palette", async () => {
     const { user, history } = await consoleAt("/apps");
-    await trigger("Server: web-01");
+    await trigger(/^Server: web-01/);
     await user.keyboard("{Control>}k{/Control}");
     const input = await screen.findByRole("combobox");
     await user.type(input, "switch to server web");
@@ -303,90 +313,125 @@ describe("the shell on a node", () => {
   });
 });
 
-describe("the three contexts", () => {
+describe("the two contexts", () => {
   it("names the server in the selector and in an application's column, and never above a page's title (item 92)", async () => {
     await consoleAt("/apps/shop.example.com");
     // The scope selector of the top bar says which server this is.
-    expect(await trigger("Server: web-01")).toBeInTheDocument();
+    expect(await trigger(/^Server: web-01/)).toBeInTheDocument();
     const main = screen.getByRole("main");
     await screen.findByRole("heading", { level: 1, name: "shop.example.com" });
     expect(within(main).queryByText((_, element) => element?.tagName === "P" && element.textContent === "Server web-01")).toBeNull();
   });
 
-  it("says All servers on the fleet's pages and This central on the central's, and the bar follows, never a silent jump", async () => {
+  it("says All servers on the fleet's pages, keeping the area, and the bar follows, never a silent jump", async () => {
     const { user, history } = await consoleAt("/n/web-2/apps");
     await user.click(await trigger("Server: web-2"));
     await user.click(await screen.findByRole("menuitemradio", { name: /^All servers/ }));
+    // The area is kept: the fleet's face of Applications, not the fleet's summary.
     await waitFor(() => {
-      expect(history.location.pathname).toBe("/fleet");
+      expect(history.location.pathname).toBe("/fleet/apps");
     });
     expect(await trigger("Server: all servers")).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByTestId("announcer-polite")).toHaveTextContent("Viewing all servers");
     });
-    // The bar is the same twelve areas (NV-10), each at its fleet face where it has one and, where it has none,
+    // The bar is the same areas (NV-10), each at its fleet face where it has one and, where it has none,
     // back at the server the operator came from: never the last server's page under the fleet's name.
     const nav = screen.getAllByRole("navigation", { name: "Main" })[0];
     if (nav === undefined) throw new Error("no main navigation");
     expect(within(nav).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
       "/fleet",
       "/fleet/apps",
+      "/n/web-2/catalog",
       "/n/web-2/databases",
       "/n/web-2/cron",
       "/fleet/certificates",
+      "/fleet/network",
       "/n/web-2/logs",
       "/fleet/alerts",
       "/fleet/activity",
       "/fleet/backups",
+      "/fleet/security",
       "/fleet/servers",
-      "/n/web-2/catalog",
       "/n/web-2/settings",
     ]);
     // Settings still lead to the server the operator came from.
     expect(screen.getAllByRole("link", { name: "Settings" })[0]).toHaveAttribute("href", "/n/web-2/settings");
 
+    // Choosing a server from the fleet's pages opens the area the page is the face of, on that server.
     await user.click(await trigger("Server: all servers"));
-    await user.click(await screen.findByRole("menuitemradio", { name: /^This central/ }));
+    await user.click(await screen.findByRole("menuitemradio", { name: /^web-2/ }));
     await waitFor(() => {
-      expect(history.location.pathname).toBe("/settings/central");
+      expect(history.location.pathname).toBe("/n/web-2/apps");
     });
-    // It draws "This central" and the hostname; its name holds both, in that order (WCAG 2.5.3).
-    expectLabelInName(await trigger("Server: this central, web-01"));
-    // This central has no bar of its own: the same twelve areas, and the ones with no fleet face lead back to the server.
-    expect(within(screen.getAllByRole("navigation", { name: "Main" })[0] ?? nav).getByRole("link", { name: "Databases" })).toHaveAttribute("href", "/n/web-2/databases");
-    expect(screen.queryByRole("link", { name: /^Back to / })).not.toBeInTheDocument();
   });
 
-  it("keeps a node's own settings on the node, and says whose the central's are", async () => {
+  it("keeps a node's own settings on the node, and says whose the central's are, without moving the selector", async () => {
     const { user, history } = await consoleAt("/n/web-2/settings/notifications");
     const nav = await screen.findByRole("navigation", { name: "Settings sections" });
     expect(within(nav).getByRole("link", { name: "General" })).toHaveAttribute("href", "/n/web-2/settings/general");
     expect(within(nav).getByRole("link", { name: "Channels" })).toHaveAttribute("href", "/n/web-2/settings/notifications");
     // The central's sections never carry the node, and sit under the same groups, by what they are for (no server's name above them).
-    expect(within(nav).getByRole("link", { name: "API tokens" })).toHaveAttribute("href", "/settings/tokens");
+    expect(within(nav).getByRole("link", { name: /^API tokens/ })).toHaveAttribute("href", "/settings/tokens");
     expect(within(nav).getByText("Notifications and channels")).toBeInTheDocument();
     expect(within(nav).getByText("API")).toBeInTheDocument();
     expect(within(nav).queryByText(/web-01 ·|web-2 ·/)).not.toBeInTheDocument();
+    // Those that are of the whole instance say so beside their name, and the ones that are a server's do not.
+    expect(within(within(nav).getByRole("link", { name: /^API tokens/ })).getByText("All the fleet")).toBeInTheDocument();
+    expect(within(within(nav).getByRole("link", { name: "Channels" })).queryByText("All the fleet")).toBeNull();
     expect(await trigger("Server: web-2")).toBeInTheDocument();
 
-    await user.click(within(nav).getByRole("link", { name: "API tokens" }));
+    await user.click(within(nav).getByRole("link", { name: /^API tokens/ }));
     await waitFor(() => {
       expect(history.location.pathname).toBe("/settings/tokens");
     });
-    // It draws "This central" and the hostname; its name holds both, in that order (WCAG 2.5.3).
-    expectLabelInName(await trigger("Server: this central, web-01"));
+    // The instance's page is no server's: the selector is where it was, on web-2, and the page says it is for the whole fleet.
+    expectLabelInName(await trigger("Server: web-2"));
+    expect(screen.queryByRole("button", { name: /^Server: this central/ })).toBeNull();
+    expect(screen.getAllByText("All the fleet").length).toBeGreaterThan(1);
     // web-2's own sign-in and tokens are managed on web-2, and the page says so and why.
     expect(await screen.findByText("Sign-in, two-factor and API tokens of web-2 are managed on web-2")).toBeInTheDocument();
-    // The server's sections still lead back to web-2.
+    // The server's sections still lead back to web-2, and so does the bar.
     expect(within(screen.getByRole("navigation", { name: "Settings sections" })).getByRole("link", { name: "General" })).toHaveAttribute(
       "href",
       "/n/web-2/settings/general",
     );
+    expect(within(screen.getAllByRole("navigation", { name: "Main" })[0] ?? nav).getByRole("link", { name: "Databases" })).toHaveAttribute("href", "/n/web-2/databases");
+  });
+
+  it("moves only the selector when a server is chosen on a page of the instance, and the bar follows it", async () => {
+    const { user, history } = await consoleAt("/n/web-2/settings/notifications");
+    await user.click(within(await screen.findByRole("navigation", { name: "Settings sections" })).getByRole("link", { name: /^API tokens/ }));
+    await waitFor(() => {
+      expect(history.location.pathname).toBe("/settings/tokens");
+    });
+    await user.click(await trigger("Server: web-2"));
+    await user.click(await screen.findByRole("menuitemradio", { name: /^All servers/ }));
+    // No page was opened: the page is the instance's, and the selector is on the whole fleet now.
+    expect(await trigger("Server: all servers")).toBeInTheDocument();
+    expect(history.location.pathname).toBe("/settings/tokens");
+    const nav = screen.getAllByRole("navigation", { name: "Main" })[0];
+    if (nav === undefined) throw new Error("no main navigation");
+    expect(within(nav).getByRole("link", { name: "Applications" })).toHaveAttribute("href", "/fleet/apps");
+
+    await user.click(await trigger("Server: all servers"));
+    await user.click(await screen.findByRole("menuitemradio", { name: /^db-1/ }));
+    expect(await trigger(/^Server: db-1/)).toBeInTheDocument();
+    expect(history.location.pathname).toBe("/settings/tokens");
+    expect(within(screen.getAllByRole("navigation", { name: "Main" })[0] ?? nav).getByRole("link", { name: "Applications" })).toHaveAttribute("href", "/n/db-1/apps");
+  });
+
+  it("marks the central where it is selected, in the selector and in what the selector says of it", async () => {
+    await consoleAt("/apps");
+    const button = await trigger("Server: web-01 central");
+    expect(button).toHaveTextContent("web-01");
+    expect(button).toHaveTextContent("central");
+    expectLabelInName(button);
   });
 
   it("lists the other contexts in the palette", async () => {
     const { user, history } = await consoleAt("/apps");
-    await trigger("Server: web-01");
+    await trigger(/^Server: web-01/);
     await user.keyboard("{Control>}k{/Control}");
     const input = await screen.findByRole("combobox");
     await user.type(input, "view all servers");

@@ -4,11 +4,6 @@ import type { Catalog } from "../types";
 export const servers: Catalog<typeof en> = {
   nav: {
     fleet: { keywords: "servidores nodos central vps máquinas", },
-    settingsTab: {
-      label: "Servidores",
-      keywords: "flota nodos central ssh túnel añadir servidor código de unión",
-      command: "Ajustes de servidores",
-    },
   },
 
   reachability: {

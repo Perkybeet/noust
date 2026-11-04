@@ -10,7 +10,6 @@ import { Menu, MenuItem } from "../../components/ui/Menu";
 import { columnIconOf } from "../../features/nav/icons";
 import { hasMessage, useT } from "../../i18n";
 import { cx } from "../../lib/cx";
-import { useHasFleet } from "../../nodes/servers";
 import { crumbsFor } from "../crumbs";
 import type { CrumbName, CrumbStep } from "../crumbs";
 import { DESTS } from "../nav";
@@ -114,11 +113,10 @@ function SectionSwitcher({ step, params, label }: { step: CrumbStep; params: Par
 export function Crumbs({ className }: { className?: string }) {
   const t = useT();
   const scope = useNavScope();
-  const hasFleet = useHasFleet();
   const params: Params = useParams({ strict: false });
   const route = useRouterState({ select: (state) => state.matches.at(-1)?.fullPath ?? "" });
   const nameOf = useName(params);
-  const steps = crumbsFor(route, scope, hasFleet);
+  const steps = crumbsFor(route, scope);
   // The names of the steps are in many pages' catalogs: until every one has arrived the trail is not drawn, and the
   // top bar has the same height without it, so nothing moves when it appears.
   const named = steps.every((step) => !("key" in step.name) || hasMessage(step.name.key));

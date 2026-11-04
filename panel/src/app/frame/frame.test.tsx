@@ -1,7 +1,8 @@
 /**
- * The frame of the console in each of its presentations, drawn by the real shell (docs/DESIGN.md, NV-1,
- * NV-20): one bar at the window's own width in jsdom (1024 px), and the double bar and the phone's bar by
- * giving the window another width. What a browser alone can say (the slide, the pixels) is
+ * The frame of the console at each of its widths, drawn by the real shell (docs/DESIGN.md, NV-1, NV-20):
+ * the main bar and the context column from 1024 px (folded to icons below 1440), and a phone's bar at the
+ * foot below it; jsdom's own width is 1024 px, and the others are given by resizing the window. There is
+ * no other presentation to choose. What a browser alone can say (the slide, the pixels) is
  * e2e/frame.spec.ts's.
  */
 
@@ -12,7 +13,7 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { overviewFixture } from "../../features/overview/testFixtures";
 import { NODES, fakeBackend, json, signedInRoutes } from "../../test/fakes";
-import { setNavPresentation, setPageWidth, setRailFold } from "../preferences";
+import { setPageWidth, setRailFold } from "../preferences";
 
 function resizeTo(width: number): void {
   Object.defineProperty(window, "innerWidth", { value: width, configurable: true });
@@ -31,10 +32,13 @@ async function shellAt(path: string, width = 1024) {
 
 const main = () => screen.getByRole("navigation", { name: "Main" });
 
+/** The areas of the bar, in the order it draws them, and Settings under them. */
+const AREAS = ["Home", "Applications", "Catalog", "Databases", "Scheduled tasks", "Domains", "Network", "Logs", "Alerts", "Activity", "Backups", "Security", "Server", "Settings"];
+const TITLES = ["Applications and data", "Network", "Observe", "Protect", "Infrastructure"];
+
 beforeEach(() => {
   window.localStorage.clear();
   act(() => {
-    setNavPresentation("double");
     setRailFold("expanded");
     setPageWidth("comfortable");
   });
@@ -45,15 +49,35 @@ afterEach(() => {
   Object.defineProperty(window, "innerWidth", { value: 1024, configurable: true });
 });
 
-describe("one bar (below 1280 px)", () => {
-  it("lists the twelve areas, each group under its title, and Settings under the last", async () => {
-    await shellAt("/apps");
+describe("the main bar", () => {
+  it("lists the areas, each group under its title, and Settings under the last", async () => {
+    await shellAt("/apps", 1440);
     const nav = main();
     const names = within(nav).getAllByRole("link").map((link) => link.textContent);
-    expect(names).toEqual(["Home", "Applications", "Databases", "Scheduled tasks", "Domains", "Logs", "Alerts", "Activity", "Backups", "Servers", "Catalog", "Settings"]);
-    for (const title of ["What runs", "How it is reached", "What is happening", "Kept safe", "Where it runs", "How it is managed"]) expect(within(nav).getByText(title)).toBeInTheDocument();
-    // A group is a list named by its title.
-    expect(within(nav).getByRole("list", { name: "What runs" })).toBeInTheDocument();
+    expect(names).toEqual(AREAS);
+    // "Network" is a title and an area, so the title is the one drawn as a paragraph.
+    for (const title of TITLES) expect(within(nav).getAllByText(title).find((text) => text.tagName === "P")).toBeVisible();
+    // A group is a list named by its title, so a screen reader can jump to it.
+    expect(within(nav).getByRole("list", { name: "Applications and data" })).toBeInTheDocument();
+    expect(within(within(nav).getByRole("list", { name: "Applications and data" })).getAllByRole("link").map((link) => link.textContent)).toEqual([
+      "Applications",
+      "Catalog",
+      "Databases",
+      "Scheduled tasks",
+    ]);
+    // Home is alone and Settings is pinned: neither is a group, so neither has a title.
+    expect(within(nav).getAllByRole("list").length).toBe(TITLES.length + 2);
+  });
+
+  it("keeps the titles for a screen reader when it is folded, and draws only the joints", async () => {
+    await shellAt("/apps", 1366);
+    const nav = main();
+    for (const title of TITLES) {
+      const text = within(nav).getAllByText(title).find((candidate) => candidate.tagName === "P");
+      expect(text).toHaveClass("sr-only");
+    }
+    expect(within(nav).getByRole("list", { name: "Network" })).toBeInTheDocument();
+    expect(within(nav).getByRole("link", { name: "Applications" })).toBeInTheDocument();
   });
 
   it("marks the current area by aria-current alone: no bar of colour, and only one item", async () => {
@@ -81,22 +105,16 @@ describe("one bar (below 1280 px)", () => {
     expect(within(main()).getByRole("link", { name: "Catalog" })).not.toHaveAttribute("aria-current");
   });
 
-  it("opens Home from the address the map had, with Home lit and nothing else", async () => {
-    const { location } = await shellAt("/map");
-    expect(location().pathname).toBe("/");
-    const current = within(main()).getAllByRole("link").filter((link) => link.getAttribute("aria-current") === "page");
-    expect(current.map((link) => link.textContent)).toEqual(["Home"]);
-  });
-
-  it("has no second column, and says in the page where a resource's sections are", async () => {
-    await shellAt("/apps/shop.example.com");
-    expect(document.querySelector('[data-frame="column"]')).toBeNull();
-    expect(await screen.findByRole("navigation", { name: "Application sections" })).toBeInTheDocument();
-  });
-
-  it("draws no choice of bar below 1280 px: two columns do not fit", async () => {
-    await shellAt("/apps");
-    expect(screen.queryByRole("radiogroup", { name: "Navigation" })).toBeNull();
+  it("is drawn at every desktop width, with no choice of bar to make", async () => {
+    for (const width of [1024, 1279, 1366, 1440, 1920]) {
+      Object.defineProperty(window, "innerWidth", { value: width, configurable: true });
+      fakeBackend(signedInRoutes());
+      const { unmount } = renderConsole("/apps");
+      await screen.findByRole("heading", { level: 1 });
+      expect(document.querySelector('[data-frame="rail"]'), String(width)).not.toBeNull();
+      expect(screen.queryByRole("radiogroup", { name: "Navigation" }), String(width)).toBeNull();
+      unmount();
+    }
   });
 
   it("counts what failed beside the area it is in, red for what failed and amber for what is about to", async () => {
@@ -124,16 +142,16 @@ describe("one bar (below 1280 px)", () => {
     const nav = await screen.findByRole("navigation", { name: "Main" });
     expect(await within(nav).findByRole("link", { name: "Applications 1 failed" })).toBeInTheDocument();
     expect(within(nav).getByRole("link", { name: "Domains 1 failed 1 certificate needs renewing" })).toBeInTheDocument();
-    expect(within(nav).getByRole("link", { name: "Servers 1 failed" })).toBeInTheDocument();
+    expect(within(nav).getByRole("link", { name: "Server 1 failed" })).toBeInTheDocument();
     expect(within(nav).getByRole("link", { name: "Databases" })).toBeInTheDocument();
   });
 
-  it("is the same twelve areas on the fleet's pages, and opens an area at its fleet face where it has one", async () => {
+  it("is the same areas on the fleet's pages, and opens an area at its fleet face where it has one", async () => {
     fakeBackend({ ...signedInRoutes(), "GET /api/nodes": () => json(200, { items: NODES }) });
     renderConsole("/fleet/apps");
     await screen.findByRole("heading", { level: 1 });
     const nav = main();
-    expect(within(nav).getAllByRole("link")).toHaveLength(12);
+    expect(within(nav).getAllByRole("link")).toHaveLength(AREAS.length);
     expect(within(nav).getByRole("link", { name: "Applications" })).toHaveAttribute("aria-current", "page");
     expect(within(nav).getByRole("link", { name: "Applications" })).toHaveAttribute("href", "/fleet/apps");
     expect(within(nav).getByRole("link", { name: "Domains" })).toHaveAttribute("href", "/fleet/certificates");
@@ -155,15 +173,11 @@ describe("one bar (below 1280 px)", () => {
   });
 });
 
-describe("the double bar (1440 px and wider)", () => {
-  it("is a bar of areas with their names, and Home's panels in the second column", async () => {
+describe("from 1440 px, the main bar and the column both open", () => {
+  it("is a bar of areas with their names", async () => {
     await shellAt("/", 1440);
     expect(within(main()).getByRole("link", { name: "Applications" })).toBeVisible();
     expect(document.querySelector('[data-frame="rail"]')).not.toBeNull();
-    const column = await screen.findByRole("navigation", { name: "Panels" });
-    expect(column.closest('[data-frame="column"]')).not.toBeNull();
-    expect(within(column).getByRole("link", { name: /This server/ })).toHaveAttribute("aria-current", "page");
-    expect(within(column).getByRole("link", { name: "New panel" })).toBeVisible();
     // The names are text, not tooltips: the bar is unfolded.
     expect(within(main()).getByText("Applications")).not.toHaveClass("sr-only");
   });
@@ -247,16 +261,13 @@ describe("the double bar (1440 px and wider)", () => {
     expect(window.localStorage.getItem("noust.rail")).toBeNull();
   });
 
-  it("offers the choice of bar, drawn and named, and one bar is what it says", async () => {
+  it("offers no choice of bar: the account menu has the theme, the language and the width, and nothing about bars", async () => {
     const { user } = await shellAt("/", 1440);
-    const choice = screen.getByRole("radiogroup", { name: "Navigation" });
-    expect(within(choice).getByRole("radio", { name: "Double bar" })).toBeChecked();
-    await user.click(within(choice).getByRole("radio", { name: "One bar" }));
-    await waitFor(() => {
-      expect(document.querySelector('[data-frame="rail"]')).toBeNull();
-    });
-    expect(within(main()).getByText("What runs")).toBeInTheDocument();
-    expect(window.localStorage.getItem("noust.nav")).toBe("single");
+    await user.click(screen.getByRole("button", { name: /Session and preferences/ }));
+    await screen.findByText("Page width");
+    expect(screen.queryByRole("radiogroup", { name: "Navigation" })).toBeNull();
+    expect(screen.queryByText("One bar")).toBeNull();
+    expect(screen.queryByText("Double bar")).toBeNull();
   });
 
   it("has no accessibility violations, the bar and the column included", async () => {
@@ -266,8 +277,17 @@ describe("the double bar (1440 px and wider)", () => {
   });
 });
 
-describe("the double bar between 1280 and 1439 px", () => {
-  it("is folded, and unfolding opens it over the page: the button says Close, Escape closes it", async () => {
+describe("from 1024 to 1439 px, the main bar is folded and the column is beside it", () => {
+  it("has the column of a resource beside the folded bar at 1024 px, where 4.1 drew one bar", async () => {
+    await shellAt("/apps/shop.example.com");
+    expect(document.querySelector('[data-frame="rail"]')).not.toBeNull();
+    const column = await screen.findByRole("navigation", { name: "Application sections" });
+    expect(column.closest('[data-frame="column"]')).not.toBeNull();
+    expect(screen.getAllByRole("navigation", { name: "Application sections" })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Unfold the bar" })).toBeInTheDocument();
+  });
+
+  it("opens over the page by its button, which then says Close; Escape closes it", async () => {
     const { user } = await shellAt("/", 1366);
     const open = screen.getByRole("button", { name: "Unfold the bar" });
     expect(open).toHaveAttribute("aria-expanded", "false");
@@ -279,6 +299,15 @@ describe("the double bar between 1280 and 1439 px", () => {
     expect(window.localStorage.getItem("noust.rail")).toBeNull();
     await user.keyboard("{Escape}");
     expect(screen.getByRole("button", { name: "Unfold the bar" })).toBeInTheDocument();
+    expect(document.querySelector('[data-frame="veil"]')).toBeNull();
+  });
+
+  it("does the same at 1024 px, the narrowest desktop", async () => {
+    const { user } = await shellAt("/", 1024);
+    await user.click(screen.getByRole("button", { name: "Unfold the bar" }));
+    expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
+    expect(within(main()).getAllByText("Network").find((text) => text.tagName === "P")).not.toHaveClass("sr-only");
+    await user.keyboard("{Escape}");
     expect(document.querySelector('[data-frame="veil"]')).toBeNull();
   });
 
@@ -306,26 +335,53 @@ describe("the double bar between 1280 and 1439 px", () => {
     });
     expect(screen.getByRole("button", { name: "Unfold the bar" })).toBeInTheDocument();
     resizeTo(1366);
-    // Between 1280 and 1439 px it is folded whatever was saved, and its button opens it over the page.
+    // Below 1440 it is folded whatever was saved, and its button opens it over the page.
     expect(screen.getByRole("button", { name: "Unfold the bar" })).toBeInTheDocument();
-    resizeTo(1279);
+    act(() => {
+      setRailFold("expanded");
+    });
+    // A saved "unfolded" has no room here: it stays folded.
+    expect(screen.getByRole("button", { name: "Unfold the bar" })).toBeInTheDocument();
+    resizeTo(1024);
+    expect(document.querySelector('[data-frame="rail"]')).not.toBeNull();
+    resizeTo(1023);
     await waitFor(() => {
       expect(document.querySelector('[data-frame="rail"]')).toBeNull();
     });
-    expect(within(main()).getByText("What runs")).toBeInTheDocument();
   });
 });
 
 describe("a phone", () => {
-  it("has four areas and More at the foot, and the rest of the areas in the menu", async () => {
+  it("has four areas and More at the foot, and every area, in its group, in the sheet More opens", async () => {
     const { user } = await shellAt("/", 390);
     const foot = screen.getByRole("navigation", { name: "Areas" });
     expect(within(foot).getAllByRole("link").map((link) => link.textContent)).toEqual(["Home", "Applications", "Databases", "Activity"]);
     expect(document.querySelector('[data-frame="rail"]')).toBeNull();
     await user.click(within(foot).getByRole("button", { name: "More" }));
-    const dialog = await screen.findByRole("dialog", { name: "Menu" });
-    expect(within(dialog).getByRole("link", { name: "Backups" })).toBeInTheDocument();
-    expect(within(dialog).getByRole("link", { name: "Settings" })).toBeInTheDocument();
+    const sheet = await screen.findByRole("dialog", { name: "All areas" });
+    for (const title of TITLES) expect(within(sheet).getAllByText(title).find((text) => text.tagName === "P")).toBeVisible();
+    expect(within(sheet).getByRole("link", { name: "Backups" })).toBeInTheDocument();
+    expect(within(sheet).getByRole("link", { name: "Catalog" })).toBeInTheDocument();
+    expect(within(sheet).getByRole("link", { name: "Settings" })).toBeInTheDocument();
+    // The account moved here from the top bar.
+    expect(within(sheet).getByRole("button", { name: "Your account" })).toBeInTheDocument();
+  });
+
+  it("draws the server selector and no account button in the top bar", async () => {
+    await shellAt("/", 390);
+    const bar = screen.getAllByRole("banner")[0] ?? document.body;
+    expect(within(bar).queryByRole("button", { name: /Session and preferences/ })).toBeNull();
+    expect(within(bar).getAllByRole("button", { name: "Search" }).length).toBeGreaterThan(0);
+  });
+
+  it("opens the session from the sheet, with the same body as the top bar's popover", async () => {
+    const { user } = await shellAt("/", 390);
+    await user.click(within(screen.getByRole("navigation", { name: "Areas" })).getByRole("button", { name: "More" }));
+    const sheet = await screen.findByRole("dialog", { name: "All areas" });
+    await user.click(within(sheet).getByRole("button", { name: "Your account" }));
+    const session = await screen.findByRole("dialog", { name: "Session" });
+    expect(within(session).getByRole("link", { name: "Account" })).toBeInTheDocument();
+    expect(within(session).getByRole("button", { name: "Sign out" })).toBeInTheDocument();
   });
 
   it("marks the current area at the foot too", async () => {

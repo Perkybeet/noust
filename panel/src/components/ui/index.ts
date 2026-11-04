@@ -108,8 +108,6 @@ export { HelpPopover } from "./HelpPopover";
 export type { HelpPopoverProps } from "./HelpPopover";
 export { Illustration } from "./Illustration";
 export type { IllustrationName, IllustrationProps } from "./Illustration";
-export { LayoutGlyph } from "./LayoutGlyph";
-export type { LayoutGlyphProps } from "./LayoutGlyph";
 export { LogoMark, LogoTile } from "./LogoTile";
 export type { LogoMarkProps, LogoSlug, LogoTileProps } from "./LogoTile";
 export { SectionSwitch, SwitchedRegion } from "./SectionSwitch";

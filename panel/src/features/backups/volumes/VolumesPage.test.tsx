@@ -43,7 +43,7 @@ describe("the Volumes tab", () => {
     expect(within(row).getByText("Every day at 02:00")).toBeInTheDocument();
     expect(within(row).getByText("Everything it declares")).toBeInTheDocument();
     expect(within(row).getByText("2.0 MB")).toBeInTheDocument();
-    const tabs = screen.getByRole("navigation", { name: "Backup sections" });
+    const tabs = await screen.findByRole("navigation", { name: "Backups sections" });
     expect(within(tabs).getByRole("link", { name: /^Volumes/ })).toHaveAttribute("aria-current", "page");
     expect(within(tabs).getByRole("link", { name: /^Noust/ })).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));

@@ -37,6 +37,13 @@ export const SEND_DELAY_MS = 600;
 
 const timers = new Map<string, number>();
 
+/**
+ * The panels a request is on its way with. Home's page and the frame's column (and the phone's selector) each read the
+ * panels, so a send decided when Home opens is decided by each of them in the same moment: the one that comes second
+ * finds the panel already on its way and leaves it be.
+ */
+const sending = new Set<string>();
+
 export interface Panels {
   panels: Panel[];
   /** Whether Home knows what to draw: this browser has the panels, or the server has said. False only on a first visit that is still waiting. */
@@ -91,12 +98,15 @@ export function usePanels(): Panels {
     const saved = readPanelCache().panels.find((panel) => panel.id === id);
     if (saved === undefined) return;
     const layout = saved.layout;
+    sending.add(id);
     saveDashboard(id, { name: saved.name, scope: saved.scope, layout: layout as unknown as Record<string, unknown> }).then(
       (out) => {
+        sending.delete(id);
         markClean(id, layout);
         inCache(queryClient, (list) => (list.some((panel) => panel.id === id) ? list.map((panel) => (panel.id === id ? out : panel)) : [...list, out]));
       },
       (error: unknown) => {
+        sending.delete(id);
         reportActionError(t("overview.panels.saveFailed", { name: saved.name }), error);
       },
     );
@@ -105,7 +115,7 @@ export function usePanels(): Panels {
   // What was changed here and the server has not heard of (a page closed within the delay) goes again once it can be told.
   useEffect(() => {
     if (persistence !== "account" || fromServer === undefined) return;
-    for (const panel of readPanelCache().panels) if (panel.dirty && !timers.has(panel.id)) send(panel.id);
+    for (const panel of readPanelCache().panels) if (panel.dirty && !timers.has(panel.id) && !sending.has(panel.id)) send(panel.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once the server's list is in; `send` reads what it needs when it runs
   }, [fromServer, persistence]);
 
