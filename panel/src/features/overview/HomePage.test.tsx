@@ -1,33 +1,18 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import type { Overview } from "../../api/queries/overview";
+import { WIDGETS } from "../../components/widgets/catalog";
+import { toDocument } from "../../components/widgets/model";
+import type { Placed } from "../../components/widgets/model";
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
-import { fakeBackend, json, signedInRoutes } from "../../test/fakes";
+import { NODES, SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
-import { expectLabelInName } from "../../test/labelInName";
-import { MACHINE_METRICS } from "./MachineCharts";
-import { metricsReadFixture, overviewFixture } from "./testFixtures";
+import { flushPanelStore, readPanelCache } from "./panelStore";
+import { overviewFixture } from "./testFixtures";
 
-// uPlot draws on a canvas jsdom does not have; the charts' contract is their summary.
-vi.mock("uplot", () => ({
-  default: vi.fn(function () {
-    return {
-      destroy: vi.fn(),
-      setData: vi.fn(),
-      setScale: vi.fn(),
-      setSize: vi.fn(),
-      setCursor: vi.fn(),
-      redraw: vi.fn(),
-      bbox: { left: 0, top: 0, width: 400, height: 140 },
-      valToPos: () => 0,
-    };
-  }),
-}));
-
-const NOW = Math.floor(Date.now() / 1000);
+const AGO = (minutes: number): string => new Date(Date.now() - minutes * 60_000).toISOString();
 
 const ATTENTION = [
   {
@@ -37,16 +22,7 @@ const ATTENTION = [
     severity: "fail",
     reasons: [
       { kind: "state", severity: "fail", code: "service_failed", params: {}, detail: null, when: null, deployment_id: null, actions: ["view_log", "diagnose"] },
-      {
-        kind: "deploy",
-        severity: "fail",
-        code: "deploy_failed",
-        params: {},
-        detail: "npm ERR! code ELIFECYCLE",
-        when: "2026-09-29T19:20:35+02:00",
-        deployment_id: 12,
-        actions: ["view_deployment", "diagnose"],
-      },
+      { kind: "deploy", severity: "fail", code: "deploy_failed", params: {}, detail: "npm ERR! code ELIFECYCLE", when: AGO(4), deployment_id: 12, actions: ["view_deployment", "diagnose"] },
     ],
   },
   {
@@ -61,25 +37,18 @@ const ATTENTION = [
     subject: { kind: "app", domain: "shop.example.com" },
     title: "shop.example.com",
     severity: "warn",
-    reasons: [
-      {
-        kind: "certificate",
-        severity: "warn",
-        code: "certificate_expires_in",
-        params: { days: 12, valid_until: "2026-10-11" },
-        detail: null,
-        when: null,
-        deployment_id: null,
-        actions: ["renew_certificate"],
-      },
-    ],
+    reasons: [{ kind: "certificate", severity: "warn", code: "certificate_expires_in", params: { days: 12, valid_until: "2026-10-11" }, detail: null, when: null, deployment_id: null, actions: ["renew_certificate"] }],
   },
 ];
 
-const ACTIVITY = [
-  { id: "job:1", type: "deploy", title: "Deploy shop.example.com", status: "completed", domain: "shop.example.com", actor: "master", at: new Date(Date.now() - 60_000).toISOString() },
-  { id: "job:2", type: "update", title: "Update admin.example.com", status: "failed", domain: "admin.example.com", actor: "master", at: new Date(Date.now() - 120_000).toISOString() },
-];
+const OVERVIEW = overviewFixture({
+  attention: ATTENTION,
+  attention_total: 3,
+  activity: [
+    { id: "job:1", type: "deploy", title: "Deploy shop.example.com", status: "completed", domain: "shop.example.com", actor: "master", at: AGO(1) },
+    { id: "job:2", type: "update", title: "Update admin.example.com", status: "failed", domain: "admin.example.com", actor: "master", at: AGO(2) },
+  ],
+});
 
 const APPS = {
   total: 4,
@@ -91,252 +60,406 @@ const APPS = {
   ],
 };
 
-function routes(extra: Record<string, RouteHandler> = {}, overview = overviewFixture({ attention: ATTENTION, attention_total: 3, activity: ACTIVITY })): Record<string, RouteHandler> {
-  return {
-    ...signedInRoutes(),
-    "GET /api/overview": () => json(200, overview),
-    "GET /api/apps": () => json(200, APPS),
-    // A young history: the day asked for, with readings only in its last ten minutes.
-    "GET /api/metrics/query": (call) => json(200, metricsReadFixture(call.search.getAll("metric"), { now: NOW, cells: 1440, recordedFrom: 1430 })),
-    "GET /api/config": () => json(200, { config: { notifications: { enabled: false } }, path: "/etc/noust/config.yaml" }),
-    ...extra,
-  };
-}
-
 const EMPTY = overviewFixture({
   apps: { running: 0, failed: 0, stopped: 0, static: 0, unmanaged: 0, error: null },
   backups: { ...overviewFixture().backups, apps: 0, scheduled: 0, with_backup_24h: 0 },
 });
 
-async function home(extra?: Record<string, RouteHandler>, path = "/", data?: ReturnType<typeof overviewFixture>) {
-  const backend = fakeBackend(routes(extra, data));
+/** The access token is no account: the server answers it 400 and the browser keeps the panels. */
+const NO_ACCOUNT: RouteHandler = () => problem(400, "validation_error", "Only an account keeps panels");
+
+function routes(extra: Record<string, RouteHandler> = {}, overview = OVERVIEW): Record<string, RouteHandler> {
+  return {
+    ...signedInRoutes(),
+    "GET /api/overview": () => json(200, overview),
+    "GET /api/apps": () => json(200, APPS),
+    "GET /api/auth/dashboards": NO_ACCOUNT,
+    "GET /api/deployments": () => json(200, { total: 0, items: [], next_before_id: null }),
+    "GET /api/certs": () => json(200, { total: 0, certificates: [] }),
+    "GET /api/backups": () => json(200, { total: 0, backups: [] }),
+    "GET /api/jobs/active": () => json(200, { active: 0, total: 0, jobs: [] }),
+    "GET /api/operations/active": () => json(200, { operations: [] }),
+    "GET /api/config": () => json(200, { config: { notifications: { enabled: false } }, path: "/etc/noust/config.yaml" }),
+    ...extra,
+  };
+}
+
+async function home(extra?: Record<string, RouteHandler>, path = "/", overview?: ReturnType<typeof overviewFixture>, title = "This server") {
+  const backend = fakeBackend(routes(extra, overview));
   const harness = renderConsole(path);
-  await screen.findByRole("heading", { level: 1, name: "Home" });
+  await screen.findByRole("heading", { level: 1, name: title });
   return { ...harness, backend };
 }
 
-/** What needs attention, as the page draws it: the section under its heading. */
-async function board(): Promise<HTMLElement> {
-  const heading = await screen.findByRole("heading", { level: 2, name: "Needs attention" });
-  const section = heading.closest("section");
-  if (section === null) throw new Error("no board");
-  return section;
+/** The names of the widgets on the page, in the order they are drawn. */
+async function widgetsOnPage(): Promise<string[]> {
+  await waitFor(() => expect(screen.getAllByRole("heading", { level: 2 }).length).toBeGreaterThan(0));
+  return screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent);
 }
 
-describe("Home", () => {
-  it("lists what needs attention as cards, each tinted by its state and with where it is fixed", async () => {
+/** The header of the page: its title, what it follows and its actions, apart from what the widgets draw. */
+function header(): HTMLElement {
+  const found = document.querySelector<HTMLElement>("[data-slot=header]");
+  if (found === null) throw new Error("no header");
+  return found;
+}
+
+function document1(layout: Placed[]): Record<string, unknown> {
+  return toDocument(layout) as unknown as Record<string, unknown>;
+}
+
+function placed(type: string, size: Placed["size"]): Placed {
+  return { id: type, type, size, settings: {} };
+}
+
+/** What the server answers for an account that kept some panels. */
+function kept(...panels: { id: string; name: string; scope?: string; layout: Placed[] }[]): RouteHandler {
+  return () =>
+    json(200, {
+      dashboards: panels.map((panel, position) => ({ id: panel.id, name: panel.name, scope: panel.scope ?? "server", position, layout: document1(panel.layout), created_at: 1, updated_at: 1 })),
+      limits: { dashboards: 20, widgets: 40, columns: 12, document_bytes: 32768, settings_bytes: 2048 },
+    });
+}
+
+describe("Home, the panel of a server", () => {
+  it("draws the panel that comes with the console: its widgets, in their order, under the name of the panel", async () => {
     await home();
-    const attention = await board();
-    const app = await within(attention).findByRole("link", { name: "admin.example.com" });
-    expect(app).toHaveAttribute("href", "/apps/admin.example.com");
-    expect(within(attention).getAllByText("The service has failed")).toHaveLength(2);
-    expect(within(attention).getByText("Last deploy failed")).toBeInTheDocument();
-    // The system's own words, verbatim, under the sentence.
-    expect(within(attention).getByText("npm ERR! code ELIFECYCLE")).toBeInTheDocument();
-    expect(within(attention).getByRole("link", { name: "View log of the deploy of admin.example.com" })).toHaveAttribute("href", "/apps/admin.example.com/deployments/12");
-    expect(within(attention).getByRole("link", { name: "Open service queue-worker" })).toHaveAttribute("href", "/server/services/queue-worker");
-    // Each card's action is named by the words it draws first, then what it is about (WCAG 2.5.3).
-    for (const action of within(attention).getAllByRole("link")) expectLabelInName(action);
-    expect(within(attention).getByText("Certificate expires in 12 days")).toBeInTheDocument();
-    // Only what is wrong has colour behind it: a failure is red, a warning amber.
-    const card = (text: string): HTMLElement => {
-      const found = within(attention).getByText(text).closest<HTMLElement>(".elev-seated");
-      if (found === null) throw new Error(`no card around ${text}`);
-      return found;
-    };
-    expect(card("Last deploy failed")).toHaveClass("bg-fail-soft", "border-fail-border");
-    expect(card("Certificate expires in 12 days")).toHaveClass("bg-warn-soft", "border-warn-border");
-    // A lone server names no server on a card: there is nothing to tell apart.
-    expect(within(attention).queryByText("web-01")).not.toBeInTheDocument();
+    expect(await widgetsOnPage()).toEqual([
+      "Needs attention",
+      "Server status",
+      "Resources",
+      "Work in progress",
+      "Certificates",
+      "Backups",
+      "Applications",
+      "Quick actions",
+      "Recent deployments",
+      "Recent activity",
+    ]);
+    // It says what it follows, in words.
+    expect(screen.getByText(/Follows the chosen server/)).toBeInTheDocument();
+  });
+
+  it("lists what needs attention a line each, with the system's own words after the sentence", async () => {
+    await home();
+    const heading = await screen.findByRole("heading", { level: 2, name: "Needs attention" });
+    const card = heading.closest("article");
+    if (card === null) throw new Error("no widget");
+    expect(await within(card).findByText("admin.example.com")).toBeInTheDocument();
+    expect(within(card).getByText("npm ERR! code ELIFECYCLE")).toHaveClass("mono");
+    expect(within(card).getByText("Certificate expires in 12 days")).toBeInTheDocument();
   });
 
   it("adds an application nothing answers on, which only the console knows", async () => {
-    await home({
-      "GET /api/apps": () => json(200, { total: 1, apps: [{ domain: "api.example.com", name: "api", status: "no_answer", active: true, enabled: true, layout: "inplace" }] }),
-    });
-    const attention = await board();
-    expect(await within(attention).findByText("The service runs, but nothing answers on its port")).toBeInTheDocument();
+    await home({ "GET /api/apps": () => json(200, { total: 1, apps: [{ domain: "api.example.com", name: "api", status: "no_answer", active: true, enabled: true, layout: "inplace" }] }) });
+    expect(await screen.findByText("The service runs, but nothing answers on its port")).toBeInTheDocument();
   });
 
-  it("says in one line that nothing needs attention on a calm server", async () => {
-    await home(undefined, "/", overviewFixture());
-    expect(await screen.findByText("Nothing needs attention")).toBeInTheDocument();
-  });
-
-  it("shows six cards until asked for all", async () => {
-    const many = Array.from({ length: 8 }, (_, i) => ({ ...ATTENTION[1], id: `unit:w${String(i)}`, subject: { kind: "unit", name: `w${String(i)}` }, title: `w${String(i)}` }));
-    const { user } = await home(undefined, "/", overviewFixture({ attention: many as typeof ATTENTION, attention_total: 8 }));
-    const attention = await board();
-    await within(attention).findByRole("link", { name: "w0" });
-    expect(within(attention).queryByRole("link", { name: "w7" })).not.toBeInTheDocument();
-    await user.click(within(attention).getByRole("button", { name: "Show all 8" }));
-    expect(within(attention).getByRole("link", { name: "w7" })).toBeInTheDocument();
-  });
-
-  it("draws the server in courses: each application a slab, the ones with a problem first and said in words", async () => {
+  it("has one primary action, the header's, and a way to customize", async () => {
     await home();
-    const courses = await screen.findByRole("list", { name: "Servers and their applications" });
-    expect(within(courses).getByText("web-01")).toBeInTheDocument();
-    // A fleet of one shows every application, not "+N running": there is nothing else to compare with.
-    expect(within(courses).queryByText(/^\+\d+ running$/)).not.toBeInTheDocument();
-    expect(within(courses).getByRole("link", { name: /^admin\.example\.com\s*Failed$/ })).toHaveAttribute("href", "/apps/admin.example.com");
-    expect(within(courses).getByRole("link", { name: /shop\.example\.com/ })).toBeInTheDocument();
-    expect(within(courses).getByRole("link", { name: "web-01" })).toHaveAttribute("href", "/server");
-    // The legend over the courses counts the states.
-    const legend = screen.getByRole("list", { name: "Applications by state" });
-    expect(legend).toHaveTextContent("Running 2");
-    expect(legend).toHaveTextContent("Failed 1");
-    expect(legend).toHaveTextContent("Stopped 1");
+    await widgetsOnPage();
+    expect(within(header()).getAllByRole("link", { name: "New application" })).toHaveLength(1);
+    expect(within(header()).getByRole("link", { name: "Customize" })).toBeInTheDocument();
   });
 
-  it("tells what happened lately, with the state when it did not simply succeed, and who did it", async () => {
-    await home();
-    const activity = await screen.findByRole("list", { name: "Recent activity, newest first" });
-    expect(within(activity).getByText("Deploy")).toBeInTheDocument();
-    expect(within(activity).getByText("Failed")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "All activity" })).toHaveAttribute("href", "/activity");
-  });
-
-  it("offers the four things a person comes to do, each leading to the place that does it", async () => {
-    await home();
-    const quick = (await screen.findByRole("heading", { level: 2, name: "Quick actions" })).closest<HTMLElement>("section");
-    if (quick === null) throw new Error("no quick actions");
-    expect(within(quick).getByRole("link", { name: "Deploy an application" })).toHaveAttribute("href", "/apps/new");
-    expect(within(quick).getByRole("link", { name: "Add a server" })).toHaveAttribute("href", "/fleet?add=true");
-    expect(within(quick).getByRole("link", { name: "Invite a person" })).toHaveAttribute("href", "/settings/accounts");
-    expect(within(quick).getByRole("link", { name: "Create a backup" })).toHaveAttribute("href", "/backups");
-  });
-
-  it("has one primary action, the header's, and no figures: the page says what to do, not how many", async () => {
-    await home();
-    expect(screen.getAllByRole("link", { name: "New application" })).toHaveLength(1);
-    expect(screen.queryByRole("region", { name: "Key figures" })).not.toBeInTheDocument();
-  });
-
-  it("reads the machine's history in one request and says what it shows, below the page", async () => {
-    const { backend } = await home();
-    const machine = await screen.findByRole("region", { name: "Machine" });
-    expect(await within(machine).findByRole("img", { name: /^CPU, last 24 hours, 1-minute averages\. CPU: latest 12%/ })).toBeInTheDocument();
-    const calls = backend.callsTo("GET /api/metrics/query");
-    expect(calls[0]?.search.getAll("metric")).toEqual([...MACHINE_METRICS]);
-    expect(calls[0]?.search.get("window")).toBe("24h");
-  });
-
-  it("keeps the chosen range in the URL, and reads that window", async () => {
-    const { user, location, backend } = await home();
-    await screen.findByRole("img", { name: /^CPU, last 24 hours/ });
-    await user.click(screen.getByRole("radio", { name: "1h" }));
-    await waitFor(() => {
-      expect(location().search).toEqual({ window: "1h" });
-    });
-    await waitFor(() => {
-      expect(backend.callsTo("GET /api/metrics/query").some((call) => call.search.get("window") === "1h")).toBe(true);
-    });
-  });
-
-  it("says when history is not being recorded, why, and the command that fixes it", async () => {
-    await home({
-      "GET /api/metrics/query": (call) =>
-        json(200, {
-          ...metricsReadFixture(call.search.getAll("metric"), { now: NOW, cells: 60, recordedFrom: 60 }),
-          collector: {
-            recording: false,
-            host: null,
-            since: null,
-            last_sample_at: null,
-            interval_s: 5,
-            last_error: null,
-            reason: { code: "monitor_disabled", message: "The monitor service is disabled.", fix: "noust monitor enable", evidence: null, params: {} },
-            advice: null,
-            retention_days: 400,
-          },
-        }),
-    });
-    expect(await screen.findByText("Metrics history is not being recorded")).toBeInTheDocument();
-    expect(screen.getAllByText("noust monitor enable").length).toBeGreaterThan(0);
-  });
-
-  it("welcomes an empty server with ways to get something live instead of a board of nothing", async () => {
+  it("welcomes an empty server with its first steps instead of a board of nothing", async () => {
     await home(undefined, "/", EMPTY);
     expect(await screen.findByRole("heading", { level: 2, name: "Deploy your first app" })).toBeInTheDocument();
-    // Each way has its own button, and the primary stays the header's: a demo is one press, not a second primary.
-    expect(screen.getByRole("link", { name: "Try a demo" })).toHaveAttribute("href", "/apps/new?start=recipe&recipe=hello&deploy=now");
-    expect(screen.getByRole("link", { name: "Use a repository" })).toHaveAttribute("href", "/apps/new");
-    expect(screen.getAllByRole("link", { name: "New application" })).toHaveLength(1);
     expect(screen.queryByRole("heading", { level: 2, name: "Needs attention" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Customize" })).not.toBeInTheDocument();
+    expect(within(header()).getAllByRole("link", { name: "New application" })).toHaveLength(1);
     await expectNoAxeViolations(screen.getByRole("main"));
-  });
-
-  it("reads the overview of a node before 3.3, which sends no count of stacks outside their units", async () => {
-    // Every sum used to be NaN: an empty node was shown a board of nothing, never its first steps.
-    const apps = { running: 0, failed: 0, stopped: 0, static: 0, error: null } as unknown as Overview["apps"];
-    await home(undefined, "/", overviewFixture({ apps, backups: { ...overviewFixture().backups, apps: 0, scheduled: 0, with_backup_24h: 0 } }));
-    expect(await screen.findByRole("heading", { level: 2, name: "Deploy your first app" })).toBeInTheDocument();
-  });
-
-  it("says why Home could not be read, with a way to try again", async () => {
-    await home({ "GET /api/overview": () => json(500, { error: "internal_error", detail: "The overview could not be collected" }) });
-    expect(await screen.findByText("Could not load Home")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
   });
 
   it("has no accessibility violations", async () => {
     await home();
-    await screen.findByRole("list", { name: "Servers and their applications" });
+    await widgetsOnPage();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
-  it("says a failed deploy's first line in the console's language, and what a tool printed as it came", async () => {
-    const sentence = "Release 20261031-2 did not pass its health check; release 20261031-1 is active again";
-    const reason = { kind: "deploy", severity: "fail", params: {}, when: null, actions: ["view_deployment"] };
-    const attention = [
-      {
-        id: "app:shop.example.com",
-        subject: { kind: "app", domain: "shop.example.com" },
-        title: "shop.example.com",
-        severity: "fail",
-        reasons: [
-          {
-            ...reason,
-            code: "deploy_failed",
-            detail: sentence,
-            detail_coded: { code: "deploy_failure.release_unhealthy_back", params: { release: "20261031-2", previous: "20261031-1" } },
-            deployment_id: 7,
-          },
-        ],
-      },
-      {
-        id: "app:admin.example.com",
-        subject: { kind: "app", domain: "admin.example.com" },
-        title: "admin.example.com",
-        severity: "fail",
-        reasons: [{ ...reason, code: "deploy_failed", detail: "npm ERR! code ELIFECYCLE", detail_coded: null, deployment_id: 12 }],
-      },
-    ];
-    await act(() => setLocale("es"));
-    fakeBackend(routes({}, overviewFixture({ attention, attention_total: 2, activity: [] })));
-    renderConsole("/");
-    const heading = await screen.findByRole("heading", { level: 2, name: "Requiere atención" });
-    const section = heading.closest("section");
-    if (section === null) throw new Error("no board");
-
-    const said = await within(section).findByText("La versión 20261031-2 no superó la comprobación de arranque; la versión 20261031-1 está activa de nuevo");
-    // Noust's own sentence is said as text, not set in mono as if a program had printed it.
-    expect(said).not.toHaveClass("mono");
-    expect(within(section).queryByText(sentence)).not.toBeInTheDocument();
-    // What npm printed is not ours to translate.
-    expect(within(section).getByText("npm ERR! code ELIFECYCLE")).toHaveClass("mono");
+  it("shows a role of a team the applications' widgets and none of the machine's", async () => {
+    const team = { ...SESSION, scope: "viewer", permissions: ["self", "apps.read", "backups.read", "databases.read"] };
+    await home({ "GET /api/auth/session": () => json(200, team), "GET /api/overview": () => problem(403, "forbidden", "No") });
+    const names = await widgetsOnPage();
+    expect(names).toEqual(expect.arrayContaining(["Applications", "Work in progress", "Certificates", "Backups", "Recent deployments"]));
+    for (const machine of ["Needs attention", "Server status", "Resources", "Recent activity"]) expect(names).not.toContain(machine);
   });
 
   it("speaks Spanish, with the names of the glossary", async () => {
     await act(() => setLocale("es"));
     fakeBackend(routes());
     renderConsole("/");
-    expect(await screen.findByRole("heading", { level: 1, name: "Inicio" })).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { level: 2, name: "Requiere atención" })).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { level: 2, name: "Aplicaciones" })).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { level: 2, name: "Actividad reciente" })).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { level: 2, name: "Acciones rápidas" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Este servidor" })).toBeInTheDocument();
+    const names = await widgetsOnPage();
+    expect(names).toEqual(expect.arrayContaining(["Requiere atención", "Estado del servidor", "Tareas en curso", "Aplicaciones", "Actividad reciente", "Acciones rápidas"]));
     await expectNoAxeViolations(screen.getByRole("main"));
+  });
+});
+
+describe("Home, waiting for the panels", () => {
+  it("keeps the room of the panel with skeletons, in a region that says what it reads, until the server has said", async () => {
+    let answer: (response: Response) => void = () => undefined;
+    const pending = new Promise<Response>((resolve) => {
+      answer = resolve;
+    });
+    fakeBackend(routes({ "GET /api/auth/dashboards": () => pending }));
+    renderConsole("/");
+    await screen.findByRole("heading", { level: 1, name: "This server" });
+    const region = await screen.findByText("Loading Home…");
+    expect(region.closest("[aria-busy=true]")).not.toBeNull();
+    expect(screen.queryByRole("heading", { level: 2, name: "Needs attention" })).not.toBeInTheDocument();
+    answer(json(200, { dashboards: [], limits: { dashboards: 20, widgets: 40, columns: 12, document_bytes: 32768, settings_bytes: 2048 } }));
+    expect(await screen.findByRole("heading", { level: 2, name: "Needs attention" })).toBeInTheDocument();
+  });
+
+  it("draws a panel at once from what this browser holds, without waiting for the server", async () => {
+    window.localStorage.setItem("noust.panels", JSON.stringify({ version: 1, settled: true, panels: [{ id: "server", name: "This server", scope: "server", layout: document1([placed("apps", "wide")]), dirty: false }] }));
+    fakeBackend(routes({ "GET /api/auth/dashboards": () => new Promise<Response>(() => undefined) }));
+    renderConsole("/");
+    expect(await screen.findByRole("heading", { level: 2, name: "Applications" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 2, name: "Needs attention" })).not.toBeInTheDocument();
+  });
+});
+
+describe("Home, the panels an account keeps", () => {
+  it("draws the layout the server kept for the account in place of the one that comes with the console", async () => {
+    await home({ "GET /api/auth/dashboards": kept({ id: "server", name: "This server", layout: [placed("apps", "wide"), placed("backups", "medium")] }) });
+    expect(await widgetsOnPage()).toEqual(["Applications", "Backups"]);
+  });
+
+  it("draws one of its own panels at its address, and the way back to the ones that come with the console", async () => {
+    await home({ "GET /api/auth/dashboards": kept({ id: "data", name: "Data", layout: [placed("backups", "wide")] }) }, "/?panel=data", undefined, "Data");
+    expect(await widgetsOnPage()).toEqual(["Backups"]);
+  });
+
+  it("asks the server for nothing about panels when the panel is an access token's", async () => {
+    const { backend } = await home();
+    await widgetsOnPage();
+    expect(backend.callsTo("GET /api/auth/dashboards")).toHaveLength(1);
+    expect(backend.callsTo("PUT /api/auth/dashboards/server")).toHaveLength(0);
+  });
+});
+
+describe("Home, customized", () => {
+  it("gives each widget its handle, its size and its remove button, and the header Reset and Done in place of Customize", async () => {
+    const { user } = await home();
+    await widgetsOnPage();
+    await user.click(within(header()).getByRole("link", { name: "Customize" }));
+    expect(await screen.findByRole("heading", { level: 1, name: "Customize “This server”" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Move Needs attention" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Size and position of Needs attention: Wide$/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove Needs attention" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reset" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Done" })).toBeInTheDocument();
+    expect(within(header()).queryByRole("link", { name: "New application" })).not.toBeInTheDocument();
+    await expectNoAxeViolations(screen.getByRole("main"));
+  });
+
+  it("keeps what is removed, in this browser for the access token, and draws it so after a reload", async () => {
+    const { user, unmount } = await home(undefined, "/?customise=true", undefined, "Customize “This server”");
+    await user.click(await screen.findByRole("button", { name: "Remove Resources" }));
+    await waitFor(() => expect(screen.queryByRole("heading", { level: 2, name: "Resources" })).not.toBeInTheDocument());
+    flushPanelStore();
+    const stored = JSON.parse(window.localStorage.getItem("noust.panels") ?? "null") as { panels: { id: string; layout: { widgets: { type: string }[] } }[] };
+    expect(stored.panels.map((panel) => panel.id)).toEqual(["server"]);
+    expect(stored.panels[0]?.layout.widgets.map((widget) => widget.type)).not.toContain("resources");
+    unmount();
+    fakeBackend(routes());
+    renderConsole("/");
+    await screen.findByRole("heading", { level: 1, name: "This server" });
+    const names = await widgetsOnPage();
+    expect(names).toContain("Applications");
+    expect(names).not.toContain("Resources");
+  });
+
+  it("tells the server a moment after the last change, in the document the server judges, for an account", async () => {
+    const { user, backend } = await home({ "GET /api/auth/dashboards": kept(), "PUT /api/auth/dashboards/server": (call) => json(200, { id: "server", name: "This server", scope: "server", position: 0, layout: (call.body as { layout: unknown }).layout, created_at: 1, updated_at: 2 }) }, "/?customise=true", undefined, "Customize “This server”");
+    await user.click(await screen.findByRole("button", { name: "Remove Resources" }));
+    await user.click(await screen.findByRole("button", { name: "Remove Work in progress" }));
+    await waitFor(() => expect(backend.callsTo("PUT /api/auth/dashboards/server")).toHaveLength(1));
+    const body = backend.callsTo("PUT /api/auth/dashboards/server")[0]?.body as { name: string; scope: string; layout: { version: number; widgets: { id: string; type: string; x: number; w: number; settings: Record<string, unknown> }[] } };
+    expect(body.name).toBe("This server");
+    expect(body.scope).toBe("server");
+    expect(body.layout.version).toBe(1);
+    const types = body.layout.widgets.map((widget) => widget.type);
+    expect(types).not.toContain("resources");
+    expect(types).not.toContain("work");
+    expect(types).toContain("attention");
+    for (const widget of body.layout.widgets) expect(widget.x + widget.w).toBeLessThanOrEqual(12);
+    expect(new Set(body.layout.widgets.map((widget) => widget.id)).size).toBe(body.layout.widgets.length);
+  });
+
+  it("puts a panel that came with the console back as it came: the server forgets what it kept", async () => {
+    const { user, backend } = await home({ "GET /api/auth/dashboards": kept({ id: "server", name: "This server", layout: [placed("apps", "wide")] }), "DELETE /api/auth/dashboards/server": () => json(200, { dashboards: [], limits: {} }) }, "/?customise=true", undefined, "Customize “This server”");
+    expect(await widgetsOnPage()).toEqual(["Applications"]);
+    await user.click(screen.getByRole("button", { name: "Reset" }));
+    await waitFor(() => expect(backend.callsTo("DELETE /api/auth/dashboards/server")).toHaveLength(1));
+    expect(await screen.findByRole("heading", { level: 2, name: "Needs attention" })).toBeInTheDocument();
+    expect(readPanelCache().panels).toEqual([]);
+  });
+
+  it("sends again what the server has not heard of, the next time Home opens", async () => {
+    window.localStorage.setItem("noust.panels", JSON.stringify({ version: 1, settled: true, panels: [{ id: "server", name: "This server", scope: "server", layout: document1([placed("apps", "wide")]), dirty: true }] }));
+    const backend = fakeBackend(routes({ "GET /api/auth/dashboards": kept(), "PUT /api/auth/dashboards/server": (call) => json(200, { id: "server", name: "This server", scope: "server", position: 0, layout: (call.body as { layout: unknown }).layout, created_at: 1, updated_at: 2 }) }));
+    renderConsole("/");
+    await screen.findByRole("heading", { level: 1, name: "This server" });
+    await waitFor(() => expect(backend.callsTo("PUT /api/auth/dashboards/server")).toHaveLength(1));
+    expect(readPanelCache().panels[0]?.layout).toEqual(document1([placed("apps", "wide")]));
+    await waitFor(() => expect(readPanelCache().panels[0]?.dirty).toBe(false));
+  });
+
+  it("says when the server could not keep a change, and keeps it here", async () => {
+    const { user } = await home({ "GET /api/auth/dashboards": kept(), "PUT /api/auth/dashboards/server": () => problem(500, "internal_error", "The store is locked") }, "/?customise=true", undefined, "Customize “This server”");
+    await user.click(await screen.findByRole("button", { name: "Remove Resources" }));
+    expect(await screen.findByText("Could not save This server")).toBeInTheDocument();
+    expect(readPanelCache().panels[0]?.dirty).toBe(true);
+  });
+});
+
+describe("Home, a panel of one's own", () => {
+  const MINE = kept({ id: "data", name: "Data and backups", layout: [placed("backups", "wide"), placed("apps", "medium")] });
+
+  it("has a menu to rename it and to delete it, which the panels that come with the console do not have", async () => {
+    const { user } = await home({ "GET /api/auth/dashboards": MINE }, "/?panel=data", undefined, "Data and backups");
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    expect(await screen.findByRole("menuitem", { name: "Rename panel" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Delete panel" })).toBeInTheDocument();
+  });
+
+  it("is renamed, and the server is told", async () => {
+    const { user, backend } = await home(
+      { "GET /api/auth/dashboards": MINE, "PUT /api/auth/dashboards/data": (call) => json(200, { id: "data", name: (call.body as { name: string }).name, scope: "server", position: 0, layout: (call.body as { layout: unknown }).layout, created_at: 1, updated_at: 2 }) },
+      "/?panel=data",
+      undefined,
+      "Data and backups",
+    );
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Rename panel" }));
+    const dialog = await screen.findByRole("dialog", { name: "Rename the panel" });
+    const field = within(dialog).getByRole("textbox", { name: "Name" });
+    await user.clear(field);
+    await user.type(field, "Safe things");
+    await user.click(within(dialog).getByRole("button", { name: "Rename panel" }));
+    expect(await screen.findByRole("heading", { level: 1, name: "Safe things" })).toBeInTheDocument();
+    await waitFor(() => expect(backend.callsTo("PUT /api/auth/dashboards/data")).toHaveLength(1));
+    expect((backend.callsTo("PUT /api/auth/dashboards/data")[0]?.body as { name: string }).name).toBe("Safe things");
+  });
+
+  it("goes back, when reset, to the console's panel for what it follows", async () => {
+    const { user } = await home({ "GET /api/auth/dashboards": MINE }, "/?panel=data&customise=true", undefined, "Customize “Data and backups”");
+    expect(await widgetsOnPage()).toEqual(["Backups", "Applications"]);
+    await user.click(screen.getByRole("button", { name: "Reset" }));
+    expect(await screen.findByRole("heading", { level: 2, name: "Needs attention" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Customize “Data and backups”" })).toBeInTheDocument();
+  });
+
+  it("is deleted after a question, and its person lands on the panel that comes with the console", async () => {
+    const { user, backend, location } = await home(
+      { "GET /api/auth/dashboards": MINE, "DELETE /api/auth/dashboards/data": () => json(200, { dashboards: [], limits: {} }) },
+      "/?panel=data",
+      undefined,
+      "Data and backups",
+    );
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Delete panel" }));
+    const question = await screen.findByRole("alertdialog", { name: "Delete “Data and backups”?" });
+    await user.click(within(question).getByRole("button", { name: "Delete panel" }));
+    await waitFor(() => expect(backend.callsTo("DELETE /api/auth/dashboards/data")).toHaveLength(1));
+    await waitFor(() => expect(location().search).toEqual({}));
+    expect(await screen.findByRole("heading", { level: 1, name: "This server" })).toBeInTheDocument();
+  });
+});
+
+describe("Home, a new panel", () => {
+  it("is made from its name, what it follows and how it begins, and opens customized", async () => {
+    const { user, backend, location } = await home(
+      {
+        "GET /api/nodes": () => json(200, { items: NODES }),
+        "GET /api/auth/dashboards": kept(),
+        "PUT /api/auth/dashboards/my-panel": (call) => json(200, { id: "my-panel", name: "My panel", scope: "fleet", position: 0, layout: (call.body as { layout: unknown }).layout, created_at: 1, updated_at: 1 }),
+      },
+      "/?panel=new",
+      undefined,
+      "New panel",
+    );
+    expect(screen.getByRole("textbox", { name: "Name" })).toHaveValue("My panel");
+    await user.click(await screen.findByRole("radio", { name: /The whole fleet/ }));
+    await user.click(screen.getByRole("radio", { name: "Empty" }));
+    await user.click(screen.getByRole("button", { name: "Create and customize" }));
+    await waitFor(() => expect(backend.callsTo("PUT /api/auth/dashboards/my-panel")).toHaveLength(1));
+    const body = backend.callsTo("PUT /api/auth/dashboards/my-panel")[0]?.body as { scope: string; layout: { widgets: unknown[] } };
+    expect(body.scope).toBe("fleet");
+    expect(body.layout.widgets).toEqual([]);
+    await waitFor(() => expect(location().pathname).toBe("/fleet"));
+    expect(location().search).toEqual({ panel: "my-panel", customise: true });
+  });
+
+  it("is not made when the account keeps as many as it may: it says so and makes nothing", async () => {
+    const full: RouteHandler = () =>
+      json(200, {
+        dashboards: [{ id: "only", name: "Only", scope: "server", position: 0, layout: document1([placed("apps", "wide")]), created_at: 1, updated_at: 1 }],
+        limits: { dashboards: 1, widgets: 40, columns: 12, document_bytes: 32768, settings_bytes: 2048 },
+      });
+    const { user, backend } = await home({ "GET /api/auth/dashboards": full }, "/?panel=new", undefined, "New panel");
+    await waitFor(() => expect(readPanelCache().panels).toHaveLength(1));
+    await user.click(screen.getByRole("button", { name: "Create and customize" }));
+    expect(await screen.findByText("An account keeps 1 panels at most. Delete one to make another.")).toBeInTheDocument();
+    expect(backend.callsTo("PUT /api/auth/dashboards/my-panel")).toHaveLength(0);
+  });
+
+  it("does not make one with no name: it says so beside the name and puts the keyboard there", async () => {
+    const { user } = await home(undefined, "/?panel=new", undefined, "New panel");
+    const field = screen.getByRole("textbox", { name: "Name" });
+    await user.clear(field);
+    await user.click(screen.getByRole("button", { name: "Create and customize" }));
+    expect(await screen.findByText("Give the panel a name.")).toBeInTheDocument();
+    expect(field).toHaveFocus();
+  });
+
+  it("has no accessibility violations", async () => {
+    await home(undefined, "/?panel=new", undefined, "New panel");
+    await expectNoAxeViolations(screen.getByRole("main"));
+  });
+});
+
+describe("Home, the fleet's panel", () => {
+  const FLEET = {
+    nodes: [],
+    servers: [],
+    refusals: [],
+    items: [
+      { name: "central-01", node: "central-01", local: true, reachability: "ok", overview: OVERVIEW },
+      { name: "web-2", node: "web-2", local: false, reachability: "ok", overview: overviewFixture() },
+    ],
+  };
+
+  it("draws the panel of the fleet at its address, from the central's answers and not from this server's own", async () => {
+    const { backend } = await home(
+      {
+        "GET /api/nodes": () => json(200, { items: NODES }),
+        "GET /api/fleet/summary": () => json(200, FLEET),
+        "GET /api/views/apps": () => json(200, { nodes: [], servers: [], refusals: [], items: [{ node: "central-01", domain: "shop.example.com", status: "running" }] }),
+        "GET /api/fleet/jobs/active": () => json(200, { nodes: [], servers: [], refusals: [], items: [] }),
+        "GET /api/fleet/updates": () => json(200, { nodes: [], servers: [], refusals: [], items: [] }),
+      },
+      "/fleet",
+      undefined,
+      "Fleet",
+    );
+    const names = await widgetsOnPage();
+    expect(names).toEqual(expect.arrayContaining(["Needs attention", "Servers of the fleet", "Applications", "System updates", "Work in progress", "Recent activity"]));
+    expect(await screen.findByText("The whole fleet: 2 servers")).toBeInTheDocument();
+    // The applications are the fleet's answer, not this server's own list: the one read of the Overview is the inbox's, in the frame.
+    expect(backend.callsTo("GET /api/apps")).toHaveLength(0);
+    expect(backend.callsTo("GET /api/overview").length).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("The panels, widget by widget", () => {
+  it("only draws widgets the catalog has: a stored panel with a type from the future does not break Home", async () => {
+    const future: Placed = { id: "from-the-future", type: "from-the-future", size: "small", settings: {} };
+    await home({ "GET /api/auth/dashboards": kept({ id: "server", name: "This server", layout: [future, placed("apps", "wide")] }) });
+    expect(await widgetsOnPage()).toEqual(["Applications"]);
+    expect(WIDGETS.map((widget) => widget.type as string)).not.toContain("from-the-future");
   });
 });

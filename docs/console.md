@@ -11,7 +11,7 @@ can do.
 Each part of the console has a page of its own:
 
 - [Start the console and sign in](console-start.md)
-- [Overview, map, charts, activity and logs](console-overview.md)
+- [Overview, charts, activity and logs](console-overview.md)
 - [Fleet](console-fleet.md)
 - [Applications: the list, recipes and each application](console-applications.md)
 - [Domains](console-domains.md)

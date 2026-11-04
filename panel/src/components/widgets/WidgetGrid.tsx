@@ -27,11 +27,11 @@ import { useLatest } from "./useLatest";
 import type { DragState, WidgetBoard } from "./useWidgetBoard";
 
 /** The place of a cell on the grid: explicit, so what is drawn is what the layout says. */
-function cellStyle(slot: Slot): CSSProperties {
+export function cellStyle(slot: Slot): CSSProperties {
   return { gridColumn: `${String(slot.x + 1)} / span ${String(slot.w)}`, gridRow: `${String(slot.y + 1)} / span ${String(slot.h)}` };
 }
 
-function gridStyle(columns: number): CSSProperties {
+export function gridStyle(columns: number): CSSProperties {
   return { gridTemplateColumns: `repeat(${String(columns)}, minmax(0, 1fr))`, gridAutoRows: `${String(ROW_PX)}px`, gap: `${String(GAP_PX)}px` };
 }
 

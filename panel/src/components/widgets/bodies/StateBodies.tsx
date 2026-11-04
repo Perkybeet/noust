@@ -16,7 +16,7 @@ import { openInbox } from "../../../features/approvals/store";
 import { describeActor, jobActionLabel } from "../../../features/activity/data";
 import { objectOf, textOf } from "../../../features/fleet/data";
 import { AttentionActionButton } from "../../../features/inbox/AttentionActionButton";
-import { reasonText } from "../../../features/overview/attentionWords";
+import { reasonDetail, reasonText } from "../../../features/overview/attentionWords";
 import { sinceOf } from "../../../features/overview/homeData";
 import type { ActivityLine, HomeAttention } from "../../../features/overview/homeData";
 import { useScopedHome } from "../../../features/overview/useHome";
@@ -51,7 +51,10 @@ function AttentionRow({ t, entry, showServer }: { t: T; entry: HomeAttention; sh
   const { item, server } = entry;
   const fail = item.severity === "fail";
   const state = fail ? "failed" : "warning";
-  const reason = item.reasons[0];
+  // Every reason is a sentence of the line. What the system said is shown as it came, after the sentences that say what it
+  // means (Principle 5): a sentence of Noust's own in the text's face and in this console's language, what a tool printed in mono.
+  const sentences = item.reasons.map((reason) => reasonText(t, reason)).join(", ");
+  const detail = item.reasons.map((reason) => reasonDetail(t, reason)).find((candidate) => candidate !== null) ?? null;
   const since = sinceOf(item);
   const node = server === null ? undefined : server.node;
   return (
@@ -64,7 +67,15 @@ function AttentionRow({ t, entry, showServer }: { t: T; entry: HomeAttention; sh
           {server.name}
         </span>
       ) : null}
-      <span className="min-w-0 flex-1 truncate text-13 text-fg-muted">{reason === undefined ? "" : reasonText(t, reason)}</span>
+      <span className="min-w-0 flex-1 truncate text-13 text-fg-muted">
+        {sentences}
+        {detail !== null ? (
+          <>
+            {": "}
+            {detail.sentence ? detail.text : <Mono tone="muted">{detail.text}</Mono>}
+          </>
+        ) : null}
+      </span>
       {since !== null ? <RelativeTime value={since} className="hidden shrink-0 text-12 text-fg-faint w-xwide:inline" /> : null}
       <span className="hidden shrink-0 w-wide:inline">
         <AttentionActionButton item={item} node={node} appearance="link" />
@@ -214,8 +225,6 @@ export function WorkBody({ scope }: WidgetBodyProps) {
 // ---------------------------------------------------------------------------------------
 // Recent activity
 
-const ACTIVITY_ROWS = 8;
-
 function ActivityRow({ t, line }: { t: T; line: ActivityLine }) {
   const { entry, at, server } = line;
   const view = deployStatus(entry.status, t.locale);
@@ -267,7 +276,7 @@ export function ActivityBody({ scope }: WidgetBodyProps) {
   if (home.lines.length === 0) return <p className="text-13 text-fg-muted">{t("overview.activity.emptyTitle")}</p>;
   return (
     <ul className="flex h-full flex-col overflow-hidden [&>li:nth-child(n+4)]:hidden w-tall:[&>li:nth-child(n+4)]:flex">
-      {home.lines.slice(0, ACTIVITY_ROWS).map((line) => (
+      {home.lines.map((line) => (
         <ActivityRow key={line.key} t={t} line={line} />
       ))}
     </ul>

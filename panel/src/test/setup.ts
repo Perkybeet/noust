@@ -5,6 +5,7 @@ import { afterEach, vi } from "vitest";
 import { resetApiHooks } from "../api/client";
 import { resetLocale } from "../app/locale";
 import { cancelElevation } from "../features/auth/elevation";
+import { resetPanelStore } from "../features/overview/panelStore";
 import { loadCatalog } from "../i18n/catalogs";
 import { FakeEventSource, FakeWebSocket } from "./fakes";
 
@@ -30,6 +31,8 @@ afterEach(() => {
   // stored theme and language, the fakes' registries.
   cancelElevation();
   resetApiHooks();
+  // The panels of Home a test arranged are in memory as well as in the storage cleared below.
+  resetPanelStore();
   for (const cookie of document.cookie.split(";")) {
     const name = cookie.split("=")[0]?.trim();
     if (name) document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;

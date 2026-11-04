@@ -19,8 +19,7 @@ import { appsViewQuery } from "../../api/queries/views";
 import { fleetViewQuery, objectOf, textOf } from "../fleet/data";
 import type { FleetRow, FleetView } from "../fleet/data";
 import { useAttention, useExtraAttention } from "../inbox/useAttention";
-import { ACTIVITY_SHOWN } from "./HomeActivity";
-import { attentionEntries, fleetServerHome, serverHome, timelineOf } from "./homeData";
+import { ACTIVITY_SHOWN, attentionEntries, fleetServerHome, serverHome, timelineOf } from "./homeData";
 import type { ActivityLine, HomeApp, HomeAttention, HomeServer } from "./homeData";
 import { isEmptyServer } from "./overviewData";
 

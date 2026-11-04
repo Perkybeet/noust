@@ -16,6 +16,23 @@
   container-name: w;
 }
 
+/* The sheet of a phone rises from the foot, follows a finger that swipes it down, and leaves faster than it came. */
+.sheet-popup {
+  transform: translateY(var(--drawer-swipe-movement-y, 0px));
+  transition: transform var(--duration-enter) var(--ease-enter);
+}
+.sheet-popup[data-starting-style],
+.sheet-popup[data-ending-style] {
+  transform: translateY(100%);
+}
+.sheet-popup[data-ending-style] {
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-exit);
+}
+.sheet-popup[data-swiping] {
+  transition-duration: 0s;
+}
+
 /* The page under a picked-up widget does not select text while it is dragged, and the pointer says so. */
 html.widget-dragging,
 html.widget-dragging * {
