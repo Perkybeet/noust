@@ -1195,6 +1195,171 @@ CATALOG: dict[str, str] = {
     "streams.firewall.allowed_several": "{backend} now allows {count} rules for it",
     "streams.firewall.unchanged": "The firewall was not changed",
     "streams.firewall.unchanged_because": "The firewall was not changed: {note}",
+    # -- Diagnose (noust.managers.diagnose): what each probe found, one sentence under its name ---
+    # The evidence under a sentence is what the system printed and is never one of these. A probe
+    # that is unmanaged says so in its own sentence (``..._unmanaged``) and a count has one form for
+    # one and one for several, because neither is a suffix in every language.
+    "diagnose.check.incomplete": "Could not complete this check",
+    "diagnose.php_fpm.no_record": "No application record",
+    "diagnose.php_fpm.ok": "The PHP-FPM pool answers ({service} {state})",
+    "diagnose.php_fpm.pool_disabled": (
+        "The PHP-FPM pool is disabled (stopped); start it with {command}."
+    ),
+    "diagnose.php_fpm.pool_missing": (
+        "The PHP-FPM pool file {pool_file} is missing; redeploy with {command}."
+    ),
+    "diagnose.php_fpm.service_down": "{service}, which runs every PHP pool, is {state}.",
+    "diagnose.php_fpm.config_refused": "PHP-FPM refuses its configuration; see {command} below.",
+    "diagnose.php_fpm.no_answer": (
+        "The PHP-FPM pool does not answer the health check; see PHP's errors below."
+    ),
+    "diagnose.containers.no_app": "No application recorded",
+    "diagnose.containers.publishes_port": "The stack publishes a port: judged as a web below",
+    "diagnose.containers.worker": "A worker: {summary}",
+    "diagnose.containers.worker_with_port": (
+        "A worker: {summary}; port {port} is recorded for it, and it publishes none. "
+        "Clear it with: {command}"
+    ),
+    "diagnose.unit.skipped_php": (
+        "PHP application: it runs in its PHP-FPM pool, checked under php_fpm, no unit"
+    ),
+    "diagnose.unit.skipped_static": "Static site: served directly by the web server, no unit",
+    "diagnose.unit.missing": "No systemd unit found for {unit}",
+    "diagnose.unit.active": "{unit_file} is active (running)",
+    "diagnose.unit.active_unmanaged": "{unit_file} is active (running) (not managed by Noust)",
+    "diagnose.unit.restarting": "{unit_file} is restarting ({restarts} restarts so far)",
+    "diagnose.unit.restarting_unmanaged": (
+        "{unit_file} is restarting (not managed by Noust) ({restarts} restarts so far)"
+    ),
+    "diagnose.unit.failed": "{unit_file} failed (Result={result})",
+    "diagnose.unit.failed_unmanaged": "{unit_file} failed (not managed by Noust) (Result={result})",
+    "diagnose.unit.state": "{unit_file} is {active_state}/{sub_state}",
+    "diagnose.unit.state_unmanaged": (
+        "{unit_file} is {active_state}/{sub_state} (not managed by Noust)"
+    ),
+    "diagnose.port.skipped_php": (
+        "PHP application: it runs in its PHP-FPM pool, checked under php_fpm, "
+        "no backend port to check"
+    ),
+    "diagnose.port.skipped_static": (
+        "Static site: served directly by the web server, no backend port to check"
+    ),
+    "diagnose.port.not_recorded": "No port recorded for this app",
+    "diagnose.port.listening": "Port {port} is listening",
+    "diagnose.port.listening_process": "Port {port} is listening ({processes})",
+    "diagnose.port.elsewhere": (
+        "The app listens on {actual_port}, not the recorded port {recorded_port}"
+    ),
+    "diagnose.port.silent": "Nothing is listening on port {port}",
+    "diagnose.http_direct.no_port": "No backend port to probe directly",
+    "diagnose.http_direct.unreachable": "Could not reach the app directly on port {port}",
+    "diagnose.http_direct.status": "HTTP {status} from 127.0.0.1:{port}",
+    "diagnose.http_nginx.unreachable": "Could not reach nginx for {domain}",
+    "diagnose.http_nginx.status": "HTTP {status} from nginx for Host: {domain}",
+    "diagnose.journal.skipped_php": (
+        "PHP application: it runs in its PHP-FPM pool, checked under php_fpm, "
+        "no unit to read logs from"
+    ),
+    "diagnose.journal.skipped_static": (
+        "Static site: served directly by the web server, no unit to read logs from"
+    ),
+    "diagnose.journal.no_unit": "No unit named {unit} to read logs from",
+    "diagnose.journal.unreadable": "Could not read the journal for {unit_file}",
+    "diagnose.journal.empty": "No journal entries for {unit_file}",
+    "diagnose.journal.lines_one": "Last journal line for {unit_file}",
+    "diagnose.journal.lines_several": "Last {count} journal lines for {unit_file}",
+    "diagnose.blue_green.off": "Not in zero-downtime mode",
+    "diagnose.blue_green.no_instance": (
+        "Zero-downtime mode is on but no instance is recorded as serving"
+    ),
+    "diagnose.blue_green.upstream_mismatch": (
+        "nginx proxies to {upstream_port}, but {serving} serves on {port}"
+    ),
+    "diagnose.blue_green.upstream_none": "nginx proxies to no upstream, but {serving} serves on {port}",
+    "diagnose.blue_green.leftover": (
+        "{unit}.service still runs beside the instances; "
+        "the next activation will refuse to start blue on port {port}"
+    ),
+    "diagnose.blue_green.serving": "{serving} serves on port {port}; {idle} is {idle_state}",
+    "diagnose.blue_green.serving_release": (
+        "{serving} serves release {release} on port {port}; {idle} is {idle_state}"
+    ),
+    "diagnose.blue_green.idle_failed": (
+        "{serving} serves on port {port}; {idle} is {idle_state}; "
+        "its last start failed, so {serving} kept serving"
+    ),
+    "diagnose.blue_green.idle_failed_release": (
+        "{serving} serves release {release} on port {port}; {idle} is {idle_state}; "
+        "its last start failed, so {serving} kept serving"
+    ),
+    "diagnose.nginx_log.unreadable": "Could not read {path}",
+    "diagnose.nginx_log.clean": "No nginx error log lines mention this domain",
+    "diagnose.nginx_log.lines_one": "1 nginx error log line mentions this domain or an upstream",
+    "diagnose.nginx_log.lines_several": (
+        "{count} nginx error log lines mention this domain or an upstream"
+    ),
+    "diagnose.certificate.missing": "TLS is enabled for {domain} but no certificate was found",
+    "diagnose.certificate.none": "No certificate found for {domain}",
+    "diagnose.certificate.no_expiry": "Could not read the expiry date for {label}",
+    "diagnose.certificate.bad_expiry": "Unreadable expiry date for {label}",
+    "diagnose.certificate.expired": "The certificate for {label} expired on {expiry}",
+    "diagnose.certificate.expires_one": "The certificate for {label} expires in 1 day",
+    "diagnose.certificate.expires_several": "The certificate for {label} expires in {days} days",
+    "diagnose.certificate.valid_one": "The certificate for {label} is valid for 1 more day",
+    "diagnose.certificate.valid_several": (
+        "The certificate for {label} is valid for {days} more days"
+    ),
+    "diagnose.last_deployment.none": "No deployment recorded for this domain",
+    "diagnose.last_deployment.cancelled": (
+        "The last deployment was cancelled; what served before still serves"
+    ),
+    "diagnose.last_deployment.cancelled_by": (
+        "The last deployment was cancelled by {actor}; what served before still serves"
+    ),
+    "diagnose.last_deployment.failed": "The last deployment failed",
+    "diagnose.last_deployment.failed_with": "The last deployment failed: {error}",
+    "diagnose.last_deployment.succeeded": "The last deployment succeeded",
+    "diagnose.last_deployment.state": "The last deployment is {status}",
+    "diagnose.oom.unreadable": "Could not read the kernel log",
+    "diagnose.oom.none": "No OOM kills in the kernel log in the last 7 days",
+    "diagnose.oom.found": "The kernel log shows OOM activity in the last 7 days",
+    "diagnose.disk.usage": "{free} free ({percent}% used) on the filesystem holding {path}",
+    "diagnose.zero_downtime.could": "Its updates restart it in place; it could update without a cut",
+    # What the checks add up to, the most likely cause (``probable_cause``). A pool's cause is the
+    # sentence of its own check, so it has no entry here.
+    "diagnose.cause.worker": "The worker's {summary}; see their output below.",
+    "diagnose.cause.no_unit": (
+        "No systemd unit found for {unit}; it has never been started or its unit was removed."
+    ),
+    "diagnose.cause.oom": "Killed by the kernel for running out of memory (limit or machine).",
+    "diagnose.cause.crash_loop": (
+        "The process exits with status {status} at start; see the last journal lines below."
+    ),
+    "diagnose.cause.unit_failed": (
+        "The unit failed to start (Result={result}, exit status {status}); "
+        "see the last journal lines below."
+    ),
+    "diagnose.cause.upstream_mismatch": (
+        "nginx proxies {domain} to {upstream_port}, but the {serving} instance listens on {port}."
+    ),
+    "diagnose.cause.upstream_none": (
+        "nginx proxies {domain} to no upstream, but the {serving} instance listens on {port}."
+    ),
+    "diagnose.cause.port_elsewhere": "Listening on {actual_port}, Noust routes to {recorded_port}.",
+    "diagnose.cause.port_silent": "The process is running but not listening on port {port}.",
+    "diagnose.cause.nginx_status": (
+        "The app answers directly, but nginx returns {status} for {domain}; "
+        "nginx cannot reach the app."
+    ),
+    "diagnose.cause.nginx_unreachable": (
+        "The app answers directly, but nginx cannot connect ({error}) for {domain}; "
+        "nginx cannot reach the app."
+    ),
+    "diagnose.cause.certificate_expired": "The TLS certificate for {domain} expired on {expiry}.",
+    "diagnose.cause.worker_port": (
+        "{domain} publishes no port, yet port {port} is recorded for it: clear it with {command}."
+    ),
+    "diagnose.cause.disk_full": "The disk holding the apps directory is {percent}% full.",
 }
 
 

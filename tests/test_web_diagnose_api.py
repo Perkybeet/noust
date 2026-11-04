@@ -22,6 +22,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from noust.core.runner import FakeRunner
+from noust.core.server_text import say
 from noust.managers.diagnose import Check, Diagnosis
 from noust.web.api import diagnose as diagnose_api
 from noust.web.api.auth import get_current_session
@@ -89,21 +90,50 @@ def test_the_route_serves_the_diagnosis_the_cli_would_print(
         "domain": "example.com",
         "verdict": "down",
         "probable_cause": "The systemd unit is not running.",
+        "probable_cause_coded": None,
         "checks": [
             {
                 "name": "unit",
                 "status": "fail",
                 "summary": "Unit is inactive",
                 "evidence": "inactive\n",
+                "coded": None,
             },
             {
                 "name": "port",
                 "status": "skip",
                 "summary": "Could not complete this check",
                 "evidence": "",
+                "coded": None,
             },
         ],
     }
+
+
+def test_each_sentence_travels_with_its_code_and_values_beside_its_english(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The console translates by the code; a client that does not read it reads the English."""
+    cause = say("diagnose.cause.port_silent", port=3000)
+    silent = say("diagnose.port.silent", port=3000)
+    diagnosis = Diagnosis(
+        domain="example.com",
+        verdict="down",
+        probable_cause=cause.text,
+        checks=(Check("port", "fail", silent.text, "", silent),),
+        probable_cause_coded=cause,
+    )
+    _stub(monkeypatch, diagnosis)
+
+    body = client.get("/api/apps/example.com/diagnose").json()
+
+    assert body["probable_cause"] == "The process is running but not listening on port 3000."
+    assert body["probable_cause_coded"] == {
+        "code": "diagnose.cause.port_silent",
+        "params": {"port": 3000},
+    }
+    assert body["checks"][0]["summary"] == "Nothing is listening on port 3000"
+    assert body["checks"][0]["coded"] == {"code": "diagnose.port.silent", "params": {"port": 3000}}
 
 
 def test_a_clean_diagnosis_has_no_probable_cause(

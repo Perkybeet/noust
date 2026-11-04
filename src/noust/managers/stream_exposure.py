@@ -392,7 +392,7 @@ class StreamExposures:
             return _refused(
                 "missing",
                 "manual",
-                self._stream_module_missing("streams.support.no_stream_module"),
+                self._no_stream_module(),
                 install=self._supplied_by(STREAM_MODULE),
             )
         kind = "dynamic" if built.group("kind") == "dynamic" else "static"
@@ -416,7 +416,7 @@ class StreamExposures:
             return _refused(
                 kind,
                 "manual",
-                self._stream_module_missing("streams.support.module_not_loaded"),
+                self._module_not_loaded(),
                 install=self._supplied_by(STREAM_MODULE),
             )
         loader = self._loader_state(tree)
@@ -437,24 +437,36 @@ class StreamExposures:
             ),
         )
 
-    def _stream_module_missing(self, code: str) -> ServerText:
+    def _install_command(self) -> str | None:
         """
-        Say what to do about a stream module that nginx lacks or nothing loads, on this system.
-
-        Args:
-            code: ``streams.support.no_stream_module`` or ``streams.support.module_not_loaded``;
-                openSUSE has its own sentence for each (``..._suse``), because it builds the
-                module in and there is no package to install.
-
         Returns:
-            The sentence, with the command that installs the package where there is one.
+            The command that installs the stream module on this system, every family's when
+            it is not known; None on openSUSE, which builds the module into nginx.
         """
         family = package_family(self.runner)
         if family is PackageFamily.ZYPPER:
-            if code.endswith("not_loaded"):
-                return say(f"{code}_suse", line_command=_LOAD_MODULE_LINE)
-            return say(f"{code}_suse")
-        return say(code, command=install_hint(_STREAM_PACKAGES, runner=self.runner, family=family))
+            return None
+        return install_hint(_STREAM_PACKAGES, runner=self.runner, family=family)
+
+    def _no_stream_module(self) -> ServerText:
+        """
+        Returns:
+            What to do about an nginx built without the stream module, on this system.
+        """
+        command = self._install_command()
+        if command is None:
+            return say("streams.support.no_stream_module_suse")
+        return say("streams.support.no_stream_module", command=command)
+
+    def _module_not_loaded(self) -> ServerText:
+        """
+        Returns:
+            What to do about a stream module that nothing loads, on this system.
+        """
+        command = self._install_command()
+        if command is None:
+            return say("streams.support.module_not_loaded_suse", line_command=_LOAD_MODULE_LINE)
+        return say("streams.support.module_not_loaded", command=command)
 
     def _supplied_by(self, component_id: str) -> str | None:
         """

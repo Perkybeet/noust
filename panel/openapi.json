@@ -17658,8 +17658,18 @@
         "type": "object"
       },
       "DiagnoseCheck": {
-        "description": "One diagnostic probe's result.\n\nMirrors :class:`noust.managers.diagnose.Check` field for field: this module\nonly translates it to HTTP, it does not reinterpret it.\n\nAttributes:\n    name: Stable identifier for the probe, such as ``\"unit\"`` or ``\"port\"``.\n    status: ``\"ok\"``, ``\"warn\"``, ``\"fail\"`` or ``\"skip\"``.\n    summary: One line, in Noust's own words.\n    evidence: Raw output the probe collected, verbatim.",
+        "description": "One diagnostic probe's result.\n\nMirrors :class:`noust.managers.diagnose.Check` field for field: this module\nonly translates it to HTTP, it does not reinterpret it.\n\nAttributes:\n    name: Stable identifier for the probe, such as ``\"unit\"`` or ``\"port\"``.\n    status: ``\"ok\"``, ``\"warn\"``, ``\"fail\"`` or ``\"skip\"``.\n    summary: One line, in Noust's own words.\n    evidence: Raw output the probe collected, verbatim.\n    coded: ``summary`` as a code and its values, for the console to translate; null for\n        a check nobody gave a code.",
         "properties": {
+          "coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "evidence": {
             "default": "",
             "title": "Evidence",
@@ -17687,7 +17697,7 @@
         "type": "object"
       },
       "DiagnoseResponse": {
-        "description": "The full answer to \"why is this app down\".\n\nMirrors :class:`noust.managers.diagnose.Diagnosis`, which is also what\n``noust diagnose --json`` prints - the console and the CLI read the same\nshape.\n\nAttributes:\n    domain: The domain that was diagnosed.\n    verdict: ``\"healthy\"``, ``\"degraded\"`` or ``\"down\"``.\n    probable_cause: One sentence naming the most likely explanation, or\n        ``None`` when the checks disagree with each other or are all clean.\n    checks: Every probe that ran, in the order it ran in.",
+        "description": "The full answer to \"why is this app down\".\n\nMirrors :class:`noust.managers.diagnose.Diagnosis`, which is also what\n``noust diagnose --json`` prints - the console and the CLI read the same\nshape.\n\nAttributes:\n    domain: The domain that was diagnosed.\n    verdict: ``\"healthy\"``, ``\"degraded\"`` or ``\"down\"``.\n    probable_cause: One sentence naming the most likely explanation, or\n        ``None`` when the checks disagree with each other or are all clean.\n    checks: Every probe that ran, in the order it ran in.\n    probable_cause_coded: ``probable_cause`` as a code and its values; null when there\n        is no cause.",
         "properties": {
           "checks": {
             "items": {
@@ -17710,6 +17720,16 @@
               }
             ],
             "title": "Probable Cause"
+          },
+          "probable_cause_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "verdict": {
             "title": "Verdict",

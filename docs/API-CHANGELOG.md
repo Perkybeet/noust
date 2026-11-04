@@ -69,6 +69,11 @@ under Changed: one field that becomes optional, one refusal that is new and one 
     `support.hint` with no code of its own). `POST /api/streams/plan` and `POST /api/streams` carry
     `warnings_coded` beside `warnings`, and the latter `firewall_coded` beside `firewall`, which now says
     "1 rule" and "N rules" where it said "rule(s)". A refusal to publish (`409`) carries `coded`.
+  - Diagnosis: every check of `GET /api/apps/{domain}/diagnose` carries `coded` beside `summary`, and the
+    response `probable_cause_coded` beside `probable_cause`, for the checks `unit`, `port`, `http_direct`,
+    `http_nginx`, `journal`, `nginx_log`, `certificate`, `last_deployment`, `oom`, `disk`, `blue_green`,
+    `zero_downtime`, `php_fpm` and `containers`. `evidence` is what the system printed and has no code.
+    A count says "1 day" and "N days" where it said "day(s)". `noust diagnose --json` prints the same fields.
 
 ### Changed
 

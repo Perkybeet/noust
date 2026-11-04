@@ -194,6 +194,310 @@ export const serverText = {
     stack_not_restored: { text: "The update of {domain} did not pass its startup check; what was serving could not be put back entirely" },
     stack_unhealthy: { text: "The update of {domain} did not pass its startup check" },
   },
+  diagnose: {
+    blue_green: {
+      idle_failed: {
+        text: "{serving} serves on port {port}; {idle} is {idle_state}; its last start failed, so {serving} kept serving",
+      },
+      idle_failed_release: {
+        text: "{serving} serves release {release} on port {port}; {idle} is {idle_state}; its last start failed, so {serving} kept serving",
+      },
+      leftover: {
+        text: "{unit}.service still runs beside the instances; the next activation will refuse to start blue on port {port}",
+      },
+      no_instance: {
+        text: "Zero-downtime mode is on but no instance is recorded as serving",
+      },
+      off: {
+        text: "Not in zero-downtime mode",
+      },
+      serving: {
+        text: "{serving} serves on port {port}; {idle} is {idle_state}",
+      },
+      serving_release: {
+        text: "{serving} serves release {release} on port {port}; {idle} is {idle_state}",
+      },
+      upstream_mismatch: {
+        text: "nginx proxies to {upstream_port}, but {serving} serves on {port}",
+      },
+      upstream_none: {
+        text: "nginx proxies to no upstream, but {serving} serves on {port}",
+      },
+    },
+    cause: {
+      certificate_expired: {
+        text: "The TLS certificate for {domain} expired on {expiry}.",
+      },
+      crash_loop: {
+        text: "The process exits with status {status} at start; see the last journal lines below.",
+      },
+      disk_full: {
+        text: "The disk holding the apps directory is {percent}% full.",
+      },
+      nginx_status: {
+        text: "The app answers directly, but nginx returns {status} for {domain}; nginx cannot reach the app.",
+      },
+      nginx_unreachable: {
+        text: "The app answers directly, but nginx cannot connect ({error}) for {domain}; nginx cannot reach the app.",
+      },
+      no_unit: {
+        text: "No systemd unit found for {unit}; it has never been started or its unit was removed.",
+      },
+      oom: {
+        text: "Killed by the kernel for running out of memory (limit or machine).",
+      },
+      port_elsewhere: {
+        text: "Listening on {actual_port}, Noust routes to {recorded_port}.",
+      },
+      port_silent: {
+        text: "The process is running but not listening on port {port}.",
+      },
+      unit_failed: {
+        text: "The unit failed to start (Result={result}, exit status {status}); see the last journal lines below.",
+      },
+      upstream_mismatch: {
+        text: "nginx proxies {domain} to {upstream_port}, but the {serving} instance listens on {port}.",
+      },
+      upstream_none: {
+        text: "nginx proxies {domain} to no upstream, but the {serving} instance listens on {port}.",
+      },
+      worker: {
+        text: "The worker's {summary}; see their output below.",
+      },
+      worker_port: {
+        text: "{domain} publishes no port, yet port {port} is recorded for it: clear it with {command}.",
+      },
+    },
+    certificate: {
+      bad_expiry: {
+        text: "Unreadable expiry date for {label}",
+      },
+      expired: {
+        text: "The certificate for {label} expired on {expiry}",
+      },
+      expires_one: {
+        text: "The certificate for {label} expires in 1 day",
+      },
+      expires_several: {
+        text: "The certificate for {label} expires in {days} days",
+      },
+      missing: {
+        text: "TLS is enabled for {domain} but no certificate was found",
+      },
+      no_expiry: {
+        text: "Could not read the expiry date for {label}",
+      },
+      none: {
+        text: "No certificate found for {domain}",
+      },
+      valid_one: {
+        text: "The certificate for {label} is valid for 1 more day",
+      },
+      valid_several: {
+        text: "The certificate for {label} is valid for {days} more days",
+      },
+    },
+    check: {
+      incomplete: {
+        text: "Could not complete this check",
+      },
+    },
+    containers: {
+      no_app: {
+        text: "No application recorded",
+      },
+      publishes_port: {
+        text: "The stack publishes a port: judged as a web below",
+      },
+      worker: {
+        text: "A worker: {summary}",
+      },
+      worker_with_port: {
+        text: "A worker: {summary}; port {port} is recorded for it, and it publishes none. Clear it with: {command}",
+      },
+    },
+    disk: {
+      usage: {
+        text: "{free} free ({percent}% used) on the filesystem holding {path}",
+      },
+    },
+    http_direct: {
+      no_port: {
+        text: "No backend port to probe directly",
+      },
+      status: {
+        text: "HTTP {status} from 127.0.0.1:{port}",
+      },
+      unreachable: {
+        text: "Could not reach the app directly on port {port}",
+      },
+    },
+    http_nginx: {
+      status: {
+        text: "HTTP {status} from nginx for Host: {domain}",
+      },
+      unreachable: {
+        text: "Could not reach nginx for {domain}",
+      },
+    },
+    journal: {
+      empty: {
+        text: "No journal entries for {unit_file}",
+      },
+      lines_one: {
+        text: "Last journal line for {unit_file}",
+      },
+      lines_several: {
+        text: "Last {count} journal lines for {unit_file}",
+      },
+      no_unit: {
+        text: "No unit named {unit} to read logs from",
+      },
+      skipped_php: {
+        text: "PHP application: it runs in its PHP-FPM pool, checked under php_fpm, no unit to read logs from",
+      },
+      skipped_static: {
+        text: "Static site: served directly by the web server, no unit to read logs from",
+      },
+      unreadable: {
+        text: "Could not read the journal for {unit_file}",
+      },
+    },
+    last_deployment: {
+      cancelled: {
+        text: "The last deployment was cancelled; what served before still serves",
+      },
+      cancelled_by: {
+        text: "The last deployment was cancelled by {actor}; what served before still serves",
+      },
+      failed: {
+        text: "The last deployment failed",
+      },
+      failed_with: {
+        text: "The last deployment failed: {error}",
+      },
+      none: {
+        text: "No deployment recorded for this domain",
+      },
+      state: {
+        text: "The last deployment is {status}",
+      },
+      succeeded: {
+        text: "The last deployment succeeded",
+      },
+    },
+    nginx_log: {
+      clean: {
+        text: "No nginx error log lines mention this domain",
+      },
+      lines_one: {
+        text: "1 nginx error log line mentions this domain or an upstream",
+      },
+      lines_several: {
+        text: "{count} nginx error log lines mention this domain or an upstream",
+      },
+      unreadable: {
+        text: "Could not read {path}",
+      },
+    },
+    oom: {
+      found: {
+        text: "The kernel log shows OOM activity in the last 7 days",
+      },
+      none: {
+        text: "No OOM kills in the kernel log in the last 7 days",
+      },
+      unreadable: {
+        text: "Could not read the kernel log",
+      },
+    },
+    php_fpm: {
+      config_refused: {
+        text: "PHP-FPM refuses its configuration; see {command} below.",
+      },
+      no_answer: {
+        text: "The PHP-FPM pool does not answer the health check; see PHP's errors below.",
+      },
+      no_record: {
+        text: "No application record",
+      },
+      ok: {
+        text: "The PHP-FPM pool answers ({service} {state})",
+      },
+      pool_disabled: {
+        text: "The PHP-FPM pool is disabled (stopped); start it with {command}.",
+      },
+      pool_missing: {
+        text: "The PHP-FPM pool file {pool_file} is missing; redeploy with {command}.",
+      },
+      service_down: {
+        text: "{service}, which runs every PHP pool, is {state}.",
+      },
+    },
+    port: {
+      elsewhere: {
+        text: "The app listens on {actual_port}, not the recorded port {recorded_port}",
+      },
+      listening: {
+        text: "Port {port} is listening",
+      },
+      listening_process: {
+        text: "Port {port} is listening ({processes})",
+      },
+      not_recorded: {
+        text: "No port recorded for this app",
+      },
+      silent: {
+        text: "Nothing is listening on port {port}",
+      },
+      skipped_php: {
+        text: "PHP application: it runs in its PHP-FPM pool, checked under php_fpm, no backend port to check",
+      },
+      skipped_static: {
+        text: "Static site: served directly by the web server, no backend port to check",
+      },
+    },
+    unit: {
+      active: {
+        text: "{unit_file} is active (running)",
+      },
+      active_unmanaged: {
+        text: "{unit_file} is active (running) (not managed by Noust)",
+      },
+      failed: {
+        text: "{unit_file} failed (Result={result})",
+      },
+      failed_unmanaged: {
+        text: "{unit_file} failed (not managed by Noust) (Result={result})",
+      },
+      missing: {
+        text: "No systemd unit found for {unit}",
+      },
+      restarting: {
+        text: "{unit_file} is restarting ({restarts} restarts so far)",
+      },
+      restarting_unmanaged: {
+        text: "{unit_file} is restarting (not managed by Noust) ({restarts} restarts so far)",
+      },
+      skipped_php: {
+        text: "PHP application: it runs in its PHP-FPM pool, checked under php_fpm, no unit",
+      },
+      skipped_static: {
+        text: "Static site: served directly by the web server, no unit",
+      },
+      state: {
+        text: "{unit_file} is {active_state}/{sub_state}",
+      },
+      state_unmanaged: {
+        text: "{unit_file} is {active_state}/{sub_state} (not managed by Noust)",
+      },
+    },
+    zero_downtime: {
+      could: {
+        text: "Its updates restart it in place; it could update without a cut",
+      },
+    },
+  },
   doctor: {
     config: {
       apps_dir_missing: {

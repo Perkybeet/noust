@@ -183,6 +183,310 @@ export const serverText: Catalog<typeof en> = {
     stack_not_restored: { text: "La actualización de {domain} no superó la comprobación de arranque; lo que estaba sirviendo no se pudo recuperar por completo" },
     stack_unhealthy: { text: "La actualización de {domain} no superó la comprobación de arranque" },
   },
+  diagnose: {
+    blue_green: {
+      idle_failed: {
+        text: "{serving} sirve en el puerto {port}; {idle} está {idle_state}; su último arranque falló, así que {serving} siguió sirviendo",
+      },
+      idle_failed_release: {
+        text: "{serving} sirve la versión {release} en el puerto {port}; {idle} está {idle_state}; su último arranque falló, así que {serving} siguió sirviendo",
+      },
+      leftover: {
+        text: "{unit}.service sigue en marcha junto a las instancias; la próxima activación se negará a arrancar blue en el puerto {port}",
+      },
+      no_instance: {
+        text: "El modo sin cortes está activado, pero ninguna instancia consta como la que sirve",
+      },
+      off: {
+        text: "No está en modo sin cortes",
+      },
+      serving: {
+        text: "{serving} sirve en el puerto {port}; {idle} está {idle_state}",
+      },
+      serving_release: {
+        text: "{serving} sirve la versión {release} en el puerto {port}; {idle} está {idle_state}",
+      },
+      upstream_mismatch: {
+        text: "nginx envía al {upstream_port}, pero {serving} sirve en el {port}",
+      },
+      upstream_none: {
+        text: "nginx no envía a ningún servidor, pero {serving} sirve en el {port}",
+      },
+    },
+    cause: {
+      certificate_expired: {
+        text: "El certificado TLS de {domain} caducó el {expiry}.",
+      },
+      crash_loop: {
+        text: "El proceso termina con el estado {status} al arrancar; mira las últimas líneas del diario más abajo.",
+      },
+      disk_full: {
+        text: "El disco que contiene el directorio de aplicaciones está al {percent}%.",
+      },
+      nginx_status: {
+        text: "La aplicación responde directamente, pero nginx devuelve {status} para {domain}; nginx no llega a la aplicación.",
+      },
+      nginx_unreachable: {
+        text: "La aplicación responde directamente, pero nginx no puede conectar ({error}) para {domain}; nginx no llega a la aplicación.",
+      },
+      no_unit: {
+        text: "No hay unidad de systemd para {unit}; nunca se arrancó o se quitó su unidad.",
+      },
+      oom: {
+        text: "El kernel la mató por quedarse sin memoria (por el límite o por la máquina).",
+      },
+      port_elsewhere: {
+        text: "Escucha en el {actual_port}, pero Noust enruta al {recorded_port}.",
+      },
+      port_silent: {
+        text: "El proceso está en marcha, pero no escucha en el puerto {port}.",
+      },
+      unit_failed: {
+        text: "La unidad no pudo arrancar (Result={result}, estado de salida {status}); mira las últimas líneas del diario más abajo.",
+      },
+      upstream_mismatch: {
+        text: "nginx envía {domain} al {upstream_port}, pero la instancia {serving} escucha en el {port}.",
+      },
+      upstream_none: {
+        text: "nginx no envía {domain} a ningún servidor, pero la instancia {serving} escucha en el {port}.",
+      },
+      worker: {
+        text: "El worker: {summary}; mira su salida más abajo.",
+      },
+      worker_port: {
+        text: "{domain} no publica ningún puerto, pero tiene registrado el {port}: quítalo con {command}.",
+      },
+    },
+    certificate: {
+      bad_expiry: {
+        text: "La fecha de caducidad de {label} no se puede leer",
+      },
+      expired: {
+        text: "El certificado de {label} caducó el {expiry}",
+      },
+      expires_one: {
+        text: "El certificado de {label} caduca en 1 día",
+      },
+      expires_several: {
+        text: "El certificado de {label} caduca en {days} días",
+      },
+      missing: {
+        text: "TLS está activado para {domain}, pero no se encontró ningún certificado",
+      },
+      no_expiry: {
+        text: "No se pudo leer la fecha de caducidad de {label}",
+      },
+      none: {
+        text: "No se encontró ningún certificado para {domain}",
+      },
+      valid_one: {
+        text: "El certificado de {label} es válido 1 día más",
+      },
+      valid_several: {
+        text: "El certificado de {label} es válido {days} días más",
+      },
+    },
+    check: {
+      incomplete: {
+        text: "No se pudo completar esta comprobación",
+      },
+    },
+    containers: {
+      no_app: {
+        text: "No hay ninguna aplicación registrada",
+      },
+      publishes_port: {
+        text: "El stack publica un puerto: se juzga como una web, más abajo",
+      },
+      worker: {
+        text: "Un worker: {summary}",
+      },
+      worker_with_port: {
+        text: "Un worker: {summary}; tiene registrado el puerto {port} y no publica ninguno. Quítalo con: {command}",
+      },
+    },
+    disk: {
+      usage: {
+        text: "{free} libres ({percent}% usado) en el sistema de archivos que contiene {path}",
+      },
+    },
+    http_direct: {
+      no_port: {
+        text: "No hay puerto de servicio que sondear directamente",
+      },
+      status: {
+        text: "HTTP {status} desde 127.0.0.1:{port}",
+      },
+      unreachable: {
+        text: "No se pudo llegar a la aplicación directamente, en el puerto {port}",
+      },
+    },
+    http_nginx: {
+      status: {
+        text: "HTTP {status} desde nginx para Host: {domain}",
+      },
+      unreachable: {
+        text: "No se pudo llegar a nginx para {domain}",
+      },
+    },
+    journal: {
+      empty: {
+        text: "No hay entradas en el diario de {unit_file}",
+      },
+      lines_one: {
+        text: "Última línea del diario de {unit_file}",
+      },
+      lines_several: {
+        text: "Últimas {count} líneas del diario de {unit_file}",
+      },
+      no_unit: {
+        text: "No hay ninguna unidad llamada {unit} de la que leer el registro",
+      },
+      skipped_php: {
+        text: "Aplicación PHP: se ejecuta en su pool de PHP-FPM, que se comprueba aparte; no hay unidad de la que leer el registro",
+      },
+      skipped_static: {
+        text: "Sitio estático: lo sirve directamente el servidor web; no hay unidad de la que leer el registro",
+      },
+      unreadable: {
+        text: "No se pudo leer el diario de {unit_file}",
+      },
+    },
+    last_deployment: {
+      cancelled: {
+        text: "El último despliegue se canceló; lo que servía antes sigue sirviendo",
+      },
+      cancelled_by: {
+        text: "El último despliegue lo canceló {actor}; lo que servía antes sigue sirviendo",
+      },
+      failed: {
+        text: "El último despliegue falló",
+      },
+      failed_with: {
+        text: "El último despliegue falló: {error}",
+      },
+      none: {
+        text: "No hay ningún despliegue registrado para este dominio",
+      },
+      state: {
+        text: "El último despliegue está {status}",
+      },
+      succeeded: {
+        text: "El último despliegue salió bien",
+      },
+    },
+    nginx_log: {
+      clean: {
+        text: "Ninguna línea del registro de errores de nginx menciona este dominio",
+      },
+      lines_one: {
+        text: "Una línea del registro de errores de nginx menciona este dominio o un servidor de destino",
+      },
+      lines_several: {
+        text: "{count} líneas del registro de errores de nginx mencionan este dominio o un servidor de destino",
+      },
+      unreadable: {
+        text: "No se pudo leer {path}",
+      },
+    },
+    oom: {
+      found: {
+        text: "El registro del kernel muestra actividad por falta de memoria en los últimos 7 días",
+      },
+      none: {
+        text: "No hay procesos matados por falta de memoria en el registro del kernel en los últimos 7 días",
+      },
+      unreadable: {
+        text: "No se pudo leer el registro del kernel",
+      },
+    },
+    php_fpm: {
+      config_refused: {
+        text: "PHP-FPM rechaza su configuración; mira {command} más abajo.",
+      },
+      no_answer: {
+        text: "El pool de PHP-FPM no responde a la comprobación de salud; mira los errores de PHP más abajo.",
+      },
+      no_record: {
+        text: "No hay registro de la aplicación",
+      },
+      ok: {
+        text: "El pool de PHP-FPM responde ({service} {state})",
+      },
+      pool_disabled: {
+        text: "El pool de PHP-FPM está desactivado (parado); arráncalo con {command}.",
+      },
+      pool_missing: {
+        text: "Falta el archivo del pool de PHP-FPM {pool_file}; vuelve a desplegar con {command}.",
+      },
+      service_down: {
+        text: "{service}, que ejecuta todos los pools de PHP, está {state}.",
+      },
+    },
+    port: {
+      elsewhere: {
+        text: "La aplicación escucha en el {actual_port}, no en el puerto registrado, el {recorded_port}",
+      },
+      listening: {
+        text: "El puerto {port} está a la escucha",
+      },
+      listening_process: {
+        text: "El puerto {port} está a la escucha ({processes})",
+      },
+      not_recorded: {
+        text: "No hay ningún puerto registrado para esta aplicación",
+      },
+      silent: {
+        text: "Nada escucha en el puerto {port}",
+      },
+      skipped_php: {
+        text: "Aplicación PHP: se ejecuta en su pool de PHP-FPM, que se comprueba aparte; no hay puerto que comprobar",
+      },
+      skipped_static: {
+        text: "Sitio estático: lo sirve directamente el servidor web; no hay puerto que comprobar",
+      },
+    },
+    unit: {
+      active: {
+        text: "{unit_file} está activa (en marcha)",
+      },
+      active_unmanaged: {
+        text: "{unit_file} está activa (en marcha) (no la gestiona Noust)",
+      },
+      failed: {
+        text: "{unit_file} ha fallado (Result={result})",
+      },
+      failed_unmanaged: {
+        text: "{unit_file} ha fallado (no la gestiona Noust) (Result={result})",
+      },
+      missing: {
+        text: "No se encontró ninguna unidad de systemd para {unit}",
+      },
+      restarting: {
+        text: "{unit_file} se está reiniciando ({restarts} reinicios hasta ahora)",
+      },
+      restarting_unmanaged: {
+        text: "{unit_file} se está reiniciando (no la gestiona Noust) ({restarts} reinicios hasta ahora)",
+      },
+      skipped_php: {
+        text: "Aplicación PHP: se ejecuta en su pool de PHP-FPM, que se comprueba aparte; no hay unidad",
+      },
+      skipped_static: {
+        text: "Sitio estático: lo sirve directamente el servidor web; no hay unidad",
+      },
+      state: {
+        text: "{unit_file} está en {active_state}/{sub_state}",
+      },
+      state_unmanaged: {
+        text: "{unit_file} está en {active_state}/{sub_state} (no la gestiona Noust)",
+      },
+    },
+    zero_downtime: {
+      could: {
+        text: "Sus actualizaciones la reinician en el sitio; podría actualizarse sin cortes",
+      },
+    },
+  },
   doctor: {
     config: {
       apps_dir_missing: {

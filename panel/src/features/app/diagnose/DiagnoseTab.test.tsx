@@ -198,4 +198,67 @@ describe("the Diagnose tab", () => {
     expect(within(checks).getByText("3 comprobaciones superadas u omitidas")).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
+
+  it("says what each check found, and the likely cause, in Spanish when the server sends their codes", async () => {
+    await act(() => setLocale("es"));
+    await diagnoseTab(() =>
+      json(200, {
+        ...DOWN,
+        probable_cause_coded: { code: "diagnose.cause.port_elsewhere", params: { actual_port: 3001, recorded_port: 3000 } },
+        checks: [
+          { ...DOWN.checks[0], coded: { code: "diagnose.unit.active", params: { unit_file: "shop-example-com.service" } } },
+          { ...DOWN.checks[1], coded: { code: "diagnose.port.elsewhere", params: { actual_port: 3001, recorded_port: 3000 } } },
+          { ...DOWN.checks[2], coded: { code: "diagnose.journal.lines_several", params: { count: 2, unit_file: "shop-example-com.service" } } },
+          { ...DOWN.checks[3], coded: { code: "diagnose.oom.none", params: {} } },
+          { ...DOWN.checks[4], coded: { code: "diagnose.certificate.none", params: { domain: DOMAIN } } },
+        ],
+      }),
+    );
+
+    expect(await screen.findByText("Escucha en el 3001, pero Noust enruta al 3000.")).toBeInTheDocument();
+    expect(screen.getByText("La aplicación escucha en el 3001, no en el puerto registrado, el 3000")).toBeInTheDocument();
+    expect(screen.getByText("Últimas 2 líneas del diario de shop-example-com.service")).toBeInTheDocument();
+    await openTheRest();
+    expect(screen.getByText("shop-example-com.service está activa (en marcha)")).toBeInTheDocument();
+    expect(screen.getByText("No se encontró ningún certificado para shop.example.com")).toBeInTheDocument();
+    // No English of the server's is left; what the system printed stays as it printed it.
+    expect(screen.queryByText(/is active \(running\)/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/not the recorded port/)).not.toBeInTheDocument();
+    expect(screen.getByText(DOWN.checks[1]?.evidence ?? "")).toBeInTheDocument();
+  });
+
+  it("names the pool and the worker's containers in Spanish, which the console did not know", async () => {
+    await act(() => setLocale("es"));
+    await diagnoseTab(() =>
+      json(200, {
+        domain: DOMAIN,
+        verdict: "down",
+        probable_cause: "The PHP-FPM pool does not answer the health check; see PHP's errors below.",
+        probable_cause_coded: { code: "diagnose.php_fpm.no_answer", params: {} },
+        checks: [
+          {
+            name: "php_fpm",
+            status: "fail",
+            summary: "The PHP-FPM pool does not answer the health check; see PHP's errors below.",
+            evidence: "FastCGI health check: failed",
+            coded: { code: "diagnose.php_fpm.no_answer", params: {} },
+          },
+          {
+            name: "containers",
+            status: "ok",
+            summary: "A worker: all 2 of its containers are running or finished cleanly",
+            evidence: "",
+            coded: { code: "diagnose.containers.worker", params: { summary: "all 2 of its containers are running or finished cleanly" } },
+          },
+        ],
+      }),
+    );
+
+    const checks = await screen.findByRole("region", { name: "Comprobaciones" });
+    expect(within(checks).getByText("Pool de PHP-FPM")).toBeInTheDocument();
+    expect(within(checks).queryByText("Php fpm")).not.toBeInTheDocument();
+    expect(within(checks).getAllByText(/El pool de PHP-FPM no responde a la comprobación de salud/).length).toBeGreaterThan(0);
+    await openTheRest();
+    expect(screen.getByText("Contenedores del worker")).toBeInTheDocument();
+  });
 });

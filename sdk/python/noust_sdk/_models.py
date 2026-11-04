@@ -2992,6 +2992,7 @@ DestinationListResponse = TypedDict("DestinationListResponse", {
 })
 
 DiagnoseCheck = TypedDict("DiagnoseCheck", {
+    "coded": NotRequired[Union["CodedText", None]],
     "evidence": NotRequired[str],
     "name": Required[str],
     "status": Required[str],
@@ -3002,6 +3003,7 @@ DiagnoseResponse = TypedDict("DiagnoseResponse", {
     "checks": Required[list["DiagnoseCheck"]],
     "domain": Required[str],
     "probable_cause": Required[Union[str, None]],
+    "probable_cause_coded": NotRequired[Union["CodedText", None]],
     "verdict": Required[str],
 })
 

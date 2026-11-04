@@ -52,6 +52,7 @@ from noust.core.appdir.releases import Release, ReleaseManager
 from noust.core.config import Config
 from noust.core.exceptions import NoustError
 from noust.core.runner import CommandRunner, get_runner
+from noust.core.server_text import ServerText, say
 from noust.core.store import (
     BLUE_GREEN_COLORS,
     App,
@@ -137,12 +138,31 @@ class Check:
         summary: One line, in Noust's own words.
         evidence: The raw output the probe collected - journal lines, ss
             output, an exception message - verbatim and unmodified.
+        coded: ``summary`` as a sentence with a code and its values, for the console to
+            translate; the English text is the catalog entry with the values put in.
     """
 
     name: str
     status: CheckStatus
     summary: str
     evidence: str = ""
+    coded: ServerText | None = None
+
+
+def _check(name: str, status: CheckStatus, coded: ServerText, evidence: str = "") -> Check:
+    """
+    Make a check out of the sentence that says what it found.
+
+    Args:
+        name: The probe's name.
+        status: How it went.
+        coded: The sentence; its text is the summary.
+        evidence: What the probe collected, verbatim.
+
+    Returns:
+        The check, whose summary and code are one thing.
+    """
+    return Check(name, status, coded.text, evidence, coded)
 
 
 @dataclass(frozen=True)
@@ -158,12 +178,15 @@ class Diagnosis:
         probable_cause: One sentence naming the most likely explanation, or
             None when the checks disagree with each other or are all clean.
         checks: Every probe that ran, in the order :data:`_PROBES` lists them.
+        probable_cause_coded: ``probable_cause`` as a sentence with a code, for the console to
+            translate; None when there is no cause.
     """
 
     domain: str
     verdict: Verdict
     probable_cause: str | None
     checks: tuple[Check, ...]
+    probable_cause_coded: ServerText | None = None
 
 
 @dataclass
@@ -352,7 +375,7 @@ def _check_php_fpm(ctx: _Context) -> ProbeResult:
     from noust.deployers.php_fpm import inspect_pool
 
     if ctx.app is None:
-        return Check("php_fpm", "skip", "No application record", ""), {}
+        return _check("php_fpm", "skip", say("diagnose.php_fpm.no_record")), {}
     pool = inspect_pool(ctx.app, runner=ctx.runner)
     facts: dict[str, Any] = {
         "service": pool.service,
@@ -388,21 +411,25 @@ def _check_php_fpm(ctx: _Context) -> ProbeResult:
         mine = [line for line in lines if pool.pool_file.stem in line]
         evidence.append("\n".join((mine or lines)[-_FPM_JOURNAL_KEPT:]))
 
-    cause: str | None = None
+    cause: ServerText | None = None
     if not pool.enabled and pool.disabled:
-        cause = f"The PHP-FPM pool is disabled (stopped); start it with noust start {ctx.domain}."
+        cause = say("diagnose.php_fpm.pool_disabled", command=f"noust start {ctx.domain}")
     elif not pool.enabled:
-        cause = f"The PHP-FPM pool file {pool.pool_file} is missing; redeploy with noust update {ctx.domain}."
+        cause = say(
+            "diagnose.php_fpm.pool_missing",
+            pool_file=str(pool.pool_file),
+            command=f"noust update {ctx.domain}",
+        )
     elif not pool.fpm_up:
-        cause = f"{pool.service}, which runs every PHP pool, is {pool.service_state}."
+        cause = say("diagnose.php_fpm.service_down", service=pool.service, state=pool.service_state)
     elif facts.get("config_ok") is False:
-        cause = "PHP-FPM refuses its configuration; see php-fpm -t below."
+        cause = say("diagnose.php_fpm.config_refused", command="php-fpm -t")
     elif pool.answered is False:
-        cause = "The PHP-FPM pool does not answer the health check; see PHP's errors below."
+        cause = say("diagnose.php_fpm.no_answer")
     facts["cause"] = cause
     status: CheckStatus = "fail" if cause else "ok"
-    summary = cause or f"The PHP-FPM pool answers ({pool.service} {pool.service_state})"
-    return Check("php_fpm", status, summary, "\n".join(evidence)), facts
+    said = cause or say("diagnose.php_fpm.ok", service=pool.service, state=pool.service_state)
+    return _check("php_fpm", status, said, "\n".join(evidence)), facts
 
 
 #: Probes that ask a port, HTTP or the site: meaningless for a stack that
@@ -429,11 +456,11 @@ def _check_compose_stack(ctx: _Context) -> ProbeResult:
     )
 
     if ctx.app is None:
-        return Check("containers", "skip", "No application recorded", ""), {}
+        return _check("containers", "skip", say("diagnose.containers.no_app")), {}
     state = headless_stack_state(ctx.app, runner=ctx.runner)
     if state is None:
         return (
-            Check("containers", "skip", "The stack publishes a port: judged as a web below", ""),
+            _check("containers", "skip", say("diagnose.containers.publishes_port")),
             {},
         )
     deployer = stack_deployer(ctx.app, runner=ctx.runner)
@@ -455,15 +482,18 @@ def _check_compose_stack(ctx: _Context) -> ProbeResult:
         "summary": state.summary,
         "recorded_port": state.recorded_port,
     }
+    worker = say("diagnose.containers.worker", summary=state.summary)
     if not state.healthy:
-        return Check("containers", "fail", f"A worker: {state.summary}", evidence), facts
+        return _check("containers", "fail", worker, evidence), facts
     if state.recorded_port:
-        summary = (
-            f"A worker: {state.summary}; port {state.recorded_port} is recorded for it, and "
-            f"it publishes none. Clear it with: noust app headless {ctx.domain}"
+        with_port = say(
+            "diagnose.containers.worker_with_port",
+            summary=state.summary,
+            port=state.recorded_port,
+            command=f"noust app headless {ctx.domain}",
         )
-        return Check("containers", "warn", summary, evidence), facts
-    return Check("containers", "ok", f"A worker: {state.summary}", evidence), facts
+        return _check("containers", "warn", with_port, evidence), facts
+    return _check("containers", "ok", worker, evidence), facts
 
 
 def _no_unit(ctx: _Context) -> str | None:
@@ -474,30 +504,30 @@ def _no_unit(ctx: _Context) -> str | None:
         ctx: The diagnosis context.
 
     Returns:
-        The reason, or None when it runs as a unit.
+        ``php`` or ``static``, or None when it runs as a unit.
     """
     from noust.deployers.helpers.php_fpm import is_php_fpm
 
     if ctx.app is None or not ctx.app.is_static:
         return None
-    if is_php_fpm(ctx.app):
-        return "PHP application: it runs in its PHP-FPM pool, checked under php_fpm"
-    return "Static site: served directly by the web server"
+    return "php" if is_php_fpm(ctx.app) else "static"
 
 
 def _check_unit(ctx: _Context) -> ProbeResult:
     """Ask systemd what state the app's unit is in."""
     reason = _no_unit(ctx)
+    if reason == "php":
+        return _check("unit", "skip", say("diagnose.unit.skipped_php")), {}
     if reason is not None:
-        return Check("unit", "skip", f"{reason}, no unit", ""), {}
+        return _check("unit", "skip", say("diagnose.unit.skipped_static")), {}
 
     info = ctx.service_manager.inspect_unit(ctx.app_name)
     if not info.exists:
         return (
-            Check(
+            _check(
                 "unit",
                 "fail",
-                f"No systemd unit found for {info.unit}",
+                say("diagnose.unit.missing", unit=info.unit),
                 f"Expected a unit at {info.path}",
             ),
             {"exists": False},
@@ -520,7 +550,7 @@ def _check_unit(ctx: _Context) -> ProbeResult:
     exec_main_status = fields.get("ExecMainStatus", "")
     restarts = _as_int(fields.get("NRestarts"))
 
-    caveat = "" if info.managed else " (not managed by Noust)"
+    managed = info.managed
     # A Compose unit runs `docker compose up -d` once and stays active:
     # "exited" is its running state; the containers are checked on their own.
     compose_up = (
@@ -528,17 +558,31 @@ def _check_unit(ctx: _Context) -> ProbeResult:
     )
     if active_state == "active" and (sub_state == "running" or compose_up):
         status: CheckStatus = "ok"
-        summary = f"{info.unit_file} is active (running){caveat}"
+        said = say(
+            "diagnose.unit.active" if managed else "diagnose.unit.active_unmanaged",
+            unit_file=info.unit_file,
+        )
     elif sub_state == "auto-restart" or active_state == "activating":
         status = "fail"
-        summary = f"{info.unit_file} is restarting{caveat} ({restarts} restarts so far)"
+        said = say(
+            "diagnose.unit.restarting" if managed else "diagnose.unit.restarting_unmanaged",
+            unit_file=info.unit_file,
+            restarts=restarts,
+        )
     elif active_state == "failed" or sub_state == "failed":
         status = "fail"
-        summary = f"{info.unit_file} failed{caveat} (Result={result_code or 'unknown'})"
+        said = say(
+            "diagnose.unit.failed" if managed else "diagnose.unit.failed_unmanaged",
+            unit_file=info.unit_file,
+            result=result_code or "unknown",
+        )
     else:
         status = "warn"
-        summary = (
-            f"{info.unit_file} is {active_state or 'unknown'}/{sub_state or 'unknown'}{caveat}"
+        said = say(
+            "diagnose.unit.state" if managed else "diagnose.unit.state_unmanaged",
+            unit_file=info.unit_file,
+            active_state=active_state or "unknown",
+            sub_state=sub_state or "unknown",
         )
 
     facts = {
@@ -550,19 +594,21 @@ def _check_unit(ctx: _Context) -> ProbeResult:
         "exec_main_status": exec_main_status,
         "restarts": restarts,
     }
-    return Check("unit", status, summary, result.stdout.strip()), facts
+    return _check("unit", status, said, result.stdout.strip()), facts
 
 
 def _check_port(ctx: _Context) -> ProbeResult:
     """Check whether anything listens on the port Noust recorded for this app."""
     reason = _no_unit(ctx)
+    if reason == "php":
+        return _check("port", "skip", say("diagnose.port.skipped_php")), {}
     if reason is not None:
-        return Check("port", "skip", f"{reason}, no backend port to check", ""), {}
+        return _check("port", "skip", say("diagnose.port.skipped_static")), {}
 
     # In zero-downtime mode, the port of the instance that serves.
     recorded_port = serving_port(ctx.app) if ctx.app else None
     if recorded_port is None:
-        return Check("port", "skip", "No port recorded for this app", ""), {}
+        return _check("port", "skip", say("diagnose.port.not_recorded")), {}
 
     result = ctx.runner.run(["ss", "-ltnpH"], timeout=10)
     entries = _parse_ss_output(result.stdout)
@@ -571,8 +617,12 @@ def _check_port(ctx: _Context) -> ProbeResult:
     on_recorded_port = [e for e in entries if e.port == recorded_port]
     if on_recorded_port:
         procs = ", ".join(f"{name} (pid {pid})" for name, pid in on_recorded_port[0].processes)
-        summary = f"Port {recorded_port} is listening" + (f" ({procs})" if procs else "")
-        return Check("port", "ok", summary, evidence), {
+        listening = (
+            say("diagnose.port.listening_process", port=recorded_port, processes=procs)
+            if procs
+            else say("diagnose.port.listening", port=recorded_port)
+        )
+        return _check("port", "ok", listening, evidence), {
             "recorded_port": recorded_port,
             "listening": True,
         }
@@ -597,10 +647,14 @@ def _check_port(ctx: _Context) -> ProbeResult:
 
     if actual_port is not None:
         return (
-            Check(
+            _check(
                 "port",
                 "fail",
-                f"The app listens on {actual_port}, not the recorded port {recorded_port}",
+                say(
+                    "diagnose.port.elsewhere",
+                    actual_port=actual_port,
+                    recorded_port=recorded_port,
+                ),
                 evidence,
             ),
             {
@@ -612,7 +666,7 @@ def _check_port(ctx: _Context) -> ProbeResult:
         )
 
     return (
-        Check("port", "fail", f"Nothing is listening on port {recorded_port}", evidence),
+        _check("port", "fail", say("diagnose.port.silent", port=recorded_port), evidence),
         {
             "recorded_port": recorded_port,
             "listening": False,
@@ -632,17 +686,17 @@ def _check_http_direct(ctx: _Context) -> ProbeResult:
     """
     port = serving_port(ctx.app) if ctx.app is not None else None
     if ctx.app is None or ctx.app.is_static or not port:
-        return Check("http_direct", "skip", "No backend port to probe directly", ""), {}
+        return _check("http_direct", "skip", say("diagnose.http_direct.no_port")), {}
 
     check = HealthCheck.for_app(ctx.app)
     url = check.url(port)
     code, error = ctx.http_get(url, {"Host": check.host} if check.host else {})
     if error is not None:
         return (
-            Check(
+            _check(
                 "http_direct",
                 "fail",
-                f"Could not reach the app directly on port {port}",
+                say("diagnose.http_direct.unreachable", port=port),
                 error,
             ),
             {"ok": False, "status": None, "error": error},
@@ -651,10 +705,10 @@ def _check_http_direct(ctx: _Context) -> ProbeResult:
     ok = code is not None and check.accepts(code)
     status: CheckStatus = "ok" if ok else "fail"
     return (
-        Check(
+        _check(
             "http_direct",
             status,
-            f"HTTP {code} from 127.0.0.1:{port}",
+            say("diagnose.http_direct.status", status=str(code), port=port),
             f"GET {url} -> {code} (healthy: {check.describe_expect()})",
         ),
         {"ok": ok, "status": code, "error": None},
@@ -674,7 +728,12 @@ def _check_http_nginx(ctx: _Context) -> ProbeResult:
     code, error = ctx.http_get(url, {"Host": ctx.domain})
     if error is not None:
         return (
-            Check("http_nginx", "fail", f"Could not reach nginx for {ctx.domain}", error),
+            _check(
+                "http_nginx",
+                "fail",
+                say("diagnose.http_nginx.unreachable", domain=ctx.domain),
+                error,
+            ),
             {"ok": False, "status": None, "error": error},
         )
 
@@ -682,7 +741,12 @@ def _check_http_nginx(ctx: _Context) -> ProbeResult:
     status: CheckStatus = "ok" if ok else "fail"
     evidence = f"GET {url} Host: {ctx.domain} -> {code}"
     return (
-        Check("http_nginx", status, f"HTTP {code} from nginx for Host: {ctx.domain}", evidence),
+        _check(
+            "http_nginx",
+            status,
+            say("diagnose.http_nginx.status", status=str(code), domain=ctx.domain),
+            evidence,
+        ),
         {"ok": ok, "status": code, "error": None},
     )
 
@@ -690,12 +754,14 @@ def _check_http_nginx(ctx: _Context) -> ProbeResult:
 def _check_journal(ctx: _Context) -> ProbeResult:
     """Read the unit's last 50 journal lines, verbatim."""
     reason = _no_unit(ctx)
+    if reason == "php":
+        return _check("journal", "skip", say("diagnose.journal.skipped_php")), {}
     if reason is not None:
-        return Check("journal", "skip", f"{reason}, no unit to read logs from", ""), {}
+        return _check("journal", "skip", say("diagnose.journal.skipped_static")), {}
 
     info = ctx.service_manager.inspect_unit(ctx.app_name)
     if not info.exists:
-        return Check("journal", "skip", f"No unit named {info.unit} to read logs from", ""), {}
+        return _check("journal", "skip", say("diagnose.journal.no_unit", unit=info.unit)), {}
 
     result = ctx.runner.run(
         ["journalctl", "-u", info.unit_file, "-n", "50", "--no-pager", "-o", "short-iso"],
@@ -703,10 +769,10 @@ def _check_journal(ctx: _Context) -> ProbeResult:
     )
     if not result.success:
         return (
-            Check(
+            _check(
                 "journal",
                 "skip",
-                f"Could not read the journal for {info.unit_file}",
+                say("diagnose.journal.unreadable", unit_file=info.unit_file),
                 result.stderr.strip(),
             ),
             {},
@@ -714,10 +780,15 @@ def _check_journal(ctx: _Context) -> ProbeResult:
 
     text = result.stdout.strip()
     if not text:
-        return Check("journal", "ok", f"No journal entries for {info.unit_file}", ""), {}
+        return _check("journal", "ok", say("diagnose.journal.empty", unit_file=info.unit_file)), {}
 
     lines = len(text.splitlines())
-    return Check("journal", "ok", f"Last {lines} journal line(s) for {info.unit_file}", text), {}
+    tail = (
+        say("diagnose.journal.lines_one", unit_file=info.unit_file)
+        if lines == 1
+        else say("diagnose.journal.lines_several", count=lines, unit_file=info.unit_file)
+    )
+    return _check("journal", "ok", tail, text), {}
 
 
 def _check_blue_green(ctx: _Context) -> ProbeResult:
@@ -732,15 +803,15 @@ def _check_blue_green(ctx: _Context) -> ProbeResult:
     """
     app = ctx.app
     if app is None or not app.zero_downtime:
-        return Check("blue_green", "skip", "Not in zero-downtime mode", ""), {}
+        return _check("blue_green", "skip", say("diagnose.blue_green.off")), {}
 
     serving = app.active_color
     if serving not in BLUE_GREEN_COLORS:
         return (
-            Check(
+            _check(
                 "blue_green",
                 "fail",
-                "Zero-downtime mode is on but no instance is recorded as serving",
+                say("diagnose.blue_green.no_instance"),
                 f"Turn it off and on again: noust app zero-downtime {app.domain} off",
             ),
             {"no_color": True},
@@ -763,15 +834,17 @@ def _check_blue_green(ctx: _Context) -> ProbeResult:
 
     if upstream_port != port:
         facts["upstream_mismatch"] = True
-        return (
-            Check(
-                "blue_green",
-                "fail",
-                f"nginx proxies to {upstream_port or 'no upstream'}, but {serving} serves on {port}",
-                "\n".join(lines),
-            ),
-            facts,
+        mismatch = (
+            say(
+                "diagnose.blue_green.upstream_mismatch",
+                upstream_port=upstream_port,
+                serving=serving,
+                port=port,
+            )
+            if upstream_port
+            else say("diagnose.blue_green.upstream_none", serving=serving, port=port)
         )
+        return _check("blue_green", "fail", mismatch, "\n".join(lines)), facts
 
     leftover = leftover_unit(app, store=ctx.store, runner=ctx.runner)
     if leftover is not None:
@@ -780,11 +853,14 @@ def _check_blue_green(ctx: _Context) -> ProbeResult:
         what, fix = leftover_advice(leftover, app.domain)
         facts["leftover_unit"] = leftover
         return (
-            Check(
+            _check(
                 "blue_green",
                 "warn",
-                f"{leftover}.service still runs beside the instances; "
-                f"the next activation will refuse to start blue on port {color_port(app, 'blue')}",
+                say(
+                    "diagnose.blue_green.leftover",
+                    unit=leftover,
+                    port=color_port(app, "blue"),
+                ),
                 "\n".join(lines) + f"\n\n{what}.\n{fix}",
             ),
             facts,
@@ -795,10 +871,14 @@ def _check_blue_green(ctx: _Context) -> ProbeResult:
         timeout=15,
     )
     idle_state = _parse_systemctl_show(shown.stdout)
-    summary = f"{serving} serves" + (
-        f" release {serving_release.id}" if serving_release is not None else ""
-    )
-    summary += f" on port {port}; {idle} is {idle_state.get('ActiveState') or 'unknown'}"
+    serves: dict[str, str | int] = {
+        "serving": serving,
+        "port": port,
+        "idle": idle,
+        "idle_state": idle_state.get("ActiveState") or "unknown",
+    }
+    if serving_release is not None:
+        serves["release"] = serving_release.id
     if idle_state.get("ActiveState") == "failed" or idle_state.get("Result") not in (
         None,
         "",
@@ -823,16 +903,20 @@ def _check_blue_green(ctx: _Context) -> ProbeResult:
             + f"\n\nLast journal lines of {idle_unit}:\n"
             + (journal.stdout.strip() or journal.stderr.strip())
         )
-        return (
-            Check(
-                "blue_green",
-                "warn",
-                summary + f"; its last start failed, so {serving} kept serving",
-                evidence,
-            ),
-            facts,
+        failed = say(
+            "diagnose.blue_green.idle_failed_release"
+            if serving_release is not None
+            else "diagnose.blue_green.idle_failed",
+            **serves,
         )
-    return Check("blue_green", "ok", summary, "\n".join(lines)), facts
+        return _check("blue_green", "warn", failed, evidence), facts
+    well = say(
+        "diagnose.blue_green.serving_release"
+        if serving_release is not None
+        else "diagnose.blue_green.serving",
+        **serves,
+    )
+    return _check("blue_green", "ok", well, "\n".join(lines)), facts
 
 
 def _check_nginx_log(ctx: _Context) -> ProbeResult:
@@ -844,7 +928,15 @@ def _check_nginx_log(ctx: _Context) -> ProbeResult:
             handle.seek(max(0, size - _NGINX_LOG_TAIL_BYTES))
             data = handle.read()
     except OSError as exc:
-        return Check("nginx_log", "skip", f"Could not read {NGINX_ERROR_LOG}", str(exc)), {}
+        return (
+            _check(
+                "nginx_log",
+                "skip",
+                say("diagnose.nginx_log.unreadable", path=str(NGINX_ERROR_LOG)),
+                str(exc),
+            ),
+            {},
+        )
 
     text = data.decode("utf-8", errors="replace")
     needle = ctx.domain.lower()
@@ -853,11 +945,15 @@ def _check_nginx_log(ctx: _Context) -> ProbeResult:
     ]
 
     if not matches:
-        return Check("nginx_log", "ok", "No nginx error log lines mention this domain", ""), {}
+        return _check("nginx_log", "ok", say("diagnose.nginx_log.clean")), {}
 
     tail = matches[-_NGINX_LOG_MAX_LINES:]
-    summary = f"{len(matches)} nginx error log line(s) mention this domain or an upstream"
-    return Check("nginx_log", "warn", summary, "\n".join(tail)), {"matches": len(matches)}
+    mentioned = (
+        say("diagnose.nginx_log.lines_one")
+        if len(matches) == 1
+        else say("diagnose.nginx_log.lines_several", count=len(matches))
+    )
+    return _check("nginx_log", "warn", mentioned, "\n".join(tail)), {"matches": len(matches)}
 
 
 def _check_certificate(ctx: _Context) -> ProbeResult:
@@ -868,15 +964,14 @@ def _check_certificate(ctx: _Context) -> ProbeResult:
     if cert is None:
         if ssl_expected:
             return (
-                Check(
+                _check(
                     "certificate",
                     "fail",
-                    f"TLS is enabled for {ctx.domain} but no certificate was found",
-                    "",
+                    say("diagnose.certificate.missing", domain=ctx.domain),
                 ),
                 {"found": False},
             )
-        return Check("certificate", "skip", f"No certificate found for {ctx.domain}", ""), {
+        return _check("certificate", "skip", say("diagnose.certificate.none", domain=ctx.domain)), {
             "found": False
         }
 
@@ -884,47 +979,44 @@ def _check_certificate(ctx: _Context) -> ProbeResult:
     evidence = cert.expiry_full or f"Expiry Date: {cert.expiry}"
 
     if not cert.expiry:
-        return Check(
-            "certificate", "warn", f"Could not read the expiry date for {label}", evidence
+        return _check(
+            "certificate", "warn", say("diagnose.certificate.no_expiry", label=label), evidence
         ), {"found": True}
 
     days_left = _days_until(cert.expiry, ctx.now)
     if days_left is None:
-        return Check("certificate", "warn", f"Unreadable expiry date for {label}", evidence), {
-            "found": True
-        }
+        return _check(
+            "certificate", "warn", say("diagnose.certificate.bad_expiry", label=label), evidence
+        ), {"found": True}
 
     facts = {"found": True, "expiry": cert.expiry, "days_left": days_left, "expired": days_left < 0}
     if days_left < 0:
-        return Check(
-            "certificate", "fail", f"The certificate for {label} expired on {cert.expiry}", evidence
+        return _check(
+            "certificate",
+            "fail",
+            say("diagnose.certificate.expired", label=label, expiry=cert.expiry),
+            evidence,
         ), facts
     if days_left < _CERT_WARNING_DAYS:
-        return (
-            Check(
-                "certificate",
-                "warn",
-                f"The certificate for {label} expires in {days_left} day(s)",
-                evidence,
-            ),
-            facts,
+        expires = (
+            say("diagnose.certificate.expires_one", label=label)
+            if days_left == 1
+            else say("diagnose.certificate.expires_several", label=label, days=days_left)
         )
-    return (
-        Check(
-            "certificate",
-            "ok",
-            f"The certificate for {label} is valid for {days_left} more day(s)",
-            evidence,
-        ),
-        facts,
+        return _check("certificate", "warn", expires, evidence), facts
+    valid = (
+        say("diagnose.certificate.valid_one", label=label)
+        if days_left == 1
+        else say("diagnose.certificate.valid_several", label=label, days=days_left)
     )
+    return _check("certificate", "ok", valid, evidence), facts
 
 
 def _check_last_deployment(ctx: _Context) -> ProbeResult:
     """Read the outcome of the last deployment recorded for this domain."""
     deployments = ctx.store.list_deployments(ctx.domain, limit=1)
     if not deployments:
-        return Check("last_deployment", "skip", "No deployment recorded for this domain", ""), {}
+        return _check("last_deployment", "skip", say("diagnose.last_deployment.none")), {}
 
     record = deployments[0]
     evidence_lines = [
@@ -939,31 +1031,32 @@ def _check_last_deployment(ctx: _Context) -> ProbeResult:
     evidence = "\n".join(evidence_lines)
 
     if record.cancelled:
-        who = f" by {record.cancelled_by}" if record.cancelled_by else ""
-        return (
-            Check(
-                "last_deployment",
-                "ok",
-                f"The last deployment was cancelled{who}; what served before still serves",
-                evidence,
-            ),
-            {"failed": False},
+        stopped = (
+            say("diagnose.last_deployment.cancelled_by", actor=record.cancelled_by)
+            if record.cancelled_by
+            else say("diagnose.last_deployment.cancelled")
         )
+        return _check("last_deployment", "ok", stopped, evidence), {"failed": False}
 
     if record.status == DeploymentStatus.FAILED.value:
-        summary = "The last deployment failed"
-        if record.error:
-            summary += f": {record.error}"
-        return Check("last_deployment", "fail", summary, evidence), {"failed": True}
+        failed = (
+            say("diagnose.last_deployment.failed_with", error=record.error)
+            if record.error
+            else say("diagnose.last_deployment.failed")
+        )
+        return _check("last_deployment", "fail", failed, evidence), {"failed": True}
 
     if record.status == DeploymentStatus.SUCCESS.value:
-        return Check("last_deployment", "ok", "The last deployment succeeded", evidence), {
-            "failed": False
-        }
+        return _check(
+            "last_deployment", "ok", say("diagnose.last_deployment.succeeded"), evidence
+        ), {"failed": False}
 
-    return Check("last_deployment", "warn", f"The last deployment is {record.status}", evidence), {
-        "failed": False
-    }
+    return _check(
+        "last_deployment",
+        "warn",
+        say("diagnose.last_deployment.state", status=str(record.status)),
+        evidence,
+    ), {"failed": False}
 
 
 def _check_oom(ctx: _Context) -> ProbeResult:
@@ -981,17 +1074,13 @@ def _check_oom(ctx: _Context) -> ProbeResult:
         timeout=15,
     )
     if not result.success:
-        return Check("oom", "skip", "Could not read the kernel log", result.stderr.strip()), {}
+        return _check("oom", "skip", say("diagnose.oom.unreadable"), result.stderr.strip()), {}
 
     text = result.stdout.strip()
     if not text:
-        return Check("oom", "ok", "No OOM kills in the kernel log in the last 7 days", ""), {
-            "found": False
-        }
+        return _check("oom", "ok", say("diagnose.oom.none")), {"found": False}
 
-    return Check("oom", "warn", "The kernel log shows OOM activity in the last 7 days", text), {
-        "found": True
-    }
+    return _check("oom", "warn", say("diagnose.oom.found"), text), {"found": True}
 
 
 def _check_disk(ctx: _Context) -> ProbeResult:
@@ -1001,8 +1090,11 @@ def _check_disk(ctx: _Context) -> ProbeResult:
     percent_used = ((usage.total - usage.free) / usage.total * 100) if usage.total else 0.0
     free_gb = usage.free / (1024**3)
     evidence = f"total={usage.total} used={usage.total - usage.free} free={usage.free}"
-    summary = (
-        f"{free_gb:.1f}GB free ({percent_used:.0f}% used) on the filesystem holding {apps_dir}"
+    said = say(
+        "diagnose.disk.usage",
+        free=f"{free_gb:.1f}GB",
+        percent=round(percent_used),
+        path=str(apps_dir),
     )
 
     if percent_used > _DISK_FAIL_PERCENT:
@@ -1011,7 +1103,7 @@ def _check_disk(ctx: _Context) -> ProbeResult:
         status = "warn"
     else:
         status = "ok"
-    return Check("disk", status, summary, evidence), {"percent_used": percent_used}
+    return _check("disk", status, said, evidence), {"percent_used": percent_used}
 
 
 #: Every probe, in the order they run and appear in a diagnosis. A probe's
@@ -1035,7 +1127,7 @@ _PROBES: tuple[tuple[str, Probe], ...] = (
 
 def _decide(
     ctx: _Context, checks: tuple[Check, ...], facts: dict[str, dict[str, Any]]
-) -> tuple[Verdict, str | None]:
+) -> tuple[Verdict, ServerText | None]:
     """
     Turn the collected facts into a verdict and a probable cause.
 
@@ -1049,7 +1141,7 @@ def _decide(
         facts: Each check's name to the internal facts it collected.
 
     Returns:
-        The verdict and the probable cause, or None when no rule matched.
+        The verdict and the probable cause as a sentence, or None when no rule matched.
     """
     unit = facts.get("unit", {})
     port = facts.get("port", {})
@@ -1070,74 +1162,79 @@ def _decide(
 
     containers = facts.get("containers", {})
     if containers.get("headless") and not containers.get("healthy"):
-        return "down", f"The worker's {containers.get('summary')}; see their output below."
+        return "down", say("diagnose.cause.worker", summary=str(containers.get("summary")))
 
     if unit.get("exists") is False:
-        return (
-            "down",
-            f"No systemd unit found for {ctx.app_name}; it has never been started or its unit was removed.",
-        )
+        return "down", say("diagnose.cause.no_unit", unit=ctx.app_name)
 
     if (unit_failed or crash_looping) and oom.get("found"):
-        return "down", "Killed by the kernel for running out of memory (limit or machine)."
+        return "down", say("diagnose.cause.oom")
 
     if crash_looping:
         exit_status = unit.get("exec_main_status") or "unknown"
-        return (
-            "down",
-            f"The process exits with status {exit_status} at start; see the last journal lines below.",
-        )
+        return "down", say("diagnose.cause.crash_loop", status=str(exit_status))
 
     if unit_failed:
         result_code = unit.get("result") or "unknown"
         exit_status = unit.get("exec_main_status") or "unknown"
-        return (
-            "down",
-            f"The unit failed to start (Result={result_code}, exit status {exit_status}); "
-            "see the last journal lines below.",
+        return "down", say(
+            "diagnose.cause.unit_failed", result=str(result_code), status=str(exit_status)
         )
 
     blue_green = facts.get("blue_green", {})
     if blue_green.get("upstream_mismatch"):
-        return (
-            "down",
-            f"nginx proxies {ctx.domain} to {blue_green.get('upstream_port') or 'no upstream'}, "
-            f"but the {blue_green.get('serving')} instance listens on {blue_green.get('port')}.",
+        if blue_green.get("upstream_port"):
+            return "down", say(
+                "diagnose.cause.upstream_mismatch",
+                domain=ctx.domain,
+                upstream_port=blue_green["upstream_port"],
+                serving=str(blue_green.get("serving")),
+                port=blue_green.get("port"),
+            )
+        return "down", say(
+            "diagnose.cause.upstream_none",
+            domain=ctx.domain,
+            serving=str(blue_green.get("serving")),
+            port=blue_green.get("port"),
         )
 
     if port.get("recorded_port") is not None and not port.get("listening"):
         recorded_port = port["recorded_port"]
         if port.get("mismatch"):
-            return "down", f"Listening on {port['actual_port']}, Noust routes to {recorded_port}."
-        return "down", f"The process is running but not listening on port {recorded_port}."
+            return "down", say(
+                "diagnose.cause.port_elsewhere",
+                actual_port=port["actual_port"],
+                recorded_port=recorded_port,
+            )
+        return "down", say("diagnose.cause.port_silent", port=recorded_port)
 
     if http_direct.get("ok") and not http_nginx.get("ok"):
         nginx_status = http_nginx.get("status")
-        detail = (
-            f"returns {nginx_status}"
-            if nginx_status is not None
-            else f"cannot connect ({http_nginx.get('error')})"
-        )
-        return (
-            "down",
-            f"The app answers directly, but nginx {detail} for {ctx.domain}; nginx cannot reach the app.",
+        if nginx_status is not None:
+            return "down", say(
+                "diagnose.cause.nginx_status", status=str(nginx_status), domain=ctx.domain
+            )
+        return "down", say(
+            "diagnose.cause.nginx_unreachable",
+            error=str(http_nginx.get("error")),
+            domain=ctx.domain,
         )
 
     if cert.get("expired"):
-        return "down", f"The TLS certificate for {ctx.domain} expired on {cert.get('expiry')}."
+        return "down", say(
+            "diagnose.cause.certificate_expired", domain=ctx.domain, expiry=str(cert.get("expiry"))
+        )
 
     if containers.get("headless") and containers.get("recorded_port"):
-        return (
-            "degraded",
-            f"{ctx.domain} publishes no port, yet port {containers['recorded_port']} is recorded "
-            f"for it: clear it with noust app headless {ctx.domain}.",
+        return "degraded", say(
+            "diagnose.cause.worker_port",
+            domain=ctx.domain,
+            port=containers["recorded_port"],
+            command=f"noust app headless {ctx.domain}",
         )
 
     if disk.get("percent_used", 0) > _DISK_FAIL_PERCENT:
-        return (
-            "degraded",
-            f"The disk holding the apps directory is {disk['percent_used']:.0f}% full.",
-        )
+        return "degraded", say("diagnose.cause.disk_full", percent=round(disk["percent_used"]))
 
     statuses = {c.status for c in checks}
     if "fail" in statuses:
@@ -1242,7 +1339,7 @@ def diagnose(
         try:
             check, probe_facts = probe(ctx)
         except (NoustError, OSError, ValueError) as exc:
-            check = Check(name, "skip", "Could not complete this check", str(exc))
+            check = _check(name, "skip", say("diagnose.check.incomplete"), str(exc))
             probe_facts = {}
         checks.append(check)
         facts[name] = probe_facts
@@ -1251,13 +1348,19 @@ def diagnose(
         # Not a cause of anything: what an operator who just watched an update
         # take the application down for a moment can do about it.
         checks.append(
-            Check(
+            _check(
                 "zero_downtime",
                 "skip",
-                "Its updates restart it in place; it could update without a cut",
+                say("diagnose.zero_downtime.could"),
                 f"Turn it on: noust app zero-downtime {domain} on",
             )
         )
 
     verdict, cause = _decide(ctx, tuple(checks), facts)
-    return Diagnosis(domain=domain, verdict=verdict, probable_cause=cause, checks=tuple(checks))
+    return Diagnosis(
+        domain=domain,
+        verdict=verdict,
+        probable_cause=cause.text if cause else None,
+        checks=tuple(checks),
+        probable_cause_coded=cause,
+    )

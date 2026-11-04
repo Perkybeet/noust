@@ -41377,8 +41377,11 @@ export interface components {
          *         status: ``"ok"``, ``"warn"``, ``"fail"`` or ``"skip"``.
          *         summary: One line, in Noust's own words.
          *         evidence: Raw output the probe collected, verbatim.
+         *         coded: ``summary`` as a code and its values, for the console to translate; null for
+         *             a check nobody gave a code.
          */
         DiagnoseCheck: {
+            coded?: components["schemas"]["CodedText"] | null;
             /**
              * Evidence
              * @default
@@ -41405,6 +41408,8 @@ export interface components {
          *         probable_cause: One sentence naming the most likely explanation, or
          *             ``None`` when the checks disagree with each other or are all clean.
          *         checks: Every probe that ran, in the order it ran in.
+         *         probable_cause_coded: ``probable_cause`` as a code and its values; null when there
+         *             is no cause.
          */
         DiagnoseResponse: {
             /** Checks */
@@ -41413,6 +41418,7 @@ export interface components {
             domain: string;
             /** Probable Cause */
             probable_cause: string | null;
+            probable_cause_coded?: components["schemas"]["CodedText"] | null;
             /** Verdict */
             verdict: string;
         };
