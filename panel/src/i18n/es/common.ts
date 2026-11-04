@@ -278,6 +278,27 @@ export const common: Catalog<typeof en> = {
   keyValueList: {
     empty: "Sin definir",
   },
+  help: {
+    about: "Sobre {name}",
+  },
+  tags: {
+    title: { one: "{count} etiqueta", other: "{count} etiquetas" },
+    more: { one: "{count} etiqueta más: {names}", other: "{count} etiquetas más: {names}" },
+  },
+  commandHint: {
+    reason: {
+      terminalOnly: "Solo desde un terminal",
+      otherServer: "En el otro servidor",
+      systemOutput: "Lo que el sistema dice que ejecutes",
+    },
+  },
+  readOnly: {
+    line: "Tu rol, {role}, puede ver esta página, no cambiarla. Cambiarla pide el permiso {permission}.",
+    lineNoRole: "Este acceso puede ver esta página, no cambiarla. Cambiarla pide el permiso {permission}.",
+    whyLabel: "Por qué no puedes hacerlo",
+    whyTitle: "Por qué no puedes",
+    why: "Esto pide el permiso {permission}, que tu rol no tiene. Quien gestione los roles puede añadírselo, en Ajustes, Roles.",
+  },
   resourceMeter: {
     missing: "Sin lectura",
     ofLimit: "{value} de {limit}",

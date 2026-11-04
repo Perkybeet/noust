@@ -50,6 +50,11 @@ export interface CardProps {
    * line under it. Only a logo goes here: the icon of an object is `icon`, and it stands bare.
    */
   leading?: ReactNode;
+  /**
+   * The id of the heading that names the card, for a card whose own header is not drawn by it (a `SurfaceSection`,
+   * a `ResourceCard`), so that it is a region a screen reader can jump to.
+   */
+  labelledBy?: string;
   className?: string;
 }
 
@@ -84,6 +89,7 @@ export function Card({
   loading = false,
   tone,
   leading,
+  labelledBy,
   className,
 }: CardProps) {
   const Heading = `h${level}` as const;
@@ -93,6 +99,7 @@ export function Card({
     <Element
       {...(loading ? { "aria-busy": true } : {})}
       {...(tone !== undefined ? { "data-tone": tone } : {})}
+      {...(labelledBy !== undefined ? { "aria-labelledby": labelledBy } : {})}
       className={cx(
         "elev-seated flex min-w-0 flex-col rounded-card border",
         tone === undefined ? "border-border bg-surface" : TONES[tone],
