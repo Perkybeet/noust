@@ -104,12 +104,12 @@ export default function ReportDialog({ request, onClose }: { request: ReportRequ
 
   const leaveWhat = (): void => {
     if (draft.title.trim() === "") {
-      setErrors({ title: t("report.what.missingTitle") });
+      setErrors({ title: t("report.what.titleMissing") });
       titleRef.current?.focus();
       return;
     }
     if (draft.happened.trim() === "") {
-      setErrors({ happened: t("report.what.missingHappened") });
+      setErrors({ happened: t("report.what.happenedMissing") });
       happenedRef.current?.querySelector("textarea")?.focus();
       return;
     }

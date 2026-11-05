@@ -1,5 +1,6 @@
 import { useRef } from "react";
 
+import { Mono } from "../../components/ui/Mono";
 import { useNeedsScrollFocus } from "../../components/ui/scrollable";
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
@@ -8,9 +9,7 @@ import { pieces } from "./redact";
 /** The mark that stands where a secret was: a word, so it is told by more than its tone. */
 function HiddenMark() {
   const t = useT();
-  return (
-    <mark className="rounded-chip bg-bg-sunken-deep px-1 font-sans text-12 font-semibold text-fg-muted">{t("report.send.hidden")}</mark>
-  );
+  return <mark className="rounded-chip bg-bg-sunken-deep px-1 font-sans text-12 font-medium text-fg-muted">{t("report.send.hidden")}</mark>;
 }
 
 /**
@@ -24,15 +23,13 @@ export function HiddenText({ text, label, className }: { text: string; label: st
   return (
     <pre
       ref={ref}
-      translate="no"
       {...(scrolls ? { tabIndex: 0, role: "region", "aria-label": label } : {})}
       className={cx(
-        "max-h-56 overflow-auto rounded-control bg-bg-sunken p-2.5 font-mono text-12 leading-5 whitespace-pre-wrap break-words text-fg scroll-thin",
-        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
+        "max-h-56 overflow-auto rounded-control bg-bg-sunken p-2.5 text-12 leading-5 whitespace-pre-wrap break-words text-fg scroll-thin focus-visible:-outline-offset-2",
         className,
       )}
     >
-      {pieces(text).map((piece, index) => (piece.hidden ? <HiddenMark key={index} /> : piece.text))}
+      <Mono>{pieces(text).map((piece, index) => (piece.hidden ? <HiddenMark key={index} /> : piece.text))}</Mono>
     </pre>
   );
 }

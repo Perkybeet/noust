@@ -1,14 +1,15 @@
 import type { UseQueryResult } from "@tanstack/react-query";
 
 import { ErrorBlock } from "../../components/page/QueryState";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { Disclosure } from "../../components/ui/Disclosure";
 import { Notice } from "../../components/ui/Notice";
-import { Spinner } from "../../components/ui/Spinner";
+import { SkeletonText } from "../../components/ui/Skeleton";
 import { isApiError } from "../../api/client";
 import { useT } from "../../i18n";
 import { formatBytes } from "../../lib/format";
-import { MAX_ATTACHMENT_BYTES, DESCRIPTION_FILE, totalSize } from "./bundle";
+import { MAX_ATTACHMENT_BYTES, totalSize } from "./bundle";
 import type { ReportFile } from "./bundle";
 import { HiddenText, HiddenWord } from "./HiddenText";
 import { pieces } from "./redact";
@@ -66,12 +67,11 @@ export function StepSend({
           />
         ) : null}
         {includeSupport && support.isPending ? (
-          <p role="status" className="flex items-center gap-2 text-13 text-fg-muted">
-            <Spinner size={14} />
-            {t("report.send.collecting")}
-          </p>
+          <LoadingRegion label={t("report.send.collecting")}>
+            <SkeletonText lines={1} />
+          </LoadingRegion>
         ) : null}
-        {includeSupport && support.isError && denied ? <Notice tone="info">{t("report.send.denied")}</Notice> : null}
+        {includeSupport && support.isError && denied ? <p className="text-13 text-fg-muted">{t("report.send.denied")}</p> : null}
         {includeSupport && support.isError && !denied ? (
           <ErrorBlock
             compact
@@ -99,7 +99,7 @@ export function StepSend({
                 ) : (
                   <div className="flex flex-col gap-2">
                     <p className="text-12 text-fg-muted">{t("report.send.imageNote")}</p>
-                    <img src={file.dataUrl} alt={file.name} className="elev-carved-fine max-h-64 w-auto max-w-full rounded-control bg-bg-sunken object-contain" />
+                    <img src={file.dataUrl} alt={file.name} className="max-h-64 w-auto max-w-full rounded-control border border-border bg-bg-sunken object-contain" />
                   </div>
                 )}
               </Disclosure>
@@ -107,9 +107,7 @@ export function StepSend({
           );
         })}
       </ul>
-      {cutName !== null && files.some((file) => file.name === DESCRIPTION_FILE) ? (
-        <Notice tone="info">{t("report.send.cutNote", { name: cutName })}</Notice>
-      ) : null}
+      {cutName !== null ? <p className="text-13 text-fg-muted">{t("report.send.cutNote", { name: cutName })}</p> : null}
       {size > MAX_ATTACHMENT_BYTES ? (
         <Notice tone="warning" live>
           {t("report.send.tooBig", { size: formatBytes(size, t.locale), max: formatBytes(MAX_ATTACHMENT_BYTES, t.locale) })}

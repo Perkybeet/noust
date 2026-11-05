@@ -23,14 +23,14 @@ export function ImagesField({ images, onCapture }: { images: Images; onCapture: 
       <div className="flex flex-wrap items-start gap-3">
         {images.shots.map((shot) => (
           <figure key={shot.id} className="flex w-32 flex-col gap-1">
-            <img src={shot.dataUrl} alt="" className="elev-carved-fine h-20 w-32 rounded-control bg-bg-sunken object-cover" />
+            <img src={shot.dataUrl} alt="" className="h-20 w-32 rounded-control border border-border bg-bg-sunken object-cover" />
             <figcaption className="flex items-center gap-1 text-12 text-fg-muted">
               <span className="min-w-0 flex-1 truncate" title={`${shot.name}, ${formatBytes(shot.size, t.locale)}`}>
                 {shot.name}
               </span>
               <IconButton
                 size="sm"
-                label={t("report.what.remove", { name: shot.name })}
+                label={t("common.words.removeNamed", { name: shot.name })}
                 icon={<X />}
                 onClick={() => {
                   images.remove(shot.id);

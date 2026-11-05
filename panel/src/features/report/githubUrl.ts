@@ -21,6 +21,19 @@ export const TITLE_PREFIX = "[Console] ";
 /** The ids of the form's fields the console fills in. */
 export const FIELD_IDS = { version: "version", area: "area", whatHappened: "what-happened", reproduce: "reproduce" } as const;
 
+/**
+ * What GitHub's form calls the fields it is opened with, as it writes them whatever the console's language (they
+ * are another system's labels, so the preview says them as the person will read them there). The test of the
+ * form holds them to `console_report.yml`.
+ */
+export const FORM_LABELS = {
+  title: "Title",
+  version: "Noust version",
+  area: "Where does it happen",
+  whatHappened: "What happened",
+  reproduce: "Steps to reproduce",
+} as const;
+
 /** How long the whole address may be: under what GitHub refuses, with room for the repository's own part. */
 export const MAX_URL_LENGTH = 7000;
 

@@ -23,9 +23,8 @@ export const report = {
     choose: "Choose images",
     capture: "Capture this tab",
     paste: "Or paste with {keys}",
-    remove: "Remove {name}",
-    missingTitle: "Write a title: one line that says what broke.",
-    missingHappened: "Say what happened: what you did, what you expected and what you saw.",
+    titleMissing: "Write a title: one line that says what broke.",
+    happenedMissing: "Say what happened: what you did, what you expected and what you saw.",
     fromError: "The page broke with this error:",
     next: "Next: what is sent",
     refused: {
@@ -62,12 +61,6 @@ export const report = {
     attachTitle: "There, you attach the file and send it yourself",
     attachText: "Drag it into the last box and press {submit}. The issue is public: what is seen is what is in the form and in the file.",
     written: "What will already be written on GitHub",
-    // The labels of GitHub's own form (console_report.yml), as it writes them, in both languages.
-    formTitle: "Title",
-    formVersion: "Noust version",
-    formArea: "Where does it happen",
-    formHappened: "What happened",
-    formSteps: "Steps to reproduce",
     cutNote: "Some of your text was cut to fit the address. All of it is in {name}, inside the file.",
     hiddenNote: {
       one: "1 value that looks like a secret was hidden in what you wrote.",
@@ -90,7 +83,7 @@ export const report = {
   areas: {
     apps: "Applications and deploys",
     databases: "Databases",
-    domains: "Domains and certificates",
+    domains: "Domains",
     network: "Network, DNS and the web server",
     server: "The server: services, monitoring, software, updates",
     security: "Security, accounts and access",

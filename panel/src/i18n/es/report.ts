@@ -21,9 +21,8 @@ export const report: Catalog<typeof en> = {
     choose: "Elegir imágenes",
     capture: "Capturar esta pestaña",
     paste: "O pégala con {keys}",
-    remove: "Quitar {name}",
-    missingTitle: "Escribe un título: una línea que diga qué se ha roto.",
-    missingHappened: "Cuenta qué ha pasado: qué hiciste, qué esperabas y qué viste.",
+    titleMissing: "Escribe un título: una línea que diga qué se ha roto.",
+    happenedMissing: "Cuenta qué ha pasado: qué hiciste, qué esperabas y qué viste.",
     fromError: "La página se ha roto con este error:",
     next: "Siguiente: qué se envía",
     refused: {
@@ -60,12 +59,6 @@ export const report: Catalog<typeof en> = {
     attachTitle: "Allí adjuntas el archivo y lo envías tú",
     attachText: "Arrástralo al último cuadro y pulsa {submit}. La incidencia es pública: lo que se ve es lo que hay en el formulario y en el archivo.",
     written: "Lo que irá ya escrito en GitHub",
-    // The labels of GitHub's own form (console_report.yml), as it writes them, in both languages.
-    formTitle: "Title",
-    formVersion: "Noust version",
-    formArea: "Where does it happen",
-    formHappened: "What happened",
-    formSteps: "Steps to reproduce",
     cutNote: "Parte de tu texto se ha cortado para que quepa en la dirección. Está entero en {name}, dentro del archivo.",
     hiddenNote: {
       one: "Se ha ocultado 1 valor que parece un secreto en lo que escribiste.",
@@ -88,7 +81,7 @@ export const report: Catalog<typeof en> = {
   areas: {
     apps: "Aplicaciones y despliegues",
     databases: "Bases de datos",
-    domains: "Dominios y certificados",
+    domains: "Dominios",
     network: "Red, DNS y servidor web",
     server: "El servidor: servicios, monitorización, software, actualizaciones",
     security: "Seguridad, cuentas y acceso",

@@ -77,3 +77,18 @@ def test_the_attachment_box_takes_the_kind_of_file_the_console_makes() -> None:
 
     assert ".zip" in description
     assert "25 MB" in description
+
+
+def test_the_labels_the_console_quotes_are_the_ones_the_form_writes() -> None:
+    fields = _fields()
+    block = re.search(r"FORM_LABELS = \{([^}]*)\}", _source("githubUrl.ts"))
+    assert block is not None
+    labels = dict(re.findall(r'(\w+): "([^"]+)"', block.group(1)))
+
+    assert labels["version"] == fields["version"]["attributes"]["label"]
+    assert labels["area"] == fields["area"]["attributes"]["label"]
+    assert labels["whatHappened"] == fields["what-happened"]["attributes"]["label"]
+    assert labels["reproduce"] == fields["reproduce"]["attributes"]["label"]
+    # The box the file is dragged into is named the way the instructions of the last step name it.
+    box = re.search(r'GITHUB_FILE_BOX = "([^"]+)"', _source("StepDone.tsx"))
+    assert box is not None and box.group(1) == fields["attachment"]["attributes"]["label"]

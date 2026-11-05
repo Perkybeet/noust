@@ -2,9 +2,8 @@ import type { ReactNode } from "react";
 
 import { KeyValueList } from "../../components/page/KeyValueList";
 import { Mono } from "../../components/ui/Mono";
-import { Notice } from "../../components/ui/Notice";
 import { useT } from "../../i18n";
-import { TITLE_PREFIX } from "./githubUrl";
+import { FORM_LABELS, TITLE_PREFIX } from "./githubUrl";
 import type { ReportFields } from "./githubUrl";
 
 /** How much of a long text the preview shows: what the person wrote they know; this is to check what is filled in. */
@@ -21,7 +20,7 @@ function Item({ number, title, children }: { number: number; title: string; chil
     <li className="flex items-start gap-3">
       <span
         aria-hidden="true"
-        className="flex size-7 shrink-0 items-center justify-center rounded-pill border border-border-strong bg-surface text-12 font-semibold text-fg"
+        className="flex size-7 shrink-0 items-center justify-center rounded-pill border border-border-strong bg-surface text-12 font-medium text-fg"
       >
         {number}
       </span>
@@ -36,7 +35,7 @@ function Item({ number, title, children }: { number: number; title: string; chil
 /**
  * The third step: what happens when the button is pressed and what the person does next. Noust sends nothing; it
  * downloads the file and opens GitHub's form with the fields filled in, and the person attaches the file and
- * submits. What will already be written there is shown, field by field, as GitHub's form words them.
+ * submits. What will already be written there is shown, field by field, under the labels GitHub's form gives them.
  */
 export function StepGithub({
   fields,
@@ -56,7 +55,8 @@ export function StepGithub({
   hiddenInText: number;
 }) {
   const t = useT();
-  const area = areaLabel === fields.area ? fields.area : `${fields.area} (${areaLabel})`;
+  // What GitHub will show is the form's own option, in English; another language also gets its own words for it.
+  const area = t.locale === "en" || areaLabel === fields.area ? fields.area : `${fields.area} (${areaLabel})`;
   return (
     <div className="flex min-w-0 flex-col gap-5">
       <ol className="flex flex-col gap-3">
@@ -75,16 +75,16 @@ export function StepGithub({
         <KeyValueList
           wrap
           items={[
-            { label: t("report.github.formTitle"), value: `${TITLE_PREFIX}${fields.title}`, mono: false, copy: false },
-            { label: t("report.github.formVersion"), value: fields.version, mono: true, copy: false },
-            { label: t("report.github.formArea"), value: area, mono: false, copy: false },
-            { label: t("report.github.formHappened"), value: shown(fields.whatHappened), mono: false, copy: false },
-            { label: t("report.github.formSteps"), value: shown(fields.reproduce), mono: false, copy: false },
+            { label: FORM_LABELS.title, value: `${TITLE_PREFIX}${fields.title}`, mono: false, copy: false },
+            { label: FORM_LABELS.version, value: fields.version, mono: true, copy: false },
+            { label: FORM_LABELS.area, value: area, mono: false, copy: false },
+            { label: FORM_LABELS.whatHappened, value: shown(fields.whatHappened), mono: false, copy: false },
+            { label: FORM_LABELS.reproduce, value: shown(fields.reproduce), mono: false, copy: false },
           ]}
         />
       </div>
-      {cutName !== null ? <Notice tone="info">{t("report.github.cutNote", { name: cutName })}</Notice> : null}
-      {hiddenInText > 0 ? <Notice tone="info">{t("report.github.hiddenNote", { count: hiddenInText })}</Notice> : null}
+      {cutName !== null ? <p className="text-13 text-fg-muted">{t("report.github.cutNote", { name: cutName })}</p> : null}
+      {hiddenInText > 0 ? <p className="text-13 text-fg-muted">{t("report.github.hiddenNote", { count: hiddenInText })}</p> : null}
       <p className="text-12 text-fg-muted">{t("report.github.security")}</p>
     </div>
   );
