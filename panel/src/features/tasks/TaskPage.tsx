@@ -40,7 +40,8 @@ import { taskKey, taskOfJob } from "./model";
 import type { Task } from "./model";
 import { endingWords } from "./notices";
 import { pin, unpin, useTaskState } from "./store";
-import { stepOf, titleOf, viewOf, whoOf } from "./words";
+import { whoOf } from "./who";
+import { stepOf, titleOf, viewOf } from "./words";
 
 /** The jobs whose steps are the deploy's five phases, which the page draws as its line of steps. */
 const DEPLOY_JOBS: ReadonlySet<string> = new Set(["deploy", "update", "rollback", "push", "zero_downtime", "migrate"]);

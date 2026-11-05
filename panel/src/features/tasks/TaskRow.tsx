@@ -16,7 +16,8 @@ import { isActive, placeOf } from "./model";
 import type { Me, Task } from "./model";
 import { LOG_POLL_MS, taskLogTailQuery } from "./queries";
 import { pin, unpin, useTaskState } from "./store";
-import { stepOf, titleOf, viewOf, whoOf } from "./words";
+import { whoOf } from "./who";
+import { stepOf, titleOf, viewOf } from "./words";
 
 /** How long a task ran, when it ended and began. */
 function tookOf(task: Task): number | null {

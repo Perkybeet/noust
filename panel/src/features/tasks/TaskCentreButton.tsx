@@ -1,11 +1,12 @@
 import { Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { Suspense, lazy, useMemo, useState } from "react";
 
 import { Button } from "../../components/ui/Button";
 import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { Popover } from "../../components/ui/Popover";
+import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusGlyph } from "../../components/ui/StatusPill";
 import { getLocale } from "../../app/locale";
 import { useNavScope } from "../../app/useNavScope";
@@ -15,8 +16,11 @@ import { useServerList } from "../../nodes/servers";
 import { useNode } from "../../nodes/useNode";
 import { useMe } from "./feeds";
 import { queuedCount, runningCount } from "./model";
-import { FleetPanel, ServerPanel } from "./TaskPanel";
 import { useTaskState } from "./store";
+
+// The rows, their logs and the fleet's groups are fetched when a hand or a key is near the icon, not with every page.
+const loadPanel = () => import("./TaskPanelBody");
+const TaskPanelBody = lazy(loadPanel);
 
 /**
  * The top bar's entry to the task centre (item 114): an icon that says how many tasks are running, in the shape
@@ -49,6 +53,7 @@ export function TaskCentreButton() {
   // Opening it for the first time should not draw English: its texts are asked for when a hand or a key is near.
   const prepare = (): void => {
     void loadNamespaces(getLocale(), ["tasks", "serverText"]);
+    void loadPanel();
   };
 
   const button = (
@@ -92,7 +97,11 @@ export function TaskCentreButton() {
       className="w-96"
     >
       <div className="-mx-4 -mb-4 max-h-128 overflow-y-auto scroll-thin">
-        {open ? fleet ? <FleetPanel state={state} target={version} onNavigate={close} /> : <ServerPanel tasks={here} me={me} onNavigate={close} /> : null}
+        {open ? (
+          <Suspense fallback={<Skeleton className="h-24 w-full" />}>
+            <TaskPanelBody fleet={fleet} state={state} here={here} me={me} target={version} onNavigate={close} />
+          </Suspense>
+        ) : null}
       </div>
     </Popover>
   );

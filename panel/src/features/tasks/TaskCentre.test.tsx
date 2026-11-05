@@ -65,8 +65,7 @@ describe("the panel", () => {
     serve();
     const { user } = renderConsole("/apps");
     const panel = await open(user);
-    const groups = within(panel)
-      .getAllByRole("region")
+    const groups = (await within(panel).findAllByRole("region"))
       .map((group) => group.getAttribute("aria-labelledby"))
       .map((id) => (id === null ? "" : (document.getElementById(id)?.textContent ?? "")));
     expect(groups).toEqual(["Yours, running1", "Yours, queued1", "Now on the server1", "Ended lately1"]);

@@ -17,7 +17,7 @@ import { expect, settle, signIn, test, toasts } from "./fixtures";
 
 const OUT = process.env.NOUST_SCREENS_DIR ?? path.join(import.meta.dirname, "__screens__", "tasks");
 const LIVE_APP = "pedidos.example.org";
-const TITLE = `Deploy ${LIVE_APP}`;
+const TITLE = `Update ${LIVE_APP}`;
 const SIZES = [
   { name: "1440", width: 1440, height: 900 },
   { name: "390", width: 390, height: 844 },

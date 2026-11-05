@@ -13,7 +13,7 @@ import { expect, expectNoA11yViolations, settle, signIn, stillness, test, toasts
 
 /** In place, with a real tree: its update runs the real sequence a line at a time (scripts/console_server/app_tabs.py). */
 const LIVE_APP = "pedidos.example.org";
-const TITLE = `Deploy ${LIVE_APP}`;
+const TITLE = `Update ${LIVE_APP}`;
 
 /** Waits for every job about `domain` to end, so the next test starts from a machine at rest. */
 async function jobsEnded(page: Page, domain: string): Promise<void> {
@@ -119,7 +119,7 @@ test.describe("the list", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await signIn(page, consoleServer, "/activity");
     // The second column of Activity has it, beside the views.
-    await page.getByRole("navigation", { name: /^Sections/ }).getByRole("link", { name: "Tasks" }).click();
+    await page.getByRole("navigation", { name: "Activity sections" }).getByRole("link", { name: "Tasks" }).click();
     await expect(page).toHaveURL(/\/activity\/tasks$/);
     await expect(page.getByRole("heading", { level: 1, name: "Tasks" })).toBeVisible();
     const table = page.getByRole("table", { name: "Tasks, latest first" });

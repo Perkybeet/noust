@@ -24,7 +24,8 @@ import { useMe } from "./feeds";
 import { isActive, placeOf } from "./model";
 import type { Task } from "./model";
 import { taskStore, useTaskState, withJobs } from "./store";
-import { titleOf, viewOf, whoOf } from "./words";
+import { whoOf } from "./who";
+import { titleOf, viewOf } from "./words";
 
 /** The jobs the first page of the history asks for, and the most the server gives (`GET /api/jobs` takes up to 100). */
 const FIRST = 50;
