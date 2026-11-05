@@ -46,11 +46,7 @@
       "tolerance": 160,
       "toleranceReason": "The page is the audit trail, one row of 36px per event the server has recorded, and the server records the sign-in's own retries: a quiet machine measures 1308 (CI as well) and a loaded one 1345 to 1453. A page that grew is still caught: more than four rows over the quiet length fails."
     },
-    "settings-compliance": {
-      "path": "/settings/compliance",
-      "height": 4802,
-      "reason": "The frameworks, their controls and the ENS report in one page; the frameworks and the security profile move to Controls and the report stays."
-    },
+    "settings-compliance": { "path": "/settings/compliance", "height": 156 },
     "settings-cloud": { "path": "/settings/cloud", "height": 683 },
     "settings-central": { "path": "/settings/central", "height": 468 },
     "settings-controls": {
