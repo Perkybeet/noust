@@ -1,4 +1,4 @@
-import { Camera, ClipboardPaste, ImagePlus, X } from "lucide-react";
+import { Camera, ClipboardPaste, ImageUp, X } from "lucide-react";
 import { useRef } from "react";
 
 import { Button } from "../../components/ui/Button";
@@ -56,7 +56,7 @@ export function ImagesField({ images, onCapture }: { images: Images; onCapture: 
           />
           <Button
             size="sm"
-            icon={<ImagePlus />}
+            icon={<ImageUp />}
             onClick={() => {
               picker.current?.click();
             }}
