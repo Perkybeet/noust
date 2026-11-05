@@ -1,4 +1,6 @@
 
+import { Bug } from "lucide-react";
+
 import { Drawer } from "../../components/ui/Drawer";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { SlidingIndicator } from "../../components/ui/SlidingIndicator";
@@ -18,6 +20,7 @@ export function AreasSheet({
   onOpenChange,
   onNavigate,
   onOpenAccount,
+  onReport,
   finalFocus,
 }: {
   open: boolean;
@@ -25,6 +28,8 @@ export function AreasSheet({
   /** Called when an area is chosen, so the shell can hand focus to the new page. */
   onNavigate: () => void;
   onOpenAccount: () => void;
+  /** Opens the report of a problem: a phone has no help menu in its bar, so it is here. */
+  onReport: () => void;
   finalFocus?: boolean;
 }) {
   const t = useT();
@@ -56,6 +61,17 @@ export function AreasSheet({
             >
               <OBJECT_ICONS.account aria-hidden="true" className="size-icon-lg shrink-0 text-fg-faint group-hover:text-fg-muted" />
               <span className="min-w-0 flex-1 truncate">{t("nav.sheet.account")}</span>
+            </button>
+          </li>
+          <li className="min-w-0">
+            <button
+              type="button"
+              onClick={onReport}
+              aria-haspopup="dialog"
+              className="group elev-lift flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-control px-3 py-1 text-left text-14 font-medium text-fg-muted hover:bg-surface-raised hover:text-fg focus-visible:-outline-offset-2"
+            >
+              <Bug aria-hidden="true" className="size-icon-lg shrink-0 text-fg-faint group-hover:text-fg-muted" />
+              <span className="min-w-0 flex-1 text-pretty">{t("shell.help.report")}</span>
             </button>
           </li>
         </ul>

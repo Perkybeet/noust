@@ -4,6 +4,7 @@ import { Link, Outlet, createRootRouteWithContext, retainSearchParams } from "@t
 import { useDocumentTitle } from "../app/documentTitle";
 import { getLocale } from "../app/locale";
 import { validateNodeSearch } from "../app/nodeRoute";
+import { ReportHost } from "../features/report/ReportHost";
 import { useT } from "../i18n";
 import { loadRouteNamespaces } from "../i18n/routeNamespaces";
 
@@ -20,9 +21,23 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   // every navigation that does not set it, so each link stays on the server it was built on.
   validateSearch: validateNodeSearch,
   search: { middlewares: [retainSearchParams(["node"])] },
-  component: Outlet,
+  component: RootLayout,
   notFoundComponent: NotFound,
 });
+
+/**
+ * What every address is drawn in. The report of a problem is mounted here and not in the shell: the screen of a page
+ * that broke can replace the whole shell (an error in what a route loads is drawn by the console's layout in a bare
+ * page), and the button that report is opened from has to find its dialog there too.
+ */
+function RootLayout() {
+  return (
+    <>
+      <Outlet />
+      <ReportHost />
+    </>
+  );
+}
 
 function NotFound() {
   const t = useT();

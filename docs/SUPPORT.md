@@ -33,6 +33,12 @@ you exactly what it will put in the file before you take it. Then:
    and your images.
 3. You read the file, drag it into the form's last box, wait for its link to appear and submit.
 
+The second step shows each part of the file as it is written, with what was hidden marked as hidden.
+The support report can be left out, or made with the domains and the server's name replaced by `app-1`
+and `host` (what `--hide-domains` does); an account that may not read the server's report goes on without
+it. What you write yourself is masked the same way before it reaches the form or the file, and the console
+says how many values it hid.
+
 Nothing is sent by the console itself: it prepares a page and a file, and nothing is public until you
 post. The issue gets the labels `bug`, `from-console` and `needs-triage` by itself, and is triaged like
 any other.

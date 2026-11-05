@@ -32,6 +32,11 @@ export const shell = {
     needs: { one: "Inbox, {count} thing needs you", other: "Inbox, {count} things need you" },
     clear: "Inbox, nothing needs you",
   },
+  /** The help menu of the top bar: where the guide, the shortcuts, "Report a problem" and "About" are. */
+  help: {
+    label: "Help",
+    report: "Report a problem",
+  },
   /** The icon of the task centre in the top bar (features/tasks): what its accessible name says. */
   tasks: {
     label: "Tasks: {running} running, {queued} queued",
@@ -165,11 +170,12 @@ export const shell = {
     breadcrumb: "Breadcrumb",
   },
   pageError: {
-    title: "This page could not be displayed",
-    defaultHint: "Reload to try again. If it fails the same way, the message below is what to report.",
+    title: "This page broke",
+    defaultHint: "The rest of the console still works. Try again; if it happens again, tell us: the error will already be in the report.",
     label: "The error",
     tryAgain: "Try again",
     reload: "Reload page",
+    report: "Report a problem",
   },
   pending: {
     label: "Loading the page",

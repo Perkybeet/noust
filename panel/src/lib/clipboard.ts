@@ -54,3 +54,8 @@ export function downloadBase64(filename: string, base64: string, type = "applica
   const bytes = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
   offer(filename, new Blob([bytes], { type }));
 }
+
+/** Offers bytes (an archive made in the browser) as a file download. */
+export function downloadBytes(filename: string, bytes: Uint8Array<ArrayBuffer>, type = "application/octet-stream"): void {
+  offer(filename, new Blob([bytes], { type }));
+}

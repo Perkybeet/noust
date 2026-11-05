@@ -5,6 +5,7 @@ import type { MouseEvent } from "react";
 import { Drawer } from "../components/ui/Drawer";
 import type { AppInfo } from "../features/apps/data";
 import { useT } from "../i18n";
+import { openReport } from "../features/report/store";
 import { TaskFeeds } from "../features/tasks/feeds";
 import { PinnedTasks } from "../features/tasks/PinnedTasks";
 import { NodeNotice } from "../nodes/NodeNotice";
@@ -233,6 +234,10 @@ export function Shell() {
               onOpenAccount={() => {
                 setNavOpen(false);
                 setAccountOpen(true);
+              }}
+              onReport={() => {
+                setNavOpen(false);
+                void openReport({ from: "help", pathname });
               }}
             />
             <Drawer open={accountOpen} onOpenChange={setAccountOpen} placement="bottom" title={t("shell.session.title")} description={sessionDescription}>
