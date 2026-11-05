@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
-import { FakeEventSource, fakeBackend, json, signedInRoutes } from "../../test/fakes";
+import { FakeEventSource, SESSION, fakeBackend, json, signedInRoutes } from "../../test/fakes";
 import type { FakeBackend, RouteHandler } from "../../test/fakes";
 import { resetHandled } from "../../realtime/jobEnds";
 import { EMPTY, taskStore } from "./store";
@@ -312,6 +312,20 @@ describe("a task's page and the list", () => {
       expect(location().pathname).toBe("/activity/tasks/again1");
     });
     expect(backend.callsTo("POST /api/jobs/update")[0]?.body).toEqual({ domain: "shop.example.com", force: false });
+  });
+
+  it("keeps Try again where it is for a role that cannot deploy, locked and with the reason one press away, and queues nothing", async () => {
+    const failed = job({ id: "bad2", actor: ME, status: "failed", state: "failed", error: "npm ERR! code ELIFECYCLE", completed_at: new Date().toISOString() });
+    serve({
+      "GET /api/auth/session": () => json(200, { ...SESSION, permissions: ["self", "apps.read"], role: "viewer" }),
+      "GET /api/jobs/bad2": () => json(200, failed),
+      "GET /api/jobs/bad2/log": () => json(200, { content: "", truncated: false }),
+    });
+    renderConsole("/activity/tasks/bad2");
+    expect(await screen.findByRole("heading", { level: 1, name: "Deploy shop.example.com" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Try again" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Why you cannot do this" })).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/jobs/update")).toHaveLength(0);
   });
 
   it("says plainly that a task is not there", async () => {
