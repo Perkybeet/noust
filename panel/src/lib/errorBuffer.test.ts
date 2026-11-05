@@ -104,3 +104,14 @@ describe("listening to the browser", () => {
     expect(recentErrors()).toHaveLength(0);
   });
 });
+
+const ENTRY = import.meta.glob<string>("../main.tsx", { query: "?raw", import: "default", eager: true });
+
+describe("the entry of the console", () => {
+  it("starts the buffer before it draws anything, so an error of the first paint is remembered too", () => {
+    const source = Object.values(ENTRY)[0] ?? "";
+
+    expect(source).toContain("installErrorBuffer();");
+    expect(source.indexOf("installErrorBuffer();")).toBeLessThan(source.indexOf("createRoot(container).render("));
+  });
+});

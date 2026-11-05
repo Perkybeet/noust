@@ -9,6 +9,7 @@ import { getLocale, initLocale } from "./app/locale";
 import { createAppRouter, namespacesOfLocation } from "./app/router";
 import { initTheme } from "./app/theme";
 import { installSessionHandling } from "./features/auth/session";
+import { installErrorBuffer } from "./lib/errorBuffer";
 import { startIdlePreload } from "./i18n/preload";
 
 const container = document.getElementById("root");
@@ -18,6 +19,9 @@ if (!container) {
 
 // Before the first render, so a pinned theme never flashes the other one.
 initTheme();
+// And so is what remembers the tab's last errors: a report of a problem says what the browser saw, and an error
+// of the first paint is the one nobody can reproduce.
+installErrorBuffer();
 
 const queryClient = createQueryClient();
 const router = await createAppRouter(queryClient);

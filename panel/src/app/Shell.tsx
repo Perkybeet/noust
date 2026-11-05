@@ -5,7 +5,6 @@ import type { MouseEvent } from "react";
 import { Drawer } from "../components/ui/Drawer";
 import type { AppInfo } from "../features/apps/data";
 import { useT } from "../i18n";
-import { ReportHost } from "../features/report/ReportHost";
 import { openReport } from "../features/report/store";
 import { TaskFeeds } from "../features/tasks/feeds";
 import { PinnedTasks } from "../features/tasks/PinnedTasks";
@@ -253,7 +252,6 @@ export function Shell() {
         <PaletteHost open={paletteOpen} onOpenChange={setPaletteOpen} onOpenShortcuts={openShortcuts} onVerb={runVerb} returnFocus={() => returnFocus.current} />
       ) : null}
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} shortcuts={bindings} />
-      <ReportHost />
       {chosenVerb !== null ? (
         <Suspense fallback={null}>
           <VerbRunner key={chosenVerb.choice} app={chosenVerb.app} verb={chosenVerb.verb} />
