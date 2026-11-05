@@ -66,7 +66,6 @@ export const tasks = {
     notFoundHelp: "It may have been cleared from the history, or it ran on another server.",
     loading: "Loading the task",
     readFailed: "Could not read the task",
-    who: "Started by {who}",
     startedAt: "Started {when}",
     tookFor: "Took {duration}",
     steps: "Steps",

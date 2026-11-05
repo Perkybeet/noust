@@ -129,7 +129,7 @@ function TaskView({ job }: { job: Job }) {
           status: <StatusPill state={view.state} label={view.label} />,
           meta: (
             <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
-              <span>{t("tasks.page.who", { who: whoOf(task, me, t) })}</span>
+              <span>{whoOf(task, me, t)}</span>
               {hasFleet ? <Mono tone="muted">{node ?? ""}</Mono> : null}
               {began !== null ? <span>{t.rich("tasks.page.startedAt", { when: <RelativeTime key="when" value={began} /> })}</span> : null}
               {took !== null ? <span>{t("tasks.page.tookFor", { duration: formatDuration(took, t.locale) })}</span> : null}

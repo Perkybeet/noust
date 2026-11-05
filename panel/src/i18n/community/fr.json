@@ -14954,7 +14954,6 @@
   "tasks.page.notFoundHelp": "Elle a peut-être été effacée de l'historique, ou elle s'est exécutée sur un autre serveur.",
   "tasks.page.loading": "Chargement de la tâche",
   "tasks.page.readFailed": "Impossible de lire la tâche",
-  "tasks.page.who": "Lancée par {who}",
   "tasks.page.startedAt": "Commencée {when}",
   "tasks.page.tookFor": "A duré {duration}",
   "tasks.page.steps": "Étapes",

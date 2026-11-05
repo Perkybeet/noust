@@ -27,24 +27,35 @@ function Chip({ task }: { task: Task }) {
   const place = placeOf(task);
   const running = task.state === "running" && task.progress !== null;
   const percent = task.progress ?? 0;
-  const line = running ? (step === null || step === "" ? `${String(percent)} %` : t("tasks.pinned.progress", { percent, step })) : (step ?? view.label);
+  const failed = task.state === "failed";
+  // What it says is where it is while it runs, where it stopped when it failed, and how it ended otherwise: the result stays.
+  const line = running ? (step === null || step === "" ? `${String(percent)} %` : t("tasks.pinned.progress", { percent, step })) : failed ? (step ?? view.label) : view.label;
   return (
-    <Card as="li" padding="none" className="flex w-80 max-w-full items-center gap-2.5 py-2 pr-1.5 pl-3">
-      <span className={stateTextClass(view.state)}>
-        <StatusGlyph state={view.state} />
-        <span className="sr-only">{view.label}</span>
-      </span>
-      <Link
-        to={place.to as never}
-        {...(place.params !== undefined ? { params: place.params as never } : {})}
-        {...(place.search !== undefined ? { search: place.search as never } : {})}
-        className="min-w-0 flex-1 rounded-control"
-      >
-        <span className="block truncate text-13 font-medium text-fg">{title}</span>
-        <span className={cx("block truncate text-12", task.state === "failed" ? stateTextClass("failed") : "text-fg-muted")}>{line}</span>
-      </Link>
-      {running ? <Progress layout="inline" showValue={false} value={task.progress} label={title} className="w-12 shrink-0" /> : null}
-      <IconButton label={t("tasks.row.unpin", { title })} icon={<ICONS.close />} size="sm" onClick={() => { unpin(task.key); }} />
+    <Card as="li" padding="none" className="w-80 max-w-full">
+      <div className="flex items-center gap-2.5 py-2 pr-1.5 pl-3">
+        <span className={stateTextClass(view.state)}>
+          <StatusGlyph state={view.state} />
+          {line === view.label ? null : <span className="sr-only">{view.label}</span>}
+        </span>
+        <Link
+          to={place.to as never}
+          {...(place.params !== undefined ? { params: place.params as never } : {})}
+          {...(place.search !== undefined ? { search: place.search as never } : {})}
+          className="min-w-0 flex-1 rounded-control"
+        >
+          <span className="block truncate text-13 font-medium text-fg">{title}</span>
+          <span className={cx("block truncate text-12", failed ? stateTextClass("failed") : "text-fg-muted")}>{line}</span>
+          {running ? <Progress layout="inline" showValue={false} value={task.progress} label={title} className="mt-1" /> : null}
+        </Link>
+        <IconButton
+          label={t("tasks.row.unpin", { title })}
+          icon={<ICONS.close />}
+          size="sm"
+          onClick={() => {
+            unpin(task.key);
+          }}
+        />
+      </div>
     </Card>
   );
 }
@@ -74,12 +85,14 @@ export function PinnedTasks() {
   useEffect(() => {
     const root = document.documentElement;
     const element = list.current;
-    if (element === null || phone) {
+    if (element === null) {
       root.style.removeProperty(PINNED_HEIGHT_VAR);
       return;
     }
+    // On a phone the chips stand 4rem higher, above the bar at the foot, and the toasts rise with them.
+    const lift = phone ? 64 : 0;
     const measure = (): void => {
-      root.style.setProperty(PINNED_HEIGHT_VAR, `${String(element.offsetHeight + 8)}px`);
+      root.style.setProperty(PINNED_HEIGHT_VAR, `${String(element.offsetHeight + 8 + lift)}px`);
     };
     measure();
     const observer = new ResizeObserver(measure);

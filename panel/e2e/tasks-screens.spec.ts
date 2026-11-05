@@ -94,14 +94,35 @@ for (const size of SIZES) {
     await shot(page, theme, size.name, "14-task-running");
     await jobsEnded(page);
 
-    // One that failed.
-    const failed = (await (await page.request.get("/api/jobs?status=failed&limit=1")).json()) as { jobs: { id: string }[] };
-    const bad = failed.jobs[0];
-    if (bad !== undefined) {
-      await page.goto(`/activity/tasks/${bad.id}`);
-      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-      await shot(page, theme, size.name, "15-task-failed");
-    }
+    // One that failed, made up for the picture: what the sandbox's builds do not do is fail.
+    const failedJob = {
+      id: "f00dbad1",
+      type: "deploy",
+      name: "Deploy api.example.com",
+      description: "",
+      status: "failed",
+      state: "failed",
+      progress: 60,
+      total_steps: 100,
+      current_step: "Building",
+      created_at: new Date(Date.now() - 240_000).toISOString(),
+      started_at: new Date(Date.now() - 238_000).toISOString(),
+      completed_at: new Date(Date.now() - 166_000).toISOString(),
+      error: "Error: Cannot find module './shipping/rates'\nnpm ERR! code ELIFECYCLE\nnpm ERR! errno 1",
+      logs: [],
+      metadata: { domain: "api.example.com" },
+      title: { code: "jobs.title.deploy", params: { domain: "api.example.com" } },
+      actor: null,
+      deployment_id: 41,
+    };
+    await page.route("**/api/jobs/f00dbad1", (route) => route.fulfill({ json: failedJob }));
+    await page.route("**/api/jobs/f00dbad1/log", (route) =>
+      route.fulfill({ json: { content: "[2026-11-05 01:00:01] [INFO] Preparing deployment\n[2026-11-05 01:00:03] [INFO] Fetching the recorded source again\n[2026-11-05 01:00:05] [INFO] Building\n[2026-11-05 01:01:12] [ERROR] npm ERR! code ELIFECYCLE", truncated: false } }),
+    );
+    await page.goto("/activity/tasks/f00dbad1");
+    await expect(page.getByRole("heading", { level: 1, name: "Deploy api.example.com" })).toBeVisible();
+    await expect(page.getByText("npm ERR! code ELIFECYCLE").first()).toBeVisible();
+    await shot(page, theme, size.name, "15-task-failed");
 
     // The list.
     await page.goto("/activity/tasks");

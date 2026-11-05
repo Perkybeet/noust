@@ -14634,7 +14634,6 @@
   "tasks.page.notFoundHelp": "它可能已从历史记录中清除，或在另一台服务器上运行。",
   "tasks.page.loading": "正在加载该任务",
   "tasks.page.readFailed": "无法读取该任务",
-  "tasks.page.who": "由 {who} 启动",
   "tasks.page.startedAt": "开始于 {when}",
   "tasks.page.tookFor": "用时 {duration}",
   "tasks.page.steps": "步骤",
