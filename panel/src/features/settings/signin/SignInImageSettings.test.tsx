@@ -238,7 +238,7 @@ describe("Settings > Sign-in image", () => {
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(screen.queryByRole("button", { name: "Remove the image" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
-    expect(screen.queryByLabelText("Change the image")).not.toBeNull();
+    expect(screen.queryByLabelText("Change the image")).toBeNull();
 
     await user.click(locked);
 

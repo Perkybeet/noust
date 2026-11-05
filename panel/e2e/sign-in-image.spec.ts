@@ -9,10 +9,11 @@
  * each screen is written to $NOUST_IMAGE_SHOTS when it is set, for a review by eye.
  */
 
-import type { Page } from "@playwright/test";
+import { request as playwrightRequest } from "@playwright/test";
+import type { APIRequestContext, Page } from "@playwright/test";
 import path from "node:path";
 
-import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
+import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, startConsoleServer, test, totpCode } from "./fixtures";
 import type { ConsoleServer } from "./fixtures";
 
 const SHOTS = process.env.NOUST_IMAGE_SHOTS;
@@ -135,7 +136,7 @@ async function putTheDrawingBack(page: Page, server: ConsoleServer): Promise<voi
   try {
     await signIn(page, server);
     await page.evaluate(async () => {
-      const csrf = document.cookie.match(/noust_csrf=([^;]+)/)?.[1] ?? "";
+      const csrf = /noust_csrf=([^;]+)/.exec(document.cookie)?.[1] ?? "";
       await fetch("/api/auth/sign-in/appearance", { method: "DELETE", headers: { "X-Noust-CSRF": csrf } });
     });
   } catch {
@@ -342,4 +343,99 @@ test("a file that is not an image of the three types is refused before it is sen
   await expect(page.getByText(/not saved yet/)).toHaveCount(0);
   expect(sent).toEqual([]);
   await expectNoA11yViolations(page, "Settings > Sign-in image after an SVG");
+});
+
+/** The CSRF header of a session made over the API. */
+async function csrf(context: APIRequestContext): Promise<Record<string, string>> {
+  const { cookies } = await context.storageState();
+  const token = cookies.find((cookie) => cookie.name === "noust_csrf");
+  return token ? { "X-Noust-CSRF": token.value } : {};
+}
+
+/** The access token's session over the API, in sudo mode: what an administrator does before changing a setting. */
+async function administrator(server: ConsoleServer): Promise<APIRequestContext> {
+  const api = await playwrightRequest.newContext({ baseURL: server.url });
+  expect((await api.post("/api/auth/login", { data: { token: server.token, totp_code: server.secondFactor() } })).ok()).toBe(true);
+  expect((await api.post("/api/auth/elevate", { data: { code: server.secondFactor() }, headers: await csrf(api) })).ok()).toBe(true);
+  return api;
+}
+
+/** A viewer with an authenticator, as the person would enrol it: what a person who may only read signs in with. */
+async function aViewer(server: ConsoleServer, admin: APIRequestContext): Promise<{ username: string; password: string; codes: string[] }> {
+  const username = `reader-${String(Date.now())}`;
+  const password = "quiet meadow viewer lantern 7919";
+  const created = await admin.post("/api/auth/accounts", { data: { username, role: "viewer", password }, headers: await csrf(admin) });
+  expect(created.status(), await created.text()).toBe(201);
+  const own = await playwrightRequest.newContext({ baseURL: server.url });
+  expect((await own.post("/api/auth/login", { data: { username, password } })).ok()).toBe(true);
+  const enrol = (await (await own.post("/api/auth/2fa/enroll", { headers: await csrf(own) })).json()) as { secret: string };
+  const confirmed = await own.post("/api/auth/2fa/confirm", { data: { code: totpCode(enrol.secret) }, headers: await csrf(own) });
+  expect(confirmed.ok(), await confirmed.text()).toBe(true);
+  const { backup_codes: codes } = (await confirmed.json()) as { backup_codes: string[] };
+  await own.dispose();
+  return { username, password, codes };
+}
+
+test("someone who may only read the page sees the picture, with its action turned off and the reason a press away", async ({ page, problems }, testInfo) => {
+  const project = testInfo.project.name;
+  test.setTimeout(150_000);
+  // The page asks what a viewer may not have in its shell, and each refusal is a line in the console.
+  problems.expect(/status of (401|403|404) /);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const logo = await drawn(page, "logo");
+  // A server of its own: an account changes how every other test of the worker signs in.
+  const server = await startConsoleServer(["--totp", "--backup-codes", "40"]);
+  const admin = await administrator(server);
+  try {
+    // The first account of a server is its owner, whatever it was asked to be: a viewer is the second.
+    const first = await admin.post("/api/auth/accounts", {
+      data: { username: "first-owner", role: "admin", password: "quiet meadow owner lantern 1111" },
+      headers: await csrf(admin),
+    });
+    expect(first.status(), await first.text()).toBe(201);
+    const set = await admin.put("/api/auth/sign-in/appearance", {
+      data: { image: logo.buffer.toString("base64"), fit: "contain", alt: "Acme Corp" },
+      headers: await csrf(admin),
+    });
+    expect(set.status(), await set.text()).toBe(200);
+    const reader = await aViewer(server, admin);
+
+    await page.goto(`${server.url}/login?next=${encodeURIComponent("/settings/sign-in-image")}`);
+    await page.getByLabel("Username or email").fill(reader.username);
+    await page.getByLabel("Password").fill(reader.password);
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(page.getByText(`Password accepted for ${reader.username}.`)).toBeVisible();
+    await page.getByLabel("Two-factor code").fill(reader.codes[0] ?? "");
+    await page.getByRole("button", { name: "Verify" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Sign-in image" })).toBeVisible();
+    // The precondition, said by the server: this person holds the permission to read and not the one to change.
+    const held = await page.evaluate(async () => ((await (await fetch("/api/auth/session")).json()) as { role: string | null; permissions: string[] }));
+    expect(held.permissions, `role ${String(held.role)}`).toContain("settings.read");
+    expect(held.permissions, `role ${String(held.role)}`).not.toContain("security.manage");
+
+    // The page is read: the screen with the saved picture, said to be seen by everyone, and nothing to edit or save.
+    await expect(page.getByText("It is seen before signing in: anyone who opens the console sees it.")).toBeVisible();
+    await expect(page.getByText("You can see this page, not change it.")).toBeVisible();
+    await expect(page.locator("[data-drop-zone]").getByRole("img", { name: "Acme Corp" })).toBeHidden(); // the preview is hidden from assistive technology
+    await expect(page.locator("[data-drop-zone] img")).toHaveAttribute("src", /\/api\/auth\/sign-in\/image\?v=[0-9a-f]{64}$/);
+    await expect(page.getByRole("radiogroup")).toHaveCount(0);
+    await expect(page.getByRole("textbox")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Remove the image" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Save" })).toHaveCount(0);
+
+    // The primary action stays where it is, turned off with a lock, and a press says why.
+    const locked = page.getByRole("button", { name: "Change the image" });
+    await expect(locked).toHaveAttribute("aria-disabled", "true");
+    // Playwright takes aria-disabled for a button nobody can press and waits for it: a person's finger does not.
+    await locked.click({ force: true });
+    await expect(page.getByText("Why you cannot change it")).toBeVisible();
+    await expect(page.getByText("security.manage")).toBeVisible();
+    await capture(page, project, "settings-readonly-1440");
+    await expectNoA11yViolations(page, "Settings > Sign-in image read-only");
+  } finally {
+    await admin.dispose();
+    // Nothing on screen may keep asking a server that is going away.
+    await page.goto("about:blank");
+    await server.stop();
+  }
 });

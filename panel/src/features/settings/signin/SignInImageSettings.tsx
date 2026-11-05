@@ -244,7 +244,8 @@ export function SignInImageSettings() {
               </figcaption>
             </figure>
 
-            <input ref={chooser} type="file" accept={ACCEPT} aria-label={chooseLabel} tabIndex={-1} className="sr-only" onChange={onPick} />
+            {/* The button above opens it: a file input is a second button of the same name to assistive technology and a second stop for the keyboard, so it is not drawn at all, and not for someone who cannot change the picture. */}
+            {canChange ? <input ref={chooser} type="file" accept={ACCEPT} aria-label={chooseLabel} className="hidden" onChange={onPick} /> : null}
 
             {problem !== null ? (
               <InlineMessage tone="error" live>
