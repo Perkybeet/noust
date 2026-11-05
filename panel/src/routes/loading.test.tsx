@@ -84,6 +84,7 @@ const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/databases/$engine/$name/access", "/databases/postgresql/example_production/access"],
   ["/databases/$engine/$name/delete", "/databases/postgresql/example_production/delete"],
   ["/databases/$engine/$name/settings", "/databases/postgresql/example_production/settings"],
+  ["/databases/$engine/$name/users", "/databases/postgresql/example_production/users"],
   ["/databases/engines", "/databases/engines"],
   ["/databases/engines/$engine/settings", "/databases/engines/postgresql/settings"],
   ["/databases/servers", "/databases/servers"],
@@ -207,7 +208,7 @@ const NOTHING_TO_WAIT_FOR: Readonly<Record<string, string>> = {
  */
 const NOTHING_LEFT_TO_WAIT_FOR: Readonly<Record<string, string>> = {
   "/apps/$domain/settings/delete": "the danger zone of the application the layout read",
-  "/databases/$engine/$name/delete": "what deleting takes is said by the database's name; the applications that use it are one line that arrives",
+  "/databases/$engine/$name/delete": "the list the layout read says whether the engine still has the database; the applications that use it are one line that arrives",
   "/apps/$domain/settings/container": "the test application is not a container, so it says so; a container application reads its settings and shows a skeleton while it waits",
   "/apps/$domain/settings/export": "an action on the application the layout read",
   "/apps/$domain/settings/resources": "a form of the application the layout read; the machine's core count only refines a hint",

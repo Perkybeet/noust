@@ -151,7 +151,7 @@ describe("deleting a database", () => {
       "DELETE /api/databases/databases/postgresql/example_production": () => json(202, { job_id: JOB.id, status: "pending", message: "Dropping", job: JOB }),
       "GET /api/jobs/drop-1": () => json(200, JOB),
     }, "Delete the database");
-    await user.click(screen.getByRole("checkbox", { name: "Take a last dump first" }));
+    await user.click(await screen.findByRole("checkbox", { name: "Take a last dump first" }));
     expect(screen.getByText("Without it there is no way back.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Delete…" }));
     const dialog = await screen.findByRole("alertdialog", { name: "Drop example_production" });

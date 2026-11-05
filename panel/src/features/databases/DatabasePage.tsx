@@ -125,7 +125,7 @@ function Facts({ frame }: { frame: DatabaseFrame }) {
 }
 
 export interface DatabasePageProps {
-  /** The section's name; the database's own on its Overview, which `mono` sets as the system value it is. */
+  /** The section's name; the database's own on its Overview, which is set as the system value it is. */
   title: string;
   mono?: boolean;
   /** The database's state, beside the title: on the Overview only. */

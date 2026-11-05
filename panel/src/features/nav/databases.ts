@@ -32,5 +32,5 @@ export const DATABASE_SCREENS = strip(hidden("database", "/databases/$engine/$na
   tab(database, "connect", "databases.detailTabs.connect", { intent: "configure" }),
   tab(database, "backups", "databases.detailTabs.backups", { needs: ["dump"], intent: "configure" }),
   tab(database, "settings", "databases.detailTabs.settings", { intent: "configure" }),
-  tab(database, "delete", "databases.detailTabs.delete", { intent: "danger" }),
+  tab(database, "delete", "common.words.delete", { intent: "danger" }),
 ]);

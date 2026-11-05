@@ -139,23 +139,11 @@ function StateCell({ database, server }: { database: Database; server: DbServer 
   return <StatusPill state="running" size="sm" label={t("common.statusPill.running")} />;
 }
 
-const BAR = ["w-1/12", "w-1/6", "w-1/3", "w-1/2", "w-2/3", "w-5/6", "w-full"] as const;
-
-/** How big a database is among the others on the page: a bar to the largest, beside its size in words. */
-function SizeCell({ database, largest, t }: { database: Database; largest: number; t: T }) {
-  const bytes = sizeBytes(database.size);
+/** The size in words: a bar beside it would be a height of the table's own, and a level that is not a state takes no colour. */
+function SizeCell({ database, t }: { database: Database; t: T }) {
   const words = sizeWords(database.size, t);
   if (words === null) return <EmptyCell reason={t("databases.table.noSize")} />;
-  // Seven steps of the width, so the bar is a utility and not a style: enough to tell a small database from a large one.
-  const step = bytes === null || largest <= 0 ? 0 : Math.min(BAR.length - 1, Math.floor((bytes / largest) * BAR.length));
-  return (
-    <span className="flex items-center justify-end gap-3">
-      <span aria-hidden="true" className="elev-carved-fine relative hidden h-1.5 w-16 overflow-hidden rounded-pill bg-bg-sunken md:block">
-        <span className={`absolute inset-y-0 left-0 rounded-pill bg-il-stroke ${BAR[step]}`} />
-      </span>
-      <span className="tabular-nums">{words}</span>
-    </span>
-  );
+  return <span className="tabular-nums">{words}</span>;
 }
 
 /**
@@ -197,7 +185,6 @@ export function DatabasesTable({ databases, servers, engines, policies, dumps, c
   const wide = useMediaQuery(SM_UP);
   const byKey = new Map((servers ?? []).map((server) => [server.key, server]));
   const protectionOf = (database: Database): Protection => databaseProtection(database, coveringPolicy(policies, database.engine, database.name)).protection;
-  const largest = Math.max(0, ...databases.map((database) => sizeBytes(database.size) ?? 0));
   const columns: Column<Database>[] = [
     {
       id: "name",
@@ -235,10 +222,10 @@ export function DatabasesTable({ databases, servers, engines, policies, dumps, c
       header: t("databases.table.size"),
       align: "end",
       mono: true,
-      width: "w-40",
+      width: "w-28",
       hideBelow: "md",
       sortValue: (database) => sizeBytes(database.size),
-      cell: (database) => <SizeCell database={database} largest={largest} t={t} />,
+      cell: (database) => <SizeCell database={database} t={t} />,
     },
     {
       id: "apps",

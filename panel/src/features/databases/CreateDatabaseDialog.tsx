@@ -9,6 +9,7 @@ import { databaseKeys, databasesQuery, enginesQuery } from "../../api/queries/da
 import type { DbServer, Engine } from "../../api/queries/databases";
 import { isJobFinished, jobKeys, useFollowedJob } from "../../api/queries/jobs";
 import { announce } from "../../app/Announcer";
+import { Can } from "../../components/page/permissions";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { SegmentedControl } from "../../components/page/SegmentedControl";
 import { Button, buttonClassName } from "../../components/ui/Button";
@@ -271,10 +272,12 @@ export function CreateDatabaseDialog({ open, onOpenChange, engine: preset, app: 
         ) : (
           <>
             <Button onClick={() => close(false)}>{t("common.words.cancel")}</Button>
-            {/* design-exception: submit-disabled-invalid the choices that are the person's are made; what is missing is said under the file, not by a button that will not press */}
-            <Button type="submit" form={formId} variant="primary" loading={create.isPending || load.isPending} icon={adding ? undefined : <Add aria-hidden="true" />}>
-              {adding ? t("databases.create.addEngine") : forApp ? t("databases.create.submitLinked") : t("databases.create.submit")}
-            </Button>
+            <Can permission="databases.write">
+              {/* design-exception: submit-disabled-invalid the choices that are the person's are made; what is missing is said under the file, not by a button that will not press */}
+              <Button type="submit" form={formId} variant="primary" loading={create.isPending || load.isPending} icon={adding ? undefined : <Add aria-hidden="true" />}>
+                {adding ? t("databases.create.addEngine") : forApp ? t("databases.create.submitLinked") : t("databases.create.submit")}
+              </Button>
+            </Can>
           </>
         )
       }

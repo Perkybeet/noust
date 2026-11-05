@@ -5,12 +5,13 @@ import { useState } from "react";
 import { request } from "../../../api/client";
 import { databaseKeys, databaseOverviewQuery, databasesQuery } from "../../../api/queries/databases";
 import { jobKeys } from "../../../api/queries/jobs";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { GuardedButton, ReadOnlyLine } from "../../../components/page/permissions";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { Card } from "../../../components/ui/Card";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { ICONS } from "../../../components/ui/icons";
-import { toast } from "../../../components/ui/toast";
+import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
 import { reportActionError } from "../../apps/useAppActions";
@@ -49,11 +50,21 @@ export function DeleteTab({ engine, name }: { engine: string; name: string }) {
     mutationFn: () => request("post", "/api/databases/databases/{engine}/{name}/forget", { params: { engine, name } }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: databaseKeys.lists });
-      toast.success(t("databases.layout.forgotten", { name }));
       void navigate({ to: "/databases" });
     },
     onError: (error) => reportActionError(t("databases.layout.forgetFailed", { name }), error),
   });
+
+  // Whether the engine still has the database (delete or forget) is the list's answer: the page waits for it instead of guessing and flipping.
+  if (row.isPending) {
+    return (
+      <DatabasePage title={t("databases.delete.title")}>
+        <LoadingRegion label={t("databases.layout.loading", { name })} className="flex flex-col gap-4">
+          <Skeleton className="h-32 w-full rounded-card" />
+        </LoadingRegion>
+      </DatabasePage>
+    );
+  }
 
   const Delete = ICONS.delete;
   return (
