@@ -104,8 +104,9 @@ test("Security shows its findings, SSH as it runs, the firewall against what lis
   // The firewall is Network's: its old address (a view of this tab in 4.0) opens it where it is.
   await page.goto("/server/security?view=firewall");
   await expect(page).toHaveURL(/\/network\/firewall$/);
-  const ports = page.getByRole("region", { name: "Ports that listen" });
-  await expect(ports.getByRole("row").filter({ hasText: "5432/tcp" }).getByText("Exposed")).toBeVisible();
+  // The rules are this page's table; what listens, and who is exposed, is the Listening ports' (one table for it).
+  const rules = page.getByRole("region", { name: "Rules", exact: true });
+  await expect(rules.getByRole("row").filter({ hasText: "5432" })).toBeVisible();
   await expect(page.getByText("1 internal service is reachable from the internet")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the firewall view");

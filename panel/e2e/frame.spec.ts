@@ -192,7 +192,7 @@ test.describe("the main bar and the column", () => {
     await expect(network.getByRole("link", { name: "Published ports" })).toHaveAttribute("aria-current", "page");
     for (const name of ["Tunnels", "Firewall", "Listening ports", "Interfaces"]) await expect(network.getByRole("link", { name })).toBeVisible();
     await network.getByRole("link", { name: "Firewall" }).click();
-    await expect(page.getByRole("heading", { level: 1, name: "Firewall" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Server firewall" })).toBeVisible();
     await expect(network.getByRole("link", { name: "Firewall" })).toHaveAttribute("aria-current", "page");
     // The area is still Network in the bar, and the column is the same one.
     await expect(mainBar(page).getByRole("link", { name: "Network" })).toHaveAttribute("aria-current", "page");

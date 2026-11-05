@@ -15,7 +15,7 @@ test("DNS is one click from the domains, and Network has the tunnels and the pub
 
   await tabs.getByRole("link", { name: /^DNS/ }).click();
   await expect(page).toHaveURL(/\/domains\/dns$/);
-  await expect(page.getByText("No DNS accounts yet")).toBeVisible();
+  await expect(page.getByText(/Is your domain at IONOS, OVH or another provider/)).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the DNS tab");
 
@@ -25,7 +25,7 @@ test("DNS is one click from the domains, and Network has the tunnels and the pub
   await expect(page).toHaveURL(/\/network$/);
   const network = page.getByRole("navigation", { name: "Network sections" });
   await expect(network.getByRole("link", { name: /^Published ports/ })).toHaveAttribute("aria-current", "page");
-  await expect(page.getByRole("button", { name: "Publish a port" }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open a port" }).first()).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the Published ports section");
 
@@ -34,7 +34,8 @@ test("DNS is one click from the domains, and Network has the tunnels and the pub
   // The sandbox has no cloudflared: the page says it is missing, as every missing piece is said, and offers to install it.
   await expect(page.getByText("cloudflared is missing")).toBeVisible();
   await expect(page.getByRole("button", { name: "Install" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Create a tunnel" })).toHaveCount(0);
+  // The action is there and says why it cannot be used yet, rather than a form that fails.
+  await expect(page.getByRole("button", { name: "New tunnel" })).toBeDisabled();
   await settle(page);
   await expectNoA11yViolations(page, "the Tunnels tab");
 
@@ -52,10 +53,12 @@ test("an application's Access settings are two clicks from its Settings", async 
   await expectNoA11yViolations(page, "the Access settings");
 });
 
-test("the private certificate authority is one menu away from the certificates, and says what it is before it is made", async ({ page, consoleServer }) => {
+test("the private certificate authority is a card of the certificates, and says what it is before it is made", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/domains/certificates");
-  await page.getByRole("button", { name: "More actions" }).click();
-  await page.getByRole("menuitem", { name: "Private authority" }).click();
+  const authorities = page.getByRole("region", { name: "Authorities" });
+  await expect(authorities.getByText("The server's own authority")).toBeVisible();
+  await expect(authorities.getByText("Not made")).toBeVisible();
+  await authorities.getByRole("button", { name: "Create it" }).click();
 
   const dialog = page.getByRole("dialog", { name: "Private certificate authority" });
   await expect(dialog.getByText("This server has no private authority yet")).toBeVisible();

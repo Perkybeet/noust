@@ -1,6 +1,7 @@
 /**
- * Screenshots of the Domains area for review: every section, and Noust DNS in each of its states, both
- * themes (the light and dark projects), a 1440px desktop and a 390px phone, in English and in Spanish
+ * Screenshots of the Domains and Network areas for review: every section, the dialogs that add a name and open a port,
+ * and Noust DNS in each of its states, both themes (the light and dark projects), a 1440px and a 1920px desktop and a
+ * 390px phone, in English and in Spanish
  * (NOUST_SCREENS_LOCALE=es). Tagged @screens, so left out of the default run:
  *
  *     NOUST_SCREENS=1 npx playwright test e2e/domains-screens.spec.ts --workers=1
@@ -23,6 +24,7 @@ const SPANISH = (process.env.NOUST_SCREENS_LOCALE ?? "").startsWith("es");
 if (SPANISH) test.use({ locale: "es-ES" });
 
 const DESKTOP = { width: 1440, height: 900 };
+const WIDE = { width: 1920, height: 1080 };
 const PHONE = { width: 390, height: 844 };
 
 const SERVER = {
@@ -145,8 +147,18 @@ const SCREENS: readonly Screen[] = [
     name: "domains-add",
     path: "/domains",
     act: async (page) => {
-      await page.getByRole("button", { name: /Add domain|Añadir dominio/ }).first().click();
+      await page.getByRole("button", { name: /Add a name|Añadir un nombre/ }).first().click();
       await expect(page.getByRole("dialog")).toBeVisible();
+    },
+  },
+  {
+    name: "domains-add-site",
+    path: "/domains",
+    act: async (page) => {
+      await page.getByRole("button", { name: /Add a name|Añadir un nombre/ }).first().click();
+      const dialog = page.getByRole("dialog");
+      await dialog.getByRole("radio", { name: /A site of its own|Un sitio propio/ }).check();
+      await expect(dialog.getByRole("radio", { name: /Reverse proxy|Proxy inverso/ })).toBeVisible();
     },
   },
   { name: "sites", path: "/domains/sites" },
@@ -156,7 +168,7 @@ const SCREENS: readonly Screen[] = [
     name: "dns-add-ionos",
     path: "/domains/dns",
     act: async (page) => {
-      await page.getByRole("button", { name: /Add account|Añadir cuenta/ }).first().click();
+      await page.getByRole("button", { name: /Add a provider|Añadir un proveedor/ }).first().click();
       const dialog = page.getByRole("dialog");
       await expect(dialog).toBeVisible();
       await dialog.getByRole("combobox").first().click();
@@ -199,6 +211,28 @@ const SCREENS: readonly Screen[] = [
   },
   { name: "tunnels", path: "/network/tunnels" },
   { name: "ports", path: "/network" },
+  {
+    name: "open-port",
+    path: "/network",
+    act: async (page) => {
+      await page.getByRole("button", { name: /Open a port|Abrir un puerto/ }).first().click();
+      const dialog = page.getByRole("alertdialog");
+      await dialog.getByRole("textbox", { name: /^(Port|Puerto)$/ }).fill("25565");
+      await expect(dialog.getByText(/Nothing listens on 25565|Ahora no escucha nada en el 25565/)).toBeVisible();
+    },
+  },
+  {
+    name: "open-port-inside",
+    path: "/network/listening?q=3306",
+    act: async (page) => {
+      await page.getByRole("button", { name: /Open to the outside|Abrir hacia fuera/ }).first().click();
+      await expect(page.getByRole("alertdialog").getByRole("textbox", { name: /Port to answer on|Puerto desde fuera/ })).toBeVisible();
+    },
+  },
+  { name: "listening", path: "/network/listening" },
+  { name: "listening-5432", path: "/network/listening?q=5432" },
+  { name: "firewall", path: "/network/firewall" },
+  { name: "interfaces", path: "/network/interfaces" },
 ];
 
 test.describe("domains screens @screens", () => {
@@ -209,6 +243,7 @@ test.describe("domains screens @screens", () => {
       if (screen.before) await screen.before(page);
       for (const [label, size] of [
         ["desktop", DESKTOP],
+        ["wide", WIDE],
         ["mobile", PHONE],
       ] as const) {
         await page.setViewportSize(size);

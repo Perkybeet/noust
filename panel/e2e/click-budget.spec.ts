@@ -641,14 +641,14 @@ test.describe("an application's updates, failures and ways back", () => {
     await walked(page, "T11", async () => {
       await sections(page).getByRole("link", { name: "Domains" }).click();
       await page.getByRole("button", { name: "Add domain" }).click();
-      const dialog = page.getByRole("dialog", { name: `Add a domain to ${SITE_APP}` });
-      await dialog.getByLabel("Domain").fill(alias);
-      await dialog.getByLabel("Domain").blur();
+      const dialog = page.getByRole("dialog", { name: `Add a name to ${SITE_APP}` });
+      await dialog.getByRole("textbox", { name: "Name", exact: true }).fill(alias);
+      await dialog.getByRole("textbox", { name: "Name", exact: true }).blur();
       // Before the field asked DNS when it was left, a button did.
       const check = dialog.getByRole("button", { name: "Check DNS" });
       if ((await check.count()) > 0) await check.click();
       const added = page.waitForRequest((request) => request.url().endsWith(`/api/apps/${SITE_APP}/domains`) && request.method() === "POST");
-      await dialog.getByRole("button", { name: /^Add (domain|anyway)$/ }).click();
+      await dialog.getByRole("button", { name: /^Add (the name|anyway)$/ }).click();
       await added;
       await expect(dialog).toBeHidden();
     });
