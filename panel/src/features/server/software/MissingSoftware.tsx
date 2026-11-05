@@ -125,6 +125,10 @@ export function MissingSoftware({ component, fallback, onInstalled, className }:
     mutationFn: () => installSoftware(component, false),
     onSuccess: (accepted) => followed.follow(accepted.job_id),
   });
+  // The one place the install is started; the three ways to it below (the button, the retry of the task, the retry of the refusal) are the same press.
+  const install = (): void => {
+    start.mutate();
+  };
   const item = query.data?.items?.find((candidate) => candidate.id === component);
   const name = componentName(t, component);
   const job = followed.job;
@@ -140,12 +144,12 @@ export function MissingSoftware({ component, fallback, onInstalled, className }:
   }, [succeeded, followed.id, queryClient, onInstalled]);
 
   // The install in hand stays on screen to its end, whatever the registry says half-way through it.
-  if (followed.id !== null) return <Installing name={name} followed={followed} retry={() => start.mutate()} className={className} />;
+  if (followed.id !== null) return <Installing name={name} followed={followed} retry={install} className={className} />;
   if (capability.status === "checking" || (readable && query.isPending)) return <Waiting />;
   // Installed, or not a piece the registry has, or it could not be read: the page's own words stand.
   if (item === undefined || item.installed) return <>{fallback ?? null}</>;
   if (start.isError) {
-    return <ServerErrorBlock live error={start.error} title={t("software.install.failed", { name })} onRetry={() => start.mutate()} retrying={start.isPending} />;
+    return <ServerErrorBlock live error={start.error} title={t("software.install.failed", { name })} onRetry={install} retrying={start.isPending} />;
   }
   const managed = query.data?.managed ?? false;
   if (!managed && fallback !== undefined) return <>{fallback}</>;
@@ -158,7 +162,7 @@ export function MissingSoftware({ component, fallback, onInstalled, className }:
       title={t("software.missing.title", { name })}
       action={
         allowed ? (
-          <Button size="sm" icon={<VERB_ICONS.install aria-hidden="true" />} loading={start.isPending} onClick={() => start.mutate()}>
+          <Button size="sm" icon={<VERB_ICONS.install aria-hidden="true" />} loading={start.isPending} onClick={install}>
             {t("software.missing.install")}
           </Button>
         ) : (
