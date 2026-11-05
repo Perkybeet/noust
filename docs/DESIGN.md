@@ -707,7 +707,7 @@ shop.example.net  * Running  Next.js . :3001 . shop.example.net ->  [Restart] [S
 
 ### T3 Settings with side navigation: `SettingsLayout` and `SaveBar`
 
-For: global settings, an application's settings (and a database's or a service's when they
+For: global settings (and a database's or a service's when they
 grow).
 
 ```
@@ -738,6 +738,10 @@ grow).
 </SettingsLayout>
 ```
 
+- An application's settings are not a T3 (4.2, item 116): its column lists seventeen sections in five groups and there is no
+  list of its own inside a "Settings". What were eighteen subsections are four pages of titled cards (Code and build, Deploys
+  and triggers, Resources and running, Access and protection, `features/app/pages/ConfigPage`) beside Export and declaration,
+  Several servers and Delete, each a page of its own (6.7, FM-9).
 - Each subsection is its own URL and fits in one and a half screens at 1440; one that does not is
   split (FM-8, NV-9).
 - The side list is titled by what each section is for (NV-11), holds 8 items per group at most, 7 groups and 26 in all (NV-3), and
@@ -1454,6 +1458,12 @@ application's state while it runs.
   `children` in a wider `size`, and the last step of a destructive flow is never a danger `Button`
   written by hand outside it and `DangerZone` (ratchets `danger-button-outside-confirm` and
   `confirm-hand-rolled`).
+- **DL-1** A deletion shows one box for each thing of the resource that holds data (an application's files, the volumes
+  of its containers, its own databases, its certificate), each read from what the server says deleting would touch
+  (`GET /api/apps/{domain}/deletion`) and none ticked. A folder that is not Noust's (an adopted stack's) goes only when its
+  box is ticked, and ticking it names it, because that is the one way the server removes it; a database another resource
+  also uses is said to stay and has no box. The question that follows says, from the boxes, what goes and what stays.
+  *Enforced by:* `features/app/deletion.test.ts`; `features/app/pages/DeletePage.test.tsx`; `e2e/app-settings.spec.ts`.
 - After acting, the interface itself changes (the row goes, the state changes), the change is
   announced to screen readers, and focus returns to something stable. A toast only when the
   result is not on screen.
@@ -1591,6 +1601,14 @@ forms go in a drawer.
   not one). *Enforced by:* `e2e/settings-length.spec.ts` (heights per route, a baseline that only
   goes down; over 1400px needs a reason).
 
+- **FM-9** A page that gathers several forms is one form (4.2). The four pages of an application that gather what were
+  subsections draw each part's cards under its heading and save them from one `SaveBar` (`SaveHost`): a part registers its
+  changes where it used to draw its own bar (`PartSaveBar`), and Save checks every part that changed before any is sent, asks
+  "Confirm it's you" once and saves them in order, a part that fails keeping its changes beside its fields. The parts a person
+  seldom opens are folded under a button each (`FOLDED`, `PartFold`), still mounted, so a change in a folded part counts on
+  the bar. *Enforced by:* `features/app/settings/AppSettings.test.tsx` (one bar per page);
+  `features/app/settings/sections.test.ts`; `e2e/app-settings.spec.ts`.
+
 ### 6.8 Tables
 
 - Column order: **identity first** (the name; it names the row for screen readers and opens
@@ -1606,6 +1624,12 @@ forms go in a drawer.
   the row's border; a row without such a cell is as tall as it always was. On a phone a card holds its
   name and its facts in blocks, never in a paragraph, because what a cell holds may be a list. *Enforced
   by:* `e2e/table-cells.spec.ts`.
+- **One table of applications** (4.2, item 122). The list, a project's and the fleet's are `AppsTable`: the domain with its
+  tags on its line (`NameWithTags`; a pull request preview wears the tag "preview" and says whose it is to a screen reader, so
+  no row has a second line), its state, its type and its last deploy, and where there is more than one place to tell apart its
+  project, its environment and its server. The views of the Applications column (by project, by state) are this table under a
+  heading each (`embedded` in a `SurfaceSection`), never another table. *Enforced by:* `features/apps/AppsViews.test.tsx`;
+  `features/apps/groups.test.ts`.
 - Headers are 12px, 500, `text-muted`, sortable with `aria-sort`.
 - Paging is the operator's: 20 rows to a page to start with, 50, 100 or all on request, kept
   per list, with "Showing X-Y of Z" and a page-size control that is always where the rows are

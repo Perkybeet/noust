@@ -6,8 +6,12 @@ Part of [The console, page by page](console.md).
 
 ![Applications](assets/console/apps.png)
 
-Every application with its state, type, port, last deploy, CPU and memory, filterable by
-state, type and, once any app carries one, **tag**. Narrowed to one tag, the page offers **Update
+Every application in one table: its name (with its tags beside it), its state, type, port, address and
+last deploy, filterable by state, type and, once any app carries one, **tag**. The same table is read
+three ways from the column of the area: **All**, **By project** (one heading per project, with a link to
+it), **By state** (what needs attention first, then what deploys, runs and is stopped) and **Deployments of
+all** (every application's deployments, newest first). CPU and memory are not columns here: they are the
+application's **Metrics**, and the overview says how it is doing. Narrowed to one tag, the page offers **Update
 tagged apps**: each app that carries it pulls its source and builds a new release, as Update does,
 and one with nothing new is skipped unless you tick **Rebuild even when there is nothing new**. A
 row's menu also has **Promote to another environment** (the release that serves goes to the same app
@@ -25,25 +29,29 @@ time, in the order chosen, with the server's own words for any that fails and **
 for those alone. Each is the call the application's page makes, so sudo mode, the audit trail and
 the update queue are the same.
 
-**New application** (`/apps/new`) asks for what it needs and nothing else. In **Source** you give a
+**New application** (`/apps/new`) asks for what it needs and nothing else. The first page asks where it comes
+from, as five cards: **From a repository**, **From the catalog**, **A container image**, **Upload files** (a
+static site, a `.zip`, a Dockerfile or a Compose file) and **Something that already runs here**. In **Source** you give a
 Git URL, a path on the server or a Docker image, or choose **From GitHub**; what you give is read at
 once, and a line under the field says what was found, with **Change**: the detected type (editable),
 the commands, the port and the variables declared in `.env.example` as a form, with secrets flagged
-(`Detected: Next.js with npm. Port 3000. 2 variables to fill in.`). **More ways** are Compose, a
-recipe, an import (an export file, or an application read from a Coolify or Dokploy server with a
-read-only token) and a site that already runs. Then **Address** (a name of your own, whose DNS the
+(`Detected: Next.js with npm. Port 3000. 2 variables to fill in.`). An import
+(an export file, or an application read from a Coolify or Dokploy server with a read-only token) is the
+second choice of the card for what already runs. Then **Address** (a name of your own, whose DNS the
 console checks, or, on a server with a public address, a temporary one such as
 `shop.203-0-113-10.sslip.io`, which needs none), **Configuration**, **Variables**, **Database**
 (optional: one created and linked before the first build, its connection string in the app's
 environment) and **Deploy**. The stepper lists only the steps that ask something, and the summary
 before deploying says what was detected, the address and the variables, each with **Change**. The
-deploy streams the build log until the application answers, and ends on one card: the address with
-copy and open, whether HTTPS is ready, and what to do next. On a fleet there is also a **Server** step,
+deploy leads to the application's own page, which says
+**Deploying for the first time**, follows the phases and the build log until the application answers, and
+then becomes its summary: the address with copy and open, whether HTTPS is ready, and what to do next. On a fleet there is also a **Server** step,
 or switch to the server first. A repository the console cannot clone shows git's own words and this
 server's public key, to add at the code host. Leaving with something chosen asks first.
 
-The Source step also offers **A running stack**, for a Docker Compose stack that already runs on
-this server and that Noust did not deploy (one started by its own `deploy.sh`, say). You give the
+**Something that already runs here** is for a Docker Compose stack that already runs on
+this server and that Noust did not deploy (one started by its own `deploy.sh`, say); it has its own two
+steps, the one that names it and the review, and builds nothing. You give the
 domain it serves and the directory it runs from, and under **More options** its compose file, the
 site file that serves the domain, the repository updates fetch from and the branch. **Preview**
 reads the project from the running containers' labels, finds the site, and shows the output of
@@ -103,7 +111,11 @@ in the server's words. See [recipes.md](recipes.md).
 
 The header shows the domain, state, type, port and a link to the live site. A banner between the
 header and the tabs appears while a job runs on it, when its last deploy failed or when it is
-down, with a link to **Diagnose**. Tabs:
+down. An application whose last deploy failed says so with **See why**, which leads to **Diagnose**
+with the cause first, and **View log** beside it. The sections are listed in the column, in five groups:
+**Use** (Overview, Deployments, Logs, Metrics), **Configure** (Variables, Domains, Database, Code and build, Deploys and
+triggers, Resources and running, Access and protection), **Fix** (Diagnose, and Terminal and Files for whoever may
+open a terminal), **Move elsewhere** (Export and declaration, Several servers) and **Danger** (Delete, alone):
 
 | Tab | What it has |
 |---|---|
@@ -114,7 +126,13 @@ down, with a link to **Diagnose**. Tabs:
 | Environment | The `.env`, redacted; revealing a secret needs sudo mode. A row opens on press, and a hidden value is never read to be edited: it is kept, or replaced (**Replace value**). A change shows in its row, the old value struck beside the new one, and the bar at the foot writes only what changed: **Save and restart**, or **Save only** from its menu, which leaves the change waiting as "not applied". A pasted file, or more than six changes, is looked over in full first. A value made of references (`{{project.NAME}}`, `{{secret:vault/...}}`) is shown as written, not as what it resolved to, and **Resolve references** reads them again without a deploy. **Given to** (build and runtime, build only, runtime only) is in each row's menu and in the add dialog, and saved with the values. **Given by Noust** lists `NOUST_URL`, `NOUST_BRANCH` and the rest, read-only. See [variables.md](variables.md) |
 | Database | The databases it uses, creating and linking one, and its connection string |
 | Domains | Primary, aliases and redirects, with a DNS check per name; add a name as an alias or a redirect (Docker Compose stacks that publish a port and monorepos included; see [domains.md](domains.md)) |
-| Settings | One page per subsection, below |
+| Code and build | Where the code comes from and how it is built: **Source** (the repository, branch and tags it deploys, how the server signs in to it), **Container** for a container application and **Build** (commands, runtime, sandbox, packages and cache) |
+| Deploys and triggers | What deploys it and how: **Deploys** (instant rollback, releases kept, the startup check, zero-downtime), a Compose stack's options, and, folded under their titles, **Automation**, **Deploy hooks** and **Previews**; **Deploy on push** is a card of its own |
+| Resources and running | How it runs (type, port, the account and the service), **Resources** (memory, CPU, tasks) and, folded, **Processes**, **Mounts**, **Disk** and **Service security** |
+| Access and protection | Who may open the site (**Access**) and what the site limits and sends back (**Protection**) |
+| Export and declaration | The application as a file to import elsewhere, and its declaration (`noust.yaml`); it is a section of its own, not a part of Delete |
+| Several servers | Replicating the application on more servers, on a fleet |
+| Delete | Delete the application, alone: one box for each thing it removes, all unticked |
 
 ![Application](assets/console/app-overview.png)
 
@@ -170,13 +188,16 @@ migrations each one ran, names the backup taken before the first of them and the
 still puts back what served before, whatever the attempt changed. See
 [releases.md](releases-hooks.md#hooks-and-schema-aware-rollback).
 
-**Settings** has a side navigation, a URL per subsection, and a save bar ("N unsaved changes ·
-Discard · Save"):
+**Code and build**, **Deploys and triggers**, **Resources and running** and **Access and protection** are
+what were the subsections of the application's Settings (the old addresses, `/apps/<domain>/settings/<name>`, still
+lead to the page that has them). A page draws its parts one under another as cards with a title, and has one save bar
+for all of them ("N unsaved changes · Discard · Save"): a change made in a folded card counts on it too. What each
+part has:
 
-| Subsection | What it has |
+| Part | What it has |
 |---|---|
-| General | Type, port, source, **App tags** (the labels that group it, edited from here), the branch it deploys from (pin or unpin it), the tags it deploys (**Follow tags...**: a pattern such as `v*`; see [compose.md](compose.md#deploying-by-tag)), commands, how deploys work, the service and the account it runs as (**Give it its own account...**: its service, files and `.env` move to an account of its own and the app restarts once; if it does not answer afterwards everything is put back exactly as it was). On a Compose stack that publishes no port but still has one recorded, **A worker reported as down** offers **Record it as a worker...**, which clears the port and judges the stack by its containers |
-| Source | How the server signs in to the repository: its **deploy key** (an SSH key for that repository alone, made on a click or imported, its public half shown to add at the code host with a copy button and a link to the host's page, **Test the connection** as a deploy would, **Replace the key** without a moment when the repository has none that works, and **Remove**) and, for a repository cloned over https, an **HTTPS credential** (a user and a token kept as a secret, never shown again). Writing a secret asks for sudo mode first. See [api.md](api.md#deploy-keys) |
+| How it runs (General) | The type, the port, **App tags** (the labels that group it, edited from here), commands, how deploys work, the service and the account it runs as (**Give it its own account...**: its service, files and `.env` move to an account of its own and the app restarts once; if it does not answer afterwards everything is put back exactly as it was). On a Compose stack that publishes no port but still has one recorded, **A worker reported as down** offers **Record it as a worker...**, which clears the port and judges the stack by its containers |
+| Source | The repository, the branch it deploys from (pin or unpin it) and the tags it deploys (**Follow tags...**: a pattern such as `v*`; see [compose.md](compose.md#deploying-by-tag)); under **How Noust reaches the repository**, how the server signs in to it: its **deploy key** (an SSH key for that repository alone, made on a click or imported, its public half shown to add at the code host with a copy button and a link to the host's page, **Test the connection** as a deploy would, **Replace the key** without a moment when the repository has none that works, and **Remove**) and, for a repository cloned over https, an **HTTPS credential** (a user and a token kept as a secret, never shown again). Writing a secret asks for sudo mode first. See [api.md](api.md#deploy-keys) |
 | Container | A container application only: how its image is made (a Dockerfile, Railpack or a registry image), the Dockerfile, context and stage, build arguments, build secrets (their ids, never their values; one can be removed), the port, the volumes, the restart policy the registry account of the image itself (its password is write-only: it is never shown and an empty field keeps it) and the **registry accounts** it pulls with, chosen among the ones Settings > Integrations holds. A change is stored at once and takes effect with the next update |
 | Build | The install, build and start commands, the base directory, the publish directory and the runtime of a type that has a build block (not a Compose stack, a monorepo or a container), where they come from (this application's own settings, the repository's `noust.yaml` or the type) and that the application's own settings win whole; saving asks for sudo mode, and the application's own settings can be removed. Below them, the **System packages** the host needs (edited in a drawer, installed with a button), the **Build cache** and the **Process types**; and the **Build sandbox** card: whether it builds in the sandbox or as root and why, **Test a sandboxed build**, then turn it on (the trial Noust runs by itself before the next update of an app that still builds as root is recorded here like one you ran), the network profile, and building as root with a reason. A Compose stack or a container shows the sandbox and says why it has no commands here. See [build.md](build.md) |
 | Releases and rollback | **Instant rollback**: what it gives you, what changes on disk, the migration plan and a rehearsal, then the migration; releases kept; the **startup check**; and **Zero-downtime deploys** (blue/green, which new applications that can run as two copies start with by default; on a Docker Compose stack, the relay, which says what to change first when the stack or its site cannot use it). Instant rollback and zero-downtime deploys say whether they are on in the header of their card |
@@ -192,7 +213,7 @@ Discard · Save"):
 | Access | Who may open the site: a password, named users, the addresses allowed, a private network only, how the visitor's address is read, a sign-in service in front of the site, and the behaviour of a prefix of the site. Saved, tested by the web server and reloaded together |
 | Protection | What the site limits and sends back: request rate, response headers, HTTP/3, the web application firewall and client certificates. Saved, tested by the web server and reloaded together |
 | Export | The application as a file to import elsewhere, and its declaration (`noust.yaml`): **Download the declaration**, or **Apply a declaration**, which can start from what runs now, shows the plan and then every block that differs line by line with a way to put a block back, and applies only what was checked. See [declarative.md](declarative.md#reviewing-a-set-of-changes) |
-| Delete | Delete the application; removing its files and its certificate are separate choices, both off until you tick them, and you type its domain to confirm |
+| Delete | Delete the application: what is removed is a box for each thing (its files, its certificate, a Compose stack's volumes, each database it owns, after a last dump of it), all off until you tick them, with a line that says what each one removes and what stays; an adopted stack never offers to delete its directory without naming it. You type its domain to confirm |
 
 ## The deploy queue and cancelling
 
