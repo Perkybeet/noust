@@ -228,6 +228,7 @@ export function AreaColumn({ kind }: { kind: ColumnKind }) {
             to: "/projects/$team/$project",
             params: { team: project.team, project: project.slug },
             label: project.name,
+            literal: true,
             icon: OBJECT_ICONS.project,
             count: counts[`project:${project.team}/${project.slug}`] ?? null,
           })),
