@@ -2,13 +2,20 @@ import type { ReactNode } from "react";
 
 import { cx } from "../../lib/cx";
 import { Logo } from "../brand/Logo";
-import { NoustSide } from "../illustrations/NoustSide";
+import { SignInArt } from "../illustrations/SignInArt";
 
 export interface AuthLayoutProps {
   /** The h1: "Sign in", "Unlock this central". */
   title: string;
   /** One sentence under it. */
   description?: ReactNode;
+  /**
+   * What fills the picture's slot in the hollow, between the logo and the sentence. Without one, the noust
+   * from the side (`SignInArt`). The slot gives what is in it the width of the hollow and takes nothing else
+   * of the slab: the logo, the sentence, the operator's line and the licence notice are outside it and always
+   * drawn.
+   */
+  art?: ReactNode;
   /**
    * The sentence of the hollow, under the drawing, for the wide slab: what Noust is for, in a line. A
    * phone has room for the drawing and not for this.
@@ -41,12 +48,13 @@ export interface AuthLayoutProps {
 /**
  * T7, the screens before the console: sign in and the checks around it, the first account, an
  * invitation, a new password, a sealed central. One wide slab in the middle of the screen. On the
- * left, carved in as a hollow, the identity: the logo, a noust drawn from the side and a sentence;
+ * left, carved in as a hollow, the identity: the logo, a picture in a slot of its own (a noust drawn
+ * from the side unless something else is given) and a sentence;
  * on the right the form, with its title. Every one of these screens is this slab, so a person who
  * has seen one has seen them all. Below 1024px the hollow becomes a band of drawing across the top
  * of the slab and the form follows it.
  */
-export function AuthLayout({ title, description, tagline, label, back, children, footer, legal, as: Element = "main", className }: AuthLayoutProps) {
+export function AuthLayout({ title, description, art, tagline, label, back, children, footer, legal, as: Element = "main", className }: AuthLayoutProps) {
   const whole = Element === "main";
   const Legal = whole ? "footer" : "div";
   return (
@@ -63,7 +71,9 @@ export function AuthLayout({ title, description, tagline, label, back, children,
             20 or 16px the axis falls at .89 or .11 of a pixel and one stack is drawn a little softer than the other.
           */}
           <Logo variant="wordmark" height={18} />
-          <NoustSide className="mx-auto h-auto w-full sm:max-w-dialog-md lg:my-auto lg:max-w-none lg:py-6" />
+          <div data-slot="art" className="mx-auto flex w-full flex-col items-center sm:max-w-dialog-md lg:my-auto lg:max-w-none lg:py-6">
+            {art ?? <SignInArt />}
+          </div>
           {tagline !== undefined ? <p className="title hidden text-18 text-fg lg:block">{tagline}</p> : null}
           {label !== undefined ? (
             <p data-slot="label" className="text-12 text-fg-faint lg:mt-3">

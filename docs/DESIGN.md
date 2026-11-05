@@ -908,6 +908,10 @@ new password, a sealed central. All of them are the same slab.
   focus on arrival), its sentence, the form and the terminal's way. Below 1024px the hollow is a band
   across the top of the slab (the logo and the drawing at the slab's width, no sentence) and the form
   follows it.
+- The picture is in a slot of its own (`art`, `data-slot="art"`), filled by `SignInArt` (the noust) unless
+  something else is given, and the slot gives what it holds the width of the hollow. The logo, the sentence,
+  the operator's line and the licence notice are outside the slot, so a picture put in its place never takes
+  them away.
 - The licence notice is the page's `footer`, under the slab and outside it.
 - Before sign-in nothing of the server is shown: not its name, not its version. The one exception is the
   line its operator chose (`auth.login_label`), under the sentence of the hollow.

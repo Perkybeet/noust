@@ -494,6 +494,32 @@ describe("AuthLayout (T7)", () => {
     expect(logo).toHaveAttribute("viewBox", "0 0 254 36");
   });
 
+  it("keeps the picture in a slot of its own that anything can fill, and nothing else of the hollow in it", () => {
+    const tree = (art?: ReactNode) => (
+      <AuthLayout title="Sign in" tagline="Your apps and servers, kept safe." label="web-01" legal={<p>Free software under the AGPL.</p>} {...(art !== undefined ? { art } : {})}>
+        <form aria-label="Sign in form" />
+      </AuthLayout>
+    );
+    const { rerender } = render(tree());
+    const slab = screen.getByRole("main");
+    // Without one, the slot holds the noust from the side.
+    expect(slot(slab, "art").querySelector("svg[aria-hidden='true'][viewBox='0 0 400 230']")).not.toBeNull();
+
+    // With another, the slot holds that, as wide as the hollow lets it be, and the noust is gone.
+    rerender(tree(<img alt="Acme" src="/acme.png" className="w-full" />));
+    const art = slot(screen.getByRole("main"), "art");
+    expect(art).toContainElement(screen.getByRole("img", { name: "Acme" }));
+    expect(screen.getByRole("main").querySelector("svg[viewBox='0 0 400 230']")).toBeNull();
+
+    // What is not the picture is where it was, outside the slot and always there: Noust's logo, its sentence, the
+    // operator's line and the licence notice under the slab.
+    expect(art).not.toContainElement(screen.getByRole("img", { name: "Noust" }));
+    expect(art).not.toContainElement(screen.getByText("Your apps and servers, kept safe."));
+    expect(art).not.toContainElement(screen.getByText("web-01"));
+    expect(slot(screen.getByRole("main"), "identity")).toContainElement(screen.getByRole("img", { name: "Noust" }));
+    expect(screen.getByRole("contentinfo")).toHaveTextContent("Free software under the AGPL.");
+  });
+
   it("puts the drawing above the form on a phone and beside it from 1024px", () => {
     render(
       <AuthLayout title="Sign in" tagline="Your apps and servers, kept safe.">
