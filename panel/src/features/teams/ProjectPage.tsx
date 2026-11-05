@@ -225,7 +225,7 @@ export function ProjectPage({ team, project: slug, search, onSearchChange }: Pro
               {apps.length === 0 ? (
                 <EmptyState variant="inline" title={t("teams.project.noApps")} />
               ) : (
-                <AppsTable apps={apps} deploys={NO_DEPLOYS} metrics={undefined} caption={t("teams.project.appsCaption", { name: current?.name ?? slug })} rowActions={(app) => <AppRowActions app={app} />} />
+                <AppsTable apps={apps} deploys={NO_DEPLOYS} caption={t("teams.project.appsCaption", { name: current?.name ?? slug })} rowActions={(app) => <AppRowActions app={app} />} />
               )}
             </Section>
             {databases.length > 0 ? (

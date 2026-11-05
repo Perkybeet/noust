@@ -19,6 +19,13 @@ export interface AreaView {
 }
 
 export const VIEWS: Readonly<Record<string, readonly AreaView[]>> = {
+  // The applications (features/apps/filters.ts): all of them, grouped by project or by state, and the deployments of all.
+  apps: [
+    { id: "all", label: "nav.views.appsAll" },
+    { id: "projects", label: "nav.views.appsProjects", search: { view: "projects" } },
+    { id: "states", label: "nav.views.appsStates", search: { view: "states" } },
+    { id: "deployments", label: "nav.views.appsDeployments", search: { view: "deployments" } },
+  ],
   // Where the lines come from (features/logs/search.ts): the applications', or the system's journal.
   logs: [
     { id: "apps", label: "nav.views.logsApps" },

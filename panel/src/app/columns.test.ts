@@ -57,7 +57,7 @@ describe("which column a path has", () => {
 
   it("is the resource's where one is entered: an application, a database, a service, a team", () => {
     expect(columnKindOf("/apps/shop.example.net")).toBe("app");
-    expect(columnKindOf("/apps/shop.example.net/settings/source")).toBe("app");
+    expect(columnKindOf("/apps/shop.example.net/code")).toBe("app");
     expect(columnKindOf("/apps/shop.example.net/deployments/12")).toBe("app");
     expect(columnKindOf("/databases/postgresql/shop")).toBe("database");
     expect(columnKindOf("/databases/postgresql@pg16/shop/data")).toBe("database");
@@ -170,10 +170,10 @@ describe("an application's sections, grouped by what they are for", () => {
     const byGroup = Object.fromEntries(groups.map((group) => [group.id, group.items.map((item) => item.id)]));
     expect(byGroup).toEqual({
       use: ["app", "app.deployments", "app.logs", "app.metrics"],
-      configure: ["app.environment", "app.database", "app.domains", "app.settings"],
+      configure: ["app.environment", "app.domains", "app.database", "app.code", "app.triggers", "app.resources", "app.access"],
       fix: ["app.diagnose", "app.terminal", "app.files"],
-      move: ["app.settings.export"],
-      danger: ["app.settings.delete"],
+      move: ["app.export", "app.servers"],
+      danger: ["app.delete"],
     });
     expect(groups.every((group) => group.heading !== undefined)).toBe(true);
     expect(groups.find((group) => group.id === "danger")?.danger).toBe(true);
@@ -181,7 +181,7 @@ describe("an application's sections, grouped by what they are for", () => {
 
   it("does not call taking an application to another server dangerous (3.4): it is the group of moving it", () => {
     const danger = appColumn(everything, false).find((group) => group.id === "danger");
-    expect(danger?.items.map((item) => item.id)).toEqual(["app.settings.delete"]);
+    expect(danger?.items.map((item) => item.id)).toEqual(["app.delete"]);
   });
 
   it("leaves what a role cannot use out, rather than disabling it", () => {
@@ -193,7 +193,7 @@ describe("an application's sections, grouped by what they are for", () => {
 
   it("shows an adopted site what it has: its state, its logs, its use of the machine, what to fix and Delete", () => {
     const ids = appColumn(everything, true).flatMap((group) => group.items.map((item) => item.id));
-    expect(ids).toEqual(["app", "app.logs", "app.metrics", "app.settings", "app.diagnose", "app.terminal", "app.files", "app.settings.delete"]);
+    expect(ids).toEqual(["app", "app.logs", "app.metrics", "app.diagnose", "app.terminal", "app.files", "app.delete"]);
   });
 
   it("gives every section an icon and the Overview an exact path", () => {
@@ -229,8 +229,9 @@ describe("the column of an area", () => {
 
   it("leaves out what a role cannot see, and Projects where nobody organised theirs", () => {
     const paths = (organised: boolean) => areaColumn("apps", { staged: true, when: { organised } }).flatMap((group) => group.items.map((item) => item.to));
-    expect(paths(true)).toEqual(["/apps", "/projects", "/projects/teams"]);
-    expect(paths(false)).toEqual(["/apps"]);
+    // The four readings of the list (all, by project, by state, deployments of all) are one page; Projects and Teams are the group beside them.
+    expect(paths(true)).toEqual(["/apps", "/apps", "/apps", "/apps", "/projects", "/projects/teams"]);
+    expect(paths(false)).toEqual(["/apps", "/apps", "/apps", "/apps"]);
   });
 
   it("draws the fleet's faces of an area from All servers, and none of the server's own pages", () => {
@@ -270,13 +271,13 @@ describe("the item a page is in", () => {
   const items = [
     { to: "/apps/$domain", exact: true },
     { to: "/apps/$domain/deployments" },
-    { to: "/apps/$domain/settings" },
-    { to: "/apps/$domain/settings/export" },
+    { to: "/apps/$domain/code" },
+    { to: "/apps/$domain/export" },
   ];
 
   it("is the one whose path is the longest start of the route, so only one is current", () => {
-    expect(currentItem(items, "/apps/$domain/settings/export")?.to).toBe("/apps/$domain/settings/export");
-    expect(currentItem(items, "/apps/$domain/settings/source")?.to).toBe("/apps/$domain/settings");
+    expect(currentItem(items, "/apps/$domain/export")?.to).toBe("/apps/$domain/export");
+    expect(currentItem(items, "/apps/$domain/code")?.to).toBe("/apps/$domain/code");
     expect(currentItem(items, "/apps/$domain/deployments/$id")?.to).toBe("/apps/$domain/deployments");
   });
 

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { appsQuery } from "../../api/queries/apps";
 import { sessionQuery } from "../../api/queries/auth";
 import { backupDestinationsQuery } from "../../api/queries/backupDestinations";
 import { backupSchedulesQuery, backupsQuery } from "../../api/queries/backups";
@@ -14,6 +15,7 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { domainRows } from "../../features/domains/domainRows";
 import { SERVER_CAPABILITY, securityOverviewQuery, summaryQuery } from "../../features/server/queries";
+import { countByOwner } from "../../features/teams/organization";
 import { useOrganised } from "../../features/teams/useOrganised";
 import { useOrganization } from "../../features/teams/useOrganization";
 import { useT } from "../../i18n";
@@ -55,7 +57,7 @@ export function toListGroups(groups: readonly ColumnGroup[], t: ReturnType<typeo
       label: t(item.label),
       icon: item.icon,
       ...(item.exact ? { exact: true } : {}),
-      ...(counts[item.to] !== undefined ? { count: counts[item.to] } : {}),
+      ...((counts[item.id] ?? counts[item.to]) !== undefined ? { count: counts[item.id] ?? counts[item.to] } : {}),
     })),
   }));
 }
@@ -135,6 +137,7 @@ export function useAreaCounts(kind: ColumnKind, enabled: boolean): Readonly<Part
   const tunnels = useQuery({ ...tunnelsQuery(), enabled: on("network") });
   const streams = useQuery({ ...streamsQuery(), enabled: on("network") });
   const databases = useQuery({ ...databasesQuery(), enabled: on("databases") });
+  const applications = useQuery({ ...appsQuery(), enabled: on("apps") });
   const dbServers = useQuery({ ...serversQuery(), enabled: on("databases") });
   const org = useOrganization();
   if (!enabled) return {};
@@ -162,8 +165,16 @@ export function useAreaCounts(kind: ColumnKind, enabled: boolean): Readonly<Part
       };
     case "databases":
       return { "/databases": databases.data?.total ?? null, "/databases/servers": dbServers.data?.servers.length ?? null };
-    case "apps":
-      return { "/projects": org.available ? org.scope.projects.length : null, "/projects/teams": org.available ? org.teams.length : null };
+    case "apps": {
+      // Each view of the list says nothing of how many; "All" says how many there are, and each project how many it holds.
+      const held = countByOwner(applications.data?.apps ?? []);
+      return {
+        "apps.view.all": applications.data?.apps.length ?? null,
+        "/projects": org.available ? org.scope.projects.length : null,
+        "/projects/teams": org.available ? org.teams.length : null,
+        ...Object.fromEntries((org.available ? org.scope.projects : []).map((project) => [`project:${project.team}/${project.slug}`, applications.data === undefined ? null : (held.get(`${project.team}/${project.slug}`) ?? 0)])),
+      };
+    }
     case "network":
       return { "/network": streams.data?.exposures.length ?? null, "/network/tunnels": tunnels.data?.tunnels.length ?? null };
     default:
@@ -196,9 +207,35 @@ export function AreaColumn({ kind }: { kind: ColumnKind }) {
   const capability = useNodeCapability(SERVER_CAPABILITY);
   const available = capability.status === "available" || capability.status === "unknown";
   const counts = useAreaCounts(kind, available && !fleet);
+  const org = useOrganization();
+  const { organised } = useOrganised();
   const area = dest(kind);
   const groups = toListGroups(areaColumn(kind, ctx, fleet ? "fleet" : "server"), t, undefined, counts);
   if (fleet && (kind === "server" || kind === "network" || kind === "security")) groups.push(nodeGroup(t, servers.nodes, "/server"));
+  // Under the views of the applications, the projects they are grouped in: a way to one project without opening the list, and
+  // the pages that manage them (all the projects, and the teams) as the last of the group instead of two more views.
+  if (kind === "apps" && !fleet) {
+    const managing = new Set(["apps.projects", "apps.projects.teams"]);
+    const moved = groups.flatMap((group) => group.items.filter((item) => managing.has(item.key)));
+    for (const group of groups) group.items = group.items.filter((item) => !managing.has(item.key));
+    if (org.available && organised && org.scope.projects.length > 0) {
+      groups.push({
+        key: "projects",
+        heading: t("nav.columnGroups.projects"),
+        items: [
+          ...org.scope.projects.map((project) => ({
+            key: `project:${project.team}/${project.slug}`,
+            to: "/projects/$team/$project",
+            params: { team: project.team, project: project.slug },
+            label: project.name,
+            icon: OBJECT_ICONS.project,
+            count: counts[`project:${project.team}/${project.slug}`] ?? null,
+          })),
+          ...moved,
+        ],
+      });
+    }
+  }
   const title = kind === "server" ? t(fleet ? "nav.server.label" : "nav.server.labelOne") : t(area.label);
   return (
     <>

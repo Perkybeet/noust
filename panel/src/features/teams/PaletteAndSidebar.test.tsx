@@ -76,18 +76,20 @@ describe("the command palette and teams", () => {
 });
 
 describe("Projects, the other view of Applications", () => {
-  // The bar is the same twelve areas whatever the server holds: Projects is a link in the header of the list.
+  // The bar is the same twelve areas whatever the server holds: Projects is a group of the column of Applications.
   it("is offered where there is something to organise", async () => {
     await shellAt({}, viewerSession(), {}, "/apps");
-    expect(await screen.findByRole("link", { name: "Projects" })).toHaveAttribute("href", "/projects");
+    const column = await screen.findByRole("navigation", { name: "Applications sections" });
+    expect(await within(column).findByRole("link", { name: /^Projects/ })).toHaveAttribute("href", "/projects");
     // Teams beside it: a team's pages stay four clicks from the Overview (NV-2).
-    expect(screen.getByRole("link", { name: "Teams" })).toHaveAttribute("href", "/projects/teams");
+    expect(within(column).getByRole("link", { name: /^Teams/ })).toHaveAttribute("href", "/projects/teams");
     expect(within(screen.getByRole("navigation", { name: "Main" })).queryByRole("link", { name: "Projects" })).not.toBeInTheDocument();
   });
 
   it("is offered to whoever may start organising, on a server nobody organised", async () => {
     await shellAt(ALONE, undefined, {}, "/apps");
-    expect(await screen.findByRole("link", { name: "Projects" })).toBeInTheDocument();
+    const column = await screen.findByRole("navigation", { name: "Applications sections" });
+    expect(await within(column).findByRole("link", { name: /^Projects/ })).toBeInTheDocument();
   });
 
   it("is not drawn for someone who only reads, on a server nobody organised: the list is what it always was", async () => {
