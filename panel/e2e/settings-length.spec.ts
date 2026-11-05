@@ -98,6 +98,7 @@ const SERVER_SETTINGS: readonly Route[] = [
   { id: "settings-cloud", path: "/settings/cloud" },
   { id: "settings-central", path: "/settings/central" },
   { id: "settings-controls", path: "/settings/controls" },
+  { id: "settings-sign-in-image", path: "/settings/sign-in-image" },
 ];
 
 /** The signed-in person's own pages: they are not Settings (they follow the person, not the machine), and they are as long as one subsection may be. */
