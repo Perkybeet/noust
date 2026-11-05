@@ -100,6 +100,23 @@ describe("activity on every server", () => {
     });
   });
 
+  it("narrows to the result chosen, from the address and from the filter, and offers the audit's words only", async () => {
+    const { user } = await fleetActivity(() => json(200, envelope("activity", ACTIVITY_ITEMS)), "/fleet/activity?kind=all&result=denied");
+    const table = await screen.findByRole("region", { name: /Activity/ });
+    // The refused sign-in is the only event of the three that was denied.
+    await within(table).findByText("Sign-in");
+    expect(within(table).queryByText("Application updated")).not.toBeInTheDocument();
+    expect(within(table).queryByText("Application restarted")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("combobox", { name: "Result" }));
+    // There are no jobs among the events of the servers: no "Job: ..." result to choose.
+    expect(screen.queryByRole("option", { name: /^Job:/ })).not.toBeInTheDocument();
+    await user.click(await screen.findByRole("option", { name: "Succeeded" }));
+    await within(table).findByText("Application updated");
+    expect(within(table).getByText("Application restarted")).toBeInTheDocument();
+    expect(within(table).queryByText("Sign-in")).not.toBeInTheDocument();
+  });
+
   it("draws no server column and no filter on a server with none beside it", async () => {
     await fleetActivity(() => json(200, envelope("activity", ACTIVITY_ITEMS.slice(0, 1), { fleet: false, servers: [] })));
     const table = await screen.findByRole("region", { name: /Activity/ });
