@@ -421,7 +421,7 @@ describe("an application's page", () => {
       });
       expect(within(item(reachItems, 0)).getByRole("link", { name: "Manage domains" })).toHaveAttribute("href", `/apps/${DOMAIN}/domains`);
       expect(push).toHaveTextContent("Pushes to the repository do not deploy this app.");
-      expect(within(item(reachItems, 1)).getByRole("link", { name: "Set it up" })).toHaveAttribute("href", `/apps/${DOMAIN}/triggers`);
+      expect(within(item(reachItems, 1)).getByRole("link", { name: "Set it up" })).toHaveAttribute("href", `/apps/${DOMAIN}/triggers#deploy-on-push`);
     });
 
     it("says deploy on push is on and waiting for its first push", async () => {
@@ -432,7 +432,7 @@ describe("an application's page", () => {
       await waitFor(() => {
         expect(push).toHaveTextContent("Pushes to main deploy this app. No push has arrived yet.");
       });
-      expect(within(push).getByRole("link", { name: "Settings" })).toHaveAttribute("href", `/apps/${DOMAIN}/triggers`);
+      expect(within(push).getByRole("link", { name: "Settings" })).toHaveAttribute("href", `/apps/${DOMAIN}/triggers#deploy-on-push`);
     });
 
     it("warns, in one line, that a running app will not come back with the server", async () => {

@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import type { ComponentType } from "react";
 
@@ -137,6 +138,11 @@ export function ConfigPage({ page, domain }: { page: ConfigPageId; domain: strin
 function ConfigParts({ page, domain, app, parts, section }: { page: ConfigPageId; domain: string; app: App; parts: readonly PagePart[]; section: string }) {
   const t = useT();
   const revealed = useRevealed();
+  // A link that leads to a folded part names it (`#deploy-on-push`): that fold is open when the page is, and in view.
+  const wanted = useRouterState({ select: (state) => state.location.hash });
+  useEffect(() => {
+    if (revealed && wanted !== "") document.getElementById(wanted)?.scrollIntoView({ block: "start" });
+  }, [revealed, wanted]);
   return (
     <>
       {revealed ? null : (
@@ -154,11 +160,13 @@ function ConfigParts({ page, domain, app, parts, section }: { page: ConfigPageId
                   if (View === undefined) return null;
                   if (!FOLDED[page].has(part.id)) return <View key={part.id} />;
                   return (
-                    <Disclosure key={part.id} variant="card" label={t(part.label)}>
-                      <PartFoldedContext.Provider value>
-                        <View />
-                      </PartFoldedContext.Provider>
-                    </Disclosure>
+                    <div key={part.id} id={part.id}>
+                      <Disclosure variant="card" label={t(part.label)} defaultOpen={wanted === part.id}>
+                        <PartFoldedContext.Provider value>
+                          <View />
+                        </PartFoldedContext.Provider>
+                      </Disclosure>
+                    </div>
                   );
                 })}
               </div>

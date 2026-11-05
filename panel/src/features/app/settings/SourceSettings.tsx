@@ -66,7 +66,7 @@ export function SourceSettings() {
                 })}{" "}
                 {t.rich("sources.webhookNote", {
                   link: (
-                    <TextLink key="push" to="/apps/$domain/triggers" params={{ domain }} size="inline">
+                    <TextLink key="push" to="/apps/$domain/triggers" params={{ domain }} hash="deploy-on-push" size="inline">
                       {t("sources.webhookLink")}
                     </TextLink>
                   ),

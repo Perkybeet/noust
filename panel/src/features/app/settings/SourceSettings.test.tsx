@@ -489,7 +489,7 @@ describe("the source settings, for everyone", () => {
     await source(NO_KEY);
     await screen.findByText("No key of its own", { exact: true });
     const push = screen.getByText(/A push to the repository can deploy this application: GitHub, GitLab, Gitea and Bitbucket are set up in/);
-    expect(within(push).getByRole("link", { name: "Deploy on push" })).toHaveAttribute("href", `/apps/${DOMAIN}/triggers`);
+    expect(within(push).getByRole("link", { name: "Deploy on push" })).toHaveAttribute("href", `/apps/${DOMAIN}/triggers#deploy-on-push`);
     const keys = screen.getByText(/Every deploy key on this server is listed in/);
     expect(within(keys).getByRole("link", { name: "Settings, Integrations" })).toHaveAttribute("href", "/settings/integrations");
   });

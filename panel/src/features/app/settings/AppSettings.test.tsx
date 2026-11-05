@@ -6,7 +6,7 @@ import { downloadText } from "../../../lib/clipboard";
 import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../../test/fakes";
-import { DOMAIN, ELEVATED, IN_PLACE_APP, RELEASE_APP, STATIC_APP, renderSettings, saveBar } from "./testKit";
+import { DOMAIN, ELEVATED, IN_PLACE_APP, RELEASE_APP, STATIC_APP, renderSettings, saveBar, settingsRoutes } from "./testKit";
 
 // The real implementation still runs (so the export test exercises the actual blob and anchor
 // dance), wrapped so the exact file name and text handed to it can be asserted.
@@ -53,6 +53,19 @@ describe("the settings' old addresses", () => {
     await waitFor(() => {
       expect(document.title).toMatch(new RegExp(`^Resources and running - ${DOMAIN.replace(/\./g, "\\.")}`));
     });
+  });
+
+  it("opens the fold a link names, and the old address of a folded part names its own", async () => {
+    // A link to `#deploy-on-push` (the overview's "Set it up") and the old `/settings/deploy-on-push` both lead to an open fold.
+    fakeBackend(settingsRoutes(RELEASE_APP));
+    const { router } = renderConsole(`/apps/${DOMAIN}/settings/deploy-on-push`);
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe(`/apps/${DOMAIN}/triggers`);
+      expect(router.state.location.hash).toBe("deploy-on-push");
+    });
+    expect(await screen.findByRole("button", { name: "Deploy on push", expanded: true })).toBeInTheDocument();
+    // The other folds stay as they were.
+    expect(screen.getByRole("button", { name: "Deploy hooks", expanded: false })).toBeInTheDocument();
   });
 
   it("draws the parts of a page under one save bar, and none of its own", async () => {

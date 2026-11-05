@@ -336,7 +336,7 @@ describe("pull request previews", () => {
   it("on a preview, points at the application it previews instead", async () => {
     const { backend, section } = await previewsOf(() => OFF, {}, { ...APP, preview_parent: "store.example.com" });
     expect(within(section).getByText(/This app is a preview of/)).toBeInTheDocument();
-    expect(within(section).getByRole("link", { name: "store.example.com" })).toHaveAttribute("href", "/apps/store.example.com/triggers");
+    expect(within(section).getByRole("link", { name: "store.example.com" })).toHaveAttribute("href", "/apps/store.example.com/triggers#previews");
     expect(within(section).queryByRole("textbox")).not.toBeInTheDocument();
     expect(backend.callsTo(`GET /api/apps/${DOMAIN}/previews`)).toHaveLength(0);
   });

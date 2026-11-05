@@ -624,6 +624,7 @@ function Reach({ app, t }: { app: App; t: T }) {
           <TextLink
             to="/apps/$domain/triggers"
             params={{ domain }}
+            hash="deploy-on-push"
             size="ui"
           >
             {app.webhook_enabled

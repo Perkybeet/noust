@@ -552,7 +552,7 @@ export function PreviewsSettings() {
             <p className="text-fg">
               {t.rich("appSettings.previews.previewOfParent", {
                 parent: (
-                  <TextLink to="/apps/$domain/triggers" params={{ domain: parent }} translate="no" size="ui">
+                  <TextLink to="/apps/$domain/triggers" params={{ domain: parent }} hash="previews" translate="no" size="ui">
                     {parent}
                   </TextLink>
                 ),
