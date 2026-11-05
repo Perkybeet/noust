@@ -26,6 +26,10 @@ export const shell: Catalog<typeof en> = {
     needs: { one: "Bandeja, {count} cosa requiere tu atención", other: "Bandeja, {count} cosas requieren tu atención" },
     clear: "Bandeja, nada requiere tu atención",
   },
+  help: {
+    label: "Ayuda",
+    report: "Informar de un problema",
+  },
   tasks: {
     label: "Tareas: {running} en marcha, {queued} en cola",
     idle: "Tareas, nada en marcha",
@@ -156,11 +160,12 @@ export const shell: Catalog<typeof en> = {
     breadcrumb: "Ruta de navegación",
   },
   pageError: {
-    title: "No se pudo mostrar esta página",
-    defaultHint: "Recarga para volver a intentarlo. Si falla de la misma forma, el mensaje de abajo es lo que debes reportar.",
+    title: "Esta página se ha roto",
+    defaultHint: "El resto de la consola sigue funcionando. Vuelve a intentarlo; si se repite, cuéntanoslo: el error ya irá dentro del informe.",
     label: "El error",
     tryAgain: "Intentar de nuevo",
     reload: "Recargar página",
+    report: "Informar de un problema",
   },
   pending: {
     label: "Cargando la página",

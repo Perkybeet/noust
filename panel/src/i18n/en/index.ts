@@ -76,6 +76,7 @@ export { provisioning } from "./provisioning";
 export { publicAccess } from "./publicAccess";
 export { registries } from "./registries";
 export { remoteImport } from "./remoteImport";
+export { report } from "./report";
 export { roles } from "./roles";
 export { rollout } from "./rollout";
 export { runtime } from "./runtime";
