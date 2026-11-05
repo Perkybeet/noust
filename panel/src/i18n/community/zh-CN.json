@@ -15736,7 +15736,6 @@
   "databases.delete.action": "删除…",
   "databases.delete.forgetConfirmTitle": "忘记 {name}？",
   "databases.delete.forgetConfirmBody": "它将不再被备份和列出。如果引擎再次拥有它，它会显示为 Noust 未管理的数据库。",
-  "databases.overview.engineStopped": "引擎已停止",
   "databases.overview.engine": "引擎",
   "databases.overview.seeEngines": "查看引擎",
   "databases.data.emptyAction": "用查询创建一个",

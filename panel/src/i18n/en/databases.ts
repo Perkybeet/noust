@@ -600,7 +600,6 @@ export const databases = {
     onDisk: "On disk",
     connections: "Connections",
     ofMax: "Of {max} the engine allows",
-    engineStopped: "The engine is stopped",
     engine: "Engine",
     seeEngines: "See the engines",
     now: "Now",

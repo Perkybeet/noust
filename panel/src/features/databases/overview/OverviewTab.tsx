@@ -99,38 +99,39 @@ export function OverviewTab({ engine, name }: { engine: string; name: string }) 
       ) : (
       <div className="flex flex-col gap-6">
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatTile
-            label={t("databases.overview.size")}
-            value={size !== null ? formatBytes(size, t.locale) : (sizeWords(database?.size, t) ?? "–")}
-            detail={
-              !running
-                ? t("databases.overview.engineStopped")
-                : database?.keys != null
-                  ? t("databases.overview.keyCount", { count: database.keys })
-                  : database?.tables != null && database.tables > 0
-                    ? t("databases.overview.tables", { count: database.tables })
-                    : t("databases.overview.onDisk")
-            }
-          />
-          {can({ capabilities }, "metrics") || !running ? (
+          {/* A stopped engine says so once, in the banner: its figures are not drawn as zeroes and dashes with the same sentence under each. */}
+          {running || size !== null ? (
+            <StatTile
+              label={t("databases.overview.size")}
+              value={size !== null ? formatBytes(size, t.locale) : (sizeWords(database?.size, t) ?? "–")}
+              detail={
+                !running
+                  ? undefined
+                  : database?.keys != null
+                    ? t("databases.overview.keyCount", { count: database.keys })
+                    : database?.tables != null && database.tables > 0
+                      ? t("databases.overview.tables", { count: database.tables })
+                      : t("databases.overview.onDisk")
+              }
+            />
+          ) : null}
+          {running && can({ capabilities }, "metrics") ? (
             <>
               <StatTile
                 label={t("databases.overview.connections")}
-                value={running ? (metrics.data?.connections != null ? formatCount(metrics.data.connections, t.locale) : "–") : "0"}
+                value={metrics.data?.connections != null ? formatCount(metrics.data.connections, t.locale) : "–"}
                 detail={
-                  !running
-                    ? t("databases.overview.engineStopped")
-                    : metrics.isError
-                      ? t("databases.overview.metricsUnavailable")
-                      : metrics.data?.max_connections != null
-                        ? t("databases.overview.ofMax", { max: formatCount(metrics.data.max_connections, t.locale) })
-                        : t("databases.overview.now")
+                  metrics.isError
+                    ? t("databases.overview.metricsUnavailable")
+                    : metrics.data?.max_connections != null
+                      ? t("databases.overview.ofMax", { max: formatCount(metrics.data.max_connections, t.locale) })
+                      : t("databases.overview.now")
                 }
               />
               <StatTile
                 label={t("databases.overview.cacheHit")}
-                value={running && metrics.data?.cache_hit_ratio != null ? formatHitRatio(metrics.data.cache_hit_ratio, t.locale) : "–"}
-                detail={!running ? t("databases.overview.engineStopped") : metrics.isError ? t("databases.overview.metricsUnavailable") : t("databases.overview.cacheHitDetail")}
+                value={metrics.data?.cache_hit_ratio != null ? formatHitRatio(metrics.data.cache_hit_ratio, t.locale) : "–"}
+                detail={metrics.isError ? t("databases.overview.metricsUnavailable") : t("databases.overview.cacheHitDetail")}
               />
             </>
           ) : null}
@@ -157,9 +158,7 @@ export function OverviewTab({ engine, name }: { engine: string; name: string }) 
             icon={OBJECT_ICONS.server}
             description={serverWithPlace(t, server)}
             status={
-              life === "stopped" ? (
-                <StatusPill state="stopped" size="sm" label={t("common.statusPill.stopped")} />
-              ) : support !== undefined && (support.kind === "ended" || support.kind === "soon") && supportWords !== null ? (
+              life === "stopped" ? undefined : support !== undefined && (support.kind === "ended" || support.kind === "soon") && supportWords !== null ? (
                 <StatusPill state={support.kind === "ended" ? "failed" : "warning"} size="sm" label={supportWords} />
               ) : supportWords !== null ? (
                 <StatusPill state="running" size="sm" label={supportWords} />

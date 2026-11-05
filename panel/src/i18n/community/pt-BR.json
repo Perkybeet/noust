@@ -16082,7 +16082,6 @@
   "databases.delete.action": "Excluir…",
   "databases.delete.forgetConfirmTitle": "Esquecer {name}?",
   "databases.delete.forgetConfirmBody": "Ele deixa de receber backup e de ser listado. Se a engine voltar a tê-lo, aparece como um banco de dados que o Noust não gerencia.",
-  "databases.overview.engineStopped": "A engine está parada",
   "databases.overview.engine": "Engine",
   "databases.overview.seeEngines": "Ver as engines",
   "databases.data.emptyAction": "Criar uma com uma consulta",

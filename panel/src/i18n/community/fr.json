@@ -16082,7 +16082,6 @@
   "databases.delete.action": "Supprimer…",
   "databases.delete.forgetConfirmTitle": "Oublier {name} ?",
   "databases.delete.forgetConfirmBody": "Elle n'est plus sauvegardée ni listée. Si le moteur la possède de nouveau, elle apparaît comme une base de données que Noust ne gère pas.",
-  "databases.overview.engineStopped": "Le moteur est arrêté",
   "databases.overview.engine": "Moteur",
   "databases.overview.seeEngines": "Voir les moteurs",
   "databases.data.emptyAction": "En créer une avec une requête",

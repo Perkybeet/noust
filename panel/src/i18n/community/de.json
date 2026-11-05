@@ -16082,7 +16082,6 @@
   "databases.delete.action": "Löschen…",
   "databases.delete.forgetConfirmTitle": "{name} vergessen?",
   "databases.delete.forgetConfirmBody": "Sie wird nicht mehr gesichert und gelistet. Taucht sie in der Engine wieder auf, erscheint sie als Datenbank, die Noust nicht verwaltet.",
-  "databases.overview.engineStopped": "Die Engine ist gestoppt",
   "databases.overview.engine": "Engine",
   "databases.overview.seeEngines": "Engines ansehen",
   "databases.data.emptyAction": "Mit einer Abfrage erstellen",

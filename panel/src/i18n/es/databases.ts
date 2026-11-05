@@ -601,7 +601,6 @@ export const databases: Catalog<typeof en> = {
     onDisk: "En disco",
     connections: "Conexiones",
     ofMax: "De {max} que permite el motor",
-    engineStopped: "El motor está parado",
     engine: "Motor",
     seeEngines: "Ver los motores",
     now: "Ahora",
