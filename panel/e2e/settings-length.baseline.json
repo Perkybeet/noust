@@ -10,13 +10,13 @@
       "height": 1471,
       "reason": "One form holds the server's identity, the console address, the folders, the limits, the web server and the deploy freeze; the console address has its own section, and what stays is measured again when it leaves."
     },
-    "settings-registries": { "path": "/settings/registries", "height": 246 },
-    "settings-deploy-keys": { "path": "/settings/deploy-keys", "height": 721 },
+    "settings-registries": { "path": "/settings/registries", "height": 125 },
+    "settings-deploy-keys": { "path": "/settings/deploy-keys", "height": 703 },
     "settings-fleet": { "path": "/settings/fleet", "height": 565 },
     "settings-variables": { "path": "/settings/variables", "height": 330 },
     "settings-secret-managers": { "path": "/settings/secret-managers", "height": 430 },
     "settings-console": { "path": "/settings/console", "height": 460 },
-    "settings-integrations": { "path": "/settings/integrations", "height": 1226 },
+    "settings-integrations": { "path": "/settings/integrations", "height": 983 },
     "settings-about": {
       "path": "/settings/about",
       "height": 1658,
@@ -51,7 +51,7 @@
       "height": 4802,
       "reason": "The frameworks, their controls and the ENS report in one page; the frameworks and the security profile move to Controls and the report stays."
     },
-    "settings-cloud": { "path": "/settings/cloud", "height": 819 },
+    "settings-cloud": { "path": "/settings/cloud", "height": 683 },
     "settings-central": { "path": "/settings/central", "height": 468 },
     "settings-controls": {
       "path": "/settings/controls",

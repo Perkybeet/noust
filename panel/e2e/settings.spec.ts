@@ -12,7 +12,8 @@ import { confirmItsYou, stillness } from "./settings.helpers";
 
 const PAGES = [
   { path: "/settings/general", heading: "This server", title: /^General settings/ },
-  { path: "/settings/registries", heading: "Container registries", title: /^Image registries/ },
+  // Nothing recorded yet: the first time is one sentence in a region named by what the page holds, not a heading.
+  { path: "/settings/registries", region: "Accounts", title: /^Image registries/ },
   { path: "/settings/notifications", heading: "Channels", title: /^Notifications settings/ },
   { path: "/settings/integrations", heading: "GitHub", title: /^Integrations/ },
   { path: "/settings/variables", heading: "Server variables", title: /^Server variables settings/ },
@@ -29,7 +30,9 @@ test("every server settings page loads its sections and passes axe", async ({ pa
   const tabs = page.getByRole("navigation", { name: "Settings sections" });
   for (const entry of PAGES) {
     await page.goto(entry.path);
-    await expect(page.getByRole("heading", { level: 2, name: entry.heading, exact: true })).toBeVisible();
+    await expect(
+      "region" in entry ? page.getByRole("region", { name: entry.region, exact: true }) : page.getByRole("heading", { level: 2, name: entry.heading, exact: true }),
+    ).toBeVisible();
     await expect(page).toHaveTitle(entry.title);
     await expect(tabs.locator('a[aria-current="page"]')).toHaveCount(1);
     // Nothing still loading when axe looks.

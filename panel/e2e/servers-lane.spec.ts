@@ -21,7 +21,7 @@ async function signIn(page: Page, server: ConsoleServer, path: string): Promise<
 
 test("Settings > Cloud: no account yet, the scripts that ship with Noust, and an account that is checked before it is sent", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/settings/cloud");
-  await expect(page.getByText("No provider account yet")).toBeVisible();
+  await expect(page.getByText("Add the token of Hetzner Cloud, DigitalOcean or Vultr and you can create servers without leaving here.")).toBeVisible();
   await expect(page.getByText("Add a provider account first, then create a server.")).toBeVisible();
 
   // The boot library has what ships with Noust, which can be read and copied, not changed.

@@ -171,15 +171,17 @@ test("the server lists its deploy keys and pinned host keys, and forgets a host 
   expect(made.ok(), await made.text()).toBe(true);
   try {
     await page.goto("/settings/deploy-keys");
-    const keys = page.getByRole("heading", { level: 2, name: "Keys of this server" }).locator("xpath=ancestor::section[1]");
-    const table = keys.getByRole("table", { name: "Deploy keys of this server" });
+    const table = page.getByRole("table", { name: "Deploy keys of this server" });
     const row = table.getByRole("row").filter({ hasText: "taller-example-com" });
     await expect(row).toBeVisible();
     await expect(row.getByText("github.com/you/landing")).toBeVisible();
-    await expect(row.getByRole("link", { name: SSH_APP })).toHaveAttribute("href", `/apps/${SSH_APP}/settings/source`);
+    // The applications built from the key are tags of its name: the first on the line, the rest behind "+N".
+    await row.getByRole("button", { name: /more tag/ }).click();
+    await expect(page.getByRole("dialog").getByRole("link", { name: SSH_APP })).toHaveAttribute("href", `/apps/${SSH_APP}/settings/source`);
+    await page.keyboard.press("Escape");
 
     // The host keys the machine pinned, one of them on another port.
-    const hosts = keys.getByRole("table", { name: "Host keys pinned by this server" });
+    const hosts = page.getByRole("table", { name: "Code hosts this server trusts" });
     await expect(hosts.getByRole("row").filter({ hasText: "github.com" })).toContainText("ED25519");
     await expect(hosts.getByText("[git.example.org]:2222")).toBeVisible();
     await settle(page);
