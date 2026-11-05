@@ -6,12 +6,13 @@ import { sessionQuery } from "../../api/queries/auth";
 import { focusPageTitle } from "../../app/focus";
 import { AuthLayout } from "../../components/page/AuthLayout";
 import { ExternalLink } from "../../components/ui/ExternalLink";
-import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
 
 export interface AuthFrameProps {
   title: string;
   description?: ReactNode;
+  /** The way back to the screen this one is a step from, above the title. */
+  back?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
 }
@@ -41,36 +42,31 @@ function LegalLine() {
 
 /**
  * T7 for every screen before the console: sign in, the checks after it, the first account,
- * an invitation, a sealed central. The machine comes first. Before sign-in the server names
- * itself only by the label its operator chose (`auth.login_label`), never its hostname or
- * version (ENS op.acc.6.7): the page must still tell servers apart without telling a stranger
- * what it runs. The title takes focus on arrival. The licence notice closes every one.
+ * an invitation, a new password, a sealed central. The slab is the same on all of them. Before
+ * sign-in the server says nothing of itself but the line its operator chose (`auth.login_label`),
+ * never its hostname or version (ENS op.acc.6.7); once a person is in and a check is still owed, it
+ * names its machine, which the person is about to trust with a second factor. The title takes focus
+ * on arrival. The licence notice closes every one, under the slab.
  */
-export function AuthFrame({ title, description, children, footer }: AuthFrameProps) {
+export function AuthFrame({ title, description, back, children, footer }: AuthFrameProps) {
   const t = useT();
-  const { data: session, isPending } = useQuery(sessionQuery());
+  const { data: session } = useQuery(sessionQuery());
 
   // Once per screen: the title is where a screen reader starts reading a new one.
   useEffect(() => {
     focusPageTitle();
   }, [title]);
 
-  const name = session?.authenticated === true ? session.hostname : (session?.login_label ?? null);
-  // Without a label of its operator's, the server says nothing of itself before sign-in.
-  const host = isPending ? <Skeleton className="h-3.5 w-32" /> : name !== null && name !== "" ? name : undefined;
-  const version = session?.authenticated === true && session.version !== "" ? session.version : null;
+  const label = session?.authenticated === true ? session.hostname : session?.login_label;
   return (
     <AuthLayout
       title={title}
-      description={description}
-      {...(host !== undefined ? { host } : {})}
-      subtitle={version === null ? t("auth.frame.product") : t("auth.frame.productVersion", { version })}
-      footer={
-        <div className="flex flex-col gap-6">
-          {footer}
-          <LegalLine />
-        </div>
-      }
+      tagline={t("auth.frame.tagline")}
+      legal={<LegalLine />}
+      {...(description !== undefined ? { description } : {})}
+      {...(back !== undefined ? { back } : {})}
+      {...(label !== undefined && label !== null && label !== "" ? { label } : {})}
+      {...(footer !== undefined ? { footer } : {})}
     >
       {children}
     </AuthLayout>

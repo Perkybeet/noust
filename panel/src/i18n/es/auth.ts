@@ -4,8 +4,22 @@ import type { Catalog } from "../types";
 export const auth: Catalog<typeof en> = {
   area: "Iniciar sesión",
   frame: {
-    product: "Consola de Noust",
-    productVersion: "Consola de Noust {version}",
+    tagline: "Tus aplicaciones y tus servidores, a resguardo.",
+  },
+  ways: {
+    label: "Otras formas de iniciar sesión",
+    back: "Con contraseña",
+    backToCompany: "Con tu empresa",
+    passkey: "Llave de acceso",
+    company: "Tu empresa",
+    local: "Contraseña o llave de acceso",
+    passkeyDescription: "Con la huella, la cara o la llave que guardaste en este dispositivo. Sin contraseña.",
+    companyTitle: "Iniciar sesión con tu empresa",
+    companyDescription: "Con la cuenta de tu organización.",
+  },
+  factor: {
+    title: "Un paso más",
+    description: "Confirma que eres tú con tu segundo factor.",
   },
   sessionExpired: "Tu sesión expiró. Inicia sesión de nuevo para continuar donde lo dejaste.",
   account: {
@@ -58,10 +72,8 @@ export const auth: Catalog<typeof en> = {
     link: "Token de acceso",
     title: "Inicia sesión con el token de acceso",
     description: "El instalador lo mostró una vez, en un recuadro. Pégalo aquí.",
-    firstTime: "¿Primera vez aquí? Inicia sesión con el token de acceso que mostró el instalador.",
     recoveryHelp:
       "El token de acceso es la llave de quien sea root en esta máquina. Con cuentas creadas, úsalo solo para recuperar el acceso: cada uso queda registrado como aviso.",
-    back: "Usar tu cuenta",
     lostIt: "Muéstralo en el servidor",
     passkeyRequiredTitle: "El token de acceso ya tiene una llave de acceso",
   },

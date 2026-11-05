@@ -147,14 +147,16 @@ unencrypted. See [security.md](security.md) for the full rules.
 
 ![Sign in](assets/console/login.png)
 
-Sign in with your account: username, password and a code from your authenticator app, or a
-passkey on its own. Browsers offer passkeys only on a certificate they trust, so over an SSH
-tunnel or with a self-signed certificate the page says why the button is missing. The page does
-not show the host name or the version before you sign in; `auth.login_label` sets a line that
+Sign in with your account: username, password and a code from your authenticator app. Under the
+form, three equal doors open the other ways in, each in the form's own place with a link back to
+the password: a **Passkey** on its own, **Your company** when a single sign-on provider is set up
+(see [sso.md](sso.md)) and the **Access token**. Browsers offer passkeys only on a certificate they
+trust, so over an SSH tunnel or with a self-signed certificate that door is not there. The page
+does not show the host name or the version before you sign in; `auth.login_label` sets a line that
 tells your servers apart. After signing in, the console says when and from where you last signed
 in and how many attempts failed since.
 
-**A server with no accounts** signs in with the access token (the **Access token** button, or the
+**A server with no accounts** signs in with the access token (the **Access token** door, or the
 link the installer printed, which opens the page on its field) and then opens one form that
 creates the first administrator and signs in with it: a username and a password, with the name and
 the email a click away. The console then offers to **Protect your account**, which can wait (**Set

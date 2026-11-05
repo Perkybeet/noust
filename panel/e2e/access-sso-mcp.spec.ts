@@ -187,16 +187,17 @@ serial("passwords are turned off for single sign-on, keeping the way back, and o
   await settle(page);
   await expectNoA11yViolations(page, "Settings, Single sign-on, passwords off");
 
-  // The sign-in page leads with the provider and keeps the account form behind a link.
+  // The sign-in page leads with the provider and keeps the account form behind a door.
   const anonymous = await page.context().browser()?.newContext({ baseURL: consoleServer.url });
   if (anonymous === undefined) throw new Error("no browser");
   const visitor = await anonymous.newPage();
   await visitor.goto("/login");
   await expect(visitor.getByRole("link", { name: "Sign in with Acme SSO" })).toBeVisible();
   await expect(visitor.getByLabel("Username or email")).toBeHidden();
-  await visitor.getByRole("button", { name: "Sign in with a password or a passkey" }).click();
-  await expect(visitor.getByLabel("Username or email")).toBeVisible();
+  // The emergency access stays where it was: a door beside the password's.
   await expect(visitor.getByRole("button", { name: "Access token" })).toBeVisible();
+  await visitor.getByRole("button", { name: "Password or passkey" }).click();
+  await expect(visitor.getByLabel("Username or email")).toBeVisible();
   await anonymous.close();
 
   await passwords.click();

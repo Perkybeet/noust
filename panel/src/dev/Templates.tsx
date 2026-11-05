@@ -1,10 +1,11 @@
-import { Plus, Upload } from "lucide-react";
+import { Building2, Plus, Ticket, Upload } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
 import { LinkTabs } from "../app/LinkTabs";
 import { APP_TABS } from "../app/nav";
 import {
+  AuthDoors,
   AuthLayout,
   CommandHint,
   DashboardPage,
@@ -355,14 +356,32 @@ function EditorDemo() {
 
 function AuthDemo() {
   return (
-    <AuthLayout as="div" title="Sign in" description="Use an access token, or a passkey." host="web-1.example.com" subtitle="Noust console 3.1.0" footer={<CommandHint command="noust web token" label="Lost the token?" />}>
+    <AuthLayout
+      as="div"
+      title="Sign in"
+      description="With your Noust account."
+      tagline="Your apps and servers, kept safe."
+      legal={<p className="text-12 text-fg-faint">Free software under the AGPL-3.0-or-later.</p>}
+      footer={<CommandHint command="noust web token" label="Lost the token?" />}
+    >
       <div className="flex flex-col gap-5">
-        <Field label="Access token">
-          <Input type="password" mono autoComplete="current-password" />
+        <Field label="Username or email">
+          <Input mono autoComplete="username" />
+        </Field>
+        <Field label="Password">
+          <Input type="password" autoComplete="current-password" />
         </Field>
         <Button variant="primary" size="lg" className="w-full">
           Sign in
         </Button>
+        <AuthDoors
+          label="Other ways to sign in"
+          doors={[
+            { id: "passkey", label: "Passkey", icon: <OBJECT_ICONS.passkey />, onSelect: () => undefined },
+            { id: "company", label: "Your company", icon: <Building2 />, onSelect: () => undefined },
+            { id: "token", label: "Access token", icon: <Ticket />, onSelect: () => undefined },
+          ]}
+        />
       </div>
     </AuthLayout>
   );
@@ -426,7 +445,7 @@ export function Templates() {
           <EditorDemo />
         </Frame>
       </Section>
-      <Section id="t7" title="T7 Access" description="Sign in, a sealed central, the legal notice: one column of 400px, the machine's name first, one field, one large button, the terminal's way under it.">
+      <Section id="t7" title="T7 Access" description="Sign in and the screens around it: one slab of 992px. The identity in a hollow on the left (the logo, a noust from the side, one sentence), the form on the right, two or three equal doors for the other ways in, the licence under the slab.">
         <Frame id="auth" name="AuthLayout">
           <AuthDemo />
         </Frame>

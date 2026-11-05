@@ -515,8 +515,8 @@ a short list is the point).
   could still sign in: one who keeps a password, or one linked to an enabled provider. The same rule is
   checked where the last way in would be taken away: removing or disabling a provider, unlinking a
   person, or shortening the exempt list while passwords are off is refused when it would leave nobody.
-* The sign-in page then offers the providers first and keeps the account form behind "Sign in with a
-  password or a passkey", with the Access token button where it was.
+* The sign-in page then offers the providers first and keeps the account form behind the "Password or
+  passkey" door, with the Access token door beside it.
 * Sessions that are open stay open; nothing is signed out by the switch.
 * It is an audit event, `auth.local_login.change`, and a refusal names who would have been left.
 

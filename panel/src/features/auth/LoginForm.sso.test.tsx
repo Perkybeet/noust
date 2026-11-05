@@ -1,4 +1,4 @@
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { setLocale } from "../../app/locale";
@@ -76,37 +76,51 @@ afterEach(() => {
 });
 
 describe("the sign-in page with an identity provider", () => {
-  it("offers a button for each provider, as a link that starts the sign-in on the server", async () => {
+  it("offers the company as a door under the password form, and opens a button for each provider in its place", async () => {
     ssoBackend();
-    renderConsole("/login?next=%2Fapps");
+    const { user } = renderConsole("/login?next=%2Fapps");
 
-    const button = await screen.findByRole("link", { name: "Sign in with Acme SSO" });
+    // The password form stays the way in: a provider is one more way, not the only one.
+    expect(await screen.findByLabelText("Username or email")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Sign in with Acme SSO" })).toBeNull();
+    await user.click(await screen.findByRole("button", { name: "Your company" }));
 
+    expect(await screen.findByRole("heading", { level: 1, name: "Sign in with your company" })).toBeInTheDocument();
+    const button = screen.getByRole("link", { name: "Sign in with Acme SSO" });
     expect(button).toHaveAttribute("href", "/api/auth/oidc/start?provider=corp&next=%2Fapps");
     expect(button).toHaveAttribute("data-variant", "secondary");
-    // The password form stays: a provider is one more way in, not the only one.
-    expect(screen.getByLabelText("Username or email")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Username or email")).toBeNull();
+
+    // And back, to the password.
+    await user.click(screen.getByRole("button", { name: "With a password" }));
+    expect(await screen.findByLabelText("Username or email")).toBeInTheDocument();
   });
 
-  it("leads with the providers and keeps the account form behind a link once passwords are turned off", async () => {
+  it("leads with the providers and keeps the account form behind a door once passwords are turned off", async () => {
     ssoBackend({ providers: { ...PROVIDERS, local_login: false } });
     const { user } = renderConsole("/login");
 
     expect(await screen.findByRole("link", { name: "Sign in with Acme SSO" })).toBeInTheDocument();
-    // A way back for the accounts that were left a password, not an equal choice beside the provider.
-    const more = screen.getByRole("button", { name: "Sign in with a password or a passkey" });
-    expect(more).toHaveAttribute("aria-expanded", "false");
-    await user.click(more);
-    expect(more).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByLabelText("Username or email")).toBeVisible();
+    expect(screen.getByRole("heading", { level: 1, name: "Sign in with your company" })).toBeInTheDocument();
+    // The provider is the way in: no way back from it, and the password is a door for the accounts that were left one.
+    expect(screen.queryByRole("button", { name: "With your company" })).toBeNull();
+    expect(screen.queryByLabelText("Username or email")).toBeNull();
+    const doors = within(screen.getByRole("navigation", { name: "Other ways to sign in" }));
+    expect(doors.getAllByRole("button").map((door) => door.textContent)).toEqual(["Password or passkey", "Access token"]);
+
+    await user.click(doors.getByRole("button", { name: "Password or passkey" }));
+    expect(await screen.findByLabelText("Username or email")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "With your company" }));
+    expect(await screen.findByRole("link", { name: "Sign in with Acme SSO" })).toBeInTheDocument();
     // The emergency access stays where it was.
     expect(screen.getByRole("button", { name: "Access token" })).toBeInTheDocument();
   });
 
   it("does not carry a destination that is the overview", async () => {
     ssoBackend();
-    renderConsole("/login");
+    const { user } = renderConsole("/login");
+    await user.click(await screen.findByRole("button", { name: "Your company" }));
     const button = await screen.findByRole("link", { name: "Sign in with Acme SSO" });
     expect(button).toHaveAttribute("href", "/api/auth/oidc/start?provider=corp");
   });
@@ -120,7 +134,8 @@ describe("the sign-in page with an identity provider", () => {
         ],
       },
     });
-    renderConsole("/login");
+    const { user } = renderConsole("/login");
+    await user.click(await screen.findByRole("button", { name: "Your company" }));
     await screen.findByRole("link", { name: "Sign in with Acme SSO" });
     const links = screen.getAllByRole("link").filter((link) => link.getAttribute("href")?.startsWith("/api/auth/oidc/start"));
     expect(links.map((link) => link.textContent)).toEqual(["Sign in with Acme SSO", "Sign in with Google"]);
@@ -135,8 +150,9 @@ describe("the sign-in page with an identity provider", () => {
         ],
       },
     });
-    renderConsole("/login?next=%2Fapps");
+    const { user } = renderConsole("/login?next=%2Fapps");
 
+    await user.click(await screen.findByRole("button", { name: "Your company" }));
     const oidc = await screen.findByRole("link", { name: "Sign in with Acme SSO" });
     const saml = screen.getByRole("link", { name: "Sign in with Entra ID" });
 
@@ -144,10 +160,11 @@ describe("the sign-in page with an identity provider", () => {
     expect(saml).toHaveAttribute("href", "/api/auth/saml/start?provider=entra&next=%2Fapps");
   });
 
-  it("shows no button when no provider is configured, and none when the server cannot say", async () => {
+  it("shows no door to a company when none is configured, and none when the server cannot say", async () => {
     ssoBackend({ providers: { providers: [] } });
     const first = renderConsole("/login");
     await screen.findByLabelText("Username or email");
+    expect(screen.queryByRole("button", { name: "Your company" })).toBeNull();
     expect(screen.queryByRole("link", { name: /Sign in with/ })).toBeNull();
     first.cleanup();
     first.unmount();
@@ -156,6 +173,7 @@ describe("the sign-in page with an identity provider", () => {
     backend.on("GET /api/auth/oidc/providers", () => problem(500, "internal_error", "boom"));
     renderConsole("/login");
     await screen.findByLabelText("Username or email");
+    expect(screen.queryByRole("button", { name: "Your company" })).toBeNull();
     expect(screen.queryByRole("link", { name: /Sign in with/ })).toBeNull();
     // A missing button is not an error to show: the form is all there is, and it works.
     expect(screen.queryByText("boom")).toBeNull();
@@ -231,9 +249,9 @@ describe("the sign-in page with an identity provider", () => {
 
     expect(await screen.findByText("Could not sign in with your provider")).toBeInTheDocument();
     expect(screen.getByText("That sign-in expired or was already used. Start it again.")).toBeInTheDocument();
-    // The form is back, and so is the button to try again.
-    expect(screen.getByLabelText("Username or email")).toBeInTheDocument();
+    // The words and the button to try again are together, on the provider's own way; the password is one step back.
     expect(screen.getByRole("link", { name: "Sign in with Acme SSO" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "With a password" })).toBeInTheDocument();
   });
 
   it.each([
