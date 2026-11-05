@@ -158,7 +158,7 @@ serial("the first administrator is made from the console in one form, signed in,
   const saved = await codes.allTextContents();
   await page.getByRole("checkbox", { name: "I have saved these codes somewhere safe" }).click();
   await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "Home" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "This server" })).toBeVisible();
   people.set("ana", { username: "ana", password: "violet harbor lantern 91", secret, codes: saved.map((code) => code.trim()) });
   await settle(page);
 });
@@ -266,6 +266,8 @@ serial("a passkey is added, signs in with no name or password, and confirms it's
   });
   await context.clearCookies();
   await page.goto("/login?next=%2Faccount%2Fsecurity");
+  // The passkey is a door under the password form, which opens in the form's own place.
+  await page.getByRole("button", { name: "Passkey" }).click();
   await page.getByRole("button", { name: "Sign in with a passkey" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Account" })).toBeVisible();
   await expect(passkeys.getByRole("row").filter({ hasText: "Virtual laptop" })).not.toContainText("Never");
