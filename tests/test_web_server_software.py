@@ -105,6 +105,7 @@ class TestTheList:
         assert response.status_code == 200, response.text
         body = response.json()
         assert body["managed"] is True and body["family"] == "apt"
+        assert body["reason"] is None and body["reason_coded"] is None
         by_id = {item["id"]: item for item in body["items"]}
         assert len(by_id) == len(COMPONENTS)
         nginx = by_id["nginx"]
@@ -133,6 +134,7 @@ class TestTheList:
         body = api.client.get("/api/server/software").json()
 
         assert body["managed"] is False and body["reason"]
+        assert body["reason_coded"] == {"code": "host.updates_unsupported.no_manager", "params": {}}
         assert body["items"]
 
 

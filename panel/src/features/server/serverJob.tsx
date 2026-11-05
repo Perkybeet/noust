@@ -32,7 +32,7 @@ import { serverKeys } from "./queries";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** What a job of this area does, which names it while it runs and once it ends. */
-export type ServerJobKind = "update" | "refresh" | "repair" | "auto" | "cleanup" | "analyze" | "swap" | "security" | "checks" | "restarts" | "noust";
+export type ServerJobKind = "update" | "refresh" | "repair" | "auto" | "software" | "cleanup" | "analyze" | "swap" | "security" | "checks" | "restarts" | "noust";
 
 /** The backend's job types that belong to the Server area (web/api/server). */
 const KIND_BY_TYPE: Readonly<Record<string, ServerJobKind>> = {
@@ -67,6 +67,8 @@ export function jobWords(t: T, kind: ServerJobKind): JobWords {
       return { running: t("server.job.repair.running"), succeeded: t("server.job.repair.succeeded"), failed: t("server.job.repair.failed") };
     case "auto":
       return { running: t("server.job.auto.running"), succeeded: t("server.job.auto.succeeded"), failed: t("server.job.auto.failed") };
+    case "software":
+      return { running: t("software.job.running"), succeeded: t("software.job.succeeded"), failed: t("software.job.failed") };
     case "cleanup":
       return { running: t("server.job.cleanup.running"), succeeded: t("server.job.cleanup.succeeded"), failed: t("server.job.cleanup.failed") };
     case "analyze":

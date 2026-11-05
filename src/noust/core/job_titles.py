@@ -130,6 +130,17 @@ TITLES: dict[str, tuple[Way, ...]] = {
             (("role", "role"),),
             (("kind", "dns_server_setup"),),
         ),
+        # The Software page's install and removal name the component (the registry's id) in the sentence.
+        Way(
+            "jobs.title.server_action_software_install",
+            (("component", "component"),),
+            (("action", "install"),),
+        ),
+        Way(
+            "jobs.title.server_action_software_remove",
+            (("component", "component"),),
+            (("action", "remove"),),
+        ),
         Way("jobs.title.server_action"),
     ),
     # What a security job did (an operation of a dozen) is not something to say without words of its own.

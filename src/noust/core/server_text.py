@@ -1086,6 +1086,9 @@ CATALOG: dict[str, str] = {
     "jobs.title.disk_scan": "Measure what takes disk space",
     "jobs.title.server_action_dns_install": "Install Knot DNS",
     "jobs.title.server_action_dns_setup": "Set up Noust DNS as a {role}",
+    # An install or a removal from the Software page: the component is the registry's id, which the console says by name.
+    "jobs.title.server_action_software_install": "Install {component}",
+    "jobs.title.server_action_software_remove": "Remove {component}",
     "jobs.title.server_action": "Run a server task",
     "jobs.title.server_security": "Run a security task",
     "jobs.title.database_of_app": "Work on a database of {domain}",
@@ -1183,6 +1186,16 @@ CATALOG: dict[str, str] = {
     "software.chrony.purpose": "Keeps the clock right by network time, which certificates and logs rely on",
     "software.auto_updates.purpose": "Installs the system's security updates by itself",
     "software.rclone.purpose": "Uploads backups to remote destinations",
+    # -- Why Noust does not change a system's packages (noust.managers.server.host, software) --
+    "host.updates_unsupported.transactional": (
+        "This system installs packages through transactions and a reboot (transactional-update or an "
+        "image-based system), so Noust only reports its state. Update it with its own tool."
+    ),
+    "host.updates_unsupported.no_manager": (
+        "Noust drives apt, dnf and zypper, and none of them is installed here. Update this system "
+        "with its own package manager."
+    ),
+    "software.hub": "This central is a hub: it has no software of its own",
     # -- Why a piece of software is not removed or installed here (noust.managers.server.software) --
     "software.refused.never": "{component} is never removed",
     "software.refused.not_installed": "{component} is not installed",

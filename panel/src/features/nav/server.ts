@@ -30,6 +30,7 @@ export const SERVER_SCREENS = strip(
     tab(server, "updates", "server.system.views.updates", { column: "machine", keywords: "nav.screens.updates.keywords" }),
     tab(server, "services", "server.tabs.services", { column: "running" }),
     tab(server, "webserver", "server.tabs.webserver", { column: "running", keywords: "server.tabs.webserverKeywords", permission: "server.read" }),
+    tab(server, "software", "server.tabs.software", { column: "running", keywords: "server.tabs.softwareKeywords", permission: "server.read" }),
     tab(server, "files", "server.tabs.files", { column: "tools", keywords: "server.tabs.filesKeywords" }),
     hidden("server.terminal", "/server/terminal", "terminal.page.title", "server", {
       parent: "server",

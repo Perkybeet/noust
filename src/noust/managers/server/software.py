@@ -230,12 +230,14 @@ class Inventory:
         reason: Why it is not managed, when it is not.
         family: The package manager, ``apt``, ``dnf``, ``zypper`` or ``none``.
         items: One per component, in the order the page shows them.
+        reason_coded: ``reason`` as a sentence with a code, for the console to say in its language.
     """
 
     managed: bool
     reason: str | None
     family: str
     items: tuple[SoftwareItem, ...]
+    reason_coded: ServerText | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -245,6 +247,7 @@ class Inventory:
         return {
             "managed": self.managed,
             "reason": self.reason,
+            "reason_coded": self.reason_coded.to_dict() if self.reason_coded else None,
             "family": self.family,
             "items": [item.to_dict() for item in self.items],
         }
@@ -520,9 +523,8 @@ class SoftwareManager:
             ServerError: The package manager could not be asked which packages are installed.
         """
         if is_hub():
-            return Inventory(
-                False, "This central is a hub: it has no software of its own", "none", ()
-            )
+            hub = say("software.hub")
+            return Inventory(False, hub.text, "none", (), hub)
         if refresh:
             self.cache.invalidate("software.inventory")
         fact = self.cache.get("software.inventory", self._build_inventory, TTL_INVENTORY, wait=True)
@@ -540,15 +542,15 @@ class SoftwareManager:
             The inventory, asked of the machine.
         """
         platform = self.platform
-        managed = not platform.transactional and platform.family is not PackageFamily.NONE
-        reason = None if managed else platform.why_updates_unsupported()
+        why = platform.updates_unsupported()
+        managed = why is None
         looked = self._look()
         ledger = self.ledger.all()
         items = tuple(
             self._item(component, looked, ledger.get(component.id))
             for component in self._components
         )
-        return Inventory(managed, reason, platform.family.value, items)
+        return Inventory(managed, why.text if why else None, platform.family.value, items, why)
 
     def _look(self) -> _Facts:
         """

@@ -9448,6 +9448,7 @@ SoftwareOut = TypedDict("SoftwareOut", {
     "items": NotRequired[list["SoftwareItemOut"]],
     "managed": Required[bool],
     "reason": NotRequired[Union[str, None]],
+    "reason_coded": NotRequired[Union["CodedText", None]],
 })
 
 SourceChangeRequest = TypedDict("SourceChangeRequest", {

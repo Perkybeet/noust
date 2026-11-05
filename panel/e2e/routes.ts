@@ -135,6 +135,8 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "server-monitor", path: "/server/monitor" },
   { name: "server-updates", path: "/server/updates" },
   { name: "server-webserver", path: "/server/webserver" },
+  // 4.2: what the machine is made of as far as Noust is concerned, and removing or installing it.
+  { name: "server-software", path: "/server/software" },
   { name: "server-files", path: "/server/files" },
   { name: "logs-system", path: "/logs?source=system" },
   { name: "server-terminal", path: "/server/terminal" },

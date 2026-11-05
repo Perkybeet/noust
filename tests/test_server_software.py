@@ -223,6 +223,8 @@ class TestTheList:
 
         assert inventory.items == () and inventory.managed is False
         assert "hub" in (inventory.reason or "")
+        assert inventory.reason_coded is not None and inventory.reason_coded.code == "software.hub"
+        assert inventory.reason_coded.text == inventory.reason
 
     def test_an_image_based_system_lists_what_it_has_and_says_nothing_can_change(
         self, runner: FakeRunner, host
@@ -237,7 +239,16 @@ class TestTheList:
         inventory = software.inventory()
 
         assert inventory.managed is False and inventory.reason
+        # The reason is a sentence of the catalog, so a console says it in its own language.
+        assert inventory.reason_coded is not None
+        assert inventory.reason_coded.code == "host.updates_unsupported.transactional"
+        assert inventory.reason_coded.text == inventory.reason
         assert {i.id: i for i in inventory.items}["git"].installed
+
+    def test_a_system_that_is_managed_has_no_reason_to_say(self, runner: FakeRunner, host) -> None:
+        inventory = machine(runner, host).inventory()
+
+        assert inventory.managed and inventory.reason is None and inventory.reason_coded is None
 
 
 class TestWhatARemovalWouldDo:

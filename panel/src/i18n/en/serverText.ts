@@ -872,6 +872,16 @@ export const serverText = {
       text: "This {kind} is larger than the {limit} bytes a setting may be",
     },
   },
+  host: {
+    updates_unsupported: {
+      no_manager: {
+        text: "Noust drives apt, dnf and zypper, and none of them is installed here. Update this system with its own package manager.",
+      },
+      transactional: {
+        text: "This system installs packages through transactions and a reboot (transactional-update or an image-based system), so Noust only reports its state. Update it with its own tool.",
+      },
+    },
+  },
   inspect: {
     can_deploy: {
       text: "Noust can deploy this as {type}.",
@@ -1295,6 +1305,8 @@ export const serverText = {
       server_action: { text: "Run a server task" },
       server_action_dns_install: { text: "Install Knot DNS" },
       server_action_dns_setup: { text: "Set up Noust DNS as a {role}" },
+      server_action_software_install: { text: "Install {component}" },
+      server_action_software_remove: { text: "Remove {component}" },
       server_security: { text: "Run a security task" },
       service_action: { text: "Restart services" },
       site_action: { text: "Change a site" },
@@ -1696,6 +1708,9 @@ export const serverText = {
       purpose: {
         text: "Checks the signing key of every repository Noust adds",
       },
+    },
+    hub: {
+      text: "This central is a hub: it has no software of its own",
     },
     knot: {
       purpose: {
