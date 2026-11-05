@@ -1506,6 +1506,20 @@ in its place (`QueryState`); an action's where it was started (the dialog, the `
 or a persistent error toast with the `detail`). `role="alert"` only for the outcome of something
 the operator just did. Never "Oops" or "Sorry"; an unknown cause is not invented.
 
+**A fault is reported from where it is met** (4.2, item 127). The screen of a page that broke says that the rest
+of the console works, shows the error verbatim and offers two buttons, Try again and Report a problem; the help
+menu of the top bar (and "More" on a phone) opens the same report from any page. It is one dialog of three steps
+(what happened, what is sent, what happens on GitHub) that ends in one .zip the person downloads and in GitHub's
+form opened with its fields filled in: Noust publishes nothing, the person does.
+
+- **What is sent is what is shown.** Each part of the file (the server's support report, the browser's block, the
+  person's own text when the address of the form cut it, each image) opens and shows exactly what is written in it,
+  and what looks like a secret is marked as hidden. The server masks its report; the browser masks its own text with
+  the server's shapes (`api/secretShapes.gen.ts`, written by `scripts/generate_secret_shapes.py` from the tuple
+  `mask_secret_shapes` walks), never with a list of its own, because the report is also made when the server is down.
+- **The browser's last errors are kept in memory only** (`lib/errorBuffer.ts`: twenty entries from uncaught errors,
+  unhandled rejections, `console.error` and failed API calls), and masked when a report is made, not before.
+
 ### 6.6 Empty, loading and partial
 
 Everything loaded has four states: a skeleton shaped like the content (the region
