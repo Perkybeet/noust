@@ -34,6 +34,19 @@ under Changed: one field that becomes optional, one refusal that is new and one 
   fleet, and a closed version 1 layout on a grid of 12 columns (40 widgets, 20 panels per account, 32 KB).
   They are under `/api/auth`, so a central never forwards them. The master token, which is no account,
   is answered `400`.
+- **A picture of the operator's own on the sign-in screen.** `GET /api/auth/sign-in/appearance` says what
+  the screen draws in place of Noust's own drawing (`image: null` when nothing is set) and what a picture
+  may be, and `GET /api/auth/sign-in/image` serves it; both are public, because the screen is drawn before
+  there is a session. With `?v=<sha256>`, the digest `appearance` gave, the picture is cacheable for a year
+  (`public, max-age=31536000, immutable`); any other digest is `404`. It is served as `image/png`,
+  `image/jpeg` or `image/webp`, whichever its bytes are, with `nosniff`. `PUT /api/auth/sign-in/appearance`
+  sets it (`{image: <base64>, fit: "cover" | "contain", alt}`; leave `image` out to change only the fit and the
+  description) and `DELETE` removes it: permission `security.manage`, sudo mode, one audit event each
+  (`auth.sign_in_image.set` and `.remove`). The file is judged by its content (PNG, JPEG or WebP, up to
+  1 MiB and 4096 pixels on a side; an SVG or an animation is refused) and stored without its metadata. The
+  refusals are `400` with a `coded` sentence (`sign_in_image.*`). It is the only route whose request body
+  may be larger than a mebibyte. Under `/api/auth`, so a central never forwards it to a node and a fleet
+  token never reaches it.
 - **Every job says what it is.** A job (`GET /api/jobs`, `/api/jobs/{id}`, `/api/jobs/active`, the queue,
   the `job` event) carries `title`, `{code, params}`: a sentence of the server's catalog for the console
   to say in its language. `name` is unchanged.

@@ -58,6 +58,7 @@ const OBJECT_OF: Readonly<Record<string, ObjectName>> = {
   "settings.variables": "variable",
   "settings.secret-managers": "secretManager",
   "settings.console": "console",
+  "settings.sign-in-image": "signInImage",
   "settings.integrations": "integration",
   "settings.about": "noust",
   "settings.notifications": "channel",

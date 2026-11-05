@@ -1545,6 +1545,56 @@ export const serverText = {
       hint: "List the roles with: {command}",
     },
   },
+  sign_in_image: {
+    alt_control: {
+      text: "The description must be one line of plain text",
+      hint: "Remove the line breaks and control characters.",
+    },
+    alt_too_long: {
+      text: "The description is longer than {limit} characters",
+      hint: "Say it shorter: a screen reader reads all of it.",
+    },
+    animated: {
+      text: "An animated image is not accepted as the sign-in image",
+      hint: "Use a still picture: an animation cannot be paused, and people read this screen.",
+    },
+    bad_fit: {
+      text: "The fit must be cover or contain",
+      hint: "Use cover to fill the space (cropping what does not fit) or contain to show it whole.",
+    },
+    damaged: {
+      text: "The {kind} file is damaged or incomplete",
+      hint: "Export the picture again and send the new file.",
+    },
+    no_image_yet: {
+      text: "There is no sign-in image to change the fit or the description of",
+      hint: "Send the image itself too.",
+    },
+    not_an_image: {
+      text: "The file is not a PNG, JPEG or WebP image",
+      hint: "The type is read from the file itself, not from its name: export the picture as a PNG, JPEG or WebP.",
+    },
+    not_base64: {
+      text: "The image must be sent as base64 text",
+      hint: "Send the file's bytes encoded as base64, without a data: prefix and without line breaks.",
+    },
+    svg_refused: {
+      text: "An SVG is not accepted as the sign-in image",
+      hint: "An SVG is code, and this image is shown to anyone who opens the console before they sign in. Export it as a PNG, JPEG or WebP.",
+    },
+    too_large: {
+      text: "The image is larger than {limit}",
+      hint: "Export it again at a smaller size or with more compression, and send it again.",
+    },
+    too_many_pixels: {
+      text: "The image is {width} by {height} pixels, and the most is {limit} on each side",
+      hint: "Scale it down and send it again.",
+    },
+    unsupported: {
+      text: "This {kind} file uses an encoding that browsers do not all draw",
+      hint: "Save it again as a standard, 8-bit, non-hierarchical image and send it again.",
+    },
+  },
   sites: {
     config_updated: {
       text: "Configuration updated for {domain}. Reload {webserver} to apply it.",

@@ -169,6 +169,7 @@ const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/settings/secret-managers", "/settings/secret-managers"],
   ["/settings/security", "/settings/security"],
   ["/settings/servers", "/settings/servers"],
+  ["/settings/sign-in-image", "/settings/sign-in-image"],
   ["/settings/sso", "/settings/sso"],
   ["/settings/tokens", "/settings/tokens"],
   ["/settings/variables", "/settings/variables"],

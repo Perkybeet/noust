@@ -163,6 +163,49 @@ CATALOG: dict[str, str] = {
         "Use lower-case letters, digits and single underscores, starting with a letter, "
         "at most {max} characters."
     ),
+    # -- The picture on the sign-in screen (noust.validators.sign_in_image): why a file is not one -
+    "sign_in_image.too_large": "The image is larger than {limit}",
+    "sign_in_image.too_large.hint": (
+        "Export it again at a smaller size or with more compression, and send it again."
+    ),
+    "sign_in_image.not_an_image": "The file is not a PNG, JPEG or WebP image",
+    "sign_in_image.not_an_image.hint": (
+        "The type is read from the file itself, not from its name: export the picture as a PNG, "
+        "JPEG or WebP."
+    ),
+    "sign_in_image.svg_refused": "An SVG is not accepted as the sign-in image",
+    "sign_in_image.svg_refused.hint": (
+        "An SVG is code, and this image is shown to anyone who opens the console before they "
+        "sign in. Export it as a PNG, JPEG or WebP."
+    ),
+    "sign_in_image.damaged": "The {kind} file is damaged or incomplete",
+    "sign_in_image.damaged.hint": "Export the picture again and send the new file.",
+    "sign_in_image.unsupported": "This {kind} file uses an encoding that browsers do not all draw",
+    "sign_in_image.unsupported.hint": (
+        "Save it again as a standard, 8-bit, non-hierarchical image and send it again."
+    ),
+    "sign_in_image.too_many_pixels": (
+        "The image is {width} by {height} pixels, and the most is {limit} on each side"
+    ),
+    "sign_in_image.too_many_pixels.hint": "Scale it down and send it again.",
+    "sign_in_image.animated": "An animated image is not accepted as the sign-in image",
+    "sign_in_image.animated.hint": (
+        "Use a still picture: an animation cannot be paused, and people read this screen."
+    ),
+    "sign_in_image.not_base64": "The image must be sent as base64 text",
+    "sign_in_image.not_base64.hint": (
+        "Send the file's bytes encoded as base64, without a data: prefix and without line breaks."
+    ),
+    "sign_in_image.bad_fit": "The fit must be cover or contain",
+    "sign_in_image.bad_fit.hint": (
+        "Use cover to fill the space (cropping what does not fit) or contain to show it whole."
+    ),
+    "sign_in_image.alt_too_long": "The description is longer than {limit} characters",
+    "sign_in_image.alt_too_long.hint": "Say it shorter: a screen reader reads all of it.",
+    "sign_in_image.alt_control": "The description must be one line of plain text",
+    "sign_in_image.alt_control.hint": "Remove the line breaks and control characters.",
+    "sign_in_image.no_image_yet": "There is no sign-in image to change the fit or the description of",
+    "sign_in_image.no_image_yet.hint": "Send the image itself too.",
     # -- A fleet view: why some servers did not show their part of it --------------------------
     # One sentence for all the servers that refused the same permission; the console counts and
     # names them from the group, so no number or list of names is glued into it.

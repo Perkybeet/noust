@@ -739,7 +739,7 @@ def block_headers() -> str:
         f"| `Strict-Transport-Security` (over TLS, direct or through a declared proxy) | `{HSTS_VALUE}` |"
     )
     rows.append(
-        "| `Cache-Control` | `no-store`, except hashed files under `/assets/`: `public, max-age=31536000, immutable` |"
+        "| `Cache-Control` | `no-store`, except hashed files under `/assets/` and the sign-in picture asked for by its own digest: `public, max-age=31536000, immutable` |"
     )
     directives = "\n".join(
         f"  {part};" if not part.endswith(";") else f"  {part}"

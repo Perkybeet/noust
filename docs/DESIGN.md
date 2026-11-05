@@ -912,7 +912,11 @@ new password, a sealed central. All of them are the same slab.
 - The picture is in a slot of its own (`art`, `data-slot="art"`), filled by `SignInArt` (the noust) unless
   something else is given, and the slot gives what it holds the width of the hollow. The logo, the sentence,
   the operator's line and the licence notice are outside the slot, so a picture put in its place never takes
-  them away.
+  them away. The one thing an operator puts there is their own picture (`SignInPicture`, Settings > Sign-in
+  image): PNG, JPEG or WebP, in the drawing's own box (400 by 230, so the slab never changes size), filling it
+  (`cover`, a photograph) or whole on the hollow's surface (`contain`, a logo), and it is the drawing again
+  when the picture does not load. The answer is asked before the slab opens, and while it is on its way the
+  slot holds the drawing unseen, so a company's screen never flashes Noust's drawing first.
 - The licence notice is the page's `footer`, under the slab and outside it.
 - Before sign-in nothing of the server is shown: not its name, not its version. The one exception is the
   line its operator chose (`auth.login_label`), under the sentence of the hollow.

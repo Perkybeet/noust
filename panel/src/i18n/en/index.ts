@@ -90,6 +90,7 @@ export { serverPorts } from "./serverPorts";
 export { serverText } from "./serverText";
 export { serverWeb } from "./serverWeb";
 export { services } from "./services";
+export { signInImage } from "./signInImage";
 export { settings } from "./settings";
 export { settingsHome } from "./settingsHome";
 export { shell } from "./shell";

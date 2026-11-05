@@ -5398,13 +5398,13 @@ noust config upgrade [OPTIONS]
 
 ## noust console
 
-Publish the console on a name of its own, over TLS, or take it off again.
+Publish the console on a name of its own, over TLS, and choose its sign-in picture.
 
 ```bash
 noust console [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`expose`](#noust-console-expose), [`status`](#noust-console-status), [`unexpose`](#noust-console-unexpose)
+Subcommands: [`expose`](#noust-console-expose), [`sign-in-image`](#noust-console-sign-in-image), [`status`](#noust-console-status), [`unexpose`](#noust-console-unexpose)
 
 ### noust console expose
 
@@ -5422,6 +5422,65 @@ noust console expose [OPTIONS]
 | `--skip-dns-check` | Do not require the name to resolve to this server's addresses (a server behind NAT). |  |
 | `-y`, `--yes` | Do not ask for confirmation. |  |
 | `--json` | Print the outcome as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust console sign-in-image
+
+Choose the picture the sign-in screen shows instead of Noust's own drawing.
+
+```bash
+noust console sign-in-image [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`remove`](#noust-console-sign-in-image-remove), [`set`](#noust-console-sign-in-image-set), [`show`](#noust-console-sign-in-image-show)
+
+### noust console sign-in-image remove
+
+Take the picture off the sign-in screen: Noust's own drawing comes back.
+
+```bash
+noust console sign-in-image remove [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the outcome as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust console sign-in-image set
+
+Put a picture of your own on the sign-in screen, or change how the one there is drawn.
+
+```bash
+noust console sign-in-image set [OPTIONS] [FILE]
+```
+
+Arguments: `file`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--fit` | cover fills the space and crops what does not fit (a photograph); contain shows the whole picture in it (a logo). contain for a new picture; what is set now when only the fit or the description changes. |  |
+| `--alt` | What a screen reader says in the picture's place, up to 120 characters. Leave it out and a new picture is decoration; when only the fit changes, the description stays. |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the outcome as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust console sign-in-image show
+
+Say which picture the sign-in screen shows, if any, and how it is drawn.
+
+```bash
+noust console sign-in-image show [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print what is there as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust console status

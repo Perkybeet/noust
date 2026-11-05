@@ -57,6 +57,12 @@ export const SETTINGS_SCREENS: Strip = [
     keywords: "nav.settingsTabs.console.keywords",
     command: "nav.settingsTabs.console.command",
   }),
+  // What the screens before the console show (item 129): this instance's own, as its sign-in is.
+  setting("sign-in-image", "signInImage.nav.label", "instance", "people", {
+    central: true,
+    keywords: "signInImage.nav.keywords",
+    command: "signInImage.nav.command",
+  }),
   // Where the messages go, and what is exported. What warns (the rules, the probes) is Alerts, an area of the bar.
   setting("notifications", "nav.settingsTabs.notifications.label", "server", "notices", {
     keywords: "nav.settingsTabs.notifications.keywords",

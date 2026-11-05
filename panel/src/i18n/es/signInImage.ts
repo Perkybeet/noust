@@ -1,0 +1,61 @@
+import type { signInImage as en } from "../en/signInImage";
+import type { Catalog } from "../types";
+
+export const signInImage: Catalog<typeof en> = {
+  nav: {
+    label: "Imagen del inicio de sesión",
+    keywords:
+      "imagen de inicio de sesión acceso entrar logo logotipo marca empresa foto fondo ilustración pantalla bienvenida apariencia sign in login picture image brand branding company photo artwork",
+    command: "Ajustes de la imagen del inicio de sesión",
+  },
+  documentTitle: "Imagen del inicio de sesión",
+  loading: "Cargando la imagen del inicio de sesión",
+  loadFailed: "No se pudo leer la imagen del inicio de sesión",
+  refreshFailed: "No se pudo actualizar la imagen del inicio de sesión",
+  public: "Se ve antes de entrar: la ve cualquiera que abra la consola.",
+  readOnly: "Puedes ver esta página, no cambiarla. Lo hace quien se ocupa de la seguridad de la consola.",
+  locked: {
+    title: "Por qué no puedes cambiarla",
+    reason: "Lo que se ve antes de entrar forma parte de cómo se protege la consola. Lo cambia quien tenga el permiso {permission}.",
+  },
+  preview: {
+    label: "Así se ve la pantalla de inicio de sesión",
+    none: "El dibujo de Noust, como está ahora",
+    chosen: "{name}, sin guardar todavía",
+    saved: "La imagen que está puesta ahora",
+  },
+  fit: {
+    label: "Cómo llena el espacio",
+    cover: "Rellenar el espacio",
+    contain: "Encajar entera",
+    coverHelp: "Para una foto: cubre el espacio y se recorta lo que no cabe.",
+    containHelp: "Para un logotipo: se ve entera, sobre la superficie del espacio.",
+  },
+  alt: {
+    label: "Descripción",
+    help: "Lo que dice un lector de pantalla en lugar de la imagen. Déjala vacía si es solo decoración.",
+    placeholder: "Logotipo de Acme",
+  },
+  file: {
+    limits: "PNG, JPEG o WebP, de hasta {size} y {side} píxeles de lado.",
+    drop: "Suelta una imagen sobre la pantalla de arriba, o elige una.",
+    dropActive: "Suéltala para verla en la pantalla",
+  },
+  actions: {
+    choose: "Elegir una imagen",
+    change: "Cambiar la imagen",
+    remove: "Quitar la imagen",
+  },
+  remove: {
+    title: "¿Quitar la imagen del inicio de sesión?",
+    description: "La pantalla vuelve al dibujo de Noust. El archivo se borra de este servidor.",
+    action: "Quitar la imagen",
+  },
+  saveFailed: "No se pudo guardar la imagen del inicio de sesión",
+  errors: {
+    tooLarge: "Ese archivo pesa {size} y el máximo es {limit}.",
+    notAllowed: "Elige un PNG, JPEG o WebP. Un SVG no se admite: es código, y esta imagen la ve cualquiera.",
+    unreadable: "No se pudo leer este archivo.",
+    notShown: "Este archivo no se abre como imagen.",
+  },
+};

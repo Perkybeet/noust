@@ -116,6 +116,7 @@ import { Route as ConsoleSettingsRegistriesRouteImport } from "./routes/_console
 import { Route as ConsoleSettingsSecretManagersRouteImport } from "./routes/_console/settings/secret-managers"
 import { Route as ConsoleSettingsSecurityRouteImport } from "./routes/_console/settings/security"
 import { Route as ConsoleSettingsServersRouteImport } from "./routes/_console/settings/servers"
+import { Route as ConsoleSettingsSignInImageRouteImport } from "./routes/_console/settings/sign-in-image"
 import { Route as ConsoleSettingsSsoRouteImport } from "./routes/_console/settings/sso"
 import { Route as ConsoleSettingsTokensRouteImport } from "./routes/_console/settings/tokens"
 import { Route as ConsoleSettingsVariablesRouteImport } from "./routes/_console/settings/variables"
@@ -729,6 +730,12 @@ const ConsoleSettingsServersRoute = ConsoleSettingsServersRouteImport.update({
   path: "/servers",
   getParentRoute: () => ConsoleSettingsRoute,
 } as any)
+const ConsoleSettingsSignInImageRoute =
+  ConsoleSettingsSignInImageRouteImport.update({
+    id: "/sign-in-image",
+    path: "/sign-in-image",
+    getParentRoute: () => ConsoleSettingsRoute,
+  } as any)
 const ConsoleSettingsSsoRoute = ConsoleSettingsSsoRouteImport.update({
   id: "/sso",
   path: "/sso",
@@ -1205,6 +1212,7 @@ export interface FileRoutesByFullPath {
   "/settings/secret-managers": typeof ConsoleSettingsSecretManagersRoute
   "/settings/security": typeof ConsoleSettingsSecurityRoute
   "/settings/servers": typeof ConsoleSettingsServersRoute
+  "/settings/sign-in-image": typeof ConsoleSettingsSignInImageRoute
   "/settings/sso": typeof ConsoleSettingsSsoRoute
   "/settings/tokens": typeof ConsoleSettingsTokensRoute
   "/settings/variables": typeof ConsoleSettingsVariablesRoute
@@ -1371,6 +1379,7 @@ export interface FileRoutesByTo {
   "/settings/secret-managers": typeof ConsoleSettingsSecretManagersRoute
   "/settings/security": typeof ConsoleSettingsSecurityRoute
   "/settings/servers": typeof ConsoleSettingsServersRoute
+  "/settings/sign-in-image": typeof ConsoleSettingsSignInImageRoute
   "/settings/sso": typeof ConsoleSettingsSsoRoute
   "/settings/tokens": typeof ConsoleSettingsTokensRoute
   "/settings/variables": typeof ConsoleSettingsVariablesRoute
@@ -1543,6 +1552,7 @@ export interface FileRoutesById {
   "/_console/settings/secret-managers": typeof ConsoleSettingsSecretManagersRoute
   "/_console/settings/security": typeof ConsoleSettingsSecurityRoute
   "/_console/settings/servers": typeof ConsoleSettingsServersRoute
+  "/_console/settings/sign-in-image": typeof ConsoleSettingsSignInImageRoute
   "/_console/settings/sso": typeof ConsoleSettingsSsoRoute
   "/_console/settings/tokens": typeof ConsoleSettingsTokensRoute
   "/_console/settings/variables": typeof ConsoleSettingsVariablesRoute
@@ -1719,6 +1729,7 @@ export interface FileRouteTypes {
     | "/settings/secret-managers"
     | "/settings/security"
     | "/settings/servers"
+    | "/settings/sign-in-image"
     | "/settings/sso"
     | "/settings/tokens"
     | "/settings/variables"
@@ -1885,6 +1896,7 @@ export interface FileRouteTypes {
     | "/settings/secret-managers"
     | "/settings/security"
     | "/settings/servers"
+    | "/settings/sign-in-image"
     | "/settings/sso"
     | "/settings/tokens"
     | "/settings/variables"
@@ -2056,6 +2068,7 @@ export interface FileRouteTypes {
     | "/_console/settings/secret-managers"
     | "/_console/settings/security"
     | "/_console/settings/servers"
+    | "/_console/settings/sign-in-image"
     | "/_console/settings/sso"
     | "/_console/settings/tokens"
     | "/_console/settings/variables"
@@ -2898,6 +2911,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleSettingsServersRouteImport
       parentRoute: typeof ConsoleSettingsRoute
     }
+    "/_console/settings/sign-in-image": {
+      id: "/_console/settings/sign-in-image"
+      path: "/sign-in-image"
+      fullPath: "/settings/sign-in-image"
+      preLoaderRoute: typeof ConsoleSettingsSignInImageRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
     "/_console/settings/sso": {
       id: "/_console/settings/sso"
       path: "/sso"
@@ -3531,6 +3551,7 @@ interface ConsoleSettingsRouteChildren {
   ConsoleSettingsSecretManagersRoute: typeof ConsoleSettingsSecretManagersRoute
   ConsoleSettingsSecurityRoute: typeof ConsoleSettingsSecurityRoute
   ConsoleSettingsServersRoute: typeof ConsoleSettingsServersRoute
+  ConsoleSettingsSignInImageRoute: typeof ConsoleSettingsSignInImageRoute
   ConsoleSettingsSsoRoute: typeof ConsoleSettingsSsoRoute
   ConsoleSettingsTokensRoute: typeof ConsoleSettingsTokensRoute
   ConsoleSettingsVariablesRoute: typeof ConsoleSettingsVariablesRoute
@@ -3563,6 +3584,7 @@ const ConsoleSettingsRouteChildren: ConsoleSettingsRouteChildren = {
   ConsoleSettingsSecretManagersRoute: ConsoleSettingsSecretManagersRoute,
   ConsoleSettingsSecurityRoute: ConsoleSettingsSecurityRoute,
   ConsoleSettingsServersRoute: ConsoleSettingsServersRoute,
+  ConsoleSettingsSignInImageRoute: ConsoleSettingsSignInImageRoute,
   ConsoleSettingsSsoRoute: ConsoleSettingsSsoRoute,
   ConsoleSettingsTokensRoute: ConsoleSettingsTokensRoute,
   ConsoleSettingsVariablesRoute: ConsoleSettingsVariablesRoute,

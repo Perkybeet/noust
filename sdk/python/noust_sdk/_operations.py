@@ -277,6 +277,10 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("authentication", "revoke_all_sessions"): ("POST", "/api/auth/sessions/revoke-all", "self", False),
     ("authentication", "revoke_other_sessions"): ("POST", "/api/auth/sessions/revoke-others", "self", False),
     ("authentication", "revoke_one_session"): ("DELETE", "/api/auth/sessions/{sid_prefix}", "self", False),
+    ("authentication", "get_appearance"): ("GET", "/api/auth/sign-in/appearance", "public", False),
+    ("authentication", "put_appearance"): ("PUT", "/api/auth/sign-in/appearance", "security.manage", True),
+    ("authentication", "delete_appearance"): ("DELETE", "/api/auth/sign-in/appearance", "security.manage", True),
+    ("authentication", "get_image"): ("GET", "/api/auth/sign-in/image", "public", False),
     ("authentication", "list_api_tokens"): ("GET", "/api/auth/tokens", "self", False),
     ("authentication", "create_api_token"): ("POST", "/api/auth/tokens", "self", True),
     ("authentication", "restrict_api_token"): ("PATCH", "/api/auth/tokens/{token_id}", "self", False),
@@ -2887,7 +2891,7 @@ class Audit:
 
 
 class Authentication:
-    """Authentication: 42 operations."""
+    """Authentication: 46 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -3179,6 +3183,38 @@ class Authentication:
 
         Needs: permission `self`."""
         return self._call("DELETE", f"/api/auth/sessions/{quote(str(sid_prefix), safe='')}", query=None, body=None)
+
+    def get_appearance(self) -> "SignInAppearance":
+        """GET /api/auth/sign-in/appearance
+
+        Get Appearance
+
+        Needs: permission `public`."""
+        return self._call("GET", "/api/auth/sign-in/appearance", query=None, body=None)
+
+    def put_appearance(self, body: "SignInAppearanceBody") -> "SignInAppearance":
+        """PUT /api/auth/sign-in/appearance
+
+        Put Appearance
+
+        Needs: permission `security.manage`, sudo mode."""
+        return self._call("PUT", "/api/auth/sign-in/appearance", query=None, body=body)
+
+    def delete_appearance(self) -> "SignInAppearance":
+        """DELETE /api/auth/sign-in/appearance
+
+        Delete Appearance
+
+        Needs: permission `security.manage`, sudo mode."""
+        return self._call("DELETE", "/api/auth/sign-in/appearance", query=None, body=None)
+
+    def get_image(self, *, v: Union[str, None] = None) -> bytes:
+        """GET /api/auth/sign-in/image
+
+        Get Image
+
+        Needs: permission `public`."""
+        return self._call("GET", "/api/auth/sign-in/image", query={"v": v}, body=None, binary=True)
 
     def list_api_tokens(self) -> "ApiTokenListResponse":
         """GET /api/auth/tokens

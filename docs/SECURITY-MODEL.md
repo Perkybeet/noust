@@ -363,8 +363,8 @@ only what recovering an account takes.
 ### The routes
 
 <!-- generated:routes -->
-- **1140** API operations. **1098** need a permission (`x-noust-permission`) and **42** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **375** operations need sudo mode and **54** can need a second person.
+- **1144** API operations. **1100** need a permission (`x-noust-permission`) and **44** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **377** operations need sudo mode and **54** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
@@ -387,10 +387,10 @@ only what recovering an account takes.
 | `databases.write` | 13 |
 | `fleet.manage` | 54 |
 | `fleet.read` | 31 |
-| `public` | 42 |
+| `public` | 44 |
 | `root_equivalent` | 20 |
 | `secrets.reveal` | 16 |
-| `security.manage` | 8 |
+| `security.manage` | 10 |
 | `self` | 45 |
 | `server.host_access` | 27 |
 | `server.manage` | 68 |
@@ -415,7 +415,7 @@ only what recovering an account takes.
 | `Permissions-Policy` | `accelerometer=(), bluetooth=(), browsing-topics=(), camera=(), display-capture=(), geolocation=(), gyroscope=(), hid=(), interest-cohort=(), magnetometer=(), microphone=(), midi=(), payment=(), serial=(), usb=()` |
 | `X-Permitted-Cross-Domain-Policies` | `none` |
 | `Strict-Transport-Security` (over TLS, direct or through a declared proxy) | `max-age=31536000; includeSubDomains` |
-| `Cache-Control` | `no-store`, except hashed files under `/assets/`: `public, max-age=31536000, immutable` |
+| `Cache-Control` | `no-store`, except hashed files under `/assets/` and the sign-in picture asked for by its own digest: `public, max-age=31536000, immutable` |
 
 The policy:
 
@@ -489,13 +489,13 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **535** events.
+The catalogue holds **537** events.
 
 | Category | Events |
 |---|---|
 | access | 49 |
 | account | 40 |
-| config | 30 |
+| config | 32 |
 | change | 354 |
 | read | 21 |
 | denial | 16 |

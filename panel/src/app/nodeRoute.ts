@@ -41,6 +41,8 @@ export const CENTRAL_PATHS: readonly string[] = [
   "/settings/accounts",
   "/settings/access",
   "/settings/sso",
+  // What a server shows before anyone signs in is its own: a node refuses a central on it.
+  "/settings/sign-in-image",
   "/settings/security",
   "/settings/tokens",
   "/settings/approvals",

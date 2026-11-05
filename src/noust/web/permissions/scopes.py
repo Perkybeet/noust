@@ -353,6 +353,8 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/auth/scim/**", INSTANCE),
     _rule("/api/auth/ldap/**", INSTANCE),
     _rule("/api/auth/saml/**", INSTANCE),
+    # What the sign-in screen shows before anyone signs in is this server's, whatever team a person is in.
+    _rule("/api/auth/sign-in/**", INSTANCE),
     _rule("/api/auth/**", OPEN),
     _rule("/api/scim/**", OPEN),
     _rule("/api/approvals/**", OPEN),

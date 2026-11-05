@@ -453,6 +453,23 @@ with its **values**:
   `/api/auth`, so a central never forwards them to a node and a fleet token never reaches them: a
   panel is the operator's, one set across the whole fleet. The master token has no account and is
   answered `400`.
+- **The picture on the sign-in screen.** An operator can show a company's logo, or any picture, where
+  Noust draws its own. `GET /api/auth/sign-in/appearance` (public: the screen is drawn before there is a
+  session) answers `{image, limits}`: `image` is null when nothing is set, else `{url, sha256,
+  content_type, width, height, size, fit, alt, updated_at}`, with `url` pointing at `GET
+  /api/auth/sign-in/image?v=<sha256>`, the picture itself (public), cacheable for a year under its own
+  digest and a `404` under any other. `PUT /api/auth/sign-in/appearance` takes `{image, fit, alt}`: `image`
+  is the file as base64 (leave it out to change only the other two), `fit` is `cover` (fill the space,
+  cropping) or `contain` (show it whole) and `alt` is the description a screen reader says, up to 120
+  characters, empty for decoration. `DELETE` removes it. Both need `security.manage` and sudo mode, and are
+  audited (`auth.sign_in_image.set`, `auth.sign_in_image.remove`). The file is judged by what its bytes
+  are, never by a name or a type the client sent: a PNG, a JPEG or a WebP of at most 1 MiB and 4096 pixels
+  on a side. An SVG is refused (it is code, and this is served to anyone), so is an animation, and the
+  metadata of the file (EXIF, XMP, comments, a thumbnail) is removed before it is kept. The refusals are
+  `400` with a `coded` sentence (`sign_in_image.*`) naming the field. This is the one request whose body
+  may exceed a mebibyte, as large as a file of the limit is as base64. It is under `/api/auth`, so a
+  central never forwards it to a node and a fleet token never reaches it: what a server shows before
+  anyone signs in is its own. `noust console sign-in-image` does the same from the command line.
 - **The deploy queue.** A push or a request that arrives while an application builds waits
   its turn (`409 app_busy` is for an operation of another kind): `GET /api/jobs/queue` lists
   what runs and what waits, with the limits, and every job carries `state` (`queued`,
@@ -1549,6 +1566,8 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/auth/dashboards` | GET `self` | The caller's panels of Home, in order, with the limits |
 | `/api/auth/dashboards/order` | POST `self` | `{order}`: every panel's id once, in the order wanted |
 | `/api/auth/dashboards/{dashboard_id}` | PUT `self`; DELETE `self` | Create or replace a panel (`{name, scope, layout}`); delete it |
+| `/api/auth/sign-in/appearance` | GET public; PUT `security.manage`, sudo; DELETE `security.manage`, sudo | The picture of the sign-in screen and the limits; set it (`{image, fit, alt}`, the file as base64); remove it |
+| `/api/auth/sign-in/image` | GET public | The picture, cacheable under `?v=<sha256>` |
 | `/api/auth/accounts/{username}` | GET `accounts.read`; PATCH `accounts.manage`, sudo, four-eyes; DELETE `accounts.manage`, sudo |  |
 | `/api/auth/accounts/{username}/disable` | POST `accounts.manage`, sudo |  |
 | `/api/auth/accounts/{username}/enable` | POST `accounts.manage`, sudo |  |
