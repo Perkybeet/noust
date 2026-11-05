@@ -1,0 +1,1 @@
+import{n as e}from"./TextLink-hyKwfyYO.js";var t=e(`inline`);export{t};

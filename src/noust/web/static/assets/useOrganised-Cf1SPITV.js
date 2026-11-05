@@ -1,0 +1,1 @@
+import{t as e}from"./useOrganization-D1sWkwYK.js";function t(){let t=e();return{organised:t.available&&(t.teamsMatter||t.scope.showProject||t.scope.showEnvironment||t.can(`teams.manage`)),settling:t.loading}}export{t};

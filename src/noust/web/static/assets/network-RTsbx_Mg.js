@@ -1,0 +1,1 @@
+import{t as e}from"./MachineAreaServers-CymCgpl1.js";import{Q as t}from"./objectIcons-ZDXz59eb.js";var n=t(),r=()=>(0,n.jsx)(e,{area:`network`});export{r as component};

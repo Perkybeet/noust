@@ -1,0 +1,1 @@
+import{i as e}from"./lastServer-Dr-dReMf.js";function t(){return e({select:e=>(e.resolvedLocation??e.location).pathname})}export{t};

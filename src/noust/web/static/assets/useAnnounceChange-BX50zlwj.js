@@ -1,0 +1,1 @@
+import{n as e}from"./rolldown-runtime-WkwZ5CU-.js";import{tr as t}from"./lucide-BRwIUmRR.js";import{n}from"./Announcer-Dqu2Vxi1.js";var r=e(t(),1);function i(e,t,i=`polite`){let a=(0,r.useRef)(null);(0,r.useEffect)(()=>{if(e===null)return;let r=a.current;a.current=e,r!==null&&r!==e&&t!==null&&n(t,i)},[e,t,i])}export{i as t};

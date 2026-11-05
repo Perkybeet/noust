@@ -1,1 +1,0 @@
-import{t as e}from"./GatePage-D2w2nYRg.js";import{n as t}from"./session-Vq0XeOpY.js";import{t as n}from"./welcome-Bbn7VLzX.js";import{dt as r}from"./useNode-CcVEc688.js";var i=r();function a(){let{next:r}=n.useSearch();return(0,i.jsx)(e,{next:t(r)})}export{a as component};

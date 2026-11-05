@@ -1,0 +1,1 @@
+import{Q as e,a as t}from"./objectIcons-ZDXz59eb.js";import{t as n}from"./MachinePage-DiehFFbr.js";import{t as r}from"./SecurityTab-0TNfeJ7z.js";var i=e();function a(){let e=t();return(0,i.jsx)(n,{title:e(`server.security.views.bans`),children:(0,i.jsx)(r,{view:`bans`})})}export{a as component};
