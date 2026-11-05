@@ -13355,9 +13355,11 @@ export interface paths {
          *
          *     Returns:
          *         Every database the running engines report, the tracked ones they
-         *         no longer have (``missing``), and the engines that could not be read
-         *         (``problems``). A team member sees the databases its teams own: one an
-         *         engine holds that Noust never recorded belongs to nobody.
+         *         no longer have (``missing``), the tracked ones of an engine that is
+         *         stopped (``unverified``: whether they are there is not known until it
+         *         runs), and the engines that could not be read (``problems``). A team
+         *         member sees the databases its teams own: one an engine holds that
+         *         Noust never recorded belongs to nobody.
          */
         get: operations["list_databases_api_databases_databases_get"];
         put?: never;
@@ -61338,10 +61340,11 @@ export interface components {
          *
          *     Attributes:
          *         available: Whether the engine keeps statement statistics.
-         *         source: ``pg_stat_statements`` or ``performance_schema``.
+         *         source: ``pg_stat_statements``, ``performance_schema`` or ``slowlog``.
          *         reason: Why not: ``not_loaded``, ``not_created``,
-         *             ``performance_schema_off`` or ``not_supported``.
-         *         how_to_enable: The steps, in English, commands included.
+         *             ``performance_schema_off`` or, for Redis, ``slowlog``.
+         *         how_to_enable: The steps, in English, commands included; for Redis,
+         *             the command that reads its slow log.
          */
         SlowQueriesResponse: {
             /** Available */

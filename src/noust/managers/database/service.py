@@ -1031,7 +1031,9 @@ class DatabaseService:
         """
         return self.listing(engine).databases
 
-    def listing(self, engine: str | None = None) -> DatabaseListing:
+    def listing(
+        self, engine: str | None = None, *, include_stopped: bool = False
+    ) -> DatabaseListing:
         """
         List the databases of every running engine, and say which failed.
 
@@ -1044,6 +1046,12 @@ class DatabaseService:
 
         Args:
             engine: Only this engine.
+            include_stopped: Also list the tracked databases of an installed
+                engine that is not running, as ``unverified`` (what the
+                engine holds is not known, and nothing is read from it). For
+                a page that says the engine is stopped; whoever dumps or
+                moves every database of an engine leaves it off, since those
+                cannot be reached.
 
         Returns:
             The databases, engine by engine, and the problems.
@@ -1055,7 +1063,11 @@ class DatabaseService:
             managers = [*self.host_managers(), *self.instance_managers(problems)]
         views: list[DatabaseView] = []
         for manager in managers:
-            if not manager.is_installed() or not manager.is_running():
+            if not manager.is_installed():
+                continue
+            if not manager.is_running():
+                if include_stopped:
+                    views.extend(self._views(manager, [], readable=False))
                 continue
             try:
                 entries = manager.list_databases()

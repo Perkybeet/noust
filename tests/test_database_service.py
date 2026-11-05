@@ -828,6 +828,45 @@ class TestListingProblems:
         assert gone.unverified is False
 
 
+class TestStoppedEngines:
+    """A stopped engine's databases are still Noust's: the page can say it is stopped, not that they are gone."""
+
+    def test_a_stopped_engines_tracked_databases_are_listed_when_asked(
+        self, service: DatabaseService, store: NoustStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        store.create_database(Database(name="shop_db", engine="postgresql"))
+        monkeypatch.setattr(FakeEngine, "is_running", lambda self: False)
+
+        listing = service.listing(include_stopped=True)
+
+        (row,) = listing.databases
+        assert row.name == "shop_db"
+        # Not read, so neither there nor gone: the engine is the one that is stopped.
+        assert row.unverified is True
+        assert row.missing is False
+        assert row.size is None
+        assert listing.problems == []
+
+    def test_a_stopped_engine_is_not_listed_unless_asked(
+        self, service: DatabaseService, store: NoustStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        store.create_database(Database(name="shop_db", engine="postgresql"))
+        monkeypatch.setattr(FakeEngine, "is_running", lambda self: False)
+
+        # Whoever dumps every database of an engine must not be handed those it cannot reach.
+        assert service.listing().databases == []
+        assert service.list_databases() == []
+
+    def test_an_engine_that_is_not_installed_has_nothing_to_list(
+        self, service: DatabaseService, store: NoustStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        store.create_database(Database(name="shop_db", engine="postgresql"))
+        monkeypatch.setattr(FakeEngine, "is_installed", lambda self: False)
+        monkeypatch.setattr(FakeEngine, "is_running", lambda self: False)
+
+        assert service.listing(include_stopped=True).databases == []
+
+
 class FakeMySQL(FakeEngine):
     """An engine that signs in with a stored account, and checks it."""
 

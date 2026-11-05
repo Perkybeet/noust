@@ -125,6 +125,14 @@ under Changed: one field that becomes optional, one refusal that is new and one 
   an operator in sudo mode could issue one to themselves.
 - `DELETE` of a database engine (uninstall) answers `409` naming the databases while the engine holds any.
   The `409` bodies of the server's refusals carry `coded` as well as the sentence.
+- `POST /api/databases/query`, `/api/databases/query/explain` and `/api/databases/query/export`: a database of
+  an engine that does not speak SQL (Redis, MongoDB, ClickHouse) is refused with `400`, "has no query console",
+  in both modes. Before, a write sent to one of them ran as the engine's administrator.
+- `GET /api/databases/databases` also lists the tracked databases of an installed engine that is stopped, with
+  `unverified: true` and no size: whether they are still there is not known until it runs. They were left out.
+- A MongoDB engine no longer lists `metrics` among its `capabilities` (it never had metrics to read), and
+  `GET /api/databases/databases/{engine}/{name}/slow-queries` of a Redis database answers `reason: "slowlog"`
+  where it said `not_supported`, with the command that reads its slow log in `how_to_enable`.
 
 ## 4.1.0
 

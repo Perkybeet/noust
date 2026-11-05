@@ -343,11 +343,13 @@ def list_databases(
 
     Returns:
         Every database the running engines report, the tracked ones they
-        no longer have (``missing``), and the engines that could not be read
-        (``problems``). A team member sees the databases its teams own: one an
-        engine holds that Noust never recorded belongs to nobody.
+        no longer have (``missing``), the tracked ones of an engine that is
+        stopped (``unverified``: whether they are there is not known until it
+        runs), and the engines that could not be read (``problems``). A team
+        member sees the databases its teams own: one an engine holds that
+        Noust never recorded belongs to nobody.
     """
-    listing = service(session).listing(engine)
+    listing = service(session).listing(engine, include_stopped=True)
     scoped = scoped_store()
     views = listing.databases
     # The store says whose a database is; an engine's own listing does not.
