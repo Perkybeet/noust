@@ -131,6 +131,38 @@ async function notSetUp(page: Page): Promise<void> {
   );
 }
 
+const STREAM = {
+  protocol: "tcp",
+  listen_port: 25565,
+  target_host: "127.0.0.1",
+  target_port: 25566,
+  target: "127.0.0.1:25566",
+  sources: [] as string[],
+  state: "open",
+  app_domain: null as string | null,
+  created_at: "2026-10-28T10:00:00Z",
+  created_by: "admin",
+  timeout_seconds: 3600,
+  firewall: { active: true, backend: "ufw", made: [], note: "" },
+};
+
+/** The sandbox's nginx has no stream module: the table of published ports is answered by the browser from the documented shape. */
+async function published(page: Page): Promise<void> {
+  await page.route("**/api/streams", async (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    return route.fulfill({
+      json: {
+        exposures: [
+          { ...STREAM, name: "minecraft" },
+          { ...STREAM, name: "git-2222", listen_port: 2222, target: "127.0.0.1:2223", target_port: 2223, sources: ["10.0.0.0/24"], app_domain: "example.com" },
+          { ...STREAM, name: "wireguard-51820", protocol: "udp", listen_port: 51820, target: "127.0.0.1:51821", target_port: 51821, state: "opening" },
+        ],
+        support: { available: true, module: "static", loader: "present", install: null, coded: null, hint: null, problem: null },
+      },
+    });
+  });
+}
+
 interface Screen {
   name: string;
   path: string;
@@ -211,6 +243,7 @@ const SCREENS: readonly Screen[] = [
   },
   { name: "tunnels", path: "/network/tunnels" },
   { name: "ports", path: "/network" },
+  { name: "ports-published", path: "/network", before: published },
   {
     name: "open-port",
     path: "/network",

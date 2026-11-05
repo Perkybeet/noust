@@ -136,6 +136,7 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
     {
       id: "app",
       header: t("domains.sitesTab.isOfColumn"),
+      width: "w-44",
       hideBelow: "md",
       card: "meta",
       cell: (site) =>
@@ -152,7 +153,7 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
     {
       id: "writtenBy",
       header: t("domains.sitesTab.writtenByColumn"),
-      width: "w-44",
+      width: "w-28",
       hideBelow: "sm",
       card: "meta",
       // An attribute, not a state: neutral. The file's name, when it is not the domain, follows on the same line.
@@ -168,11 +169,11 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
       ),
       sortValue: (site) => (site.noust_managed ? 0 : 1),
     },
-    { id: "tls", header: t("domains.sitesTab.servesColumn"), width: "w-32", hideBelow: "lg", card: "hidden", cell: (site) => <Tls secure={site.has_ssl} />, sortValue: (site) => (site.has_ssl ? 0 : 1) },
+    { id: "tls", header: t("domains.sitesTab.servesColumn"), width: "w-24", hideBelow: "lg", card: "hidden", cell: (site) => <Tls secure={site.has_ssl} />, sortValue: (site) => (site.has_ssl ? 0 : 1) },
     {
       id: "state",
       header: t("domains.sitesTab.stateColumn"),
-      width: "w-48",
+      width: "w-36",
       card: "status",
       cell: (site) => (
         <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
@@ -201,6 +202,8 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
     content = (
       <DataTable
         pagination="sites"
+        // The names have no bound: the site's and the application's share what the other columns leave and are cut, so the state is always in view.
+        layout="fixed"
         caption={filtered ? t("domains.sitesTab.tableCaptionFiltered") : t("domains.sitesTab.tableCaption")}
         columns={columns}
         rows={shown}

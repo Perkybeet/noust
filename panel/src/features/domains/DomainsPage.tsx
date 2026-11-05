@@ -178,11 +178,11 @@ export function DomainsPage({ search, onSearchChange }: DomainsPageProps) {
       id: "https",
       header: t("domains.domainsTab.httpsColumn"),
       card: "meta",
-      width: "w-52",
+      width: "w-44",
       cell: (row) => <Https row={row} />,
       sortValue: (row) => (row.cert === null ? Number.POSITIVE_INFINITY : (row.cert.days_remaining ?? Number.POSITIVE_INFINITY)),
     },
-    { id: "dns", header: t("domains.domainsTab.dnsColumn"), card: "status", width: "w-44", hideBelow: "sm", cell: (row) => <Dns name={row.name} /> },
+    { id: "dns", header: t("domains.domainsTab.dnsColumn"), card: "status", width: "w-40", hideBelow: "sm", cell: (row) => <Dns name={row.name} /> },
   ];
 
   const addButton = (
@@ -202,6 +202,8 @@ export function DomainsPage({ search, onSearchChange }: DomainsPageProps) {
         {certs.isError ? <ErrorBlock compact error={certs.error} title={t("domains.domainsTab.certificatesFailed")} onRetry={() => void certs.refetch()} retrying={certs.isRefetching} /> : null}
         <DataTable
           pagination="domains"
+          // The names have no bound (a preview's is as long as the application's and more): they share what the other columns leave and are cut, so DNS is always in view.
+          layout="fixed"
           caption={filtered ? t("domains.domainsTab.tableCaptionFiltered") : t("domains.domainsTab.tableCaption")}
           columns={columns}
           rows={shown}

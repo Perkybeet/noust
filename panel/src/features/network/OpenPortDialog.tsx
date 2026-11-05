@@ -268,7 +268,7 @@ export function OpenPortDialog({ onClose, preset = {} }: { onClose: () => void; 
       }}
       friction="simple"
       destructive={false}
-      size="md"
+      size="lg"
       title={t("network.openPort.title")}
       description={t("network.openPort.description")}
       actionLabel={label}
@@ -368,9 +368,10 @@ export function OpenPortDialog({ onClose, preset = {} }: { onClose: () => void; 
               ) : null}
             </div>
             {inside ? (
-              <Field label={t("network.openPort.outside")} description={t("network.openPort.outsideHelp")} error={shown("outside")} className="sm:max-w-60">
+              <Field label={t("network.openPort.outside")} description={t("network.openPort.outsideHelp")} error={shown("outside")}>
                 <Input
                   mono
+                  className="max-w-60"
                   inputMode="numeric"
                   value={form.outside}
                   onValueChange={(value: string) => {

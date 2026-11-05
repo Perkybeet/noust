@@ -82,7 +82,7 @@ function Listening({ query, onQueryChange }: ListeningPageProps) {
             id: "program",
             header: t("serverPorts.column.program"),
             hideBelow: "md",
-            card: "hidden",
+            card: "meta",
             cell: (row) => {
               const program = programOf(row);
               return program === null ? <EmptyCell reason={t("serverPorts.noProgram")} /> : <Mono>{program}</Mono>;

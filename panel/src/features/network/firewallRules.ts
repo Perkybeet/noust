@@ -16,7 +16,8 @@ export type RuleSubject = { kind: "service"; name: string } | { kind: "holder"; 
 
 /**
  * What a rule is for: the service the firewall itself names (an application profile of ufw), else what holds its port in
- * Noust (an application, a database, a published port), else nothing is known.
+ * Noust (an application, a database, a published port), else the program the kernel says listens there, else nothing
+ * is known.
  */
 export function ruleSubject(rule: FirewallRule, rows: readonly PortRow[]): RuleSubject {
   if (rule.service !== null && rule.service !== undefined && rule.service !== "") return { kind: "service", name: rule.service };
@@ -24,6 +25,8 @@ export function ruleSubject(rule: FirewallRule, rows: readonly PortRow[]): RuleS
     const row = rows.find((entry) => entry.port >= from && entry.port <= to);
     const holder = row?.holders[0];
     if (holder !== undefined) return { kind: "holder", holder };
+    const program = row?.firewall?.process;
+    if (program !== undefined && program !== null && program !== "") return { kind: "service", name: program };
   }
   return { kind: "none" };
 }

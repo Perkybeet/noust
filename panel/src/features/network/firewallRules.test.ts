@@ -31,6 +31,13 @@ describe("what a rule is for", () => {
     expect(ruleSubject(rule({ ports: [[25565, 25565]] }), ROWS)).toMatchObject({ kind: "holder", holder: { kind: "process", owner: "java" } });
     expect(ruleSubject(rule({ ports: [[9999, 9999]] }), ROWS)).toEqual({ kind: "none" });
   });
+
+  it("is the program the kernel names when nothing in Noust holds the port, and nothing when no program listens", () => {
+    const listening = portRows([], [{ proto: "tcp", port: 6379, address: "127.0.0.1", process: "redis-server", verdict: "local", sources: [], risky: "", baseline: false, reachable: false }]);
+
+    expect(ruleSubject(rule({ ports: [[6379, 6379]] }), listening)).toEqual({ kind: "service", name: "redis-server" });
+    expect(ruleSubject(rule({ ports: [[6380, 6380]] }), listening)).toEqual({ kind: "none" });
+  });
 });
 
 describe("who made a rule", () => {
