@@ -280,11 +280,18 @@ describe("a task's page and the list", () => {
   });
 
   it("opens with its steps and its state, and offers to pin and to cancel it", async () => {
-    serve({ "GET /api/jobs/mine1": () => json(200, { ...MINE, cancellable: true }), "GET /api/jobs/mine1/log": () => json(200, { content: "", truncated: false }) });
+    // The job's own answer does not say whether it can be stopped; the queue's does.
+    serve({
+      "GET /api/jobs/mine1": () => json(200, MINE),
+      "GET /api/jobs/mine1/log": () => json(200, { content: "", truncated: false }),
+      "GET /api/jobs/queue": () => json(200, { running: [{ ...MINE, cancellable: true }], queued: [], builds_running: 1, max_concurrent_builds: 2, queue_limit: 25, builds_queued: 0 }),
+    });
     renderConsole("/activity/tasks/mine1");
     expect(await screen.findByRole("heading", { level: 1, name: "Deploy shop.example.com" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Pin to the bottom" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^Cancel / })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^Cancel / })).toBeEnabled();
+    });
     expect(screen.getByRole("heading", { level: 2, name: "Steps" })).toBeInTheDocument();
   });
 

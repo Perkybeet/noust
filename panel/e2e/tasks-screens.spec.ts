@@ -60,7 +60,7 @@ for (const size of SIZES) {
     await expect(icon).toBeVisible();
     await icon.click();
     const panel = page.getByRole("dialog", { name: "Tasks" });
-    await expect(panel.getByRole("link", { name: `Open ${TITLE}` })).toBeVisible();
+    await expect(panel.getByRole("region", { name: /^Yours, running/ }).getByRole("link", { name: `Open ${TITLE}` })).toBeVisible();
     await shot(page, theme, size.name, "10-panel");
 
     // Its last lines of log, when asked.

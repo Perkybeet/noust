@@ -6,6 +6,7 @@ import { useMemo } from "react";
 import { isApiError, request } from "../../api/client";
 import { isJobFinished, jobQuery } from "../../api/queries/jobs";
 import type { Job } from "../../api/queries/jobs";
+import { queueQuery } from "../../api/queries/queue";
 import { announce } from "../../app/Announcer";
 import { DetailPage } from "../../components/page/DetailPage";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
@@ -105,7 +106,10 @@ function TaskView({ job }: { job: Job }) {
   // The state is said once each time it changes, and a failure interrupts.
   useAnnounceChange(task.state, finished ? endingWords(task, t.locale) : task.state === "queued" ? t("tasks.page.announceQueued", { title }) : t("tasks.page.announceRunning", { title }), task.state === "failed" ? "assertive" : "polite");
 
-  const state = cancelState(job, undefined);
+  // Whether it can be stopped is the queue's to say: the job's own event does not carry it.
+  const queue = useQuery({ ...queueQuery(), enabled: !finished });
+  const entry = [...(queue.data?.running ?? []), ...(queue.data?.queued ?? [])].find((candidate) => candidate.id === job.id) ?? job;
+  const state = cancelState(entry, undefined);
   const again = useMutation({
     mutationFn: () => request("post", "/api/jobs/update", { body: { domain: domain ?? "", force: false } }),
     onSuccess: (queued) => {
@@ -149,7 +153,7 @@ function TaskView({ job }: { job: Job }) {
                   {isPinned ? t("tasks.page.unpin") : t("tasks.page.pin")}
                 </Button>
               ) : null}
-              {!finished ? <CancelJobButton entry={job} state={state} onAsk={cancel.ask} reasonId={REASON_ID} /> : null}
+              {!finished ? <CancelJobButton entry={entry} state={state} onAsk={cancel.ask} reasonId={REASON_ID} /> : null}
               {task.state === "failed" && job.deployment_id !== null && job.deployment_id !== undefined && domain !== null ? (
                 <Link to="/apps/$domain/deployments/$id" params={{ domain, id: String(job.deployment_id) }} className={buttonClassName("secondary")}>
                   {t("tasks.page.deployment")}
