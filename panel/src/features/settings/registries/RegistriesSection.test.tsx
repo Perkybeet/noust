@@ -97,7 +97,7 @@ describe("the registry accounts of the server, in Settings", () => {
     expect(within(hub).queryByText("Docker Hub")).not.toBeInTheDocument();
     expect(within(hub).getByText("docker.io")).toBeInTheDocument();
     expect(within(hub).getByText("Logged in")).toBeInTheDocument();
-    expect(within(hub).getByRole("link", { name: "shop.example.com" })).toHaveAttribute("href", "/apps/shop.example.com/settings/deploys");
+    expect(within(hub).getByRole("link", { name: "shop.example.com" })).toHaveAttribute("href", "/apps/shop.example.com/triggers");
     expect(within(hub).queryByRole("link", { name: "docs.example.com" })).not.toBeInTheDocument();
     // Its name carries what kind of registry it is as a tag, on the one line; the apps are a count and the first of them.
     expect(within(hub).getByText("3 applications")).toBeInTheDocument();

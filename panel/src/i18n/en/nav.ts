@@ -24,6 +24,7 @@ export const nav = {
   intents: { use: "Use", configure: "Configure", fix: "Fix", move: "Move elsewhere", danger: "Danger" },
   /** The titles of the groups of the column of an area whose sections are of different kinds. */
   columnGroups: {
+    projects: "Projects",
     publish: "Publish",
     machine: "This machine",
     running: "What runs",
@@ -34,6 +35,10 @@ export const nav = {
   },
   /** The fixed views of an area that is one page: what its column lists (features/nav/views.ts). */
   views: {
+    appsAll: "All",
+    appsProjects: "By project",
+    appsStates: "By state",
+    appsDeployments: "Deployments of all",
     logsApps: "Applications",
     logsSystem: "System",
     activityChanges: "Changes",
@@ -134,9 +139,27 @@ export const nav = {
     deployments: { label: "Deployments", keywords: "deploys builds history rollback" },
     logs: { label: "Logs", keywords: "journal output" },
     metrics: { label: "Metrics", keywords: "cpu memory charts" },
-    environment: { label: "Environment", keywords: "env variables secrets" },
-    domains: { label: "Domains", keywords: "certificate ssl www" },
-    settings: { label: "Settings", keywords: "webhook source build port delete" },
+    environment: { label: "Variables", keywords: "env environment secrets dotenv" },
+    domains: { label: "Domains", keywords: "certificate ssl www names alias redirect" },
+    code: {
+      label: "Code and build",
+      keywords: "settings source repository git branch tag build install start command container image compose runtime sandbox cache packages deploy key credential",
+    },
+    triggers: {
+      label: "Deploys and triggers",
+      keywords: "settings releases rollback instant startup check zero downtime automation schedule freeze deploy on push webhook hooks previews pull request",
+    },
+    resources: {
+      label: "Resources and running",
+      keywords: "settings limits memory cpu processes workers mounts folders persistent disk quota service security hardening",
+    },
+    access: {
+      label: "Access and protection",
+      keywords: "settings password basic auth addresses allowlist routes client certificates rate limit headers http3 waf",
+    },
+    export: { label: "Export and declaration", keywords: "settings backup move another server declaration yaml noust.yaml apply import" },
+    servers: { label: "Several servers", keywords: "replicate replication spread fleet placement promote environments high availability" },
+    delete: { keywords: "settings remove uninstall forget stop managing" },
   },
   teamTabs: {
     overview: { label: "Overview" },

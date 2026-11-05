@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { AutomationSettings } from "../../../../../features/app/settings/AutomationSettings";
-
-/** An application's settings, Automation: what deploys it by itself, and what holds, plans and protects its updates. */
+/** 4.2: the settings of an application are the pages of its column; this subsection is now in triggers. */
 export const Route = createFileRoute("/_console/apps/$domain/settings/automation")({
-  component: AutomationSettings,
+  beforeLoad: ({ params }) => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect protocol
+    throw redirect({ to: "/apps/$domain/triggers", params, replace: true });
+  },
 });

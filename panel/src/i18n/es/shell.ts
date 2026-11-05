@@ -95,7 +95,6 @@ export const shell: Catalog<typeof en> = {
     issueCertificate: "Emitir un certificado",
     issueCertificateKeywords: "nuevo crear tls ssl https letsencrypt certbot certificate",
     appSection: "{section}: {domain}",
-    appSetting: "Ajustes, {section}: {domain}",
     deployment: "{domain}: despliegue {id}",
     daysLeft: { one: "Queda {count} día", other: "Quedan {count} días" },
     certificateExpired: "Caducado",

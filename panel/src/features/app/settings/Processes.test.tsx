@@ -132,7 +132,8 @@ describe("the copies of the web process", () => {
   });
 
   it("is not offered for a static site, which has no process", async () => {
-    await processes(ALONE, [], {}, STATIC_APP);
+    await renderSettings("/resources", "How it runs", STATIC_APP, { "GET /api/auth/session": () => json(200, ELEVATED) });
+    expect(screen.queryByRole("heading", { level: 2, name: "Processes" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Apply" })).not.toBeInTheDocument();
   });
 });

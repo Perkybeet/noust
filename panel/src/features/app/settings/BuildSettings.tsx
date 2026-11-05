@@ -1,15 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import type { ReactNode } from "react";
 
 import { isApiError, request } from "../../../api/client";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import type { KeyValueItem } from "../../../components/page/KeyValueList";
 import { ErrorBlock } from "../../../components/page/QueryState";
-import { SaveBar } from "../../../components/page/SaveBar";
-import { Section } from "../../../components/page/Section";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
@@ -33,6 +29,7 @@ import { useSaveBar } from "./formParts";
 import { buildQuery, settingsKeys } from "./queries";
 import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { SETTINGS_ICONS } from "./objectIcons";
+import { PartFold, PartSaveBar, PartSection } from "./saveHost";
 
 const COMMAND_KEYS = ["install", "build", "start"] as const;
 
@@ -76,7 +73,7 @@ function Standing({ build, t }: { build: AppBuild; t: T }) {
   );
 }
 
-function Form({ build, appType, domain, children }: { build: AppBuild; appType: string; domain: string; children?: ReactNode }) {
+function Form({ build, appType, domain }: { build: AppBuild; appType: string; domain: string }) {
   const t = useT();
   const { node } = useNode();
   const queryClient = useQueryClient();
@@ -221,9 +218,7 @@ function Form({ build, appType, domain, children }: { build: AppBuild; appType: 
         </div>
       </Card>
       {save.isError && !placed ? <ErrorBlock live compact error={save.error} title={t("appBuild.saveFailed", { domain })} /> : null}
-      {children}
-      <CommandHint command={`noust app build set ${domain} --start 'node dist/server.js' --runtime node@22`} label={t("common.words.fromTerminal")} />
-      <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} />
+      <PartSaveBar bar={bar} />
       <ConfirmDialog
         open={removing}
         onOpenChange={setRemoving}
@@ -262,7 +257,7 @@ export function BuildSettings() {
   const supported = hasBuildBlock(appType);
   const build = useQuery({ ...buildQuery(domain), enabled: supported });
   const rest = (
-    <>
+    <PartFold label={t("appPages.config.foldBuild")}>
       <SandboxSettings app={app} />
       {supported ? (
         <>
@@ -271,13 +266,13 @@ export function BuildSettings() {
           <ProcessesCard domain={domain} />
         </>
       ) : null}
-    </>
+    </PartFold>
   );
 
   const form = supported && build.data !== undefined ? build.data : null;
 
   return (
-    <Section title={t("appBuild.title")} {...headerIcon} description={t("appBuild.description")}>
+    <PartSection title={t("appBuild.title")} {...headerIcon} description={t("appBuild.description")}>
       {!supported ? (
         <EmptyState variant="inline" title={t("appBuild.notSupported", { type: appType })} />
       ) : build.isError && form === null ? (
@@ -287,13 +282,9 @@ export function BuildSettings() {
           <SkeletonCard lines={6} />
         </LoadingRegion>
       ) : null}
-      {form !== null ? (
-        <Form build={form} appType={appType} domain={domain}>
-          {rest}
-        </Form>
-      ) : (
-        rest
-      )}
-    </Section>
+      {form !== null ? <Form build={form} appType={appType} domain={domain} /> : null}
+      {/* Always in the same place: a fold that moved when the build was read would close under the hand that opened it. */}
+      {rest}
+    </PartSection>
   );
 }

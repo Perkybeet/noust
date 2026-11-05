@@ -102,7 +102,6 @@ export const shell = {
     issueCertificate: "Issue a certificate",
     issueCertificateKeywords: "new create tls ssl https letsencrypt certbot",
     appSection: "{section}: {domain}",
-    appSetting: "Settings, {section}: {domain}",
     deployment: "{domain}: deploy {id}",
     daysLeft: { one: "{count} day left", other: "{count} days left" },
     certificateExpired: "Expired",

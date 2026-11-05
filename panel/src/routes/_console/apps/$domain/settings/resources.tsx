@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { ResourcesSettings } from "../../../../../features/app/settings/ResourcesSettings";
-
-/** An application's settings, Resources: the most it may use of the server. */
+/** 4.2: the settings of an application are the pages of its column; this subsection is now in resources. */
 export const Route = createFileRoute("/_console/apps/$domain/settings/resources")({
-  component: ResourcesSettings,
+  beforeLoad: ({ params }) => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect protocol
+    throw redirect({ to: "/apps/$domain/resources", params, replace: true });
+  },
 });

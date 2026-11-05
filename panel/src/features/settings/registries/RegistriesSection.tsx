@@ -69,7 +69,7 @@ function columns(t: T): Column<RegistryLogin>[] {
             shown={APPS_SHOWN}
             title={t("registries.appsOf", { name: login.name })}
             renderTag={(domain) => (
-              <TextLink to="/apps/$domain/settings/deploys" params={{ domain }} size="ui">
+              <TextLink to="/apps/$domain/triggers" params={{ domain }} size="ui">
                 {domain}
               </TextLink>
             )}

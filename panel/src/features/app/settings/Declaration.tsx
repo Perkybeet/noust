@@ -202,7 +202,7 @@ function ApplyDialog({ domain, open, onOpenChange }: { domain: string; open: boo
  * application set from one (`noust app apply`). The file is the keys of `noust.yaml`; secrets are
  * never in it.
  */
-export function DeclarationCard({ domain }: { domain: string }) {
+export function DeclarationCard({ domain, level = 3 }: { domain: string; level?: 2 | 3 }) {
   const t = useT();
   const [applying, setApplying] = useState(false);
   const download = useMutation({
@@ -217,7 +217,7 @@ export function DeclarationCard({ domain }: { domain: string }) {
     },
   });
   return (
-    <Card title={t("declaration.title")} icon={SETTINGS_ICONS.declaration} description={t("declaration.description")}>
+    <Card title={t("declaration.title")} level={level} icon={SETTINGS_ICONS.declaration} description={t("declaration.description")}>
       <div className="flex flex-col gap-4">
         <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("declaration.secrets")}</p>
         <div className="flex flex-wrap items-center gap-2">

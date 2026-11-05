@@ -82,12 +82,10 @@ describe("git push, beside the webhook's status", () => {
     await waitFor(() => expect(backend.callsTo(`GET /api/apps/${DOMAIN}/webhook`)).toHaveLength(1));
 
     expect(screen.queryByRole("heading", { name: "Push from your computer" })).not.toBeInTheDocument();
-    expect(screen.queryByText(`noust app webhook show ${DOMAIN}`)).not.toBeInTheDocument();
     expect(backend.callsTo(`GET /api/apps/${DOMAIN}/push`)).toHaveLength(0);
 
     release();
     expect(await screen.findByRole("heading", { name: "Push from your computer" })).toBeInTheDocument();
-    expect(screen.getByText(`noust app webhook show ${DOMAIN}`)).toBeInTheDocument();
   });
 });
 
@@ -310,7 +308,7 @@ describe("an application a push cannot deploy", () => {
 
     expect(form.getByText(/Git push needs the release layout, and this application builds in place/)).toBeInTheDocument();
     // The way forward is the page where instant rollback is turned on, not a command to type.
-    expect(form.getByRole("link", { name: "Releases and rollback" })).toHaveAttribute("href", `/apps/${DOMAIN}/settings/deploys`);
+    expect(form.getByRole("link", { name: "Releases and rollback" })).toHaveAttribute("href", `/apps/${DOMAIN}/triggers`);
     expect(backend.callsTo(`GET /api/apps/${DOMAIN}/push`)).toHaveLength(0);
   });
 

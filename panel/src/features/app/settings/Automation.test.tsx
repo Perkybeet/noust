@@ -87,10 +87,12 @@ describe("the page", { timeout: 20_000 }, () => {
     for (const group of ["Automatic deploys", "Backups before an update", "Holds and schedules"]) {
       expect(screen.getByRole("heading", { name: group })).toBeInTheDocument();
     }
-    expect(screen.queryByRole("region", { name: "Unsaved changes" })).not.toBeInTheDocument();
-    // The old cards of Deploys are not here, and Compose's rows are only for a stack.
-    expect(screen.queryByRole("heading", { name: "Instant rollback" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("switch", { name: "Back up the databases before each update" })).not.toBeInTheDocument();
+    // Its rows apply as they are pressed: the page's one bar has nothing of Automation's to save.
+    expect(within(screen.getByRole("region", { name: "Unsaved changes" })).getByText("No unsaved changes")).toBeInTheDocument();
+    // The cards of Deploys are the part beside it, not Automation's own, and Compose's rows are only for a stack.
+    const own = screen.getByRole("region", { name: "Automation" });
+    expect(within(own).queryByRole("heading", { name: "Instant rollback" })).not.toBeInTheDocument();
+    expect(within(own).queryByRole("switch", { name: "Back up the databases before each update" })).not.toBeInTheDocument();
   });
 });
 
@@ -442,7 +444,7 @@ describe("scheduled updates", { timeout: 20_000 }, () => {
     expect(await screen.findByText("Scheduled updates")).toBeInTheDocument();
     expect(await screen.findByTestId("schedule-last-run")).toHaveTextContent("refused, its backup failed");
     expect(screen.getByText("disk full")).toBeInTheDocument();
-    expect(screen.getByText("On")).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Automation" })).getByText("On")).toBeInTheDocument();
   });
 
   it("writes its own calendar expression and keeps what was written", async () => {

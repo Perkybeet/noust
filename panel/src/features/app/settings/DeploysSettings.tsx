@@ -1,9 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { zeroDowntimeQuery } from "../../../api/queries/zeroDowntime";
-import { CommandHint } from "../../../components/page/CommandHint";
-import { SaveBar } from "../../../components/page/SaveBar";
-import { Section } from "../../../components/page/Section";
 import { useT } from "../../../i18n";
 import { hasUnit } from "../../apps/AppRowActions";
 import { useSaveBar } from "./formParts";
@@ -11,6 +8,7 @@ import { InstantRollbackCard, useRetention } from "./InstantRollback";
 import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { StartupCheckCard, StaticStartupNote, useStartupCheck } from "./StartupCheck";
 import { ZeroDowntimeCard, useDrain } from "./ZeroDowntime";
+import { PartSaveBar, PartSection } from "./saveHost";
 
 /**
  * Releases and rollback: how a new version reaches production and how it gets back. Instant
@@ -37,13 +35,12 @@ export function DeploysSettings() {
 
   return (
     <>
-      <Section title={t("appSettings.deploys.title")} {...headerIcon} description={t("appSettings.deploys.description")}>
+      <PartSection title={t("appSettings.deploys.title")} {...headerIcon} description={t("appSettings.deploys.description")}>
         <InstantRollbackCard app={app} retention={retention} />
         {unit ? <StartupCheckCard app={app} check={check} /> : <StaticStartupNote />}
         {unit ? <ZeroDowntimeCard app={app} status={zeroDowntime} drain={drain} /> : null}
-        <CommandHint command={releases ? `noust releases list ${domain}` : `noust app migrate ${domain}`} label={t("common.words.fromTerminal")} />
-      </Section>
-      {hasFields ? <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} /> : null}
+      </PartSection>
+      {hasFields ? <PartSaveBar bar={bar} /> : null}
     </>
   );
 }

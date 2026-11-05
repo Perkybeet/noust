@@ -125,11 +125,9 @@ describe("the Compose settings of a stack", () => {
   });
 
   it("is only for a Compose stack", { timeout: 30_000 }, async () => {
-    await renderSettings("", "General", RELEASE_APP, {});
+    await renderSettings("/automation", "Automation", RELEASE_APP, {});
 
-    // A stack's own subsection is not in the list of an application that is not one.
-    const list = screen.getByRole("navigation", { name: "Application settings" });
-    expect(within(list).queryByRole("link", { name: "Compose" })).not.toBeInTheDocument();
-    expect(within(list).getByRole("link", { name: "Automation" })).toBeInTheDocument();
+    // A stack's own part is not on the page of an application that is not one.
+    expect(screen.queryByRole("heading", { level: 2, name: "Compose" })).not.toBeInTheDocument();
   });
 });

@@ -2,11 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 
 import { appHttp3Query, appPolicyQuery } from "../../../api/queries/network";
 import type { AppPolicy } from "../../../api/queries/network";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
-import { SaveBar } from "../../../components/page/SaveBar";
-import { Section } from "../../../components/page/Section";
 import { Card } from "../../../components/ui/Card";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { Disclosure } from "../../../components/ui/Disclosure";
@@ -26,6 +23,7 @@ import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./setting
 import { AccessQuestions, useAccessForm } from "./useAccessForm";
 import type { AccessForm } from "./useAccessForm";
 import { SETTINGS_ICONS } from "./objectIcons";
+import { PartSaveBar, PartSection } from "./saveHost";
 
 function LimitsCard({ form, t }: { form: AccessForm; t: T }) {
   const { draft, edit } = form;
@@ -190,8 +188,7 @@ function ProtectionForm({ domain, policy }: { domain: string; policy: AppPolicy 
       {nginx ? <WafCard form={form} domain={domain} /> : null}
       {nginx ? <ClientCertsCard form={form} domain={domain} /> : null}
       {form.failure !== null ? <ErrorBlock live compact error={form.failure} title={t("network.protection.notSaved", { domain })} /> : null}
-      <CommandHint command={`noust app policy show ${domain}`} label={t("common.words.fromTerminal")} />
-      <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} />
+      <PartSaveBar bar={bar} />
       <AccessQuestions form={form} domain={domain} />
     </div>
   );
@@ -212,7 +209,7 @@ export function ProtectionSettings() {
   const policy = useQuery(appPolicyQuery(domain));
 
   return (
-    <Section title={t("network.protection.title")} {...headerIcon} description={t("network.protection.description", { domain })}>
+    <PartSection title={t("network.protection.title")} {...headerIcon} description={t("network.protection.description", { domain })}>
       {policy.isPending ? (
         <LoadingRegion label={t("network.protection.loading")}>
           <SkeletonCard lines={3} />
@@ -222,6 +219,6 @@ export function ProtectionSettings() {
       ) : (
         <ProtectionForm domain={domain} policy={policy.data} />
       )}
-    </Section>
+    </PartSection>
   );
 }

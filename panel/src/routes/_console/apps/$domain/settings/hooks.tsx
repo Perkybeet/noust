@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { HooksSettings } from "../../../../../features/app/settings/HooksSettings";
-
-/** An application's settings, Deploy hooks: what runs before and after a deploy, and where it comes from. */
+/** 4.2: the settings of an application are the pages of its column; this subsection is now in triggers. */
 export const Route = createFileRoute("/_console/apps/$domain/settings/hooks")({
-  component: HooksSettings,
+  beforeLoad: ({ params }) => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect protocol
+    throw redirect({ to: "/apps/$domain/triggers", params, replace: true });
+  },
 });

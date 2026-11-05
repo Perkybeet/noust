@@ -12,8 +12,6 @@ import {
 import type { Hardening, UnitTuning } from "../../../api/queries/runtime";
 import { announce } from "../../../app/Announcer";
 import { ErrorBlock } from "../../../components/page/QueryState";
-import { SaveBar } from "../../../components/page/SaveBar";
-import { Section } from "../../../components/page/Section";
 import { Subsection } from "../../../components/page/Subsection";
 import { Card } from "../../../components/ui/Card";
 import { Checkbox } from "../../../components/ui/Checkbox";
@@ -36,6 +34,7 @@ import {
 } from "./settingsApp";
 import { PrivilegeFields, useTuningPart } from "./TuningFields";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
+import { PartSaveBar, PartSection } from "./saveHost";
 
 type Profile = "off" | "default" | "strict";
 
@@ -296,12 +295,7 @@ function HardeningForm({
           </Disclosure>
         </div>
       </Card>
-      <SaveBar
-        changes={bar.changes}
-        saving={bar.saving}
-        onSave={bar.onSave}
-        onDiscard={bar.onDiscard}
-      />
+      <PartSaveBar bar={bar} />
     </>
   );
 }
@@ -318,7 +312,7 @@ export function SecuritySettings() {
   const tuning = useQuery(tuningQuery(app.domain));
   const data = hardening.data;
   return (
-    <Section
+    <PartSection
       title={t("runtime.hardening.title")}
       {...headerIcon}
       description={t("runtime.hardening.description")}
@@ -352,6 +346,6 @@ export function SecuritySettings() {
           reading={tuning.isPending}
         />
       )}
-    </Section>
+    </PartSection>
   );
 }

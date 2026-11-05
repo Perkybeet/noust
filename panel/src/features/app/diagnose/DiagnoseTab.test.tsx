@@ -126,7 +126,7 @@ describe("the Diagnose tab", () => {
       }),
     );
     expect(await screen.findByText("This app could update without a cut")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Turn on zero-downtime deploys" })).toHaveAttribute("href", `/apps/${DOMAIN}/settings/deploys`);
+    expect(screen.getByRole("link", { name: "Turn on zero-downtime deploys" })).toHaveAttribute("href", `/apps/${DOMAIN}/triggers`);
     // The check itself is in the product's words, and keeps the server's command verbatim.
     await openTheRest();
     expect(screen.getByText("Updates without a cut")).toBeInTheDocument();

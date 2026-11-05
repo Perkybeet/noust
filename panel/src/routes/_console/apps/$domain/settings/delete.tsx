@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { DeleteSettings } from "../../../../../features/app/settings/DeleteSettings";
-
-/** An application's settings, Delete: the last subsection, set apart. */
+/** 4.2: the settings of an application are the pages of its column; this subsection is now in delete. */
 export const Route = createFileRoute("/_console/apps/$domain/settings/delete")({
-  component: DeleteSettings,
+  beforeLoad: ({ params }) => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect protocol
+    throw redirect({ to: "/apps/$domain/delete", params, replace: true });
+  },
 });

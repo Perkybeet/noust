@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { ProcessesSettings } from "../../../../../features/app/settings/ProcessesSettings";
-
-/** An application's settings, Processes: the copies of the web process and the background processes beside it. */
+/** 4.2: the settings of an application are the pages of its column; this subsection is now in resources. */
 export const Route = createFileRoute("/_console/apps/$domain/settings/processes")({
-  component: ProcessesSettings,
+  beforeLoad: ({ params }) => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect protocol
+    throw redirect({ to: "/apps/$domain/resources", params, replace: true });
+  },
 });

@@ -5,7 +5,7 @@ import { expectNoAxeViolations } from "../../../test/axe";
 import { json, problem } from "../../../test/fakes";
 import type { RouteHandler } from "../../../test/fakes";
 import type { ContainerSettings } from "../../container/model";
-import { DOMAIN, RELEASE_APP, first, last, renderSettings, saveBar } from "./testKit";
+import { DOMAIN, RELEASE_APP, last, renderSettings, saveBar } from "./testKit";
 
 const APP = { ...RELEASE_APP, app_type: "container", layout: "releases" };
 
@@ -55,10 +55,9 @@ function container(settings: ContainerSettings, extra: Record<string, RouteHandl
 }
 
 describe("the Container subsection", () => {
-  it("is listed for a container application, and only for one", async () => {
+  it("is on the page for a container application, and only for one", async () => {
     await container(DOCKERFILE);
-    const nav = first(screen.getAllByRole("navigation", { name: "Application settings" }));
-    expect(within(nav).getByRole("link", { name: "Container" })).toHaveAttribute("href", `/apps/${DOMAIN}/settings/container`);
+    expect(screen.getByRole("heading", { level: 2, name: "Container" })).toBeInTheDocument();
   });
 
   it("shows how the image is made and how it runs, and never a secret", { timeout: 20_000 }, async () => {
@@ -231,7 +230,8 @@ describe("the Container subsection", () => {
   });
 
   it("says plainly that an application that is not a container has none of this", { timeout: 20_000 }, async () => {
-    await renderSettings("/container", "Container", RELEASE_APP);
-    expect(screen.getByText("This is not a container application.")).toBeInTheDocument();
+    // A page draws only the parts that concern its application: there is no Container beside the Build of this one.
+    await renderSettings("/build", "Build", RELEASE_APP);
+    expect(screen.queryByRole("heading", { level: 2, name: "Container" })).not.toBeInTheDocument();
   });
 });

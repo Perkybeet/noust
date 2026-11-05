@@ -187,7 +187,7 @@ export function RollbackDialog({ domain, layout, open, onOpenChange, onJobQueued
           {pauses ? (
             <Consequence term={t("appPages.rollback.automaticDeploys")}>
               {t("appPages.rollback.pausesBody")}{" "}
-              <TextLink to="/apps/$domain/settings/deploys" params={{ domain }} size="inline">
+              <TextLink to="/apps/$domain/triggers" params={{ domain }} size="inline">
                 {t("appPages.rollback.pausesLink")}
               </TextLink>
             </Consequence>

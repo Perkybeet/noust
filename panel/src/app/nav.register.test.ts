@@ -1,7 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 
-import { SETTINGS_SECTIONS } from "../features/app/settings/sections";
+import { CONFIG_PAGES, PAGE_PARTS } from "../features/app/settings/sections";
 import { ALERTS_SCREENS } from "../features/nav/alerts";
 import { APPS_SCREENS } from "../features/nav/apps";
 import { BACKUPS_SCREENS } from "../features/nav/backups";
@@ -295,8 +295,7 @@ describe("4. the names", () => {
 
   it("draws every area and every section of a list on the side as the object it is, and no two of one list as the same one (NV-19, I-5)", () => {
     // The table of features/nav/icons.ts has the areas and the sections, and nothing else: a tab has no icon of its own.
-    // Plus General, the first entry of an application's settings: the tab they are under, drawn as the head of the list.
-    const drawn = [...DESTS.filter((entry) => entry.kind === "area" || entry.kind === "section").map((entry) => entry.id), "app.settings"];
+    const drawn = DESTS.filter((entry) => entry.kind === "area" || entry.kind === "section").map((entry) => entry.id);
     expect([...ICON_IDS].sort(), "the table has an object for every area and section, and nothing more").toEqual([...drawn].sort());
     for (const id of drawn) expect(iconOf({ id }).displayName, `${id} has no icon of lucide's`).toBeDefined();
     // A list is the sidebar of a scope, or the sections under one entry.
@@ -602,10 +601,15 @@ describe("whose a screen is", () => {
     }
   });
 
-  it("agrees with the subsections of an application's settings", () => {
-    const registered = DESTS.filter((entry) => entry.parent === "app.settings").map((entry): [string, string] => [entry.to.replace("/apps/$domain/settings", ""), entry.label]);
-    const drawn = SETTINGS_SECTIONS.filter((section) => section.path !== "").map((section): [string, string] => [section.path, section.label]);
-    expect(new Map(registered)).toEqual(new Map(drawn));
+  it("lists the four pages that gather the subsections of an application's settings, with Export and Delete beside them", () => {
+    const sections = new Set(DESTS.filter((entry) => entry.parent === "app" && entry.kind === "tab").map((entry) => entry.to.replace("/apps/$domain/", "")));
+    for (const page of CONFIG_PAGES) {
+      expect(sections.has(page), `${page} is not a section of an application`).toBe(true);
+      expect(PAGE_PARTS[page].length, `${page} gathers nothing`).toBeGreaterThan(0);
+    }
+    expect(sections.has("export") && sections.has("delete") && sections.has("servers")).toBe(true);
+    // No subsection of 4.1 is an entry of the register any more: there is no list of settings of an application.
+    expect(DESTS.filter((entry) => entry.parent === "app.settings")).toEqual([]);
   });
 });
 
@@ -617,9 +621,15 @@ describe("what the pages draw from the register", () => {
       "/apps/$domain/logs",
       "/apps/$domain/metrics",
       "/apps/$domain/environment",
-      "/apps/$domain/database",
       "/apps/$domain/domains",
-      "/apps/$domain/settings",
+      "/apps/$domain/database",
+      "/apps/$domain/code",
+      "/apps/$domain/triggers",
+      "/apps/$domain/resources",
+      "/apps/$domain/access",
+      "/apps/$domain/export",
+      "/apps/$domain/servers",
+      "/apps/$domain/delete",
     ]);
     expect(APP_TABS[0]).toEqual({ label: "nav.appTabs.overview.label", to: "/apps/$domain", exact: true });
     expect(paths(TEAM_TABS)).toEqual(["/teams/$team", "/teams/$team/members", "/teams/$team/variables", "/teams/$team/notifications", "/teams/$team/settings"]);
@@ -687,7 +697,7 @@ describe("what the pages draw from the register", () => {
   });
 
   it("walks from a screen up to the list it belongs to", () => {
-    expect(crumbsOf("app.settings.source").map((entry) => entry.id)).toEqual(["apps", "app", "app.settings"]);
+    expect(crumbsOf("app.code").map((entry) => entry.id)).toEqual(["apps", "app"]);
     expect(crumbsOf("team.members").map((entry) => entry.id)).toEqual(["apps", "apps.projects", "apps.projects.teams", "team"]);
     expect(crumbsOf("overview")).toEqual([]);
   });

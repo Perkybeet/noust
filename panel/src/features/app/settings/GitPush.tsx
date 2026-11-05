@@ -294,7 +294,7 @@ export function GitPushCard({ app }: { app: { domain: string; layout?: string | 
           {fit === "inPlace" ? t("gitPush.unsupportedInPlace") : t("gitPush.unsupportedType", { type: app.app_type ?? "" })}
         </p>
         {fit === "inPlace" ? (
-          <TextLink to="/apps/$domain/settings/deploys" params={{ domain }} size="ui">
+          <TextLink to="/apps/$domain/triggers" params={{ domain }} size="ui">
             {t("appSettings.nav.deploys")}
           </TextLink>
         ) : null}

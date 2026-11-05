@@ -10,11 +10,8 @@ import { isJobFinished, useFollowedJob } from "../../../api/queries/jobs";
 import { previewsKey, previewsQuery } from "../../../api/queries/previews";
 import type { Preview, Previews, PreviewSettings } from "../../../api/queries/previews";
 import { announce } from "../../../app/Announcer";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
-import { SaveBar } from "../../../components/page/SaveBar";
-import { Section } from "../../../components/page/Section";
 import { SegmentedControl } from "../../../components/page/SegmentedControl";
 import { Subsection } from "../../../components/page/Subsection";
 import { Button } from "../../../components/ui/Button";
@@ -63,6 +60,7 @@ import type { DataMode, ForkPolicy, InheritMode, PreviewErrors, PreviewField, Tt
 import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { SETTINGS_ICONS } from "./objectIcons";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
+import { PartSaveBar, PartSection } from "./saveHost";
 
 type Disabled = ResponseOf<"/api/apps/{domain}/previews/settings", "delete">;
 
@@ -480,7 +478,7 @@ function PreviewSettingsForm({
         }}
       />
       {children}
-      {enabled ? <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} /> : null}
+      {enabled ? <PartSaveBar bar={bar} /> : null}
     </>
   );
 }
@@ -548,13 +546,13 @@ export function PreviewsSettings() {
 
   if (parent !== null) {
     return (
-      <Section title={t("appSettings.previews.title")} {...headerIcon}>
+      <PartSection title={t("appSettings.previews.title")} {...headerIcon}>
         <Card>
           <div className="flex flex-col gap-1 text-13">
             <p className="text-fg">
               {t.rich("appSettings.previews.previewOfParent", {
                 parent: (
-                  <TextLink to="/apps/$domain/settings/previews" params={{ domain: parent }} translate="no" size="ui">
+                  <TextLink to="/apps/$domain/triggers" params={{ domain: parent }} translate="no" size="ui">
                     {parent}
                   </TextLink>
                 ),
@@ -563,16 +561,15 @@ export function PreviewsSettings() {
             <p className="text-pretty text-fg-muted">{t("appSettings.previews.noOwnPreviews")}</p>
           </div>
         </Card>
-      </Section>
+      </PartSection>
     );
   }
 
   const data = previews.data;
   const settings = data?.settings ?? null;
-  const hint = <CommandHint command={`noust preview enable ${domain} --domain previews.example.com --max 3 --ttl 7d`} label={t("common.words.fromTerminal")} />;
   const onGithub = isGithubSource(app.source);
   return (
-    <Section
+    <PartSection
       title={t("appSettings.previews.title")} icon={OBJECT_ICONS.preview}
       description={t("appSettings.previews.description")}
     >
@@ -587,11 +584,9 @@ export function PreviewsSettings() {
           <PreviewSettingsForm domain={domain} settings={settings} previews={data.previews} hasDatabase={data.has_database}>
             {data.enabled || data.previews.length > 0 ? <PreviewList domain={domain} data={data} onGithub={onGithub} can={can} /> : null}
             {data.enabled ? <SharedVariables scope={{ kind: "preview", domain }} name={domain} canManage={can.manage} level={3} command={false} inlineEmpty /> : null}
-            {hint}
           </PreviewSettingsForm>
         </>
       )}
-      {data === undefined ? hint : null}
-    </Section>
+    </PartSection>
   );
 }

@@ -24,6 +24,7 @@ export const nav: Catalog<typeof en> = {
   },
   intents: { use: "Usar", configure: "Configurar", fix: "Arreglar", move: "Llevar a otro sitio", danger: "Peligro" },
   columnGroups: {
+    projects: "Proyectos",
     publish: "Publicar",
     machine: "Esta máquina",
     running: "Lo que corre",
@@ -33,6 +34,10 @@ export const nav: Catalog<typeof en> = {
     servers: "Servidores",
   },
   views: {
+    appsAll: "Todas",
+    appsProjects: "Por proyecto",
+    appsStates: "Por estado",
+    appsDeployments: "Despliegues de todas",
     logsApps: "Aplicaciones",
     logsSystem: "Sistema",
     activityChanges: "Cambios",
@@ -133,9 +138,27 @@ export const nav: Catalog<typeof en> = {
     deployments: { label: "Despliegues", keywords: "desplegar compilaciones historial revertir deploys rollback" },
     logs: { label: "Registros", keywords: "journal salida logs" },
     metrics: { label: "Métricas", keywords: "cpu memoria gráficas metrics" },
-    environment: { label: "Entorno", keywords: "env variables secretos environment" },
-    domains: { label: "Dominios", keywords: "certificado ssl www domains" },
-    settings: { label: "Ajustes", keywords: "webhook origen compilación puerto eliminar settings" },
+    environment: { label: "Variables", keywords: "env entorno secretos environment dotenv" },
+    domains: { label: "Dominios", keywords: "certificado ssl www nombres alias redirección domains" },
+    code: {
+      label: "Código y compilación",
+      keywords: "ajustes origen repositorio git rama etiqueta compilar instalar arrancar orden contenedor imagen compose runtime aislamiento caché paquetes clave de despliegue credencial source build",
+    },
+    triggers: {
+      label: "Despliegue y disparadores",
+      keywords: "ajustes versiones vuelta atrás instantánea comprobación de arranque sin cortes automatización programación congelar desplegar al hacer push webhook ganchos vistas previas pull request releases rollback hooks previews",
+    },
+    resources: {
+      label: "Recursos y ejecución",
+      keywords: "ajustes límites memoria cpu procesos trabajadores carpetas que se guardan montajes disco cuota servicio seguridad resources processes mounts disk",
+    },
+    access: {
+      label: "Acceso y protección",
+      keywords: "ajustes contraseña direcciones permitidas rutas certificados de cliente límite de peticiones cabeceras http3 waf cortafuegos web access protection",
+    },
+    export: { label: "Exportar y declaración", keywords: "ajustes copia llevar a otro servidor declaración yaml noust.yaml aplicar importar export" },
+    servers: { label: "Varios servidores", keywords: "replicar replicación repartir flota colocación promover entornos alta disponibilidad" },
+    delete: { keywords: "ajustes quitar desinstalar olvidar dejar de gestionar eliminar remove" },
   },
   teamTabs: {
     overview: { label: "Resumen" },

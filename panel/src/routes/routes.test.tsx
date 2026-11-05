@@ -23,17 +23,13 @@ const PAGES: [path: string, heading: string, content: string][] = [
   ["/apps/shop.example.com/environment", "shop.example.com", "Environment variables of shop.example.com"],
   ["/apps/shop.example.com/domains", "shop.example.com", "Domains"],
   ["/apps/shop.example.com/diagnose", "shop.example.com", "Diagnosis of shop.example.com"],
-  ["/apps/shop.example.com/settings", "shop.example.com", "General"],
-  ["/apps/shop.example.com/settings/deploys", "shop.example.com", "Releases and rollback"],
-  ["/apps/shop.example.com/settings/automation", "shop.example.com", "Automation"],
-  ["/apps/shop.example.com/settings/protection", "shop.example.com", "Protection"],
-  ["/apps/shop.example.com/settings/deploy-on-push", "shop.example.com", "Deploy on push"],
-  ["/apps/shop.example.com/settings/build", "shop.example.com", "Build"],
-  ["/apps/shop.example.com/settings/resources", "shop.example.com", "Resources"],
-  ["/apps/shop.example.com/settings/disk", "shop.example.com", "Disk"],
-  ["/apps/shop.example.com/settings/previews", "shop.example.com", "Pull request previews"],
-  ["/apps/shop.example.com/settings/export", "shop.example.com", "Export"],
-  ["/apps/shop.example.com/settings/delete", "shop.example.com", "Delete"],
+  ["/apps/shop.example.com/code", "shop.example.com", "Build"],
+  ["/apps/shop.example.com/triggers", "shop.example.com", "Releases and rollback"],
+  ["/apps/shop.example.com/resources", "shop.example.com", "How it runs"],
+  ["/apps/shop.example.com/access", "shop.example.com", "Access"],
+  ["/apps/shop.example.com/export", "shop.example.com", "Export"],
+  ["/apps/shop.example.com/servers", "shop.example.com", "On several servers"],
+  ["/apps/shop.example.com/delete", "shop.example.com", "What is deleted"],
   ["/databases", "Databases", "Databases"],
   ["/databases/postgresql/example_production", "example_production", "Used by"],
   ["/backups", "Backups", "Applications and their backups"],
@@ -110,6 +106,8 @@ describe("the route tree", () => {
     backend.on("GET /api/apps/shop.example.com/metrics", () => new Promise<Response>(() => undefined));
     // A history with nothing in it says what it is for; its heading is the page's second level.
     backend.on("GET /api/deployments", () => json(200, { items: [], total: 0, next_before_id: null }));
+    // The page of deleting an application says what deleting it would touch, which the server answers.
+    backend.on("GET /api/apps/shop.example.com/deletion", () => json(200, { domain: "shop.example.com", path: "/var/www/apps/shop-example-com", keeps_directory: false, has_volumes: false, databases: [] }));
     renderConsole(path);
     expect(await screen.findByRole("heading", { level: 1, name: heading })).toBeInTheDocument();
     // A section heading, or for a page that is one table, the table's region.

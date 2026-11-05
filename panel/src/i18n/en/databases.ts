@@ -1190,8 +1190,6 @@ export const databases = {
     planTitle: "What Noust will write",
     planFailed: "Could not read what would be written",
     variables: "Variables",
-    pendingTitle: "A {engine} database was asked for when this application was created",
-    pendingBody: "It is created once the first deploy finishes. If that did not happen, create it now.",
     sqlite: {
       title: "SQLite files",
       intro: "Databases this application keeps in files of its own data. Every backup of the application copies each one whole, with SQLite's own backup, while it runs.",
@@ -1252,11 +1250,5 @@ export const databases = {
     summaryNone: "None",
     summaryNew: "New {engine} database",
     summaryHint: "Created before the first build; its variables are in the environment from the start.",
-    openTab: "Open its database",
-    creating: "Creating the database of {domain}",
-    creatingHint: "Its first deploy finished; it restarts once the database is linked.",
-    deployFailed: "The database of {domain} was not created",
-    deployFailedHint: "Its first deploy did not finish. Create the database from its Database tab once it runs.",
-    createFailed: "Could not create the database of {domain}",
   },
 } as const;
