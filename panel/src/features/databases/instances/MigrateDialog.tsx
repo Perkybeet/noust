@@ -17,7 +17,9 @@ import { Mono } from "../../../components/ui/Mono";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
+import { useNodeCapability } from "../../../nodes/capability";
 import { MissingSoftware } from "../../server/software/MissingSoftware";
+import { SOFTWARE_CAPABILITY, softwareQuery } from "../../server/software/queries";
 import { supportLine, supportOf } from "../servers";
 
 /** What a major-version move leaves from: an instance of Noust's, or the host's own engine. */
@@ -123,11 +125,19 @@ export function MigrateDialog({ source, onOpenChange, onQueued }: MigrateDialogP
   const memoryMb = memory.trim() === "" ? undefined : Number(memory.trim());
   const memoryValid = memoryMb === undefined || (Number.isInteger(memoryMb) && memoryMb >= 1);
   const body = { source: source.name, to_version: chosen ?? "", ...(name.trim() === "" ? {} : { name: name.trim() }), ...(memoryMb === undefined || !memoryValid ? {} : { memory_mb: memoryMb }) };
+  // The new instance is a container: without Docker the plan can only refuse, and the notice above says what is missing once,
+  // with the way to install it. The registry is asked first, so the refusal is never what a person reads in its place.
+  const capability = useNodeCapability(SOFTWARE_CAPABILITY);
+  const readable = capability.status === "available" || capability.status === "unknown";
+  const software = useQuery({ ...softwareQuery(), enabled: readable });
+  const dockerKnown = capability.status !== "checking" && (!readable || !software.isPending);
+  const dockerMissing = software.data?.items?.some((item) => item.id === "docker" && !item.installed) === true;
+  const planned = chosen !== null && memoryValid && dockerKnown && !dockerMissing;
 
   const plan = useQuery({
     queryKey: ["databases", "instances", "migrate-plan", body] as const,
     queryFn: () => request("post", "/api/databases/instances/migrate/plan", { body }),
-    enabled: chosen !== null && memoryValid,
+    enabled: planned,
     retry: false,
     staleTime: 0,
   });
@@ -187,7 +197,7 @@ export function MigrateDialog({ source, onOpenChange, onQueued }: MigrateDialogP
             </div>
           </>
         ) : null}
-        {plan.isPending && chosen !== null && memoryValid ? (
+        {(planned ? plan.isPending : chosen !== null && memoryValid && !dockerKnown) ? (
           <LoadingRegion label={t("databases.migrate.planning")}>
             <Skeleton className="h-32 w-full rounded-control" />
           </LoadingRegion>
