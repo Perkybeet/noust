@@ -99,6 +99,11 @@ under Changed: one field that becomes optional, one refusal that is new and one 
     builds, release bundles, the disk limit, clone, import and the certificates of its domains). The jobs of the
     server's own pages (updates, security, swap, software, backups of the console, DNS, tunnels) keep saying
     their steps as text.
+  - Software: `GET /api/server/software` carries `reason_coded` beside `reason` (why Noust does not change
+    this system's packages: an image-based system, no package manager, a hub), null when it does. The title
+    of the job an install or a removal queues says its component (`jobs.title.server_action_software_install`
+    and `jobs.title.server_action_software_remove`, with the registry's id as `component`) where it said "Run a
+    server task". The text of the reason is unchanged.
 
 ### Changed
 

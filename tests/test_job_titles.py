@@ -133,6 +133,19 @@ class TestWhatASubjectChanges:
             == "Set up Noust DNS as a primary"
         )
 
+    def test_an_install_and_a_removal_from_the_software_page_name_their_component(self) -> None:
+        install = title("server_action", {"component": "nginx_stream_module", "action": "install"})
+        remove = title("server_action", {"component": "fail2ban", "action": "remove"})
+
+        assert (install.code, install.params) == (
+            "jobs.title.server_action_software_install",
+            {"component": "nginx_stream_module"},
+        )
+        assert remove.text == "Remove fail2ban"
+        # A server action that is neither, or that does not know its component, stays a server task.
+        assert title("server_action", {"component": "fail2ban"}).code == "jobs.title.server_action"
+        assert title("server_action", {"action": "install"}).code == "jobs.title.server_action"
+
     def test_a_fleet_job_keeps_the_sentence_its_name_already_is(self) -> None:
         from noust.core.fleet_job_titles import title as fleet_title
 

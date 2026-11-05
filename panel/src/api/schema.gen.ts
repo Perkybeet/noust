@@ -61244,6 +61244,8 @@ export interface components {
          *     Attributes:
          *         managed: Whether Noust changes this system's packages.
          *         reason: Why it does not, when it does not.
+         *         reason_coded: ``reason`` as a code and its values, for the console to translate; null
+         *             when Noust does change this system's software.
          *         family: ``apt``, ``dnf``, ``zypper`` or ``none``.
          *         items: One per component, in the order the page shows them.
          */
@@ -61256,6 +61258,7 @@ export interface components {
             managed: boolean;
             /** Reason */
             reason?: string | null;
+            reason_coded?: components["schemas"]["CodedText"] | null;
         };
         /**
          * SourceChangeRequest

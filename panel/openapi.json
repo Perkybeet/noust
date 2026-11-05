@@ -55002,7 +55002,7 @@
         "type": "object"
       },
       "SoftwareOut": {
-        "description": "The software of the server.\n\nAttributes:\n    managed: Whether Noust changes this system's packages.\n    reason: Why it does not, when it does not.\n    family: ``apt``, ``dnf``, ``zypper`` or ``none``.\n    items: One per component, in the order the page shows them.",
+        "description": "The software of the server.\n\nAttributes:\n    managed: Whether Noust changes this system's packages.\n    reason: Why it does not, when it does not.\n    reason_coded: ``reason`` as a code and its values, for the console to translate; null\n        when Noust does change this system's software.\n    family: ``apt``, ``dnf``, ``zypper`` or ``none``.\n    items: One per component, in the order the page shows them.",
         "properties": {
           "family": {
             "title": "Family",
@@ -55029,6 +55029,16 @@
               }
             ],
             "title": "Reason"
+          },
+          "reason_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
