@@ -115,6 +115,17 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "backups-noust", path: "/backups/noust" },
   { name: "backups-destinations", path: "/backups/destinations" },
   { name: "activity", path: "/activity" },
+  // 4.2: the task centre's list, and one task's own page (the newest job the seed holds).
+  { name: "tasks", path: "/activity/tasks" },
+  {
+    name: "task",
+    path: async (page: Page): Promise<string> => {
+      const jobs = ((await (await page.request.get("/api/jobs?limit=1")).json()) as { jobs: { id: string }[] }).jobs;
+      const newest = jobs[0];
+      if (newest === undefined) throw new Error("the seed has no job");
+      return `/activity/tasks/${newest.id}`;
+    },
+  },
   // 3.4: one search over the logs of every application.
   { name: "logs", path: "/logs" },
   { name: "server", path: "/server" },

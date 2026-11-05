@@ -29,7 +29,7 @@ async function idleRequests(page: Page, path: string): Promise<{ count: number; 
   return { count: urls.length, urls };
 }
 
-for (const path of ["/", "/apps", "/apps/shop.example.net"]) {
+for (const path of ["/", "/apps", "/apps/shop.example.net", "/activity/tasks"]) {
   test(`${path} left alone asks the API for little`, async ({ page, consoleServer }) => {
     await signIn(page, consoleServer, "/");
     const { count, urls } = await idleRequests(page, path);

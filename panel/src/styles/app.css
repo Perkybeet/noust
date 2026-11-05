@@ -586,6 +586,10 @@
  * fans them out.
  */
 @layer components {
+  /* The foot of the page, a notch above the tasks a person pinned (features/tasks/PinnedTasks says how tall they are). */
+  .toast-viewport {
+    bottom: calc(1rem + var(--tasks-pinned-height, 0px));
+  }
   .toast {
     --gap: 0.5rem;
     --peek: 0.5rem;

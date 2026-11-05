@@ -95,6 +95,7 @@ export { shell } from "./shell";
 export { sourceOptions } from "./sourceOptions";
 export { sources } from "./sources";
 export { ssoAdmin } from "./ssoAdmin";
+export { tasks } from "./tasks";
 export { teams } from "./teams";
 export { terminal } from "./terminal";
 export { time } from "./time";

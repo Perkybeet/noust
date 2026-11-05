@@ -5,6 +5,8 @@ import type { MouseEvent } from "react";
 import { Drawer } from "../components/ui/Drawer";
 import type { AppInfo } from "../features/apps/data";
 import { useT } from "../i18n";
+import { TaskFeeds } from "../features/tasks/feeds";
+import { PinnedTasks } from "../features/tasks/PinnedTasks";
 import { NodeNotice } from "../nodes/NodeNotice";
 import { PageServerContext } from "../nodes/pageServer";
 import { useHasFleet } from "../nodes/servers";
@@ -190,6 +192,9 @@ export function Shell() {
     <>
       <div className="flex min-h-dvh bg-bg text-fg">
         <SkipLink />
+        {/* The task centre's sources and what it pins at the foot of every page (features/tasks). */}
+        <TaskFeeds />
+        <PinnedTasks />
         {layout.phone ? null : <Rail layout={layout} open={railOpen} onOpenChange={setRailOpen} />}
         {columnKind !== null && !layout.phone ? <NavColumn kind={columnKind} /> : null}
         <div className="flex min-w-0 flex-1 flex-col">
