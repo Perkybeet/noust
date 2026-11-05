@@ -8,7 +8,10 @@ version it runs on and where ("PostgreSQL 16 (on the system)", "PostgreSQL 15 (c
 the application that uses it and when it was last backed up, with **Add to Noust** on the ones an engine holds
 and Noust does not (they are not a kind of database: the button is the whole difference) and a button to
 copy the connection an application uses. The side column has the list, **Engines**, and one view per kind of
-engine. Database ports open beyond the machine are flagged on the list.
+engine. Database ports open beyond the machine are flagged on the list. On a screen narrower than 1536
+pixels the list keeps the engine and its release and leaves out its size and where it runs (the whole is
+where the pointer rests on the engine, and the size is on the database's Overview), so it never scrolls
+sideways; a phone draws each database as a card.
 
 **New database** is the one dialog that makes a database, from the list, from an application's Database tab
 and from Home: a name, whether it starts **Empty** or **From a dump** (the file goes up in chunks, as below,

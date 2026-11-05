@@ -23,7 +23,7 @@ import { engineName } from "./engines";
 import { PROTECTION_RANK, coveringPolicy, databaseId, databaseProtection } from "./protection";
 import type { Protection } from "./protection";
 import { lifeOf } from "./engineOf";
-import { logoFor, placeOf, releaseOf, serverWithPlace } from "./servers";
+import { logoFor, placeOf, releaseOf, serverTitle, serverWithPlace } from "./servers";
 import { TEXT_LINK } from "./ui";
 import { VerifiedMark } from "./VerifiedMark";
 
@@ -122,7 +122,20 @@ function EngineCell({ database, server, engines }: { database: Database; server:
   const t = useT();
   const flavour = server?.flavour ?? database.engine.split("@")[0] ?? database.engine;
   const release = server === undefined ? releaseOf(flavour, database.engine_version) : null;
-  return <span className="min-w-0 text-fg">{server !== undefined ? serverWithPlace(t, server) : [engineName(database.engine, engines), release].filter(Boolean).join(" ")}</span>;
+  const words = server !== undefined ? serverWithPlace(t, server) : [engineName(database.engine, engines), release].filter(Boolean).join(" ");
+  // Where it runs is said whole from the widest screens and where the pointer rests; a laptop's width leaves room for the engine and its release.
+  return (
+    <span title={words} className="block max-w-52 truncate text-fg">
+      {server !== undefined ? (
+        <>
+          <span className="2xl:hidden">{serverTitle(server)}</span>
+          <span className="hidden 2xl:inline">{words}</span>
+        </>
+      ) : (
+        words
+      )}
+    </span>
+  );
 }
 
 /**
@@ -204,7 +217,7 @@ export function DatabasesTable({ databases, servers, engines, policies, dumps, c
     {
       id: "state",
       header: t("databases.table.state"),
-      width: "w-36",
+      width: "w-28",
       card: "status",
       sortValue: (database) => lifeOf(byKey.get(database.engine)),
       cell: (database) => <StateCell database={database} server={byKey.get(database.engine)} />,
@@ -222,8 +235,8 @@ export function DatabasesTable({ databases, servers, engines, policies, dumps, c
       header: t("databases.table.size"),
       align: "end",
       mono: true,
-      width: "w-28",
-      hideBelow: "md",
+      width: "w-24",
+      hideBelow: "2xl",
       sortValue: (database) => sizeBytes(database.size),
       cell: (database) => <SizeCell database={database} t={t} />,
     },

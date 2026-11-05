@@ -83,13 +83,13 @@ describe("the databases list", () => {
   it("lists each database with the server it runs on, who uses it, its size and whether it is backed up", async () => {
     const { table } = await listAt();
     const row = rowOf(await within(table).findByText("example_production").then(() => table), "example_production");
-    expect(within(row).getByText(/PostgreSQL 16/)).toBeInTheDocument();
+    expect(within(row).getAllByText(/PostgreSQL 16/).length).toBeGreaterThan(0);
     // A server of the system says nothing of where it runs: the page is about this machine.
     expect(within(row).queryByText(/web-01/)).not.toBeInTheDocument();
     expect(within(row).getByRole("link", { name: "shop.example.com" })).toHaveAttribute("href", "/apps/shop.example.com/database");
     expect(within(row).getByText("Verified")).toBeInTheDocument();
     const shop = rowOf(table, "shop_wp");
-    expect(within(shop).getByText(/MySQL 8\.0/)).toBeInTheDocument();
+    expect(within(shop).getAllByText(/MySQL 8\.0/).length).toBeGreaterThan(0);
     expect(within(shop).getByText("No backup")).toBeInTheDocument();
     expect(screen.getByText("3 databases")).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));

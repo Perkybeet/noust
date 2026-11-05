@@ -28,8 +28,8 @@ export interface Column<T> {
   mono?: boolean;
   /** A width utility, such as `w-40`. Columns without one share the rest. */
   width?: string;
-  /** Hide the column on narrow screens to keep rows legible. */
-  hideBelow?: "sm" | "md" | "lg";
+  /** Hide the column on narrow screens to keep rows legible; `xl` and `2xl` for the one a laptop's width cannot hold beside the others. */
+  hideBelow?: "sm" | "md" | "lg" | "xl" | "2xl";
   /**
    * Its place in a card row (`mobile="cards"`): `title` is the row's name (the first column
    * by default), `status` the line above it, `meta` the line below it (every other column by
@@ -125,6 +125,8 @@ const HIDE: Record<NonNullable<Column<unknown>["hideBelow"]>, string> = {
   sm: "hidden sm:table-cell",
   md: "hidden md:table-cell",
   lg: "hidden lg:table-cell",
+  xl: "hidden xl:table-cell",
+  "2xl": "hidden 2xl:table-cell",
 };
 
 const INTERACTIVE = "a, button, input, select, textarea, [role='menuitem'], [role='checkbox'], [role='switch']";
