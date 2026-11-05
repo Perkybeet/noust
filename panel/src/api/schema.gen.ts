@@ -9793,6 +9793,97 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/sign-in/appearance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Appearance
+         * @description Say what the sign-in screen draws in place of Noust's own drawing, if anything.
+         *
+         *     Public: the screen is drawn before there is a session, so this carries nothing but what is shown
+         *     on it.
+         *
+         *     Returns:
+         *         The picture and how it is fitted, or ``image: null``; and the limits a picture is held to.
+         */
+        get: operations["get_appearance_api_auth_sign_in_appearance_get"];
+        /**
+         * Put Appearance
+         * @description Put a picture on the sign-in screen, or change how the one there is drawn.
+         *
+         *     The picture is judged by its bytes and rewritten without its metadata before it is kept; see
+         *     :mod:`noust.validators.sign_in_image`. Asks for sudo mode.
+         *
+         *     Args:
+         *         body: The picture as base64 (left out to keep the one there), its fit and its description.
+         *         session: The authenticated session in sudo mode.
+         *
+         *     Returns:
+         *         What the screen shows now.
+         *
+         *     Raises:
+         *         ValidationError: 400, with a code the console translates, when the file is not a PNG, JPEG
+         *             or WebP within the limits, is damaged or animated, when the fit or the description is not
+         *             valid, or when no picture is sent and there is none to change.
+         */
+        put: operations["put_appearance_api_auth_sign_in_appearance_put"];
+        post?: never;
+        /**
+         * Delete Appearance
+         * @description Take the picture off the sign-in screen: Noust's own drawing comes back.
+         *
+         *     Asks for sudo mode. Removing what is not there is not an error.
+         *
+         *     Args:
+         *         session: The authenticated session in sudo mode.
+         *
+         *     Returns:
+         *         What the screen shows now: no picture.
+         */
+        delete: operations["delete_appearance_api_auth_sign_in_appearance_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/sign-in/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Image
+         * @description Serve the picture of the sign-in screen.
+         *
+         *     Public, like the screen it is on. With ``v`` set to its digest it is cacheable for a year; the
+         *     digest of anything but the current picture is a 404.
+         *
+         *     Args:
+         *         request: The incoming request, for an ETag the client already has.
+         *         v: The digest the picture is addressed by, from ``GET /appearance``. Without it the current
+         *             picture is served and not cached.
+         *
+         *     Returns:
+         *         The file, with the type its bytes were judged to be.
+         *
+         *     Raises:
+         *         ResourceNotFoundError: 404 when there is no picture, or ``v`` is not the current one's digest.
+         */
+        get: operations["get_image_api_auth_sign_in_image_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/tokens": {
         parameters: {
             query?: never;
@@ -60166,6 +60257,105 @@ export interface components {
             message?: string | null;
         };
         /**
+         * SignInAppearance
+         * @description What the sign-in screen needs to draw itself.
+         *
+         *     Attributes:
+         *         image: The picture an operator chose; null when there is none and the console draws its
+         *             own.
+         *         limits: What a picture may be.
+         */
+        SignInAppearance: {
+            image?: components["schemas"]["SignInImageOut"] | null;
+            limits?: components["schemas"]["SignInImageLimits"];
+        };
+        /**
+         * SignInAppearanceBody
+         * @description What the sign-in picture is set to.
+         *
+         *     Attributes:
+         *         image: The file, as base64 text. Left out, the picture that is there stays and only its
+         *             fit and description change.
+         *         fit: ``cover`` to fill the space, ``contain`` to show the whole picture.
+         *         alt: What a screen reader says in its place, up to 120 characters; empty or left out says
+         *             the picture is decoration.
+         */
+        SignInAppearanceBody: {
+            /** Alt */
+            alt?: string | null;
+            /**
+             * Fit
+             * @default contain
+             */
+            fit: string;
+            /** Image */
+            image?: string | null;
+        };
+        /**
+         * SignInImageLimits
+         * @description What a picture may be, so a client need not hard-code it.
+         *
+         *     Attributes:
+         *         bytes: The most a file weighs, as it is sent.
+         *         side: The most pixels on a side.
+         *         alt_chars: The most characters of its description.
+         *         types: The types a file may be, by what its bytes are.
+         */
+        SignInImageLimits: {
+            /**
+             * Alt Chars
+             * @default 120
+             */
+            alt_chars: number;
+            /**
+             * Bytes
+             * @default 1048576
+             */
+            bytes: number;
+            /**
+             * Side
+             * @default 4096
+             */
+            side: number;
+            /** Types */
+            types?: string[];
+        };
+        /**
+         * SignInImageOut
+         * @description The picture the sign-in screen shows.
+         *
+         *     Attributes:
+         *         url: Where it is, with its digest in ``v`` so it can be cached for good.
+         *         sha256: The digest of the file served.
+         *         content_type: What it is: ``image/png``, ``image/jpeg`` or ``image/webp``.
+         *         width: Pixels across.
+         *         height: Pixels down.
+         *         size: Bytes of the file served.
+         *         fit: ``cover`` fills the space and crops; ``contain`` shows the whole picture in it.
+         *         alt: What a screen reader says in its place; empty for decoration.
+         *         updated_at: When it was set, ISO 8601 in UTC.
+         */
+        SignInImageOut: {
+            /** Alt */
+            alt: string;
+            /** Content Type */
+            content_type: string;
+            /** Fit */
+            fit: string;
+            /** Height */
+            height: number;
+            /** Sha256 */
+            sha256: string;
+            /** Size */
+            size: number;
+            /** Updated At */
+            updated_at: string;
+            /** Url */
+            url: string;
+            /** Width */
+            width: number;
+        };
+        /**
          * SinkOut
          * @description One shipping destination.
          *
@@ -79627,6 +79817,112 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RevokedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_appearance_api_auth_sign_in_appearance_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignInAppearance"];
+                };
+            };
+        };
+    };
+    put_appearance_api_auth_sign_in_appearance_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignInAppearanceBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignInAppearance"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_appearance_api_auth_sign_in_appearance_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignInAppearance"];
+                };
+            };
+        };
+    };
+    get_image_api_auth_sign_in_image_get: {
+        parameters: {
+            query?: {
+                v?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The picture. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": unknown;
+                    "image/png": unknown;
+                    "image/webp": unknown;
                 };
             };
             /** @description Validation Error */

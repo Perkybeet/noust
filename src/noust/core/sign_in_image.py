@@ -43,18 +43,25 @@ from pathlib import Path
 from typing import Any
 
 from noust.core import audit, paths
+from noust.core.audit import Actor
 from noust.core.exceptions import ValidationError
 from noust.core.fs import FileSystem, get_fs, is_rehearsal
 from noust.core.server_text import say
 from noust.core.timeutil import utc_now_iso
 from noust.validators import sign_in_image as rules
 
-__all__ = ["RECORD_NAME", "Appearance", "SignInImage"]
+__all__ = ["APPEARANCE_PATH", "IMAGE_PATH", "RECORD_NAME", "Appearance", "SignInImage"]
 
 logger = logging.getLogger(__name__)
 
 #: The record's file name inside the directory.
 RECORD_NAME = "appearance.json"
+
+#: Where the console serves it, spelled once for the API that does and the server that caches it:
+#: what the sign-in screen needs to know (public), and the picture itself (public, addressed by its
+#: digest in ``?v=``).
+APPEARANCE_PATH = "/api/auth/sign-in/appearance"
+IMAGE_PATH = "/api/auth/sign-in/image"
 
 #: What audit says the picture is the target of.
 TARGET = "console:sign-in-image"
@@ -255,7 +262,9 @@ class SignInImage:
             return None
         return data, found.content_type
 
-    def set(self, data: bytes | None, *, fit: object, alt: object) -> Appearance:
+    def set(
+        self, data: bytes | None, *, fit: object, alt: object, actor: Actor | None = None
+    ) -> Appearance:
         """
         Put a picture on the sign-in screen, or change how the one there is drawn.
 
@@ -264,6 +273,8 @@ class SignInImage:
                 description.
             fit: ``cover`` or ``contain``.
             alt: What a screen reader says in its place; empty for decoration.
+            actor: Who asks, for the audit trail. A request of the console says who; the command
+                line and a job run with the actor already bound, so they leave it out.
 
         Returns:
             What the screen shows now.
@@ -305,12 +316,15 @@ class SignInImage:
                 mode=0o644,
             )
             self._forget_other_pictures(appearance)
-        self._audit("auth.sign_in_image.set", self._details(appearance))
+        self._audit("auth.sign_in_image.set", self._details(appearance), actor)
         return appearance
 
-    def remove(self) -> Appearance | None:
+    def remove(self, *, actor: Actor | None = None) -> Appearance | None:
         """
         Take the picture off the sign-in screen, so the drawing comes back.
+
+        Args:
+            actor: Who asks, for the audit trail; see :meth:`set`.
 
         Returns:
             What was there; None when nothing was, which is not an error.
@@ -320,7 +334,7 @@ class SignInImage:
             self.fs.remove(self._directory / RECORD_NAME)
             self._forget_other_pictures(None)
         if previous is not None:
-            self._audit("auth.sign_in_image.remove", {"sha256": previous.sha256})
+            self._audit("auth.sign_in_image.remove", {"sha256": previous.sha256}, actor)
         return previous
 
     def _forget_other_pictures(self, keep: Appearance | None) -> None:
@@ -360,13 +374,14 @@ class SignInImage:
         }
 
     @staticmethod
-    def _audit(event: str, details: dict[str, Any]) -> None:
+    def _audit(event: str, details: dict[str, Any], actor: Actor | None) -> None:
         """
         Record a change, unless the run is a rehearsal and nothing changed.
 
         Args:
             event: ``auth.sign_in_image.set`` or ``auth.sign_in_image.remove``.
             details: What the trail keeps.
+            actor: Who asked; the bound actor when None.
         """
         if not is_rehearsal():
-            audit.record(event, target=TARGET, details=details)
+            audit.record(event, actor=actor, target=TARGET, details=details)

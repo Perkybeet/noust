@@ -21,6 +21,7 @@ from typing import Any
 import pytest
 
 from noust.core import paths
+from noust.core.audit import Actor
 from noust.core.exceptions import ValidationError
 from noust.core.fs import DryRunFileSystem, RecordingFileSystem, set_fs
 from noust.core.sign_in_image import SignInImage
@@ -286,6 +287,16 @@ class TestAudit:
 
         assert [event["event"] for event in audited] == ["auth.sign_in_image.remove"]
         assert audited[0]["details"] == {"sha256": chosen.sha256}
+
+    def test_the_actor_a_request_names_is_the_one_on_the_trail(
+        self, pictures: SignInImage, audited: list[dict[str, Any]]
+    ) -> None:
+        sofia = Actor(kind="account", id="7", name="sofia")
+
+        pictures.set(make.png(), fit="cover", alt="", actor=sofia)
+        pictures.remove(actor=sofia)
+
+        assert [event["actor"] for event in audited] == [sofia, sofia]
 
     def test_a_refusal_is_not_recorded_as_a_change(
         self, pictures: SignInImage, audited: list[dict[str, Any]]
