@@ -617,13 +617,26 @@ class QueryConsole:
             The manager and the validated database name.
 
         Raises:
-            ValidationError: When the mode is unknown.
+            ValidationError: When the mode is unknown, or the engine has no
+                query console (it does not speak SQL): the request names an
+                engine that cannot be asked.
             DatabaseQueryError: When read mode is asked of an engine whose
                 server cannot hold a session read-only.
         """
         if mode not in MODES:
             raise ValidationError(f"Unknown mode: {mode!r}", details="Use 'read' or 'write'.")
         manager = self.service.running(engine)
+        # Here and not in a route: a write sent to an engine that has no console would run as its
+        # administrator with nothing in the way, and every door of the console passes through this.
+        if "sql" not in manager.CAPABILITIES:
+            raise ValidationError(
+                f"{manager.DISPLAY_NAME} has no query console",
+                details=(
+                    "The console runs SQL, which PostgreSQL, MySQL and MariaDB speak. Another "
+                    "engine is looked at through its own page: a Redis database's keys, a "
+                    "MongoDB database's documents."
+                ),
+            )
         if mode == "read" and "read_only" not in manager.CAPABILITIES:
             raise DatabaseQueryError(
                 f"Read-only mode is not available for {manager.DISPLAY_NAME}",
