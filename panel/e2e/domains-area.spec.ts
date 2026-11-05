@@ -88,8 +88,8 @@ test("Noust DNS says what it takes on and asks for the acceptance before it inst
 test("a server without cloudflared says what a tunnel needs, and offers to install it", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/network/tunnels");
   await expect(page.getByText("No tunnels yet")).toBeVisible();
-  await expect(page.getByText("It also needs cloudflared, the connector, which is not installed.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Install cloudflared" })).toBeVisible();
+  await expect(page.getByText("cloudflared is missing")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Install" })).toBeVisible();
   // The server's English never reaches the page as the error of a form.
   await expect(page.getByText("Install it from Cloudflare's own package repository")).toHaveCount(0);
   await settle(page);

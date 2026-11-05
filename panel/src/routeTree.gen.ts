@@ -62,6 +62,7 @@ import { Route as ConsoleFleetNetworkRouteImport } from "./routes/_console/fleet
 import { Route as ConsoleFleetPlacementsRouteImport } from "./routes/_console/fleet/placements"
 import { Route as ConsoleFleetSecurityRouteImport } from "./routes/_console/fleet/security"
 import { Route as ConsoleFleetServersRouteImport } from "./routes/_console/fleet/servers"
+import { Route as ConsoleFleetSoftwareRouteImport } from "./routes/_console/fleet/software"
 import { Route as ConsoleFleetUpdatesRouteImport } from "./routes/_console/fleet/updates"
 import { Route as ConsoleNetworkIndexRouteImport } from "./routes/_console/network/index"
 import { Route as ConsoleNetworkFirewallRouteImport } from "./routes/_console/network/firewall"
@@ -83,6 +84,7 @@ import { Route as ConsoleServerNetworkRouteImport } from "./routes/_console/serv
 import { Route as ConsoleServerProcessesRouteImport } from "./routes/_console/server/processes"
 import { Route as ConsoleServerSecurityRouteImport } from "./routes/_console/server/security"
 import { Route as ConsoleServerServicesRouteImport } from "./routes/_console/server/services"
+import { Route as ConsoleServerSoftwareRouteImport } from "./routes/_console/server/software"
 import { Route as ConsoleServerStorageRouteImport } from "./routes/_console/server/storage"
 import { Route as ConsoleServerSystemRouteImport } from "./routes/_console/server/system"
 import { Route as ConsoleServerTerminalRouteImport } from "./routes/_console/server/terminal"
@@ -450,6 +452,11 @@ const ConsoleFleetServersRoute = ConsoleFleetServersRouteImport.update({
   path: "/servers",
   getParentRoute: () => ConsoleFleetRoute,
 } as any)
+const ConsoleFleetSoftwareRoute = ConsoleFleetSoftwareRouteImport.update({
+  id: "/software",
+  path: "/software",
+  getParentRoute: () => ConsoleFleetRoute,
+} as any)
 const ConsoleFleetUpdatesRoute = ConsoleFleetUpdatesRouteImport.update({
   id: "/updates",
   path: "/updates",
@@ -554,6 +561,11 @@ const ConsoleServerSecurityRoute = ConsoleServerSecurityRouteImport.update({
 const ConsoleServerServicesRoute = ConsoleServerServicesRouteImport.update({
   id: "/services",
   path: "/services",
+  getParentRoute: () => ConsoleServerRoute,
+} as any)
+const ConsoleServerSoftwareRoute = ConsoleServerSoftwareRouteImport.update({
+  id: "/software",
+  path: "/software",
   getParentRoute: () => ConsoleServerRoute,
 } as any)
 const ConsoleServerStorageRoute = ConsoleServerStorageRouteImport.update({
@@ -1157,6 +1169,7 @@ export interface FileRoutesByFullPath {
   "/fleet/placements": typeof ConsoleFleetPlacementsRoute
   "/fleet/security": typeof ConsoleFleetSecurityRoute
   "/fleet/servers": typeof ConsoleFleetServersRoute
+  "/fleet/software": typeof ConsoleFleetSoftwareRoute
   "/fleet/updates": typeof ConsoleFleetUpdatesRoute
   "/network/firewall": typeof ConsoleNetworkFirewallRoute
   "/network/interfaces": typeof ConsoleNetworkInterfacesRoute
@@ -1174,6 +1187,7 @@ export interface FileRoutesByFullPath {
   "/server/processes": typeof ConsoleServerProcessesRoute
   "/server/security": typeof ConsoleServerSecurityRoute
   "/server/services": typeof ConsoleServerServicesRoute
+  "/server/software": typeof ConsoleServerSoftwareRoute
   "/server/storage": typeof ConsoleServerStorageRoute
   "/server/system": typeof ConsoleServerSystemRoute
   "/server/terminal": typeof ConsoleServerTerminalRoute
@@ -1323,6 +1337,7 @@ export interface FileRoutesByTo {
   "/fleet/placements": typeof ConsoleFleetPlacementsRoute
   "/fleet/security": typeof ConsoleFleetSecurityRoute
   "/fleet/servers": typeof ConsoleFleetServersRoute
+  "/fleet/software": typeof ConsoleFleetSoftwareRoute
   "/fleet/updates": typeof ConsoleFleetUpdatesRoute
   "/network/firewall": typeof ConsoleNetworkFirewallRoute
   "/network/interfaces": typeof ConsoleNetworkInterfacesRoute
@@ -1340,6 +1355,7 @@ export interface FileRoutesByTo {
   "/server/processes": typeof ConsoleServerProcessesRoute
   "/server/security": typeof ConsoleServerSecurityRoute
   "/server/services": typeof ConsoleServerServicesRoute
+  "/server/software": typeof ConsoleServerSoftwareRoute
   "/server/storage": typeof ConsoleServerStorageRoute
   "/server/system": typeof ConsoleServerSystemRoute
   "/server/terminal": typeof ConsoleServerTerminalRoute
@@ -1495,6 +1511,7 @@ export interface FileRoutesById {
   "/_console/fleet/placements": typeof ConsoleFleetPlacementsRoute
   "/_console/fleet/security": typeof ConsoleFleetSecurityRoute
   "/_console/fleet/servers": typeof ConsoleFleetServersRoute
+  "/_console/fleet/software": typeof ConsoleFleetSoftwareRoute
   "/_console/fleet/updates": typeof ConsoleFleetUpdatesRoute
   "/_console/network/firewall": typeof ConsoleNetworkFirewallRoute
   "/_console/network/interfaces": typeof ConsoleNetworkInterfacesRoute
@@ -1512,6 +1529,7 @@ export interface FileRoutesById {
   "/_console/server/processes": typeof ConsoleServerProcessesRoute
   "/_console/server/security": typeof ConsoleServerSecurityRoute
   "/_console/server/services": typeof ConsoleServerServicesRoute
+  "/_console/server/software": typeof ConsoleServerSoftwareRoute
   "/_console/server/storage": typeof ConsoleServerStorageRoute
   "/_console/server/system": typeof ConsoleServerSystemRoute
   "/_console/server/terminal": typeof ConsoleServerTerminalRoute
@@ -1671,6 +1689,7 @@ export interface FileRouteTypes {
     | "/fleet/placements"
     | "/fleet/security"
     | "/fleet/servers"
+    | "/fleet/software"
     | "/fleet/updates"
     | "/network/firewall"
     | "/network/interfaces"
@@ -1688,6 +1707,7 @@ export interface FileRouteTypes {
     | "/server/processes"
     | "/server/security"
     | "/server/services"
+    | "/server/software"
     | "/server/storage"
     | "/server/system"
     | "/server/terminal"
@@ -1837,6 +1857,7 @@ export interface FileRouteTypes {
     | "/fleet/placements"
     | "/fleet/security"
     | "/fleet/servers"
+    | "/fleet/software"
     | "/fleet/updates"
     | "/network/firewall"
     | "/network/interfaces"
@@ -1854,6 +1875,7 @@ export interface FileRouteTypes {
     | "/server/processes"
     | "/server/security"
     | "/server/services"
+    | "/server/software"
     | "/server/storage"
     | "/server/system"
     | "/server/terminal"
@@ -2008,6 +2030,7 @@ export interface FileRouteTypes {
     | "/_console/fleet/placements"
     | "/_console/fleet/security"
     | "/_console/fleet/servers"
+    | "/_console/fleet/software"
     | "/_console/fleet/updates"
     | "/_console/network/firewall"
     | "/_console/network/interfaces"
@@ -2025,6 +2048,7 @@ export interface FileRouteTypes {
     | "/_console/server/processes"
     | "/_console/server/security"
     | "/_console/server/services"
+    | "/_console/server/software"
     | "/_console/server/storage"
     | "/_console/server/system"
     | "/_console/server/terminal"
@@ -2520,6 +2544,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleFleetServersRouteImport
       parentRoute: typeof ConsoleFleetRoute
     }
+    "/_console/fleet/software": {
+      id: "/_console/fleet/software"
+      path: "/software"
+      fullPath: "/fleet/software"
+      preLoaderRoute: typeof ConsoleFleetSoftwareRouteImport
+      parentRoute: typeof ConsoleFleetRoute
+    }
     "/_console/fleet/updates": {
       id: "/_console/fleet/updates"
       path: "/updates"
@@ -2665,6 +2696,13 @@ declare module "@tanstack/react-router" {
       path: "/services"
       fullPath: "/server/services"
       preLoaderRoute: typeof ConsoleServerServicesRouteImport
+      parentRoute: typeof ConsoleServerRoute
+    }
+    "/_console/server/software": {
+      id: "/_console/server/software"
+      path: "/software"
+      fullPath: "/server/software"
+      preLoaderRoute: typeof ConsoleServerSoftwareRouteImport
       parentRoute: typeof ConsoleServerRoute
     }
     "/_console/server/storage": {
@@ -3407,6 +3445,7 @@ interface ConsoleFleetRouteChildren {
   ConsoleFleetPlacementsRoute: typeof ConsoleFleetPlacementsRoute
   ConsoleFleetSecurityRoute: typeof ConsoleFleetSecurityRoute
   ConsoleFleetServersRoute: typeof ConsoleFleetServersRoute
+  ConsoleFleetSoftwareRoute: typeof ConsoleFleetSoftwareRoute
   ConsoleFleetUpdatesRoute: typeof ConsoleFleetUpdatesRoute
   ConsoleFleetIndexRoute: typeof ConsoleFleetIndexRoute
 }
@@ -3421,6 +3460,7 @@ const ConsoleFleetRouteChildren: ConsoleFleetRouteChildren = {
   ConsoleFleetPlacementsRoute: ConsoleFleetPlacementsRoute,
   ConsoleFleetSecurityRoute: ConsoleFleetSecurityRoute,
   ConsoleFleetServersRoute: ConsoleFleetServersRoute,
+  ConsoleFleetSoftwareRoute: ConsoleFleetSoftwareRoute,
   ConsoleFleetUpdatesRoute: ConsoleFleetUpdatesRoute,
   ConsoleFleetIndexRoute: ConsoleFleetIndexRoute,
 }
@@ -3475,6 +3515,7 @@ interface ConsoleServerRouteChildren {
   ConsoleServerProcessesRoute: typeof ConsoleServerProcessesRoute
   ConsoleServerSecurityRoute: typeof ConsoleServerSecurityRoute
   ConsoleServerServicesRoute: typeof ConsoleServerServicesRoute
+  ConsoleServerSoftwareRoute: typeof ConsoleServerSoftwareRoute
   ConsoleServerStorageRoute: typeof ConsoleServerStorageRoute
   ConsoleServerSystemRoute: typeof ConsoleServerSystemRoute
   ConsoleServerTerminalRoute: typeof ConsoleServerTerminalRoute
@@ -3493,6 +3534,7 @@ const ConsoleServerRouteChildren: ConsoleServerRouteChildren = {
   ConsoleServerProcessesRoute: ConsoleServerProcessesRoute,
   ConsoleServerSecurityRoute: ConsoleServerSecurityRoute,
   ConsoleServerServicesRoute: ConsoleServerServicesRoute,
+  ConsoleServerSoftwareRoute: ConsoleServerSoftwareRoute,
   ConsoleServerStorageRoute: ConsoleServerStorageRoute,
   ConsoleServerSystemRoute: ConsoleServerSystemRoute,
   ConsoleServerTerminalRoute: ConsoleServerTerminalRoute,

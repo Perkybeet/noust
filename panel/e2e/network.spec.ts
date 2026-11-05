@@ -31,9 +31,9 @@ test("DNS is one click from the domains, and Network has the tunnels and the pub
 
   await network.getByRole("link", { name: /^Tunnels/ }).click();
   await expect(page).toHaveURL(/\/network\/tunnels$/);
-  // The sandbox has no cloudflared: the page says what a tunnel needs, in the console's words, and offers to install it.
-  await expect(page.getByText("It also needs cloudflared, the connector, which is not installed.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Install cloudflared" })).toBeVisible();
+  // The sandbox has no cloudflared: the page says it is missing, as every missing piece is said, and offers to install it.
+  await expect(page.getByText("cloudflared is missing")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Install" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Create a tunnel" })).toHaveCount(0);
   await settle(page);
   await expectNoA11yViolations(page, "the Tunnels tab");

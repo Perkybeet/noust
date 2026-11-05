@@ -92,6 +92,7 @@ export { services } from "./services";
 export { settings } from "./settings";
 export { settingsHome } from "./settingsHome";
 export { shell } from "./shell";
+export { software } from "./software";
 export { sourceOptions } from "./sourceOptions";
 export { sources } from "./sources";
 export { ssoAdmin } from "./ssoAdmin";

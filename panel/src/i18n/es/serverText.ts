@@ -861,6 +861,16 @@ export const serverText: Catalog<typeof en> = {
       text: "Este {kind} es mayor que los {limit} bytes que puede ocupar un ajuste",
     },
   },
+  host: {
+    updates_unsupported: {
+      no_manager: {
+        text: "Noust maneja apt, dnf y zypper, y aquí no hay ninguno instalado. Actualiza este sistema con su propio gestor de paquetes.",
+      },
+      transactional: {
+        text: "Este sistema instala los paquetes mediante transacciones y un reinicio (transactional-update o un sistema basado en imágenes), así que Noust solo informa de su estado. Actualízalo con su propia herramienta.",
+      },
+    },
+  },
   inspect: {
     can_deploy: {
       text: "Noust puede desplegar esto como {type}.",
@@ -1284,6 +1294,8 @@ export const serverText: Catalog<typeof en> = {
       server_action: { text: "Hacer una tarea del servidor" },
       server_action_dns_install: { text: "Instalar Knot DNS" },
       server_action_dns_setup: { text: "Configurar Noust DNS como {role}" },
+      server_action_software_install: { text: "Instalar {component}" },
+      server_action_software_remove: { text: "Quitar {component}" },
       server_security: { text: "Hacer una tarea de seguridad" },
       service_action: { text: "Reiniciar servicios" },
       site_action: { text: "Cambiar un sitio" },
@@ -1635,6 +1647,9 @@ export const serverText: Catalog<typeof en> = {
       purpose: {
         text: "Comprueba la clave de firma de cada repositorio que Noust añade",
       },
+    },
+    hub: {
+      text: "Esta central es un hub: no tiene software propio",
     },
     knot: {
       purpose: {

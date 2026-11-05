@@ -10,11 +10,13 @@ import { deployStatus } from "../../components/page/status";
 import type { StatusView } from "../../components/page/status";
 import { serverSentence } from "../../lib/serverSentence";
 import { stepWords } from "../app/stepWords";
+import { withComponentName } from "../server/software/words";
 import type { Task, TaskState } from "./model";
 
 /** What the task is, as a sentence: "Deploy shop.example.com". A code nobody gave words to is shown as the server wrote it. */
 export function titleOf(task: Pick<Task, "title" | "name">, locale: Locale): string {
-  const said = serverSentence(locale, task.title, task.name, "text");
+  // An install or a removal from Software names its component by the registry's id: said by the name the page gives it.
+  const said = serverSentence(locale, withComponentName(task.title, locale), task.name, "text");
   if (said !== "") return said;
   // An operation carries no English beside its code: the code is better than nothing.
   return task.title?.code ?? "";

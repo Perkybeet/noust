@@ -8,6 +8,8 @@ export const server = {
     services: "Services",
     webserver: "Web server",
     webserverKeywords: "nginx apache proxy move migrate switch",
+    software: "Software",
+    softwareKeywords: "packages apt dnf zypper install remove uninstall nginx docker certbot fail2ban cloudflared what noust installed",
     files: "Files",
     filesKeywords: "disk storage space cleanup swap volume persistent folders uploads",
     central: "Central's permissions",

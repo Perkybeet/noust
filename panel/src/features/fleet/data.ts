@@ -20,7 +20,7 @@ import type { PlainKey } from "../../i18n";
 export type FleetView = ResponseOf<"/api/fleet/summary", "get">;
 export type NodeOutcome = FleetView["nodes"][number];
 export type FleetRow = FleetView["items"][number];
-export type FleetResource = "summary" | "servers" | "apps" | "certificates" | "backups" | "updates" | "activity";
+export type FleetResource = "summary" | "servers" | "apps" | "certificates" | "backups" | "updates" | "software" | "activity";
 
 export type FleetActions = ResponseOf<"/api/fleet/actions", "get">;
 export type FleetActionSpec = FleetActions["actions"][number];
@@ -50,6 +50,7 @@ export const VIEW_POLL_MS: Readonly<Record<FleetResource, number>> = {
   certificates: 60_000,
   backups: 60_000,
   updates: 60_000,
+  software: 60_000,
   activity: 30_000,
 };
 
@@ -60,6 +61,7 @@ const VIEW_PATHS = {
   certificates: "/api/views/certificates",
   backups: "/api/fleet/backups",
   updates: "/api/fleet/updates",
+  software: "/api/fleet/software",
   activity: "/api/fleet/activity",
 } as const;
 

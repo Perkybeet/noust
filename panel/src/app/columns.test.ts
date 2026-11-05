@@ -237,7 +237,7 @@ describe("the column of an area", () => {
     const paths = (kind: ColumnKind) => areaColumn(kind, everything, "fleet").flatMap((group) => group.items.map((item) => item.to));
     expect(paths("apps")).toEqual(["/fleet/apps", "/fleet/placements"]);
     expect(paths("domains")).toEqual(["/fleet/certificates"]);
-    expect(paths("server")).toEqual(["/fleet/servers", "/fleet/updates"]);
+    expect(paths("server")).toEqual(["/fleet/servers", "/fleet/updates", "/fleet/software"]);
     expect(paths("backups")).toEqual(["/fleet/backups"]);
   });
 });

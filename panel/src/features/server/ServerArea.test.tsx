@@ -72,6 +72,7 @@ describe("the Server area", () => {
       "System updates23",
       "Services",
       "Web server",
+      "Software",
       "Files",
     ]);
     // Automatic updates on, at a glance (item 56), and which ones under it.
