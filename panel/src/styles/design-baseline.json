@@ -477,7 +477,7 @@
       "features/domains/SiteDiagramView.tsx": 1,
       "features/domains/SitesPage.tsx": 2,
       "features/domains/StreamsPage.tsx": 2,
-      "features/domains/TunnelsPage.tsx": 4,
+      "features/domains/TunnelsPage.tsx": 3,
       "features/domains/UnknownHostsCard.tsx": 2,
       "features/domains/UploadCertificateDialog.tsx": 1,
       "features/fleet/BulkActionDialog.tsx": 3,
