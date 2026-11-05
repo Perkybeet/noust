@@ -170,12 +170,15 @@ test("Stop asks first; the header follows the unit down and back up", async ({ p
   await expect(header(page).getByRole("button", { name: "Stop", exact: true })).toBeVisible();
 });
 
-test("Delete stays disabled until the domain is typed", async ({ page, consoleServer }) => {
+test("Delete application in the menu leads to the page of deleting, where it stays disabled until the domain is typed", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/apps/${DOMAIN}`);
   await header(page).getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Delete application" }).click();
+  // Deleting is a page of its own, alone under Danger (item 120): what goes is chosen there, not in a question that comes first.
+  await expect(page).toHaveURL(new RegExp(`/apps/${DOMAIN.replace(/\./g, "\\.")}/delete$`));
 
   // Deleting is a sudo-mode action: "Confirm it's you" comes first, never on top of the dialog.
+  await page.getByRole("button", { name: "Delete…" }).click();
   const elevate = page.getByRole("dialog", { name: "Confirm it's you" });
   await expect(elevate).toBeVisible();
   await elevate.getByLabel("Authentication code").fill(consoleServer.secondFactor());
@@ -184,9 +187,6 @@ test("Delete stays disabled until the domain is typed", async ({ page, consoleSe
 
   const dialog = page.getByRole("alertdialog", { name: `Delete ${DOMAIN}` });
   await expect(dialog).toBeVisible();
-  // What cannot be made again goes only when ticked: both start unticked.
-  await expect(dialog.getByRole("checkbox", { name: "Also delete its files" })).not.toBeChecked();
-  await expect(dialog.getByRole("checkbox", { name: "Also delete its certificate" })).not.toBeChecked();
   const confirm = dialog.getByRole("button", { name: "Delete application" });
   await expect(confirm).toBeDisabled();
   await dialog.getByRole("textbox").fill("shop");
@@ -198,7 +198,6 @@ test("Delete stays disabled until the domain is typed", async ({ page, consoleSe
   // Not confirmed: the worker's machine keeps its app.
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await expect(dialog).toBeHidden();
-  await expect(header(page).getByRole("button", { name: "More actions" })).toBeFocused();
 });
 
 test("Roll back asks one question that names what it will do, for an app kept in a single folder", async ({ page, consoleServer }) => {
@@ -229,11 +228,11 @@ test("the overview tab says what is live, lists the last deployments, and reads 
   await expect(page.getByRole("region", { name: "How it runs" })).toHaveCount(0);
   const health = page.getByRole("region", { name: "Health" });
   await expect(health).toBeVisible();
-  await expect(health.getByRole("link", { name: "Edit limits" })).toHaveAttribute("href", `/apps/${domain}/settings/resources`);
+  await expect(health.getByRole("link", { name: "Edit limits" })).toHaveAttribute("href", `/apps/${domain}/resources`);
   await expect(page.getByRole("list", { name: `Where ${domain} answers and what deploys it` })).toBeVisible();
 
   // The banner is the page's, not the tab's: it stays on every tab.
-  await page.getByRole("navigation", { name: "Application sections" }).getByRole("link", { name: "Environment" }).click();
+  await page.getByRole("navigation", { name: "Application sections" }).getByRole("link", { name: "Variables" }).click();
   await expect(page.getByText("The service has stopped with an error")).toBeVisible();
   await page.goBack();
 

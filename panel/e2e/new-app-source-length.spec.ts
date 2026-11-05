@@ -64,7 +64,8 @@ async function expectNoSidewaysScroll(page: Page): Promise<void> {
 test.describe("the Source step", () => {
   test("a long list of repositories scrolls inside its box, and the page ends where its content does", async ({ page, consoleServer }) => {
     test.setTimeout(240_000);
-    await page.setViewportSize(DESKTOP);
+    // The five ways to start are above the list: a window tall enough to keep its bottom edge in view, where the pointer rests.
+    await page.setViewportSize({ width: DESKTOP.width, height: 1200 });
     await manyRepositories(page, 120);
     await signIn(page, consoleServer, "/apps/new");
     const list = page.getByRole("listbox", { name: "Repositories" });
@@ -118,7 +119,8 @@ test.describe("the Source step", () => {
     test.setTimeout(240_000);
     await page.setViewportSize(DESKTOP);
     await signIn(page, consoleServer, "/apps/new");
-    await page.getByRole("button", { name: /^Browse all \d+ recipes$/ }).click();
+    // The catalog card is the whole catalog, paged: no button to browse it.
+    await page.getByRole("radio", { name: /^From the catalog/ }).click();
     const recipes = page.getByRole("list", { name: "Recipes" });
     await expect(recipes).toBeVisible();
     await settle(page);

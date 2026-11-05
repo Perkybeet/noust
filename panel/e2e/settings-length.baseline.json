@@ -60,88 +60,28 @@
     },
     "account-profile": { "path": "/account", "height": 190 },
     "account-security": { "path": "/account/security", "height": 775 },
-    "app-settings-general": { "path": "/apps/shop.example.net/settings", "height": 907 },
-    "app-settings-source": {
-      "path": "/apps/taller.example.com/settings/source",
-      "height": 1212,
-      "tolerance": 100,
-      "toleranceReason": "Beside the second column of the double bar the list of sections stays in the page, so the content column is 680px instead of 880 at 1440 and the same fields wrap more. It goes away when the application's column carries its settings sections; this tolerance is then removed and the baseline lowered."
+    "app-code": {
+      "path": "/apps/shop.example.net/code",
+      "height": 1708,
+      "reason": "Source and Build on one page: the repository, the branch and the tags it deploys, then the commands, the runtime and the time limit, with the way the repository is reached and the sandbox, the packages and the cache one press each. Source and Build can be two pages again when the commands of a type move to the type's own page."
     },
-    "app-settings-deploys": {
-      "path": "/apps/tienda.example.org/settings/deploys",
-      "height": 1048,
-      "tolerance": 80,
-      "toleranceReason": "Beside the second column of the double bar the list of sections stays in the page, so the content column is 680px instead of 880 at 1440 and the same fields wrap more. It goes away when the application's column carries its settings sections; this tolerance is then removed and the baseline lowered."
+    "app-triggers": {
+      "path": "/apps/tienda.example.org/triggers",
+      "height": 1506,
+      "reason": "Releases and rollback, the startup check and zero-downtime are the page and are open; automation, deploy on push, hooks and previews are one press each. The page is the frame (the application's header and its place in the column) and Releases and rollback, which can leave for a page of its own if it grows."
     },
-    "app-settings-deploy-on-push": {
-      "path": "/apps/tienda.example.org/settings/deploy-on-push",
-      "height": 1432,
-      "reason": "The setup stepper, the pushes received and Push from your computer on one page; the git push card becomes a subsection of its own and the page drops under the limit.",
-      "tolerance": 110,
-      "toleranceReason": "Beside the second column of the double bar the list of sections stays in the page, so the content column is 680px instead of 880 at 1440 and the same fields wrap more. It goes away when the application's column carries its settings sections; this tolerance is then removed and the baseline lowered."
+    "app-resources": {
+      "path": "/apps/shop.example.net/resources",
+      "height": 1971,
+      "reason": "How it runs, the account it runs as and the limits (with More limits open when any is set) are the page; processes, mounts, disk and the service's security are one press each. The limits' extra fields (nine of them) are a form of their own and can leave for a page of their own."
     },
-    "app-settings-hooks": {
-      "path": "/apps/tienda.example.org/settings/hooks",
-      "height": 773,
-      "tolerance": 60,
-      "toleranceReason": "Beside the second column of the double bar the list of sections stays in the page, so the content column is 680px instead of 880 at 1440 and the same fields wrap more. It goes away when the application's column carries its settings sections; this tolerance is then removed and the baseline lowered."
+    "app-access": {
+      "path": "/apps/tienda.example.org/access",
+      "height": 1793,
+      "reason": "Who may come in on one page: a password and its accounts, the addresses allowed and refused, a private network only and the routes of the site; the visitor's address, the sign-in service and what the site limits and sends back (Protection) are one press each. The routes' table can leave for a page of its own."
     },
-    "app-settings-automation": { "path": "/apps/tienda.example.org/settings/automation", "height": 744 },
-    "app-settings-access": {
-      "path": "/apps/tienda.example.org/settings/access",
-      "height": 1531,
-      "reason": "Who comes in (password, accounts, addresses, the visitor's address, a private network, a sign-in service and prefix routes) in one subsection; the sign-in service and the routes are the ones that can leave for a page of their own.",
-      "tolerance": 130,
-      "toleranceReason": "Beside the second column of the double bar the list of sections stays in the page, so the content column is 680px instead of 880 at 1440 and the same fields wrap more. It goes away when the application's column carries its settings sections; this tolerance is then removed and the baseline lowered."
-    },
-    "app-settings-protection": {
-      "path": "/apps/tienda.example.org/settings/protection",
-      "height": 1647,
-      "reason": "Limits, headers, HTTP/3, the firewall and client certificates in one subsection, each a card with its own state; the firewall and the certificates are the ones that can leave for a page of their own.",
-      "tolerance": 160,
-      "toleranceReason": "Beside the second column of the double bar the list of sections stays in the page, so the content column is 680px instead of 880 at 1440 and the same fields wrap more. It goes away when the application's column carries its settings sections; this tolerance is then removed and the baseline lowered."
-    },
-    "app-settings-build": {
-      "path": "/apps/shop.example.net/settings/build",
-      "height": 1783,
-      "reason": "The commands, the packages, the cache, the process types and the sandbox in one subsection (Build and Builds were two, 2019 and 400): the packages, the cache and the process types fold under the commands when the subsection is next split.",
-      "tolerance": 150,
-      "toleranceReason": "Beside the second column of the double bar the list of sections stays in the page, so the content column is 680px instead of 880 at 1440 and the same fields wrap more. It goes away when the application's column carries its settings sections; this tolerance is then removed and the baseline lowered."
-    },
-    "app-settings-resources": {
-      "path": "/apps/shop.example.net/settings/resources",
-      "height": 971,
-      "tolerance": 110,
-      "toleranceReason": "Beside the second column of the double bar the list of sections stays in the page, so the content column is 680px instead of 880 at 1440 and the same fields wrap more. It goes away when the application's column carries its settings sections; this tolerance is then removed and the baseline lowered."
-    },
-    "app-settings-disk": {
-      "path": "/apps/shop.example.net/settings/disk",
-      "height": 499,
-      "tolerance": 70,
-      "toleranceReason": "Beside the second column of the double bar the list of sections stays in the page, so the content column is 680px instead of 880 at 1440 and the same fields wrap more. It goes away when the application's column carries its settings sections; this tolerance is then removed and the baseline lowered."
-    },
-    "app-settings-processes": { "path": "/apps/tienda.example.org/settings/processes", "height": 531 },
-    "app-settings-security": {
-      "path": "/apps/tienda.example.org/settings/security",
-      "height": 1656,
-      "reason": "The sandbox of the service's unit in one form: the profile, the folders it may write to, the capabilities and how exposed systemd finds it; the exposure report and the capabilities can leave for a subsection of their own.",
-      "tolerance": 150,
-      "toleranceReason": "Beside the second column of the double bar the list of sections stays in the page, so the content column is 680px instead of 880 at 1440 and the same fields wrap more. It goes away when the application's column carries its settings sections; this tolerance is then removed and the baseline lowered."
-    },
-    "app-settings-mounts": { "path": "/apps/shop.example.net/settings/mounts", "height": 245 },
-    "app-settings-previews": {
-      "path": "/apps/portal.example.org/settings/previews",
-      "height": 2237,
-      "reason": "A feature header, three cards of settings (names and limits, search engines, what a preview is given), the previews themselves and the variables for previews on one page (2357 before); the previews and their variables become a subsection of their own, Previews, and the settings keep the form.",
-      "tolerance": 310,
-      "toleranceReason": "Beside the second column of the double bar the list of sections stays in the page, so the content column is 680px instead of 880 at 1440 and the same fields wrap more. It goes away when the application's column carries its settings sections; this tolerance is then removed and the baseline lowered."
-    },
-    "app-settings-export": {
-      "path": "/apps/shop.example.net/settings/export",
-      "height": 727,
-      "tolerance": 90,
-      "toleranceReason": "Beside the second column of the double bar the list of sections stays in the page, so the content column is 680px instead of 880 at 1440 and the same fields wrap more. It goes away when the application's column carries its settings sections; this tolerance is then removed and the baseline lowered."
-    },
-    "app-settings-delete": { "path": "/apps/shop.example.net/settings/delete", "height": 237 }
+    "app-export": { "path": "/apps/shop.example.net/export", "height": 900 },
+    "app-servers": { "path": "/apps/tienda.example.org/servers", "height": 900 },
+    "app-delete": { "path": "/apps/shop.example.net/delete", "height": 900 }
   }
 }

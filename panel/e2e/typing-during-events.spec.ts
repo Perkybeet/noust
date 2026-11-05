@@ -50,7 +50,7 @@ async function typeSlowly(page: Page, field: Locator, text: string): Promise<num
 
 test("a limit typed into the resources form keeps its focus and every character while events arrive", async ({ page, consoleServer }) => {
   await countEvents(page);
-  await signIn(page, consoleServer, `/apps/${IN_PLACE_APP}/settings/resources`);
+  await signIn(page, consoleServer, `/apps/${IN_PLACE_APP}/resources`);
   // Exact: the form also has "Soft memory limit" and "Locked memory", which a substring match finds too.
   const memory = page.getByRole("textbox", { name: "Memory", exact: true });
   await expect(memory).toBeVisible();

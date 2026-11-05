@@ -194,7 +194,7 @@ test.describe("starting a first application", () => {
       await elevate(page, consoleServer);
     });
     await walked(page, "T02b", () => repositoryWalk(page, domain));
-    await expect(page).toHaveURL(new RegExp(`/apps/${domain.replace(/\./g, "\\.")}/deployments/\\d+$`), { timeout: 30_000 });
+    await expect(page).toHaveURL(new RegExp(`/apps/${domain.replace(/\./g, "\\.")}$`), { timeout: 30_000 });
     await forgetApp(page, consoleServer, domain);
   });
 
@@ -330,7 +330,7 @@ test.describe("on a phone, the incident verbs", () => {
       await elevate(page, consoleServer);
     });
     await walked(page, "T02p", () => repositoryWalk(page, domain));
-    await expect(page).toHaveURL(new RegExp(`/apps/${domain.replace(/\./g, "\\.")}/deployments/\\d+$`), { timeout: 30_000 });
+    await expect(page).toHaveURL(new RegExp(`/apps/${domain.replace(/\./g, "\\.")}$`), { timeout: 30_000 });
     await forgetApp(page, consoleServer, domain);
   });
 
@@ -598,7 +598,7 @@ test.describe("an application's updates, failures and ways back", () => {
     seen.length = 0;
     let written: { set: Record<string, string>; unset: string[] } | undefined;
     await walked(page, "T09", async () => {
-      await sections(page).getByRole("link", { name: "Environment" }).click();
+      await sections(page).getByRole("link", { name: "Variables" }).click();
       const table = page.getByRole("table", { name: `Environment variables of ${ENV_APP}` });
       if (BASELINE === "3.3.1") {
         // Before a row opened on press: its menu, then Edit.
@@ -668,9 +668,8 @@ test.describe("an application's updates, failures and ways back", () => {
       if ((await edit.count()) > 0) {
         await edit.click();
       } else {
-        // Before the overview's meter had the link: the Settings tab and its Resources section.
-        await sections(page).getByRole("link", { name: "Settings" }).click();
-        await page.getByRole("navigation", { name: "Application settings" }).getByRole("link", { name: "Resources" }).click();
+        // Before the overview's meter had the link: the column's page of resources.
+        await sections(page).getByRole("link", { name: "Resources and running" }).click();
       }
       await page.getByRole("textbox", { name: "Memory", exact: true }).fill("256");
       const patched = page.waitForRequest((request) => request.url().endsWith(`/api/apps/${SHOP}/limits`) && request.method() === "PATCH");
@@ -822,7 +821,8 @@ test.describe("a server with nothing on it", () => {
     await settle(page);
     await startCounting(page);
     await walked(page, "T02a", () => repositoryWalk(page, "budget-empty.example.net", landing));
-    await expect(page).toHaveURL(/\/apps\/[^/]+\/deployments\/\d+$/, { timeout: 30_000 });
+    // The deploy is followed on the application's own page.
+    await expect(page).toHaveURL(/\/apps\/[^/]+$/, { timeout: 30_000 });
   });
 
   test("T03b: a recipe from the empty Overview is two clicks to its first build", async ({ page, problems }) => {

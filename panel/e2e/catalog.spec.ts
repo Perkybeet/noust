@@ -282,7 +282,7 @@ withCatalogApps("an update queues the one update as a job and shows its failure 
 });
 
 withCatalogApps("a container application's settings show how its image is made and never a secret", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/apps/crate.example.net/settings/container");
+  await signIn(page, consoleServer, "/apps/crate.example.net/code");
   await expect(page.getByRole("heading", { level: 2, name: "Container" })).toBeVisible();
   const main = page.getByRole("main");
   await expect(main.getByLabel(/^Dockerfile/)).toHaveValue("docker/Dockerfile.prod");
@@ -315,7 +315,7 @@ withCatalogApps("a container application's settings show how its image is made a
 });
 
 withCatalogApps("an image's registry account is kept without its password coming back, and can be removed", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/apps/registry.example.net/settings/container");
+  await signIn(page, consoleServer, "/apps/registry.example.net/code");
   const main = page.getByRole("main");
   await expect(main.getByLabel("Image")).toHaveValue("ghcr.io/example-org/registry-demo:1.4");
   await expect(main.getByLabel(/^Username/)).toHaveValue("ci");
@@ -329,9 +329,9 @@ withCatalogApps("an image's registry account is kept without its password coming
 });
 
 withCatalogApps("a Compose stack and a container have no build commands to set, and the Build page says so and keeps only the sandbox", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/apps/vault.example.net/settings/build");
+  await signIn(page, consoleServer, "/apps/vault.example.net/code");
   for (const domain of ["vault.example.net", "crate.example.net"]) {
-    await page.goto(`/apps/${domain}/settings/build`);
+    await page.goto(`/apps/${domain}/code`);
     await expect(page.getByRole("heading", { level: 2, name: "Build", exact: true })).toBeVisible();
     await expect(page.getByText(/is built by its own configuration, so it has no build commands here/)).toBeVisible();
     await expect(page.getByRole("textbox", { name: /^Build command/ })).toHaveCount(0);
@@ -340,14 +340,14 @@ withCatalogApps("a Compose stack and a container have no build commands to set, 
 
 withCatalogApps("the container settings, the build commands, the installed recipes and the image start read in Spanish", async ({ page, consoleServer }) => {
   await useSpanish(page);
-  await signInSpanish(page, consoleServer, "/apps/crate.example.net/settings/container");
+  await signInSpanish(page, consoleServer, "/apps/crate.example.net/code");
   await expect(page.getByRole("heading", { level: 2, name: spanish.containers.settings.title })).toBeVisible();
   await expect(page.getByText(spanish.containers.secrets.stored, { exact: true })).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "container settings (es)");
   await expectNoEnglishLeftovers(page, "container settings");
 
-  await page.goto("/apps/shop.example.net/settings/build");
+  await page.goto("/apps/shop.example.net/code");
   await expect(page.getByRole("heading", { level: 2, name: spanish.appBuild.title })).toBeVisible();
   await expect(page.getByText(spanish.appBuild.standing.none)).toBeVisible();
   await settle(page);

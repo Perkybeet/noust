@@ -147,15 +147,15 @@ test("a repository configured for Railway gets its proposal, and its health chec
   const body = (await queued).postDataJSON() as Record<string, unknown>;
   expect(body).toMatchObject({ domain, app_type: "nodejs", health_path: "/healthz", health_timeout: 60 });
 
-  await expect(page).toHaveURL(new RegExp(`/apps/${domain.replace(/\./g, "\\.")}/deployments/\\d+$`), { timeout: 30_000 });
+  await expect(page).toHaveURL(new RegExp(`/apps/${domain.replace(/\./g, "\\.")}$`), { timeout: 30_000 });
   await forgetApp(page, consoleServer, domain);
 });
 
 test("an application exports from its settings, with its secret values only after sudo mode", async ({ page, consoleServer, problems }) => {
   // Secret values need a recent confirmation: the first request is refused, by design.
   problems.expect(new RegExp(`status of 403 .* /api/apps/${EXPORTED.replace(/\./g, "\\.")}/export$`));
-  await signIn(page, consoleServer, `/apps/${EXPORTED}/settings/export`);
-  const section = page.getByRole("region", { name: "Export" });
+  await signIn(page, consoleServer, `/apps/${EXPORTED}/export`);
+  const section = page.locator("section").filter({ has: page.getByRole("heading", { name: "Export", exact: true }) }).last();
   await expect(section).toBeVisible();
   await section.scrollIntoViewIfNeeded();
   await settle(page);
