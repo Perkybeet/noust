@@ -32,6 +32,11 @@ export const shell = {
     needs: { one: "Inbox, {count} thing needs you", other: "Inbox, {count} things need you" },
     clear: "Inbox, nothing needs you",
   },
+  /** The icon of the task centre in the top bar (features/tasks): what its accessible name says. */
+  tasks: {
+    label: "Tasks: {running} running, {queued} queued",
+    idle: "Tasks, nothing running",
+  },
   search: {
     label: "Search",
     placeholder: "Search apps, databases, domains, servers, settings and actions",

@@ -409,7 +409,7 @@ describe("a bulk action", () => {
     });
   });
 
-  it("gives room above and below the labels of a server that has several, which wrap to more lines than a row has (item 122)", { timeout: 30_000 }, async () => {
+  it("keeps the labels of a server on one line, the first two and +N for the rest, so a row is the one height whatever it carries (item 122)", { timeout: 30_000 }, async () => {
     // The labels are a column of the table; a phone's card leaves them to the menu.
     screenWidth(1440);
     fakeBackend(fleetRoutes());
@@ -421,9 +421,13 @@ describe("a bulk action", () => {
       if (!cell) throw new Error(`no labels cell for ${server}`);
       return cell;
     };
-    // db-1 carries two labels; web-2 one, which fits the row's own height and leaves it as it was.
-    expect(await labelsCell("db-1")).toHaveClass("py-1.5");
-    expect(await labelsCell("web-2")).not.toHaveClass("py-1.5");
+    // db-1 carries two labels and web-2 one: each is on the one line of its cell, and no cell asks for room above and below.
+    for (const server of ["db-1", "web-2"]) {
+      const cell = await labelsCell(server);
+      expect(cell).not.toHaveClass("py-1.5");
+      expect(cell.querySelector("[data-slot=name-with-tags]"), `${server}'s labels are on one line`).not.toBeNull();
+    }
+    expect((await labelsCell("db-1")).querySelectorAll("[data-slot=name-with-tags] > span > span")).toHaveLength(2);
   });
 
   it("says why a view could not be put together at all, in the central's words", { timeout: 20_000 }, async () => {

@@ -1,13 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
+import { Plus } from "lucide-react";
 import { useState } from "react";
 
 import { useDocumentTitle } from "../../app/documentTitle";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
+import { GuardedButton, ReadOnlyLine } from "../../components/page/permissions";
 import { Sections } from "../../components/page/Section";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
 import { CentralLockedNotice } from "../central/CentralLockedNotice";
 import { useCentral } from "../central/central";
+import { SettingsPrimaryAction } from "../settings/SettingsPrimaryAction";
 import { AccountsSection } from "./AccountsSection";
 import { CreateServerDialog } from "./CreateServerDialog";
 import { cloudAccountsQuery, cloudMachinesQuery } from "./data";
@@ -21,10 +24,10 @@ export interface CloudSettingsProps {
 }
 
 /**
- * Settings > Cloud: servers made at Hetzner, DigitalOcean or Vultr. The accounts a central holds
- * tokens for, the machines it created (and the one that did not make it, with the reason), and the
- * library of boot scripts a new server can run. Creating a server is a wizard, here or from
- * Settings > Servers.
+ * Settings > Cloud: servers made at Hetzner, DigitalOcean or Vultr. Three slabs, each saying what it is before a
+ * word of it is read: the accounts a central holds tokens for, the machines it created (and the one that did not
+ * make it, with the provider's own words), and the library of boot scripts a new server can run. Creating a server is
+ * the page's one primary action, in its header, and a wizard; without an account it waits, and says what for.
  */
 export function CloudSettings({ creating: creatingProp, onCreatingChange }: CloudSettingsProps) {
   const t = useT();
@@ -48,23 +51,35 @@ export function CloudSettings({ creating: creatingProp, onCreatingChange }: Clou
   // "is not pending": a query that failed starts over as pending when a section mounts and asks
   // again, which would take the sections away again, and so on.
   const reading = !machines.isFetched || !accounts.isFetched;
+  const canCreate = (accounts.data?.length ?? 0) > 0;
 
   return (
-    <Sections>
+    <Sections surfaces>
       {central.locked ? <CentralLockedNotice /> : null}
+      {reading ? null : (
+        <SettingsPrimaryAction>
+          <GuardedButton
+            permission="fleet.manage"
+            variant="primary"
+            icon={<Plus aria-hidden="true" />}
+            onClick={() => {
+              setCreating(true);
+            }}
+            {...(canCreate ? {} : { unavailable: t("cloud.machines.empty.needsAccount") })}
+          >
+            {t("cloud.machines.create")}
+          </GuardedButton>
+        </SettingsPrimaryAction>
+      )}
+      <ReadOnlyLine permission="fleet.manage" />
       {reading ? (
         <LoadingRegion label={t("cloud.page.loadingLabel")}>
           <Skeleton className="h-64 w-full rounded-card" />
         </LoadingRegion>
       ) : (
         <>
-          <MachinesSection
-            canCreate={(accounts.data?.length ?? 0) > 0}
-            onCreate={() => {
-              setCreating(true);
-            }}
-          />
           <AccountsSection adding={adding} onAddingChange={setAdding} />
+          <MachinesSection canCreate={canCreate} />
           <ScriptsSection />
         </>
       )}
@@ -81,4 +96,3 @@ export function CloudSettings({ creating: creatingProp, onCreatingChange }: Clou
     </Sections>
   );
 }
-

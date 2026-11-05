@@ -5,12 +5,12 @@ import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { EmptyCell } from "../../components/ui/EmptyCell";
 import { Mono } from "../../components/ui/Mono";
+import { NameWithTags } from "../../components/ui/NameWithTags";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { formatBytes } from "../../lib/format";
-import { TagChips } from "../app/settings/ResourceTagsDialog";
 import type { ServiceInfo } from "./data";
 import { serviceState } from "./data";
 
@@ -38,21 +38,25 @@ function columnsFor(t: T, mixed: boolean, memory: boolean, appOf: ((service: Ser
       id: "name",
       header: t("services.table.unit"),
       card: "title",
-      // The tags are under the unit's name and the line saying which app it runs: with them the cell keeps its room.
-      stacked: (row) => (row.tags?.length ?? 0) > 0,
+      // The tags follow the unit's name on its line, the first ones and "+N" for the rest; the line saying which app it runs is
+      // the one line under it, so a row is at most two short lines whatever it carries.
       cell: (row) => {
         const app = appOf?.(row) ?? null;
         return (
           <span className="flex min-w-0 flex-col">
-            <TextLink variant="row" to="/server/services/$name" params={{ name: row.name }} translate="no" className="-mx-1 w-fit max-w-full truncate px-1 py-0.5">
-              <Mono>{row.name}</Mono>
-            </TextLink>
+            <NameWithTags
+              name={
+                <TextLink variant="row" to="/server/services/$name" params={{ name: row.name }} translate="no" className="-mx-1 w-fit max-w-full truncate px-1 py-0.5">
+                  <Mono>{row.name}</Mono>
+                </TextLink>
+              }
+              tags={row.tags ?? []}
+            />
             {app !== null ? (
               <span className="truncate text-12 text-fg-muted">{t("services.table.runsApp", { domain: app })}</span>
             ) : !row.managed ? (
               <span className="text-12 text-fg-muted sm:hidden">{t("services.table.foreign")}</span>
             ) : null}
-            <TagChips tags={row.tags} />
           </span>
         );
       },

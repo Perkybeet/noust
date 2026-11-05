@@ -28,6 +28,25 @@ describe("Progress", () => {
   });
 });
 
+describe("Progress, inline", () => {
+  it("keeps the figure after the track and the label for assistive technology only", () => {
+    render(<Progress layout="inline" value={46} label="Deploy shop.example.com" />);
+    const bar = screen.getByRole("progressbar", { name: "Deploy shop.example.com" });
+    expect(bar).toHaveAttribute("aria-valuenow", "46");
+    expect(screen.getByText("Deploy shop.example.com")).toHaveClass("sr-only");
+  });
+
+  it("can leave the figure out when the row says it already", () => {
+    render(<Progress layout="inline" showValue={false} value={46} label="Deploy" />);
+    expect(screen.queryByText("46%")).toBeNull();
+  });
+
+  it("has no accessibility violations", async () => {
+    const { container } = render(<Progress layout="inline" value={46} label="Deploy shop.example.com" />);
+    await expectNoAxeViolations(container);
+  });
+});
+
 describe("Meter", () => {
   it("reads a level with its own words", () => {
     render(<Meter label="Memory" value={6.2} max={8} valueText="6.2 of 8 GB" />);

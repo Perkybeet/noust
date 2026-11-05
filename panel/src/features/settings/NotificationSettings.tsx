@@ -34,7 +34,7 @@ import { MoreChannels } from "./MoreChannels";
 import { EVENT_GROUPS, EVENT_KINDS, channels, eventSpec, isChannelConfigured, parseHostList, publicUrlOf, readNotificationSettings } from "./notifications";
 import type { EventGroupId, NotificationSettings as Settings } from "./notifications";
 import { FormFailure, useRefreshConfig } from "./SettingsForm";
-import { SettingsPrimaryAction } from "./SettingsPrimaryAction";
+import { SettingsMasterSwitch } from "./SettingsPrimaryAction";
 import { TelegramChannel } from "./TelegramChannel";
 import { useSettingsForm } from "./useSettingsForm";
 import type { SettingsForm } from "./useSettingsForm";
@@ -44,7 +44,7 @@ import type { SettingsForm } from "./useSettingsForm";
 
 /**
  * Whether anything is sent. It is not a channel, so it is not a row among them: it is in the header of the
- * page, beside where the page's action would be, and the channels and events under it are dimmed while it is
+ * page, beside its title, and the channels and events under it are dimmed while it is
  * off (`SwitchedRegion`). It applies at once and is not part of the form below. "On" with nowhere to go is
  * not on, which the line over the channels says with the one sentence that fixes it.
  */
@@ -63,7 +63,7 @@ function DeliverySwitch({ settings }: { settings: Settings }) {
   // While the write is in flight (and "Confirm it's you" is open) the switch shows where it is going.
   const checked = toggle.isPending ? toggle.variables : settings.enabled;
   return (
-    <SettingsPrimaryAction>
+    <SettingsMasterSwitch>
       <SectionSwitch
         label={t("settings.notifications.delivery.switchLabel")}
         checked={checked}
@@ -72,7 +72,7 @@ function DeliverySwitch({ settings }: { settings: Settings }) {
           toggle.mutate(next);
         }}
       />
-    </SettingsPrimaryAction>
+    </SettingsMasterSwitch>
   );
 }
 

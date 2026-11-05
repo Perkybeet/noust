@@ -4,34 +4,12 @@ import type { SyntheticEvent } from "react";
 
 import { announce } from "../../../app/Announcer";
 import { ErrorBlock } from "../../../components/page/QueryState";
-import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { useT } from "../../../i18n";
 import { MAX_TAGS, tagsOf, tagsProblem, tagsText } from "./appTags";
-
-/** The tags a database or a service carries, as chips under its name; nothing when it carries none. */
-export function TagChips({ tags }: { tags: readonly string[] | undefined }) {
-  const t = useT();
-  if (tags === undefined || tags.length === 0) return null;
-  return (
-    <ul aria-label={t("appTags.resource.chips")} className="flex min-w-0 flex-wrap items-center gap-1">
-      {tags.map((tag) => (
-        // A tag is up to 32 letters, wider than a phone's card has beside its menu: it ends in an ellipsis there,
-        // with the whole tag in its title, instead of being cut by the box that holds the name.
-        <li key={tag} className="max-w-full min-w-0">
-          <Badge mono className="max-w-full min-w-0">
-            <span title={tag} className="min-w-0 truncate">
-              {tag}
-            </span>
-          </Badge>
-        </li>
-      ))}
-    </ul>
-  );
-}
 
 export interface ResourceTagsDialogProps {
   /** What is being tagged, as the dialog names it: the database `shop`, the service `worker`. */

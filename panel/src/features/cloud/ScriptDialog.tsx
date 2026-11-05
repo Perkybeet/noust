@@ -70,6 +70,7 @@ export function ScriptDialog({ name: existingName, copyOf, open, onOpenChange }:
     event.preventDefault();
     setTried(true);
     if (!nameOk || shownContent.trim() === "" || saving || builtin) return;
+    // design-exception: write-without-permission opened only from "New script" and the script's row menu, which are drawn only for fleet.manage
     saveScript.mutate(
       { name: effectiveName, kind: shownKind, content: shownContent, description: shownDescription.trim() },
       {

@@ -109,6 +109,7 @@ export const nav: Catalog<typeof en> = {
   },
   backups: { label: "Copias", keywords: "copias de seguridad restaurar instantáneas backups restore", goTo: "Ir a las copias" },
   activity: { label: "Actividad", keywords: "tareas historial despliegues jobs history", goTo: "Ir a actividad" },
+  activityTasks: { label: "Tareas", keywords: "trabajos segundo plano en marcha cola progreso despliegues copias operaciones jobs", command: "Tareas en actividad" },
   alerts: { label: "Alertas", goTo: "Ir a las alertas" },
   logs: { goTo: "Ir a registros" },
   server: { label: "Servidores", labelOne: "Servidor", allServers: "Todos los servidores", keywords: "servidor máquina salud cpu memoria disco procesos monitor server", goTo: "Ir a los servidores" },

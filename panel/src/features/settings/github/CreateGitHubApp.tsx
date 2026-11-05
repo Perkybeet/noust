@@ -103,6 +103,7 @@ export function CreateGitHubApp({ onStart, submitLabel }: { onStart?: () => void
     setBlockedBy(null);
     // Whoever placed this form keeps where the operator was before the browser leaves for GitHub.
     onStart?.();
+    // design-exception: write-without-permission the form is drawn only in the GitHub section's setup, which is for apps.manage
     start.mutate(name);
   };
 

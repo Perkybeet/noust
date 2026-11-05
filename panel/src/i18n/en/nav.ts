@@ -107,6 +107,8 @@ export const nav = {
   domains: { label: "Domains", keywords: "ssl tls https certbot nginx apache sites certificates dns", goTo: "Go to domains" },
   backups: { label: "Backups", keywords: "restore snapshots", goTo: "Go to backups" },
   activity: { label: "Activity", keywords: "jobs history deployments", goTo: "Go to activity" },
+  /** Activity's list of tasks, the history of the task centre (features/tasks). */
+  activityTasks: { label: "Tasks", keywords: "jobs background running queue progress deploys backups operations", command: "Tasks in activity" },
   alerts: { label: "Alerts", goTo: "Go to alerts" },
   logs: { goTo: "Go to logs" },
   /** The area is "Servers" over every server (and the central's list) and "Server" on one. */

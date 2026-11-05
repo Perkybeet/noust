@@ -16,7 +16,7 @@ export interface HelpPopoverProps {
 }
 
 /**
- * The "i" beside a name that needs explaining: a small button that opens a Popover with the
+ * The "?" beside a name that needs explaining: a small button that opens a Popover with the
  * explanation. It is a button and not a tooltip because a touch screen has no hover, a keyboard has
  * no pointer, and what is said here (what a thing is, what it will do) is not something to find by
  * resting on an icon. A Tooltip only names an icon.
@@ -27,7 +27,7 @@ export function HelpPopover({ label, title, children, side = "bottom", className
       side={side}
       {...(title !== undefined ? { title } : {})}
       {...(className !== undefined ? { className } : {})}
-      trigger={<IconButton label={label} icon={<ICONS.info />} size="sm" tooltip={false} />}
+      trigger={<IconButton label={label} icon={<ICONS.help />} size="sm" tooltip={false} />}
     >
       {children}
     </Popover>

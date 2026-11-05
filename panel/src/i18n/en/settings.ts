@@ -560,14 +560,12 @@ export const settings = {
       loadingLabel: "the address for webhooks",
       unsetTitle: "Not set",
       unsetDescription: "Code hosts deliver pushes to /hooks on a public domain, and this server does not expose one yet. Point a domain at this server, then run:",
-      set: "Code hosts deliver to {url}",
-      setDescription: "Set with noust web expose-hooks, which also serves it.",
+      addressLabel: "Address",
     },
     others: {
-      title: "GitLab, Gitea and Bitbucket",
-      description: "Deploy on push, without an App.",
-      body: "Each application gets its own webhook: open it in {apps}, then Settings, Deploy on push.",
-      appsLink: "Applications",
+      title: "Gitea, Forgejo and Bitbucket",
+      description: "They need no connecting here: each application has its own webhook, in its Deploy on push settings.",
+      appsLink: "Open an application",
     },
     github: {
       title: "GitHub",

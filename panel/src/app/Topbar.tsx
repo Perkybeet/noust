@@ -10,6 +10,7 @@ import { OBJECT_ICONS } from "../components/ui/objectIcons";
 import { Popover } from "../components/ui/Popover";
 import { useMediaQuery } from "../components/ui/useMediaQuery";
 import { InboxButton } from "../features/inbox/InboxButton";
+import { TaskCentreButton } from "../features/tasks/TaskCentreButton";
 import { TeamSwitcher } from "../features/teams/TeamSwitcher";
 import { ScopeSelector } from "../nodes/ScopeSelector";
 import { useT } from "../i18n";
@@ -134,6 +135,7 @@ export function Topbar({ onOpenPalette, onOpenShortcuts, searchTriggerRef }: Top
           </span>
         </button>
         <IconButton label={t("shell.search.label")} icon={<Search />} onClick={onOpenPalette} tooltip={false} className="@min-[66rem]:hidden" />
+        <TaskCentreButton />
         <ThemeToggle />
         <InboxButton />
         {phone ? null : <SessionPanel onOpenShortcuts={onOpenShortcuts} />}

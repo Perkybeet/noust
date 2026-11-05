@@ -14,6 +14,11 @@ export interface KeyValueItem {
    * or a number; `false` offers no copy (a state, a relative time).
    */
   copy?: string | false;
+  /**
+   * The value is pasted into another place (a webhook address, a host a code host must be told): its copy button is
+   * always drawn, not found on hover, and the value is not cut but wrapped, so what is copied is what is seen.
+   */
+  pasted?: boolean;
   /** Overrides the mono default: true for a system value built from elements, false for prose. */
   mono?: boolean;
   /** A short note under the value, in the interface's voice ("set by MemoryMax"). */
@@ -69,7 +74,7 @@ export function KeyValueList({ items, empty, wrap = false, className }: KeyValue
                     className={cx(
                       "min-w-0 text-13 text-fg",
                       // A system value is cut at the end of its line (the whole is its title); a sentence is read whole, and takes the lines it needs.
-                      wrap ? "break-words" : mono ? "truncate" : "text-pretty",
+                      wrap ? "break-words" : item.pasted === true ? "break-all" : mono ? "truncate" : "text-pretty",
                       mono && "mono text-12",
                     )}
                   >
@@ -80,7 +85,10 @@ export function KeyValueList({ items, empty, wrap = false, className }: KeyValue
                   <CopyButton
                     value={copy}
                     label={t("common.copyButton.copyValue", { value: item.label.toLowerCase() })}
-                    className="-my-1 opacity-0 transition-opacity duration-(--duration-fast) group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
+                    className={cx(
+                      "-my-1",
+                      item.pasted !== true && "opacity-0 transition-opacity duration-(--duration-fast) group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100",
+                    )}
                   />
                 ) : null}
               </div>

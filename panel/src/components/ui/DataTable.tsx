@@ -39,8 +39,9 @@ export interface Column<T> {
    */
   card?: "title" | "status" | "meta" | "control" | "hidden";
   /**
-   * Whether this row's cell holds more than one line (a name with its tags under it). It then keeps room above
-   * and below its content, so the content never touches the row's border. Not every cell does: a row is as tall as
+   * Whether this row's cell holds more than one line of its own (a sentence that wraps). It then keeps room above
+   * and below its content, so the content never touches the row's border. Not for a name's tags: those are on the
+   * name's line, with "+N" for the rest (`NameWithTags`), so that every row is one height. Not every cell does: a row is as tall as
    * its tallest content, a 32px control already fills the minimum with its border, and a cell of one or two short
    * lines would make every row of the table taller for nothing.
    */
@@ -99,6 +100,12 @@ export interface DataTableProps<T> {
    * here; a list the server pages (`Load more`, a keyset) does not use this.
    */
   pagination?: string;
+  /**
+   * The table sits inside a surface that is already a slab (a `SurfaceSection` with `flush`): it draws no slab of its
+   * own, only its rows under their header, edge to edge, and on a phone the rows are lines of the list and not cards.
+   * A slab in a slab is the mark of a page that was not drawn but assembled.
+   */
+  embedded?: boolean;
   className?: string;
 }
 
@@ -151,6 +158,7 @@ export function DataTable<T>({
   mobile = DEFAULT_MOBILE,
   layout = "auto",
   pagination,
+  embedded = false,
   className,
 }: DataTableProps<T>) {
   const t = useT();
@@ -247,6 +255,7 @@ export function DataTable<T>({
         loading={loading}
         skeletonRows={skeletonRows}
         empty={empty}
+        embedded={embedded}
         {...(className !== undefined ? { className } : {})}
       />
     );
@@ -271,7 +280,8 @@ export function DataTable<T>({
       // `relative`: the containing block of the visually hidden labels in cells. Without it they
       // are positioned against the page, escape this scroll box and widen the page on a phone.
       className={cx(
-        "elev-seated relative min-w-0 overflow-x-auto rounded-card border border-border bg-surface scroll-thin",
+        "relative min-w-0 overflow-x-auto scroll-thin",
+        embedded ? "bg-surface" : "elev-seated rounded-card border border-border bg-surface",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
         className,
       )}
@@ -375,7 +385,8 @@ export function DataTable<T>({
                           key={column.id}
                           className={cx(
                             cellHeight,
-                            "px-3 whitespace-nowrap text-fg first:pl-4",
+                            // Every cell is centred on its line, so a name with its tags and a lone button share one row height.
+                            "px-3 align-middle whitespace-nowrap text-fg first:pl-4",
                             column.stacked?.(row) === true && STACKED,
                             layout === "fixed" && "truncate",
                             column.align === "end" && "text-right",
@@ -446,6 +457,7 @@ function CardRows<T>({
   loading,
   skeletonRows,
   empty,
+  embedded,
   className,
 }: {
   columns: readonly Column<T>[];
@@ -457,6 +469,7 @@ function CardRows<T>({
   loading: boolean;
   skeletonRows: number;
   empty: ReactNode;
+  embedded: boolean;
   className?: string;
 }) {
   const placed = columns.map((column, index) => ({ column, place: cardPlace(column, index) }));
@@ -469,10 +482,10 @@ function CardRows<T>({
   if (!loading && rows.length === 0 && empty !== undefined) return <div className={className}>{empty}</div>;
 
   return (
-    <ul aria-label={caption} aria-busy={loading || undefined} className={cx("flex min-w-0 flex-col gap-2", className)}>
+    <ul aria-label={caption} aria-busy={loading || undefined} className={cx("flex min-w-0 flex-col", embedded ? "divide-y divide-border" : "gap-2", className)}>
       {loading
         ? Array.from({ length: Math.max(1, Math.round(skeletonRows)) }, (_, i) => (
-            <li key={`skeleton-${String(i)}`} aria-hidden="true" className="elev-seated flex flex-col gap-2 rounded-card border border-border bg-surface px-4 py-3">
+            <li key={`skeleton-${String(i)}`} aria-hidden="true" className={cx("flex flex-col gap-2", embedded ? "px-5 py-3" : "elev-seated rounded-card border border-border bg-surface px-4 py-3")}>
               <Skeleton className="h-3 w-20" />
               <Skeleton className="h-4 w-3/5" />
               <Skeleton className="h-3 w-2/5" />
@@ -486,7 +499,7 @@ function CardRows<T>({
             const control = controls.map((column) => ({ column, content: column.cell(row) })).filter((entry) => !isEmptyValue(entry.content));
             const values = meta.map((column) => ({ column, content: column.cell(row) })).filter((entry) => !isEmptyValue(entry.content));
             return (
-              <li key={id} className="elev-seated flex min-w-0 items-start gap-3 rounded-card border border-border bg-surface py-3 pr-2 pl-4">
+              <li key={id} className={cx("flex min-w-0 items-start gap-3 py-3 pr-2", embedded ? "pl-5" : "elev-seated rounded-card border border-border bg-surface pl-4")}>
                 {control.length > 0 ? (
                   <div className="flex shrink-0 items-center gap-2 pt-0.5">
                     {control.map(({ column, content }) => (

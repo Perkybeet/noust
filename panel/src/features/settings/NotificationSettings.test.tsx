@@ -212,11 +212,14 @@ describe("Settings > Notifications", () => {
     const { container } = renderConsole("/settings/notifications");
     const master = await screen.findByRole("switch", { name: /Send notifications/ });
     expect(master).not.toBeChecked();
-    // Item 106: it governs the whole page, so it is in the header beside where the action would be, with its own
-    // look, and the list it governs is drawn off while it is off. It is not one more row of the channels.
-    const header = screen.getByRole("heading", { level: 1 }).closest("header");
+    // Items 106 and 109: it governs the whole page, so it is in the header on the title's line, right after the title and
+    // not at the far end among the actions, and the list it governs is drawn off while it is off. It is not one more
+    // row of the channels.
+    const title = screen.getByRole("heading", { level: 1 });
+    const header = title.closest("header");
     if (header === null) throw new Error("no page header");
     expect(header).toContainElement(master);
+    expect(title.parentElement).toContainElement(master);
     expect(master.closest('[data-slot="section-switch"]')).not.toBeNull();
     const channelList = screen.getByRole("list", { name: "Notification channels" });
     expect(within(channelList).queryByRole("switch")).toBeNull();

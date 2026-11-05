@@ -79,6 +79,7 @@ export function ConnectGitLabDialog({ open, status, onClose }: ConnectGitLabDial
     event.preventDefault();
     if (pending) return;
     setRefused(null);
+    // design-exception: write-without-permission opened only from "Connect GitLab", which is drawn only for apps.manage
     run.mutate();
   };
   const filled = name.trim() !== "" && normalizeHost(host) !== "";

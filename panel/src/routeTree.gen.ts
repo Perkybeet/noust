@@ -121,6 +121,8 @@ import { Route as ConsoleSettingsTokensRouteImport } from "./routes/_console/set
 import { Route as ConsoleSettingsVariablesRouteImport } from "./routes/_console/settings/variables"
 import { Route as ConsoleTeamsIndexRouteImport } from "./routes/_console/teams/index"
 import { Route as ConsoleTeamsTeamRouteImport } from "./routes/_console/teams/$team"
+import { Route as ConsoleActivityTasksIndexRouteImport } from "./routes/_console/activity_/tasks/index"
+import { Route as ConsoleActivityTasksIdRouteImport } from "./routes/_console/activity_/tasks/$id"
 import { Route as ConsoleAppsDomainIndexRouteImport } from "./routes/_console/apps/$domain/index"
 import { Route as ConsoleAppsDomainDatabaseRouteImport } from "./routes/_console/apps/$domain/database"
 import { Route as ConsoleAppsDomainDiagnoseRouteImport } from "./routes/_console/apps/$domain/diagnose"
@@ -753,6 +755,17 @@ const ConsoleTeamsTeamRoute = ConsoleTeamsTeamRouteImport.update({
   path: "/teams/$team",
   getParentRoute: () => ConsoleRoute,
 } as any)
+const ConsoleActivityTasksIndexRoute =
+  ConsoleActivityTasksIndexRouteImport.update({
+    id: "/activity_/tasks/",
+    path: "/activity/tasks/",
+    getParentRoute: () => ConsoleRoute,
+  } as any)
+const ConsoleActivityTasksIdRoute = ConsoleActivityTasksIdRouteImport.update({
+  id: "/activity_/tasks/$id",
+  path: "/activity/tasks/$id",
+  getParentRoute: () => ConsoleRoute,
+} as any)
 const ConsoleAppsDomainIndexRoute = ConsoleAppsDomainIndexRouteImport.update({
   id: "/",
   path: "/",
@@ -1211,6 +1224,7 @@ export interface FileRoutesByFullPath {
   "/services/": typeof ConsoleServicesIndexRoute
   "/settings/": typeof ConsoleSettingsIndexRoute
   "/teams/": typeof ConsoleTeamsIndexRoute
+  "/activity/tasks/$id": typeof ConsoleActivityTasksIdRoute
   "/apps/$domain/database": typeof ConsoleAppsDomainDatabaseRoute
   "/apps/$domain/diagnose": typeof ConsoleAppsDomainDiagnoseRoute
   "/apps/$domain/domains": typeof ConsoleAppsDomainDomainsRoute
@@ -1232,6 +1246,7 @@ export interface FileRoutesByFullPath {
   "/teams/$team/notifications": typeof ConsoleTeamsTeamNotificationsRoute
   "/teams/$team/settings": typeof ConsoleTeamsTeamSettingsRoute
   "/teams/$team/variables": typeof ConsoleTeamsTeamVariablesRoute
+  "/activity/tasks/": typeof ConsoleActivityTasksIndexRoute
   "/apps/$domain/": typeof ConsoleAppsDomainIndexRoute
   "/domains/dns/": typeof ConsoleDomainsDnsIndexRoute
   "/domains/sites/": typeof ConsoleDomainsSitesIndexRoute
@@ -1374,6 +1389,7 @@ export interface FileRoutesByTo {
   "/services": typeof ConsoleServicesIndexRoute
   "/settings": typeof ConsoleSettingsIndexRoute
   "/teams": typeof ConsoleTeamsIndexRoute
+  "/activity/tasks/$id": typeof ConsoleActivityTasksIdRoute
   "/apps/$domain/database": typeof ConsoleAppsDomainDatabaseRoute
   "/apps/$domain/diagnose": typeof ConsoleAppsDomainDiagnoseRoute
   "/apps/$domain/domains": typeof ConsoleAppsDomainDomainsRoute
@@ -1392,6 +1408,7 @@ export interface FileRoutesByTo {
   "/teams/$team/notifications": typeof ConsoleTeamsTeamNotificationsRoute
   "/teams/$team/settings": typeof ConsoleTeamsTeamSettingsRoute
   "/teams/$team/variables": typeof ConsoleTeamsTeamVariablesRoute
+  "/activity/tasks": typeof ConsoleActivityTasksIndexRoute
   "/apps/$domain": typeof ConsoleAppsDomainIndexRoute
   "/domains/dns": typeof ConsoleDomainsDnsIndexRoute
   "/domains/sites": typeof ConsoleDomainsSitesIndexRoute
@@ -1545,6 +1562,7 @@ export interface FileRoutesById {
   "/_console/services/": typeof ConsoleServicesIndexRoute
   "/_console/settings/": typeof ConsoleSettingsIndexRoute
   "/_console/teams/": typeof ConsoleTeamsIndexRoute
+  "/_console/activity_/tasks/$id": typeof ConsoleActivityTasksIdRoute
   "/_console/apps/$domain/database": typeof ConsoleAppsDomainDatabaseRoute
   "/_console/apps/$domain/diagnose": typeof ConsoleAppsDomainDiagnoseRoute
   "/_console/apps/$domain/domains": typeof ConsoleAppsDomainDomainsRoute
@@ -1566,6 +1584,7 @@ export interface FileRoutesById {
   "/_console/teams/$team/notifications": typeof ConsoleTeamsTeamNotificationsRoute
   "/_console/teams/$team/settings": typeof ConsoleTeamsTeamSettingsRoute
   "/_console/teams/$team/variables": typeof ConsoleTeamsTeamVariablesRoute
+  "/_console/activity_/tasks/": typeof ConsoleActivityTasksIndexRoute
   "/_console/apps/$domain/": typeof ConsoleAppsDomainIndexRoute
   "/_console/domains/dns/": typeof ConsoleDomainsDnsIndexRoute
   "/_console/domains/sites/": typeof ConsoleDomainsSitesIndexRoute
@@ -1719,6 +1738,7 @@ export interface FileRouteTypes {
     | "/services/"
     | "/settings/"
     | "/teams/"
+    | "/activity/tasks/$id"
     | "/apps/$domain/database"
     | "/apps/$domain/diagnose"
     | "/apps/$domain/domains"
@@ -1740,6 +1760,7 @@ export interface FileRouteTypes {
     | "/teams/$team/notifications"
     | "/teams/$team/settings"
     | "/teams/$team/variables"
+    | "/activity/tasks/"
     | "/apps/$domain/"
     | "/domains/dns/"
     | "/domains/sites/"
@@ -1882,6 +1903,7 @@ export interface FileRouteTypes {
     | "/services"
     | "/settings"
     | "/teams"
+    | "/activity/tasks/$id"
     | "/apps/$domain/database"
     | "/apps/$domain/diagnose"
     | "/apps/$domain/domains"
@@ -1900,6 +1922,7 @@ export interface FileRouteTypes {
     | "/teams/$team/notifications"
     | "/teams/$team/settings"
     | "/teams/$team/variables"
+    | "/activity/tasks"
     | "/apps/$domain"
     | "/domains/dns"
     | "/domains/sites"
@@ -2052,6 +2075,7 @@ export interface FileRouteTypes {
     | "/_console/services/"
     | "/_console/settings/"
     | "/_console/teams/"
+    | "/_console/activity_/tasks/$id"
     | "/_console/apps/$domain/database"
     | "/_console/apps/$domain/diagnose"
     | "/_console/apps/$domain/domains"
@@ -2073,6 +2097,7 @@ export interface FileRouteTypes {
     | "/_console/teams/$team/notifications"
     | "/_console/teams/$team/settings"
     | "/_console/teams/$team/variables"
+    | "/_console/activity_/tasks/"
     | "/_console/apps/$domain/"
     | "/_console/domains/dns/"
     | "/_console/domains/sites/"
@@ -2908,6 +2933,20 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleTeamsTeamRouteImport
       parentRoute: typeof ConsoleRoute
     }
+    "/_console/activity_/tasks/": {
+      id: "/_console/activity_/tasks/"
+      path: "/activity/tasks"
+      fullPath: "/activity/tasks/"
+      preLoaderRoute: typeof ConsoleActivityTasksIndexRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    "/_console/activity_/tasks/$id": {
+      id: "/_console/activity_/tasks/$id"
+      path: "/activity/tasks/$id"
+      fullPath: "/activity/tasks/$id"
+      preLoaderRoute: typeof ConsoleActivityTasksIdRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
     "/_console/apps/$domain/": {
       id: "/_console/apps/$domain/"
       path: "/"
@@ -3731,6 +3770,7 @@ interface ConsoleRouteChildren {
   ConsoleProjectsIndexRoute: typeof ConsoleProjectsIndexRoute
   ConsoleServicesIndexRoute: typeof ConsoleServicesIndexRoute
   ConsoleTeamsIndexRoute: typeof ConsoleTeamsIndexRoute
+  ConsoleActivityTasksIdRoute: typeof ConsoleActivityTasksIdRoute
   ConsoleDatabasesEngineNameRoute: typeof ConsoleDatabasesEngineNameRouteWithChildren
   ConsoleDomainsDnsNoustRoute: typeof ConsoleDomainsDnsNoustRoute
   ConsoleDomainsSitesSiteRoute: typeof ConsoleDomainsSitesSiteRoute
@@ -3739,6 +3779,7 @@ interface ConsoleRouteChildren {
   ConsoleIntegrationsGitlabCallbackRoute: typeof ConsoleIntegrationsGitlabCallbackRoute
   ConsoleProjectsTeamProjectRoute: typeof ConsoleProjectsTeamProjectRoute
   ConsoleServerServicesNameRoute: typeof ConsoleServerServicesNameRouteWithChildren
+  ConsoleActivityTasksIndexRoute: typeof ConsoleActivityTasksIndexRoute
   ConsoleDomainsDnsIndexRoute: typeof ConsoleDomainsDnsIndexRoute
   ConsoleDomainsSitesIndexRoute: typeof ConsoleDomainsSitesIndexRoute
   ConsoleDatabasesEnginesEngineSettingsRoute: typeof ConsoleDatabasesEnginesEngineSettingsRoute
@@ -3783,6 +3824,7 @@ const ConsoleRouteChildren: ConsoleRouteChildren = {
   ConsoleProjectsIndexRoute: ConsoleProjectsIndexRoute,
   ConsoleServicesIndexRoute: ConsoleServicesIndexRoute,
   ConsoleTeamsIndexRoute: ConsoleTeamsIndexRoute,
+  ConsoleActivityTasksIdRoute: ConsoleActivityTasksIdRoute,
   ConsoleDatabasesEngineNameRoute: ConsoleDatabasesEngineNameRouteWithChildren,
   ConsoleDomainsDnsNoustRoute: ConsoleDomainsDnsNoustRoute,
   ConsoleDomainsSitesSiteRoute: ConsoleDomainsSitesSiteRoute,
@@ -3793,6 +3835,7 @@ const ConsoleRouteChildren: ConsoleRouteChildren = {
     ConsoleIntegrationsGitlabCallbackRoute,
   ConsoleProjectsTeamProjectRoute: ConsoleProjectsTeamProjectRoute,
   ConsoleServerServicesNameRoute: ConsoleServerServicesNameRouteWithChildren,
+  ConsoleActivityTasksIndexRoute: ConsoleActivityTasksIndexRoute,
   ConsoleDomainsDnsIndexRoute: ConsoleDomainsDnsIndexRoute,
   ConsoleDomainsSitesIndexRoute: ConsoleDomainsSitesIndexRoute,
   ConsoleDatabasesEnginesEngineSettingsRoute:

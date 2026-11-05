@@ -18,3 +18,19 @@ export function SettingsPrimaryAction({ children }: { children: ReactNode }) {
   const slot = useContext(PrimarySlot);
   return slot === null ? null : createPortal(children, slot);
 }
+
+/**
+ * Where a section's master switch goes: the settings' page header, on the line of the title and right after it. A
+ * separate slot from the primary action's, because they are not the same thing: the switch governs what the page
+ * holds and sits beside its name, and the action is the one thing the page does.
+ */
+export const MasterSlot = createContext<HTMLElement | null>(null);
+
+/**
+ * A settings section's master switch (`SectionSwitch`), put in the page's header beside the title, although the header
+ * belongs to the layout the sections share (rule 106). Renders nothing outside it.
+ */
+export function SettingsMasterSwitch({ children }: { children: ReactNode }) {
+  const slot = useContext(MasterSlot);
+  return slot === null ? null : createPortal(children, slot);
+}

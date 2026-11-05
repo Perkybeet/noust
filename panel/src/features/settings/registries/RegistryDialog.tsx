@@ -73,6 +73,7 @@ export function RegistryDialog({ open, login, kinds, onClose }: RegistryDialogPr
   };
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
+    // design-exception: write-without-permission opened only from "Add an account" and the row menu, which are drawn only for apps.manage
     if (!save.isPending) save.mutate();
   };
   const ready = editing ? true : name.trim() !== "" && username.trim() !== "" && password !== "" && (!needsServer(kind) || server.trim() !== "");

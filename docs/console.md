@@ -34,6 +34,17 @@ Each part of the console has a page of its own:
   fleet's seven pages, Overview, Servers, Applications, Certificates, Backups, Updates and Activity.
   `/n/<server>/...` keeps the choice across a reload, the last server is remembered, and every page for
   one server shows its name above the title. A lone server draws no selector.
+- **Tasks**, the icon of the top bar that counts what is running, from any page. Its panel lists yours
+  (running, then queued), what the server is doing that you did not start (a backup, someone else's
+  deploy, a restart), and what ended lately with its result: a failure says where it stopped and what the
+  tool printed, as it printed it. A row shows its last lines of log when asked and opens its own page
+  (**Activity > Tasks**): the steps of a deploy, who started it and where, its log as it is written, and
+  Pin, Cancel and Try again where they apply. **Pin** keeps a running task as a small chip at the foot of
+  every page, with its progress, until you let it go; nothing is pinned by itself. When a task of yours
+  ends while you are on another page, one notice says so with **See** (on its own page it says nothing);
+  the first time you leave a long task of yours the console offers the browser's notification, which only
+  turns on if you say yes. On **All servers** the panel is grouped by server, and a server that has not
+  been updated says it will count its tasks when it is.
 - **Top bar**: the machine strip (host name, uptime, load, CPU, memory, disk, units running and
   failed), the command palette, the **inbox** and the session menu (account, sign-in security, theme,
   language, keyboard shortcuts, sign out). The inbox is a bell: **Needs you** lists what is wrong while
