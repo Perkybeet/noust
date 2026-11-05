@@ -126,6 +126,10 @@ src/noust/
                     (an incident's snapshot, `store export`); a test fails on a column nobody ruled on
     compose_yaml.py  a Compose document read the way Compose reads it (PyYAML takes `2222:22` for a
                     base 60 number and `no` for false); every reader of a Compose file uses it
+    secret_detection.py  what is a secret: a variable by its name and its value, and `TEXT_SHAPES`, the
+                    shapes of a credential in text that `mask_secret_shapes` walks and that the console reads
+                    to mask the text of its browser (`scripts/generate_secret_shapes.py` writes them into
+                    `panel/src/api/secretShapes.gen.ts`, with the one table of cases in `tests/support/`)
     logsafe.py      every log record of the process reports its message on one line, so a value that
                     came from a request cannot start another line (installed by importing logger.py)
     templates.py    the one Jinja environment unit files, sites and pools are rendered with
@@ -623,6 +627,7 @@ mypy                            # types (blocking in CI)
 python scripts/release.py --check         # version consistency
 python scripts/security_model.py --write  # regenerate docs/SECURITY-MODEL.md after changing a role, a header, a route or a guarantee
 python scripts/generate_command_summaries.py  # regenerate cli/command_summaries.py after changing a command's help or adding a command
+python scripts/generate_secret_shapes.py  # regenerate panel/src/api/secretShapes.gen.ts after changing a shape of core/secret_detection.py (the console masks its report with the same shapes; a test fails until you have)
 ```
 
 The integration harness deploys for real (nginx, systemd, Docker, a database) inside one privileged

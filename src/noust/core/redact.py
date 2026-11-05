@@ -201,7 +201,7 @@ def secret_env_values(env: Mapping[str, Any], marks: Mapping[str, bool] | None =
             values.append(value)
             continue
         for match in URL_CREDENTIALS.finditer(value):
-            password = match.group(0)[len(match.group("prefix")) : -1]
+            password = match.group(0)[len(match.group(1)) :]
             values.extend({password, unquote(password)})
     return values
 

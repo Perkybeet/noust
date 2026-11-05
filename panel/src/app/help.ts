@@ -23,7 +23,8 @@ interface Entry extends HelpLink {
   route: string;
 }
 
-const REPOSITORY = "https://github.com/Perkybeet/noust";
+/** The project's repository: where the documentation is read and where a report of a problem is opened. */
+export const REPOSITORY = "https://github.com/Perkybeet/noust";
 const BRANCH = "main";
 
 /**

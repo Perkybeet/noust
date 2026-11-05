@@ -25,6 +25,7 @@ import { getLocale } from "../app/locale";
 import { toast } from "../components/ui/toast";
 import { translate } from "../i18n/translate";
 import type { Locale } from "../i18n/types";
+import { recordFailedRequest } from "../lib/errorBuffer";
 import type { paths } from "./schema.gen";
 import { ApprovalPendingError, ElevationCancelledError, errorFromResponse, unreachable } from "./errors";
 import type { ApiError } from "./errors";
@@ -227,6 +228,7 @@ async function send(
   } catch (cause: unknown) {
     // A cancelled query is not a failure; TanStack Query expects the abort to propagate.
     if (cause instanceof DOMException && cause.name === "AbortError") throw cause;
+    recordFailedRequest(method, path, 0);
     throw unreachable(cause);
   }
 
@@ -283,6 +285,8 @@ async function send(
     }
   }
   init.onResponse?.({ status: response.status, headers: response.headers });
+  // What a report of a problem says the browser saw; a lost session is the sign-in's business, not a fault.
+  if (!error.sessionExpired) recordFailedRequest(method, path, response.status);
   throw error;
 }
 
