@@ -4,7 +4,6 @@
  */
 export const workspaces = {
   open: "Deploy the workspaces of a monorepo",
-  openHint: "A repository with several applications in it becomes one application per workspace.",
   title: "Deploy the workspaces of a monorepo",
   description: "Noust reads which workspaces are applications and creates one application for each you choose, with its own domain. A push deploys an application only when it touches that workspace or something it depends on.",
   source: "Repository",

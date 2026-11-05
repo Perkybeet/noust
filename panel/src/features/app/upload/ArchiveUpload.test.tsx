@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 
 import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
-import { openOtherWays } from "../../../test/ways";
+import { openFiles } from "../../../test/ways";
 import { fakeBackend, json, problem, signedInRoutes } from "../../../test/fakes";
 import type { RouteHandler } from "../../../test/fakes";
 import { DOMAIN, ELEVATED, RELEASE_APP, renderSettings } from "../settings/testKit";
@@ -211,7 +211,7 @@ describe("a pasted Dockerfile", () => {
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
 
-    await openOtherWays(user);
+    await openFiles(user);
     await user.click(screen.getByRole("button", { name: "Or paste a Dockerfile" }));
     expect(screen.getByRole("button", { name: "Use this Dockerfile" })).toBeDisabled();
     await user.type(screen.getByRole("textbox", { name: /^Dockerfile/ }), "FROM node:22-alpine");
@@ -219,7 +219,8 @@ describe("a pasted Dockerfile", () => {
 
     expect(await screen.findByText("The Dockerfile is ready")).toBeInTheDocument();
     expect(backend.callsTo("POST /api/uploads/dockerfile")[0]?.body).toEqual({ content: "FROM node:22-alpine", name: "Dockerfile" });
-    expect(screen.getByLabelText("What to deploy")).toHaveValue(SOURCE);
+    // The files card has no box: what the Dockerfile became is said on the card, and what was found under it.
+    expect(screen.queryByLabelText("What to deploy")).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/^Branch/)).not.toBeInTheDocument();
   });
 
@@ -230,21 +231,21 @@ describe("a pasted Dockerfile", () => {
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
 
-    await openOtherWays(user);
+    await openFiles(user);
     await user.click(screen.getByRole("button", { name: "Or paste a Dockerfile" }));
     await user.type(screen.getByRole("textbox", { name: /^Dockerfile/ }), "RUN true");
     await user.click(screen.getByRole("button", { name: "Use this Dockerfile" }));
 
     expect(await screen.findByText("No FROM instruction")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: /^Dockerfile/ })).toHaveValue("RUN true");
-    expect(screen.getByLabelText("What to deploy")).toHaveValue("");
+    expect(screen.queryByText("The Dockerfile is ready")).not.toBeInTheDocument();
   });
 
   it("can be edited again after it was stored, which forgets the source", { timeout: 60_000 }, async () => {
     const { harness } = wizard();
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    await openOtherWays(user);
+    await openFiles(user);
     await user.click(screen.getByRole("button", { name: "Or paste a Dockerfile" }));
     await user.type(screen.getByRole("textbox", { name: /^Dockerfile/ }), "FROM node:22-alpine");
     await user.click(screen.getByRole("button", { name: "Use this Dockerfile" }));
@@ -253,7 +254,7 @@ describe("a pasted Dockerfile", () => {
     await user.click(screen.getByRole("button", { name: "Edit it" }));
 
     expect(await screen.findByRole("textbox", { name: /^Dockerfile/ })).toBeInTheDocument();
-    expect(screen.getByLabelText("What to deploy")).toHaveValue("");
+    expect(screen.queryByText("The Dockerfile is ready")).not.toBeInTheDocument();
   });
 });
 
@@ -283,12 +284,12 @@ describe("in the new application wizard", () => {
     const { user } = renderConsole("/apps/new");
     await screen.findByRole("heading", { level: 1, name: "New application" });
 
+    await openFiles(user);
     await user.upload(screen.getByLabelText(/^Archive of the project/), archive());
 
     await screen.findByText("shop.zip was uploaded");
-    expect(screen.getByLabelText("What to deploy")).toHaveValue(SOURCE);
+    expect(screen.queryByLabelText("What to deploy")).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/^Branch/)).not.toBeInTheDocument();
-    expect(screen.getByText(/Archive uploaded from this browser/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await waitFor(() => expect(backend.callsTo("POST /api/apps/inspect")).toHaveLength(1));
     expect(backend.callsTo("POST /api/apps/inspect")[0]?.body).toMatchObject({ source: SOURCE });

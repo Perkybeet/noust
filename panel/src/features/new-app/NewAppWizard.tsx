@@ -818,8 +818,10 @@ export function NewAppWizard() {
           description: t(
             sourceMode === "adopt"
               ? "newApp.source.introAdopt"
-              : sourceMode === "compose"
-                ? "newApp.source.introCompose"
+              : sourceMode === "files"
+                ? "newApp.origins.filesIntro"
+                : sourceMode === "compose"
+                  ? "newApp.source.introCompose"
                 : sourceMode === "image"
                 ? "containers.source.intro"
                 : kind === "recipe"
@@ -866,7 +868,7 @@ export function NewAppWizard() {
                   // What the change brings with it (a link typed in the box) is the new source, not what it clears.
                   setSource(keep);
                   setSourceErrors({});
-                } else if (kindOf(mode) === "code" && mode !== "image" && sourceMode !== "image" && mode !== "compose" && sourceMode !== "compose") {
+                } else if (kindOf(mode) === "code" && mode !== "image" && sourceMode !== "image" && mode !== "compose" && sourceMode !== "compose" && mode !== "files" && sourceMode !== "files") {
                   setSource({ source: "", branch: "" });
                   setSourceErrors({});
                 }

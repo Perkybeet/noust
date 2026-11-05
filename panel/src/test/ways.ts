@@ -2,30 +2,51 @@ import { screen } from "@testing-library/react";
 
 import type { renderConsole } from "./console";
 
-/** The ways of starting that are not a thing to paste or search for: folded under "Other ways to start". */
-const OTHER_WAYS = new Set(["Compose", "Import an application", "Already running", "From GitLab", "Connect GitHub", "Importar aplicación", "Ya en marcha", "Desde GitLab", "Conectar GitHub"]);
+type User = ReturnType<typeof renderConsole>["user"];
 
-/** The recipes of the catalog, all of them: the start of the step shows the popular ones until this is pressed. */
+/** The recipes of the catalog, all of them: the card of the catalog shows every one. */
 const RECIPES = new Set(["From a recipe", "Desde una receta"]);
+const COMPOSE = new Set(["Compose"]);
+const IMPORT = new Set(["Import an application", "Importar aplicación"]);
+const RUNNING = new Set(["Already running", "Ya en marcha"]);
+
+/** The five cards of the first page, by the start of their name in either language. */
+const CARD = {
+  catalog: /^(From the catalog|Del catálogo)/,
+  files: /^(Upload files|Subir los ficheros)/,
+  existing: /^(Something that already runs here|Algo que ya corre aquí)/,
+};
 
 /**
- * Gets to a way of starting a new application by its name, the way a person does. A repository, a folder or
- * an image is not a way to choose: it is pasted in the one box, which the step opens on. The catalog is the
- * "Browse all recipes" button under it, and the rest of the ways are behind "Other ways to start".
+ * Gets to a way of starting a new application by its name, the way a person does. The page opens on five cards (a
+ * repository, the catalog, an image, files, something that already runs here); a repository, a folder or an image
+ * is not a way to choose but is pasted in the box the page opens on. Compose is a button of the files card, an import
+ * is the second choice of the card for what already runs, and a GitLab or GitHub to connect is a button under the
+ * box of the repository card.
  */
-export async function chooseWay(user: ReturnType<typeof renderConsole>["user"], name: string): Promise<void> {
+export async function chooseWay(user: User, name: string): Promise<void> {
   if (RECIPES.has(name)) {
-    await user.click(await screen.findByRole("button", { name: /^(Browse (all \d+ recipes|the \d+ recipe)|Ver (las \d+ recetas|la \d+ receta))$/ }));
+    await user.click(await screen.findByRole("radio", { name: CARD.catalog }));
     return;
   }
-  if (OTHER_WAYS.has(name)) {
-    await openOtherWays(user);
-    await user.click(await screen.findByRole("button", { name }));
+  if (COMPOSE.has(name)) {
+    await user.click(await screen.findByRole("radio", { name: CARD.files }));
+    await user.click(await screen.findByRole("button", { name: "Compose" }));
+    return;
   }
+  if (IMPORT.has(name)) {
+    await user.click(await screen.findByRole("radio", { name: CARD.existing }));
+    await user.click(await screen.findByRole("radio", { name: /^(From another platform or a file|De otra plataforma o de un fichero)$/ }));
+    return;
+  }
+  if (RUNNING.has(name)) {
+    await user.click(await screen.findByRole("radio", { name: CARD.existing }));
+    return;
+  }
+  await user.click(await screen.findByRole("button", { name }));
 }
 
-/** Opens the folded "Other ways to start" of the first step, once: asking again leaves it open. */
-export async function openOtherWays(user: ReturnType<typeof renderConsole>["user"]): Promise<void> {
-  const fold = await screen.findByRole("button", { name: /^(Other ways to start|Otras formas de empezar)$/ });
-  if (fold.getAttribute("aria-expanded") !== "true") await user.click(fold);
+/** Opens the card of the files, where an archive is uploaded and a Dockerfile or a Compose file is pasted. */
+export async function openFiles(user: User): Promise<void> {
+  await user.click(await screen.findByRole("radio", { name: CARD.files }));
 }

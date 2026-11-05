@@ -299,17 +299,21 @@ describe("Try a demo", () => {
 });
 
 describe("the ways in", () => {
-  it("opens on one box for what to deploy, with the other ways folded away", { timeout: 30_000 }, async () => {
+  it("opens on five ways to start, with the box of the repository under them", { timeout: 30_000 }, async () => {
     const { harness } = emptyServer(NEXT);
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    // A link, an image, a folder or the name of something to install: one place to put it, not four doors.
+    // Where it comes from is the first thing asked, in five cards; a link, an image, a folder or the name of something to
+    // install goes in the one box under them.
+    const ways = await screen.findByRole("radiogroup", { name: "Where it comes from" });
+    expect(within(ways).getAllByRole("radio")).toHaveLength(5);
+    expect(within(ways).getByRole("radio", { name: /^From a repository/ })).toBeChecked();
     expect(await screen.findByLabelText("What to deploy")).toHaveValue("");
-    expect(screen.queryByRole("radiogroup", { name: "Where the code is" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Compose" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Other ways to start" }));
-    for (const name of ["Compose", "Import an application", "Already running"]) {
-      expect(await screen.findByRole("button", { name })).toBeInTheDocument();
-    }
+    // Compose is a button of the files card, and what already runs is a card of its own.
+    await user.click(within(ways).getByRole("radio", { name: /^Upload files/ }));
+    expect(await screen.findByRole("button", { name: "Compose" })).toBeInTheDocument();
+    await user.click(within(ways).getByRole("radio", { name: /^Something that already runs here/ }));
+    expect(await screen.findByRole("radio", { name: "Running on this server" })).toBeChecked();
   });
 });
