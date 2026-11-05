@@ -62,6 +62,7 @@ export const tasks: Catalog<typeof en> = {
     title: "Tarea {id}",
     notFound: "Esa tarea no está aquí",
     notFoundHelp: "Puede que se haya borrado del historial o que corriera en otro servidor.",
+    loading: "Cargando la tarea",
     readFailed: "No se pudo leer la tarea",
     who: "La empezó {who}",
     startedAt: "Empezó {when}",

@@ -8,6 +8,7 @@ import { isJobFinished, jobQuery } from "../../api/queries/jobs";
 import type { Job } from "../../api/queries/jobs";
 import { announce } from "../../app/Announcer";
 import { DetailPage } from "../../components/page/DetailPage";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { useAnnounceChange } from "../../components/page/useAnnounceChange";
@@ -52,7 +53,6 @@ const REASON_ID = "task-cancel-reason";
 function TaskSkeleton() {
   return (
     <div aria-hidden="true" className="flex flex-col gap-4">
-      <Skeleton className="h-9 w-80 max-w-full" />
       <Skeleton className="h-28 w-full rounded-card" />
       <Skeleton className="h-64 w-full rounded-card" />
     </div>
@@ -209,5 +209,11 @@ export function TaskPage({ id }: { id: string }) {
       </DetailPage>
     );
   }
-  return <TaskSkeleton />;
+  return (
+    <DetailPage header={{ title: t("tasks.page.title", { id }), mono: true }}>
+      <LoadingRegion label={t("tasks.page.loading")}>
+        <TaskSkeleton />
+      </LoadingRegion>
+    </DetailPage>
+  );
 }

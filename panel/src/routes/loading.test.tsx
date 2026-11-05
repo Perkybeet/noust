@@ -25,6 +25,8 @@ const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/account", "/account"],
   ["/account/security", "/account/security"],
   ["/activity", "/activity"],
+  ["/activity/tasks", "/activity/tasks"],
+  ["/activity/tasks/$id", "/activity/tasks/ab12cd34"],
   ["/alerts", "/alerts"],
   ["/alerts/checks", "/alerts/checks"],
   ["/alerts/metrics", "/alerts/metrics"],

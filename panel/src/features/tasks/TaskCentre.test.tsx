@@ -289,6 +289,25 @@ describe("a task's page and the list", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Steps" })).toBeInTheDocument();
   });
 
+  it("says where a failed deploy stopped and what the tool printed, and queues it again from its page", async () => {
+    const failed = job({ id: "bad1", actor: ME, status: "failed", state: "failed", error: "npm ERR! code ELIFECYCLE", deployment_id: 7, completed_at: new Date().toISOString() });
+    serve({
+      "GET /api/jobs/bad1": () => json(200, failed),
+      "GET /api/jobs/bad1/log": () => json(200, { content: "", truncated: false }),
+      "POST /api/jobs/update": () => json(202, { message: "queued", job: { ...job({ id: "again1", actor: ME }) } }),
+      "GET /api/jobs/again1": () => json(200, job({ id: "again1", actor: ME })),
+    });
+    const { user, location } = renderConsole("/activity/tasks/bad1");
+    expect(await screen.findByRole("heading", { level: 1, name: "Deploy shop.example.com" })).toBeInTheDocument();
+    expect(screen.getByText("npm ERR! code ELIFECYCLE")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open the deployment" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    await waitFor(() => {
+      expect(location().pathname).toBe("/activity/tasks/again1");
+    });
+    expect(backend.callsTo("POST /api/jobs/update")[0]?.body).toEqual({ domain: "shop.example.com", force: false });
+  });
+
   it("says plainly that a task is not there", async () => {
     serve({ "GET /api/jobs/ghost": () => json(404, { error: "not_found", detail: "Job not found: ghost", hint: null, fields: null, output: null }) });
     renderConsole("/activity/tasks/ghost");

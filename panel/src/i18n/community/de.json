@@ -14952,6 +14952,7 @@
   "tasks.page.title": "Aufgabe {id}",
   "tasks.page.notFound": "Diese Aufgabe gibt es hier nicht",
   "tasks.page.notFoundHelp": "Sie wurde vielleicht aus dem Verlauf gelöscht oder lief auf einem anderen Server.",
+  "tasks.page.loading": "Die Aufgabe wird geladen",
   "tasks.page.readFailed": "Die Aufgabe konnte nicht gelesen werden",
   "tasks.page.who": "Gestartet von {who}",
   "tasks.page.startedAt": "Gestartet {when}",
