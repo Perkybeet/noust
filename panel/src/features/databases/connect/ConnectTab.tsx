@@ -6,11 +6,10 @@ import { useEffect, useState } from "react";
 import { request } from "../../../api/client";
 import { accessQuery, connectQuery } from "../../../api/queries/databases";
 import type { ConnectParams } from "../../../api/queries/databases";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { ErrorBlock } from "../../../components/page/QueryState";
-import { Section, Sections } from "../../../components/page/Section";
+import { Can, useCan } from "../../../components/page/permissions";
+import { SurfaceSection } from "../../../components/page/SurfaceSection";
 import { Button } from "../../../components/ui/Button";
-import { Card } from "../../../components/ui/Card";
 import { CopyValue } from "../../../components/ui/CopyValue";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field } from "../../../components/ui/Field";
@@ -25,12 +24,14 @@ import { useT } from "../../../i18n";
 import { useServerList } from "../../../nodes/servers";
 import { useNode } from "../../../nodes/useNode";
 import { reportActionError } from "../../apps/useAppActions";
+import { DatabasePage, useDatabaseFrame } from "../DatabasePage";
+import { answers } from "../engineOf";
 import { useDatabaseJob } from "../jobs";
 import { LinkDialog } from "../LinkDialog";
 import { PublicAccessSection } from "../public/PublicAccessSection";
 import { TEXT_LINK } from "../ui";
-import { SecretShown } from "../users/SecretShown";
-import type { SecretShownProps } from "../users/SecretShown";
+import { SecretShown } from "../access/SecretShown";
+import type { SecretShownProps } from "../access/SecretShown";
 
 /** The placeholder the API writes where it does not know this server's address. */
 const UNKNOWN_SERVER = "<server>";
@@ -65,8 +66,11 @@ export function ConnectTab({ engine, name }: { engine: string; name: string }) {
   const job = useDatabaseJob();
   const servers = useServerList();
   const nodeRecord = node !== null ? servers.nodes.find((item) => item.name === node) : undefined;
-  const access = useQuery(accessQuery(engine, name));
+  const asking = answers(useDatabaseFrame());
+  const access = useQuery({ ...accessQuery(engine, name), enabled: asking });
   const accounts = (access.data?.access ?? []).filter((entry) => !entry.internal);
+  // Showing a password or a connection string is `secrets.reveal`: a person who may not is not offered the button.
+  const mayReveal = useCan("secrets.reveal");
 
   const [account, setAccount] = useState<string | null>(null);
   // What the operator typed, else the address this central reaches the node at.
@@ -86,7 +90,7 @@ export function ConnectTab({ engine, name }: { engine: string; name: string }) {
     ...(debounced.sshUser !== "" ? { ssh_user: debounced.sshUser } : {}),
     ...(Number.isInteger(port) && port >= 1 && port <= 65535 ? { local_port: port } : {}),
   };
-  const connect = useQuery({ ...connectQuery(engine, name, params), placeholderData: keepPreviousData });
+  const connect = useQuery({ ...connectQuery(engine, name, params), placeholderData: keepPreviousData, enabled: asking });
   const data = connect.data;
 
   const revealUrl = useMutation({
@@ -114,7 +118,11 @@ export function ConnectTab({ engine, name }: { engine: string; name: string }) {
   });
 
   if (connect.isError && data === undefined) {
-    return <ErrorBlock error={connect.error} title={t("databases.connect.loadFailed")} onRetry={() => void connect.refetch()} retrying={connect.isRefetching} />;
+    return (
+      <DatabasePage title={t("databases.detailTabs.connect")} needsEngine>
+        <ErrorBlock error={connect.error} title={t("databases.connect.loadFailed")} onRetry={() => void connect.refetch()} retrying={connect.isRefetching} />
+      </DatabasePage>
+    );
   }
 
   const tunnel = data?.tunnel;
@@ -122,16 +130,19 @@ export function ConnectTab({ engine, name }: { engine: string; name: string }) {
   const Warning = ICONS.warning;
 
   return (
-    <div className="flex min-w-0 flex-col gap-8">
-      <Sections>
-        <Section
+    <DatabasePage title={t("databases.detailTabs.connect")} needsEngine>
+      <div className="flex min-w-0 flex-col gap-6">
+        <SurfaceSection
           title={t("databases.connect.fromApp")}
+          icon={OBJECT_ICONS.app}
           description={t("databases.connect.fromAppDescription")}
           loading={data === undefined}
           actions={
-            <Button icon={<Link2 aria-hidden="true" />} size="sm" onClick={() => setLinking(true)}>
-              {t("databases.overview.linkApp")}
-            </Button>
+            <Can permission="databases.write">
+              <Button icon={<Link2 aria-hidden="true" />} size="sm" onClick={() => setLinking(true)}>
+                {t("databases.overview.linkApp")}
+              </Button>
+            </Can>
           }
         >
           {data === undefined ? (
@@ -139,7 +150,7 @@ export function ConnectTab({ engine, name }: { engine: string; name: string }) {
           ) : data.apps.length === 0 ? (
             <EmptyState variant="inline" title={t("databases.connect.noApps")} />
           ) : (
-            <Card padding="none" as="div">
+            <div>
               <ul className="flex flex-col divide-y divide-border">
                 {data.apps.map((link) => (
                   <li key={link.domain} className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
@@ -156,7 +167,7 @@ export function ConnectTab({ engine, name }: { engine: string; name: string }) {
                         ) : null}
                       </span>
                     </div>
-                    {link.url ? (
+                    {link.url && mayReveal ? (
                       <Button icon={<Eye aria-hidden="true" />} size="sm" variant="ghost" loading={revealUrl.isPending && revealUrl.variables === link.domain} onClick={() => revealUrl.mutate(link.domain)}>
                         {t("databases.connect.showUrl")}
                       </Button>
@@ -164,11 +175,17 @@ export function ConnectTab({ engine, name }: { engine: string; name: string }) {
                   </li>
                 ))}
               </ul>
-            </Card>
+            </div>
           )}
-        </Section>
+        </SurfaceSection>
 
-        <Section icon={OBJECT_ICONS.tunnel} title={t("databases.connect.fromComputer")} description={t("databases.connect.fromComputerDescription")} loading={tunnel === undefined}>
+        <SurfaceSection
+          icon={OBJECT_ICONS.tunnel}
+          title={t("databases.connect.fromComputer")}
+          description={t("databases.connect.fromComputerLine")}
+          help={t("databases.connect.fromComputerDescription")}
+          loading={tunnel === undefined}
+        >
           <div className="flex min-w-0 flex-col gap-5">
             <div className="flex min-w-0 flex-wrap gap-4">
               <Field label={t("databases.connect.account")} nativeLabel={false} className="w-56">
@@ -207,11 +224,13 @@ export function ConnectTab({ engine, name }: { engine: string; name: string }) {
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-12 text-fg-muted">
                     <span>{t("databases.connect.passwordMasked")}</span>
                     {data?.password_known && data.username ? (
-                      <Button size="sm" variant="ghost" loading={revealPassword.isPending} onClick={() => revealPassword.mutate(data.username ?? "")}>
-                        {t("databases.connect.showPassword")}
-                      </Button>
+                      mayReveal ? (
+                        <Button size="sm" variant="ghost" loading={revealPassword.isPending} onClick={() => revealPassword.mutate(data.username ?? "")}>
+                          {t("databases.connect.showPassword")}
+                        </Button>
+                      ) : null
                     ) : (
-                      <Link to="/databases/$engine/$name/users" params={{ engine, name }} className={TEXT_LINK}>
+                      <Link to="/databases/$engine/$name/access" params={{ engine, name }} className={TEXT_LINK}>
                         {t("databases.connect.rotateToSee")}
                       </Link>
                     )}
@@ -235,11 +254,11 @@ export function ConnectTab({ engine, name }: { engine: string; name: string }) {
               </ol>
             )}
           </div>
-        </Section>
+        </SurfaceSection>
 
         <PublicAccessSection engine={engine} name={name} />
 
-        <Section icon={OBJECT_ICONS.port} title={t("databases.connect.exposure")} description={t("databases.connect.exposureDescription")} loading={data === undefined}>
+        <SurfaceSection icon={OBJECT_ICONS.port} title={t("databases.connect.exposure")} description={t("databases.connect.exposureLine")} help={t("databases.connect.exposureDescription")} loading={data === undefined}>
           {data === undefined ? (
             <Skeleton className="h-12 w-full rounded-card" />
           ) : (
@@ -269,12 +288,11 @@ export function ConnectTab({ engine, name }: { engine: string; name: string }) {
               )}
             </div>
           )}
-        </Section>
-      </Sections>
+        </SurfaceSection>
+      </div>
 
-      <CommandHint command={`noust db connect-info ${name} -e ${engine}`} label={t("common.words.fromTerminal")} />
       <LinkDialog open={linking} onOpenChange={setLinking} engine={engine} database={name} onQueued={(accepted, domain) => job.track(accepted, "link", domain)} />
       <SecretShown secret={secret} onClose={() => setSecret(null)} />
-    </div>
+    </DatabasePage>
   );
 }

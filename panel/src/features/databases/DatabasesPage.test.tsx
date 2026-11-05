@@ -95,18 +95,26 @@ describe("the databases list", () => {
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
-  it("is two parts of one page: the databases and the database servers they run on", async () => {
-    await listAt();
-    expect(await screen.findByRole("heading", { level: 2, name: "Your databases" })).toBeInTheDocument();
-    const servers = await screen.findByRole("heading", { level: 2, name: "Database servers" });
-    const part = servers.closest("section");
-    if (part === null) throw new Error("no section");
-    // The default of its engine is said, and MySQL says its support is over, in words.
-    expect(await within(part).findByRole("heading", { level: 3, name: "PostgreSQL 16" })).toBeInTheDocument();
-    expect(within(part).getAllByText("Default")).toHaveLength(3);
-    expect(within(part).getByText(/No support since Apr 2026/)).toBeInTheDocument();
-    expect(within(part).getByRole("button", { name: "Upgrade version" })).toBeInTheDocument();
+  it("is one list, with the state of each database and the engine it runs on in words, and the engines are their own page", async () => {
+    const { table } = await listAt();
+    // What the page is: how many databases there are and how much they hold, under its title.
+    expect(await screen.findByText(/^3 databases on web-01, [\d.,]+ MB in total$/)).toBeInTheDocument();
+    expect(within(rowOf(table, "example_production")).getByText("Running")).toBeInTheDocument();
+    expect(within(rowOf(table, "example_production")).getByText("PostgreSQL 16 (on the system)")).toBeInTheDocument();
+    // The engines are not a second half of this page: no "Your databases" over a table and a list of engines under it.
+    expect(screen.queryByRole("heading", { level: 2, name: "Your databases" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Engines" })).not.toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
+  });
+
+  it("says a database whose engine is stopped is stopped, in its row", async () => {
+    const stopped = { ...DATABASES[0], size: null, unverified: true };
+    const { table } = await listAt("/databases", {
+      "GET /api/databases/servers": () => json(200, { servers: SERVERS.map((server) => (server.key === "postgresql" ? { ...server, running: false, state: "stopped" } : server)), problems: [] }),
+      "GET /api/databases/databases": () => json(200, { databases: [stopped, DATABASES[2]], total: 2 }),
+    });
+    expect(within(rowOf(table, "example_production")).getByText("Stopped")).toBeInTheDocument();
+    expect(within(rowOf(table, "shop_wp")).getByText("Running")).toBeInTheDocument();
   });
 
   it("has the side column: its two sections and one view per engine, with the databases each holds", async () => {
@@ -115,7 +123,7 @@ describe("the databases list", () => {
     const { user, location } = await listAt();
     const column = await screen.findByRole("navigation", { name: /^Databases/ });
     expect(within(column).getByRole("link", { name: /Your databases/ })).toHaveAttribute("aria-current", "page");
-    expect(within(column).getByRole("link", { name: /Database servers/ })).toHaveAttribute("href", "/databases/servers");
+    expect(within(column).getByRole("link", { name: /^Engines/ })).toHaveAttribute("href", "/databases/engines");
     const postgres = await within(column).findByRole("link", { name: /PostgreSQL/ });
     expect(postgres).toHaveTextContent("2");
     // Redis holds none and says it: "0", not nothing.
@@ -124,13 +132,10 @@ describe("the databases list", () => {
     await waitFor(() => expect(location().search).toEqual({ engine: "postgresql" }));
     await waitFor(() => expect(postgres).toHaveAttribute("aria-current", "page"));
     expect(within(column).getByRole("link", { name: /Your databases/ })).not.toHaveAttribute("aria-current");
-    // It narrows the databases and the servers both.
+    // It narrows the list of databases to the engine's.
     const table = listRegion();
     expect(within(table).queryByText("shop_wp")).not.toBeInTheDocument();
     expect(within(table).getByText("example_production")).toBeInTheDocument();
-    const part = screen.getByRole("heading", { level: 2, name: "Database servers" }).closest("section");
-    if (part === null) throw new Error("no section");
-    expect(within(part).queryByRole("heading", { level: 3, name: /MySQL/ })).not.toBeInTheDocument();
   });
 
   it("counts the databases with no schedule in a quick filter, not in a banner, and shows them through the URL", async () => {
@@ -189,42 +194,37 @@ describe("the databases list", () => {
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
-  it("creates a database on the engine's default server and opens it", async () => {
+  it("creates a database on the default engine, chosen already, and opens it", async () => {
     const { user, backend, location } = await listAt("/databases", {
       "POST /api/databases/databases": () => json(200, { name: "acme_shop", engine: "postgresql", tables: 0, tracked: true, missing: false, apps: [] }),
       "GET /api/databases/databases/postgresql/acme_shop/overview": () => json(404, { detail: "nope", error: "not_found" }),
     });
     await user.click(screen.getByRole("button", { name: "New database" }));
     const dialog = await screen.findByRole("dialog", { name: "New database" });
-    await user.click(within(dialog).getByRole("combobox", { name: "Engine" }));
-    await user.click(await screen.findByRole("option", { name: "PostgreSQL" }));
-    // One server of the engine: nobody is asked where it runs.
-    expect(within(dialog).queryByRole("combobox", { name: "Database server" })).not.toBeInTheDocument();
+    // One engine of its kind: nobody is asked where it runs, and the card of the default is chosen.
+    expect(await within(dialog).findByRole("radio", { name: /PostgreSQL 16/ })).toBeChecked();
     await user.type(within(dialog).getByLabelText("Name"), "acme_shop");
-    await user.click(within(dialog).getByRole("button", { name: "Create database" }));
+    await user.click(within(dialog).getByRole("button", { name: "Create the database" }));
     await waitFor(() => expect(backend.callsTo("POST /api/databases/databases")).toHaveLength(1));
     expect(backend.callsTo("POST /api/databases/databases")[0]?.body).toEqual({ engine: "postgresql", name: "acme_shop", owner: null, encoding: null, app: null });
     await waitFor(() => expect(location().pathname).toBe("/databases/postgresql/acme_shop"));
   });
 
-  it("asks which server only when the engine has more than one, with the default chosen already", async () => {
+  it("shows each engine of a kind as a card, the default chosen already, and makes the database on the one chosen", async () => {
     const second = { ...SERVERS[0], key: "postgresql@pg17", version: "17", runs_in: "noust_container", name: "pg17", default: false, default_source: null, databases: 0, actions: ["stop", "upgrade", "remove"] };
     const { user, backend } = await listAt("/databases", {
       "GET /api/databases/servers": () => json(200, { servers: [...SERVERS, second], problems: [] }),
       "GET /api/databases/engines": () => json(200, { engines: [...ENGINES, { ...ENGINES[0], name: "postgresql@pg17", kind: "container", managed: "pg17", pinned_version: "17" }] }),
       "POST /api/databases/databases": () => json(200, { name: "acme_shop", engine: "postgresql@pg17", tables: 0, tracked: true, missing: false, apps: [] }),
-      "GET /api/databases/databases/postgresql@pg17/acme_shop/overview": () => json(404, { detail: "nope", error: "not_found" }),
+      "GET /api/databases/databases/postgresql%40pg17/acme_shop/overview": () => json(404, { detail: "nope", error: "not_found" }),
     });
     await user.click(screen.getByRole("button", { name: "New database" }));
     const dialog = await screen.findByRole("dialog", { name: "New database" });
-    await user.click(within(dialog).getByRole("combobox", { name: "Engine" }));
-    await user.click(await screen.findByRole("option", { name: "PostgreSQL" }));
-    const server = await within(dialog).findByRole("combobox", { name: "Database server" });
-    expect(server).toHaveTextContent("PostgreSQL 16 (default)");
-    await user.click(server);
-    await user.click(await screen.findByRole("option", { name: "PostgreSQL 17" }));
+    expect(await within(dialog).findByRole("radio", { name: /PostgreSQL 16/ })).toBeChecked();
+    expect(within(dialog).getByText(/In container pg17, port 5432/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("radio", { name: /PostgreSQL 17/ }));
     await user.type(within(dialog).getByLabelText("Name"), "acme_shop");
-    await user.click(within(dialog).getByRole("button", { name: "Create database" }));
+    await user.click(within(dialog).getByRole("button", { name: "Create the database" }));
     await waitFor(() => expect(backend.callsTo("POST /api/databases/databases")).toHaveLength(1));
     expect(backend.callsTo("POST /api/databases/databases")[0]?.body).toMatchObject({ engine: "postgresql@pg17", name: "acme_shop" });
   });
@@ -236,7 +236,7 @@ describe("the databases list", () => {
       "GET /api/databases/databases": () => json(200, { databases: [...DATABASES, CONTAINER_DATABASE], total: DATABASES.length + 1 }),
     });
     const row = rowOf(table, "proggest");
-    expect(within(row).getByText(/proggest\.es/)).toBeInTheDocument();
+    expect(within(row).getByText("PostgreSQL (stack of proggest.es)")).toBeInTheDocument();
     expect(within(table).queryByText("example_production")).not.toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
@@ -336,8 +336,8 @@ describe("the databases list", () => {
     await listAt("/databases", { "GET /api/databases/databases": () => json(200, { databases: [], total: 0 }) }, { rows: false });
     expect(await screen.findByRole("heading", { level: 2, name: "No databases yet" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: /^Databases/ })).toBeNull();
-    // The servers are still there: this is where they run.
-    expect(await screen.findByRole("heading", { level: 3, name: "PostgreSQL 16" })).toBeInTheDocument();
+    // The header already holds "New database": the page's first use does not repeat it.
+    expect(screen.getAllByRole("button", { name: "New database" })).toHaveLength(1);
   });
 });
 

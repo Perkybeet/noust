@@ -6,12 +6,15 @@ import { deploymentsQuery } from "../../api/queries/deployments";
 import { databaseOverviewQuery, databasesQuery, enginesQuery } from "../../api/queries/databases";
 import { serviceQuery, servicesQuery } from "../../api/queries/services";
 import { appStatus } from "../../components/page/status";
+import { LogoMark } from "../../components/ui/LogoTile";
 import { StatusGlyph, StatusPill } from "../../components/ui/StatusPill";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { isAdopted } from "../../features/app/adopted";
 import { RECENT_APP_DEPLOYS } from "../../features/app/AppBanner";
 import { usePendingChanges } from "../../features/app/PendingChanges";
 import { AppTypeMark } from "../../features/apps/AppTypeMark";
+import { answers, useEngineOf } from "../../features/databases/engineOf";
+import { logoFor, serverTitle } from "../../features/databases/servers";
 import { ASSUMED_CAPABILITIES } from "../../features/databases/tabs";
 import { SERVER_CAPABILITY } from "../../features/server/queries";
 import { serviceState } from "../../features/services/data";
@@ -89,15 +92,20 @@ export function DatabaseColumn({ engine, name }: { engine: string; name: string 
   const t = useT();
   const navigate = useNavigate();
   const route = useRouterState({ select: (state) => state.matches.at(-1)?.fullPath ?? "" });
-  const overview = useQuery(databaseOverviewQuery(engine, name));
+  const where = useEngineOf(engine);
+  const overview = useQuery({ ...databaseOverviewQuery(engine, name), retry: false, enabled: answers(where) });
   const engines = useQuery(enginesQuery());
   const databases = useQuery({ ...databasesQuery(), select: (data) => data.databases });
   const listed = engines.data?.engines.find((item) => item.name === engine);
   const capabilities = overview.data?.capabilities ?? listed?.capabilities;
   const ctx = useNavContext({});
-  // Until the engine answers, what a SQL engine has is drawn: nothing then moves when it does.
+  const flavour = where.server?.flavour ?? engine.split("@")[0] ?? engine;
+  // What a database can be asked is what its engine says it can do, and the list of engines says it of a stopped one too (a
+  // stopped Redis has keys and no query). Until the engine answers, what a SQL engine has is drawn: nothing then moves when it does.
   const groups = toListGroups(resourceColumn("database", { ...ctx, capabilities: capabilities ?? ASSUMED_CAPABILITIES }), t, { engine, name });
   const missing = overview.data?.database.missing === true;
+  const stopped = where.life === "stopped" || where.life === "changing";
+  const logo = logoFor(flavour);
   const siblings: Sibling[] = (databases.data ?? []).slice(0, SIBLINGS + 1).map((other) => ({
     key: `${other.engine}/${other.name}`,
     label: other.name,
@@ -112,10 +120,12 @@ export function DatabaseColumn({ engine, name }: { engine: string; name: string 
       <ResourceHead
         back={{ label: t("nav.databases.label"), to: "/databases" }}
         title={name}
-        icon={OBJECT_ICONS.database}
-        {...(overview.data !== undefined
-          ? { state: <StatusPill state={missing ? "failed" : "running"} label={t(missing ? "databases.layout.stateMissing" : "databases.layout.stateOnline")} size="sm" />, kind: overview.data.display_name }
-          : {})}
+        {...(logo !== null ? { mark: <LogoMark logo={logo} className="size-icon-lg" /> } : { icon: OBJECT_ICONS.database })}
+        {...(stopped
+          ? { state: <StatusPill state={where.life === "changing" ? "deploying" : "stopped"} label={t(where.life === "changing" ? "databases.state.changing" : "common.statusPill.stopped")} size="sm" />, ...(where.server !== undefined ? { kind: serverTitle(where.server) } : {}) }
+          : overview.data !== undefined
+            ? { state: <StatusPill state={missing ? "failed" : "running"} label={t(missing ? "databases.state.missing" : "common.statusPill.running")} size="sm" />, kind: `${overview.data.display_name}${overview.data.database.engine_version ? ` ${overview.data.database.engine_version}` : ""}` }
+            : {})}
         siblings={siblings}
         siblingsLabel={t("nav.column.switchDatabase")}
       />

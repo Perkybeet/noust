@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { request } from "../../api/client";
 import { databaseKeys } from "../../api/queries/databases";
 import type { Database } from "../../api/queries/databases";
+import { Can } from "../../components/page/permissions";
 import { Button } from "../../components/ui/Button";
 import { useT } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
@@ -23,9 +24,12 @@ export function AddToNoust({ database }: { database: Database }) {
     },
     onError: (error) => reportActionError(t("databases.listRow.addFailed", { name: database.name }), error),
   });
+  // A row's action is drawn for whoever may do it: the table says once, at its page's head, what a role cannot.
   return (
-    <Button size="sm" loading={add.isPending} onClick={() => add.mutate()}>
-      {t("databases.listRow.addToNoust")}
-    </Button>
+    <Can permission="databases.manage">
+      <Button size="sm" loading={add.isPending} onClick={() => add.mutate()}>
+        {t("databases.listRow.addToNoust")}
+      </Button>
+    </Can>
   );
 }

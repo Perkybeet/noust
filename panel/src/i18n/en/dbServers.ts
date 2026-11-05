@@ -1,28 +1,34 @@
 /** Strings of the database servers: where each database runs, its support, its menu, and "Another version". */
 export const dbServers = {
-  title: "Database servers",
-  label: "Database servers",
+  title: "Engines",
+  line: "The programs that hold the databases: the system's own, and the instances Noust runs in containers, in other versions.",
+  keywords: "database servers instances containers versions",
+  label: "Engines",
   loading: "Loading database servers …",
   /** The side column of Databases. */
   column: {
     label: "Databases",
     databases: "Your databases",
-    servers: "Database servers",
-    engines: "Engines",
+    servers: "Engines",
+    engines: "By engine",
   },
   empty: {
-    title: "No database server yet",
-    description: "A database server is where your databases run. Install PostgreSQL or MySQL on this server, or add another version.",
+    description: "An engine is the program your databases live in. Add the first and Noust can make databases on it.",
   },
   default: "Default",
   defaultFor: "Default for {engine}",
   place: {
-    system: "{server}, on the system",
-    noust: "{server}, in a Noust container",
+    system: "On the system of {machine}",
+    noust: "Container {server}, on {machine}",
     app: "In the stack of {app}",
   },
-  databases: { one: "{count} database", other: "{count} databases" },
-  noDatabases: "No databases",
+  named: {
+    system: "{engine} (on the system)",
+    container: "{engine} (container {name})",
+    app: "{engine} (stack of {app})",
+  },
+  fact: { port: "Port", databases: "Databases", memoryLimit: "Memory limit" },
+  seeDatabases: { one: "See its database", other: "See its {count} databases" },
   support: {
     until: "Support until {date}",
     soonMonths: { one: "Support until {date}, {count} month left", other: "Support until {date}, {count} months left" },
@@ -49,9 +55,18 @@ export const dbServers = {
   clearDefaultFailed: "Could not remove {name} as the default",
   /** What a node older than 4.1 can show: its engines, without the default or other versions. */
   older: "This server runs a Noust older than 4.1: it shows its engines, without defaults or other versions.",
-  loadFailed: "Could not load the database servers",
+  loadFailed: "Could not load the engines",
+  add: {
+    open: "Add an engine",
+    title: "Add an engine",
+    description: "A database lives on an engine. Choose where this one comes from.",
+    legend: "Where it runs",
+    system: "On the system",
+    systemLine: "Installed with the system's package manager: one version, the one your distribution or the project publishes.",
+    container: "In a container",
+    containerLine: "Another version, or an engine the system does not have (MongoDB, PostgreSQL 17). Noust runs it with Docker, on this machine only.",
+  },
   other: {
-    open: "Another version",
     title: "Another version",
     description: "A new database server in a container of Noust's, beside the ones you have. Nothing you have moves.",
     engine: "Engine",

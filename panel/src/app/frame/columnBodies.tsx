@@ -161,7 +161,7 @@ export function useAreaCounts(kind: ColumnKind, enabled: boolean): Readonly<Part
         "/domains/dns": accounts.data?.accounts.length ?? null,
       };
     case "databases":
-      return { "/databases": databases.data?.total ?? null, "/databases/servers": dbServers.data?.servers.length ?? null };
+      return { "/databases": databases.data?.total ?? null, "/databases/engines": dbServers.data?.servers.length ?? null };
     case "apps":
       return { "/projects": org.available ? org.scope.projects.length : null, "/projects/teams": org.available ? org.teams.length : null };
     case "network":

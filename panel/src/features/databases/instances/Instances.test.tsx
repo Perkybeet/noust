@@ -26,7 +26,7 @@ async function serversAt(extra: Record<string, RouteHandler> = {}) {
       ...extra,
     }),
   );
-  const harness = renderConsole("/databases/servers");
+  const harness = renderConsole("/databases/engines");
   await screen.findByRole("heading", { level: 2, name: "PostgreSQL 16" }, { timeout: 15_000 });
   // The instances are read beside the servers: a menu for TLS needs them.
   await waitFor(() => expect(backend.callsTo("GET /api/databases/instances")).not.toHaveLength(0));
@@ -150,14 +150,21 @@ describe("moving an engine to a newer version", { timeout: 60_000 }, () => {
 
     await menuOf(user, "PostgreSQL 16");
     await user.click(await screen.findByRole("menuitem", { name: "Upgrade version" }));
-    const dialog = await screen.findByRole("dialog", { name: /Move PostgreSQL 16 to a newer version/ });
+    const dialog = await screen.findByRole("dialog", { name: /Upgrade PostgreSQL 16/ });
     await user.click(within(dialog).getByRole("combobox", { name: "Version to go to" }));
     const options = (await screen.findAllByRole("option")).map((option) => option.textContent);
     // Each version says where it stands in its project's support, beside its number.
     expect(options).toEqual(["17: Support until Nov 2029", "18 (recommended): Support until Nov 2030"]);
     await user.keyboard("{Escape}");
 
+    // It says, before anything is pressed, that nothing is upgraded in place, and then each thing it does, in order.
+    expect(within(dialog).getByText("It is not upgraded in place: a new instance with the newer version is made, and the databases are moved to it.")).toBeInTheDocument();
     expect(await within(dialog).findByText("postgresql18")).toBeInTheDocument();
+    const steps = [...(dialog.querySelector("ol")?.querySelectorAll("li") ?? [])].map((item) => item.textContent);
+    expect(steps[0]).toBe("A new instance, postgresql18, is made in a container, on port 5434.");
+    expect(steps[1]).toBe("Its database, shop_db, is dumped and loaded into it.");
+    expect(steps[2]).toBe("shop.example.com is pointed at the new one, behind its startup check.");
+    expect(steps.at(-1)).toMatch(/is left as it is, with the databases as they were/);
     expect(within(dialog).getByText("shop_db")).toBeInTheDocument();
     expect(within(dialog).getByText("shop.example.com")).toBeInTheDocument();
     expect(within(dialog).getByText(/writes made to it while that runs are not carried over/)).toBeInTheDocument();
@@ -173,7 +180,7 @@ describe("moving an engine to a newer version", { timeout: 60_000 }, () => {
 
     await menuOf(user, "PostgreSQL 16");
     await user.click(await screen.findByRole("menuitem", { name: "Upgrade version" }));
-    const dialog = await screen.findByRole("dialog", { name: /to a newer version/ });
+    const dialog = await screen.findByRole("dialog", { name: /^Upgrade / });
 
     expect(await within(dialog).findByText("This move cannot go ahead")).toBeInTheDocument();
     expect(within(dialog).getByText("shop_db: shop.example.com owns it without a link Noust wrote")).toBeInTheDocument();
@@ -189,7 +196,7 @@ describe("moving an engine to a newer version", { timeout: 60_000 }, () => {
 
     await menuOf(user, "PostgreSQL 16");
     await user.click(await screen.findByRole("menuitem", { name: "Upgrade version" }));
-    const dialog = await screen.findByRole("dialog", { name: /to a newer version/ });
+    const dialog = await screen.findByRole("dialog", { name: /^Upgrade / });
     await within(dialog).findByText("postgresql18");
     await user.click(within(dialog).getByRole("button", { name: "Move it" }));
 
@@ -210,7 +217,7 @@ describe("moving an engine to a newer version", { timeout: 60_000 }, () => {
 
     await menuOf(user, "PostgreSQL 16");
     await user.click(await screen.findByRole("menuitem", { name: "Upgrade version" }));
-    const dialog = await screen.findByRole("dialog", { name: /Move PostgreSQL 16 to a newer version/ });
+    const dialog = await screen.findByRole("dialog", { name: /Upgrade PostgreSQL 16/ });
     expect(await within(dialog).findByRole("combobox", { name: "Version to go to" })).toHaveTextContent("17 (recommended)");
     await waitFor(() => expect(backend.callsTo("POST /api/databases/instances/migrate/plan").at(-1)?.body).toMatchObject({ to_version: "17" }));
   });
@@ -221,7 +228,7 @@ describe("moving an engine to a newer version", { timeout: 60_000 }, () => {
 
     await menuOf(user, "PostgreSQL 14");
     await user.click(await screen.findByRole("menuitem", { name: "Upgrade version" }));
-    const dialog = await screen.findByRole("dialog", { name: /Move PostgreSQL 14 to a newer version/ });
+    const dialog = await screen.findByRole("dialog", { name: /Upgrade PostgreSQL 14/ });
     await within(dialog).findByText("postgresql18");
 
     expect(backend.callsTo("POST /api/databases/instances/migrate/plan")[0]?.body).toMatchObject({ source: "postgresql", to_version: "18" });
@@ -251,8 +258,8 @@ describe("moving an engine to a newer version", { timeout: 60_000 }, () => {
 
     await act(() => setLocale("es"));
 
-    expect(await screen.findByRole("heading", { level: 1, name: "Servidores de bases de datos" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Otra versión" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Motores" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Añadir un motor" })).toBeInTheDocument();
   });
 });
 

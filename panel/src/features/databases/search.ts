@@ -52,6 +52,12 @@ export function validateDatabasesSearch(search: Record<string, unknown>): Databa
   };
 }
 
+/** What the Engines page reads from its address: the flavour (or the one engine) it is narrowed to, `?engine=mariadb`. */
+export function validateEnginesSearch(search: Record<string, unknown>): { engine?: string } {
+  const engine = text(search["engine"]);
+  return engine !== undefined && /^[a-z]+(@[a-z0-9_.-]+)?$/.test(engine) ? { engine } : {};
+}
+
 export function isFiltered(search: DatabasesSearch): boolean {
   return (
     search.q !== undefined ||

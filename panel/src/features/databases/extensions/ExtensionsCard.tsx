@@ -5,11 +5,11 @@ import { useState } from "react";
 import { request } from "../../../api/client";
 import { extensionKeys, extensionsQuery } from "../../../api/queries/databaseExtensions";
 import type { DatabaseExtension } from "../../../api/queries/databaseExtensions";
-import { CommandHint } from "../../../components/page/CommandHint";
+import { Can } from "../../../components/page/permissions";
 import { ErrorBlock } from "../../../components/page/QueryState";
+import { SurfaceSection } from "../../../components/page/SurfaceSection";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
-import { Card } from "../../../components/ui/Card";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { Dialog } from "../../../components/ui/Dialog";
@@ -120,16 +120,17 @@ export function ExtensionsCard({ engine, name }: { engine: string; name: string 
   const offered = all.filter((item) => !item.installed);
 
   return (
-    <Card
+    <SurfaceSection
       icon={PackageCheck}
       title={t("databases.extensions.title")}
-      level={2}
       description={t("databases.extensions.description")}
-      padding="sm"
       actions={
-        <Button size="sm" icon={<Plus aria-hidden="true" />} disabled={offered.length === 0} onClick={() => setAdding(true)}>
-          {t("databases.extensions.add")}
-        </Button>
+        <Can permission="databases.manage">
+          {/* design-exception: submit-disabled-invalid nothing is on offer to add (the server lists none): not a field that is missing */}
+          <Button size="sm" icon={<Plus aria-hidden="true" />} disabled={offered.length === 0} onClick={() => setAdding(true)}>
+            {t("databases.extensions.add")}
+          </Button>
+        </Can>
       }
     >
       {query.isError ? (
@@ -151,13 +152,14 @@ export function ExtensionsCard({ engine, name }: { engine: string; name: string 
                     </span>
                     {item.comment ? <span className="truncate text-12 text-fg-muted">{item.comment}</span> : null}
                   </span>
-                  <IconButton label={t("databases.extensions.removeLabel", { extension: item.name })} icon={<ICONS.delete aria-hidden="true" />} size="sm" onClick={() => setRemoving(item)} />
+                  <Can permission="databases.manage">
+                    <IconButton label={t("databases.extensions.removeLabel", { extension: item.name })} icon={<ICONS.delete aria-hidden="true" />} size="sm" onClick={() => setRemoving(item)} />
+                  </Can>
                 </li>
               ))}
             </ul>
           )}
           {query.data.source !== "" ? <p className="text-12 text-fg-muted">{query.data.source}</p> : null}
-          <CommandHint command={`noust db extension list ${name} -e ${engine} --all`} label={t("common.words.fromTerminal")} />
         </div>
       )}
       {adding ? <AddDialog engine={engine} name={name} offered={offered} loaded={names} onOpenChange={(open) => (open ? undefined : setAdding(false))} /> : null}
@@ -188,6 +190,6 @@ export function ExtensionsCard({ engine, name }: { engine: string; name: string 
           <Checkbox checked={cascade} onCheckedChange={setCascade} label={t("databases.extensions.cascadeDrop")} description={t("databases.extensions.cascadeDropHelp")} />
         </ConfirmDialog>
       ) : null}
-    </Card>
+    </SurfaceSection>
   );
 }

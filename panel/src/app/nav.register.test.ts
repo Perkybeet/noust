@@ -633,7 +633,7 @@ describe("what the pages draw from the register", () => {
     expect(paths(tabsById("apps"))).toEqual(["/apps", "/projects"]);
     expect(paths(tabsById("catalog"))).toEqual(["/catalog", "/catalog/installed"]);
     expect(paths(tabsById("alerts"))).toEqual(["/alerts", "/alerts/checks", "/alerts/probes", "/alerts/status", "/alerts/metrics"]);
-    expect(paths(tabsById("databases"))).toEqual(["/databases", "/databases/servers"]);
+    expect(paths(tabsById("databases"))).toEqual(["/databases", "/databases/engines"]);
     expect(paths(tabsById("service"))).toEqual(["/server/services/$name", "/server/services/$name/logs"]);
   });
 
@@ -674,9 +674,9 @@ describe("what the pages draw from the register", () => {
 
   it("draws the tabs of a database from what its engine can do", () => {
     const paths = (capabilities: readonly string[]) => tabsById("database", { capabilities }).map((tab) => tab.to.replace("/databases/$engine/$name", "") || "/");
-    expect(paths(["tables", "sql", "dump", "users", "metrics"])).toEqual(["/", "/data", "/query", "/backups", "/users", "/connect", "/metrics"]);
+    expect(paths(["tables", "sql", "dump", "users", "profiles", "metrics"])).toEqual(["/", "/data", "/query", "/metrics", "/access", "/connect", "/backups", "/settings", "/delete"]);
     // A key-value store has Keys where a SQL database has Data, and no query console.
-    expect(paths(["keys", "dump"])).toEqual(["/", "/data", "/backups", "/connect"]);
+    expect(paths(["keys", "dump"])).toEqual(["/", "/data", "/connect", "/backups", "/settings", "/delete"]);
     expect(tabsById("database", { capabilities: ["keys"] }).map((tab) => tab.label)).toContain("databases.detailTabs.keys");
   });
 

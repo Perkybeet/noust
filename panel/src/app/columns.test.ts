@@ -35,7 +35,7 @@ describe("which column a path has", () => {
     expect(columnKindOf("/server")).toBe("server");
     expect(columnKindOf("/server/files")).toBe("server");
     expect(columnKindOf("/databases")).toBe("databases");
-    expect(columnKindOf("/databases/servers")).toBe("databases");
+    expect(columnKindOf("/databases/engines")).toBe("databases");
     expect(columnKindOf("/databases/engines/postgresql/settings")).toBe("databases");
     expect(columnKindOf("/settings/tokens")).toBe("settings");
     expect(columnKindOf("/integrations/github/callback")).toBe("settings");
@@ -71,7 +71,7 @@ describe("which column a path has", () => {
   it("does not take the wizard that makes an application for an application, nor a database server for a database", () => {
     expect(columnKindOf("/apps/new")).toBe("apps");
     expect(columnKindOf("/apps/newsletter.example.com")).toBe("app");
-    expect(columnKindOf("/databases/servers")).toBe("databases");
+    expect(columnKindOf("/databases/engines")).toBe("databases");
     expect(columnKindOf("/databases/engines/redis/settings")).toBe("databases");
   });
 
@@ -254,11 +254,26 @@ describe("a resource's sections", () => {
     ]);
   });
 
-  it("depend on what a database's engine can do, never on its name", () => {
-    const paths = (capabilities: readonly string[]) => resourceColumn("database", { capabilities })[0]?.items.map((item) => item.to);
-    expect(paths(["tables", "sql", "dump", "users", "metrics"])).toContain("/databases/$engine/$name/query");
-    expect(paths(["keys", "dump", "metrics"])).not.toContain("/databases/$engine/$name/query");
-    expect(paths(["keys", "dump"])).toContain("/databases/$engine/$name/data");
+  it("depend on what a database's engine can do, never on its name, and come in three groups: what is seen, what is set up, and what is dangerous", () => {
+    const groups = (capabilities: readonly string[]) => resourceColumn("database", { capabilities }).map((group) => [group.heading, group.items.map((item) => item.to.replace("/databases/$engine/$name", "") || "/")] as const);
+    expect(groups(["tables", "sql", "dump", "users", "profiles", "metrics"])).toEqual([
+      ["nav.dbIntents.use", ["/", "/data", "/query", "/metrics"]],
+      ["nav.dbIntents.configure", ["/access", "/connect", "/backups", "/settings"]],
+      ["nav.intents.danger", ["/delete"]],
+    ]);
+    // A key-value store has its keys where a SQL database has its tables, and no query.
+    expect(groups(["keys", "dump", "metrics", "users", "profiles"])).toEqual([
+      ["nav.dbIntents.use", ["/", "/data", "/metrics"]],
+      ["nav.dbIntents.configure", ["/access", "/connect", "/backups", "/settings"]],
+      ["nav.intents.danger", ["/delete"]],
+    ]);
+    // An engine that has neither (MongoDB browses nothing here): the group is its overview alone, and Delete is still last.
+    expect(groups(["documents", "dump", "users", "profiles"])[0]).toEqual(["nav.dbIntents.use", ["/"]]);
+  });
+
+  it("mark only Delete as dangerous", () => {
+    const danger = resourceColumn("database", everything).filter((group) => group.danger === true);
+    expect(danger.map((group) => group.items.map((item) => item.to))).toEqual([["/databases/$engine/$name/delete"]]);
   });
 
   it("are the account's two: its profile and the security of its sign-in", () => {

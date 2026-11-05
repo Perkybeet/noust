@@ -22,6 +22,8 @@ export const nav = {
   },
   /** What an application's sections are for: the titles of the groups of its second column. */
   intents: { use: "Use", configure: "Configure", fix: "Fix", move: "Move elsewhere", danger: "Danger" },
+  /** What a database's sections are for: the titles of the groups of its second column (Danger is the application's word too). */
+  dbIntents: { use: "View", configure: "Manage" },
   /** The titles of the groups of the column of an area whose sections are of different kinds. */
   columnGroups: {
     publish: "Publish",

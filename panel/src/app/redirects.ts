@@ -43,8 +43,10 @@ export const REDIRECT_ROWS = [
   // The page of Alerts has no filters to carry: what the old address carried is dropped.
   { from: "/settings/alerts", to: "/alerts", state: "live", plain: true },
   { from: "/settings/probes", to: "/alerts/probes", state: "live", plain: true },
-  // 4.1: the engines are database servers, and the page that listed them is the section of that name.
-  { from: "/databases/engines", to: "/databases/servers", state: "live", plain: true },
+  // 4.1 called the engines database servers and gave them /databases/servers; 4.2 calls them Engines again, in the
+  // column and in the address (the page also takes `?engine=` to show one of them), and a database's Users are its Access.
+  { from: "/databases/servers", to: "/databases/engines", state: "live" },
+  { from: "/databases/$engine/$name/users", to: "/databases/$engine/$name/access", state: "live", plain: true },
   // 4.2: Home is a panel of widgets and the map was its second view; Home has none now.
   { from: "/map", to: "/", state: "live", plain: true },
 ] as const;

@@ -199,7 +199,7 @@ export const RENAMED: Readonly<Record<string, readonly PlainKey[]>> = {
   // The areas of the bar that 4.1 renamed or moved: what they were called in 4.0.
   overview: ["nav.renamed.overview"],
   cron: ["nav.renamed.cron"],
-  "databases.servers": ["nav.renamed.engines"],
+  "databases.engines": ["nav.renamed.engines"],
   backups: ["nav.renamed.backups"],
   server: ["nav.renamed.server"],
   // The updates of 4.0 are a section of the server again (4.2); "System updates" typed whole still opens it, ahead of the alert rule that names them.

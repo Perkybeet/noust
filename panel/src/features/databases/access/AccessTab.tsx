@@ -8,10 +8,9 @@ import { isApiError, request } from "../../../api/client";
 import { accessQuery, databaseKeys, databaseOverviewQuery } from "../../../api/queries/databases";
 import type { AccessEntry } from "../../../api/queries/databases";
 import { jobKeys } from "../../../api/queries/jobs";
-import { CommandHint } from "../../../components/page/CommandHint";
+import { GuardedButton, ReadOnlyLine, useCan } from "../../../components/page/permissions";
 import { ErrorBlock, QueryState } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
-import { Section } from "../../../components/page/Section";
 import { RowMenu } from "../../../components/page/RowMenu";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -32,13 +31,14 @@ import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
 import { reportActionError } from "../../apps/useAppActions";
+import { DatabasePage, useAsking } from "../DatabasePage";
+import { engineFamilyOf } from "../engineKey";
 import { useDatabaseJob } from "../jobs";
 import { TEXT_LINK } from "../ui";
 import { PROFILES, isProfile, profileHelp, profileLabel } from "./profiles";
 import type { Profile } from "./profiles";
 import { SecretShown } from "./SecretShown";
 import type { SecretShownProps } from "./SecretShown";
-import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 const USERNAME = /^[A-Za-z_][A-Za-z0-9_]{0,62}$/;
 
@@ -177,19 +177,23 @@ function rotateDescription(t: T, entry: AccessEntry): string {
 }
 
 /**
- * Who can reach a database, each account with its profile (owner, read and write, read only),
+ * Who can reach a database, each account with what it may do (owner, read and write, read only),
  * the applications that sign in as it and when Noust last set its password; the engine's own
  * accounts and the read-only console's are hidden unless asked for, and never changed. A new
  * account's password is shown once; a rotation restarts the applications that use it behind
  * their startup check.
  */
-export function UsersTab({ engine, name }: { engine: string; name: string }) {
+export function AccessTab({ engine, name }: { engine: string; name: string }) {
   const t = useT();
   const { node } = useNode();
   const queryClient = useQueryClient();
   const job = useDatabaseJob();
-  const access = useQuery(accessQuery(engine, name));
-  const overview = useQuery(databaseOverviewQuery(engine, name));
+  const asking = useAsking(["users", "profiles"]);
+  const access = useQuery({ ...accessQuery(engine, name), enabled: asking });
+  const overview = useQuery({ ...databaseOverviewQuery(engine, name), enabled: asking });
+  const canWrite = useCan("databases.write");
+  const canManage = useCan("databases.manage");
+  const canReveal = useCan("secrets.reveal");
   const [showSystem, setShowSystem] = useState(false);
   const [creating, setCreating] = useState(false);
   const [changing, setChanging] = useState<AccessEntry | null>(null);
@@ -200,7 +204,8 @@ export function UsersTab({ engine, name }: { engine: string; name: string }) {
   const entries = access.data?.access ?? [];
   const shown = showSystem ? entries : entries.filter((entry) => !entry.internal);
   const hidden = entries.length - entries.filter((entry) => !entry.internal).length;
-  const hosts = engine === "mysql";
+  // MySQL tells accounts apart by the host they sign in from; an instance in a container is MySQL as much as the system's.
+  const hosts = engineFamilyOf(engine) === "mysql";
   const profiles = (overview.data?.capabilities ?? ["profiles"]).includes("profiles");
 
   const reveal = useMutation({
@@ -219,20 +224,23 @@ export function UsersTab({ engine, name }: { engine: string; name: string }) {
 
   const Add = ICONS.add;
   return (
-    <div className="flex min-w-0 flex-col gap-8">
-      <Section
-        icon={OBJECT_ICONS.account}
-        title={t("databases.users.title")}
-        description={t("databases.users.description")}
-        actions={
-          <>
-            {hidden > 0 ? <Checkbox checked={showSystem} onCheckedChange={setShowSystem} label={t("databases.users.showSystem", { count: hidden })} /> : null}
-            <Button size="sm" icon={<Add aria-hidden="true" />} onClick={() => setCreating(true)}>
-              {t("databases.users.new")}
-            </Button>
-          </>
-        }
-      >
+    <DatabasePage
+      title={t("databases.detailTabs.access")}
+      needsEngine
+      needs={["users", "profiles"]}
+      primaryAction={
+        <GuardedButton permission="databases.write" variant="primary" icon={<Add aria-hidden="true" />} onClick={() => setCreating(true)}>
+          {t("databases.users.new")}
+        </GuardedButton>
+      }
+    >
+      <div className="flex min-w-0 flex-col gap-4">
+        <ReadOnlyLine permission="databases.write" />
+        {hidden > 0 ? (
+          <div className="flex justify-end">
+            <Checkbox checked={showSystem} onCheckedChange={setShowSystem} label={t("databases.users.showSystem", { count: hidden })} />
+          </div>
+        ) : null}
         <QueryState query={access} label={t("databases.users.noun")} skeleton={<SkeletonRows rows={3} />}>
           {() => (
           <DataTable<AccessEntry>
@@ -288,34 +296,38 @@ export function UsersTab({ engine, name }: { engine: string; name: string }) {
               },
             ]}
             rowActions={(entry) =>
-              entry.internal ? null : (
+              entry.internal || !(canWrite || canManage || canReveal) ? null : (
                 <RowMenu name={entry.username}>
-                  {profiles ? (
+                  {profiles && canWrite ? (
                     <MenuItem icon={<UserCog />} onClick={() => setChanging(entry)}>
                       {t("databases.users.changeAccess")}
                     </MenuItem>
                   ) : null}
-                  <MenuItem icon={<KeyRound />} disabled={job.busy} onClick={() => setRotating(entry)}>
-                    {t("databases.users.rotate")}
-                  </MenuItem>
-                  {entry.managed ? (
+                  {canManage ? (
+                    <MenuItem icon={<KeyRound />} disabled={job.busy} onClick={() => setRotating(entry)}>
+                      {t("databases.users.rotate")}
+                    </MenuItem>
+                  ) : null}
+                  {entry.managed && canReveal ? (
                     <MenuItem icon={<Eye />} onClick={() => reveal.mutate(entry)}>
                       {t("databases.users.reveal")}
                     </MenuItem>
                   ) : null}
-                  <MenuSeparator />
-                  <MenuItem icon={<ICONS.delete />} destructive disabled={(entry.apps ?? []).length > 0} onClick={() => setDeleting(entry)}>
-                    {(entry.apps ?? []).length > 0 ? t("databases.users.deleteLinked") : t("databases.users.delete")}
-                  </MenuItem>
+                  {canManage ? (
+                    <>
+                      <MenuSeparator />
+                      <MenuItem icon={<ICONS.delete />} destructive disabled={(entry.apps ?? []).length > 0} onClick={() => setDeleting(entry)}>
+                        {(entry.apps ?? []).length > 0 ? t("databases.users.deleteLinked") : t("databases.users.delete")}
+                      </MenuItem>
+                    </>
+                  ) : null}
                 </RowMenu>
               )
             }
           />
           )}
         </QueryState>
-      </Section>
-
-      <CommandHint command={`noust db access ${name} -e ${engine}`} label={t("common.words.fromTerminal")} />
+      </div>
 
       <NewUserDialog
         engine={engine}
@@ -371,6 +383,6 @@ export function UsersTab({ engine, name }: { engine: string; name: string }) {
         />
       ) : null}
       <SecretShown secret={secret} onClose={() => setSecret(null)} />
-    </div>
+    </DatabasePage>
   );
 }

@@ -1,12 +1,15 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 
-/**
- * The engines were a tab of Databases in 4.0. In 4.1 they are database servers, a section of their own: the
- * old address keeps working and opens it (app/nav.ts, REDIRECTS).
- */
+import { EnginesPage } from "../../../features/databases/EnginesPage";
+import { validateEnginesSearch } from "../../../features/databases/search";
+
+/** The engines: where the databases run, and the version each is on. `?engine=mariadb` keeps the engines of one flavour. */
 export const Route = createFileRoute("/_console/databases/engines")({
-  beforeLoad: () => {
-    // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect protocol
-    throw redirect({ to: "/databases/servers", replace: true });
-  },
+  validateSearch: validateEnginesSearch,
+  component: EnginesRoute,
 });
+
+function EnginesRoute() {
+  const { engine } = Route.useSearch();
+  return <EnginesPage engine={engine} />;
+}

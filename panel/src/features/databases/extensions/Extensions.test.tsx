@@ -14,8 +14,8 @@ const BASE = "/api/databases/databases/postgresql/example_production";
 async function cardAt(extra: Record<string, RouteHandler> = {}) {
   screenWidth(1440);
   const backend = fakeBackend(databaseRoutes(extra));
-  const harness = renderConsole("/databases/postgresql/example_production");
-  await screen.findByRole("heading", { level: 1, name: "example_production" });
+  const harness = renderConsole("/databases/postgresql/example_production/settings");
+  await screen.findByRole("heading", { level: 1, name: "Settings" });
   const card = (await screen.findByRole("heading", { level: 2, name: "Extensions" })).closest("section");
   if (card === null) throw new Error("no card");
   await within(card).findByText("pg_trgm");
@@ -36,9 +36,9 @@ describe("the extensions of a PostgreSQL database", { timeout: 60_000 }, () => {
   it("is not shown for an engine that has none", async () => {
     screenWidth(1440);
     fakeBackend(databaseRoutes({ [`GET ${BASE}/overview`]: () => json(200, { ...OVERVIEW, capabilities: ["dump", "sql"] }) }));
-    renderConsole("/databases/postgresql/example_production");
-    await screen.findByRole("heading", { level: 1, name: "example_production" });
-    await screen.findByText("Every day at 02:00");
+    renderConsole("/databases/postgresql/example_production/settings");
+    await screen.findByRole("heading", { level: 1, name: "Settings" });
+    await screen.findByRole("heading", { level: 2, name: "This database" });
 
     expect(screen.queryByRole("heading", { level: 2, name: "Extensions" })).not.toBeInTheDocument();
   });
