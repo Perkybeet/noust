@@ -555,7 +555,7 @@ describe("token values the system is built on", () => {
     expect(declared("width-wizard")).toBe("46rem");
     expect(declared("width-settings-nav")).toBe("12.5rem");
     expect(declared("width-settings")).toBe("55rem");
-    expect(declared("width-auth")).toBe("25rem");
+    expect(declared("width-auth")).toBe("62rem");
     expect(declared("width-dialog-sm")).toBe("27.5rem");
     expect(declared("width-dialog-md")).toBe("35rem");
     expect(declared("width-dialog-lg")).toBe("45rem");

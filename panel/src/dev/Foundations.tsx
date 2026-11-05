@@ -303,7 +303,7 @@ const WIDTHS: { token: string; value: string; use: string }[] = [
   { token: "--width-settings-nav", value: "200px", use: "T3's side navigation, T5's step rail" },
   { token: "--width-settings", value: "880px", use: "T3's content column" },
   { token: "--width-wizard", value: "736px", use: "T5's step column" },
-  { token: "--width-auth", value: "400px", use: "T7's single column" },
+  { token: "--width-auth", value: "992px", use: "T7's slab" },
   { token: "--width-dialog-sm | md | lg | xl", value: "440 / 560 / 720 / 1280", use: "Question / form / two columns or steps / looking closely" },
   { token: "--width-drawer-md | lg", value: "480 / 720", use: "Forms and detail / logs" },
   { token: "--width-search", value: "288px", use: "Every FilterBar search box" },

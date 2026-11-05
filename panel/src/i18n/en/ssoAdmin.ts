@@ -181,9 +181,6 @@ export const ssoAdmin = {
     },
     linkedToast: "{account} was linked to {provider}",
   },
-  signIn: {
-    localLink: "Sign in with a password or a passkey",
-  },
   command: "Setting providers up from a terminal",
   commandProviders: "noust auth oidc set corp --issuer https://sso.example.com/realms/acme --client-id noust --prompt-secret",
 } as const;

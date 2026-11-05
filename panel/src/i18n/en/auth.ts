@@ -6,8 +6,24 @@
 export const auth = {
   area: "Sign in",
   frame: {
-    product: "Noust console",
-    productVersion: "Noust console {version}",
+    tagline: "Your apps and servers, kept safe.",
+  },
+  /** The other ways in under the password form, and what each opens in the form's place. */
+  ways: {
+    label: "Other ways to sign in",
+    back: "With a password",
+    backToCompany: "With your company",
+    passkey: "Passkey",
+    company: "Your company",
+    local: "Password or passkey",
+    passkeyDescription: "With the fingerprint, the face or the key you saved on this device. No password.",
+    companyTitle: "Sign in with your company",
+    companyDescription: "With your organization's account.",
+  },
+  /** The step after a right password: the second factor the account has. */
+  factor: {
+    title: "One more step",
+    description: "Confirm it's you with your second factor.",
   },
   sessionExpired: "Your session expired. Sign in again to continue where you left off.",
   account: {
@@ -60,10 +76,8 @@ export const auth = {
     link: "Access token",
     title: "Sign in with the access token",
     description: "The installer printed it once, in a box. Paste it here.",
-    firstTime: "First time here? Sign in with the access token the installer printed.",
     recoveryHelp:
       "The access token is the key of whoever is root on this machine. Once there are accounts, use it only to get back in: every use is recorded as a warning.",
-    back: "Use your account instead",
     lostIt: "Print it on the server",
     passkeyRequiredTitle: "The access token has a passkey now",
   },

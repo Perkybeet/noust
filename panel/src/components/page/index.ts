@@ -26,6 +26,8 @@ export { STATE_RANK, appStatus, deployStatus } from "./status";
 export type { StatusView } from "./status";
 export { useAnnounceChange } from "./useAnnounceChange";
 export { useNow } from "./clock";
+export { AuthDoors } from "./AuthDoors";
+export type { AuthDoor, AuthDoorsProps } from "./AuthDoors";
 export { AuthLayout } from "./AuthLayout";
 export type { AuthLayoutProps } from "./AuthLayout";
 export { DashboardPage } from "./DashboardPage";
