@@ -6,7 +6,7 @@ import { renderConsole } from "../../test/console";
 import { SESSION, fakeBackend, json, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import { screenWidth } from "../app/testRoutes";
-import { DATABASES, OVERVIEW, SERVERS, databaseRoutes } from "./testFixtures";
+import { DATABASES, ENGINES, OVERVIEW, SERVERS, databaseRoutes } from "./testFixtures";
 
 const BASE = "/api/databases/databases/postgresql/example_production";
 const JOB = { id: "drop-1", type: "database", name: "Drop example_production", description: "", status: "pending", progress: 0, total_steps: 100, current_step: "", created_at: "2026-09-29T10:00:00", logs: [], metadata: { engine: "postgresql", database: "example_production" } };
@@ -45,6 +45,20 @@ describe("a database's page and its column", () => {
     const column = await screen.findByRole("navigation", { name: "Database sections" });
     await waitFor(() => expect(within(column).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Keys", "Metrics", "Access", "Connect", "Backups", "Settings", "Delete"]));
     expect(within(column).queryByRole("link", { name: "Query" })).toBeNull();
+  });
+
+  it("names the page in the trail as its engine has it, Keys where a SQL engine has Data, and its switch lists no Query", async () => {
+    const capabilities = ["dump", "keys", "metrics", "users", "profiles"];
+    const { user } = await pageAt("/databases/postgresql/example_production/data", {
+      [`GET ${BASE}/overview`]: () => json(200, { ...OVERVIEW, capabilities }),
+      "GET /api/databases/engines": () => json(200, { engines: ENGINES.map((engine) => (engine.name === "postgresql" ? { ...engine, capabilities } : engine)) }),
+    }, "Keys");
+    const trail = await screen.findByRole("navigation", { name: "Breadcrumb" });
+    await waitFor(() => expect(within(trail).getByText("Keys")).toHaveAttribute("aria-current", "page"));
+    expect(within(trail).queryByText("Data")).toBeNull();
+    await user.click(within(trail).getByRole("button", { name: "Switch Keys" }));
+    expect(await screen.findByRole("menuitem", { name: "Metrics" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Query" })).toBeNull();
   });
 
   it("does not offer a query typed into the address for an engine that has none: it says so and leads back", async () => {

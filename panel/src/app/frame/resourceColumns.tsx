@@ -105,6 +105,9 @@ export function DatabaseColumn({ engine, name }: { engine: string; name: string 
   const groups = toListGroups(resourceColumn("database", { ...ctx, capabilities: capabilities ?? ASSUMED_CAPABILITIES }), t, { engine, name });
   const missing = overview.data?.database.missing === true;
   const stopped = where.life === "stopped" || where.life === "changing";
+  // The line under the name (its state and engine) arrives with the list of engines or the overview: its place is kept, empty, until it
+  // does, so the sections under it do not move (a skeleton there would be silent to a screen reader: it is not a region that is busy).
+  const settling = where.reading || (answers(where) && overview.isPending);
   const logo = logoFor(flavour);
   const siblings: Sibling[] = (databases.data ?? []).slice(0, SIBLINGS + 1).map((other) => ({
     key: `${other.engine}/${other.name}`,
@@ -124,8 +127,10 @@ export function DatabaseColumn({ engine, name }: { engine: string; name: string 
         {...(stopped
           ? { state: <StatusPill state={where.life === "changing" ? "deploying" : "stopped"} label={t(where.life === "changing" ? "databases.state.changing" : "common.statusPill.stopped")} size="sm" />, ...(where.server !== undefined ? { kind: serverTitle(where.server) } : {}) }
           : overview.data !== undefined
-            ? { state: <StatusPill state={missing ? "failed" : "running"} label={t(missing ? "databases.state.missing" : "common.statusPill.running")} size="sm" />, kind: `${overview.data.display_name}${overview.data.database.engine_version ? ` ${overview.data.database.engine_version}` : ""}` }
-            : {})}
+            ? { state: <StatusPill state={missing ? "failed" : "running"} label={t(missing ? "databases.state.missing" : "common.statusPill.running")} size="sm" />, kind: `${where.server?.display_name ?? overview.data.display_name}${overview.data.database.engine_version ? ` ${overview.data.database.engine_version}` : ""}` }
+            : settling
+              ? { state: <span aria-hidden="true" className="block h-5 w-px" /> }
+              : {})}
         siblings={siblings}
         siblingsLabel={t("nav.column.switchDatabase")}
       />

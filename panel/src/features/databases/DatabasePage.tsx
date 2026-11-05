@@ -83,7 +83,7 @@ function Facts({ frame }: { frame: DatabaseFrame }) {
   const overview = useQuery({ ...databaseOverviewQuery(engine, name), retry: false, enabled: answers(frame) });
   const row = useQuery({ ...databasesQuery(), select: (list) => list.databases.find((item) => item.engine === engine && item.name === name) });
   const database = overview.data?.database ?? row.data;
-  const label = overview.data !== undefined ? `${overview.data.display_name}${database?.engine_version ? ` ${database.engine_version}` : ""}` : server !== undefined ? serverTitle(server) : null;
+  const label = overview.data !== undefined ? `${server?.display_name ?? overview.data.display_name}${database?.engine_version ? ` ${database.engine_version}` : ""}` : server !== undefined ? serverTitle(server) : null;
   const flavour = server?.flavour ?? engine.split("@")[0] ?? engine;
   const logo = logoFor(flavour);
   const size = sizeWords(database?.size, t);
