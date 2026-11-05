@@ -78,7 +78,8 @@ describe("the web server's sites", { timeout: 20_000 }, () => {
     expect(within(shop).getByText("Reload pending")).toBeInTheDocument();
     expect(within(shop).getByText("Edited outside Noust")).toBeInTheDocument();
     expect(within(rowOf(table, "proggest.es")).queryByText("Reload pending")).not.toBeInTheDocument();
-    expect(within(shop).getByRole("link", { name: "shop.example.com" })).toHaveAttribute("href", "/apps/shop.example.com");
+    // The name opens the site's file; the application it serves is the other link.
+    expect(within(shop).getAllByRole("link", { name: "shop.example.com" }).map((link) => link.getAttribute("href"))).toEqual(["/domains/sites/shop.example.com", "/apps/shop.example.com"]);
     const proggest = rowOf(table, "proggest.es");
     expect(within(proggest).getByText("By hand")).toBeInTheDocument();
     // Its file is not named after the domain: the name is said.

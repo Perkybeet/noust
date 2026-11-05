@@ -28,8 +28,8 @@ export interface ResourceCardProps {
   actions?: ReactNode;
   /** Whatever must sit under the facts, in the card (an error the provider gave). */
   children?: ReactNode;
-  /** Heading level of the name. */
-  level?: 3 | 4;
+  /** Heading level of the name: 3 under a section's title, 2 for cards that sit directly under the page's own. */
+  level?: 2 | 3 | 4;
   className?: string;
 }
 

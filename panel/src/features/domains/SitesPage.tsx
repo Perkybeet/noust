@@ -1,13 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Lock, Play, RotateCw, Square } from "lucide-react";
 import { useState } from "react";
 
 import { request } from "../../api/client";
+import { appsQuery } from "../../api/queries/apps";
 import { sitesQuery } from "../../api/queries/sites";
 import type { SiteEntry } from "../../api/queries/sites";
-import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
+import { GuardedButton, ReadOnlyLine, useCan } from "../../components/page/permissions";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RowMenu } from "../../components/page/RowMenu";
 import { Button } from "../../components/ui/Button";
@@ -16,8 +17,10 @@ import type { Column } from "../../components/ui/DataTable";
 import { DataTable } from "../../components/ui/DataTable";
 import { EmptyCell } from "../../components/ui/EmptyCell";
 import { EmptyState } from "../../components/ui/EmptyState";
+import { FirstUse } from "../../components/ui/FirstUse";
 import { ICONS } from "../../components/ui/icons";
 import { MenuItem, MenuSeparator } from "../../components/ui/Menu";
+import { NameWithTags } from "../../components/ui/NameWithTags";
 import { Mono } from "../../components/ui/Mono";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { TextLink } from "../../components/ui/TextLink";
@@ -26,14 +29,13 @@ import { useT } from "../../i18n";
 import { useOnArrival } from "../../lib/useArrival";
 import { ownerColumns, useOwnerScope } from "../teams/ownership";
 import { useOrganization } from "../teams/useOrganization";
-import { CreateSiteDialog } from "./CreateSiteDialog";
+import { AddDomainDialog } from "./AddDomainDialog";
 import { DomainsListPage } from "./DomainsListPage";
-import { truncatedNames } from "./names";
 import { spendNew } from "./search";
 import type { SitesSearch } from "./search";
 import { UnknownHostsCard } from "./UnknownHostsCard";
-import { useSiteActions } from "./useSiteActions";
-import { OBJECT_ICONS, VERB_ICONS } from "../../components/ui/objectIcons";
+import { useSiteActions, useSiteMade } from "./useSiteActions";
+import { VERB_ICONS } from "../../components/ui/objectIcons";
 
 /** Whether a site serves HTTPS, as an attribute of it rather than a state: no colour. */
 export function Tls({ secure }: { secure: boolean }) {
@@ -61,39 +63,29 @@ export function SiteState({ enabled, size = "sm" }: { enabled: boolean; size?: "
   );
 }
 
-/** The names a site's configuration answers on, mono and joined, truncated past three with a
- * "+N more" tail; the full list is always in the title. */
-function ServedNames({ names }: { names: readonly string[] }) {
-  const t = useT();
-  if (names.length === 0) return <span className="text-fg-muted">{t("common.statusPill.unknown")}</span>;
-  const { shown, rest } = truncatedNames(names);
-  return (
-    <span className="flex min-w-0 items-center gap-1.5" title={names.join(", ")}>
-      <Mono tone="muted" truncate>
-        {shown}
-      </Mono>
-      {rest > 0 ? <span className="shrink-0 text-12 text-fg-muted">{t("domains.moreCount", { count: rest })}</span> : null}
-    </span>
-  );
-}
-
 export interface SitesPageProps {
   search: SitesSearch;
   onSearchChange: (search: SitesSearch, options?: { replace?: boolean }) => void;
 }
 
 /**
- * The Web server sites tab: every site the web server has, whether it serves and over HTTPS,
- * and the names it answers on. A site opens its configuration editor. Every application gets
- * one when it is deployed; the ones created here answer a name that is not an application.
+ * The Sites section: the web server's file for each name, whether it serves and over HTTPS, the other names it answers
+ * on and who wrote it. A site opens its configuration. Every application gets one when it is deployed; a site of its
+ * own answers a name that is not an application, and is made from the dialog that adds a name, where the sites stay
+ * (they are a resource a team sees, and the Server area is not theirs).
  */
 export function SitesPage({ search, onSearchChange }: SitesPageProps) {
   const t = useT();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const sites = useQuery(sitesQuery());
+  const apps = useQuery(appsQuery());
   // What answers an unknown name is the server's own default, so it is the server's to read.
   const server = useOrganization().can("server.read");
+  const mayManage = useCan("apps.manage");
+  const mayOperate = useCan("apps.operate");
   const { enable, disable, reload, refresh } = useSiteActions();
+  const siteMade = useSiteMade();
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<SiteEntry | null>(null);
 
@@ -119,53 +111,31 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
   const open = (site: SiteEntry): void => {
     void navigate({ to: "/domains/sites/$site", params: { site: site.name } });
   };
+  const written = all.filter((site) => !site.noust_managed).length;
 
   const columns: Column<SiteEntry>[] = [
     {
       id: "name",
       header: t("domains.sitesTab.siteColumn"),
+      card: "title",
+      // The other names it answers on follow the name on its line, with "+N" for the rest: the row is one height.
+      // The name is the link that opens the site: the row is not itself a button, because "+N" is a button of its own.
       cell: (site) => (
-        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-          <span translate="no">{site.name}</span>
-          {site.pending_reload ? <StatusPill state="warning" size="sm" appearance="inline" label={t("domains.siteHistory.pendingBadge")} /> : null}
-          {site.edited_outside ? <StatusPill state="warning" size="sm" appearance="inline" label={t("domains.siteHistory.editedBadge")} /> : null}
-        </span>
+        <NameWithTags
+          name={
+            <TextLink to="/domains/sites/$site" params={{ site: site.name }} variant="row" translate="no">
+              {site.name}
+            </TextLink>
+          }
+          tags={site.server_names.filter((name) => name !== site.name)}
+          shown={1}
+        />
       ),
       sortValue: (site) => site.name,
     },
     {
-      id: "state",
-      header: t("domains.sitesTab.stateColumn"),
-      width: "w-32",
-      card: "status",
-      cell: (site) => <SiteState enabled={site.enabled} />,
-      sortValue: (site) => (site.enabled ? 1 : 0),
-    },
-    { id: "tls", header: t("domains.sitesTab.servesColumn"), width: "w-32", cell: (site) => <Tls secure={site.has_ssl} />, sortValue: (site) => (site.has_ssl ? 0 : 1) },
-    { id: "names", header: t("domains.sitesTab.namesColumn"), hideBelow: "md", card: "hidden", cell: (site) => <ServedNames names={site.server_names} /> },
-    ...ownerColumns<SiteEntry>(t, owner.scope, owner.labels),
-    {
-      id: "writtenBy",
-      header: t("domains.sitesTab.writtenByColumn"),
-      width: "w-32",
-      hideBelow: "sm",
-      card: "meta",
-      // An attribute, not a state: neutral, with the file's name when it is not the domain.
-      cell: (site) => (
-        <span className="flex min-w-0 flex-col">
-          <span className={site.noust_managed ? "text-fg" : "text-fg-muted"}>{site.noust_managed ? t("domains.sitesTab.writtenByNoust") : t("domains.sitesTab.writtenByHand")}</span>
-          {site.site_name !== site.name ? (
-            <Mono tone="faint" truncate title={site.config_path}>
-              {site.site_name}
-            </Mono>
-          ) : null}
-        </span>
-      ),
-      sortValue: (site) => (site.noust_managed ? 0 : 1),
-    },
-    {
       id: "app",
-      header: t("domains.sitesTab.appColumn"),
+      header: t("domains.sitesTab.isOfColumn"),
       hideBelow: "md",
       card: "meta",
       cell: (site) =>
@@ -178,12 +148,47 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
         ),
       sortValue: (site) => site.app ?? "",
     },
+    ...ownerColumns<SiteEntry>(t, owner.scope, owner.labels),
+    {
+      id: "writtenBy",
+      header: t("domains.sitesTab.writtenByColumn"),
+      width: "w-44",
+      hideBelow: "sm",
+      card: "meta",
+      // An attribute, not a state: neutral. The file's name, when it is not the domain, follows on the same line.
+      cell: (site) => (
+        <span className="flex min-w-0 items-center gap-2">
+          <span className={site.noust_managed ? "text-fg" : "font-medium text-fg"}>{site.noust_managed ? t("domains.sitesTab.writtenByNoust") : t("domains.sitesTab.writtenByHand")}</span>
+          {site.site_name !== site.name ? (
+            <Mono tone="faint" truncate title={site.config_path}>
+              {site.site_name}
+            </Mono>
+          ) : null}
+        </span>
+      ),
+      sortValue: (site) => (site.noust_managed ? 0 : 1),
+    },
+    { id: "tls", header: t("domains.sitesTab.servesColumn"), width: "w-32", hideBelow: "lg", card: "hidden", cell: (site) => <Tls secure={site.has_ssl} />, sortValue: (site) => (site.has_ssl ? 0 : 1) },
+    {
+      id: "state",
+      header: t("domains.sitesTab.stateColumn"),
+      width: "w-48",
+      card: "status",
+      cell: (site) => (
+        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <SiteState enabled={site.enabled} />
+          {site.pending_reload ? <StatusPill state="warning" size="sm" appearance="inline" label={t("domains.siteHistory.pendingBadge")} /> : null}
+          {site.edited_outside ? <StatusPill state="warning" size="sm" appearance="inline" label={t("domains.siteHistory.editedBadge")} /> : null}
+        </span>
+      ),
+      sortValue: (site) => (site.enabled ? 1 : 0),
+    },
   ];
 
-  const createButton = (variant: "primary" | "secondary") => (
-    <Button variant={variant} icon={<ICONS.add aria-hidden="true" />} onClick={() => setCreating(true)}>
+  const createButton = (
+    <GuardedButton permission="apps.manage" variant="primary" icon={<ICONS.add aria-hidden="true" />} onClick={() => setCreating(true)}>
       {t("domains.createSite")}
-    </Button>
+    </GuardedButton>
   );
 
   let content;
@@ -191,16 +196,7 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
   if (sites.isError && sites.data === undefined) {
     content = <ErrorBlock error={sites.error} title={t("domains.sitesTab.couldNotListSites")} onRetry={() => void sites.refetch()} retrying={sites.isRefetching} />;
   } else if (empty) {
-    content = (
-      <EmptyState
-        variant="firstUse"
-        icon={<OBJECT_ICONS.domain />}
-        title={t("domains.sitesTab.noSitesYetTitle")}
-        description={t("domains.sitesTab.noSitesYetDescription")}
-        action={createButton("primary")}
-        command="noust site create --domain example.com"
-      />
-    );
+    content = <FirstUse>{t("domains.sitesTab.noSitesYetDescription")}</FirstUse>;
   } else {
     content = (
       <DataTable
@@ -210,7 +206,6 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
         rows={shown}
         getRowId={(site) => `${site.webserver}:${site.name}`}
         loading={sites.isPending || owner.loading}
-        onRowActivate={open}
         empty={
           <EmptyState
             variant="inline"
@@ -227,19 +222,23 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
             <MenuItem icon={<VERB_ICONS.edit />} onClick={() => open(site)}>
               {t("domains.sitesTab.editConfiguration")}
             </MenuItem>
-            {site.enabled ? (
-              <MenuItem icon={<Square />} disabled={disable.isPending} onClick={() => disable.mutate(site.name)}>
-                {t("domains.sitesTab.disableAction")}
-              </MenuItem>
-            ) : (
-              <MenuItem icon={<Play />} disabled={enable.isPending} onClick={() => enable.mutate(site.name)}>
-                {t("domains.sitesTab.enableAction")}
-              </MenuItem>
-            )}
-            <MenuSeparator />
-            <MenuItem icon={<ICONS.delete />} destructive onClick={() => setDeleting(site)}>
-              {t("common.words.delete")}
-            </MenuItem>
+            {mayManage ? (
+              <>
+                {site.enabled ? (
+                  <MenuItem icon={<Square />} disabled={disable.isPending} onClick={() => disable.mutate(site.name)}>
+                    {t("domains.sitesTab.disableAction")}
+                  </MenuItem>
+                ) : (
+                  <MenuItem icon={<Play />} disabled={enable.isPending} onClick={() => enable.mutate(site.name)}>
+                    {t("domains.sitesTab.enableAction")}
+                  </MenuItem>
+                )}
+                <MenuSeparator />
+                <MenuItem icon={<ICONS.delete />} destructive onClick={() => setDeleting(site)}>
+                  {t("common.words.delete")}
+                </MenuItem>
+              </>
+            ) : null}
           </RowMenu>
         )}
       />
@@ -247,8 +246,10 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
   }
 
   return (
-    <DomainsListPage section="sites"
-      {...(empty
+    <DomainsListPage
+      section="sites"
+      description={sites.data !== undefined && !empty ? t(written > 0 ? "domains.sitesTab.summaryByHand" : "domains.sitesTab.summary", { count: all.length, written }) : t("domains.sections.sites.description")}
+      {...(empty || !mayOperate
         ? {}
         : {
             secondaryActions: (
@@ -257,8 +258,7 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
               </Button>
             ),
           })}
-      // While there is no site the empty state carries the action, so the page has it once.
-      {...(empty ? {} : { primaryAction: createButton("primary") })}
+      primaryAction={createButton}
       {...(empty
         ? {}
         : {
@@ -282,28 +282,24 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
               />
             ),
           })}
-      // Neither the footer nor the card under the list is drawn until the list is: an empty server answers with an empty state in
-      // their place, and a list of nineteen rows pushed them out of the screen when it arrived.
-      {...(empty || listing ? {} : { footer: <CommandHint command="noust site list" label={t("common.words.fromTerminal")} /> })}
     >
+      <ReadOnlyLine permission="apps.manage" />
       {content}
       {/* After the list: what answers an unknown name is read once in a while, and must not push the sites down. */}
       {empty || !server || listing ? null : <UnknownHostsCard />}
 
-      <CreateSiteDialog
-        open={creating}
+      <AddDomainDialog
+        app={null}
+        apps={(apps.data?.apps ?? []).map((entry) => entry.domain)}
+        open={creating && mayManage}
         onOpenChange={setCreating}
-        detected={webserver}
-        onCreated={(site, message) => {
-          refresh(site);
-          if (message.includes("TLS was requested but not enabled")) {
-            toast.warning(t("domains.sitesTab.createdToastWithoutHttps", { site }), { detail: message });
-          } else {
-            toast.success(t("domains.sitesTab.createdToast", { site }), { description: message });
-          }
-        }}
+        initialPurpose="site"
+        webserver={webserver}
+        onAdded={() => void queryClient.invalidateQueries({ queryKey: sitesQuery().queryKey })}
+        onSiteMade={siteMade}
       />
-      <ConfirmDialog friction="type"
+      <ConfirmDialog
+        friction="type"
         open={deleting !== null}
         onOpenChange={(next) => {
           if (!next) setDeleting(null);

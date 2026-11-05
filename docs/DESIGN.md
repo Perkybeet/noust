@@ -1405,7 +1405,7 @@ so the page has one navigation landmark in a browser and in a unit test alike.
 
 **The content kit of 4.2** (items 109, 121, 122, 123), each with its specimen in `/__design`, "Components (4.2)", and its rules in 6.16:
 **`SurfaceSection`** (`title`, `icon`, `description`, `help`, `status`, `actions`, `flush`, `level`, `loading`): a section that is a slab, its head
-row saying what it is. **`FirstUse`** (`action`, `secondary`, `drawing`): the first time inside a section. **`ResourceCard`** (`name`, `icon`
+row saying what it is. **`FirstUse`** (`action`, `secondary`, `drawing`): the first time inside a section. **`ResourceCard`** (`name`, `level`, `icon`
 or `logo`, `status`, `facts`, `actions`): a thing that exists. **`NameWithTags`** (`tags`, `shown`, `renderTag`): a name and its tags on one
 line, "+N" for the rest. **`SaidLines`** (`label`, `lines`): what a system answered about what failed, under the table. **`GuardedButton`**,
 **`Can`**, **`ReadOnlyLine`**, `useCan` (`components/page/permissions.tsx`): who can do what. `DataTable embedded` draws a table inside a

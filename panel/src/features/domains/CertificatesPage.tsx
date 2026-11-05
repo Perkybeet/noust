@@ -8,9 +8,9 @@ import { networkKeys } from "../../api/queries/network";
 import type { CertEntry } from "../../api/queries/certs";
 import { activeJobsQuery, jobKeys, useFollowedJob } from "../../api/queries/jobs";
 import type { Job } from "../../api/queries/jobs";
-import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { KeyValueList } from "../../components/page/KeyValueList";
+import { GuardedButton, ReadOnlyLine, useCan } from "../../components/page/permissions";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RowMenu } from "../../components/page/RowMenu";
 import { Button } from "../../components/ui/Button";
@@ -20,30 +20,31 @@ import { DataTable } from "../../components/ui/DataTable";
 import { Drawer } from "../../components/ui/Drawer";
 import { EmptyCell } from "../../components/ui/EmptyCell";
 import { EmptyState } from "../../components/ui/EmptyState";
+import { FirstUse } from "../../components/ui/FirstUse";
 import { ICONS } from "../../components/ui/icons";
 import { MenuItem, MenuSeparator } from "../../components/ui/Menu";
-import { Mono } from "../../components/ui/Mono";
+import { NameWithTags } from "../../components/ui/NameWithTags";
 import { Select } from "../../components/ui/Select";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
-import { formatDate } from "../../lib/format";
 import { useOnArrival } from "../../lib/useArrival";
 import { reportActionError } from "../apps/useAppActions";
 import { CERT_STATE, CertificateStatus } from "./CertificateStatus";
 import { byUrgency, certificateJobFor, certificateView, issuerName } from "./certificates";
 import type { CertTone } from "./certificates";
 import { AuthorityDialog } from "./AuthorityDialog";
+import { CertificateAuthorities } from "./CertificateAuthorities";
 import { DomainsListPage } from "./DomainsListPage";
 import { IssueCertificateDialog } from "./IssueCertificateDialog";
 import { JobBanner } from "./JobBanner";
 import type { JobWords } from "./JobBanner";
-import { truncatedNames } from "./names";
 import type { CertificatesSearch } from "./search";
 import { UploadCertificateDialog } from "./UploadCertificateDialog";
 import { useCertificateRefresh } from "./useCertificateJobs";
 import { VERB_ICONS } from "../../components/ui/objectIcons";
+import { textLinkClassName } from "../../components/ui/TextLink";
 
 const ALL = "all";
 
@@ -58,11 +59,16 @@ function rowState(cert: CertEntry, job: Job | null, t: T): { tone: CertTone; lab
   return certificateView(cert, t.locale);
 }
 
-/** "Oct 7, 2026" for certbot's "2026-10-07", which it prints as a day with no time. */
-function expiryDate(cert: CertEntry, t: T): string | null {
-  if (cert.expires_on === null || cert.expires_on === undefined) return null;
-  const date = new Date(`${cert.expires_on}T00:00:00`);
-  return Number.isNaN(date.getTime()) ? cert.expires_on : formatDate(date, {}, t.locale);
+/** Who signed a certificate, the way a person reads it: the authority's own name, or that it was uploaded. */
+function authorityOf(t: T, cert: CertEntry): string | null {
+  if (cert.source === "custom") return t("network.certificates.uploaded");
+  return cert.issuer ? issuerName(cert.issuer) : null;
+}
+
+/** Whether Noust renews it: on its own, by hand, or never (an uploaded certificate is replaced, not renewed). */
+function renewsWords(t: T, cert: CertEntry): string {
+  if (cert.source === "custom") return t("domains.certificatesTab.renewsNever");
+  return cert.auto_renew ? t("domains.certificatesTab.renewsAlone") : t("domains.certificatesTab.renewsByHand");
 }
 
 /** Where a certificate comes from, in words: ordered over HTTP or DNS, or uploaded. */
@@ -74,21 +80,6 @@ function comesFrom(t: T, cert: CertEntry): string {
 /** The names a certificate covers besides the one it is named after. */
 function otherNames(cert: CertEntry): string[] {
   return cert.domains.filter((name) => name !== cert.domain);
-}
-
-function Names({ cert }: { cert: CertEntry }) {
-  const t = useT();
-  const others = otherNames(cert);
-  if (others.length === 0) return <span className="text-fg-muted">{t("domains.certificatesTab.onlyThisName")}</span>;
-  const { shown, rest } = truncatedNames(others, 2);
-  return (
-    <span className="flex min-w-0 items-center gap-1.5" title={others.join(", ")}>
-      <Mono tone="muted" truncate>
-        {shown}
-      </Mono>
-      {rest > 0 ? <span className="shrink-0 text-12 text-fg-muted">{t("domains.moreCount", { count: rest })}</span> : null}
-    </span>
-  );
 }
 
 function CertificateDrawer({ cert, job, onClose, onRenew }: { cert: CertEntry | null; job: Job | null; onClose: () => void; onRenew: (cert: CertEntry) => void }) {
@@ -134,7 +125,6 @@ function CertificateDrawer({ cert, job, onClose, onRenew }: { cert: CertEntry | 
               { label: t("domains.certificatesTab.privateKeyLabel"), value: cert.key_path ?? null },
             ]}
           />
-          <CommandHint command={`noust cert info ${cert.domain}`} label={t("common.words.fromTerminal")} />
         </div>
       ) : null}
     </Drawer>
@@ -168,6 +158,8 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
   const [choosingAuthority, setChoosingAuthority] = useState(false);
   const [privateAuthority, setPrivateAuthority] = useState(false);
   const [deletingUpload, setDeletingUpload] = useState<CertEntry | null>(null);
+  const mayManage = useCan("apps.manage");
+  const mayOperate = useCan("apps.operate");
 
   const all = useMemo(() => [...(certs.data?.certificates ?? [])].sort(byUrgency), [certs.data]);
   const needle = (search.q ?? "").toLowerCase();
@@ -239,13 +231,37 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
     {
       id: "name",
       header: t("domains.certificatesTab.certificateColumn"),
-      cell: (cert) => <span translate="no">{cert.domain}</span>,
+      card: "title",
+      // The other names it covers follow its own on the line, with "+N" for the rest: the row is one height.
+      // The name is the button that opens the certificate: the row is not itself a button, because "+N" is a button of its own.
+      cell: (cert) => (
+        <NameWithTags
+          name={
+            <button type="button" onClick={() => setOpened(cert.domain)} className={textLinkClassName("inline", "cursor-pointer", "row")} translate="no">
+              {cert.domain}
+            </button>
+          }
+          tags={otherNames(cert)}
+          shown={1}
+          title={t("domains.certificatesTab.namesLabel")}
+        />
+      ),
       sortValue: (cert) => cert.domain,
     },
     {
+      id: "authority",
+      header: t("domains.certificatesTab.authorityColumn"),
+      hideBelow: "md",
+      card: "meta",
+      cell: (cert) => {
+        const authority = authorityOf(t, cert);
+        return authority === null ? <EmptyCell /> : <span className="text-fg">{authority}</span>;
+      },
+    },
+    {
       id: "state",
-      header: t("domains.certificatesTab.stateColumn"),
-      width: "w-44",
+      header: t("domains.certificatesTab.leftColumn"),
+      width: "w-48",
       card: "status",
       cell: (cert) => {
         const state = rowState(cert, certificateJobFor(jobs, cert.domain), t);
@@ -253,24 +269,13 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
       },
       sortValue: (cert) => cert.days_remaining ?? null,
     },
-    { id: "names", header: t("domains.certificatesTab.alsoCoversColumn"), hideBelow: "md", card: "hidden", cell: (cert) => <Names cert={cert} /> },
-    {
-      id: "expires",
-      header: t("domains.certificatesTab.expiresLabel"),
-      width: "w-36",
-      hideBelow: "sm",
-      cell: (cert) => {
-        const date = expiryDate(cert, t);
-        return date === null ? <EmptyCell reason={t("domains.certificates.expiryUnknown")} /> : <span className="tabular-nums">{date}</span>;
-      },
-      sortValue: (cert) => cert.days_remaining ?? null,
-    },
+    { id: "renews", header: t("domains.certificatesTab.renewsColumn"), width: "w-36", hideBelow: "sm", card: "meta", cell: (cert) => <span className="text-fg-muted">{renewsWords(t, cert)}</span> },
   ];
 
-  const issueButton = (variant: "primary" | "secondary") => (
-    <Button variant={variant} icon={<ICONS.add aria-hidden="true" />} onClick={() => setIssuing(true)}>
+  const issueButton = (
+    <GuardedButton permission="apps.manage" variant="primary" icon={<ICONS.add aria-hidden="true" />} onClick={() => setIssuing(true)}>
       {t("domains.issueCertificate")}
-    </Button>
+    </GuardedButton>
   );
 
   let content;
@@ -286,16 +291,7 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
       />
     );
   } else if (empty) {
-    content = (
-      <EmptyState
-        variant="firstUse"
-        icon={<ICONS.verified />}
-        title={t("domains.certificatesTab.noCertsYetTitle")}
-        description={t("domains.certificatesTab.noCertsYetDescription")}
-        action={issueButton("primary")}
-        command="noust cert create -d example.com"
-      />
-    );
+    content = <FirstUse>{t("domains.certificatesTab.noCertsYetDescription")}</FirstUse>;
   } else {
     content = (
       <DataTable
@@ -305,7 +301,6 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
         rows={shown}
         getRowId={(cert) => cert.domain}
         loading={certs.isPending}
-        onRowActivate={(cert) => setOpened(cert.domain)}
         empty={
           <EmptyState
             variant="inline"
@@ -317,42 +312,46 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
             }
           />
         }
-        rowActions={(cert) => {
-          const busy = certificateJobFor(jobs, cert.domain) !== null;
-          if (cert.source === "custom") {
-            return (
-              <RowMenu name={cert.domain}>
-                <MenuItem icon={<ICONS.delete />} destructive onClick={() => setDeletingUpload(cert)}>
-                  {t("network.upload.delete")}
-                </MenuItem>
-              </RowMenu>
-            );
-          }
-          return (
-            <RowMenu name={cert.domain}>
-              <MenuItem icon={<VERB_ICONS.refresh />} disabled={busy} onClick={() => renew.mutate({ cert, force: false })}>
-                {t("domains.certificatesTab.renewIfDue")}
-              </MenuItem>
-              <MenuItem icon={<VERB_ICONS.refresh />} disabled={busy} onClick={() => renew.mutate({ cert, force: true })}>
-                {t("domains.certificatesTab.renewNow")}
-              </MenuItem>
-              <MenuSeparator />
-              <MenuItem icon={<ShieldX />} destructive onClick={() => setRevoking(cert)}>
-                {t("common.words.revoke")}
-              </MenuItem>
-              <MenuItem icon={<ICONS.delete />} destructive onClick={() => setDeleting(cert)}>
-                {t("common.words.delete")}
-              </MenuItem>
-            </RowMenu>
-          );
-        }}
+        {...(mayManage
+          ? {
+              rowActions: (cert: CertEntry) => {
+              const busy = certificateJobFor(jobs, cert.domain) !== null;
+              if (cert.source === "custom") {
+                return (
+                  <RowMenu name={cert.domain}>
+                    <MenuItem icon={<ICONS.delete />} destructive onClick={() => setDeletingUpload(cert)}>
+                      {t("network.upload.delete")}
+                    </MenuItem>
+                  </RowMenu>
+                );
+              }
+              return (
+                <RowMenu name={cert.domain}>
+                  <MenuItem icon={<VERB_ICONS.refresh />} disabled={busy} onClick={() => renew.mutate({ cert, force: false })}>
+                    {t("domains.certificatesTab.renewIfDue")}
+                  </MenuItem>
+                  <MenuItem icon={<VERB_ICONS.refresh />} disabled={busy} onClick={() => renew.mutate({ cert, force: true })}>
+                    {t("domains.certificatesTab.renewNow")}
+                  </MenuItem>
+                  <MenuSeparator />
+                  <MenuItem icon={<ShieldX />} destructive onClick={() => setRevoking(cert)}>
+                    {t("common.words.revoke")}
+                  </MenuItem>
+                  <MenuItem icon={<ICONS.delete />} destructive onClick={() => setDeleting(cert)}>
+                    {t("common.words.delete")}
+                  </MenuItem>
+                </RowMenu>
+              );
+              },
+            }
+          : {})}
       />
     );
   }
 
   return (
     <DomainsListPage section="certificates"
-      {...(empty
+      {...(empty || !mayOperate
         ? {}
         : {
             secondaryActions: (
@@ -361,21 +360,17 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
               </Button>
             ),
           })}
-      overflow={
-        <>
-          <MenuItem icon={<Upload />} onClick={() => setUploading(true)}>
-            {t("network.upload.action")}
-          </MenuItem>
-          <MenuItem icon={<ICONS.verified />} onClick={() => setChoosingAuthority(true)}>
-            {t("network.authority.menu")}
-          </MenuItem>
-          <MenuItem icon={<ICONS.verified />} onClick={() => setPrivateAuthority(true)}>
-            {t("internalCa.menu")}
-          </MenuItem>
-        </>
-      }
-      // While there is no certificate the empty state carries the action, so the page has it once.
-      {...(empty ? {} : { primaryAction: issueButton("primary") })}
+      {...(mayManage
+        ? {
+            // The authorities are cards of their own below the list: only what is rare stays in the menu.
+            overflow: (
+              <MenuItem icon={<Upload />} onClick={() => setUploading(true)}>
+                {t("network.upload.action")}
+              </MenuItem>
+            ),
+          }
+        : {})}
+      primaryAction={issueButton}
       {...(words !== null && followed.id !== null ? { notice: <JobBanner followed={followed} words={words} /> } : {})}
       {...(empty
         ? {}
@@ -410,9 +405,10 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
               />
             ),
           })}
-      {...(empty ? {} : { footer: <CommandHint command="noust cert list" label={t("common.words.fromTerminal")} /> })}
     >
+      <ReadOnlyLine permission="apps.manage" />
       {content}
+      <CertificateAuthorities onChangePublic={() => setChoosingAuthority(true)} onOpenOwn={() => setPrivateAuthority(true)} />
 
       <IssueCertificateDialog
         open={issuing}

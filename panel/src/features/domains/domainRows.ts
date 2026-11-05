@@ -21,6 +21,15 @@ export interface DomainRow {
   cert: CertEntry | null;
 }
 
+/** What a name is, as the list tags it: an application's, a redirect to an application, or a site of its own. */
+export type DomainRole = "app" | "redirect" | "site";
+
+/** The role of a row: a name an application's own list calls a redirect is one, whichever site holds it; with no application it is a site's own. */
+export function roleOf(row: Pick<DomainRow, "name" | "app">, redirects: ReadonlySet<string>): DomainRole {
+  if (row.app !== null && redirects.has(row.name)) return "redirect";
+  return row.app !== null ? "app" : "site";
+}
+
 /** A name nginx writes for "any other name": it answers nothing a person would call a domain. */
 const CATCH_ALL = new Set(["_", "", "default_server"]);
 

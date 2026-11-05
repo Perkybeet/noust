@@ -498,11 +498,11 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
           site={site}
           dirty={dirty}
           onClose={() => setHistory(false)}
-          onUse={(config, version) => {
-            setDraft(config);
+          onRestored={(version) => {
+            // The version is the file now: there is no draft, and the file is read again.
+            setDraft(null);
             setOutcome(null);
-            onViewChange?.("text");
-            toast.success(t("domains.siteHistory.loaded", { version }));
+            toast.success(t("domains.siteHistory.restoredToast", { version, webserver }));
           }}
         />
       ) : null}

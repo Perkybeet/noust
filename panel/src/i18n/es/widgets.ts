@@ -224,7 +224,7 @@ export const widgets: Catalog<typeof en> = {
     newApp: "Nueva aplicación",
     newDatabase: "Nueva base de datos",
     openPort: "Abrir un puerto",
-    addDomain: "Añadir un dominio",
+    addDomain: "Añadir un nombre",
     terminal: "Terminal",
     logs: "Registros",
     systemUpdates: "Actualizaciones del sistema",

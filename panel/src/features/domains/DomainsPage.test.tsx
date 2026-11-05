@@ -54,6 +54,20 @@ function domains(path: string, routes: Record<string, RouteHandler> = {}) {
     "GET /api/sites": () => json(200, { sites: SITES, total: SITES.length, webserver: "nginx" }),
     "GET /api/apps": () => json(200, { apps: [{ domain: "shop.example.com", name: "shop", status: "running", enabled: true, active: true }, { domain: "blog.example.com", name: "blog", status: "running", enabled: true, active: true }], total: 2 }),
     "GET /api/jobs/active": () => json(200, { jobs: [], total: 0, active: 0 }),
+    // What each application says of its own names: www.shop.example.com is sent to the application, not served as it.
+    "GET /api/apps/shop.example.com/domains": () =>
+      json(200, {
+        app: "shop.example.com",
+        canonical: "shop.example.com",
+        domains: [
+          { domain: "shop.example.com", kind: "primary", enabled: true, certificate: "app", certificate_pending: false, temporary: false },
+          { domain: "www.shop.example.com", kind: "redirect", enabled: true, certificate: "app", certificate_pending: false, temporary: false },
+        ],
+      }),
+    "GET /api/domains/dns": (call) =>
+      call.search.get("name") === "old.example.org"
+        ? json(200, { domain: "old.example.org", expected_addresses: ["203.0.113.10"], resolved_addresses: ["198.51.100.7"], points_here: false, verdict: "elsewhere", cdn: null, resolver: "" })
+        : json(200, { domain: call.search.get("name"), expected_addresses: ["203.0.113.10"], resolved_addresses: ["203.0.113.10"], points_here: true, verdict: "here", cdn: null, resolver: "" }),
     "GET /api/dns/providers": () => json(200, { accounts: [], kinds: [] }),
     "GET /api/tunnels": () => json(200, { tunnels: [], support: { available: true, cloudflared: "/usr/bin/cloudflared", sealed: false, accounts: ["cf"], problem: null, hint: null } }),
     "GET /api/streams": () => json(200, { exposures: [], support: { available: true, module: "dynamic", loader: "installable", problem: null, hint: null } }),
@@ -68,17 +82,28 @@ describe("the Domains section", () => {
 
     expect(await screen.findByRole("heading", { level: 1, name: "Domains" })).toBeInTheDocument();
     const table = await screen.findByRole("region", { name: "Domains" });
-    // A name is in its own cell, and the application and the site of a name that is its own are the same words: the first is the name's.
+    // A name is in its own cell, and where it leads is the application's or the site's: the first is the name's.
     const row = (name: string): HTMLElement => {
       const found = within(table).getAllByText(name)[0]?.closest("tr");
       if (!found) throw new Error(`no row for ${name}`);
       return found;
     };
+    expect(within(table).getAllByRole("columnheader").map((header) => header.textContent)).toEqual(["Name", "Leads to", "HTTPS", "DNS", "Actions"]);
     // A name the certificate lists is covered by it, www included; an expiring one says so; a plain site says it has no HTTPS.
     expect(within(row("www.shop.example.com")).getByText("Valid for 46 days")).toBeInTheDocument();
     expect(within(row("blog.example.com")).getByText("Expires in 12 days")).toBeInTheDocument();
     expect(within(row("old.example.org")).getByText("No HTTPS")).toBeInTheDocument();
-    expect(within(row("shop.example.com")).getAllByText("shop.example.com")).toHaveLength(3);
+    expect(within(row("shop.example.com")).getAllByText("shop.example.com")).toHaveLength(2);
+    // What each is: an application's, a redirect to one (its own list says so), or a site of its own.
+    expect(within(row("shop.example.com")).getByText("Application")).toBeInTheDocument();
+    expect(await within(row("www.shop.example.com")).findByText("Redirects")).toBeInTheDocument();
+    expect(within(row("old.example.org")).getByText("Own site")).toBeInTheDocument();
+    // Where it leads is where it is changed: its application's Domains, or its site.
+    expect(within(row("blog.example.com")).getByRole("link", { name: "blog.example.com" })).toHaveAttribute("href", "/apps/blog.example.com/domains");
+    expect(within(row("old.example.org")).getByRole("link", { name: "old.example.org" })).toHaveAttribute("href", "/domains/sites/old.example.org");
+    // And where DNS points it, asked when its row is drawn.
+    expect(await within(row("blog.example.com")).findByText("Points here")).toBeInTheDocument();
+    expect(await within(row("old.example.org")).findByText("Points elsewhere")).toBeInTheDocument();
     await expectNoAxeViolations(document.body);
   });
 
@@ -98,17 +123,19 @@ describe("the Domains section", () => {
       "POST /api/apps/blog.example.com/domains": () => json(200, { app: "blog.example.com", domains: [], canonical: "bare", tls: true, certificate_job_id: null, adopted: [], dns: [] }),
     });
 
-    await user.click(await screen.findByRole("button", { name: "Add domain" }));
-    const dialog = await screen.findByRole("dialog", { name: "Add a domain" });
+    await user.click(await screen.findByRole("button", { name: "Add a name" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add a name" });
+    // The one dialog says what a name is for: an application, a redirect to one, or a site of its own.
+    for (const purpose of [/For an application/, /Redirect to another name/, /A site of its own/]) expect(within(dialog).getByRole("radio", { name: purpose })).toBeInTheDocument();
     // Without the application, pressing Add says what is missing where it is missing, and asks the server for nothing.
-    await user.type(within(dialog).getByLabelText("Domain"), "shop.blog.example.com");
-    await user.click(within(dialog).getByRole("button", { name: "Add domain" }));
+    await user.type(within(dialog).getByLabelText("Name"), "shop.blog.example.com");
+    await user.click(within(dialog).getByRole("button", { name: "Add the name" }));
     expect((await within(dialog).findAllByText("Choose the application the name is for.")).length).toBeGreaterThan(0);
     expect(backend.callsTo("POST /api/apps/blog.example.com/domains")).toHaveLength(0);
 
     await user.click(within(dialog).getByRole("combobox", { name: "Application" }));
     await user.click(await screen.findByRole("option", { name: "blog.example.com" }));
-    await user.click(within(dialog).getByRole("button", { name: "Add domain" }));
+    await user.click(within(dialog).getByRole("button", { name: "Add the name" }));
     await waitFor(() => expect(backend.callsTo("POST /api/apps/blog.example.com/domains").length).toBeGreaterThanOrEqual(1));
     expect(backend.callsTo("POST /api/apps/blog.example.com/domains")[0]?.body).toMatchObject({ domain: "shop.blog.example.com", kind: "alias" });
   });
@@ -125,8 +152,10 @@ describe("the Domains section", () => {
       "GET /api/sites": () => json(200, { sites: [], total: 0, webserver: "nginx" }),
       "GET /api/certs": () => json(200, { certificates: [], total: 0 }),
     });
-    expect(await screen.findByText("No domains yet")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Add domain" })).toHaveLength(1);
+    expect(await screen.findByText(/A name is what your applications and sites answer on/)).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Add a name" })).toHaveLength(1);
+    // The console adds it: no command to type.
+    expect(screen.queryByText(/noust domain/)).not.toBeInTheDocument();
   });
 
   it("keeps the certificates on their own section, with their own title", async () => {

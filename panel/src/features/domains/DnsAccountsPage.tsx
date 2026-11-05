@@ -7,24 +7,26 @@ import { isApiError, request } from "../../api/client";
 import { dnsAccountsQuery, managedRecordsQuery, networkKeys } from "../../api/queries/network";
 import type { DnsAccount, DnsKind } from "../../api/queries/network";
 import { MenuItem } from "../../components/ui/Menu";
-import { CommandHint } from "../../components/page/CommandHint";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
+import { Can, GuardedButton, ReadOnlyLine, useCan } from "../../components/page/permissions";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { RowMenu } from "../../components/page/RowMenu";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
-import type { Column } from "../../components/ui/DataTable";
-import { DataTable } from "../../components/ui/DataTable";
 import { Dialog } from "../../components/ui/Dialog";
 import { Drawer } from "../../components/ui/Drawer";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Field } from "../../components/ui/Field";
+import { FirstUse } from "../../components/ui/FirstUse";
 import { Input } from "../../components/ui/Input";
 import { MenuSeparator } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
+import { ResourceCard } from "../../components/ui/ResourceCard";
 import { RowList } from "../../components/ui/RowList";
 import { Select } from "../../components/ui/Select";
+import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { toast } from "../../components/ui/toast";
@@ -33,7 +35,7 @@ import { useNode } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
 import { DomainsListPage } from "./DomainsListPage";
 import { ICONS } from "../../components/ui/icons";
-import { NoustDnsCard } from "./noustdns/NoustDnsCard";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** An account's name, as the server takes it: lower case letters, digits and dashes. */
 const NAME = /^[a-z0-9][a-z0-9-]*$/;
@@ -267,11 +269,59 @@ function RecordsDrawer({ open, onClose }: { open: boolean; onClose: () => void }
   );
 }
 
+/** What an account says of whether its token works: well, failing with the provider's own words, or not yet checked. */
+function AccountState({ account }: { account: DnsAccount }) {
+  const t = useT();
+  if (account.last_error) return <StatusPill state="failed" label={t("network.dns.failing")} size="sm" />;
+  if (account.verified_at) return <StatusPill state="running" label={t("network.dns.connected")} size="sm" />;
+  return <StatusPill state="unknown" label={t("network.dns.notChecked")} size="sm" />;
+}
+
+function AccountCard({ account, verifying, onVerify, onSettings, onRemove }: { account: DnsAccount; verifying: boolean; onVerify: () => void; onSettings: () => void; onRemove: () => void }) {
+  const t = useT();
+  return (
+    <ResourceCard
+      name={account.name}
+      untranslated
+      level={2}
+      icon={OBJECT_ICONS.dns}
+      status={<AccountState account={account} />}
+      facts={[
+        { label: t("network.dns.providerColumn"), value: account.label },
+        { label: t("network.dns.recordsColumn"), value: account.native ? (account.automatic ? t("network.dns.automatic") : t("network.dns.asksFirst")) : t("network.dns.challengeOnly") },
+        {
+          label: t("network.dns.tokenLabel"),
+          value: account.verified_at ? <RelativeTime value={account.verified_at} /> : t("network.dns.notChecked"),
+        },
+      ]}
+      actions={
+        <Can permission="server.manage">
+          <Button size="sm" loading={verifying} onClick={onVerify}>
+            {t("network.dns.verify")}
+          </Button>
+          <RowMenu name={account.name}>
+            <MenuItem icon={<Settings2 />} onClick={onSettings}>
+              {t("network.dns.settings")}
+            </MenuItem>
+            <MenuSeparator />
+            <MenuItem icon={<ICONS.delete />} destructive onClick={onRemove}>
+              {t("network.dns.remove")}
+            </MenuItem>
+          </RowMenu>
+        </Can>
+      }
+    >
+      {account.last_error ? <ErrorBlock compact error={{ detail: account.last_error }} title={t("network.dns.failing")} /> : null}
+    </ResourceCard>
+  );
+}
+
 /**
- * The DNS tab: the accounts Noust holds at DNS providers. A Cloudflare account makes the
- * records of a domain and answers the challenge a wildcard certificate is proven with; the other
- * providers answer the challenge through certbot's plugin. The credential is proven when the
- * account is added and kept only in the secret store; it is never shown again.
+ * The DNS providers: the accounts Noust holds at DNS providers, each as a card with its state. A Cloudflare account makes
+ * the records of a domain and answers the challenge a wildcard certificate is proven with; the other providers answer the
+ * challenge through certbot's plugin. The credential is proven when the account is added and kept only in the secret
+ * store; it is never shown again. Noust DNS, the other way to have DNS, is the next entry of the column, and not a card of
+ * this page.
  */
 export function DnsAccountsPage() {
   const t = useT();
@@ -282,6 +332,7 @@ export function DnsAccountsPage() {
   const [editing, setEditing] = useState<DnsAccount | null>(null);
   const [removing, setRemoving] = useState<DnsAccount | null>(null);
   const [showRecords, setShowRecords] = useState(false);
+  const mayManage = useCan("server.manage");
 
   const verify = useMutation({
     mutationFn: (account: DnsAccount) => request("post", "/api/dns/providers/{name}/verify", { params: { name: account.name } }),
@@ -295,89 +346,44 @@ export function DnsAccountsPage() {
     },
   });
 
-  const columns: Column<DnsAccount>[] = [
-    { id: "name", header: t("network.dns.accountColumn"), cell: (account) => <span translate="no">{account.name}</span>, sortValue: (account) => account.name },
-    { id: "kind", header: t("network.dns.providerColumn"), hideBelow: "sm", cell: (account) => account.label },
-    {
-      id: "records",
-      header: t("network.dns.recordsColumn"),
-      hideBelow: "md",
-      cell: (account) => (account.native ? (account.automatic ? t("network.dns.automatic") : t("network.dns.asksFirst")) : t("network.dns.challengeOnly")),
-    },
-    {
-      id: "state",
-      header: t("network.dns.workedColumn"),
-      card: "status",
-      cell: (account) =>
-        account.last_error ? (
-          <StatusPill state="failed" label={t("network.dns.failing")} appearance="inline" size="sm" />
-        ) : account.verified_at ? (
-          <span className="inline-flex items-center gap-1.5">
-            <StatusPill state="running" label={t("network.dns.works")} appearance="inline" size="sm" />
-            <RelativeTime value={account.verified_at} className="text-fg-muted" />
-          </span>
-        ) : (
-          <StatusPill state="unknown" label={t("network.dns.notChecked")} appearance="inline" size="sm" />
-        ),
-    },
-  ];
-
-  const empty = accounts.data?.accounts.length === 0;
+  const rows = accounts.data?.accounts ?? [];
+  const empty = accounts.data !== undefined && rows.length === 0;
 
   return (
-    <DomainsListPage section="dns"
-      // While there is no account the empty state carries the action, so the page has it once.
-      {...(empty
-        ? {}
-        : {
-            primaryAction: (
-              <Button variant="primary" icon={<Plus aria-hidden="true" />} onClick={() => setAdding(true)}>
-                {t("network.dns.add")}
-              </Button>
-            ),
-          })}
-      {...(empty ? {} : { secondaryActions: <Button icon={<List aria-hidden="true" />} onClick={() => setShowRecords(true)}>{t("network.dns.managed")}</Button> })}
-      footer={<CommandHint command="noust dns provider list" label={t("common.words.fromTerminal")} />}
+    <DomainsListPage
+      section="dns"
+      primaryAction={
+        <GuardedButton permission="server.manage" variant="primary" icon={<Plus aria-hidden="true" />} onClick={() => setAdding(true)}>
+          {t("network.dns.add")}
+        </GuardedButton>
+      }
+      {...(empty || !mayManage ? {} : { secondaryActions: <Button icon={<List aria-hidden="true" />} onClick={() => setShowRecords(true)}>{t("network.dns.managed")}</Button> })}
     >
-      <NoustDnsCard />
-      {/* design-exception: hand-error-ternary the table draws its own skeleton rows; the failure replaces only what it would have listed */}
+      <ReadOnlyLine permission="server.manage" />
+      {/* design-exception: hand-error-ternary the cards draw their own skeleton; the failure replaces only what they would have listed */}
       {accounts.isError && accounts.data === undefined ? (
         <ErrorBlock error={accounts.error} title={t("network.dns.listFailed")} onRetry={() => void accounts.refetch()} retrying={accounts.isRefetching} />
       ) : empty ? (
-        <EmptyState
-          variant="firstUse"
-          icon={<Settings2 />}
-          title={t("network.dns.emptyTitle")}
-          description={t("network.dns.emptyDescription")}
-          action={
-            <Button icon={<Plus aria-hidden="true" />} onClick={() => setAdding(true)}>
-              {t("network.dns.add")}
-            </Button>
-          }
-          command="noust dns provider add cloudflare --kind cloudflare --token-stdin"
-        />
+        <FirstUse>{t("network.dns.emptyDescription")}</FirstUse>
+      ) : accounts.data === undefined ? (
+        <LoadingRegion label={t("common.queryState.loading", { label: t("domains.sections.dns.title") })} className="grid gap-4 md:grid-cols-2">
+          <Skeleton className="h-40 rounded-card" />
+          <Skeleton className="h-40 rounded-card" />
+        </LoadingRegion>
       ) : (
-        <DataTable
-          caption={t("network.dns.tableCaption")}
-          columns={columns}
-          rows={accounts.data?.accounts ?? []}
-          getRowId={(account) => account.name}
-          loading={accounts.isPending}
-          rowActions={(account) => (
-            <RowMenu name={account.name}>
-              <MenuItem icon={<RotateCw />} disabled={verify.isPending} onClick={() => verify.mutate(account)}>
-                {t("network.dns.verify")}
-              </MenuItem>
-              <MenuItem icon={<Settings2 />} onClick={() => setEditing(account)}>
-                {t("network.dns.settings")}
-              </MenuItem>
-              <MenuSeparator />
-              <MenuItem icon={<ICONS.delete />} destructive onClick={() => setRemoving(account)}>
-                {t("network.dns.remove")}
-              </MenuItem>
-            </RowMenu>
-          )}
-        />
+        <ul aria-label={t("network.dns.tableCaption")} className="grid gap-4 md:grid-cols-2">
+          {rows.map((account) => (
+            <li key={account.name} className="min-w-0">
+              <AccountCard
+                account={account}
+                verifying={verify.isPending && verify.variables.name === account.name}
+                onVerify={() => verify.mutate(account)}
+                onSettings={() => setEditing(account)}
+                onRemove={() => setRemoving(account)}
+              />
+            </li>
+          ))}
+        </ul>
       )}
       <AddAccountDialog open={adding} kinds={accounts.data?.kinds ?? []} onClose={() => setAdding(false)} />
       <SettingsDialog key={editing?.name ?? "none"} account={editing} onClose={() => setEditing(null)} />

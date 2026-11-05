@@ -214,6 +214,28 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void, onV
         },
       },
       {
+        id: "action:add-name",
+        group: "Actions",
+        label: t("shell.commands.addName"),
+        icon: <OBJECT_ICONS.domain />,
+        keywords: t("shell.commands.addNameKeywords"),
+        kind: "navigate",
+        run: () => {
+          void navigate({ to: "/domains", search: { new: true } as never });
+        },
+      },
+      {
+        id: "action:open-port",
+        group: "Actions",
+        label: t("shell.commands.openPort"),
+        icon: <OBJECT_ICONS.port />,
+        keywords: t("shell.commands.openPortKeywords"),
+        kind: "navigate",
+        run: () => {
+          void navigate({ to: "/network", search: { new: true } as never });
+        },
+      },
+      {
         id: "action:new-site",
         group: "Actions",
         label: t("shell.commands.newSite"),

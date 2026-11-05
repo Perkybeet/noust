@@ -190,8 +190,7 @@ describe("the Certificates tab, beyond ordering", () => {
       "PUT /api/certs/acme": () => json(200, { ...ACME, ca: "letsencrypt-staging", label: "Let's Encrypt (staging)", trusted: false }),
     });
 
-    await user.click(await screen.findByRole("button", { name: "More actions" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Certificate authority" }));
+    await user.click(await screen.findByRole("button", { name: "Change" }));
     const dialog = await screen.findByRole("dialog", { name: "Certificate authority" });
     await user.click(await within(dialog).findByRole("combobox", { name: "Authority" }));
     await user.click(await screen.findByRole("option", { name: "Let's Encrypt (staging)" }));
@@ -212,8 +211,7 @@ describe("the Certificates tab, beyond ordering", () => {
         json(200, { id: "reg-1", type: "cert_create", name: "Register the account", description: "", status: "running", progress: 10, total_steps: 100, current_step: "", created_at: "2026-10-12T10:00:00", logs: [], metadata: {} }),
     });
 
-    await user.click(await screen.findByRole("button", { name: "More actions" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Certificate authority" }));
+    await user.click(await screen.findByRole("button", { name: "Change" }));
     const dialog = await screen.findByRole("dialog", { name: "Certificate authority" });
     await user.click(await within(dialog).findByRole("combobox", { name: "Authority" }));
     await user.click(await screen.findByRole("option", { name: "ZeroSSL" }));
@@ -244,8 +242,7 @@ describe("the Certificates tab, beyond ordering", () => {
       "PUT /api/certs/acme": () => json(200, ACME),
     });
 
-    await user.click(await screen.findByRole("button", { name: "More actions" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Certificate authority" }));
+    await user.click(await screen.findByRole("button", { name: "Change" }));
     const dialog = await screen.findByRole("dialog", { name: "Certificate authority" });
     expect(await within(dialog).findByText(/A key is stored\. Leave this empty to keep it/)).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Save" }));
@@ -259,8 +256,7 @@ describe("the Certificates tab, beyond ordering", () => {
   it("asks for the directory of another authority", async () => {
     const { user } = certificates();
 
-    await user.click(await screen.findByRole("button", { name: "More actions" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Certificate authority" }));
+    await user.click(await screen.findByRole("button", { name: "Change" }));
     const dialog = await screen.findByRole("dialog", { name: "Certificate authority" });
     await user.click(await within(dialog).findByRole("combobox", { name: "Authority" }));
     await user.click(await screen.findByRole("option", { name: "Another authority" }));
