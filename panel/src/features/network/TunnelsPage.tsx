@@ -8,37 +8,39 @@ import { isApiError, request } from "../../api/client";
 import { appsQuery } from "../../api/queries/apps";
 import { networkKeys, tunnelsQuery } from "../../api/queries/network";
 import type { RouteResult, Tunnel } from "../../api/queries/network";
-import { CommandHint } from "../../components/page/CommandHint";
 import { KeyValueList } from "../../components/page/KeyValueList";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
+import { Can, GuardedButton, ReadOnlyLine } from "../../components/page/permissions";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RowMenu } from "../../components/page/RowMenu";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { ChoiceCards } from "../../components/ui/ChoiceCards";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
-import type { Column } from "../../components/ui/DataTable";
-import { DataTable } from "../../components/ui/DataTable";
 import { Dialog } from "../../components/ui/Dialog";
 import { Drawer } from "../../components/ui/Drawer";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Field } from "../../components/ui/Field";
+import { FirstUse } from "../../components/ui/FirstUse";
 import { IconButton } from "../../components/ui/IconButton";
 import { Input } from "../../components/ui/Input";
 import { MenuItem } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
-import { RowList } from "../../components/ui/RowList";
 import { Notice } from "../../components/ui/Notice";
-import { ServerText } from "../../components/ui/ServerText";
+import { ResourceCard } from "../../components/ui/ResourceCard";
+import { RowList } from "../../components/ui/RowList";
 import { Select } from "../../components/ui/Select";
+import { ServerText } from "../../components/ui/ServerText";
+import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
+import { DnsConflictDialog } from "../domains/DnsConflictDialog";
+import type { RecordConflict } from "../domains/dnsConflict";
+import { conflictOf } from "../domains/dnsConflict";
+import { MachinePage } from "../server/MachinePage";
 import { MissingSoftware } from "../server/software/MissingSoftware";
-import { DnsConflictDialog } from "./DnsConflictDialog";
-import { DomainsListPage } from "./DomainsListPage";
-import type { RecordConflict } from "./dnsConflict";
-import { conflictOf } from "./dnsConflict";
 import { ICONS } from "../../components/ui/icons";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
@@ -348,11 +350,58 @@ function connectorState(tunnel: Tunnel): "running" | "deploying" | "failed" | "s
   return tunnel.active === "failed" ? "failed" : "stopped";
 }
 
+/** What a tunnel needs that this server lacks, said where the page's own action waits for it. */
+function whyNot(t: T, lacks: "sealed" | "connector" | "account" | "other"): string {
+  switch (lacks) {
+    case "sealed":
+      return t("network.tunnels.lacks.sealed");
+    case "connector":
+      return t("network.tunnels.lacks.connector");
+    case "account":
+      return t("network.tunnels.lacks.account");
+    case "other":
+      return t("network.tunnels.unavailable");
+  }
+}
+
+function TunnelCard({ tunnel, onOpen, onRoute, onDelete }: { tunnel: Tunnel; onOpen: () => void; onRoute: () => void; onDelete: () => void }) {
+  const t = useT();
+  const names = (tunnel.routes ?? []).map((route) => route.hostname);
+  return (
+    <ResourceCard
+      name={tunnel.name}
+      untranslated
+      level={2}
+      icon={OBJECT_ICONS.tunnel}
+      status={<StatusPill state={connectorState(tunnel)} label={tunnel.state === "ready" ? tunnel.active : tunnel.state} size="sm" />}
+      facts={[
+        { label: t("network.tunnels.carriesColumn"), value: names.length === 0 ? t("network.tunnels.nothingYet") : <Mono>{names.join(", ")}</Mono> },
+        { label: t("network.tunnels.accountColumn"), value: tunnel.provider },
+      ]}
+      actions={
+        <RowMenu name={tunnel.name}>
+          <MenuItem icon={<OBJECT_ICONS.tunnel />} onClick={onOpen}>
+            {t("network.tunnels.seeRoutes")}
+          </MenuItem>
+          <Can permission="server.manage">
+            <MenuItem icon={<Plus />} disabled={tunnel.state !== "ready"} onClick={onRoute}>
+              {t("network.tunnels.routeAdd")}
+            </MenuItem>
+            <MenuItem icon={<ICONS.delete />} destructive onClick={onDelete}>
+              {t("network.tunnels.delete")}
+            </MenuItem>
+          </Can>
+        </RowMenu>
+      }
+    />
+  );
+}
+
 /**
- * The Tunnels tab: Cloudflare Tunnels as an application's way in, for a server with no public
- * address or no port to open. The connector dials out to Cloudflare; a name routed through it
- * reaches the application's site on this machine. Creating one installs a service and keeps a
- * token only root can read; deleting one stops what answered through it.
+ * Tunnels, a section of Network: Cloudflare Tunnels as an application's way in, for a server with no public address or
+ * no port to open. The connector dials out to Cloudflare; a name routed through it reaches the application's site on
+ * this machine. Creating one installs a service and keeps a token only root can read; deleting one stops what answered
+ * through it. A server that lacks what a tunnel needs says so where the action waits, and leads to what to do first.
  */
 export function TunnelsPage() {
   const t = useT();
@@ -369,11 +418,6 @@ export function TunnelsPage() {
   const empty = tunnels.data !== undefined && rows.length === 0;
   // What a tunnel needs that this server lacks, in the order it is fixed: the connector, then an account at Cloudflare.
   const lacks = support === undefined || support.available ? null : support.sealed ? "sealed" : support.cloudflared == null ? "connector" : (support.accounts ?? []).length === 0 ? "account" : "other";
-  const accountLink = (
-    <Link to="/domains/dns" className={buttonClassName("primary")}>
-      {t("network.tunnels.addAccount")}
-    </Link>
-  );
   const unavailable =
     support !== undefined && !support.available ? (
       <Notice tone="warning" title={t("network.tunnels.unavailable")}>
@@ -382,90 +426,65 @@ export function TunnelsPage() {
     ) : null;
   const opened = rows.find((row) => row.name === open) ?? null;
 
-  const columns: Column<Tunnel>[] = [
-    { id: "name", header: t("network.tunnels.nameColumn"), cell: (row) => <span translate="no">{row.name}</span>, sortValue: (row) => row.name },
-    {
-      id: "state",
-      header: t("network.tunnels.connectorColumn"),
-      card: "status",
-      cell: (row) => <StatusPill state={connectorState(row)} label={row.state === "ready" ? row.active : row.state} appearance="inline" size="sm" />,
-    },
-    { id: "account", header: t("network.tunnels.accountColumn"), hideBelow: "md", cell: (row) => row.provider },
-    {
-      id: "routes",
-      header: t("network.tunnels.carriesColumn"),
-      hideBelow: "sm",
-      cell: (row) => ((row.routes ?? []).length === 0 ? t("network.tunnels.nothingYet") : (row.routes ?? []).map((route) => route.hostname).join(", ")),
-    },
-  ];
-
   return (
-    <DomainsListPage section="tunnels"
-      // While there is no tunnel the empty state carries the action, so the page has it once.
-      {...(empty
-        ? {}
-        : {
-            primaryAction: (
-              <Button variant="primary" icon={<Plus aria-hidden="true" />} onClick={() => setCreating(true)} disabled={support !== undefined && !support.available}>
-                {t("network.tunnels.createAction")}
-              </Button>
-            ),
-          })}
-      {...(lacks === "connector"
-        ? {
-            // The connector is a piece Noust installs: said where every missing piece is said, with its install. The explanation
-            // below stands for a server whose registry cannot be read.
-            notice: <MissingSoftware component="cloudflared" onInstalled={() => void queryClient.invalidateQueries({ queryKey: networkKeys.tunnels })} fallback={unavailable} />,
-          }
-        : support !== undefined && !support.available && !empty
-          ? { notice: unavailable }
-          : {})}
-      footer={<CommandHint command="noust tunnel list" label={t("common.words.fromTerminal")} />}
+    <MachinePage
+      title={t("domains.sections.tunnels.title")}
+      description={t("domains.sections.tunnels.description")}
+      header={{
+        primaryAction: (
+          <GuardedButton permission="server.manage" variant="primary" icon={<Plus aria-hidden="true" />} onClick={() => setCreating(true)} {...(lacks !== null ? { unavailable: whyNot(t, lacks) } : {})}>
+            {t("network.tunnels.createAction")}
+          </GuardedButton>
+        ),
+      }}
     >
-      {/* design-exception: hand-error-ternary the table draws its own skeleton rows; the failure replaces only what it would have listed */}
-      {tunnels.isError && tunnels.data === undefined ? (
-        <ErrorBlock error={tunnels.error} title={t("network.tunnels.listFailed")} onRetry={() => void tunnels.refetch()} retrying={tunnels.isRefetching} />
-      ) : empty ? (
-        <EmptyState
-          variant="firstUse"
-          icon={<OBJECT_ICONS.tunnel />}
-          title={t("network.tunnels.emptyTitle")}
-          description={
-            lacks === null || lacks === "other" || lacks === "connector" ? (
-              t("network.tunnels.emptyDescription")
-            ) : (
+      <div className="flex min-w-0 flex-col gap-4">
+        <ReadOnlyLine permission="server.manage" />
+        {lacks === "connector" ? (
+          // The connector is a piece Noust installs: said where every missing piece is said, with its install. The explanation
+          // below stands for a server whose registry cannot be read.
+          <MissingSoftware component="cloudflared" onInstalled={() => void queryClient.invalidateQueries({ queryKey: networkKeys.tunnels })} fallback={unavailable} />
+        ) : lacks !== null && !empty ? (
+          unavailable
+        ) : null}
+        {/* design-exception: hand-error-ternary the cards draw their own skeleton; the failure replaces only what they would have listed */}
+        {tunnels.isError && tunnels.data === undefined ? (
+          <ErrorBlock error={tunnels.error} title={t("network.tunnels.listFailed")} onRetry={() => void tunnels.refetch()} retrying={tunnels.isRefetching} />
+        ) : empty ? (
+          <FirstUse
+            {...(lacks === "account"
+              ? {
+                  action: (
+                    <Link to="/domains/dns" className={buttonClassName("primary")}>
+                      {t("network.tunnels.addAccount")}
+                    </Link>
+                  ),
+                }
+              : {})}
+          >
+            {lacks === "account" || lacks === "sealed" ? (
               <>
                 {t("network.tunnels.emptyDescription")} <span className="text-fg">{t(`network.tunnels.lacks.${lacks}`)}</span>
               </>
-            )
-          }
-          action={lacks === "account" ? accountLink : lacks === "connector" || lacks === "sealed" || lacks === "other" ? undefined : (
-            <Button variant="primary" icon={<Plus aria-hidden="true" />} onClick={() => setCreating(true)}>
-              {t("network.tunnels.createAction")}
-            </Button>
-          )}
-          command={lacks === "connector" ? "noust tunnel install-cloudflared" : "noust tunnel create home"}
-        />
-      ) : (
-        <DataTable
-          caption={t("network.tunnels.tableCaption")}
-          columns={columns}
-          rows={rows}
-          getRowId={(row) => row.name}
-          loading={tunnels.isPending}
-          onRowActivate={(row) => setOpen(row.name)}
-          rowActions={(row) => (
-            <RowMenu name={row.name}>
-              <MenuItem icon={<Plus />} disabled={row.state !== "ready"} onClick={() => setRouting(row)}>
-                {t("network.tunnels.routeAdd")}
-              </MenuItem>
-              <MenuItem icon={<ICONS.delete />} destructive onClick={() => setDeleting(row)}>
-                {t("network.tunnels.delete")}
-              </MenuItem>
-            </RowMenu>
-          )}
-        />
-      )}
+            ) : (
+              t("network.tunnels.emptyDescription")
+            )}
+          </FirstUse>
+        ) : tunnels.data === undefined ? (
+          <LoadingRegion label={t("common.queryState.loading", { label: t("domains.sections.tunnels.title") })} className="grid gap-4 md:grid-cols-2">
+            <Skeleton className="h-36 rounded-card" />
+            <Skeleton className="h-36 rounded-card" />
+          </LoadingRegion>
+        ) : (
+          <ul aria-label={t("network.tunnels.tableCaption")} className="grid gap-4 md:grid-cols-2">
+            {rows.map((row) => (
+              <li key={row.name} className="min-w-0">
+                <TunnelCard tunnel={row} onOpen={() => setOpen(row.name)} onRoute={() => setRouting(row)} onDelete={() => setDeleting(row)} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       <CreateDialog open={creating} accounts={support?.accounts ?? []} onClose={() => setCreating(false)} />
       <RouteDialog key={routing?.name ?? "none"} tunnel={routing} onClose={() => setRouting(null)} />
       <TunnelDrawer tunnel={opened} onClose={() => setOpen(null)} onAddRoute={setRouting} onRemoveRoute={(tunnel, hostname) => setUnrouting({ tunnel, hostname })} />
@@ -506,6 +525,6 @@ export function TunnelsPage() {
           toast.success(t("network.tunnels.deletedToast", { name: deleting.name }));
         }}
       />
-    </DomainsListPage>
+    </MachinePage>
   );
 }

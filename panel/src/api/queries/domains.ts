@@ -52,6 +52,22 @@ export const temporaryNameQuery = (of: TemporaryNameOf) => {
   });
 };
 
+/**
+ * Whether a name resolves to this server, asked the way the place asking can: an application's own name through its
+ * path, and a name that is not an application's yet (the dialog that adds one, before it knows which) through the bare
+ * check. The same answer and the same cache entries as `dnsCheckQuery` and `bareDnsCheckQuery`, as one set of options.
+ */
+export const nameDnsCheckQuery = (app: string | null, name: string) => {
+  const key: readonly unknown[] = app !== null ? domainKeys.dns(app, name) : ["domains", "dns", "bare", name];
+  return queryOptions({
+    queryKey: key,
+    queryFn: ({ signal }) =>
+      app !== null ? request("get", "/api/apps/{domain}/domains/{name}/dns", { params: { domain: app, name }, signal }) : request("get", "/api/domains/dns", { query: { name }, signal }),
+    staleTime: 0,
+    gcTime: 60_000,
+  });
+};
+
 export const appDomainsQuery = (app: string) =>
   queryOptions({
     queryKey: domainKeys.list(app),

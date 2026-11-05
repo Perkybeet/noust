@@ -93,7 +93,7 @@ describe("every area has a column", () => {
     const { user } = await shellAt("/network");
     const sections = await screen.findByRole("navigation", { name: "Network sections" });
     await user.click(within(sections).getByRole("link", { name: "Firewall" }));
-    await screen.findByRole("heading", { level: 1, name: "Firewall" });
+    await screen.findByRole("heading", { level: 1, name: "Server firewall" });
     expect(within(screen.getByRole("navigation", { name: "Network sections" })).getByRole("link", { name: "Firewall" })).toHaveAttribute("aria-current", "page");
     expect(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Network" })).toHaveAttribute("aria-current", "page");
     expect(document.querySelectorAll('[data-frame="column"]')).toHaveLength(1);

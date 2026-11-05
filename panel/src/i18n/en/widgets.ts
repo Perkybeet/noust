@@ -222,7 +222,7 @@ export const widgets = {
     newApp: "New application",
     newDatabase: "New database",
     openPort: "Open a port",
-    addDomain: "Add a domain",
+    addDomain: "Add a name",
     terminal: "Terminal",
     logs: "Logs",
     systemUpdates: "System updates",

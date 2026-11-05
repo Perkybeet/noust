@@ -2,7 +2,6 @@ import type { internalCa as en } from "../en/internalCa";
 import type { Catalog } from "../types";
 
 export const internalCa: Catalog<typeof en> = {
-  menu: "Autoridad privada",
   title: "Autoridad de certificación privada",
   description:
     "Este servidor firma certificados para nombres que solo se resuelven dentro de una red privada, como wiki.home.arpa o grafana.lan, donde Let's Encrypt no puede comprobarlos. Un dispositivo se fía de ellos cuando se fía del certificado de la autoridad.",

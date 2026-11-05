@@ -1,9 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { request } from "../../api/client";
-import { siteVersionQuery, siteVersionsQuery } from "../../api/queries/sites";
+import { siteKeys, siteVersionQuery, siteVersionsQuery } from "../../api/queries/sites";
 import type { SiteVersion } from "../../api/queries/sites";
+import { useCan } from "../../components/page/permissions";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
@@ -25,8 +26,8 @@ interface SiteHistoryDialogProps {
   /** The editor holds changes that would be replaced by loading a version. */
   dirty: boolean;
   onClose: () => void;
-  /** Put a version's text in the editor as the draft; saving it is the editor's usual save. */
-  onUse: (config: string, version: number) => void;
+  /** A version was put back as the file: the editor drops what it held and reads the file again. */
+  onRestored: (version: number) => void;
 }
 
 /** What a version's source says in a word. */
@@ -65,6 +66,8 @@ function Changes({ site, version }: { site: string; version: number }) {
 
 function VersionRow({ site, item, open, onToggle, onUse, locale }: { site: string; item: SiteVersion; open: boolean; onToggle: () => void; onUse: () => void; locale: Locale }) {
   const t = useT();
+  // Putting a version back writes the file as the editor's save does: it takes the same permission, and a role without it is not offered the button.
+  const mayRestore = useCan("root_equivalent");
   return (
     <RowList.Item className="items-start">
      <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -81,7 +84,7 @@ function VersionRow({ site, item, open, onToggle, onUse, locale }: { site: strin
           <Button size="sm" aria-expanded={open} onClick={onToggle}>
             {open ? t("domains.siteHistory.hideChanges") : t("domains.siteHistory.showChanges")}
           </Button>
-          {item.current ? null : (
+          {item.current || !mayRestore ? null : (
             <Button size="sm" onClick={onUse}>
               {t("domains.siteHistory.use")}
             </Button>
@@ -96,21 +99,29 @@ function VersionRow({ site, item, open, onToggle, onUse, locale }: { site: strin
 
 /**
  * The earlier texts of a site's file. Every write keeps one, and a hand edit a deploy was about
- * to overwrite is kept first, so nothing is lost for good. Using a version puts its text in the
- * editor as the draft: it is tested and saved like any change, and that save is a version too.
+ * to overwrite is kept first, so nothing is lost for good. Using a version is the server's restore: it puts the
+ * text back as the file after the web server has tested it, with its own words if it refuses, and that is a
+ * version too. Unsaved changes in the editor are what it replaces, so it asks once before it does.
  */
-export function SiteHistoryDialog({ site, dirty, onClose, onUse }: SiteHistoryDialogProps) {
+export function SiteHistoryDialog({ site, dirty, onClose, onRestored }: SiteHistoryDialogProps) {
   const t = useT();
+  const queryClient = useQueryClient();
   const versions = useQuery(siteVersionsQuery(site));
   const items = versions.data?.versions ?? [];
   const [opened, setOpened] = useState<number | null>(null);
   const [asked, setAsked] = useState<number | null>(null);
 
-  const use = async (version: number): Promise<void> => {
-    const found = await request("get", "/api/sites/{domain}/config/versions/{version}", { params: { domain: site, version } });
-    onUse(found.config, version);
-    onClose();
-  };
+  // Only a role that may put a version back is offered the button, so this is behind the one `useCan` of the rows.
+  const restore = useMutation({
+    mutationFn: (version: number) => request("post", "/api/sites/{domain}/config/versions/{version}/restore", { params: { domain: site, version } }),
+    onSuccess: (_result, version) => {
+      // The file, its structure and its versions all changed: everything read about the site is read again.
+      void queryClient.invalidateQueries({ queryKey: siteKeys.detail(site) });
+      void queryClient.invalidateQueries({ queryKey: siteKeys.all });
+      onRestored(version);
+      onClose();
+    },
+  });
 
   return (
     <Dialog
@@ -149,13 +160,14 @@ export function SiteHistoryDialog({ site, dirty, onClose, onUse }: SiteHistoryDi
                     setAsked(item.version);
                     return;
                   }
-                  void use(item.version);
+                  restore.mutate(item.version);
                 }}
               />
             ))}
           </RowList>
         )}
-        {asked !== null ? <p role="status" className="text-13 text-warn">{t("domains.siteHistory.confirmUse", { version: asked })}</p> : null}
+        {asked !== null && !restore.isError ? <p role="status" className="text-13 text-warn">{t("domains.siteHistory.confirmUse", { version: asked })}</p> : null}
+        {restore.isError ? <ErrorBlock live compact error={restore.error} title={t("domains.siteHistory.restoreFailed", { version: restore.variables })} /> : null}
       </div>
     </Dialog>
   );

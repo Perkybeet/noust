@@ -56,3 +56,19 @@ export function recordsToCreate(expected: readonly string[]): DnsRecordAdvice[] 
     .filter((address) => !isPrivateAddress(address))
     .map((address) => ({ type: address.includes(":") ? "AAAA" : "A", value: address }));
 }
+
+/** What the DNS column of a list says of a name: the verdict, in the state it is told in. */
+export type DnsCell =
+  | { state: "running"; verdict: "here" }
+  | { state: "running"; verdict: "cdn"; cdn: string }
+  | { state: "unknown"; verdict: "unknown" }
+  | { state: "warning"; verdict: "elsewhere" | "missing" };
+
+/** The cell of a name from its DNS check: a name that points here or behind a CDN is well; one that points elsewhere or nowhere is not. */
+export function dnsCellOf(check: Pick<DnsCheck, "points_here" | "resolved_addresses" | "cdn"> & { verdict?: string | undefined }): DnsCell {
+  const verdict = dnsVerdict(check);
+  if (verdict === "cdn") return { state: "running", verdict, cdn: cdnName(check.cdn) };
+  if (verdict === "here") return { state: "running", verdict };
+  if (verdict === "unknown") return { state: "unknown", verdict };
+  return { state: "warning", verdict };
+}

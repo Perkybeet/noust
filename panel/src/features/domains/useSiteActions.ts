@@ -3,9 +3,34 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { request } from "../../api/client";
 import { siteKeys } from "../../api/queries/sites";
 import { getLocale } from "../../app/locale";
+import { useServerSentence } from "../../components/ui/ServerText";
 import { toast } from "../../components/ui/toast";
 import { translate } from "../../i18n";
+import type { CodedText } from "../../lib/serverSentence";
 import { reportActionError } from "../apps/useAppActions";
+import { siteOutcome } from "./siteForm";
+
+/**
+ * What to do once a site of its own was written, from the dialog that adds a name: read the sites again and say how it went
+ * in the language of the console, as a warning when it came without HTTPS or the web server would not load it. Which it is
+ * the server's code says (`sites.created.without_tls`, `sites.created.without_tls_because`, `sites.created.not_loaded`),
+ * never the English of its sentence.
+ */
+export function useSiteMade(): (made: { site: string; message: string; coded?: CodedText | null | undefined }) => void {
+  const queryClient = useQueryClient();
+  const say = useServerSentence();
+  return ({ site, message, coded }) => {
+    void queryClient.invalidateQueries({ queryKey: siteKeys.all });
+    void queryClient.invalidateQueries({ queryKey: siteKeys.detail(site) });
+    const locale = getLocale();
+    const description = say(coded, message);
+    const outcome = siteOutcome(coded);
+    if (outcome === "withoutHttps") toast.warning(translate(locale, "domains.sitesTab.createdToastWithoutHttps", { site }), { description });
+    else if (outcome === "notLoaded") toast.warning(translate(locale, "domains.sitesTab.createdToastNotLoaded", { site }), { description });
+    // The row is on the page: this says what the server said beside it (a reload to serve it, when it asks for one).
+    else toast.info(translate(locale, "domains.sitesTab.createdToast", { site }), { description });
+  };
+}
 
 /**
  * What can be done to a site from anywhere it is shown: enable, disable, and test and reload

@@ -55,6 +55,25 @@ describe("one row per port", () => {
     expect(portRows(CLAIMS, [{ ...BYPASS, proto: "udp", port: 443 }]).map((entry) => entry.key)).toContain("udp:443");
   });
 
+  it("lists a port the firewall sees listening when the registry holds nothing for it, so who listens is never missing a row", () => {
+    const POSTGRES: ListeningPort = { proto: "tcp", port: 5432, address: "0.0.0.0", process: "postgres", verdict: "open", sources: [], risky: "database", baseline: false, reachable: true };
+    const rows = portRows(CLAIMS, [...LISTENING, POSTGRES]);
+
+    expect(rowOf(rows, "tcp:5432")).toMatchObject({ port: 5432, protocol: "tcp", holders: [] });
+    expect(rowOf(rows, "tcp:5432").firewall?.process).toBe("postgres");
+    // A port both know of is still one row, with the holder Noust names.
+    expect(rows.filter((entry) => entry.key === "tcp:22")).toHaveLength(1);
+    expect(isFree(rows, 5432)).toBe(false);
+  });
+
+  it("searches a port nothing in Noust holds by the program the kernel names for it", () => {
+    const POSTGRES: ListeningPort = { proto: "tcp", port: 5432, address: "0.0.0.0", process: "postgres", verdict: "open", sources: [], risky: "database", baseline: false, reachable: true };
+    const rows = portRows(CLAIMS, [POSTGRES]);
+
+    expect(matchRows(rows, "postg").map((entry) => entry.port)).toEqual([5432]);
+    expect(matchRows(rows, "5432").map((entry) => entry.port)).toEqual([5432]);
+  });
+
   it("sorts by port, then protocol", () => {
     const ports = portRows(CLAIMS, []).map((entry) => entry.port);
 
@@ -114,7 +133,9 @@ describe("the address", () => {
   it("keeps a view and a search, drops anything else", () => {
     expect(validateNetworkSearch({ view: "firewall", q: " 5432 " })).toEqual({ view: "firewall", q: "5432" });
     expect(validateNetworkSearch({ view: "ports" })).toEqual({});
-    expect(validateNetworkSearch({ view: "nonsense", q: 4 })).toEqual({});
+    expect(validateNetworkSearch({ view: "nonsense", q: { nested: true } })).toEqual({});
+    // A link written by hand, `?q=5432`, reaches the parser as a number: it is the search for the port, not nothing.
+    expect(validateNetworkSearch({ q: 5432 })).toEqual({ q: "5432" });
   });
 
   it("does not take a search of unreasonable length whole", () => {

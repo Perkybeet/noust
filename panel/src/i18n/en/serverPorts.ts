@@ -1,9 +1,9 @@
-/** Strings of the console's Network and ports section: who holds each port, and who can reach it. */
+/** Strings of the console's listening ports: who holds each port of the machine, and who can reach it from outside. */
 export const serverPorts = {
   label: "the ports",
-  intro: "What listens on this server, who it belongs to and who can reach it.",
-  open: "Open a port",
+  intro: "Who listens on each port of this machine and whether it can be reached from outside.",
   openThis: "Open port {port}",
+  openOutside: "Open to the outside…",
   free: "Nothing on this server uses port {port}.",
   filterLabel: "Filter the ports",
   searchLabel: "Search ports",
@@ -13,10 +13,13 @@ export const serverPorts = {
   caption: "Ports and what uses them",
   none: "No port matches.",
   notListening: "Nothing is listening yet",
+  noProgram: "No program named",
+  noHolder: "Not one of Noust's",
   column: {
     port: "Port",
-    holder: "Used by",
-    reach: "Who can reach it",
+    program: "Program",
+    holder: "Belongs to",
+    reach: "From outside",
   },
   holder: {
     web: "The web server",
@@ -30,16 +33,9 @@ export const serverPorts = {
     instance: "Database server",
     process: "Process",
   },
-  firewallOff: {
-    title: "The firewall is off",
-    body: "Every port that listens is open to anyone.",
-    link: "Turn it on",
-  },
-  viewsLabel: "Network view",
   views: {
     ports: "Listening ports",
     firewall: "Firewall",
     interfaces: "Interfaces",
   },
-  publishedElsewhere: "An application reached on a port of its own, and not as a website, is published from Domains, under {link}.",
 } as const;

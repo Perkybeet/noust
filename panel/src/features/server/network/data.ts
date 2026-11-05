@@ -19,7 +19,9 @@ export interface NetworkSearch {
 /** Reads `?view=` and `?q=`, dropping anything that is neither a view nor a word of reasonable length. */
 export function validateNetworkSearch(search: Record<string, unknown>): NetworkSearch {
   const view = search["view"];
-  const q = typeof search["q"] === "string" ? search["q"].trim().slice(0, 60) : "";
+  // `?q=5432` is a number to the router's parser, and a port is exactly what is searched: it is the same search as `?q="5432"`.
+  const asked = search["q"];
+  const q = typeof asked === "string" ? asked.trim().slice(0, 60) : typeof asked === "number" ? String(asked) : "";
   return {
     ...(typeof view === "string" && view !== "ports" && (NETWORK_VIEWS as readonly string[]).includes(view) ? { view: view as Exclude<NetworkView, "ports"> } : {}),
     ...(q !== "" ? { q } : {}),
@@ -86,6 +88,12 @@ export function portRows(claims: readonly PortClaim[], firewall: readonly Listen
     byKey.set(key, row);
   }
   const listening = new Map<string, ListeningPort>(firewall.map((entry) => [`${entry.proto}:${String(entry.port)}`, entry]));
+  // What the kernel says listens is a row even when the registry holds nothing for it (a program of the machine's own, a UDP
+  // socket): the table is who listens, so a port the firewall sees is never missing from it.
+  for (const [key, entry] of listening) {
+    if (byKey.has(key) || (entry.proto !== "tcp" && entry.proto !== "udp")) continue;
+    byKey.set(key, { port: entry.port, protocol: entry.proto, declared: [], observed: [] });
+  }
   return [...byKey.entries()]
     // The machine's own services reserve a port over both protocols; the second one is no port in use until something listens on it.
     .filter(([key, row]) => !(row.protocol === "udp" && row.declared.every(isMachine) && !listening.has(key) && row.observed.length === 0))
@@ -116,7 +124,9 @@ export function matchRows(rows: readonly PortRow[], query: string | undefined): 
   const needle = (query ?? "").trim().toLowerCase();
   if (needle === "") return [...rows];
   const asked = /^\d{1,5}$/.test(needle) ? needle : null;
-  return rows.filter((row) => (asked !== null ? String(row.port).startsWith(asked) : row.holders.some((holder) => holderWords(holder).includes(needle))));
+  return rows.filter((row) =>
+    asked !== null ? String(row.port).startsWith(asked) : row.holders.some((holder) => holderWords(holder).includes(needle)) || (row.firewall?.process ?? "").toLowerCase().includes(needle),
+  );
 }
 
 /** The port a search is exactly about: a whole number between 1 and 65535, else null. */

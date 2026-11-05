@@ -4,25 +4,32 @@ import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
 import { isApiError, request } from "../../api/client";
-import { dnsCheckQuery } from "../../api/queries/domains";
+import { nameDnsCheckQuery } from "../../api/queries/domains";
 import type { AppDomainChange } from "../../api/queries/domains";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
-import { Checkbox } from "../../components/ui/Checkbox";
-import { Notice } from "../../components/ui/Notice";
 import { Button } from "../../components/ui/Button";
+import { Checkbox } from "../../components/ui/Checkbox";
 import { ChoiceCards } from "../../components/ui/ChoiceCards";
 import { Dialog } from "../../components/ui/Dialog";
 import { Disclosure } from "../../components/ui/Disclosure";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
+import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import type { CodedText } from "../../lib/serverSentence";
 import { DnsVerdict } from "./DnsVerdict";
 import { dnsVerdict, reachesServer } from "./dns";
 import { domainProblem, isWildcard, normalizeDomain } from "./names";
-import { LoadingRegion } from "../../components/page/LoadingRegion";
+import { SiteFields, useSiteTemplate } from "./SiteFields";
+import { createSiteBody } from "./siteForm";
+import type { CreateSiteBody, CreateSiteForm } from "./siteForm";
+
+/** What a name is for: an application answers on it, it sends visitors to an application, or it is a site of its own. */
+export type NamePurpose = "app" | "redirect" | "site";
 
 type AddableKind = "alias" | "redirect";
 
@@ -58,33 +65,52 @@ function VerdictSkeleton() {
   );
 }
 
+/** What making a site answered: its name and the server's own account of it, with its code. */
+export interface SiteMade {
+  site: string;
+  message: string;
+  coded?: CodedText | null | undefined;
+}
+
 export interface AddDomainDialogProps {
-  /** The application's primary domain; null when the dialog asks which application (the Domains section's). */
+  /** The application's primary domain; null when the dialog asks what the name is for and which application (the Domains area's). */
   app: string | null;
   /** The applications to choose from, when `app` is null. */
   apps?: readonly string[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** The domain was added: the application's domains afterwards, the name added and the application it went to. */
+  /** The name was put on an application: its domains afterwards, the name added and the application it went to. */
   onAdded: (change: AppDomainChange, name: string, app: string) => void;
+  /** What the dialog starts as: a site of its own from the Sites list, an application's name from anywhere else. */
+  initialPurpose?: NamePurpose;
+  /** The web server this machine runs, which a site of its own uses unless told otherwise. */
+  webserver?: string;
+  /** A site of its own was written. Without it the area has no sites to offer, and the dialog is for applications' names. */
+  onSiteMade?: (made: SiteMade) => void;
 }
 
 /**
- * Adds a name to an application. DNS is asked where the name points as soon as the operator
- * leaves the field, and the verdict is on screen when they reach the button, so adding is one
- * press. Pressed before the answer is in, the button waits for it and goes on if the name points
- * here; if it does not, the verdict is shown and the button says "Add anyway". A name that does
- * not point here can still be added; the dialog says what that costs (the certificate order fails
- * until it does).
+ * The one way to add a name (owner item 119: "Add a domain" and "Create a site" were two dialogs): the name, what it is
+ * for (an application, a redirect to one, a site of its own), where it points and what the DNS provider needs. DNS is asked
+ * where the name points as soon as the operator leaves the field or presses Check, and the verdict is on screen when they
+ * reach the button, so adding is one press. Pressed before the answer is in, the button waits for it and goes on if the name
+ * points here; if it does not, the verdict is shown and the button says "Add anyway". A name that does not point here can
+ * still be added; the dialog says what that costs (the certificate order fails until it does).
+ *
+ * From an application's own Domains section the application is given: it is a name for that application, and the choice
+ * of what it is for is one of its options.
  */
-export function AddDomainDialog({ app: given, apps = [], open, onOpenChange, onAdded }: AddDomainDialogProps) {
+export function AddDomainDialog({ app: given, apps = [], open, onOpenChange, onAdded, initialPurpose = "app", webserver = "nginx", onSiteMade }: AddDomainDialogProps) {
   const t = useT();
   const queryClient = useQueryClient();
+  const formId = useId();
+  const mayMakeSites = given === null && onSiteMade !== undefined;
   // The only application to choose from is the one: nothing to ask.
   const [chosen, setChosen] = useState<string | null>(null);
   const picked = given ?? chosen ?? (apps.length === 1 ? (apps[0] ?? null) : null);
   // The hooks below need a string; a submit without an application is stopped before it reaches the server.
   const app = picked ?? "";
+  const [purpose, setPurpose] = useState<NamePurpose>(initialPurpose === "site" && !mayMakeSites ? "app" : initialPurpose);
   const [asking, setAsking] = useState(false);
   const [name, setName] = useState("");
   const [kind, setKind] = useState<AddableKind>("alias");
@@ -92,18 +118,26 @@ export function AddDomainDialog({ app: given, apps = [], open, onOpenChange, onA
   const [problem, setProblem] = useState<string | null>(null);
   const [port, setPort] = useState("");
   const [pointDns, setPointDns] = useState(true);
+  const [site, setSite] = useState<CreateSiteForm>({ domain: "", webserver: webserver === "apache" ? "apache" : "nginx", template: "proxy", port: "3000", ssl: true, enable: true });
+  const [siteProblems, setSiteProblems] = useState<{ port?: string }>({});
 
-  const dns = useQuery({ ...dnsCheckQuery(app, checked ?? ""), enabled: open && checked !== null && picked !== null });
+  // What it is for decides what is added: an alias of an application, a redirect to it, or a site of its own.
+  const asSite = purpose === "site";
+  const addKind: AddableKind = given !== null ? kind : purpose === "redirect" ? "redirect" : "alias";
+  const siteTemplate = useSiteTemplate(site, open && asSite);
+
+  // From an application the check is hers; from the area it is the bare check, which needs no application yet.
+  const dns = useQuery({ ...nameDnsCheckQuery(given, checked ?? ""), enabled: open && checked !== null && checked !== "" });
   const add = useMutation({
     mutationFn: ({ domain, force }: { domain: string; force: boolean }) =>
       request("post", "/api/apps/{domain}/domains", {
         params: { domain: app },
         body: {
           domain,
-          kind,
+          kind: addKind,
           force,
           dns: pointDns,
-          ...(kind === "alias" && port.trim() !== "" ? { port: Number(port) } : {}),
+          ...(addKind === "alias" && port.trim() !== "" ? { port: Number(port) } : {}),
         },
       }),
     onSuccess: (change, { domain }) => {
@@ -111,6 +145,14 @@ export function AddDomainDialog({ app: given, apps = [], open, onOpenChange, onA
       close(false, true);
     },
   });
+  const createSite = useMutation({
+    mutationFn: (body: CreateSiteBody) => request("post", "/api/sites", { body }),
+    onSuccess: (result) => {
+      onSiteMade?.(result);
+      close(false, true);
+    },
+  });
+  const working = add.isPending || createSite.isPending;
 
   // A server with no domain yet: the name made of its public address, which sslip.io answers.
   // A server behind NAT answers that it has no such name, with how to declare its address.
@@ -130,28 +172,32 @@ export function AddDomainDialog({ app: given, apps = [], open, onOpenChange, onA
   });
 
   const normalized = normalizeDomain(name);
-  const wildcard = isWildcard(normalized);
+  const wildcard = !asSite && isWildcard(normalized);
   // A wildcard has no address to ask DNS about: its certificate is proven with a DNS record.
   const isChecked = wildcard || (checked !== null && checked === normalized);
   const verdict = isChecked && dns.data ? dnsVerdict(dns.data) : null;
   // Another site of the web server answers on the name: the operator decides, with its words in front.
-  const overlap = add.error && isApiError(add.error) && add.error.error === "domain_overlap" ? add.error : null;
+  const refusal = add.error ?? createSite.error;
+  const overlap = refusal && isApiError(refusal) && refusal.error === "domain_overlap" ? refusal : null;
 
   // `settled` closes it from the mutation's own success callback, which runs while the
   // mutation still reads as pending.
   function close(next: boolean, settled = false): void {
-    if (!next && add.isPending && !settled) return;
+    if (!next && working && !settled) return;
     onOpenChange(next);
     if (!next) {
       setName("");
       setKind("alias");
+      setPurpose(initialPurpose === "site" && !mayMakeSites ? "app" : initialPurpose);
       setChecked(null);
       setProblem(null);
       setPort("");
       setPointDns(true);
       setAsking(false);
       setChosen(null);
+      setSiteProblems({});
       add.reset();
+      createSite.reset();
       temporary.reset();
       setNoAddress(null);
     }
@@ -159,18 +205,33 @@ export function AddDomainDialog({ app: given, apps = [], open, onOpenChange, onA
 
   /** Why the name cannot be added at all, or null: the same words on leaving the field and on pressing Add. */
   const problemWith = (): string | null => {
-    if (picked === null) return t("domains.addDomainDialog.appNeeded");
-    const invalid = domainProblem(name, t.locale, { wildcard: true });
+    if (!asSite && picked === null) return t("domains.addDomainDialog.appNeeded");
+    const invalid = domainProblem(name, t.locale, { wildcard: !asSite });
     if (invalid !== null) return invalid;
-    if (normalized === app) return t("domains.addDomainDialog.alreadyPrimaryError", { app });
-    if (port.trim() !== "" && (!/^\d+$/.test(port.trim()) || Number(port) < 1 || Number(port) > 65535)) return t("network.port.invalid");
+    if (!asSite && normalized === app) return t("domains.addDomainDialog.alreadyPrimaryError", { app });
+    if (!asSite && port.trim() !== "" && (!/^\d+$/.test(port.trim()) || Number(port) < 1 || Number(port) > 65535)) return t("network.port.invalid");
     return null;
   };
 
-  /** Leaving the field with a name that could be added asks DNS about it, so the verdict is there before the button is. */
+  /** Asks DNS about the name now: leaving the field with a name that could be added, or pressing Check. */
   const askDns = (): void => {
-    if (picked === null || name.trim() === "" || domainProblem(name, t.locale, { wildcard: true }) !== null || normalized === app || wildcard) return;
+    if (name.trim() === "" || domainProblem(name, t.locale, { wildcard: !asSite }) !== null || (!asSite && normalized === app) || wildcard) return;
+    if (given !== null && picked === null) return;
     setChecked(normalized);
+  };
+
+  const proceed = (force: boolean): void => {
+    if (asSite) {
+      const made = createSiteBody({ ...site, domain: name, template: siteTemplate.template }, t.locale);
+      if ("errors" in made) {
+        setSiteProblems(made.errors.port !== undefined ? { port: made.errors.port } : {});
+        if (made.errors.domain !== undefined) setProblem(made.errors.domain);
+        return;
+      }
+      createSite.mutate(made.body);
+      return;
+    }
+    add.mutate({ domain: normalized, force });
   };
 
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
@@ -182,7 +243,7 @@ export function AddDomainDialog({ app: given, apps = [], open, onOpenChange, onA
     }
     setProblem(null);
     if (wildcard || (isChecked && !dns.isPending)) {
-      add.mutate({ domain: normalized, force: overlap !== null });
+      proceed(overlap !== null);
       return;
     }
     // The answer is not in yet (the button was pressed straight from the field): wait for the one
@@ -190,63 +251,45 @@ export function AddDomainDialog({ app: given, apps = [], open, onOpenChange, onA
     setChecked(normalized);
     setAsking(true);
     void queryClient
-      .query({ ...dnsCheckQuery(app, normalized), staleTime: "static" })
+      .query({ ...nameDnsCheckQuery(given, normalized), staleTime: "static" })
       .then((check) => {
-        const kind = dnsVerdict(check);
-        if (reachesServer(kind) || kind === "unknown") add.mutate({ domain: normalized, force: false });
+        const answer = dnsVerdict(check);
+        if (reachesServer(answer) || answer === "unknown") proceed(false);
       })
       .catch(() => undefined)
       .finally(() => setAsking(false));
   };
 
-  const fieldError = problem ?? (add.error && isApiError(add.error) ? (add.error.fields?.["domain"] ?? null) : null);
+  const serverFields = refusal && isApiError(refusal) ? (refusal.fields ?? {}) : {};
+  const fieldError = problem ?? serverFields["domain"] ?? null;
   const primaryLabel =
     overlap !== null
       ? t("network.addDomain.addAnyway")
       : verdict === null || reachesServer(verdict) || verdict === "unknown"
-        ? t("domains.addDomain")
+        ? t("domains.addDomainDialog.addName")
         : t("domains.addDomainDialog.addAnyway");
-  const formId = useId();
+  const who = picked ?? t("domains.addDomainDialog.theApplication");
 
   return (
     <Dialog
       open={open}
       onOpenChange={close}
-      title={picked !== null ? t("domains.addDomainDialog.addDialogTitle", { app }) : t("domains.addDomainDialog.addDialogTitleAny")}
+      size="lg"
+      title={given !== null ? t("domains.addDomainDialog.addDialogTitle", { app: given }) : t("domains.addDomainDialog.addDialogTitleAny")}
       description={t("domains.addDomainDialog.addDialogDescription")}
       footer={
         <>
-          <Button disabled={add.isPending} onClick={() => close(false)}>
+          <Button disabled={working} onClick={() => close(false)}>
             {t("common.words.cancel")}
           </Button>
-          <Button
-            type="submit"
-            form={formId}
-            variant="primary"
-            loading={add.isPending || asking}
-          >
+          <Button type="submit" form={formId} variant="primary" loading={working || asking}>
             {primaryLabel}
           </Button>
         </>
       }
     >
       <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-5">
-        {given === null && apps.length !== 1 ? (
-          <Field label={t("domains.addDomainDialog.appLabel")} nativeLabel={false} error={problem === t("domains.addDomainDialog.appNeeded") ? problem : null}>
-            <Select
-              aria-label={t("domains.addDomainDialog.appLabel")}
-              value={chosen}
-              placeholder={t("domains.addDomainDialog.appPlaceholder")}
-              onValueChange={(value: string) => {
-                setChosen(value);
-                setProblem(null);
-                setChecked(null);
-              }}
-              options={apps.map((entry) => ({ value: entry, label: entry }))}
-            />
-          </Field>
-        ) : null}
-        <Field label={t("domains.domainFieldLabel")} error={fieldError} description={t("domains.addDomainDialog.domainFieldDescription")}>
+        <Field label={t("common.words.name")} error={fieldError} description={t("domains.addDomainDialog.domainFieldDescription")}>
           <Input
             mono
             value={name}
@@ -254,8 +297,13 @@ export function AddDomainDialog({ app: given, apps = [], open, onOpenChange, onA
               setName(value);
               setProblem(null);
             }}
-            placeholder={picked !== null ? `shop.${app}` : "shop.example.com"}
+            placeholder={given !== null ? `shop.${given}` : "shop.example.com"}
             onBlur={askDns}
+            suffix={
+              <Button size="sm" variant="ghost" loading={dns.isFetching && isChecked} onClick={askDns}>
+                {t("domains.addDomainDialog.check")}
+              </Button>
+            }
             autoComplete="off"
             autoCapitalize="off"
             spellCheck={false}
@@ -276,18 +324,86 @@ export function AddDomainDialog({ app: given, apps = [], open, onOpenChange, onA
             <p className="text-12 text-pretty text-fg-muted">{t("domains.temporary.help")}</p>
           )}
         </div>
-        {/* What most names never change: an alias, on the application's own port, with its DNS record made. */}
-        <Disclosure label={t("domains.addDomainDialog.moreOptions")} defaultOpen={false}>
-          <div className="flex flex-col gap-5">
-            <KindChoice app={picked ?? t("domains.addDomainDialog.theApplication")} value={kind} onChange={setKind} />
-            {kind === "alias" ? (
-              <Field label={t("network.addDomain.portLabel")} description={t("network.addDomain.portHelp", { app: picked ?? t("domains.addDomainDialog.theApplication") })} optional>
-                <Input mono inputMode="numeric" value={port} onValueChange={setPort} autoComplete="off" />
+
+        {given === null ? (
+          <>
+            {mayMakeSites ? (
+              <ChoiceCards<NamePurpose>
+                legend={t("domains.addDomainDialog.purposeLegend")}
+                columns={1}
+                value={purpose}
+                onValueChange={(next) => {
+                  setPurpose(next);
+                  setProblem(null);
+                  setChecked(null);
+                }}
+                options={[
+                  { value: "app", label: t("domains.addDomainDialog.purposeApp"), description: t("domains.addDomainDialog.purposeAppHelp") },
+                  { value: "redirect", label: t("domains.addDomainDialog.purposeRedirect"), description: t("domains.addDomainDialog.purposeRedirectHelp") },
+                  { value: "site", label: t("domains.addDomainDialog.purposeSite"), description: t("domains.addDomainDialog.purposeSiteHelp") },
+                ]}
+              />
+            ) : (
+              <ChoiceCards<AddableKind>
+                legend={t("domains.addDomainDialog.purposeLegend")}
+                columns={1}
+                value={purpose === "redirect" ? "redirect" : "alias"}
+                onValueChange={(next) => setPurpose(next === "redirect" ? "redirect" : "app")}
+                options={[
+                  { value: "alias", label: t("domains.addDomainDialog.purposeApp"), description: t("domains.addDomainDialog.purposeAppHelp") },
+                  { value: "redirect", label: t("domains.addDomainDialog.purposeRedirect"), description: t("domains.addDomainDialog.purposeRedirectHelp") },
+                ]}
+              />
+            )}
+            {!asSite && apps.length !== 1 ? (
+              <Field
+                label={purpose === "redirect" ? t("domains.addDomainDialog.redirectsTo") : t("domains.addDomainDialog.appLabel")}
+                nativeLabel={false}
+                error={problem === t("domains.addDomainDialog.appNeeded") ? problem : null}
+              >
+                <Select
+                  aria-label={purpose === "redirect" ? t("domains.addDomainDialog.redirectsTo") : t("domains.addDomainDialog.appLabel")}
+                  value={chosen}
+                  placeholder={t("domains.addDomainDialog.appPlaceholder")}
+                  onValueChange={(value: string) => {
+                    setChosen(value);
+                    setProblem(null);
+                  }}
+                  options={apps.map((entry) => ({ value: entry, label: entry }))}
+                />
               </Field>
             ) : null}
-            <Checkbox label={t("network.addDomain.dnsLabel")} description={t("network.addDomain.dnsHelp")} checked={pointDns} onCheckedChange={setPointDns} />
-          </div>
-        </Disclosure>
+          </>
+        ) : null}
+
+        {asSite ? (
+          <SiteFields
+            form={site}
+            errors={siteProblems}
+            server={serverFields}
+            onChange={(patch) => {
+              setSite((current) => ({ ...current, ...patch }));
+              setSiteProblems({});
+            }}
+            detected={webserver}
+            template={siteTemplate.template}
+            available={siteTemplate.available}
+            templates={siteTemplate.query}
+          />
+        ) : (
+          // What most names never change: an alias, on the application's own port, with its DNS record made.
+          <Disclosure label={t("domains.addDomainDialog.moreOptions")} defaultOpen={false}>
+            <div className="flex flex-col gap-5">
+              {given !== null ? <KindChoice app={who} value={kind} onChange={setKind} /> : null}
+              {addKind === "alias" ? (
+                <Field label={t("network.addDomain.portLabel")} description={t("network.addDomain.portHelp", { app: who })} optional>
+                  <Input mono inputMode="numeric" value={port} onValueChange={setPort} autoComplete="off" />
+                </Field>
+              ) : null}
+              <Checkbox label={t("network.addDomain.dnsLabel")} description={t("network.addDomain.dnsHelp")} checked={pointDns} onCheckedChange={setPointDns} />
+            </div>
+          </Disclosure>
+        )}
         {wildcard ? <Notice title={t("network.addDomain.wildcardTitle")}>{t("network.addDomain.wildcardNote")}</Notice> : null}
 
         {isChecked && !wildcard ? (
@@ -304,13 +420,7 @@ export function AddDomainDialog({ app: given, apps = [], open, onOpenChange, onA
                 <p className="text-12 text-pretty text-fg-muted">
                   {verdict !== null && reachesServer(verdict) ? t("domains.addDomainDialog.addingExtendsCertHint") : t("domains.addDomainDialog.addedNowHint")}
                 </p>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  icon={<RotateCw aria-hidden="true" />}
-                  loading={dns.isFetching}
-                  onClick={() => void dns.refetch()}
-                >
+                <Button size="sm" variant="ghost" icon={<RotateCw aria-hidden="true" />} loading={dns.isFetching} onClick={() => void dns.refetch()}>
                   {t("domains.checkAgain")}
                 </Button>
               </div>
@@ -324,8 +434,13 @@ export function AddDomainDialog({ app: given, apps = [], open, onOpenChange, onA
             {overlap.hint ? <span className="mt-1 block text-fg-muted">{overlap.hint}</span> : null}
           </Notice>
         ) : null}
-        {add.isError && fieldError === null && overlap === null ? (
-          <ErrorBlock live compact error={add.error} title={t("domains.addDomainDialog.notAddedError", { name: normalized })} />
+        {refusal && fieldError === null && overlap === null && Object.keys(serverFields).length === 0 ? (
+          <ErrorBlock
+            live
+            compact
+            error={refusal}
+            title={asSite ? t("domains.createSiteDialog.notCreatedError", { domain: normalized || t("domains.theSite") }) : t("domains.addDomainDialog.notAddedError", { name: normalized })}
+          />
         ) : null}
       </form>
     </Dialog>

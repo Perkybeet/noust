@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Outlet } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
+import type { PageHeaderProps } from "../../app/PageHeader";
 import { DetailPage } from "../../components/page/DetailPage";
 import { useNodeCapability } from "../../nodes/capability";
 import { PendingChanges } from "./PendingChanges";
@@ -27,9 +28,10 @@ export function MachineProviders() {
 /**
  * The frame of a page of the machine outside the Server's layout: its title and what it is for, what is
  * pending on the machine (a security change that waits to be confirmed) and the job in hand, over the page.
- * The page itself is the component the section had under the Server, as it was.
+ * The page itself is the component the section had under the Server, as it was. A page's own actions and the state
+ * beside its title are the `header`'s.
  */
-export function MachinePage({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+export function MachinePage({ title, description, header, children }: { title: string; description?: ReactNode; header?: Omit<PageHeaderProps, "title" | "description">; children: ReactNode }) {
   const capability = useNodeCapability(SERVER_CAPABILITY);
   const available = capability.status === "available" || capability.status === "unknown";
   const changes = useQuery({ ...changesQuery(), enabled: available });
@@ -37,7 +39,7 @@ export function MachinePage({ title, description, children }: { title: string; d
   const pending = (changes.data ?? []).filter((change) => change.status === "pending");
   return (
     <DetailPage
-      header={{ title, ...(description !== undefined ? { description } : {}) }}
+      header={{ title, ...(description !== undefined ? { description } : {}), ...header }}
       {...(pending.length > 0 ? { banner: <PendingChanges changes={pending} /> } : {})}
       {...(hasJob ? { job: <ServerJobSlot /> } : {})}
     >

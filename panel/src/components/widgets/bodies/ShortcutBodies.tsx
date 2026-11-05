@@ -27,8 +27,9 @@ const SHORTCUTS: readonly Shortcut[] = [
   { id: "app", label: "widgets.actions.newApp", icon: ICONS.add, needs: "apps.deploy", to: "/apps/new" },
   { id: "database", label: "widgets.actions.newDatabase", icon: OBJECT_ICONS.database, needs: "databases.write", to: "/databases" },
   { id: "backup", label: "common.words.backUpNow", icon: OBJECT_ICONS.backup, needs: "backups.run", to: "/backups" },
-  { id: "port", label: "widgets.actions.openPort", icon: OBJECT_ICONS.port, needs: "server.manage", to: "/domains/ports" },
-  { id: "domain", label: "widgets.actions.addDomain", icon: OBJECT_ICONS.domain, needs: "apps.manage", to: "/domains" },
+  // A shortcut opens what it says: the dialog that opens a port, the one that adds a name (the pages open them on `?new`).
+  { id: "port", label: "widgets.actions.openPort", icon: OBJECT_ICONS.port, needs: "server.host_access", to: "/network", search: { new: true } },
+  { id: "domain", label: "widgets.actions.addDomain", icon: OBJECT_ICONS.domain, needs: "apps.manage", to: "/domains", search: { new: true } },
   { id: "terminal", label: "widgets.actions.terminal", icon: OBJECT_ICONS.terminal, needs: "server.terminal", to: "/server/terminal" },
   { id: "logs", label: "widgets.actions.logs", icon: OBJECT_ICONS.log, needs: "server.read", to: "/logs" },
   { id: "update", label: "widgets.actions.systemUpdates", icon: OBJECT_ICONS.update, needs: "server.manage", to: "/server/system" },

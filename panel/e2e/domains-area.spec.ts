@@ -1,8 +1,8 @@
 /**
  * The Domains area against the real backend: each section has a title of its own (never the area's name
- * again) and a tab, a domain is put on an application from the area in one dialog, the card of the names no
- * site serves is apart from the table, Noust DNS asks for its acceptance before it installs, and a server
- * without cloudflared says what a tunnel needs instead of failing a form (the tunnels are Network's since 4.2). Both themes, with the CSP and
+ * again) and a tab, a name is added from the area in one dialog, the card of the names no site serves is apart
+ * from the table, Noust DNS asks for its acceptance before it installs, and a server without cloudflared says what
+ * a tunnel needs instead of failing a form (the tunnels are Network's since 4.2). Both themes, with the CSP and
  * console gates of the `problems` fixture and axe on every state.
  */
 
@@ -12,7 +12,7 @@ const SECTIONS = [
   { tab: /^Domains/, path: "/domains", title: "Domains" },
   { tab: /^Sites/, path: "/domains/sites", title: "Sites" },
   { tab: /^Certificates/, path: "/domains/certificates", title: "Certificates" },
-  { tab: /^DNS/, path: "/domains/dns", title: "DNS" },
+  { tab: /^DNS/, path: "/domains/dns", title: "DNS providers" },
 ] as const;
 
 test("every section is in the column with a title of its own, and moving between them is one click", async ({ page, consoleServer }) => {
@@ -26,7 +26,7 @@ test("every section is in the column with a title of its own, and moving between
   }
 });
 
-test("the Domains section lists the names with their HTTPS and puts a new one on an application from one dialog", async ({ page, consoleServer }) => {
+test("the Domains section lists the names with their HTTPS and DNS and adds a new one from one dialog", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/domains");
   const table = page.getByRole("region", { name: "Domains", exact: true });
   await expect(table.getByRole("row").nth(1)).toBeVisible();
@@ -35,15 +35,15 @@ test("the Domains section lists the names with their HTTPS and puts a new one on
   await settle(page);
   await expectNoA11yViolations(page, "the Domains section");
 
-  await page.getByRole("button", { name: "Add domain" }).first().click();
-  const dialog = page.getByRole("dialog", { name: "Add a domain" });
+  await page.getByRole("button", { name: "Add a name" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Add a name" });
   await expect(dialog.getByRole("combobox", { name: "Application" })).toBeVisible();
   // Without the application, pressing Add says what is missing where it is missing.
-  await dialog.getByLabel("Domain", { exact: true }).fill("soon.example.net");
-  await dialog.getByRole("button", { name: /Add domain|Add anyway/ }).click();
+  await dialog.getByRole("textbox", { name: "Name", exact: true }).fill("soon.example.net");
+  await dialog.getByRole("button", { name: /Add the name|Add anyway/ }).click();
   await expect(dialog.getByText("Choose the application the name is for.").first()).toBeVisible();
   await settle(page);
-  await expectNoA11yViolations(page, "the Add domain dialog");
+  await expectNoA11yViolations(page, "the dialog that adds a name");
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
 });
@@ -64,9 +64,8 @@ test("on the Sites section the card of the names no site serves is apart from th
 
 test("Noust DNS says what it takes on and asks for the acceptance before it installs", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/domains/dns");
-  // The DNS section offers it beside the providers.
-  await expect(page.getByRole("heading", { level: 2, name: "Noust DNS" })).toBeVisible();
-  await page.getByRole("link", { name: "Set up Noust DNS" }).click();
+  // Noust DNS is the next entry of the column after the providers: it is not a card among their accounts.
+  await page.getByRole("navigation", { name: "Domains sections" }).getByRole("link", { name: /^Noust DNS/ }).click();
   await expect(page).toHaveURL(/\/domains\/dns\/noust$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Noust DNS");
   await expect(page.getByText(/the whole internet depends on: if it is down, every name it serves is down/)).toBeVisible();
@@ -87,7 +86,7 @@ test("Noust DNS says what it takes on and asks for the acceptance before it inst
 
 test("a server without cloudflared says what a tunnel needs, and offers to install it", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/network/tunnels");
-  await expect(page.getByText("No tunnels yet")).toBeVisible();
+  await expect(page.getByText(/A tunnel reaches an application without a public address or an open port/)).toBeVisible();
   await expect(page.getByText("cloudflared is missing")).toBeVisible();
   await expect(page.getByRole("button", { name: "Install" })).toBeVisible();
   // The server's English never reaches the page as the error of a form.

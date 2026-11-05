@@ -8,6 +8,7 @@ import type { NoustServer } from "../../../api/queries/noustDns";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { QueryState } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
+import { GuardedButton } from "../../../components/page/permissions";
 import { DangerAction, DangerZone } from "../../../components/page/DangerZone";
 import { Card } from "../../../components/ui/Card";
 import { Checkbox } from "../../../components/ui/Checkbox";
@@ -18,10 +19,11 @@ import { Notice } from "../../../components/ui/Notice";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { useT } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
+import { useServerList } from "../../../nodes/servers";
 import { DomainsListPage } from "../DomainsListPage";
+import { ClusterDialog } from "./ClusterDialog";
 import { InstallPanel } from "./InstallPanel";
 import { SecondariesCard } from "./SecondariesCard";
 import { SetupPanel } from "./SetupPanel";
@@ -79,6 +81,8 @@ function Running({ server, adding, onAddingChange }: { server: NoustServer; addi
   const primary = server.role !== "secondary";
   return (
     <div className="flex flex-col gap-6">
+      {primary ? null : <Notice title={t("noustDns.server.secondaryNote")} />}
+      <ZonesPanel canEdit={primary} adding={adding} onAddingChange={onAddingChange} />
       <Card level={2} title={t("noustDns.server.roleLabel")} icon={OBJECT_ICONS.dns} padding="sm" status={<StateBadge server={server} />}>
         <KeyValueList
           items={[
@@ -89,8 +93,6 @@ function Running({ server, adding, onAddingChange }: { server: NoustServer; addi
           ]}
         />
       </Card>
-      {primary ? null : <Notice title={t("noustDns.server.secondaryNote")} />}
-      <ZonesPanel canEdit={primary} adding={adding} onAddingChange={onAddingChange} />
       {primary ? <SecondariesCard server={server} /> : null}
       <RemoveCard server={server} />
     </div>
@@ -113,7 +115,9 @@ function StateBadge({ server }: { server: NoustServer }) {
 export function NoustDnsPage() {
   const t = useT();
   const status = useQuery(noustServerQuery());
+  const servers = useServerList();
   const [adding, setAdding] = useState(false);
+  const [clustering, setClustering] = useState(false);
   const server = status.data;
   const state = server === undefined ? null : noustState(server);
   const addable = server !== undefined && server.configured && server.role !== "secondary";
@@ -126,8 +130,18 @@ export function NoustDnsPage() {
       {...(addable
         ? {
             primaryAction: (
-              <Button variant="primary" icon={<ICONS.add aria-hidden="true" />} onClick={() => setAdding(true)}>
+              <GuardedButton permission="server.manage" variant="primary" icon={<ICONS.add aria-hidden="true" />} onClick={() => setAdding(true)}>
                 {t("noustDns.zones.add")}
+              </GuardedButton>
+            ),
+          }
+        : {})}
+      {...(servers.nodes.length > 0 && server !== undefined && !server.configured
+        ? {
+            // Across a fleet the primary and its secondaries are set up from the central, as one job.
+            secondaryActions: (
+              <Button size="sm" onClick={() => setClustering(true)}>
+                {t("noustDns.cluster.open")}
               </Button>
             ),
           }
@@ -135,7 +149,6 @@ export function NoustDnsPage() {
       {...(state === "stopped"
         ? { notice: <Notice tone="error" variant="banner" title={t("noustDns.server.notRunningTitle")}>{t("noustDns.server.notRunningHint")}</Notice> }
         : {})}
-      {...(server?.configured === true ? { footer: <CommandHint command="noust dns zone create example.com" label={t("common.words.fromTerminal")} /> } : {})}
     >
       <QueryState
         query={status}
@@ -149,6 +162,7 @@ export function NoustDnsPage() {
       >
         {(data) => (!data.installed ? <InstallPanel server={data} /> : !data.configured ? <SetupPanel server={data} /> : <Running server={data} adding={adding} onAddingChange={setAdding} />)}
       </QueryState>
+      <ClusterDialog open={clustering} onOpenChange={setClustering} />
     </DomainsListPage>
   );
 }

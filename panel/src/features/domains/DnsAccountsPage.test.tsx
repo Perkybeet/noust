@@ -20,13 +20,6 @@ beforeEach(() => {
   }));
 });
 
-/** The first of several matches: the header's primary action, which an empty state repeats. */
-function first<T>(items: readonly T[]): T {
-  const [item] = items;
-  if (item === undefined) throw new Error("nothing matched");
-  return item;
-}
-
 const KINDS = [
   {
     kind: "cloudflare",
@@ -93,15 +86,13 @@ describe("the DNS tab", () => {
   it("lists the accounts with how each behaves and whether its credential works", { timeout: 20_000 }, async () => {
     dns([CF]);
 
-    const table = await screen.findByRole("region", { name: "DNS accounts" });
-    const row = (await within(table).findByText("cf")).closest("tr");
-    if (!row) throw new Error("no row");
-    expect(within(row).getByText("Cloudflare")).toBeInTheDocument();
-    expect(within(row).getByText("Made without asking")).toBeInTheDocument();
-    expect(within(row).getByText("Works")).toBeInTheDocument();
+    const card = await screen.findByRole("article", { name: "cf" });
+    expect(within(card).getByText("Cloudflare")).toBeInTheDocument();
+    expect(within(card).getByText("Made without asking")).toBeInTheDocument();
+    expect(within(card).getByText("Connected")).toBeInTheDocument();
     // The column the section belongs to names its sister sections; the tunnels and the published ports are Network's now.
     const tabs = await screen.findByRole("navigation", { name: "Domains sections" });
-    expect(within(tabs).getByRole("link", { name: /^DNS/ })).toHaveAttribute("aria-current", "page");
+    expect(within(tabs).getByRole("link", { name: /^DNS providers/ })).toHaveAttribute("aria-current", "page");
     expect(within(tabs).getByRole("link", { name: /^Noust DNS/ })).toBeInTheDocument();
     expect(within(tabs).queryByRole("link", { name: /^Tunnels/ })).not.toBeInTheDocument();
     expect(within(tabs).queryByRole("link", { name: /^Published ports/ })).not.toBeInTheDocument();
@@ -111,8 +102,10 @@ describe("the DNS tab", () => {
   it("says what an account is for when there is none, and offers the first", async () => {
     dns([]);
 
-    expect(await screen.findByText("No DNS accounts yet")).toBeInTheDocument();
-    expect(screen.getByText("noust dns provider add cloudflare --kind cloudflare --token-stdin")).toBeInTheDocument();
+    expect(await screen.findByText(/Is your domain at IONOS, OVH or another provider/)).toBeInTheDocument();
+    // The console adds it: there is no command to type, and the header holds the button.
+    expect(screen.queryByText(/noust dns provider/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add a provider" })).toBeEnabled();
   });
 
   it("proves a token before it keeps it, sends it once and never shows it again", async () => {
@@ -125,9 +118,8 @@ describe("the DNS tab", () => {
       "GET /api/dns/providers": () => json(200, { accounts, kinds: KINDS }),
     });
 
-    // The page offers its first account once it knows there is none: the header gives way to the empty state.
-    await screen.findByText("No DNS accounts yet");
-    await user.click(first(await screen.findAllByRole("button", { name: "Add account" })));
+    await screen.findByText(/Is your domain at IONOS/);
+    await user.click(await screen.findByRole("button", { name: "Add a provider" }));
     const dialog = await screen.findByRole("dialog", { name: "Add a DNS account" });
     await user.type(within(dialog).getByLabelText("Name"), "cf");
     const token = within(dialog).getByLabelText("API token");
@@ -156,9 +148,8 @@ describe("the DNS tab", () => {
       "POST /api/dns/providers": () => problem(502, "dnsprovidererror", "Cloudflare refused the token", { fields: { token: "Authentication error (10000)" } }),
     });
 
-    // The page offers its first account once it knows there is none: the header gives way to the empty state.
-    await screen.findByText("No DNS accounts yet");
-    await user.click(first(await screen.findAllByRole("button", { name: "Add account" })));
+    await screen.findByText(/Is your domain at IONOS/);
+    await user.click(await screen.findByRole("button", { name: "Add a provider" }));
     const dialog = await screen.findByRole("dialog", { name: "Add a DNS account" });
     await user.type(within(dialog).getByLabelText("Name"), "cf");
     await user.type(within(dialog).getByLabelText("API token"), "bad");
@@ -170,9 +161,8 @@ describe("the DNS tab", () => {
   it("refuses a name the server would refuse, without asking it", async () => {
     const { user, backend } = dns([]);
 
-    // The page offers its first account once it knows there is none: the header gives way to the empty state.
-    await screen.findByText("No DNS accounts yet");
-    await user.click(first(await screen.findAllByRole("button", { name: "Add account" })));
+    await screen.findByText(/Is your domain at IONOS/);
+    await user.click(await screen.findByRole("button", { name: "Add a provider" }));
     const dialog = await screen.findByRole("dialog", { name: "Add a DNS account" });
     await user.type(within(dialog).getByLabelText("Name"), "My Account");
     await user.click(within(dialog).getByRole("button", { name: "Add account" }));
@@ -184,9 +174,8 @@ describe("the DNS tab", () => {
   it("says a provider that only answers the challenge needs its certbot plugin", async () => {
     const { user } = dns([]);
 
-    // The page offers its first account once it knows there is none: the header gives way to the empty state.
-    await screen.findByText("No DNS accounts yet");
-    await user.click(first(await screen.findAllByRole("button", { name: "Add account" })));
+    await screen.findByText(/Is your domain at IONOS/);
+    await user.click(await screen.findByRole("button", { name: "Add a provider" }));
     const dialog = await screen.findByRole("dialog", { name: "Add a DNS account" });
     await user.click(within(dialog).getByRole("combobox", { name: "Provider" }));
     await user.click(await screen.findByRole("option", { name: "DigitalOcean" }));
@@ -200,9 +189,8 @@ describe("the DNS tab", () => {
       "POST /api/dns/providers": () => json(201, { ...CF, name: "aws", kind: "route53", label: "Amazon Route 53" }),
     });
 
-    // The page offers its first account once it knows there is none: the header gives way to the empty state.
-    await screen.findByText("No DNS accounts yet");
-    await user.click(first(await screen.findAllByRole("button", { name: "Add account" })));
+    await screen.findByText(/Is your domain at IONOS/);
+    await user.click(await screen.findByRole("button", { name: "Add a provider" }));
     const dialog = await screen.findByRole("dialog", { name: "Add a DNS account" });
     await user.click(within(dialog).getByRole("combobox", { name: "Provider" }));
     await user.click(await screen.findByRole("option", { name: "Amazon Route 53" }));
@@ -236,10 +224,8 @@ describe("the DNS tab", () => {
   it("removes an account after asking, and says the records stay", async () => {
     const { user, backend } = dns([CF], { "DELETE /api/dns/providers/cf": () => new Response(null, { status: 204 }) });
 
-    const table = await screen.findByRole("region", { name: "DNS accounts" });
-    const row = (await within(table).findByText("cf")).closest("tr");
-    if (!row) throw new Error("no row");
-    await user.click(within(row).getByRole("button", { name: "Actions for cf" }));
+    const card = await screen.findByRole("article", { name: "cf" });
+    await user.click(within(card).getByRole("button", { name: "Actions for cf" }));
     await user.click(await screen.findByRole("menuitem", { name: "Remove account" }));
     const dialog = await screen.findByRole("alertdialog", { name: "Remove cf" });
     expect(within(dialog).getByText(/The records Noust made stay where they are/)).toBeInTheDocument();
@@ -255,10 +241,8 @@ describe("the DNS tab", () => {
       "DELETE /api/dns/providers/cf": () => problem(400, "validation_error", "cf manages the tunnel home", { hint: "Remove the tunnel first: noust tunnel remove home" }),
     });
 
-    const table = await screen.findByRole("region", { name: "DNS accounts" });
-    const row = (await within(table).findByText("cf")).closest("tr");
-    if (!row) throw new Error("no row");
-    await user.click(within(row).getByRole("button", { name: "Actions for cf" }));
+    const card = await screen.findByRole("article", { name: "cf" });
+    await user.click(within(card).getByRole("button", { name: "Actions for cf" }));
     await user.click(await screen.findByRole("menuitem", { name: "Remove account" }));
     const dialog = await screen.findByRole("alertdialog", { name: "Remove cf" });
     await user.click(within(dialog).getByRole("button", { name: "Remove account" }));
@@ -295,11 +279,11 @@ describe("the DNS tab", () => {
 
   it("speaks Spanish", async () => {
     dns([CF]);
-    await screen.findByRole("region", { name: "DNS accounts" });
+    await screen.findByRole("list", { name: "DNS accounts" });
 
     await act(() => setLocale("es"));
 
-    expect(await screen.findByRole("region", { name: "Cuentas DNS" })).toBeInTheDocument();
+    expect(await screen.findByRole("list", { name: "Cuentas DNS" })).toBeInTheDocument();
     expect(screen.getByText("Los crea sin preguntar")).toBeInTheDocument();
   });
 });

@@ -127,7 +127,8 @@ test("a page that lacks a piece says it is missing, installs it as a task, and t
   await signIn(page, own, "/network");
   await expect(page.getByText("nginx stream module is missing")).toBeVisible();
   await expect(page.getByText(/Without it nginx cannot publish a TCP or UDP port that is not web\./)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Publish a port" }).first()).toBeDisabled();
+  // Opening a port is a firewall rule when the program listens outside: only a port that nginx must carry needs the module, so the button stays.
+  await expect(page.getByRole("button", { name: "Open a port" }).first()).toBeEnabled();
   await settle(page);
   await expectNoA11yViolations(page, "Published ports with the stream module missing");
 
@@ -137,7 +138,7 @@ test("a page that lacks a piece says it is missing, installs it as a task, and t
   await expect(page.getByRole("link", { name: "See the task" })).toBeVisible();
   // Done: nginx can publish a port, and the notice that said it could not is gone.
   await expect(page.getByText("nginx stream module is missing")).toHaveCount(0, { timeout: 45_000 });
-  await expect(page.getByRole("button", { name: "Publish a port" }).first()).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Open a port" }).first()).toBeEnabled();
 });
 
 test("when the install fails the page says so with the tool's own words, and offers to try again", async ({ page, own, problems }) => {

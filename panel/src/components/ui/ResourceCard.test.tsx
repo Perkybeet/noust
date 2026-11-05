@@ -30,6 +30,13 @@ describe("ResourceCard", () => {
     expect(within(card).getByRole("button", { name: "Change the token" })).toBeInTheDocument();
   });
 
+  it("names itself with the heading level the page leaves it: 2 directly under the title, 3 under a section's", () => {
+    const { rerender } = render(<ResourceCard name="oficina" level={2} />);
+    expect(screen.getByRole("heading", { level: 2, name: "oficina" })).toBeInTheDocument();
+    rerender(<ResourceCard name="oficina" />);
+    expect(screen.getByRole("heading", { level: 3, name: "oficina" })).toBeInTheDocument();
+  });
+
   it("draws the icon of its object bare and decorative, or a real logo in its tile, never both", () => {
     const { container, rerender } = render(<ResourceCard name="acme" icon={KeyRound} />);
     expect(container.querySelector("svg")).toHaveAttribute("aria-hidden", "true");

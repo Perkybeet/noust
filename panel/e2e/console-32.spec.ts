@@ -275,7 +275,7 @@ test("adopting a site lists what the server has and previews what is kept as it 
 test("the sites list says who wrote each site and which application it serves", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/domains/sites");
   await expect(page.getByRole("columnheader", { name: "Written by" })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: "Application" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Belongs to" })).toBeVisible();
   await expect(page.getByRole("cell", { name: "Noust" }).first()).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the sites list");

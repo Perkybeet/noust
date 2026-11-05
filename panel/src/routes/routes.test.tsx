@@ -37,7 +37,7 @@ const PAGES: [path: string, heading: string, content: string][] = [
   ["/databases", "Databases", "Databases"],
   ["/databases/postgresql/example_production", "example_production", "Engine"],
   ["/backups", "Backups", "Applications and their backups"],
-  ["/domains", "Domains", "No domains yet"],
+  ["/domains", "Domains", "A name is what your applications and sites answer on. Add one and Noust checks where it points and gets its HTTPS certificate."],
   ["/domains/certificates", "Certificates", "Certificates"],
   ["/services", "web-01", "Services"],
   ["/services/shop-web", "shop-web", "How it runs"],
@@ -112,10 +112,11 @@ describe("the route tree", () => {
     backend.on("GET /api/deployments", () => json(200, { items: [], total: 0, next_before_id: null }));
     renderConsole(path);
     expect(await screen.findByRole("heading", { level: 1, name: heading })).toBeInTheDocument();
-    // A section heading, or for a page that is one table, the table's region.
+    // A section heading, or for a page that is one table, the table's region, or for a page that has nothing yet, the
+    // sentence of its first use (which has no heading of its own).
     await waitFor(() => {
       expect(
-        screen.queryByRole("heading", { level: 2, name: content }) ?? screen.queryByRole("region", { name: content }),
+        screen.queryByRole("heading", { level: 2, name: content }) ?? screen.queryByRole("region", { name: content }) ?? screen.queryByText(content),
       ).toBeInTheDocument();
     });
     expect(cold.misses).toEqual([]);

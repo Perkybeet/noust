@@ -44,8 +44,9 @@ describe("X is missing, on the Ports page", () => {
     expect(within(block).getByText(/Without it nginx cannot publish a TCP or UDP port that is not web\./)).toBeInTheDocument();
     expect(within(block).getByRole("link", { name: "See it in Software" })).toHaveAttribute("href", expect.stringContaining("/server/software"));
     expect(within(block).getByRole("button", { name: "Install" })).toBeInTheDocument();
-    // The one install button of the page is the notice's: "Open a port" waits for what is missing.
-    expect(screen.getByRole("button", { name: "Publish a port" })).toBeDisabled();
+    // The one install button of the page is the notice's. Opening a port is a rule of the firewall for what listens on every
+    // address, so it is still there: only a program that listens inside needs nginx, and the dialog says so then.
+    expect(screen.getByRole("button", { name: "Open a port" })).toBeEnabled();
   });
 
   it("installs it as a task, says so while it runs with the way to the task, and reads the page again when it ends", async () => {
@@ -99,9 +100,11 @@ describe("X is missing, on the Ports page", () => {
   it("says who can install it, and offers no button, to an account that cannot", async () => {
     const reader = { ...SESSION, permissions: (SESSION.permissions ?? []).filter((permission) => permission !== "server.host_access") };
     ports({}, { session: reader });
-    expect(await screen.findByText("nginx stream module is missing")).toBeInTheDocument();
-    expect(screen.getByText(/Your account cannot install it: it takes the permissions/)).toBeInTheDocument();
-    expect(screen.getByText("server.host_access")).toBeInTheDocument();
+    const notice = await screen.findByText("nginx stream module is missing");
+    const block = notice.closest("[data-tone]");
+    if (!(block instanceof HTMLElement)) throw new Error("no notice");
+    expect(within(block).getByText(/Your account cannot install it: it takes the permissions/)).toBeInTheDocument();
+    expect(within(block).getByText("server.host_access")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Install" })).toBeNull();
   });
 

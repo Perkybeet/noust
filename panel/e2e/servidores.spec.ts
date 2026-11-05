@@ -84,8 +84,8 @@ test("Network and ports: who uses a port, a free one is offered to open, the fir
   await search.fill("65001");
   await expect(page.getByText("Nothing on this server uses port 65001.")).toBeVisible();
   await page.getByRole("button", { name: "Open port 65001" }).click();
-  const dialog = page.getByRole("alertdialog", { name: "Open or close a port" });
-  await expect(dialog.getByLabel("Port")).toHaveValue("65001");
+  const dialog = page.getByRole("alertdialog", { name: "Open a port" });
+  await expect(dialog.getByRole("textbox", { name: "Port", exact: true })).toHaveValue("65001");
   await settle(page);
   await expectNoA11yViolations(page, "the dialog that opens a port");
   await dialog.getByRole("button", { name: "Cancel" }).click();
@@ -93,14 +93,14 @@ test("Network and ports: who uses a port, a free one is offered to open, the fir
   const sections = page.getByRole("navigation", { name: "Network sections" });
   await sections.getByRole("link", { name: "Firewall" }).click();
   await expect(page).toHaveURL(/\/network\/firewall$/);
-  await expect(page.getByRole("region", { name: "Ports that listen" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Rules", exact: true })).toBeVisible();
   await sections.getByRole("link", { name: "Interfaces" }).click();
   await expect(page.getByRole("table", { name: "Network interfaces" })).toBeVisible();
-  // Each side leads to the other with one line: this is where what listens is, Domains is where an application is published.
+  // What listens is one table, and a port is opened with one dialog from the first section of Network.
   await sections.getByRole("link", { name: "Published ports" }).click();
   await expect(page).toHaveURL(/\/network$/);
-  await expect(page.getByRole("button", { name: "Publish a port" }).first()).toBeVisible();
-  await page.getByRole("main").getByRole("link", { name: "Listening ports" }).click();
+  await expect(page.getByRole("button", { name: "Open a port" }).first()).toBeVisible();
+  await sections.getByRole("link", { name: "Listening ports" }).click();
   await expect(page).toHaveURL(/\/network\/listening$/);
 });
 

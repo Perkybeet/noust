@@ -498,10 +498,10 @@ describe("the Security tab", () => {
           }),
       }),
     });
-    const { user } = renderConsole("/n/web-2/server/security?view=firewall");
-    await user.click(await screen.findByRole("button", { name: "Turn on" }));
+    const { user } = renderConsole("/n/web-2/network/firewall");
+    await user.click(await screen.findByRole("button", { name: "Turn on the firewall" }));
     // An inactive firewall is an off at a glance: grey, a ring, the word (item 56).
-    expect(screen.getByText("installed, not active")).toHaveAttribute("data-state", "stopped");
+    expect(screen.getByText("Turned off")).toHaveAttribute("data-state", "stopped");
     const dialog = await screen.findByRole("alertdialog", {
       name: "Turn on the firewall",
     });

@@ -170,18 +170,13 @@ describe("Noust DNS set up", () => {
   });
 });
 
-describe("the DNS section's entry to Noust DNS", () => {
-  it("says where the server stands and leads to its page", async () => {
+describe("Noust DNS beside the providers", () => {
+  it("is the next entry of the column, and the providers page does not repeat it as a card", async () => {
     noustConsole("/domains/dns", { "GET /api/dns/noust/server": () => json(200, PRIMARY) });
-    expect(await screen.findByText("Answer for your domains from your own servers, instead of a provider's.")).toBeInTheDocument();
-    expect(await screen.findByText("Primary server")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open Noust DNS" })).toHaveAttribute("href", "/domains/dns/noust");
-  });
-
-  it("is absent on a server whose Noust has no Noust DNS", async () => {
-    noustConsole("/domains/dns", { "GET /api/dns/noust/server": () => problem(404, "not_found", "No such route") });
-    expect(await screen.findByRole("heading", { level: 1, name: "DNS" })).toBeInTheDocument();
-    await waitFor(() => expect(screen.queryByText("Answer for your domains from your own servers, instead of a provider's.")).not.toBeInTheDocument());
+    expect(await screen.findByRole("heading", { level: 1, name: "DNS providers" })).toBeInTheDocument();
+    const column = await screen.findByRole("navigation", { name: "Domains sections" });
+    expect(within(column).getByRole("link", { name: /^Noust DNS/ })).toHaveAttribute("href", "/domains/dns/noust");
+    expect(screen.queryByText("Answer for your domains from your own servers, instead of a provider's.")).not.toBeInTheDocument();
   });
 });
 
@@ -328,7 +323,7 @@ describe("a zone", () => {
 
 describe("Noust DNS on several servers, from the central", () => {
   it("sends a primary and its secondary to the central, which sets them up as one fleet job", { timeout: 30_000 }, async () => {
-    const { user, backend, location } = noustConsole("/domains/dns", {
+    const { user, backend, location } = noustConsole("/domains/dns/noust", {
       "GET /api/nodes": () => json(200, { items: NODES }),
       "GET /api/dns/noust/server": () => json(200, NOT_INSTALLED),
       "POST /api/fleet/dns/cluster": () => json(200, { plan: { action: "dns_cluster", nodes: [], batches: [] }, job: { job_id: "f1", status: "queued", message: "queued" } }),
@@ -360,8 +355,8 @@ describe("Noust DNS on several servers, from the central", () => {
   });
 
   it("is not offered on a server that is no central", async () => {
-    noustConsole("/domains/dns", { "GET /api/dns/noust/server": () => json(200, NOT_INSTALLED) });
-    expect(await screen.findByRole("link", { name: "Set up Noust DNS" })).toBeInTheDocument();
+    noustConsole("/domains/dns/noust", { "GET /api/dns/noust/server": () => json(200, NOT_INSTALLED) });
+    expect(await screen.findByRole("button", { name: "Install Noust DNS" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Set up on several servers" })).not.toBeInTheDocument();
   });
 });
