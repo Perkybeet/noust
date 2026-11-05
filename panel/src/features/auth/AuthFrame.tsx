@@ -7,6 +7,7 @@ import { focusPageTitle } from "../../app/focus";
 import { AuthLayout } from "../../components/page/AuthLayout";
 import { ExternalLink } from "../../components/ui/ExternalLink";
 import { useT } from "../../i18n";
+import { useSignInArt } from "./useSignInArt";
 
 export interface AuthFrameProps {
   title: string;
@@ -46,11 +47,15 @@ function LegalLine() {
  * sign-in the server says nothing of itself but the line its operator chose (`auth.login_label`),
  * never its hostname or version (ENS op.acc.6.7); once a person is in and a check is still owed, it
  * names its machine, which the person is about to trust with a second factor. The title takes focus
- * on arrival. The licence notice closes every one, under the slab.
+ * on arrival. The licence notice closes every one, under the slab. The only thing an operator can change
+ * of the slab is the picture in its slot, and only the picture: the logo, the sentence, the operator's
+ * line and the licence notice are drawn here whatever picture is chosen.
  */
 export function AuthFrame({ title, description, back, children, footer }: AuthFrameProps) {
   const t = useT();
   const { data: session } = useQuery(sessionQuery());
+  // The picture an operator chose, or nothing for the noust the slab always draws (item 129).
+  const art = useSignInArt();
 
   // Once per screen: the title is where a screen reader starts reading a new one.
   useEffect(() => {
@@ -63,6 +68,7 @@ export function AuthFrame({ title, description, back, children, footer }: AuthFr
       title={title}
       tagline={t("auth.frame.tagline")}
       legal={<LegalLine />}
+      {...(art !== undefined ? { art } : {})}
       {...(description !== undefined ? { description } : {})}
       {...(back !== undefined ? { back } : {})}
       {...(label !== undefined && label !== null && label !== "" ? { label } : {})}
