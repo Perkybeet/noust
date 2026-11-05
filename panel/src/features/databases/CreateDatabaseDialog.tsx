@@ -28,7 +28,7 @@ import type { T } from "../../i18n";
 import { JobLogPanel } from "../jobs/JobLogPanel";
 import { can, sortInstances } from "./engines";
 import { engineFamilyOf } from "./engineKey";
-import { formatWords, spendUpload, useDumpFile } from "./import/dumpFile";
+import { ImportResultList, spendUpload, useDumpFile } from "./import/dumpFile";
 import { jobState } from "./jobs";
 import { placeOf, serverTitle, sortServers } from "./servers";
 import { useDatabaseServers } from "./servers/useDatabaseServers";
@@ -292,7 +292,7 @@ export function CreateDatabaseDialog({ open, onOpenChange, engine: preset, app: 
             failed: t("dumpImport.job.failed", { name: trimmed }),
           }}
           label={t("dumpImport.job.logLabel", { name: trimmed })}
-          result={dump.upload.format !== null && state === "succeeded" ? <p className="text-13 text-fg">{t("dumpImport.job.result.format", { format: formatWords(t, dump.upload.format) })}</p> : undefined}
+          result={state === "succeeded" ? <ImportResultList result={job?.result} database={trimmed} /> : undefined}
         />
       ) : (
         <form

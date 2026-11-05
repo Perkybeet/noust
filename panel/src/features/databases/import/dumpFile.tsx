@@ -76,6 +76,37 @@ export function formatWords(t: T, format: Pick<DumpFormat, "kind" | "compression
   return compression === null ? kind : `${kind}, ${compression}`;
 }
 
+/** The result of an import job as the server reports it: what was created, replaced and kept, and what it noted. */
+interface ImportResult {
+  created?: boolean;
+  replaced?: boolean;
+  safety_copy?: string | null;
+  notes?: string[];
+  format?: { kind: string; compression: string };
+}
+
+/**
+ * What a finished import says it did, as lines under its log: the one list both dialogs that load a dump draw (a new
+ * database from a dump, and a dump over a database that exists), so a note the engine's tool wrote is never lost in one of them.
+ */
+export function ImportResultList({ result, database }: { result: unknown; database: string }) {
+  const t = useT();
+  const done: ImportResult = typeof result === "object" && result !== null ? result : {};
+  return (
+    <ul className="flex flex-col gap-1 text-13 text-fg">
+      {done.created === true ? <li>{t("dumpImport.job.result.created", { name: database })}</li> : null}
+      {done.replaced === true ? <li>{t("dumpImport.job.result.replaced", { name: database })}</li> : null}
+      {done.safety_copy !== undefined && done.safety_copy !== null ? <li>{t("dumpImport.job.result.safety", { file: done.safety_copy })}</li> : null}
+      {done.format !== undefined ? <li>{t("dumpImport.job.result.format", { format: formatWords(t, done.format) })}</li> : null}
+      {(done.notes ?? []).map((note) => (
+        <li key={note} className="text-fg-muted" translate="no">
+          {note}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function problemWords(t: T, problem: FileProblem, file: File, limit: number): string {
   if (problem === "extension") return t("dumpImport.file.extension", { name: file.name });
   if (problem === "empty") return t("dumpImport.file.empty", { name: file.name });

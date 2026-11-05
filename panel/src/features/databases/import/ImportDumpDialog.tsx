@@ -27,26 +27,11 @@ import { engineName, instanceLabel } from "../engines";
 import { JobLogPanel } from "../../jobs/JobLogPanel";
 import { jobState } from "../jobs";
 import type { Accepted } from "../jobs";
-import { formatWords, spendUpload, useDumpFile } from "./dumpFile";
-
-export { formatWords } from "./dumpFile";
+import { ImportResultList, spendUpload, useDumpFile } from "./dumpFile";
 
 type Step = "dump" | "options" | "import";
 
 const NAME = /^[A-Za-z_][A-Za-z0-9_]{0,62}$/;
-
-/** The result of the job as the server reports it: what was created, replaced and kept. */
-interface ImportResult {
-  created?: boolean;
-  replaced?: boolean;
-  safety_copy?: string | null;
-  notes?: string[];
-  format?: { kind: string; compression: string };
-}
-
-function resultOf(result: unknown): ImportResult {
-  return typeof result === "object" && result !== null ? result : {};
-}
 
 export interface ImportDumpDialogProps {
   open: boolean;
@@ -295,7 +280,6 @@ export function ImportDumpDialog({ open, onOpenChange, engine: presetEngine, dat
     );
   } else {
     const state = job === null ? "queued" : jobState(job.status);
-    const result = job !== null && state === "succeeded" ? resultOf(job.result) : {};
     body = (
       <JobLogPanel
         job={job}
@@ -306,19 +290,7 @@ export function ImportDumpDialog({ open, onOpenChange, engine: presetEngine, dat
           failed: t("dumpImport.job.failed", { name: database }),
         }}
         label={t("dumpImport.job.logLabel", { name: database })}
-        result={
-          <ul className="flex flex-col gap-1 text-13 text-fg">
-            {result.created === true ? <li>{t("dumpImport.job.result.created", { name: database })}</li> : null}
-            {result.replaced === true ? <li>{t("dumpImport.job.result.replaced", { name: database })}</li> : null}
-            {result.safety_copy !== undefined && result.safety_copy !== null ? <li>{t("dumpImport.job.result.safety", { file: result.safety_copy })}</li> : null}
-            {result.format !== undefined ? <li>{t("dumpImport.job.result.format", { format: formatWords(t, result.format) })}</li> : null}
-            {(result.notes ?? []).map((note) => (
-              <li key={note} className="text-fg-muted" translate="no">
-                {note}
-              </li>
-            ))}
-          </ul>
-        }
+        result={<ImportResultList result={job !== null && state === "succeeded" ? job.result : undefined} database={database} />}
       />
     );
     footer = (
