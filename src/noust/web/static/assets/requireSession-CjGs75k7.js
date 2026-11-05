@@ -1,0 +1,1 @@
+import{B as e}from"./objectIcons-BvqJ0jVJ.js";import{g as t}from"./auth-haWbca9y.js";function n(e){return e.mfa_required||e.notice!==null&&e.notice!==void 0}async function r(r,i){let a=await r.query(t());if(!a.authenticated)throw e({to:`/login`,search:{next:i}});if(n(a))throw e({to:`/welcome`,search:{next:i}});return a}export{r as n,n as t};

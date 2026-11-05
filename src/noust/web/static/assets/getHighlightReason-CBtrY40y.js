@@ -1,1 +1,0 @@
-import{it as e,lt as t,st as n}from"./Tooltip-DSS8gHk1.js";function r(r){return r==null?n:r.type.startsWith(`key`)?e:r.type.startsWith(`mouse`)||r.type.startsWith(`pointer`)?t:n}export{r as t};

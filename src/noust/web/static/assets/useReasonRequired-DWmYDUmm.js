@@ -1,1 +1,0 @@
-import{t as e}from"./useQuery-BSJDQuTb.js";import{r as t}from"./compliance-hJ3extzY.js";function n(){let{data:n}=e({...t(),select:e=>e.controls.find(e=>e.id===`exception_reasons`)?.enabled??!0});return n??!0}export{n as t};

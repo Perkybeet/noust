@@ -1,1 +1,0 @@
-import{n as e}from"./Match-vs7LEALH.js";import{t}from"./SettingsShell-EUN_ubp2.js";import{Q as n}from"./objectIcons-ZDXz59eb.js";var r=n();function i(){return(0,r.jsx)(t,{children:(0,r.jsx)(e,{})})}export{i as component};

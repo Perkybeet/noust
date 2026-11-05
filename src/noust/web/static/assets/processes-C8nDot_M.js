@@ -1,0 +1,1 @@
+import{t as e}from"./SystemTab-CSygpFr7.js";import{Q as t}from"./objectIcons-BvqJ0jVJ.js";var n=t();function r(){return(0,n.jsx)(e,{view:`processes`})}export{r as component};

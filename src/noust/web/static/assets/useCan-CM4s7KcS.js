@@ -1,0 +1,1 @@
+import{t as e}from"./useQuery-BT9gKM2Q.js";import{g as t}from"./auth-haWbca9y.js";function n(){let{data:n}=e({...t(),select:e=>e.permissions});return e=>n?.includes(e)??!1}export{n as t};

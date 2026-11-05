@@ -1,0 +1,1 @@
+import{Q as e,a as t}from"./objectIcons-BvqJ0jVJ.js";import{t as n}from"./MachinePage-Beve0I0P.js";import{t as r}from"./SecurityTab-BKdisajt.js";var i=e();function a(){let e=t();return(0,i.jsx)(n,{title:e(`server.security.views.ssh`),children:(0,i.jsx)(r,{view:`ssh`})})}export{a as component};

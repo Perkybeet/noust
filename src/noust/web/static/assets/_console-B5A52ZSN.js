@@ -1,1 +1,0 @@
-import{t as e}from"./HomePage-DwL2fPgo.js";import{t}from"./_console-DI2PVoyu.js";import{Q as n}from"./objectIcons-ZDXz59eb.js";var r=n();function i(){let{panel:n,customise:i}=t.useSearch();return(0,r.jsx)(e,{scope:`server`,panelId:n,customising:i===!0})}export{i as component};

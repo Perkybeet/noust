@@ -1,0 +1,1 @@
+import{t as e}from"./MachineAreaServers-429WaCji.js";import{Q as t}from"./objectIcons-BvqJ0jVJ.js";var n=t(),r=()=>(0,n.jsx)(e,{area:`network`});export{r as component};
