@@ -58,7 +58,7 @@ export function FleetLayout({ hub, adding: addingProp, onAddingChange }: FleetLa
   const ownsPage = ["/fleet", "/fleet/", "/fleet/apps"].includes(pathname);
   const onAppsViews = pathname === "/fleet/apps" || pathname === "/fleet/placements";
   const onServers = pathname === "/fleet/servers";
-  const onServersViews = pathname === "/fleet/servers" || pathname === "/fleet/updates";
+  const onServersViews = pathname === "/fleet/servers" || pathname === "/fleet/updates" || pathname === "/fleet/software";
   const ownHeader = OWN_HEADER.has(pathname);
 
   const add = (

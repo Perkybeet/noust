@@ -9,7 +9,7 @@
  */
 
 import { Power } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { request } from "../../../api/client";
@@ -40,6 +40,7 @@ import { typedHost } from "../friction";
 import { firewallQuery, identityQuery } from "../queries";
 import type { Firewall, FirewallRule, ListeningPort } from "../queries";
 import { useServerJob } from "../serverJob";
+import { MissingSoftware } from "../software/MissingSoftware";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
@@ -287,6 +288,7 @@ function FirewallPanel({ data }: { data: Firewall }) {
   const t = useT();
   const confirmation = useServerConfirm();
   const jobs = useServerJob();
+  const queryClient = useQueryClient();
   const identity = useQuery(identityQuery());
   const hostname = identity.data?.hostname.hostname ?? "";
   const [opened, setOpened] = useState<Opened>(null);
@@ -300,11 +302,17 @@ function FirewallPanel({ data }: { data: Firewall }) {
   };
   return (
     <div className="flex min-w-0 flex-col gap-6">
+      {/* No firewall at all is a piece the server lacks, said where every other missing piece is said: with its install. */}
+      {state.backend === "none" ? (
+        <MissingSoftware
+          component="firewall"
+          onInstalled={() => void queryClient.invalidateQueries({ queryKey: firewallQuery().queryKey })}
+          fallback={<p className="text-14 text-fg-muted">{t("server.firewall.none")}</p>}
+        />
+      ) : null}
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-14 text-fg-muted">
-          {state.backend === "none" ? (
-            t("server.firewall.none")
-          ) : (
+          {state.backend === "none" ? null : (
             <>
               <Mono tone="default">{state.backend}</Mono>
               {/* Whether the firewall filters is an on/off told at a glance (item 56). */}

@@ -52789,6 +52789,143 @@
         "title": "ShutdownRequest",
         "type": "object"
       },
+      "SignInAppearance": {
+        "description": "What the sign-in screen needs to draw itself.\n\nAttributes:\n    image: The picture an operator chose; null when there is none and the console draws its\n        own.\n    limits: What a picture may be.",
+        "properties": {
+          "image": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignInImageOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "limits": {
+            "$ref": "#/components/schemas/SignInImageLimits"
+          }
+        },
+        "title": "SignInAppearance",
+        "type": "object"
+      },
+      "SignInAppearanceBody": {
+        "description": "What the sign-in picture is set to.\n\nAttributes:\n    image: The file, as base64 text. Left out, the picture that is there stays and only its\n        fit and description change.\n    fit: ``cover`` to fill the space, ``contain`` to show the whole picture.\n    alt: What a screen reader says in its place, up to 120 characters; empty or left out says\n        the picture is decoration.",
+        "properties": {
+          "alt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alt"
+          },
+          "fit": {
+            "default": "contain",
+            "title": "Fit",
+            "type": "string"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          }
+        },
+        "title": "SignInAppearanceBody",
+        "type": "object"
+      },
+      "SignInImageLimits": {
+        "description": "What a picture may be, so a client need not hard-code it.\n\nAttributes:\n    bytes: The most a file weighs, as it is sent.\n    side: The most pixels on a side.\n    alt_chars: The most characters of its description.\n    types: The types a file may be, by what its bytes are.",
+        "properties": {
+          "alt_chars": {
+            "default": 120,
+            "title": "Alt Chars",
+            "type": "integer"
+          },
+          "bytes": {
+            "default": 1048576,
+            "title": "Bytes",
+            "type": "integer"
+          },
+          "side": {
+            "default": 4096,
+            "title": "Side",
+            "type": "integer"
+          },
+          "types": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Types",
+            "type": "array"
+          }
+        },
+        "title": "SignInImageLimits",
+        "type": "object"
+      },
+      "SignInImageOut": {
+        "description": "The picture the sign-in screen shows.\n\nAttributes:\n    url: Where it is, with its digest in ``v`` so it can be cached for good.\n    sha256: The digest of the file served.\n    content_type: What it is: ``image/png``, ``image/jpeg`` or ``image/webp``.\n    width: Pixels across.\n    height: Pixels down.\n    size: Bytes of the file served.\n    fit: ``cover`` fills the space and crops; ``contain`` shows the whole picture in it.\n    alt: What a screen reader says in its place; empty for decoration.\n    updated_at: When it was set, ISO 8601 in UTC.",
+        "properties": {
+          "alt": {
+            "title": "Alt",
+            "type": "string"
+          },
+          "content_type": {
+            "title": "Content Type",
+            "type": "string"
+          },
+          "fit": {
+            "title": "Fit",
+            "type": "string"
+          },
+          "height": {
+            "title": "Height",
+            "type": "integer"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "width": {
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "url",
+          "sha256",
+          "content_type",
+          "width",
+          "height",
+          "size",
+          "fit",
+          "alt",
+          "updated_at"
+        ],
+        "title": "SignInImageOut",
+        "type": "object"
+      },
       "SinkOut": {
         "description": "One shipping destination.\n\nAttributes:\n    sink_id: Its name.\n    seq: The last event it received.\n    delivered_at: When it last received one.\n    error: Its last error, verbatim.\n    error_at: When that happened.\n    lag_seconds: How far behind the log it is.\n    degraded: It has been failing for longer than ``audit.sink_lag_minutes``.",
         "properties": {
@@ -55002,7 +55139,7 @@
         "type": "object"
       },
       "SoftwareOut": {
-        "description": "The software of the server.\n\nAttributes:\n    managed: Whether Noust changes this system's packages.\n    reason: Why it does not, when it does not.\n    family: ``apt``, ``dnf``, ``zypper`` or ``none``.\n    items: One per component, in the order the page shows them.",
+        "description": "The software of the server.\n\nAttributes:\n    managed: Whether Noust changes this system's packages.\n    reason: Why it does not, when it does not.\n    reason_coded: ``reason`` as a code and its values, for the console to translate; null\n        when Noust does change this system's software.\n    family: ``apt``, ``dnf``, ``zypper`` or ``none``.\n    items: One per component, in the order the page shows them.",
         "properties": {
           "family": {
             "title": "Family",
@@ -55029,6 +55166,16 @@
               }
             ],
             "title": "Reason"
+          },
+          "reason_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -86016,6 +86163,142 @@
           "Authentication"
         ],
         "x-noust-permission": "self"
+      }
+    },
+    "/api/auth/sign-in/appearance": {
+      "delete": {
+        "description": "Take the picture off the sign-in screen: Noust's own drawing comes back.\n\nAsks for sudo mode. Removing what is not there is not an error.\n\nArgs:\n    session: The authenticated session in sudo mode.\n\nReturns:\n    What the screen shows now: no picture.",
+        "operationId": "delete_appearance_api_auth_sign_in_appearance_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInAppearance"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Delete Appearance",
+        "tags": [
+          "Authentication"
+        ],
+        "x-noust-permission": "security.manage",
+        "x-noust-requires-elevation": true
+      },
+      "get": {
+        "description": "Say what the sign-in screen draws in place of Noust's own drawing, if anything.\n\nPublic: the screen is drawn before there is a session, so this carries nothing but what is shown\non it.\n\nReturns:\n    The picture and how it is fitted, or ``image: null``; and the limits a picture is held to.",
+        "operationId": "get_appearance_api_auth_sign_in_appearance_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInAppearance"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Appearance",
+        "tags": [
+          "Authentication"
+        ],
+        "x-noust-permission": "public"
+      },
+      "put": {
+        "description": "Put a picture on the sign-in screen, or change how the one there is drawn.\n\nThe picture is judged by its bytes and rewritten without its metadata before it is kept; see\n:mod:`noust.validators.sign_in_image`. Asks for sudo mode.\n\nArgs:\n    body: The picture as base64 (left out to keep the one there), its fit and its description.\n    session: The authenticated session in sudo mode.\n\nReturns:\n    What the screen shows now.\n\nRaises:\n    ValidationError: 400, with a code the console translates, when the file is not a PNG, JPEG\n        or WebP within the limits, is damaged or animated, when the fit or the description is not\n        valid, or when no picture is sent and there is none to change.",
+        "operationId": "put_appearance_api_auth_sign_in_appearance_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignInAppearanceBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInAppearance"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Appearance",
+        "tags": [
+          "Authentication"
+        ],
+        "x-noust-permission": "security.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/auth/sign-in/image": {
+      "get": {
+        "description": "Serve the picture of the sign-in screen.\n\nPublic, like the screen it is on. With ``v`` set to its digest it is cacheable for a year; the\ndigest of anything but the current picture is a 404.\n\nArgs:\n    request: The incoming request, for an ETag the client already has.\n    v: The digest the picture is addressed by, from ``GET /appearance``. Without it the current\n        picture is served and not cached.\n\nReturns:\n    The file, with the type its bytes were judged to be.\n\nRaises:\n    ResourceNotFoundError: 404 when there is no picture, or ``v`` is not the current one's digest.",
+        "operationId": "get_image_api_auth_sign_in_image_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "v",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "V"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {},
+              "image/png": {},
+              "image/webp": {}
+            },
+            "description": "The picture."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Image",
+        "tags": [
+          "Authentication"
+        ],
+        "x-noust-permission": "public"
       }
     },
     "/api/auth/tokens": {

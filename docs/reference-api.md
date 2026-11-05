@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1140 operations.
+1144 operations.
 
 ## Access
 
@@ -280,6 +280,10 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/auth/sessions/revoke-all` | Revoke All Sessions | `self` |  |  |
 | POST | `/api/auth/sessions/revoke-others` | Revoke Other Sessions | `self` |  |  |
 | DELETE | `/api/auth/sessions/{sid_prefix}` | Revoke One Session | `self` |  |  |
+| GET | `/api/auth/sign-in/appearance` | Get Appearance | `public` |  |  |
+| PUT | `/api/auth/sign-in/appearance` | Put Appearance | `security.manage` | yes |  |
+| DELETE | `/api/auth/sign-in/appearance` | Delete Appearance | `security.manage` | yes |  |
+| GET | `/api/auth/sign-in/image` | Get Image | `public` |  |  |
 | GET | `/api/auth/tokens` | List Api Tokens | `self` |  |  |
 | POST | `/api/auth/tokens` | Create Api Token | `self` | yes |  |
 | PATCH | `/api/auth/tokens/{token_id}` | Restrict Api Token | `self` |  |  |

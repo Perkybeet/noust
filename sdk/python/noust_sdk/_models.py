@@ -9054,6 +9054,36 @@ ShutdownRequest = TypedDict("ShutdownRequest", {
     "message": NotRequired[Union[str, None]],
 })
 
+SignInAppearance = TypedDict("SignInAppearance", {
+    "image": NotRequired[Union["SignInImageOut", None]],
+    "limits": NotRequired["SignInImageLimits"],
+})
+
+SignInAppearanceBody = TypedDict("SignInAppearanceBody", {
+    "alt": NotRequired[Union[str, None]],
+    "fit": NotRequired[str],
+    "image": NotRequired[Union[str, None]],
+})
+
+SignInImageLimits = TypedDict("SignInImageLimits", {
+    "alt_chars": NotRequired[int],
+    "bytes": NotRequired[int],
+    "side": NotRequired[int],
+    "types": NotRequired[list[str]],
+})
+
+SignInImageOut = TypedDict("SignInImageOut", {
+    "alt": Required[str],
+    "content_type": Required[str],
+    "fit": Required[str],
+    "height": Required[int],
+    "sha256": Required[str],
+    "size": Required[int],
+    "updated_at": Required[str],
+    "url": Required[str],
+    "width": Required[int],
+})
+
 SinkOut = TypedDict("SinkOut", {
     "degraded": NotRequired[bool],
     "delivered_at": NotRequired[Union[str, None]],
@@ -9418,6 +9448,7 @@ SoftwareOut = TypedDict("SoftwareOut", {
     "items": NotRequired[list["SoftwareItemOut"]],
     "managed": Required[bool],
     "reason": NotRequired[Union[str, None]],
+    "reason_coded": NotRequired[Union["CodedText", None]],
 })
 
 SourceChangeRequest = TypedDict("SourceChangeRequest", {

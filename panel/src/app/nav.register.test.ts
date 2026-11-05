@@ -549,7 +549,7 @@ describe("whose a screen is", () => {
   it("holds the groups a person looks for a setting by, in the order of the second column", () => {
     const names = settingsGroups(EVERYTHING).map((group) => [group.id, group.sections.map((entry) => entry.id.replace(/^settings\./, ""))]);
     expect(names).toEqual([
-      ["people", ["accounts", "access", "sso", "approvals", "console"]],
+      ["people", ["accounts", "access", "sso", "approvals", "console", "sign-in-image"]],
       ["notices", ["notifications", "log-shipping"]],
       ["connections", ["integrations", "registries", "deploy-keys", "secret-managers", "cloud"]],
       ["security", ["compliance", "controls", "audit"]],
@@ -624,8 +624,8 @@ describe("what the pages draw from the register", () => {
     expect(APP_TABS[0]).toEqual({ label: "nav.appTabs.overview.label", to: "/apps/$domain", exact: true });
     expect(paths(TEAM_TABS)).toEqual(["/teams/$team", "/teams/$team/members", "/teams/$team/variables", "/teams/$team/notifications", "/teams/$team/settings"]);
     expect(paths(tabsOf(FLEET_APPS_SCREENS))).toEqual(["/fleet/apps", "/fleet/placements"]);
-    expect(paths(tabsOf(FLEET_SERVERS_SCREENS))).toEqual(["/fleet/servers", "/fleet/updates"]);
-    expect(paths(tabsById("server"))).toEqual(["/server", "/server/machine", "/server/processes", "/server/monitor", "/server/updates", "/server/services", "/server/webserver", "/server/files", "/server/central"]);
+    expect(paths(tabsOf(FLEET_SERVERS_SCREENS))).toEqual(["/fleet/servers", "/fleet/updates", "/fleet/software"]);
+    expect(paths(tabsById("server"))).toEqual(["/server", "/server/machine", "/server/processes", "/server/monitor", "/server/updates", "/server/services", "/server/webserver", "/server/software", "/server/files", "/server/central"]);
     expect(paths(tabsById("network"))).toEqual(["/network", "/network/tunnels", "/network/firewall", "/network/listening", "/network/interfaces"]);
     expect(paths(tabsById("security"))).toEqual(["/security", "/security/ssh", "/security/blocks"]);
     expect(paths(tabsById("backups"))).toEqual(["/backups", "/backups/schedules", "/backups/volumes", "/backups/noust", "/backups/destinations"]);

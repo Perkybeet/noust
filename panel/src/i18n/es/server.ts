@@ -10,6 +10,8 @@ export const server: Catalog<typeof en> = {
     services: "Servicios",
     webserver: "Servidor web",
     webserverKeywords: "nginx apache proxy pasar migrar cambiar",
+    software: "Software",
+    softwareKeywords: "paquetes apt dnf zypper instalar quitar desinstalar nginx docker certbot fail2ban cloudflared qué instaló noust",
     files: "Archivos",
     filesKeywords: "disco almacenamiento espacio limpieza swap volumen carpetas persistentes subidas",
     central: "Permisos de la central",

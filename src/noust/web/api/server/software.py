@@ -31,7 +31,7 @@ from noust.managers.server.software import (
     SoftwareItem,
 )
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import JobAcceptedResponse, require_elevated
+from noust.web.api.deps import CodedText, JobAcceptedResponse, require_elevated
 from noust.web.api.server.common import (
     ServerRoute,
     accepted,
@@ -111,12 +111,15 @@ class SoftwareOut(BaseModel):
     Attributes:
         managed: Whether Noust changes this system's packages.
         reason: Why it does not, when it does not.
+        reason_coded: ``reason`` as a code and its values, for the console to translate; null
+            when Noust does change this system's software.
         family: ``apt``, ``dnf``, ``zypper`` or ``none``.
         items: One per component, in the order the page shows them.
     """
 
     managed: bool
     reason: str | None = None
+    reason_coded: CodedText | None = None
     family: str
     items: list[SoftwareItemOut] = Field(default_factory=list)
 
@@ -223,6 +226,9 @@ def _inventory(inventory: Inventory) -> SoftwareOut:
     return SoftwareOut(
         managed=inventory.managed,
         reason=inventory.reason,
+        reason_coded=(
+            CodedText(**inventory.reason_coded.to_dict()) if inventory.reason_coded else None
+        ),
         family=inventory.family,
         items=[_item(item) for item in inventory.items],
     )

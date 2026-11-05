@@ -100,7 +100,7 @@ SUMMARIES: dict[str, tuple[bool, bool | str, str, str]] = {
         False,
         False,
         "",
-        "Publish the console on a name of its own, over TLS, or take it off again.",
+        "Publish the console on a name of its own, over TLS, and choose its sign-in picture.",
     ),
     "context": (
         False,

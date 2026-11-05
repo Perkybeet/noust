@@ -26,6 +26,7 @@ security**, in the avatar menu.
 | Servers | Fleet | Every server, its reachability, version, ceiling and labels, and, under its state, how long it has been silent or why its monitoring is paused; **Add a server** takes an address and a credential used once, confirms the host key, installs Noust if it is missing and joins the server (below), or, a link away, walks through `noust fleet authorize` and the join code, or, for a server behind NAT, makes it dial in; **Create at a provider** opens the wizard of Settings > Cloud providers; test, pause monitoring and remove |
 | Cloud providers | Connections | The provider accounts (Hetzner, DigitalOcean, Vultr) with their tokens as secrets, the servers this central created and why one did not join, and the cloud-init library new servers boot with (below) |
 | Console address | People and access | Publishes the console on a name of its own over TLS, or takes it down (below) |
+| Sign-in image | People and access | The picture the screens before the console show in place of Noust's drawing: a company's logo or any picture, with how it fills the space and what a screen reader says in its place (below) |
 | MCP | API | Turns the endpoint for MCP clients on or off, switches its groups of tools, lists the tools with the permission each needs ([mcp.md](mcp.md)) |
 | Manifest | API | Previews what applying a manifest of applications would change here, then applies exactly that as you ([manifest.md](manifest.md)) |
 | API reference | API | Every route the server answers, with the permission it needs, what it takes and answers, a curl to copy, and a way to try the call with your own session (a change asks first; the status, the headers and the server's words are shown) |
@@ -79,6 +80,21 @@ console on loopback unless you force it with an allow-list; a name that is not a
 or a site Noust did not write), the dialog previews what will be done, and publishing and
 unpublishing are jobs followed in the page (sudo mode). Unpublishing removes exactly what
 publishing made and leaves what was already there.
+
+**Sign-in image** puts a picture of your own where Noust draws its noust on the sign-in screen and the
+screens around it (the second factor, the first account, an invitation, a new password): a logo, or any
+photograph. The page is the screen as it will be seen, with the picture in it; choose a file or drop it on the
+screen, say whether it **fills the space** (a photograph, cropped to fit) or is **fitted whole** (a logo, on the
+surface of the space), add what a screen reader says in its place (empty says it is decoration) and save.
+It takes a PNG, a JPEG or a WebP of up to 1 MB and 4096 pixels on a side; an SVG is code and is refused, and so is
+an animation, and what a camera or an editor left in the file (a place, a name, a thumbnail) is removed before it
+is kept. Only that space changes: the logo of Noust, its sentence, the line you chose with `auth.login_label` and
+the licence notice stay. **Remove the image** brings the drawing back. It is **seen by anyone who opens the
+console**, before they sign in, so the page says so. Changing it needs the sign-in policy's permission
+(`security.manage`) and sudo mode; without it the page reads and its action is turned off, with the reason one
+press away. Each server has its own: a central does not set it on its servers, as it does not set their sign-in.
+`noust console sign-in-image set logo.png --fit contain --alt "Acme logo"` does the same from a terminal, and the
+backup of Noust's own state carries it.
 
 On a server without a fleet, every section is the server's own. What a server's own accounts,
 tokens and second factor are cannot be changed from a central; the page says how to manage them

@@ -179,6 +179,13 @@ def make_runner(
             self._containers = _DatabaseContainers()
             self._inside = threading.local()
 
+        def exists(self, program: str) -> bool:
+            # What a package installed through the Software page puts on the path is there from then on, and
+            # what one removed took with it.
+            host = server_host._SERVER_HOST
+            owned = host.packages.provides(program) if host is not None else None
+            return super().exists(program) if owned is None else owned
+
         def run(self, argv: Sequence[str], **kwargs: Any) -> CommandResult:
             # Noust's own SQL reaches the database clients on stdin; the psql
             # console statement arrives in -c instead (see _psql_console_sql).

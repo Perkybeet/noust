@@ -10,7 +10,8 @@ and a name: an nginx site, a Let's Encrypt certificate and, optionally, a list
 of who may connect, after checking that every account holds a second factor.
 ``unexpose`` removes exactly what ``expose`` made. The work is in
 :mod:`noust.managers.console_exposure`; these handlers only ask, show progress
-and print.
+and print. ``sign-in-image`` is the picture of the sign-in screen
+(:mod:`noust.cli.commands.console_sign_in_image`).
 """
 
 from __future__ import annotations
@@ -21,12 +22,16 @@ from typing import Any
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.cli.commands.console_sign_in_image import sign_in_image as sign_in_image_group
 from noust.core.audit.actor import cli_actor
 
 
 @click.group("console", cls=NoustGroup)
 def cli() -> None:
-    """Publish the console on a name of its own, over TLS, or take it off again."""
+    """Publish the console on a name of its own, over TLS, and choose its sign-in picture."""
+
+
+cli.add_command(sign_in_image_group)
 
 
 def _manager(ctx: Context) -> Any:

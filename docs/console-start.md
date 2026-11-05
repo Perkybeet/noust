@@ -153,7 +153,8 @@ the password: a **Passkey** on its own, **Your company** when a single sign-on p
 (see [sso.md](sso.md)) and the **Access token**. Browsers offer passkeys only on a certificate they
 trust, so over an SSH tunnel or with a self-signed certificate that door is not there. The page
 does not show the host name or the version before you sign in; `auth.login_label` sets a line that
-tells your servers apart. After signing in, the console says when and from where you last signed
+tells your servers apart, and Settings > Sign-in image puts your company's logo, or any picture, in
+the space of Noust's drawing. After signing in, the console says when and from where you last signed
 in and how many attempts failed since.
 
 **A server with no accounts** signs in with the access token (the **Access token** door, or the

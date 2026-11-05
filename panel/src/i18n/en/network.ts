@@ -536,13 +536,8 @@ export const network = {
     listFailed: "Could not list the tunnels",
     emptyTitle: "No tunnels yet",
     emptyDescription: "A tunnel reaches an application without a public address or an open port: its connector dials out to Cloudflare, which carries the names routed to it back through that connection.",
-    installAction: "Install cloudflared",
-    installRunning: "Installing cloudflared",
-    installDone: "cloudflared is installed",
-    installFailed: "cloudflared was not installed",
     addAccount: "Add a Cloudflare account",
     lacks: {
-      connector: "It also needs cloudflared, the connector, which is not installed.",
       account: "It also needs a Cloudflare account to manage it.",
       sealed: "The secret store is sealed: unlock the central first.",
     },

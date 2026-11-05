@@ -5,7 +5,7 @@ import type { SyntheticEvent } from "react";
 
 import { isApiError, request } from "../../api/client";
 import { networkKeys, streamsQuery } from "../../api/queries/network";
-import type { StreamBody, StreamExposure, StreamPlan } from "../../api/queries/network";
+import type { StreamBody, StreamExposure, StreamList, StreamPlan } from "../../api/queries/network";
 import { CommandHint } from "../../components/page/CommandHint";
 import { KeyValueList } from "../../components/page/KeyValueList";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -32,6 +32,7 @@ import { useT } from "../../i18n";
 import { sentenceKey } from "../../lib/serverSentence";
 import { useNode } from "../../nodes/useNode";
 import { listOf } from "../app/settings/access";
+import { MissingSoftware } from "../server/software/MissingSoftware";
 import { DomainsListPage } from "./DomainsListPage";
 import { ICONS } from "../../components/ui/icons";
 
@@ -216,6 +217,30 @@ function stateOf(exposure: StreamExposure): "running" | "deploying" | "warning" 
 }
 
 /**
+ * Why nginx here cannot publish a port. What is missing, when it is a piece Noust installs, is said where every missing piece is
+ * said, with its install; the rest (a loader nginx does not read, a block of the operator's) is the server's own explanation.
+ */
+function PortsLack({ support }: { support: NonNullable<StreamList["support"]> }) {
+  const t = useT();
+  const say = useServerSentence();
+  const queryClient = useQueryClient();
+  const explanation = (
+    <Notice tone="warning" title={support.problem ? say(support.coded, support.problem) : t("network.ports.unavailable")}>
+      {/* A fix that is a sentence of Noust's is said in this language, its command in mono; one that is nginx's own output is shown as it came. */}
+      {support.coded && sentenceKey(support.coded, "hint") !== null ? (
+        <p className="text-13 text-pretty">
+          <ServerText coded={support.coded} text={support.hint} part="hint" />
+        </p>
+      ) : support.hint ? (
+        <SystemOutput label={t("network.ports.unavailable")}>{support.hint}</SystemOutput>
+      ) : null}
+    </Notice>
+  );
+  if (support.install == null) return explanation;
+  return <MissingSoftware component={support.install} onInstalled={() => void queryClient.invalidateQueries({ queryKey: networkKeys.streams })} fallback={explanation} />;
+}
+
+/**
  * The Ports tab: the TCP and UDP ports nginx publishes in front of a backend, for the services
  * that are not HTTP (a game server, a broker, a WireGuard endpoint). Publishing asks first what it
  * would do - the file, the firewall rules, what to look out for - and only then does it; closing
@@ -223,7 +248,6 @@ function stateOf(exposure: StreamExposure): "running" | "deploying" | "warning" 
  */
 export function StreamsPage() {
   const t = useT();
-  const say = useServerSentence();
   const queryClient = useQueryClient();
   const { node } = useNode();
   const streams = useQuery(streamsQuery());
@@ -258,22 +282,7 @@ export function StreamsPage() {
           {t("network.ports.publishAction")}
         </Button>
       }
-      {...(support !== undefined && !support.available
-        ? {
-            notice: (
-              <Notice tone="warning" title={support.problem ? say(support.coded, support.problem) : t("network.ports.unavailable")}>
-                {/* A fix that is a sentence of Noust's is said in this language, its command in mono; one that is nginx's own output is shown as it came. */}
-                {support.coded && sentenceKey(support.coded, "hint") !== null ? (
-                  <p className="text-13 text-pretty">
-                    <ServerText coded={support.coded} text={support.hint} part="hint" />
-                  </p>
-                ) : support.hint ? (
-                  <SystemOutput label={t("network.ports.unavailable")}>{support.hint}</SystemOutput>
-                ) : null}
-              </Notice>
-            ),
-          }
-        : {})}
+      {...(support !== undefined && !support.available ? { notice: <PortsLack support={support} /> } : {})}
       footer={
         <div className="flex min-w-0 flex-col gap-3">
           <p className="max-w-measure text-13 text-pretty text-fg-muted">

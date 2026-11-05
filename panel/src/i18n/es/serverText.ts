@@ -861,6 +861,16 @@ export const serverText: Catalog<typeof en> = {
       text: "Este {kind} es mayor que los {limit} bytes que puede ocupar un ajuste",
     },
   },
+  host: {
+    updates_unsupported: {
+      no_manager: {
+        text: "Noust maneja apt, dnf y zypper, y aquí no hay ninguno instalado. Actualiza este sistema con su propio gestor de paquetes.",
+      },
+      transactional: {
+        text: "Este sistema instala los paquetes mediante transacciones y un reinicio (transactional-update o un sistema basado en imágenes), así que Noust solo informa de su estado. Actualízalo con su propia herramienta.",
+      },
+    },
+  },
   inspect: {
     can_deploy: {
       text: "Noust puede desplegar esto como {type}.",
@@ -1284,6 +1294,8 @@ export const serverText: Catalog<typeof en> = {
       server_action: { text: "Hacer una tarea del servidor" },
       server_action_dns_install: { text: "Instalar Knot DNS" },
       server_action_dns_setup: { text: "Configurar Noust DNS como {role}" },
+      server_action_software_install: { text: "Instalar {component}" },
+      server_action_software_remove: { text: "Quitar {component}" },
       server_security: { text: "Hacer una tarea de seguridad" },
       service_action: { text: "Reiniciar servicios" },
       site_action: { text: "Cambiar un sitio" },
@@ -1534,6 +1546,56 @@ export const serverText: Catalog<typeof en> = {
       hint: "Lista los roles con: {command}",
     },
   },
+  sign_in_image: {
+    alt_control: {
+      text: "La descripción debe ser una sola línea de texto sin formato",
+      hint: "Quita los saltos de línea y los caracteres de control.",
+    },
+    alt_too_long: {
+      text: "La descripción tiene más de {limit} caracteres",
+      hint: "Acórtala: un lector de pantalla la lee entera.",
+    },
+    animated: {
+      text: "Una imagen animada no se admite como imagen del inicio de sesión",
+      hint: "Usa una imagen fija: una animación no se puede pausar, y esta pantalla se lee.",
+    },
+    bad_fit: {
+      text: "El ajuste debe ser cover o contain",
+      hint: "Usa cover para rellenar el espacio (recortando lo que no quepa) o contain para mostrarla entera.",
+    },
+    damaged: {
+      text: "El archivo {kind} está dañado o incompleto",
+      hint: "Exporta la imagen otra vez y envía el archivo nuevo.",
+    },
+    no_image_yet: {
+      text: "No hay una imagen del inicio de sesión a la que cambiar el ajuste o la descripción",
+      hint: "Envía también la imagen.",
+    },
+    not_an_image: {
+      text: "El archivo no es una imagen PNG, JPEG ni WebP",
+      hint: "El tipo se lee del propio archivo, no de su nombre: exporta la imagen como PNG, JPEG o WebP.",
+    },
+    not_base64: {
+      text: "La imagen debe enviarse como texto base64",
+      hint: "Envía los bytes del archivo codificados en base64, sin prefijo data: y sin saltos de línea.",
+    },
+    svg_refused: {
+      text: "Un SVG no se admite como imagen del inicio de sesión",
+      hint: "Un SVG es código, y esta imagen la ve cualquiera que abra la consola antes de entrar. Expórtala como PNG, JPEG o WebP.",
+    },
+    too_large: {
+      text: "La imagen pesa más de {limit}",
+      hint: "Expórtala otra vez más pequeña o con más compresión y vuelve a enviarla.",
+    },
+    too_many_pixels: {
+      text: "La imagen mide {width} por {height} píxeles, y el máximo es {limit} por cada lado",
+      hint: "Redúcela y vuelve a enviarla.",
+    },
+    unsupported: {
+      text: "Este archivo {kind} usa una codificación que no todos los navegadores dibujan",
+      hint: "Guárdalo otra vez como imagen estándar, de 8 bits y no jerárquica, y vuelve a enviarlo.",
+    },
+  },
   sites: {
     config_updated: {
       text: "Configuración actualizada de {domain}. Recarga {webserver} para aplicarla.",
@@ -1635,6 +1697,9 @@ export const serverText: Catalog<typeof en> = {
       purpose: {
         text: "Comprueba la clave de firma de cada repositorio que Noust añade",
       },
+    },
+    hub: {
+      text: "Esta central es un hub: no tiene software propio",
     },
     knot: {
       purpose: {

@@ -139,6 +139,7 @@ from noust.web.api.server import router as server_router
 from noust.web.api.server_migration import router as server_migration_router
 from noust.web.api.server_restore import router as server_restore_router
 from noust.web.api.services import router as services_router
+from noust.web.api.sign_in_image import router as sign_in_image_router
 from noust.web.api.site_history import router as site_history_router
 from noust.web.api.site_logs import router as site_logs_router
 from noust.web.api.site_policy import ranges_router as policy_ranges_router
@@ -445,6 +446,8 @@ router.include_router(fleet_self_router, prefix="/auth/fleet", tags=["Fleet"])
 router.include_router(passkeys_router, prefix="/auth/passkeys", tags=["Passkeys"])
 # The panels of Home are the operator's own, one set across the fleet: under /auth for the same reason.
 router.include_router(dashboards_router, prefix="/auth/dashboards", tags=["Dashboards"])
+# The picture on the sign-in screen: what a server shows before anyone signs in is its own, so under /auth too.
+router.include_router(sign_in_image_router, prefix="/auth/sign-in", tags=["Authentication"])
 # Single sign-in through an identity provider (4.0): the same place, for the same reason.
 router.include_router(oidc_router, prefix="/auth/oidc", tags=["Single sign-on"])
 router.include_router(ldap_router, prefix="/auth/ldap", tags=["Single sign-on"])

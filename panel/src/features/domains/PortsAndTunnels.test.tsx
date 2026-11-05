@@ -6,6 +6,7 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
+import { ITEMS, softwareJob } from "../server/software/testFixtures";
 
 beforeEach(() => {
   vi.stubGlobal("matchMedia", (query: string) => ({
@@ -44,6 +45,9 @@ const MINECRAFT = {
   created_at: "2026-10-12T10:00:00+00:00",
   created_by: "ana",
 };
+
+/** What the registry says of the connector on a server that does not have it. */
+const CLOUDFLARED_MISSING = { ...(ITEMS.find((item) => item.id === "cloudflared") ?? {}), id: "cloudflared", installed: false, version: null, origin: null, dependents: [], packages: [] };
 
 const TUNNEL_SUPPORT = { available: true, cloudflared: "/usr/bin/cloudflared", sealed: false, accounts: ["cf"], problem: null, hint: null };
 
@@ -345,8 +349,8 @@ describe("the Tunnels tab", () => {
     expect(screen.getByText("noust tunnel create home")).toBeInTheDocument();
   });
 
-  it("says what is missing as a state of the page, in the console's words, and offers to install the connector", { timeout: 20_000 }, async () => {
-    let installed = 0;
+  it("says the connector is missing the way every missing piece is said, with the install beside it, and installs it as a task", { timeout: 20_000 }, async () => {
+    const installs: unknown[] = [];
     const { user } = network("/domains/tunnels", {
       "GET /api/tunnels": () =>
         json(200, {
@@ -361,19 +365,24 @@ describe("the Tunnels tab", () => {
             coded: { code: "tunnels.cloudflared_missing", params: { url: "https://pkg.cloudflare.com/" } },
           },
         }),
-      "POST /api/tunnels/install-cloudflared": () => {
-        installed += 1;
+      "GET /api/server/software": () => json(200, { managed: true, reason: null, family: "apt", items: [CLOUDFLARED_MISSING] }),
+      "POST /api/server/software/cloudflared/install": (call) => {
+        installs.push(call.body);
         return json(202, { job_id: "j9", status: "queued", message: "queued" });
       },
+      "GET /api/jobs/j9": () => json(200, softwareJob("running", { id: "j9", metadata: { component: "cloudflared", action: "install" } })),
     });
 
-    // The page says what a tunnel is and what this server lacks, once, with the action that fixes it: not a form's error.
+    // The page says what a tunnel is, and the notice above says what this server lacks, once, with the install: not a form's error.
     expect(await screen.findByText("No tunnels yet")).toBeInTheDocument();
-    expect(screen.getByText("It also needs cloudflared, the connector, which is not installed.")).toBeInTheDocument();
+    expect(await screen.findByText("cloudflared is missing")).toBeInTheDocument();
+    expect(screen.getByText(/Cloudflare tunnels go through it: without it none can be made\./)).toBeInTheDocument();
     expect(screen.queryByText("English hint from the server")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Create a tunnel" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Install cloudflared" }));
-    await waitFor(() => expect(installed).toBe(1));
+    // One place to install it: the notice's, and no second button in the empty state.
+    expect(screen.getAllByRole("button", { name: "Install" })).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "Install" }));
+    await waitFor(() => expect(installs).toEqual([{ epel: false }]));
     expect(await screen.findByText("Installing cloudflared")).toBeInTheDocument();
     await expectNoAxeViolations(document.body);
   });

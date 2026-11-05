@@ -1,12 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
 import { isApiError, request } from "../../api/client";
 import { appsQuery } from "../../api/queries/apps";
-import { isJobFinished, useFollowedJob } from "../../api/queries/jobs";
 import { networkKeys, tunnelsQuery } from "../../api/queries/network";
 import type { RouteResult, Tunnel } from "../../api/queries/network";
 import { CommandHint } from "../../components/page/CommandHint";
@@ -35,9 +34,9 @@ import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
+import { MissingSoftware } from "../server/software/MissingSoftware";
 import { DnsConflictDialog } from "./DnsConflictDialog";
 import { DomainsListPage } from "./DomainsListPage";
-import { JobBanner } from "./JobBanner";
 import type { RecordConflict } from "./dnsConflict";
 import { conflictOf } from "./dnsConflict";
 import { ICONS } from "../../components/ui/icons";
@@ -370,24 +369,17 @@ export function TunnelsPage() {
   const empty = tunnels.data !== undefined && rows.length === 0;
   // What a tunnel needs that this server lacks, in the order it is fixed: the connector, then an account at Cloudflare.
   const lacks = support === undefined || support.available ? null : support.sealed ? "sealed" : support.cloudflared == null ? "connector" : (support.accounts ?? []).length === 0 ? "account" : "other";
-  const installing = useFollowedJob();
-  const install = useMutation({
-    mutationFn: () => request("post", "/api/tunnels/install-cloudflared"),
-    onSuccess: (job) => installing.follow(job.job_id),
-  });
-  useEffect(() => {
-    if (installing.job !== null && isJobFinished(installing.job)) void queryClient.invalidateQueries({ queryKey: networkKeys.tunnels });
-  }, [installing.job, queryClient]);
-  const installButton = (
-    <Button variant="primary" icon={<OBJECT_ICONS.tunnel aria-hidden="true" />} loading={install.isPending || (installing.id !== null && !(installing.job !== null && isJobFinished(installing.job)))} onClick={() => install.mutate()}>
-      {t("network.tunnels.installAction")}
-    </Button>
-  );
   const accountLink = (
     <Link to="/domains/dns" className={buttonClassName("primary")}>
       {t("network.tunnels.addAccount")}
     </Link>
   );
+  const unavailable =
+    support !== undefined && !support.available ? (
+      <Notice tone="warning" title={t("network.tunnels.unavailable")}>
+        <ServerText coded={support.coded} text={support.problem} /> <ServerText coded={support.coded} text={support.hint} part="hint" />
+      </Notice>
+    ) : null;
   const opened = rows.find((row) => row.name === open) ?? null;
 
   const columns: Column<Tunnel>[] = [
@@ -419,16 +411,14 @@ export function TunnelsPage() {
               </Button>
             ),
           })}
-      {...(installing.id !== null
-        ? { notice: <JobBanner followed={installing} words={{ running: t("network.tunnels.installRunning"), done: t("network.tunnels.installDone"), failed: t("network.tunnels.installFailed") }} /> }
+      {...(lacks === "connector"
+        ? {
+            // The connector is a piece Noust installs: said where every missing piece is said, with its install. The explanation
+            // below stands for a server whose registry cannot be read.
+            notice: <MissingSoftware component="cloudflared" onInstalled={() => void queryClient.invalidateQueries({ queryKey: networkKeys.tunnels })} fallback={unavailable} />,
+          }
         : support !== undefined && !support.available && !empty
-          ? {
-              notice: (
-                <Notice tone="warning" title={t("network.tunnels.unavailable")}>
-                  <ServerText coded={support.coded} text={support.problem} /> <ServerText coded={support.coded} text={support.hint} part="hint" />
-                </Notice>
-              ),
-            }
+          ? { notice: unavailable }
           : {})}
       footer={<CommandHint command="noust tunnel list" label={t("common.words.fromTerminal")} />}
     >
@@ -441,7 +431,7 @@ export function TunnelsPage() {
           icon={<OBJECT_ICONS.tunnel />}
           title={t("network.tunnels.emptyTitle")}
           description={
-            lacks === null || lacks === "other" ? (
+            lacks === null || lacks === "other" || lacks === "connector" ? (
               t("network.tunnels.emptyDescription")
             ) : (
               <>
@@ -449,7 +439,7 @@ export function TunnelsPage() {
               </>
             )
           }
-          action={lacks === "connector" ? installButton : lacks === "account" ? accountLink : lacks === "sealed" || lacks === "other" ? undefined : (
+          action={lacks === "account" ? accountLink : lacks === "connector" || lacks === "sealed" || lacks === "other" ? undefined : (
             <Button variant="primary" icon={<Plus aria-hidden="true" />} onClick={() => setCreating(true)}>
               {t("network.tunnels.createAction")}
             </Button>
