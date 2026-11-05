@@ -30,7 +30,7 @@ export const Route = createFileRoute("/login")({
     // The picture an operator chose is asked beside the session and not waited for: the page opens on the
     // session, and when the picture is not here yet its slot holds the room it will take (useSignInArt), so
     // a slow or unreachable answer never holds the sign-in back and the screen never flashes the drawing.
-    void context.queryClient.prefetchQuery(signInAppearanceQuery());
+    void context.queryClient.query(signInAppearanceQuery()).catch(() => null);
     // An unreachable server is shown on the page itself, with the form still usable.
     const session = await context.queryClient.query(sessionQuery()).catch(() => null);
     if (session?.authenticated) {
