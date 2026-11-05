@@ -145,7 +145,7 @@ describe("Home, the panel of a server", () => {
       "Recent activity",
     ]);
     // It says what it follows, in words.
-    expect(screen.getByText(/Follows the chosen server/)).toBeInTheDocument();
+    expect(within(header()).getByText(/Follows the chosen server/)).toBeInTheDocument();
   });
 
   it("lists what needs attention a line each, with the system's own words after the sentence", async () => {

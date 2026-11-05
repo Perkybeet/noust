@@ -46,11 +46,7 @@
       "tolerance": 160,
       "toleranceReason": "The page is the audit trail, one row of 36px per event the server has recorded, and the server records the sign-in's own retries: a quiet machine measures 1308 (CI as well) and a loaded one 1345 to 1453. A page that grew is still caught: more than four rows over the quiet length fails."
     },
-    "settings-compliance": {
-      "path": "/settings/compliance",
-      "height": 4802,
-      "reason": "The frameworks, their controls and the ENS report in one page; the frameworks and the security profile move to Controls and the report stays."
-    },
+    "settings-compliance": { "path": "/settings/compliance", "height": 156 },
     "settings-cloud": { "path": "/settings/cloud", "height": 683 },
     "settings-central": { "path": "/settings/central", "height": 468 },
     "settings-controls": {
@@ -58,8 +54,9 @@
       "height": 2314,
       "reason": "The security profile, the nine frameworks with what each turns on, and the controls, folded by group to a line that says how many are strict. The frameworks are cards of their own: each can fold behind a line, which brings the page under the limit."
     },
+    "settings-sign-in-image": { "path": "/settings/sign-in-image", "height": 677 },
     "account-profile": { "path": "/account", "height": 190 },
-    "account-security": { "path": "/account/security", "height": 775 },
+    "account-security": { "path": "/account/security", "height": 721 },
     "app-settings-general": { "path": "/apps/shop.example.net/settings", "height": 907 },
     "app-settings-source": {
       "path": "/apps/taller.example.com/settings/source",
@@ -128,7 +125,7 @@
       "tolerance": 150,
       "toleranceReason": "Beside the second column of the double bar the list of sections stays in the page, so the content column is 680px instead of 880 at 1440 and the same fields wrap more. It goes away when the application's column carries its settings sections; this tolerance is then removed and the baseline lowered."
     },
-    "app-settings-mounts": { "path": "/apps/shop.example.net/settings/mounts", "height": 245 },
+    "app-settings-mounts": { "path": "/apps/shop.example.net/settings/mounts", "height": 196 },
     "app-settings-previews": {
       "path": "/apps/portal.example.org/settings/previews",
       "height": 2237,

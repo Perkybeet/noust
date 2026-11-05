@@ -125,7 +125,8 @@ withFleet("a deep link to a node's application works on reload", async ({ page, 
 
 withFleet("the Fleet's views show this server and the node, each row naming its server", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/fleet");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Home");
+  // The panel that opens at the fleet's address titles the page.
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Fleet");
   await expect(page.getByRole("button", { name: "Server: all servers" })).toBeVisible();
 
   // The fleet in courses: a row for each server, this one and the node, each named and opening its own page.
@@ -539,12 +540,18 @@ test("a node that stops answering says so, on its own pages and the Fleet page's
     await settle(page);
     await expectNoA11yViolations(page, "a node that is not answering");
 
+    // The fleet's panel draws the node that is down as a course that does not answer, and Servers says so in the central's own words.
     await page.goto(`${central.url}/fleet`);
+    await expect(page.getByRole("list", { name: "Servers and their applications" }).getByText("Not answering")).toBeVisible();
+    await settle(page);
+    await expectNoA11yViolations(page, "the Fleet's panel, with a server down");
+
+    await page.goto(`${central.url}/fleet/servers`);
     // Partial, never blank: the node that is down is named, with the central's own words.
     await expect(page.getByText("1 of 2 servers did not answer fully")).toBeVisible();
     await expect(page.getByText("Not answering").first()).toBeVisible();
     await settle(page);
-    await expectNoA11yViolations(page, "the Fleet's summary, with a server down");
+    await expectNoA11yViolations(page, "the Fleet's servers, with one down");
   } finally {
     // Closed before either server stops: an authenticated page keeps an /events stream and
     // polls its session, and stopping the backend under it would fail those as console
@@ -569,7 +576,8 @@ test("a sealed central shows the lock screen, and opens with the right passphras
     await page.getByRole("button", { name: "Unlock", exact: true }).click();
     await confirmItsYou(page, central);
     await expect(toasts(page).getByText("Unlocked: the servers are within reach again")).toBeVisible();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Home");
+    // The page that opens is the panel of this server, which titles it.
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("This server");
   } finally {
     await page.close();
     await central.stop();
@@ -674,14 +682,15 @@ withPartialFleet("a node that is down and one on an older Noust: the views answe
   const { central } = partialFleet;
   problems.expect(/status of 50\d .*\/api\/nodes\/db-1\//);
   problems.expect(/status of 404 .*\/api\/nodes\/old-1\//);
-  await signInAt(page, central, "/fleet");
-  await expect(page.getByText("2 of 4 servers did not answer fully")).toBeVisible({ timeout: 20_000 });
+  // Servers is where the central says which of its servers did not answer, in their own words. Its list is the
+  // central's own, so the server on an older Noust is listed and answered: only the views that read each server's
+  // own API (updates, below) say that one cannot.
+  await signInAt(page, central, "/fleet/servers");
+  await expect(page.getByText("1 of 4 servers did not answer fully")).toBeVisible({ timeout: 20_000 });
   const notice = page.getByRole("list", { name: "Servers that did not answer fully" });
   await expect(notice.getByText("db-1", { exact: true })).toBeVisible();
-  await expect(notice.getByText("old-1", { exact: true })).toBeVisible();
-  await expect(notice.getByText("Older Noust", { exact: true })).toBeVisible();
   await settle(page);
-  await expectNoA11yViolations(page, "a partial fleet's summary");
+  await expectNoA11yViolations(page, "a partial fleet's servers");
 
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Applications" }).click();
   // web-2 answered: its application is there, even though db-1 did not. Four servers' worth
@@ -694,6 +703,12 @@ withPartialFleet("a node that is down and one on an older Noust: the views answe
   await page.getByRole("navigation", { name: "Server sections" }).getByRole("link", { name: "Updates" }).click();
   const updates = page.getByRole("region", { name: "Noust and system updates of every server" });
   await expect(updates.getByRole("row").filter({ hasText: "old-1" })).toContainText("3.0.0");
+  // The updates are read from each server's own API: the one that is down and the one that is too old are both named, in their words.
+  await expect(page.getByText("2 of 4 servers did not answer fully")).toBeVisible();
+  const partial = page.getByRole("list", { name: "Servers that did not answer fully" });
+  await expect(partial.getByText("db-1", { exact: true })).toBeVisible();
+  await expect(partial.getByText("old-1", { exact: true })).toBeVisible();
+  await expect(partial.getByText("Older Noust", { exact: true })).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "a partial fleet's updates");
 });

@@ -6,7 +6,6 @@ import { removeSignInImage, saveSignInImage, signInAppearanceQuery, signInImageK
 import type { SignInFit, SignInLimits } from "../../../api/queries/signInImage";
 import { useDocumentTitle } from "../../../app/documentTitle";
 import { SignInPicture } from "../../../components/illustrations/SignInPicture";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import { QueryState } from "../../../components/page/QueryState";
 import { SaveBar } from "../../../components/page/SaveBar";
@@ -301,8 +300,6 @@ export function SignInImageSettings() {
                 {t("signInImage.file.drop")} {t("signInImage.file.limits", { size: formatBytes(limits.bytes, t.locale), side: String(limits.side) })}
               </p>
             ) : null}
-
-            <CommandHint command='noust console sign-in-image set logo.png --fit contain --alt "Acme logo"' label={t("common.words.fromTerminal")} />
 
             {canChange ? <SaveBar changes={changes} saving={save.isPending} onDiscard={discard} onSave={() => save.mutate()} /> : null}
           </>

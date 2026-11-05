@@ -90,7 +90,7 @@ describe("a team's shared variables", () => {
   it("is a tab of the team, lists each variable with who gets it, and hides a secret", async () => {
     const { container } = teamPage();
     const table = await loadedTable("Shared variables of Acme Corp");
-    expect(screen.getByRole("link", { name: "Variables" })).toHaveAttribute("href", "/teams/acme/variables");
+    expect(await screen.findByRole("link", { name: "Variables" })).toHaveAttribute("href", "/teams/acme/variables");
     expect(within(table).getByText("REGION")).toBeInTheDocument();
     expect(within(table).getByText("eu-west")).toBeInTheDocument();
     expect(within(table).getByText("Runtime only")).toBeInTheDocument();

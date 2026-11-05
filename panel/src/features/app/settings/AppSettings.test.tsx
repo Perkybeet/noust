@@ -6,7 +6,7 @@ import { screenWidth } from "../testRoutes";
 import { downloadText } from "../../../lib/clipboard";
 import { expectNoAxeViolations } from "../../../test/axe";
 import { json, problem } from "../../../test/fakes";
-import { DOMAIN, ELEVATED, IN_PLACE_APP, RELEASE_APP, STATIC_APP, renderSettings, saveBar } from "./testKit";
+import { DOMAIN, ELEVATED, IN_PLACE_APP, NO_TUNING, RELEASE_APP, STATIC_APP, renderSettings, saveBar } from "./testKit";
 
 // The real implementation still runs (so the export test exercises the actual blob and anchor
 // dance), wrapped so the exact file name and text handed to it can be asserted.
@@ -220,7 +220,7 @@ describe("Resources", () => {
     const cpu = screen.getByRole("textbox", { name: "CPU" });
     expect(memory).toHaveValue("512");
     expect(cpu).toHaveValue("150");
-    expect(screen.getByText("MemoryMax=512M CPUQuota=150% TasksMax=256")).toBeInTheDocument();
+    expect(await screen.findByText("MemoryMax=512M CPUQuota=150% TasksMax=256")).toBeInTheDocument();
     expect(await screen.findByText(/up to 400 here/)).toBeInTheDocument();
 
     await user.clear(memory);
@@ -233,6 +233,22 @@ describe("Resources", () => {
       expect(backend.callsTo(`PATCH /api/apps/${DOMAIN}/limits`)[0]?.body).toEqual({ memory_max_mb: 768, cpu_quota_percent: null, tasks_max: 256, restart: true });
     });
     expect(await screen.findByText("Saved. shop-example-com restarted under the new limits.")).toBeInTheDocument();
+  });
+
+  it("draws what is under the unit's tuning only once the tuning is read, since it opens or folds a section above them and would push them away", async () => {
+    let release: (answer: Response) => void = () => undefined;
+    const held = new Promise<Response>((resolve) => {
+      release = resolve;
+    });
+    await renderSettings("/resources", "Resources", RELEASE_APP, { [`GET /api/apps/${DOMAIN}/tuning`]: () => held });
+    expect(screen.getByRole("textbox", { name: "Memory" })).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /Restart now so the limits apply/ })).not.toBeInTheDocument();
+    expect(screen.queryByText("MemoryMax=512M CPUQuota=150% TasksMax=256")).not.toBeInTheDocument();
+    expect(screen.queryByText(/noust app limits/)).not.toBeInTheDocument();
+    release(json(200, NO_TUNING));
+    expect(await screen.findByRole("checkbox", { name: /Restart now so the limits apply/ })).toBeInTheDocument();
+    expect(screen.getByText("MemoryMax=512M CPUQuota=150% TasksMax=256")).toBeInTheDocument();
+    expect(screen.getByText(/noust app limits/)).toBeInTheDocument();
   });
 
   it("refuses what the backend would refuse before asking, and shows its own refusal verbatim", async () => {

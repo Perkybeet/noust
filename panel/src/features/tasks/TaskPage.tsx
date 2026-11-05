@@ -12,6 +12,7 @@ import { DetailPage } from "../../components/page/DetailPage";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
+import { GuardedButton } from "../../components/page/permissions";
 import { useAnnounceChange } from "../../components/page/useAnnounceChange";
 import { useNow } from "../../components/page/clock";
 import { Button, buttonClassName } from "../../components/ui/Button";
@@ -164,9 +165,10 @@ function TaskView({ job }: { job: Job }) {
           ...(canTryAgain
             ? {
                 primaryAction: (
-                  <Button variant="primary" icon={<VERB_ICONS.reset aria-hidden="true" />} loading={again.isPending} onClick={() => again.mutate()}>
+                  // Queuing the update again is what a deploy takes, whatever the task was: a role that cannot sees the button, locked.
+                  <GuardedButton permission="apps.deploy" variant="primary" icon={<VERB_ICONS.reset aria-hidden="true" />} loading={again.isPending} onClick={() => again.mutate()}>
                     {t("common.errorBlock.tryAgain")}
-                  </Button>
+                  </GuardedButton>
                 ),
               }
             : {}),

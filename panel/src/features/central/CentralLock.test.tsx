@@ -67,6 +67,7 @@ describe("a sealed central", () => {
     await user.clear(field);
     await user.type(field, "correct horse");
     await user.click(screen.getByRole("button", { name: "Unlock" }));
+    // The page that opens is the panel of this server, which titles it.
     expect(await screen.findByRole("heading", { level: 1, name: "This server" })).toBeInTheDocument();
     expect(backend.callsTo("POST /api/central/unlock").map((call) => call.body)).toEqual([
       { passphrase: "wrong one" },
@@ -94,7 +95,8 @@ describe("a sealed central", () => {
     sealedCentral();
     const { user } = renderConsole("/fleet");
     await user.click(await screen.findByRole("button", { name: "Continue without unlocking" }));
-    expect(await screen.findByRole("heading", { level: 1, name: "Home" })).toBeInTheDocument();
+    // The address was the fleet's, so the page that opens is the fleet's own panel.
+    expect(await screen.findByRole("heading", { level: 1, name: "Fleet" })).toBeInTheDocument();
     expect(screen.getByText("Its servers are out of reach until you unlock its sealed secrets.")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Unlock" }));

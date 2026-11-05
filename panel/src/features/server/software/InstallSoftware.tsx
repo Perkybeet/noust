@@ -11,6 +11,7 @@ import type { ReactNode } from "react";
 
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
+import { useCan } from "../../../components/widgets/useCan";
 import { useT } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
 import { reportActionError } from "../../apps/useAppActions";
@@ -18,7 +19,7 @@ import { explainServerError, useServerConfirm } from "../errors";
 import { useServerJob } from "../serverJob";
 import { installSoftware } from "./queries";
 import type { SoftwareItem } from "./queries";
-import { comesFromEpel } from "./registry";
+import { comesFromEpel, installPermissions } from "./registry";
 import { componentName } from "./words";
 
 /** The question EPEL asks before an install: what it is, and the box that says yes to it. */
@@ -58,6 +59,7 @@ export function useInstall(family: string): { install: (item: SoftwareItem) => v
   const t = useT();
   const { node } = useNode();
   const jobs = useServerJob();
+  const can = useCan();
   const [asking, setAsking] = useState<SoftwareItem | null>(null);
   const start = useMutation({
     mutationFn: (item: SoftwareItem) => installSoftware(item.id, false),
@@ -66,6 +68,8 @@ export function useInstall(family: string): { install: (item: SoftwareItem) => v
   });
   return {
     install: (item) => {
+      // The page draws the button for whoever may; the press asks again, since this is where the install is made.
+      if (!installPermissions(item.id).every(can)) return;
       if (comesFromEpel(item.id, family)) setAsking(item);
       else start.mutate(item);
     },

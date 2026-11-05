@@ -57,7 +57,7 @@ export const BUDGETS: readonly Budget[] = [
   { id: "T09", name: "changing a variable and applying it", budget: 4, depth: 3, from: "the application", was: 7, machine: "seeded", sudo: true },
   { id: "T10", name: "reading the live log and keeping the errors", budget: 2, depth: 3, from: "the application", was: 2, machine: "seeded" },
   { id: "T10b", name: "the log of what runs", budget: 1, depth: 3, from: "the application", was: 1, machine: "seeded" },
-  { id: "T10p", name: "the last lines of the log, on a phone", budget: 1, depth: 3, from: "the application", was: 1, machine: "seeded", phone: true },
+  { id: "T10p", name: "the last lines of the log, on a phone", budget: 2, depth: 3, from: "the application", was: 1, machine: "seeded", phone: true, raised: "the sections of an application are behind the selector at the top of the page on a phone (NV-22), where a strip of tabs was one tap away: a tap more, to open the sheet" },
   { id: "T11", name: "adding a domain with TLS", budget: 3, depth: 3, from: "the application", was: 4, machine: "seeded" },
   { id: "T12", name: "changing the memory limit", budget: 2, depth: 4, from: "the application", was: 3, machine: "seeded", sudo: true },
   { id: "T13", name: "going to what needs me", budget: 2, depth: 4, from: "any page", was: null, machine: "seeded" },

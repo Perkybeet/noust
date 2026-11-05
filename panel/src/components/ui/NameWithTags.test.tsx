@@ -68,6 +68,19 @@ describe("NameWithTags", () => {
     expect(within(popup).getByRole("link", { name: "queue-worker" })).toHaveAttribute("href", "#queue-worker");
   });
 
+  it("draws the +N as text inside a control of its own, with the tags it stands for in its title and for a screen reader, since a button cannot hold a button", async () => {
+    const { container } = render(
+      <button type="button">
+        <NameWithTags name="tienda_prod" tags={["production", "shop", "clients", "payments"]} inControl />
+      </button>,
+    );
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    const more = screen.getByText("+2");
+    expect(more).toHaveAttribute("title", "clients, payments");
+    expect(more).toHaveTextContent("2 more tags: clients, payments");
+    await expectNoAxeViolations(container);
+  });
+
   it("says the count in Spanish", async () => {
     await act(async () => {
       await setLocale("es");

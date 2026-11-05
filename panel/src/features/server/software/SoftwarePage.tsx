@@ -10,7 +10,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { CommandHint } from "../../../components/page/CommandHint";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Section } from "../../../components/page/Section";
 import { SegmentedControl } from "../../../components/page/SegmentedControl";
@@ -126,7 +125,6 @@ function Content({ data, checkedAt }: { data: SoftwareList; checkedAt: number })
           </span>
           <span>{t.rich("software.checked", { when: <RelativeTime key="when" value={checkedAt} /> })}</span>
         </p>
-        <CommandHint command="noust server software list" label={t("common.words.fromTerminal")} />
       </div>
       {removing !== null ? <RemoveSoftware item={removing} onClose={() => setRemoving(null)} /> : null}
       {installing.dialog}

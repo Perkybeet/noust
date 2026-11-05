@@ -201,7 +201,8 @@ export function DatabasesTable({ databases, servers, engines, policies, dumps, c
       // No generic mark before the name: every row is a database, the engine's own mark is in the next column, and the width is better spent on names that run long.
       cell: (database) => (
         <span className="flex min-w-0 items-center gap-2">
-          <NameWithTags name={database.name} mono tags={database.tags ?? []} />
+          {/* The first cell is the row's button (a table whose rows open), and a button cannot hold the "+N" of a popover: it is text here, and the whole of the tags is on the database's page. */}
+          <NameWithTags name={database.name} mono tags={database.tags ?? []} inControl />
           {database.unverified ? <StatusPill state="unknown" size="sm" label={t("databases.table.unverified")} /> : null}
         </span>
       ),

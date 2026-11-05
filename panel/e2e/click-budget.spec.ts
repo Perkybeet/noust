@@ -356,6 +356,8 @@ test.describe("on a phone, the incident verbs", () => {
 
     await startCounting(page);
     await walked(page, "T10p", async () => {
+      // On a phone the sections are behind the selector at the top of the page (NV-22): one tap opens the sheet, one picks the log.
+      await page.getByRole("main").getByRole("button", { name: /Overview/ }).click();
       await sections(page).getByRole("link", { name: "Logs" }).click();
       await expect(page.getByRole("region", { name: `Logs of ${SHOP}` })).toBeVisible();
     });
@@ -891,7 +893,7 @@ withFleet.describe("a fleet", () => {
     });
   });
 
-  withFleet("T15b: changing to all servers is two clicks and the sidebar becomes the fleet's, with seven destinations at most", async ({ page, consoleServer }) => {
+  withFleet("T15b: changing to all servers is two clicks and the sidebar becomes the fleet's, with the thirteen areas and Settings at most", async ({ page, consoleServer }) => {
     await startAt(page, consoleServer, "T15b", "/apps", async () => {
       await expect(page.getByRole("heading", { level: 1, name: "Applications" })).toBeVisible();
     });
@@ -902,7 +904,8 @@ withFleet.describe("a fleet", () => {
     });
     if (!MEASURE_ONLY) {
       const destinations = await page.getByRole("navigation", { name: "Main" }).getByRole("link").count();
-      expect(destinations, "the main bar").toBeLessThanOrEqual(12);
+      // NV-3: thirteen areas in titled groups, the same with or without a fleet, and Settings pinned under them.
+      expect(destinations, "the main bar").toBeLessThanOrEqual(14);
       expect(destinations).toBeGreaterThan(0);
     }
   });
