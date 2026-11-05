@@ -46,6 +46,7 @@ import {
   HeartPulse,
   History,
   IdCard,
+  ImagePlus,
   Key,
   KeySquare,
   Layers,
@@ -171,6 +172,8 @@ export const OBJECT_ICONS = {
   passkey: Fingerprint,
   session: MonitorSmartphone,
   signInSecurity: ShieldUser,
+  /** The picture an operator puts on the screens before the console. */
+  signInImage: ImagePlus,
   approval: Stamp,
   // What the instance is, and how it is governed.
   noust: BadgeInfo,
