@@ -264,6 +264,7 @@ export function SignInImageSettings() {
                       </p>
                       <SegmentedControl<SignInFit>
                         label={t("signInImage.fit.label")}
+                        className="self-start"
                         value={shownFit}
                         onValueChange={setFit}
                         options={[
