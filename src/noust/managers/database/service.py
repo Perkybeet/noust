@@ -87,6 +87,7 @@ from noust.managers.database.detect_links import (
     Detected,
     Endpoint,
     detect,
+    mark_detected,
     read_environment,
     references_in,
 )
@@ -1087,7 +1088,7 @@ class DatabaseService:
                 views.extend(self._views(manager, [], readable=False))
                 continue
             views.extend(self._views(manager, entries))
-        self._mark_detected(views, self.detected(managers))
+        mark_detected(views, self.detected(managers))
         return DatabaseListing(views, problems)
 
     # ------------------------------------------------------------- detected links
@@ -1148,27 +1149,6 @@ class DatabaseService:
                 project = app.compose_project or domain_to_app_name(app.domain)
                 entries.append(AppReferences(app=app, references=references, project=project))
         return detect(entries, endpoints)
-
-    @staticmethod
-    def _mark_detected(views: list[DatabaseView], found: list[Detected]) -> None:
-        """
-        Name, on each database, the applications that use it without a link.
-
-        Args:
-            views: The databases.
-            found: What the environments name.
-        """
-        users: dict[tuple[str, str], set[str]] = {}
-        for entry in found:
-            database = entry.reference.database or (
-                "0" if entry.reference.engine == "redis" else None
-            )
-            if entry.engine is None or database is None:
-                continue
-            users.setdefault((entry.engine, database), set()).add(entry.domain)
-        for view in views:
-            domains = users.get((view.engine, view.name), set()) - set(view.apps)
-            view.detected_apps = sorted(domains)
 
     def record_detected_link(self, engine: str, name: str, domain: str) -> LinkView:
         """

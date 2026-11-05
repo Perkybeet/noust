@@ -24,6 +24,7 @@ import stat
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 from urllib.parse import unquote, urlsplit
 
 from noust.core.appdir.layout import app_root, env_file_for
@@ -371,3 +372,21 @@ def detect(apps: Iterable[AppReferences], endpoints: Iterable[Endpoint]) -> list
         for entry in apps
         for reference in entry.references
     ]
+
+
+def mark_detected(views: Iterable[Any], found: Iterable[Detected]) -> None:
+    """
+    Name, on each database, the applications that use it without a link.
+
+    Args:
+        views: The databases (anything with ``engine``, ``name``, ``apps`` and ``detected_apps``).
+        found: What the environments name.
+    """
+    users: dict[tuple[str, str], set[str]] = {}
+    for entry in found:
+        database = entry.reference.database or ("0" if entry.reference.engine == "redis" else None)
+        if entry.engine is None or database is None:
+            continue
+        users.setdefault((entry.engine, database), set()).add(entry.domain)
+    for view in views:
+        view.detected_apps = sorted(users.get((view.engine, view.name), set()) - set(view.apps))

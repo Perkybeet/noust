@@ -143,7 +143,7 @@ OVERSIZE_MODULES = {
     "noust.managers.backup_manager": 4679,
     "noust.managers.database.base": 3336,
     "noust.managers.database.postgres": 3296,
-    "noust.managers.database.service": 3850,
+    "noust.managers.database.service": 3842,
     "noust.managers.database.settings": 3394,
     "noust.managers.previews": 3282,
     "noust.managers.service_manager": 3412,
