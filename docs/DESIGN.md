@@ -1750,6 +1750,19 @@ Four questions, answered in four places: **where am I** (the scope selector, and
   `e2e/databases.spec.ts`; one `RestoreDialog` for applications and databases.
 - **DB-2** A data-gap message under a chart or a log ("not recorded yet") is one line under its
   title, not a `Notice`. *Enforced by:* ratchet `notice-info-bare`.
+- **DB-3** A database is read through its column, in three groups (View, Manage, Danger) made from what its engine says
+  it can do: a SQL database has Data and Query, a key-value store has Keys and no Query, and Delete is alone and last. An
+  address that names a section the engine has says so and leads back to the overview; it never draws an editor that will
+  fail. *Enforced by:* `app/columns.test.ts`; `features/databases/DatabaseLayout.test.tsx`.
+- **DB-4** A database whose engine does not answer is a state, said once for every section (the banner of the layout:
+  "<engine> is stopped", with "Start the engine" as its one action) and never a skeleton that does not end or an error in
+  the system's words. What needs the engine is not asked of it (no request is made), what does not (its backups, its
+  settings, its delete) stays. The list keeps its row, marked stopped. *Enforced by:*
+  `features/databases/DatabaseLayout.test.tsx`; `e2e/databases.spec.ts`.
+- **DB-5** One dialog makes a database, empty or from a dump, on the engine chosen as a card, whether it is opened from the
+  list, from an application or from Home. "Upgrade" says before it is pressed that it makes a new instance and moves the
+  databases, in numbered steps taken from the plan, and is reached from the engine and from each database of an old one.
+  *Enforced by:* `features/databases/CreateDatabaseDialog.test.tsx`; `features/databases/instances/Instances.test.tsx`.
 
 ### 6.16 Content that says what each thing is, and who can change it
 
