@@ -23,6 +23,7 @@ export const nav: Catalog<typeof en> = {
     where: "Infraestructura",
   },
   intents: { use: "Usar", configure: "Configurar", fix: "Arreglar", move: "Llevar a otro sitio", danger: "Peligro" },
+  dbIntents: { use: "Ver", configure: "Gestionar" },
   columnGroups: {
     publish: "Publicar",
     machine: "Esta máquina",

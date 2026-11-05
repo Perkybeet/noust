@@ -1,14 +1,9 @@
-import { Input as BaseInput } from "@base-ui/react/input";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { FileArchive } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import type { ChangeEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ElevationCancelledError, request } from "../../../api/client";
 import { databaseKeys, databasesQuery, enginesQuery } from "../../../api/queries/databases";
-import { DEFAULT_IMPORT_MAX_BYTES, dumpInspectionQuery, importLimitQuery } from "../../../api/queries/dumpImport";
-import type { DumpFormat } from "../../../api/queries/dumpImport";
 import { isJobFinished, jobKeys, useFollowedJob } from "../../../api/queries/jobs";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
@@ -22,12 +17,9 @@ import { Field } from "../../../components/ui/Field";
 import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
-import { Notice } from "../../../components/ui/Notice";
-import { Progress } from "../../../components/ui/Progress";
 import { Select } from "../../../components/ui/Select";
 import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
-import type { T } from "../../../i18n";
 import { formatBytes } from "../../../lib/format";
 import { creatableEngines } from "../CreateDatabaseDialog";
 import { engineFamilyOf } from "../engineKey";
@@ -35,132 +27,11 @@ import { engineName, instanceLabel } from "../engines";
 import { JobLogPanel } from "../../jobs/JobLogPanel";
 import { jobState } from "../jobs";
 import type { Accepted } from "../jobs";
-import { clearStoredUpload, discardUpload, readStoredUpload, writeStoredUpload } from "./storedUpload";
-import type { StoredUpload } from "./storedUpload";
-import { uploadApi } from "./uploadApi";
-import { DUMP_EXTENSIONS, DumpUploader, UploadMismatchError, fileProblem } from "./uploader";
-import type { FileProblem, UploadSnapshot } from "./uploader";
+import { ImportResultList, spendUpload, useDumpFile } from "./dumpFile";
 
 type Step = "dump" | "options" | "import";
 
 const NAME = /^[A-Za-z_][A-Za-z0-9_]{0,62}$/;
-const FILE_INPUT = "dump-import-file";
-
-/** The kinds of file the server says it found, as words; a kind this console does not know reads as unknown. */
-function kindWords(t: T, kind: string): string {
-  switch (kind) {
-    case "pg-custom":
-      return t("dumpImport.format.kind.pg-custom");
-    case "pg-tar":
-      return t("dumpImport.format.kind.pg-tar");
-    case "sql":
-      return t("dumpImport.format.kind.sql");
-    case "tar-sql":
-      return t("dumpImport.format.kind.tar-sql");
-    case "mongo-archive":
-      return t("dumpImport.format.kind.mongo-archive");
-    case "mongo-tree":
-      return t("dumpImport.format.kind.mongo-tree");
-    default:
-      return t("dumpImport.format.kind.unknown");
-  }
-}
-
-function compressionWords(t: T, compression: string): string | null {
-  switch (compression) {
-    case "none":
-      return t("dumpImport.format.compression.none");
-    case "gzip":
-      return t("dumpImport.format.compression.gzip");
-    case "bz2":
-      return t("dumpImport.format.compression.bz2");
-    case "xz":
-      return t("dumpImport.format.compression.xz");
-    case "zip":
-      return t("dumpImport.format.compression.zip");
-    default:
-      return null;
-  }
-}
-
-/** What the file is, in a sentence: "A SQL script, compressed with gzip". */
-export function formatWords(t: T, format: Pick<DumpFormat, "kind" | "compression">): string {
-  const kind = kindWords(t, format.kind);
-  const compression = compressionWords(t, format.compression);
-  return compression === null ? kind : `${kind}, ${compression}`;
-}
-
-function problemWords(t: T, problem: FileProblem, file: File, limit: number): string {
-  if (problem === "extension") return t("dumpImport.file.extension", { name: file.name });
-  if (problem === "empty") return t("dumpImport.file.empty", { name: file.name });
-  return t("dumpImport.file.tooLarge", { name: file.name, size: formatBytes(file.size, t.locale), limit: formatBytes(limit, t.locale) });
-}
-
-/** The uploader's snapshot, as a React value. */
-function useUpload(uploader: DumpUploader): UploadSnapshot {
-  const subscribe = useCallback((listener: () => void) => uploader.subscribe(listener), [uploader]);
-  return useSyncExternalStore(subscribe, () => uploader.snapshot);
-}
-
-function UploadProgress({ upload, onRetry, onCancel }: { upload: UploadSnapshot; onRetry: () => void; onCancel: () => void }) {
-  const t = useT();
-  const percent = upload.size > 0 ? Math.min(100, Math.floor((upload.received / upload.size) * 100)) : 0;
-  const working = upload.phase === "starting" || upload.phase === "uploading" || upload.phase === "waiting" || upload.phase === "completing";
-  const label =
-    upload.phase === "done"
-      ? t("dumpImport.upload.done")
-      : upload.phase === "completing"
-        ? t("dumpImport.upload.completing")
-        : upload.phase === "starting"
-          ? t("dumpImport.upload.starting")
-          : t("dumpImport.upload.uploading");
-  return (
-    <div className="flex min-w-0 flex-col gap-3">
-      <div className="flex min-w-0 items-center gap-2 text-13">
-        <FileArchive aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />
-        <Mono tone="default" truncate>
-          {upload.fileName}
-        </Mono>
-        <span className="shrink-0 text-fg-muted">{formatBytes(upload.size, t.locale)}</span>
-      </div>
-      <Progress value={upload.phase === "done" ? 100 : percent} label={label} />
-      <p className="text-12 text-fg-muted tabular-nums">{t("dumpImport.upload.progress", { received: formatBytes(upload.received, t.locale), size: formatBytes(upload.size, t.locale) })}</p>
-      {upload.phase === "waiting" ? (
-        <InlineMessage live>
-          {upload.retryInMs !== null && upload.retryInMs >= 1000
-            ? t("dumpImport.upload.waiting", { seconds: Math.round(upload.retryInMs / 1000), attempt: upload.attempt })
-            : t("dumpImport.upload.waitingNow", { attempt: upload.attempt })}
-        </InlineMessage>
-      ) : null}
-      {upload.phase === "paused" ? <InlineMessage live>{t("dumpImport.upload.paused", { received: formatBytes(upload.received, t.locale) })}</InlineMessage> : null}
-      <div className="flex flex-wrap items-center gap-2">
-        {upload.phase === "waiting" || upload.phase === "paused" ? (
-          <Button size="sm" onClick={onRetry}>
-            {t("dumpImport.upload.retry")}
-          </Button>
-        ) : null}
-        {working || upload.phase === "paused" ? (
-          <Button size="sm" variant="ghost" onClick={onCancel}>
-            {t("dumpImport.upload.cancel")}
-          </Button>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-/** The result of the job as the server reports it: what was created, replaced and kept. */
-interface ImportResult {
-  created?: boolean;
-  replaced?: boolean;
-  safety_copy?: string | null;
-  notes?: string[];
-  format?: { kind: string; compression: string };
-}
-
-function resultOf(result: unknown): ImportResult {
-  return typeof result === "object" && result !== null ? result : {};
-}
 
 export interface ImportDumpDialogProps {
   open: boolean;
@@ -173,11 +44,10 @@ export interface ImportDumpDialogProps {
 }
 
 /**
- * Importing a dump from the browser, in three steps: the dump (where it goes, the file, sent in
- * chunks that survive a dropped connection, and what the server found it to be), how it is
- * loaded (over the data there, or replacing it, with the owners it names or not) and the job,
- * its output streaming as it runs. Nothing is changed before the last button, which asks
- * "Confirm it's you" like every restore.
+ * Loading a dump into a database that exists, from the browser, in three steps: the dump (the file, sent in chunks that survive a
+ * dropped connection, and what the server found it to be), how it is loaded (over the data there, or replacing it, with the owners
+ * it names or not) and the job, its output streaming as it runs. Nothing is changed before the last button, which asks "Confirm
+ * it's you" like every restore. A database that starts from a dump is made in "New database", which takes the same file.
  */
 export function ImportDumpDialog({ open, onOpenChange, engine: presetEngine, database: presetDatabase, onQueued }: ImportDumpDialogProps) {
   const t = useT();
@@ -186,8 +56,6 @@ export function ImportDumpDialog({ open, onOpenChange, engine: presetEngine, dat
   const fixed = presetEngine !== undefined && presetDatabase !== undefined;
   const engines = useQuery({ ...enginesQuery(), enabled: open && !fixed });
   const databases = useQuery({ ...databasesQuery(), enabled: open });
-  const limitQuery = useQuery({ ...importLimitQuery(), enabled: open });
-  const limit = limitQuery.data ?? DEFAULT_IMPORT_MAX_BYTES;
   const choices = creatableEngines(engines.data?.engines ?? []);
 
   const [step, setStep] = useState<Step>("dump");
@@ -195,78 +63,21 @@ export function ImportDumpDialog({ open, onOpenChange, engine: presetEngine, dat
   const [typedDatabase, setTypedDatabase] = useState("");
   const engine = presetEngine ?? pickedEngine ?? (choices.length === 1 ? (choices[0]?.name ?? null) : null);
   const database = presetDatabase ?? typedDatabase.trim();
-  const [file, setFile] = useState<File | null>(null);
-  const [fileError, setFileError] = useState<string | null>(null);
   const [replace, setReplace] = useState(false);
   const [keepOwners, setKeepOwners] = useState(false);
   const [safety, setSafety] = useState(true);
   const [typed, setTyped] = useState("");
   const [errors, setErrors] = useState<Partial<Record<"engine" | "database", string>>>({});
-  // Read once, when the dialog is opened (it is drawn only while open).
-  const [stored, setStored] = useState<StoredUpload | null>(() => readStoredUpload());
   const followed = useFollowedJob();
-  const fileRef = useRef<HTMLInputElement>(null);
   const databaseRef = useRef<HTMLInputElement>(null);
   const typedRef = useRef<HTMLInputElement>(null);
 
-  const uploader = useMemo(() => new DumpUploader(uploadApi), []);
-  const upload = useUpload(uploader);
-  const transferring = upload.phase === "starting" || upload.phase === "uploading" || upload.phase === "waiting" || upload.phase === "paused" || upload.phase === "completing";
-
-  // An upload this browser left unfinished: the server still holds what arrived.
-  const held = useQuery({
-    queryKey: ["databases", "imports", "held", stored?.id ?? ""],
-    queryFn: async ({ signal }) => {
-      try {
-        return await request("get", "/api/databases/imports/uploads/{upload_id}", { params: { upload_id: stored?.id ?? "" }, signal });
-      } catch (error: unknown) {
-        // Gone from the server (swept, or never this account's): there is nothing to continue.
-        clearStoredUpload();
-        throw error;
-      }
-    },
-    enabled: stored !== null && upload.phase === "idle",
-    retry: false,
-  });
-  const resumable = stored !== null && held.data !== undefined && !held.data.complete ? held.data : null;
-  useEffect(() => {
-    if (upload.uploadId !== null && (upload.phase === "uploading" || upload.phase === "waiting" || upload.phase === "paused")) {
-      writeStoredUpload({ id: upload.uploadId, name: upload.fileName, size: upload.size });
-    } else if (upload.phase === "done" || upload.phase === "cancelled" || upload.phase === "failed") {
-      clearStoredUpload();
-    }
-  }, [upload.phase, upload.uploadId, upload.fileName, upload.size]);
-
-  // Asked while the dump is being chosen only: once the import runs it consumes the upload, and
-  // asking again about a file that is gone would be an error nobody can act on.
-  const inspection = useQuery({ ...dumpInspectionQuery(upload.uploadId ?? "", engine ?? ""), enabled: upload.phase === "done" && upload.uploadId !== null && engine !== null && step === "dump" });
   const exists = engine !== null && database !== "" && (databases.data?.databases ?? []).some((item) => item.engine === engine && item.name === database && !item.missing);
   const family = engine === null ? "" : engineFamilyOf(engine);
   const choice = choices.find((item) => item.name === engine);
   const engineLabel = choice !== undefined ? instanceLabel(t, choice) : engine !== null ? engineName(engine) : "";
-  const loadable = inspection.data?.loadable;
-
-  const begin = (chosen: File): void => {
-    const problem = fileProblem(chosen, limit);
-    setFile(chosen);
-    if (problem !== null) {
-      setFileError(problemWords(t, problem, chosen, limit));
-      return;
-    }
-    setFileError(null);
-    if (stored !== null && resumable !== null && stored.name === chosen.name && stored.size === chosen.size) {
-      void uploader.continueUpload(stored.id, chosen);
-    } else {
-      if (stored !== null) void discardUpload(stored.id);
-      void uploader.start(chosen);
-    }
-  };
-
-  const onFile = (event: ChangeEvent<HTMLInputElement>): void => {
-    const chosen = event.target.files?.[0];
-    event.target.value = "";
-    if (chosen !== undefined) begin(chosen);
-  };
+  const dump = useDumpFile({ enabled: open, engine, engineLabel, inspect: step === "dump" });
+  const { upload, loadable } = dump;
 
   const importMutation = useMutation({
     mutationFn: () =>
@@ -294,14 +105,12 @@ export function ImportDumpDialog({ open, onOpenChange, engine: presetEngine, dat
   useEffect(() => {
     if (job === null || !isJobFinished(job) || settled.current === job.id) return;
     settled.current = job.id;
-    clearStoredUpload();
+    spendUpload();
     void queryClient.invalidateQueries({ queryKey: databaseKeys.all });
   }, [job, queryClient]);
 
   const reset = (): void => {
     setStep("dump");
-    setFile(null);
-    setFileError(null);
     setReplace(false);
     setKeepOwners(false);
     setSafety(true);
@@ -320,9 +129,8 @@ export function ImportDumpDialog({ open, onOpenChange, engine: presetEngine, dat
         description: t("dumpImport.job.elsewhere"),
         action: { label: t("dumpImport.job.open", { name: database }), onClick: () => void navigate({ to: "/activity" }) },
       });
-    } else if (step !== "import" && upload.uploadId !== null && upload.phase !== "idle") {
-      // A dump that was not imported does not stay on the server's disk.
-      void uploader.cancel();
+    } else if (step !== "import") {
+      dump.discard();
     }
     onOpenChange(false);
     reset();
@@ -350,7 +158,7 @@ export function ImportDumpDialog({ open, onOpenChange, engine: presetEngine, dat
       : !fixed && database === ""
         ? t("dumpImport.target.databaseRequired")
         : upload.phase !== "done"
-          ? transferring
+          ? dump.transferring
             ? t("dumpImport.upload.uploading")
             : t("dumpImport.file.required")
           : loadable === false
@@ -369,7 +177,6 @@ export function ImportDumpDialog({ open, onOpenChange, engine: presetEngine, dat
   let body;
   let footer;
   if (step === "dump") {
-    const sizeLimit = formatBytes(limit, t.locale);
     body = (
       <div className="flex min-w-0 flex-col gap-5">
         {fixed ? null : (
@@ -401,83 +208,15 @@ export function ImportDumpDialog({ open, onOpenChange, engine: presetEngine, dat
             </Field>
           </>
         )}
-        {upload.phase === "idle" || upload.phase === "failed" || upload.phase === "cancelled" ? (
-          <>
-            {stored !== null && resumable !== null && upload.phase === "idle" ? (
-              <Notice
-                tone="warning"
-                title={t("dumpImport.resume.title")}
-                action={
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      void discardUpload(stored.id);
-                      clearStoredUpload();
-                      setStored(null);
-                    }}
-                  >
-                    {t("dumpImport.resume.discard")}
-                  </Button>
-                }
-              >
-                {t("dumpImport.resume.body", { name: stored.name, percent: `${String(Math.floor((resumable.received / Math.max(1, resumable.size)) * 100))}%` })}
-              </Notice>
-            ) : null}
-            <Field
-              label={t("dumpImport.file.label")}
-              description={t("dumpImport.file.help", { limit: sizeLimit })}
-              error={upload.phase === "failed" ? null : fileError}
-            >
-              <BaseInput
-                ref={fileRef}
-                id={FILE_INPUT}
-                type="file"
-                accept={DUMP_EXTENSIONS.map((extension) => `.${extension}`).join(",")}
-                onChange={onFile}
-                className="max-w-full rounded-control text-13 text-fg-muted file:mr-3 file:h-control-md file:cursor-pointer file:rounded-control file:border file:border-border-strong file:bg-surface file:px-3 file:text-13 file:font-medium file:text-fg hover:file:bg-surface-hover"
-              />
-            </Field>
-            {fileError !== null && file !== null && fileProblem(file, limit) === "tooLarge" ? <p className="text-12 text-fg-muted">{t("dumpImport.file.tooLargeHint")}</p> : null}
-            {upload.phase === "cancelled" ? <p className="text-13 text-fg-muted">{t("dumpImport.upload.cancelled")}</p> : null}
-            {upload.phase === "failed" ? (
-              <ErrorBlock
-                live
-                compact
-                error={upload.error}
-                title={upload.error instanceof UploadMismatchError ? t("dumpImport.file.mismatch", { name: upload.error.heldName, size: formatBytes(upload.error.heldSize, t.locale) }) : t("dumpImport.upload.failed")}
-              />
-            ) : null}
-          </>
-        ) : (
-          <UploadProgress upload={upload} onRetry={() => uploader.retryNow()} onCancel={() => void uploader.cancel()} />
-        )}
-        {upload.phase === "done" ? (
-          <div className="flex min-w-0 flex-col gap-2" role="status">
-            <p className="text-13 font-medium text-fg">{t("dumpImport.format.title")}</p>
-            <p className="text-13 text-fg">{upload.format !== null ? formatWords(t, upload.format) : kindWords(t, "unknown")}</p>
-            {upload.format !== null ? <p className="text-12 text-fg-muted">{upload.format.description}</p> : null}
-            {inspection.isError ? <ErrorBlock compact error={inspection.error} title={t("dumpImport.format.inspectFailed")} onRetry={() => void inspection.refetch()} /> : null}
-            {loadable === true ? <p className="text-13 text-fg">{t("dumpImport.format.loadable", { engine: engineLabel })}</p> : null}
-            {loadable === false ? (
-              <Notice tone="error" title={t("dumpImport.format.notLoadable", { engine: engineLabel })}>
-                {inspection.data?.reason ?? ""}
-              </Notice>
-            ) : null}
-            <div>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  void uploader.cancel();
-                  setFile(null);
-                }}
-              >
-                {t("dumpImport.upload.another")}
-              </Button>
-            </div>
-          </div>
+        {dump.field}
+        {/* A file over the limit is not sent from here: the terminal takes a path on the server, which the console cannot. */}
+        {fixed || engine !== null ? (
+          <CommandHint
+            reason="solo-terminal"
+            label={t("dumpImport.limit.path", { limit: formatBytes(dump.limit, t.locale) })}
+            command={`noust db import ${database === "" ? "NAME" : database} /srv/dumps/dump.sql.gz -e ${engine ?? "postgresql"}`}
+          />
         ) : null}
-        {fixed || engine !== null ? <CommandHint label={t("dumpImport.limit.path", { limit: sizeLimit })} command={`noust db import ${database === "" ? "NAME" : database} /srv/dumps/dump.sql.gz -e ${engine ?? "postgresql"}`} /> : null}
       </div>
     );
     footer = (
@@ -485,7 +224,7 @@ export function ImportDumpDialog({ open, onOpenChange, engine: presetEngine, dat
         className="w-full"
         back={{ label: t("common.words.cancel"), onClick: close }}
         next={{ label: t("common.words.continue"), onClick: nextFromDump }}
-        {...(missingOnDump !== undefined ? { missing: missingOnDump, onMissing: () => (upload.phase === "idle" ? fileRef.current?.focus() : undefined) } : {})}
+        {...(missingOnDump !== undefined ? { missing: missingOnDump, onMissing: () => (upload.phase === "idle" ? dump.fileRef.current?.focus() : undefined) } : {})}
       />
     );
   } else if (step === "options") {
@@ -541,7 +280,6 @@ export function ImportDumpDialog({ open, onOpenChange, engine: presetEngine, dat
     );
   } else {
     const state = job === null ? "queued" : jobState(job.status);
-    const result = job !== null && state === "succeeded" ? resultOf(job.result) : {};
     body = (
       <JobLogPanel
         job={job}
@@ -552,19 +290,7 @@ export function ImportDumpDialog({ open, onOpenChange, engine: presetEngine, dat
           failed: t("dumpImport.job.failed", { name: database }),
         }}
         label={t("dumpImport.job.logLabel", { name: database })}
-        result={
-          <ul className="flex flex-col gap-1 text-13 text-fg">
-            {result.created === true ? <li>{t("dumpImport.job.result.created", { name: database })}</li> : null}
-            {result.replaced === true ? <li>{t("dumpImport.job.result.replaced", { name: database })}</li> : null}
-            {result.safety_copy !== undefined && result.safety_copy !== null ? <li>{t("dumpImport.job.result.safety", { file: result.safety_copy })}</li> : null}
-            {result.format !== undefined ? <li>{t("dumpImport.job.result.format", { format: formatWords(t, result.format) })}</li> : null}
-            {(result.notes ?? []).map((note) => (
-              <li key={note} className="text-fg-muted" translate="no">
-                {note}
-              </li>
-            ))}
-          </ul>
-        }
+        result={<ImportResultList result={job !== null && state === "succeeded" ? job.result : undefined} database={database} />}
       />
     );
     footer = (

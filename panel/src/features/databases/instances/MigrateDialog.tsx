@@ -5,8 +5,6 @@ import { request } from "../../../api/client";
 import { instanceCatalogQuery, instanceKeys } from "../../../api/queries/databaseInstances";
 import type { MigratePlan } from "../../../api/queries/databaseInstances";
 import { jobKeys } from "../../../api/queries/jobs";
-import { CommandHint } from "../../../components/page/CommandHint";
-import { KeyValueList } from "../../../components/page/KeyValueList";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Dialog } from "../../../components/ui/Dialog";
@@ -15,9 +13,13 @@ import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
+import { Mono } from "../../../components/ui/Mono";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
+import { useNodeCapability } from "../../../nodes/capability";
+import { MissingSoftware } from "../../server/software/MissingSoftware";
+import { SOFTWARE_CAPABILITY, softwareQuery } from "../../server/software/queries";
 import { supportLine, supportOf } from "../servers";
 
 /** What a major-version move leaves from: an instance of Noust's, or the host's own engine. */
@@ -61,8 +63,8 @@ export function isNewer(flavour: string, candidate: string, current: string | nu
   return false;
 }
 
-/** What the plan would do, as rows: nothing here changes anything. */
-function Plan({ plan }: { plan: MigratePlan }) {
+/** What the plan would do, as the steps it takes in order: nothing here changes anything. */
+function Plan({ plan, engine }: { plan: MigratePlan; engine: string }) {
   const t = useT();
   const databases = (plan.databases ?? []).map((entry) => entry.database);
   const blockers = plan.blockers ?? [];
@@ -79,15 +81,17 @@ function Plan({ plan }: { plan: MigratePlan }) {
           </ul>
         </Notice>
       ) : null}
-      <KeyValueList
-        items={[
-          { label: t("databases.migrate.newInstance"), value: plan.target, hint: plan.new_instance.reference },
-          { label: t("databases.migrate.listensOn"), value: `127.0.0.1:${String(plan.new_instance.host_port)}` },
-          { label: t("databases.migrate.memory"), value: t("databases.migrate.memoryValue", { mb: plan.new_instance.memory_limit_mb }), mono: false, copy: false },
-          { label: t("databases.migrate.databases"), value: databases.length > 0 ? databases.join(", ") : t("databases.migrate.noDatabases"), mono: databases.length > 0, copy: false },
-          { label: t("databases.migrate.apps"), value: apps.length > 0 ? apps.join(", ") : t("databases.migrate.noApps"), mono: apps.length > 0, copy: false },
-        ]}
-      />
+      {/* What it does, in the order it does it: the first thing a person who pressed "Upgrade" wants to know is that nothing is changed in place. */}
+      <ol className="flex list-decimal flex-col gap-2 pl-5 text-13 text-fg">
+        <li>{t.rich("databases.migrate.step.make", { name: <Mono key="name">{plan.target}</Mono>, port: <Mono key="port">{String(plan.new_instance.host_port)}</Mono> })}</li>
+        <li>
+          {databases.length > 0
+            ? t.rich("databases.migrate.step.move", { count: databases.length, databases: <Mono key="databases">{databases.join(", ")}</Mono> })
+            : t("databases.migrate.step.moveNone")}
+        </li>
+        {apps.length > 0 ? <li>{t.rich("databases.migrate.step.apps", { count: apps.length, apps: <Mono key="apps">{apps.join(", ")}</Mono> })}</li> : null}
+        <li>{t("databases.migrate.step.keep", { engine })}</li>
+      </ol>
       {warnings.length > 0 ? (
         <Notice tone="warning" title={t("databases.migrate.warningsTitle")}>
           <ul className="flex list-disc flex-col gap-1 pl-5">
@@ -102,7 +106,7 @@ function Plan({ plan }: { plan: MigratePlan }) {
 }
 
 /**
- * "Move to a newer version": a new instance of the newer version is made, every database of
+ * "Upgrade": it says, before it is pressed, that it is not an upgrade in place. A new instance of the newer version is made, every database of
  * this engine is dumped and loaded into it and the applications that use them are pointed at
  * it behind their health gate (`POST /api/databases/instances/migrate`, sudo mode). The engine
  * it leaves is not touched, so the move can be rolled back. The plan is read first and
@@ -121,11 +125,19 @@ export function MigrateDialog({ source, onOpenChange, onQueued }: MigrateDialogP
   const memoryMb = memory.trim() === "" ? undefined : Number(memory.trim());
   const memoryValid = memoryMb === undefined || (Number.isInteger(memoryMb) && memoryMb >= 1);
   const body = { source: source.name, to_version: chosen ?? "", ...(name.trim() === "" ? {} : { name: name.trim() }), ...(memoryMb === undefined || !memoryValid ? {} : { memory_mb: memoryMb }) };
+  // The new instance is a container: without Docker the plan can only refuse, and the notice above says what is missing once,
+  // with the way to install it. The registry is asked first, so the refusal is never what a person reads in its place.
+  const capability = useNodeCapability(SOFTWARE_CAPABILITY);
+  const readable = capability.status === "available" || capability.status === "unknown";
+  const software = useQuery({ ...softwareQuery(), enabled: readable });
+  const dockerKnown = capability.status !== "checking" && (!readable || !software.isPending);
+  const dockerMissing = software.data?.items?.some((item) => item.id === "docker" && !item.installed) === true;
+  const planned = chosen !== null && memoryValid && dockerKnown && !dockerMissing;
 
   const plan = useQuery({
     queryKey: ["databases", "instances", "migrate-plan", body] as const,
     queryFn: () => request("post", "/api/databases/instances/migrate/plan", { body }),
-    enabled: chosen !== null && memoryValid,
+    enabled: planned,
     retry: false,
     staleTime: 0,
   });
@@ -157,6 +169,8 @@ export function MigrateDialog({ source, onOpenChange, onQueued }: MigrateDialogP
       }
     >
       <div className="flex flex-col gap-5">
+        {/* The new instance is a container: Docker's absence is said as every page says a missing tool, with the way to install it. */}
+        <MissingSoftware component="docker" />
         {catalog.isError ? <ErrorBlock compact error={catalog.error} title={t("databases.newInstance.catalogFailed")} onRetry={() => void catalog.refetch()} /> : null}
         {catalog.data !== undefined && offered.length === 0 ? <EmptyState variant="inline" title={t("databases.migrate.nothingNewer", { engine: source.label })} description={t("databases.migrate.nothingNewerBody")} /> : null}
         {offered.length > 0 ? (
@@ -183,15 +197,14 @@ export function MigrateDialog({ source, onOpenChange, onQueued }: MigrateDialogP
             </div>
           </>
         ) : null}
-        {plan.isPending && chosen !== null && memoryValid ? (
+        {(planned ? plan.isPending : chosen !== null && memoryValid && !dockerKnown) ? (
           <LoadingRegion label={t("databases.migrate.planning")}>
             <Skeleton className="h-32 w-full rounded-control" />
           </LoadingRegion>
         ) : null}
         {plan.isError ? <ErrorBlock compact error={plan.error} title={t("databases.migrate.planFailed")} /> : null}
-        {plan.data !== undefined ? <Plan plan={plan.data} /> : null}
+        {plan.data !== undefined ? <Plan plan={plan.data} engine={source.label} /> : null}
         {go.isError ? <ErrorBlock live compact error={go.error} title={t("databases.migrate.failed")} /> : null}
-        <CommandHint command={`noust db instance migrate ${source.name} --to-version ${chosen ?? "N"}`} label={t("common.words.fromTerminal")} />
       </div>
     </Dialog>
   );

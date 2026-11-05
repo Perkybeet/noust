@@ -22,7 +22,8 @@ import { AddToNoust } from "./AddToNoust";
 import { engineName } from "./engines";
 import { PROTECTION_RANK, coveringPolicy, databaseId, databaseProtection } from "./protection";
 import type { Protection } from "./protection";
-import { logoFor, placeOf, releaseOf, serverTitle } from "./servers";
+import { lifeOf } from "./engineOf";
+import { logoFor, placeOf, releaseOf, serverTitle, serverWithPlace } from "./servers";
 import { TEXT_LINK } from "./ui";
 import { VerifiedMark } from "./VerifiedMark";
 
@@ -106,48 +107,56 @@ function stackOf(server: DbServer | undefined): string | undefined {
   return place?.kind === "app" ? place.app : undefined;
 }
 
-/**
- * Where a database runs, said short, when it is not told by anything else on its row: the name of a container of
- * Noust's. The system's own engine says nothing (the page is about this machine, and its name on every row would take
- * the room of what tells the rows apart), and an application's own stack is the application the row already names.
- */
-function whereShort(server: DbServer): string | null {
-  const place = placeOf(server);
-  return place.kind === "noust" ? place.name : null;
+/** The engine's mark, before the name of a database: it says what the database is faster than the word in the next column. */
+function EngineMark({ database, server }: { database: Database; server: DbServer | undefined }) {
+  const logo = logoFor(server?.flavour ?? database.engine.split("@")[0] ?? database.engine);
+  return logo !== null ? <LogoMark logo={logo} className="size-icon-lg shrink-0" /> : <OBJECT_ICONS.database aria-hidden="true" className="size-icon-lg shrink-0 text-fg-muted" />;
 }
 
 /**
- * The server a database runs on, as people say it: its engine with the mark of the engine's logo, its release
- * and where it runs ("PostgreSQL 17, web-01"). A database whose server the list does not know (an older node, a
- * server still being read) says its engine and the version it was read with.
+ * The engine a database runs on, as people say it: its name and release and where it runs ("PostgreSQL 16 (on the system)",
+ * "PostgreSQL 15 (container pg15)"). A database whose engine the list does not know (an older node, an engine still being
+ * read) says its engine and the version it was read with.
  */
-function ServerCell({
-  database,
-  server,
-  engines,
-  compact,
-}: {
-  database: Database;
-  server: DbServer | undefined;
-  engines: readonly Engine[] | undefined;
-  /** On a phone the cell is a phrase on a card's line: no mark. */
-  compact: boolean;
-}) {
+function EngineCell({ database, server, engines }: { database: Database; server: DbServer | undefined; engines: readonly Engine[] | undefined }) {
+  const t = useT();
   const flavour = server?.flavour ?? database.engine.split("@")[0] ?? database.engine;
-  const logo = logoFor(flavour);
   const release = server === undefined ? releaseOf(flavour, database.engine_version) : null;
-  const title = server !== undefined ? serverTitle(server) : [engineName(database.engine, engines), release].filter(Boolean).join(" ");
-  const where = server === undefined ? null : whereShort(server);
+  const words = server !== undefined ? serverWithPlace(t, server) : [engineName(database.engine, engines), release].filter(Boolean).join(" ");
+  // Where it runs is said whole from the widest screens and where the pointer rests; a laptop's width leaves room for the engine and its release.
   return (
-    <span className="flex min-w-0 items-center gap-2">
-      {/* A line of a table is shorter than a tile: the engine's mark stands bare, as in the side column. */}
-      {compact ? null : logo !== null ? <LogoMark logo={logo} className="size-icon-lg" /> : <OBJECT_ICONS.database aria-hidden="true" className="size-icon-lg shrink-0 text-fg-muted" />}
-      <span className="min-w-0">
-        <span className="text-fg">{title}</span>
-        {where !== null ? <span className="text-fg-muted">, {where}</span> : null}
-      </span>
+    <span title={words} className="block max-w-52 truncate text-fg">
+      {server !== undefined ? (
+        <>
+          <span className="2xl:hidden">{serverTitle(server)}</span>
+          <span className="hidden 2xl:inline">{words}</span>
+        </>
+      ) : (
+        words
+      )}
     </span>
   );
+}
+
+/**
+ * Whether a database is there to be used: its engine runs and it answers, its engine is stopped, the engine no longer has it,
+ * or what it holds could not be read this time. Said in words with their shape, and the same in the database's own page.
+ */
+function StateCell({ database, server }: { database: Database; server: DbServer | undefined }) {
+  const t = useT();
+  const life = lifeOf(server);
+  if (life === "stopped") return <StatusPill state="stopped" size="sm" label={t("common.statusPill.stopped")} />;
+  if (life === "changing") return <StatusPill state="deploying" size="sm" label={t("databases.state.changing")} />;
+  if (database.missing) return <StatusPill state="failed" size="sm" label={t("databases.state.missing")} />;
+  if (database.unverified) return <StatusPill state="unknown" size="sm" label={t("databases.table.unverified")} />;
+  return <StatusPill state="running" size="sm" label={t("common.statusPill.running")} />;
+}
+
+/** The size in words: a bar beside it would be a height of the table's own, and a level that is not a state takes no colour. */
+function SizeCell({ database, t }: { database: Database; t: T }) {
+  const words = sizeWords(database.size, t);
+  if (words === null) return <EmptyCell reason={t("databases.table.noSize")} />;
+  return <span className="tabular-nums">{words}</span>;
 }
 
 /**
@@ -198,46 +207,52 @@ export function DatabasesTable({ databases, servers, engines, policies, dumps, c
       card: "title",
       sortValue: (database) => database.name,
       // The tags follow the name on its line, the first ones and "+N" for the rest: every row is the one height whatever it carries.
-      // No generic mark before the name: every row is a database, the engine's own mark is in the next column, and the width is better spent on names that run long.
       cell: (database) => (
-        <span className="flex min-w-0 items-center gap-2">
+        <span className="flex min-w-0 items-center gap-2.5">
+          {wide ? <EngineMark database={database} server={byKey.get(database.engine)} /> : null}
           {/* The first cell is the row's button (a table whose rows open), and a button cannot hold the "+N" of a popover: it is text here, and the whole of the tags is on the database's page. */}
           <NameWithTags name={database.name} mono tags={database.tags ?? []} inControl />
-          {database.unverified ? <StatusPill state="unknown" size="sm" label={t("databases.table.unverified")} /> : null}
         </span>
       ),
     },
     {
+      id: "state",
+      header: t("databases.table.state"),
+      width: "w-28",
+      card: "status",
+      sortValue: (database) => lifeOf(byKey.get(database.engine)),
+      cell: (database) => <StateCell database={database} server={byKey.get(database.engine)} />,
+    },
+    {
       id: "server",
       header: t("databases.table.server"),
-      card: "meta",
+      hideBelow: "lg",
       sortValue: (database) => database.engine,
-      cell: (database) => <ServerCell database={database} server={byKey.get(database.engine)} engines={engines} compact={!wide} />,
+      cell: (database) => <EngineCell database={database} server={byKey.get(database.engine)} engines={engines} />,
     },
     ...(owner !== undefined ? ownerColumns<Database>(t, owner.scope, owner.labels) : []),
-    {
-      id: "apps",
-      header: t("databases.table.app"),
-      hideBelow: "md",
-      card: "meta",
-      sortValue: (database) => [...(database.apps ?? []), ...(database.detected_apps ?? [])].join(",") || null,
-      cell: (database) => <UsedBy apps={database.apps ?? []} detected={database.detected_apps ?? []} stack={stackOf(byKey.get(database.engine))} t={t} />,
-    },
     {
       id: "size",
       header: t("databases.table.size"),
       align: "end",
       mono: true,
-      width: "w-20",
-      card: "meta",
+      width: "w-24",
+      hideBelow: "2xl",
       sortValue: (database) => sizeBytes(database.size),
-      cell: (database) => sizeWords(database.size, t) ?? <EmptyCell reason={t("databases.table.noSize")} />,
+      cell: (database) => <SizeCell database={database} t={t} />,
+    },
+    {
+      id: "apps",
+      header: t("databases.table.app"),
+      hideBelow: "md",
+      sortValue: (database) => [...(database.apps ?? []), ...(database.detected_apps ?? [])].join(",") || null,
+      cell: (database) => <UsedBy apps={database.apps ?? []} detected={database.detected_apps ?? []} stack={stackOf(byKey.get(database.engine))} t={t} />,
     },
     {
       id: "backup",
       header: t("databases.table.backup"),
-      width: "w-36",
-      card: "status",
+      width: "w-40",
+      card: "meta",
       sortValue: (database) => PROTECTION_RANK[protectionOf(database)],
       cell: (database) => {
         const protection = protectionOf(database);
@@ -246,23 +261,23 @@ export function DatabasesTable({ databases, servers, engines, policies, dumps, c
     },
   ];
 
-  // A phone draws each row as a card with its name, its backup and one line of facts under them, each on a line of its
-  // own: the kit joins several columns of a card's meta line, and a server, an application and a size do not join.
-  const [first, ...rest] = columns;
-  const last = rest.at(-1);
+  // A phone draws each row as a card with its name, its state and one line of facts under them, each on a line of its
+  // own: the kit joins several columns of a card's meta line, and an engine, an application and a size do not join.
+  const [first, second, ...rest] = columns.filter((column) => column.id !== "server" && column.id !== "size" && column.id !== "apps");
   const phone: Column<Database>[] =
-    first === undefined || last === undefined
+    first === undefined || second === undefined
       ? columns
       : [
           first,
-          last,
+          second,
+          ...rest,
           {
             id: "facts",
             header: t("databases.table.facts"),
             card: "meta",
             cell: (database) => (
               <span className="flex min-w-0 flex-col gap-0.5">
-                <ServerCell database={database} server={byKey.get(database.engine)} engines={engines} compact />
+                <EngineCell database={database} server={byKey.get(database.engine)} engines={engines} />
                 <UsedBy apps={database.apps ?? []} detected={database.detected_apps ?? []} stack={stackOf(byKey.get(database.engine))} t={t} />
                 {database.size ? <Mono tone="muted">{sizeWords(database.size, t)}</Mono> : null}
               </span>

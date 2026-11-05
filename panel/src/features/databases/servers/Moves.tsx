@@ -62,7 +62,8 @@ export function Moves({ actions }: { actions: Pick<InstanceActions, "busy" | "fo
   const [rollingBack, setRollingBack] = useState<Migration | null>(null);
   if (query.isError && olderServer(query.error)) return null;
   const rows = query.data?.migrations ?? [];
-  if (query.data !== undefined && rows.length === 0) return null;
+  // Nothing is drawn until it is known there is something: a server that never made a move would see a table appear and go.
+  if (query.data === undefined || rows.length === 0) return null;
   const columns: Column<Migration>[] = [
     {
       id: "id",
@@ -107,8 +108,6 @@ export function Moves({ actions }: { actions: Pick<InstanceActions, "busy" | "fo
         rows={rows}
         getRowId={(row) => String(row.id)}
         caption={t("databases.moves.caption")}
-        loading={query.isPending}
-        skeletonRows={2}
         rowActions={(row) =>
           row.can_roll_back ? (
             <RowMenu name={`#${String(row.id)}`}>

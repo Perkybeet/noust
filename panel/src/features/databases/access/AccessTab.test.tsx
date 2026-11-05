@@ -15,7 +15,7 @@ describe("a database's accounts", () => {
         "POST /api/databases/users": () => json(200, { username: "reports", password: "Gen-3rat3d-once", message: "created" }),
       }),
     );
-    const { user } = renderConsole("/databases/postgresql/example_production/users");
+    const { user } = renderConsole("/databases/postgresql/example_production/access");
     const table = await screen.findByRole("region", { name: "Accounts of example_production" });
     expect(await within(table).findByText("example_production")).toBeInTheDocument();
     expect(within(table).getByText("Read and write")).toBeInTheDocument();

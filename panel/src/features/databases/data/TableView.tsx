@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import { relationQuery, rowsQuery } from "../../../api/queries/databases";
 import type { RelationDetail, RowsParams, TableRow } from "../../../api/queries/databases";
+import { useCan } from "../../../components/page/permissions";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { SegmentedControl } from "../../../components/page/SegmentedControl";
 import { Badge } from "../../../components/ui/Badge";
@@ -76,7 +77,10 @@ export function TableView({ engine, name, schema, relation, search, onSearchChan
 
   const structure: RelationDetail | undefined = detail.data;
   const columns = rows.data?.columns ?? structure?.columns ?? [];
-  const editable = rows.data?.editable ?? structure?.editable ?? false;
+  const mayWrite = useCan("databases.write");
+  // What the table allows is its own (a primary key), and what the person may do is theirs: both say yes, or nothing is offered.
+  const tableEditable = rows.data?.editable ?? structure?.editable ?? false;
+  const editable = tableEditable && mayWrite;
   const gridColumns = columns.map((column) => ({ name: column.name, type: column.type, kind: column.kind, primaryKey: column.primary_key ?? null }));
   const pageRows = rows.data?.rows ?? [];
   const gridRows: (GridRow & { source: TableRow })[] = pageRows.map((row, index) => ({ id: rowId(row, index), cells: row.cells, truncated: row.truncated, source: row }));
@@ -153,7 +157,7 @@ export function TableView({ engine, name, schema, relation, search, onSearchChan
               filters={filters}
               onChange={(nextFilters) => onSearchChange({ filter: nextFilters.length > 0 ? nextFilters.map(formatFilter) : undefined })}
             />
-            {!editable && rows.data !== undefined && structure?.kind === "table" ? (
+            {!tableEditable && rows.data !== undefined && structure?.kind === "table" ? (
               <span className="text-12 text-fg-muted">{t("databases.data.readOnlyNoKey")}</span>
             ) : null}
           </div>

@@ -116,7 +116,7 @@ export const EXCEPTIONS: Readonly<Record<string, string>> = {
   "/integrations/gitlab/callback": "where GitLab sends the browser back after authorising the application",
   "/apps/$domain/deployments/$id": "one deployment, opened from the Deployments list (L4)",
   "/catalog/$name": "one recipe, opened from the catalog",
-  "/databases/engines/$engine/settings": "one database server's settings, opened from its menu in Database servers",
+  "/databases/engines/$engine/settings": "one engine's settings, opened from its menu in Engines",
   "/domains/sites/$site": "one site's web server file, opened from the Sites tab",
   "/domains/dns/zones/$zone": "one zone of Noust DNS, opened from its list of zones",
   "/activity/tasks/$id": "one task, opened from the task centre in the top bar or from the list of tasks",
@@ -132,7 +132,7 @@ export const EXCEPTIONS: Readonly<Record<string, string>> = {
 export const EXCEPTION_CRUMBS: Readonly<Record<string, { from: string; name: { param: string; prefix?: string } | { key: PlainKey } }>> = {
   "/apps/$domain/deployments/$id": { from: "app.deployments", name: { param: "id", prefix: "#" } },
   "/catalog/$name": { from: "catalog", name: { param: "name" } },
-  "/databases/engines/$engine/settings": { from: "databases.servers", name: { param: "engine" } },
+  "/databases/engines/$engine/settings": { from: "databases.engines", name: { param: "engine" } },
   "/domains/sites/$site": { from: "domains.sites", name: { param: "site" } },
   "/domains/dns/zones/$zone": { from: "domains.dns.noust", name: { param: "zone" } },
   "/activity/tasks/$id": { from: "activity.tasks", name: { param: "id", prefix: "#" } },

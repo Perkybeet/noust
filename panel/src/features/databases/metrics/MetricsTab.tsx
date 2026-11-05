@@ -3,7 +3,6 @@ import { useMemo } from "react";
 
 import { databaseMetricsQuery, slowQueriesQuery } from "../../../api/queries/databases";
 import type { SlowQueries } from "../../../api/queries/databases";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Section } from "../../../components/page/Section";
 import { SegmentedControl } from "../../../components/page/SegmentedControl";
@@ -24,6 +23,7 @@ import { MetricChart } from "../../overview/MetricChart";
 import { prepareRead, useMetricsRead } from "../../overview/metricsData";
 import { RANGES } from "../../overview/ranges";
 import type { MetricRange } from "../../overview/ranges";
+import { DatabasePage, useAsking } from "../DatabasePage";
 import { formatHitRatio } from "../format";
 import { VERB_ICONS } from "../../../components/ui/objectIcons";
 
@@ -35,6 +35,7 @@ const SLOW_REASONS: Readonly<Record<string, { title: PlainKey; body: PlainKey }>
   not_created: { title: "databases.metrics.slow.notCreatedTitle", body: "databases.metrics.slow.notCreatedBody" },
   performance_schema_off: { title: "databases.metrics.slow.perfSchemaTitle", body: "databases.metrics.slow.perfSchemaBody" },
   not_supported: { title: "databases.metrics.slow.notSupportedTitle", body: "databases.metrics.slow.notSupportedBody" },
+  slowlog: { title: "databases.metrics.slow.slowlogTitle", body: "databases.metrics.slow.slowlogBody" },
 };
 
 type Chart = "size" | "connections" | "cache_hit" | "tps";
@@ -72,7 +73,7 @@ function SlowQueriesView({ answer, t }: { answer: SlowQueries; t: T }) {
       <div className="flex min-w-0 flex-col gap-3">
         <Notice title={t(words?.title ?? "databases.metrics.slow.notSupportedTitle")}>{t(words?.body ?? "databases.metrics.slow.notSupportedBody")}</Notice>
         {answer.how_to_enable ? (
-          <SystemOutput label={t("databases.metrics.slow.steps")} maxHeight="max-h-72">
+          <SystemOutput label={answer.reason === "slowlog" ? t("databases.metrics.slow.readWith") : t("databases.metrics.slow.steps")} maxHeight="max-h-72">
             {answer.how_to_enable}
           </SystemOutput>
         ) : null}
@@ -143,8 +144,9 @@ export interface MetricsTabProps {
  */
 export function MetricsTab({ engine, name, range, onRangeChange }: MetricsTabProps) {
   const t = useT();
-  const metrics = useQuery({ ...databaseMetricsQuery(engine, name), refetchInterval: 60_000 });
-  const slow = useQuery(slowQueriesQuery(engine, name));
+  const asking = useAsking("metrics");
+  const metrics = useQuery({ ...databaseMetricsQuery(engine, name), refetchInterval: 60_000, enabled: asking });
+  const slow = useQuery({ ...slowQueriesQuery(engine, name), enabled: asking });
   const series = metrics.data?.series ?? {};
   const charts = (["size", "connections", "cache_hit", "tps"] as const).filter((chart) => series[chart] !== undefined);
   const metricNames = charts.map((chart) => series[chart] ?? "");
@@ -157,10 +159,15 @@ export function MetricsTab({ engine, name, range, onRangeChange }: MetricsTabPro
 
   // design-exception: hand-error-ternary the tiles below are drawn as skeletons of their real shape so the charts do not move
   if (metrics.isError && data === undefined) {
-    return <ErrorBlock error={metrics.error} title={t("databases.metrics.couldNotLoad")} onRetry={() => void metrics.refetch()} retrying={metrics.isRefetching} />;
+    return (
+      <DatabasePage title={t("databases.detailTabs.metrics")} needsEngine needs="metrics">
+        <ErrorBlock error={metrics.error} title={t("databases.metrics.couldNotLoad")} onRetry={() => void metrics.refetch()} retrying={metrics.isRefetching} />
+      </DatabasePage>
+    );
   }
 
   return (
+    <DatabasePage title={t("databases.detailTabs.metrics")} needsEngine needs="metrics" secondaryActions={control}>
     <div className="flex min-w-0 flex-col gap-8">
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {data === undefined ? (
@@ -196,7 +203,7 @@ export function MetricsTab({ engine, name, range, onRangeChange }: MetricsTabPro
 
       {data === undefined ? (
         // The charts' room while the engine is asked which it has: the four a SQL engine draws.
-        <Section title={t("databases.metrics.history")} actions={control}>
+        <Section title={t("databases.metrics.history")}>
           <div className="grid gap-4 lg:grid-cols-2">
             {(["size", "connections", "cache_hit", "tps"] as const).map((chart) => (
               <Card key={chart} padding="sm" as="div">
@@ -206,7 +213,7 @@ export function MetricsTab({ engine, name, range, onRangeChange }: MetricsTabPro
           </div>
         </Section>
       ) : charts.length > 0 ? (
-        <Section title={t("databases.metrics.history")} actions={control}>
+        <Section title={t("databases.metrics.history")}>
           <ChartGroup>
             <div className="grid gap-4 lg:grid-cols-2">
               {charts.map((chart) => (
@@ -274,7 +281,7 @@ export function MetricsTab({ engine, name, range, onRangeChange }: MetricsTabPro
         )}
       </Section>
 
-      <CommandHint command={`noust db metrics ${engine} ${name}`} label={t("common.words.fromTerminal")} />
     </div>
+    </DatabasePage>
   );
 }

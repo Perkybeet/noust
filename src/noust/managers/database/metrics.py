@@ -103,6 +103,13 @@ MYSQL_PERFORMANCE_SCHEMA_OFF = (
 )
 
 
+#: Redis does not collect statement statistics: it keeps its slow log as a list of its own.
+REDIS_SLOWLOG_HOW_TO = (
+    "Redis keeps its slow log in SLOWLOG. Read it on the server with: noust db query "
+    "{database} 'SLOWLOG GET 20' --engine redis --write"
+)
+
+
 def series(engine: str, metric: str, database: str | None = None) -> str:
     """
     Name a database metric's series in the metrics store.
@@ -188,10 +195,13 @@ class SlowQueries:
 
     Attributes:
         available: Whether the engine keeps statement statistics.
-        source: ``pg_stat_statements`` or ``performance_schema``.
+        source: ``pg_stat_statements``, ``performance_schema`` or, for Redis,
+            ``slowlog``.
         reason: Why they are not available: ``not_loaded``,
-            ``not_created``, ``performance_schema_off``, ``not_supported``.
-        how_to_enable: The steps, when they are not.
+            ``not_created``, ``performance_schema_off`` or, for Redis,
+            ``slowlog`` (its slow log is a list of its own, read with a
+            command).
+        how_to_enable: The steps, or for Redis the command that reads it.
         queries: Each with ``query`` (normalised by the engine, scrubbed),
             ``calls``, ``total_ms``, ``mean_ms`` and ``rows``.
     """
@@ -826,13 +836,13 @@ class DatabaseMetricsReader:
                     if tag == "query"
                 ],
             )
+        # `_manager` let in the engines that report metrics and there are three, so what is left is
+        # Redis: its slow log is a list of its own that the engine keeps, not statistics to switch on.
         return SlowQueries(
             available=False,
-            reason="not_supported",
-            how_to_enable=(
-                "Redis keeps its slow log in SLOWLOG; read it with: noust db query "
-                f"{database} 'SLOWLOG GET 20' --engine redis --write"
-            ),
+            source="slowlog",
+            reason="slowlog",
+            how_to_enable=REDIS_SLOWLOG_HOW_TO.format(database=database),
         )
 
 

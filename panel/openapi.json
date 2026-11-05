@@ -54914,7 +54914,7 @@
         "type": "object"
       },
       "SlowQueriesResponse": {
-        "description": "The statements that take longest on average.\n\nAttributes:\n    available: Whether the engine keeps statement statistics.\n    source: ``pg_stat_statements`` or ``performance_schema``.\n    reason: Why not: ``not_loaded``, ``not_created``,\n        ``performance_schema_off`` or ``not_supported``.\n    how_to_enable: The steps, in English, commands included.",
+        "description": "The statements that take longest on average.\n\nAttributes:\n    available: Whether the engine keeps statement statistics.\n    source: ``pg_stat_statements``, ``performance_schema`` or ``slowlog``.\n    reason: Why not: ``not_loaded``, ``not_created``,\n        ``performance_schema_off`` or, for Redis, ``slowlog``.\n    how_to_enable: The steps, in English, commands included; for Redis,\n        the command that reads its slow log.",
         "properties": {
           "available": {
             "title": "Available",
@@ -91793,7 +91793,7 @@
     },
     "/api/databases/databases": {
       "get": {
-        "description": "List databases across the running engines, joined with the store.\n\nArgs:\n    engine: Engine to restrict the listing to.\n    session: The authenticated session.\n    team: Only this team's databases.\n    project: Only the projects with this slug.\n    environment: Only the environments with this slug.\n    tag: Only the databases that carry this tag.\n\nReturns:\n    Every database the running engines report, the tracked ones they\n    no longer have (``missing``), and the engines that could not be read\n    (``problems``). A team member sees the databases its teams own: one an\n    engine holds that Noust never recorded belongs to nobody.",
+        "description": "List databases across the running engines, joined with the store.\n\nArgs:\n    engine: Engine to restrict the listing to.\n    session: The authenticated session.\n    team: Only this team's databases.\n    project: Only the projects with this slug.\n    environment: Only the environments with this slug.\n    tag: Only the databases that carry this tag.\n\nReturns:\n    Every database the running engines report, the tracked ones they\n    no longer have (``missing``), the tracked ones of an engine that is\n    stopped (``unverified``: whether they are there is not known until it\n    runs), and the engines that could not be read (``problems``). A team\n    member sees the databases its teams own: one an engine holds that\n    Noust never recorded belongs to nobody.",
         "operationId": "list_databases_api_databases_databases_get",
         "parameters": [
           {

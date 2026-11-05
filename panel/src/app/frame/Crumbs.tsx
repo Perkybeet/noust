@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { appsQuery } from "../../api/queries/apps";
 import { sessionQuery } from "../../api/queries/auth";
+import { enginesQuery } from "../../api/queries/databases";
 import { IconButton } from "../../components/ui/IconButton";
 import { Menu, MenuItem } from "../../components/ui/Menu";
 import { columnIconOf } from "../../features/nav/icons";
@@ -62,8 +63,19 @@ function tryIcon(id: string) {
   }
 }
 
+/**
+ * What the engine of the database on screen can do, from the list of engines (which the column of its sections reads too): a
+ * Redis database has Keys at the address where a SQL one has Data, and no Query, in the trail's switch as in the column.
+ * Undefined away from a database, and while the list has not arrived.
+ */
+function useDatabaseCapabilities(route: string, params: Params): readonly string[] | undefined {
+  const onDatabase = route.startsWith("/databases/$engine/$name");
+  const engines = useQuery({ ...enginesQuery(), enabled: onDatabase });
+  return onDatabase ? engines.data?.engines.find((engine) => engine.name === params["engine"])?.capabilities : undefined;
+}
+
 /** The sections beside the page's, to jump to one of them: the tabs of its resource or the sections of its list. */
-function SectionSwitcher({ step, params, label }: { step: CrumbStep; params: Params; label: string }) {
+function SectionSwitcher({ step, params, label, capabilities }: { step: CrumbStep; params: Params; label: string; capabilities: readonly string[] | undefined }) {
   const t = useT();
   const navigate = useNavigate();
   const { data: permissions } = useQuery({ ...sessionQuery(), select: (session) => session.permissions });
@@ -77,7 +89,7 @@ function SectionSwitcher({ step, params, label }: { step: CrumbStep; params: Par
       entry.parent === parent &&
       entry.kind === step.entry.kind &&
       entry.group === step.entry.group &&
-      shown(entry, { can: (permission) => permissions?.includes(permission) ?? false }),
+      shown(entry, { can: (permission) => permissions?.includes(permission) ?? false, ...(capabilities !== undefined ? { capabilities } : {}) }),
   );
   if (siblings.length < 2) return null;
   return (
@@ -116,7 +128,13 @@ export function Crumbs({ className }: { className?: string }) {
   const params: Params = useParams({ strict: false });
   const route = useRouterState({ select: (state) => state.matches.at(-1)?.fullPath ?? "" });
   const nameOf = useName(params);
-  const steps = crumbsFor(route, scope);
+  const capabilities = useDatabaseCapabilities(route, params);
+  // Two entries can be one address (a database's Data and Keys): the one its engine has names the page.
+  const steps = crumbsFor(route, scope).map((step) => {
+    if (capabilities === undefined || step.entry.needs === undefined || shown(step.entry, { capabilities })) return step;
+    const entry = DESTS.find((candidate) => candidate.to === step.entry.to && candidate !== step.entry && shown(candidate, { capabilities }));
+    return entry === undefined ? step : { ...step, name: { key: entry.label }, entry };
+  });
   // The names of the steps are in many pages' catalogs: until every one has arrived the trail is not drawn, and the
   // top bar has the same height without it, so nothing moves when it appears.
   const named = steps.every((step) => !("key" in step.name) || hasMessage(step.name.key));
@@ -152,7 +170,7 @@ export function Crumbs({ className }: { className?: string }) {
                 </Link>
               )}
               {step.resource && step.entry.id === "app" ? <AppSwitcher route={route} params={params} label={label} /> : null}
-              {last && !step.resource && step.entry.id !== "app" ? <SectionSwitcher step={step} params={params} label={label} /> : null}
+              {last && !step.resource && step.entry.id !== "app" ? <SectionSwitcher step={step} params={params} label={label} capabilities={capabilities} /> : null}
             </li>
           );
         })}

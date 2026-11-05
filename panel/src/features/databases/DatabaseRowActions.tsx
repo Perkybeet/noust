@@ -7,6 +7,7 @@ import { request } from "../../api/client";
 import { databaseKeys } from "../../api/queries/databases";
 import type { Database, Engine } from "../../api/queries/databases";
 import { jobKeys } from "../../api/queries/jobs";
+import { Can, useCan } from "../../components/page/permissions";
 import { RowMenu } from "../../components/page/RowMenu";
 import { IconButton } from "../../components/ui/IconButton";
 import { MenuGroup, MenuItem, MenuSeparator } from "../../components/ui/Menu";
@@ -29,7 +30,10 @@ export function DatabaseRowActions({ database, engines }: { database: Database; 
   return (
     <span className="flex items-center justify-end gap-1">
       {database.missing || isNotAdded(database) ? null : (database.apps ?? []).length > 0 ? (
-        <CopyConnection engine={database.engine} name={database.name} />
+        // Showing a connection takes `secrets.reveal`: a role without it is not offered the copy.
+        <Can permission="secrets.reveal">
+          <CopyConnection engine={database.engine} name={database.name} />
+        </Can>
       ) : (
         <IconButton
           label={t("databases.listRow.connection", { name: database.name })}
@@ -74,6 +78,8 @@ function DatabaseMenu({ database, engines }: { database: Database; engines: read
   });
   const detected = (database.detected_apps ?? []).filter((app) => !(database.apps ?? []).includes(app));
   const [editingTags, setEditingTags] = useState(false);
+  const mayWrite = useCan("databases.write");
+  const mayBackUp = useCan("backups.run");
   return (
     <>
       <RowMenu name={database.name}>
@@ -88,10 +94,12 @@ function DatabaseMenu({ database, engines }: { database: Database; engines: read
         <MenuItem icon={<Plug />} disabled={database.missing} onClick={() => void navigate({ to: "/databases/$engine/$name/connect", params })}>
           {t("databases.list.connect")}
         </MenuItem>
-        <MenuItem icon={<Tags />} disabled={database.missing} onClick={() => setEditingTags(true)}>
-          {t("databases.list.editTags")}
-        </MenuItem>
-        {can(engine, "dump") ? (
+        {mayWrite ? (
+          <MenuItem icon={<Tags />} disabled={database.missing} onClick={() => setEditingTags(true)}>
+            {t("databases.list.editTags")}
+          </MenuItem>
+        ) : null}
+        {can(engine, "dump") && mayBackUp ? (
           <>
             <MenuSeparator />
             <MenuItem icon={<OBJECT_ICONS.backup />} disabled={database.missing || backup.isPending} onClick={() => backup.mutate()}>
@@ -99,7 +107,7 @@ function DatabaseMenu({ database, engines }: { database: Database; engines: read
             </MenuItem>
           </>
         ) : null}
-        {detected.length > 0 ? (
+        {detected.length > 0 && mayWrite ? (
           <>
             <MenuSeparator />
             <MenuGroup label={t("databases.list.detectedGroup")}>

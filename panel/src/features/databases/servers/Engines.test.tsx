@@ -26,9 +26,9 @@ async function serversAt(extra: Record<string, RouteHandler> = {}, servers: read
       ...extra,
     }),
   );
-  const harness = renderConsole("/databases/servers");
-  await screen.findByRole("heading", { level: 1, name: "Database servers" });
-  const list = await screen.findByRole("list", { name: "Database servers" });
+  const harness = renderConsole("/databases/engines");
+  await screen.findByRole("heading", { level: 1, name: "Engines" });
+  const list = await screen.findByRole("list", { name: "Engines" });
   return { ...harness, backend, list };
 }
 
@@ -43,39 +43,42 @@ async function menuOf(user: ReturnType<typeof renderConsole>["user"], name: stri
   await user.click(await screen.findByRole("button", { name: `Actions for ${name}` }));
 }
 
-describe("the database servers", () => {
-  it("are slabs of their own: the engine and its release, its default, its support, where it runs and how many databases it holds", async () => {
+describe("the engines", () => {
+  it("are cards of their own: the engine and its release, whether it runs, its default, its support, where it runs and how many databases it holds", async () => {
     const { list } = await serversAt();
     const postgres = slabOf(list, "PostgreSQL 14");
     expect(within(postgres).getByText("Default")).toBeInTheDocument();
     expect(within(postgres).getByText("Support until Nov 2028")).toBeInTheDocument();
-    expect(within(postgres).getByText("web-01, on the system")).toBeInTheDocument();
-    expect(within(postgres).getByText("2 databases")).toBeInTheDocument();
+    expect(within(postgres).getByText("On the system of web-01")).toBeInTheDocument();
+    expect(within(postgres).getByText("Running")).toBeInTheDocument();
+    expect(within(postgres).getByText("Port").nextElementSibling).toHaveTextContent("5432");
+    expect(within(postgres).getByText("Databases").nextElementSibling).toHaveTextContent("2");
     // A container of Noust's says so, and is not the default of its engine.
     const container = slabOf(list, "PostgreSQL 16");
-    expect(within(container).getByText("web-01, in a Noust container")).toBeInTheDocument();
+    expect(within(container).getByText(/^Container pg16, on web-01/)).toBeInTheDocument();
     expect(within(container).queryByText("Default")).not.toBeInTheDocument();
-    expect(within(container).getByText("No databases")).toBeInTheDocument();
+    expect(within(container).getByText("Databases").nextElementSibling).toHaveTextContent("0");
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
-  it("tint the one whose support ended, say so in words, and offer to go up a version", async () => {
+  it("say the one whose support ended in words with their shape, and offer to go up a version", async () => {
     const { list } = await serversAt();
     const mysql = slabOf(list, "MySQL 8.0");
-    expect(mysql).toHaveAttribute("data-tone", "failed");
     expect(within(mysql).getByText("No support since Apr 2026")).toBeInTheDocument();
     expect(within(mysql).getByRole("button", { name: "Upgrade version" })).toBeInTheDocument();
-    // A server that is well is plain stone and has nothing to upgrade.
+    // An engine that is well has nothing to upgrade.
     const postgres = slabOf(list, "PostgreSQL 14");
-    expect(postgres).not.toHaveAttribute("data-tone");
     expect(within(postgres).queryByRole("button", { name: "Upgrade version" })).not.toBeInTheDocument();
   });
 
-  it("say that one is stopped, with its state, and keep an engine's databases out of what they count", async () => {
-    const { list } = await serversAt();
+  it("say that one is stopped, with its state, and start it from its own card", async () => {
+    const { list, user, backend } = await serversAt({ "POST /api/databases/engines/redis/start": () => json(200, { success: true, message: "Redis started" }) });
     const redis = slabOf(list, "Redis 7.0");
     expect(within(redis).getByText("Stopped")).toBeInTheDocument();
-    expect(within(redis).queryByText(/databases?$/)).not.toBeInTheDocument();
+    // An engine that does not answer holds no count of databases to speak of.
+    expect(within(redis).getByText("Databases").nextElementSibling).toHaveTextContent("–");
+    await user.click(within(redis).getByRole("button", { name: "Start" }));
+    await waitFor(() => expect(backend.callsTo("POST /api/databases/engines/redis/start")).toHaveLength(1));
   });
 
   it("say which flavour the default is of when MySQL and MariaDB are both there", async () => {
@@ -152,7 +155,11 @@ describe("the database servers", () => {
 describe("another version", () => {
   async function open(extra: Record<string, RouteHandler> = {}) {
     const found = await serversAt({ "POST /api/databases/instances": () => json(202, ACCEPTED), ...extra });
-    await found.user.click(screen.getByRole("button", { name: "Another version" }));
+    // One way in: "Add an engine" asks how, and a container goes on to this dialog.
+    await found.user.click(screen.getByRole("button", { name: "Add an engine" }));
+    const choose = await screen.findByRole("dialog", { name: "Add an engine" });
+    await found.user.click(within(choose).getByRole("radio", { name: /In a container/ }));
+    await found.user.click(within(choose).getByRole("button", { name: "Continue" }));
     const dialog = await screen.findByRole("dialog", { name: "Another version" });
     return { ...found, dialog };
   }
@@ -308,8 +315,11 @@ describe("another version", () => {
 describe("installing an engine of the system's own", () => {
   async function openInstall(extra: Record<string, RouteHandler> = {}) {
     const found = await serversAt(extra);
-    await found.user.click(screen.getByRole("button", { name: "More actions" }));
-    await found.user.click(await screen.findByRole("menuitem", { name: "Install engine" }));
+    await found.user.click(screen.getByRole("button", { name: "Add an engine" }));
+    const choose = await screen.findByRole("dialog", { name: "Add an engine" });
+    // The system's own is the first card and is chosen already.
+    expect(within(choose).getByRole("radio", { name: /On the system/ })).toBeChecked();
+    await found.user.click(within(choose).getByRole("button", { name: "Continue" }));
     const dialog = await screen.findByRole("dialog", { name: "Install a database engine" });
     return { ...found, dialog };
   }
@@ -356,7 +366,7 @@ describe("a server older than 4.1, which has engines and no list of servers", ()
         "GET /api/databases/engines": () => json(200, { engines: [...ENGINES, CONTAINER_ENGINE] }),
       }),
     });
-    renderConsole("/n/web-2/databases/servers");
+    renderConsole("/n/web-2/databases/engines");
     expect((await screen.findAllByRole("heading", { level: 2, name: "PostgreSQL 16" })).length).toBe(2);
     expect(screen.getByRole("heading", { level: 2, name: "MySQL 8.0" })).toBeInTheDocument();
     expect(screen.getByText(/runs a Noust older than 4\.1/)).toBeInTheDocument();

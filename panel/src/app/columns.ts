@@ -144,10 +144,27 @@ export function appColumn(ctx: NavContext, adopted: boolean): ColumnGroup[] {
   });
 }
 
+/**
+ * A database's sections are grouped by what each is for, in the words that fit a database: what you look at,
+ * what you set up, and what is dangerous. A group the engine answers nothing of is absent (Mongo has no query
+ * and no metrics: its look-at group is its overview), and a group of one is as good as one of four.
+ */
+const DATABASE_GROUPS: readonly { intent: Intent; heading: PlainKey; danger?: true }[] = [
+  { intent: "use", heading: "nav.dbIntents.use" },
+  { intent: "configure", heading: "nav.dbIntents.configure" },
+  { intent: "danger", heading: "nav.intents.danger", danger: true },
+];
+
 /** What a resource other than an application is made of: its own page and its tabs, in the register's order. */
 export function resourceColumn(kind: Exclude<ResourceKind, "app">, ctx: NavContext): ColumnGroup[] {
   const root = { database: "database", service: "service", team: "team" }[kind];
   const entries = DESTS.filter((entry) => (entry.id === root || entry.parent === root) && (entry.kind === "tab" || entry.id === root) && shown(entry, ctx));
+  if (kind === "database") {
+    return DATABASE_GROUPS.flatMap((group) => {
+      const items = entries.filter((entry) => entry.intent === group.intent).map((entry) => itemOf(entry, entry.id === root));
+      return items.length > 0 ? [{ id: group.intent, heading: group.heading, ...(group.danger === true ? { danger: true } : {}), items }] : [];
+    });
+  }
   return [{ id: "all", items: entries.map((entry, index) => itemOf(entry, index === 0)) }];
 }
 

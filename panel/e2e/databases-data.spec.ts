@@ -212,17 +212,16 @@ function sqlDump(bytes: number): Buffer {
   return Buffer.concat([Buffer.from(header), Buffer.from(filler.repeat(Math.ceil(Math.max(0, bytes - header.length) / filler.length))), Buffer.from(footer)]);
 }
 
-test("import a dump into a new database: uploaded, recognised, loaded as a job whose log is followed", async ({ page, consoleServer, problems }) => {
+test("a new database from a dump: uploaded, recognised, loaded as a job whose log is followed", async ({ page, consoleServer, problems }) => {
   problems.expect(/status of 403 .*\/api\/databases\/imports$/);
   await signIn(page, consoleServer, "/databases");
-  // A dump from elsewhere is rarer than the first database: it is in the page's menu, not beside the primary action.
-  await page.getByRole("button", { name: "More actions" }).click();
-  await page.getByRole("menuitem", { name: "Import a dump…" }).click();
-  const dialog = page.getByRole("dialog", { name: "Import a dump" });
-  await dialog.getByRole("combobox", { name: "Engine" }).click();
-  await page.getByRole("option", { name: "PostgreSQL", exact: true }).click();
+  // A dump is one way a database starts, not a page of its own: the dialog that makes a database offers it.
+  await page.getByRole("button", { name: "New database" }).click();
+  const dialog = page.getByRole("dialog", { name: "New database" });
+  await expect(dialog.getByRole("radio", { name: /PostgreSQL 16/ })).toBeChecked();
+  await dialog.getByRole("radio", { name: "From a dump" }).click();
   const database = `imported_${String(Date.now()).slice(-6)}`;
-  await dialog.getByLabel("Database", { exact: true }).fill(database);
+  await dialog.getByLabel("Name", { exact: true }).fill(database);
 
   // The size cap is the server's, and said before a file is chosen.
   await expect(dialog.getByText(/up to 10 GB\.?$/)).toBeVisible();
@@ -232,15 +231,10 @@ test("import a dump into a new database: uploaded, recognised, loaded as a job w
   await dialog.getByLabel("Dump file").setInputFiles({ name: "shop.sql", mimeType: "application/sql", buffer: sqlDump(2_000) });
   await expect(dialog.getByText("Uploaded and checked")).toBeVisible();
   await expect(dialog.getByText("A SQL script, not compressed")).toBeVisible();
-  await expect(dialog.getByText("PostgreSQL can load it.")).toBeVisible();
+  await expect(dialog.getByText("PostgreSQL 16 can load it.")).toBeVisible();
   await settle(page);
-  await expectNoA11yViolations(page, "the import dialog, a dump uploaded");
-  await dialog.getByRole("button", { name: "Continue" }).click();
-
-  await expect(dialog.getByText(`${database} does not exist on PostgreSQL`)).toBeVisible();
-  await settle(page);
-  await expectNoA11yViolations(page, "the import options");
-  await dialog.getByRole("button", { name: "Import" }).click();
+  await expectNoA11yViolations(page, "the new database dialog, a dump uploaded");
+  await dialog.getByRole("button", { name: "Create the database" }).click();
   await confirmItsYou(page, consoleServer);
 
   // The job's output is followed in the dialog, and its result said.

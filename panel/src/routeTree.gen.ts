@@ -174,11 +174,14 @@ import { Route as ConsoleAppsDomainSettingsResourcesRouteImport } from "./routes
 import { Route as ConsoleAppsDomainSettingsSecurityRouteImport } from "./routes/_console/apps/$domain/settings/security"
 import { Route as ConsoleAppsDomainSettingsSourceRouteImport } from "./routes/_console/apps/$domain/settings/source"
 import { Route as ConsoleDatabasesEngineNameIndexRouteImport } from "./routes/_console/databases/$engine/$name/index"
+import { Route as ConsoleDatabasesEngineNameAccessRouteImport } from "./routes/_console/databases/$engine/$name/access"
 import { Route as ConsoleDatabasesEngineNameBackupsRouteImport } from "./routes/_console/databases/$engine/$name/backups"
 import { Route as ConsoleDatabasesEngineNameConnectRouteImport } from "./routes/_console/databases/$engine/$name/connect"
 import { Route as ConsoleDatabasesEngineNameDataRouteImport } from "./routes/_console/databases/$engine/$name/data"
+import { Route as ConsoleDatabasesEngineNameDeleteRouteImport } from "./routes/_console/databases/$engine/$name/delete"
 import { Route as ConsoleDatabasesEngineNameMetricsRouteImport } from "./routes/_console/databases/$engine/$name/metrics"
 import { Route as ConsoleDatabasesEngineNameQueryRouteImport } from "./routes/_console/databases/$engine/$name/query"
+import { Route as ConsoleDatabasesEngineNameSettingsRouteImport } from "./routes/_console/databases/$engine/$name/settings"
 import { Route as ConsoleDatabasesEngineNameUsersRouteImport } from "./routes/_console/databases/$engine/$name/users"
 import { Route as ConsoleDatabasesEnginesEngineSettingsRouteImport } from "./routes/_console/databases/engines_/$engine/settings"
 import { Route as ConsoleDomainsDnsZonesZoneRouteImport } from "./routes/_console/domains/dns/zones/$zone"
@@ -1064,6 +1067,12 @@ const ConsoleDatabasesEngineNameIndexRoute =
     path: "/",
     getParentRoute: () => ConsoleDatabasesEngineNameRoute,
   } as any)
+const ConsoleDatabasesEngineNameAccessRoute =
+  ConsoleDatabasesEngineNameAccessRouteImport.update({
+    id: "/access",
+    path: "/access",
+    getParentRoute: () => ConsoleDatabasesEngineNameRoute,
+  } as any)
 const ConsoleDatabasesEngineNameBackupsRoute =
   ConsoleDatabasesEngineNameBackupsRouteImport.update({
     id: "/backups",
@@ -1082,6 +1091,12 @@ const ConsoleDatabasesEngineNameDataRoute =
     path: "/data",
     getParentRoute: () => ConsoleDatabasesEngineNameRoute,
   } as any)
+const ConsoleDatabasesEngineNameDeleteRoute =
+  ConsoleDatabasesEngineNameDeleteRouteImport.update({
+    id: "/delete",
+    path: "/delete",
+    getParentRoute: () => ConsoleDatabasesEngineNameRoute,
+  } as any)
 const ConsoleDatabasesEngineNameMetricsRoute =
   ConsoleDatabasesEngineNameMetricsRouteImport.update({
     id: "/metrics",
@@ -1092,6 +1107,12 @@ const ConsoleDatabasesEngineNameQueryRoute =
   ConsoleDatabasesEngineNameQueryRouteImport.update({
     id: "/query",
     path: "/query",
+    getParentRoute: () => ConsoleDatabasesEngineNameRoute,
+  } as any)
+const ConsoleDatabasesEngineNameSettingsRoute =
+  ConsoleDatabasesEngineNameSettingsRouteImport.update({
+    id: "/settings",
+    path: "/settings",
     getParentRoute: () => ConsoleDatabasesEngineNameRoute,
   } as any)
 const ConsoleDatabasesEngineNameUsersRoute =
@@ -1293,11 +1314,14 @@ export interface FileRoutesByFullPath {
   "/apps/$domain/settings/resources": typeof ConsoleAppsDomainSettingsResourcesRoute
   "/apps/$domain/settings/security": typeof ConsoleAppsDomainSettingsSecurityRoute
   "/apps/$domain/settings/source": typeof ConsoleAppsDomainSettingsSourceRoute
+  "/databases/$engine/$name/access": typeof ConsoleDatabasesEngineNameAccessRoute
   "/databases/$engine/$name/backups": typeof ConsoleDatabasesEngineNameBackupsRoute
   "/databases/$engine/$name/connect": typeof ConsoleDatabasesEngineNameConnectRoute
   "/databases/$engine/$name/data": typeof ConsoleDatabasesEngineNameDataRoute
+  "/databases/$engine/$name/delete": typeof ConsoleDatabasesEngineNameDeleteRoute
   "/databases/$engine/$name/metrics": typeof ConsoleDatabasesEngineNameMetricsRoute
   "/databases/$engine/$name/query": typeof ConsoleDatabasesEngineNameQueryRoute
+  "/databases/$engine/$name/settings": typeof ConsoleDatabasesEngineNameSettingsRoute
   "/databases/$engine/$name/users": typeof ConsoleDatabasesEngineNameUsersRoute
   "/databases/engines/$engine/settings": typeof ConsoleDatabasesEnginesEngineSettingsRoute
   "/domains/dns/zones/$zone": typeof ConsoleDomainsDnsZonesZoneRoute
@@ -1458,11 +1482,14 @@ export interface FileRoutesByTo {
   "/apps/$domain/settings/resources": typeof ConsoleAppsDomainSettingsResourcesRoute
   "/apps/$domain/settings/security": typeof ConsoleAppsDomainSettingsSecurityRoute
   "/apps/$domain/settings/source": typeof ConsoleAppsDomainSettingsSourceRoute
+  "/databases/$engine/$name/access": typeof ConsoleDatabasesEngineNameAccessRoute
   "/databases/$engine/$name/backups": typeof ConsoleDatabasesEngineNameBackupsRoute
   "/databases/$engine/$name/connect": typeof ConsoleDatabasesEngineNameConnectRoute
   "/databases/$engine/$name/data": typeof ConsoleDatabasesEngineNameDataRoute
+  "/databases/$engine/$name/delete": typeof ConsoleDatabasesEngineNameDeleteRoute
   "/databases/$engine/$name/metrics": typeof ConsoleDatabasesEngineNameMetricsRoute
   "/databases/$engine/$name/query": typeof ConsoleDatabasesEngineNameQueryRoute
+  "/databases/$engine/$name/settings": typeof ConsoleDatabasesEngineNameSettingsRoute
   "/databases/$engine/$name/users": typeof ConsoleDatabasesEngineNameUsersRoute
   "/databases/engines/$engine/settings": typeof ConsoleDatabasesEnginesEngineSettingsRoute
   "/domains/dns/zones/$zone": typeof ConsoleDomainsDnsZonesZoneRoute
@@ -1637,11 +1664,14 @@ export interface FileRoutesById {
   "/_console/apps/$domain/settings/resources": typeof ConsoleAppsDomainSettingsResourcesRoute
   "/_console/apps/$domain/settings/security": typeof ConsoleAppsDomainSettingsSecurityRoute
   "/_console/apps/$domain/settings/source": typeof ConsoleAppsDomainSettingsSourceRoute
+  "/_console/databases/$engine/$name/access": typeof ConsoleDatabasesEngineNameAccessRoute
   "/_console/databases/$engine/$name/backups": typeof ConsoleDatabasesEngineNameBackupsRoute
   "/_console/databases/$engine/$name/connect": typeof ConsoleDatabasesEngineNameConnectRoute
   "/_console/databases/$engine/$name/data": typeof ConsoleDatabasesEngineNameDataRoute
+  "/_console/databases/$engine/$name/delete": typeof ConsoleDatabasesEngineNameDeleteRoute
   "/_console/databases/$engine/$name/metrics": typeof ConsoleDatabasesEngineNameMetricsRoute
   "/_console/databases/$engine/$name/query": typeof ConsoleDatabasesEngineNameQueryRoute
+  "/_console/databases/$engine/$name/settings": typeof ConsoleDatabasesEngineNameSettingsRoute
   "/_console/databases/$engine/$name/users": typeof ConsoleDatabasesEngineNameUsersRoute
   "/_console/databases/engines_/$engine/settings": typeof ConsoleDatabasesEnginesEngineSettingsRoute
   "/_console/domains/dns/zones/$zone": typeof ConsoleDomainsDnsZonesZoneRoute
@@ -1816,11 +1846,14 @@ export interface FileRouteTypes {
     | "/apps/$domain/settings/resources"
     | "/apps/$domain/settings/security"
     | "/apps/$domain/settings/source"
+    | "/databases/$engine/$name/access"
     | "/databases/$engine/$name/backups"
     | "/databases/$engine/$name/connect"
     | "/databases/$engine/$name/data"
+    | "/databases/$engine/$name/delete"
     | "/databases/$engine/$name/metrics"
     | "/databases/$engine/$name/query"
+    | "/databases/$engine/$name/settings"
     | "/databases/$engine/$name/users"
     | "/databases/engines/$engine/settings"
     | "/domains/dns/zones/$zone"
@@ -1981,11 +2014,14 @@ export interface FileRouteTypes {
     | "/apps/$domain/settings/resources"
     | "/apps/$domain/settings/security"
     | "/apps/$domain/settings/source"
+    | "/databases/$engine/$name/access"
     | "/databases/$engine/$name/backups"
     | "/databases/$engine/$name/connect"
     | "/databases/$engine/$name/data"
+    | "/databases/$engine/$name/delete"
     | "/databases/$engine/$name/metrics"
     | "/databases/$engine/$name/query"
+    | "/databases/$engine/$name/settings"
     | "/databases/$engine/$name/users"
     | "/databases/engines/$engine/settings"
     | "/domains/dns/zones/$zone"
@@ -2159,11 +2195,14 @@ export interface FileRouteTypes {
     | "/_console/apps/$domain/settings/resources"
     | "/_console/apps/$domain/settings/security"
     | "/_console/apps/$domain/settings/source"
+    | "/_console/databases/$engine/$name/access"
     | "/_console/databases/$engine/$name/backups"
     | "/_console/databases/$engine/$name/connect"
     | "/_console/databases/$engine/$name/data"
+    | "/_console/databases/$engine/$name/delete"
     | "/_console/databases/$engine/$name/metrics"
     | "/_console/databases/$engine/$name/query"
+    | "/_console/databases/$engine/$name/settings"
     | "/_console/databases/$engine/$name/users"
     | "/_console/databases/engines_/$engine/settings"
     | "/_console/domains/dns/zones/$zone"
@@ -3341,6 +3380,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleDatabasesEngineNameIndexRouteImport
       parentRoute: typeof ConsoleDatabasesEngineNameRoute
     }
+    "/_console/databases/$engine/$name/access": {
+      id: "/_console/databases/$engine/$name/access"
+      path: "/access"
+      fullPath: "/databases/$engine/$name/access"
+      preLoaderRoute: typeof ConsoleDatabasesEngineNameAccessRouteImport
+      parentRoute: typeof ConsoleDatabasesEngineNameRoute
+    }
     "/_console/databases/$engine/$name/backups": {
       id: "/_console/databases/$engine/$name/backups"
       path: "/backups"
@@ -3362,6 +3408,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleDatabasesEngineNameDataRouteImport
       parentRoute: typeof ConsoleDatabasesEngineNameRoute
     }
+    "/_console/databases/$engine/$name/delete": {
+      id: "/_console/databases/$engine/$name/delete"
+      path: "/delete"
+      fullPath: "/databases/$engine/$name/delete"
+      preLoaderRoute: typeof ConsoleDatabasesEngineNameDeleteRouteImport
+      parentRoute: typeof ConsoleDatabasesEngineNameRoute
+    }
     "/_console/databases/$engine/$name/metrics": {
       id: "/_console/databases/$engine/$name/metrics"
       path: "/metrics"
@@ -3374,6 +3427,13 @@ declare module "@tanstack/react-router" {
       path: "/query"
       fullPath: "/databases/$engine/$name/query"
       preLoaderRoute: typeof ConsoleDatabasesEngineNameQueryRouteImport
+      parentRoute: typeof ConsoleDatabasesEngineNameRoute
+    }
+    "/_console/databases/$engine/$name/settings": {
+      id: "/_console/databases/$engine/$name/settings"
+      path: "/settings"
+      fullPath: "/databases/$engine/$name/settings"
+      preLoaderRoute: typeof ConsoleDatabasesEngineNameSettingsRouteImport
       parentRoute: typeof ConsoleDatabasesEngineNameRoute
     }
     "/_console/databases/$engine/$name/users": {
@@ -3753,25 +3813,34 @@ const ConsoleTeamsTeamRouteWithChildren =
   ConsoleTeamsTeamRoute._addFileChildren(ConsoleTeamsTeamRouteChildren)
 
 interface ConsoleDatabasesEngineNameRouteChildren {
+  ConsoleDatabasesEngineNameAccessRoute: typeof ConsoleDatabasesEngineNameAccessRoute
   ConsoleDatabasesEngineNameBackupsRoute: typeof ConsoleDatabasesEngineNameBackupsRoute
   ConsoleDatabasesEngineNameConnectRoute: typeof ConsoleDatabasesEngineNameConnectRoute
   ConsoleDatabasesEngineNameDataRoute: typeof ConsoleDatabasesEngineNameDataRoute
+  ConsoleDatabasesEngineNameDeleteRoute: typeof ConsoleDatabasesEngineNameDeleteRoute
   ConsoleDatabasesEngineNameMetricsRoute: typeof ConsoleDatabasesEngineNameMetricsRoute
   ConsoleDatabasesEngineNameQueryRoute: typeof ConsoleDatabasesEngineNameQueryRoute
+  ConsoleDatabasesEngineNameSettingsRoute: typeof ConsoleDatabasesEngineNameSettingsRoute
   ConsoleDatabasesEngineNameUsersRoute: typeof ConsoleDatabasesEngineNameUsersRoute
   ConsoleDatabasesEngineNameIndexRoute: typeof ConsoleDatabasesEngineNameIndexRoute
 }
 
 const ConsoleDatabasesEngineNameRouteChildren: ConsoleDatabasesEngineNameRouteChildren =
   {
+    ConsoleDatabasesEngineNameAccessRoute:
+      ConsoleDatabasesEngineNameAccessRoute,
     ConsoleDatabasesEngineNameBackupsRoute:
       ConsoleDatabasesEngineNameBackupsRoute,
     ConsoleDatabasesEngineNameConnectRoute:
       ConsoleDatabasesEngineNameConnectRoute,
     ConsoleDatabasesEngineNameDataRoute: ConsoleDatabasesEngineNameDataRoute,
+    ConsoleDatabasesEngineNameDeleteRoute:
+      ConsoleDatabasesEngineNameDeleteRoute,
     ConsoleDatabasesEngineNameMetricsRoute:
       ConsoleDatabasesEngineNameMetricsRoute,
     ConsoleDatabasesEngineNameQueryRoute: ConsoleDatabasesEngineNameQueryRoute,
+    ConsoleDatabasesEngineNameSettingsRoute:
+      ConsoleDatabasesEngineNameSettingsRoute,
     ConsoleDatabasesEngineNameUsersRoute: ConsoleDatabasesEngineNameUsersRoute,
     ConsoleDatabasesEngineNameIndexRoute: ConsoleDatabasesEngineNameIndexRoute,
   }

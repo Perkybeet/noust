@@ -35,7 +35,7 @@ const PAGES: [path: string, heading: string, content: string][] = [
   ["/apps/shop.example.com/settings/export", "shop.example.com", "Export"],
   ["/apps/shop.example.com/settings/delete", "shop.example.com", "Delete"],
   ["/databases", "Databases", "Databases"],
-  ["/databases/postgresql/example_production", "example_production", "Used by"],
+  ["/databases/postgresql/example_production", "example_production", "Engine"],
   ["/backups", "Backups", "Applications and their backups"],
   ["/domains", "Domains", "No domains yet"],
   ["/domains/certificates", "Certificates", "Certificates"],

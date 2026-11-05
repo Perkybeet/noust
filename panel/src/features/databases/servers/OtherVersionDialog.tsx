@@ -19,6 +19,7 @@ import { Select } from "../../../components/ui/Select";
 import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import { formatMonth } from "../../../lib/format";
+import { MissingSoftware } from "../../server/software/MissingSoftware";
 import { releaseOf, supportLine, supportOf } from "../servers";
 
 export interface OtherVersionDialogProps {
@@ -173,6 +174,7 @@ export function OtherVersionDialog({ open, onOpenChange, onQueued, flavour: pres
       }
     >
       <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-5">
+        <MissingSoftware component="docker" />
         {catalog.isError ? <ErrorBlock compact error={catalog.error} title={t("dbServers.other.catalogFailed")} onRetry={() => void catalog.refetch()} /> : null}
         <Field label={t("dbServers.other.engine")} nativeLabel={false} error={errors.engine}>
           <Select

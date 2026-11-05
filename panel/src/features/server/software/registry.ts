@@ -196,7 +196,7 @@ const DEPENDENT_PAGES: Readonly<Record<string, string>> = {
   certificate: "/domains/certificates",
   zone: "/domains/dns",
   destination: "/backups/destinations",
-  instance: "/databases/servers",
+  instance: "/databases/engines",
 };
 
 /** The page of a kind of dependent, or null for one with none (the console itself, an engine that could not be asked). */

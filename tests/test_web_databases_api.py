@@ -321,12 +321,12 @@ def test_a_second_statement_is_refused_before_the_engine(client: TestClient, db)
 def test_read_mode_is_refused_where_the_server_cannot_enforce_it(
     client: TestClient, db, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """An engine without the read_only capability does not pretend."""
-    monkeypatch.setattr(db, "CAPABILITIES", frozenset({"keys"}))
+    """An engine with a console but without the read_only capability does not pretend."""
+    monkeypatch.setattr(db, "CAPABILITIES", frozenset({"sql"}))
 
     response = client.post(
         "/api/databases/query",
-        json={"database": "appdb", "engine": "postgresql", "query": "GET key"},
+        json={"database": "appdb", "engine": "postgresql", "query": "SELECT 1"},
     )
 
     assert response.status_code >= 400, response.text

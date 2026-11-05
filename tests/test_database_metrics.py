@@ -243,6 +243,37 @@ def test_mongodb_reports_no_metrics_here(sql_runner: SqlRunner) -> None:
         DatabaseMetricsReader(make_service(MongoDBManager())).engine_metrics("mongodb")
 
 
+def test_mongodb_does_not_claim_a_metrics_page_it_cannot_fill() -> None:
+    from noust.managers.database.mongodb import MongoDBManager
+
+    # The console lists a page for each thing an engine says it can do: one that always fails to load is not offered.
+    assert "metrics" not in MongoDBManager.CAPABILITIES
+
+
+def test_redis_says_where_its_slow_log_is_in_its_own_words(sql_runner: SqlRunner) -> None:
+    reader = DatabaseMetricsReader(make_service(RedisManager()))
+
+    answer = reader.slow_queries("redis", "0")
+
+    assert not answer.available
+    assert answer.reason == "slowlog"
+    assert answer.source == "slowlog"
+    assert "SLOWLOG GET" in (answer.how_to_enable or "")
+    # It says how to read it, not how to turn on what cannot be turned on.
+    assert "enable" not in (answer.how_to_enable or "").lower()
+
+
+def test_an_engine_with_no_statistics_does_not_get_another_engines_instructions(
+    sql_runner: SqlRunner,
+) -> None:
+    from noust.managers.database.mongodb import MongoDBManager
+
+    with pytest.raises(DatabaseQueryError, match="not available") as caught:
+        DatabaseMetricsReader(make_service(MongoDBManager())).slow_queries("mongodb", "shop")
+
+    assert "SLOWLOG" not in str(caught.value) + (caught.value.details or "")
+
+
 # ============================================================ sampling
 
 

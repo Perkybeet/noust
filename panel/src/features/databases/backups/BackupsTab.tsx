@@ -7,8 +7,8 @@ import { backupDestinationsQuery } from "../../../api/queries/backupDestinations
 import { databaseBackupsQuery, databaseKeys, databaseOverviewQuery, policyQuery, remoteDumpsQuery } from "../../../api/queries/databases";
 import type { BackupPolicy, DatabaseBackup, RemoteDump } from "../../../api/queries/databases";
 import { jobKeys } from "../../../api/queries/jobs";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList, KeyValueListSkeleton } from "../../../components/page/KeyValueList";
+import { ReadOnlyLine } from "../../../components/page/permissions";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Section } from "../../../components/page/Section";
@@ -41,6 +41,9 @@ import { can, engineName, isSlotEngine } from "../engines";
 import { engineFamilyOf } from "../engineKey";
 import { useDatabaseJob } from "../jobs";
 import { ALL_DATABASES, effectivePolicy, policyProtection, protectionView } from "../protection";
+import { BackupNowButton } from "../BackupNowButton";
+import { DatabasePage, useDatabaseFrame } from "../DatabasePage";
+import { answers } from "../engineOf";
 import { ImportDumpDialog } from "../import/ImportDumpDialog";
 import { VerifiedMark } from "../VerifiedMark";
 import { downloadDump } from "./download";
@@ -435,7 +438,7 @@ export function BackupsTab({ engine, name }: { engine: string; name: string }) {
   const { node } = useNode();
   const queryClient = useQueryClient();
   const job = useDatabaseJob();
-  const overview = useQuery(databaseOverviewQuery(engine, name));
+  const overview = useQuery({ ...databaseOverviewQuery(engine, name), enabled: answers(useDatabaseFrame()) });
   const dumps = useQuery(databaseBackupsQuery(engine, name));
   const [editing, setEditing] = useState<PolicyScope | null>(null);
   const [importing, setImporting] = useState(false);
@@ -471,7 +474,9 @@ export function BackupsTab({ engine, name }: { engine: string; name: string }) {
   });
 
   return (
+    <DatabasePage title={t("databases.detailTabs.backups")} primaryAction={<BackupNowButton engine={engine} name={name} />}>
     <div className="flex min-w-0 flex-col gap-8">
+      <ReadOnlyLine permission="backups.manage" />
       <PolicyCard engine={engine} name={name} coveredBy={coveredByEveryDatabase} onEdit={() => setEditing("database")} />
       {everyDatabase ? <PolicyCard engine={engine} name={ALL_DATABASES} scope="all" database={name} onEdit={() => setEditing("all")} /> : null}
 
@@ -577,8 +582,6 @@ export function BackupsTab({ engine, name }: { engine: string; name: string }) {
 
       <RemoteDumps engine={engine} name={name} onRestore={setRestoring} />
 
-      <CommandHint command={`noust db backup-schedule set ${name} -e ${engine} --schedule daily`} label={t("common.words.fromTerminal")} />
-
       {editing !== null ? (
         <PolicyDrawer
           key={`${editing}:${editing === "all" ? everything.dataUpdatedAt : policy.dataUpdatedAt}`}
@@ -638,5 +641,6 @@ export function BackupsTab({ engine, name }: { engine: string; name: string }) {
       ) : null}
       {opened !== null ? <DumpDrawer dump={opened} onClose={() => setOpened(null)} /> : null}
     </div>
+    </DatabasePage>
   );
 }

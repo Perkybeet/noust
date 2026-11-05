@@ -157,7 +157,7 @@ class MongoDBManager(BaseDatabaseManager):
     BACKUP_SUFFIX = ".tar.gz"
     MAX_DATABASE_NAME_LENGTH = 63
     MAX_USER_NAME_LENGTH = 63
-    CAPABILITIES = frozenset({"documents", "users", "profiles", "dump", "metrics"})
+    CAPABILITIES = frozenset({"documents", "users", "profiles", "dump"})
     INTERNAL_USERS = frozenset({ADMIN_USER})
 
     #: Databases that belong to the deployment, not to a user.

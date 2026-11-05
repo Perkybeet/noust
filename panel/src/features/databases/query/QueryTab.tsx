@@ -6,7 +6,7 @@ import type { SyntheticEvent } from "react";
 import { request } from "../../../api/client";
 import { databaseKeys, databaseOverviewQuery, enginesQuery } from "../../../api/queries/databases";
 import type { ExplainResult, QueryResult } from "../../../api/queries/databases";
-import { CommandHint } from "../../../components/page/CommandHint";
+import { ReadOnlyLine, useCan } from "../../../components/page/permissions";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Checkbox } from "../../../components/ui/Checkbox";
@@ -27,6 +27,7 @@ import { useT } from "../../../i18n";
 import { downloadText } from "../../../lib/clipboard";
 import { formatCount, formatDecimal } from "../../../lib/format";
 import { reportActionError } from "../../apps/useAppActions";
+import { DatabasePage, useAsking } from "../DatabasePage";
 import { can } from "../engines";
 import { DataGrid } from "../grid/DataGrid";
 import { PlanView } from "./PlanView";
@@ -41,6 +42,31 @@ const ROW_LIMITS = [100, 1000, 5000] as const;
 const XL_UP = "(min-width: 1280px)";
 
 type ResultTab = "results" | "plan" | "output";
+
+/**
+ * The statement being written, kept for the tab of the browser: the column puts Data one press away from here, and a
+ * statement lost on the way to look a column up is what a section of its own must not do. Not kept between visits:
+ * what ran is in the history.
+ */
+function useDraft(key: string, initial: string): [string, (value: string) => void] {
+  const [text, setText] = useState(() => {
+    try {
+      return window.sessionStorage.getItem(key) ?? initial;
+    } catch {
+      // Storage refused (a private window): the draft lives as long as the page does.
+      return initial;
+    }
+  });
+  const set = (value: string): void => {
+    setText(value);
+    try {
+      window.sessionStorage.setItem(key, value);
+    } catch {
+      // The same: nothing more to do than keep what is on screen.
+    }
+  };
+  return [text, set];
+}
 
 /** The statement to run: the selection when there is one, the whole editor otherwise. */
 function statementOf(editor: SqlEditorHandle | null, text: string): string {
@@ -115,13 +141,14 @@ export function QueryTab({ engine, name }: { engine: string; name: string }) {
   const queryClient = useQueryClient();
   const wide = useMediaQuery(XL_UP);
   const editor = useRef<SqlEditorHandle>(null);
-  const overview = useQuery(databaseOverviewQuery(engine, name));
+  const overview = useQuery({ ...databaseOverviewQuery(engine, name), enabled: useAsking("sql") });
   const engines = useQuery(enginesQuery());
   const capabilities = overview.data?.capabilities ?? engines.data?.engines.find((item) => item.name === engine)?.capabilities;
   // Until the engine says otherwise it reads, as SQL engines do: no warning flashes in and out.
   const readable = capabilities === undefined || can({ capabilities }, "read_only");
 
-  const [text, setText] = useState("SELECT 1;");
+  const [text, setText] = useDraft(`noust.db-query.${engine}.${name}`, "SELECT 1;");
+  const mayWrite = useCan("databases.write");
   const [write, setWrite] = useState(false);
   const [timeout, setTimeoutS] = useState<Timeout>(30);
   const [rowLimit, setRowLimit] = useState<number>(1000);
@@ -201,40 +228,59 @@ export function QueryTab({ engine, name }: { engine: string; name: string }) {
     ) : null;
 
   return (
-    <div className="flex min-w-0 flex-col gap-6">
+    <DatabasePage
+      title={t("databases.detailTabs.query")}
+      needsEngine
+      needs="sql"
+      secondaryActions={
+        <Menu
+          align="end"
+          trigger={
+            <Button trailingIcon={<ChevronDown aria-hidden="true" />} disabled={busy}>
+              {t("databases.query.explain")}
+            </Button>
+          }
+        >
+          <MenuItem icon={<ListTree />} description={t("databases.query.explainPlanHelp")} onClick={() => plan(false)}>
+            {t("databases.query.explainPlan")}
+          </MenuItem>
+          {/* This one runs the statement for real, so it says so in its name and waits for the box that lets a run change data. */}
+          <MenuItem
+            icon={<VERB_ICONS.showTimes />}
+            disabled={mode !== "write"}
+            description={mode === "write" ? t("databases.query.explainAnalyzeHelp") : t("databases.query.explainAnalyzeNeedsChanges")}
+            onClick={() => plan(true)}
+          >
+            {t("databases.query.explainAnalyze")}
+          </MenuItem>
+        </Menu>
+      }
+      primaryAction={
+        <Button variant="primary" icon={<Play aria-hidden="true" />} loading={run.isPending} onClick={execute}>
+          {t("databases.query.run")}
+          <Kbd className="ml-1">{t("databases.query.runKeys")}</Kbd>
+        </Button>
+      }
+    >
+      <div className="flex min-w-0 flex-col gap-6">
       <div className="flex min-w-0 flex-col gap-6 xl:flex-row xl:items-start">
         <div className="flex min-w-0 flex-1 flex-col gap-3">
-          <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" icon={<Play aria-hidden="true" />} loading={run.isPending} onClick={execute}>
-                {t("databases.query.run")}
-                <Kbd className="ml-1">{t("databases.query.runKeys")}</Kbd>
+          <ReadOnlyLine permission="databases.write" />
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <Button size="sm" variant="ghost" icon={<Save aria-hidden="true" />} onClick={() => setSaving(statementOf(editor.current, text))} disabled={text.trim() === ""}>
+              {t("common.words.save")}
+            </Button>
+            {!wide ? (
+              <Button size="sm" variant="ghost" icon={<OBJECT_ICONS.activity aria-hidden="true" />} onClick={() => setLibraryOpen(true)}>
+                {t("databases.query.library")}
               </Button>
-              <Menu
-                trigger={
-                  <Button size="sm" trailingIcon={<ChevronDown aria-hidden="true" />} disabled={busy}>
-                    {t("databases.query.explain")}
-                  </Button>
-                }
-              >
-                <MenuItem icon={<ListTree />} onClick={() => plan(false)}>{t("databases.query.explainPlan")}</MenuItem>
-                <MenuItem icon={<VERB_ICONS.showTimes />} onClick={() => plan(true)}>{t("databases.query.explainAnalyze")}</MenuItem>
-              </Menu>
-              <Button size="sm" variant="ghost" icon={<Save aria-hidden="true" />} onClick={() => setSaving(statementOf(editor.current, text))} disabled={text.trim() === ""}>
-                {t("common.words.save")}
-              </Button>
-              {!wide ? (
-                <Button size="sm" variant="ghost" icon={<OBJECT_ICONS.activity aria-hidden="true" />} onClick={() => setLibraryOpen(true)}>
-                  {t("databases.query.library")}
-                </Button>
-              ) : null}
-            </div>
+            ) : null}
           </div>
           <SqlEditor ref={editor} value={text} onChange={setText} onRun={execute} label={t("databases.query.editorLabel", { name })} className="h-56 resize-y" />
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
             {/* A mode of this run, not a setting (SW-1): a box, with its risk on the same line, so the editor above never moves. */}
             <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
-              {readable ? <Checkbox checked={write} onCheckedChange={setWrite} label={t("databases.query.allowChanges")} /> : null}
+              {readable && mayWrite ? <Checkbox checked={write} onCheckedChange={setWrite} label={t("databases.query.allowChanges")} description={write ? undefined : t("databases.query.allowChangesHelp")} /> : null}
               {mode === "write" ? <InlineMessage>{readable ? t("databases.query.writeOnLine") : t("databases.query.writeOnlyLine")}</InlineMessage> : null}
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -322,13 +368,13 @@ export function QueryTab({ engine, name }: { engine: string; name: string }) {
         </div>
         {wide ? <aside className="w-80 shrink-0">{library}</aside> : null}
       </div>
-      <CommandHint command={`noust db query ${name} "SELECT 1" -e ${engine}`} label={t("common.words.fromTerminal")} />
       {!wide ? (
         <Drawer open={libraryOpen} onOpenChange={setLibraryOpen} size="md" title={t("databases.query.library")}>
           {library}
         </Drawer>
       ) : null}
       <SaveDialog open={saving !== null} onOpenChange={(open) => (open ? undefined : setSaving(null))} engine={engine} name={name} statement={saving ?? ""} />
-    </div>
+      </div>
+    </DatabasePage>
   );
 }
