@@ -49,7 +49,7 @@ function ExportCard({ domain }: { domain: string }) {
         <div>
           <GuardedButton
             permission="secrets.reveal"
-            variant="primary"
+            variant="secondary"
             icon={<Download aria-hidden="true" />}
             loading={exportApp.isPending}
             onClick={() => exportApp.mutate(includeSecrets)}

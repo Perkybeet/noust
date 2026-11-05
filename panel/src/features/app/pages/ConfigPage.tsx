@@ -1,7 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import type { ComponentType } from "react";
 
 import { appQuery } from "../../../api/queries/apps";
+import type { App } from "../../../api/queries/apps";
 import { useDocumentTitle } from "../../../app/documentTitle";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { Disclosure } from "../../../components/ui/Disclosure";
@@ -28,6 +30,7 @@ import { SecuritySettings } from "../settings/SecuritySettings";
 import { SourceSettings } from "../settings/SourceSettings";
 import { SaveHost } from "../settings/saveHost";
 import { partsOf } from "../settings/sections";
+import type { PagePart } from "../settings/sections";
 import type { ConfigPageId } from "../settings/sections";
 import { PartFoldedContext, PartHostContext, SettingsAppContext } from "../settings/settingsApp";
 
@@ -66,6 +69,45 @@ export const FOLDED: Readonly<Record<ConfigPageId, ReadonlySet<string>>> = {
   access: new Set(["protection"]),
 };
 
+/** How long the page waits for what its parts read before it shows what it has. */
+const REVEAL_LIMIT_MS = 400;
+/** How long nothing may be on its way for the page to take it as done: a read that begins from another one's answer starts within it. */
+const REVEAL_QUIET_MS = 60;
+
+/**
+ * Whether the page may show its parts. They are mounted at once, so each reads what it needs, but they are not shown while
+ * anything is being read: a part that grows when its answer arrives would push the ones under it, and the page would shift
+ * as it loaded, part after part. One shape stands in their place, then they all appear; a read that takes longer than a moment
+ * is not waited for.
+ */
+function useRevealed(): boolean {
+  const queryClient = useQueryClient();
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => {
+    if (revealed) return;
+    const reveal = (): void => {
+      setRevealed(true);
+    };
+    let quiet: number | undefined;
+    const check = (): void => {
+      window.clearTimeout(quiet);
+      quiet = window.setTimeout(() => {
+        if (queryClient.isFetching() === 0) reveal();
+      }, REVEAL_QUIET_MS);
+    };
+    const unsubscribe = queryClient.getQueryCache().subscribe(check);
+    // The parts' own reads begin as they mount, so there is something to wait for (or nothing) by the time this runs.
+    check();
+    const limit = window.setTimeout(reveal, REVEAL_LIMIT_MS);
+    return () => {
+      unsubscribe();
+      window.clearTimeout(quiet);
+      window.clearTimeout(limit);
+    };
+  }, [queryClient, revealed]);
+  return revealed;
+}
+
 /**
  * One of the four pages that gather what were the subsections of an application's settings (4.2, item 116):
  * the second column lists the page, and the page draws what it gathers, one titled card after another, saved
@@ -88,26 +130,42 @@ export function ConfigPage({ page, domain }: { page: ConfigPageId; domain: strin
   }
   const parts = partsOf(page, app.data);
   if (parts.length === 0) return <EmptyState variant="inline" title={t("appPages.config.notBuilt", { domain })} />;
+  return <ConfigParts page={page} domain={domain} app={app.data} parts={parts} section={section} />;
+}
+
+/** The parts of a page, once the application is known: mounted at once, shown together (`useRevealed`). */
+function ConfigParts({ page, domain, app, parts, section }: { page: ConfigPageId; domain: string; app: App; parts: readonly PagePart[]; section: string }) {
+  const t = useT();
+  const revealed = useRevealed();
   return (
-    <SettingsAppContext.Provider value={app.data}>
-      <PartHostContext.Provider value>
-        <SaveHost notSaved={t("appPages.config.notSaved", { domain })}>
-          <div data-page={page} className="flex min-w-0 flex-col gap-6">
-            {parts.map((part) => {
-              const View = VIEWS[part.id];
-              if (View === undefined) return null;
-              if (!FOLDED[page].has(part.id)) return <View key={part.id} />;
-              return (
-                <Disclosure key={part.id} variant="card" label={t(part.label)}>
-                  <PartFoldedContext.Provider value>
-                    <View />
-                  </PartFoldedContext.Provider>
-                </Disclosure>
-              );
-            })}
-          </div>
-        </SaveHost>
-      </PartHostContext.Provider>
-    </SettingsAppContext.Provider>
+    <>
+      {revealed ? null : (
+        <LoadingRegion label={t("appPages.config.loading", { section })}>
+          <SkeletonSection rows={5} />
+        </LoadingRegion>
+      )}
+      <div hidden={!revealed}>
+        <SettingsAppContext.Provider value={app}>
+          <PartHostContext.Provider value>
+            <SaveHost notSaved={t("appPages.config.notSaved", { domain })}>
+              <div data-page={page} className="flex min-w-0 flex-col gap-6">
+                {parts.map((part) => {
+                  const View = VIEWS[part.id];
+                  if (View === undefined) return null;
+                  if (!FOLDED[page].has(part.id)) return <View key={part.id} />;
+                  return (
+                    <Disclosure key={part.id} variant="card" label={t(part.label)}>
+                      <PartFoldedContext.Provider value>
+                        <View />
+                      </PartFoldedContext.Provider>
+                    </Disclosure>
+                  );
+                })}
+              </div>
+            </SaveHost>
+          </PartHostContext.Provider>
+        </SettingsAppContext.Provider>
+      </div>
+    </>
   );
 }
