@@ -127,9 +127,9 @@ open a terminal), **Move elsewhere** (Export and declaration, Several servers) a
 | Database | The databases it uses, creating and linking one, and its connection string |
 | Domains | Primary, aliases and redirects, with a DNS check per name; add a name as an alias or a redirect (Docker Compose stacks that publish a port and monorepos included; see [domains.md](domains.md)) |
 | Code and build | Where the code comes from and how it is built: **Source** (the repository, branch and tags it deploys, how the server signs in to it), **Container** for a container application and **Build** (commands, runtime, sandbox, packages and cache) |
-| Deploys and triggers | What deploys it and how: **Deploys** (instant rollback, releases kept, the startup check, zero-downtime), a Compose stack's options, and, folded under their titles, **Automation**, **Deploy hooks** and **Previews**; **Deploy on push** is a card of its own |
+| Deploys and triggers | What deploys it and how: **Deploys** (instant rollback, releases kept, the startup check, zero-downtime), a Compose stack's options, and, folded under their titles, **Automation**, **Deploy on push**, **Deploy hooks** and **Previews** |
 | Resources and running | How it runs (type, port, the account and the service), **Resources** (memory, CPU, tasks) and, folded, **Processes**, **Mounts**, **Disk** and **Service security** |
-| Access and protection | Who may open the site (**Access**) and what the site limits and sends back (**Protection**) |
+| Access and protection | Who may open the site (**Access**) and, folded under its title, what the site limits and sends back (**Protection**) |
 | Export and declaration | The application as a file to import elsewhere, and its declaration (`noust.yaml`); it is a section of its own, not a part of Delete |
 | Several servers | Replicating the application on more servers, on a fleet |
 | Delete | Delete the application, alone: one box for each thing it removes, all unticked |
