@@ -1838,3 +1838,158 @@ class TestThePanelsOfTheHome:
             and len(payload) <= 200
         )
         assert accepted == plain
+
+
+# ---------------------------------------------------------------------------
+# The picture on the sign-in screen
+# ---------------------------------------------------------------------------
+
+
+class TestThePictureOnTheSignInScreen:
+    """
+    A picture someone with the right permission uploads, served to everyone who opens the console.
+
+    The type comes from the bytes, the size from the file's own header, and what is kept is a
+    rewrite that carries pixels and nothing else: whatever a damaged or hostile file does to the
+    parsers, the answer is a refusal of the Noust kind, and what is accepted is a file this very
+    validator would accept again, within the limits, with nothing in it that is not a picture.
+    """
+
+    #: What must never be inside a file that was kept, whatever it was hidden behind.
+    PAYLOAD = b"<svg onload=alert(1)>SECRET-GPS-NAME"
+
+    @staticmethod
+    def specimens() -> list[bytes]:
+        from tests.support import sign_in_images as make
+
+        text = TestThePictureOnTheSignInScreen.PAYLOAD
+        return [
+            make.png(
+                extra=(make.png_chunk(b"tEXt", text), make.png_chunk(b"eXIf", text)),
+                trailer=text,
+            ),
+            make.jpeg(
+                before_frame=(
+                    make.jfif(thumbnail=text[:30]),
+                    make.jpeg_segment(0xE1, text),
+                    make.jpeg_segment(0xFE, text),
+                ),
+                trailer=text,
+            ),
+            make.webp_extended(
+                flags=0x0C,
+                after=(make.riff_chunk(b"EXIF", text), make.riff_chunk(b"XMP ", text)),
+            ),
+            make.webp(lossless=True) + text,
+        ]
+
+    @SETTINGS
+    @given(data=st.binary(max_size=600))
+    def test_bytes_that_are_not_a_picture_are_refused_cleanly(self, data: bytes) -> None:
+        from noust.validators import sign_in_image
+
+        accepted, _ = verdict(sign_in_image.check_image, data)
+
+        assert not accepted
+
+    @SETTINGS
+    @given(
+        index=st.integers(min_value=0, max_value=3),
+        position=st.integers(min_value=0, max_value=400),
+        replacement=st.binary(min_size=0, max_size=12),
+        cut=st.integers(min_value=0, max_value=60),
+    )
+    def test_a_picture_damaged_anywhere_is_refused_or_kept_as_a_clean_one(
+        self, index: int, position: int, replacement: bytes, cut: int
+    ) -> None:
+        from noust.validators import sign_in_image
+
+        original = self.specimens()[index]
+        damaged = original[:position] + replacement + original[position + len(replacement) :]
+        damaged = damaged[: max(0, len(damaged) - cut)]
+        accepted, kept = verdict(sign_in_image.check_image, damaged)
+
+        if not accepted:
+            return
+        assert 0 < kept.width <= sign_in_image.MAX_SIDE
+        assert 0 < kept.height <= sign_in_image.MAX_SIDE
+        assert len(kept.data) <= sign_in_image.MAX_IMAGE_BYTES
+        assert kept.content_type in ("image/png", "image/jpeg", "image/webp")
+        assert b"SECRET" not in kept.data and b"<svg" not in kept.data
+        again = sign_in_image.check_image(kept.data)
+        assert again.data == kept.data and again.sha256 == kept.sha256
+
+    @pytest.mark.parametrize("index", range(4))
+    def test_what_was_hidden_in_a_picture_is_not_in_what_is_kept(self, index: int) -> None:
+        from noust.validators import sign_in_image
+
+        kept = sign_in_image.check_image(self.specimens()[index])
+
+        assert b"SECRET" not in kept.data and b"<svg" not in kept.data
+        assert b"alert" not in kept.data
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "an svg with a png's name",
+            "an svg after a byte-order mark",
+            "a png truncated before its end",
+            "a jpeg whose frame header lies",
+            "a file of one mebibyte and a byte",
+            "a webp with no bitstream",
+            "a webp that says it is larger than it is",
+        ],
+    )
+    def test_the_files_the_plan_names_are_refused(self, name: str) -> None:
+        from noust.validators import sign_in_image
+        from tests.support import sign_in_images as make
+
+        files = {
+            "an svg with a png's name": b'<svg xmlns="http://www.w3.org/2000/svg" onload="x"/>',
+            "an svg after a byte-order mark": b"\xef\xbb\xbf<svg onload=alert(1)>",
+            "a png truncated before its end": make.png(end=False)[:-5],
+            "a jpeg whose frame header lies": make.jpeg(65535, 65535),
+            "a file of one mebibyte and a byte": make.PNG_SIGNATURE + b"\x00" * (1024 * 1024 - 7),
+            "a webp with no bitstream": b"RIFF\x0c\x00\x00\x00WEBPVP8X\x00\x00\x00\x00",
+            "a webp that says it is larger than it is": b"RIFF\xff\xff\xff\x7fWEBPVP8 ",
+        }
+
+        with pytest.raises(NoustError):
+            sign_in_image.check_image(files[name])
+
+    @SETTINGS
+    @given(value=st.one_of(HOSTILE, st.integers(), st.none(), st.binary(max_size=8)))
+    def test_a_fit_is_one_of_two_words(self, value: Any) -> None:
+        from noust.validators import sign_in_image
+
+        accepted, result = verdict(sign_in_image.check_fit, value)
+
+        if accepted:
+            assert result in ("cover", "contain") and result == value
+
+    @SETTINGS
+    @given(
+        value=st.one_of(HOSTILE, st.integers(), st.none(), st.text(alphabet=NASTY, max_size=200))
+    )
+    def test_a_description_is_one_line_of_plain_text_of_limited_length(self, value: Any) -> None:
+        from noust.validators import sign_in_image
+
+        accepted, result = verdict(sign_in_image.check_alt, value)
+
+        if accepted:
+            assert len(result) <= sign_in_image.MAX_ALT_CHARS and result == result.strip()
+            assert not CONTROL.search(result)
+            assert not re.search("[\u202a-\u202e\u2066-\u2069\ufeff]", result)
+
+    @SETTINGS
+    @given(value=st.one_of(HOSTILE, st.integers(), st.none(), st.binary(max_size=16)))
+    def test_what_is_sent_as_base64_is_base64_or_refused(self, value: Any) -> None:
+        import base64
+
+        from noust.validators import sign_in_image
+
+        accepted, result = verdict(sign_in_image.decode_upload, value)
+
+        if accepted:
+            assert isinstance(value, str)
+            assert base64.b64encode(result).decode() == value
