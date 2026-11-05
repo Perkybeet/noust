@@ -140,6 +140,7 @@ from noust.core.notifications.model import (
     Notification,
     State,
 )
+from noust.core.notifications.pause import is_paused
 from noust.core.notifications.render import discord, pagerduty, slack, telegram, webhook
 from noust.core.notifications.routing import (
     HOLD_FLOOD,
@@ -1006,6 +1007,10 @@ class Notifier:
         """
         settings = self._settings()
         if not settings.get("enabled", False):
+            return
+        # "Off until ...": the person who turned every notification off said until when, and it is
+        # judged here, at the point every notification passes, and not by whoever asked.
+        if is_paused(settings.get("muted_until"), self._clock()):
             return
         notification = self._structured(event)
         switches = settings.get("events") or {}
