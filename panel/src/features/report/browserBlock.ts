@@ -103,16 +103,17 @@ export function browserBlock(facts: BrowserFacts): BrowserBlock {
 /**
  * What this window knows of itself, read now.
  *
+ * @param page - The page on screen with its query, as the router has it.
  * @param version - The Noust version the server reported, when it did.
  * @param language - The console's language.
  * @param errors - The last errors of the tab.
  * @returns The facts for `browserBlock`.
  */
-export function currentFacts(version: string | null, language: string, errors: readonly ErrorEntry[]): BrowserFacts {
+export function currentFacts(page: string, version: string | null, language: string, errors: readonly ErrorEntry[]): BrowserFacts {
   const pinned = window.document.documentElement.dataset["theme"];
   const dark = pinned === undefined ? window.matchMedia("(prefers-color-scheme: dark)").matches : pinned === "dark";
   return {
-    page: `${window.location.pathname}${window.location.search}`,
+    page,
     version,
     userAgent: navigator.userAgent,
     viewport: { width: window.innerWidth, height: window.innerHeight },

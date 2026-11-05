@@ -10,6 +10,7 @@ import { OBJECT_ICONS } from "../components/ui/objectIcons";
 import { Popover } from "../components/ui/Popover";
 import { useMediaQuery } from "../components/ui/useMediaQuery";
 import { InboxButton } from "../features/inbox/InboxButton";
+import { HelpMenu } from "../features/report/HelpMenu";
 import { TaskCentreButton } from "../features/tasks/TaskCentreButton";
 import { TeamSwitcher } from "../features/teams/TeamSwitcher";
 import { ScopeSelector } from "../nodes/ScopeSelector";
@@ -136,6 +137,8 @@ export function Topbar({ onOpenPalette, onOpenShortcuts, searchTriggerRef }: Top
         </button>
         <IconButton label={t("shell.search.label")} icon={<Search />} onClick={onOpenPalette} tooltip={false} className="@min-[66rem]:hidden" />
         <TaskCentreButton />
+        {/* On a phone the way to report a problem is in "More", where the rest of what is not a place lives. */}
+        {phone ? null : <HelpMenu onOpenShortcuts={onOpenShortcuts} />}
         <ThemeToggle />
         <InboxButton />
         {phone ? null : <SessionPanel onOpenShortcuts={onOpenShortcuts} />}

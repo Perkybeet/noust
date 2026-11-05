@@ -98,11 +98,10 @@ describe("the block of the browser", () => {
 });
 
 describe("what this window knows of itself", () => {
-  it("reads the page, the window, the theme and the browser as they are now", () => {
-    window.history.replaceState(null, "", "/databases/postgresql/shop?tab=rows");
+  it("takes the page it is given and reads the window, the theme and the browser as they are now", () => {
     window.document.documentElement.dataset["theme"] = "dark";
 
-    const now = currentFacts("4.2.0", "en", ERRORS);
+    const now = currentFacts("/databases/postgresql/shop?tab=rows", "4.2.0", "en", ERRORS);
 
     expect(now.page).toBe("/databases/postgresql/shop?tab=rows");
     expect(now.theme).toBe("dark");
@@ -113,6 +112,5 @@ describe("what this window knows of itself", () => {
     expect(now.errors).toBe(ERRORS);
 
     delete window.document.documentElement.dataset["theme"];
-    window.history.replaceState(null, "", "/");
   });
 });
