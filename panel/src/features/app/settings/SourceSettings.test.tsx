@@ -413,6 +413,17 @@ describe("the source settings, for everyone", () => {
     expect(within(keys).getByRole("link", { name: "Settings, Integrations" })).toHaveAttribute("href", "/settings/integrations");
   });
 
+  it("draws the terminal's line only once the repository is read, since the cards that come after it would push it out of the page", async () => {
+    let release: (answer: Response) => void = () => undefined;
+    const held = new Promise<Response>((resolve) => {
+      release = resolve;
+    });
+    await source(NO_KEY, { [`GET /api/apps/${DOMAIN}/deploy-key`]: () => held }, RELEASE_APP, { cards: false });
+    expect(screen.queryByText(new RegExp(`noust app source show ${DOMAIN.replace(/\./g, "\\.")}`))).not.toBeInTheDocument();
+    release(json(200, NO_KEY));
+    expect(await screen.findByText(new RegExp(`noust app source show ${DOMAIN.replace(/\./g, "\\.")}`))).toBeInTheDocument();
+  });
+
   it("has no accessibility violations, with a key, a replacement waiting and a credential", async () => {
     await source({ ...WITH_KEY, key: { ...KEY, pending: PENDING } }, { [`GET /api/apps/${DOMAIN}/git-credential`]: () => json(200, CREDENTIAL) });
     await within(deployKey()).findByRole("group", { name: "Replacing the key" });

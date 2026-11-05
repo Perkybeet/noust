@@ -75,7 +75,8 @@ export function SourceSettings() {
             </p>
           </>
         )}
-        <CommandHint command={`noust app source show ${domain}`} label={t("common.words.sameFromTerminal")} />
+        {/* After the cards, which are far taller than the skeleton that stands in for them: drawn before them it would be pushed out of the page when they arrive. */}
+        {view.isPending ? null : <CommandHint command={`noust app source show ${domain}`} label={t("common.words.sameFromTerminal")} />}
       </Section>
       {repository === null ? null : <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} />}
     </>
