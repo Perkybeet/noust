@@ -51,7 +51,7 @@ export function asCoded(value: unknown): CodedText | null {
   if (typeof value !== "object" || value === null) return null;
   const { code, params } = value as { code?: unknown; params?: unknown };
   if (typeof code !== "string") return null;
-  return { code, params: typeof params === "object" && params !== null ? (params as CodedText["params"]) : {} };
+  return { code, params: typeof params === "object" && params !== null ? (params as NonNullable<CodedText["params"]>) : {} };
 }
 
 /**
