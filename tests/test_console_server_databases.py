@@ -50,6 +50,7 @@ from scripts.console_server import engine_settings as settings_model
 from scripts.console_server import machine as machine_model
 from scripts.console_server import runner as runner_model
 from scripts.console_server import server_host as host_model
+from scripts.console_server.software_host import Packages
 
 #: The modelled server's memory and processors, as the recommendations see them.
 SERVER = Resources(memory_bytes=2 * 1024**3, cpus=2)
@@ -67,7 +68,8 @@ def machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Any]:
     Yields:
         The runner, installed as the process-wide one.
     """
-    host = SimpleNamespace(root=tmp_path / "host", answer=lambda args: None)
+    # The real modelled host carries a package database the runner asks which programs are on the path.
+    host = SimpleNamespace(root=tmp_path / "host", answer=lambda args: None, packages=Packages())
     cluster = host.root / "etc" / "postgresql" / "16" / "main"
     (cluster / "conf.d").mkdir(parents=True)
     (cluster / "postgresql.conf").write_text("include_dir = 'conf.d'\n", encoding="utf-8")
