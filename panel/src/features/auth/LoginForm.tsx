@@ -818,8 +818,9 @@ export function LoginForm({ next, expired, initialWay, recoveryHelp = false, sso
     </Popover>
   );
 
-  const accountForm = (
+  const accountForm = (showNotices: boolean) => (
     <form onSubmit={(event) => void submitAccount(event)} noValidate className="flex flex-col gap-5">
+      {showNotices ? notices : null}
       {directories.length > 0 ? (
         <Field label={t("auth.directory.signInWith")} nativeLabel={false}>
           <Select
@@ -885,17 +886,17 @@ export function LoginForm({ next, expired, initialWay, recoveryHelp = false, sso
               <Or t={t} />
             </>
           ) : null}
-          {accountForm}
+          {accountForm(false)}
         </div>
       </AuthFrame>
     );
   }
 
+  // The words of a refusal are the form's own: the first thing in it, where a screen reader reads the form from.
   return (
     <AuthFrame title={t("auth.area")} description={t("auth.account.description")}>
       <div className="flex flex-col gap-5">
-        {notices}
-        {accountForm}
+        {accountForm(true)}
         <OtherWays doors={doors} label={t("auth.ways.label")} />
       </div>
     </AuthFrame>

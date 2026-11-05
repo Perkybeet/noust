@@ -48,7 +48,7 @@ describe("a sealed central", () => {
     expect(screen.getByText(/a passphrase that is not stored anywhere/)).toBeInTheDocument();
     // The machine is named first, so a passphrase is never typed into the wrong one.
     expect(screen.getByText("web-01")).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { level: 1, name: "Home" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 1, name: "This server" })).not.toBeInTheDocument();
     await expectNoAxeViolations(container, { page: true });
 
     const field = screen.getByLabelText("Passphrase");
@@ -67,7 +67,7 @@ describe("a sealed central", () => {
     await user.clear(field);
     await user.type(field, "correct horse");
     await user.click(screen.getByRole("button", { name: "Unlock" }));
-    expect(await screen.findByRole("heading", { level: 1, name: "Home" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "This server" })).toBeInTheDocument();
     expect(backend.callsTo("POST /api/central/unlock").map((call) => call.body)).toEqual([
       { passphrase: "wrong one" },
       { passphrase: "wrong one" },

@@ -624,6 +624,14 @@ describe("the ways in, as doors under the password form", () => {
     }
   });
 
+  it("says a session that ended in the password form itself, where the person is about to type", async () => {
+    accountBackend();
+    renderConsole("/login?reason=expired");
+    const form = (await screen.findByLabelText("Username or email")).closest("form");
+    if (form === null) throw new Error("the username is not in a form");
+    expect(within(form).getByText("Your session expired. Sign in again to continue where you left off.")).toBeInTheDocument();
+  });
+
   it("says, from the password's own line, who can help when the server cannot send a link", async () => {
     accountBackend();
     const { user } = renderConsole("/login");
