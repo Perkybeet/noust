@@ -3,11 +3,8 @@ import { useState } from "react";
 
 import { appPolicyQuery, forwardAuthPresetsQuery } from "../../../api/queries/network";
 import type { AppPolicy } from "../../../api/queries/network";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
-import { SaveBar } from "../../../components/page/SaveBar";
-import { Section } from "../../../components/page/Section";
 import { Card } from "../../../components/ui/Card";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { ChoiceCards } from "../../../components/ui/ChoiceCards";
@@ -30,6 +27,7 @@ import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./setting
 import { AccessQuestions, useAccessForm } from "./useAccessForm";
 import type { AccessForm } from "./useAccessForm";
 import { SETTINGS_ICONS } from "./objectIcons";
+import { PartSaveBar, PartSection } from "./saveHost";
 
 function PasswordCard({ form, policy, t }: { form: AccessForm; policy: AppPolicy; t: T }) {
   const { draft, edit } = form;
@@ -189,8 +187,7 @@ function PolicyForm({ domain, policy }: { domain: string; policy: AppPolicy }) {
       {nginx && org.can("server.manage") ? <ForwardAuthFold form={form} t={t} /> : null}
       <RoutesCard domain={domain} routes={form.draft.routes} error={form.errorOf("routes")} onChange={(routes) => form.edit("routes", routes)} />
       {form.failure !== null ? <ErrorBlock live compact error={form.failure} title={t("network.access.notSaved", { domain })} /> : null}
-      <CommandHint command={`noust app policy show ${domain}`} label={t("common.words.fromTerminal")} />
-      <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} />
+      <PartSaveBar bar={bar} />
       <AccessQuestions form={form} domain={domain} />
     </div>
   );
@@ -214,7 +211,7 @@ export function AccessSettings() {
   const policy = useQuery(appPolicyQuery(domain));
 
   return (
-    <Section title={t("network.access.title")} {...headerIcon} description={t("network.access.description", { domain })}>
+    <PartSection title={t("network.access.title")} {...headerIcon} description={t("network.access.description", { domain })}>
       {policy.isPending ? (
         <LoadingRegion label={t("network.access.loading")}>
           <SkeletonCard lines={3} />
@@ -224,6 +221,6 @@ export function AccessSettings() {
       ) : (
         <PolicyForm domain={domain} policy={policy.data} />
       )}
-    </Section>
+    </PartSection>
   );
 }

@@ -23,17 +23,30 @@ export const newApp = {
     deploy: "Deploy",
     announce: "Step {number} of {total}: {label}",
   },
+  /** The five ways an application starts, as the first page of New application asks them (item 99). */
+  origins: {
+    legend: "Where it comes from",
+    repo: { label: "From a repository", description: "GitHub, GitLab or any git. It deploys again on every push." },
+    catalog: { label: "From the catalog", description: "WordPress, n8n, Nextcloud and more, ready to install." },
+    image: { label: "A container image", description: "From Docker Hub, GHCR or your own registry." },
+    files: { label: "Upload files", description: "A static site, a .zip, a Dockerfile or a Compose file." },
+    existing: { label: "Something that already runs here", description: "A Compose stack that is running, or what you had in Coolify or Dokploy." },
+    /** What the card of the existing says, once chosen: adopting changes nothing of what runs. */
+    existingIntro: "Adopting changes nothing of what runs: Noust writes it down and deploys it from the next time. It has its own two steps, name and address and review, and never builds anything.",
+    existingChoice: "What to bring in",
+    existingRunning: "Running on this server",
+    existingOther: "From another platform or a file",
+    filesTitle: "Files to start from",
+    filesIntro: "Upload an archive of the project, paste a Dockerfile or a Compose file, or point at a folder of this server.",
+  },
   box: {
     label: "What to deploy",
     description: "A repository, an image or a folder on the server, or the name of what you want to install.",
     placeholder: "Paste a link or search the catalog",
-    otherWays: "Other ways to start",
     connectGithub: "Connect GitHub",
   },
   modes: {
     compose: "Compose",
-    import: "Import an application",
-    adopt: "Already running",
   },
   address: {
     legend: "Where it answers",

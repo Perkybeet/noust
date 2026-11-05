@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { SourceSettings } from "../../../../../features/app/settings/SourceSettings";
-
-/** An application's settings, Source: the deploy key and the credential its repository is reached with. */
+/** 4.2: the settings of an application are the pages of its column; this subsection is now in code. */
 export const Route = createFileRoute("/_console/apps/$domain/settings/source")({
-  component: SourceSettings,
+  beforeLoad: ({ params }) => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect protocol
+    throw redirect({ to: "/apps/$domain/code", params, replace: true });
+  },
 });

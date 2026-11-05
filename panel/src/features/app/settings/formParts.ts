@@ -35,6 +35,17 @@ export interface SaveBarState {
 }
 
 /**
+ * What a page that gathers several forms needs of each: to check the parts that changed (marking their errors)
+ * and to save them, in two steps, so that one invalid form stops them all before any is sent.
+ */
+export interface SaveBarHandle extends SaveBarState {
+  /** Marks every changed part as submitted; true when all of them can be sent. */
+  check: () => boolean;
+  /** Asks "Confirm it's you" when a part needs it, then sends the changed parts one after the other. */
+  commit: () => Promise<void>;
+}
+
+/**
  * The save bar of a subsection made of parts. Save checks every part that changed first, so
  * every mistake shows at once; asks "Confirm it's you" once when any of them needs it; then
  * saves them in order.
@@ -42,30 +53,32 @@ export interface SaveBarState {
  * @param notStarted What failed, when the save could not start at all ("The deploy settings
  *   of shop.example.com were not saved").
  */
-export function useSaveBar(parts: readonly (FormPart | null)[], notStarted: string): SaveBarState {
+export function useSaveBar(parts: readonly (FormPart | null)[], notStarted: string): SaveBarHandle {
   const confirmItsYou = useConfirmItsYou();
   const [saving, setSaving] = useState(false);
   const present = parts.filter((part): part is FormPart => part !== null);
   const changed = present.filter((part) => part.changes > 0);
   const changes = changed.reduce((sum, part) => sum + part.changes, 0);
 
+  // Every part is checked, not just up to the first that fails: each shows its own errors.
+  const check = (): boolean => changed.map((part) => part.check()).every(Boolean);
+
+  const commit = async (): Promise<void> => {
+    if (changed.some((part) => part.elevated)) await confirmItsYou();
+    for (const part of changed) {
+      try {
+        await part.save();
+      } catch {
+        // The part shows its refusal beside its fields; the next part is saved all the same.
+      }
+    }
+  };
+
   const onSave = (): void => {
     if (saving || changed.length === 0) return;
-    // Every part is checked, not just up to the first that fails: each shows its own errors.
-    const valid = changed.map((part) => part.check()).every(Boolean);
-    if (!valid) return;
-    const run = async (): Promise<void> => {
-      if (changed.some((part) => part.elevated)) await confirmItsYou();
-      for (const part of changed) {
-        try {
-          await part.save();
-        } catch {
-          // The part shows its refusal beside its fields; the next part is saved all the same.
-        }
-      }
-    };
+    if (!check()) return;
     setSaving(true);
-    run()
+    commit()
       .catch((error: unknown) => {
         if (!(error instanceof ElevationCancelledError)) reportActionError(notStarted, error);
       })
@@ -78,7 +91,7 @@ export function useSaveBar(parts: readonly (FormPart | null)[], notStarted: stri
     for (const part of present) part.discard();
   };
 
-  return { changes, saving, onSave, onDiscard };
+  return { changes, saving, onSave, onDiscard, check, commit };
 }
 
 /** How many of a draft's fields differ from what is stored, compared as typed (trimmed). */

@@ -173,8 +173,9 @@ describe("the files and folders an application is given", () => {
   });
 
   it("takes none for a static site", async () => {
-    await mounts([], false, {}, STATIC_APP);
-    expect(await screen.findByText(/This application takes no mounts/)).toBeInTheDocument();
+    // A site served as files has no unit to give files to: the part is not on its page.
+    await renderSettings("/resources", "How it runs", STATIC_APP, { "GET /api/auth/session": () => json(200, ELEVATED) });
+    expect(screen.queryByRole("heading", { level: 2, name: "Mounts" })).not.toBeInTheDocument();
   });
 
   it("has no accessibility violations, and speaks Spanish", async () => {

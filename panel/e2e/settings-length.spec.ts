@@ -108,28 +108,23 @@ const ACCOUNT_PAGES: readonly Route[] = [
 ];
 
 /**
- * An application's settings: the subsection and an application of the seeded machine that has it
- * (the same ones `e2e/routes.ts` opens). Container is not here: the seed has no container application.
+ * An application's pages of configuration, and Export, Several servers and Delete beside them: each is a section of the
+ * application's column, with an application of the seeded machine that has it (the same ones `e2e/routes.ts` opens). The
+ * four pages gather what were eighteen subsections; the container's and the Compose stack's parts are not drawn on a seeded
+ * machine that has none.
  */
 const APPLICATION_SETTINGS: readonly Route[] = [
-  { id: "app-settings-general", path: "/apps/shop.example.net/settings" },
-  { id: "app-settings-source", path: "/apps/taller.example.com/settings/source" },
-  { id: "app-settings-deploys", path: "/apps/tienda.example.org/settings/deploys" },
-  { id: "app-settings-deploy-on-push", path: "/apps/tienda.example.org/settings/deploy-on-push" },
-  { id: "app-settings-hooks", path: "/apps/tienda.example.org/settings/hooks" },
-  { id: "app-settings-automation", path: "/apps/tienda.example.org/settings/automation" },
-  { id: "app-settings-access", path: "/apps/tienda.example.org/settings/access" },
-  { id: "app-settings-protection", path: "/apps/tienda.example.org/settings/protection" },
-  { id: "app-settings-build", path: "/apps/shop.example.net/settings/build" },
-  { id: "app-settings-resources", path: "/apps/shop.example.net/settings/resources" },
-  { id: "app-settings-disk", path: "/apps/shop.example.net/settings/disk" },
-  { id: "app-settings-processes", path: "/apps/tienda.example.org/settings/processes" },
-  { id: "app-settings-security", path: "/apps/tienda.example.org/settings/security" },
-  { id: "app-settings-mounts", path: "/apps/shop.example.net/settings/mounts" },
-  { id: "app-settings-previews", path: "/apps/portal.example.org/settings/previews" },
-  { id: "app-settings-export", path: "/apps/shop.example.net/settings/export" },
-  { id: "app-settings-delete", path: "/apps/shop.example.net/settings/delete" },
+  { id: "app-code", path: "/apps/shop.example.net/code" },
+  { id: "app-triggers", path: "/apps/tienda.example.org/triggers" },
+  { id: "app-resources", path: "/apps/shop.example.net/resources" },
+  { id: "app-access", path: "/apps/tienda.example.org/access" },
+  { id: "app-export", path: "/apps/shop.example.net/export" },
+  { id: "app-servers", path: "/apps/tienda.example.org/servers" },
+  { id: "app-delete", path: "/apps/shop.example.net/delete" },
 ];
+
+/** The sections of an application's column that are one of the routes above, by the name of their route file. */
+const APPLICATION_PAGES = ["code", "triggers", "resources", "access", "export", "servers", "delete"];
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -137,9 +132,6 @@ test.use({ viewport: { width: 1440, height: 900 } });
 const NOT_A_SUBSECTION: Readonly<Record<string, string>> = {
   "settings/security.tsx": "it redirects to /account/security, where the person's sign-in security is",
   "settings/index.tsx": "it is the hub Settings opens on: every section as a door under its group, a page of its own height and not a subsection",
-  "apps/$domain/settings/container.tsx": "only a container application has it, and the seeded machine has none",
-  "apps/$domain/settings/compose.tsx": "only a Compose stack has it, and the seeded machine has none",
-  "apps/$domain/settings/builds.tsx": "it redirects to Build: the sandbox is a card of that page since 4.0",
   "settings/servers.tsx": "it redirects to Fleet > Servers: the fleet's list is the one list of servers since 4.0",
   "settings/alerts.tsx": "it redirects to Alerts, an area of the bar since 4.1",
   "settings/probes.tsx": "it redirects to Alerts > Probes and status page, since 4.1",
@@ -155,17 +147,22 @@ function routeFiles(directory: string): string[] {
 
 test("every settings route of the console has a length in the baseline", () => {
   const listed = new Set([...SERVER_SETTINGS, ...ACCOUNT_PAGES, ...APPLICATION_SETTINGS].map((route) => route.id));
-  const files = [...routeFiles("settings"), ...routeFiles("account"), ...routeFiles("apps/$domain/settings")].filter((file) => NOT_A_SUBSECTION[file] === undefined);
-  // settings/index.tsx and apps/$domain/settings/index.tsx are General.
+  const applicationFiles = routeFiles("apps/$domain").filter((file) => APPLICATION_PAGES.includes(path.basename(file, ".tsx")));
+  const files = [...routeFiles("settings"), ...routeFiles("account"), ...applicationFiles].filter((file) => NOT_A_SUBSECTION[file] === undefined);
+  // settings/index.tsx is the hub of Settings, listed as General.
   const ids = files.map((file) => {
     const name = path.basename(file, ".tsx");
     if (file.startsWith("account/")) return `account-${name === "index" ? "profile" : name}`;
-    const prefix = file.startsWith("apps/") ? "app-settings" : "settings";
-    return `${prefix}-${name === "index" ? "general" : name}`;
+    if (file.startsWith("apps/")) return `app-${name}`;
+    return `settings-${name === "index" ? "general" : name}`;
   });
   expect(
     ids.filter((id) => !listed.has(id)),
     "A settings route has no entry here: add it to the list of this spec and measure it (NOUST_E2E_SETTINGS_BASELINE=write)",
+  ).toEqual([]);
+  expect(
+    APPLICATION_PAGES.filter((name) => !applicationFiles.some((file) => path.basename(file, ".tsx") === name)),
+    "An application page this spec lists has no route file",
   ).toEqual([]);
   const baseline = readBaseline();
   expect(

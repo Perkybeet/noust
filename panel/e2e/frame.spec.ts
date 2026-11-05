@@ -476,7 +476,7 @@ test.describe("the raised piece of the current item", () => {
   });
 
   test("a long trail gives way before the machine's name does", async ({ page, consoleServer }) => {
-    await openAt(page, consoleServer, 1280, "/apps/tienda.example.org/settings/access");
+    await openAt(page, consoleServer, 1280, "/apps/tienda.example.org/access");
     const name = page.getByRole("banner").locator('a[href="/server"]').first();
     await expect(name).toBeVisible();
     // The strip clips what does not fit from its right edge: the link must end inside it, and be wide enough to read.

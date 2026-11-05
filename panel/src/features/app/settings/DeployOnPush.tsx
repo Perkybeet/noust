@@ -5,11 +5,9 @@ import type { ReactNode } from "react";
 import { request } from "../../../api/client";
 import { appKeys } from "../../../api/queries/apps";
 import type { App } from "../../../api/queries/apps";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import { QueryState } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
-import { Section } from "../../../components/page/Section";
 import { Stepper } from "../../../components/page/Stepper";
 import type { WizardStep } from "../../../components/page/Stepper";
 import { Subsection } from "../../../components/page/Subsection";
@@ -41,6 +39,7 @@ import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./setting
 import { connectionView, forgeName, outcomeView, senderName } from "./webhook";
 import { SETTINGS_ICONS } from "./objectIcons";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
+import { PartSection } from "./saveHost";
 
 /** The example name `noust web expose-hooks` is shown with: the operator types their own. */
 const HOOKS_EXAMPLE = "hooks.example.com";
@@ -483,7 +482,7 @@ export function DeployOnPush() {
 
   const data = status.data;
   return (
-    <Section title={t("appSettings.webhook.title")} {...headerIcon} description={t("appSettings.webhook.description")}>
+    <PartSection title={t("appSettings.webhook.title")} {...headerIcon} description={t("appSettings.webhook.description")}>
       <QueryState
         query={status}
         label={t("appSettings.webhook.label")}
@@ -516,7 +515,7 @@ export function DeployOnPush() {
                 tone="warning"
                 title={t("appSettings.webhook.inPlaceTitle")}
                 action={
-                  <TextLink to="/apps/$domain/settings/deploys" params={{ domain }} size="ui">
+                  <TextLink to="/apps/$domain/triggers" params={{ domain }} size="ui">
                     {t("appSettings.webhook.inPlaceAction")}
                   </TextLink>
                 }
@@ -542,7 +541,6 @@ export function DeployOnPush() {
       {status.isPending ? null : (
         <>
           <GitPushCard app={app} />
-          <CommandHint command={`noust app webhook show ${domain}`} label={t("common.words.fromTerminal")} />
         </>
       )}
       {branchPin.dialogs}
@@ -574,6 +572,6 @@ export function DeployOnPush() {
           settle(false);
         }}
       />
-    </Section>
+    </PartSection>
   );
 }

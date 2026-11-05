@@ -127,14 +127,14 @@ describe("create mode", () => {
 });
 
 describe("inside an application", () => {
-  it("finds its pages and the sections of its settings, named with the application", async () => {
+  it("finds its pages, and the old name of what was a settings section, named with the application", async () => {
     fakeBackend(routes());
     const { user } = renderConsole("/apps/shop.example.com");
     await screen.findByRole("heading", { level: 1 });
 
     await search(user, "build");
 
-    expect(await screen.findByRole("option", { name: /Settings, Build: shop.example.com/ })).toBeInTheDocument();
+    expect(await screen.findByRole("option", { name: /Code and build: shop.example.com/ })).toBeInTheDocument();
   });
 
   it("opens the section it finds", async () => {
@@ -143,9 +143,9 @@ describe("inside an application", () => {
     await screen.findByRole("heading", { level: 1 });
 
     await search(user, "resources");
-    await user.click(await screen.findByRole("option", { name: /Settings, Resources: shop.example.com/ }));
+    await user.click(await screen.findByRole("option", { name: /Resources and running: shop.example.com/ }));
 
-    await waitFor(() => expect(router.state.location.pathname).toBe("/apps/shop.example.com/settings/resources"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/apps/shop.example.com/resources"));
   });
 
   it("finds the application's own tabs by their words", async () => {

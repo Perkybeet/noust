@@ -87,7 +87,7 @@ test("a repository and branch chosen from GitHub reach the inspection and the de
     github_installation_id: 61000001,
     app_type: "nextjs",
   });
-  await expect(page).toHaveURL(new RegExp(`/apps/${domain.replace(/\./g, "\\.")}/deployments/\\d+$`), { timeout: 30_000 });
+  await expect(page).toHaveURL(new RegExp(`/apps/${domain.replace(/\./g, "\\.")}$`), { timeout: 30_000 });
 
   await forgetApp(page, consoleServer, domain);
 });

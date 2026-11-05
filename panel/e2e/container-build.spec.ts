@@ -119,10 +119,9 @@ test("a repository with only a Dockerfile is configured as a container, its Dock
 test("an application's build commands are saved behind confirming it is you, win over the repository whole, and can be taken out", async ({ page, consoleServer }) => {
   test.setTimeout(120_000);
   const domain = "shop.example.net";
-  await signIn(page, consoleServer, `/apps/${domain}/settings/build`);
+  await signIn(page, consoleServer, `/apps/${domain}/code`);
   await expect(page.getByRole("heading", { level: 2, name: "Build", exact: true })).toBeVisible();
-  const nav = page.getByRole("navigation", { name: "Application settings" }).first();
-  await expect(nav.getByRole("link", { name: "Build", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("navigation", { name: "Application sections" }).getByRole("link", { name: "Code and build" })).toHaveAttribute("aria-current", "page");
   await expect(page.getByText("The commands of the application's type")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "an application's build commands");

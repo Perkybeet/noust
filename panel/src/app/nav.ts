@@ -27,7 +27,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { ACCOUNT_SCREENS } from "../features/nav/account";
 import { ALERTS_SCREENS } from "../features/nav/alerts";
-import { APP_SCREENS, APP_SETTINGS_SCREENS } from "../features/nav/app";
+import { APP_SCREENS } from "../features/nav/app";
 import { APPS_SCREENS } from "../features/nav/apps";
 import { BACKUPS_SCREENS } from "../features/nav/backups";
 import { CATALOG_SCREENS } from "../features/nav/catalog";
@@ -81,7 +81,6 @@ for (const group of [
   SERVICE_SCREENS,
   DATABASE_SCREENS,
   APP_SCREENS,
-  APP_SETTINGS_SCREENS,
   TEAM_SCREENS,
   FLEET_SCREENS,
   SETTINGS_SCREENS,

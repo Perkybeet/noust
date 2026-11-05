@@ -1,11 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { deployKeyQuery } from "../../../api/queries/sources";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
-import { SaveBar } from "../../../components/page/SaveBar";
-import { Section } from "../../../components/page/Section";
 import { Notice } from "../../../components/ui/Notice";
 import { SkeletonCard } from "../../../components/ui/Skeleton";
 import { TextLink } from "../../../components/ui/TextLink";
@@ -16,6 +13,7 @@ import { GitCredentialCard } from "./GitCredential";
 import { SourceOptionsCard, useSourceOptions } from "./SourceOptions";
 import { useSaveBar } from "./formParts";
 import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
+import { PartFold, PartSaveBar, PartSection } from "./saveHost";
 
 /**
  * Source: where the code comes from and how this server signs in to it. The repository or directory
@@ -39,7 +37,7 @@ export function SourceSettings() {
 
   return (
     <>
-      <Section title={t("sources.title")} {...headerIcon} description={t("sources.description")}>
+      <PartSection title={t("sources.title")} {...headerIcon} description={t("sources.description")}>
         {view.isPending ? (
           <LoadingRegion label={t("sources.loading")}>
             <SkeletonCard lines={3} />
@@ -54,31 +52,31 @@ export function SourceSettings() {
         ) : (
           <>
             <ChangeSourceCard app={app} />
-            <DeployKeyCard domain={domain} repository={repository} />
-            <GitCredentialCard domain={domain} repository={repository} />
-            <SourceOptionsCard domain={domain} options={options} />
-            <p className="max-w-measure text-13 text-pretty text-fg-muted">
-              {t.rich("sources.allKeys", {
-                link: (
-                  <TextLink key="integrations" to="/settings/integrations" size="inline">
-                    {t("sources.allKeysLink")}
-                  </TextLink>
-                ),
-              })}{" "}
-              {t.rich("sources.webhookNote", {
-                link: (
-                  <TextLink key="push" to="/apps/$domain/settings/deploy-on-push" params={{ domain }} size="inline">
-                    {t("sources.webhookLink")}
-                  </TextLink>
-                ),
-              })}
-            </p>
+            <PartFold label={t("appPages.config.foldRepository")}>
+              <DeployKeyCard domain={domain} repository={repository} />
+              <GitCredentialCard domain={domain} repository={repository} />
+              <SourceOptionsCard domain={domain} options={options} />
+              <p className="max-w-measure text-13 text-pretty text-fg-muted">
+                {t.rich("sources.allKeys", {
+                  link: (
+                    <TextLink key="integrations" to="/settings/integrations" size="inline">
+                      {t("sources.allKeysLink")}
+                    </TextLink>
+                  ),
+                })}{" "}
+                {t.rich("sources.webhookNote", {
+                  link: (
+                    <TextLink key="push" to="/apps/$domain/triggers" params={{ domain }} hash="deploy-on-push" size="inline">
+                      {t("sources.webhookLink")}
+                    </TextLink>
+                  ),
+                })}
+              </p>
+            </PartFold>
           </>
         )}
-        {/* After the cards, which are far taller than the skeleton that stands in for them: drawn before them it would be pushed out of the page when they arrive. */}
-        {view.isPending ? null : <CommandHint command={`noust app source show ${domain}`} label={t("common.words.sameFromTerminal")} />}
-      </Section>
-      {repository === null ? null : <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} />}
+      </PartSection>
+      {repository === null ? null : <PartSaveBar bar={bar} />}
     </>
   );
 }

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
-import { chooseWay, openOtherWays } from "../../test/ways";
+import { chooseWay } from "../../test/ways";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import type { Inspection } from "./wizard";
@@ -72,17 +72,15 @@ function wizard(status: object | null, extra: Record<string, RouteHandler> = {})
 
 describe("the new-app wizard, from GitLab", () => {
   it("is offered only where a connection exists", { timeout: 30_000 }, async () => {
-    const { harness } = wizard({ connections: [], oauth_apps: [], redirect_uri: null });
+    wizard({ connections: [], oauth_apps: [], redirect_uri: null });
     expect(await screen.findByLabelText("What to deploy")).toBeInTheDocument();
-    await openOtherWays(harness.user);
     expect(screen.queryByRole("button", { name: "From GitLab" })).not.toBeInTheDocument();
   });
 
   it("stays on the typed source when the integration cannot be read", { timeout: 30_000 }, async () => {
-    const { backend, harness } = wizard(null);
+    const { backend } = wizard(null);
     expect(await screen.findByLabelText("What to deploy")).toBeInTheDocument();
     await waitFor(() => expect(backend.callsTo("GET /api/integrations/gitlab")).toHaveLength(1));
-    await openOtherWays(harness.user);
     expect(screen.queryByRole("button", { name: "From GitLab" })).not.toBeInTheDocument();
   });
 

@@ -29,7 +29,7 @@ import { firstRun } from "./empty-server";
 import { expect, expectNoA11yViolations, settle, signIn, startConsoleServer, stillness, test } from "./fixtures";
 import { ROUTES as EVERY_ROUTE, routePath } from "./routes";
 
-const ROUTES = ["/", "/apps", "/apps/shop.example.net", "/apps/shop.example.net/settings", "/apps/shop.example.net/settings/build", "/backups", "/catalog", "/catalog/vaultwarden", "/domains", "/settings"];
+const ROUTES = ["/", "/apps", "/apps/shop.example.net", "/apps/shop.example.net/settings", "/apps/shop.example.net/code", "/backups", "/catalog", "/catalog/vaultwarden", "/domains", "/settings"];
 
 /**
  * Views that still show more than one primary button, and how many: the debt wave 2 pays by

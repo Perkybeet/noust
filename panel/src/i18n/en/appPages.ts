@@ -47,6 +47,31 @@ export const appPages = {
     frozen: "Deploys frozen",
   },
 
+  /** The pages that gather what were the subsections of an application's settings (Code and build, Deploys and triggers, Resources and running, Access and protection). */
+  config: {
+    foldRepository: "How Noust reaches the repository",
+    foldBuild: "Sandbox, packages and cache",
+    documentTitle: "{section} - {domain}",
+    loading: "Loading {section}",
+    notSaved: "The settings of {domain} were not saved",
+    notBuilt: "{domain} is a site Noust did not build, so there is nothing here to set. Its state, logs and use of the machine are in the other sections.",
+  },
+
+  /** The page that says whether the application could run on more than one server. */
+  servers: {
+    placements: "Where it is placed, and moving it between servers, is in {link}.",
+    placementsLink: "Applications on several servers",
+  },
+
+  /** What the page of an application says while its first deploy runs. */
+  firstDeploy: {
+    title: "Deploying for the first time",
+    line: "You can leave this page: the task centre follows it and tells you when it ends.",
+    starting: "Starting the deploy",
+    logTitle: "The deploy's log",
+    logLine: "What the build prints, as it prints it.",
+  },
+
   layout: {
     portFact: "Port {port}",
     liveSite: "{domain}, the live site",
@@ -59,18 +84,18 @@ export const appPages = {
 
   /** The status banner between an app's header and its tabs, on every tab, when it is broken. */
   banner: {
-    diagnose: "Diagnose",
+    diagnose: "See why",
     viewLogs: "View logs",
     failedTitle: "The service has stopped with an error",
-    failedBody: "systemd could not keep it running. Diagnose reads its logs, its port and the web server to say why.",
+    failedBody: "systemd could not keep it running. See why reads its logs, its port and the web server to say what stopped it.",
     failedAfterDeploy: "It stopped after the last deploy failed, {time}.",
     noAnswerTitle: "Nothing answers on port {port}",
     noAnswerTitleNoPort: "The app does not answer",
-    noAnswerBody: "The service is running, but the app does not answer requests. Diagnose checks the port, HTTP and its logs.",
+    noAnswerBody: "The service is running, but the app does not answer requests. See why checks the port, HTTP and its logs.",
     restartingTitle: "The service keeps restarting",
     restartingBody: "It stops shortly after it starts, and systemd starts it again. Its last log lines usually say why.",
-    deployFailedTitle: "The last deploy failed {time}",
-    deployFailedBody: "The version that was live before is still serving.",
+    deployFailedTitle: "The last deploy failed {time}, and the one before it is still serving",
+    deployFailedBody: "Nothing went down: the version that was live is still the one answering.",
     unmanagedTitle: "It runs outside Noust",
     unmanagedBody: "Its containers run, but its unit is stopped: Noust is not supervising it. Someone probably started it with docker compose by hand.",
   },
@@ -115,21 +140,46 @@ export const appPages = {
     stopApplication: "Stop application",
     deletionQueued: "Deletion of {domain} queued",
     deletionQueuedDescription: "You will be told when it finishes.",
-    deletionCouldNotStart: "Deletion of {domain} could not start",
   },
 
   deleteApp: {
     title: "Delete {domain}",
-    summaryKeepsBoth: "Its service and its web server site are removed. Its files, its certificate and its backups are kept.",
-    summaryFiles: "Its service, its web server site and its files are removed. Its certificate and its backups are kept.",
-    summaryCertificate: "Its service, its web server site and its certificate are removed. Its files and its backups are kept.",
-    summaryFilesAndCertificate: "Its service, its web server site, its files and its certificate are removed. Its backups are kept.",
+    action: "Delete application",
+    /** The page of deleting an application: what is deleted, one box for each thing that holds data. */
+    page: {
+      title: "What is deleted",
+      line: "The service and the site are stopped and removed. Anything else only if you tick it: nothing comes ticked, and backups are always kept.",
+      reading: "Loading what {domain} holds",
+      readFailed: "Could not read what deleting {domain} would touch",
+      button: "Delete…",
+    },
     filesLabel: "Also delete its files",
     filesDescription: "Everything in {path}, uploads included. This cannot be undone.",
     filesDescriptionNoPath: "Everything in the application's folder, uploads included. This cannot be undone.",
+    /** An adopted stack lives where it already ran, outside Noust's apps folder: it goes only when it is named. */
+    folderLabel: "Also delete its folder",
+    folderDescription: "{path} is not in Noust's apps folder: it was there before Noust, and it is deleted only because you tick this. This cannot be undone.",
+    volumesLabel: "Also delete the volumes of its containers",
+    volumesDescription: "They hold what the containers keep, such as a database's files. This cannot be undone.",
+    databasesLabel: { one: "Also delete its database {names}", other: "Also delete its databases {names}" },
+    databasesDescription: "A last dump is taken of each before it goes.",
+    databaseKeptShared: "{name} stays: {apps} also use it.",
+    databaseKeptUsed: "{name} stays: this application uses it but it is not only its own.",
     certificateLabel: "Also delete its certificate",
     certificateDescription: "A new one is issued if the domain is deployed again, within Let's Encrypt's limits.",
-    action: "Delete application",
+    /** What the question says is removed and what stays, from the boxes. */
+    things: {
+      service: "its service",
+      site: "its web server site",
+      files: "its files",
+      folder: "its folder",
+      volumes: "the volumes of its containers",
+      databases: "its databases",
+      certificate: "its certificate",
+      backups: "its backups",
+    },
+    removes: "Removed: {things}.",
+    keeps: "Kept: {things}.",
   },
 
   rollback: {

@@ -75,8 +75,8 @@ const SCREENS: readonly Screen[] = [
   { name: "domains", path: () => "/apps/shop.example.net/domains" },
   { name: "diagnose", path: () => "/apps/tienda.example.org/diagnose" },
   { name: "diagnose-down", path: () => "/apps/clientes.example.com/diagnose" },
-  { name: "settings-releases", path: () => "/apps/tienda.example.org/settings/deploys" },
-  { name: "settings-inplace", path: () => "/apps/pedidos.example.org/settings/deploys" },
+  { name: "settings-releases", path: () => "/apps/tienda.example.org/triggers" },
+  { name: "settings-inplace", path: () => "/apps/pedidos.example.org/triggers" },
 ];
 
 test.describe("app tabs @screens", () => {

@@ -125,11 +125,11 @@ function itemOf(entry: Dest, first: boolean): ColumnItem {
 
 /**
  * What an adopted site (one Noust did not build) has to show: its state, its logs and its use of the
- * machine, and Delete. It has no deployments to list, no environment Noust writes, no database it links
- * and no domains it manages (checklist B-85), and nothing to export.
+ * machine, and the way to stop managing it. It has no deployments to list, no environment Noust writes,
+ * no database it links, no domains it manages and no code to build (checklist B-85), and nothing to export.
  */
 function suitsAdopted(entry: Dest): boolean {
-  return ADOPTED_TABS.has(entry.to) || entry.intent === "fix" || entry.id === "app.settings.delete";
+  return ADOPTED_TABS.has(entry.to) || entry.intent === "fix";
 }
 
 /**

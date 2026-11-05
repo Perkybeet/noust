@@ -2,10 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { request } from "../../../api/client";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { ErrorBlock } from "../../../components/page/QueryState";
-import { SaveBar } from "../../../components/page/SaveBar";
-import { Section } from "../../../components/page/Section";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -33,6 +30,7 @@ import {
 } from "./settingsApp";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { SETTINGS_ICONS } from "./objectIcons";
+import { PartSaveBar, PartSection } from "./saveHost";
 
 type Hook = AppHooks["pre_deploy"][number];
 
@@ -233,18 +231,9 @@ function OperatorHooks({
               title={t("appSettings.hooks.notSaved", { domain })}
             />
           ) : null}
-          <CommandHint
-            command={`noust app hooks set ${domain} --file hooks.yaml`}
-            label={t("common.words.fromTerminal")}
-          />
         </div>
       </Card>
-      <SaveBar
-        changes={bar.changes}
-        saving={bar.saving}
-        onSave={bar.onSave}
-        onDiscard={bar.onDiscard}
-      />
+      <PartSaveBar bar={bar} />
       <ConfirmDialog
         open={removing}
         onOpenChange={setRemoving}
@@ -282,7 +271,7 @@ export function HooksSettings() {
 
   if (isStatic) {
     return (
-      <Section
+      <PartSection
         title={t("appSettings.hooks.title")}
         {...headerIcon}
         description={t("appSettings.hooks.description")}
@@ -291,12 +280,12 @@ export function HooksSettings() {
           variant="inline"
           title={t("appSettings.hooks.staticNone")}
         />
-      </Section>
+      </PartSection>
     );
   }
 
   return (
-    <Section
+    <PartSection
       title={t("appSettings.hooks.title")}
       {...headerIcon}
       description={t("appSettings.hooks.description")}
@@ -407,6 +396,6 @@ export function HooksSettings() {
           <OperatorHooks domain={domain} hooks={hooks.data} t={t} />
         </>
       )}
-    </Section>
+    </PartSection>
   );
 }

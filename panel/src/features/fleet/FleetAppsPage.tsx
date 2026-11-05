@@ -222,7 +222,6 @@ export function FleetAppsPage({ search, onSearchChange }: FleetAppsPageProps) {
       <AppsTable
         apps={shown}
         deploys={NO_DEPLOYS}
-        metrics={undefined}
         fleet={{ outcomes }}
         caption={filtered ? t("apps.page.captionFiltered") : t("apps.page.caption")}
         loading={view.isPending}

@@ -223,8 +223,8 @@ describe("the ways in the wizard opens on", () => {
   it("opens on the screen of an export for ?start=import", { timeout: 30_000 }, async () => {
     wizard("/apps/new?start=import");
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    // A way that is not the box has its own screen, with the way back to it.
-    expect(await screen.findByRole("button", { name: "Back" })).toBeInTheDocument();
+    // The card of what already runs is lit, with the choice of an export under it, and the box is not the page.
+    expect(await screen.findByRole("radio", { name: "From another platform or a file" })).toBeChecked();
     expect(screen.queryByLabelText("What to deploy")).not.toBeInTheDocument();
   });
 

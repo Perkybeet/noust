@@ -3,7 +3,6 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
-import { openOtherWays } from "../../test/ways";
 import { SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import { workspaceKey } from "./WorkspacesDialog";
@@ -41,8 +40,7 @@ function wizard(extra: Record<string, RouteHandler> = {}) {
 
 async function openIt(user: ReturnType<typeof renderConsole>["user"]) {
   await user.type(await screen.findByLabelText("What to deploy"), "https://github.com/acme/monorepo.git");
-  await openOtherWays(user);
-  await user.click(screen.getByRole("button", { name: "Deploy the workspaces of a monorepo" }));
+  await user.click(await screen.findByRole("button", { name: "Deploy the workspaces of a monorepo" }));
   const dialog = await screen.findByRole("dialog", { name: "Deploy the workspaces of a monorepo" });
   // The source the wizard had is where it starts.
   expect(within(dialog).getByLabelText(/^Repository/)).toHaveValue("https://github.com/acme/monorepo.git");

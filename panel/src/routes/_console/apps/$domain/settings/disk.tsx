@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { DiskSettings } from "../../../../../features/app/settings/DiskSettings";
-
-/** An application's settings, Disk: what it takes and the limit its deploys are held to. */
+/** 4.2: the settings of an application are the pages of its column; this subsection is now a fold of resources. */
 export const Route = createFileRoute("/_console/apps/$domain/settings/disk")({
-  component: DiskSettings,
+  beforeLoad: ({ params }) => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect protocol
+    throw redirect({ to: "/apps/$domain/resources", params, hash: "disk", replace: true });
+  },
 });

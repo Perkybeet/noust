@@ -85,7 +85,7 @@ describe("the deploy keys of the server, in Settings", () => {
     expect(within(own).getByText("github.com/shop/storefront")).toBeInTheDocument();
     // A key in use is the common one and says nothing: only the one being replaced says its state.
     expect(within(own).queryByText("In use")).not.toBeInTheDocument();
-    expect(within(own).getByRole("link", { name: "shop.example.com" })).toHaveAttribute("href", "/apps/shop.example.com/settings/source");
+    expect(within(own).getByRole("link", { name: "shop.example.com" })).toHaveAttribute("href", "/apps/shop.example.com/code");
   });
 
   it("says a key that is being replaced, and names two applications and counts the rest", async () => {

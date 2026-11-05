@@ -209,7 +209,8 @@ describe("moving an application", () => {
       "GET /api/apps/shop.example.com": () => json(200, { domain: "shop.example.com", name: "shop", app_type: "nextjs", status: "running", active: true, enabled: true, port: 3000, layout: "inplace", team: "acme", project: "web", environment: "production" }),
     });
     expect(await screen.findByText("Acme Corp / Web / Production")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Move" }));
+    // The page shows its parts together, a moment after the first of them has its answer.
+    await user.click(await screen.findByRole("button", { name: "Move" }));
     expect(await screen.findByRole("dialog", { name: "Move shop.example.com" })).toBeInTheDocument();
   });
 });

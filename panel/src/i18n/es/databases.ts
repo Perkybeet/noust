@@ -1224,8 +1224,6 @@ export const databases: Catalog<typeof en> = {
     planTitle: "Lo que escribirá Noust",
     planFailed: "No se pudo leer lo que se escribiría",
     variables: "Variables",
-    pendingTitle: "Al crear esta aplicación se pidió una base de datos de {engine}",
-    pendingBody: "Se crea en cuanto termina el primer despliegue. Si no ha ocurrido, créala ahora.",
     sqlite: {
       title: "Archivos SQLite",
       intro:
@@ -1287,11 +1285,5 @@ export const databases: Catalog<typeof en> = {
     summaryNone: "Ninguna",
     summaryNew: "Nueva base de datos de {engine}",
     summaryHint: "Se crea antes de la primera compilación; sus variables están en el entorno desde el principio.",
-    openTab: "Abrir su base de datos",
-    creating: "Creando la base de datos de {domain}",
-    creatingHint: "Terminó su primer despliegue; se reinicia en cuanto la base de datos esté vinculada.",
-    deployFailed: "No se creó la base de datos de {domain}",
-    deployFailedHint: "Su primer despliegue no terminó. Crea la base de datos desde su pestaña Base de datos cuando esté en marcha.",
-    createFailed: "No se pudo crear la base de datos de {domain}",
   },
 };

@@ -95,8 +95,8 @@ function rail(): HTMLElement {
 describe("deploy on push, off", () => {
   it("says what it does, and sets it up in three steps of which only the one the setup is at is drawn", async () => {
     await push(OFF);
-    expect(screen.getByText(/When you push to the repository, GitHub, GitLab, Gitea or Bitbucket tells this server/)).toBeInTheDocument();
-    expect(await screen.findByText("Off")).toBeInTheDocument();
+    // The page holds other parts that say Off (zero-downtime): this one is read by its own region.
+    expect(await within(await screen.findByRole("region", { name: "Deploy on push" })).findByText("Off")).toBeInTheDocument();
     expect(screen.getByText(/Pushes to the repository do not deploy this app/)).toBeInTheDocument();
 
     const hooks = step("A public address for webhooks");
@@ -264,7 +264,7 @@ describe("the warnings of deploy on push", () => {
   it("warns when every push rebuilds a single folder, and leads to instant rollback", async () => {
     await push({ ...CONNECTED, layout: "inplace", inplace_warning: true }, {}, IN_PLACE_APP);
     expect(await screen.findByText("Every push rebuilds this app in its single folder")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Turn on instant rollback" })).toHaveAttribute("href", `/apps/${DOMAIN}/settings/deploys`);
+    expect(screen.getByRole("link", { name: "Turn on instant rollback" })).toHaveAttribute("href", `/apps/${DOMAIN}/triggers`);
   });
 
   it("says in the first step that the GitHub App already deploys the app, without sending anyone to a terminal", async () => {
@@ -286,7 +286,7 @@ describe("deploy on push, in Spanish and for assistive technology", () => {
   it("has no accessibility violations, off and connected", { timeout: 30_000 }, async () => {
     screenWidth(1440);
     const off = await push(OFF);
-    await screen.findByText("Off");
+    await within(await screen.findByRole("region", { name: "Deploy on push" })).findByText("Off");
     await expectNoAxeViolations(screen.getByRole("main"));
     off.unmount();
     await push(CONNECTED, { [`GET /api/apps/${DOMAIN}/webhook/received`]: () => json(200, RECEIVED) });

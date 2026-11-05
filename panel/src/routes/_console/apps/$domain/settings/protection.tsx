@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { ProtectionSettings } from "../../../../../features/app/settings/ProtectionSettings";
-
-/** An application's settings, Protection: limits, response headers, HTTP/3, the firewall and client certificates. */
+/** 4.2: the settings of an application are the pages of its column; this subsection is now a fold of access. */
 export const Route = createFileRoute("/_console/apps/$domain/settings/protection")({
-  component: ProtectionSettings,
+  beforeLoad: ({ params }) => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect protocol
+    throw redirect({ to: "/apps/$domain/access", params, hash: "protection", replace: true });
+  },
 });

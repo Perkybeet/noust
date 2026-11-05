@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { ContainerSettings } from "../../../../../features/app/settings/ContainerSettings";
-
-/** An application's settings, Container: how its image is made and how it runs. */
+/** 4.2: the settings of an application are the pages of its column; this subsection is now in code. */
 export const Route = createFileRoute("/_console/apps/$domain/settings/container")({
-  component: ContainerSettings,
+  beforeLoad: ({ params }) => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect protocol
+    throw redirect({ to: "/apps/$domain/code", params, replace: true });
+  },
 });

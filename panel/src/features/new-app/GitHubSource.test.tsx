@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { GitHubRepository, GitHubStatus } from "../../api/queries/github";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
-import { chooseWay, openOtherWays } from "../../test/ways";
+import { chooseWay } from "../../test/ways";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import { filterRepositories } from "./GitHubSource";
@@ -334,21 +334,19 @@ describe("the new-app wizard, from GitHub", () => {
     ).toHaveAttribute("href", STATUS.install_url);
   });
 
-  it("offers Connect GitHub among the other ways where no App is connected, and keeps the box until it is chosen", async () => {
-    const { user } = wizard({
+  it("offers Connect GitHub under the box where no App is connected, and keeps the box until it is chosen", async () => {
+    wizard({
       configured: false,
       warnings: [],
       installations: [],
       hooks_url: null,
       hooks_active: false,
       host: "github.com",
-    }).harness;
+    });
     expect(
       await screen.findByLabelText("What to deploy"),
     ).toBeInTheDocument();
-    // Folded away until asked for: nobody who pastes a link is shown a connection to make.
-    expect(screen.queryByRole("button", { name: "Connect GitHub" })).not.toBeInTheDocument();
-    await openOtherWays(user);
+    // One press under the box of the repository card, which the page opens on.
     expect(await screen.findByRole("button", { name: "Connect GitHub" })).toBeInTheDocument();
     // The way to Settings is gone: connecting is done here.
     expect(
@@ -357,14 +355,13 @@ describe("the new-app wizard, from GitHub", () => {
   });
 
   it("stays on the box when the integration cannot be read", async () => {
-    const { backend, harness } = wizard(null);
+    const { backend } = wizard(null);
     expect(
       await screen.findByLabelText("What to deploy"),
     ).toBeInTheDocument();
     await waitFor(() => {
       expect(backend.callsTo("GET /api/integrations/github")).toHaveLength(1);
     });
-    await openOtherWays(harness.user);
     expect(
       screen.queryByRole("button", { name: "Connect GitHub" }),
     ).not.toBeInTheDocument();

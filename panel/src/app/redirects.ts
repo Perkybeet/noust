@@ -24,7 +24,28 @@ export const REDIRECT_ROWS = [
   // The account page has no filters to carry: what the old address carried is dropped.
   { from: "/settings/security", to: "/account/security", state: "live", plain: true },
   { from: "/settings/servers", to: "/fleet/servers", state: "live" },
-  { from: "/apps/$domain/settings/builds", to: "/apps/$domain/settings/build", state: "live" },
+  // 4.2: an application's settings are not a list of their own (item 116). Its column lists seventeen sections, and what
+  // were eighteen subsections are four pages of titled cards plus Export and Delete, which left each other.
+  { from: "/apps/$domain/settings", to: "/apps/$domain/resources", state: "live" },
+  { from: "/apps/$domain/settings/source", to: "/apps/$domain/code", state: "live" },
+  { from: "/apps/$domain/settings/build", to: "/apps/$domain/code", state: "live" },
+  { from: "/apps/$domain/settings/builds", to: "/apps/$domain/code", state: "live" },
+  { from: "/apps/$domain/settings/container", to: "/apps/$domain/code", state: "live" },
+  { from: "/apps/$domain/settings/deploys", to: "/apps/$domain/triggers", state: "live" },
+  { from: "/apps/$domain/settings/automation", to: "/apps/$domain/triggers", state: "live" },
+  { from: "/apps/$domain/settings/compose", to: "/apps/$domain/triggers", state: "live" },
+  { from: "/apps/$domain/settings/deploy-on-push", to: "/apps/$domain/triggers", state: "live" },
+  { from: "/apps/$domain/settings/hooks", to: "/apps/$domain/triggers", state: "live" },
+  { from: "/apps/$domain/settings/previews", to: "/apps/$domain/triggers", state: "live" },
+  { from: "/apps/$domain/settings/resources", to: "/apps/$domain/resources", state: "live" },
+  { from: "/apps/$domain/settings/processes", to: "/apps/$domain/resources", state: "live" },
+  { from: "/apps/$domain/settings/mounts", to: "/apps/$domain/resources", state: "live" },
+  { from: "/apps/$domain/settings/disk", to: "/apps/$domain/resources", state: "live" },
+  { from: "/apps/$domain/settings/security", to: "/apps/$domain/resources", state: "live" },
+  { from: "/apps/$domain/settings/access", to: "/apps/$domain/access", state: "live" },
+  { from: "/apps/$domain/settings/protection", to: "/apps/$domain/access", state: "live" },
+  { from: "/apps/$domain/settings/export", to: "/apps/$domain/export", state: "live" },
+  { from: "/apps/$domain/settings/delete", to: "/apps/$domain/delete", state: "live" },
   // 4.1: a server's page is ten sections. The updates joined the system, storage is files, and the
   // firewall is Network and ports (the firewall's old address is a view of the Security tab,
   // `?view=firewall`, which the route sends on with its search). The ports an application is published

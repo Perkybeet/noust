@@ -1,5 +1,3 @@
-import { CommandHint } from "../../../components/page/CommandHint";
-import { Section } from "../../../components/page/Section";
 import { SettingsGroup } from "../../../components/page/SettingsGroup";
 import { useT } from "../../../i18n";
 import { previewParentOf } from "../../apps/data";
@@ -12,6 +10,7 @@ import { RolloutLimitsSetting } from "./RolloutLimits";
 import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { BackupBeforeUpdateRow, isComposeStack } from "./StackSettings";
 import { UpdateScheduleSetting } from "./UpdateSchedule";
+import { PartSection } from "./saveHost";
 
 /**
  * Automation: what deploys the app without a person asking, and what holds, plans and protects its
@@ -29,7 +28,7 @@ export function AutomationSettings() {
   const isPreview = previewParentOf(app) !== null;
 
   return (
-    <Section title={t("appSettings.automation.title")} {...headerIcon} description={t("appSettings.automation.description")}>
+    <PartSection title={t("appSettings.automation.title")} {...headerIcon} description={t("appSettings.automation.description")}>
       <SettingsGroup title={t("appSettings.automation.deploysGroup")} icon={SETTINGS_ICONS.automaticDeploys}>
         <AutomaticDeploysRows domain={domain} />
       </SettingsGroup>
@@ -42,7 +41,6 @@ export function AutomationSettings() {
         {isPreview ? null : <UpdateScheduleSetting domain={domain} />}
         <RolloutLimitsSetting domain={domain} />
       </SettingsGroup>
-      <CommandHint command={`noust deploy schedule show ${domain}`} label={t("common.words.fromTerminal")} />
-    </Section>
+    </PartSection>
   );
 }

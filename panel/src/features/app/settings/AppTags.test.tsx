@@ -172,7 +172,8 @@ describe("an app's tags in its settings", () => {
     settings();
     const tags = await screen.findByRole("list", { name: "App tags" });
     expect(within(tags).getByText("web")).toBeInTheDocument();
-    expect(screen.getByText("Tags it deploys")).toBeInTheDocument();
+    // The git tags it deploys are another thing, beside the source on Code and build: they are not these.
+    expect(screen.queryByText("Tags it deploys")).not.toBeInTheDocument();
   });
 
   it("saves the tags typed, at once", async () => {

@@ -1,10 +1,11 @@
 /**
- * An application's settings against the real backend, one subsection per URL: the navigation
- * between them, General's facts, the Deploys form saved from its one save bar, an in-place app
- * turned onto instant rollback through its dry run, resource limits refused and then saved with
- * the exact body, deploy on push set up step by step, a sandboxed test build run as a job, and
- * the deletion that starts with nothing destructive ticked and waits for the domain. Sudo-mode
- * actions go through the real "Confirm it's you".
+ * An application's settings against the real backend. In 4.2 (item 116) they are not a list of their own: the
+ * application's column lists seventeen sections in five groups, and what were eighteen subsections are four pages of
+ * titled cards (Code and build, Deploys and triggers, Resources and running, Access and protection) beside Export and
+ * Delete. Here: the column, the old addresses, the facts of how it runs, the Deploys form saved from the page's one save
+ * bar, an in-place app turned onto instant rollback through its dry run, resource limits refused and then saved with the
+ * exact body, deploy on push set up step by step, a sandboxed test build run as a job, and the deletion that starts with
+ * nothing destructive ticked and waits for the domain. Sudo-mode actions go through the real "Confirm it's you".
  *
  * Instant rollback cannot be turned off through the API and both theme projects may run in the
  * same worker, so each project turns it on for its own app; the limits alternate by project for
@@ -16,6 +17,7 @@ import type { Page, TestInfo } from "@playwright/test";
 import path from "node:path";
 
 import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, stillness, test } from "./fixtures";
+import { openFold } from "./part-folds";
 
 const RELEASE_APP = "tienda.example.org";
 const IN_PLACE_APP = "pedidos.example.org";
@@ -55,49 +57,69 @@ async function factsOf(page: Page, domain: string): Promise<AppFacts> {
   return (await (await page.request.get(`/api/apps/${domain}`)).json()) as AppFacts;
 }
 
-test("the subsections are URLs of their own, and on a phone the list is a page of its own", async ({ page, consoleServer }) => {
+test("the column lists seventeen sections in five groups, and an old address of the settings goes to its page", async ({ page, consoleServer }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await signIn(page, consoleServer, `/apps/${RELEASE_APP}/settings`);
-  const nav = page.getByRole("navigation", { name: "Application settings" }).first();
-  await expect(nav.getByRole("link")).toHaveText(["General", "Source", "Build", "Releases and rollback", "Automation", "Deploy on push", "Deploy hooks", "Previews", "Resources", "Processes", "Mounts", "Disk", "Service security", "Access", "Protection", "Export", "Delete"]);
-  await nav.getByRole("link", { name: "Deploy on push" }).click();
-  await expect(page).toHaveURL(new RegExp(`/apps/${escapeRegExp(RELEASE_APP)}/settings/deploy-on-push$`));
-  await expect(page.getByRole("heading", { level: 2, name: "Deploy on push" })).toBeVisible();
-  // The app's tab stays Settings on every subsection.
-  await expect(page.getByRole("navigation", { name: "Application sections" }).getByRole("link", { name: "Settings" })).toHaveAttribute("aria-current", "page");
+  await signIn(page, consoleServer, `/apps/${RELEASE_APP}/code`);
+  const column = page.getByRole("navigation", { name: "Application sections" });
+  await expect(column.getByRole("link")).toHaveText([
+    "Overview",
+    "Deployments",
+    "Logs",
+    "Metrics",
+    "Variables",
+    "Domains",
+    "Database",
+    "Code and build",
+    "Deploys and triggers",
+    "Resources and running",
+    "Access and protection",
+    "Diagnose",
+    "Terminal",
+    "Files",
+    "Export and declaration",
+    "Several servers",
+    "Delete",
+  ]);
+  await expect(column.getByRole("link", { name: "Code and build" })).toHaveAttribute("aria-current", "page");
+  await column.getByRole("link", { name: "Deploys and triggers" }).click();
+  await expect(page).toHaveURL(new RegExp(`/apps/${escapeRegExp(RELEASE_APP)}/triggers$`));
+  // What the page is for is open; what deploys by itself, the push, the hooks and the previews are one press each.
+  await expect(page.getByRole("heading", { level: 2, name: "Releases and rollback" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Deploy on push", expanded: false })).toBeVisible();
 
+  // The address a bookmark or the terminal's link kept: it goes where the subsection went.
+  // A folded part names itself, so that its fold is open when the page is.
+  await page.goto(`/apps/${RELEASE_APP}/settings/deploy-on-push`);
+  await expect(page).toHaveURL(new RegExp(`/apps/${escapeRegExp(RELEASE_APP)}/triggers#deploy-on-push$`));
+  await expect(page.getByRole("button", { name: "Deploy on push", expanded: true })).toBeVisible();
+  await page.goto(`/apps/${RELEASE_APP}/settings/export`);
+  await expect(page).toHaveURL(new RegExp(`/apps/${escapeRegExp(RELEASE_APP)}/export$`));
+
+  // On a phone the same list is the section selector at the top of the page.
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`/apps/${RELEASE_APP}/settings`);
-  const index = page.locator('nav[aria-label="Application settings"]:visible');
-  await expect(index.getByRole("link", { name: "Resources" })).toBeVisible();
-  await index.getByRole("link", { name: "Resources" }).click();
+  await page.goto(`/apps/${RELEASE_APP}/resources`);
   await expect(page.getByRole("heading", { level: 2, name: "Resources" })).toBeVisible();
-  await page.getByRole("link", { name: "All sections" }).click();
-  await expect(page).toHaveURL(new RegExp(`/apps/${escapeRegExp(RELEASE_APP)}/settings$`));
-  await expectNoA11yViolations(page, "the settings index on a phone");
+  await expectNoA11yViolations(page, "an application's page on a phone");
 });
 
-test("General reads what the API records", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, `/apps/${RELEASE_APP}/settings`);
+test("how it runs is a card of facts the API records, and a static site has no process to say", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer, `/apps/${RELEASE_APP}/resources`);
   const facts = await factsOf(page, RELEASE_APP);
-  if (facts.source === null) throw new Error(`${RELEASE_APP} has no recorded source to assert against`);
-  const general = page.getByRole("region", { name: "General" });
-  const repo = general.getByRole("link", { name: new RegExp(`^${escapeRegExp(facts.source)}`) });
-  await expect(repo).toHaveAttribute("href", facts.source);
-  if (facts.branch !== null) await expect(general.getByText(facts.branch, { exact: true })).toBeVisible();
-  await expect(general.getByText(facts.build_command.length > 0 ? facts.build_command.join(" ") : "None", { exact: true })).toBeVisible();
-  await expect(general.getByText("Instant rollback", { exact: true })).toBeVisible();
-  await expect(saveBar(page)).toHaveCount(0);
-  await expectNoA11yViolations(page, "General");
+  const how = page.getByRole("region", { name: "How it runs" });
+  await expect(how.getByText("Instant rollback", { exact: true })).toBeVisible();
+  await expect(how.getByText(facts.source === null ? "Not recorded" : "Starts at boot", { exact: true })).toBeVisible();
+  // One bar for the page, and nothing in it to save before anything is typed.
+  await expect(saveBar(page).getByText("No unsaved changes")).toBeVisible();
+  await expectNoA11yViolations(page, "Resources and running");
 
-  await page.goto("/apps/bodas.example.com/settings");
-  const staticSite = page.getByRole("region", { name: "General" });
+  await page.goto("/apps/bodas.example.com/resources");
+  const staticSite = page.getByRole("region", { name: "How it runs" });
   await expect(staticSite.getByText("The web server, no process", { exact: true })).toBeVisible();
-  await expect(staticSite.getByText("Start command")).toHaveCount(0);
+  await expect(staticSite.getByText("Starts at boot")).toHaveCount(0);
 });
 
 test("Releases and rollback saves the startup check and the versions kept from one save bar, refusing on the field first", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, `/apps/${RELEASE_APP}/settings/deploys`);
+  await signIn(page, consoleServer, `/apps/${RELEASE_APP}/triggers`);
   const before = await factsOf(page, RELEASE_APP);
   const check = card(page, "Startup check");
   const path = check.getByRole("textbox", { name: "Path" });
@@ -151,7 +173,7 @@ test("an in-place app turns on instant rollback through its dry run", async ({ p
   // Once moved, the app has no plan: a read racing the move answers 409 (see migrationPlanQuery).
   problems.expect(new RegExp(`status of 409 .*/api/apps/${escapeRegExp(domain)}/migrate/plan$`));
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await signIn(page, consoleServer, `/apps/${domain}/settings/deploys`);
+  await signIn(page, consoleServer, `/apps/${domain}/triggers`);
   const current = (await (await page.request.get(`/api/apps/${domain}`)).json()) as { layout: string };
   test.skip(current.layout === "releases", `${domain} was moved by an earlier attempt in this worker`);
 
@@ -188,7 +210,7 @@ test("an in-place app turns on instant rollback through its dry run", async ({ p
 
 test("resource limits are refused as the backend would, then saved with exactly what the form says", async ({ page, consoleServer }, testInfo) => {
   const memory = testInfo.project.name === "dark" ? 320 : 256;
-  await signIn(page, consoleServer, `/apps/${IN_PLACE_APP}/settings/resources`);
+  await signIn(page, consoleServer, `/apps/${IN_PLACE_APP}/resources`);
   const memoryField = page.getByRole("textbox", { name: "Memory", exact: true });
   await memoryField.fill("32");
   await saveBar(page).getByRole("button", { name: "Save" }).click();
@@ -208,8 +230,8 @@ test("resource limits are refused as the backend would, then saved with exactly 
 
 test("deploy on push says where the setup stands, step by step, and shows the secret only in sudo mode", async ({ page, consoleServer }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await signIn(page, consoleServer, `/apps/${RELEASE_APP}/settings/deploy-on-push`);
-  await expect(page.getByText(/When you push to the repository, GitHub, GitLab, Gitea or Bitbucket tells this server/)).toBeVisible();
+  await signIn(page, consoleServer, `/apps/${RELEASE_APP}/triggers`);
+  await openFold(page, "Deploy on push");
   const setup = card(page, "Set it up");
   // Only the step the setup is at is drawn: the seeded machine publishes an address and the app has its
   // secret, so it is the last, where the values are pasted; the two before are one click back.
@@ -242,7 +264,9 @@ test("deploy on push says where the setup stands, step by step, and shows the se
 });
 
 test("a sandboxed test build runs as a job, and its failure is shown in the system's words", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, `/apps/${RELEASE_APP}/settings/build`);
+  await signIn(page, consoleServer, `/apps/${RELEASE_APP}/code`);
+  // The sandbox, the packages and the cache are one press under Build.
+  await openFold(page, "Sandbox, packages and cache");
   const sandbox = card(page, "Build sandbox");
   await expect(sandbox.getByText("Its builds still run as root")).toBeVisible();
   await expect(sandbox.getByText("It can be turned on once a test build passes.")).toBeVisible();
@@ -257,17 +281,21 @@ test("a sandboxed test build runs as a job, and its failure is shown in the syst
 });
 
 test("deleting starts with nothing destructive ticked, waits for the domain, and cancelling deletes nothing", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, `/apps/${RELEASE_APP}/settings/delete`);
+  await signIn(page, consoleServer, `/apps/${RELEASE_APP}/delete`);
   const deletions: string[] = [];
   page.on("request", (request) => {
     if (request.method() === "DELETE" && request.url().includes(`/api/apps/${RELEASE_APP}`)) deletions.push(request.url());
   });
-  await page.getByRole("button", { name: "Delete application…" }).click();
+  // One box for each thing that holds data, none ticked: the page says it before anything is pressed.
+  await expect(page.getByRole("checkbox", { name: /Also delete its files/ })).not.toBeChecked();
+  await expect(page.getByRole("checkbox", { name: /Also delete its certificate/ })).not.toBeChecked();
+  await expectNoA11yViolations(page, "the page of deleting an application");
+
+  await page.getByRole("button", { name: "Delete…" }).click();
   await confirmItsYou(page, consoleServer);
 
   const dialog = page.getByRole("alertdialog", { name: `Delete ${RELEASE_APP}` });
-  await expect(dialog.getByRole("checkbox", { name: /Also delete its files/ })).not.toBeChecked();
-  await expect(dialog.getByRole("checkbox", { name: /Also delete its certificate/ })).not.toBeChecked();
+  await expect(dialog.getByText(/^Removed: its service and its web server site\.$/)).toBeVisible();
   const action = dialog.getByRole("button", { name: "Delete application" });
   await expect(action).toBeDisabled();
   await dialog.getByRole("textbox").fill(RELEASE_APP);
@@ -278,5 +306,5 @@ test("deleting starts with nothing destructive ticked, waits for the domain, and
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await expect(dialog).toBeHidden();
   expect(deletions).toEqual([]);
-  await expect(page).toHaveURL(new RegExp(`/apps/${escapeRegExp(RELEASE_APP)}/settings/delete$`));
+  await expect(page).toHaveURL(new RegExp(`/apps/${escapeRegExp(RELEASE_APP)}/delete$`));
 });

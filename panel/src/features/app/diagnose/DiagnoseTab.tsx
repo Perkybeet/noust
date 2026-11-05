@@ -97,7 +97,7 @@ function nextStep(check: Check, domain: string, t: T): ReactNode {
     case "zero_downtime":
       return (
         <TextLink
-          to="/apps/$domain/settings/deploys"
+          to="/apps/$domain/triggers"
           params={{ domain }}
           size="ui"
         >
@@ -120,7 +120,7 @@ function ZeroDowntimeSuggestion({ domain, t }: { domain: string; t: T }) {
       title={t("appPages.diagnose.zeroDowntimeTitle")}
       action={
         <Link
-          to="/apps/$domain/settings/deploys"
+          to="/apps/$domain/triggers"
           params={{ domain }}
           className={buttonClassName("secondary", "sm")}
         >

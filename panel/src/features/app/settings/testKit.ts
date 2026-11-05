@@ -6,7 +6,12 @@
 
 import { screen } from "@testing-library/react";
 
+import { getLocale } from "../../../app/locale";
 import { renderConsole } from "../../../test/console";
+import { translate } from "../../../i18n";
+import type { PlainKey } from "../../../i18n";
+import { FOLDED } from "../pages/ConfigPage";
+import { PAGE_PARTS, SUBSECTION_PAGE } from "./sections";
 import { APPS, SESSION, fakeBackend, json, signedInRoutes } from "../../../test/fakes";
 import type { RouteHandler } from "../../../test/fakes";
 
@@ -155,14 +160,26 @@ export function healthOf(app: Record<string, unknown>, extras: Record<string, un
   };
 }
 
+/** The page (4.2) that gathers each old subsection of the settings: `/deploys` is on the page Deploys and triggers. */
+export function pageOf(path: string): string {
+  const name = path.replace(/^\//, "");
+  if (name === "") return "resources";
+  // A page by its own name: Several servers is not a subsection of 4.1, it is a page of its own.
+  if (["code", "triggers", "resources", "access", "export", "servers", "delete"].includes(name) && !(name in SUBSECTION_PAGE)) return name;
+  const page = SUBSECTION_PAGE[name];
+  if (page === undefined) throw new Error(`no page gathers the subsection "${name}"`);
+  return page;
+}
+
 /**
- * Renders one subsection of the app's settings over the fake API and waits for its heading.
+ * Renders the page that gathers one subsection of the app's old settings over the fake API and waits for the
+ * heading of that subsection (a page keeps the title of each part it gathers).
  *
- * @param path The subsection's path after `/settings`: "" for General, "/deploys"...
+ * @param path The old subsection's path after `/settings`: "" for General, "/deploys"...
  * @param heading The subsection's h2, which says it rendered.
  */
-export async function renderSettings(path: string, heading: string, app: object = RELEASE_APP, routes: Record<string, RouteHandler> = {}) {
-  const backend = fakeBackend({
+export function settingsRoutes(app: object = RELEASE_APP, routes: Record<string, RouteHandler> = {}): Record<string, RouteHandler> {
+  return {
     ...signedInRoutes(),
     [`GET /api/apps/${DOMAIN}`]: () => json(200, app),
     [`GET /api/apps/${DOMAIN}/pending`]: () => json(200, { domain: DOMAIN, pending: false, items: [], counts: {}, needs: null, since: null, deployment_id: null, baseline_created: false }),
@@ -181,10 +198,47 @@ export async function renderSettings(path: string, heading: string, app: object 
     [`GET /api/apps/${DOMAIN}/previews`]: () => json(200, { domain: DOMAIN, enabled: false, settings: null, previews: [], total: 0 }),
     [`GET /api/apps/${DOMAIN}/networks`]: () => json(200, { app: DOMAIN, applicable: true, reason: "", containers: [], isolated: true, networks: [] }),
     ...routes,
-  });
-  const harness = renderConsole(`/apps/${DOMAIN}/settings${path}`);
+  };
+}
+
+export async function renderSettings(
+  path: string,
+  heading: string,
+  app: object = RELEASE_APP,
+  routes: Record<string, RouteHandler> = {},
+  { folds = true }: { folds?: boolean } = {},
+) {
+  const backend = fakeBackend(settingsRoutes(app, routes));
+  const harness = renderConsole(`/apps/${DOMAIN}/${pageOf(path)}`);
+  // A test about an application that has none of what a fold holds (no repository to reach) leaves it alone.
+  if (folds) await openFolds(harness.user, path);
   await screen.findByRole("heading", { level: 2, name: heading });
   return { ...harness, backend };
+}
+
+/** What a page keeps one press away inside a part, by the part's id: the cards of how the repository is reached, and of a build's sandbox. */
+const INNER_FOLDS: Readonly<Record<string, readonly PlainKey[]>> = {
+  source: ["appPages.config.foldRepository"],
+  build: ["appPages.config.foldBuild"],
+};
+
+/**
+ * Opens what the page folds under the part a test is about: the part itself where its page keeps it folded, and the
+ * cards inside it that most operators never open. A test reads a part as an operator who opened it would.
+ */
+export async function openFolds(user: ReturnType<typeof renderConsole>["user"], path: string): Promise<void> {
+  const id = path.replace(/^\//, "") === "" ? "general" : path.replace(/^\//, "");
+  const page = SUBSECTION_PAGE[id];
+  const names: string[] = [];
+  if (page !== undefined && page !== "export" && page !== "delete" && FOLDED[page].has(id)) {
+    const part = PAGE_PARTS[page].find((candidate) => candidate.id === id);
+    if (part !== undefined) names.push(translate(getLocale(), part.label));
+  }
+  names.push(...(INNER_FOLDS[id] ?? []).map((key) => translate(getLocale(), key)));
+  for (const name of names) {
+    const button = await screen.findByRole("button", { name: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`), expanded: false });
+    await user.click(button);
+  }
 }
 
 /** The first of what a query matched, which a test that needs it has already shown is there. */

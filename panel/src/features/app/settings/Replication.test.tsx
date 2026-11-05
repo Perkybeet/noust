@@ -28,15 +28,15 @@ const BLOCKED = {
   ],
 };
 
-function exportPage(replication: object = READY_TO_SPREAD) {
-  return renderSettings("/export", "Export", undefined, {
+function serversPage(replication: object = READY_TO_SPREAD) {
+  return renderSettings("/servers", "On several servers", undefined, {
     [`GET /api/apps/${DOMAIN}/replication`]: () => json(200, replication),
   });
 }
 
 describe("whether the app could run on several servers", () => {
   it("says nothing stops it", async () => {
-    await exportPage();
+    await serversPage();
 
     expect(await screen.findByRole("heading", { name: "On several servers" })).toBeInTheDocument();
     expect(await screen.findByText("Nothing here stops it: a second server would serve the same.")).toBeInTheDocument();
@@ -44,7 +44,7 @@ describe("whether the app could run on several servers", () => {
   });
 
   it("lists what blocks and what only warns, each with the names it is about and what to do", async () => {
-    await exportPage(BLOCKED);
+    await serversPage(BLOCKED);
 
     expect(await screen.findByText("As it is, a second server would not serve the same: something here blocks it.")).toBeInTheDocument();
     const list = screen.getByRole("list", { name: "What a second server would get wrong or do twice" });
@@ -59,14 +59,14 @@ describe("whether the app could run on several servers", () => {
   });
 
   it("says it runs a registry image, which a rollout can name by tag", async () => {
-    await exportPage({ ...READY_TO_SPREAD, by_image: true });
+    await serversPage({ ...READY_TO_SPREAD, by_image: true });
 
     expect(await screen.findByText("It runs a registry image, so a rollout can name the tag and no server builds it.")).toBeInTheDocument();
   });
 
   it("speaks Spanish", async () => {
     await act(() => setLocale("es"));
-    await renderSettings("/export", "Exportar", undefined, {
+    await renderSettings("/servers", "En varios servidores", undefined, {
       [`GET /api/apps/${DOMAIN}/replication`]: () => json(200, BLOCKED),
     });
 

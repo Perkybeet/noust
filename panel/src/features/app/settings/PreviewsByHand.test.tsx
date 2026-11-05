@@ -8,6 +8,7 @@ import { APPS, SESSION, fakeBackend, json, problem, signedInRoutes } from "../..
 import type { RouteHandler } from "../../../test/fakes";
 import { viewerSession } from "../../teams/testFixtures";
 import { previewName } from "./previews";
+import { openFolds, saveBar } from "./testKit";
 import { giveElementsASize } from "../../../test/layout";
 
 vi.setConfig({ testTimeout: 20_000 });
@@ -106,7 +107,9 @@ async function previewsOf(state: () => object, extra: Record<string, RouteHandle
     [`GET ${PREVIEWS}/variables`]: () => json(200, { domain: DOMAIN, variables: [] }),
     ...extra,
   });
-  const harness = renderConsole(`/apps/${DOMAIN}/settings/previews`);
+  const harness = renderConsole(`/apps/${DOMAIN}/triggers`);
+  // The page folds Previews under its title, as it does what most operators never open.
+  await openFolds(harness.user, "/previews");
   const section = await screen.findByRole("region", { name: "Pull request previews" });
   return { ...harness, backend, section };
 }
@@ -149,7 +152,7 @@ describe("what the settings in force expose", () => {
     });
     await user.type(await within(section).findByRole("textbox", { name: /Copied from the app/ }), "NEXT_PUBLIC_API_URL, SENTRY_DSN");
     await user.click(within(section).getByRole("radio", { name: "The app's databases" }));
-    await user.click(within(section).getByRole("button", { name: "Save" }));
+    await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
     await waitFor(() => {
       expect(backend.callsTo(`PUT ${PREVIEWS}/settings`)[0]?.body).toEqual({
         base_domain: "previews.example.com",
@@ -170,7 +173,7 @@ describe("what the settings in force expose", () => {
   it("refuses a name that is not a variable in the list of the copied ones", async () => {
     const { user, backend, section } = await previewsOf(() => listing([]));
     await user.type(await within(section).findByRole("textbox", { name: /Copied from the app/ }), "9LIVES");
-    await user.click(within(section).getByRole("button", { name: "Save" }));
+    await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
     expect(await within(section).findByText(/Not a variable name: 9LIVES\./)).toBeInTheDocument();
     expect(backend.callsTo(`PUT ${PREVIEWS}/settings`)).toHaveLength(0);
   });

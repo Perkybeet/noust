@@ -40,29 +40,20 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "app-diagnose", path: "/apps/clientes.example.com/diagnose" },
   // 3.4: a shell as the application's account, and a command run once.
   { name: "app-terminal", path: "/apps/tienda.example.org/terminal" },
-  { name: "app-settings", path: "/apps/shop.example.net/settings" },
-  // 3.1: each subsection of an app's settings is a URL of its own.
-  { name: "app-settings-source", path: "/apps/taller.example.com/settings/source" },
-  { name: "app-settings-deploys", path: "/apps/tienda.example.org/settings/deploys" },
-  { name: "app-settings-push", path: "/apps/tienda.example.org/settings/deploy-on-push" },
-  { name: "app-settings-hooks", path: "/apps/tienda.example.org/settings/hooks" },
-  { name: "app-settings-access", path: "/apps/tienda.example.org/settings/access" },
-  // 4.0: what deploys by itself, and what the site limits and sends back, are subsections of their own.
-  { name: "app-settings-automation", path: "/apps/tienda.example.org/settings/automation" },
-  { name: "app-settings-protection", path: "/apps/tienda.example.org/settings/protection" },
-  // 4.0: how the application is built and the sandbox its builds run in; /builds redirects here.
-  { name: "app-settings-build", path: "/apps/shop.example.net/settings/build" },
-  { name: "app-settings-resources", path: "/apps/shop.example.net/settings/resources" },
-  { name: "app-settings-disk", path: "/apps/shop.example.net/settings/disk" },
-  // 3.4: what runs beside the web process, the sandbox of its unit and the files kept for it.
-  { name: "app-settings-processes", path: "/apps/tienda.example.org/settings/processes" },
-  { name: "app-settings-security", path: "/apps/tienda.example.org/settings/security" },
-  { name: "app-settings-mounts", path: "/apps/shop.example.net/settings/mounts" },
+  // 4.2: an application's settings are the pages of its column (item 116): what they gather, one page each.
+  { name: "app-code", path: "/apps/shop.example.net/code" },
+  { name: "app-code-source", path: "/apps/taller.example.com/code" },
+  { name: "app-triggers", path: "/apps/tienda.example.org/triggers" },
+  { name: "app-triggers-previews", path: "/apps/portal.example.org/triggers" },
+  { name: "app-triggers-zero-downtime", path: "/apps/pagos.example.org/triggers" },
+  { name: "app-resources", path: "/apps/shop.example.net/resources" },
+  { name: "app-resources-processes", path: "/apps/tienda.example.org/resources" },
+  { name: "app-access", path: "/apps/tienda.example.org/access" },
+  // 3.4: the files kept for an application, and a shell as its account.
   { name: "app-files", path: "/apps/tienda.example.org/files" },
-  { name: "app-settings-delete", path: "/apps/shop.example.net/settings/delete" },
-  // 2.2: an application in blue/green mode, and one with pull request previews.
-  { name: "app-settings-zero-downtime", path: "/apps/pagos.example.org/settings/deploys" },
-  { name: "app-settings-previews", path: "/apps/portal.example.org/settings/previews" },
+  { name: "app-export", path: "/apps/shop.example.net/export" },
+  { name: "app-servers", path: "/apps/shop.example.net/servers" },
+  { name: "app-delete", path: "/apps/shop.example.net/delete" },
   // 3.4: teams, projects and environments.
   { name: "projects", path: "/projects" },
   { name: "project", path: "/projects/default/default" },

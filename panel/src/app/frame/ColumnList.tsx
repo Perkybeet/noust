@@ -23,6 +23,8 @@ export interface ListItem {
   count?: number | null;
   /** A small word after the name that says something about the section as a whole ("All the fleet"). */
   tag?: string;
+  /** The label is the operator's word (a project's name), not the console's: it is never translated. */
+  literal?: boolean;
 }
 
 export interface ListGroup {
@@ -92,7 +94,9 @@ export function ColumnList({ label, groups, currentKey }: { label: string; group
                       <item.icon aria-hidden="true" className="size-icon-md shrink-0 text-fg-faint group-hover:text-fg-muted group-aria-[current=page]:text-accent-fg" />
                     ) : null}
                     {/* A name that does not fit takes a second line: Spanish runs longer than the column, and a cut name is another name. */}
-                    <span className="min-w-0 flex-1">{item.label}</span>
+                    <span {...(item.literal === true ? { translate: "no" as const } : {})} className="min-w-0 flex-1">
+                      {item.label}
+                    </span>
                     {item.tag !== undefined ? <Badge>{item.tag}</Badge> : null}
                     {item.count !== undefined ? (
                       <span className={cx("mono min-w-5 rounded-chip bg-bg-sunken px-1 text-center text-12 text-fg-muted", item.count === null && "invisible")}>{item.count ?? 0}</span>

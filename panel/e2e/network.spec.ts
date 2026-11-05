@@ -41,13 +41,12 @@ test("DNS is one click from the domains, and Network has the tunnels and the pub
 
 });
 
-test("an application's Access settings are two clicks from its Settings", async ({ page, consoleServer }) => {
+test("an application's Access settings are one click from its column", async ({ page, consoleServer }) => {
   const app = "tienda.example.org";
   await signIn(page, consoleServer, `/apps/${app}`);
-  await page.getByRole("navigation", { name: "Application sections" }).getByRole("link", { name: "Settings" }).click();
-  await page.getByRole("navigation", { name: "Application settings" }).first().getByRole("link", { name: "Access" }).click();
-  await expect(page).toHaveURL(new RegExp(`/apps/${app.replace(/\./g, "\\.")}/settings/access$`));
-  await expect(page.getByRole("heading", { level: 2, name: "Access" })).toBeVisible();
+  await page.getByRole("navigation", { name: "Application sections" }).getByRole("link", { name: "Access and protection" }).click();
+  await expect(page).toHaveURL(new RegExp(`/apps/${app.replace(/\./g, "\\.")}/access$`));
+  await expect(page.getByRole("heading", { level: 2, name: "Access", exact: true })).toBeVisible();
   await expect(page.getByRole("checkbox", { name: /Ask for a password/ })).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the Access settings");

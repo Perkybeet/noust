@@ -16,6 +16,7 @@ import type { Locator, Page } from "@playwright/test";
 
 import { csrf } from "./apps-cleanup";
 import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
+import { openFold } from "./part-folds";
 import type { ConsoleServer } from "./fixtures";
 
 const SSH_APP = "taller.example.com";
@@ -44,9 +45,9 @@ test("an application gets a key of its own, adds its public half at the host, te
   consoleServer,
 }) => {
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
-  await signIn(page, consoleServer, `/apps/${SSH_APP}/settings`);
+  await signIn(page, consoleServer, `/apps/${SSH_APP}/code`);
   await elevate(page, consoleServer);
-  await page.getByRole("navigation", { name: "Application settings" }).first().getByRole("link", { name: "Source", exact: true }).click();
+  await openFold(page, "How Noust reaches the repository");
   await expect(page.getByRole("heading", { level: 2, name: "Source" })).toBeVisible();
 
   // No key of its own, and what git falls back to: no key at all, or the server's own, which another spec of this worker
@@ -114,8 +115,9 @@ test("an application gets a key of its own, adds its public half at the host, te
 test("a key that exists is imported once and shown only as its public half", async ({ page, consoleServer, problems }) => {
   // A key with a passphrase is refused by the server; the refusal is the answer under test.
   problems.expect(/status of 400 .* \/api\/apps\/taller\.example\.com\/deploy-key\/import$/);
-  await signIn(page, consoleServer, `/apps/${SSH_APP}/settings/source`);
+  await signIn(page, consoleServer, `/apps/${SSH_APP}/code`);
   await elevate(page, consoleServer);
+  await openFold(page, "How Noust reaches the repository");
   const key = card(page, "Deploy key");
   await key.getByRole("button", { name: "Import a key…" }).click();
   const dialog = page.getByRole("dialog", { name: /^Import a deploy key for/ });
@@ -135,8 +137,9 @@ test("a key that exists is imported once and shown only as its public half", asy
 
 test("an https credential is kept as a secret and is never shown back", async ({ page, consoleServer }) => {
   const token = "ghp_e2eTokenThatMustNeverComeBack0123456789";
-  await signIn(page, consoleServer, `/apps/${HTTPS_APP}/settings/source`);
+  await signIn(page, consoleServer, `/apps/${HTTPS_APP}/code`);
   await elevate(page, consoleServer);
+  await openFold(page, "How Noust reaches the repository");
   const credential = card(page, "HTTPS credential");
   await expect(credential.getByText("No credential", { exact: true })).toBeVisible();
 
@@ -152,6 +155,7 @@ test("an https credential is kept as a secret and is never shown back", async ({
 
   // Nothing on the page, and nothing the API sends, carries the token again.
   await page.reload();
+  await openFold(page, "How Noust reaches the repository");
   await expect(card(page, "HTTPS credential").getByText("A credential is kept", { exact: true })).toBeVisible();
   expect(await page.content()).not.toContain(token);
   const stored = await page.request.get(`/api/apps/${HTTPS_APP}/git-credential`);
@@ -165,8 +169,9 @@ test("an https credential is kept as a secret and is never shown back", async ({
 });
 
 test("the server lists its deploy keys and pinned host keys, and forgets a host key on request", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, `/apps/${SSH_APP}/settings/source`);
+  await signIn(page, consoleServer, `/apps/${SSH_APP}/code`);
   await elevate(page, consoleServer);
+  await openFold(page, "How Noust reaches the repository");
   const made = await page.request.post(`/api/apps/${SSH_APP}/deploy-key`, { data: {}, headers: await csrf(page) });
   expect(made.ok(), await made.text()).toBe(true);
   try {
@@ -177,7 +182,7 @@ test("the server lists its deploy keys and pinned host keys, and forgets a host 
     await expect(row.getByText("github.com/you/landing")).toBeVisible();
     // The applications built from the key are tags of its name: the first on the line, the rest behind "+N".
     await row.getByRole("button", { name: /more tag/ }).click();
-    await expect(page.getByRole("dialog").getByRole("link", { name: SSH_APP })).toHaveAttribute("href", `/apps/${SSH_APP}/settings/source`);
+    await expect(page.getByRole("dialog").getByRole("link", { name: SSH_APP })).toHaveAttribute("href", `/apps/${SSH_APP}/code`);
     await page.keyboard.press("Escape");
 
     // The host keys the machine pinned, one of them on another port.

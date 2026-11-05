@@ -3,7 +3,6 @@ import type { Catalog } from "../types";
 
 export const workspaces: Catalog<typeof en> = {
   open: "Desplegar los workspaces de un monorepo",
-  openHint: "Un repositorio con varias aplicaciones dentro se convierte en una aplicación por workspace.",
   title: "Desplegar los workspaces de un monorepo",
   description: "Noust lee qué workspaces son aplicaciones y crea una aplicación por cada uno que elijas, con su propio dominio. Un push despliega una aplicación solo cuando toca ese workspace o algo de lo que depende.",
   source: "Repositorio",

@@ -61,7 +61,6 @@ describe("the Docker networks of a stack", () => {
     const list = within(card).getByRole("list", { name: "Networks of the stack" });
     expect(within(list).getByText("shop_default")).toBeInTheDocument();
     expect(within(list).getByText("Address ranges: 172.18.0.0/16")).toBeInTheDocument();
-    expect(screen.getByText("noust app compose show " + DOMAIN)).toBeInTheDocument();
     await expectNoAxeViolations(document.body);
   });
 

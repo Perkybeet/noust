@@ -7,10 +7,8 @@
  */
 export const appSettings = {
   documentTitle: "{section} - Settings - {domain}",
-  loading: "Loading the settings",
   jobFailedSilently: "The job failed without saying why. Its log is on the Activity page.",
   nav: {
-    label: "Application settings",
     general: "General",
     deploys: "Releases and rollback",
     automation: "Automation",
@@ -22,33 +20,16 @@ export const appSettings = {
     resources: "Resources",
     source: "Source",
     previews: "Previews",
-    export: "Export",
-  },
-  /** The headings of the list of subsections: whose the sections are. */
-  groups: {
-    code: "Code",
-    deploys: "Deploys",
-    triggers: "Triggers",
-    runtime: "Runtime",
-    access: "Access",
-    danger: "Export and delete",
   },
   general: {
     tags: "Tags it deploys",
     noTags: "None: it deploys its branch",
     tagsHint: "Releases and pushed tags that match deploy, the newest by version.",
     noTagsHint: "It can deploy releases and tags instead.",
-    title: "General",
+    title: "How it runs",
     description: "What this app is and how it runs.",
-    type: "Type",
-    port: "Port",
-    source: "Source",
-    branch: "Branch",
     noBranch: "None pinned",
     noBranchHint: "With deploy on push, a push to any branch deploys it",
-    buildCommand: "Build command",
-    noCommand: "None",
-    startCommand: "Start command",
     directory: "Directory",
     deploysWork: "How deploys work",
     layoutReleases: "Instant rollback",
@@ -61,7 +42,6 @@ export const appSettings = {
     servedBy: "Served by",
     servedByStatic: "The web server, no process",
     notRecorded: "Not recorded",
-    readOnlyNote: "These are set when the app is deployed. The branch it deploys from can be pinned here.",
   },
   deploys: {
     title: "Releases and rollback",
@@ -614,12 +594,6 @@ export const appSettings = {
     stateTitle: "Previews for this app",
   },
   danger: {
-    description: "What cannot be undone, set apart from everything else.",
-    actionTitle: "Delete this application",
-    actionDescription: "Stops it and removes its service and its web server site. Its files and certificate go only if you tick them in the next step; backups are always kept.",
-    actionDescriptionWithPath:
-      "Stops it and removes its service and its web server site. Its files in {path} and its certificate go only if you tick them in the next step; backups are always kept.",
-    deleteButton: "Delete application…",
     startFailed: "Deletion of {domain} could not start",
   },
   migrationPlan: {
@@ -666,12 +640,5 @@ export const appSettings = {
     deploysGroup: "Automatic deploys",
     backupsGroup: "Backups before an update",
     planGroup: "Holds and schedules",
-  },
-  keywords: {
-    build: "build commands install start runtime sandbox builds packages cache process types",
-    deploys: "deploys instant rollback releases versions startup check health zero-downtime blue green",
-    automation: "automatic deploys pause freeze schedule scheduled updates required backup deploy limits history stop",
-    compose: "docker compose profiles networks registry accounts arguments",
-    protection: "rate limit headers hsts http3 quic waf firewall client certificates mtls security",
   },
 } as const;

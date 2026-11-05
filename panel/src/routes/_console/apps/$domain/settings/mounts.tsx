@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { MountsSettings } from "../../../../../features/app/settings/MountsSettings";
-
-/** An application's settings, Mounts: the files kept for it and the folders of the server bound into it. */
+/** 4.2: the settings of an application are the pages of its column; this subsection is now a fold of resources. */
 export const Route = createFileRoute("/_console/apps/$domain/settings/mounts")({
-  component: MountsSettings,
+  beforeLoad: ({ params }) => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect protocol
+    throw redirect({ to: "/apps/$domain/resources", params, hash: "mounts", replace: true });
+  },
 });

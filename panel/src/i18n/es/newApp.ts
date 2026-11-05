@@ -24,17 +24,29 @@ export const newApp: Catalog<typeof en> = {
     deploy: "Desplegar",
     announce: "Paso {number} de {total}: {label}",
   },
+  /** Las cinco maneras de empezar una aplicación, como las pregunta la primera página de Nueva aplicación (punto 99). */
+  origins: {
+    legend: "De dónde sale",
+    repo: { label: "De un repositorio", description: "GitHub, GitLab o cualquier git. Se despliega a cada push." },
+    catalog: { label: "Del catálogo", description: "WordPress, n8n, Nextcloud y más, listas para instalar." },
+    image: { label: "Una imagen de contenedor", description: "De Docker Hub, GHCR o tu propio registro." },
+    files: { label: "Subir los ficheros", description: "Una web estática, un .zip, un Dockerfile o un Compose." },
+    existing: { label: "Algo que ya corre aquí", description: "Un Compose en marcha, o lo que tenías en Coolify o Dokploy." },
+    existingIntro: "Adoptar no cambia nada de lo que corre: Noust lo apunta y lo despliega a partir de la próxima vez. Tiene sus dos pasos, nombre y dirección y revisar, y nunca compila nada.",
+    existingChoice: "Qué traer",
+    existingRunning: "Lo que corre en este servidor",
+    existingOther: "De otra plataforma o de un fichero",
+    filesTitle: "Los ficheros de los que partir",
+    filesIntro: "Sube un archivo del proyecto, pega un Dockerfile o un Compose, o apunta a una carpeta de este servidor.",
+  },
   box: {
     label: "Qué desplegar",
     description: "Un repositorio, una imagen o una carpeta del servidor, o el nombre de lo que quieres instalar.",
     placeholder: "Pega un enlace o busca en el catálogo",
-    otherWays: "Otras formas de empezar",
     connectGithub: "Conectar GitHub",
   },
   modes: {
     compose: "Compose",
-    import: "Importar aplicación",
-    adopt: "Ya en marcha",
   },
   address: {
     legend: "Dónde responde",

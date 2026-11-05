@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { GeneralSettings } from "../../../../../features/app/settings/GeneralSettings";
-
-/** An application's settings, General: what the app is and how it runs. */
+/** 4.2: General listed what the application is; how it runs is now the page Resources and running. */
 export const Route = createFileRoute("/_console/apps/$domain/settings/")({
-  component: GeneralSettings,
+  beforeLoad: ({ params }) => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect protocol
+    throw redirect({ to: "/apps/$domain/resources", params, replace: true });
+  },
 });

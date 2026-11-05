@@ -12,6 +12,7 @@
 import type { Page } from "@playwright/test";
 
 import { confirmItsYou, expect, expectNoA11yViolations, signIn, stillness, test } from "./fixtures";
+import { openFold } from "./part-folds";
 
 const APP = "portal.example.org";
 const READY = "pr-42-portal-example-org.previews.example.org";
@@ -34,7 +35,8 @@ function previewItem(page: Page, number: number) {
 
 test("the settings show previews on, and each preview in its state", async ({ page, consoleServer }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await signIn(page, consoleServer, `/apps/${APP}/settings/previews`);
+  await signIn(page, consoleServer, `/apps/${APP}/triggers`);
+  await openFold(page, "Previews");
   const section = previewsSection(page);
   await expect(section.getByText("On", { exact: true })).toBeVisible();
   await expect(section.getByLabel("Base domain")).toHaveValue("previews.example.org");
@@ -74,18 +76,22 @@ test("the applications list says whose preview an app is", async ({ page, consol
   await expect(parent.getByText(/^Preview of/)).toHaveCount(0);
 
   // A preview's own settings point at its parent instead of offering previews of its own.
-  await page.goto(`/apps/${READY}/settings/previews`);
+  await page.goto(`/apps/${READY}/triggers`);
+  await openFold(page, "Previews");
   const section = previewsSection(page);
   await expect(section.getByText("This app is a preview of", { exact: false })).toBeVisible();
-  await expect(section.getByRole("link", { name: APP, exact: true })).toHaveAttribute("href", `/apps/${APP}/settings/previews`);
+  await expect(section.getByRole("link", { name: APP, exact: true })).toHaveAttribute("href", `/apps/${APP}/triggers#previews`);
   await expect(section.getByLabel("Base domain")).toHaveCount(0);
 });
 
 test("the preview settings are saved and kept", async ({ page, consoleServer }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await signIn(page, consoleServer, `/apps/${APP}/settings/previews`);
+  await signIn(page, consoleServer, `/apps/${APP}/triggers`);
+  await openFold(page, "Previews");
   const section = previewsSection(page);
-  const save = section.getByRole("button", { name: "Save", exact: true });
+  // The page has one bar for what its parts change.
+  const bar = page.getByRole("region", { name: "Unsaved changes" });
+  const save = bar.getByRole("button", { name: "Save", exact: true });
   await expect(section.getByLabel("At most")).toHaveValue("5");
   await expect(save).toBeDisabled();
 
@@ -101,10 +107,11 @@ test("the preview settings are saved and kept", async ({ page, consoleServer }) 
   await save.click();
   await confirmItsYou(page, consoleServer);
   expect((await sent).postDataJSON()).toMatchObject({ base_domain: "previews.example.org", max_previews: 4, ttl_hours: 72 });
-  await expect(section.getByText("No unsaved changes", { exact: true })).toBeVisible();
+  await expect(bar.getByText("No unsaved changes", { exact: true })).toBeVisible();
   await expect(section.getByLabel("At most")).toHaveValue("4");
 
   await page.reload();
+  await openFold(page, "Previews");
   await expect(previewsSection(page).getByLabel("At most")).toHaveValue("4");
   await expect(previewsSection(page).getByText("3 of at most 4", { exact: true })).toBeVisible();
 });
@@ -113,7 +120,8 @@ test("a preview is made by hand from a branch or a tag, and the pull requests ne
   // The seeded machine has no GitHub App: reading the open pull requests is refused, in its own words.
   problems.expect(/status of 502 .* \/api\/apps\/portal\.example\.org\/previews\/pull-requests$/);
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await signIn(page, consoleServer, `/apps/${APP}/settings/previews`);
+  await signIn(page, consoleServer, `/apps/${APP}/triggers`);
+  await openFold(page, "Previews");
   await previewsSection(page).getByRole("button", { name: "New preview" }).click();
   const dialog = page.getByRole("dialog", { name: "New preview" });
   await expect(dialog).toBeVisible();
@@ -138,7 +146,8 @@ test("a preview is made by hand from a branch or a tag, and the pull requests ne
 
 test("what a preview is given is chosen and said, and its variables are its own", async ({ page, consoleServer }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await signIn(page, consoleServer, `/apps/${APP}/settings/previews`);
+  await signIn(page, consoleServer, `/apps/${APP}/triggers`);
+  await openFold(page, "Previews");
   const section = previewsSection(page);
   // The seeded settings are from before 3.4: every variable and the app's own databases, and the page says so.
   await expect(section.getByRole("radio", { name: "All of the app's" })).toBeChecked();
@@ -146,8 +155,10 @@ test("what a preview is given is chosen and said, and its variables are its own"
 
   await section.getByRole("radio", { name: "Only the ones I choose" }).click();
   await section.getByLabel("Copied from the app").fill("NEXT_PUBLIC_API_URL");
-  await expect(section.getByText("2 unsaved changes", { exact: true })).toBeVisible();
-  await section.getByRole("button", { name: "Discard" }).click();
+  // What the part changed is counted on the page's one bar, which is where Discard is too.
+  const bar = page.getByRole("region", { name: "Unsaved changes" });
+  await expect(bar.getByText("2 unsaved changes", { exact: true })).toBeVisible();
+  await bar.getByRole("button", { name: "Discard" }).click();
   await expect(section.getByRole("radio", { name: "All of the app's" })).toBeChecked();
 
   // The set defined for previews alone is a table of its own, under the previews.
@@ -159,7 +170,8 @@ test("what a preview is given is chosen and said, and its variables are its own"
 test("a preview is stopped, read and started from its row", async ({ page, consoleServer, problems }) => {
   problems.expect(/status of 403 .* \/api\/apps\/portal\.example\.org\/previews\/42\/stop$/);
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await signIn(page, consoleServer, `/apps/${APP}/settings/previews`);
+  await signIn(page, consoleServer, `/apps/${APP}/triggers`);
+  await openFold(page, "Previews");
   const ready = previewItem(page, 42);
 
   await ready.getByRole("button", { name: "Logs #42" }).click();
@@ -186,7 +198,8 @@ test("a preview is stopped, read and started from its row", async ({ page, conso
 
 test("a preview is removed with its application", async ({ page, consoleServer }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await signIn(page, consoleServer, `/apps/${APP}/settings/previews`);
+  await signIn(page, consoleServer, `/apps/${APP}/triggers`);
+  await openFold(page, "Previews");
   const ready = previewItem(page, 42);
   await ready.getByRole("button", { name: "Actions for the preview of #42" }).click();
   await page.getByRole("menuitem", { name: "Remove" }).click();

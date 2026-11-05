@@ -38,7 +38,7 @@ const FORMS: readonly Form[] = [
   },
   {
     id: "app-settings-deploys",
-    path: "/apps/tienda.example.org/settings/deploys",
+    path: "/apps/tienda.example.org/triggers",
     first: (page) => page.getByLabel("Versions to keep"),
     read: (page) => page.getByLabel("Versions to keep").inputValue(),
     change: (page) => page.getByLabel("Versions to keep").fill("7"),

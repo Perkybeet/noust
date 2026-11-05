@@ -46,8 +46,8 @@ describe("the breadcrumbs the register gives a page", () => {
     expect(steps.map((step) => nameOf(step.name))).toEqual(["nav.apps.label", "<domain>", "appPages.actions.diagnose"]);
   });
 
-  it("goes through the sections of an application's settings, four levels at most", () => {
-    expect(ids("/apps/$domain/settings/source")).toEqual(["apps", "app", "app.settings", "app.settings.source"]);
+  it("goes through the sections of an application, three levels", () => {
+    expect(ids("/apps/$domain/code")).toEqual(["apps", "app", "app.code"]);
   });
 
   it("says Settings and the section for the settings, and Alerts for what moved out of them", () => {

@@ -4,10 +4,12 @@ import type { SyntheticEvent } from "react";
 
 import { request } from "../../../api/client";
 import { appKeys } from "../../../api/queries/apps";
+import type { App } from "../../../api/queries/apps";
 import { changeSource, planSourceChange, sourceKeys } from "../../../api/queries/sources";
 import type { SourceChange, SourcePlan } from "../../../api/queries/sources";
 import { announce } from "../../../app/Announcer";
 import { KeyValueList } from "../../../components/page/KeyValueList";
+import type { KeyValueItem } from "../../../components/page/KeyValueList";
 import { Subsection } from "../../../components/page/Subsection";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
@@ -22,6 +24,9 @@ import { useT } from "../../../i18n";
 import { reportActionError } from "../../apps/useAppActions";
 import { ArchiveUpload } from "../upload/ArchiveUpload";
 import { splitErrors } from "../../settings/formErrors";
+import { BranchActions } from "./BranchPin";
+import { FollowTagsActions } from "./FollowTags";
+import { Mono } from "../../../components/ui/Mono";
 import { SETTINGS_ICONS } from "./objectIcons";
 
 /** The application types that run as a stack or a container: their source is a checkout or an image. */
@@ -204,17 +209,46 @@ function ChangeDialog({
 }
 
 /**
+ * The two rows that say how a git source is followed: the branch (pinned or not, with the way to pin or change it)
+ * and the tags it deploys. Pinned or not is the question the row is for, so the way to answer it is in it.
+ */
+function branchRows(t: ReturnType<typeof useT>, app: App): KeyValueItem[] {
+  return [
+    {
+      label: t("changeSource.branch"),
+      value: (
+        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          {app.branch ? <Mono>{app.branch}</Mono> : <span>{t("appSettings.general.noBranch")}</span>}
+          <BranchActions app={app} />
+        </span>
+      ),
+      mono: false,
+      copy: typeof app.branch === "string" && app.branch !== "" ? app.branch : false,
+      ...(app.branch ? {} : { hint: t("appSettings.general.noBranchHint") }),
+    },
+    {
+      label: t("appSettings.general.tags"),
+      value: (
+        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          {app.follow_tags ? <Mono>{app.follow_tags}</Mono> : <span>{t("appSettings.general.noTags")}</span>}
+          <FollowTagsActions app={app} />
+        </span>
+      ),
+      mono: false,
+      copy: typeof app.follow_tags === "string" && app.follow_tags !== "" ? app.follow_tags : false,
+      hint: app.follow_tags ? t("appSettings.general.tagsHint") : t("appSettings.general.noTagsHint"),
+    },
+  ];
+}
+
+/**
  * Where the code comes from: the repository or directory an application is built from, and a way
  * to point it at another one without creating it again (a repository that moved, or a team that
  * changed code host). The new source is checked against the remote first and what the change does
  * not carry is listed; nothing is built until the application is updated. The same as
  * `noust app source change`.
  */
-export function ChangeSourceCard({
-  app,
-}: {
-  app: { domain: string; source?: string | null; branch?: string | null; layout?: string | null; app_type?: string | null; preview_parent?: string | null };
-}) {
+export function ChangeSourceCard({ app }: { app: App }) {
   const t = useT();
   const queryClient = useQueryClient();
   const domain = app.domain;
@@ -229,6 +263,12 @@ export function ChangeSourceCard({
   const title = t("changeSource.title");
   const description = t("changeSource.description");
   const recorded = app.source ?? "";
+  // Only a git source has branches to pin and tags to follow; a local directory has neither.
+  const git = recorded !== "" && !recorded.startsWith("/");
+
+  // The branch it deploys from and the tags it follows are said, and pinned or followed, where the source is said: also for a
+  // stack or a container built from a repository, which cannot change its source here but can pin its branch.
+  const branchAndTags: KeyValueItem[] = git && changed === null ? branchRows(t, app) : [];
 
   if (fit !== "yes") {
     return (
@@ -242,6 +282,7 @@ export function ChangeSourceCard({
                 ? t("changeSource.unsupportedPush")
                 : t("changeSource.unsupportedType", { type: app.app_type ?? "" })}
         </p>
+        {branchAndTags.length > 0 ? <KeyValueList items={branchAndTags} /> : null}
       </Card>
     );
   }
@@ -250,7 +291,7 @@ export function ChangeSourceCard({
       <KeyValueList
         items={[
           { label: t("changeSource.current"), value: changed?.target ?? (recorded === "" ? t("changeSource.none") : recorded) },
-          { label: t("changeSource.branch"), value: changed ? (changed.target_branch ?? "-") : (app.branch ?? "-") },
+          ...(changed !== null || !git ? [{ label: t("changeSource.branch"), value: changed ? (changed.target_branch ?? "-") : (app.branch ?? "-") }] : branchAndTags),
         ]}
       />
       {changed !== null ? (

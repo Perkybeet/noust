@@ -64,7 +64,7 @@ function keyColumns(t: T): Column<DeployKey>[] {
           shown={APPS_SHOWN}
           title={t("sources.server.appsOf", { name: key.name })}
           renderTag={(domain) => (
-            <TextLink to="/apps/$domain/settings/source" params={{ domain }} size="ui">
+            <TextLink to="/apps/$domain/code" params={{ domain }} size="ui">
               {domain}
             </TextLink>
           )}

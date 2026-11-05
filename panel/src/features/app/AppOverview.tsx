@@ -54,6 +54,8 @@ import { CERT_WARNING_DAYS } from "../overview/attention";
 import { PreviewLogsDrawer } from "./settings/PreviewLogsDrawer";
 import { previewName, previewStatus } from "./settings/previews";
 import { AdoptedOverview } from "./AdoptedOverview";
+import { FirstDeploy } from "./FirstDeploy";
+import { useAppJob } from "./useAppJob";
 import { isAdopted } from "./adopted";
 import { RECENT_APP_DEPLOYS } from "./AppBanner";
 import { deploymentStatusWord, shortCommit } from "./deployments/words";
@@ -358,7 +360,7 @@ function Health({ app, t }: { app: App; t: T }) {
       icon={OBJECT_ICONS.startupCheck}
       actions={
         staticSite ? undefined : (
-          <TextLink to="/apps/$domain/settings/resources" params={{ domain: app.domain }} size="ui">
+          <TextLink to="/apps/$domain/resources" params={{ domain: app.domain }} size="ui">
             {t("appPages.overview.editLimits")}
           </TextLink>
         )
@@ -620,8 +622,9 @@ function Reach({ app, t }: { app: App; t: T }) {
         }
         actions={
           <TextLink
-            to="/apps/$domain/settings/deploy-on-push"
+            to="/apps/$domain/triggers"
             params={{ domain }}
+            hash="deploy-on-push"
             size="ui"
           >
             {app.webhook_enabled
@@ -705,10 +708,14 @@ export function AppOverview({ domain }: { domain: string }) {
   const t = useT();
   useDocumentTitle(t("appPages.overview.documentTitle", { domain }), 1);
   const app = useQuery(appQuery(domain));
+  const job = useAppJob(domain);
 
   // The layout owns the load failure and the not-found page; this shows the shape meanwhile.
   if (app.data === undefined)
     return app.isError ? null : <OverviewSkeleton t={t} />;
+  // The first deploy of an application that has never run: no figures, no versions and no logs yet, so the page is that
+  // deploy, its steps and its output, and the task centre follows it if the operator goes elsewhere (item 99).
+  if (job.running?.type === "deploy" && !isAdopted(app.data)) return <FirstDeploy domain={domain} job={job.running} />;
   const staticSite = appStatus(app.data.status).state === "static";
   // A site Noust adopted has no deploys, no release and no push to show: its own overview.
   if (isAdopted(app.data))

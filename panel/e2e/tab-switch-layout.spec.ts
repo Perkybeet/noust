@@ -31,13 +31,13 @@ interface TabbedPage {
 const PAGES: readonly TabbedPage[] = [
   {
     name: "an application",
-    long: "/apps/shop.example.net/settings/deploy-on-push",
+    long: "/apps/shop.example.net/triggers",
     short: (page) => page.getByRole("navigation", { name: "Application sections" }).getByRole("link", { name: "Domains" }),
     shortUrl: /\/apps\/shop\.example\.net\/domains$/,
   },
   {
     name: "an application, logs",
-    long: "/apps/shop.example.net/settings/deploy-on-push",
+    long: "/apps/shop.example.net/triggers",
     short: (page) => page.getByRole("navigation", { name: "Application sections" }).getByRole("link", { name: "Logs" }),
     shortUrl: /\/apps\/shop\.example\.net\/logs$/,
   },
@@ -45,7 +45,7 @@ const PAGES: readonly TabbedPage[] = [
     // Diagnose left the strip (eight tabs at most) for the header's menu: reaching it that way
     // must not move the page either.
     name: "an application, diagnose from its menu",
-    long: "/apps/shop.example.net/settings/deploy-on-push",
+    long: "/apps/shop.example.net/triggers",
     reveal: async (page) => {
       await page.locator("main header").filter({ has: page.getByRole("heading", { level: 1 }) }).getByRole("button", { name: "More actions" }).click();
     },

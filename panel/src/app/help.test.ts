@@ -15,7 +15,7 @@ const OUTSIDE = new Set(["/login", "/invite", "/reset-password", "/setup", "/wel
 
 describe("helpFor", () => {
   it("finds the page for a path with its variable parts filled in", () => {
-    expect(helpFor("/apps/shop.example.com/settings/build")).toMatchObject({ slug: "guides/build", anchor: "the-build-block" });
+    expect(helpFor("/apps/shop.example.com/code")).toMatchObject({ slug: "guides/build", anchor: "the-build-block" });
     expect(helpFor("/databases/postgresql/shop/query").slug).toBe("guides/databases");
   });
 
@@ -26,7 +26,7 @@ describe("helpFor", () => {
   });
 
   it("answers a path nobody wrote an entry for with the area it is in", () => {
-    expect(helpFor("/apps/shop.example.com/settings/something-new").slug).toBe("guides/releases");
+    expect(helpFor("/apps/shop.example.com/something-new").slug).toBe("reference/console/applications");
     expect(helpFor("/server/services/nginx/logs").anchor).toBe("server");
   });
 
