@@ -50,7 +50,8 @@ for (const size of SIZES) {
     const theme = testInfo.project.name;
     await page.setViewportSize({ width: size.width, height: size.height });
     await signIn(page, own, "/server/software");
-    await expect(page.getByRole("table", { name: "Software: The machine" })).toBeVisible();
+    // A table on a desk, a list of cards on a phone.
+    await expect(page.getByRole("table", { name: "Software: The machine" }).or(page.getByRole("list", { name: "Software: The machine" }))).toBeVisible();
     await shot(page, theme, size.name, "20-software");
 
     // A piece in use: the server refuses, with its reason and what uses it.
