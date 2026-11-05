@@ -88,7 +88,7 @@
       "features/audit/AuditPage.tsx": 1,
       "features/audit/CompliancePage.tsx": 2,
       "features/auth/FirstAccountPage.tsx": 1,
-      "features/auth/LoginPage.tsx": 1,
+      "features/auth/LoginForm.tsx": 1,
       "features/backups/BackupHistoryDrawer.tsx": 1,
       "features/backups/BackupsPage.tsx": 1,
       "features/backups/DestinationsPage.tsx": 1,
