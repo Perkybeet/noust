@@ -36,7 +36,7 @@ function Component({ item }: { item: SoftwareItem }) {
   const { coded, text } = purposeOf(item);
   return (
     // The cell is a line of the table and this is prose: it wraps, and the table's `nowrap` stays for the others.
-    <span className="flex min-w-56 items-start gap-2.5 whitespace-normal">
+    <span className="flex items-start gap-2.5 whitespace-normal sm:min-w-56">
       <OBJECT_ICONS.packages aria-hidden="true" className={cx("mt-0.5 size-icon-md shrink-0", item.installed ? "text-fg-muted" : "text-fg-faint")} />
       <span className="min-w-0 max-w-xl">
         <span className="block font-medium text-fg">{componentName(t, item.id)}</span>

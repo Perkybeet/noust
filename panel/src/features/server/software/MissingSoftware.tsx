@@ -72,7 +72,10 @@ function CannotInstall({ item, managed, permissions }: { item: SoftwareItem; man
     : t.rich("software.missing.cannotMany", { permission: list.flatMap((entry, index) => (index === 0 ? [entry] : [" + ", entry])) });
 }
 
-/** The install in hand: waiting, running, done or failed with the tool's own words, and the way to its task. */
+/**
+ * The install in hand: waiting, running, done or failed with the tool's own words, and the way to its task. It does not
+ * announce itself: the task centre says how a task of yours ended, once.
+ */
 function Installing({ name, followed, retry, className }: { name: string; followed: FollowedJob; retry: () => void; className?: string | undefined }) {
   const t = useT();
   const job = followed.job;
@@ -83,14 +86,15 @@ function Installing({ name, followed, retry, className }: { name: string; follow
     </TextLink>
   );
   if (job === null || !isJobFinished(job)) {
-    return <JobProgress {...(className !== undefined ? { className } : {})} state={job?.status === "running" ? "running" : "queued"} title={t("software.missing.installing", { name })} step={job?.current_step ?? null} action={task} />;
+    return <JobProgress {...(className !== undefined ? { className } : {})} announce={false} state={job?.status === "running" ? "running" : "queued"} title={t("software.missing.installing", { name })} step={job?.current_step ?? null} action={task} />;
   }
   if (job.status === "completed") {
-    return <JobProgress {...(className !== undefined ? { className } : {})} state="succeeded" title={t("software.missing.installed", { name })} onDismiss={followed.dismiss} />;
+    return <JobProgress {...(className !== undefined ? { className } : {})} announce={false} state="succeeded" title={t("software.missing.installed", { name })} onDismiss={followed.dismiss} />;
   }
   return (
     <JobProgress
       {...(className !== undefined ? { className } : {})}
+      announce={false}
       state="failed"
       title={t("software.missing.failed", { name })}
       error={{ detail: job.error ?? "" }}

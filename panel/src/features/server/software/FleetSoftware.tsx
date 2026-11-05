@@ -62,9 +62,19 @@ function silence(t: T, row: Row): string | null {
   }
 }
 
-function numberCell(row: Row, read: (answer: FleetRow) => number | null) {
+/**
+ * A count, and on a phone, where a card has no column header to say what it counts, the words before it (the column's own).
+ * `sm:hidden` is the width where the table takes over and the header says it.
+ */
+function numberCell(row: Row, what: string, read: (answer: FleetRow) => number | null) {
   const value = row.answer === undefined ? null : read(row.answer);
-  return value === null ? <EmptyCell /> : <Mono>{String(value)}</Mono>;
+  if (value === null) return <EmptyCell />;
+  return (
+    <span>
+      <span className="text-fg-muted sm:hidden">{what}: </span>
+      <Mono>{String(value)}</Mono>
+    </span>
+  );
 }
 
 function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>): Column<Row>[] {
@@ -85,14 +95,14 @@ function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>): Column<Row>[
         );
       },
     },
-    { id: "installed", header: t("software.fleet.installed"), width: "w-32", card: "meta", cell: (row) => numberCell(row, (answer) => count(answer, "installed")) },
+    { id: "installed", header: t("software.fleet.installed"), width: "w-32", card: "meta", cell: (row) => numberCell(row, t("software.fleet.installed"), (answer) => count(answer, "installed")) },
     {
       id: "missing",
       header: t("software.fleet.missing"),
       width: "w-32",
       card: "meta",
       cell: (row) =>
-        numberCell(row, (answer) => {
+        numberCell(row, t("software.fleet.missing"), (answer) => {
           const total = count(answer, "total");
           const installed = count(answer, "installed");
           return total === null || installed === null ? null : total - installed;
@@ -105,7 +115,7 @@ function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>): Column<Row>[
       hideBelow: "md",
       card: "meta",
       cell: (row) =>
-        numberCell(row, (answer) => {
+        numberCell(row, t("software.fleet.unknown"), (answer) => {
           const installed = count(answer, "installed");
           const byNoust = count(answer, "by_noust");
           return installed === null || byNoust === null ? null : installed - byNoust;
