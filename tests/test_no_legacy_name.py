@@ -73,9 +73,17 @@ CONSOLE_FILES: tuple[str, ...] = (
 #: Tracked and not read: the console's generated build is compiled from ``panel/``, and its
 #: API types are generated from the OpenAPI document, which spells the two names the API still
 #: accepts from a client of before 3.0 (``legacy_names.ONLY_PARAMETER`` and
-#: ``legacy_names.EXPORT_VERSION_KEY``). The console never writes or reads them. What git
-#: ignores (a virtual environment, working material, a build directory) is never read either.
-SKIPPED_PATHS = ("src/noust/web/static", "panel/src/api/schema.gen.ts")
+#: ``legacy_names.EXPORT_VERSION_KEY``). The console never writes or reads them. The shapes of a
+#: secret the report of a problem masks are generated from the server's own list
+#: (``scripts/generate_secret_shapes.py``), which hides the token prefix of before 3.0 as it hides
+#: Noust's own, so that file spells it as ``legacy_names`` does: written by a script from
+#: ``legacy_names.API_TOKEN_PREFIX``, never by hand. What git ignores (a virtual environment,
+#: working material, a build directory) is never read either.
+SKIPPED_PATHS = (
+    "src/noust/web/static",
+    "panel/src/api/schema.gen.ts",
+    "panel/src/api/secretShapes.gen.ts",
+)
 
 OLD_NAME = re.compile("wasm", re.IGNORECASE)
 
