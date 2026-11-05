@@ -51,25 +51,22 @@ export const cloud: Catalog<typeof en> = {
 
   accounts: {
     title: "Cuentas de proveedor",
-    description: "Los tokens que esta central guarda para crear servidores en Hetzner, DigitalOcean o Vultr. Solo los ve un administrador.",
+    description: "El token con el que Noust crea máquinas en tu nombre. Solo lo ve quien administra.",
     loadingLabel: "las cuentas de proveedor",
     caption: "Cuentas de proveedores de nube",
     loadFailed: "No se pudieron cargar las cuentas de proveedor",
     add: "Añadir una cuenta",
     empty: {
-      title: "Aún no hay cuentas de proveedor",
-      description: "Añade un token de tu proveedor para crear un servidor desde aquí: Noust crea la máquina, se instala en ella y la añade a esta flota.",
+      sentence: "Añade el token de Hetzner Cloud, DigitalOcean o Vultr y podrás crear servidores sin salir de aquí.",
     },
     column: {
       name: "Cuenta",
       provider: "Proveedor",
+      servers: "Servidores",
       token: "Token",
-      verified: "Comprobado",
-      lastUsed: "Último uso",
       note: "Nota",
     },
-    never: "Nunca",
-    noNote: "Sin nota",
+    notChecked: "Sin comprobar aún",
     verify: "Comprobar el token ahora",
     replaceToken: "Cambiar el token",
     removeTitle: "¿Quitar la cuenta {name}?",
@@ -87,13 +84,13 @@ export const cloud: Catalog<typeof en> = {
 
   scripts: {
     title: "Scripts de arranque",
-    description: "Scripts y fragmentos #cloud-config que un servidor nuevo ejecuta la primera vez que arranca, como root, después de la parte propia de Noust. Elígelos al crear un servidor.",
+    description: "Lo que ejecuta una máquina nueva la primera vez que arranca, después de la parte de Noust. Los eliges al crear un servidor.",
     loadingLabel: "los scripts de arranque",
     caption: "Biblioteca de cloud-init",
     loadFailed: "No se pudo cargar el script",
     add: "Nuevo script",
     empty: "Aún no hay scripts de arranque.",
-    note: "La parte propia de Noust del documento (la clave de host SSH del servidor y quién puede entrar) no se puede cambiar desde aquí. Nunca lleva un token de flota.",
+    note: "Se ejecutan como root, como scripts o como fragmentos #cloud-config. La parte propia de Noust del documento (la clave de host SSH del servidor y quién puede entrar) no se puede cambiar desde aquí, y nunca lleva un token de flota.",
     builtin: "Incluido",
     kindScript: "Script de shell",
     kindScriptHelp: "Un script que empieza por el intérprete que lo ejecuta, como #!/bin/sh.",
@@ -131,8 +128,7 @@ export const cloud: Catalog<typeof en> = {
 
   machines: {
     title: "Servidores creados aquí",
-    description:
-      "Máquinas que esta central pidió a un proveedor. Una que no llegó a unirse sigue registrada con el motivo, y se factura hasta que la elimines.",
+    description: "Máquinas que esta central pidió a un proveedor, o que enlazaste a un servidor.",
     loadingLabel: "los servidores creados",
     caption: "Servidores creados en un proveedor de nube",
     create: "Crear un servidor",
@@ -147,8 +143,13 @@ export const cloud: Catalog<typeof en> = {
       address: "Dirección",
       plan: "Plan",
       account: "Cuenta",
-      created: "Creado",
+      place: "Proveedor y sitio",
     },
+    noPlan: "Sin plan registrado",
+    deleteShortLabel: "Eliminar la máquina de {name}",
+    refusalsLabel: "Lo que dijo el proveedor de los servidores que no llegaron a unirse",
+    providerSaid: "{name}: el proveedor dijo {said}",
+    stillBilled: "Se factura hasta que lo elimines.",
     state: {
       creating: "Creándose",
       booting: "Arrancando",

@@ -31,7 +31,6 @@ export const appTags: Catalog<typeof en> = {
   },
   /** Las bases de datos y los servicios llevan tags también: las mismas reglas, editados desde sus listas. */
   resource: {
-    chips: "Etiquetas",
     title: "Etiquetas de {noun} {name}",
     description: "Nombres que agrupan cosas, como web o client-acme. Una lleva hasta {max}. Guardarlos no reinicia nada.",
     saved: "Etiquetas de {name} guardadas",

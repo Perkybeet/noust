@@ -19,6 +19,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { InlineMessage } from "../../components/ui/InlineMessage";
 import { MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
+import { NameWithTags } from "../../components/ui/NameWithTags";
 import { TextLink, textLinkClassName } from "../../components/ui/TextLink";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
@@ -145,19 +146,12 @@ function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>, handlers: Row
       hideBelow: "md",
       // A phone hides the column as a narrow table would: the labels are edited from the menu.
       card: "hidden",
-      // Several labels wrap to more lines than the row has: the cell keeps its room, and a server with one does not grow.
-      stacked: (row) => !originOf(row).local && labelsOf(row).length > 1,
+      // The first labels on the one line, "+N" for the rest: a server with many does not grow its row.
       cell: (row) => {
         const labels = labelsOf(row);
         if (originOf(row).local) return <EmptyCell reason={t("fleet.labels.notForCentral")} />;
         if (labels.length === 0) return <span className="text-13 text-fg-muted">{t("fleet.labels.none")}</span>;
-        return (
-          <span className="flex flex-wrap gap-1">
-            {labels.map(([key, value]) => (
-              <Badge key={key} mono>{`${key}=${value}`}</Badge>
-            ))}
-          </span>
-        );
+        return <NameWithTags monoTags tags={labels.map(([key, value]) => `${key}=${value}`)} />;
       },
     },
     {

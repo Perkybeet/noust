@@ -5,10 +5,13 @@ import type { GitHubStatus } from "../../api/queries/github";
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
-import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
+import { SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import { EXPORT_PATH, scrapeConfig } from "./MetricsExportSection";
 import { screenWidth } from "../app/testRoutes";
+
+/** The same session, held by a role that reads applications and does not manage them. */
+const SESSION_VIEWER = { ...SESSION, permissions: ["self", "apps.read"], role: "viewer" };
 
 const NOT_CONFIGURED: GitHubStatus = {
   configured: false,
@@ -245,8 +248,8 @@ describe("Settings > Integrations", () => {
         screen.getByText(/private key is kept on this server/),
       ).toBeInTheDocument();
       expect(screen.getByLabelText(/^Organization/)).toBeInTheDocument();
-      // The state first, then the steps: creating the App is the one to do now.
-      expect(screen.getByText("Not connected")).toHaveAttribute(
+      // The state first, then the steps: creating the App is the one to do now (GitLab, further down, says the same of itself).
+      expect(screen.getAllByText("Not connected")[0]).toHaveAttribute(
         "data-state",
         "stopped",
       );
@@ -394,11 +397,13 @@ describe("Settings > Integrations", () => {
         screen.getByRole("link", { name: /Install on another account/ }),
       ).toHaveAttribute("href", CONFIGURED.install_url);
       expect(screen.getByText("Receiving pushes")).toBeInTheDocument();
+      // The App is a card: its name, who owns it and on which GitHub, and its page there.
+      const card = screen.getByRole("article", { name: "Noust web-01" });
+      expect(within(card).getByText("acme")).toBeInTheDocument();
+      expect(within(card).getByText("github.com")).toBeInTheDocument();
+      expect(within(card).getByRole("link", { name: /github.com\/apps\/noust-web-01/ })).toHaveAttribute("href", CONFIGURED.html_url);
       // Every step is done: no stepper left.
       expect(screen.queryByText("Create the App")).not.toBeInTheDocument();
-      expect(
-        screen.getByText("https://hooks.example.com/hooks/github"),
-      ).toBeInTheDocument();
       await expectNoAxeViolations(container);
     },
   );
@@ -460,7 +465,8 @@ describe("Settings > Integrations", () => {
         json(200, { items: CONFIGURED.installations, total: 2 }),
     });
     const { user } = renderConsole("/settings/integrations");
-    await user.click(await screen.findByRole("button", { name: "Sync" }));
+    await user.click(await screen.findByRole("button", { name: "Actions for Noust web-01" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Sync" }));
     await expectToast("Synced 2 installations from GitHub");
     expect(
       backend.callsTo("POST /api/integrations/github/installations/sync"),
@@ -479,7 +485,7 @@ describe("Settings > Integrations", () => {
       const backend = integrations(CONFIGURED);
       const { user } = renderConsole("/settings/integrations");
       await user.click(
-        await screen.findByRole("button", { name: "More actions for GitHub" }),
+        await screen.findByRole("button", { name: "Actions for Noust web-01" }),
       );
       await user.click(
         await screen.findByRole("menuitem", { name: "Remove GitHub App" }),
@@ -514,6 +520,54 @@ describe("Settings > Integrations", () => {
   );
 });
 
+describe("Settings > Integrations, redrawn with the content kit", () => {
+  beforeEach(() => {
+    screenWidth(1440);
+  });
+
+  it("is four slabs that say what they are, and no command repeats a button", { timeout: 20_000 }, async () => {
+    integrations(CONFIGURED);
+    renderConsole("/settings/integrations");
+    await screen.findByRole("article", { name: "Noust web-01" });
+    for (const name of ["Address for webhooks", "GitHub", "GitLab", "Gitea, Forgejo and Bitbucket"]) {
+      expect(await screen.findByRole("heading", { level: 2, name })).toBeInTheDocument();
+    }
+    // The page said "The same, from a terminal" and a command under every block: none of them is left.
+    expect(screen.queryByText("The same, from a terminal")).not.toBeInTheDocument();
+    expect(screen.queryByText("noust github status")).not.toBeInTheDocument();
+    expect(screen.queryByText("noust gitlab list")).not.toBeInTheDocument();
+  });
+
+  it("gives the address for webhooks as a pair with its copy button always in view", { timeout: 20_000 }, async () => {
+    integrations(CONFIGURED);
+    renderConsole("/settings/integrations");
+    const slab = await screen.findByRole("region", { name: "Address for webhooks" });
+    expect(await within(slab).findByText("https://hooks.example.com")).toBeInTheDocument();
+    const copy = within(slab).getByRole("button", { name: "Copy address" });
+    expect(copy.className).not.toContain("opacity-0");
+  });
+
+  it("keeps the one command left, the terminal's alone, with the reason it is there", { timeout: 20_000 }, async () => {
+    integrations(NOT_CONFIGURED);
+    renderConsole("/settings/integrations");
+    const slab = await screen.findByRole("region", { name: "Address for webhooks" });
+    const hint = await within(slab).findByText("noust web expose-hooks hooks.example.com");
+    expect(hint.closest("[data-reason]")).toHaveAttribute("data-reason", "solo-terminal");
+    expect(within(slab).getByText("Only from a terminal")).toBeInTheDocument();
+  });
+
+  it("puts a role that cannot manage applications on a page it can read: the App's menu and installing on another account are not drawn, one line says why", { timeout: 20_000 }, async () => {
+    integrations(CONFIGURED, {
+      "GET /api/auth/session": () => json(200, { ...SESSION_VIEWER }),
+    });
+    const { container } = renderConsole("/settings/integrations");
+    await screen.findByRole("article", { name: "Noust web-01" });
+    expect(screen.queryByRole("button", { name: "Actions for Noust web-01" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Install on another account/ })).not.toBeInTheDocument();
+    expect(container.querySelector("[data-slot=read-only]")).toHaveTextContent("Your role, viewer, can see this page and not change it. Changing it takes the permission apps.manage.");
+  });
+});
+
 describe("Settings > Integrations in Spanish", () => {
   // These lists are tables from 640px and cards below it: the tests read the table.
   beforeEach(() => {
@@ -535,7 +589,7 @@ describe("Settings > Integrations in Spanish", () => {
           /Repositorios privados, clonados con tokens de corta duración/,
         ),
       ).toBeInTheDocument();
-      expect(screen.getByText("Sin conectar")).toBeInTheDocument();
+      expect(screen.getAllByText("Sin conectar").length).toBeGreaterThan(0);
       expect(screen.getByText("Sin definir")).toBeInTheDocument();
       expect(
         screen.getAllByText("noust web expose-hooks hooks.example.com").length,

@@ -547,14 +547,12 @@ export const settings: Catalog<typeof en> = {
       loadingLabel: "la dirección para webhooks",
       unsetTitle: "Sin definir",
       unsetDescription: "Las plataformas Git envían los push a /hooks en un dominio público, y este servidor aún no expone uno. Apunta un dominio a este servidor y luego ejecuta:",
-      set: "Las plataformas Git envían a {url}",
-      setDescription: "Definida con noust web expose-hooks, que también la sirve.",
+      addressLabel: "Dirección",
     },
     others: {
-      title: "GitLab, Gitea y Bitbucket",
-      description: "Desplegar al hacer push, sin App.",
-      body: "Cada aplicación tiene su propio webhook: ábrela en {apps} y ve a Ajustes, Desplegar al hacer push.",
-      appsLink: "Aplicaciones",
+      title: "Gitea, Forgejo y Bitbucket",
+      description: "No necesitan conectarse aquí: cada aplicación tiene su propio webhook, en sus ajustes de Desplegar al hacer push.",
+      appsLink: "Abrir una aplicación",
     },
     github: {
       title: "GitHub",

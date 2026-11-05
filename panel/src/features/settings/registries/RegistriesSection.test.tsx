@@ -49,9 +49,9 @@ const BROKEN = {
   apps: [] as string[],
 };
 
-async function integrations(routes: Record<string, RouteHandler> = {}) {
+async function integrations(routes: Record<string, RouteHandler> = {}, session: typeof SESSION = ELEVATED) {
   const backend = fakeBackend({
-    ...signedInRoutes(ELEVATED),
+    ...signedInRoutes(session),
     "GET /api/integrations/github": () => json(200, { configured: false, installations: [], hooks_url: null, hooks_active: false }),
     "GET /api/config": () => json(200, { config: { web: { hooks_url: "" } }, path: "/etc/noust/config.yaml", writable: true }),
     "GET /api/deploy-keys": () => json(200, { keys: [], total: 0 }),
@@ -60,10 +60,11 @@ async function integrations(routes: Record<string, RouteHandler> = {}) {
     ...routes,
   });
   const harness = renderConsole("/settings/registries");
-  const heading = await screen.findByRole("heading", { level: 2, name: "Container registries" });
-  const section = heading.closest("section");
-  if (!section) throw new Error("no registries section");
-  return { ...harness, backend, section };
+  // Where the accounts are: the page's one slab. The first time has none, only its sentence.
+  const page = await screen.findByRole("heading", { level: 1, name: "Image registries" });
+  const main = page.closest("[data-template=detail]");
+  if (!(main instanceof HTMLElement)) throw new Error("no page");
+  return { ...harness, backend, section: main };
 }
 
 describe("the words of a registry account", () => {
@@ -92,34 +93,68 @@ describe("the registry accounts of the server, in Settings", () => {
     const table = await within(section).findByRole("table", { name: "Registry accounts" });
     const hub = within(table).getByText("hub").closest("tr");
     if (!hub) throw new Error("no row for hub");
-    expect(within(hub).getByText("Docker Hub")).toBeInTheDocument();
+    // The kind of registry is in its address and in the dialog that edits it, not in a sentence on the row.
+    expect(within(hub).queryByText("Docker Hub")).not.toBeInTheDocument();
     expect(within(hub).getByText("docker.io")).toBeInTheDocument();
     expect(within(hub).getByText("Logged in")).toBeInTheDocument();
     expect(within(hub).getByRole("link", { name: "shop.example.com" })).toHaveAttribute("href", "/apps/shop.example.com/settings/deploys");
     expect(within(hub).queryByRole("link", { name: "docs.example.com" })).not.toBeInTheDocument();
-    expect(within(hub).getByText("and 1 more")).toBeInTheDocument();
+    // Its name carries what kind of registry it is as a tag, on the one line; the apps are a count and the first of them.
+    expect(within(hub).getByText("3 applications")).toBeInTheDocument();
+    expect(within(hub).getByRole("button", { name: /2 more tags/ })).toBeInTheDocument();
 
     const broken = within(table).getByText("ghcr-acme").closest("tr");
     if (!broken) throw new Error("no row for ghcr-acme");
     expect(within(broken).getByText("Failed")).toBeInTheDocument();
-    // What the registry said, as it said it.
-    expect(within(broken).getByText("Error response from daemon: Get https://ghcr.io/v2/: denied")).toBeInTheDocument();
+    // What the registry said, as it said it, under the table, in mono: the row says only that it failed.
+    const said = screen.getByRole("list", { name: "What the registries answered" });
+    expect(within(said).getByText("Error response from daemon: Get https://ghcr.io/v2/: denied")).toHaveAttribute("translate", "no");
+    expect(within(broken).queryByText(/denied/)).not.toBeInTheDocument();
     expect(within(broken).getByText("None yet")).toBeInTheDocument();
+    // The way to mend it is beside what the registry answered, and not in a row that has no room for it.
+    expect(within(said).getByRole("button", { name: "Change the password" })).toBeInTheDocument();
+    expect(within(broken).queryByRole("button", { name: "Change the password" })).not.toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 
-  it("has one terminal hint, the section's, and not a second one under it (item 121)", { timeout: 40_000 }, async () => {
+  it("shows no command: the console does what it says (items 121 and 123)", { timeout: 40_000 }, async () => {
     const { section } = await integrations();
     await within(section).findByRole("table", { name: "Registry accounts" });
-    // The page used to close with "From a terminal", right after the section's own "The same, from a terminal".
-    expect(screen.getAllByText("noust registry list")).toHaveLength(1);
-    expect(screen.queryByText("From a terminal")).not.toBeInTheDocument();
-    expect(within(section).getByText("The same, from a terminal")).toBeInTheDocument();
+    // The page used to close with "The same, from a terminal" and a command that repeated a button.
+    expect(screen.queryByText("noust registry list")).not.toBeInTheDocument();
+    expect(screen.queryByText("The same, from a terminal")).not.toBeInTheDocument();
   });
 
-  it("says there are none yet", async () => {
+  it("puts the page's one action in its header and the slab says what it holds with a ? for the rule", { timeout: 40_000 }, async () => {
+    const { user, section } = await integrations();
+    const slab = await screen.findByRole("region", { name: "Accounts" });
+    expect(within(slab).getByText("Each application uses the ones attached to it, when it pulls and when it builds.")).toBeInTheDocument();
+    // The long rule is one press away: it is not a paragraph of the page.
+    expect(screen.queryByText(/kept on this server and are never shown again/)).not.toBeInTheDocument();
+    await user.click(within(slab).getByRole("button", { name: "About Accounts" }));
+    expect(await screen.findByRole("dialog", { name: "Accounts" })).toHaveTextContent("kept on this server and are never shown again");
+    const header = within(section).getByRole("heading", { level: 1 }).closest("header");
+    if (header === null) throw new Error("no page header");
+    expect(within(header).getByRole("button", { name: "Add an account" })).toHaveAttribute("data-variant", "primary");
+    expect(within(slab).queryByRole("button", { name: "Add an account" })).not.toBeInTheDocument();
+  });
+
+  it("says in one sentence when an account is needed at all, the first time, and leaves the adding to the header", async () => {
     const { section } = await integrations({ "GET /api/registries": () => json(200, { logins: [], kinds: KINDS }) });
-    expect(await within(section).findByText("No registry accounts")).toBeInTheDocument();
+    expect(await within(section).findByText("An account is only needed if an image, or the image it starts from, is private. Public ones are pulled without it.")).toBeInTheDocument();
+    expect(within(section).queryByRole("table")).not.toBeInTheDocument();
+    expect(within(section).getAllByRole("button", { name: "Add an account" })).toHaveLength(1);
+  });
+
+  it("shows the accounts to a role that may not change them, with nothing to press but the locked action and one line on top", { timeout: 40_000 }, async () => {
+    const { section, container } = await integrations({}, { ...SESSION, permissions: ["self", "apps.read"], role: "viewer" });
+    await within(section).findByRole("table", { name: "Registry accounts" });
+    expect(screen.queryByRole("button", { name: /^Actions for / })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Change the password" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add an account" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Why you cannot do this" })).toBeInTheDocument();
+    expect(container.querySelector("[data-slot=read-only]")).toHaveTextContent("Your role, viewer, can see this page and not change it. Changing it takes the permission apps.manage.");
+    await expectNoAxeViolations(container);
   });
 
   it("says when they cannot be read", async () => {
@@ -196,7 +231,9 @@ describe("the registry accounts of the server, in Settings", () => {
         return json(200, { ...BROKEN, last_status: "ok", last_error: null });
       },
     });
-    const row = (await within(section).findByText("ghcr-acme")).closest("tr");
+    // The name is also in the line of what the registry answered under the table: the row is the table's.
+    const table = await within(section).findByRole("table", { name: "Registry accounts" });
+    const row = within(table).getByText("ghcr-acme").closest("tr");
     if (!row) throw new Error("no row");
     await user.click(within(row).getByRole("button", { name: "Actions for ghcr-acme" }));
     await user.click(await screen.findByRole("menuitem", { name: "Test the login" }));
@@ -224,6 +261,6 @@ describe("the registry accounts of the server, in Settings", () => {
     await user.click(within(confirm).getByRole("button", { name: "Remove the account" }));
 
     await waitFor(() => expect(backend.callsTo("DELETE /api/registries/hub")).toHaveLength(1));
-    expect(await within(section).findByText("No registry accounts")).toBeInTheDocument();
+    expect(await within(section).findByText("An account is only needed if an image, or the image it starts from, is private. Public ones are pulled without it.")).toBeInTheDocument();
   });
 });

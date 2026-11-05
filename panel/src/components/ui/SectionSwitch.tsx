@@ -21,7 +21,7 @@ export type SectionSwitchProps =
 
 /**
  * The master switch of a whole section (owner item 106): one switch in the header of the page,
- * beside its action, that turns the area on or off ("Alerts", "Backups"). It is the same switch
+ * on the line of its title (`PageHeader master`), that turns the area on or off ("Alerts", "Backups"). It is the same switch
  * as a setting's, at the head of the page, with its name beside it; the list under it, when the
  * section is off, is dimmed (`SwitchedRegion`) so a page of rules that do nothing does not look as
  * if it did.

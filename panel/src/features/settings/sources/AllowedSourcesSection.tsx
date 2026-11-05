@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { configQuery, patchConfig } from "../../../api/queries/config";
-import { Section } from "../../../components/page/Section";
+import { SurfaceSection } from "../../../components/page/SurfaceSection";
 import { Button } from "../../../components/ui/Button";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { InlineMessage } from "../../../components/ui/InlineMessage";
@@ -27,7 +27,7 @@ export function AllowedSourcesSection() {
   if (entries.length === 0) return null;
   const allowed = recipesAllowed(entries);
   return (
-    <Section title={t("connections.allowed.title")} icon={OBJECT_ICONS.source} description={t("connections.allowed.description")}>
+    <SurfaceSection title={t("connections.allowed.title")} icon={OBJECT_ICONS.source} description={t("connections.allowed.description")}>
       <ul aria-label={t("connections.allowed.listLabel")} className="m-0 flex list-none flex-wrap gap-2 p-0">
         {entries.map((entry) => (
           <li key={entry}>
@@ -61,6 +61,6 @@ export function AllowedSourcesSection() {
           }}
         />
       ) : null}
-    </Section>
+    </SurfaceSection>
   );
 }

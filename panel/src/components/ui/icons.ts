@@ -1,4 +1,4 @@
-import { Check, CircleAlert, CircleCheck, Copy, Ellipsis, ExternalLink, Info, KeyRound, LockKeyhole, Plus, Search, Share2, ShieldCheck, Trash2, TriangleAlert, X } from "lucide-react";
+import { Check, CircleAlert, CircleCheck, CircleQuestionMark, Copy, Ellipsis, ExternalLink, Info, KeyRound, LockKeyhole, Plus, Search, Share2, ShieldCheck, Trash2, TriangleAlert, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /**
@@ -19,6 +19,8 @@ export const ICONS = {
   error: CircleAlert,
   /** A neutral message: no state, no colour. */
   info: Info,
+  /** The "?" beside a name whose rule is long: a button that opens the explanation (`HelpPopover`). */
+  help: CircleQuestionMark,
   /** Something the operator cannot change here (sealed, owned by the central). */
   locked: LockKeyhole,
   /** An action that will ask "Confirm it's you" first (sudo mode), said before it is pressed. */

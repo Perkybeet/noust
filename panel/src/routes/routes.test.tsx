@@ -61,7 +61,7 @@ const PAGES: [path: string, heading: string, content: string][] = [
   ["/settings/compliance", "Frameworks", "ENS category MEDIUM"],
   ["/settings/about", "About Noust", "Version"],
   ["/settings/integrations", "Connections", "GitHub"],
-  ["/settings/registries", "Image registries", "Container registries"],
+  ["/settings/registries", "Image registries", "Accounts"],
   ["/settings/cloud", "Cloud providers", "Provider accounts"],
   ["/fleet", "Fleet", "No servers in this fleet yet"],
 ];

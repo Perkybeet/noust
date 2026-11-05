@@ -135,6 +135,31 @@ describe("DetailPage (T2)", () => {
     );
     expect(slots(container)).toEqual(["header", "banner", "job", "tabs", "content"]);
   });
+
+  it("is as wide as its content: a settings page caps its header at the width of the content, so the title's actions never reach the window's edge", async () => {
+    const { container } = await renderRouted(
+      <DetailPage measure="settings" header={{ title: "Channels", primaryAction: <Button variant="primary">Add a channel</Button> }}>
+        <p>content</p>
+      </DetailPage>,
+    );
+    const template = container.querySelector("[data-template=detail]");
+    expect(template).toHaveAttribute("data-measure", "settings");
+    // One cap holds the header and the content together: they start and end on the same edges (L-2).
+    expect(template).toHaveClass("max-w-settings");
+    expect(template?.querySelector("[data-slot=header]")).not.toBeNull();
+    expect(template?.querySelector("[data-slot=content]")).not.toBeNull();
+  });
+
+  it("is the shell's own width unless it is told otherwise", async () => {
+    const { container } = await renderRouted(
+      <DetailPage header={{ title: "shop.example.com" }}>
+        <p>content</p>
+      </DetailPage>,
+    );
+    const template = container.querySelector("[data-template=detail]");
+    expect(template).toHaveAttribute("data-measure", "page");
+    expect(template).not.toHaveClass("max-w-settings");
+  });
 });
 
 describe("SettingsLayout (T3)", () => {

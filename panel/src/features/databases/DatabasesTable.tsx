@@ -9,13 +9,13 @@ import type { Column } from "../../components/ui/DataTable";
 import { EmptyCell } from "../../components/ui/EmptyCell";
 import { LogoMark } from "../../components/ui/LogoTile";
 import { Mono } from "../../components/ui/Mono";
+import { NameWithTags } from "../../components/ui/NameWithTags";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { SM_UP, useMediaQuery } from "../../components/ui/useMediaQuery";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { formatBytes } from "../../lib/format";
-import { TagChips } from "../app/settings/ResourceTagsDialog";
 import { ownerColumns } from "../teams/ownership";
 import type { Labels, Scope } from "../teams/organization";
 import { AddToNoust } from "./AddToNoust";
@@ -196,17 +196,13 @@ export function DatabasesTable({ databases, servers, engines, policies, dumps, c
       // The name is what the row is about: the table gives way elsewhere before it cuts a name that runs to 24 letters.
       width: "min-w-52",
       card: "title",
-      // The tags are under the name: the cell keeps its room, and a database without them keeps its row's height.
-      stacked: (database) => (database.tags?.length ?? 0) > 0,
       sortValue: (database) => database.name,
+      // The tags follow the name on its line, the first ones and "+N" for the rest: every row is the one height whatever it carries.
+      // No generic mark before the name: every row is a database, the engine's own mark is in the next column, and the width is better spent on names that run long.
       cell: (database) => (
-        <span className="flex min-w-0 flex-col gap-1">
-          {/* No generic mark before the name: every row is a database, the engine's own mark is in the next column, and the width is better spent on names that run long. */}
-          <span className="flex min-w-0 items-center gap-2">
-            <Mono tone="default">{database.name}</Mono>
-            {database.unverified ? <StatusPill state="unknown" size="sm" label={t("databases.table.unverified")} /> : null}
-          </span>
-          <TagChips tags={database.tags} />
+        <span className="flex min-w-0 items-center gap-2">
+          <NameWithTags name={database.name} mono tags={database.tags ?? []} />
+          {database.unverified ? <StatusPill state="unknown" size="sm" label={t("databases.table.unverified")} /> : null}
         </span>
       ),
     },

@@ -52,6 +52,7 @@ export function GitHubHost({ status }: { status: GitHubStatus }) {
 
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
+    // design-exception: write-without-permission the form is drawn only in the GitHub section's setup, which is for apps.manage
     if (changed && !save.isPending) save.mutate();
   };
 
