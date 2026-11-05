@@ -76,7 +76,7 @@ export function totalSize(files: readonly ReportFile[]): number {
  * @param now - The time every entry is stamped with.
  * @returns The archive, ready to be downloaded.
  */
-export function archive(files: readonly ReportFile[], now: Date = new Date()): Uint8Array {
+export function archive(files: readonly ReportFile[], now: Date = new Date()): Uint8Array<ArrayBuffer> {
   return zip(
     files.map((file) => ({ name: file.name, data: file.bytes })),
     now,

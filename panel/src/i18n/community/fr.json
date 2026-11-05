@@ -15782,7 +15782,6 @@
   "report.steps.send": "Ce qui est envoyé",
   "report.steps.github": "Sur GitHub",
   "report.what.titleLabel": "Titre",
-  "report.what.titleHelp": "Une ligne qui dit ce qui s'est cassé.",
   "report.what.areaLabel": "Où cela se produit",
   "report.what.areaHelp": "Choisi d'après la page où vous étiez.",
   "report.what.happenedLabel": "Ce qui s'est passé",

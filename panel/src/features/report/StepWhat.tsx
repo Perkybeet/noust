@@ -48,7 +48,7 @@ export function StepWhat({
         event.preventDefault();
       }}
     >
-      <Field label={t("report.what.titleLabel")} description={t("report.what.titleHelp")} error={errors.title}>
+      <Field label={t("report.what.titleLabel")} error={errors.title}>
         <Input
           ref={titleRef}
           value={draft.title}
@@ -70,7 +70,7 @@ export function StepWhat({
       <Field label={t("report.what.happenedLabel")} description={t("report.what.happenedHelp")} error={errors.happened}>
         <div ref={happenedRef} className="min-w-0">
           <Textarea
-            rows={4}
+            rows={3}
             value={draft.happened}
             onChange={(event) => {
               onChange({ happened: event.target.value });
@@ -80,7 +80,7 @@ export function StepWhat({
       </Field>
       <Field label={t("report.what.stepsLabel")} optional>
         <Textarea
-          rows={3}
+          rows={2}
           value={draft.reproduce}
           onChange={(event) => {
             onChange({ reproduce: event.target.value });

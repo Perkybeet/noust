@@ -11,7 +11,6 @@ export const report: Catalog<typeof en> = {
   },
   what: {
     titleLabel: "Título",
-    titleHelp: "Una línea que diga qué se ha roto.",
     areaLabel: "Dónde ocurre",
     areaHelp: "Elegido por la página en la que estabas.",
     happenedLabel: "Qué ha pasado",

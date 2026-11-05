@@ -292,7 +292,7 @@ describe("reporting a problem from the help menu", () => {
     expect(await within(harness.dialog).findByText(/was downloaded/)).toBeInTheDocument();
     expect(within(harness.dialog).getByText(downloads[0]?.name ?? "x")).toBeInTheDocument();
     expect(within(harness.dialog).getByText("GitHub was opened in another tab, with the form filled in")).toBeInTheDocument();
-    expect(within(harness.dialog).getByText(/Drag the file into the last box, The report file from the console\./)).toBeInTheDocument();
+    expect(within(harness.dialog).getByText(/Drag the file into the last box, "The report file from the console"\./)).toBeInTheDocument();
     expect(within(harness.dialog).getByText(/Nothing is published until then\./)).toBeInTheDocument();
     expect(within(harness.dialog).queryByRole("button", { name: "Download and open GitHub" })).toBeNull();
   });

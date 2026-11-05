@@ -15448,7 +15448,6 @@
   "report.steps.send": "发送什么",
   "report.steps.github": "在 GitHub 上",
   "report.what.titleLabel": "标题",
-  "report.what.titleHelp": "用一行话说明哪里出了问题。",
   "report.what.areaLabel": "发生在哪里",
   "report.what.areaHelp": "根据你所在的页面选定。",
   "report.what.happenedLabel": "发生了什么",

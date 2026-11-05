@@ -64,7 +64,7 @@ function dosDateTime(moment: Date): { date: number; time: number } {
  * @returns The bytes of the archive.
  * @throws Error when there are more entries or bytes than a plain zip can hold.
  */
-export function zip(entries: readonly ZipEntry[], modified: Date = new Date()): Uint8Array {
+export function zip(entries: readonly ZipEntry[], modified: Date = new Date()): Uint8Array<ArrayBuffer> {
   if (entries.length > MAX_ENTRIES) throw new Error("A zip holds 65535 files at most.");
   const encoder = new TextEncoder();
   const stamp = dosDateTime(modified);
