@@ -233,6 +233,8 @@ EVENTS: dict[str, EventSpec] = {
             "central.lock": "A central's secrets were locked.",
             "central.seal": "A central's secrets were sealed.",
             "central.unseal": "A central's secrets were unsealed.",
+            "auth.sign_in_image.set": "The picture on the sign-in screen was set, or how it is drawn was changed.",
+            "auth.sign_in_image.remove": "The picture on the sign-in screen was removed and the drawing came back.",
             "auth.oidc.config": "An identity provider was configured, changed or removed.",
             "auth.ldap.config": "A directory was configured, changed or removed.",
             "auth.saml.config": "A SAML identity provider was configured, changed or removed.",
