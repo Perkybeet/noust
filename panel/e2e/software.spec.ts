@@ -137,11 +137,13 @@ test("a page that lacks a piece says it is missing, installs it as a task, and t
 
   await page.getByRole("button", { name: "Install" }).click();
   await confirmItsYou(page, own);
-  await expect(page.getByText("Installing nginx stream module")).toBeVisible();
-  await expect(page.getByRole("link", { name: "See the task" })).toBeVisible();
   // Done: nginx can publish a port, and the notice that said it could not is gone.
   await expect(page.getByText("nginx stream module is missing")).toHaveCount(0, { timeout: 45_000 });
   await expect(page.getByRole("button", { name: "Open a port" }).first()).toBeEnabled();
+  // The install was a task. The modelled machine may finish it before its running state is drawn, so the task centre is
+  // asked once it is over: it keeps the task, ended, with its page a press away.
+  await page.getByRole("button", { name: /^Tasks/ }).click();
+  await expect(page.getByRole("link", { name: /Install nginx stream module/ }).first()).toBeVisible();
 });
 
 test("when the install fails the page says so with the tool's own words, and offers to try again", async ({ page, own, problems }) => {
