@@ -64,7 +64,8 @@ test("Run again asks the machine again and keeps the page", async ({ page, conso
   await expect(page.getByText(/^Checked /)).toContainText("just now");
   await expect(verdict(page)).toBeVisible();
 
-  await expect(page.getByText(`noust diagnose ${RUNNING}`)).toBeVisible();
+  // The page runs the diagnosis itself: the command that runs it from a terminal is not repeated under it.
+  await expect(page.getByText(`noust diagnose ${RUNNING}`)).toHaveCount(0);
   await settle(page);
   await expectNoA11yViolations(page, "a running app's diagnosis");
 });
