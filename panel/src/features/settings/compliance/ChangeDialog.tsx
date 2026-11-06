@@ -43,7 +43,7 @@ export interface ChangeDialogProps {
   onClose: () => void;
 }
 
-function effectColumns(t: T, controls: readonly ComplianceControl[], names: ReadonlyMap<string, string>): Column<Effect>[] {
+function effectColumns(t: T, controls: readonly ComplianceControl[], names: ReadonlyMap<string, string>, naming: boolean): Column<Effect>[] {
   const byId = new Map(controls.map((control) => [control.id, control]));
   const word = (effect: Effect, value: unknown): string => {
     const control = byId.get(effect.control);
@@ -66,7 +66,8 @@ function effectColumns(t: T, controls: readonly ComplianceControl[], names: Read
         <span className="flex min-w-0 flex-col gap-0.5">
           {effect.forced_by.map((id) => (
             <span key={id} className="text-12 text-fg-muted">
-              {names.get(id) ?? id}: <Mono tone="default">{(effect.clauses[id] ?? []).join(", ")}</Mono>
+              {naming ? `${names.get(id) ?? id}: ` : null}
+              <Mono tone="default">{(effect.clauses[id] ?? []).join(", ")}</Mono>
             </span>
           ))}
         </span>
@@ -138,7 +139,8 @@ export function ChangeDialog({ request, title, lead, action, loosens = false, do
         ) : (
           <DataTable
             caption={title}
-            columns={effectColumns(t, controls, names)}
+            // One framework asks for all of it: the dialog's title already says which, and its name on every row is noise.
+            columns={effectColumns(t, controls, names, new Set(plan.effects.flatMap((effect) => effect.forced_by)).size > 1)}
             rows={plan.effects}
             getRowId={(effect: Effect) => effect.control}
             density="compact"

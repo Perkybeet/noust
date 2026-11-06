@@ -180,11 +180,13 @@ describe("Settings > Compliance, with a framework on", () => {
     // The two that need somebody, worst first, each with the link to the page where it is mended.
     const table = await within(report).findByRole("region", { name: "What ENS MEDIA asks that is not in force yet" });
     const rows = within(table).getAllByRole("row");
-    expect(rows[1]).toHaveTextContent("Second factor required");
-    expect(rows[1]).toHaveTextContent("Not met");
-    expect(within(rows[1]!).getByRole("link", { name: "See the accounts" })).toHaveAttribute("href", "/settings/accounts");
-    expect(rows[2]).toHaveTextContent("Partly met");
-    expect(within(rows[2]!).getByRole("link", { name: "See the backups" })).toHaveAttribute("href", "/backups");
+    const [, worst, next] = rows;
+    if (worst === undefined || next === undefined) throw new Error("The report lists the two controls that need somebody");
+    expect(worst).toHaveTextContent("Second factor required");
+    expect(worst).toHaveTextContent("Not met");
+    expect(within(worst).getByRole("link", { name: "See the accounts" })).toHaveAttribute("href", "/settings/accounts");
+    expect(next).toHaveTextContent("Partly met");
+    expect(within(next).getByRole("link", { name: "See the backups" })).toHaveAttribute("href", "/backups");
     // What is met is a count, never a list of thirty-six.
     expect(within(report).getByText(/The other 36 controls are in force or do not apply/)).toBeInTheDocument();
     expect(within(report).queryByText("met_3")).toBeNull();
