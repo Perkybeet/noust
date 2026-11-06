@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { Outlet } from "@tanstack/react-router";
+import { useState } from "react";
 import type { ReactNode } from "react";
 
 import type { PageHeaderProps } from "../../app/PageHeader";
 import { DetailPage } from "../../components/page/DetailPage";
 import { useNodeCapability } from "../../nodes/capability";
+import { HeaderSlot } from "./headerSlot";
 import { PendingChanges } from "./PendingChanges";
 import { PowerProvider } from "./PowerDialog";
 import { SERVER_CAPABILITY, changesQuery } from "./queries";
@@ -29,21 +31,49 @@ export function MachineProviders() {
  * The frame of a page of the machine outside the Server's layout: its title and what it is for, what is
  * pending on the machine (a security change that waits to be confirmed) and the job in hand, over the page.
  * The page itself is the component the section had under the Server, as it was. A page's own actions and the state
- * beside its title are the `header`'s.
+ * beside its title are the `header`'s; a section drawn under it puts its actions at the right of the title too
+ * (`HeaderActions`), as the sections of the Server do.
  */
-export function MachinePage({ title, description, header, children }: { title: string; description?: ReactNode; header?: Omit<PageHeaderProps, "title" | "description">; children: ReactNode }) {
+export function MachinePage({
+  title,
+  description,
+  status,
+  header,
+  children,
+}: {
+  title: string;
+  description?: ReactNode;
+  status?: ReactNode;
+  header?: Omit<PageHeaderProps, "title" | "description">;
+  children: ReactNode;
+}) {
   const capability = useNodeCapability(SERVER_CAPABILITY);
   const available = capability.status === "available" || capability.status === "unknown";
   const changes = useQuery({ ...changesQuery(), enabled: available });
   const hasJob = useHasServerJob();
   const pending = (changes.data ?? []).filter((change) => change.status === "pending");
+  // Where the page's own actions are drawn: a box with no size of its own, so the header is the same height before they arrive.
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
   return (
-    <DetailPage
-      header={{ title, ...(description !== undefined ? { description } : {}), ...header }}
-      {...(pending.length > 0 ? { banner: <PendingChanges changes={pending} /> } : {})}
-      {...(hasJob ? { job: <ServerJobSlot /> } : {})}
-    >
-      {children}
-    </DetailPage>
+    <HeaderSlot value={slot}>
+      <DetailPage
+        header={{
+          title,
+          ...(description !== undefined ? { description } : {}),
+          ...(status !== undefined ? { status } : {}),
+          ...header,
+          actions: (
+            <>
+              {header?.actions}
+              <span ref={setSlot} className="contents" />
+            </>
+          ),
+        }}
+        {...(pending.length > 0 ? { banner: <PendingChanges changes={pending} /> } : {})}
+        {...(hasJob ? { job: <ServerJobSlot /> } : {})}
+      >
+        {children}
+      </DetailPage>
+    </HeaderSlot>
   );
 }

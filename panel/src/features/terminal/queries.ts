@@ -16,7 +16,23 @@ export type TerminalStatus = ResponseOf<"/api/terminal/status", "get">;
 
 export const terminalKeys = {
   status: ["terminal", "status"] as const,
+  recordings: ["terminal", "recordings"] as const,
+  recording: (id: string) => ["terminal", "recordings", id] as const,
 };
+
+/** What the terminal recorded, newest session first: the sessions that are open and the ones that ended. Takes `audit.read`. */
+export const terminalRecordingsQuery = () =>
+  queryOptions({
+    queryKey: terminalKeys.recordings,
+    queryFn: ({ signal }) => request("get", "/api/terminal/recordings", { signal }),
+  });
+
+/** One recording, with what was printed in it and whether its hash still holds. */
+export const terminalRecordingQuery = (id: string) =>
+  queryOptions({
+    queryKey: terminalKeys.recording(id),
+    queryFn: ({ signal }) => request("get", "/api/terminal/recordings/{recording_id}", { params: { recording_id: id }, signal }),
+  });
 
 /** The switches and limits of the terminal on the server on screen. */
 export const terminalStatusQuery = () =>

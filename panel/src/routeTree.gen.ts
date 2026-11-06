@@ -72,8 +72,10 @@ import { Route as ConsoleNetworkTunnelsRouteImport } from "./routes/_console/net
 import { Route as ConsoleProjectsIndexRouteImport } from "./routes/_console/projects/index"
 import { Route as ConsoleProjectsTeamsRouteImport } from "./routes/_console/projects/teams"
 import { Route as ConsoleSecurityIndexRouteImport } from "./routes/_console/security/index"
+import { Route as ConsoleSecurityAccessRouteImport } from "./routes/_console/security/access"
 import { Route as ConsoleSecurityBlocksRouteImport } from "./routes/_console/security/blocks"
 import { Route as ConsoleSecuritySshRouteImport } from "./routes/_console/security/ssh"
+import { Route as ConsoleSecurityWafRouteImport } from "./routes/_console/security/waf"
 import { Route as ConsoleServerIndexRouteImport } from "./routes/_console/server/index"
 import { Route as ConsoleServerCentralRouteImport } from "./routes/_console/server/central"
 import { Route as ConsoleServerFilesRouteImport } from "./routes/_console/server/files"
@@ -513,6 +515,11 @@ const ConsoleSecurityIndexRoute = ConsoleSecurityIndexRouteImport.update({
   path: "/",
   getParentRoute: () => ConsoleSecurityRoute,
 } as any)
+const ConsoleSecurityAccessRoute = ConsoleSecurityAccessRouteImport.update({
+  id: "/access",
+  path: "/access",
+  getParentRoute: () => ConsoleSecurityRoute,
+} as any)
 const ConsoleSecurityBlocksRoute = ConsoleSecurityBlocksRouteImport.update({
   id: "/blocks",
   path: "/blocks",
@@ -521,6 +528,11 @@ const ConsoleSecurityBlocksRoute = ConsoleSecurityBlocksRouteImport.update({
 const ConsoleSecuritySshRoute = ConsoleSecuritySshRouteImport.update({
   id: "/ssh",
   path: "/ssh",
+  getParentRoute: () => ConsoleSecurityRoute,
+} as any)
+const ConsoleSecurityWafRoute = ConsoleSecurityWafRouteImport.update({
+  id: "/waf",
+  path: "/waf",
   getParentRoute: () => ConsoleSecurityRoute,
 } as any)
 const ConsoleServerIndexRoute = ConsoleServerIndexRouteImport.update({
@@ -1242,8 +1254,10 @@ export interface FileRoutesByFullPath {
   "/network/listening": typeof ConsoleNetworkListeningRoute
   "/network/tunnels": typeof ConsoleNetworkTunnelsRoute
   "/projects/teams": typeof ConsoleProjectsTeamsRoute
+  "/security/access": typeof ConsoleSecurityAccessRoute
   "/security/blocks": typeof ConsoleSecurityBlocksRoute
   "/security/ssh": typeof ConsoleSecuritySshRoute
+  "/security/waf": typeof ConsoleSecurityWafRoute
   "/server/central": typeof ConsoleServerCentralRoute
   "/server/files": typeof ConsoleServerFilesRoute
   "/server/logs": typeof ConsoleServerLogsRoute
@@ -1420,8 +1434,10 @@ export interface FileRoutesByTo {
   "/network/listening": typeof ConsoleNetworkListeningRoute
   "/network/tunnels": typeof ConsoleNetworkTunnelsRoute
   "/projects/teams": typeof ConsoleProjectsTeamsRoute
+  "/security/access": typeof ConsoleSecurityAccessRoute
   "/security/blocks": typeof ConsoleSecurityBlocksRoute
   "/security/ssh": typeof ConsoleSecuritySshRoute
+  "/security/waf": typeof ConsoleSecurityWafRoute
   "/server/central": typeof ConsoleServerCentralRoute
   "/server/files": typeof ConsoleServerFilesRoute
   "/server/logs": typeof ConsoleServerLogsRoute
@@ -1605,8 +1621,10 @@ export interface FileRoutesById {
   "/_console/network/listening": typeof ConsoleNetworkListeningRoute
   "/_console/network/tunnels": typeof ConsoleNetworkTunnelsRoute
   "/_console/projects/teams": typeof ConsoleProjectsTeamsRoute
+  "/_console/security/access": typeof ConsoleSecurityAccessRoute
   "/_console/security/blocks": typeof ConsoleSecurityBlocksRoute
   "/_console/security/ssh": typeof ConsoleSecuritySshRoute
+  "/_console/security/waf": typeof ConsoleSecurityWafRoute
   "/_console/server/central": typeof ConsoleServerCentralRoute
   "/_console/server/files": typeof ConsoleServerFilesRoute
   "/_console/server/logs": typeof ConsoleServerLogsRoute
@@ -1793,8 +1811,10 @@ export interface FileRouteTypes {
     | "/network/listening"
     | "/network/tunnels"
     | "/projects/teams"
+    | "/security/access"
     | "/security/blocks"
     | "/security/ssh"
+    | "/security/waf"
     | "/server/central"
     | "/server/files"
     | "/server/logs"
@@ -1971,8 +1991,10 @@ export interface FileRouteTypes {
     | "/network/listening"
     | "/network/tunnels"
     | "/projects/teams"
+    | "/security/access"
     | "/security/blocks"
     | "/security/ssh"
+    | "/security/waf"
     | "/server/central"
     | "/server/files"
     | "/server/logs"
@@ -2155,8 +2177,10 @@ export interface FileRouteTypes {
     | "/_console/network/listening"
     | "/_console/network/tunnels"
     | "/_console/projects/teams"
+    | "/_console/security/access"
     | "/_console/security/blocks"
     | "/_console/security/ssh"
+    | "/_console/security/waf"
     | "/_console/server/central"
     | "/_console/server/files"
     | "/_console/server/logs"
@@ -2742,6 +2766,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleSecurityIndexRouteImport
       parentRoute: typeof ConsoleSecurityRoute
     }
+    "/_console/security/access": {
+      id: "/_console/security/access"
+      path: "/access"
+      fullPath: "/security/access"
+      preLoaderRoute: typeof ConsoleSecurityAccessRouteImport
+      parentRoute: typeof ConsoleSecurityRoute
+    }
     "/_console/security/blocks": {
       id: "/_console/security/blocks"
       path: "/blocks"
@@ -2754,6 +2785,13 @@ declare module "@tanstack/react-router" {
       path: "/ssh"
       fullPath: "/security/ssh"
       preLoaderRoute: typeof ConsoleSecuritySshRouteImport
+      parentRoute: typeof ConsoleSecurityRoute
+    }
+    "/_console/security/waf": {
+      id: "/_console/security/waf"
+      path: "/waf"
+      fullPath: "/security/waf"
+      preLoaderRoute: typeof ConsoleSecurityWafRouteImport
       parentRoute: typeof ConsoleSecurityRoute
     }
     "/_console/server/": {
@@ -3688,14 +3726,18 @@ const ConsoleNetworkRouteWithChildren = ConsoleNetworkRoute._addFileChildren(
 )
 
 interface ConsoleSecurityRouteChildren {
+  ConsoleSecurityAccessRoute: typeof ConsoleSecurityAccessRoute
   ConsoleSecurityBlocksRoute: typeof ConsoleSecurityBlocksRoute
   ConsoleSecuritySshRoute: typeof ConsoleSecuritySshRoute
+  ConsoleSecurityWafRoute: typeof ConsoleSecurityWafRoute
   ConsoleSecurityIndexRoute: typeof ConsoleSecurityIndexRoute
 }
 
 const ConsoleSecurityRouteChildren: ConsoleSecurityRouteChildren = {
+  ConsoleSecurityAccessRoute: ConsoleSecurityAccessRoute,
   ConsoleSecurityBlocksRoute: ConsoleSecurityBlocksRoute,
   ConsoleSecuritySshRoute: ConsoleSecuritySshRoute,
+  ConsoleSecurityWafRoute: ConsoleSecurityWafRoute,
   ConsoleSecurityIndexRoute: ConsoleSecurityIndexRoute,
 }
 

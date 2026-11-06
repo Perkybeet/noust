@@ -16,7 +16,7 @@ import { KeyValueList } from "../../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../../components/page/KeyValueList";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Button } from "../../../components/ui/Button";
-import { Card } from "../../../components/ui/Card";
+import { SurfaceSection } from "../../../components/page/SurfaceSection";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { Drawer } from "../../../components/ui/Drawer";
@@ -198,9 +198,9 @@ export function CleanupScheduleCard() {
       query={query}
       label={t("server.storage.schedule.label")}
       skeleton={
-        <Card loading level={2} title={t("server.storage.schedule.title")} icon={OBJECT_ICONS.schedule} padding="sm" actions={<Skeleton className="h-control-sm w-24 rounded-control" />}>
+        <SurfaceSection loading title={t("server.storage.schedule.title")} icon={OBJECT_ICONS.schedule} actions={<Skeleton className="h-control-sm w-24 rounded-control" />}>
           <Skeleton className="h-32 w-full" />
-        </Card>
+        </SurfaceSection>
       }
     >
       {(schedule) => <CleanupSchedulePanel schedule={schedule} />}
@@ -249,11 +249,11 @@ function CleanupSchedulePanel({ schedule }: { schedule: CleanupSchedule }) {
       : []),
   ];
   return (
-    <Card
-      level={2}
-      title={t("server.storage.schedule.title")} icon={OBJECT_ICONS.schedule}
-      description={t("server.storage.schedule.description")}
-      padding="sm"
+    <SurfaceSection
+      title={t("server.storage.schedule.title")}
+      icon={OBJECT_ICONS.schedule}
+      description={t("server.storage.schedule.short")}
+      help={t("server.storage.schedule.description")}
       actions={
         <div className="flex items-center gap-2">
           {policy.enabled ? (
@@ -303,6 +303,6 @@ function CleanupSchedulePanel({ schedule }: { schedule: CleanupSchedule }) {
           </ul>
         </ConfirmDialog>
       ) : null}
-    </Card>
+    </SurfaceSection>
   );
 }

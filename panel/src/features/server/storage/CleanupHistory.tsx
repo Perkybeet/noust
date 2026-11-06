@@ -9,7 +9,7 @@ import { useState } from "react";
 
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Button } from "../../../components/ui/Button";
-import { Card } from "../../../components/ui/Card";
+import { SurfaceSection } from "../../../components/page/SurfaceSection";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
 import { Drawer } from "../../../components/ui/Drawer";
@@ -196,7 +196,7 @@ function CleanupRuns({ runs }: { runs: CleanupRun[] }) {
     },
   ];
   return (
-    <Card level={2} title={t("server.storage.history.title")} icon={OBJECT_ICONS.activity} description={t("server.storage.history.description")} padding="none">
+    <SurfaceSection title={t("server.storage.history.title")} icon={OBJECT_ICONS.activity} description={t("server.storage.history.short")} help={t("server.storage.history.description")} flush>
       <DataTable
         columns={columns}
         rows={runs}
@@ -210,6 +210,6 @@ function CleanupRuns({ runs }: { runs: CleanupRun[] }) {
         )}
       />
       {opened !== null ? <RunDrawer run={opened} onClose={() => setOpened(null)} /> : null}
-    </Card>
+    </SurfaceSection>
   );
 }

@@ -51,6 +51,11 @@ export const logs = {
     group: "Grouping, as in arithmetic.",
   },
   system: {
+    badQueryTitle: "The server could not read this search",
+    badQueryBody: "Fix what it says below, or clear the search.",
+    badQueryClear: "Clear the search",
+    forbiddenTitle: "This role cannot read the system logs",
+    forbiddenDescription: "The journal holds what services printed, secrets included, so it takes {permission}.",
     noun: "the system logs",
     searchPlaceholder: "Search messages, or @unit:nginx error -timeout",
     unitLabel: "Service",

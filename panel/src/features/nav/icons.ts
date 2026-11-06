@@ -125,6 +125,8 @@ const COLUMN_OBJECT: Readonly<Record<string, ObjectName>> = {
   security: "control",
   "security.ssh": "key",
   "security.blocks": "protection",
+  "security.waf": "firewall",
+  "security.access": "session",
   // The views of the areas that are one page (features/nav/views.ts).
   "logs.view.apps": "app",
   "logs.view.system": "server",

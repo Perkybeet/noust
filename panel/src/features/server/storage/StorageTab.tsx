@@ -10,14 +10,16 @@
 import { Eraser, RotateCw, Search } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import type { ReactNode } from "react";
 
 import { request } from "../../../api/client";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
+import { ReadOnlyLine } from "../../../components/page/permissions";
+import { SurfaceSection } from "../../../components/page/SurfaceSection";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
-import { Card } from "../../../components/ui/Card";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
@@ -40,7 +42,7 @@ import { ServerErrorBlock, explainServerError, useServerConfirm } from "../error
 import { SERVER_CAPABILITY, cleanupPlanQuery, dockerImagesQuery, serverKeys, storageQuery } from "../queries";
 import type { Candidate, Mount, Storage } from "../queries";
 import { useServerJob } from "../serverJob";
-import { TabToolbar } from "../TabToolbar";
+import { HeaderActions } from "../headerSlot";
 import { CleanupHistory } from "./CleanupHistory";
 import { CleanupScheduleCard } from "./CleanupScheduleCard";
 import { KeptFolders } from "./KeptFolders";
@@ -94,10 +96,15 @@ const TYPICAL_MOUNTS = 3;
 /** Places the scan usually reports: the loading shape of the table. */
 const TYPICAL_CANDIDATES = 8;
 
-function Mounts({ mounts }: { mounts: readonly Mount[] | undefined }) {
+/** The room of the line under a section's title while it is read: the same height as the text that replaces it. */
+function LineToCome() {
+  return <span aria-hidden="true" className="inline-block h-4 w-64 max-w-full animate-breathe rounded-control bg-surface-active align-middle" />;
+}
+
+function Mounts({ mounts, summary }: { mounts: readonly Mount[] | undefined; summary: ReactNode }) {
   const t = useT();
   return (
-    <Card level={2} title={t("server.storage.mountsTitle")} icon={OBJECT_ICONS.disk} padding="none">
+    <SurfaceSection title={t("server.storage.mountsTitle")} icon={OBJECT_ICONS.disk} description={summary} flush>
       {mounts === undefined ? (
         <LoadingRegion label={t("server.storage.loading")}>
         <ul aria-hidden="true" className="flex flex-col divide-y divide-border">
@@ -153,7 +160,7 @@ function Mounts({ mounts }: { mounts: readonly Mount[] | undefined }) {
           ))}
         </ul>
       )}
-    </Card>
+    </SurfaceSection>
   );
 }
 
@@ -213,7 +220,7 @@ function CleanupDialog({ action, onClose }: { action: string; onClose: () => voi
             </ul>
           ) : null}
           {plan.data.commands.map((command) => (
-            <CommandHint key={command} command={command} label={t("server.storage.runs")} />
+            <CommandHint key={command} command={command} label={t("server.storage.runs")} reason="salida-del-sistema" />
           ))}
         </div>
       )}
@@ -297,6 +304,9 @@ function ImagesDrawer({ onClose }: { onClose: () => void }) {
 
 function Candidates({ storage, open }: { storage: Storage | undefined; open: (opened: Opened) => void }) {
   const t = useT();
+  // How old the measurement is: said under the title, where the table's own first question (is this current?) is asked.
+  const measured =
+    storage === undefined ? <LineToCome /> : storage.analysis_at ? t.rich("server.storage.measuredAt", { when: <RelativeTime value={storage.analysis_at} /> }) : t("server.storage.neverMeasured");
   const columns: Column<Candidate>[] = [
     {
       id: "what",
@@ -334,8 +344,15 @@ function Candidates({ storage, open }: { storage: Storage | undefined; open: (op
     },
   ];
   return (
-    <Card level={2} title={t("server.storage.candidatesTitle")} description={t("server.storage.candidatesDescription")} padding="none">
+    <SurfaceSection
+      title={t("server.storage.candidatesTitle")}
+      icon={OBJECT_ICONS.disk}
+      description={measured}
+      help={t("server.storage.candidatesDescription")}
+      flush
+    >
       <DataTable
+        embedded
         columns={columns}
         rows={storage ? sortCandidates(storage.candidates) : []}
         loading={storage === undefined}
@@ -356,7 +373,7 @@ function Candidates({ storage, open }: { storage: Storage | undefined; open: (op
           ) : null
         }
       />
-    </Card>
+    </SurfaceSection>
   );
 }
 
@@ -384,45 +401,41 @@ function StorageView() {
   const worst = data?.worst ?? null;
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      <TabToolbar
-        loading={data === undefined}
+      <HeaderActions>
+        {data === undefined ? (
+          // The button's room while the label is unknown, in the one a measured server has.
+          <span
+            aria-hidden="true"
+            className="inline-flex h-control-md animate-breathe items-center rounded-control border border-transparent bg-surface-active px-3 text-13 font-medium whitespace-nowrap text-transparent select-none"
+          >
+            {t("server.storage.measureAgain")}
+          </span>
+        ) : (
+          // design-exception: write-without-permission measuring changes nothing and takes server.read, which is what draws this page
+          <Button icon={<RotateCw aria-hidden="true" />} loading={analyze.isPending} disabled={jobs.busy} onClick={() => analyze.mutate()}>
+            {data.analysis_at ? t("server.storage.measureAgain") : t("server.storage.measure")}
+          </Button>
+        )}
+      </HeaderActions>
+      <ReadOnlyLine permission="server.manage" />
+      <Mounts
+        mounts={data?.mounts}
         summary={
-          data === undefined ? (
-            <Skeleton className="h-5 w-72" />
-          ) : worst !== null ? (
-            t.rich("server.storage.summary", {
-              mount: <Mono tone="default">{worst.mount_point}</Mono>,
-              percent: formatPercent(worst.percent_used, t.locale),
-              free: formatBytes(worst.free_bytes, t.locale),
-            })
-          ) : (
-            t("server.storage.summaryNone")
-          )
-        }
-        actions={
-          data === undefined ? (
-            // The button's room while the label is unknown, in the one a measured server has.
-            <span
-              aria-hidden="true"
-              className="inline-flex h-control-md animate-breathe items-center rounded-control border border-transparent bg-surface-active px-3 text-13 font-medium whitespace-nowrap text-transparent select-none"
-            >
-              {t("server.storage.measureAgain")}
-            </span>
-          ) : (
-            <Button icon={<RotateCw aria-hidden="true" />} loading={analyze.isPending} disabled={jobs.busy} onClick={() => analyze.mutate()}>
-              {data.analysis_at ? t("server.storage.measureAgain") : t("server.storage.measure")}
-            </Button>
-          )
+          data === undefined
+            ? <LineToCome />
+            : worst !== null
+              ? t.rich("server.storage.summary", {
+                  mount: <Mono tone="default">{worst.mount_point}</Mono>,
+                  percent: formatPercent(worst.percent_used, t.locale),
+                  free: formatBytes(worst.free_bytes, t.locale),
+                })
+              : t("server.storage.summaryNone")
         }
       />
-      <Mounts mounts={data?.mounts} />
       <KeptFolders />
       <div className="grid min-w-0 items-start gap-6 xl:grid-cols-3">
         <div className="flex min-w-0 flex-col gap-2 xl:col-span-2">
           <Candidates storage={data} open={setOpened} />
-          <p className="min-h-4 text-12 text-fg-muted">
-            {data === undefined ? null : data.analysis_at ? t.rich("server.storage.measuredAt", { when: <RelativeTime value={data.analysis_at} /> }) : t("server.storage.neverMeasured")}
-          </p>
         </div>
         <SwapCard />
       </div>
@@ -432,7 +445,6 @@ function StorageView() {
         </div>
         <CleanupScheduleCard />
       </div>
-      <CommandHint command="noust server storage" label={t("common.words.fromTerminal")} />
       {opened?.kind === "clean" && opened.candidate.action != null ? <CleanupDialog action={opened.candidate.action} onClose={() => setOpened(null)} /> : null}
       {opened?.kind === "images" ? <ImagesDrawer onClose={() => setOpened(null)} /> : null}
     </div>

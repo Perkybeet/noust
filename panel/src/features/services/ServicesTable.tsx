@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { STATE_RANK } from "../../components/page/status";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
+import { RelativeTime } from "../../components/page/RelativeTime";
 import { EmptyCell } from "../../components/ui/EmptyCell";
 import { Mono } from "../../components/ui/Mono";
 import { NameWithTags } from "../../components/ui/NameWithTags";
@@ -26,41 +27,48 @@ export interface ServicesTableProps {
   loading?: boolean;
   empty?: ReactNode;
   rowActions?: (service: ServiceInfo) => ReactNode;
-  /** The application a unit runs, when it runs one: named under the unit. */
+  /** The application a unit runs, when it runs one: said in the column of whose it is. */
   appOf?: (service: ServiceInfo) => string | null;
   className?: string;
 }
 
+/** Whose a unit is, in the words a person uses: the application it runs, what a person made by hand, or the system's. */
+function ownerOf(t: T, service: ServiceInfo, appOf: ((service: ServiceInfo) => string | null) | undefined): { text: string; domain: boolean } {
+  const app = appOf?.(service) ?? null;
+  if (app !== null) return { text: app, domain: true };
+  return { text: service.managed ? t("services.table.byHand") : t("services.table.system"), domain: false };
+}
+
 /** The table's columns; a function of `t` so every header and cell speaks the active language. */
-function columnsFor(t: T, mixed: boolean, memory: boolean, appOf: ((service: ServiceInfo) => string | null) | undefined): Column<ServiceInfo>[] {
+function columnsFor(t: T, memory: boolean, appOf: ((service: ServiceInfo) => string | null) | undefined): Column<ServiceInfo>[] {
   const columns: Column<ServiceInfo>[] = [
     {
       id: "name",
       header: t("services.table.unit"),
       card: "title",
-      // The tags follow the unit's name on its line, the first ones and "+N" for the rest; the line saying which app it runs is
-      // the one line under it, so a row is at most two short lines whatever it carries.
-      cell: (row) => {
-        const app = appOf?.(row) ?? null;
-        return (
-          <span className="flex min-w-0 flex-col">
-            <NameWithTags
-              name={
-                <TextLink variant="row" to="/server/services/$name" params={{ name: row.name }} translate="no" className="-mx-1 w-fit max-w-full truncate px-1 py-0.5">
-                  <Mono>{row.name}</Mono>
-                </TextLink>
-              }
-              tags={row.tags ?? []}
-            />
-            {app !== null ? (
-              <span className="truncate text-12 text-fg-muted">{t("services.table.runsApp", { domain: app })}</span>
-            ) : !row.managed ? (
-              <span className="text-12 text-fg-muted sm:hidden">{t("services.table.foreign")}</span>
-            ) : null}
-          </span>
-        );
-      },
+      // The tags follow the unit's name on its line, the first ones and "+N" for the rest.
+      cell: (row) => (
+        <NameWithTags
+          name={
+            <TextLink variant="row" to="/server/services/$name" params={{ name: row.name }} translate="no" className="-mx-1 w-fit max-w-full truncate px-1 py-0.5">
+              <Mono>{row.name}</Mono>
+            </TextLink>
+          }
+          tags={row.tags ?? []}
+        />
+      ),
       sortValue: (row) => row.name,
+    },
+    {
+      id: "owner",
+      header: t("services.table.belongsTo"),
+      hideBelow: "sm",
+      // The application's domain is a name of the machine; "by hand" and "the system's" are words.
+      cell: (row) => {
+        const owner = ownerOf(t, row, appOf);
+        return owner.domain ? <Mono tone="muted">{owner.text}</Mono> : <span className="text-13 text-fg-muted">{owner.text}</span>;
+      },
+      sortValue: (row) => ownerOf(t, row, appOf).text,
     },
     {
       id: "state",
@@ -79,49 +87,12 @@ function columnsFor(t: T, mixed: boolean, memory: boolean, appOf: ((service: Ser
       sortValue: (row) => STATE_RANK[serviceState(row).state],
     },
     {
-      id: "description",
-      header: t("services.table.command"),
+      id: "since",
+      header: t("services.table.since"),
       hideBelow: "md",
-      cell: (row) =>
-        row.description ? (
-          <Mono tone="muted" truncate>
-            {row.description}
-          </Mono>
-        ) : (
-          <EmptyCell reason={t("services.table.noCommand")} />
-        ),
-      sortValue: (row) => row.description ?? null,
-    },
-    ...(mixed
-      ? [
-          {
-            id: "managed",
-            header: t("services.table.managed"),
-            width: "w-28",
-            hideBelow: "sm" as const,
-            // Words, not colour: nothing here is a state or something to act on.
-            cell: (row: ServiceInfo) => (
-              <span className={row.managed ? "text-fg" : "text-fg-muted"}>{row.managed ? t("services.table.byNoust") : t("services.table.foreign")}</span>
-            ),
-            sortValue: (row: ServiceInfo) => (row.managed ? 0 : 1),
-          },
-        ]
-      : []),
-    {
-      id: "enabled",
-      header: t("services.table.boot"),
-      width: "w-36",
-      hideBelow: "sm",
-      // Whether it starts at boot is an on/off, told at a glance like a state (item 56).
-      cell: (row) => (
-        <StatusPill
-          state={row.enabled ? "running" : "stopped"}
-          label={row.enabled ? t("services.table.enabled") : t("services.table.disabled")}
-          appearance="inline"
-          size="sm"
-        />
-      ),
-      sortValue: (row) => (row.enabled ? 0 : 1),
+      card: "meta",
+      // Since it started running; a unit that is not running has no such moment.
+      cell: (row) => (row.active && row.uptime ? <RelativeTime value={row.uptime} className="text-13 text-fg-muted" /> : <EmptyCell reason={t("services.table.notRunning")} />),
     },
   ];
   if (!memory) return columns;
@@ -151,10 +122,8 @@ function columnsFor(t: T, mixed: boolean, memory: boolean, appOf: ((service: Ser
  */
 export function ServicesTable({ services, caption, loading = false, empty, rowActions, appOf, className }: ServicesTableProps) {
   const t = useT();
-  // Only worth a column when the list mixes both: otherwise every row would say "Noust".
-  const mixed = services.some((service) => !service.managed);
   const memory = services.some((service) => memoryOf(service) !== null);
-  const columns = columnsFor(t, mixed, memory, appOf);
+  const columns = columnsFor(t, memory, appOf);
 
   return (
     <DataTable
@@ -166,7 +135,8 @@ export function ServicesTable({ services, caption, loading = false, empty, rowAc
       pagination="services"
       {...(empty !== undefined ? { empty } : {})}
       {...(rowActions ? { rowActions } : {})}
-      defaultSort={{ column: "name", direction: "ascending" }}
+      // The ones that fail come first: that is what the list is opened for.
+      defaultSort={{ column: "state", direction: "ascending" }}
       {...(className !== undefined ? { className } : {})}
     />
   );

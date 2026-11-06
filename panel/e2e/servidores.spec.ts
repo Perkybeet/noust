@@ -1,7 +1,7 @@
 /**
  * 4.1: a server's page as sections, the list that opens it and the catalog's honest tiles, against
  * the real backend (4.2: the system's views are sections of the server, and Security and Network are areas of their own).
- * A lone server first (its page is its name and nine sections, the ports say who
+ * A lone server first (its page is its name and ten sections, the ports say who
  * holds each, the web server says what moving would do, the files say what is kept), then a central
  * with a node: the Servers area opens the list, a row opens that server, and its permissions section
  * shows what the server lets the central do.
@@ -17,27 +17,27 @@ import { expect, expectNoA11yViolations, settle, signIn, startConsoleServer, tes
 import type { ConsoleServer, RunningServer } from "./fixtures";
 import { confirmItsYou } from "./settings.helpers";
 
-const SECTIONS = ["Status", "This server", "Processes", "Resource monitor", "System updates", "Services", "Web server", "Files", "Terminal"] as const;
+const SECTIONS = ["Status", "Machine", "Processes", "Resource monitor", "Updates", "Services", "Web server", "Software", "Files", "Terminal"] as const;
 
 function column(page: Page) {
   return page.getByRole("navigation", { name: "Server sections" });
 }
 
-test("a lone server's page is its name and nine sections, and every one opens without a violation", async ({ page, consoleServer }) => {
+test("a lone server's page is its name and ten sections, each titled by itself, and every one opens without a violation", async ({ page, consoleServer }) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, consoleServer, "/server");
   const links = await column(page).getByRole("link").allTextContents();
   // A count rides after a name that has one ("System and updates8"): the names are what is held.
   expect(links.map((text) => SECTIONS.find((name) => text.startsWith(name)))).toEqual([...SECTIONS]);
-  // The header names the machine: the one page where it does.
+  // Status is named after the machine; every other section after itself.
   const title = await page.getByRole("heading", { level: 1 }).textContent();
   expect(title).not.toBe("Server");
   expect(await column(page).getByRole("link", { name: "Central's permissions" }).count()).toBe(0);
 
   for (const name of SECTIONS) {
     await column(page).getByRole("link", { name: new RegExp(`^${name}`) }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText(title ?? "");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(name === "Status" ? (title ?? "") : name);
     await expect(column(page).getByRole("link", { name: new RegExp(`^${name}`) })).toHaveAttribute("aria-current", "page");
     await settle(page);
     await expectNoA11yViolations(page, `Server > ${name}`);
@@ -222,15 +222,16 @@ withFleet("on a fleet Servers opens the list, a row opens that server, and its p
   await expect(page).toHaveURL(/\/n\/fleet-node\/server$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("fleet-node");
   await column(page).getByRole("link", { name: "Central's permissions" }).click();
-  await expect(page.getByText("fleet-node lets the central: Everything.")).toBeVisible();
+  await expect(page.getByRole("region", { name: /^What .* can do here$/ }).getByText(/^Everything: /)).toBeVisible();
   await page.getByRole("radio", { name: /Read only/ }).click();
   await expect(page.getByText("noust fleet access --level read --host-access off")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the central's permissions on a server");
 
-  // From the permissions column of the list the same section opens.
+  // From the menu of the server's row in the list the same section opens.
   await page.goto("/fleet/servers");
-  await page.getByRole("link", { name: "Everything" }).first().click();
+  await page.getByRole("button", { name: "Actions for fleet-node" }).click();
+  await page.getByRole("menuitem", { name: "What the central may do here" }).click();
   await expect(page).toHaveURL(/\/n\/fleet-node\/server\/central$/);
 });
 

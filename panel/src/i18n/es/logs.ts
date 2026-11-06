@@ -48,6 +48,11 @@ export const logs: Catalog<typeof en> = {
     group: "Agrupar, como en aritmética.",
   },
   system: {
+    badQueryTitle: "El servidor no pudo leer esta búsqueda",
+    badQueryBody: "Corrige lo que dice debajo o quita la búsqueda.",
+    badQueryClear: "Quitar la búsqueda",
+    forbiddenTitle: "Este rol no puede leer los registros del sistema",
+    forbiddenDescription: "El registro guarda lo que imprimen los servicios, secretos incluidos, así que pide {permission}.",
     noun: "los registros del sistema",
     searchPlaceholder: "Buscar en los mensajes, o @unit:nginx error -timeout",
     unitLabel: "Servicio",

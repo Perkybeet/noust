@@ -334,7 +334,7 @@ describe("the server's firewall, named apart from the other two", () => {
     expect(screen.getByRole("heading", { level: 3, name: "Web (WAF)" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 3, name: "Provider's" })).toBeInTheDocument();
     expect(screen.getByText(/Noust does not see it/)).toBeInTheDocument();
-    expect(within(screen.getByRole("main")).getByRole("link", { name: "Security" })).toHaveAttribute("href", "/security");
+    expect(within(screen.getByRole("main")).getByRole("link", { name: "Security" })).toHaveAttribute("href", "/security/waf");
   });
 
   it("draws no table of the listening ports, which are one table elsewhere, and says what Docker published around it", async () => {

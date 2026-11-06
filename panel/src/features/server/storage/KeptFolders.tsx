@@ -14,7 +14,7 @@ import { appsQuery } from "../../../api/queries/apps";
 import { mountsQuery } from "../../../api/queries/runtime";
 import { volumeTargetsQuery } from "../../../api/queries/volumeBackups";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
-import { Card } from "../../../components/ui/Card";
+import { SurfaceSection } from "../../../components/page/SurfaceSection";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
@@ -109,7 +109,7 @@ export function KeptFolders() {
     );
   }
   return (
-    <Card level={2} title={t("server.kept.title")} icon={OBJECT_ICONS.mounts} description={t("server.kept.description")} padding="none">
+    <SurfaceSection title={t("server.kept.title")} icon={OBJECT_ICONS.mounts} description={t("server.kept.short")} help={t("server.kept.description")} flush>
       <DataTable
         columns={columns}
         rows={rows}
@@ -118,6 +118,6 @@ export function KeptFolders() {
         density="compact"
         empty={<EmptyState variant="inline" title={t("server.kept.none")} />}
       />
-    </Card>
+    </SurfaceSection>
   );
 }

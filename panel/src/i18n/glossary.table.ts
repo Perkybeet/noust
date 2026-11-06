@@ -115,7 +115,6 @@ export const DIVERGENCE_EXCEPTIONS: Readonly<Record<string, string>> = {
   Kind: "\"Tipo\" is what a thing is; \"Clase\" is a relation's kind, next to its data type, which is \"Tipo\"",
   Live: "two senses the glossary keeps apart: \"En producción\" (the version that serves) and \"En directo\" (a stream)",
   Open: "a verb (\"Abrir\", a button) and a firewall verdict (\"Abierto\")",
-  Reboot: "a noun (\"Reinicio\", a column) and a verb (\"Reiniciar\", a button)",
   "Removed {name}": "a person takes the personal a (\"Se quitó a {name}\"), a thing does not",
   Runs: "\"Se ejecuta\" (when it runs) and \"Ejecuciones\" (the runs, a plural noun)",
   Succeeded: "a deployment is \"Desplegado\" (it was put on the server, like \"Desplegado con avisos\"); a job, a backup or a check that ended well is \"Correcto\"",

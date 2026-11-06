@@ -11,10 +11,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
-import { QueryState } from "../../../components/page/QueryState";
+import { isApiError } from "../../../api/client";
+import type { ApiError } from "../../../api/errors";
+import { ErrorBlock, QueryState } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
+import { EmptyState } from "../../../components/ui/EmptyState";
 import { LogViewer } from "../../../components/ui/LogViewer";
 import type { LogLine } from "../../../components/ui/LogViewer";
+import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
 import { useT } from "../../../i18n";
@@ -41,6 +45,34 @@ export interface SystemLogsProps {
   search: LogsSearch;
   /** `push` adds a history entry: opening a line is a place Back should leave. */
   onSearchChange: (search: LogsSearch, options?: { push?: boolean }) => void;
+}
+
+/**
+ * The journal refused the request: 400, a query it could not read (the server says where, in its own words), or 403, a
+ * role that may not read the journal, which holds what services print and so what they may have printed that is secret.
+ */
+function JournalRefused({ error, onClear }: { error: ApiError; onClear: (() => void) | undefined }) {
+  const t = useT();
+  if (error.status === 403) {
+    return <EmptyState variant="inline" title={t("logs.system.forbiddenTitle")} description={t.rich("logs.system.forbiddenDescription", { permission: <Mono key="permission">secrets.reveal</Mono> })} />;
+  }
+  // The server's own words, with where the query went wrong, are what the block shows below the fix.
+  return (
+    <ErrorBlock
+      error={error}
+      title={t("logs.system.badQueryTitle")}
+      hint={t("logs.system.badQueryBody")}
+      {...(onClear !== undefined
+        ? {
+            action: (
+              <Button size="sm" onClick={onClear}>
+                {t("logs.system.badQueryClear")}
+              </Button>
+            ),
+          }
+        : {})}
+    />
+  );
 }
 
 function Logs({ search, onSearchChange }: SystemLogsProps) {
@@ -137,89 +169,94 @@ function Logs({ search, onSearchChange }: SystemLogsProps) {
           {t("logs.system.stretch", { from: formatDateTime(new Date(search.from * 1000), t.locale), to: formatDateTime(new Date(search.to * 1000), t.locale) })}
         </Notice>
       ) : null}
-      <QueryState
-        query={journal}
-        label={t("logs.system.noun")}
-        skeleton={
-          <div className="flex h-editor min-h-0 min-w-0 flex-col">
-            <LogViewer lines={[]} height="fill" searchable={false} loading label={t("logs.system.viewerLabel")} emptyMessage={t("logs.system.loading")} />
-          </div>
-        }
-      >
-        {(result) => (
-          <div className="flex min-w-0 flex-col gap-4">
-            {result.scan_limit_reached ? (
-              <Notice
-                tone="info"
-                title={t("logs.system.scanTitle")}
-                action={
-                  scan < SCAN_FURTHER ? (
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        setScan(SCAN_FURTHER);
-                      }}
-                    >
-                      {t("logs.system.scanFurther", { count: SCAN_FURTHER })}
-                    </Button>
-                  ) : undefined
-                }
-              >
-                {t("logs.system.scanBody", { count: result.scanned })}
-              </Notice>
-            ) : null}
-            <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-12 text-fg-muted">
-              <p role="status">
-                {result.oldest
-                  ? t("logs.system.result", { matched: result.matched, scanned: result.scanned, since: formatDateTime(new Date(result.oldest), t.locale) })
-                  : t("logs.system.resultNone", { matched: result.matched, scanned: result.scanned })}
-              </p>
-              {hasStretch ? (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  icon={<OBJECT_ICONS.activity aria-hidden="true" />}
-                  onClick={() => {
-                    setInvestigating(stretchOf(search, Math.floor(Date.now() / 1000)));
-                  }}
+      {/* A query the server cannot read and a role that may not read the journal are not "could not load": each says what happened and what to do. */}
+      {journal.isError && isApiError(journal.error) && (journal.error.status === 400 || journal.error.status === 403) ? (
+        <JournalRefused error={journal.error} onClear={search.q !== undefined ? () => set({ q: undefined }) : undefined} />
+      ) : (
+        <QueryState
+          query={journal}
+          label={t("logs.system.noun")}
+          skeleton={
+            <div className="flex h-editor min-h-0 min-w-0 flex-col">
+              <LogViewer lines={[]} height="fill" searchable={false} loading label={t("logs.system.viewerLabel")} emptyMessage={t("logs.system.loading")} />
+            </div>
+          }
+        >
+          {(result) => (
+            <div className="flex min-w-0 flex-col gap-4">
+              {result.scan_limit_reached ? (
+                <Notice
+                  tone="info"
+                  title={t("logs.system.scanTitle")}
+                  action={
+                    scan < SCAN_FURTHER ? (
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setScan(SCAN_FURTHER);
+                        }}
+                      >
+                        {t("logs.system.scanFurther", { count: SCAN_FURTHER })}
+                      </Button>
+                    ) : undefined
+                  }
                 >
-                  {t("logs.system.whatHappened")}
-                </Button>
+                  {t("logs.system.scanBody", { count: result.scanned })}
+                </Notice>
+              ) : null}
+              <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-12 text-fg-muted">
+                <p role="status">
+                  {result.oldest
+                    ? t("logs.system.result", { matched: result.matched, scanned: result.scanned, since: formatDateTime(new Date(result.oldest), t.locale) })
+                    : t("logs.system.resultNone", { matched: result.matched, scanned: result.scanned })}
+                </p>
+                {hasStretch ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    icon={<OBJECT_ICONS.activity aria-hidden="true" />}
+                    onClick={() => {
+                      setInvestigating(stretchOf(search, Math.floor(Date.now() / 1000)));
+                    }}
+                  >
+                    {t("logs.system.whatHappened")}
+                  </Button>
+                ) : null}
+              </div>
+              {/* Keyed by the range: choosing "Live" starts the viewer following the end again. */}
+              <div key={`${rangeOf(search)}-${search.unit ?? ""}`} className="flex h-editor min-h-0 min-w-0 flex-col">
+                <LogViewer
+                  lines={shown}
+                  height="fill"
+                  follow
+                  // The search above asks the journal itself, past the lines on screen: one search box.
+                  searchable={false}
+                  onOpenLine={open}
+                  openLineLabel={t("logs.system.openLine")}
+                  label={t("logs.system.viewerLabel")}
+                  filename={`${search.unit ?? "journal"}.log`}
+                  emptyMessage={t("logs.system.empty")}
+                />
+              </div>
+              {result.truncated && lines < SYSTEM_MORE_LINES ? (
+                <div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setLines(SYSTEM_MORE_LINES);
+                    }}
+                  >
+                    {t("logs.system.more", { count: SYSTEM_MORE_LINES })}
+                  </Button>
+                </div>
+              ) : result.truncated ? (
+                <p className="text-12 text-fg-muted">{t("logs.system.truncated", { count: lines })}</p>
               ) : null}
             </div>
-            {/* Keyed by the range: choosing "Live" starts the viewer following the end again. */}
-            <div key={`${rangeOf(search)}-${search.unit ?? ""}`} className="flex h-editor min-h-0 min-w-0 flex-col">
-              <LogViewer
-                lines={shown}
-                height="fill"
-                follow
-                // The search above asks the journal itself, past the lines on screen: one search box.
-                searchable={false}
-                onOpenLine={open}
-                openLineLabel={t("logs.system.openLine")}
-                label={t("logs.system.viewerLabel")}
-                filename={`${search.unit ?? "journal"}.log`}
-                emptyMessage={t("logs.system.empty")}
-              />
-            </div>
-            {result.truncated && lines < SYSTEM_MORE_LINES ? (
-              <div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    setLines(SYSTEM_MORE_LINES);
-                  }}
-                >
-                  {t("logs.system.more", { count: SYSTEM_MORE_LINES })}
-                </Button>
-              </div>
-            ) : result.truncated ? (
-              <p className="text-12 text-fg-muted">{t("logs.system.truncated", { count: lines })}</p>
-            ) : null}
-          </div>
-        )}
-      </QueryState>
+          )}
+        </QueryState>
+      )}
       {search.line !== undefined ? (
         <ContextDrawer
           entry={{ cursor: search.line, unit: opened?.unit ?? "", timestamp: opened?.timestamp ?? "" }}

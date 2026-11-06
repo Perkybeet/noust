@@ -66,20 +66,25 @@ describe("the Server area", () => {
         .map((link) => link.textContent),
     ).toEqual([
       "Status",
-      "This server",
+      "Machine",
       "Processes",
       "Resource monitor",
-      "System updates23",
+      "Updates23",
       "Services",
       "Web server",
       "Software",
       "Files",
     ]);
-    // Automatic updates on, at a glance (item 56), and which ones under it.
-    const auto = screen.getByText("Automatic updates").closest("div");
-    if (auto === null) throw new Error("no automatic updates row");
-    expect(within(auto).getByText("On")).toHaveAttribute("data-state", "running");
-    expect(within(auto).getByText("Security updates only")).toBeInTheDocument();
+    // Status says how loaded the machine is and what uses the most now; the long facts are on Machine.
+    expect(await screen.findByText("What uses the most now")).toBeInTheDocument();
+    expect(screen.queryByText("Automatic updates")).not.toBeInTheDocument();
+  });
+
+  it("puts automatic updates beside the title of the updates page, with its switch, and what it covers under it", async () => {
+    server("/server/updates");
+    const auto = (await screen.findByRole("heading", { level: 2, name: "Automatic updates" })).closest("[data-slot='surface-section']");
+    if (auto === null) throw new Error("no automatic updates section");
+    expect(within(auto as HTMLElement).getByRole("switch", { name: "Automatic security updates" })).toBeChecked();
   });
 
   it("puts what needs attention first, each with its way out", async () => {
@@ -554,10 +559,8 @@ describe("the Security tab", () => {
     await user.click(within(sections).getByRole("link", { name: "SSH" }));
     await screen.findByRole("region", { name: "Authorized SSH keys" });
     await expectNoAxeViolations(screen.getByRole("main"));
-    await user.click(within(sections).getByRole("link", { name: "Brute force" }));
-    expect(
-      await screen.findByText("fail2ban is not installed."),
-    ).toBeInTheDocument();
+    await user.click(within(sections).getByRole("link", { name: "Blocks" }));
+    expect(await screen.findByText("Nothing slows down password guessing")).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 });
@@ -577,8 +580,9 @@ describe("fail2ban watching nginx", () => {
       "POST /api/server/security/fail2ban/web": () => json(202, { job_id: "j9", status: "pending", message: "queued" }),
     });
 
-    expect(await screen.findByText("Off. fail2ban only watches SSH.")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Watch nginx" }));
+    const watching = await screen.findByRole("switch", { name: "Watch nginx's logs" });
+    expect(watching).not.toBeChecked();
+    await user.click(watching);
     const dialog = await screen.findByRole("alertdialog", { name: "Start fail2ban watching nginx" });
     expect(within(dialog).getByText(/Cloudflare's ranges and every proxy a site declares/)).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Watch nginx" }));
@@ -595,8 +599,9 @@ describe("fail2ban watching nginx", () => {
       "POST /api/server/security/fail2ban/web": () => json(202, { job_id: "j9", status: "pending", message: "queued" }),
     });
 
-    expect(await screen.findByText(/bans an address that keeps being refused a password/)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Stop watching nginx" }));
+    const watching = await screen.findByRole("switch", { name: "Watch nginx's logs" });
+    expect(watching).toBeChecked();
+    await user.click(watching);
     const dialog = await screen.findByRole("alertdialog", { name: "Stop fail2ban watching nginx" });
     await user.click(within(dialog).getByRole("button", { name: "Stop watching nginx" }));
 
@@ -611,8 +616,9 @@ describe("fail2ban watching nginx", () => {
       "GET /api/server/security/fail2ban": () => json(200, { ...RUNNING, web_available: false }),
     });
 
-    await screen.findByText("fail2ban is running");
+    await screen.findByRole("heading", { level: 2, name: "Blocked now" });
     expect(screen.queryByText("Watch nginx too")).not.toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: "Watch nginx's logs" })).not.toBeInTheDocument();
   });
 });
 
@@ -623,7 +629,7 @@ describe("the Files and System sections", () => {
       await screen.findByRole("list", { name: "Filesystems" }),
     ).toHaveTextContent("/dev/vda1");
     expect(
-      await screen.findByRole("region", { name: "What takes space" }),
+      await screen.findByRole("region", { name: "Places that take space" }),
     ).toHaveTextContent("System logs");
     await expectNoAxeViolations(screen.getByRole("main"));
   });
@@ -648,9 +654,10 @@ describe("the Files and System sections", () => {
         });
       },
     });
-    const table = await screen.findByRole("table", { name: "Processes" });
+    await screen.findByRole("table", { name: "Processes" });
+    const rowsOfTable = () => within(screen.getByRole("table", { name: "Processes" })).getAllByRole("row");
     await waitFor(() => {
-      expect(within(table).getAllByRole("row")).toHaveLength(11);
+      expect(rowsOfTable()).toHaveLength(11);
     });
     // The sort is the column headers', not a control beside the table that read like tabs.
     expect(screen.queryByRole("radio", { name: "Memory" })).not.toBeInTheDocument();
@@ -658,16 +665,16 @@ describe("the Files and System sections", () => {
     await user.click(screen.getByRole("button", { name: "Show the first 50 of 213" }));
 
     await waitFor(() => {
-      expect(within(table).getAllByRole("row")).toHaveLength(51);
+      expect(rowsOfTable()).toHaveLength(51);
     });
     expect(backend.callsTo("GET /api/server/processes").at(-1)?.search.get("limit")).toBe("50");
 
-    await user.click(within(table).getByRole("button", { name: "Memory" }));
+    await user.click(within(screen.getByRole("table", { name: "Processes" })).getByRole("button", { name: "Memory" }));
 
     await waitFor(() => {
       expect(backend.callsTo("GET /api/server/processes").at(-1)?.search.get("sort_by")).toBe("memory");
     });
-    expect(within(table).getByRole("columnheader", { name: "Memory" })).toHaveAttribute("aria-sort", "descending");
+    expect(within(screen.getByRole("table", { name: "Processes" })).getByRole("columnheader", { name: "Memory" })).toHaveAttribute("aria-sort", "descending");
   });
 
   it("show the clock, the name, the system and the power, and pass axe", async () => {

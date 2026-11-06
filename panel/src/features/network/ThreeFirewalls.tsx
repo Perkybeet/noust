@@ -25,7 +25,7 @@ export function ThreeFirewalls() {
           <Card level={3} padding="sm" as="div" className="h-full" title={t("network.firewall.ofWeb")} icon={OBJECT_ICONS.security}>
             <p className="text-13 text-pretty text-fg-muted">{t("network.firewall.ofWebLine")}</p>
             <p className="mt-2">
-              <TextLink to="/security" size="ui">
+              <TextLink to="/security/waf" size="ui">
                 {t("network.firewall.ofWebLink")}
               </TextLink>
             </p>

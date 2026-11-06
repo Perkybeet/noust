@@ -18,8 +18,8 @@ test("the overview puts what needs attention first, and fits the first screen", 
   await expect(attention.getByText(/security updates are pending/)).toBeVisible();
   await expect(attention.getByText(/A reboot is needed to finish updating/)).toBeVisible();
   await expect(attention.getByText("A database or internal service is reachable from the internet")).toBeVisible();
-  // The readings are the last thing of the tab: on a 1440x900 screen, in view without scrolling.
-  await expect(page.getByText("Fullest disk")).toBeInViewport();
+  // What is not well, with the readings above it, is in view without scrolling on a 1440x900 screen.
+  await expect(page.getByRole("heading", { level: 2, name: "What is not well" })).toBeInViewport();
 
   await settle(page);
   await expectNoA11yViolations(page, "the server overview");
@@ -96,7 +96,7 @@ test("Security shows its findings, SSH as it runs, the firewall against what lis
 
   await page.getByRole("navigation", { name: "Security sections" }).getByRole("link", { name: "SSH" }).click();
   await expect(page).toHaveURL(/\/security\/ssh$/);
-  await expect(page.getByRole("heading", { name: "Effective settings" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Effective settings" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Authorized SSH keys" }).getByText("yago@laptop")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the SSH view");
@@ -113,8 +113,8 @@ test("Security shows its findings, SSH as it runs, the firewall against what lis
 
   // The bans stay with Security: back to it for the last section.
   await page.goto("/security");
-  await page.getByRole("navigation", { name: "Security sections" }).getByRole("link", { name: "Brute force" }).click();
-  await expect(page.getByRole("list", { name: "Addresses banned by sshd" }).getByText("185.220.101.4")).toBeVisible();
+  await page.getByRole("navigation", { name: "Security sections" }).getByRole("link", { name: "Blocks" }).click();
+  await expect(page.getByRole("table", { name: "Addresses blocked now" }).getByText("185.220.101.4")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the bans view");
 });
@@ -122,7 +122,7 @@ test("Security shows its findings, SSH as it runs, the firewall against what lis
 test("the storage, logs and system tabs show the machine", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/server/files");
   await expect(page.getByRole("list", { name: "Filesystems" }).getByText("/srv")).toBeVisible();
-  await expect(page.getByRole("region", { name: "What takes space" }).getByText("System logs")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Places that take space" }).first().getByText("System logs")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the storage tab");
 
@@ -140,7 +140,7 @@ test("the storage, logs and system tabs show the machine", async ({ page, consol
 
 test("the resource monitor shows its unit and open findings under System", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/server/monitor");
-  const monitor = page.locator("section", { has: page.getByRole("heading", { name: "Resource monitor" }) });
+  const monitor = page.locator("section", { has: page.getByRole("heading", { name: "Resource watcher" }) });
   await expect(monitor).toBeVisible();
   await expect(monitor.getByText("Running")).toBeVisible();
   await expect(monitor.getByText("xmrig")).toBeVisible();
@@ -148,7 +148,7 @@ test("the resource monitor shows its unit and open findings under System", async
 
 test("acknowledging an open finding of the resource monitor removes it", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/server/monitor");
-  const monitor = page.locator("section", { has: page.getByRole("heading", { name: "Resource monitor" }) });
+  const monitor = page.locator("section", { has: page.getByRole("heading", { name: "Resource watcher" }) });
   await expect(monitor.getByText("xmrig")).toBeVisible();
 
   const acknowledged = page.waitForResponse((response) => /\/api\/monitor\/observations\/\d+\/acknowledge$/.test(response.url()));

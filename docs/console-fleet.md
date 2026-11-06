@@ -4,9 +4,12 @@ Part of [The console, page by page](console.md).
 
 A [central's](CENTRAL.md) own pages, hidden on a plain server: choose **All servers** in the scope
 selector and the sidebar lists them. **Overview** (the fleet's key figures and what needs attention
-on every server, worst first), **Servers** (reachability, version, load, memory, disk, labels),
-**Applications**, **Certificates**, **Backups**, **Updates** and **Activity**, each row with its
-server and a link to its page there. The
+on every server, worst first), **Servers** (reachability, which Noust each runs, how loaded it is, what it
+has waiting, labels, and the one button that updates it: **Update to 2.1.0**, the version the server's own
+package source offers; **With an update**, in the column, is the same list kept to the servers that wait for
+something), **Applications**, **Certificates**, **Backups** and **Activity**, each row with its
+server and a link to its page there. In an area that belongs to one machine (Server, Security, Network), choosing
+**All servers** gives the list of servers with that area's summary, and choosing a server opens its page. The
 fleet's Overview ends with **Compare servers**: one measurement of every server (CPU, memory, swap, disk,
 load, network) over the same window, the busiest first, from each server's own history; a server
 that did not answer is a gap, said so. A server

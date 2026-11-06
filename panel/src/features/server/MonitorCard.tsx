@@ -4,9 +4,11 @@ import { Mail, Play, Power, Square } from "lucide-react";
 import { monitorConfigQuery, monitorStatusQuery, observationsQuery } from "../../api/queries/monitor";
 import type { MonitorStatus } from "../../api/queries/monitor";
 import { RelativeTime } from "../../components/page/RelativeTime";
+import { Can } from "../../components/page/permissions";
 import { Subsection } from "../../components/page/Subsection";
+import { SurfaceSection } from "../../components/page/SurfaceSection";
 import { Button } from "../../components/ui/Button";
-import { Card } from "../../components/ui/Card";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
 import { Mono } from "../../components/ui/Mono";
@@ -81,6 +83,7 @@ function UnitRow({ t, status }: { t: T; status: MonitorStatus }) {
         )}
         {status.uptime ? <span className="text-12 text-fg-faint">{t("server.monitor.since", { uptime: status.uptime })}</span> : null}
       </div>
+      <Can permission="server.manage">
       <div className="flex items-center gap-2">
         {!status.installed ? (
           <Button size="sm" loading={install.isPending} onClick={() => install.mutate()}>
@@ -109,6 +112,7 @@ function UnitRow({ t, status }: { t: T; status: MonitorStatus }) {
           </>
         )}
       </div>
+      </Can>
     </div>
   );
 }
@@ -125,17 +129,19 @@ export function MonitorCard() {
   const { testEmail, acknowledge } = useMonitorActions();
 
   return (
-    <Card level={2}
-      title={t("server.monitor.title")}
+    <SurfaceSection
+      title={t("server.monitor.watcherTitle")}
+      icon={OBJECT_ICONS.overview}
       description={t("server.monitor.description")}
       actions={
         status.data?.installed ? (
-          <Button size="sm" icon={<Mail aria-hidden="true" />} loading={testEmail.isPending} onClick={() => testEmail.mutate()}>
-            {t("server.monitor.sendTestEmail")}
-          </Button>
+          <Can permission="server.manage">
+            <Button size="sm" icon={<Mail aria-hidden="true" />} loading={testEmail.isPending} onClick={() => testEmail.mutate()}>
+              {t("server.monitor.sendTestEmail")}
+            </Button>
+          </Can>
         ) : undefined
       }
-      padding="sm"
     >
       <ServerQueryState query={status} label={t("server.monitor.statusLabel")} skeleton={<SkeletonText lines={4} />}>
         {(data) => (
@@ -182,6 +188,6 @@ export function MonitorCard() {
           </div>
         )}
       </ServerQueryState>
-    </Card>
+    </SurfaceSection>
   );
 }

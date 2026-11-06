@@ -133,6 +133,10 @@ under Changed: one field that becomes optional, one refusal that is new and one 
 - A MongoDB engine no longer lists `metrics` among its `capabilities` (it never had metrics to read), and
   `GET /api/databases/databases/{engine}/{name}/slow-queries` of a Redis database answers `reason: "slowlog"`
   where it said `not_supported`, with the command that reads its slow log in `how_to_enable`.
+- `POST /api/services` with `raw_content` (a whole unit file written by hand) is refused with `400` when
+  `systemd-analyze verify` rejects it: `output` carries systemd's own words, `fields.raw_content` says which
+  field, and nothing is written. Before, only the console's unit file page asked for that check (through
+  `POST /api/services/verify`) before it saved; the manager now asks it for whoever creates a unit this way.
 
 ## 4.1.0
 

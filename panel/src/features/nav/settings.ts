@@ -204,6 +204,10 @@ export const RENAMED: Readonly<Record<string, readonly PlainKey[]>> = {
   server: ["nav.renamed.server"],
   // The updates of 4.0 are a section of the server again (4.2); "System updates" typed whole still opens it, ahead of the alert rule that names them.
   "server.updates": ["nav.renamed.systemUpdates"],
+  // The server's section of 4.1 that was "This server" is Machine; Brute force is Blocks; and the fleet's Updates, a list of its own, is the servers that have one.
+  "server.machine": ["nav.renamed.thisServer"],
+  "security.blocks": ["nav.renamed.bruteForce"],
+  "fleet.servers.updates": ["nav.renamed.fleetUpdates"],
   // What 4.1 had under the Server and under Domains, and 4.2 moved to areas of their own, and Settings > Servers, which is the fleet's list.
   security: ["nav.renamed.serverSecurity"],
   "network.listening": ["nav.renamed.serverNetwork"],
