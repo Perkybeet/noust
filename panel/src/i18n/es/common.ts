@@ -376,7 +376,6 @@ export const common: Catalog<typeof en> = {
     name: "Nombre",
     cancel: "Cancelar",
     fromTerminal: "Desde un terminal",
-    sameFromTerminal: "Lo mismo, desde un terminal",
     remove: "Quitar",
     close: "Cerrar",
     edit: "Editar",

@@ -384,7 +384,6 @@ export const common = {
     name: "Name",
     cancel: "Cancel",
     fromTerminal: "From a terminal",
-    sameFromTerminal: "The same, from a terminal",
     remove: "Remove",
     close: "Close",
     edit: "Edit",
