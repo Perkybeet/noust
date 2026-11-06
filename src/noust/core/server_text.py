@@ -324,7 +324,7 @@ CATALOG: dict[str, str] = {
     # -- Mail an account is sent (an invitation, a password reset) -------------------------
     "mail.no_transport": "There is no way to send mail from this server",
     "mail.no_transport.hint": (
-        "Set monitor.smtp.* or monitor.email_api.* (Settings > Channels), then ask again."
+        "Set monitor.smtp.* or monitor.email_api.* (Settings > Notification channels), then ask again."
     ),
     "mail.no_public_url": "The console has no public address to put in the link",
     "mail.no_public_url.hint": "Set web.public_url to the address people open the console at.",

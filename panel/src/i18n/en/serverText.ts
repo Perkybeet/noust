@@ -1333,7 +1333,7 @@ export const serverText = {
     },
     no_transport: {
       text: "There is no way to send mail from this server",
-      hint: "Set monitor.smtp.* or monitor.email_api.* (Settings > Channels), then ask again.",
+      hint: "Set monitor.smtp.* or monitor.email_api.* (Settings > Notification channels), then ask again.",
     },
   },
   names: {

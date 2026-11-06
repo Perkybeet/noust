@@ -438,7 +438,7 @@ The events above (`unit_failed`, `app_unreachable`, `app_recovered`, `cert_expir
 `probe_failed`, `probe_recovered`, `security_release`, `container_restart_loop`, `recipe_outdated` and `central_silent`) go through Noust's notification channels (webhook, Slack,
 Discord, Telegram, email, Pushover, ntfy, Gotify, Teams, Mattermost, Matrix, Lark, PagerDuty, and any
 others you add by name), which are
-configured under `notifications.*` in the console's Settings > Channels or with `noust notify`
+configured under `notifications.*` in the console's Settings > Notification channels or with `noust notify`
 and `noust config set`, and only when `notifications.enabled` is on and the event is enabled. Each
 channel can hear its own events, only some applications, and not at night; a delivery that fails
 is tried again and kept on record. All of that is in [notifications.md](notifications.md). Test a

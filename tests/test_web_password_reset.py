@@ -385,7 +385,7 @@ class TestInvitingByMail:
         assert body["email_error_coded"] == {"code": "mail.no_transport", "params": {}}
         # The way out is said too, naming where Settings keeps it today.
         assert "monitor.smtp" in body["email_error_hint"]
-        assert "Settings > Channels" in body["email_error_hint"]
+        assert "Settings > Notification channels" in body["email_error_hint"]
 
     def test_an_invitation_that_was_not_asked_to_be_mailed_has_nothing_to_explain(
         self, client: TestClient, mailer: FakeMailer

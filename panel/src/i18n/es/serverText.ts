@@ -1322,7 +1322,7 @@ export const serverText: Catalog<typeof en> = {
     },
     no_transport: {
       text: "Este servidor no tiene ninguna forma de enviar correo",
-      hint: "Define monitor.smtp.* o monitor.email_api.* (Ajustes > Canales) y vuelve a pedirlo.",
+      hint: "Define monitor.smtp.* o monitor.email_api.* (Ajustes > Canales de aviso) y vuelve a pedirlo.",
     },
   },
   names: {
