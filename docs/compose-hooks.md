@@ -155,7 +155,7 @@ noust app hooks clear shop.example.com                     # the repository's no
 |---|---|
 | `/api/apps/{domain}/hooks` | `GET` `apps.read`: the hooks in force, their `source` (`operator`, `repo` or `none`), the operator's `document` and `repository_error`. `PUT` `root_equivalent`, sudo, four-eyes: body `{"document": "<yaml>"}`. `DELETE` `apps.manage`: clear. |
 
-In the console: the application's Settings > Deploy hooks shows what is in force and where it
+In the console: the application's Deploys and triggers (Hooks) shows what is in force and where it
 comes from, and a field for the operator's own (saving asks you to confirm it is you).
 
 ## Rolling back past a migration

@@ -144,7 +144,7 @@ it queues would build the pushed branch:
    succeeds, `X` becomes the application's pinned branch.
 2. **Otherwise, the pinned branch.** `noust app branch DOMAIN BRANCH` pins one (the branch must
    exist on the remote; nothing is rebuilt until the next update), `noust app branch DOMAIN`
-   shows it, and `--unpin` removes it. In the console: application > Settings > General.
+   shows it, and `--unpin` removes it. In the console: the application's Code and build.
    `PATCH /api/apps/{domain}/branch` over the API.
 3. **Otherwise, as before 3.1**: in place, the branch the checkout is on (the update pulls it
    and records it); on releases, the branch recorded for the application. The repository cache

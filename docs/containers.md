@@ -166,7 +166,7 @@ Dockerfile (the inspection proposes the container type), a repository Railpack b
 Railpack on **Configuration**), and **A Docker image**, which has no source and nothing to inspect.
 **Configuration** carries every setting above: the Dockerfile, context and stage, build arguments
 and build secrets, the port, the volumes, the restart policy and a private registry's account. An
-application's **Settings > Container** shows and changes them afterwards (`noust app container set`).
+application's **Code and build** shows and changes them afterwards (`noust app container set`).
 Secrets are write-only there too: a build secret is listed by its id, a registry account's password
 is "kept", and neither value is ever sent back or shown. The console cannot tell whether Railpack
 is installed (no API says so): it offers it, and the deploy refuses with the server's words when it

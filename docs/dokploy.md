@@ -62,7 +62,7 @@ What follows from that:
 | API keys (`x-api-key`) | API tokens with a scope, and roles | `noust token create`; roles are `viewer`, `operator`, `admin`, `security`, `auditor`. |
 | Notifications (Slack, Discord, Telegram, email, Gotify, ntfy...) | Notification channels | `noust notify` ([notifications.md](notifications.md)). |
 | Users, Audit logs, SSO | Accounts, the audit trail, single sign-on | Settings > Accounts, `noust audit`, [sso.md](sso.md). |
-| Tags | App tags | Settings > General of an application; `noust app tag restart`. |
+| Tags | App tags | Resources and running of an application; `noust app tag restart`. |
 
 ## Screens
 
@@ -93,7 +93,7 @@ palette (`Ctrl K`) too.
 | Settings > Notifications | **Settings > Notification channels** |
 | Settings > SSO | **Settings > Single sign-on** ([sso.md](sso.md)) |
 | Settings > Billing, License, Whitelabeling | None. Noust is AGPL-3.0-or-later and has one edition; nothing is licensed per server or per seat |
-| An application: General, Environment, Domains, Deployments, Preview Deployments, Schedules, Volume Backups, Logs, Monitoring, Advanced | The application's **Overview**, **Environment**, **Domains**, **Deployments**, **Settings > Previews**, **Cron**, **Backups**, **Logs**, **Metrics** and **Settings** |
+| An application: General, Environment, Domains, Deployments, Preview Deployments, Schedules, Volume Backups, Logs, Monitoring, Advanced | The application's **Overview**, **Variables**, **Domains**, **Deployments**, **Deploys and triggers** (Previews), **Cron**, **Backups**, **Logs**, **Metrics** and its configuration pages |
 | Rollback (in Deployments) | **Roll back** on the application, from **Deployments** |
 
 ## What Noust does not do, on purpose

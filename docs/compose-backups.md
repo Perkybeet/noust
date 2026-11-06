@@ -67,7 +67,7 @@ noust app backup-before-update shop.example.com off      # or on
 ```
 
 or `backup.databases: off` in `noust.yaml`, or `PATCH /api/apps/{domain}/backup-before-update`
-with `{"enabled": false}` (`apps.manage`, sudo mode), or the application's Settings > Automation in
+with `{"enabled": false}` (`apps.manage`, sudo mode), or the application's Deploys and triggers (Automation) in
 the console. `GET /api/apps/{domain}` shows `backup_before_update`.
 
 **Restoring.** With the stack's service reachable through its compose file:

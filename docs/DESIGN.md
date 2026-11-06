@@ -730,7 +730,7 @@ grow).
 ```tsx
 <SettingsLayout label="Application settings" items={[
     { to: "/apps/$domain/settings", params, label: "General", exact: true },
-    { to: "/apps/$domain/settings/deploys", params, label: "Deploys" },
+    { to: "/apps/$domain/triggers", params, label: "Deploys and triggers" },
     { to: "/apps/$domain/settings/delete", params, label: "Delete", danger: true },
   ]} index={isIndexRoute} backTo="/apps/$domain/settings" backParams={params}>
   <Card title=... description=...> fields </Card>

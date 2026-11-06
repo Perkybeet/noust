@@ -25,7 +25,7 @@ noust preview enable shop.example.com --domain previews.example.com --max 3 --tt
   only with `--allow-bots`.
 - A preview builds in the build sandbox, as the unprivileged `noust-build` account ([security.md](security.md)).
 
-In the console: the application's **Settings > Previews**.
+In the console: the application's **Deploys and triggers** (Previews).
 
 **The DNS is checked for you.** `noust preview enable` ends by resolving a name shaped like a preview's
 (the application's own template, with a number no pull request has) through the same public resolvers
