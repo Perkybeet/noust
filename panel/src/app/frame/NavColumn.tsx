@@ -11,6 +11,7 @@ import { AccountColumn, AreaColumn, SectionsSkeleton, columnLabel } from "./colu
 import { ColumnHead } from "./ColumnHead";
 import { ColumnLayers } from "./ColumnLayers";
 import { SettingsColumn } from "./SettingsColumn";
+import { AppColumn, DatabaseColumn, ServerResourceColumn, ServiceColumn, TeamColumn } from "./resourceColumnChunks";
 
 // The databases' column draws the engines with their logos and reads the servers: it is a chunk of its own, so the
 // script every page loads does not carry what only /databases draws.
@@ -18,14 +19,6 @@ const DatabasesColumn = lazy(() => import("./DatabasesColumn"));
 
 // Home's column carries the gallery and with it every widget: a chunk of its own, drawn with Home and never by the script every page loads.
 const HomeColumn = lazy(() => import("../../features/overview/HomeColumn").then((module) => ({ default: module.HomeColumn })));
-
-// The sections of an application, a database, a service, a team and a server read the details of each: one chunk, drawn
-// only where one is entered.
-const AppColumn = lazy(() => import("./resourceColumns").then((module) => ({ default: module.AppColumn })));
-const DatabaseColumn = lazy(() => import("./resourceColumns").then((module) => ({ default: module.DatabaseColumn })));
-const ServiceColumn = lazy(() => import("./resourceColumns").then((module) => ({ default: module.ServiceColumn })));
-const TeamColumn = lazy(() => import("./resourceColumns").then((module) => ({ default: module.TeamColumn })));
-const ServerResourceColumn = lazy(() => import("./resourceColumns").then((module) => ({ default: module.ServerResourceColumn })));
 
 type Params = Readonly<Record<string, string | undefined>>;
 
