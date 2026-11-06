@@ -39,7 +39,7 @@ export function SettingsShell({ children }: { children: ReactNode }) {
   const leaf = useRouterState({ select: (state) => state.matches.at(-1)?.fullPath });
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   const [master, setMaster] = useState<HTMLElement | null>(null);
-  const { items, onCentral, hasFleet } = useSettingsItems();
+  const { items, onCentral, hasFleet, serverCount } = useSettingsItems();
   const hub = leaf === undefined || HUB_ROUTES.includes(leaf);
   const current = items.find((item) => item.to === leaf);
   // A section the list does not offer here (fleet settings on a server that is not a central, reached by its address)
@@ -54,8 +54,11 @@ export function SettingsShell({ children }: { children: ReactNode }) {
       measure={hub ? "page" : "settings"}
       header={{
         title: hub ? t("settings.page.title") : (current?.label ?? (named !== undefined ? t(named.label) : t("settings.page.title"))),
-        // A section of the whole instance says so where it is read, as the column does: opening it never moves the selector.
-        ...(hasFleet && !hub && current?.central === true ? { meta: <Badge>{t("nav.column.fleetWide")}</Badge> } : {}),
+        // A section that holds for every server says so where it is read, on the title's line and in one sentence: opening it
+        // never moves the selector, and what it says is the fleet's is not guessed from the column.
+        ...(hasFleet && !hub && current?.fleetWide === true
+          ? { status: <Badge>{t("nav.column.fleetWide")}</Badge>, description: t("nav.column.fleetWideLine", { count: serverCount }) }
+          : {}),
         // Empty (and boxless) unless the section on screen puts its primary action here.
         primaryAction: <span ref={setSlot} className="contents" />,
         // Empty too: the switch that governs the whole section, beside its title (rule 106).

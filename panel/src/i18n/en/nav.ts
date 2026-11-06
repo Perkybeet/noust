@@ -58,6 +58,8 @@ export const nav = {
     sectionsOf: "Sections of {area}",
     /** After the name of a section of Settings that is of every server, not of the one chosen. */
     fleetWide: "All the fleet",
+    /** Under the title of a section that holds for every server: what it holds for, and that the selector does not change it. */
+    fleetWideLine: { one: "Holds for the server it manages; it does not depend on the server chosen above", other: "Holds for the {count} servers; it does not depend on the server chosen above" },
   },
   /** The main bar's own controls. */
   rail: {
@@ -91,9 +93,9 @@ export const nav = {
     nodeNoteCommands: "On {node}",
     titles: {
       people: "People and access",
-      notices: "Notifications and channels",
+      notices: "Notices",
       connections: "Connections",
-      security: "Security and frameworks",
+      security: "Compliance and audit",
       api: "API",
       fleet: "Fleet",
       noust: "Noust",
@@ -173,9 +175,9 @@ export const nav = {
     overview: { label: "All settings", command: "Settings" },
     general: { label: "General", keywords: "server name address folder applications web server nginx apache builds freeze", command: "General settings" },
     notifications: {
-      label: "Channels",
-      keywords: "notifications alerts email slack webhook channels where messages go",
-      command: "Channels settings",
+      label: "Notification channels",
+      keywords: "notifications alerts email slack webhook channels where messages go mute silence pause quiet",
+      command: "Notification channels settings",
     },
     alerts: {
       label: "Alerts",
@@ -225,16 +227,21 @@ export const nav = {
       command: "Roles settings",
     },
     compliance: {
-      label: "Frameworks",
-      keywords: "frameworks compliance ens iso 27001 esquema nacional seguridad check report audit evidence normativas",
-      command: "Frameworks and compliance report",
+      label: "Compliance",
+      keywords: "compliance frameworks controls ens iso 27001 nis2 esquema nacional seguridad check report audit evidence normativas cumplimiento",
+      command: "Compliance, frameworks and their report",
+    },
+    accessSecurity: {
+      label: "Access security",
+      keywords: "access security second factor two-factor sessions idle timeout lockout password length master token break-glass sign in",
+      command: "How the console is signed in to",
     },
     cloud: {
       label: "Cloud providers",
       keywords: "cloud hetzner digitalocean vultr provider token cloud-init create server vps droplet",
       command: "Cloud providers settings",
     },
-    central: { label: "Central", keywords: "seal passphrase unlock hub role fleet", command: "This central's settings" },
+    central: { label: "Central and sealing", keywords: "central seal passphrase unlock hub role fleet", command: "This central's settings" },
   },
   /** Screens with no name of their own anywhere else: the account's and the controls', and the recipes. */
   screens: {
@@ -244,7 +251,7 @@ export const nav = {
       keywords: "two-factor 2fa authenticator totp passkeys sessions sign in security",
       command: "Sign-in security",
     },
-    controls: { label: "Controls", keywords: "compliance frameworks ens security profile policy", command: "Controls settings" },
+    controls: { label: "Controls" },
     recipes: { label: "Recipes", command: "Recipes" },
     installedRecipes: { label: "Installed recipes", keywords: "recipes installed update available", command: "Installed recipes" },
     teams: { keywords: "people members roles organise group workspace" },
@@ -296,5 +303,9 @@ export const nav = {
     domainsPorts: "Domains, published ports",
     domainsTunnels: "Domains, tunnels",
     settingsServers: "Settings, Servers",
+    channels: "Channels",
+    frameworks: "Frameworks",
+    controls: "Controls",
+    people: "People",
   },
 } as const;

@@ -502,6 +502,8 @@ export interface SmtpFacts {
 
 export interface NotificationSettings {
   enabled: boolean;
+  /** The moment before which nothing is sent, as stored (a moment with its zone, or empty): see `mute/mute.ts`. */
+  mutedUntil: string;
   events: Record<string, boolean>;
   /** Field values per channel; secrets arrive as "***". */
   channels: Record<ChannelId, Record<string, string>>;
@@ -556,6 +558,7 @@ export function readNotificationSettings(config: ConsoleConfig["config"]): Notif
   const language = text(block, "language");
   return {
     enabled: block["enabled"] === true,
+    mutedUntil: text(block, "muted_until"),
     events: eventValues,
     channels: channelValues,
     emailEnabled: branch(channelsBlock, "email")["enabled"] === true,

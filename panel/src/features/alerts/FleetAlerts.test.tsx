@@ -64,6 +64,15 @@ async function alertsAt(answer: (call: RecordedCall) => Response, path = "/fleet
 }
 
 describe("alerts on every server", () => {
+  it("puts the rules firing first itself, whatever order the central gave them", async () => {
+    await alertsAt(() => json(200, envelope("alerts", [...ITEMS].reverse())));
+    const table = await screen.findByRole("region", { name: "Alert rules of every server" });
+    const rows = await within(table).findAllByRole("row");
+    const names = rows.slice(1).map((entry) => /disk-almost-full|shop-memory|cpu-saturated|cpu-db/.exec(entry.textContent)?.[0]);
+    // The ones firing, then the calm, then the ones switched off; within each, the order the central gave.
+    expect(names).toEqual(["shop-memory", "disk-almost-full", "cpu-saturated", "cpu-db"]);
+  });
+
   it("lists the rules of each server, the ones firing first, each naming its server and what fires in it", async () => {
     await alertsAt(() => json(200, envelope("alerts", ITEMS)));
     const table = await screen.findByRole("region", { name: "Alert rules of every server" });

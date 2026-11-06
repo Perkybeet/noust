@@ -175,12 +175,6 @@ export const settings = {
       tokenCredentialHint: "This console is signed in with an API token, not a browser session. Sign in through the browser to use this.",
       revokeOthersFailed: "Could not sign out other sessions",
     },
-    lockout: {
-      requestLimitLabel: "Request limit",
-      requestLimitValue: "{count} requests {window}",
-      allowedAddressesLabel: "Allowed addresses",
-      anyAddress: "Any address",
-    },
   },
 
   // -------------------------------------------------------------------------------------
@@ -253,7 +247,6 @@ export const settings = {
     documentTitle: "Notifications settings",
     loadingLabel: "the notification settings",
     notSaved: "The notification settings were not saved",
-    fromTerminal: "Send a test from a terminal",
     delivery: {
       switchLabel: "Send notifications",
       on: "On",
@@ -263,7 +256,23 @@ export const settings = {
       helpNoChannel: "Nothing is sent until a channel is set up and tested.",
       helpOn: { one: "The events chosen below go to {count} channel.", other: "The events chosen below go to {count} channels." },
       turnOnFailed: "Could not turn notifications on",
-      turnOffFailed: "Could not turn notifications off",
+      noPermission: "Your role cannot change this setting.",
+    },
+    mute: {
+      open: "Silence notifications…",
+      title: "Silence the notifications until when?",
+      description: "Nothing is sent meanwhile, and what happens in the meantime is not sent afterwards. A channel's test still goes out.",
+      legend: "How long",
+      hour: "For an hour",
+      hourHelp: "They come back by themselves at {when}.",
+      morning: "Until tomorrow at {hour}",
+      morningHelp: "They come back by themselves in the morning.",
+      off: "Until I turn them on",
+      offHelp: "Nothing is sent until you turn the switch on again.",
+      action: "Silence",
+      failed: "Could not silence the notifications",
+      silencedUntil: "Silenced until {when}.",
+      turnOn: "Turn on now",
     },
     channels: {
       title: "Channels",

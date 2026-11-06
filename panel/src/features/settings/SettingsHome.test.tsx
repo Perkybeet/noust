@@ -19,7 +19,7 @@ beforeEach(() => {
   }));
 });
 
-const GROUPS = ["People and access", "Notifications and channels", "Connections", "Security and frameworks", "API", "Fleet", "Noust"];
+const GROUPS = ["People and access", "Notices", "Connections", "Compliance and audit", "API", "Fleet", "Noust"];
 
 const EVERYTHING = ["self", "apps.read", "accounts.read", "accounts.manage", "audit.read", "compliance.read", "settings.read", "fleet.read"];
 
@@ -43,7 +43,7 @@ describe("Settings, the hub", () => {
     }
     expect(screen.queryByRole("heading", { level: 2, name: "Fleet" })).toBeNull();
     // A door says where it goes and what is inside, so it is found by its purpose and not by its name.
-    const channels = screen.getByRole("link", { name: /^Channels Where messages go when something happens/ });
+    const channels = screen.getByRole("link", { name: /^Notification channels Where messages go, and how to silence them for a while/ });
     expect(channels).toHaveAttribute("href", "/settings/notifications");
     expect(screen.getByRole("link", { name: /^General Name, folders, web server and builds/ })).toHaveAttribute("href", "/settings/general");
     await expectNoAxeViolations(container);
@@ -52,7 +52,7 @@ describe("Settings, the hub", () => {
   it("says what is true now where the console already knows it: how many people, how many roles", { timeout: 30_000 }, async () => {
     hub();
     renderConsole("/settings");
-    const people = await screen.findByRole("link", { name: /^People Who has an account/ });
+    const people = await screen.findByRole("link", { name: /^Accounts Who has an account/ });
     expect(await within(people).findByText("3 people")).toBeInTheDocument();
     const roles = screen.getByRole("link", { name: /^Roles The roles that decide it/ });
     expect(await within(roles).findByText("4 roles")).toBeInTheDocument();
@@ -62,9 +62,9 @@ describe("Settings, the hub", () => {
     hub({}, ["self", "apps.read"]);
     renderConsole("/settings");
     await screen.findByRole("heading", { level: 1, name: "Settings" });
-    expect(screen.queryByRole("link", { name: /^People / })).toBeNull();
+    expect(screen.queryByRole("link", { name: /^Accounts / })).toBeNull();
     expect(screen.queryByRole("link", { name: /^Audit log / })).toBeNull();
-    expect(screen.getByRole("link", { name: /^Channels / })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^Notification channels / })).toBeInTheDocument();
   });
 
   it("is the same on a fleet, with the fleet's settings as a door", { timeout: 30_000 }, async () => {
@@ -80,9 +80,9 @@ describe("Settings, the hub", () => {
     await screen.findByRole("heading", { level: 1, name: "Settings" });
     await act(() => setLocale("es"));
     expect(await screen.findByRole("heading", { level: 2, name: "Personas y acceso" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Avisos y canales" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Seguridad y normativas" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /^Personas Quién tiene cuenta/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Avisos" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Cumplimiento y auditoría" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^Cuentas Quién tiene cuenta/ })).toBeInTheDocument();
     await act(() => setLocale("en"));
   });
 });

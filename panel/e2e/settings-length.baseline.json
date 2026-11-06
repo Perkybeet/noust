@@ -24,7 +24,7 @@
     },
     "settings-notifications": {
       "path": "/settings/notifications",
-      "height": 1903,
+      "height": 1833,
       "reason": "The switch, thirteen channels, more channels, the events, their language, private hosts and the delivery log on one page. The channels and the events are different subjects, and the delivery log is a list of its own."
     },
     "settings-log-shipping": { "path": "/settings/log-shipping", "height": 1085 },
@@ -36,9 +36,19 @@
       "height": 2068,
       "reason": "The endpoint, how to connect, the three groups of tools and the table of 27 tools on one page; the table of tools is a list of its own and can leave for its own subsection."
     },
-    "settings-accounts": { "path": "/settings/accounts", "height": 474 },
-    "settings-access": { "path": "/settings/access", "height": 904 },
-    "settings-sso": { "path": "/settings/sso", "height": 767 },
+    "settings-accounts": { "path": "/settings/accounts", "height": 463 },
+    "settings-access": {
+      "path": "/settings/access",
+      "height": 904,
+      "tolerance": 60,
+      "toleranceReason": "The roles and who holds them are slabs with a header each in 4.2, and the second says its first step while nobody is granted anything: what the seeded server shows is about fifty pixels of header and first step more than the flat page measured. It goes down when the grants' first step shares the line of its header."
+    },
+    "settings-sso": {
+      "path": "/settings/sso",
+      "height": 767,
+      "tolerance": 135,
+      "toleranceReason": "The three sections are slabs with a header each in 4.2 (Connections, Passwords and passkeys, Provisioning), and with nothing connected each of the two lists says its first step: the page is the same fields under three headers and two first steps, about 120 pixels more than the flat page measured. It goes down when a section with nothing in it folds its first step into its header."
+    },
     "settings-approvals": { "path": "/settings/approvals", "height": 305 },
     "settings-audit": {
       "path": "/settings/audit",
@@ -46,14 +56,10 @@
       "tolerance": 160,
       "toleranceReason": "The page is the audit trail, one row of 36px per event the server has recorded, and the server records the sign-in's own retries: a quiet machine measures 1308 (CI as well) and a loaded one 1345 to 1453. A page that grew is still caught: more than four rows over the quiet length fails."
     },
-    "settings-compliance": { "path": "/settings/compliance", "height": 156 },
+    "settings-compliance": { "path": "/settings/compliance", "height": 1208 },
     "settings-cloud": { "path": "/settings/cloud", "height": 683 },
-    "settings-central": { "path": "/settings/central", "height": 468 },
-    "settings-controls": {
-      "path": "/settings/controls",
-      "height": 2314,
-      "reason": "The security profile, the nine frameworks with what each turns on, and the controls, folded by group to a line that says how many are strict. The frameworks are cards of their own: each can fold behind a line, which brings the page under the limit."
-    },
+    "settings-central": { "path": "/settings/central", "height": 450 },
+    "settings-access-security": { "path": "/settings/access-security", "height": 1000 },
     "settings-sign-in-image": { "path": "/settings/sign-in-image", "height": 677 },
     "account-profile": { "path": "/account", "height": 190 },
     "account-security": { "path": "/account/security", "height": 721 },

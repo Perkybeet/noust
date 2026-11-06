@@ -2,32 +2,29 @@ import type { complianceSetup as en } from "../en/complianceSetup";
 import type { Catalog } from "../types";
 
 export const complianceSetup: Catalog<typeof en> = {
-  title: "Cumplimiento",
   description:
     "Nada está activo hasta que lo eliges. Pueden estar varias normativas a la vez, y cada control toma el valor más estricto que pida cualquiera de ellas.",
   honest:
     "Una normativa activa controles técnicos. No hace que un servidor cumpla: lo organizativo es tuyo, y solo un auditor puede decir el resto.",
   loadFailed: "No se pudo leer la configuración de cumplimiento",
   loading: "Cargando la configuración de cumplimiento",
+  helpLabel: "Acerca del cumplimiento",
+  none: {
+    title: "Ninguna normativa activa",
+    description: "Noust usa sus valores normales y no hay informe que mirar. No es un aviso: es lo normal si no te obliga ninguna.",
+  },
   frameworks: {
     title: "Normativas",
+    others: "Otras normativas que puedes activar",
     description:
       "Activa una para encender los controles que nombra. Antes de confirmar ves qué cambia y qué cláusula cumple cada control.",
-    on: "Activado",
-    off: "Desactivado",
-    viaProfile: "Activo por security.profile",
+    off: "Desactivada",
     controlsCount: { one: "{count} control", other: "{count} controles" },
-    changesCount: {
-      one: "activa o endurece {count} control",
-      other: "activa o endurece {count} controles",
-    },
-    nothingNew: "Todo lo que pide ya está en vigor",
-    show: "Qué activa",
     enable: "Activar…",
     disable: "Desactivar…",
+    staysYours: "Lo que sigue siendo tuyo",
     organisational: "Sigue siendo organizativo",
     notCovered: "Técnico, y no se aplica aquí",
-    forcedHere: "Fuerza {count} de los controles de abajo",
     summary: {
       ensBasica:
         "Esquema Nacional de Seguridad, categoría BÁSICA: las medidas del anexo II que se aplican a la categoría más baja.",
@@ -76,8 +73,48 @@ export const complianceSetup: Catalog<typeof en> = {
         "{count} personas tienen cuentas que no pueden ir juntas. Sepáralas o registra una excepción documentada, o serán rechazadas.",
     },
   },
+  report: {
+    download: "Descargar el informe",
+    line: "Activa. Su informe se hace al abrir esta página.",
+    viaProfile: "Activa por security.profile. Su informe se hace al abrir esta página.",
+    forbidden: "Tu rol no puede leer el informe. Quien tenga compliance.read sí puede.",
+    loading: "Cargando el informe",
+    loadFailed: "No se pudo leer el informe",
+    allMet: { one: "El control está en vigor", other: "Los {count} controles están en vigor" },
+    someMet: "{met} de {total} controles en vigor",
+    caption: "Lo que pide {name} y aún no está en vigor",
+    met: {
+      one: "El otro control está en vigor o no se aplica. El informe que descargas los lista todos.",
+      other: "Los otros {count} controles están en vigor o no se aplican. El informe que descargas los lista todos.",
+    },
+    nothingToMend: "Todo lo que pide está en vigor o no se aplica aquí.",
+    status: { fail: "No se cumple", warning: "Se cumple en parte", ok: "Se cumple", na: "No se aplica" },
+    column: { control: "Control", state: "Estado", fix: "Dónde se arregla" },
+    moreLabel: "Qué se encontró en {name}",
+    fix: "Cómo arreglarlo:",
+  },
+  fix: {
+    accounts: "Ver las cuentas",
+    accessSecurity: "Abrir la seguridad del acceso",
+    backups: "Ver las copias",
+    approvals: "Abrir las aprobaciones",
+    tokens: "Abrir los tokens",
+    audit: "Abrir la auditoría",
+    logShipping: "Abrir el envío de registros",
+    console: "Abrir la dirección de la consola",
+  },
+  lockdown: {
+    title: "La consola está bloqueada por un incidente",
+    description: "Solo el token de acceso inicia sesión hasta que se levante el bloqueo. Se conservan las evidencias tomadas al empezar.",
+    since: "Desde",
+    by: "Por",
+    reason: "Incidente",
+    package: "Evidencias",
+    command: "Levántalo desde un terminal en este servidor",
+  },
   controls: {
     title: "Controles",
+    help: "Un control es una regla con su propio ajuste. Una normativa activa bloquea los que pide en su valor o más estricto: siempre puedes endurecer uno más, y nunca aflojar uno bloqueado.",
     description:
       "Cada control tiene su propio ajuste. Una normativa activa bloquea los que pide; siempre puedes endurecer uno más.",
     lockedBy: "Lo exige {names}",

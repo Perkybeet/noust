@@ -70,6 +70,8 @@ export const REDIRECT_ROWS = [
   { from: "/databases/$engine/$name/users", to: "/databases/$engine/$name/access", state: "live", plain: true },
   // 4.2: Home is a panel of widgets and the map was its second view; Home has none now.
   { from: "/map", to: "/", state: "live", plain: true },
+  // 4.2: Controls and the frameworks were two pages for one question; Compliance is one page (the frameworks, their report, and the controls).
+  { from: "/settings/controls", to: "/settings/compliance", state: "live", plain: true },
 ] as const;
 
 /**

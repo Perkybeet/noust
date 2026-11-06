@@ -4,6 +4,7 @@
  */
 
 export { access } from "./access";
+export { accessSecurity } from "./accessSecurity";
 export { account } from "./account";
 export { accounts } from "./accounts";
 export { activity } from "./activity";
@@ -28,7 +29,6 @@ export { catalog } from "./catalog";
 export { changeSource } from "./changeSource";
 export { cloud } from "./cloud";
 export { common } from "./common";
-export { compliance } from "./compliance";
 export { complianceSetup } from "./complianceSetup";
 export { composeSettings } from "./composeSettings";
 export { connections } from "./connections";

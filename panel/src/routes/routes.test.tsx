@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setLocale } from "../app/locale";
 import { drawnKeys, goCold } from "../test/coldCatalog";
+import { COMPLIANCE } from "../test/compliance";
 import { renderConsole } from "../test/console";
 import { databaseRoutes } from "../features/databases/testFixtures";
 import { fakeBackend, json, signedInRoutes } from "../test/fakes";
@@ -46,15 +47,15 @@ const PAGES: [path: string, heading: string, content: string][] = [
   ["/settings/general", "General", "This server"],
   ["/account", "Account", "API tokens"],
   ["/account/security", "Account", "Two-factor authentication"],
-  ["/settings/controls", "Controls", "Security profile"],
-  ["/settings/notifications", "Channels", "Channels"],
+  ["/settings/notifications", "Notification channels", "Channels"],
+  ["/settings/access-security", "Access security", "At the door"],
   ["/settings/variables", "Variables", "Server variables"],
   ["/settings/secret-managers", "Secret managers", "Secret managers"],
   ["/settings/tokens", "API tokens", "Issued tokens"],
-  ["/settings/accounts", "People", "Accounts"],
+  ["/settings/accounts", "Accounts", "Accounts"],
   ["/settings/approvals", "Approvals", "Requests"],
   ["/settings/audit", "Audit log", "Events"],
-  ["/settings/compliance", "Frameworks", "ENS category MEDIUM"],
+  ["/settings/compliance", "Compliance", "No framework is on"],
   ["/settings/about", "About Noust", "Version"],
   ["/settings/integrations", "Connections", "GitHub"],
   ["/settings/registries", "Image registries", "Accounts"],
@@ -96,6 +97,8 @@ describe("the route tree", () => {
     const backend = fakeBackend(databaseRoutes());
     backend.on("GET /api/integrations/github", () => json(200, NO_GITHUB_APP));
     backend.on("GET /api/nodes", () => json(200, { items: [] }));
+    // Compliance and Access security read the frameworks and their controls: none is on.
+    backend.on("GET /api/compliance", () => json(200, COMPLIANCE));
     // The Domains list is made of the sites and the certificates: no site, no domain.
     backend.on("GET /api/sites", () => json(200, { sites: [], total: 0, webserver: "nginx" }));
     // An app's tab is shown once the app is read, by when a 404 of its own data has arrived

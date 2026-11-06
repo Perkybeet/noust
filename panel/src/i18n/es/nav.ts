@@ -54,6 +54,7 @@ export const nav: Catalog<typeof en> = {
     sections: "Secciones",
     sectionsOf: "Secciones de {area}",
     fleetWide: "Toda la flota",
+    fleetWideLine: { one: "Vale para el servidor que gestiona; no depende del servidor elegido arriba", other: "Vale para los {count} servidores; no depende del servidor elegido arriba" },
   },
   rail: {
     landmark: "Navegación",
@@ -78,9 +79,9 @@ export const nav: Catalog<typeof en> = {
     nodeNoteCommands: "En {node}",
     titles: {
       people: "Personas y acceso",
-      notices: "Avisos y canales",
+      notices: "Avisos",
       connections: "Conexiones",
-      security: "Seguridad y normativas",
+      security: "Cumplimiento y auditoría",
       api: "API",
       fleet: "Flota",
       noust: "Noust",
@@ -175,9 +176,9 @@ export const nav: Catalog<typeof en> = {
       command: "Ajustes generales",
     },
     notifications: {
-      label: "Canales",
-      keywords: "notificaciones alertas correo slack webhook canales a dónde van los avisos notifications channels",
-      command: "Ajustes de canales",
+      label: "Canales de aviso",
+      keywords: "notificaciones alertas correo slack webhook canales a dónde van los avisos silenciar pausar un rato notifications channels",
+      command: "Ajustes de los canales de aviso",
     },
     alerts: {
       label: "Alertas",
@@ -227,16 +228,21 @@ export const nav: Catalog<typeof en> = {
       command: "Ajustes de roles",
     },
     compliance: {
-      label: "Normativas",
-      keywords: "normativas cumplimiento ens iso 27001 esquema nacional de seguridad comprobación informe auditoría evidencias compliance frameworks report",
-      command: "Normativas e informe de cumplimiento",
+      label: "Cumplimiento",
+      keywords: "cumplimiento normativas controles ens iso 27001 nis2 esquema nacional de seguridad comprobación informe auditoría evidencias compliance frameworks report",
+      command: "Cumplimiento, normativas y su informe",
+    },
+    accessSecurity: {
+      label: "Seguridad del acceso",
+      keywords: "seguridad del acceso segundo factor sesiones caducidad bloqueo longitud de la contraseña token maestro de emergencia iniciar sesión access security",
+      command: "Cómo se entra en la consola",
     },
     cloud: {
       label: "Proveedores en la nube",
       keywords: "nube hetzner digitalocean vultr proveedor token cloud-init crear servidor vps droplet cloud provider",
       command: "Ajustes de proveedores en la nube",
     },
-    central: { label: "Central", keywords: "sellado frase de paso desbloquear hub rol flota seal", command: "Ajustes de esta central" },
+    central: { label: "Central y sellado", keywords: "central sellado frase de paso desbloquear hub rol flota seal", command: "Ajustes de esta central" },
   },
   screens: {
     account: { label: "Perfil y contraseña", keywords: "yo mi usuario perfil contraseña nombre correo me my user profile password", command: "Tu cuenta" },
@@ -245,11 +251,7 @@ export const nav: Catalog<typeof en> = {
       keywords: "verificación en dos pasos 2fa autenticador totp llaves de acceso sesiones seguridad two-factor passkeys sessions security",
       command: "Seguridad de inicio de sesión",
     },
-    controls: {
-      label: "Controles",
-      keywords: "cumplimiento marcos ens perfil de seguridad política compliance frameworks policy",
-      command: "Ajustes de controles",
-    },
+    controls: { label: "Controles" },
     recipes: { label: "Recetas", command: "Recetas" },
     installedRecipes: { label: "Recetas instaladas", keywords: "recetas instaladas actualización disponible recipes installed update", command: "Recetas instaladas" },
     teams: { keywords: "personas miembros roles organizar agrupar espacio de trabajo people members group workspace" },
@@ -300,5 +302,9 @@ export const nav: Catalog<typeof en> = {
     domainsPorts: "Dominios, puertos publicados",
     domainsTunnels: "Dominios, túneles",
     settingsServers: "Ajustes, Servidores",
+    channels: "Canales",
+    frameworks: "Normativas",
+    controls: "Controles",
+    people: "Personas",
   },
 };

@@ -68,7 +68,7 @@ command palette (`Ctrl K`) too.
 | S3 Storage | **Backups > Destinations** |
 | Shared Variables | **Settings > Variables** (the server's), a team's **Variables** tab and a project's page ([variables.md](variables.md)) |
 | Team | **Settings > Accounts**, and **Projects > Teams** |
-| Notifications | **Settings > Channels**: email, Telegram, Slack, Discord, webhook |
+| Notifications | **Settings > Notification channels**: email, Telegram, Slack, Discord, webhook |
 | Keys & Tokens | **Settings > API tokens**; deploy keys on each application and **Settings > Integrations**; SSH keys under **Server > Security** |
 | Tags | **Applications**, narrowed to a tag, and an application's **Settings > General** |
 | Settings > General | **Settings > General** |
@@ -79,7 +79,7 @@ command palette (`Ctrl K`) too.
 | Analytics, Sentinel | **Metrics** on each application, **Server > System**, and the resource monitor with **Settings > Alert rules**. There is no agent to install: Noust reads the machine itself ([MONITOR.md](MONITOR.md)) |
 | Scheduled Jobs of the instance | **Activity**: every job and event of this server with its log and who started it; the applications' own tasks are in **Cron** |
 | Cloud Tokens, provisioning a server | **Settings > Cloud providers** on a central: provider accounts (Hetzner, DigitalOcean, Vultr), the wizard that creates a server and its cloud-init ([cloud-init.md](cloud-init.md), [CENTRAL.md](CENTRAL.md)) |
-| Settings > Email | **Settings > Channels > Email** |
+| Settings > Email | **Settings > Notification channels > Email** |
 | Settings > Authentication | **Account > Sign-in security** (two-step verification, passkeys), **Settings > Single sign-on** ([sso.md](sso.md)) |
 | Settings > Backup (the instance) | **Backups > Noust's own state** (`noust self-backup`, one encrypted file) |
 | Profile, 2FA | **Account > Sign-in security** |

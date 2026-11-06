@@ -1,5 +1,8 @@
 import { useDocumentTitle } from "../../../app/documentTitle";
 import { Sections } from "../../../components/page/Section";
+import { SurfaceSection } from "../../../components/page/SurfaceSection";
+import { ReadOnlyLine } from "../../../components/page/permissions";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 import { useT } from "../../../i18n";
 import { RolesSection } from "../roles/RolesSection";
 import { GrantsSection } from "./GrantsSection";
@@ -13,9 +16,11 @@ export function AccessSettings() {
   const t = useT();
   useDocumentTitle(t("roles.documentTitle"), 1);
   return (
-    <Sections>
-      <p className="max-w-measure text-14 text-pretty text-fg-muted">{t("roles.lead")}</p>
-      <RolesSection />
+    <Sections surfaces>
+      <ReadOnlyLine permission="accounts.manage" />
+      <SurfaceSection title={t("roles.section.title")} icon={OBJECT_ICONS.role} description={t("roles.lead")} flush>
+        <RolesSection />
+      </SurfaceSection>
       <GrantsSection />
     </Sections>
   );

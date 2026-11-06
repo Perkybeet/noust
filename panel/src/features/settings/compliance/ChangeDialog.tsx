@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import type { ReactNode } from "react";
 
 import { changeCompliance, complianceKeys, planCompliance } from "../../../api/queries/compliance";
 import type { ComplianceChange, ComplianceControl, CompliancePlan } from "../../../api/queries/compliance";
@@ -37,10 +38,12 @@ export interface ChangeDialogProps {
   names: ReadonlyMap<string, string>;
   /** A plan the caller already has (a control's change that raised a warning), so it is not asked twice. */
   plan?: CompliancePlan;
+  /** What the caller adds under what changes (what a framework leaves to the organisation). */
+  extra?: ReactNode;
   onClose: () => void;
 }
 
-function effectColumns(t: T, controls: readonly ComplianceControl[], names: ReadonlyMap<string, string>): Column<Effect>[] {
+function effectColumns(t: T, controls: readonly ComplianceControl[], names: ReadonlyMap<string, string>, naming: boolean): Column<Effect>[] {
   const byId = new Map(controls.map((control) => [control.id, control]));
   const word = (effect: Effect, value: unknown): string => {
     const control = byId.get(effect.control);
@@ -63,7 +66,8 @@ function effectColumns(t: T, controls: readonly ComplianceControl[], names: Read
         <span className="flex min-w-0 flex-col gap-0.5">
           {effect.forced_by.map((id) => (
             <span key={id} className="text-12 text-fg-muted">
-              {names.get(id) ?? id}: <Mono tone="default">{(effect.clauses[id] ?? []).join(", ")}</Mono>
+              {naming ? `${names.get(id) ?? id}: ` : null}
+              <Mono tone="default">{(effect.clauses[id] ?? []).join(", ")}</Mono>
             </span>
           ))}
         </span>
@@ -78,7 +82,7 @@ function effectColumns(t: T, controls: readonly ComplianceControl[], names: Read
  * the button. The plan is the server's, asked when the dialog opens and writing nothing; turning
  * protection down opens the usual "Confirm it's you" when the button is pressed.
  */
-export function ChangeDialog({ request, title, lead, action, loosens = false, done, controls, names, plan: given, onClose }: ChangeDialogProps) {
+export function ChangeDialog({ request, title, lead, action, loosens = false, done, controls, names, plan: given, extra, onClose }: ChangeDialogProps) {
   const t = useT();
   const queryClient = useQueryClient();
   const [understood, setUnderstood] = useState(false);
@@ -135,12 +139,14 @@ export function ChangeDialog({ request, title, lead, action, loosens = false, do
         ) : (
           <DataTable
             caption={title}
-            columns={effectColumns(t, controls, names)}
+            // One framework asks for all of it: the dialog's title already says which, and its name on every row is noise.
+            columns={effectColumns(t, controls, names, new Set(plan.effects.flatMap((effect) => effect.forced_by)).size > 1)}
             rows={plan.effects}
             getRowId={(effect: Effect) => effect.control}
             density="compact"
           />
         )}
+        {extra}
         {warnings.length > 0 ? (
           <Notice tone="warning" title={t("complianceSetup.warning.heading")}>
             <ul className="flex list-disc flex-col gap-1 pl-4">

@@ -6,6 +6,7 @@
  */
 export const roles = {
   documentTitle: "Roles",
+  section: { title: "What each role allows" },
   lead: "A role is what a person may do. Give each person one or more.",
   loading: "Loading the roles",
   tableCaption: "Roles",

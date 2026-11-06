@@ -4,9 +4,9 @@
  */
 export const accounts = {
   nav: {
-    label: "People",
+    label: "Accounts",
     keywords: "accounts users people roles invite invitation security officer auditor",
-    command: "People with an account",
+    command: "Accounts of the people who sign in",
   },
   roles: {
     viewer: { label: "Viewer", description: "Sees everything, secrets hidden, and changes nothing." },
@@ -32,6 +32,8 @@ export const accounts = {
     title: "Accounts",
     description: "Each person signs in with their own account, with one role or several. Nobody's password is known to anyone else.",
     invite: "Invite a person",
+    ssoLine: "Should people sign in with the Google or Microsoft account of the company? {link}",
+    ssoLink: "Single sign-on",
     filterLabel: "Filter accounts",
     searchLabel: "Search accounts",
     searchPlaceholder: "Name or email",

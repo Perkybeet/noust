@@ -568,9 +568,10 @@ export function inKind(row: ActivityRow, kind: ActivitySearch["kind"]): boolean 
 export function matchesText(row: ActivityRow, text: string, words: readonly string[] = []): boolean {
   const needle = text.trim().toLowerCase();
   if (needle === "") return true;
+  // A job is found by its own id too: "Open on a server" from a fleet action puts the id of the job that server ran in the search.
   const recorded =
     row.kind === "job"
-      ? [row.job.name, row.job.description, row.job.type, row.job.actor ?? "", jobResource(row.job) ?? ""]
+      ? [row.job.id, row.job.name, row.job.description, row.job.type, row.job.actor ?? "", jobResource(row.job) ?? ""]
       : [row.entry.action, row.entry.actor, row.entry.resource ?? "", row.entry.detail ?? "", row.entry.client_ip ?? "", row.entry.who?.name ?? ""];
   return [...recorded, ...words].some((value) => value.toLowerCase().includes(needle));
 }
@@ -604,14 +605,30 @@ export interface ResultOption {
  * (prefixed, so "Failed" the job status and "Failed" the audit result are not offered as one
  * confusing entry), the audit's alone for sign-ins.
  */
-export function resultOptions(t: T, kind: ActivitySearch["kind"]): ResultOption[] {
-  const both = kind !== "access";
+export function resultOptions(t: T, kind: ActivitySearch["kind"], withJobs = true): ResultOption[] {
+  const both = kind !== "access" && withJobs;
   const jobs = both
     ? Object.entries(JOB_RESULT_WORDS).map(([value, key]) => ({ value, label: t("activity.jobResultPrefix", { label: t(key) }) }))
     : [];
-  const audit = Object.entries(AUDIT_RESULT_WORDS).map(([value, key]) => ({
-    value,
-    label: both ? t("activity.actionResultPrefix", { label: t(key) }) : t(key),
-  }));
+  const audit = Object.entries(AUDIT_RESULT_WORDS)
+    // Where there are no jobs the audit's words are alone, and "ok" is "success" said by an older server: one option for the one word.
+    .filter(([value]) => withJobs || value !== "ok")
+    .map(([value, key]) => ({
+      value,
+      label: both ? t("activity.actionResultPrefix", { label: t(key) }) : t(key),
+    }));
   return [...jobs, ...audit];
+}
+
+/**
+ * Whether a row has the result chosen: an audit entry by the `result` it recorded (`ok` is what an older server
+ * wrote for `success`), a job by its status. No result chosen keeps every row. A list that reads only the audit
+ * logs (every server at once) narrows with this after reading, because the central's view has no result to ask for.
+ */
+export function matchesResult(row: ActivityRow, result: string | undefined): boolean {
+  if (result === undefined) return true;
+  if (row.kind === "job") return row.job.status === result;
+  const recorded = row.entry.result;
+  const succeeded = recorded === "success" || recorded === "ok";
+  return recorded === result || (succeeded && (result === "success" || result === "ok"));
 }

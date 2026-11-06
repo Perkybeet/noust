@@ -370,15 +370,15 @@ describe("the two contexts", () => {
     const { user, history } = await consoleAt("/n/web-2/settings/notifications");
     const nav = await screen.findByRole("navigation", { name: "Settings sections" });
     expect(within(nav).getByRole("link", { name: "General" })).toHaveAttribute("href", "/n/web-2/settings/general");
-    expect(within(nav).getByRole("link", { name: "Channels" })).toHaveAttribute("href", "/n/web-2/settings/notifications");
+    expect(within(nav).getByRole("link", { name: "Notification channels" })).toHaveAttribute("href", "/n/web-2/settings/notifications");
     // The central's sections never carry the node, and sit under the same groups, by what they are for (no server's name above them).
     expect(within(nav).getByRole("link", { name: /^API tokens/ })).toHaveAttribute("href", "/settings/tokens");
-    expect(within(nav).getByText("Notifications and channels")).toBeInTheDocument();
+    expect(within(nav).getByText("Notices")).toBeInTheDocument();
     expect(within(nav).getByText("API")).toBeInTheDocument();
     expect(within(nav).queryByText(/web-01 ·|web-2 ·/)).not.toBeInTheDocument();
     // Those that are of the whole instance say so beside their name, and the ones that are a server's do not.
     expect(within(within(nav).getByRole("link", { name: /^API tokens/ })).getByText("All the fleet")).toBeInTheDocument();
-    expect(within(within(nav).getByRole("link", { name: "Channels" })).queryByText("All the fleet")).toBeNull();
+    expect(within(within(nav).getByRole("link", { name: "Notification channels" })).queryByText("All the fleet")).toBeNull();
     expect(await trigger("Server: web-2")).toBeInTheDocument();
 
     await user.click(within(nav).getByRole("link", { name: /^API tokens/ }));

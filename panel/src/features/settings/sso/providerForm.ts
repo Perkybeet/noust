@@ -89,6 +89,22 @@ export const NEW_DRAFT: ProviderDraft = {
   redirectUri: "",
 };
 
+/**
+ * What a person adding one of the two OpenID Connect providers most companies have is spared typing: its name, its label
+ * and, where it is one address for everybody, its issuer. Microsoft's carries the tenant of the company, so it is
+ * left for the person to fill, with the shape of it as the hint (`entra`).
+ */
+export const PRESETS = {
+  google: { name: "google", label: "Google Workspace", issuer: "https://accounts.google.com" },
+  entra: { name: "entra", label: "Microsoft Entra ID", issuer: "" },
+} as const;
+export type ProviderPreset = keyof typeof PRESETS;
+
+/** The draft of a provider added from a preset: the defaults, with what the preset knows. */
+export function draftFromPreset(preset: ProviderPreset | null): ProviderDraft {
+  return preset === null ? NEW_DRAFT : { ...NEW_DRAFT, ...PRESETS[preset] };
+}
+
 /** Words separated by commas, spaces or new lines, with nothing empty. */
 export function splitList(text: string): string[] {
   return text

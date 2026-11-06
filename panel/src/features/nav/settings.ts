@@ -44,38 +44,35 @@ export const SETTINGS_SCREENS: Strip = [
   }),
   setting("sso", "ssoAdmin.nav.label", "instance", "people", {
     central: true,
+    hint: "ssoAdmin.nav.hint",
     keywords: "ssoAdmin.nav.keywords",
     command: "ssoAdmin.nav.command",
     permission: "accounts.read",
+  }),
+  setting("access-security", "nav.settingsTabs.accessSecurity.label", "instance", "people", {
+    central: true,
+    keywords: "nav.settingsTabs.accessSecurity.keywords",
+    command: "nav.settingsTabs.accessSecurity.command",
+    permission: "settings.read",
   }),
   setting("approvals", "approvals.nav.label", "instance", "people", {
     central: true,
     keywords: "approvals.nav.keywords",
     command: "approvals.nav.command",
   }),
-  setting("console", "nav.settingsTabs.console.label", "server", "people", {
-    keywords: "nav.settingsTabs.console.keywords",
-    command: "nav.settingsTabs.console.command",
-  }),
-  // What the screens before the console show (item 129): this instance's own, as its sign-in is.
-  setting("sign-in-image", "signInImage.nav.label", "instance", "people", {
-    central: true,
-    keywords: "signInImage.nav.keywords",
-    command: "signInImage.nav.command",
-  }),
-  // Where the messages go, and what is exported. What warns (the rules, the probes) is Alerts, an area of the bar.
+  // Where the messages go. What warns (the rules, the probes) is Alerts, an area of the bar; what is copied out is a connection.
   setting("notifications", "nav.settingsTabs.notifications.label", "server", "notices", {
     keywords: "nav.settingsTabs.notifications.keywords",
     command: "nav.settingsTabs.notifications.command",
   }),
-  setting("log-shipping", "nav.settingsTabs.logShipping.label", "server", "notices", {
-    keywords: "nav.settingsTabs.logShipping.keywords",
-    command: "nav.settingsTabs.logShipping.command",
-  }),
-  // What Noust is connected to: code hosts, image registries, secret managers and cloud providers.
+  // What Noust is connected to: code hosts, where logs are copied to, image registries, secret managers and cloud providers.
   setting("integrations", "nav.settingsTabs.integrations.label", "server", "connections", {
     keywords: "nav.settingsTabs.integrations.keywords",
     command: "nav.settingsTabs.integrations.command",
+  }),
+  setting("log-shipping", "nav.settingsTabs.logShipping.label", "server", "connections", {
+    keywords: "nav.settingsTabs.logShipping.keywords",
+    command: "nav.settingsTabs.logShipping.command",
   }),
   setting("registries", "registries.nav.label", "server", "connections", {
     keywords: "registries.nav.keywords",
@@ -87,29 +84,23 @@ export const SETTINGS_SCREENS: Strip = [
     command: "connections.deployKeys.nav.command",
     permission: "apps.read",
   }),
-  setting("secret-managers", "variables.providers.nav.label", "server", "connections", {
-    keywords: "variables.providers.nav.keywords",
-    command: "variables.providers.nav.command",
-    permission: "settings.read",
-  }),
   setting("cloud", "nav.settingsTabs.cloud.label", "fleet", "connections", {
     central: true,
     keywords: "nav.settingsTabs.cloud.keywords",
     command: "nav.settingsTabs.cloud.command",
     permission: "fleet.manage",
   }),
-  // How it is kept safe, and what is recorded.
+  setting("secret-managers", "variables.providers.nav.label", "server", "connections", {
+    keywords: "variables.providers.nav.keywords",
+    command: "variables.providers.nav.command",
+    permission: "settings.read",
+  }),
+  // What a rule book asks of this Noust (the frameworks, the controls they are made of, their report), and what is recorded.
   setting("compliance", "nav.settingsTabs.compliance.label", "instance", "security", {
     central: true,
     keywords: "nav.settingsTabs.compliance.keywords",
     command: "nav.settingsTabs.compliance.command",
-    permission: "compliance.read",
-  }),
-  setting("controls", "nav.screens.controls.label", "instance", "security", {
-    central: true,
-    keywords: "nav.screens.controls.keywords",
-    command: "nav.screens.controls.command",
-    permission: "compliance.read",
+    permission: "settings.read",
   }),
   setting("audit", "audit.nav.label", "instance", "security", {
     central: true,
@@ -148,10 +139,22 @@ export const SETTINGS_SCREENS: Strip = [
     keywords: "nav.settingsTabs.central.keywords",
     command: "nav.settingsTabs.central.command",
   }),
-  // Noust on this machine: how it is set up, what it shares with the apps, and which version it is.
+  // Noust on this machine: how it is set up, the name its console is reached by, what it shows before anyone signs in,
+  // what it shares with the apps, and which version it is. The last two are this server's own: no fleet's.
   setting("general", "nav.settingsTabs.general.label", "server", "noust", {
     keywords: "nav.settingsTabs.general.keywords",
     command: "nav.settingsTabs.general.command",
+  }),
+  setting("console", "nav.settingsTabs.console.label", "server", "noust", {
+    keywords: "nav.settingsTabs.console.keywords",
+    command: "nav.settingsTabs.console.command",
+  }),
+  // What the screens before the console show (item 129): this instance's own, as its sign-in is, and no fleet's.
+  setting("sign-in-image", "signInImage.nav.label", "instance", "noust", {
+    central: true,
+    own: true,
+    keywords: "signInImage.nav.keywords",
+    command: "signInImage.nav.command",
   }),
   setting("variables", "variables.nav.settings.label", "server", "noust", {
     keywords: "variables.nav.settings.keywords",
@@ -221,15 +224,15 @@ export const RENAMED: Readonly<Record<string, readonly PlainKey[]>> = {
   "apps.projects": ["nav.renamed.projects"],
   alerts: ["nav.renamed.alerts"],
   "alerts.probes": ["nav.renamed.probes"],
-  "settings.notifications": ["nav.renamed.notifications"],
+  "settings.notifications": ["nav.renamed.notifications", "nav.renamed.channels"],
   "settings.console": ["nav.renamed.console"],
   "settings.about": ["nav.renamed.about"],
   "settings.access": ["nav.renamed.access"],
-  "settings.compliance": ["nav.renamed.compliance"],
+  "settings.compliance": ["nav.renamed.compliance", "nav.renamed.frameworks", "nav.renamed.controls"],
   "settings.log-shipping": ["nav.renamed.logShipping"],
   "settings.cloud": ["nav.renamed.cloud"],
   "settings.integrations": ["nav.renamed.integrations"],
-  "settings.accounts": ["nav.renamed.accounts"],
+  "settings.accounts": ["nav.renamed.accounts", "nav.renamed.people"],
   "settings.variables": ["nav.renamed.variables"],
   "settings.general": ["nav.renamed.general"],
   "account.security": ["nav.renamed.security"],

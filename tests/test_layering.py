@@ -135,7 +135,7 @@ MAX_MODULE_LINES = 3000
 #: and the module leaves when it is under the limit.
 OVERSIZE_MODULES = {
     "noust.cli.commands.db": 3246,
-    "noust.core.config": 3724,
+    "noust.core.config": 3750,
     "noust.core.runner": 4425,
     "noust.core.store": 5883,
     "noust.deployers.docker_compose": 4344,

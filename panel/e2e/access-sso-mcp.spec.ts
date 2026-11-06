@@ -151,7 +151,7 @@ serial("a token can be bound to a project, and the access token, which belongs t
 serial("passwords are turned off for single sign-on, keeping the way back, and on again", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/settings/sso");
   await elevate(page, consoleServer);
-  await expect(page.getByText("No sign-in connection yet")).toBeVisible();
+  await expect(page.getByText(/Connect the company's Microsoft or Google account/)).toBeVisible();
   // With no provider, turning passwords off would lock everybody out: the switch is off limits, and says why.
   const passwords = page.getByRole("switch", { name: "Sign in with passwords and passkeys" });
   await expect(passwords).toBeDisabled();
@@ -159,8 +159,11 @@ serial("passwords are turned off for single sign-on, keeping the way back, and o
   await settle(page);
   await expectNoA11yViolations(page, "Settings, Single sign-on, empty");
 
-  await page.getByRole("button", { name: "Add a connection" }).click();
-  await page.getByRole("menuitem", { name: /OpenID Connect provider/ }).click();
+  // Which one the company has is the first question; the form that follows is the one that fits.
+  await page.getByRole("button", { name: "Add a provider" }).click();
+  const choice = page.getByRole("dialog", { name: "Add a provider" });
+  await choice.getByRole("radio", { name: /Another one, with OpenID Connect/ }).check();
+  await choice.getByRole("button", { name: "Continue" }).click();
   const drawer = page.getByRole("dialog", { name: "Add an identity provider" });
   await drawer.getByLabel("Name", { exact: true }).fill("corp");
   await drawer.getByLabel("Button label").fill("Acme SSO");
@@ -205,7 +208,7 @@ serial("passwords are turned off for single sign-on, keeping the way back, and o
   await providers.getByRole("button", { name: "Actions for corp" }).click();
   await page.getByRole("menuitem", { name: "Remove" }).click();
   await page.getByRole("alertdialog", { name: "Remove corp" }).getByRole("button", { name: "Remove provider" }).click();
-  await expect(page.getByText("No sign-in connection yet")).toBeVisible();
+  await expect(page.getByText(/Connect the company's Microsoft or Google account/)).toBeVisible();
 });
 
 serial("the MCP endpoint is turned on, a group of tools switched off, and the tools listed by what they do", async ({ page, consoleServer }) => {

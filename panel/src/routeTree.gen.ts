@@ -97,6 +97,7 @@ import { Route as ConsoleServicesNameRouteImport } from "./routes/_console/servi
 import { Route as ConsoleSettingsIndexRouteImport } from "./routes/_console/settings/index"
 import { Route as ConsoleSettingsAboutRouteImport } from "./routes/_console/settings/about"
 import { Route as ConsoleSettingsAccessRouteImport } from "./routes/_console/settings/access"
+import { Route as ConsoleSettingsAccessSecurityRouteImport } from "./routes/_console/settings/access-security"
 import { Route as ConsoleSettingsAccountsRouteImport } from "./routes/_console/settings/accounts"
 import { Route as ConsoleSettingsAlertsRouteImport } from "./routes/_console/settings/alerts"
 import { Route as ConsoleSettingsApiRouteImport } from "./routes/_console/settings/api"
@@ -640,6 +641,12 @@ const ConsoleSettingsAccessRoute = ConsoleSettingsAccessRouteImport.update({
   path: "/access",
   getParentRoute: () => ConsoleSettingsRoute,
 } as any)
+const ConsoleSettingsAccessSecurityRoute =
+  ConsoleSettingsAccessSecurityRouteImport.update({
+    id: "/access-security",
+    path: "/access-security",
+    getParentRoute: () => ConsoleSettingsRoute,
+  } as any)
 const ConsoleSettingsAccountsRoute = ConsoleSettingsAccountsRouteImport.update({
   id: "/accounts",
   path: "/accounts",
@@ -1276,6 +1283,7 @@ export interface FileRoutesByFullPath {
   "/services/$name": typeof ConsoleServicesNameRoute
   "/settings/about": typeof ConsoleSettingsAboutRoute
   "/settings/access": typeof ConsoleSettingsAccessRoute
+  "/settings/access-security": typeof ConsoleSettingsAccessSecurityRoute
   "/settings/accounts": typeof ConsoleSettingsAccountsRoute
   "/settings/alerts": typeof ConsoleSettingsAlertsRoute
   "/settings/api": typeof ConsoleSettingsApiRoute
@@ -1456,6 +1464,7 @@ export interface FileRoutesByTo {
   "/services/$name": typeof ConsoleServicesNameRoute
   "/settings/about": typeof ConsoleSettingsAboutRoute
   "/settings/access": typeof ConsoleSettingsAccessRoute
+  "/settings/access-security": typeof ConsoleSettingsAccessSecurityRoute
   "/settings/accounts": typeof ConsoleSettingsAccountsRoute
   "/settings/alerts": typeof ConsoleSettingsAlertsRoute
   "/settings/api": typeof ConsoleSettingsApiRoute
@@ -1643,6 +1652,7 @@ export interface FileRoutesById {
   "/_console/services/$name": typeof ConsoleServicesNameRoute
   "/_console/settings/about": typeof ConsoleSettingsAboutRoute
   "/_console/settings/access": typeof ConsoleSettingsAccessRoute
+  "/_console/settings/access-security": typeof ConsoleSettingsAccessSecurityRoute
   "/_console/settings/accounts": typeof ConsoleSettingsAccountsRoute
   "/_console/settings/alerts": typeof ConsoleSettingsAlertsRoute
   "/_console/settings/api": typeof ConsoleSettingsApiRoute
@@ -1833,6 +1843,7 @@ export interface FileRouteTypes {
     | "/services/$name"
     | "/settings/about"
     | "/settings/access"
+    | "/settings/access-security"
     | "/settings/accounts"
     | "/settings/alerts"
     | "/settings/api"
@@ -2013,6 +2024,7 @@ export interface FileRouteTypes {
     | "/services/$name"
     | "/settings/about"
     | "/settings/access"
+    | "/settings/access-security"
     | "/settings/accounts"
     | "/settings/alerts"
     | "/settings/api"
@@ -2199,6 +2211,7 @@ export interface FileRouteTypes {
     | "/_console/services/$name"
     | "/_console/settings/about"
     | "/_console/settings/access"
+    | "/_console/settings/access-security"
     | "/_console/settings/accounts"
     | "/_console/settings/alerts"
     | "/_console/settings/api"
@@ -2939,6 +2952,13 @@ declare module "@tanstack/react-router" {
       path: "/access"
       fullPath: "/settings/access"
       preLoaderRoute: typeof ConsoleSettingsAccessRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
+    "/_console/settings/access-security": {
+      id: "/_console/settings/access-security"
+      path: "/access-security"
+      fullPath: "/settings/access-security"
+      preLoaderRoute: typeof ConsoleSettingsAccessSecurityRouteImport
       parentRoute: typeof ConsoleSettingsRoute
     }
     "/_console/settings/accounts": {
@@ -3790,6 +3810,7 @@ const ConsoleServerRouteWithChildren = ConsoleServerRoute._addFileChildren(
 interface ConsoleSettingsRouteChildren {
   ConsoleSettingsAboutRoute: typeof ConsoleSettingsAboutRoute
   ConsoleSettingsAccessRoute: typeof ConsoleSettingsAccessRoute
+  ConsoleSettingsAccessSecurityRoute: typeof ConsoleSettingsAccessSecurityRoute
   ConsoleSettingsAccountsRoute: typeof ConsoleSettingsAccountsRoute
   ConsoleSettingsAlertsRoute: typeof ConsoleSettingsAlertsRoute
   ConsoleSettingsApiRoute: typeof ConsoleSettingsApiRoute
@@ -3823,6 +3844,7 @@ interface ConsoleSettingsRouteChildren {
 const ConsoleSettingsRouteChildren: ConsoleSettingsRouteChildren = {
   ConsoleSettingsAboutRoute: ConsoleSettingsAboutRoute,
   ConsoleSettingsAccessRoute: ConsoleSettingsAccessRoute,
+  ConsoleSettingsAccessSecurityRoute: ConsoleSettingsAccessSecurityRoute,
   ConsoleSettingsAccountsRoute: ConsoleSettingsAccountsRoute,
   ConsoleSettingsAlertsRoute: ConsoleSettingsAlertsRoute,
   ConsoleSettingsApiRoute: ConsoleSettingsApiRoute,

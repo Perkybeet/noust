@@ -133,7 +133,8 @@ test("on a phone each subsection is its own page, with its way back", async ({ p
   await page.setViewportSize({ width: 390, height: 844 });
   await signIn(page, consoleServer, "/settings/notifications");
   await expect(page.getByRole("heading", { level: 2, name: "Channels", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "All sections" })).toBeVisible();
+  // The way back is the selector at the top of the page (4.2): it says the section and opens the list of every one.
+  await expect(page.getByRole("main").getByRole("button", { name: /Notification channels/ })).toBeVisible();
   // The whole page, not what has drawn so far: the widest thing on it (the language of the messages)
   // is far below the channels and arrives with them. Measured as soon as the way back showed, the
   // width was 390 on a fast machine and 409 on a slow one, for the same page.

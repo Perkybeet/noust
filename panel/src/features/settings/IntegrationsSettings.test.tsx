@@ -189,7 +189,15 @@ describe("Settings > Integrations", () => {
       .getAllByRole("link")
       .map((link) => link.textContent);
     // The card of each of these was on this page once: one subject a page (NV-9), each with its own door.
-    expect(names.slice(names.indexOf("Connections"), names.indexOf("Connections") + 4)).toEqual(["Connections", "Image registries", "Deploy keys", "Secret managers"]);
+    // The log export is a connection too (it copies to a service); the cloud providers are the fleet's, and sit with the rest.
+    expect(names.slice(names.indexOf("Connections"), names.indexOf("Connections") + 6)).toEqual([
+      "Connections",
+      "Logs and metrics export",
+      "Image registries",
+      "Deploy keys",
+      "Cloud providers",
+      "Secret managers",
+    ]);
   });
 
   it(

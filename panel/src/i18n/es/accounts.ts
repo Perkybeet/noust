@@ -3,7 +3,7 @@ import type { Catalog } from "../types";
 
 export const accounts: Catalog<typeof en> = {
   nav: {
-    label: "Personas",
+    label: "Cuentas",
     keywords: "cuentas usuarios personas roles invitar invitación responsable de seguridad auditor accounts",
     command: "Personas con cuenta",
   },
@@ -31,6 +31,8 @@ export const accounts: Catalog<typeof en> = {
     title: "Cuentas",
     description: "Cada persona inicia sesión con su propia cuenta, con uno o varios roles. Nadie conoce la contraseña de otro.",
     invite: "Invitar a una persona",
+    ssoLine: "¿Quieres que entren con la cuenta de Google o de Microsoft de la empresa? {link}",
+    ssoLink: "Inicio de sesión único",
     filterLabel: "Filtrar cuentas",
     searchLabel: "Buscar cuentas",
     searchPlaceholder: "Nombre o correo",

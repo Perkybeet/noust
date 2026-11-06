@@ -713,7 +713,7 @@ test.describe("from any page", () => {
     { name: "Logs and metrics export", to: "/settings/log-shipping", was: { name: "Log shipping", to: "/settings/log-shipping" } },
     { name: "System updates", to: "/server/updates", was: { name: "Updates", to: "/server/updates" } },
     { name: "Alert rules", to: "/alerts", was: { name: "Alerts", to: "/alerts" } },
-    { name: "Channels", to: "/settings/notifications", was: { name: "Notifications", to: "/settings/notifications" } },
+    { name: "Notification channels", to: "/settings/notifications", was: { name: "Notifications", to: "/settings/notifications" } },
     { name: "Accounts", to: "/settings/accounts" },
     { name: "API tokens", to: "/settings/tokens", was: { name: "Tokens", to: "/settings/tokens" } },
     { name: "Sign-in security", to: "/account/security", was: { name: "Security", to: "/settings/security" } },

@@ -44,15 +44,17 @@ test("the account is its own page with two sections, and the person's API tokens
   await expectNoA11yViolations(page, "the account");
 });
 
-test("Settings no longer has Security: the account's sign-in security and the controls are where they belong", async ({ page, consoleServer }) => {
+test("Settings no longer has Security: the account's sign-in security and the compliance are where they belong", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/settings");
   const list = page.getByRole("navigation", { name: "Settings sections" });
   await expect(list.getByRole("link", { name: "Security", exact: true })).toHaveCount(0);
-  await expect(list.getByRole("link", { name: "Controls" })).toBeVisible();
+  await expect(list.getByRole("link", { name: "Compliance" })).toBeVisible();
   await page.goto("/settings/security");
   await expect(page).toHaveURL(/\/account\/security$/);
+  // The controls joined the frameworks in one page: the old address opens it.
   await page.goto("/settings/controls");
-  await expect(page.getByRole("heading", { level: 2, name: "Security profile" })).toBeVisible();
+  await expect(page).toHaveURL(/\/settings\/compliance$/);
+  await expect(page.getByRole("heading", { level: 2, name: "Controls" })).toBeVisible();
   await settle(page);
-  await expectNoA11yViolations(page, "the controls");
+  await expectNoA11yViolations(page, "the compliance");
 });

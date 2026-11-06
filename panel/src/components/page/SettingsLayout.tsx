@@ -48,6 +48,8 @@ export interface SettingsNavItem {
   scopeKey?: string;
   /** Other words that find the section in the filter: its old names ("Notifications"). */
   keywords?: string;
+  /** A line under the name, for a name that does not say what the section is for. Already translated. */
+  hint?: string;
 }
 
 export interface SettingsLayoutProps {

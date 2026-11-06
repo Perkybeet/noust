@@ -74,7 +74,7 @@ that goes with it.
 | Off | Grey, a glyph and "Disabled", with what being off means for you |
 | On with a problem | Amber and a warning triangle, never green: it is on but cannot do what it says ("Enabled, but no channel"), with the action that fixes it |
 
-The state is a row on Settings > Channels, Console address, MCP, Approvals and Automatic updates (in
+The state is a row on Settings > Notification channels, Console address, MCP, Approvals and Automatic updates (in
 About Noust), the second factor in Account > Sign-in security, scheduled backups on the Backups page,
 automatic updates on Server > System and updates, and in an application's settings for instant rollback,
 zero-downtime deploys, builds in the sandbox and pull request previews. See [DESIGN.md](DESIGN.md).

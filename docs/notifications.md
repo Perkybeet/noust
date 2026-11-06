@@ -6,7 +6,7 @@ messages go, who hears which, and what happens when a destination does not answe
 that produces some of them is described in [MONITOR.md](MONITOR.md); every setting is listed in
 [CONFIG.md](CONFIG.md).
 
-Everything here is in the console under Settings > Channels and Settings > Alert rules, and in
+Everything here is in the console under Settings > Notification channels and Settings > Alert rules, and in
 the command line as `noust notify ...` and `noust alert ...`. They are two views of the same
 `notifications.*` settings, so a change in one is a change in the other.
 
@@ -75,7 +75,7 @@ noust notify channel remove oncall
 A name is lower-case letters, digits, `-` and `_`, starting with a letter. At most 32 channels
 may exist. Removing one of the thirteen defaults (one of each type) empties it instead.
 
-In the console, Settings > Channels has an "Add a channel" button for these; the new
+In the console, Settings > Notification channels has an "Add a channel" button for these; the new
 channel opens its own drawer to ask for the destination.
 
 Credentials are asked for with `--secret KEY` (a hidden prompt) or `--secret-stdin KEY`, never as
@@ -107,8 +107,18 @@ not know, is final (no retries, the provider's own words are kept in the record 
 provider that is busy or unreachable is tried again like any destination. Credentials are write-only
 everywhere (`***` in `noust config show`, never in the API), and the address of every provider is
 fixed: the only typed value that reaches a URL is the SES region, checked to be one. Leaving the
-provider empty goes back to SMTP. In the console it is Settings > Channels > Email > "Send
+provider empty goes back to SMTP. In the console it is Settings > Notification channels > Email > "Send
 through".
+
+## Turning them off for a while
+
+`notifications.enabled` is the master switch of every channel. Turning it off is almost always "for
+a while" (a maintenance window, a night), and a switch left off is how the next real incident is
+missed, so the console asks until when: for an hour, until tomorrow at 09:00 or until it is turned
+on again. The first two write `notifications.muted_until`, a moment with its time zone before which
+nothing is sent and after which everything is sent again with nothing to remember; the third turns
+`notifications.enabled` off. The same question is asked from Alerts ("Silence notifications"), and
+the test button of a channel ignores the pause, as it ignores the master switch.
 
 ## What each channel hears
 
@@ -258,7 +268,7 @@ noust notify retry                      # what is due now
 noust notify retry 42                   # one delivery, with a fresh set of attempts
 ```
 
-The same record is in the console under Settings > Channels, with what the destination
+The same record is in the console under Settings > Notification channels, with what the destination
 said, verbatim, and a "Send now" button on whatever can be sent again. A delivery that was given
 up on raises `notify.delivery_failed` in the audit log, never the message itself.
 

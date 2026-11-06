@@ -1,4 +1,4 @@
-import { Pencil } from "lucide-react";
+import { Lock, Pencil } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
@@ -6,7 +6,7 @@ import type { SyntheticEvent } from "react";
 import { changeCompliance, complianceKeys, planCompliance } from "../../../api/queries/compliance";
 import type { ComplianceChange, ComplianceControl, CompliancePlan, ComplianceState } from "../../../api/queries/compliance";
 import { ErrorBlock } from "../../../components/page/QueryState";
-import { Section } from "../../../components/page/Section";
+import { SurfaceSection } from "../../../components/page/SurfaceSection";
 import { Button } from "../../../components/ui/Button";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Disclosure } from "../../../components/ui/Disclosure";
@@ -19,9 +19,13 @@ import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import type { PlainKey } from "../../../i18n";
 import { ChangeDialog } from "./ChangeDialog";
-import { LockedMark } from "./FrameworksSection";
-import { GROUPS, asText, controlSummary, controlTitle, formatValue, inGroup, lockedBy } from "./model";
+import { ACCESS_PAGE_CONTROLS, GROUPS, asText, controlSummary, controlTitle, formatValue, inGroup, lockedBy } from "./model";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
+
+/** An icon for a control a framework locks. */
+function LockedMark() {
+  return <Lock aria-hidden="true" className="size-3.5 shrink-0 text-fg-faint" />;
+}
 
 interface ControlDialogProps {
   control: ComplianceControl;
@@ -196,16 +200,17 @@ function ControlRow({ control, state, canManage, busy, onFlag, onEdit }: Control
 }
 
 /**
- * Every control with the value in force, which enabled framework forces it (a forced one is locked
- * and says so), and its own setting. A switch that tightens applies at once unless the server
- * has something to say first; one that loosens asks "Confirm it's you" through the usual dialog.
+ * The editing of controls, once, for every page that lists some (Compliance lists the ones a framework asks for, Access
+ * security the ones about signing in): a switch that tightens applies at once unless the server has something to say
+ * first, and one that loosens asks "Confirm it's you" through the usual dialog. `row` draws one control as a setting;
+ * `dialogs` is what its buttons open, drawn once by the page; `failure` is the server's refusal, in its own words.
  */
-export function ControlsSection({ state, canManage }: { state: ComplianceState; canManage: boolean }) {
+export function useControlEditing(state: ComplianceState | undefined, canManage: boolean) {
   const t = useT();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<ComplianceControl | null>(null);
   const [confirming, setConfirming] = useState<{ request: ComplianceChange; plan: CompliancePlan; title: string } | null>(null);
-  const names = new Map(state.frameworks.map((framework) => [framework.id, framework.name]));
+  const names = new Map((state?.frameworks ?? []).map((framework) => [framework.id, framework.name]));
 
   const flip = useMutation({
     mutationFn: async ({ control, next }: { control: ComplianceControl; next: boolean }) => {
@@ -225,40 +230,25 @@ export function ControlsSection({ state, canManage }: { state: ComplianceState; 
     },
   });
 
-  return (
-    <Section level={3} title={t("complianceSetup.controls.title")} icon={OBJECT_ICONS.control} description={t("complianceSetup.controls.description")}>
-      {flip.isError ? <ErrorBlock live compact error={flip.error} title={t("complianceSetup.controls.dialog.failed")} /> : null}
-      {GROUPS.map((group) => {
-        const rows = inGroup(state.controls, group);
-        if (rows.length === 0) return null;
-        return (
-          // Each group is folded to a line that says how many of its controls are strict: the page was five thousand
-          // pixels of rows nobody scans (NV-9); a group with a control being changed stays open.
-          <Disclosure
-            key={group}
-            variant="card"
-            label={t(`complianceSetup.controls.group.${group}` as PlainKey)}
-            summary={t("complianceSetup.controls.groupSummary", { on: rows.filter((control) => control.enabled).length, total: rows.length })}
-            defaultOpen={flip.isPending && rows.some((control) => control.id === flip.variables.control.id)}
-          >
-            <div className="-mx-4 flex flex-col divide-y divide-border">
-            {rows.map((control) => (
-              <ControlRow
-                key={control.id}
-                control={control}
-                state={state}
-                canManage={canManage}
-                busy={flip.isPending && flip.variables.control.id === control.id}
-                onFlag={(chosen, next) => {
-                  if (!flip.isPending) flip.mutate({ control: chosen, next });
-                }}
-                onEdit={setEditing}
-              />
-            ))}
-            </div>
-          </Disclosure>
-        );
-      })}
+  const row = (control: ComplianceControl) =>
+    state === undefined ? null : (
+    <ControlRow
+      key={control.id}
+      control={control}
+      state={state}
+      canManage={canManage}
+      busy={flip.isPending && flip.variables.control.id === control.id}
+      onFlag={(chosen, next) => {
+        if (!flip.isPending) flip.mutate({ control: chosen, next });
+      }}
+      onEdit={setEditing}
+    />
+    );
+
+  const failure = flip.isError ? <ErrorBlock live compact error={flip.error} title={t("complianceSetup.controls.dialog.failed")} /> : null;
+
+  const dialogs = (
+    <>
       {editing !== null ? (
         <ControlDialog
           control={editing}
@@ -279,13 +269,56 @@ export function ControlsSection({ state, canManage }: { state: ComplianceState; 
           lead={t("complianceSetup.dialog.enableLead")}
           action={t("common.words.save")}
           done={t("complianceSetup.controls.changed", { name: confirming.title })}
-          controls={state.controls}
+          controls={state?.controls ?? []}
           names={names}
           onClose={() => {
             setConfirming(null);
           }}
         />
       ) : null}
-    </Section>
+    </>
+  );
+
+  return { row, dialogs, failure, busyControl: flip.isPending ? flip.variables.control.id : null };
+}
+
+/**
+ * The controls of a framework's rule book that Access security does not draw (duties and tokens, accountability, backups, network and host), each
+ * with the value in force, which framework that is on forces it (a forced one is locked and says so) and its own setting.
+ * The ones about signing in are the page Access security's. Folded by group, because the controls are a list nobody scans.
+ */
+export function ControlsSection({ state, canManage }: { state: ComplianceState; canManage: boolean }) {
+  const t = useT();
+  const editing = useControlEditing(state, canManage);
+  return (
+    <SurfaceSection
+      title={t("complianceSetup.controls.title")}
+      icon={OBJECT_ICONS.control}
+      description={t("complianceSetup.controls.description")}
+      help={t("complianceSetup.controls.help")}
+    >
+      <div className="flex flex-col gap-3">
+        {editing.failure}
+        {GROUPS.map((group) => {
+          // The controls about getting in are Access security's page, once: what is left of the group is duties and tokens.
+          const rows = inGroup(state.controls, group).filter((control) => !ACCESS_PAGE_CONTROLS.includes(control.id));
+          if (rows.length === 0) return null;
+          return (
+            // Each group is folded to a line that says how many of its controls are strict: the page was five thousand
+            // pixels of rows nobody scans (NV-9); a group with a control being changed stays open.
+            <Disclosure
+              key={group}
+              variant="card"
+              label={t(`complianceSetup.controls.group.${group}` as PlainKey)}
+              summary={t("complianceSetup.controls.groupSummary", { on: rows.filter((control) => control.enabled).length, total: rows.length })}
+              defaultOpen={rows.some((control) => control.id === editing.busyControl)}
+            >
+              <div className="-mx-4 flex flex-col divide-y divide-border">{rows.map((control) => editing.row(control))}</div>
+            </Disclosure>
+          );
+        })}
+      </div>
+      {editing.dialogs}
+    </SurfaceSection>
   );
 }

@@ -97,7 +97,7 @@ const SERVER_SETTINGS: readonly Route[] = [
   { id: "settings-compliance", path: "/settings/compliance" },
   { id: "settings-cloud", path: "/settings/cloud" },
   { id: "settings-central", path: "/settings/central" },
-  { id: "settings-controls", path: "/settings/controls" },
+  { id: "settings-access-security", path: "/settings/access-security" },
   { id: "settings-sign-in-image", path: "/settings/sign-in-image" },
 ];
 
@@ -135,6 +135,7 @@ const NOT_A_SUBSECTION: Readonly<Record<string, string>> = {
   "settings/servers.tsx": "it redirects to Fleet > Servers: the fleet's list is the one list of servers since 4.0",
   "settings/alerts.tsx": "it redirects to Alerts, an area of the bar since 4.1",
   "settings/probes.tsx": "it redirects to Alerts > Probes and status page, since 4.1",
+  "settings/controls.tsx": "it redirects to Compliance: in 4.2 the controls joined the frameworks and their report on one page",
 };
 
 /** The route files under a settings directory of src/routes, as `settings/x.tsx` relative to _console. */

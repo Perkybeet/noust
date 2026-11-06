@@ -296,6 +296,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # because this module cannot import the notifier (the notifier reads
         # its settings from here).
         "enabled": False,
+        # A pause of every notification, asked of whoever turns them off ("until
+        # when"): a moment with its time zone, before which nothing is sent. Empty
+        # is no pause; see noust.core.notifications.pause.
+        "muted_until": "",
         # Language Noust's own words in a notification are rendered in - the
         # evidence they carry (a health gate's probes, rclone's or
         # certbot's own output) never is. noust.core.messages is the catalog;
@@ -1369,6 +1373,27 @@ def _validate_notification_channels(channels: dict[str, Any]) -> None:
         ) from exc
 
 
+def _validate_notification_pause(value: Any) -> str:
+    """
+    Accept ``notifications.muted_until``: no pause, or a moment with its time zone.
+
+    Delegates to :func:`noust.core.notifications.pause.validate_pause`, imported when called so
+    that every command of the line does not load the notifications package to read a setting.
+
+    Args:
+        value: What the caller wants stored.
+
+    Returns:
+        An empty string, or the moment in UTC.
+
+    Raises:
+        ConfigError: For text that is not a moment with its zone.
+    """
+    from noust.core.notifications.pause import validate_pause
+
+    return validate_pause(value)
+
+
 def _validate_notification_language(value: Any) -> str:
     """
     Accept the language Noust's own notification texts are rendered in.
@@ -2246,6 +2271,7 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
         "notifications.channels.discord.mention_user_id", "user"
     ),
     "notifications.language": _validate_notification_language,
+    "notifications.muted_until": _validate_notification_pause,
     "server.name": _validate_server_name,
 }
 
