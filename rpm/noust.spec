@@ -5,7 +5,7 @@
 #
 
 Name:           noust
-Version:        4.1.0
+Version:        4.2.0
 Release:        1%{?dist}
 Summary:        Deploy and manage web applications on Linux servers
 License:        AGPL-3.0-or-later
@@ -340,6 +340,11 @@ if [ -f /etc/systemd/system/noust-web.service ]; then
 fi
 
 %changelog
+* Fri Nov 06 2026 Yago López Prado <yago.lopez.adeje@gmail.com> - 4.2.0-1
+- Noust puts the console in order: one frame on every screen with Network and Security as areas of their own, a Home of widgets each person arranges, background work in sight from any page, and the server's software on one page
+- Pages that say what each thing is before they explain it, a hint to the terminal only where the console cannot do it, a redrawn sign-in with room for your own logo, and problems reported from the console in three steps
+- Action required: a token that deletes, restores or changes access needs --elevated; a database engine that holds databases is not uninstalled
+- Every change: https://github.com/Perkybeet/noust/blob/main/docs/CHANGELOG-4.2.md - read https://github.com/Perkybeet/noust/blob/main/docs/UPGRADING-4.2.md before updating
 * Sun Nov 01 2026 Yago López Prado <yago.lopez.adeje@gmail.com> - 4.1.0-1
 - Noust reads a fleet as one thing and works it from the central: every list covers every server, the settings of the fleet are written once and each server applies them, and the GitHub App on the central lends each server what it needs to deploy
 - A console with a new frame and a new look, roles you edit, Noust DNS and IONOS, a move of an application between nginx and Apache, database servers in any version, and 440 recipes, every one that installs started before it shipped

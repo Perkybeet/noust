@@ -1,3 +1,12 @@
+noust (4.2.0-1) unstable; urgency=medium
+
+  * Noust puts the console in order: one frame on every screen with Network and Security as areas of their own, a Home of widgets each person arranges, background work in sight from any page, and the server's software on one page
+  * Pages that say what each thing is before they explain it, a hint to the terminal only where the console cannot do it, a redrawn sign-in with room for your own logo, and problems reported from the console in three steps
+  * Action required: a token that deletes, restores or changes access needs --elevated; a database engine that holds databases is not uninstalled
+  * Every change: https://github.com/Perkybeet/noust/blob/main/docs/CHANGELOG-4.2.md - read https://github.com/Perkybeet/noust/blob/main/docs/UPGRADING-4.2.md before updating
+
+ -- Yago López Prado <yago.lopez.adeje@gmail.com>  Fri, 06 Nov 2026 12:58:01 +0000
+
 noust (4.1.0-1) unstable; urgency=medium
 
   * Noust reads a fleet as one thing and works it from the central: every list covers every server, the settings of the fleet are written once and each server applies them, and the GitHub App on the central lends each server what it needs to deploy
