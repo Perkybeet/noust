@@ -9,11 +9,13 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import type { ReactNode } from "react";
 
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Section } from "../../../components/page/Section";
 import { SegmentedControl } from "../../../components/page/SegmentedControl";
 import { Button } from "../../../components/ui/Button";
+import { Disclosure } from "../../../components/ui/Disclosure";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
@@ -33,6 +35,7 @@ import type { GroupId } from "./registry";
 import { SOFTWARE_CAPABILITY, recheckSoftware, softwareKeys, softwareQuery } from "./queries";
 import type { SoftwareItem, SoftwareList } from "./queries";
 import { SoftwareTable } from "./SoftwareTable";
+import { componentName } from "./words";
 
 type Show = "all" | "installed" | "missing";
 
@@ -43,6 +46,20 @@ function visible(items: readonly SoftwareItem[], show: Show): SoftwareItem[] {
 /** The pieces by group, in the order the page lists them; a group with none to show is left out. */
 export function groupsOf(items: readonly SoftwareItem[]): { group: GroupId; items: SoftwareItem[] }[] {
   return GROUPS.map((group) => ({ group, items: items.filter((item) => groupOf(item.id) === group) })).filter((entry) => entry.items.length > 0);
+}
+
+/** The machine's own pieces, which Noust never removes: seven rows nobody acts on, so they are one line until asked for. */
+function isBase(group: GroupId, rows: readonly SoftwareItem[]): boolean {
+  return group === "machine" && rows.every((row) => row.installed && row.severity === "never");
+}
+
+function FoldedBase({ items, children }: { items: readonly SoftwareItem[]; children: ReactNode }) {
+  const t = useT();
+  return (
+    <Disclosure variant="card" label={items.map((item) => componentName(t, item.id)).join(", ")} summary={t("software.machine.note")}>
+      {children}
+    </Disclosure>
+  );
 }
 
 function Content({ data, checkedAt }: { data: SoftwareList; checkedAt: number }) {
@@ -102,8 +119,8 @@ function Content({ data, checkedAt }: { data: SoftwareList; checkedAt: number })
           description={show === "installed" ? t("software.empty.installedDescription") : t("software.empty.missingDescription")}
         />
       ) : (
-        groupsOf(shown).map(({ group, items: rows }) => (
-          <Section key={group} title={t(GROUP_LABELS[group])} level={2}>
+        groupsOf(shown).map(({ group, items: rows }) => {
+          const table = (
             <SoftwareTable
               caption={t("software.tableCaption", { group: t(GROUP_LABELS[group]) })}
               items={rows}
@@ -115,8 +132,13 @@ function Content({ data, checkedAt }: { data: SoftwareList; checkedAt: number })
                 onRemove: setRemoving,
               }}
             />
-          </Section>
-        ))
+          );
+          return (
+            <Section key={group} title={t(GROUP_LABELS[group])} level={2}>
+              {isBase(group, rows) ? <FoldedBase items={rows}>{table}</FoldedBase> : table}
+            </Section>
+          );
+        })
       )}
       <div className="flex min-w-0 flex-col gap-3">
         <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-12 text-fg-muted">

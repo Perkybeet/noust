@@ -6,7 +6,7 @@
  */
 export const software = {
   label: "the software",
-  summary: "What Noust installed or needs on this server, what it uses each piece for and what depends on it.",
+  summary: "What Noust installed or needs here, what each piece is for and what depends on it.",
   recheck: "Check again",
   checked: "Checked {when}",
   family: {
@@ -70,10 +70,13 @@ export const software = {
     installed: "Installed",
   },
   origin: {
-    noust: "Installed by Noust",
-    unknown: "Not installed by Noust",
-    when: "{date}, {who}",
-    whenOnly: "{date}",
+    noust: "From Noust",
+    noustOn: "From Noust, {date}",
+    unknown: "Not from Noust",
+    by: "Installed by {who}",
+  },
+  machine: {
+    note: "Noust always needs them: none can be removed.",
   },
   dependents: {
     none: "Nothing",

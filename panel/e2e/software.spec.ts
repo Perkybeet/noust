@@ -37,15 +37,18 @@ function row(page: import("@playwright/test").Page, name: string) {
 
 test("the software of the server by group, with who put it there and what depends on it", async ({ page, own }) => {
   await signIn(page, own, "/server/software");
+  // The machine's own seven pieces, which Noust never removes, are one line until asked for.
+  await expect(page.getByRole("table", { name: "Software: The machine" })).toHaveCount(0);
+  await page.getByRole("button", { name: /^Noust, systemd, SSH server/ }).click();
   for (const group of ["The machine", "Sites and certificates", "Applications", "Databases", "Network", "Protection and upkeep"]) {
     await expect(page.getByRole("table", { name: `Software: ${group}` })).toBeVisible();
   }
   const nginx = row(page, "nginx");
-  await expect(nginx.getByText("Installed by Noust")).toBeVisible();
+  await expect(nginx.getByText(/^From Noust/)).toBeVisible();
   await expect(nginx.getByText("17 applications")).toBeVisible();
   await expect(nginx.getByText("When nothing uses it")).toBeVisible();
   const systemd = row(page, "systemd");
-  await expect(systemd.getByText("Not installed by Noust")).toBeVisible();
+  await expect(systemd.getByText("Not from Noust")).toBeVisible();
   await expect(systemd.getByText("Never")).toBeVisible();
   // A piece that is not there says so, and offers to install it.
   await expect(row(page, "MongoDB").getByText("Not installed").first()).toBeVisible();
@@ -119,7 +122,7 @@ test("installs a piece from its row as a task, and the list says it is there", a
   await page.getByRole("button", { name: "Install Apache" }).click();
   await confirmItsYou(page, own);
   await expect(page.getByRole("button", { name: "Remove Apache" })).toBeVisible({ timeout: 45_000 });
-  await expect(row(page, "Apache").getByText("Installed by Noust")).toBeVisible();
+  await expect(row(page, "Apache").getByText(/^From Noust/)).toBeVisible();
 });
 
 test("a page that lacks a piece says it is missing, installs it as a task, and the page changes when it is there", async ({ page, own, problems }) => {
@@ -204,5 +207,6 @@ fleet("the fleet says what is installed on each server, and a server opens its o
 
   await node.getByRole("link", { name: "Open the software of fleet-node" }).click();
   await expect(page).toHaveURL(/\/n\/fleet-node\/server\/software$/);
-  await expect(page.getByRole("table", { name: "Software: The machine" })).toBeVisible();
+  // A node's own page, with the machine's seven pieces folded into their line as on any server.
+  await expect(page.getByRole("button", { name: /^Noust, systemd/ })).toBeVisible();
 });

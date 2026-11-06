@@ -56,13 +56,13 @@ function VersionCell({ item }: { item: SoftwareItem }) {
   const when = parseTimestamp(item.installed_at);
   const date = when === null ? null : formatDate(when, { year: false });
   const who = item.installed_by ?? null;
-  const line = date !== null && who !== null ? t("software.origin.when", { date, who }) : date !== null ? t("software.origin.whenOnly", { date }) : null;
   const byNoust = item.origin === "noust";
+  const origin = !byNoust ? t("software.origin.unknown") : date !== null ? t("software.origin.noustOn", { date }) : t("software.origin.noust");
   return (
-    <span className="flex flex-col py-0.5">
+    // Who ran it is the line's tooltip: the cell keeps two lines, so a row is as tall as its name and what it is for.
+    <span className="flex flex-col py-0.5" {...(byNoust && who !== null ? { title: t("software.origin.by", { who }) } : {})}>
       {version !== null ? <Mono title={version}>{shortVersion(version)}</Mono> : <span className="text-fg-muted">{t("software.state.installed")}</span>}
-      <span className={cx("text-12", byNoust ? "text-fg" : "text-fg-muted")}>{byNoust ? t("software.origin.noust") : t("software.origin.unknown")}</span>
-      {byNoust && line !== null ? <span className="text-12 text-fg-muted">{line}</span> : null}
+      <span className={cx("text-12", byNoust ? "text-fg" : "text-fg-muted")}>{origin}</span>
     </span>
   );
 }

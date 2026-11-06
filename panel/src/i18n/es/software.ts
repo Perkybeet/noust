@@ -3,7 +3,7 @@ import type { Catalog } from "../types";
 
 export const software: Catalog<typeof en> = {
   label: "el software",
-  summary: "Lo que Noust instaló o necesita en este servidor, para qué usa cada cosa y qué depende de ella.",
+  summary: "Lo que Noust instaló o necesita aquí, para qué sirve cada cosa y qué depende de ella.",
   recheck: "Comprobar de nuevo",
   checked: "Comprobado {when}",
   family: {
@@ -67,10 +67,13 @@ export const software: Catalog<typeof en> = {
     installed: "Instalado",
   },
   origin: {
-    noust: "Lo instaló Noust",
-    unknown: "No lo instaló Noust",
-    when: "{date}, {who}",
-    whenOnly: "{date}",
+    noust: "De Noust",
+    noustOn: "De Noust, {date}",
+    unknown: "No es de Noust",
+    by: "Instalado por {who}",
+  },
+  machine: {
+    note: "Noust los necesita siempre: no se quita ninguno.",
   },
   dependents: {
     none: "Nada",

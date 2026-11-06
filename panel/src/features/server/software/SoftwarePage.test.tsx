@@ -37,6 +37,13 @@ function rowOf(name: string): HTMLElement | null {
   );
 }
 
+/** The machine's own pieces are one line of names until it is asked for: the button that opens it. */
+const BASE_LINE = /^Noust, systemd, git/;
+
+async function openBase(user: ReturnType<typeof renderConsole>["user"]): Promise<void> {
+  await user.click(await screen.findByRole("button", { name: BASE_LINE }));
+}
+
 async function findRow(name: string): Promise<HTMLElement> {
   return waitFor(() => {
     const found = rowOf(name);
@@ -46,23 +53,32 @@ async function findRow(name: string): Promise<HTMLElement> {
 }
 
 describe("the Software section", () => {
-  it("lists every piece in its group, with what it is for, its version, who put it there and what uses it", async () => {
-    page();
-    await screen.findByRole("table", { name: "Software: The machine" });
+  it("keeps the pieces of the machine, which Noust never removes, in one line, and says in it that none can be removed", async () => {
+    const { user } = page();
+    const line = await screen.findByRole("button", { name: BASE_LINE });
+    expect(line).toHaveAttribute("aria-expanded", "false");
+    expect(line).toHaveAccessibleName(/Noust always needs them: none can be removed\./);
+    expect(screen.queryByRole("table", { name: "Software: The machine" })).toBeNull();
+    await user.click(line);
+    expect(line).toHaveAttribute("aria-expanded", "true");
+    expect(within(group("The machine")).getByText("systemd")).toBeInTheDocument();
+  });
 
-    const machine = within(group("The machine"));
-    expect(machine.getByText("systemd")).toBeInTheDocument();
-    // Who put it there: what Noust set up says so, with the person; what was there before says it was not Noust's.
+  it("lists every piece in its group, with what it is for, its version, where it came from and what uses it", async () => {
+    const { user } = page();
+    await openBase(user);
+
+    // Where it came from: what Noust set up says so, with the day (and who, as the tooltip); what was there before says it was not Noust's.
     const web = within(await findRow("nginx"));
     expect(web.getByText("1.24.0")).toBeInTheDocument();
-    expect(web.getByText("Installed by Noust")).toBeInTheDocument();
-    expect(web.getByText(/yago$/)).toBeInTheDocument();
+    expect(web.getByText(/^From Noust, /)).toBeInTheDocument();
+    expect(web.getByTitle("Installed by yago")).toBeInTheDocument();
     expect(web.getByText("4 sites")).toBeInTheDocument();
     const systemd = within(await findRow("systemd"));
-    expect(systemd.getByText("Not installed by Noust")).toBeInTheDocument();
+    expect(systemd.getByText("Not from Noust")).toBeInTheDocument();
     expect(systemd.getByText("Nothing")).toBeInTheDocument();
-    // What a piece is for is the server's own sentence, in the console's language.
-    expect(systemd.getByText("The service manager every application, site and unit of Noust runs under")).toBeInTheDocument();
+    // What a piece is for is the console's sentence for the server's code, a line long.
+    expect(systemd.getByText("Runs every service on this server")).toBeInTheDocument();
   });
 
   it("says a piece that is not there is not installed, and that it can be installed", async () => {
@@ -75,6 +91,7 @@ describe("the Software section", () => {
 
   it("says why a piece is never removed, in a help that is a button, and who depends on one that is used", async () => {
     const { user } = page();
+    await openBase(user);
     const git = within(await findRow("git"));
     expect(git.getByText("Never")).toBeInTheDocument();
     await user.click(git.getByRole("button", { name: "About removing git" }));
@@ -91,11 +108,11 @@ describe("the Software section", () => {
 
   it("shows only what is installed, or only what is not, by the filter", async () => {
     const { user } = page();
-    await screen.findByRole("table", { name: "Software: The machine" });
+    await screen.findByRole("button", { name: BASE_LINE });
     await user.click(screen.getByRole("radio", { name: /^Not installed/ }));
     expect(rowOf("nginx")).toBeNull();
     expect(rowOf("Apache")).not.toBeNull();
-    expect(screen.queryByRole("table", { name: "Software: The machine" })).toBeNull();
+    expect(screen.queryByRole("button", { name: BASE_LINE })).toBeNull();
     await user.click(screen.getByRole("radio", { name: /^Installed/ }));
     expect(rowOf("nginx")).not.toBeNull();
     expect(rowOf("Apache")).toBeNull();
@@ -146,18 +163,20 @@ describe("the Software section", () => {
   });
 
   it("has no accessibility violations", async () => {
-    page();
+    const { user } = page();
+    await openBase(user);
     await screen.findByRole("table", { name: "Software: The machine" });
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
   it("says it in Spanish: the groups, the pieces and the server's own sentences", async () => {
     await act(() => setLocale("es"));
-    page();
+    const { user } = page();
     expect(await screen.findByRole("table", { name: "Software: Sitios y certificados" })).toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: /^Noust, systemd, git/ }));
     const git = within(await findRow("git"));
     expect(git.getByText("Nunca")).toBeInTheDocument();
-    expect(git.getByText("Descarga el código de toda aplicación que se despliega desde un repositorio")).toBeInTheDocument();
+    expect(git.getByText("Descarga el código de las aplicaciones")).toBeInTheDocument();
     expect(within(await findRow("nginx")).getByText("4 sitios")).toBeInTheDocument();
   });
 });
