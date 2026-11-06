@@ -150,7 +150,8 @@ export const ROUTES: readonly ConsoleRoute[] = [
   // 4.0: the person's own pages, and the controls that left Security (its old address redirects to the account).
   { name: "account", path: "/account" },
   { name: "account-security", path: "/account/security" },
-  { name: "settings-controls", path: "/settings/controls" },
+  { name: "settings-compliance", path: "/settings/compliance" },
+  { name: "settings-access-security", path: "/settings/access-security" },
   { name: "settings-notifications", path: "/settings/notifications" },
   // 4.1: what warns an operator is an area of the bar.
   { name: "alerts", path: "/alerts" },
