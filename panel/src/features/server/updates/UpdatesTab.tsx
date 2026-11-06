@@ -12,12 +12,11 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { request } from "../../../api/client";
-import { CommandHint } from "../../../components/page/CommandHint";
+import { Can, GuardedButton, ReadOnlyLine, useCan } from "../../../components/page/permissions";
 import { RelativeTime } from "../../../components/page/RelativeTime";
-import { SettingsGroup } from "../../../components/page/SettingsGroup";
+import { SurfaceSection } from "../../../components/page/SurfaceSection";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
-import { Card } from "../../../components/ui/Card";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
@@ -26,8 +25,8 @@ import { EmptyCell } from "../../../components/ui/EmptyCell";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
-import { Setting } from "../../../components/ui/Setting";
-import { Skeleton, SkeletonCard, SkeletonText } from "../../../components/ui/Skeleton";
+import { SkeletonCard, SkeletonText } from "../../../components/ui/Skeleton";
+import { Switch } from "../../../components/ui/Switch";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import type { Status } from "../../../components/ui/StatusPill";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
@@ -41,7 +40,8 @@ import { usePowerDialog } from "../PowerDialog";
 import { SERVER_CAPABILITY, restartPlanQuery, updateRunsQuery, updatesQuery } from "../queries";
 import type { UpdatePackage, UpdateRun, UpdateScope, Updates } from "../queries";
 import { useServerJob } from "../serverJob";
-import { TabToolbar } from "../TabToolbar";
+import { HeaderActions } from "../headerSlot";
+import { NoustSection } from "../system/NoustUpdate";
 import { ApplyDialog, Names } from "./ApplyDialog";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 import { namedActor } from "../../activity/data";
@@ -157,8 +157,9 @@ function RecentRuns() {
     { id: "actor", header: t("server.updates.runs.actor"), hideBelow: "md", cell: (row) => (row.actor ? <Mono tone="muted">{namedActor(t, row.actor)}</Mono> : <EmptyCell />) },
   ];
   return (
-    <Card level={2} title={t("server.updates.runs.title")} icon={OBJECT_ICONS.activity} padding="none">
+    <SurfaceSection title={t("server.updates.runs.title")} icon={OBJECT_ICONS.activity} flush>
       <DataTable
+        embedded
         columns={columns}
         rows={runs.data ?? []}
         getRowId={(row) => row.id}
@@ -187,7 +188,7 @@ function RecentRuns() {
           </div>
         ) : null}
       </Drawer>
-    </Card>
+    </SurfaceSection>
   );
 }
 
@@ -203,21 +204,25 @@ function AutoUpdates({ updates }: { updates: Updates }) {
   });
   // A change already running on the server is not this switch's own: it waits, and says so.
   const reason = !auto.supported ? t("server.updates.auto.unsupported") : jobs.busy && !change.isPending ? t("server.updates.auto.busy") : null;
+  const can = useCan("server.manage");
   return (
-    <SettingsGroup
-      level={2}
-      title={t("server.updates.auto.title")} icon={OBJECT_ICONS.update}
-      status={<StatusPill state={auto.enabled ? "running" : "stopped"} label={auto.enabled ? t("server.updates.auto.on") : t("server.updates.auto.off")} size="sm" />}
+    <SurfaceSection
+      title={t("server.updates.auto.title")}
+      icon={OBJECT_ICONS.update}
+      description={auto.reboots ? t("server.updates.auto.descriptionReboots") : t("server.updates.auto.description")}
+      // The switch is beside the name of what it turns on, as a section's master switch is (HD-1).
+      status={
+        <Switch
+          aria-label={t("server.updates.auto.label")}
+          checked={auto.enabled}
+          busy={change.isPending}
+          disabled={reason !== null || !can}
+          onCheckedChange={(checked) => change.mutate(checked)}
+        />
+      }
     >
-      <Setting
-        label={t("server.updates.auto.label")}
-        help={auto.reboots ? t("server.updates.auto.descriptionReboots") : t("server.updates.auto.description")}
-        checked={auto.enabled}
-        busy={change.isPending}
-        onCheckedChange={(checked) => change.mutate(checked)}
-        {...(reason !== null ? { disabled: true as const, reason } : {})}
-      />
-      <p className="px-5 py-3 text-12 text-fg-muted">
+      <p className="text-12 text-fg-muted">
+        {reason !== null ? <>{reason} </> : null}
         {t.rich("server.updates.auto.mechanism", { mechanism: <Mono>{auto.mechanism}</Mono> })}
         {auto.enabled && auto.security_only === false ? ` ${t("server.updates.auto.allUpdates")}` : ""}
         {auto.last_run ? (
@@ -228,7 +233,7 @@ function AutoUpdates({ updates }: { updates: Updates }) {
         ) : null}
         {!auto.supported && auto.detail !== "" ? ` ${auto.detail}` : ""}
       </p>
-    </SettingsGroup>
+    </SurfaceSection>
   );
 }
 
@@ -352,62 +357,87 @@ function StaleServices({ updates }: { updates: Updates }) {
   const [restarting, setRestarting] = useState(false);
   if (updates.stale_services.length === 0) return null;
   return (
-    <Card
-      level={2}
+    <SurfaceSection
       title={t("server.updates.stale.title", { count: updates.stale_services.length })}
+      icon={OBJECT_ICONS.service}
       description={t("server.updates.stale.description")}
-      padding="sm"
-    >
-      <div className="flex flex-col gap-3">
-        <Names names={updates.stale_services} label={t("server.updates.stale.label")} />
-        <div>
+      actions={
+        <Can permission="server.manage">
           <Button icon={<RotateCw aria-hidden="true" />} size="sm" disabled={jobs.busy} onClick={() => setRestarting(true)}>
             {t("server.updates.stale.restart")}
           </Button>
-        </div>
-      </div>
+        </Can>
+      }
+    >
+      <Names names={updates.stale_services} label={t("server.updates.stale.label")} />
       {restarting ? <RestartDialog onClose={() => setRestarting(false)} /> : null}
-    </Card>
+    </SurfaceSection>
   );
 }
 
-function Summary({ updates }: { updates: Updates }) {
+/** The packages the system has waiting, security ones first, in a slab with its own head: how many, since when, and the way to look again. */
+function SystemPackages({ updates, busy }: { updates: Updates; busy: boolean }) {
   const t = useT();
-  const checked = updates.checked_at ? t.rich("server.updates.checked", { when: <RelativeTime value={updates.checked_at} /> }) : null;
-  return (
-    <span>
-      {updates.pending === 0
-        ? t("server.updates.upToDate")
-        : updates.security > 0
-          ? t("server.updates.pendingSecurity", { count: updates.pending, security: updates.security })
-          : t("server.updates.pending", { count: updates.pending })}
-      {checked !== null ? <> · {checked}</> : null}
-    </span>
-  );
-}
-
-function Packages({ updates }: { updates: Updates }) {
-  const t = useT();
+  const { node } = useNode();
+  const jobs = useServerJob();
   const [all, setAll] = useState(false);
   const sorted = sortPackages(updates.packages);
   const shown = all ? sorted : sorted.slice(0, SHOWN_PACKAGES);
+  const refresh = useMutation({
+    mutationFn: () => request("post", "/api/server/updates/refresh"),
+    onSuccess: (accepted) => jobs.track(accepted.job_id, "refresh"),
+    onError: (error) => reportActionError(t("server.job.refresh.failed"), explainServerError(t, error, node)),
+  });
+  const checked = updates.checked_at ? t.rich("server.updates.checked", { when: <RelativeTime value={updates.checked_at} /> }) : null;
   return (
-    <div className="flex min-w-0 flex-col gap-2">
-      <DataTable
-        columns={packageColumns(t)}
-        rows={shown}
-        getRowId={(row) => row.name}
-        caption={t("server.updates.table.caption")}
-        density="compact"
-      />
-      {sorted.length > SHOWN_PACKAGES ? (
-        <div>
-          <Button size="sm" variant="ghost" onClick={() => setAll((current) => !current)}>
-            {all ? t("server.updates.showFewer") : t("server.updates.showAll", { count: sorted.length })}
+    <SurfaceSection
+      title={t("server.updates.systemTitle")}
+      icon={OBJECT_ICONS.packages}
+      description={
+        <>
+          {updates.pending === 0
+            ? t("server.updates.upToDate")
+            : updates.security > 0
+              ? t("server.updates.pendingSecurity", { count: updates.pending, security: updates.security })
+              : t("server.updates.pending", { count: updates.pending })}
+          {checked !== null ? <> · {checked}</> : null}
+        </>
+      }
+      actions={
+        <Can permission="server.manage">
+          <Button size="sm" icon={<RotateCw aria-hidden="true" />} disabled={busy} loading={refresh.isPending} onClick={() => refresh.mutate()}>
+            {t("server.updates.checkNow")}
           </Button>
+        </Can>
+      }
+      flush={sorted.length > 0}
+    >
+      {updates.pending === 0 ? (
+        <EmptyState variant="inline" title={t("server.updates.nothingPending")} />
+      ) : (
+        <div className="flex min-w-0 flex-col">
+          <DataTable embedded columns={packageColumns(t)} rows={shown} getRowId={(row) => row.name} caption={t("server.updates.table.caption")} density="compact" />
+          {sorted.length > SHOWN_PACKAGES ? (
+            <div className="border-t border-border px-5 py-2">
+              <Button size="sm" variant="ghost" onClick={() => setAll((current) => !current)}>
+                {all ? t("server.updates.showFewer") : t("server.updates.showAll", { count: sorted.length })}
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      )}
+      {updates.kept_back.length > 0 || updates.holds.length > 0 || updates.notes.length > 0 ? (
+        <div className="flex flex-col gap-1.5 border-t border-border px-5 py-3">
+          {updates.kept_back.length > 0 ? <p className="text-13 text-fg-muted">{t.rich("server.updates.keptBack", { packages: <Mono>{updates.kept_back.join(", ")}</Mono> })}</p> : null}
+          {updates.holds.length > 0 ? <p className="text-13 text-fg-muted">{t.rich("server.updates.holds", { packages: <Mono>{updates.holds.join(", ")}</Mono> })}</p> : null}
+          {updates.notes.map((note) => (
+            <p key={note} className="text-12 text-fg-muted">
+              {note}
+            </p>
+          ))}
         </div>
       ) : null}
-    </div>
+    </SurfaceSection>
   );
 }
 
@@ -419,12 +449,11 @@ function UpdatesView() {
       query={updates}
       label={t("server.updates.label")}
       skeleton={
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between gap-4">
-            <Skeleton className="h-5 w-72" />
-            <Skeleton className="h-control-md w-56 rounded-control" />
+        <div className="flex flex-col gap-6">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <SkeletonCard lines={2} />
+            <SkeletonCard lines={2} />
           </div>
-          <SkeletonCard lines={2} />
           <SkeletonCard lines={6} />
         </div>
       }
@@ -440,11 +469,6 @@ function UpdatesBody({ data }: { data: Updates }) {
   const jobs = useServerJob();
   const [applying, setApplying] = useState<UpdateScope | null>(null);
 
-  const refresh = useMutation({
-    mutationFn: () => request("post", "/api/server/updates/refresh"),
-    onSuccess: (accepted) => jobs.track(accepted.job_id, "refresh"),
-    onError: (error) => reportActionError(t("server.job.refresh.failed"), explainServerError(t, error, node)),
-  });
   const repair = useMutation({
     mutationFn: () => request("post", "/api/server/updates/repair"),
     onSuccess: (accepted) => jobs.track(accepted.job_id, "repair"),
@@ -452,80 +476,58 @@ function UpdatesBody({ data }: { data: Updates }) {
   });
 
   const busy = jobs.busy;
-  const checkNow = (
-    <Button icon={<RotateCw aria-hidden="true" />} disabled={busy} loading={refresh.isPending} onClick={() => refresh.mutate()}>
-      {t("server.updates.checkNow")}
-    </Button>
-  );
-  const actions = !data.supported ? undefined : (
-    <>
-      {checkNow}
-      {data.pending > 0 && data.security > 0 ? (
-        <>
-          <Button icon={<Download aria-hidden="true" />} disabled={busy} onClick={() => setApplying("all")}>
-            {t("server.updates.installAll", { count: data.pending })}
-          </Button>
-          <Button icon={<Download aria-hidden="true" />} variant="primary" disabled={busy} onClick={() => setApplying("security")}>
+  // What the page does, at the right of its title: the security ones first when there are some, and the whole list.
+  const actions =
+    !data.supported || data.pending === 0 ? null : (
+      <HeaderActions>
+        {data.security > 0 ? (
+          <GuardedButton permission="server.manage" icon={<Download aria-hidden="true" />} disabled={busy} onClick={() => setApplying("security")}>
             {t("server.updates.installSecurity", { count: data.security })}
-          </Button>
-        </>
-      ) : data.pending > 0 ? (
-        <Button icon={<Download aria-hidden="true" />} variant="primary" disabled={busy} onClick={() => setApplying("all")}>
+          </GuardedButton>
+        ) : null}
+        <GuardedButton permission="server.manage" variant="primary" icon={<Download aria-hidden="true" />} disabled={busy} onClick={() => setApplying("all")}>
           {t("server.updates.installAll", { count: data.pending })}
-        </Button>
-      ) : null}
-    </>
-  );
+        </GuardedButton>
+      </HeaderActions>
+    );
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      <TabToolbar summary={data.supported ? <Summary updates={data} /> : t("server.updates.unmanaged")} actions={actions} />
-      {!data.supported ? <p className="max-w-measure text-13 text-pretty text-fg-muted">{data.reason ?? t("server.updates.unsupportedNoReason")}</p> : null}
+      {actions}
+      <ReadOnlyLine permission="server.manage" />
+      {!data.supported ? (
+        <SurfaceSection title={t("server.updates.unmanaged")} icon={OBJECT_ICONS.packages} description={data.reason ?? t("server.updates.unsupportedNoReason")} />
+      ) : null}
       {data.error ? <ServerErrorBlock compact error={{ detail: data.error }} title={t("server.updates.listFailed")} /> : null}
       {data.broken ? (
         <Notice
           tone="error"
           title={t("server.updates.brokenTitle")}
           action={
-            <Button icon={<Wrench aria-hidden="true" />} size="sm" disabled={busy} loading={repair.isPending} onClick={() => repair.mutate()}>
-              {t("server.updates.repair")}
-            </Button>
+            <Can permission="server.manage">
+              <Button icon={<Wrench aria-hidden="true" />} size="sm" disabled={busy} loading={repair.isPending} onClick={() => repair.mutate()}>
+                {t("server.updates.repair")}
+              </Button>
+            </Can>
           }
         >
           {t("server.updates.brokenDescription")}
         </Notice>
       ) : null}
       <Reboot updates={data} />
-      <div className="grid min-w-0 items-start gap-6 2xl:grid-cols-3">
-        <div className="flex min-w-0 flex-col gap-4 2xl:col-span-2">
-          {data.supported && data.pending === 0 ? (
-            <EmptyState variant="inline" title={t("server.updates.nothingPending")} />
-          ) : data.supported ? (
-            <Packages updates={data} />
-          ) : null}
-          {data.kept_back.length > 0 ? (
-            <p className="text-13 text-fg-muted">{t.rich("server.updates.keptBack", { packages: <Mono>{data.kept_back.join(", ")}</Mono> })}</p>
-          ) : null}
-          {data.holds.length > 0 ? <p className="text-13 text-fg-muted">{t.rich("server.updates.holds", { packages: <Mono>{data.holds.join(", ")}</Mono> })}</p> : null}
-          {data.notes.map((note) => (
-            <p key={note} className="text-12 text-fg-muted">
-              {note}
-            </p>
-          ))}
-        </div>
-        <div className="flex min-w-0 flex-col gap-4">
-          <AutoUpdates updates={data} />
-          <StaleServices updates={data} />
-        </div>
+      <div className="grid min-w-0 items-start gap-6 lg:grid-cols-2">
+        <NoustSection />
+        <AutoUpdates updates={data} />
       </div>
+      {data.supported ? <SystemPackages updates={data} busy={busy} /> : null}
+      <StaleServices updates={data} />
       <RecentRuns />
-      <CommandHint command="noust server updates apply --security-only" label={t("common.words.fromTerminal")} />
       {applying !== null ? <ApplyDialog scope={applying} keptBack={data.kept_back} onClose={() => setApplying(null)} /> : null}
     </div>
   );
 }
 
-/** The Updates tab. */
+/** The Updates section: Noust's own update and the system's, in one page. */
 export function UpdatesTab() {
   return (
     <NodeCapabilityGate capability={SERVER_CAPABILITY}>
