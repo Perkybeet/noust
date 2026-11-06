@@ -1,1 +1,0 @@
-import{t as e}from"./SecurityPages-BZ-ClywF.js";var t=e;export{t as component};
