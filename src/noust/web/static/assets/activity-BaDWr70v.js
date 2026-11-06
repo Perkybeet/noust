@@ -1,0 +1,1 @@
+import{t as e}from"./searchNavigation-DqleCHUE.js";import{t}from"./ActivityPage-CfLLgUap.js";import{t as n}from"./activity-CrO2R2SB.js";import{Q as r}from"./objectIcons-BLPTlVXM.js";var i=r();function a(){let r=n.useSearch(),a=n.useNavigate();return(0,i.jsx)(t,{search:r,onSearchChange:(t,n)=>void a({search:t,...e(n)})})}export{a as component};

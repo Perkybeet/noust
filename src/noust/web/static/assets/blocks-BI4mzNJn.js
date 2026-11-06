@@ -1,0 +1,1 @@
+import{n as e}from"./SecurityPages-DEJ5_xVR.js";var t=e;export{t as component};

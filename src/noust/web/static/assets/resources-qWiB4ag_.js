@@ -1,0 +1,1 @@
+import{t as e}from"./ConfigPage-BdkhR6-a.js";import{t}from"./resources-RaO8shHH.js";import{Q as n}from"./objectIcons-BLPTlVXM.js";var r=n();function i(){let{domain:n}=t.useParams();return(0,r.jsx)(e,{page:`resources`,domain:n})}export{i as component};

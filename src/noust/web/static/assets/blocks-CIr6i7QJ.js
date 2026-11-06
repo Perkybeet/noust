@@ -1,1 +1,0 @@
-import{n as e}from"./SecurityPages-CIQ57qjf.js";var t=e;export{t as component};
