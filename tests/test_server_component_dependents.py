@@ -15,6 +15,7 @@ import pytest
 
 from noust.core.exceptions import EngineInUseError
 from noust.core.store import App, Database, Site, get_store
+from noust.managers.database.base import BaseDatabaseManager
 from noust.managers.server import component_dependents as who
 from noust.managers.server.component_dependents import Dependent
 
@@ -147,7 +148,12 @@ class TestWhatNoustKeeps:
 
 
 class TestTheEngines:
-    def test_a_database_the_store_tracks_is_what_an_engine_holds(self) -> None:
+    def test_a_database_the_store_tracks_is_what_an_engine_holds(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # No engine is on this machine as far as the test knows: a runner of CI has PostgreSQL
+        # installed, and asking it whether it runs would start a real systemctl.
+        monkeypatch.setattr(BaseDatabaseManager, "is_installed", lambda self: False)
         get_store().create_database(Database(name="shop", engine="postgresql"))
         get_store().create_database(Database(name="wiki", engine="mysql"))
 

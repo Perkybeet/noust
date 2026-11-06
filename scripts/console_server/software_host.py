@@ -81,7 +81,9 @@ _PROGRAMS: dict[str, tuple[str, ...]] = {
 
 #: What nginx prints for ``-V`` without and with the dynamic stream module.
 _NGINX_V = "nginx version: nginx/1.24.0 (Ubuntu)\nconfigure arguments: --with-http_ssl_module --with-http_v2_module\n"
-_NGINX_V_STREAM = _NGINX_V.replace("--with-http_v2_module", "--with-http_v2_module --with-stream=dynamic")
+_NGINX_V_STREAM = _NGINX_V.replace(
+    "--with-http_v2_module", "--with-http_v2_module --with-stream=dynamic"
+)
 
 #: The configuration ``nginx -T`` dumps: Debian's own, which loads whatever ``modules-enabled`` holds.
 _NGINX_T = """\
@@ -162,10 +164,15 @@ class Packages:
 
     def _query(self, rest: tuple[str, ...], done: Any) -> CommandResult:
         """Answer ``dpkg-query -W -f <format> packages...`` the way dpkg does, in either of the two formats used."""
-        names = [item for item in rest[1:] if not item.startswith("-") and not item.startswith("${")]
+        names = [
+            item for item in rest[1:] if not item.startswith("-") and not item.startswith("${")
+        ]
         # `-f` and its format are two arguments, or one (`-f=${...}`); what is left are the names.
         names = [name for name in names if "${" not in name]
-        compact = any("db:Status-Abbrev}" in item and "Version" not in item and "Package" not in item for item in rest)
+        compact = any(
+            "db:Status-Abbrev}" in item and "Version" not in item and "Package" not in item
+            for item in rest
+        )
         lines: list[str] = []
         missing: list[str] = []
         for name in names:
@@ -189,19 +196,35 @@ class Packages:
         packages = [item for item in rest[rest.index(verb) + 1 :] if not item.startswith("-")]
         if verb == "remove":
             taken = [name for name in packages if self.installed(name)]
-            along = [extra for name in taken for extra in _TAKES_ALONG.get(name, ()) if self.installed(extra) and extra not in taken]
+            along = [
+                extra
+                for name in taken
+                for extra in _TAKES_ALONG.get(name, ())
+                if self.installed(extra) and extra not in taken
+            ]
             if simulated:
-                return done("".join(f"Remv {name} [{self.versions[name]}]\n" for name in [*taken, *along]))
+                return done(
+                    "".join(f"Remv {name} [{self.versions[name]}]\n" for name in [*taken, *along])
+                )
             for name in [*taken, *along]:
                 self.versions.pop(name, None)
-            lines = [f"Removing {name} ({self.versions.get(name, '')}) ..." for name in [*taken, *along]]
+            lines = [
+                f"Removing {name} ({self.versions.get(name, '')}) ..." for name in [*taken, *along]
+            ]
             return done("Reading package lists...\n" + "\n".join(lines) + "\n")
         wanted = [name for name in packages if not self.installed(name)]
         if simulated:
-            return done("".join(f"Inst {name} ({_AVAILABLE.get(name, '1.0')} Ubuntu:24.04/noble [amd64])\n" for name in wanted))
+            return done(
+                "".join(
+                    f"Inst {name} ({_AVAILABLE.get(name, '1.0')} Ubuntu:24.04/noble [amd64])\n"
+                    for name in wanted
+                )
+            )
         for name in wanted:
             self.versions[name] = _AVAILABLE.get(name, "1.0")
             for extra in _COMPANIONS.get(name, ()):
                 self.versions.setdefault(extra, "1.0")
         lines = [f"Setting up {name} ({self.versions[name]}) ..." for name in wanted]
-        return done("Reading package lists...\nBuilding dependency tree...\n" + "\n".join(lines) + "\n")
+        return done(
+            "Reading package lists...\nBuilding dependency tree...\n" + "\n".join(lines) + "\n"
+        )
