@@ -143,16 +143,16 @@ test("the resource monitor shows its unit and open findings under System", async
   const monitor = page.locator("section", { has: page.getByRole("heading", { name: "Resource watcher" }) });
   await expect(monitor).toBeVisible();
   await expect(monitor.getByText("Running")).toBeVisible();
-  await expect(monitor.getByText("xmrig")).toBeVisible();
+  await expect(monitor.getByText("xmrig", { exact: true })).toBeVisible();
 });
 
 test("acknowledging an open finding of the resource monitor removes it", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/server/monitor");
   const monitor = page.locator("section", { has: page.getByRole("heading", { name: "Resource watcher" }) });
-  await expect(monitor.getByText("xmrig")).toBeVisible();
+  await expect(monitor.getByText("xmrig", { exact: true })).toBeVisible();
 
   const acknowledged = page.waitForResponse((response) => /\/api\/monitor\/observations\/\d+\/acknowledge$/.test(response.url()));
   await monitor.getByRole("button", { name: "Acknowledge finding about xmrig" }).click();
   expect((await acknowledged).status()).toBe(200);
-  await expect(monitor.getByText("xmrig")).toBeHidden();
+  await expect(monitor.getByText("xmrig", { exact: true })).toBeHidden();
 });

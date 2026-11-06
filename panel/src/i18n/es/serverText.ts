@@ -1338,6 +1338,16 @@ export const serverText: Catalog<typeof en> = {
       },
     },
   },
+  monitor: {
+    observation: {
+      name_pattern: {
+        text: "El nombre del ejecutable empieza por «{prefix}», un nombre que usan programas maliciosos conocidos de minería de criptomonedas y botnets. Es un aviso, no un veredicto: identifica el binario antes de actuar.",
+      },
+      resource_usage: {
+        text: "Uso sostenido de recursos: CPU al {cpu} % (umbral {cpu_threshold} %), memoria al {memory} % (umbral {memory_threshold} %).",
+      },
+    },
+  },
   networks: {
     finding: {
       default_bridge: {

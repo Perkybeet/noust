@@ -434,6 +434,8 @@ export const SERVER_TEXT = {
   "jobs.title.zero_downtime_any": { text: [], hint: null, commands: [] },
   "mail.no_public_url": { text: [], hint: [], commands: [] },
   "mail.no_transport": { text: [], hint: [], commands: [] },
+  "monitor.observation.name_pattern": { text: ["prefix"], hint: null, commands: [] },
+  "monitor.observation.resource_usage": { text: ["cpu", "cpu_threshold", "memory", "memory_threshold"], hint: null, commands: [] },
   "names.rule.dashes": { text: ["max"], hint: null, commands: [] },
   "names.rule.underscores": { text: ["max"], hint: null, commands: [] },
   "names.rule.words": { text: ["max"], hint: null, commands: [] },

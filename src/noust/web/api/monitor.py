@@ -26,6 +26,7 @@ from pydantic import BaseModel
 
 from noust.core.config import Config
 from noust.core.exceptions import EmailError, MonitorError
+from noust.core.server_text import read_back
 from noust.monitor import (
     DEFAULT_CPU_SAMPLE_INTERVAL,
     DEFAULT_CPU_THRESHOLD,
@@ -42,7 +43,7 @@ from noust.monitor import (
     list_processes,
 )
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute
+from noust.web.api.deps import CodedText, NoustErrorRoute
 from noust.web.auth import sees_command_lines
 
 # The error boundary: this router had none, so an unmapped NoustError from
@@ -162,6 +163,8 @@ class ObservationEntry(BaseModel):
         signal: Which check produced it.
         severity: notice or warning.
         detail: Human-readable explanation.
+        detail_coded: ``detail`` as a code and its values, for the console to translate; null for
+            a detail the catalog does not hold (one written before 4.2 in other words).
         acknowledged: Whether an operator dismissed it.
     """
 
@@ -176,6 +179,7 @@ class ObservationEntry(BaseModel):
     signal: str
     severity: str
     detail: str | None = None
+    detail_coded: CodedText | None = None
     acknowledged: bool = False
 
 
@@ -291,6 +295,22 @@ def _visible_command(command: str, session: dict[str, Any]) -> str:
     return command if sees_command_lines(session) else ""
 
 
+#: The sentences an observation's detail is said with (noust.monitor.signals).
+_OBSERVATION_DETAILS = ("monitor.observation.name_pattern", "monitor.observation.resource_usage")
+
+
+def _detail_coded(detail: str | None) -> CodedText | None:
+    """
+    Args:
+        detail: An observation's detail, as the monitor stored it.
+
+    Returns:
+        Its code and values for the console, or None when it is not one of the monitor's sentences.
+    """
+    sentence = read_back(detail, _OBSERVATION_DETAILS)
+    return CodedText(**sentence.to_dict()) if sentence is not None else None
+
+
 def _visible_observation_command(command: str | None, session: dict[str, Any]) -> str | None:
     """
     An observation's command line as this credential may see it.
@@ -334,6 +354,7 @@ def _observation_entry(
         signal=observation.signal,
         severity=observation.severity,
         detail=observation.detail,
+        detail_coded=_detail_coded(observation.detail),
     )
 
 
@@ -601,6 +622,7 @@ def _row_to_entry(row: dict[str, Any], session: dict[str, Any]) -> ObservationEn
         signal=str(row.get("signal", "")),
         severity=str(row.get("severity", "")),
         detail=row.get("detail"),
+        detail_coded=_detail_coded(row.get("detail")),
         acknowledged=bool(row.get("acknowledged", 0)),
     )
 

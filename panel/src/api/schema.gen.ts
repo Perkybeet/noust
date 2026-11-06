@@ -50728,6 +50728,8 @@ export interface components {
          *         signal: Which check produced it.
          *         severity: notice or warning.
          *         detail: Human-readable explanation.
+         *         detail_coded: ``detail`` as a code and its values, for the console to translate; null for
+         *             a detail the catalog does not hold (one written before 4.2 in other words).
          *         acknowledged: Whether an operator dismissed it.
          */
         ObservationEntry: {
@@ -50742,6 +50744,7 @@ export interface components {
             cpu_percent?: number | null;
             /** Detail */
             detail?: string | null;
+            detail_coded?: components["schemas"]["CodedText"] | null;
             /** Id */
             id?: number | null;
             /** Memory Percent */

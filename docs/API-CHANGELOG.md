@@ -93,6 +93,9 @@ under Changed: one field that becomes optional, one refusal that is new and one 
     carries `reason_coded` beside `reason` and `warnings_coded` beside `warnings`; and a run of
     `GET /api/server/storage/history` (and the result of a cleanup job) carries `reason_coded` beside `reason`
     when the reason is one of the server's sentences, which the history keeps as text and reads back.
+  - The process monitor: each entry of `GET /api/monitor/observations` and of a scan carries `detail_coded`
+    beside `detail` (`monitor.observation.resource_usage`, `monitor.observation.name_pattern`), read back from
+    the detail the monitor stored; a detail stored in other words before 4.2 has none.
   - Sites: the answer of creating, enabling, disabling, deleting and saving the configuration of a site
     (`SiteActionResponse`) and of `POST /api/sites/reload` carries `coded` beside `message`. A client tells a
     site created without HTTPS from one that came well by the code (`sites.created.without_tls` and

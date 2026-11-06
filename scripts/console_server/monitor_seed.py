@@ -8,6 +8,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any
 
+from noust.core.server_text import say
+
 from .machine import Unit
 from .sandbox import Sandbox
 
@@ -108,7 +110,13 @@ def seed_monitor(
                 ),
                 signal=SIGNAL_RESOURCE_USAGE,
                 severity=SEVERITY_WARNING,
-                detail="CPU above 90% for more than five minutes",
+                detail=say(
+                    "monitor.observation.resource_usage",
+                    cpu="92.4",
+                    cpu_threshold="80.0",
+                    memory="18.2",
+                    memory_threshold="80.0",
+                ).text,
                 observed_at=now - timedelta(hours=2),
             ),
             ProcessObservation(
@@ -122,7 +130,7 @@ def seed_monitor(
                 ),
                 signal=SIGNAL_NAME_PATTERN,
                 severity=SEVERITY_WARNING,
-                detail="Process name matches a known cryptominer pattern",
+                detail=say("monitor.observation.name_pattern", prefix="xmrig").text,
                 observed_at=now - timedelta(hours=5),
             ),
             ProcessObservation(

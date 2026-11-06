@@ -6087,6 +6087,7 @@ ObservationEntry = TypedDict("ObservationEntry", {
     "command": NotRequired[Union[str, None]],
     "cpu_percent": NotRequired[Union[float, None]],
     "detail": NotRequired[Union[str, None]],
+    "detail_coded": NotRequired[Union["CodedText", None]],
     "id": NotRequired[Union[int, None]],
     "memory_percent": NotRequired[Union[float, None]],
     "observed_at": Required[str],

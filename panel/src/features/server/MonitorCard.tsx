@@ -12,10 +12,12 @@ import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
 import { Mono } from "../../components/ui/Mono";
+import { ServerText } from "../../components/ui/ServerText";
 import { SkeletonText, SkeletonRows } from "../../components/ui/Skeleton";
 import { StatusGlyph, StatusPill } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import type { CodedText } from "../../lib/serverSentence";
 import { useMonitorActions } from "./useMonitorActions";
 import { ServerQueryState } from "./errors";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -28,6 +30,7 @@ function ObservationRow({
   severity,
   signal,
   detail,
+  detailCoded,
   when,
   onAcknowledge,
   pending,
@@ -38,6 +41,7 @@ function ObservationRow({
   severity: string;
   signal: string;
   detail: string | null | undefined;
+  detailCoded: CodedText | null | undefined;
   when: string;
   onAcknowledge: () => void;
   pending: boolean;
@@ -52,7 +56,11 @@ function ObservationRow({
             <Mono>{process}</Mono>
             <span className="text-fg-faint">{t("server.monitor.pidSignal", { pid, signal })}</span>
           </p>
-          {detail ? <p className="text-12 text-fg-muted">{detail}</p> : null}
+          {detail ? (
+            <p className="text-12 text-fg-muted">
+              <ServerText coded={detailCoded} text={detail} />
+            </p>
+          ) : null}
           <RelativeTime value={when} className="text-12 text-fg-faint" />
         </div>
       </div>
@@ -174,6 +182,7 @@ export function MonitorCard() {
                         severity={observation.severity}
                         signal={observation.signal}
                         detail={observation.detail}
+                        detailCoded={observation.detail_coded}
                         when={observation.observed_at}
                         pending={acknowledge.isPending}
                         onAcknowledge={() => {

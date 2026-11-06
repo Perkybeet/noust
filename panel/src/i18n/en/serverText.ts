@@ -1349,6 +1349,16 @@ export const serverText = {
       },
     },
   },
+  monitor: {
+    observation: {
+      name_pattern: {
+        text: "Executable name starts with '{prefix}', a name used by known cryptomining and botnet malware. This is a note, not a verdict: identify the binary before acting on it.",
+      },
+      resource_usage: {
+        text: "Sustained resource usage: CPU {cpu}% (threshold {cpu_threshold}%), memory {memory}% (threshold {memory_threshold}%).",
+      },
+    },
+  },
   networks: {
     finding: {
       default_bridge: {

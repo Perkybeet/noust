@@ -35087,7 +35087,7 @@
         "type": "object"
       },
       "ObservationEntry": {
-        "description": "One thing the monitor wrote down.\n\nAttributes:\n    id: Row identifier, absent for an observation not yet stored.\n    observed_at: When it was noticed, ISO 8601.\n    pid: Process identifier at the time.\n    process_name: Executable name.\n    user: Account the process ran as.\n    cpu_percent: CPU usage percentage.\n    memory_percent: Resident memory percentage.\n    command: Command line, truncated.\n    signal: Which check produced it.\n    severity: notice or warning.\n    detail: Human-readable explanation.\n    acknowledged: Whether an operator dismissed it.",
+        "description": "One thing the monitor wrote down.\n\nAttributes:\n    id: Row identifier, absent for an observation not yet stored.\n    observed_at: When it was noticed, ISO 8601.\n    pid: Process identifier at the time.\n    process_name: Executable name.\n    user: Account the process ran as.\n    cpu_percent: CPU usage percentage.\n    memory_percent: Resident memory percentage.\n    command: Command line, truncated.\n    signal: Which check produced it.\n    severity: notice or warning.\n    detail: Human-readable explanation.\n    detail_coded: ``detail`` as a code and its values, for the console to translate; null for\n        a detail the catalog does not hold (one written before 4.2 in other words).\n    acknowledged: Whether an operator dismissed it.",
         "properties": {
           "acknowledged": {
             "default": false,
@@ -35126,6 +35126,16 @@
               }
             ],
             "title": "Detail"
+          },
+          "detail_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "id": {
             "anyOf": [

@@ -1104,6 +1104,16 @@ CATALOG: dict[str, str] = {
     "jobs.title.manifest": "Apply a manifest",
     "jobs.title.custom_of_app": "Run a task for {domain}",
     "jobs.title.custom": "Run a task",
+    # -- What the process monitor noticed about a process (noust.monitor.signals) ---------------
+    # The numbers are values, written as the monitor rounds them (one decimal).
+    "monitor.observation.name_pattern": (
+        "Executable name starts with '{prefix}', a name used by known cryptomining and botnet "
+        "malware. This is a note, not a verdict: identify the binary before acting on it."
+    ),
+    "monitor.observation.resource_usage": (
+        "Sustained resource usage: CPU {cpu}% (threshold {cpu_threshold}%), memory {memory}% "
+        "(threshold {memory_threshold}%)."
+    ),
     # -- What runs on a request and is not a job (noust.web.operations): the closed list the ----
     # server announces as the `operation` event, said with the subject it names as `target`.
     "operations.app_start": "Start {target}",

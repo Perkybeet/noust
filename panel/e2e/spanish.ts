@@ -63,8 +63,6 @@ const CANDIDATES = englishLeftoverCandidates();
 const SERVER_TEXT: readonly { page: string; text: RegExp; origin: string }[] = [
   // managers/health.py: the names and verdicts of the server-wide health report.
   { page: "server", text: /^(Applications|Memory|Running|Not installed)$/, origin: "managers/health.py" },
-  // monitor/signals.py: an observation's detail, in the monitor's own words (the seeded one reads like a rule's sentence).
-  { page: "server-monitor", text: /^CPU above 90% for more than five minutes$/, origin: "the process monitor's observation" },
   // A job's description, recorded with the job by whoever queued it.
   { page: "activity", text: /^Deploying \S+$/, origin: "the job's description" },
   // managers/diagnose.py: the evidence heading of the journal it read.
