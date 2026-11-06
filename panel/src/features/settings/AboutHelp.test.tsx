@@ -220,7 +220,7 @@ describe("Settings > About > Support report", () => {
     await waitFor(() => expect(backend.callsTo("GET /api/system/support-report")[0]?.search.get("hide_domains")).toBe("true"));
   });
 
-  it("shows a failure and offers the command instead", async () => {
+  it("shows a failure and leaves the button to try again, without a command beside it", async () => {
     fakeBackend(routes({ "GET /api/system/support-report": () => json(500, { error: "internal", detail: "No journal", hint: null, fields: null, output: null }) }));
     const { user } = renderConsole("/settings/about");
     const section = await screen.findByRole("region", { name: "Support report" });
@@ -228,7 +228,8 @@ describe("Settings > About > Support report", () => {
     await user.click(within(section).getByRole("button", { name: "Create the report" }));
 
     expect(await within(section).findByText("Could not create the report")).toBeInTheDocument();
-    expect(within(section).getByText("noust support report")).toBeInTheDocument();
+    expect(within(section).queryByText("noust support report")).not.toBeInTheDocument();
+    expect(within(section).getByRole("button", { name: "Create the report" })).toBeInTheDocument();
   });
 });
 

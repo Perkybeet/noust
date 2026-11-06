@@ -43,7 +43,7 @@ describe("the Volumes tab", () => {
     expect(within(row).getByText("Every day at 02:00")).toBeInTheDocument();
     expect(within(row).getByText("Everything it declares")).toBeInTheDocument();
     expect(within(row).getByText("2.0 MB")).toBeInTheDocument();
-    const tabs = screen.getByRole("navigation", { name: "Backup sections" });
+    const tabs = await screen.findByRole("navigation", { name: "Backups sections" });
     expect(within(tabs).getByRole("link", { name: /^Volumes/ })).toHaveAttribute("aria-current", "page");
     expect(within(tabs).getByRole("link", { name: /^Noust/ })).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
@@ -52,7 +52,7 @@ describe("the Volumes tab", () => {
   it("says what it is for when no application has data backups yet", async () => {
     await volumesAt("/backups/volumes", {}, { policies: [], backups: [] });
     expect(await screen.findByRole("heading", { level: 2, name: "No data backups yet" })).toBeInTheDocument();
-    expect(screen.getByText(/noust backup volumes schedule set/)).toBeInTheDocument();
+    expect(screen.queryByText(/noust backup volumes schedule set/)).not.toBeInTheDocument();
   });
 
   // Two dozen interactions through a drawer and a menu: 1.7 s on an idle machine, so the default 5 s

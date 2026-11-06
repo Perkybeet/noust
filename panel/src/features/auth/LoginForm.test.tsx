@@ -175,7 +175,7 @@ describe("sign-in with an account", () => {
     await user.clear(code);
     await user.type(code, CODE);
     await user.click(screen.getByRole("button", { name: "Verify" }));
-    await screen.findByRole("heading", { level: 1, name: "Home" });
+    await screen.findByRole("heading", { level: 1, name: "This server" });
     expect(backend.callsTo("POST /api/auth/login")).toHaveLength(1);
   });
 
@@ -261,7 +261,8 @@ describe("sign-in with an account", () => {
     accountBackend();
     renderConsole("/login");
     expect(await screen.findByText("web-01 (production)")).toBeInTheDocument();
-    expect(screen.getByText("Noust console")).toBeInTheDocument();
+    // Nor the product and its version, which the line above the form used to say: the slab carries the logo instead.
+    expect(screen.queryByText(/Noust console/)).toBeNull();
   });
 
   it("sends a new server's first sign-in with the token to create its first accounts", async () => {
@@ -312,7 +313,7 @@ describe("sign-in with an account", () => {
     await act(async () => {
       await setLocale("es");
     });
-    expect(screen.getByRole("heading", { level: 1, name: "Iniciar sesión" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Un paso más" })).toBeInTheDocument();
     expect(screen.getByText("Contraseña aceptada para ana.")).toBeInTheDocument();
     expect(screen.getByLabelText("Código de verificación en dos pasos")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Usar otra cuenta" }));
@@ -365,7 +366,11 @@ describe("sign-in with a passkey", () => {
     stubCredentials(get);
 
     const { user, location } = renderConsole("/login?next=%2Fbackups");
-    await user.click(await screen.findByRole("button", { name: "Sign in with a passkey" }));
+    // The passkey is a door under the password form, which opens in the form's place.
+    await user.click(await screen.findByRole("button", { name: "Passkey" }));
+    expect(await screen.findByRole("heading", { level: 1, name: "Sign in with a passkey" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Password")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Sign in with a passkey" }));
     await screen.findByRole("heading", { level: 1, name: "Backups" });
     expect(location().pathname).toBe("/backups");
     expect(get).toHaveBeenCalledTimes(1);
@@ -416,6 +421,7 @@ describe("sign-in with a passkey", () => {
     const get = vi.fn(() => Promise.reject(new DOMException("The operation either timed out or was not allowed.", "NotAllowedError")));
     stubCredentials(get);
     const { user } = renderConsole("/login");
+    await user.click(await screen.findByRole("button", { name: "Passkey" }));
     await user.click(await screen.findByRole("button", { name: "Sign in with a passkey" }));
     await waitFor(() => {
       expect(get).toHaveBeenCalledTimes(1);
@@ -425,11 +431,12 @@ describe("sign-in with a passkey", () => {
 });
 
 describe("the access token", () => {
-  it("is offered under the account form to whoever has no account yet, and says what it is for once chosen", async () => {
+  it("is a door under the account form for whoever has no account yet, and says what it is for once chosen", async () => {
     tokenBackend();
     const { user } = renderConsole("/login");
-    // Said to everyone and always: this page cannot know whether there are accounts.
-    expect(await screen.findByText("First time here? Sign in with the access token the installer printed.")).toBeInTheDocument();
+    // Offered to everyone and always: this page cannot know whether there are accounts.
+    const doors = within(await screen.findByRole("navigation", { name: "Other ways to sign in" }));
+    expect(doors.getByRole("button", { name: "Access token" })).toBeInTheDocument();
     await useAccessToken(user);
     expect(screen.getByLabelText("Access token")).toHaveFocus();
     expect(screen.getByText(/The access token is the key of whoever is root on this machine\./)).toBeInTheDocument();
@@ -527,7 +534,7 @@ describe("the access token", () => {
     const { user, location } = renderConsole("/login?with=token&next=%2F%2Fevil.example%2Fphish");
     await user.type(await screen.findByLabelText("Access token"), TOKEN);
     await user.click(screen.getByRole("button", { name: "Sign in" }));
-    await screen.findByRole("heading", { level: 1, name: "Home" });
+    await screen.findByRole("heading", { level: 1, name: "This server" });
     expect(location().pathname).toBe("/");
   });
 
@@ -553,6 +560,122 @@ describe("the access token", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Inicia sesión con el token de acceso" })).toBeInTheDocument();
     expect(screen.getByLabelText("Código de verificación en dos pasos")).toBeInTheDocument();
     expect(screen.getByText("aceptado")).toBeInTheDocument();
+    await expectNoAxeViolations(document.body, { page: true });
+  });
+});
+
+describe("the ways in, as doors under the password form", () => {
+  it("opens a way in the form's own place, with the way back above its title and the name kept", async () => {
+    tokenBackend();
+    const { user } = renderConsole("/login");
+    await user.type(await screen.findByLabelText("Username or email"), "ana");
+    await useAccessToken(user);
+    expect(screen.queryByLabelText("Username or email")).toBeNull();
+    // Above the title, as a step away from the password form and not as a footnote under the token.
+    const back = screen.getByRole("button", { name: "With a password" });
+    const title = screen.getByRole("heading", { level: 1 });
+    expect(back.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    await user.click(back);
+    const heading = await screen.findByRole("heading", { level: 1, name: "Sign in" });
+    // The title takes focus on arrival, as on every screen; what was typed in the form is still there.
+    await waitFor(() => {
+      expect(heading).toHaveFocus();
+    });
+    expect(screen.getByLabelText("Username or email")).toHaveValue("ana");
+    expect(screen.getByRole("navigation", { name: "Other ways to sign in" })).toBeInTheDocument();
+  });
+
+  it("starts the token over from its first step when the way is opened again", async () => {
+    tokenBackend();
+    const { user } = renderConsole("/login");
+    await useAccessToken(user);
+    await user.type(screen.getByLabelText("Access token"), "noust_half");
+    await user.click(screen.getByRole("button", { name: "With a password" }));
+    await screen.findByLabelText("Username or email");
+    await useAccessToken(user);
+    expect(screen.getByLabelText("Access token")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Two-factor code")).toBeNull();
+  });
+
+  it("offers the token to everyone, and no door for what this browser or this server cannot do", async () => {
+    accountBackend();
+    renderConsole("/login");
+    const doors = within(await screen.findByRole("navigation", { name: "Other ways to sign in" }));
+    // Nothing in this browser can do a passkey, and no company's sign-in is configured.
+    expect(doors.getAllByRole("button").map((door) => door.textContent)).toEqual(["Access token"]);
+  });
+
+  it("draws the three doors when there is a passkey, a company and the token", async () => {
+    vi.stubGlobal("isSecureContext", true);
+    vi.stubGlobal("PublicKeyCredential", Object.assign(vi.fn(), { isConditionalMediationAvailable: () => Promise.resolve(false) }));
+    stubCredentials(() => Promise.reject(new Error("not asked")));
+    try {
+      const backend = accountBackend();
+      backend.on("GET /api/auth/oidc/providers", () => json(200, { providers: [{ name: "corp", label: "Acme SSO" }] }));
+      renderConsole("/login");
+      const doors = within(await screen.findByRole("navigation", { name: "Other ways to sign in" }));
+      await waitFor(() => {
+        expect(doors.getAllByRole("button").map((door) => door.textContent)).toEqual(["Passkey", "Your company", "Access token"]);
+      });
+    } finally {
+      vi.unstubAllGlobals();
+      Reflect.deleteProperty(navigator, "credentials");
+    }
+  });
+
+  it("says a session that ended in the password form itself, where the person is about to type", async () => {
+    accountBackend();
+    renderConsole("/login?reason=expired");
+    const form = (await screen.findByLabelText("Username or email")).closest("form");
+    if (form === null) throw new Error("the username is not in a form");
+    expect(within(form).getByText("Your session expired. Sign in again to continue where you left off.")).toBeInTheDocument();
+  });
+
+  it("says, from the password's own line, who can help when the server cannot send a link", async () => {
+    accountBackend();
+    const { user } = renderConsole("/login");
+    await user.click(await screen.findByRole("button", { name: "Forgot your password?" }));
+    expect(await screen.findByText(/A security officer can send you a new invitation\./)).toBeInTheDocument();
+  });
+
+  it("names the second step, and leaves the doors out of it: the password was right", async () => {
+    accountBackend();
+    const { user } = renderConsole("/login");
+    await passwordStep(user);
+    expect(await screen.findByRole("heading", { level: 1, name: "One more step" })).toBeInTheDocument();
+    expect(screen.getByText("Confirm it's you with your second factor.")).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Other ways to sign in" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "With a password" })).toBeNull();
+  });
+
+  it("is walked with the keyboard from the first field to the last door", async () => {
+    accountBackend();
+    const { user } = renderConsole("/login");
+    await user.click(await screen.findByLabelText("Username or email"));
+    await user.tab();
+    expect(screen.getByLabelText("Password")).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Forgot your password?" })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Sign in" })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Access token" })).toHaveFocus();
+    await user.keyboard("{Enter}");
+    expect(await screen.findByRole("heading", { level: 1, name: "Sign in with the access token" })).toBeInTheDocument();
+  });
+
+  it("has no accessibility violations on the password form with its doors, and speaks Spanish", async () => {
+    accountBackend();
+    renderConsole("/login");
+    await screen.findByRole("navigation", { name: "Other ways to sign in" });
+    await expectNoAxeViolations(document.body, { page: true });
+    await act(async () => {
+      await setLocale("es");
+    });
+    expect(screen.getByRole("navigation", { name: "Otras formas de iniciar sesión" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Token de acceso" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "¿Has olvidado la contraseña?" })).toBeInTheDocument();
     await expectNoAxeViolations(document.body, { page: true });
   });
 });

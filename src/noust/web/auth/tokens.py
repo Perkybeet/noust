@@ -876,6 +876,7 @@ class TokenManager:
         allow_elevated: bool = False,
         created_by: str | None = None,
         bound: tuple[str, int] | None = None,
+        issuer_permissions: frozenset[str] | None = None,
     ) -> dict[str, Any]:
         """
         Issue a named, scoped API token.
@@ -900,12 +901,20 @@ class TokenManager:
                 every one must be held by the owner.
             allowed_cidrs: Networks it is accepted from; any when omitted.
             allow_elevated: Let it act where sudo mode is asked, which a
-                token cannot open by itself. Refused under the ENS profile.
+                token cannot open by itself. Refused where the compliance control
+                ``restricted_tokens`` is on, and issued only by whoever governs
+                accounts (see ``issuer_permissions``).
             created_by: Who issued it, for the record.
             bound: ``(kind, id)`` of the team, project or environment the token
                 is bound to (I-34): it sees that and nothing else, and holds at
                 most what its owner holds there, never what reaches the machine.
                 The owner must reach it.
+            issuer_permissions: What the person or credential asking for the
+                token holds, when it is not root (the console passes the
+                session's; the command line is root and leaves it out). A token
+                that acts in sudo mode is a standing exemption from a fresh
+                proof, so only whoever governs accounts may hand one out, and
+                nobody hands one to themselves from a lesser role.
 
         Returns:
             The record, including the one and only clear copy of the token
@@ -961,6 +970,18 @@ class TokenManager:
             raise SecurityError(
                 "API tokens cannot act in sudo mode on this server",
                 details="Do what needs confirming from the console, as a person.",
+            )
+        if (
+            allow_elevated
+            and issuer_permissions is not None
+            and Permission.ACCOUNTS_MANAGE not in issuer_permissions
+        ):
+            raise SecurityError(
+                "Only whoever governs accounts can issue an API token that acts in sudo mode",
+                details=(
+                    "Ask an administrator to issue it, or issue the token without allow_elevated "
+                    "and do what needs confirming from the console, as a person."
+                ),
             )
         stored_permissions: list[str] | None = None
         if bound is not None and owner is None:

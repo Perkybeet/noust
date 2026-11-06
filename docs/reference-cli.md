@@ -5398,13 +5398,13 @@ noust config upgrade [OPTIONS]
 
 ## noust console
 
-Publish the console on a name of its own, over TLS, or take it off again.
+Publish the console on a name of its own, over TLS, and choose its sign-in picture.
 
 ```bash
 noust console [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`expose`](#noust-console-expose), [`status`](#noust-console-status), [`unexpose`](#noust-console-unexpose)
+Subcommands: [`expose`](#noust-console-expose), [`sign-in-image`](#noust-console-sign-in-image), [`status`](#noust-console-status), [`unexpose`](#noust-console-unexpose)
 
 ### noust console expose
 
@@ -5422,6 +5422,65 @@ noust console expose [OPTIONS]
 | `--skip-dns-check` | Do not require the name to resolve to this server's addresses (a server behind NAT). |  |
 | `-y`, `--yes` | Do not ask for confirmation. |  |
 | `--json` | Print the outcome as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust console sign-in-image
+
+Choose the picture the sign-in screen shows instead of Noust's own drawing.
+
+```bash
+noust console sign-in-image [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`remove`](#noust-console-sign-in-image-remove), [`set`](#noust-console-sign-in-image-set), [`show`](#noust-console-sign-in-image-show)
+
+### noust console sign-in-image remove
+
+Take the picture off the sign-in screen: Noust's own drawing comes back.
+
+```bash
+noust console sign-in-image remove [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the outcome as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust console sign-in-image set
+
+Put a picture of your own on the sign-in screen, or change how the one there is drawn.
+
+```bash
+noust console sign-in-image set [OPTIONS] [FILE]
+```
+
+Arguments: `file`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--fit` | cover fills the space and crops what does not fit (a photograph); contain shows the whole picture in it (a logo). contain for a new picture; what is set now when only the fit or the description changes. |  |
+| `--alt` | What a screen reader says in the picture's place, up to 120 characters. Leave it out and a new picture is decoration; when only the fit changes, the description stays. |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the outcome as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust console sign-in-image show
+
+Say which picture the sign-in screen shows, if any, and how it is drawn.
+
+```bash
+noust console sign-in-image show [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print what is there as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust console status
@@ -13543,7 +13602,7 @@ Manage this server: updates, reboots, disks, swap, the clock and the journal.
 noust server [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`cleanup`](#noust-server-cleanup), [`cleanup-schedule`](#noust-server-cleanup-schedule), [`hostname`](#noust-server-hostname), [`logs`](#noust-server-logs), [`migrate`](#noust-server-migrate), [`processes`](#noust-server-processes), [`reboot`](#noust-server-reboot), [`security`](#noust-server-security), [`shutdown`](#noust-server-shutdown), [`status`](#noust-server-status), [`storage`](#noust-server-storage), [`swap`](#noust-server-swap), [`time`](#noust-server-time), [`updates`](#noust-server-updates)
+Subcommands: [`cleanup`](#noust-server-cleanup), [`cleanup-schedule`](#noust-server-cleanup-schedule), [`hostname`](#noust-server-hostname), [`logs`](#noust-server-logs), [`migrate`](#noust-server-migrate), [`processes`](#noust-server-processes), [`reboot`](#noust-server-reboot), [`security`](#noust-server-security), [`shutdown`](#noust-server-shutdown), [`software`](#noust-server-software), [`status`](#noust-server-status), [`storage`](#noust-server-storage), [`swap`](#noust-server-swap), [`time`](#noust-server-time), [`updates`](#noust-server-updates)
 
 ### noust server cleanup
 
@@ -14226,6 +14285,64 @@ noust server shutdown [OPTIONS]
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust server software
+
+What the server is made of: what is installed, who depends on it, installing and removing it.
+
+```bash
+noust server software [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`install`](#noust-server-software-install), [`list`](#noust-server-software-list), [`remove`](#noust-server-software-remove)
+
+### noust server software install
+
+Install a piece of software, unless it is installed.
+
+```bash
+noust server software install [OPTIONS] COMPONENT
+```
+
+Arguments: `component`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--epel` | Allow enabling EPEL, where Knot DNS and fail2ban come from on RHEL and its rebuilds. |  |
+| `-y`, `--yes` | Do not ask. |  |
+| `--json` | Print what was done as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust server software list
+
+List every piece of software Noust manages: installed or not, who depends on it.
+
+```bash
+noust server software list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the software as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust server software remove
+
+Remove a piece of software, never purging what it leaves in /etc.
+
+```bash
+noust server software remove [OPTIONS] COMPONENT
+```
+
+Arguments: `component`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--plan` | Only show what would be removed, and what stops it. |  |
+| `--confirm-unknown-origin` | Remove something Noust did not install: other things on the system may use it. |  |
+| `-y`, `--yes` | Do not ask. |  |
+| `--json` | Print the plan, or what was done, as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust server status
@@ -15571,6 +15688,7 @@ Arguments: `name`
 | `--project` | Bind it to this project of the team. |  |
 | `--env` | Bind it to this environment. |  |
 | `--allow-ip` | Accept the token only from this address or network (repeat). Omitted: from anywhere. |  |
+| `--elevated` | Let the token act where sudo mode is asked, with nobody confirming each time (needs --owner). Every action it takes there is in the audit trail. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust token list
@@ -15598,7 +15716,7 @@ Arguments: `token_id`
 
 | Option | What it does | Default |
 |---|---|---|
-| `-f`, `--force` | Do not ask for confirmation. |  |
+| `-f`, `-y`, `--force`, `--yes` | Do not ask for confirmation. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust token set

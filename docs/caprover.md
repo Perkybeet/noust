@@ -77,7 +77,7 @@ Where each page of CapRover's dashboard is in the console.
 | Cluster | **All servers** (the fleet) |
 | Settings > Backup & restore | **Backups**, and **Backups > Noust's own state** |
 | Settings > Change password, 2FA | **Account > Sign-in security**, **Settings > Accounts** |
-| Webhooks (an app's Deployment > Method 3) | **Settings > Deploy on push** of the application |
+| Webhooks (an app's Deployment > Method 3) | **Deploys and triggers** of the application (Deploy on push) |
 | Logs (an app's) | The application's **Logs** |
 
 ## What Noust does not do, on purpose

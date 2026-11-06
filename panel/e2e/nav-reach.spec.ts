@@ -66,7 +66,7 @@ function targets(): Target[] {
 /**
  * What a page offers to go on from, as a person sees it: the links of its navigation landmarks (the
  * sidebar, the strips, the lists of Settings), and any other visible link that goes to a screen of
- * the register (the Overview's link to the Map, a list's row that opens a resource). Of the links to
+ * the register (a list's row that opens a resource). Of the links to
  * the same kind of resource, such as the applications, the first: they are one click each, and the
  * walk does not need every row.
  */
@@ -220,6 +220,9 @@ test.describe("a server on its own", () => {
     // The second column lists Files for every application, and the walk opens it: an application of the seeded machine has no
     // directory to list, which the API says with a 400 that the browser logs. What the page does with it is files.spec's.
     problems.expect(/status of 400 .*\/api\/apps\/[^/]+\/files/);
+    // The seeded export's application names a database the engine does not hold (an export names it, an import never makes
+    // it): its page says it is not there, from the 404 of each of its sections the walk opens.
+    problems.expect(/status of 404 .*\/api\/databases\/databases\/postgresql\/lanzamiento_newsletter\//);
     // The same links in both themes: the walk is run once.
     test.skip(testInfo.project.name !== "light", "the links are the same in both themes");
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -274,12 +277,11 @@ test.describe("from the page of its own area", () => {
   /** A screen is looked for most often from the area it belongs to: the palette finds it there as well as from anywhere. */
   const FROM_ITS_AREA = [
     { from: "/apps", name: "Recipes", to: "/catalog" },
-    { from: "/", name: "Map", to: "/map" },
     { from: "/server", name: "Terminal", to: "/server/terminal" },
     { from: "/backups", name: "Schedules", to: "/backups/schedules" },
     { from: "/domains", name: "DNS", to: "/domains/dns" },
     { from: "/settings", name: "Alert rules", to: "/alerts" },
-    { from: "/databases", name: "Engines", to: "/databases/servers" },
+    { from: "/databases", name: "Engines", to: "/databases/engines" },
     { from: "/apps/shop.example.net", name: "Applications", to: "/apps" },
   ] as const;
 

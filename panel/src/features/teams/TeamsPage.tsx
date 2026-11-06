@@ -7,7 +7,6 @@ import { useState } from "react";
 import { createTeam, teamQuery } from "../../api/queries/teams";
 import type { Team, TeamDetail } from "../../api/queries/teams";
 import { announce } from "../../app/Announcer";
-import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { ListPage } from "../../components/page/ListPage";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -25,7 +24,7 @@ import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
 import { NameDialog } from "./NameDialog";
-import { ProjectsTabs, projectsHeader } from "./ProjectsTabs";
+import { projectsHeader } from "./ProjectsTabs";
 import { heldBy } from "./organization";
 import { refreshOrganization } from "./refresh";
 import { teamRoleLabel } from "./roles";
@@ -146,7 +145,6 @@ export function TeamsPage({ search, onSearchChange }: TeamsPageProps) {
       </Button>
     ) : undefined,
   );
-  const tabs = <ProjectsTabs />;
 
   const notice = <Notice title={t("teams.list.boundaryTitle")}>{t("teams.list.boundary")}</Notice>;
 
@@ -171,7 +169,7 @@ export function TeamsPage({ search, onSearchChange }: TeamsPageProps) {
 
   if (org.error !== null && org.error !== undefined && !org.available) {
     return (
-      <ListPage header={header} tabs={tabs}>
+      <ListPage header={header}>
         <ErrorBlock error={org.error} title={t("teams.couldNotLoad")} onRetry={org.reload} />
       </ListPage>
     );
@@ -179,13 +177,12 @@ export function TeamsPage({ search, onSearchChange }: TeamsPageProps) {
 
   if (org.available && org.teams.length === 0) {
     return (
-      <ListPage header={header} tabs={tabs}>
+      <ListPage header={header}>
         <EmptyState
           variant="firstUse"
           icon={<OBJECT_ICONS.team />}
           title={t("teams.list.emptyTitle")}
           description={t("teams.list.emptyDescription")}
-          command="noust team list"
         />
       </ListPage>
     );
@@ -195,7 +192,6 @@ export function TeamsPage({ search, onSearchChange }: TeamsPageProps) {
   return (
     <ListPage
       header={header}
-      tabs={tabs}
       notice={notice}
       filters={
         <FilterBar
@@ -218,7 +214,6 @@ export function TeamsPage({ search, onSearchChange }: TeamsPageProps) {
             : {})}
         />
       }
-      {...(org.available ? { footer: <CommandHint command="noust team list" label={t("teams.fromTerminal")} /> } : {})}
     >
       <DataTable
         columns={columns}

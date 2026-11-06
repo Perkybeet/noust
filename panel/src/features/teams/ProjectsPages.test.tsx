@@ -270,14 +270,14 @@ describe("a project's page", () => {
     });
   });
 
-  it("says an empty environment is empty and what to do, with the command", async () => {
+  it("says an empty environment is empty and what to do, without a command that repeats the button", async () => {
     projectsAt("/projects/acme/web", {
       "GET /api/apps": () => json(200, { total: 0, apps: [] }),
       "GET /api/sites": () => json(200, { sites: [], total: 0, webserver: "nginx" }),
       "GET /api/databases/databases": () => json(200, { databases: [], total: 0, problems: [] }),
     });
     expect(await screen.findByText("Production is empty")).toBeInTheDocument();
-    expect(screen.getByText(/--team acme --project web --environment production/)).toBeInTheDocument();
+    expect(screen.queryByText(/--team acme --project web --environment production/)).not.toBeInTheDocument();
   });
 
   it("says a project that is not there is not there", async () => {

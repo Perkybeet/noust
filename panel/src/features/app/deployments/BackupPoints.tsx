@@ -63,7 +63,7 @@ export function BackupPoints({ domain }: { domain: string }) {
         "appPages.deployments.releases.rollbackPointsDescription",
         {
           enableReleases: (
-            <TextLink to="/apps/$domain/settings/deploys" params={{ domain }}>
+            <TextLink to="/apps/$domain/triggers" params={{ domain }}>
               {t("appPages.deployments.releases.enableReleases")}
             </TextLink>
           ),

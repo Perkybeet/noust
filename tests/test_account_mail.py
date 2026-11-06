@@ -77,7 +77,7 @@ class TestWhenItIsPossible:
         assert no_way.value.coded == say("mail.no_transport")
         assert no_address.value.coded == say("mail.no_public_url")
         # The channels page is called Channels since 4.0, and the sentence says so.
-        assert "Settings > Channels" in (no_way.value.details or "")
+        assert "Settings > Notification channels" in (no_way.value.details or "")
 
 
 class TestMailingAnInvitation:

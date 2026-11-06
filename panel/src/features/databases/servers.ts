@@ -44,6 +44,18 @@ export function serverTitle(server: Pick<DbServer, "flavour" | "display_name" | 
   return release === null ? server.display_name : `${server.display_name} ${release}`;
 }
 
+/**
+ * An engine named for a person with where it runs: "PostgreSQL 16 (on the system)", "PostgreSQL 15 (container pg15)",
+ * "PostgreSQL 14 (the stack of shop.example.com)". The list of databases and the sentences about an engine say it so.
+ */
+export function serverWithPlace(t: T, server: Pick<DbServer, "flavour" | "display_name" | "version" | "runs_in" | "name" | "app" | "key">): string {
+  const engine = serverTitle(server);
+  const place = placeOf(server);
+  if (place.kind === "noust") return t("dbServers.named.container", { engine, name: place.name });
+  if (place.kind === "app") return t("dbServers.named.app", { engine, app: place.app });
+  return t("dbServers.named.system", { engine });
+}
+
 export type SupportKind = "ok" | "soon" | "ended" | "unknown";
 
 export interface SupportView {

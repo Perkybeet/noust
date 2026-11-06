@@ -47,6 +47,33 @@ describe("Drawer", () => {
     await expectNoAxeViolations(document.body);
   });
 
+  it("is a sheet from the foot of the screen with placement bottom: named, closable, and with no strip of its own", async () => {
+    render(
+      <Drawer title="All areas" placement="bottom" trigger={<Button>More</Button>}>
+        <p>Applications</p>
+      </Drawer>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "More" }));
+    const sheet = await screen.findByRole("dialog", { name: "All areas" });
+    expect(sheet).toHaveTextContent("Applications");
+    expect(sheet.className).toContain("rounded-t-wall");
+    expect(sheet.className).toContain("max-h-sheet");
+    await userEvent.click(screen.getByRole("button", { name: "Close" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+  });
+
+  it("has no accessibility violations as a sheet", async () => {
+    render(
+      <Drawer title="All areas" placement="bottom" defaultOpen>
+        <p>Applications</p>
+      </Drawer>,
+    );
+    await screen.findByRole("dialog", { name: "All areas" });
+    await expectNoAxeViolations(document.body);
+  });
+
   it("closes in Spanish too", async () => {
     await act(async () => {
       await setLocale("es");

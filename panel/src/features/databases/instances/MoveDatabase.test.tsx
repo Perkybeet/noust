@@ -38,14 +38,13 @@ async function pageAt(extra: Record<string, RouteHandler> = {}) {
       ...extra,
     }),
   );
-  const harness = renderConsole("/databases/postgresql/example_production");
-  await screen.findByRole("heading", { level: 1, name: "example_production" }, { timeout: 15_000 });
+  const harness = renderConsole("/databases/postgresql/example_production/settings");
+  await screen.findByRole("heading", { level: 1, name: "Settings" }, { timeout: 15_000 });
   return { ...harness, backend };
 }
 
 async function openMove(user: ReturnType<typeof renderConsole>["user"]) {
-  await user.click(await screen.findByRole("button", { name: "More actions" }));
-  await user.click(await screen.findByRole("menuitem", { name: "Move to another engine…" }));
+  await user.click(await screen.findByRole("button", { name: "Move to another engine…" }));
   return screen.findByRole("dialog", { name: "Move example_production to another engine" });
 }
 

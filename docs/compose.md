@@ -382,7 +382,7 @@ noust update shop.example.com --tag v1.4.0     # one tag, now
 |---|---|
 | `/api/apps/{domain}/follow-tags` | `PATCH` `apps.manage`, sudo: `{"pattern": "v*"}`, or `{"pattern": null}` to follow the branch. `GET /api/apps/{domain}` shows `follow_tags`. |
 
-In the console: the application's Settings > General shows the tags it deploys and **Follow
+In the console: the application's Code and build shows the tags it deploys and **Follow
 tags...** changes them.
 
 ## A stack running outside its unit

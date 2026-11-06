@@ -1,32 +1,38 @@
-# Overview, map, charts, activity and logs
+# Overview, charts, activity and logs
 
 Part of [The console, page by page](console.md).
 
 ## Overview
 
-How this server is doing, what needs you and what happened lately. Six key figures:
-applications running and failed, deploys today, certificates due, backups in the last 24 hours,
-disk, and pending system updates. Below them, what needs attention (worst first, each with the
-way to fix it) beside recent activity as a timeline, then the machine's charts and quick actions.
-When the charts' history is not being recorded, it says why and what to run. The Overview has a
-second view, the [Map](#map). A server with nothing deployed shows one card instead, **Deploy your
-first app**: **Try a demo** (a tiny page on a temporary address), **Use a repository**, four popular
-recipes and **All recipes**, and under it **Then make it safe to leave alone** (backups, a copy off
-the server, notifications and, while the account is not protected, **Protect your account**). On a
-hub, the home page is the fleet summary.
+Home, the Overview, is a panel of widgets: each one answers a question about the server and links to the page that has
+the whole of it. **This server** follows the server chosen in the selector and comes with what needs
+attention (worst first, a line each, with the system's own words and the way to fix it), the six key
+figures (applications, deploys today, certificates, backups in the last 24 hours, disk and system
+updates), the machine's meters, the work in progress (jobs and the long operations that are not jobs),
+the certificates and backups, the applications, shortcuts to what you do every day, the latest
+deployments and what happened lately. **Fleet** is every server at once, from the central's own
+answers: what needs attention anywhere (each with its server), a row for each server with its
+applications, the updates, the work, the certificates, the backups, the activity and the alerts.
 
-## Map
+**Customize** turns the second column into the gallery of widgets and puts a handle, a size and a
+cross on each widget of the panel. A widget is dragged to move it, its corner drags its size to the
+nearest one it takes, and the gallery's cards are dragged onto the panel or added with their **+**.
+Nothing needs the pointer: Space on the handle lifts a widget, the arrow keys move it and Space drops it
+(Escape puts it back), and the button with its size has the sizes, drawn as their proportion, and **Move
+earlier** and **Move later**. **Reset** puts the panel back as it came; **Done** leaves the gallery.
+On a phone the gallery is a sheet from **Add a widget**.
 
-`/map` (the Overview's second tab, or the palette: "Open the map of this server") draws how this server fits
-together: the names that reach each application, the applications with their state, the databases they use,
-the scheduled work they run and the data they keep (persistent paths and mounted paths), in fixed columns
-from left to right, with the lines that connect them. It is **read from the server on every visit** and
-carries no coordinates, so there is no canvas to arrange, nothing to save and nothing that moves when you
-look again: the same server is the same picture. Pointing at or focusing an element lights its whole way,
-as in a site's diagram; the same connections are a table with a link to each thing, and on a phone each
-column is a list. A team member's map has its team's applications and databases and nothing else, and
-a project is drawn apart from another when there is more than one to tell apart. The same relations
-are `noust map` (and `noust map --json`, the document `GET /api/map` answers).
+You can make panels of your own (**New panel**: a name, whether it follows the chosen server or the
+whole fleet, and whether it starts as a copy or empty), rename them and delete them. An account's
+panels are kept by the server and are the same on every server of the fleet; the access token is no
+account, so its panels are kept in that browser. What a role may not see is not offered to it: a team
+member's gallery has the applications' widgets and none of the machine's. The charts of the machine's
+history are in Alerts, under Metrics. A server with nothing deployed shows one card instead of the
+panel, **Deploy your first app**: **Try a demo** (a tiny page on a temporary address), **Use a
+repository**, four popular recipes and **All recipes**, and under it **Then make it safe to leave
+alone** (backups, a copy off the server, notifications and, while the account is not protected,
+**Protect your account**). The map of the server is no longer a page (`/map` opens Home); `noust map`
+and `GET /api/map` stay.
 
 ## Charts
 

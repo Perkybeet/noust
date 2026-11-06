@@ -3,7 +3,6 @@ import { useState } from "react";
 
 import { request } from "../../../api/client";
 import { enginesQuery } from "../../../api/queries/databases";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
@@ -131,7 +130,6 @@ export function MoveDatabaseDialog({ engine, name, onOpenChange, onQueued }: Mov
           </div>
         ) : null}
         {move.isError ? <ErrorBlock live compact error={move.error} title={t("databases.moveDb.failed")} /> : null}
-        <CommandHint command={`noust db move ${name} --from ${engine} --to ${chosen ?? "ENGINE"}`} label={t("common.words.fromTerminal")} />
       </div>
     </Dialog>
   );

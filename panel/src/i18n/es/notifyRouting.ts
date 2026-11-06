@@ -111,7 +111,6 @@ export const notifyRouting: Catalog<typeof en> = {
     empty: "Este equipo aún no tiene canales propios. Añade un Slack, un ntfy o un webhook y los avisos de sus aplicaciones irán allí.",
     emptyReadOnly: "Este equipo no tiene canales propios.",
     readOnly: "Puedes ver los canales del equipo. Cambiarlos exige el rol de administrador en el equipo.",
-    fromTerminal: "O desde un terminal:",
     addTitle: "Añadir un canal a {team}",
     editTitle: "Canal {name}",
     drawerDescription: "Oye las aplicaciones de este equipo. Lo que se deja vacío en las aplicaciones vale para todas.",

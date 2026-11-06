@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 
-import { CommandHint } from "../../../components/page/CommandHint";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { LogViewer } from "../../../components/ui/LogViewer";
 import { Mono } from "../../../components/ui/Mono";
@@ -39,8 +38,6 @@ export interface AppJournalProps {
   domain: string;
   /** What the query asked, read by the tab: a followed stream is filtered here, line by line. */
   filter: QueryNode | null;
-  /** The command that reads the same from a terminal, once. */
-  command: string;
 }
 
 /**
@@ -50,7 +47,7 @@ export interface AppJournalProps {
  * left to what looks like a problem. The viewer is as tall as the screen leaves it, so the page
  * itself barely scrolls.
  */
-export function AppJournal({ domain, filter, command }: AppJournalProps) {
+export function AppJournal({ domain, filter }: AppJournalProps) {
   const t = useT();
   const stream = useLogStream(domain, { lines: BACKLOG, cap: LOG_CAP });
   const read = useMemo(() => stream.lines.map(withLevel), [stream.lines]);
@@ -94,7 +91,6 @@ export function AppJournal({ domain, filter, command }: AppJournalProps) {
           emptyMessage={stream.status === "open" ? t("appPages.logs.emptyOpen") : t("appPages.logs.emptyConnecting")}
         />
       </div>
-      <CommandHint command={command} label={t("common.words.fromTerminal")} />
     </div>
   );
 }

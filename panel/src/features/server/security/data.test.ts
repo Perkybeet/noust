@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { bindT } from "../../../i18n/useT";
 import { CHECKS } from "../testing";
-import { actionTarget, checkState, checkTitle, isOpen, sortChecks, sshFixOf, typedFriction, validateSecuritySearch } from "./data";
+import { actionTarget, checkPlace, checkState, checkTitle, isOpen, sortChecks, sshFixOf, typedFriction, validateSecuritySearch } from "./data";
 
 const t = bindT("en");
 
@@ -39,9 +39,23 @@ describe("the Security tab's data", () => {
     expect(typedFriction("ssh:verbose-logging")).toBe(false);
   });
 
+  it("says where a check's subject is looked after, so a check that passed has a way to its page", () => {
+    expect(checkPlace({ id: "fw.inactive", group: "firewall" })).toEqual({ to: "/network/firewall", label: "server.checks.places.firewall" });
+    expect(checkPlace({ id: "f2b.missing", group: "fail2ban" })?.to).toBe("/security/blocks");
+    expect(checkPlace({ id: "ssh.keys", group: "ssh" })?.to).toBe("/security/ssh");
+    expect(checkPlace({ id: "upd.auto_disabled", group: "updates" })?.to).toBe("/server/updates");
+    // The system's own checks are told apart by what they judge, not by their group.
+    expect(checkPlace({ id: "mem.no_swap", group: "system" })?.to).toBe("/server/files");
+    expect(checkPlace({ id: "disk.full", group: "system" })?.to).toBe("/server/files");
+    expect(checkPlace({ id: "time.unsynced", group: "system" })?.to).toBe("/server/machine");
+    expect(checkPlace({ id: "os.eol", group: "system" })?.to).toBe("/server/updates");
+    expect(checkPlace({ id: "sys.uid0", group: "system" })).toBeNull();
+    expect(checkPlace({ id: "noust.inline_secrets", group: "noust" })).toBeNull();
+  });
+
   it("opens the tab that does an action's fix, the failed units on the services list", () => {
     expect(actionTarget("GET /api/services?noust_only=false&state=failed")).toBe("/server/services");
-    expect(actionTarget("POST /api/server/updates/restarts")).toBe("/server/system");
+    expect(actionTarget("POST /api/server/updates/restarts")).toBe("/server/updates");
     expect(actionTarget("POST /api/server/power/reboot")).toBe("reboot");
     expect(actionTarget("PUT /api/server/swap")).toBe("/server/files");
     expect(actionTarget("POST /api/server/hostname")).toBeNull();

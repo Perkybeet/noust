@@ -8,6 +8,7 @@ import { Foundations } from "./Foundations";
 import { Kit } from "./Kit";
 import { Kit32 } from "./Kit32";
 import { Kit40 } from "./Kit40";
+import { Kit42 } from "./Kit42";
 import { PageKit } from "./PageKit";
 import { Stone } from "./Stone";
 import { Patterns } from "./Patterns";
@@ -91,6 +92,20 @@ const NAV: { title: string; links: [string, string][] }[] = [
       ["k40-dashboard-tabs", "Dashboard tabs"],
       ["k40-table", "A table that waits"],
       ["k40-icons", "Icons of objects"],
+    ],
+  },
+  {
+    title: "Components (4.2)",
+    links: [
+      ["k42-surface", "Section with a surface"],
+      ["k42-first-use", "First use"],
+      ["k42-pairs", "Key-value pairs"],
+      ["k42-card", "Resource card"],
+      ["k42-tags", "Tags in a table"],
+      ["k42-help", "Help ?"],
+      ["k42-roles", "What each role can do"],
+      ["k42-header", "A header as wide as its content"],
+      ["k42-hints", "Command with its reason"],
     ],
   },
   {
@@ -209,6 +224,7 @@ export function DesignGallery() {
           <Kit />
           <Kit32 />
           <Kit40 />
+          <Kit42 />
           <Components />
           <PageKit />
           <Patterns />

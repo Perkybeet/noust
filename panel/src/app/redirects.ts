@@ -24,19 +24,54 @@ export const REDIRECT_ROWS = [
   // The account page has no filters to carry: what the old address carried is dropped.
   { from: "/settings/security", to: "/account/security", state: "live", plain: true },
   { from: "/settings/servers", to: "/fleet/servers", state: "live" },
-  { from: "/apps/$domain/settings/builds", to: "/apps/$domain/settings/build", state: "live" },
+  // 4.2: an application's settings are not a list of their own (item 116). Its column lists seventeen sections, and what
+  // were eighteen subsections are four pages of titled cards plus Export and Delete, which left each other.
+  { from: "/apps/$domain/settings", to: "/apps/$domain/resources", state: "live" },
+  { from: "/apps/$domain/settings/source", to: "/apps/$domain/code", state: "live" },
+  { from: "/apps/$domain/settings/build", to: "/apps/$domain/code", state: "live" },
+  { from: "/apps/$domain/settings/builds", to: "/apps/$domain/code", state: "live" },
+  { from: "/apps/$domain/settings/container", to: "/apps/$domain/code", state: "live" },
+  { from: "/apps/$domain/settings/deploys", to: "/apps/$domain/triggers", state: "live" },
+  { from: "/apps/$domain/settings/automation", to: "/apps/$domain/triggers", state: "live" },
+  { from: "/apps/$domain/settings/compose", to: "/apps/$domain/triggers", state: "live" },
+  { from: "/apps/$domain/settings/deploy-on-push", to: "/apps/$domain/triggers", state: "live" },
+  { from: "/apps/$domain/settings/hooks", to: "/apps/$domain/triggers", state: "live" },
+  { from: "/apps/$domain/settings/previews", to: "/apps/$domain/triggers", state: "live" },
+  { from: "/apps/$domain/settings/resources", to: "/apps/$domain/resources", state: "live" },
+  { from: "/apps/$domain/settings/processes", to: "/apps/$domain/resources", state: "live" },
+  { from: "/apps/$domain/settings/mounts", to: "/apps/$domain/resources", state: "live" },
+  { from: "/apps/$domain/settings/disk", to: "/apps/$domain/resources", state: "live" },
+  { from: "/apps/$domain/settings/security", to: "/apps/$domain/resources", state: "live" },
+  { from: "/apps/$domain/settings/access", to: "/apps/$domain/access", state: "live" },
+  { from: "/apps/$domain/settings/protection", to: "/apps/$domain/access", state: "live" },
+  { from: "/apps/$domain/settings/export", to: "/apps/$domain/export", state: "live" },
+  { from: "/apps/$domain/settings/delete", to: "/apps/$domain/delete", state: "live" },
   // 4.1: a server's page is ten sections. The updates joined the system, storage is files, and the
   // firewall is Network and ports (the firewall's old address is a view of the Security tab,
   // `?view=firewall`, which the route sends on with its search). The ports an application is published
   // on stay in Domains (/domains/ports, Published ports): that is a way to reach it.
-  { from: "/server/updates", to: "/server/system", state: "live", plain: true },
   { from: "/server/storage", to: "/server/files", state: "live", plain: true },
+  // 4.2: the machine's network and its security are areas of the bar, and the views of the System section are
+  // sections of the server. The old addresses carry the view they asked for (`?view=`), which each route's
+  // `beforeLoad` reads: the firewall of Security's old tab was Network's already, and the interfaces of the
+  // System tab of 4.0. What each used to be called is a palette keyword (RENAMED).
+  { from: "/domains/ports", to: "/network", state: "live", plain: true },
+  { from: "/domains/tunnels", to: "/network/tunnels", state: "live", plain: true },
+  { from: "/server/network", to: "/network/listening", state: "live" },
+  { from: "/server/security", to: "/security", state: "live", plain: true },
+  { from: "/server/system", to: "/server/updates", state: "live", plain: true },
   // 4.1: what warns an operator is an area of the bar.
   // The page of Alerts has no filters to carry: what the old address carried is dropped.
   { from: "/settings/alerts", to: "/alerts", state: "live", plain: true },
   { from: "/settings/probes", to: "/alerts/probes", state: "live", plain: true },
-  // 4.1: the engines are database servers, and the page that listed them is the section of that name.
-  { from: "/databases/engines", to: "/databases/servers", state: "live", plain: true },
+  // 4.1 called the engines database servers and gave them /databases/servers; 4.2 calls them Engines again, in the
+  // column and in the address (the page also takes `?engine=` to show one of them), and a database's Users are its Access.
+  { from: "/databases/servers", to: "/databases/engines", state: "live" },
+  { from: "/databases/$engine/$name/users", to: "/databases/$engine/$name/access", state: "live", plain: true },
+  // 4.2: Home is a panel of widgets and the map was its second view; Home has none now.
+  { from: "/map", to: "/", state: "live", plain: true },
+  // 4.2: Controls and the frameworks were two pages for one question; Compliance is one page (the frameworks, their report, and the controls).
+  { from: "/settings/controls", to: "/settings/compliance", state: "live", plain: true },
 ] as const;
 
 /**

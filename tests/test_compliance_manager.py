@@ -84,6 +84,49 @@ class TestThePicture:
         assert ens["enabled"] and ens["source"] == "profile"
 
 
+class TestAProfileThatIsNotOne:
+    """
+    ``security.profile`` fails strict: a value Noust does not know is read as ``ens-medium``.
+
+    Reading it that way is right (a typo in a security setting must not turn it off), but it
+    switched ENS MEDIA on without a word. The picture now says what was read and that it is
+    not a value, so that the person is told rather than left to wonder why a framework they
+    never chose is on.
+    """
+
+    @pytest.mark.parametrize(
+        "value", ["", "standard", "STANDARD", "ens-medium", "ENS_MEDIUM", "ens"]
+    )
+    def test_a_value_that_is_one_is_not_flagged(
+        self, manager: ComplianceManager, real_config: Config, value: str
+    ) -> None:
+        real_config.set("security.profile", value)
+
+        state = manager.describe()
+
+        assert state["legacy_profile_valid"] is True
+
+    @pytest.mark.parametrize("value", ["off", "none", "ens-meduim", "false", "0"])
+    def test_a_value_that_is_not_is_named_and_said_to_be_read_strict(
+        self, manager: ComplianceManager, real_config: Config, value: str
+    ) -> None:
+        real_config.set("security.profile", value)
+
+        state = manager.describe()
+
+        assert state["legacy_profile"] == value
+        assert state["legacy_profile_valid"] is False
+        assert state["legacy_profile_read_as"] == "ens-medium"
+        ens = next(f for f in state["frameworks"] if f["id"] == "ens-media")
+        assert ens["enabled"] and ens["source"] == "profile"
+
+    def test_the_default_is_a_value(self, manager: ComplianceManager) -> None:
+        state = manager.describe()
+
+        assert state["legacy_profile_valid"] is True
+        assert state["legacy_profile_read_as"] == "standard"
+
+
 class TestPlanning:
     def test_enabling_a_framework_lists_each_control_and_the_clause(
         self, manager: ComplianceManager

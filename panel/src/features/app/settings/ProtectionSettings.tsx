@@ -2,11 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 
 import { appHttp3Query, appPolicyQuery } from "../../../api/queries/network";
 import type { AppPolicy } from "../../../api/queries/network";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
+import { GuardedButton } from "../../../components/page/permissions";
 import { ErrorBlock } from "../../../components/page/QueryState";
-import { SaveBar } from "../../../components/page/SaveBar";
-import { Section } from "../../../components/page/Section";
 import { Card } from "../../../components/ui/Card";
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { Disclosure } from "../../../components/ui/Disclosure";
@@ -19,6 +17,7 @@ import { SkeletonCard } from "../../../components/ui/Skeleton";
 import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
+import { useOpenPort } from "../../network/OpenPortDialog";
 import { ClientCertsCard } from "./ClientCertsCard";
 import { WafCard } from "./WafCard";
 import { useSaveBar } from "./formParts";
@@ -26,6 +25,7 @@ import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./setting
 import { AccessQuestions, useAccessForm } from "./useAccessForm";
 import type { AccessForm } from "./useAccessForm";
 import { SETTINGS_ICONS } from "./objectIcons";
+import { PartSaveBar, PartSection } from "./saveHost";
 
 function LimitsCard({ form, t }: { form: AccessForm; t: T }) {
   const { draft, edit } = form;
@@ -128,6 +128,8 @@ function HeadersCard({ form, policy, t }: { form: AccessForm; policy: AppPolicy;
  */
 function Http3Card({ form, domain, t }: { form: AccessForm; domain: string; t: T }) {
   const support = useQuery(appHttp3Query(domain));
+  // The one dialog that opens a port (network): the console does what the firewall's command does, so the card shows no command.
+  const openPort = useOpenPort();
   const { draft, edit } = form;
   const data = support.data;
   const cannot = data !== undefined && !data.available;
@@ -137,20 +139,15 @@ function Http3Card({ form, domain, t }: { form: AccessForm; domain: string; t: T
     data === undefined
       ? null
       : !data.available
-        ? { title: data.problem, body: data.hint }
+        ? { title: data.problem, body: data.hint, action: undefined }
         : data.udp_allowed === false
           ? {
               title: t("network.access.http3.udpClosed"),
-              body: (
-                <>
-                  {t("network.access.http3.udpClosedHelp")}
-                  {data.firewall_hint !== "" ? (
-                    <>
-                      {" "}
-                      <Mono>{data.firewall_hint}</Mono>
-                    </>
-                  ) : null}
-                </>
+              body: t("network.access.http3.udpClosedHelp"),
+              action: (
+                <GuardedButton permission="server.host_access" size="sm" variant="secondary" onClick={() => openPort.open({ port: 443, proto: "udp" })}>
+                  {t("network.access.http3.openUdp")}
+                </GuardedButton>
               ),
             }
           : null;
@@ -167,11 +164,12 @@ function Http3Card({ form, domain, t }: { form: AccessForm; domain: string; t: T
         {refused !== undefined ? <GroupError id="http3-refused">{refused}</GroupError> : null}
         {support.isError ? <ErrorBlock compact error={support.error} title={t("network.access.http3.readFailed")} /> : null}
         {problem !== null ? (
-          <Notice tone="warning" title={problem.title}>
+          <Notice tone="warning" title={problem.title} {...(problem.action !== undefined ? { action: problem.action } : {})}>
             {problem.body}
           </Notice>
         ) : null}
       </div>
+      {openPort.dialog}
     </Card>
   );
 }
@@ -190,8 +188,7 @@ function ProtectionForm({ domain, policy }: { domain: string; policy: AppPolicy 
       {nginx ? <WafCard form={form} domain={domain} /> : null}
       {nginx ? <ClientCertsCard form={form} domain={domain} /> : null}
       {form.failure !== null ? <ErrorBlock live compact error={form.failure} title={t("network.protection.notSaved", { domain })} /> : null}
-      <CommandHint command={`noust app policy show ${domain}`} label={t("common.words.fromTerminal")} />
-      <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} />
+      <PartSaveBar bar={bar} />
       <AccessQuestions form={form} domain={domain} />
     </div>
   );
@@ -212,7 +209,7 @@ export function ProtectionSettings() {
   const policy = useQuery(appPolicyQuery(domain));
 
   return (
-    <Section title={t("network.protection.title")} {...headerIcon} description={t("network.protection.description", { domain })}>
+    <PartSection title={t("network.protection.title")} {...headerIcon} description={t("network.protection.description", { domain })}>
       {policy.isPending ? (
         <LoadingRegion label={t("network.protection.loading")}>
           <SkeletonCard lines={3} />
@@ -222,6 +219,6 @@ export function ProtectionSettings() {
       ) : (
         <ProtectionForm domain={domain} policy={policy.data} />
       )}
-    </Section>
+    </PartSection>
   );
 }

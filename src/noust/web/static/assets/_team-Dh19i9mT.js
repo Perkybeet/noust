@@ -1,0 +1,1 @@
+import{t as e}from"./TeamLayout-BcteQSRI.js";import{t}from"./_team-Cx9nmy8F.js";import{Q as n}from"./objectIcons-B_YzKDZz.js";var r=n();function i(){let{team:n}=t.useParams();return(0,r.jsx)(e,{team:n},n)}export{i as component};

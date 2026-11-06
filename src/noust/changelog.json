@@ -1,6 +1,29 @@
 {
  "entries": [
   {
+   "version": "4.2.0",
+   "date": "2026-11-06",
+   "action_required": true,
+   "items": [
+    {
+     "text": "Noust puts the console in order: one frame on every screen with Network and Security as areas of their own, a Home of widgets each person arranges, background work in sight from any page, and the server's software on one page",
+     "action_required": false
+    },
+    {
+     "text": "Pages that say what each thing is before they explain it, a hint to the terminal only where the console cannot do it, a redrawn sign-in with room for your own logo, and problems reported from the console in three steps",
+     "action_required": false
+    },
+    {
+     "text": "a token that deletes, restores or changes access needs --elevated; a database engine that holds databases is not uninstalled",
+     "action_required": true
+    },
+    {
+     "text": "Every change: https://github.com/Perkybeet/noust/blob/main/docs/CHANGELOG-4.2.md - read https://github.com/Perkybeet/noust/blob/main/docs/UPGRADING-4.2.md before updating",
+     "action_required": false
+    }
+   ]
+  },
+  {
    "version": "4.1.0",
    "date": "2026-11-01",
    "action_required": true,
@@ -721,17 +744,6 @@
    "items": [
     {
      "text": "Observability and product polish: per-app charts with deploy markers, user cron jobs, CLI deep links, command palette, log search",
-     "action_required": false
-    }
-   ]
-  },
-  {
-   "version": "1.4.0",
-   "date": "2026-08-14",
-   "action_required": false,
-   "items": [
-    {
-     "text": "The panel manages the whole product: databases, services, sites, env vars, settings, scheduled backups, deployment history with rollback, live charts, git webhooks, notifications",
      "action_required": false
     }
    ]

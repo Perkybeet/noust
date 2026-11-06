@@ -24,9 +24,14 @@ export const Route = createFileRoute("/_console")({
   // Before the shell exists (the first load, the session being read) there is no page around
   // the placeholder: it brings the page's margins.
   pendingComponent: FramedRoutePending,
+  // Drawn without the shell (an error in what a route loads), so it has its own ground, the page's, across the window:
+  // what is behind a dialog (the report of a problem opens from here) is then the page under the veil, as it is with the
+  // shell, and not the body's own tone, which a contrast would be measured against.
   errorComponent: ({ error }) => (
-    <main className="mx-auto min-h-dvh max-w-3xl px-6 py-16">
-      <PageError error={error} />
+    <main className="min-h-dvh bg-bg">
+      <div className="mx-auto max-w-3xl px-6 py-16">
+        <PageError error={error} />
+      </div>
     </main>
   ),
 });

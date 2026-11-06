@@ -48,6 +48,8 @@ export interface SettingsNavItem {
   scopeKey?: string;
   /** Other words that find the section in the filter: its old names ("Notifications"). */
   keywords?: string;
+  /** A line under the name, for a name that does not say what the section is for. Already translated. */
+  hint?: string;
 }
 
 export interface SettingsLayoutProps {
@@ -155,7 +157,7 @@ export function answersFilter(item: SettingsNavItem, query: string): boolean {
 
 /**
  * T3, settings with side navigation: a 200px list of subsections, each its own URL, beside
- * content of at most 880px. The destructive subsection comes last, set apart. A long list is
+ * content of at most 896px. The destructive subsection comes last, set apart. A long list is
  * grouped under headings that say whose the sections are (and, on a fleet, of which server), and
  * from twelve sections has a box that narrows it. On a phone the navigation is an index page of
  * its own and each subsection has a way back to it.

@@ -14,6 +14,10 @@ export const STATE_FILTERS = ["running", "deploying", "failed", "stopped", "stat
 
 export type StateFilter = (typeof STATE_FILTERS)[number];
 
+/** The views of the Applications column that are this page with another body (features/nav/views.ts). */
+export const APPS_VIEWS = ["projects", "states", "deployments"] as const;
+export type AppsView = (typeof APPS_VIEWS)[number];
+
 export interface AppsSearch extends OwnerSearch {
   /** Free text matched against the domain and the type. */
   q?: string;
@@ -22,6 +26,8 @@ export interface AppsSearch extends OwnerSearch {
   type?: string;
   /** A tag the app carries (`noust app tag`): the apps grouped under it. */
   tag?: string;
+  /** How the list is drawn: grouped by project or by state, or the deployments of every application. None is the table. */
+  view?: AppsView;
   /** The fleet's list only: the server whose applications are shown. `server`, not `node`: the router keeps `node` for the server a page is on. */
   server?: string;
 }
@@ -42,7 +48,9 @@ export function validateAppsSearch(search: Record<string, unknown>): AppsSearch 
   const type = text(search["type"]);
   const tag = text(search["tag"]);
   const server = text(search["server"]);
+  const view = text(search["view"]);
   return {
+    ...(view !== undefined && (APPS_VIEWS as readonly string[]).includes(view) ? { view: view as AppsView } : {}),
     ...(q !== undefined ? { q } : {}),
     ...(state !== undefined && (STATE_FILTERS as readonly string[]).includes(state) ? { state: state as StateFilter } : {}),
     ...(type !== undefined && /^[\w.-]+$/.test(type) ? { type } : {}),

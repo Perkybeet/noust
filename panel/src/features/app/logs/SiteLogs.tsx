@@ -3,7 +3,6 @@ import { useMemo } from "react";
 
 import { siteLogQuery } from "../../../api/queries/siteLogs";
 import type { SiteLog, SiteLogKind } from "../../../api/queries/siteLogs";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { QueryState } from "../../../components/page/QueryState";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { LogViewer } from "../../../components/ui/LogViewer";
@@ -38,7 +37,6 @@ export interface SiteLogsProps {
   kind: SiteLogKind;
   /** What the query asked, read by the tab: the end of the file is filtered here, line by line. */
   filter: QueryNode | null;
-  command: string;
 }
 
 /**
@@ -46,17 +44,17 @@ export interface SiteLogsProps {
  * about), read again every few seconds. What the server returns is already masked: a query
  * string in an access log carries tokens.
  */
-export function SiteLogs({ domain, kind, filter, command }: SiteLogsProps) {
+export function SiteLogs({ domain, kind, filter }: SiteLogsProps) {
   const t = useT();
   const query = useQuery(siteLogQuery(domain, kind, ""));
   return (
     <QueryState query={query} label={t("logs.app.siteNoun")} skeleton={<SkeletonCard lines={6} />}>
-      {(log) => <SiteLines domain={domain} kind={kind} log={log} filter={filter} command={command} />}
+      {(log) => <SiteLines domain={domain} kind={kind} log={log} filter={filter} />}
     </QueryState>
   );
 }
 
-function SiteLines({ domain, kind, log, filter, command }: SiteLogsProps & { log: SiteLog }) {
+function SiteLines({ domain, kind, log, filter }: SiteLogsProps & { log: SiteLog }) {
   const t = useT();
   const lines = useMemo<LogLine[]>(
     () =>
@@ -78,7 +76,6 @@ function SiteLines({ domain, kind, log, filter, command }: SiteLogsProps & { log
         icon={<OBJECT_ICONS.log />}
         title={t("appPages.logs.siteNotWrittenTitle")}
         description={t.rich("appPages.logs.siteNotWritten", { path: <Mono key="path">{log.path ?? ""}</Mono> })}
-        command={command}
       />
     );
   }
@@ -107,7 +104,6 @@ function SiteLines({ domain, kind, log, filter, command }: SiteLogsProps & { log
           emptyMessage={t("appPages.logs.siteEmpty")}
         />
       </div>
-      <CommandHint command={command} label={t("common.words.fromTerminal")} />
     </div>
   );
 }

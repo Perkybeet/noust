@@ -7,7 +7,7 @@ import type { SettingsNavItem } from "../../components/page/SettingsLayout";
 import { useT } from "../../i18n";
 import type { PlainKey } from "../../i18n";
 import { useHasFleet, useReturnServer, useServerList } from "../../nodes/servers";
-import { useConsoleContext } from "../../nodes/useNode";
+import { useConsoleContext, useSelection } from "../../nodes/useNode";
 import { useCentral } from "../central/central";
 import { iconOf } from "../nav/icons";
 import { RENAMED, SETTINGS_SCREENS, groupSettings } from "../nav/settings";
@@ -27,6 +27,8 @@ export const GROUP_TITLES: Readonly<Record<string, PlainKey>> = {
 export interface SettingsSection extends SettingsNavItem {
   id: string;
   central: boolean;
+  /** The section is every server's at once: the central's, and not this server's own (what is shown before sign-in is the central's and no fleet's). */
+  fleetWide: boolean;
 }
 
 /** What the sections of Settings are about, for the page that frames them and for the second column. */
@@ -39,6 +41,8 @@ export interface SettingsView {
   serverNode: string | null;
   serverName: string;
   centralName: string;
+  /** How many servers a section of the whole fleet holds for: every server the central manages, and the central itself unless it is a hub. */
+  serverCount: number;
 }
 
 /**
@@ -56,11 +60,13 @@ export function useSettingsItems(): SettingsView {
   const hasFleet = useHasFleet();
   const central = useCentral();
   const back = useReturnServer();
-  const { hostname } = useServerList();
+  const { hostname, nodes } = useServerList();
   const { data: session } = useQuery(sessionQuery());
 
+  const selection = useSelection(central.role === "hub");
+  // A page of the instance is no server's: the server the sections that are a server's lead to is the one the selector is on.
   const onCentral = context.kind === "central";
-  const serverNode = context.kind === "server" ? context.node : (back?.node ?? null);
+  const serverNode = context.kind === "server" ? context.node : selection.kind === "server" ? selection.node : (back?.node ?? null);
   const serverName = serverNode ?? hostname ?? t("fleet.selector.thisServer");
   const centralName = hostname ?? t("fleet.selector.central");
   const permissions = session?.permissions;
@@ -81,10 +87,12 @@ export function useSettingsItems(): SettingsView {
         groupKey: group,
         id: entry.id,
         central: entry.central === true,
+        fleetWide: entry.central === true && entry.own !== true,
+        ...(entry.hint !== undefined ? { hint: t(entry.hint) } : {}),
       };
     };
     return groupSettings(SETTINGS_SCREENS, ctx).flatMap((group) => group.sections.map((entry) => item(entry, group.id)));
   }, [t, hasFleet, sealed, permissions, onCentral, serverNode]);
 
-  return { items, onCentral, hasFleet, serverNode, serverName, centralName };
+  return { items, onCentral, hasFleet, serverNode, serverName, centralName, serverCount: nodes.length + (central.role === "hub" ? 0 : 1) };
 }

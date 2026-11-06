@@ -32,6 +32,8 @@ import { textLinkClassName } from "../../components/ui/TextLink";
 
 const STATES = ["firing", "ok", "off"] as const;
 type AlertState = (typeof STATES)[number];
+/** Where a state stands in the list: what needs somebody, then what is well, then what is switched off. */
+const STATE_RANK: Readonly<Record<AlertState, number>> = { firing: 0, ok: 1, off: 2 };
 
 /** A row of the view is the rule as its server lists it. */
 function ruleOf(row: FleetRow): AlertRule {
@@ -131,7 +133,11 @@ export function FleetAlerts({ search, onSearchChange }: FleetAlertsProps) {
   const t = useT();
   const view = useView("alerts", { nodes: search.server !== undefined ? [search.server] : [] });
   const rows = useMemo(() => view.data?.items ?? [], [view.data]);
-  const shown = rows.filter((row) => (search.state === undefined || stateOf(ruleOf(row)).key === search.state) && matchesQuery([field(row, "name"), originOf(row).node, field(row, "app_domain")], search.q));
+  // The page says the ones firing come first, so it puts them first itself: the order the servers answered in is nobody's choice.
+  // Array.prototype.sort is stable, so within a state the central's order stays.
+  const shown = rows
+    .filter((row) => (search.state === undefined || stateOf(ruleOf(row)).key === search.state) && matchesQuery([field(row, "name"), originOf(row).node, field(row, "app_domain")], search.q))
+    .sort((a, b) => STATE_RANK[stateOf(ruleOf(a)).key] - STATE_RANK[stateOf(ruleOf(b)).key]);
   const firing = rows.filter((row) => row["firing"] === true).length;
 
   const set = (patch: FleetSearchPatch, replace = false): void => {
@@ -143,7 +149,7 @@ export function FleetAlerts({ search, onSearchChange }: FleetAlertsProps) {
   if (view.isError && view.data === undefined) {
     content = <ErrorBlock error={view.error} title={t("alerts.fleet.loadFailed")} onRetry={() => void view.refetch()} retrying={view.isRefetching} />;
   } else if (view.data !== undefined && rows.length === 0 && !isFiltered(search)) {
-    content = <EmptyState variant="firstUse" icon={<OBJECT_ICONS.alert />} title={t("alerts.rules.emptyTitle")} description={t("alerts.rules.emptyDescription")} command="noust alert list" />;
+    content = <EmptyState variant="firstUse" icon={<OBJECT_ICONS.alert />} title={t("alerts.rules.emptyTitle")} description={t("alerts.rules.emptyDescription")} />;
   } else {
     content = (
       <DataTable

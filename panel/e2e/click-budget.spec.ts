@@ -194,7 +194,7 @@ test.describe("starting a first application", () => {
       await elevate(page, consoleServer);
     });
     await walked(page, "T02b", () => repositoryWalk(page, domain));
-    await expect(page).toHaveURL(new RegExp(`/apps/${domain.replace(/\./g, "\\.")}/deployments/\\d+$`), { timeout: 30_000 });
+    await expect(page).toHaveURL(new RegExp(`/apps/${domain.replace(/\./g, "\\.")}$`), { timeout: 30_000 });
     await forgetApp(page, consoleServer, domain);
   });
 
@@ -330,7 +330,7 @@ test.describe("on a phone, the incident verbs", () => {
       await elevate(page, consoleServer);
     });
     await walked(page, "T02p", () => repositoryWalk(page, domain));
-    await expect(page).toHaveURL(new RegExp(`/apps/${domain.replace(/\./g, "\\.")}/deployments/\\d+$`), { timeout: 30_000 });
+    await expect(page).toHaveURL(new RegExp(`/apps/${domain.replace(/\./g, "\\.")}$`), { timeout: 30_000 });
     await forgetApp(page, consoleServer, domain);
   });
 
@@ -356,6 +356,8 @@ test.describe("on a phone, the incident verbs", () => {
 
     await startCounting(page);
     await walked(page, "T10p", async () => {
+      // On a phone the sections are behind the selector at the top of the page (NV-22): one tap opens the sheet, one picks the log.
+      await page.getByRole("main").getByRole("button", { name: /Overview/ }).click();
       await sections(page).getByRole("link", { name: "Logs" }).click();
       await expect(page.getByRole("region", { name: `Logs of ${SHOP}` })).toBeVisible();
     });
@@ -598,7 +600,7 @@ test.describe("an application's updates, failures and ways back", () => {
     seen.length = 0;
     let written: { set: Record<string, string>; unset: string[] } | undefined;
     await walked(page, "T09", async () => {
-      await sections(page).getByRole("link", { name: "Environment" }).click();
+      await sections(page).getByRole("link", { name: "Variables" }).click();
       const table = page.getByRole("table", { name: `Environment variables of ${ENV_APP}` });
       if (BASELINE === "3.3.1") {
         // Before a row opened on press: its menu, then Edit.
@@ -641,14 +643,14 @@ test.describe("an application's updates, failures and ways back", () => {
     await walked(page, "T11", async () => {
       await sections(page).getByRole("link", { name: "Domains" }).click();
       await page.getByRole("button", { name: "Add domain" }).click();
-      const dialog = page.getByRole("dialog", { name: `Add a domain to ${SITE_APP}` });
-      await dialog.getByLabel("Domain").fill(alias);
-      await dialog.getByLabel("Domain").blur();
+      const dialog = page.getByRole("dialog", { name: `Add a name to ${SITE_APP}` });
+      await dialog.getByRole("textbox", { name: "Name", exact: true }).fill(alias);
+      await dialog.getByRole("textbox", { name: "Name", exact: true }).blur();
       // Before the field asked DNS when it was left, a button did.
       const check = dialog.getByRole("button", { name: "Check DNS" });
       if ((await check.count()) > 0) await check.click();
       const added = page.waitForRequest((request) => request.url().endsWith(`/api/apps/${SITE_APP}/domains`) && request.method() === "POST");
-      await dialog.getByRole("button", { name: /^Add (domain|anyway)$/ }).click();
+      await dialog.getByRole("button", { name: /^Add (the name|anyway)$/ }).click();
       await added;
       await expect(dialog).toBeHidden();
     });
@@ -668,9 +670,8 @@ test.describe("an application's updates, failures and ways back", () => {
       if ((await edit.count()) > 0) {
         await edit.click();
       } else {
-        // Before the overview's meter had the link: the Settings tab and its Resources section.
-        await sections(page).getByRole("link", { name: "Settings" }).click();
-        await page.getByRole("navigation", { name: "Application settings" }).getByRole("link", { name: "Resources" }).click();
+        // Before the overview's meter had the link: the column's page of resources.
+        await sections(page).getByRole("link", { name: "Resources and running" }).click();
       }
       await page.getByRole("textbox", { name: "Memory", exact: true }).fill("256");
       const patched = page.waitForRequest((request) => request.url().endsWith(`/api/apps/${SHOP}/limits`) && request.method() === "PATCH");
@@ -701,26 +702,25 @@ test.describe("from any page", () => {
   });
 
   /**
-   * The twelve pages an operator is most likely to look for by name, as the palette words them and where they are:
-   * the five that were not found at all (a tab of an area, the terminal, the export to Prometheus) and seven that were.
+   * The eleven pages an operator is most likely to look for by name, as the palette words them and where they are:
+   * the five that were not found at all (a tab of an area, the terminal, the export to Prometheus) and six that were.
    */
   const FINDINGS: readonly { name: string; to: string; was?: { name: string; to: string } }[] = [
     { name: "Terminal", to: "/server/terminal" },
     { name: "Schedules", to: "/backups/schedules" },
     { name: "DNS", to: "/domains/dns" },
-    { name: "Network and ports", to: "/server/network" },
+    { name: "Network and ports", to: "/network/listening" },
     { name: "Logs and metrics export", to: "/settings/log-shipping", was: { name: "Log shipping", to: "/settings/log-shipping" } },
-    { name: "System updates", to: "/server/system", was: { name: "Updates", to: "/server/updates" } },
+    { name: "System updates", to: "/server/updates", was: { name: "Updates", to: "/server/updates" } },
     { name: "Alert rules", to: "/alerts", was: { name: "Alerts", to: "/alerts" } },
-    { name: "Channels", to: "/settings/notifications", was: { name: "Notifications", to: "/settings/notifications" } },
+    { name: "Notification channels", to: "/settings/notifications", was: { name: "Notifications", to: "/settings/notifications" } },
     { name: "Accounts", to: "/settings/accounts" },
     { name: "API tokens", to: "/settings/tokens", was: { name: "Tokens", to: "/settings/tokens" } },
-    { name: "Map", to: "/map" },
     { name: "Sign-in security", to: "/account/security", was: { name: "Security", to: "/settings/security" } },
   ];
 
-  test("T14: every one of twelve pages is found by its name with the keyboard alone, and in two clicks with the pointer", async ({ page, consoleServer }) => {
-    // Twelve pages, two loads each; an older console that finds none of them waits for each.
+  test("T14: every one of eleven pages is found by its name with the keyboard alone, and in two clicks with the pointer", async ({ page, consoleServer }) => {
+    // Eleven pages, two loads each; an older console that finds none of them waits for each.
     test.setTimeout(300_000);
     await startAt(page, consoleServer, "T14", "/databases", async () => {
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
@@ -823,7 +823,8 @@ test.describe("a server with nothing on it", () => {
     await settle(page);
     await startCounting(page);
     await walked(page, "T02a", () => repositoryWalk(page, "budget-empty.example.net", landing));
-    await expect(page).toHaveURL(/\/apps\/[^/]+\/deployments\/\d+$/, { timeout: 30_000 });
+    // The deploy is followed on the application's own page.
+    await expect(page).toHaveURL(/\/apps\/[^/]+$/, { timeout: 30_000 });
   });
 
   test("T03b: a recipe from the empty Overview is two clicks to its first build", async ({ page, problems }) => {
@@ -892,7 +893,7 @@ withFleet.describe("a fleet", () => {
     });
   });
 
-  withFleet("T15b: changing to all servers is two clicks and the sidebar becomes the fleet's, with seven destinations at most", async ({ page, consoleServer }) => {
+  withFleet("T15b: changing to all servers is two clicks and the sidebar becomes the fleet's, with the thirteen areas and Settings at most", async ({ page, consoleServer }) => {
     await startAt(page, consoleServer, "T15b", "/apps", async () => {
       await expect(page.getByRole("heading", { level: 1, name: "Applications" })).toBeVisible();
     });
@@ -903,7 +904,8 @@ withFleet.describe("a fleet", () => {
     });
     if (!MEASURE_ONLY) {
       const destinations = await page.getByRole("navigation", { name: "Main" }).getByRole("link").count();
-      expect(destinations, "the main bar").toBeLessThanOrEqual(12);
+      // NV-3: thirteen areas in titled groups, the same with or without a fleet, and Settings pinned under them.
+      expect(destinations, "the main bar").toBeLessThanOrEqual(14);
       expect(destinations).toBeGreaterThan(0);
     }
   });

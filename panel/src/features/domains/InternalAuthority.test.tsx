@@ -70,8 +70,7 @@ function page(routes: Record<string, RouteHandler> = {}) {
 }
 
 async function open(user: ReturnType<typeof page>["user"]) {
-  await user.click(await screen.findByRole("button", { name: "More actions" }));
-  await user.click(await screen.findByRole("menuitem", { name: "Private authority" }));
+  await user.click(await screen.findByRole("button", { name: /^(Create it|Manage)$/ }));
   return screen.findByRole("dialog", { name: "Private certificate authority" });
 }
 

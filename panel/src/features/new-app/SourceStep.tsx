@@ -1,25 +1,31 @@
-import { FileUp, FolderGit2, Link2, Search, Upload, X } from "lucide-react";
+import { FolderGit2, Search, Upload, X } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode, SyntheticEvent } from "react";
 
 import type { GitHubStatus } from "../../api/queries/github";
 import type { GitLabStatus } from "../../api/queries/gitlab";
 import { isApiError } from "../../api/client";
-import { CommandHint } from "../../components/page/CommandHint";
 import { JobProgress } from "../../components/page/JobProgress";
+import { SegmentedControl } from "../../components/page/SegmentedControl";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { useNow } from "../../components/page/clock";
 import { Button } from "../../components/ui/Button";
-import { Disclosure } from "../../components/ui/Disclosure";
+import { ChoiceCards } from "../../components/ui/ChoiceCards";
 import { Field } from "../../components/ui/Field";
+import { InlineMessage } from "../../components/ui/InlineMessage";
 import { Input } from "../../components/ui/Input";
 import { Notice } from "../../components/ui/Notice";
+import { ServerText } from "../../components/ui/ServerText";
+import type { CodedText } from "../../components/ui/ServerText";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { useT } from "../../i18n";
 import type { PlainKey } from "../../i18n";
+import { codedOf } from "../../lib/serverSentence";
 import { ArchiveUpload } from "../app/upload/ArchiveUpload";
 import { PasteDockerfile } from "../app/upload/PasteDockerfile";
 import { ConnectGitHub } from "./ConnectGitHub";
+import { ORIGINS, ORIGIN_WORDS, modeOfOrigin, originOf } from "./origins";
+import type { Origin } from "./origins";
 import { GitHubSource } from "./GitHubSource";
 import { GitLabSource } from "./GitLabSource";
 import { SshKeyHelp } from "./SshKeyHelp";
@@ -95,7 +101,7 @@ function Inspecting({ source, branch, since, onCancel }: { source: string; branc
  * make it deployable - often a file to add, shown as one - and anything a tool printed,
  * verbatim. The type can still be chosen by hand.
  */
-function VerdictFailure({ failure, source, onManual }: { failure: { detail: string; hint: string | null; output: string | null }; source: string; onManual: () => void }) {
+function VerdictFailure({ failure, source, onManual }: { failure: { detail: string; hint: string | null; output: string | null; coded: CodedText | null }; source: string; onManual: () => void }) {
   const t = useT();
   return (
     <Notice
@@ -105,8 +111,10 @@ function VerdictFailure({ failure, source, onManual }: { failure: { detail: stri
       action={<Button size="sm" onClick={onManual}>{t("newApp.source.chooseType")}</Button>}
     >
       <div className="flex min-w-0 flex-col gap-2">
-        <p className="text-fg">{failure.detail}</p>
-        {failure.hint !== null ? <Suggestion text={failure.hint} /> : null}
+        <p className="text-fg">
+          <ServerText coded={failure.coded} text={failure.detail} />
+        </p>
+        {failure.hint !== null ? <Suggestion text={failure.hint} coded={failure.coded} part="hint" /> : null}
         {failure.output !== null && failure.output.trim() !== "" ? (
           <SystemOutput label={t("newApp.source.cannotDeployOutput", { source })} maxHeight="max-h-48" className="rounded-control border border-border bg-surface px-3 py-2">
             {failure.output}
@@ -146,7 +154,7 @@ function InspectFailure({ failure, source, onManual, onRetry }: { failure: unkno
     );
   }
   if (isApiError(failure) && VERDICT_ERRORS.has(failure.error) && failure.status === 400) {
-    return <VerdictFailure failure={failure} source={source} onManual={onManual} />;
+    return <VerdictFailure failure={{ detail: failure.detail, hint: failure.hint, output: failure.output, coded: codedOf(failure) }} source={source} onManual={onManual} />;
   }
   if (isApiError(failure) && failure.error === "deploymenterror") {
     // An older backend answered an unclassified source 500 deploymenterror.
@@ -162,15 +170,21 @@ function InspectFailure({ failure, source, onManual, onRetry }: { failure: unkno
   return <ErrorBlock live error={failure} title={t("newApp.source.couldNotInspect", { source })} hint={fetchHint} />;
 }
 
-/** Where the application comes from: code (GitHub, or a typed source), a recipe, or an export. */
-export type SourceMode = "github" | "gitlab" | "manual" | "image" | "compose" | "recipe" | "import" | "adopt";
+/**
+ * Where the application comes from, as the wizard remembers it: code (GitHub, GitLab or a typed source), an image, files
+ * to start from (an upload, a Dockerfile, a folder of this server, a Compose file), a recipe, an export, or a stack that
+ * already runs. The five cards of the page (`origins.ts`) hold these in groups.
+ */
+export type SourceMode = "github" | "gitlab" | "manual" | "image" | "files" | "compose" | "recipe" | "import" | "adopt";
 
-/** The ways of starting that are not a thing to paste or search for, behind one button: each is a different idea. */
-const OTHER_WAYS: readonly { value: SourceMode; label: PlainKey; icon: ReactNode }[] = [
-  { value: "compose", label: "newApp.modes.compose", icon: <OBJECT_ICONS.compose /> },
-  { value: "import", label: "newApp.modes.import", icon: <FileUp /> },
-  { value: "adopt", label: "newApp.modes.adopt", icon: <Link2 /> },
-];
+/** The icon of each card: its object, bare. */
+const ORIGIN_ICON: Readonly<Record<Origin, typeof Upload>> = {
+  repo: OBJECT_ICONS.source,
+  catalog: OBJECT_ICONS.recipe,
+  image: OBJECT_ICONS.container,
+  files: Upload,
+  existing: OBJECT_ICONS.app,
+};
 
 export interface SourceStepProps {
   form: SourceForm;
@@ -226,13 +240,13 @@ export interface SourceStepProps {
 }
 
 /**
- * Step one: what to deploy, in one box (owner item 99). A repository, a folder or an archive is pasted, an
- * image of a registry is pasted, and the name of what to install is searched in the catalog: Noust tells which
- * from what was typed (`classifyEntry`), so nobody has to know which of four doors their thing is behind. Under
- * the box, when nothing is typed, the repositories of the connected GitHub and the popular recipes; the rest of
- * the ways (a Compose file, an export, a stack that already runs, files to upload) are folded. How a repository
- * is reached (the GitHub App, a deploy key, a token) is Noust's to decide and is said only when it fails or
- * when a step of the operator's is needed. The wizard's own bar has Continue; Enter does the same.
+ * Step one: where it comes from, on one page (owner item 99). Five cards say the ways: a repository, the catalog, an
+ * image, files, and something that already runs here, which holds adopting a stack and importing from another
+ * platform or a file. A repository, an image or the name of what to install still goes in one box, and Noust tells
+ * which from what was typed (`classifyEntry`); under the box, when nothing is typed, the repositories of the
+ * connected GitHub and the popular recipes. How a repository is reached (the GitHub App, a deploy key, a token) is
+ * Noust's to decide and is said only when it fails or when a step of the operator's is needed. The wizard's own bar
+ * has Continue; Enter does the same.
  */
 export function SourceStep({
   form,
@@ -284,43 +298,143 @@ export function SourceStep({
       (detected ?? null)
     );
 
-  // A way that is not the box: its own screen, with the way back to the box.
-  const apart = mode === "compose" || mode === "import" || mode === "adopt" || mode === "gitlab" || (mode === "github" && github !== null && !github.configured);
-  const back = (
+  const origin = originOf(mode, form.source);
+  const connected = github?.configured === true;
+
+  // The five ways an application starts, on one page (item 99): choosing one is choosing what the page asks below.
+  const cards = (
+    <ChoiceCards<Origin>
+      legend={t("newApp.origins.legend")}
+      value={origin}
+      columns={2}
+      options={ORIGINS.map((value) => ({ value, label: t(ORIGIN_WORDS[value].label), description: t(ORIGIN_WORDS[value].description), icon: ORIGIN_ICON[value] }))}
+      onValueChange={(next) => {
+        if (next === origin) return;
+        setText("");
+        onModeChange(modeOfOrigin(next, connected));
+      }}
+    />
+  );
+  const frame = (panel: ReactNode): ReactNode => (
+    <div className="flex flex-col gap-6">
+      {cards}
+      {panel}
+    </div>
+  );
+  // A screen inside a way, with the way back to where it opened from.
+  const back = (to: SourceMode): ReactNode => (
     <div>
       <Button
         size="sm"
         variant="ghost"
         onClick={() => {
           setText("");
-          onModeChange(startMode);
+          onModeChange(to);
         }}
       >
         {t("common.words.back")}
       </Button>
     </div>
   );
-  if (apart) {
-    return (
+
+  if (mode === "compose") {
+    return frame(
       <div className="flex flex-col gap-6">
-        {back}
-        {mode === "compose" ? (
-          composer
-        ) : mode === "import" ? (
-          importer
-        ) : mode === "adopt" ? (
-          adopter
-        ) : mode === "gitlab" && gitlab !== null ? (
-          <form id={SOURCE_FORM} onSubmit={submit} noValidate className="flex flex-col gap-5">
-            <GitLabSource status={gitlab} form={form} errors={errors} onChange={onChange} disabled={busy} />
-            {reading}
-          </form>
-        ) : (
-          <form id={SOURCE_FORM} onSubmit={submit} noValidate className="flex flex-col gap-5">
-            <ConnectGitHub form={form} error={errors.source} />
-          </form>
-        )}
-      </div>
+        {back("files")}
+        {composer}
+      </div>,
+    );
+  }
+  if (mode === "adopt" || mode === "import") {
+    return frame(
+      <div className="flex flex-col gap-5">
+        <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("newApp.origins.existingIntro")}</p>
+        <SegmentedControl
+          label={t("newApp.origins.existingChoice")}
+          value={mode}
+          onValueChange={(next) => {
+            setText("");
+            onModeChange(next);
+          }}
+          options={[
+            { value: "adopt", label: t("newApp.origins.existingRunning") },
+            { value: "import", label: t("newApp.origins.existingOther") },
+          ]}
+        />
+        {mode === "adopt" ? adopter : importer}
+      </div>,
+    );
+  }
+  if (mode === "gitlab" && gitlab !== null) {
+    return frame(
+      <div className="flex flex-col gap-6">
+        {back(startMode)}
+        <form id={SOURCE_FORM} onSubmit={submit} noValidate className="flex flex-col gap-5">
+          <GitLabSource status={gitlab} form={form} errors={errors} onChange={onChange} disabled={busy} />
+          {reading}
+        </form>
+      </div>,
+    );
+  }
+  if (mode === "github" && github !== null && !github.configured) {
+    return frame(
+      <div className="flex flex-col gap-6">
+        {back("manual")}
+        <form id={SOURCE_FORM} onSubmit={submit} noValidate className="flex flex-col gap-5">
+          <ConnectGitHub form={form} error={errors.source} />
+        </form>
+      </div>,
+    );
+  }
+  // An upload or a pasted Dockerfile is a source of the form (`upload:<id>`), so the wizard is in the mode of a typed source
+  // from then on: the card stays the card of the files, and the page the files', with what was found below them.
+  if (origin === "files") {
+    const forgotten = (): void => {
+      setText("");
+      onModeChange("files");
+      onChange({ source: "", branch: "" });
+    };
+    return frame(
+      <div className="flex flex-col gap-5">
+        <ArchiveUpload
+          disabled={busy}
+          onUploaded={(done) => {
+            setText(done.source);
+            onModeChange("manual");
+            onChange({ source: done.source, branch: "" });
+          }}
+          onCleared={forgotten}
+        />
+        <PasteDockerfile
+          disabled={busy}
+          onStored={(done) => {
+            setText(done.source);
+            onModeChange("manual");
+            onChange({ source: done.source, branch: "" });
+          }}
+          onCleared={forgotten}
+        />
+        {reading}
+        {errors.source !== undefined ? (
+          <InlineMessage tone="error" live>
+            {errors.source}
+          </InlineMessage>
+        ) : null}
+        <ul aria-label={t("newApp.origins.filesTitle")} className="flex flex-wrap gap-2">
+          <li>
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<OBJECT_ICONS.compose aria-hidden="true" />}
+              onClick={() => {
+                onModeChange("compose");
+              }}
+            >
+              {t("newApp.modes.compose")}
+            </Button>
+          </li>
+        </ul>
+      </div>,
     );
   }
 
@@ -351,7 +465,7 @@ export function SourceStep({
     }
   };
 
-  return (
+  return frame(
     <div className="flex flex-col gap-6">
       <form id={SOURCE_FORM} onSubmit={submit} noValidate className="flex flex-col gap-5">
         <Field label={t("newApp.box.label")} error={mode === "image" ? image.error : pickerOwnsError ? undefined : errors.source} description={t("newApp.box.description")}>
@@ -397,6 +511,33 @@ export function SourceStep({
         {entry === "image" ? <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("containers.source.privateRegistry")}</p> : null}
       </form>
 
+      {/* A repository with several applications in it is read for them once an address that is one has been typed. */}
+      {entry === "source" && !local ? (
+        <div>
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={<OBJECT_ICONS.app aria-hidden="true" />}
+            disabled={busy}
+            onClick={() => {
+              setWorkspaces(true);
+            }}
+          >
+            {t("workspaces.open")}
+          </Button>
+        </div>
+      ) : null}
+      {workspaces ? (
+        <WorkspacesDialog
+          open
+          source={form.source.trim()}
+          branch={form.branch.trim()}
+          onClose={() => {
+            setWorkspaces(false);
+          }}
+        />
+      ) : null}
+
       {view === "empty" && mode === "github" && github?.configured === true ? (
         <form id={`${SOURCE_FORM}-repositories`} onSubmit={submit} noValidate className="flex flex-col gap-5">
           <GitHubSource status={github} form={form} errors={errors} onChange={onChange} disabled={busy} central={centralGithub} />
@@ -407,26 +548,11 @@ export function SourceStep({
       {/* Under the repositories, which are drawn once GitHub has said whether it is connected: what is below them
           is not drawn before, so it is not moved down when they arrive. */}
       <div hidden={githubReading} className="flex flex-col gap-6">
-      {view === "empty" || view === "search" ? recipes(view === "search" ? text : "", mode === "recipe" && view === "empty") : null}
-
-      <Disclosure label={t("newApp.box.otherWays")}>
-        <div className="flex flex-col gap-5">
-          <ul aria-label={t("newApp.box.otherWays")} className="flex flex-wrap gap-2">
-            {OTHER_WAYS.map((way) => (
-              <li key={way.value}>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  icon={way.icon}
-                  onClick={() => {
-                    setText("");
-                    onModeChange(way.value);
-                  }}
-                >
-                  {t(way.label)}
-                </Button>
-              </li>
-            ))}
+        {/* The catalog is what the catalog card is about (every recipe, with its filters) and what the words typed in the box
+            look for; under a repository's box it would be a second list of what to start from. */}
+        {(origin === "catalog" && view === "empty") || view === "search" ? recipes(view === "search" ? text : "", true) : null}
+        {origin === "repo" && view === "empty" && ((gitlab?.connections.length ?? 0) > 0 || (github !== null && !github.configured)) ? (
+          <ul aria-label={t("newApp.origins.repo.label")} className="flex flex-wrap gap-2">
             {(gitlab?.connections.length ?? 0) > 0 ? (
               <li>
                 <Button
@@ -458,68 +584,8 @@ export function SourceStep({
               </li>
             ) : null}
           </ul>
-          <ArchiveUpload
-            disabled={busy}
-            onUploaded={(done) => {
-              setText(done.source);
-              onModeChange("manual");
-              onChange({ source: done.source, branch: "" });
-            }}
-            onCleared={() => {
-              setText("");
-              onChange({ source: "", branch: "" });
-            }}
-          />
-          <PasteDockerfile
-            disabled={busy}
-            onStored={(done) => {
-              setText(done.source);
-              onModeChange("manual");
-              onChange({ source: done.source, branch: "" });
-            }}
-            onCleared={() => {
-              setText("");
-              onChange({ source: "", branch: "" });
-            }}
-          />
-          <div className="flex flex-col gap-1">
-            <div>
-              <Button
-                size="sm"
-                variant="secondary"
-                icon={<OBJECT_ICONS.app aria-hidden="true" />}
-                onClick={() => {
-                  setWorkspaces(true);
-                }}
-                disabled={busy}
-              >
-                {t("workspaces.open")}
-              </Button>
-            </div>
-            <p className="max-w-measure text-12 text-pretty text-fg-muted">{t("workspaces.openHint")}</p>
-          </div>
-        </div>
-      </Disclosure>
+        ) : null}
       </div>
-
-      <CommandHint
-        command={
-          entry === "image"
-            ? `noust create --domain example.com --image ${text.trim()}`
-            : `noust create --domain example.com --source ${shown === "" ? "https://github.com/you/app.git" : shown}`
-        }
-        label={t("common.words.fromTerminal")}
-      />
-      {workspaces ? (
-        <WorkspacesDialog
-          open
-          source={form.source.trim()}
-          branch={form.branch.trim()}
-          onClose={() => {
-            setWorkspaces(false);
-          }}
-        />
-      ) : null}
-    </div>
+    </div>,
   );
 }

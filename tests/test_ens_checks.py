@@ -15,6 +15,8 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Any
 
+import pytest
+
 from noust.core.ens import checks
 from noust.core.ens.checks import ConsoleExposure, Facts, Sources, evaluate, gather, run_check
 from noust.core.net import ALL_INTERFACES
@@ -407,7 +409,8 @@ class TestGathering:
         values.update(overrides)
         return Sources(**values)
 
-    def test_a_real_store_is_read_area_by_area(self, store) -> None:
+    def test_a_real_store_is_read_area_by_area(self, store, real_config) -> None:
+        real_config.set("security.frameworks", ["ens-media"])
         store.create_app(
             App(domain="shop.example.com", app_type="nodejs", source="x", app_path="/x")
         )
@@ -424,7 +427,9 @@ class TestGathering:
         assert by_id(result.findings)["ENS-NET-03"].status == "fail"
         assert "mfa_percent" in result.indicators
 
-    def test_one_failing_area_leaves_the_others(self, store) -> None:
+    def test_one_failing_area_leaves_the_others(self, store, real_config) -> None:
+        real_config.set("security.frameworks", ["ens-media"])
+
         def broken() -> list[dict[str, Any]]:
             raise OSError("sshd -T: permission denied")
 
@@ -450,6 +455,94 @@ class TestGathering:
         assert facts.certificate is not None
         assert facts.certificate["self_signed"] is True
         assert facts.certificate["expires"]
+
+
+class TestWithoutAnEnsFramework:
+    """
+    A server that never asked for the ENS is not judged against it.
+
+    The check used to compare every server with ENS category MEDIUM whatever was
+    configured, so a fresh install showed a red report (``ENS-PRF-01`` and the rest) for a
+    standard nobody had chosen. Judging is now what turning the ENS on means; a person who
+    only wants to know how far the server is from it asks the generic check
+    (``noust compliance check --framework ens-media``), which says so in its own words.
+    """
+
+    def sources(self, store: NoustStore, reads: list[str]) -> Sources:
+        def hardening() -> list[dict[str, Any]]:
+            reads.append("hardening")
+            return []
+
+        return Sources(
+            store=store,
+            token_manager=FakeTokens(),
+            exposure=lambda: ConsoleExposure(source="unit", host="127.0.0.1"),
+            hardening=hardening,
+            clock=lambda: NOW,
+        )
+
+    def test_a_fresh_server_has_no_check_in_red(self, store, real_config) -> None:
+        result, _facts = run_check(self.sources(store, []))
+
+        assert result.enabled is False
+        assert result.counts()["fail"] == 0 and result.counts()["warning"] == 0
+        assert not [f for f in result.findings if f.status in ("fail", "warning")]
+        assert result.verdict == "ok" and result.exit_code == 0
+
+    def test_it_says_so_in_a_field_of_its_own(self, store, real_config) -> None:
+        body = run_check(self.sources(store, []))[0].to_dict()
+
+        assert body["enabled"] is False
+        assert body["profile"] == "standard"
+        assert body["findings"] == []
+
+    def test_the_profile_check_does_not_fail_where_nothing_was_asked(
+        self, store, real_config
+    ) -> None:
+        result, _facts = run_check(self.sources(store, []))
+
+        assert "ENS-PRF-01" not in {f.id for f in result.findings}
+
+    def test_nothing_is_read_from_the_server_when_nothing_is_judged(
+        self, store, real_config
+    ) -> None:
+        reads: list[str] = []
+
+        run_check(self.sources(store, reads))
+
+        assert reads == []
+
+    @pytest.mark.parametrize("framework", ["ens-basica", "ens-media", "ens-alta"])
+    def test_any_ens_framework_turns_the_judging_on(self, store, real_config, framework) -> None:
+        real_config.set("security.frameworks", [framework])
+        reads: list[str] = []
+
+        result, _facts = run_check(self.sources(store, reads))
+
+        assert result.enabled is True
+        assert reads == ["hardening"]
+        assert "ENS-PRF-01" in {f.id for f in result.findings}
+
+    def test_the_legacy_profile_setting_still_means_ens_is_on(self, store, real_config) -> None:
+        real_config.set("security.profile", "ens-medium")
+
+        result, _facts = run_check(self.sources(store, []))
+
+        assert result.enabled is True
+        assert by_id(result.findings)["ENS-PRF-01"].status == "ok"
+
+    def test_a_framework_of_another_family_does_not(self, store, real_config) -> None:
+        real_config.set("security.frameworks", ["iso-27001"])
+
+        result, _facts = run_check(self.sources(store, []))
+
+        assert result.enabled is False and result.findings == []
+
+    def test_the_evidence_report_asks_to_be_judged_anyway(self, store, real_config) -> None:
+        result, _facts = run_check(self.sources(store, []), even_if_off=True)
+
+        assert result.enabled is False
+        assert by_id(result.findings)["ENS-PRF-01"].status == "fail"
 
 
 #: A self-signed ECDSA P-256 certificate for "test", made with openssl once.

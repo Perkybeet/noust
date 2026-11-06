@@ -105,7 +105,7 @@ describe("the question of going back", { timeout: 20_000 }, () => {
     const { dialog } = await openDialog(HISTORY);
     expect(await within(dialog).findByText("Automatic deploys")).toBeInTheDocument();
     expect(within(dialog).getByText(/They pause until you resume them\./)).toBeInTheDocument();
-    expect(within(dialog).getByRole("link", { name: "Automatic deploys settings" })).toHaveAttribute("href", `/apps/${TAB_DOMAIN}/settings/deploys`);
+    expect(within(dialog).getByRole("link", { name: "Automatic deploys settings" })).toHaveAttribute("href", `/apps/${TAB_DOMAIN}/triggers`);
   });
 
   it("does not say it when the app is set to keep deploying after a rollback, or they are paused already", async () => {

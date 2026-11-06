@@ -15,6 +15,7 @@ import type { Page, Route } from "@playwright/test";
 
 import { csrf } from "./apps-cleanup";
 import { expect, expectNoA11yViolations, settle, signIn, stillness, test } from "./fixtures";
+import { openFold } from "./part-folds";
 import type { ConsoleServer } from "./fixtures";
 import { typedSource } from "./wizard-sources";
 
@@ -62,11 +63,11 @@ test("registry accounts are added, edited, listed and removed from Image registr
   const name = `e2e-hub-${testInfo.project.name}`;
   await signIn(page, consoleServer, "/settings/registries");
   await elevate(page, consoleServer);
-  const section = page.getByRole("region", { name: "Container registries" });
-  await expect(section).toBeVisible();
-  await section.scrollIntoViewIfNeeded();
+  // The page's one action is in its header; the slab of accounts appears with the first one.
+  await expect(page.getByRole("button", { name: "Add an account" })).toBeEnabled();
+  const section = page.getByRole("region", { name: "Accounts", exact: true });
   try {
-    await section.getByRole("button", { name: "Add an account" }).click();
+    await page.getByRole("button", { name: "Add an account" }).click();
     const dialog = page.getByRole("dialog", { name: "Add a registry account" });
     await dialog.getByLabel(/^Name/).fill(name);
     await dialog.getByLabel(/^Username/).fill("ci-bot");
@@ -77,7 +78,6 @@ test("registry accounts are added, edited, listed and removed from Image registr
 
     const table = section.getByRole("table", { name: "Registry accounts" });
     const row = table.getByRole("row").filter({ hasText: name });
-    await expect(row).toContainText("Docker Hub");
     await expect(row).toContainText("docker.io");
     await expect(row).toContainText("ci-bot");
     await expect(row).toContainText("Not tested");
@@ -135,7 +135,9 @@ test("GitLab: connections with the host's own words, a token connection, and a s
   await section.scrollIntoViewIfNeeded();
   const table = section.getByRole("table", { name: "GitLab connections" });
   await expect(table.getByRole("row").filter({ hasText: "work" })).toContainText("Works");
-  await expect(table.getByRole("row").filter({ hasText: "old" })).toContainText("401 Unauthorized: the token expired");
+  await expect(table.getByRole("row").filter({ hasText: "old" })).toContainText("Failed");
+  // What GitLab answered is under the table, as it said it, and not in the row.
+  await expect(section.getByRole("list", { name: "What GitLab answered" })).toContainText("401 Unauthorized: the token expired");
   await settle(page);
   await expectNoA11yViolations(page, "the GitLab connections");
 
@@ -160,7 +162,7 @@ test("GitLab: connections with the host's own words, a token connection, and a s
 });
 
 test("an application's Export settings write its declaration file and check a pasted one before applying it", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, `/apps/${DECLARED_APP}/settings/export`);
+  await signIn(page, consoleServer, `/apps/${DECLARED_APP}/export`);
   await elevate(page, consoleServer);
   const declaration = card(page, "Declaration file");
   await declaration.scrollIntoViewIfNeeded();
@@ -186,7 +188,8 @@ test("an application's Export settings write its declaration file and check a pa
 });
 
 test("Build shows the build cache, and process types only where the repository declares them", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, `/apps/${BUILD_APP}/settings/build`);
+  await signIn(page, consoleServer, `/apps/${BUILD_APP}/code`);
+  await openFold(page, "Sandbox, packages and cache");
   const cache = card(page, "Build cache");
   // The card is drawn with its title while the cache is read and replaced by the one that holds it: wait for what it
   // holds before scrolling to it, or the element scrolled to is the one that is about to go.
@@ -218,10 +221,10 @@ test("the wizard creates an application from a GitLab project and its branch", a
     });
   });
   await signIn(page, consoleServer, "/apps/new");
-  // The wizard opens on its one box; the other ways to start, a connected GitLab among them, are folded under it.
-  await page.getByRole("button", { name: "Other ways to start", exact: true }).click();
+  // The wizard opens on the repository way, with its box; a connected GitLab is one press under it.
   await page.getByRole("button", { name: "From GitLab", exact: true }).click();
-  await expect(page.getByRole("list", { name: "Projects" })).toBeVisible();
+  // The column of Applications has a group called Projects too: this is the list in the page.
+  await expect(page.getByRole("main").getByRole("list", { name: "Projects" })).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the GitLab project list");
 
@@ -278,7 +281,6 @@ test("the wizard deploys the workspaces of a monorepo, each on its own domain", 
   await signIn(page, consoleServer, "/apps/new");
   const field = await typedSource(page);
   await field.fill("https://github.com/acme/monorepo.git");
-  await page.getByRole("button", { name: "Other ways to start", exact: true }).click();
   await page.getByRole("button", { name: "Deploy the workspaces of a monorepo" }).click();
   const dialog = page.getByRole("dialog", { name: "Deploy the workspaces of a monorepo" });
   await dialog.getByRole("button", { name: "Read the workspaces" }).click();

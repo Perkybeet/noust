@@ -5,12 +5,13 @@ import { useId, useState } from "react";
 import { KeyValueList, KeyValueListSkeleton } from "../../../components/page/KeyValueList";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
-import { Section } from "../../../components/page/Section";
+import { SurfaceSection } from "../../../components/page/SurfaceSection";
+import { Can } from "../../../components/page/permissions";
 import { Button } from "../../../components/ui/Button";
-import { Card } from "../../../components/ui/Card";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Field } from "../../../components/ui/Field";
 import { Textarea } from "../../../components/ui/Textarea";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
@@ -107,16 +108,19 @@ export function AccessReviewSection({ canManage }: { canManage: boolean }) {
   const [attesting, setAttesting] = useState(false);
   const last = query.data !== undefined ? lastAttestation(query.data) : null;
   return (
-    <Section
+    <SurfaceSection
       title={t("accounts.review.title")}
+      icon={OBJECT_ICONS.audit}
       description={t("accounts.review.description")}
       loading={last === null && !query.isError}
       {...(canManage && query.data !== undefined
         ? {
             actions: (
-              <Button size="sm" icon={<ClipboardCheck aria-hidden="true" />} onClick={() => setAttesting(true)}>
-                {t("accounts.review.record")}
-              </Button>
+              <Can permission="accounts.manage">
+                <Button size="sm" icon={<ClipboardCheck aria-hidden="true" />} onClick={() => setAttesting(true)}>
+                  {t("accounts.review.record")}
+                </Button>
+              </Can>
             ),
           }
         : {})}
@@ -124,25 +128,23 @@ export function AccessReviewSection({ canManage }: { canManage: boolean }) {
       {query.isError ? (
         <ErrorBlock compact error={query.error} title={t("accounts.review.loadFailed")} onRetry={() => void query.refetch()} />
       ) : (
-        <Card padding="sm">
-          {last === null ? (
-            <KeyValueListSkeleton rows={2} />
-          ) : (
-            <KeyValueList
-              items={[
-                {
-                  label: t("accounts.review.last"),
-                  value: last.when === null ? t("accounts.review.never") : <RelativeTime value={last.when} />,
-                  mono: false,
-                  copy: false,
-                },
-                ...(last.who !== null ? [{ label: t("accounts.review.by"), value: last.who }] : []),
-              ]}
-            />
-          )}
-        </Card>
+        last === null ? (
+          <KeyValueListSkeleton rows={2} />
+        ) : (
+          <KeyValueList
+            items={[
+              {
+                label: t("accounts.review.last"),
+                value: last.when === null ? t("accounts.review.never") : <RelativeTime value={last.when} />,
+                mono: false,
+                copy: false,
+              },
+              ...(last.who !== null ? [{ label: t("accounts.review.by"), value: last.who }] : []),
+            ]}
+          />
+        )
       )}
       {attesting && query.data !== undefined ? <AttestDialog t={t} review={query.data} onClose={() => setAttesting(false)} /> : null}
-    </Section>
+    </SurfaceSection>
   );
 }

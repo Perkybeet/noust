@@ -1,5 +1,5 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
@@ -96,7 +96,9 @@ describe("an application's page", () => {
       expect(live).toHaveAttribute("href", `https://${DOMAIN}`);
     });
     expect(live).toHaveAttribute("target", "_blank");
-    expect(screen.getByRole("navigation", { name: "Application sections" })).toBeInTheDocument();
+    // The sections are the column's: the page does not draw them under its header.
+    expect(await screen.findByRole("navigation", { name: "Application sections" })).toBeInTheDocument();
+    expect(within(screen.getByRole("main")).queryByRole("navigation", { name: "Application sections" })).not.toBeInTheDocument();
     // Update is the one primary action; the other daily verbs sit beside it, never behind a menu.
     expect(within(top).getByRole("button", { name: "Update" })).toHaveAttribute("data-variant", "primary");
     expect(within(top).getByRole("button", { name: "Restart" })).toHaveAttribute("data-variant", "secondary");
@@ -186,34 +188,16 @@ describe("an application's page", () => {
     await expectNoAxeViolations(document.body, { page: true });
   });
 
-  it("keeps eight sections on the strip: Diagnose is reached from the menu, the banner and the Overview", async () => {
+  it("reaches Diagnose from the Fix group of the column and from the menu", async () => {
     const { user, location } = await appAt({ [`GET /api/apps/${DOMAIN}/diagnose`]: () => new Promise<Response>(() => undefined) });
-    const tabs = await screen.findByRole("navigation", { name: "Application sections" });
-    const names = within(tabs)
-      .getAllByRole("link")
-      .map((link) => link.textContent);
-    expect(names.length).toBeLessThanOrEqual(8);
-    expect(within(tabs).queryByRole("link", { name: "Diagnose" })).not.toBeInTheDocument();
+    const sections = await screen.findByRole("navigation", { name: "Application sections" });
+    expect(within(sections).getByRole("link", { name: "Diagnose" })).toHaveAttribute("href", `/apps/${DOMAIN}/diagnose`);
+    expect(within(sections).getAllByRole("link").length).toBeLessThanOrEqual(17);
     await user.click(await within(header()).findByRole("button", { name: "More actions" }));
     await user.click(await screen.findByRole("menuitem", { name: "Diagnose" }));
     await waitFor(() => {
       expect(location().pathname).toBe(`/apps/${DOMAIN}/diagnose`);
     });
-  });
-
-  it("switches sections where the operator is: the page does not jump to the top", async () => {
-    const { user, location } = await appAt();
-    const tabs = await screen.findByRole("navigation", { name: "Application sections" });
-    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
-    try {
-      await user.click(within(tabs).getByRole("link", { name: "Deployments" }));
-      await waitFor(() => {
-        expect(location().pathname).toBe(`/apps/${DOMAIN}/deployments`);
-      });
-      expect(scrollTo).not.toHaveBeenCalled();
-    } finally {
-      scrollTo.mockRestore();
-    }
   });
 
   it("keeps every daily verb in view on a phone: Update, then Restart, Stop and Roll back as named icons", async () => {
@@ -312,53 +296,17 @@ describe("an application's page", () => {
     expect(queryClient.getQueryData(["app", DOMAIN])).toMatchObject({ status: "deploying" });
   });
 
-  it("deletes only once the domain is typed, keeping its files and certificate unless ticked, then returns to the list", async () => {
-    const { user, backend, location } = await appAt({
-      // Already confirmed it's them: the typed confirmation opens straight away.
-      "GET /api/auth/session": () => json(200, { ...SESSION, elevated_until: "2999-01-01T00:00:00+00:00" }),
-      [`DELETE /api/apps/${DOMAIN}`]: () =>
-        json(202, { job_id: JOB.id, status: "pending", message: `Deletion queued for ${DOMAIN}`, job: { ...JOB, type: "delete" } }),
+  it("leads to the page of deleting it, where each thing that holds data is a box and none is ticked", async () => {
+    const { user, location } = await appAt({
+      "GET /api/apps/shop.example.com/deletion": () => json(200, { domain: DOMAIN, path: "/var/www/apps/shop-example-com", keeps_directory: false, has_volumes: false, databases: [] }),
     });
     await user.click(await within(header()).findByRole("button", { name: "More actions" }));
     await user.click(await screen.findByRole("menuitem", { name: "Delete application" }));
-    const dialog = await screen.findByRole("alertdialog", { name: `Delete ${DOMAIN}` });
-    // Nothing that cannot be made again is chosen for the operator.
-    const files = within(dialog).getByRole("checkbox", { name: "Also delete its files" });
-    const certificate = within(dialog).getByRole("checkbox", { name: "Also delete its certificate" });
-    expect(files).not.toBeChecked();
-    expect(certificate).not.toBeChecked();
-    expect(within(dialog).getByText(/Its files, its certificate and its backups are kept\./)).toBeInTheDocument();
-    const confirm = within(dialog).getByRole("button", { name: "Delete application" });
-    expect(confirm).toBeDisabled();
-    await user.type(within(dialog).getByRole("textbox"), DOMAIN);
-    expect(confirm).toBeEnabled();
-    await user.click(confirm);
     await waitFor(() => {
-      expect(location().pathname).toBe("/apps");
+      expect(location().pathname).toBe(`/apps/${DOMAIN}/delete`);
     });
-    const call = backend.callsTo(`DELETE /api/apps/${DOMAIN}`)[0];
-    expect(Object.fromEntries(call?.search ?? [])).toEqual({ remove_files: "false", remove_ssl: "false" });
-    expect(backend.callsTo("POST /api/jobs/delete")).toHaveLength(0);
-  });
-
-  it("deletes the files and the certificate too only when both are ticked", async () => {
-    const { user, backend } = await appAt({
-      "GET /api/auth/session": () => json(200, { ...SESSION, elevated_until: "2999-01-01T00:00:00+00:00" }),
-      [`DELETE /api/apps/${DOMAIN}`]: () =>
-        json(202, { job_id: JOB.id, status: "pending", message: `Deletion queued for ${DOMAIN}`, job: { ...JOB, type: "delete" } }),
-    });
-    await user.click(await within(header()).findByRole("button", { name: "More actions" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Delete application" }));
-    const dialog = await screen.findByRole("alertdialog", { name: `Delete ${DOMAIN}` });
-    await user.click(within(dialog).getByRole("checkbox", { name: "Also delete its files" }));
-    await user.click(within(dialog).getByRole("checkbox", { name: "Also delete its certificate" }));
-    expect(within(dialog).getByText(/its files and its certificate are removed\. Its backups are kept\./)).toBeInTheDocument();
-    await user.type(within(dialog).getByRole("textbox"), DOMAIN);
-    await user.click(within(dialog).getByRole("button", { name: "Delete application" }));
-    await waitFor(() => {
-      expect(backend.callsTo(`DELETE /api/apps/${DOMAIN}`)).toHaveLength(1);
-    });
-    expect(Object.fromEntries(backend.callsTo(`DELETE /api/apps/${DOMAIN}`)[0]?.search ?? [])).toEqual({ remove_files: "true", remove_ssl: "true" });
+    expect(await screen.findByRole("checkbox", { name: /Also delete its files/ })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Also delete its certificate/ })).not.toBeChecked();
   });
 
   it("asks before stopping", async () => {
@@ -445,7 +393,7 @@ describe("an application's page", () => {
       const health = await screen.findByRole("region", { name: "Health" });
       expect(await within(health).findByText("29 days left")).toBeInTheDocument();
       expect(within(health).getByText("Uptime")).toBeInTheDocument();
-      expect(within(health).getByRole("link", { name: "Edit limits" })).toHaveAttribute("href", `/apps/${DOMAIN}/settings/resources`);
+      expect(within(health).getByRole("link", { name: "Edit limits" })).toHaveAttribute("href", `/apps/${DOMAIN}/resources`);
     });
 
     it("shows the last lines it printed, verbatim, with the way to all of them", async () => {
@@ -473,7 +421,7 @@ describe("an application's page", () => {
       });
       expect(within(item(reachItems, 0)).getByRole("link", { name: "Manage domains" })).toHaveAttribute("href", `/apps/${DOMAIN}/domains`);
       expect(push).toHaveTextContent("Pushes to the repository do not deploy this app.");
-      expect(within(item(reachItems, 1)).getByRole("link", { name: "Set it up" })).toHaveAttribute("href", `/apps/${DOMAIN}/settings/deploy-on-push`);
+      expect(within(item(reachItems, 1)).getByRole("link", { name: "Set it up" })).toHaveAttribute("href", `/apps/${DOMAIN}/triggers#deploy-on-push`);
     });
 
     it("says deploy on push is on and waiting for its first push", async () => {
@@ -484,7 +432,7 @@ describe("an application's page", () => {
       await waitFor(() => {
         expect(push).toHaveTextContent("Pushes to main deploy this app. No push has arrived yet.");
       });
-      expect(within(push).getByRole("link", { name: "Settings" })).toHaveAttribute("href", `/apps/${DOMAIN}/settings/deploy-on-push`);
+      expect(within(push).getByRole("link", { name: "Settings" })).toHaveAttribute("href", `/apps/${DOMAIN}/triggers#deploy-on-push`);
     });
 
     it("warns, in one line, that a running app will not come back with the server", async () => {
@@ -585,7 +533,7 @@ describe("in Spanish", () => {
 });
 
 describe("while the app is read", () => {
-  it("holds the tabs and the tab until it knows whether a banner goes above them", async () => {
+  it("holds the page's sections until it knows whether a banner goes above them", async () => {
     let answer: (response: Response) => void = () => undefined;
     await appAt({
       [`GET /api/apps/${DOMAIN}`]: () =>
@@ -602,15 +550,17 @@ describe("while the app is read", () => {
 });
 
 describe("an app whose last deploy failed", () => {
-  it("says so between the header and the tabs, verbatim, with the log one step away", async () => {
+  it("says so under the header, over every section, verbatim, with the log one step away", async () => {
     await appAt();
     const line = await screen.findByText("npm ERR!");
     expect(line).toHaveAttribute("translate", "no");
     const title = screen.getByText(/^The last deploy failed/);
-    const tabs = screen.getByRole("navigation", { name: "Application sections" });
-    // Above the tabs, so every tab shows it.
-    expect(title.compareDocumentPosition(tabs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByText("The version that was live before is still serving.")).toBeInTheDocument();
+    // In the page, over every section (the next test), and not in the column: the column lists, the page says.
+    expect(within(screen.getByRole("main")).getByText(/^The last deploy failed/)).toBe(title);
+    expect(within(await screen.findByRole("navigation", { name: "Application sections" })).queryByText(/^The last deploy failed/)).toBeNull();
+    expect(screen.getByText("Nothing went down: the version that was live is still the one answering.")).toBeInTheDocument();
+    // The way to why is the first thing offered, and the log is one step beside it.
+    expect(screen.getByRole("link", { name: "See why" })).toHaveAttribute("href", `/apps/${DOMAIN}/diagnose`);
     expect(screen.getByRole("link", { name: "View log" })).toHaveAttribute("href", `/apps/${DOMAIN}/deployments/12`);
   });
 
@@ -633,7 +583,7 @@ describe("an app whose service failed", () => {
       expect(banner).toHaveTextContent(/It stopped after the last deploy failed, .+\./);
     });
     if (!(banner instanceof HTMLElement)) throw new Error("no banner");
-    expect(within(banner).getByRole("link", { name: "Diagnose" })).toHaveAttribute("href", `/apps/${DOMAIN}/diagnose`);
+    expect(within(banner).getByRole("link", { name: "See why" })).toHaveAttribute("href", `/apps/${DOMAIN}/diagnose`);
   });
 
   it("does not offer the diagnosis on the Diagnose tab, where it already is", async () => {
@@ -647,7 +597,7 @@ describe("an app whose service failed", () => {
     );
     const banner = (await screen.findByText("The service has stopped with an error")).closest("[data-tone]");
     if (!(banner instanceof HTMLElement)) throw new Error("no banner");
-    expect(within(banner).queryByRole("link", { name: "Diagnose" })).not.toBeInTheDocument();
+    expect(within(banner).queryByRole("link", { name: "See why" })).not.toBeInTheDocument();
   });
 
   it("says nothing answers on its port when the service runs but the app is silent", async () => {
@@ -792,7 +742,7 @@ describe("what is true of the whole app, on the header's state line", () => {
   it("counts the environment's unapplied settings on its tab, and nothing where there is nothing", async () => {
     await appAt({ [`GET /api/apps/${DOMAIN}/pending`]: () => json(200, PENDING) });
     const tabs = await screen.findByRole("navigation", { name: "Application sections" });
-    expect(within(tabs).getByRole("link", { name: /^Environment\s*1$/ })).toBeInTheDocument();
+    expect(within(tabs).getByRole("link", { name: /^Variables\s*1$/ })).toBeInTheDocument();
     expect(within(tabs).getByRole("link", { name: "Deployments" })).toBeInTheDocument();
   });
 
@@ -846,8 +796,8 @@ describe("the job in hand", () => {
     expect(link).toHaveAttribute("href", `/apps/${DOMAIN}/deployments/13`);
     expect(screen.getByRole("button", { name: /^Cancel/ })).toBeInTheDocument();
     // The Deployments tab counts what is building.
-    const tabs = screen.getByRole("navigation", { name: "Application sections" });
-    expect(within(tabs).getByRole("link", { name: /^Deployments\s*1$/ })).toBeInTheDocument();
+    const tabs = await screen.findByRole("navigation", { name: "Application sections" });
+    expect(await within(tabs).findByRole("link", { name: /^Deployments\s*1$/ })).toBeInTheDocument();
   });
 
   it("opens the deployment a push started as soon as its deploy moves on, without reading the page again", async () => {
@@ -874,7 +824,7 @@ describe("the job in hand", () => {
     expect(await screen.findByRole("link", { name: "View log" })).toHaveAttribute("href", `/apps/${DOMAIN}/deployments/14`);
     expect(screen.queryByRole("button", { name: "View log" })).not.toBeInTheDocument();
     // The Deployments tab counts it too.
-    const tabs = screen.getByRole("navigation", { name: "Application sections" });
+    const tabs = await screen.findByRole("navigation", { name: "Application sections" });
     expect(await within(tabs).findByRole("link", { name: /^Deployments\s*1$/ })).toBeInTheDocument();
   });
 
@@ -885,7 +835,8 @@ describe("the job in hand", () => {
     await appAt({
       "GET /api/jobs/active": () => json(200, { jobs: [{ ...RUNNING_JOB, type: "deploy", logs: [{ timestamp: "2026-09-25T19:21:14", level: "info", message: "[7/7] 🚀 Activating release...", step: 7 }] }], total: 1, active: 1 }),
     });
-    expect(await screen.findByText("Arrancando la versión nueva…")).toBeInTheDocument();
+    // The banner and the page's own steps both say it, and neither says what the deployer wrote.
+    expect((await screen.findAllByText("Arrancando la versión nueva…")).length).toBeGreaterThan(0);
     expect(screen.queryByText(/Activating release/)).not.toBeInTheDocument();
   });
 

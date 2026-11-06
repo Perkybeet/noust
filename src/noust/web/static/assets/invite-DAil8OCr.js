@@ -1,0 +1,1 @@
+import{t as e}from"./InvitePage-Bt-SkNyz.js";var t=e;export{t as component};

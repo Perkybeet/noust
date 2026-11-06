@@ -7,7 +7,6 @@ import { appQuery, diagnosisQuery } from "../../../api/queries/apps";
 import type { Diagnosis } from "../../../api/queries/apps";
 import { announce } from "../../../app/Announcer";
 import { useDocumentTitle } from "../../../app/documentTitle";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { QueryState } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Section, Sections } from "../../../components/page/Section";
@@ -21,6 +20,7 @@ import { StatusPill } from "../../../components/ui/StatusPill";
 import type { Status } from "../../../components/ui/StatusPill";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { TextLink } from "../../../components/ui/TextLink";
+import { useServerSentence } from "../../../components/ui/ServerText";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { cx } from "../../../lib/cx";
@@ -96,7 +96,7 @@ function nextStep(check: Check, domain: string, t: T): ReactNode {
     case "zero_downtime":
       return (
         <TextLink
-          to="/apps/$domain/settings/deploys"
+          to="/apps/$domain/triggers"
           params={{ domain }}
           size="ui"
         >
@@ -119,7 +119,7 @@ function ZeroDowntimeSuggestion({ domain, t }: { domain: string; t: T }) {
       title={t("appPages.diagnose.zeroDowntimeTitle")}
       action={
         <Link
-          to="/apps/$domain/settings/deploys"
+          to="/apps/$domain/triggers"
           params={{ domain }}
           className={buttonClassName("secondary", "sm")}
         >
@@ -190,6 +190,7 @@ function Verdict({
   onRunAgain: () => void;
   t: T;
 }) {
+  const say = useServerSentence();
   const view = verdictView(diagnosis.verdict, t.locale);
   const counts = tally(diagnosis.checks);
   const healthy = view.tone === "ok";
@@ -263,12 +264,12 @@ function Verdict({
             </p>
           </div>
           {diagnosis.probable_cause ? (
-            // The correlation's own words, verbatim, under the product's reading of them.
+            // The correlation's own words, under the product's reading of them: Noust's sentence, in this language.
             <SystemOutput
               label={t("appPages.diagnose.whatTheChecksFound")}
               className="rounded-control border border-border bg-bg-sunken px-3 py-2"
             >
-              {diagnosis.probable_cause}
+              {say(diagnosis.probable_cause_coded, diagnosis.probable_cause)}
             </SystemOutput>
           ) : null}
         </div>
@@ -329,6 +330,7 @@ function CheckRow({
   open: boolean;
   t: T;
 }) {
+  const say = useServerSentence();
   const evidence = check.evidence.trim() !== "";
   const next = nextStep(check, domain, t);
   const label = checkLabel(check.name, t.locale);
@@ -339,7 +341,7 @@ function CheckRow({
         {label}
       </span>
       <span className="min-w-0 flex-1 basis-60 text-13 leading-5 text-pretty text-fg-muted">
-        {check.summary}
+        {say(check.coded, check.summary)}
       </span>
     </>
   );
@@ -570,10 +572,6 @@ export function DiagnoseTab({ domain }: { domain: string }) {
           )}
         </QueryState>
       </section>
-      <CommandHint
-        command={`noust diagnose ${domain}`}
-        label={t("common.words.fromTerminal")}
-      />
     </Sections>
   );
 }

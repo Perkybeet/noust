@@ -2,7 +2,6 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 
 import type { ProjectEnvironment } from "../../api/queries/teams";
-import { CommandHint } from "../../components/page/CommandHint";
 import { DetailPage } from "../../components/page/DetailPage";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
@@ -107,7 +106,6 @@ export function ProjectPage({ team, project: slug, search, onSearchChange }: Pro
               {t("teams.project.allProjects")}
             </Link>
           }
-          command="noust project list"
         />
       </DetailPage>
     );
@@ -217,7 +215,6 @@ export function ProjectPage({ team, project: slug, search, onSearchChange }: Pro
             title={t("teams.project.emptyTitle", { name: current.name })}
             description={t("teams.project.emptyDescription")}
             {...(canCreateApps ? { action: newApp("secondary") } : {})}
-            command={`noust create --domain app.example.com --source <repository> --team ${team} --project ${slug} --environment ${current.slug}`}
           />
         ) : (
           <>
@@ -225,7 +222,7 @@ export function ProjectPage({ team, project: slug, search, onSearchChange }: Pro
               {apps.length === 0 ? (
                 <EmptyState variant="inline" title={t("teams.project.noApps")} />
               ) : (
-                <AppsTable apps={apps} deploys={NO_DEPLOYS} metrics={undefined} caption={t("teams.project.appsCaption", { name: current?.name ?? slug })} rowActions={(app) => <AppRowActions app={app} />} />
+                <AppsTable apps={apps} deploys={NO_DEPLOYS} caption={t("teams.project.appsCaption", { name: current?.name ?? slug })} rowActions={(app) => <AppRowActions app={app} />} />
               )}
             </Section>
             {databases.length > 0 ? (
@@ -243,14 +240,12 @@ export function ProjectPage({ team, project: slug, search, onSearchChange }: Pro
         {/* What the project's applications share, defined once and referred to: after what lives here. */}
         {resources.loading ? null : (
           <>
-            <SharedVariables scope={{ kind: "project", team, project: slug }} name={project.name} canManage={canCreateApps} command={false} inlineEmpty />
+            <SharedVariables scope={{ kind: "project", team, project: slug }} name={project.name} canManage={canCreateApps} inlineEmpty />
             {current !== undefined ? (
-              <SharedVariables scope={{ kind: "environment", team, project: slug, environment: current.slug }} name={current.name} canManage={canCreateApps} command={false} inlineEmpty />
+              <SharedVariables scope={{ kind: "environment", team, project: slug, environment: current.slug }} name={current.name} canManage={canCreateApps} inlineEmpty />
             ) : null}
           </>
         )}
-        {/* Drawn with what it is about, not before: under a body of unknown height it would only be pushed down. */}
-        {resources.loading ? null : <CommandHint command={`noust list --team ${team} --project ${slug}`} label={t("teams.fromTerminal")} />}
       </div>
       {environmentActions.dialogs}
       {projectActions.dialogs}

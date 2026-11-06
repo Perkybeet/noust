@@ -116,7 +116,9 @@ describe("importing from Coolify, Dokploy or CapRover", () => {
     await harness.user.click(screen.getByRole("button", { name: "Read it" }));
 
     expect(await screen.findByText("storefront cannot be imported as it is")).toBeInTheDocument();
-    expect(screen.getByText("noust create --domain shop.example.com --image ghcr.io/acme/worker:1")).toBeInTheDocument();
+    expect(screen.getByText("noust create --domain shop.example.com --image ghcr.io/acme/worker:1").closest("[data-reason]")).toHaveAttribute("data-reason", "salida-del-sistema");
+    // The form reads the other server by itself: the command that does the same reading is not repeated under it.
+    expect(screen.queryByText(/noust import --from/)).not.toBeInTheDocument();
     // Nothing was loaded for review.
     expect(screen.queryByText(/An export of shop\.example\.com/)).not.toBeInTheDocument();
   });

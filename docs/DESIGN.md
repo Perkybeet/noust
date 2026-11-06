@@ -16,7 +16,7 @@ Where the system lives:
 | Primitives: buttons, fields, notices, tables... | `panel/src/components/ui/` |
 | Page kit and the seven templates | `panel/src/components/page/` |
 | Page header and URL tabs | `panel/src/app/PageHeader.tsx`, `panel/src/app/LinkTabs.tsx` |
-| The frame: the main bar, the second column, one bar, the phone's bar, the breadcrumbs | `panel/src/app/frame/`, with the layout rules in `panel/src/app/navLayout.ts` and the saved choices in `panel/src/app/preferences.ts` |
+| The frame: the main bar, the second column, the phone's bar and section selector, the breadcrumbs | `panel/src/app/frame/`, with the layout rules in `panel/src/app/navLayout.ts` and the saved choices in `panel/src/app/preferences.ts` |
 | The executable specification | the gallery, `/__design` (development builds only; `panel/src/dev/`) |
 | Enforcement | `styles/tokens.test.ts`, `styles/design-rules.test.ts`, `styles/design-structure.test.ts`, `styles/setting-copy.test.ts`, `styles/concept-doors.test.ts`, `styles/dead-class.test.ts`, `i18n/verbs.test.ts`, `i18n/glossary.test.ts`, `eslint.config.js`, `e2e/design-contract.spec.ts`, `e2e/indicator.spec.ts`, `e2e/field-edge.spec.ts`, `e2e/tab-switch-layout.spec.ts`, `e2e/leave-guard.spec.ts`, `e2e/settings-length.spec.ts` |
 
@@ -78,8 +78,9 @@ Three corollaries the rest of the document applies everywhere:
   question for one resource, typing the name for what cannot be undone.
 - **Nothing moves when data arrives**: space is reserved from the first frame (layout shift
   0.05 or less on every page), and switching a tab never slides the page sideways.
-- **The terminal is a first-class way in**: where the CLI does the same thing, the view says
-  the command.
+- **The terminal is a way in, not a repeated hint**: the console does what the command does, so a page
+  shows a command only when it has a reason (6.16, CL-1): the terminal alone can do it, it is for another
+  server, or the system's own output names it.
 
 ---
 
@@ -145,7 +146,7 @@ ground):
 inside a plot and nowhere else. **ANSI** (`--ansi-blue`, `--ansi-magenta`, `--ansi-cyan`): a
 program's own colours reproduced in `LogViewer`, nothing else. **Illustration** (`--il-stroke`,
 `--il-stroke-2`): the grey stroke of a drawing and the fill of a meter that is not a problem.
-**Veil** (`--backdrop`): behind a modal.
+**Veil** (`--backdrop`): behind a modal, over the main bar and the column as over the page; the ground under it is `--bg-veiled` while it is up, so the room of the scrollbar, which a fixed veil does not reach, is not a light strip beside it.
 
 Rules:
 
@@ -181,7 +182,7 @@ Rules:
   drawn with `--accent`, which is why the two never go beside a violet that means "press".
 - **C-11** The current navigation item is the raised piece under it, and nothing else is: the
   sliding indicator of 2.7 draws it (a tone, a light edge on top and a darker joint beneath, 2.6) in
-  the main bar, in the second column, in one bar and at the foot of a phone, each with its own piece,
+  the main bar, in the second column and at the foot of a phone, each with its own piece,
   and `aria-current="page"` is the item's own state, so a screen reader and a test agree with the eye.
   Its label is `--text` and its icon `--accent-text`, against `--text-muted` and `--text-faint` for
   the others, and it does not get heavier (Y-2): a shape, a tone and a colour, never a colour alone.
@@ -506,7 +507,7 @@ to say it.
   Icons, CC0, with the brands' notice in `components/ui/logos/`), so no request leaves the console to
   draw one and `img-src` stays `'self'`. An icon of the console's own stands bare: a tile behind
   it says nothing and is a tic (2.12). *Enforced by:* the ratchet rule `icon-tile`.
-- **IL-3** An explanation is a `HelpPopover`: an "i" button that opens a popover. A `Tooltip` only
+- **IL-3** An explanation is a `HelpPopover`: a "?" button that opens a popover. A `Tooltip` only
   names an icon (an `IconButton` does it for its label), because a touch screen has no hover and
   what is said in a tooltip is lost to anyone who cannot rest a pointer on it. *Enforced by:* the
   ratchet rule `tooltip-by-hand`.
@@ -535,14 +536,15 @@ stylesheets are scanned for the same.
 
 ## 3. Layout and widths
 
-- **L-1** The shell is the navigation, a sticky 56px top bar and the page, and the navigation has
-  three forms that the window's width and a saved choice decide (`app/navLayout.ts`, NV-20): the
-  **double bar**, a main bar of areas (`--width-rail`, 208px, or `--width-rail-folded`, 68px, folded to
-  icons) and, only where the resource has sections, a second column (`--width-column`, 256px) with its
-  context; **one bar** (`--width-sidebar`, 264px) with the areas in titled groups and the sections as tabs
-  or a list in the page; and, on a phone, a bar at the foot with four areas and a menu. The page is in a
-  column capped at `--width-page` (1600px) with 16 / 24 / 32px of padding, or as wide as the window when
-  the person chose the whole width.
+- **L-1** The shell is the navigation, a sticky 56px top bar and the page, and the navigation has two
+  forms that only the window's width decides (`app/navLayout.ts`, NV-20): from 1024px, a **main bar**
+  of areas in titled groups (`--width-rail`, 208px, or `--width-rail-folded`, 68px, folded to icons)
+  and, always, a **second column** (`--width-column`, 256px) with the context of the area or the
+  resource the page is under; and, on a phone, a bar at the foot with four areas and "More", and the
+  column as a section selector at the top of the page. There is no other presentation and nothing to
+  choose between them: no "one bar", and no strip of tabs that lists sections. The page is in a column
+  capped at `--width-page` (1600px) with 16 / 24 / 32px of padding, or as wide as the window when the
+  person chose the whole width.
 - **L-2** Every template sets its own inner grid from the width tokens. A content column MUST
   NOT have a `max-w` narrower than its own header (the header and the content start and end on
   the same edges):
@@ -551,22 +553,24 @@ stylesheets are scanned for the same.
 |---|---|---|
 | `--width-page` | 1600px | The shell's cap: T1, T2, T4, T6 |
 | `--width-settings-nav` | 200px | T3's side navigation, T5's step rail |
-| `--width-settings` | 880px | T3's content |
+| `--width-settings` | 896px | T3's content: the page's own column at 1440 (L-2), so a section ends where every other page does |
 | `--width-wizard` | 736px | T5's step |
-| `--width-auth` | 400px | T7's column |
+| `--width-auth` | 992px | T7's slab |
 | `--width-dialog-sm / md / lg / xl` | 440 / 560 / 720 / 1280px | A question / a form of up to six fields / two columns or steps / looking closely |
 | `--width-drawer-md / lg` | 480 / 720px | Forms and a row's detail / logs |
 | `--width-search` | 288px | Every `FilterBar` search box |
-| `--width-rail`, `--width-rail-folded` | 208 / 68px | The main bar of the double bar, unfolded and folded to icons |
-| `--width-column` | 256px | The second column of an application, the server, Databases and Settings |
-| `--width-sidebar` | 264px | The one bar |
+| `--width-rail`, `--width-rail-folded` | 208 / 68px | The main bar, unfolded and folded to icons |
+| `--width-column` | 256px | The second column of every area and every resource |
 | `--measure`, `--measure-help` | 68ch, 52ch | Prose, help |
 
 - **L-3** Layout breakpoints: `sm` (640px), `lg` (1024px), and the navigation's own, which are the
-  frame's and not a page's: 1024, 1280 and 1440px (`navLayout.ts`). Below 640 is a phone (one column,
-  tables as card rows); below 1024 the areas are at the foot of the screen and the rest is a drawer; from
-  1024 the bar is at the side; from 1280 there is room for two bars, with the main one folded to icons
-  until 1440; from 1440 the saved choices decide. `md` and `xl` only hide columns or widen grids.
+  frame's and not a page's: 1024 and 1440px (`navLayout.ts`). Below 640 is a phone (one column, tables as
+  card rows); below 1024 the areas are at the foot of the screen, "More" opens a sheet with all of them in
+  their groups, and the column is a section selector at the top of the page that opens a sheet with the
+  same list; from 1024 the main bar and the column are always both there, because two open bars need
+  about 1410px: from 1024 to 1439 the main bar is folded to icons and unfolds over the page without
+  pushing it, and from 1440 it is unfolded and the saved fold decides. `md` and `xl` only hide columns or
+  widen grids.
 - **L-4** A page never scrolls sideways at 390px or at 200% zoom; only a table, a log or a tab
   strip scrolls inside itself.
 - **L-5** The root keeps the scrollbar's room (`html { scrollbar-gutter: stable }`), and so do
@@ -603,8 +607,8 @@ Rules common to all:
 - **Above the fold** at 1440: the state, the primary action and the start of the main content.
   At 390: the state and the primary action.
 - **An `h2` never repeats the `h1` or the tab's name** ("Backups" under "Backups").
-- **The CLI hint** (`CommandHint`) appears once per view, in the template's `footer`; in T3 once
-  per subsection, at its end.
+- **The CLI hint** (`CommandHint`) is shown only with its `reason` (CL-1) and then once per view, in the
+  template's `footer`; in T3 once per subsection, at its end. A command that repeats a button is not shown.
 - **What is destroyed** lives in T3's last subsection ("Delete") or behind `More actions` with a
   confirmation, and every destructive option in it starts **unchecked**.
 
@@ -657,9 +661,12 @@ servers.
   headers, offering an action that is possible right now. A filter that matches nothing shows an
   inline empty state with "Clear filters".
 
-### T2 Detail with tabs: `DetailPage`
+### T2 Detail: `DetailPage`
 
-For: an application, a database, a service, a site, a fleet node, a deployment.
+For: an application, a database, a service, a site, a fleet node, a deployment. The sections of a resource
+are not tabs under its header: they are the second column, which slides to them when the resource is
+entered (NV-22, NV-23). The `tabs` slot is for the views of one thing (a site's Text, Structure and
+Diagram; a zone's Records, DNSSEC and Delegation), never for pages.
 
 ```
 Applications >
@@ -668,9 +675,8 @@ shop.example.net  * Running  Next.js . :3001 . shop.example.net ->  [Restart] [S
 | x The service keeps failing to start. systemd gave up after 5 restarts.       [Diagnose]    |  <- banner, every tab
 +--------------------------------------------------------------------------------------------+
 [o Updating shop.example.net  npm ci]                                                            <- the job in hand
-[Overview] [Deployments] [Logs] [Metrics] [Environment] [Database] [Domains] [Settings]
 --------------------------------------------------------------------------------------------
-  the active tab: a list (T1 body), a log, charts, or settings (T3). No h2 repeating the tab.
+  the open section (the column says which): a list (T1 body), a log, charts, or settings (T3). No h2 repeating it.
 ```
 
 ```tsx
@@ -685,22 +691,23 @@ shop.example.net  * Running  Next.js . :3001 . shop.example.net ->  [Restart] [S
 ```
 
 - The header and the tabs belong to the layout route: the same height and place on every tab.
-- Eight tabs at most. A tab that repeats another area's view (Server > Logs, a fleet strip that
-  mirrors the sidebar) is a filter of that view, not a tab (NV-3, 6.14). A view reached from a
-  state rather than browsed (an application's Diagnose) keeps its URL but leaves the strip: the
-  status banner, the header's `More actions` and the Overview's "Needs attention" link to it.
+- A section of the resource that repeats another area's view (Server > Logs, a fleet face that
+  mirrors the sidebar) is a filter of that view, not a section (NV-3, 6.14). A view reached from a
+  state rather than browsed (an application's Diagnose) is in the column's "Fix" group, and the status
+  banner, the header's `More actions` and the Overview's "Needs attention" link to it too.
 - Settings that are saved but do not run yet are a chip in the header's status line ("3 not
   applied") that opens the review, not a full-width banner on every tab (FM-5).
-- Tabs are URLs (`LinkTabs`), never local state. A count on a tab (`count`) is `null` while it
-  loads: its room is kept, so the strip does not change width when it arrives.
-- When the resource is broken, a status banner between the header and the tabs says the cause
-  and the fix, on every tab, not only on the first.
+- A strip of view tabs, where a page has one (NV-23), is made of URLs (`LinkTabs`) or of one state
+  (`Tabs`), and a count on it (`count`) is `null` while it loads: its room is kept, so the strip does not
+  change width when it arrives. A count on a section is the column's.
+- When the resource is broken, a status banner between the header and the page says the cause
+  and the fix, on every section, not only on the first.
 - At 390 the tab strip scrolls with faded edges and the active tab centred; the header keeps
   the primary action visible beside `More actions`.
 
 ### T3 Settings with side navigation: `SettingsLayout` and `SaveBar`
 
-For: global settings, an application's settings (and a database's or a service's when they
+For: global settings (and a database's or a service's when they
 grow).
 
 ```
@@ -716,14 +723,14 @@ grow).
 |                    | +--------------------------------------------------------+ |
 |                    | ## 2 unsaved changes                    [Discard] [Save] | |  <- sticky bar
 +--------------------+------------------------------------------------------------+
- 200px navigation + content of 880px at most, starting on the header's left edge.
+ 200px navigation + content of 896px at most, starting on the header's left edge.
  390px: the navigation is an index page of its own; each subsection has "< All sections".
 ```
 
 ```tsx
 <SettingsLayout label="Application settings" items={[
     { to: "/apps/$domain/settings", params, label: "General", exact: true },
-    { to: "/apps/$domain/settings/deploys", params, label: "Deploys" },
+    { to: "/apps/$domain/triggers", params, label: "Deploys and triggers" },
     { to: "/apps/$domain/settings/delete", params, label: "Delete", danger: true },
   ]} index={isIndexRoute} backTo="/apps/$domain/settings" backParams={params}>
   <Card title=... description=...> fields </Card>
@@ -731,13 +738,17 @@ grow).
 </SettingsLayout>
 ```
 
+- An application's settings are not a T3 (4.2, item 116): its column lists seventeen sections in five groups and there is no
+  list of its own inside a "Settings". What were eighteen subsections are four pages of titled cards (Code and build, Deploys
+  and triggers, Resources and running, Access and protection, `features/app/pages/ConfigPage`) beside Export and declaration,
+  Several servers and Delete, each a page of its own (6.7, FM-9).
 - Each subsection is its own URL and fits in one and a half screens at 1440; one that does not is
   split (FM-8, NV-9).
 - The side list is titled by what each section is for (NV-11), holds 8 items per group at most, 7 groups and 26 in all (NV-3), and
   grows a filter box from 12 entries (`SETTINGS_FILTER_FROM`; an item's `keywords` are the old
-  names that still find it). In the double bar the list is the second column and the box is at its
-  head, above the groups; the page then draws the section alone (`carried`). One bar and the
-  phone's index draw the list and the box in the page.
+  names that still find it). The list is the second column and the box is at its head, above the
+  groups; the page draws the section alone. On a phone the column is the section selector at the top of
+  the page and its sheet has the same list and the same box; `/settings` itself is the hub of doors.
 - A subsection's one primary action that is not a Save ("Invite a person", "Create token")
   goes in the page's header through `SettingsPrimaryAction` (`features/settings/SettingsShell`),
   never in a section.
@@ -877,36 +888,56 @@ Domains > example.net  * Serving                                        [Disable
 
 ### T7 Access: `AuthLayout`
 
-For: sign in, a sealed central, the legal notice.
+For: sign in and the checks around it (second factor, notice), the first account, an invitation, a
+new password, a sealed central. All of them are the same slab.
 
 ```
-                 +-------------------------------------+
-                 | [mark] | web-1.example.com          |   <- the machine, first
-                 |        | Noust console 3.1.0        |
-                 |                                     |
-                 | Sign in                             |
-                 | Use an access token or a passkey.   |
-                 | [Access token.....................] |
-                 | [            Sign in              ] |   <- control-lg
-                 | Lost it?  $ noust web token         |
-                 +-------------------------------------+
-                           one column of 400px
+        +------------------------------------------------------------+
+        | +-------------------------+                                |
+        | | [noust]                 |   Sign in                      |
+        | |                         |   With your Noust account.     |
+        | |   (a noust, from the    |   [Username or email.........] |
+        | |    side, a boat in it)  |   [Password..................] |
+        | |                         |   [         Sign in          ]  |   <- control-lg
+        | | Your apps and servers,  |   -- other ways to sign in --  |
+        | | kept safe.              |   [Passkey][Your company][Token]|   <- AuthDoors
+        | +-------------------------+                                |
+        +------------------------------------------------------------+
+         (c) Yago Lopez Prado. Free software under the AGPL-3.0-or-later.
+                                  one slab of 992px
 ```
 
-- One column of 400px in the middle of the screen, the machine's name above everything (nobody
-  types a token into the wrong server), one field, one large button, the terminal's way under it.
-- The `h1` is the page title role (24px) and takes focus on arrival.
+- One slab of 992px in the middle of the screen. On the left, carved in as a hollow (`elev-carved-fine`),
+  the identity: the logo, `NoustSide` (a noust drawn from the side, in the greys of the stone with the
+  boat in the accent) and one sentence. On the right, the form: the `h1` (`display text-32`, it takes
+  focus on arrival), its sentence, the form and the terminal's way. Below 1024px the hollow is a band
+  across the top of the slab (the logo and the drawing at the slab's width, no sentence) and the form
+  follows it.
+- The picture is in a slot of its own (`art`, `data-slot="art"`), filled by `SignInArt` (the noust) unless
+  something else is given, and the slot gives what it holds the width of the hollow. The logo, the sentence,
+  the operator's line and the licence notice are outside the slot, so a picture put in its place never takes
+  them away. The one thing an operator puts there is their own picture (`SignInPicture`, Settings > Sign-in
+  image): PNG, JPEG or WebP, in the drawing's own box (400 by 230, so the slab never changes size), filling it
+  (`cover`, a photograph) or whole on the hollow's surface (`contain`, a logo), and it is the drawing again
+  when the picture does not load. The answer is asked before the slab opens, and while it is on its way the
+  slot holds the drawing unseen, so a company's screen never flashes Noust's drawing first.
+- The licence notice is the page's `footer`, under the slab and outside it.
+- Before sign-in nothing of the server is shown: not its name, not its version. The one exception is the
+  line its operator chose (`auth.login_label`), under the sentence of the hollow.
+- The other ways to sign in are `AuthDoors`: the password form first and, under it, two or three equal
+  doors (passkey, your company when one is configured, access token). A door opens its way in the form's
+  place, with a link back to the password.
 
 ### Patterns shared by the templates
 
 | Pattern | Rule |
 |---|---|
-| First-use empty state | One per page, in the content's place: an icon, what this is and what is missing, one sentence, the one action possible now, and its CLI command. `EmptyState variant="firstUse"` |
+| First-use empty state | One per page, in the content's place: an icon, what this is and what is missing, one sentence and the one action possible now: no command beside it, which would repeat the button (CL-1). `EmptyState variant="firstUse"` |
 | Inline empty state | Inside a section or a table filtered to nothing: one line with a link or a small button, no icon, no frame, 56px at most. `EmptyState variant="inline"` |
 | Drawer | A row's detail with the page behind it: 480px for forms and detail, 720px for logs |
 | Dialog | sm 440 a question, md 560 a form of up to six fields, lg 720 two columns or steps, xl 1280 only to look closely (an enlarged chart) |
 | Danger | In T3's last subsection or behind `More actions` with a confirmation; destructive options unchecked by default |
-| CLI hint | Once, at the foot of the view (T3: at the end of each subsection) |
+| CLI hint | Only with a reason (`solo-terminal`, `otro-servidor`, `salida-del-sistema`), once, at the foot of the view (T3: at the end of each subsection) |
 | State colours | Green only for running, serving, succeeded, and something that is on: a feature in the header of its card (`Card status`), or an on/off label in a row, a list or a fact (`StatusPill`, 6.1); never a block |
 
 ---
@@ -953,8 +984,9 @@ at any character, never cut, with its `CopyButton`. Not for a fact among facts (
 `KeyValueList` row copies its own) and not for output the system printed (`SystemOutput`).
 
 **`SectionSwitch`** and **`SwitchedRegion`** (owner item 106). The master switch of a whole section
-("Alerts", "Backups"): one `Switch` with its name beside it in the header of the page, next to the
-page's action, and the list it governs wrapped in a `SwitchedRegion`, which draws its content text in the
+("Alerts", "Backups"): one `Switch` with its name beside it in the header of the page, on the line of the
+title (`PageHeader master`, `SettingsMasterSwitch` in Settings: it belongs to what it governs and is never at the
+far end of the header, HD-1), and the list it governs wrapped in a `SwitchedRegion`, which draws its content text in the
 muted tone when the section is off so that a page of rules that do nothing does not look as if it did
 (a change of tone, never an opacity: the page must stay 4.5:1 and stay reachable). The name never changes with
 the state (SW-3); a switch that cannot be moved says why beside it (`disabled` requires `reason`).
@@ -1051,7 +1083,7 @@ height with one focus ring, two buttons with their own names. A menu of differen
 
 **`Tooltip`**. Names an icon, and nothing else (IL-3); never the only place something is said, never
 on a button that already has text. **`Popover`**: small panels (the session menu), never a
-confirmation. **`HelpPopover`** (`label`, `title`, `children`): the "i" beside a name that needs
+confirmation. **`HelpPopover`** (`label`, `title`, `children`): the "?" beside a name that needs
 explaining, a button that opens a popover, which a touch screen can use.
 
 **`SlidingIndicator`** (`variant` `raised | flat`, `activeSelector`, `className`). The piece of 2.7 (M-5), drawn
@@ -1129,7 +1161,7 @@ button ("Turn on...") and not a switch (SW-5). The rules of its text are SW-3 an
 by `styles/setting-copy.test.ts`. Not for a filter or a view mode, a parameter of an action, or
 anything saved with a Save button.
 
-**`SettingsGroup`** (`title`, `icon`, `description`, `status`, `actions`, `command`, `level`). The rows of
+**`SettingsGroup`** (`title`, `icon`, `description`, `status`, `actions`, `level`). The rows of
 one subject on one surface: a `Card padding="none"` whose children are separated by a hairline. A
 subsection that saves with a Save button is a form of `Field`s, not a group of rows (FM-1).
 
@@ -1177,7 +1209,7 @@ rules**:
   know before acting. If a help line, a risk line or nothing says it, there is no notice. *Enforced
   by:* ratchets `notice-info-bare` and `notice-stack`; review.
 - **NT-2** Size: an inline notice has a title of 8 words or fewer and a body of 30 words or fewer
-  (three lines at 880px); a banner has a title of 8 words or fewer and a body of 25 or fewer. More
+  (three lines at 896px); a banner has a title of 8 words or fewer and a body of 25 or fewer. More
   than that goes behind "What changes" (`Popover`), a `Disclosure`, a `Drawer` or the documentation.
   One action. *Enforced by:* ratchet `notice-long` (the test resolves the keys of every `<Notice>`
   and holds the hard ceiling of 45 words; the limits above are held by review).
@@ -1258,7 +1290,8 @@ apart. The `primaryAction` is wrapped so that it steps aside while a `SaveBar` h
 (`DemotePrimary`): a `Dialog`, a `Drawer` and a `ConfirmDialog` reset it, since a dialog has a
 primary of its own.
 
-**`KeyValueList`**. Facts about one thing, one per row; system values in mono and copyable, cut at the
+**`KeyValueList`** (`pasted` per item). Facts about one thing, one per row; a value that is pasted into another place
+(`pasted`: a webhook address) wears its copy button always and wraps, so what is copied is what is seen; system values in mono and copyable, cut at the
 end of their line with the whole as their title. A value that is a sentence (`mono: false`) is never
 cut: it takes the lines it needs, and `wrap` gives a card too narrow for a host name or a kernel the
 same for its system values. Not tabular data.
@@ -1374,6 +1407,14 @@ beside the step from 1536px (16rem at least) and follows it below that. `Setting
 the navigation the screen shows (the side list from 640px, the index on a phone's index route),
 so the page has one navigation landmark in a browser and in a unit test alike.
 
+**The content kit of 4.2** (items 109, 121, 122, 123), each with its specimen in `/__design`, "Components (4.2)", and its rules in 6.16:
+**`SurfaceSection`** (`title`, `icon`, `description`, `help`, `status`, `actions`, `flush`, `level`, `loading`): a section that is a slab, its head
+row saying what it is. **`FirstUse`** (`action`, `secondary`, `drawing`): the first time inside a section. **`ResourceCard`** (`name`, `level`, `icon`
+or `logo`, `status`, `facts`, `actions`): a thing that exists. **`NameWithTags`** (`tags`, `shown`, `renderTag`): a name and its tags on one
+line, "+N" for the rest. **`SaidLines`** (`label`, `lines`): what a system answered about what failed, under the table. **`GuardedButton`**,
+**`Can`**, **`ReadOnlyLine`**, `useCan` (`components/page/permissions.tsx`): who can do what. `DataTable embedded` draws a table inside a
+slab with no slab of its own.
+
 **`ICONS`**, **`ICON_SIZE`** (`components/ui/icons.ts`) and **`useMediaQuery`**, `SM_UP`,
 `LG_UP`: section 2.8 and the `sm`/`lg` breakpoints in code.
 
@@ -1417,6 +1458,12 @@ application's state while it runs.
   `children` in a wider `size`, and the last step of a destructive flow is never a danger `Button`
   written by hand outside it and `DangerZone` (ratchets `danger-button-outside-confirm` and
   `confirm-hand-rolled`).
+- **DL-1** A deletion shows one box for each thing of the resource that holds data (an application's files, the volumes
+  of its containers, its own databases, its certificate), each read from what the server says deleting would touch
+  (`GET /api/apps/{domain}/deletion`) and none ticked. A folder that is not Noust's (an adopted stack's) goes only when its
+  box is ticked, and ticking it names it, because that is the one way the server removes it; a database another resource
+  also uses is said to stay and has no box. The question that follows says, from the boxes, what goes and what stays.
+  *Enforced by:* `features/app/deletion.test.ts`; `features/app/pages/DeletePage.test.tsx`; `e2e/app-settings.spec.ts`.
 - After acting, the interface itself changes (the row goes, the state changes), the change is
   announced to screen readers, and focus returns to something stable. A toast only when the
   result is not on screen.
@@ -1444,6 +1491,26 @@ wizard's last step), its row in Activity, and a toast when it ends if the operat
 page. The live log opens in a drawer. Start and success are announced politely, a failure
 assertively, with the error verbatim; an event is announced once, by one channel.
 
+**The task centre** (4.2, item 114) follows every job and every long operation of every server from the
+top bar, whichever page started it. One store (`features/tasks/store.ts`) holds them, fed by the reads of the
+server (`/api/jobs/active`, the history, `/api/operations/active`, and a central's `/api/fleet/jobs/active`) and
+by the `job` and `operation` events; nothing else writes it and no screen keeps a state of its own for the
+centre. The icon counts what runs in the shape and colour of work in progress; its panel puts yours first
+(running, then queued), then "Now on the server" (what you did not start), then what ended lately with its
+result (a failure says where it stopped and what the tool printed, verbatim), and on "All servers" it is
+grouped by server, a server not yet updated saying it will count its tasks when it is.
+
+- **Pinning is a choice.** A running task can be pinned as a chip at the foot of every page, with its progress
+  and step; it keeps its result until it is let go, and a reload keeps the pin. Nothing is pinned by itself.
+- **The end is told once, to the one it concerns.** A task of yours that ends while you are on another page
+  is one toast with "See"; on its own page (or the page of the application it acts on) it says nothing,
+  because you are looking at it; and the server's own notice for it is not said a second time. What is not
+  yours keeps the server's notice.
+- **The browser's notification is offered, never started.** The first time you leave a long task of yours, a
+  toast offers it; only your yes asks the browser for its permission, and it is shown only while the tab is hidden.
+- **A task has a page** (Activity > Tasks > one): its steps (a deploy's five phases), who and where, its log as
+  it is written, Pin, Cancel where the queue allows it and Try again for a failed deploy.
+
 ### 6.5 Errors and system output
 
 An error is: what failed (four words: "Could not load applications"), the fix above (the
@@ -1452,6 +1519,20 @@ copyable), and "Try again" when it can be retried. A field's error is in its `Fi
 in its place (`QueryState`); an action's where it was started (the dialog, the `JobProgress`,
 or a persistent error toast with the `detail`). `role="alert"` only for the outcome of something
 the operator just did. Never "Oops" or "Sorry"; an unknown cause is not invented.
+
+**A fault is reported from where it is met** (4.2, item 127). The screen of a page that broke says that the rest
+of the console works, shows the error verbatim and offers two buttons, Try again and Report a problem; the help
+menu of the top bar (and "More" on a phone) opens the same report from any page. It is one dialog of three steps
+(what happened, what is sent, what happens on GitHub) that ends in one .zip the person downloads and in GitHub's
+form opened with its fields filled in: Noust publishes nothing, the person does.
+
+- **What is sent is what is shown.** Each part of the file (the server's support report, the browser's block, the
+  person's own text when the address of the form cut it, each image) opens and shows exactly what is written in it,
+  and what looks like a secret is marked as hidden. The server masks its report; the browser masks its own text with
+  the server's shapes (`api/secretShapes.gen.ts`, written by `scripts/generate_secret_shapes.py` from the tuple
+  `mask_secret_shapes` walks), never with a list of its own, because the report is also made when the server is down.
+- **The browser's last errors are kept in memory only** (`lib/errorBuffer.ts`: twenty entries from uncaught errors,
+  unhandled rejections, `console.error` and failed API calls), and masked when a report is made, not before.
 
 ### 6.6 Empty, loading and partial
 
@@ -1534,6 +1615,14 @@ forms go in a drawer.
   not one). *Enforced by:* `e2e/settings-length.spec.ts` (heights per route, a baseline that only
   goes down; over 1400px needs a reason).
 
+- **FM-9** A page that gathers several forms is one form (4.2). The four pages of an application that gather what were
+  subsections draw each part's cards under its heading and save them from one `SaveBar` (`SaveHost`): a part registers its
+  changes where it used to draw its own bar (`PartSaveBar`), and Save checks every part that changed before any is sent, asks
+  "Confirm it's you" once and saves them in order, a part that fails keeping its changes beside its fields. The parts a person
+  seldom opens are folded under a button each (`FOLDED`, `PartFold`), still mounted, so a change in a folded part counts on
+  the bar. *Enforced by:* `features/app/settings/AppSettings.test.tsx` (one bar per page);
+  `features/app/settings/sections.test.ts`; `e2e/app-settings.spec.ts`.
+
 ### 6.8 Tables
 
 - Column order: **identity first** (the name; it names the row for screen readers and opens
@@ -1543,6 +1632,25 @@ forms go in a drawer.
   on the state column (`STATE_RANK`).
 - Density per D-2; truncation is a last resort, with the full value in a tooltip, and system
   values are truncated in mono.
+- A cell has no vertical padding: its height is a minimum, a row is as tall as its tallest content,
+  and a 32px control and the row's border already fill 44px. A cell that stacks lines (a name with its
+  tags under it) says so with `Column.stacked` and keeps 6px above and below, so its content never touches
+  the row's border; a row without such a cell is as tall as it always was. On a phone a card holds its
+  name and its facts in blocks, never in a paragraph, because what a cell holds may be a list. *Enforced
+  by:* `e2e/table-cells.spec.ts`.
+- **One table of applications** (4.2, item 122). The list, a project's and the fleet's are `AppsTable`: the domain with its
+  tags on its line (`NameWithTags`; a pull request preview wears the tag "preview" and says whose it is to a screen reader, so
+  no row has a second line), its state, its type and its last deploy, and where there is more than one place to tell apart its
+  project, its environment and its server. The views of the Applications column (by project, by state) are this table under a
+  heading each (`embedded` in a `SurfaceSection`), never another table. *Enforced by:* `features/apps/AppsViews.test.tsx`;
+  `features/apps/groups.test.ts`.
+- **One table per group** (4.2). Rows that belong to named groups (the Software page's pieces by what they are for, the
+  Applications column's views by project or by state) are the same table under a heading each: a `Section` or
+  `SurfaceSection` titled by the group, a table named by it (`caption`: "Software: The machine"), and the group left out when it has no row
+  to show. Never one long table with a column that names the group, header rows inside it, or a second kind of table for the
+  grouped view: sorting, paging, the phone's cards and the keyboard are the table's, once, and a group is a place to read, not
+  a thing to learn. A group of a single row is still a table. *Enforced by:* `features/server/software/SoftwarePage.test.tsx`
+  (a table for each group, none for an empty one); `features/apps/AppsViews.test.tsx`; G-2.
 - Headers are 12px, 500, `text-muted`, sortable with `aria-sort`.
 - Paging is the operator's: 20 rows to a page to start with, 50, 100 or all on request, kept
   per list, with "Showing X-Y of Z" and a page-size control that is always where the rows are
@@ -1577,12 +1685,12 @@ where it runs; in the machine strip; and in every confirmation, sudo dialog and 
 page: the owner asked that a header never repeat the server (4.1, item 92). No tint of frame or
 background tells servers apart: colour already means state. A hub offers no local pages, and the
 selector is always visible when there are nodes. A lone server with no nodes draws none of it. The
-three scopes are one server, "All servers" (the fleet's pages) and "This central" (the central's own
-pages); the main bar is the same twelve areas on all of them and each area opens at its fleet face where
-it has one (NV-10, section 6.14), so the destinations are never the last server's under another's name.
-The selector is a stage on the way to the fleet being a filter and no longer a place (4.1, D4 of the
-central's design), and goes with it.
-
+two scopes are one server and "All servers" (the fleet's pages): the central is one more server of the
+list, marked "central", and there is no third place. The main bar is the same areas on both and each
+area opens at its fleet face where it has one (NV-10, section 6.14), so the destinations are never the
+last server's under another's name. The pages that belong to the instance and to no server (the
+accounts, the tokens, the compliance, the audit) leave the selector where it was and say "All the
+fleet" beside their name, which is why the server a person was on is still the one they come back to.
 ### 6.12 Notifications: which channel says it
 
 An event is said in one channel, never two:
@@ -1636,19 +1744,19 @@ service counts); numbers that change every few seconds are never live regions.
 
 ### 6.14 Navigation and where things live
 
-Four questions, answered in four places: **where am I** (the scope selector, and team > project > environment above the title), **what is here** (the main bar's twelve areas and, inside one, the second column), **how is it set up** (Settings, grouped by whose it is) and **how do I get anywhere** (the palette). Nothing answers two of them.
+Four questions, answered in four places: **where am I** (the scope selector, and team > project > environment above the title), **what is here** (the main bar's thirteen areas and, inside one, the second column), **how is it set up** (Settings, grouped by whose it is) and **how do I get anywhere** (the palette). Nothing answers two of them.
 
-- **NV-1** Every screen is declared once in `app/nav.ts`: path, parent, kind (`area`, `tab`, `section`, `hidden`), scope, label, command, keywords (the old names included), icon, shortcut, permission, and for an area where its fleet face is (`fleetTo`) and for a section what it is for (`intent`). The main bar, the second column, the tab strips, the settings navigation, the breadcrumbs, the `g` shortcuts and the palette read it; no component lists destinations of its own. The bar and the strip under a header are two presentations of the same entries (`app/columns.ts`), so they cannot differ. *Enforced by:* `app/nav.register.test.ts` (a route with no entry and an entry with no route fail); `app/columns.test.ts`; ratchet `destination-outside-register` (a `LinkTab[]` or `NavItem[]` literal outside `app/nav.ts`; 7 files to 0).
-- **NV-2** Four levels; the first three are routes: L1 area (the main bar), L2 section (the second column, or tabs under the header with one bar), L3 subsection (T3's side list), L4 detail (drawer, dialog, anchor or search parameter). Never more than two bars: the main bar and the second column. A URL has four segments at most after `/n/<server>/`. A fifth level is never a route. *Enforced by:* `nav.register.test.ts` (the depth of every route).
-- **NV-3** Budgets. The main bar: twelve areas in six groups, with Settings pinned under them, the same with or without a fleet (Home; what runs: Applications, Databases, Scheduled tasks; how it is reached: Domains; what happens: Logs, Alerts, Activity; what is kept safe: Backups; where it runs: Servers, Catalog). Tab strip: 8; a tab that repeats another area's view is a filter of that view, not a tab. A settings list: 8 items per group and 7 groups, 26 in all (the server's and the instance's lists of 4.0 are one now, grouped by what a section is for). Over budget a destination is merged, moved to Settings or left to the palette; there is no ninth tab. The budgets are regression guards, not a dogma (nothing backs a universal "three clicks"): what is held is the click count of the reference tasks and "name, then Enter" in the palette; a change that raises a budget says so and why. *Enforced by:* `nav.register.test.ts`; `e2e/click-budget.spec.ts`.
+- **NV-1** Every screen is declared once in `app/nav.ts`: path, parent, kind (`area`, `tab`, `section`, `hidden`), scope, label, command, keywords (the old names included), icon, shortcut, permission, and for an area where its fleet face is (`fleetTo`), for a section what it is for (`intent`) and the group of its column it is drawn in (`column`). The main bar, the second column and its sheet on a phone, the settings navigation, the breadcrumbs, the `g` shortcuts and the palette read it; no component lists destinations of its own. The bar and the column read the same entries (`app/columns.ts`, and `features/nav/views.ts` for the fixed views of an area that is one page), so they cannot differ. *Enforced by:* `app/nav.register.test.ts` (a route with no entry and an entry with no route fail); `app/columns.test.ts`; ratchet `destination-outside-register` (a `LinkTab[]` or `NavItem[]` literal outside `app/nav.ts`; 7 files to 0).
+- **NV-2** Four levels; the first three are routes: L1 area (the main bar), L2 section (the second column), L3 subsection (T3's side list), L4 detail (drawer, dialog, anchor or search parameter). Never more than two bars: the main bar and the second column, and the sections of a resource take the place of the area's in the same column (NV-22). A URL has four segments at most after `/n/<server>/`. A fifth level is never a route. *Enforced by:* `nav.register.test.ts` (the depth of every route).
+- **NV-3** Budgets. The main bar: thirteen areas in six titled groups, with Settings pinned under them, the same with or without a fleet (Home; Applications and data: Applications, Catalog, Databases, Scheduled tasks; Network: Domains, Network; Observe: Logs, Alerts, Activity; Protect: Backups, Security; Infrastructure: Server, which is Servers on All servers). A column: about sixteen entries, grouped (an application's has seventeen, in five groups, and the one over is accepted: 4.2 design, 10.3). A strip of view tabs, where a page has one (NV-23): 8; a section that repeats another area's view is a filter of that view, not a section. A settings list: 8 items per group and 7 groups, 26 in all (the server's and the instance's lists of 4.0 are one now, grouped by what a section is for). Over budget a destination is merged, moved to Settings or left to the palette; there is no ninth tab. The budgets are regression guards, not a dogma (nothing backs a universal "three clicks"): what is held is the click count of the reference tasks and "name, then Enter" in the palette; a change that raises a budget says so and why. *Enforced by:* `nav.register.test.ts`; `e2e/click-budget.spec.ts`.
 - **NV-4** What earns a sidebar destination: a noun the operator says every day or every week; it lists what exists on the server or shows what happened; most installations use it. Not one-time setup, not configuration (that is Settings), not a catalogue of what to create (a tab of what it creates), not another destination's filtered view, not a module that is off. *Enforced by:* G-8 (the PR carries the register entry and these answers); `nav.register.test.ts` for the count.
-- **NV-5** Names. An area's label is one or two words and a noun, without "and" ("Domains", not "Domains and certificates"), and is the glossary's (1 of the 4.1 navigation design); the same word in the bar, the title, the tab and the palette. Two areas never share a name; a scoped view of the same concept may ("Logs" inside an application). A renamed destination keeps its old name as a palette keyword for at least one minor release (`RENAMED`: Overview, Cron, Server, Recipes and Projects are found by their 4.0 names). *Enforced by:* `nav.register.test.ts` (no "and", no duplicate, the twelve names, `RENAMED` among the keywords).
+- **NV-5** Names. An area's label is one or two words and a noun, without "and" ("Domains", not "Domains and certificates"), and is the glossary's (1 of the 4.1 navigation design); the same word in the bar, the title, the tab and the palette. Two areas never share a name; a scoped view of the same concept may ("Logs" inside an application). A renamed destination keeps its old name as a palette keyword for at least one minor release (`RENAMED`: Overview, Cron, Server, Recipes and Projects are found by their 4.0 names). *Enforced by:* `nav.register.test.ts` (no "and", no duplicate, the thirteen names, `RENAMED` among the keywords).
 - **NV-6** Shortcuts. Every area has `g` and a letter, listed in `?`, and a letter is taken in the same change as the destination; the same two keys open an area at its fleet face from the fleet's pages. A shortcut matches the character the key produces when it is a Latin letter or a symbol, and the letter of the physical key (`event.code`) when it is not, so it works on AZERTY, QWERTZ and non-Latin layouts. *Enforced by:* `nav.register.test.ts` (every area, no collision); `app/shortcuts.test.ts` with AZERTY, QWERTZ and Cyrillic fixtures.
-- **NV-7** Where a setting lives. The first yes wins. It follows the person, not the machine: **Account**. It concerns one resource: **that resource's settings**. It concerns a group of resources (team, project, environment): **that group's page**. It is a setting of Noust, found by what it is for: **Settings > People and access, Notifications and channels, Connections, Security and frameworks, API, Fleet or Noust**. Whose a section is (the selected server's, the central's whichever server is selected, the fleet's) is its `owner` and decides where a node's console sends it, not which group it is under. It is used once, or by few: **an "Advanced" disclosure inside its section, or the CLI with a `CommandHint`**. Ties go to the place nearer to what it changes. *Enforced by:* the `owner` of every settings entry in the register (a test fails without one); G-9.
+- **NV-7** Where a setting lives. The first yes wins. It follows the person, not the machine: **Account**. It concerns one resource: **that resource's settings**. It concerns a group of resources (team, project, environment): **that group's page**. It is a setting of Noust, found by what it is for: **Settings > People and access, Notifications, Connections, Compliance and audit, API, Fleet or Noust**. Whose a section is (the selected server's, the central's whichever server is selected, the fleet's) is its `owner` and decides where a node's console sends it, not which group it is under. It is used once, or by few: **an "Advanced" disclosure inside its section, or the CLI with a `CommandHint`**. Ties go to the place nearer to what it changes. *Enforced by:* the `owner` of every settings entry in the register (a test fails without one); G-9.
 - **NV-8** One home per concept. A concept has one canonical page; anywhere else it is a link, the same component filtered to that scope, or a read-only summary that says where it is managed. Theme and language live in the account menu only. The concepts with more than one editable home are listed with their reason, and the list only gets shorter. *Enforced by:* ratchet `concept-doors` (13 today).
 - **NV-9** A settings section is one subject and fits in one and a half screens at 1440 px. Two sections of less than a screen on one subject are one section; one over a screen and a half is split. No section is called "Integrations" with unrelated cards, "Other" or "Misc"; "General" is only the first section of a scope. *Enforced by:* `e2e/settings-length.spec.ts`.
-- **NV-10** Scope and content are apart. The scope is chosen in the scope selector of the top bar, never in the bar's list or a tab, and the bar is the same twelve areas on every scope: from the fleet's pages each area that has a fleet face (Home, Applications, Domains, Backups, Servers, Activity) opens it, and each that has none leads back to the server the person came from, which is what Settings has always done. No page header names the server (6.11). Where there is nothing to tell apart (one server, one team, one project) none of it is drawn. The server's name is always on screen: in the selector, in the machine strip, in the second column of an application and in every confirmation. *Enforced by:* `app/frame/frame.test.tsx` (the same twelve areas on the fleet's pages, at their faces); `e2e/fleet-screens.spec.ts` and `e2e/servers-lane.spec.ts` (a lone server draws no selector).
-- **NV-11** Settings groups say what their sections are for (people and access, notifications and channels, connections, security and frameworks, API, fleet, Noust), the same on a lone server and on a fleet, so a person who does not know where a setting is finds it by its purpose. A section is in exactly one group. The list has a filter box from 12 items. `/settings` is the hub: every section as a door under its group, with one line on what is inside and, where it is known, what is true now (`SettingsHome`), so a first visit shows everything before the second column is read. The title of a section is its own name, never "Settings" repeated (NV-15). *Enforced by:* `nav.register.test.ts`; `e2e/settings-nav.spec.ts` (the list never outgrows the window at 1440 by 900: it scrolls inside, below the top bar, with its group headings and its filter).
+- **NV-10** Scope and content are apart. The scope is chosen in the scope selector of the top bar, never in the bar's list or a tab, and there are two: one server, and All servers. The central is one more server of the list, marked as the central; there is no "This central" and no third place. The bar is the same areas on both: from All servers each area that has a fleet face (Home, Applications, Domains, Backups, Servers, Activity, Alerts) opens it, the areas of a machine (Network, Security, Servers) list the servers with a summary of the area, and choosing one is choosing it in the selector; each area that has neither leads back to the server the person came from. The sections of Settings that are every server's (accounts, tokens, compliance, audit...) say "All the fleet" once for a group in which every section is, over the group and not on each row, and beside the name in a group that mixes; in the header of their page, on the title's line, with the sentence that says for how many servers they hold; and opening one never changes the selector. What a server shows before anyone signs in (the picture of its sign-in) is its own and never the fleet's (`Dest.own`). No page header names the server (6.11). Where there is nothing to tell apart (one server, one team, one project) none of it is drawn. The server's name is always on screen: in the selector, in the machine strip, in the second column of an application and in every confirmation. *Enforced by:* `app/frame/frame.test.tsx` (the same areas on the fleet's pages, at their faces); `nodes/nodes.test.tsx` (two contexts, and a selector that does not move on the pages of the instance); `app/frame/SettingsColumn.test.tsx` (the tag once per group); `e2e/settings-area.spec.ts`; `e2e/fleet-screens.spec.ts` and `e2e/servers-lane.spec.ts` (a lone server draws no selector).
+- **NV-11** Settings groups say what their sections are for (people and access, notifications, connections, compliance and audit, API, fleet, Noust), the same on a lone server and on a fleet, so a person who does not know where a setting is finds it by its purpose. A section is in exactly one group. The list has a filter box from 12 items. `/settings` is the hub: every section as a door under its group, with one line on what is inside and, where it is known, what is true now (`SettingsHome`), so a first visit shows everything before the second column is read. The title of a section is its own name, never "Settings" repeated (NV-15). *Enforced by:* `nav.register.test.ts`; `e2e/settings-nav.spec.ts` (the list never outgrows the window at 1440 by 900: it scrolls inside, below the top bar, with its group headings and its filter).
 - **NV-12** Disclosure has two levels: the visible section and one `Disclosure` inside it. Never an "Advanced" route or tab. A module that is off is absent, not disabled; it is found through the empty state of the area that would use it, the palette and the CLI hint. What a role may not see is absent from the palette too. *Enforced by:* `nav.register.test.ts` (no entry named "Advanced"); the palette coverage test (permissions).
 - **NV-13** Off-strip views (Diagnose, Terminal, Files) keep a URL but need a contextual way in (a banner, a header action, a link from the Overview) and a palette entry. A view with neither is deleted. *Enforced by:* `nav.register.test.ts` (every `hidden` entry names where it is reached from and is in the palette).
 - **NV-14** The palette finds every screen in the register by its label and by every keyword, says where it lives ("Server > System updates"), finds every resource the operator may read, and runs verbs and creations. Order: exact, prefix, word start, substring, keywords, subsequence only from four characters. A scope pill shows the current scope; `>` limits to actions and `@` changes scope. With nothing typed it offers the three most recent, and the CLI command when a result has one. *Enforced by:* `app/CommandPalette.coverage.test.tsx` (every entry is the first result of its label and appears for each keyword).
@@ -1657,8 +1765,11 @@ Four questions, answered in four places: **where am I** (the scope selector, and
 - **NV-17** Toast, inbox, activity. A toast acknowledges what the operator just did and is not visible on screen; what failed on its own or needs a decision stays in the inbox until resolved; Activity is the history. *Enforced by:* `e2e/inbox.spec.ts` (a failing alert is in the inbox after its toast is gone, and is acknowledged in the row).
 - **NV-18** Changing the structure. Structure and look do not change in one release. A structural change ships in a major version; every URL that changes redirects, the old names stay as keywords, and the release notes carry the table of where each thing is now. *Enforced by:* `routes/redirects.test.tsx` (the `REDIRECTS` table of `app/nav.ts`).
 - **NV-19** Icons. One icon for each object the console is about, from one map of the kit (`components/ui/objectIcons.ts`, `OBJECT_ICONS`): the register reads it (`features/nav/icons.ts` says which object each area and each section of a list on the side is), and so do the sections' heads (`Section icon`) and the buttons that act on an object, so a screen, a heading and a button of one thing look like one thing. The sidebar, the lists on the side (Settings, an application's settings, the account) and the palette draw it at 16px (`size-icon-md`) in the quiet colour of the list (`text-fg-faint`, `text-fg` on the current section: colour is for state), red only on the destructive section, and `aria-hidden`. A tab has none of its own, because no strip draws one (its width is the budget): the palette shows the icon of its area. No two entries of one list share an icon (I-5). *Enforced by:* `nav.register.test.ts` (the table holds the areas and the sections and nothing else; none repeats in a list); `components/page/SettingsLayout.test.tsx`; `components/page/Section.test.tsx`.
-- **NV-20** The two presentations. The double bar (a main bar of areas, and a second column only where the resource has sections: an application, the server, Settings, and the lists that have saved views) and one bar (the same entries as tabs or a list in the page) are one register drawn twice, and the choice between them is in the bar itself, drawn as two small windows with a name each, and in the account menu; it is saved in the browser like the theme. By width, below 1280px there is one bar, from 1280 to 1439px the main bar is folded to icons and unfolds over the page without pushing it (its button says Close, Escape and a press outside dismiss it), and from 1440px the saved choices (the presentation, the fold, the width of the page) decide. The main bar is drawn unfolded by default, with an icon and a name, because twelve icons are not understood at first and a phone has no tooltip; it folds by a button with `aria-expanded`, and a folded icon says its name on hover and on focus. Nothing folds by use. Home has no second column: its fleet is a filter and each server leads to its page. *Enforced by:* `app/navLayout.test.ts` (every edge of the width rules); `app/preferences.test.ts`; `app/frame/frame.test.tsx`; `e2e/frame.spec.ts` (the three widths, both presentations, both themes).
+- **NV-20** The frame. One main bar and one second column from 1024px, whatever the person likes: there is no presentation to choose, no "one bar" and no switch for it, and the account menu has none. By width, below 1024px the areas are a bar at the foot (four areas and "More", which opens a sheet with all of them in their groups, then Settings and the account) and the column is the section selector at the top of the page, which opens a sheet with the same list (never tabs); from 1024 to 1439px the main bar is folded to icons and unfolds over the page without pushing it (its button says Close, Escape and a press outside dismiss it), because two open bars need about 1410px; and from 1440px it is unfolded and the saved choices (the fold, the width of the page) decide. The main bar is drawn unfolded by default, with an icon and a name, because thirteen icons are not understood at first and a phone has no tooltip; its groups carry a small title in sentence case and a joint (a dark line with the lit edge under it, the joint between two courses of the wall), which is all there is of a group when the bar is folded; it folds by a button with `aria-expanded`, and a folded icon says its name on hover and on focus. Nothing folds by use. *Enforced by:* `app/navLayout.test.ts` (every edge of the width rules); `app/preferences.test.ts`; `app/frame/frame.test.tsx`; `e2e/frame.spec.ts` (the widths 1920, 1440, 1280 and 390, with the keyboard and with reduced motion, both themes).
 - **NV-21** The frame moves with the person. The raised piece of the current item slides to the new one when the route changes (the browser's back and forward too), in the main bar and in the second column, each with its own piece, by the move curve of 2.7 and never with `ease-in-out`; it does not slide when the page loads, when the bar folds or the window resizes, or with reduced motion. *Enforced by:* `components/ui/SlidingIndicator.test.tsx`; `e2e/frame.spec.ts` (the transition that runs, its duration and where it ends).
+- **NV-22** Every area has a column, and so has every resource a person enters. An area with several pages lists them; an area that is one page lists its fixed views, presets of its own filters that live in the address and save nothing (`features/nav/views.ts`); Home lists its panels. Where a resource is entered (an application, a database, a service, a team, a server on a fleet) the column slides to its sections with the way back to the area ("‹ Applications") and a switch to its siblings, so a person jumps to another without going back to the list; the new list comes in decelerating and the old goes out accelerating and in less time, and with reduced motion it is instant. The column never disappears and a third never appears, so the content does not jump from one side to the other between two areas. Names come from the register: the same entries, drawn in the column, in the phone's sheet and in the palette. *Enforced by:* `app/columns.test.ts` (every area of the register has a column, and a resource's has its area's way back); `app/nav.register.test.ts`; `app/frame/frame.test.tsx` and `e2e/frame.spec.ts` (the slide, its two durations, reduced motion).
+- **NV-23** Tabs only change the view of one thing. A strip of tabs never lists the pages of an area or the sections of a resource: that is the column's (NV-22). What stays a strip is the choice between ways of looking at the same object on the same page (a site's Text, Structure and Diagram; a zone's Records, DNSSEC and Delegation), each a view of one thing. A page whose sections were tabs in 4.1 (Alerts, Backups, Catalog, Projects, Fleet, Account, Domains, a database, a service, the views of Server) has them in the column. *Enforced by:* ratchet `link-tabs-in-feature` (`LinkTabs` written outside the kit and the shell: 15 files to 2 in 4.2, Home's and the Map's, which the Home lane removes); `app/columns.test.ts` (a section of a resource is not a tab of its page).
+- **NV-24** No entry of a column leaves its column. Every entry of every column resolves to a route whose column is that column (an entry's own, or the resource's under it); what lives in another area is linked from the content, with the words of the page, and never listed as a section. The way back to the area is the one exit, and it is the head's. *Enforced by:* `app/columns.test.ts` (each entry of each column, with its parameters filled in, is under the column it is listed in).
 
 ### 6.15 Observability and data
 
@@ -1684,7 +1795,73 @@ Four questions, answered in four places: **where am I** (the scope selector, and
   `e2e/databases.spec.ts`; one `RestoreDialog` for applications and databases.
 - **DB-2** A data-gap message under a chart or a log ("not recorded yet") is one line under its
   title, not a `Notice`. *Enforced by:* ratchet `notice-info-bare`.
+- **DB-3** A database is read through its column, in three groups (View, Manage, Danger) made from what its engine says
+  it can do: a SQL database has Data and Query, a key-value store has Keys and no Query, and Delete is alone and last. An
+  address that names a section the engine has says so and leads back to the overview; it never draws an editor that will
+  fail. *Enforced by:* `app/columns.test.ts`; `features/databases/DatabaseLayout.test.tsx`.
+- **DB-4** A database whose engine does not answer is a state, said once for every section (the banner of the layout:
+  "<engine> is stopped", with "Start the engine" as its one action) and never a skeleton that does not end or an error in
+  the system's words. What needs the engine is not asked of it (no request is made), what does not (its backups, its
+  settings, its delete) stays. The list keeps its row, marked stopped. *Enforced by:*
+  `features/databases/DatabaseLayout.test.tsx`; `e2e/databases.spec.ts`.
+- **DB-5** One dialog makes a database, empty or from a dump, on the engine chosen as a card, whether it is opened from the
+  list, from an application or from Home. "Upgrade" says before it is pressed that it makes a new instance and moves the
+  databases, in numbered steps taken from the plan, and is reached from the engine and from each database of an old one.
+  *Enforced by:* `features/databases/CreateDatabaseDialog.test.tsx`; `features/databases/instances/Instances.test.tsx`.
 
+### 6.16 Content that says what each thing is, and who can change it
+
+A page of several subjects is read by its shapes before its words (owner items 109, 121, 122 and 123). The rules,
+each held by the test it names:
+
+- **CT-1** A page of more than one subject is made of `SurfaceSection`s: the head row (the object's icon, the title, one
+  line, the section's own action and, if the rule is long, a "?") and the content inside. A heading over loose
+  paragraphs, each with the weight of the next, is not drawn. Slabs are 24px apart (`Sections surfaces`). A table that
+  sits in one is `embedded`, with its rows edge to edge under the head. *Enforced by:* `SurfaceSection.test.tsx`,
+  `DataTable.test.tsx`; G-2.
+- **CT-2** The first time of a thing inside a section is `FirstUse`: a drawing, one sentence that says what it gives you
+  and the button that starts it (or none, where the page's header holds it). Never a muted line with the button
+  somewhere else. The first time of a whole page stays `EmptyState variant="firstUse"` (IL-1). *Enforced by:*
+  `FirstUse.test.tsx`, the ratchet `inline-empty-by-hand`; G-7.
+- **CT-3** The facts of one thing are `KeyValueList` pairs; a value that is pasted somewhere else (`pasted`) wears
+  its copy button always. *Enforced by:* `KeyValueList.test.tsx`; ratchet `copy-box-by-hand`.
+- **CT-4** A thing that exists, and is the point of its section, is a `ResourceCard`: icon or logo, name, state, two or
+  three facts, actions. More than a few of them is a table (G-2). *Enforced by:* `ResourceCard.test.tsx`.
+- **CT-5** A name's tags are on its line (`NameWithTags`): the first ones as pebbles, "+N" for the rest in a popover,
+  and the row is the one height every row is. Tags are never stacked under the name. *Enforced by:*
+  `NameWithTags.test.tsx`; `Column.stacked` stays only for a cell that really holds more than one line.
+- **CT-6** The long rule is behind a "?" (`HelpPopover`), a real button that a finger and a keyboard open. The page shows the
+  state; the explanation is asked for. *Enforced by:* `HelpPopover.test.tsx`; ratchet `tooltip-by-hand`.
+- **PM-1** An action declares the permission it takes (the server's own name, `apps.manage`). The page's primary
+  action is a `GuardedButton`: for a role that cannot, it stays, disabled, with a lock and the reason one press away,
+  because it tells a reader that the thing exists and who can do it. The actions of a row, a menu or a toolbar are
+  inside `Can` (or the table is given no `rowActions`): they are not drawn, because a disabled button repeated on every
+  row is noise. A page says once, at its top, that it can only be read (`ReadOnlyLine`). A button that is disabled for
+  something other than the role (no account yet) says so in its "?" (`unavailable`), without the lock. A form or a
+  dialog opened from a declared action says so on its write with a `design-exception: write-without-permission`
+  and the action that gates it. *Enforced by:* `permissions.test.tsx`; ratchet `write-without-permission` (each
+  `.mutate(` of a feature is covered by one declaration of the file: `GuardedButton`, `Can`, `ReadOnlyLine`, `useCan(`,
+  `can("...")`; the counts may only go down; the four pages of K1 owe none).
+- **CL-1** A `CommandHint` has a `reason`: `solo-terminal` (the console cannot do it), `otro-servidor` (it is for another
+  server), `salida-del-sistema` (the system's own output names it). The reason leads the command when no label does.
+  A command that repeats a button is taken out; an `EmptyState` has no command to draw beside its action. *Enforced by:*
+  `CommandHint.test.tsx`; ratchet `command-hint-reason` (the commands with no reason, which may only go down; the four pages
+  of K1 owe none); `features/terminalHints.test.ts` holds the areas of applications, data and network to the list of the
+  commands that stay, each with its reason, and to no command in a first-use empty state.
+- **HD-1** A header is as wide as its content: the title and its actions end where the content does, and never at the edge of
+  the window (`DetailPage measure="settings"` for a settings section and the account). The master switch of what a page
+  governs is on the title's line, right after it (`PageHeader master`, `SettingsMasterSwitch`). *Enforced by:*
+  `templates.test.tsx`, `PageHeader.test.tsx`, `NotificationSettings.test.tsx`.
+- **MS-1** A feature that lacks the tool it runs on says "X is missing" with `MissingSoftware`
+  (`features/server/software/MissingSoftware.tsx`): one notice, drawn where the feature's own warning was, that names the piece
+  by the Software page's name for it, says what the feature loses without it in a sentence (`whyKey`, or the piece's purpose),
+  and offers to install it right there, as a task the task centre follows and the notice shows while it runs. It reads the
+  registry the Software page reads, so the two never disagree about what is missing, and a page that reads something else says
+  what to show when the registry has nothing to add (`fallback`). For a role that may not install, it says what it takes and
+  whom to ask (never a disabled button repeated beside it); on a server that did not give the central access to its system, it
+  says so and what to run there, which is a command with a reason (`otro-servidor`, CL-1). A page does not write its own
+  paragraph about a missing program, a `Notice` with an "install" button of its own, or a command to paste. *Enforced by:*
+  `MissingSoftware.test.tsx`; G-7.
 ---
 
 ## 7. Content
@@ -1819,6 +1996,7 @@ lint`, the E2E suite).
 | Construction | `app.css` | Tailwind's palette, type scale, shadows and radii do not exist; only token utilities compile |
 | Tokens | `styles/tokens.test.ts` (`lib/contrast.ts` does the maths) | Every text pair 4.5:1, every control boundary 3:1, tinted borders 1.4:1, hairlines visible; surfaces, edges and text are stone (chroma under 0.02, the stone's hue); height by luminance in both themes; the joint and the edges of every height seen against the stone they sit on; every `--elev-*` made of hard edges (nothing blurrier than 2px, no translucent black); the `viz` pair's contrast, colour-vision distance, hue distance, lightness and chroma; every colour token has a utility and at least one verified pair; each curve and duration of the motion and its zero with reduced motion; the fonts' stacks, their metric-matched fallbacks (declared and scaled, the title's twice) and that nothing is fetched or inlined; the values of radii, control heights, layers, widths, measures, icon sizes and the seven type sizes; `scrollbar-gutter: stable` |
 | Lint | `eslint.config.js`, `no-restricted-syntax` and `no-restricted-imports` | Outside the kit (`components/`, `app/`, `dev/`) and the legacy list: raw hex, arbitrary dimensions (`max-w-[...]`, `h-[...]`, `rounded-[...]`, `z-[...]`), colour functions, hand-written `h1`-`h4`, `<label>`, `style=`, severity icons imported from lucide instead of `icons.ts`, and the icon of an object imported from lucide instead of `objectIcons.ts` (everywhere, the kit included) |
+| Content and who can do what | `components/page/permissions.test.tsx`, `SurfaceSection.test.tsx`, `components/ui/{FirstUse,ResourceCard,NameWithTags,HelpPopover}.test.tsx`, `styles/design-rules.test.ts` | The pieces of 6.16, each with axe in both themes; a write that declares no permission and a command with no reason, counted per file against a baseline that only goes down (PM-1, CL-1) |
 | Ratchet | `styles/design-rules.test.ts`, rules in `styles/designRules.ts`, counts in `styles/design-baseline.json` | Per rule and per file, counts that may only go down (the rule ids below); ESLint's legacy list only shrinks; the `viz` colours stay inside `Chart`; no component of the system is left unused except those still waiting for their pages |
 | The tics and the heights | `styles/design-rules.test.ts` (`KIT_HEIGHTS` in `styles/designRules.ts`) | The list of 2.12, with samples that must be caught and samples that must not, in the sources and in the three stylesheets (a gradient, a blur, capitals, a wide tracking, a coloured side, a coloured one-sided shadow); each kit piece has the height of its role and no other, and a piece with no role that draws a height fails (a raised panel and a carved button are cases that must be caught) |
 | A field is found | `styles/tokens.test.ts`, `e2e/field-edge.spec.ts` | Each theme's strong edge of the carved hollow is 3:1 against the page, a panel and a raised surface; in the browser, the pixels painted on a field, a checkbox and a switch say the same, and the other edge stays under 3:1 (C-12, A-10) |
@@ -1863,6 +2041,8 @@ The ratchet's rules (`designRules.ts`):
 | `confirm-hand-rolled` | `AlertDialog.Popup` outside `ConfirmDialog` (a hand-written danger button is the structural rule `danger-button-outside-confirm`) | `ConfirmDialog` |
 | `page-without-template` | `<PageHeader>` written by a feature | a template's `header` prop |
 | `feature-state-notice` | a `Notice` whose title or text is an on/off key (`.on`, `.offTitle`, `.enabled`...) | `Card status`, a `Setting` row |
+| `write-without-permission` | each `.mutate(`/`.mutateAsync(` of a feature, less one for each declaration of the file (`GuardedButton`, `Can`, `ReadOnlyLine`, `useCan(`, `can("...")`) | `GuardedButton`, `Can`, `ReadOnlyLine` (PM-1) |
+| `command-hint-reason` | a `<CommandHint` with no `reason` | a `reason`, or take the command out (CL-1) |
 | `object-icon-import` (lint) | an object's icon (`Database`, `Globe`, `ScrollText`, `Users`...) imported from lucide outside the two maps | `OBJECT_ICONS`, `VERB_ICONS` (2.8) |
 
 The structural rules (`designStructure.ts`), found in the syntax tree:
@@ -1966,7 +2146,7 @@ NOUST_E2E_STATIC=/tmp/noust-dev-build npx playwright test design-contract tab-sw
 | Program colours | `--ansi-blue`, `--ansi-magenta`, `--ansi-cyan` |
 | Illustration | `--il-stroke`, `--il-stroke-2` |
 | Height | `--elev-carved`, `--elev-carved-fine`, `--elev-seated`, `--elev-raised`, `-high`, `-pressed`, and the same for `-accent`, `-fail` and `-chosen` |
-| Veil | `--backdrop` |
+| Veil | `--backdrop`, `--bg-veiled` |
 | Type | `--font-sans`, `--font-display`, `--font-mono`, `--fs-12` ... `--fs-32`, `--lh-12` ... `--lh-32`, `--stretch-title` 90%, `--stretch-display` 78%, `--tracking-title`, `--tracking-display` |
 | Measure | `--measure` 68ch, `--measure-help` 52ch |
 | Space | `--space` 0.25rem |

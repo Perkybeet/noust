@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { CertEntry } from "../../api/queries/certs";
 import type { SiteEntry } from "../../api/queries/sites";
-import { certificateCovering, domainRows, matchesDomain, wildcardCovers } from "./domainRows";
+import { certificateCovering, domainRows, matchesDomain, roleOf, wildcardCovers } from "./domainRows";
 
 function site(name: string, extra: Partial<SiteEntry> = {}): SiteEntry {
   return {
@@ -88,6 +88,28 @@ describe("domainRows", () => {
   it("lists a wildcard name as it is", () => {
     const [row] = domainRows([site("wild.example.com", { server_names: ["*.example.com"] })], []);
     expect(row?.name).toBe("*.example.com");
+  });
+});
+
+describe("roleOf", () => {
+  it("is a redirect for a name the application's own list sends to it, whichever site holds it", () => {
+    const rows = domainRows([site("shop.example.com", { server_names: ["shop.example.com", "www.shop.example.com"] }), site("files.example.com", { app: null })], []);
+    const shop = rows.find((row) => row.name === "shop.example.com");
+    const www = rows.find((row) => row.name === "www.shop.example.com");
+    if (shop === undefined || www === undefined) throw new Error("no rows");
+
+    expect(roleOf(shop, new Set(["www.shop.example.com"]))).toBe("app");
+    expect(roleOf(www, new Set(["www.shop.example.com"]))).toBe("redirect");
+    expect(roleOf(www, new Set())).toBe("app");
+  });
+
+  it("is a site of its own when no application has the name", () => {
+    const [row] = domainRows([site("files.example.com", { app: null })], []);
+    if (row === undefined) throw new Error("no row");
+
+    expect(roleOf(row, new Set())).toBe("site");
+    // A redirect needs an application to redirect to: a name with none is the site's, whatever a list says.
+    expect(roleOf(row, new Set(["files.example.com"]))).toBe("site");
   });
 });
 

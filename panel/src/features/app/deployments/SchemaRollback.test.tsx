@@ -146,7 +146,11 @@ describe("going back past a schema change", { timeout: 20_000 }, () => {
     expect(within(list).getByText("in the backend service")).toBeInTheDocument();
     // The hook that does not migrate is not a migration.
     expect(within(list).queryByText("./scripts/purge-cache.sh")).not.toBeInTheDocument();
-    expect(await within(dialog).findByText("noust backup restore shop-example-com_20260922_175950 --databases-only")).toBeInTheDocument();
+    const restore = await within(dialog).findByText("noust backup restore shop-example-com_20260922_175950 --databases-only");
+    // The console puts code back and never a database: putting the databases back alone is the terminal's.
+    expect(restore.closest("[data-reason]")).toHaveAttribute("data-reason", "solo-terminal");
+    // The backups are listed by the console's own Backups: the command that lists them is not offered.
+    expect(within(dialog).queryByText(/noust backup list/)).not.toBeInTheDocument();
     await expectNoAxeViolations(dialog);
 
     await user.click(within(dialog).getByRole("button", { name: "Go back anyway" }));

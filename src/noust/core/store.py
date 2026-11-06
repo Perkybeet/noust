@@ -44,6 +44,7 @@ from noust.core import (
     schema_v14,
     schema_v15,
     schema_v16,
+    schema_v17,
 )
 from noust.core.access import roles_backfill
 from noust.core.exceptions import DomainConflictError, DomainError, NoustError, ValidationError
@@ -1173,7 +1174,7 @@ def _decode_object(raw: Any) -> dict[str, Any]:
 
 
 # Schema version for migrations
-SCHEMA_VERSION = 16
+SCHEMA_VERSION = 17
 
 _DEPLOYMENT_STATUSES_SQL = ", ".join(f"'{status.value}'" for status in DeploymentStatus)
 _DEPLOYMENT_TRIGGERS_SQL = ", ".join(f"'{trigger.value}'" for trigger in DeploymentTrigger)
@@ -1980,6 +1981,8 @@ class NoustStore:
                 # completed before it climbs on: after the climb it would no longer be "at v14"
                 # for the check below, and would keep its missing tables for good.
                 self._complete_v14()
+            if current >= schema_v16.VERSION:
+                self._complete_v16()
             self._run_migrations(current)
         elif current >= schema_v12.VERSION:
             self._complete_v12()
@@ -1989,6 +1992,8 @@ class NoustStore:
                 self._complete_v14()
             if current >= schema_v16.VERSION:
                 self._complete_v16()
+            if current >= schema_v17.VERSION:
+                self._complete_v17()
 
     def _schema_version(self) -> int | None:
         """
@@ -2110,6 +2115,14 @@ class NoustStore:
             schema_v16.apply_v16(ddl, _run_script)
             roles_backfill.run_at_store(ddl)
 
+    def _complete_v17(self) -> None:
+        """Add what a v17 store lacks of v17: a development build of 4.2 stamped it early."""
+        if not schema_v17.incomplete(self._get_connection().cursor()):
+            return
+        logger.warning("The store is at v17 without all of v17's tables; adding them")
+        with self._ddl_transaction() as ddl:
+            schema_v17.apply_v17(ddl, _run_script)
+
     def _create_fresh_schema(self) -> bool:
         """
         Create every table at the current version, for a database that has none.
@@ -2137,6 +2150,7 @@ class NoustStore:
             teams_backfill.run(cursor)
             schema_v16.apply_v16(cursor, _run_script)
             roles_backfill.run_at_store(cursor, fresh=True)
+            schema_v17.apply_v17(cursor, _run_script)
             cursor.execute("INSERT INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION,))
         return True
 
@@ -2193,6 +2207,7 @@ class NoustStore:
             14: self._migrate_v13_to_v14,
             15: self._migrate_v14_to_v15,
             16: self._migrate_v15_to_v16,
+            17: self._migrate_v16_to_v17,
         }
 
         for version in range(from_version + 1, SCHEMA_VERSION + 1):
@@ -2431,6 +2446,15 @@ class NoustStore:
         schema_v16.apply_v16(cursor, _run_script)
         # The data half of the same step: the list of roles, without changing what anyone can do.
         roles_backfill.run_at_store(cursor)
+
+    def _migrate_v16_to_v17(self, cursor: sqlite3.Cursor) -> None:
+        """
+        Add every table and column of 4.2 (schema v17).
+
+        Args:
+            cursor: Cursor the migration runs on.
+        """
+        schema_v17.apply_v17(cursor, _run_script)
 
     # =========================================================================
     # Application CRUD

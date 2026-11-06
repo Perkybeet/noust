@@ -188,22 +188,22 @@ describe("the new-app wizard", () => {
       install_requirements: false,
     });
     // The wizard hands over once the deployments list carries a row for this exact job, not
-    // once some heuristic guesses which row is this one's.
+    // once some heuristic guesses which row is this one's: to the application's own page, which follows the first deploy.
     await waitFor(() => {
-      expect(harness.location().pathname).toBe("/apps/storefront.example.com/deployments/7");
+      expect(harness.location().pathname).toBe("/apps/storefront.example.com");
     });
   });
 
   it("does not leave the wizard until the page it goes to has what it draws first", { timeout: 20_000 }, async () => {
-    // The deployment's own read is held: the list already says where to go, and the page cannot be drawn yet.
+    // The application's own read is held: the list already says the deploy started, and the page cannot be drawn yet.
     let release: () => void = () => undefined;
     const held = new Promise<void>((resolve) => {
       release = resolve;
     });
     const { backend, harness } = wizard({
-      "GET /api/deployments/7": async () => {
+      "GET /api/apps/storefront.example.com": async () => {
         await held;
-        return json(200, { id: 7, domain: "storefront.example.com", status: "running", triggered_by: "panel", has_log: true, job_id: JOB.id });
+        return problem(404, "not_found", "No such application");
       },
     });
     const { user } = harness;
@@ -214,16 +214,16 @@ describe("the new-app wizard", () => {
     await screen.findByRole("heading", { level: 2, name: "Deploy" });
     await user.click(screen.getByRole("button", { name: "Deploy storefront.example.com" }));
 
-    // The deployment is being read, and the wizard is still the page: no second frame is drawn for the page that comes next.
+    // The application is being read, and the wizard is still the page: no second frame is drawn for the page that comes next.
     await waitFor(() => {
-      expect(backend.callsTo("GET /api/deployments/7")).toHaveLength(1);
+      expect(backend.callsTo("GET /api/apps/storefront.example.com")).toHaveLength(1);
     });
     expect(harness.location().pathname).toBe("/apps/new");
     expect(screen.getByText("Deploying storefront.example.com")).toBeInTheDocument();
 
     release();
     await waitFor(() => {
-      expect(harness.location().pathname).toBe("/apps/storefront.example.com/deployments/7");
+      expect(harness.location().pathname).toBe("/apps/storefront.example.com");
     });
   });
 

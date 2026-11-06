@@ -25,6 +25,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from noust.core.server_text import say
 from noust.monitor.models import (
     SEVERITY_NOTICE,
     SEVERITY_WARNING,
@@ -178,11 +179,7 @@ def observe_process(
                     process=process,
                     signal=SIGNAL_NAME_PATTERN,
                     severity=SEVERITY_WARNING,
-                    detail=(
-                        f"Executable name starts with {prefix!r}, a name used by known "
-                        "cryptomining and botnet malware. This is a note, not a verdict: "
-                        "identify the binary before acting on it."
-                    ),
+                    detail=say("monitor.observation.name_pattern", prefix=prefix).text,
                 )
 
     if process.cpu_percent > cpu_threshold or process.memory_percent > memory_threshold:
@@ -190,11 +187,13 @@ def observe_process(
             process=process,
             signal=SIGNAL_RESOURCE_USAGE,
             severity=SEVERITY_NOTICE,
-            detail=(
-                f"Sustained resource usage: CPU {process.cpu_percent:.1f}% "
-                f"(threshold {cpu_threshold:.1f}%), memory {process.memory_percent:.1f}% "
-                f"(threshold {memory_threshold:.1f}%)."
-            ),
+            detail=say(
+                "monitor.observation.resource_usage",
+                cpu=f"{process.cpu_percent:.1f}",
+                cpu_threshold=f"{cpu_threshold:.1f}",
+                memory=f"{process.memory_percent:.1f}",
+                memory_threshold=f"{memory_threshold:.1f}",
+            ).text,
         )
 
     return None

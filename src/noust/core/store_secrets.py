@@ -75,6 +75,11 @@ NOT_SECRET: dict[tuple[str, str], str] = {
     ("account_password_resets", "code_hash"): "a hash of a long random code, spent once, expiring",
     ("account_passkeys", "credential_id"): "a public identifier",
     ("account_passkeys", "public_key"): "a public key",
+    (
+        "account_dashboards",
+        "layout",
+    ): "a person's panels of the console's Home: widget types, grid places and scalar settings of "
+    "a closed document, never a credential",
     ("accounts", "password_changed_at"): "a time",
     ("app_container", "build_secrets"): "the names of build secrets, never their values",
     ("app_container", "registry_secret"): "the name of a secret in the secret store",
@@ -172,6 +177,9 @@ KNOWN_VALUE_COLUMNS = frozenset(
         ("shared_variables", "value"),
         ("app_env_variables", "build_value"),
         ("app_env_variables", "expression"),
+        # A document a person writes: kept in the review so that a change to what it may hold is
+        # decided here, not found later in a snapshot.
+        ("account_dashboards", "layout"),
     }
 )
 

@@ -9,8 +9,8 @@
  * - the selector switches to the node, and the node's own, differently-seeded application
  *   shows where the central's never do;
  * - a deep link to a node's page survives a reload;
- * - the selector's three contexts: a server, All servers, This central, and the way back;
- * - a node's own settings stay on the node, and the central's say whose they are;
+ * - the selector's two places: a server and All servers, the area kept on the way, and an instance page that leaves it where it was;
+ * - a node's own settings stay on the node, and the central's say "All the fleet" without moving the selector;
  * - the Fleet's views list this server and the node together, each row naming its server;
  * - a bulk action is planned, run as a job and followed server by server;
  * - the Add server dialog catches a console token pasted as a join code, and a code the
@@ -125,7 +125,8 @@ withFleet("a deep link to a node's application works on reload", async ({ page, 
 
 withFleet("the Fleet's views show this server and the node, each row naming its server", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/fleet");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Home");
+  // The panel that opens at the fleet's address titles the page.
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Fleet");
   await expect(page.getByRole("button", { name: "Server: all servers" })).toBeVisible();
 
   // The fleet in courses: a row for each server, this one and the node, each named and opening its own page.
@@ -158,28 +159,40 @@ withFleet("the Fleet's views show this server and the node, each row naming its 
   }
 });
 
-withFleet("the selector says which of the three contexts the console is in, and the bar follows it", async ({ page, consoleServer }) => {
+withFleet("the selector has two places, a server and All servers, keeps the area on the way, and the bar follows it", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/n/${NODE_NAME}/apps`);
   await page.getByRole("button", { name: `Server: ${NODE_NAME}` }).click();
+  // The central is one more server of the list, marked as such: there is no "This central".
+  await expect(page.getByRole("menuitemradio", { name: /^This central/ })).toHaveCount(0);
   await page.getByRole("menuitemradio", { name: /^All servers/ }).click();
-  await expect(page).toHaveURL(/\/fleet$/);
+  // The area is kept: the fleet's face of Applications.
+  await expect(page).toHaveURL(/\/fleet\/apps$/);
   await expect(page.getByRole("button", { name: "Server: all servers" })).toBeVisible();
 
-  // Never a silent jump, and no back link: the bar is the same twelve areas, each at its fleet face where it has one,
+  // Never a silent jump, and no back link: the bar is the same areas, each at its fleet face where it has one,
   // and the selector is the way to a server (docs/DESIGN.md NV-10).
   const main = page.getByRole("navigation", { name: "Main" });
-  await expect(main.getByRole("link")).toHaveCount(12);
+  await expect(main.getByRole("link")).toHaveCount(14);
   await expect(main.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/fleet");
   await expect(main.getByRole("link", { name: "Domains" })).toHaveAttribute("href", "/fleet/certificates");
+  await expect(main.getByRole("link", { name: "Network" })).toHaveAttribute("href", "/fleet/network");
   // An area with no fleet face leads back to the server the operator came from.
   await expect(main.getByRole("link", { name: "Databases" })).toHaveAttribute("href", `/n/${NODE_NAME}/databases`);
   await expect(page.getByRole("link", { name: /^Back to / })).toHaveCount(0);
   // Settings still lead to the server the operator came from.
   await expect(page.getByRole("link", { name: "Settings", exact: true })).toHaveAttribute("href", `/n/${NODE_NAME}/settings`);
+  // The machine's areas are the list of servers from here: choosing one is choosing it in the selector.
+  await main.getByRole("link", { name: "Network" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Network" })).toBeVisible();
+  await page.getByRole("link", { name: new RegExp(`^Open Network on ${NODE_NAME}`) }).click();
+  await expect(page).toHaveURL(new RegExp(`/n/${NODE_NAME}/network$`));
+  await expect(page.getByRole("button", { name: `Server: ${NODE_NAME}` })).toBeVisible();
 
+  await page.getByRole("button", { name: `Server: ${NODE_NAME}` }).click();
+  await page.getByRole("menuitemradio", { name: /^All servers/ }).click();
   await page.getByRole("button", { name: "Server: all servers" }).click();
   await page.getByRole("menuitemradio", { name: new RegExp(`^${NODE_NAME}`) }).click();
-  await expect(page).toHaveURL(new RegExp(`/n/${NODE_NAME}$`));
+  await expect(page).toHaveURL(new RegExp(`/n/${NODE_NAME}/network$`));
   await expect(page.getByRole("button", { name: `Server: ${NODE_NAME}` })).toBeVisible();
   await expect(main.getByRole("link", { name: "Applications" })).toHaveAttribute("href", `/n/${NODE_NAME}/apps`);
 });
@@ -197,10 +210,11 @@ withFleet("the fleet's pages fit a phone, in Spanish: the selector gives way to 
     await settle(page);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow, `${path} scrolls sideways by ${String(overflow)}px at 390`).toBeLessThanOrEqual(0);
-    // The session's button is on screen: the top bar kept the buttons at its right.
-    const session = page.getByRole("banner").getByRole("button", { name: "Sesión y preferencias" });
-    await expect(session).toBeVisible();
-    expect((await session.boundingBox())?.x ?? 999).toBeLessThan(390 - 30);
+    // The top bar kept the buttons at its right, and the account is one press from the foot: it moved into the sheet "Más" opens.
+    const search = page.getByRole("banner").getByRole("button", { name: "Buscar" });
+    await expect(search).toBeVisible();
+    expect((await search.boundingBox())?.x ?? 999).toBeLessThan(390 - 30);
+    await expect(page.getByRole("navigation", { name: "Áreas" }).getByRole("button", { name: "Más" })).toBeVisible();
   }
 });
 
@@ -213,9 +227,11 @@ withFleet("a node's own settings stay on the node; the central's say whose they 
   await settle(page);
   await expectNoA11yViolations(page, "a node's own settings");
 
-  await sections.getByRole("link", { name: "API tokens" }).click();
+  await sections.getByRole("link", { name: /^API tokens/ }).click();
   await expect(page).toHaveURL(/\/settings\/tokens$/);
-  await expect(page.getByRole("button", { name: /^Server: this central/ })).toBeVisible();
+  // The instance's page is no server's: the selector stays on the node, and the section says it is for the whole fleet.
+  await expect(page.getByRole("button", { name: `Server: ${NODE_NAME}` })).toBeVisible();
+  await expect(sections.getByRole("link", { name: /^API tokens/ }).getByText("All the fleet")).toBeVisible();
   await expect(page.getByText(`Sign-in, two-factor and API tokens of ${NODE_NAME} are managed on ${NODE_NAME}`)).toBeVisible();
   await expect(sections.getByRole("link", { name: "General" })).toHaveAttribute("href", `/n/${NODE_NAME}/settings/general`);
   await settle(page);
@@ -524,12 +540,18 @@ test("a node that stops answering says so, on its own pages and the Fleet page's
     await settle(page);
     await expectNoA11yViolations(page, "a node that is not answering");
 
+    // The fleet's panel draws the node that is down as a course that does not answer, and Servers says so in the central's own words.
     await page.goto(`${central.url}/fleet`);
+    await expect(page.getByRole("list", { name: "Servers and their applications" }).getByText("Not answering")).toBeVisible();
+    await settle(page);
+    await expectNoA11yViolations(page, "the Fleet's panel, with a server down");
+
+    await page.goto(`${central.url}/fleet/servers`);
     // Partial, never blank: the node that is down is named, with the central's own words.
     await expect(page.getByText("1 of 2 servers did not answer fully")).toBeVisible();
     await expect(page.getByText("Not answering").first()).toBeVisible();
     await settle(page);
-    await expectNoA11yViolations(page, "the Fleet's summary, with a server down");
+    await expectNoA11yViolations(page, "the Fleet's servers, with one down");
   } finally {
     // Closed before either server stops: an authenticated page keeps an /events stream and
     // polls its session, and stopping the backend under it would fail those as console
@@ -554,7 +576,8 @@ test("a sealed central shows the lock screen, and opens with the right passphras
     await page.getByRole("button", { name: "Unlock", exact: true }).click();
     await confirmItsYou(page, central);
     await expect(toasts(page).getByText("Unlocked: the servers are within reach again")).toBeVisible();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Home");
+    // The page that opens is the panel of this server, which titles it.
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("This server");
   } finally {
     await page.close();
     await central.stop();
@@ -659,14 +682,16 @@ withPartialFleet("a node that is down and one on an older Noust: the views answe
   const { central } = partialFleet;
   problems.expect(/status of 50\d .*\/api\/nodes\/db-1\//);
   problems.expect(/status of 404 .*\/api\/nodes\/old-1\//);
-  await signInAt(page, central, "/fleet");
+  // Servers is where the central says which of its servers did not answer, in their own words. Its list now carries
+  // what each server says of itself (its version, how loaded it is, what it has waiting), so the server on an older
+  // Noust, which cannot say that, is named beside the one that is down.
+  await signInAt(page, central, "/fleet/servers");
   await expect(page.getByText("2 of 4 servers did not answer fully")).toBeVisible({ timeout: 20_000 });
   const notice = page.getByRole("list", { name: "Servers that did not answer fully" });
   await expect(notice.getByText("db-1", { exact: true })).toBeVisible();
   await expect(notice.getByText("old-1", { exact: true })).toBeVisible();
-  await expect(notice.getByText("Older Noust", { exact: true })).toBeVisible();
   await settle(page);
-  await expectNoA11yViolations(page, "a partial fleet's summary");
+  await expectNoA11yViolations(page, "a partial fleet's servers");
 
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Applications" }).click();
   // web-2 answered: its application is there, even though db-1 did not. Four servers' worth
@@ -674,11 +699,49 @@ withPartialFleet("a node that is down and one on an older Noust: the views answe
   await page.getByRole("searchbox", { name: "Search applications" }).fill(NODE_APP);
   await expect(page.getByRole("link", { name: NODE_APP, exact: true })).toBeVisible();
 
-  // Updates is the second view of the fleet's Servers, a tab of that page and no longer a link of the bar.
+  // The servers' list is also where they are updated: the one that is too old says which Noust it runs, and the view of
+  // the ones with an update (a section of the column) is the same list.
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: /^Servers\b/ }).click();
-  await page.getByRole("navigation", { name: "Fleet server views" }).getByRole("link", { name: "Updates" }).click();
-  const updates = page.getByRole("region", { name: "Noust and system updates of every server" });
-  await expect(updates.getByRole("row").filter({ hasText: "old-1" })).toContainText("3.0.0");
+  const servers = page.getByRole("region", { name: "Servers of this fleet" });
+  await expect(servers.getByRole("row").filter({ hasText: "old-1" })).toContainText("3.0.0");
+  await page.getByRole("navigation", { name: "Server sections" }).getByRole("link", { name: "With an update" }).click();
+  await expect(page.getByRole("region", { name: "Noust and system updates of every server" })).toBeVisible();
+  // What the servers say is read from each one's own API: the one that is down and the one that is too old are both named, in their words.
+  await expect(page.getByText("2 of 4 servers did not answer fully")).toBeVisible();
+  const partial = page.getByRole("list", { name: "Servers that did not answer fully" });
+  await expect(partial.getByText("db-1", { exact: true })).toBeVisible();
+  await expect(partial.getByText("old-1", { exact: true })).toBeVisible();
+  await expect(partial.getByText("Older Noust", { exact: true })).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "a partial fleet's updates");
+});
+
+// The pictures of the pages a fleet gives to the machine's areas: the servers with the press that updates each, the
+// summary of Security by server, and what a node's own page and its central's permissions look like from the central.
+// Only with `NOUST_SCREENS=1 NOUST_SCREENS_DIR=<dir>` (see e2e/servidor.spec.ts for the pages of one machine).
+withFleet("@screens the fleet's servers and the machine's areas from a central, at 1440 and 390", async ({ page, consoleServer }, testInfo) => {
+  test.setTimeout(5 * 60_000);
+  const theme = testInfo.project.name;
+  const folder = process.env.NOUST_SCREENS_DIR ?? "e2e/__screens__";
+  await signIn(page, consoleServer, "/");
+  const pages = [
+    { name: "flota-servidores", to: "/fleet/servers" },
+    { name: "flota-con-actualizacion", to: "/fleet/updates" },
+    { name: "flota-seguridad", to: "/fleet/security" },
+    { name: "nodo-estado", to: `/n/${NODE_NAME}/server` },
+    { name: "nodo-permisos-central", to: `/n/${NODE_NAME}/server/central` },
+    { name: "nodo-seguridad", to: `/n/${NODE_NAME}/security` },
+  ];
+  for (const size of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(size);
+    for (const entry of pages) {
+      await page.goto(entry.to);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await settle(page);
+      await page.screenshot({ path: `${folder}/${theme}/${entry.name}-${String(size.width)}.png`, fullPage: false });
+    }
+  }
 });

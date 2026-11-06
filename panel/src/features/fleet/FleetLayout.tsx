@@ -1,12 +1,10 @@
 import { Link, Outlet } from "@tanstack/react-router";
-import { Cloud } from "lucide-react";
+import { Cloud, RotateCw } from "lucide-react";
 import { useState } from "react";
 
-import { LinkTabs } from "../../app/LinkTabs";
 import { useRenderedPathname } from "../../app/renderedPath";
-import { tabsOf } from "../../app/navCore";
-import { FLEET_APPS_SCREENS, FLEET_SERVERS_SCREENS } from "../nav/fleet";
 import { DetailPage } from "../../components/page/DetailPage";
+import { Can } from "../../components/page/permissions";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { ICONS } from "../../components/ui/icons";
@@ -17,14 +15,42 @@ import type { HubArea } from "../central/central";
 import { useCentral } from "../central/central";
 import { CentralLockedNotice } from "../central/CentralLockedNotice";
 import { AddServer } from "./enroll/AddServer";
-import { FleetActionsProvider } from "./BulkActionDialog";
+import { FleetActionsProvider, useFleetActions } from "./BulkActionDialog";
+import { noustOf, noustUpdatable, originOf } from "./data";
+import { useFleetView } from "./parts";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /**
- * The faces of an area that is a page of its own (Activity, Backups, Alerts): the same page as the area's, with
+ * The faces of an area that is a page of its own (Activity, Backups, Alerts, and Network and Security, the machine's areas): the same page as the area's, with
  * its own header, a title of its own and the server filter, so the fleet's header is not drawn over it.
  */
-const OWN_HEADER: ReadonlySet<string> = new Set(["/fleet/activity", "/fleet/backups", "/fleet/alerts"]);
+const OWN_HEADER: ReadonlySet<string> = new Set(["/fleet/activity", "/fleet/backups", "/fleet/alerts", "/fleet/network", "/fleet/security"]);
+
+/**
+ * "Update Noust on every server": the one press that does what each row's own does, for the servers whose Noust has a
+ * newer one waiting. It is in the header of the servers' views because that is where the version is read, and it is
+ * not drawn when there is nothing to update. It is inside the actions' provider, which the layout draws.
+ */
+function UpdateAll() {
+  const t = useT();
+  const view = useFleetView("summary");
+  const actions = useFleetActions();
+  // A bulk action never runs on the central itself: it updates last, from its own page, so it can watch every server come back.
+  const nodes = (view.data?.items ?? []).filter((row) => !originOf(row).local && noustUpdatable(noustOf(row).state)).map((row) => originOf(row).node);
+  if (nodes.length === 0) return null;
+  return (
+    <Can permission="fleet.manage">
+      <Button
+        icon={<RotateCw aria-hidden="true" />}
+        onClick={() => {
+          actions.open({ action: "noust_update", nodes });
+        }}
+      >
+        {t("fleet.page.updateAll")}
+      </Button>
+    </Can>
+  );
+}
 
 export interface FleetLayoutProps {
   /** Set when a hub was asked for one of the pages it does not have. */
@@ -61,7 +87,9 @@ export function FleetLayout({ hub, adding: addingProp, onAddingChange }: FleetLa
   const ownsPage = ["/fleet", "/fleet/", "/fleet/apps"].includes(pathname);
   const onAppsViews = pathname === "/fleet/apps" || pathname === "/fleet/placements";
   const onServers = pathname === "/fleet/servers";
-  const onServersViews = pathname === "/fleet/servers" || pathname === "/fleet/updates";
+  // The list of servers, whole or only the ones that are waiting for something: both are where they are updated.
+  const onServersList = onServers || pathname === "/fleet/updates";
+  const onServersViews = pathname === "/fleet/servers" || pathname === "/fleet/updates" || pathname === "/fleet/software";
   const ownHeader = OWN_HEADER.has(pathname);
 
   const add = (
@@ -123,24 +151,11 @@ export function FleetLayout({ hub, adding: addingProp, onAddingChange }: FleetLa
           ...(empty
             ? {}
             : {
-                ...(onServers ? { secondaryActions: create } : {}),
+                ...(onServersList ? { secondaryActions: <>{onServers ? create : null}<UpdateAll /></> } : {}),
                 primaryAction: add,
               }),
         }}
         {...(notices !== null ? { banner: notices } : {})}
-        {...(!(onAppsViews || onServersViews)
-          ? {}
-          : {
-              // A fleet with no server draws no views, but keeps their room: whether it is empty is known after the first frame,
-              // and a strip that vanished then moved the page under it.
-              tabs: empty ? (
-                <div aria-hidden="true" className="h-10" />
-              ) : onAppsViews ? (
-                <LinkTabs label={t("fleet.page.tabsLabel")} tabs={tabsOf(FLEET_APPS_SCREENS)} />
-              ) : (
-                <LinkTabs label={t("fleet.page.serversTabsLabel")} tabs={tabsOf(FLEET_SERVERS_SCREENS)} />
-              ),
-            })}
       >
         {empty ? (
           <EmptyState
@@ -154,7 +169,6 @@ export function FleetLayout({ hub, adding: addingProp, onAddingChange }: FleetLa
                 {create}
               </>
             }
-            command="noust node key web-2"
           />
         ) : (
           <Outlet />

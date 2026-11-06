@@ -6,8 +6,6 @@ import { isApiError } from "../../api/client";
 import { teamQuery } from "../../api/queries/teams";
 import type { TeamDetail } from "../../api/queries/teams";
 import { announce } from "../../app/Announcer";
-import { LinkTabs } from "../../app/LinkTabs";
-import { TEAM_TABS } from "../nav/team";
 import { DetailPage } from "../../components/page/DetailPage";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -56,9 +54,6 @@ export function TeamLayout({ team: slug }: { team: string }) {
   const team = query.data;
 
   const header = { title: team?.name ?? slug };
-  // The tabs are the same whoever the team is, and its short name is the address: both are there from the first frame, with
-  // the role (the one thing the answer holds) as a skeleton, so the page under them does not move when the team arrives.
-  const tabs = <LinkTabs label={t("nav.landmarks.teamSections")} tabs={TEAM_TABS.map((tab) => ({ ...tab, params: { team: slug } }))} />;
 
   if (query.isError && isApiError(query.error) && query.error.status === 404) {
     return (
@@ -73,7 +68,6 @@ export function TeamLayout({ team: slug }: { team: string }) {
               {t("teams.team.allTeams")}
             </Link>
           }
-          command="noust team list"
         />
       </DetailPage>
     );
@@ -94,7 +88,6 @@ export function TeamLayout({ team: slug }: { team: string }) {
             </>
           ),
         }}
-        tabs={tabs}
       >
         {query.isError ? <ErrorBlock error={query.error} title={t("teams.team.couldNotLoad", { name: slug })} onRetry={() => void query.refetch()} retrying={query.isRefetching} /> : <BodySkeleton slug={slug} />}
       </DetailPage>
@@ -131,7 +124,6 @@ export function TeamLayout({ team: slug }: { team: string }) {
             }
           : {}),
       }}
-      tabs={tabs}
     >
       <TeamContext.Provider value={team}>
         <Outlet />

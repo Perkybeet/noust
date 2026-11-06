@@ -8,7 +8,6 @@ import { ElevationCancelledError, isApiError, request } from "../../api/client";
 import { appsQuery } from "../../api/queries/apps";
 import { siteConfigQuery, siteKeys, siteQuery } from "../../api/queries/sites";
 import type { SiteConfig, SiteEditOp, SiteStructureResponse } from "../../api/queries/sites";
-import { CommandHint } from "../../components/page/CommandHint";
 import { FileEditorPage } from "../../components/page/FileEditorPage";
 import { ListPage } from "../../components/page/ListPage";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -248,7 +247,6 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
               {t("domains.siteConfigPage.allSites")}
             </Link>
           }
-          command="noust site list"
         />
       </ListPage>
     );
@@ -429,7 +427,6 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
           saving: save.isPending,
           busy: edit.isPending,
         }}
-        footer={<CommandHint command={`noust site show ${site}`} label={t("common.words.fromTerminal")} />}
       >
         {/* design-exception: hand-error-ternary the editor keeps the screen's height while it loads, so the bar never jumps */}
         {config.isError && config.data === undefined ? (
@@ -498,11 +495,11 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
           site={site}
           dirty={dirty}
           onClose={() => setHistory(false)}
-          onUse={(config, version) => {
-            setDraft(config);
+          onRestored={(version) => {
+            // The version is the file now: there is no draft, and the file is read again.
+            setDraft(null);
             setOutcome(null);
-            onViewChange?.("text");
-            toast.success(t("domains.siteHistory.loaded", { version }));
+            toast.success(t("domains.siteHistory.restoredToast", { version, webserver }));
           }}
         />
       ) : null}

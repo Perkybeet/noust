@@ -227,8 +227,8 @@ export function ManifestPreview() {
         />
       ) : null}
       <div className="flex flex-col gap-2">
-        <CommandHint command={t("manifestPreview.commandPlan")} label={t("common.words.fromTerminal")} />
-        <CommandHint command={t("manifestPreview.commandExport")} />
+        <CommandHint command={t("manifestPreview.commandPlan")} label={t("common.words.fromTerminal")} reason="otro-servidor" />
+        <CommandHint command={t("manifestPreview.commandExport")} reason="solo-terminal" />
       </div>
     </Sections>
   );

@@ -15,7 +15,6 @@ import type { AppProcess, Replicas } from "../../../api/queries/runtime";
 import { announce } from "../../../app/Announcer";
 import { AppStatePill } from "../../../components/page/AppStatePill";
 import { ErrorBlock } from "../../../components/page/QueryState";
-import { Section } from "../../../components/page/Section";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -42,6 +41,7 @@ import {
 } from "./settingsApp";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { SETTINGS_ICONS } from "./objectIcons";
+import { PartSection } from "./saveHost";
 
 /** The most copies of a background process the API takes. */
 const MAX_PROCESS_COPIES = 32;
@@ -803,7 +803,7 @@ export function ProcessesSettings() {
   useSubsectionTitle("runtime.nav.processes", app.domain);
   const headerIcon = useSubsectionIcon("runtime.nav.processes");
   return (
-    <Section title={t("runtime.nav.processes")} {...headerIcon}>
+    <PartSection title={t("runtime.nav.processes")} {...headerIcon}>
       {hasUnit(app) ? (
         <div className="flex flex-col gap-6">
           <ReplicasCard domain={app.domain} />
@@ -818,6 +818,6 @@ export function ProcessesSettings() {
           </p>
         </Card>
       )}
-    </Section>
+    </PartSection>
   );
 }

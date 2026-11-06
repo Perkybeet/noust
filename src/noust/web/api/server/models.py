@@ -587,6 +587,8 @@ class CleanupRunOut(BaseModel):
         freed_bytes: The total freed, when known.
         actions: What each action did.
         reason: Why nothing ran, when it did not.
+        reason_coded: ``reason`` as a code and its values, when it is a sentence of the
+            server's catalog.
         actor: Who asked; empty for the timer.
     """
 
@@ -601,17 +603,29 @@ class CleanupRunOut(BaseModel):
     freed_bytes: int | None = None
     actions: list[CleanupActionOut] = Field(default_factory=list)
     reason: str | None = None
+    reason_coded: CodedText | None = None
     actor: str | None = None
 
 
 class CleanupPlanOut(BaseModel):
-    """What a cleanup would do."""
+    """
+    What a cleanup would do.
+
+    Attributes:
+        action: The action.
+        commands: The commands it would run, as text.
+        effect: What it does, in a sentence.
+        needs_confirmation: It takes something the operator may want back.
+        items: What it would remove, when the action can list it.
+        effect_coded: ``effect`` as a code and its values, for the console to translate.
+    """
 
     action: str
     commands: list[str]
     effect: str
     needs_confirmation: bool
     items: list[str] = Field(default_factory=list)
+    effect_coded: CodedText | None = None
 
 
 # -- swap ----------------------------------------------------------------------
@@ -642,6 +656,8 @@ class SwapOut(BaseModel):
     reason: str
     noust_swapfile: bool
     warnings: list[str]
+    reason_coded: CodedText | None = None
+    warnings_coded: list[CodedText] = Field(default_factory=list)
 
 
 class CreateSwapRequest(BaseModel):

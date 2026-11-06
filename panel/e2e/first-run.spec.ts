@@ -85,7 +85,7 @@ test("from the installer's link to a live page in four clicks, with nothing to r
   await expect(page.getByRole("heading", { level: 2, name: "Deploy your first app" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Try a demo" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Use a repository" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Home sections" }).getByRole("link", { name: "Map" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "This server" })).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the Overview of an empty server");
 

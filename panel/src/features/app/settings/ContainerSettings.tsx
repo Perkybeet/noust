@@ -2,12 +2,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { isApiError, request } from "../../../api/client";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../../components/page/KeyValueList";
 import { ErrorBlock } from "../../../components/page/QueryState";
-import { SaveBar } from "../../../components/page/SaveBar";
-import { Section } from "../../../components/page/Section";
 import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Skeleton } from "../../../components/ui/Skeleton";
@@ -32,6 +29,7 @@ import {
   useSubsectionTitle,
 } from "./settingsApp";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
+import { PartSaveBar, PartSection } from "./saveHost";
 
 /** How the image comes to exist, in the words a person reads. */
 function builtFrom(t: T, settings: Settings): string {
@@ -161,16 +159,7 @@ function Form({ settings, domain }: { settings: Settings; domain: string }) {
           title={t("containers.settings.saveFailed", { domain })}
         />
       ) : null}
-      <CommandHint
-        command={`noust app container set ${domain} --container-port 3000 --volume /data`}
-        label={t("common.words.fromTerminal")}
-      />
-      <SaveBar
-        changes={bar.changes}
-        saving={bar.saving}
-        onSave={bar.onSave}
-        onDiscard={bar.onDiscard}
-      />
+      <PartSaveBar bar={bar} />
     </>
   );
 }
@@ -196,7 +185,7 @@ export function ContainerSettings() {
   });
 
   return (
-    <Section
+    <PartSection
       title={t("containers.settings.title")}
       {...headerIcon}
       description={t("containers.settings.description")}
@@ -226,6 +215,6 @@ export function ContainerSettings() {
       ) : (
         <Form settings={container.data} domain={domain} />
       )}
-    </Section>
+    </PartSection>
   );
 }

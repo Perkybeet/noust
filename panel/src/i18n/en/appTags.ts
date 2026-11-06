@@ -31,7 +31,6 @@ export const appTags = {
   },
   /** Databases and services carry tags too: the same rules, edited from their own lists. */
   resource: {
-    chips: "Tags",
     title: "Tags of the {noun} {name}",
     description: "Names that group things, such as web or client-acme. One carries up to {max}. Saving them restarts nothing.",
     saved: "Tags of {name} saved",

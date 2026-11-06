@@ -5,6 +5,7 @@ import type { App } from "../../../api/queries/apps";
 import { useDocumentTitle } from "../../../app/documentTitle";
 import { useT } from "../../../i18n";
 import type { PlainKey } from "../../../i18n";
+import type { SaveBarHandle } from "./formParts";
 
 /**
  * The application whose settings are open. The settings' layout provides it once the app is
@@ -23,9 +24,24 @@ export function useSettingsApp(): App {
 /** Names the browser tab after the subsection: "Deploys - Settings - shop.example.com". */
 export function useSubsectionTitle(section: PlainKey, domain: string): void {
   const t = useT();
-  useDocumentTitle(t("appSettings.documentTitle", { section: t(section), domain }), 1);
+  // Inside a page that gathers it, the page names the browser tab, not each part of it.
+  const hosted = useContext(PartHostContext);
+  useDocumentTitle(hosted ? null : t("appSettings.documentTitle", { section: t(section), domain }), 1);
 }
 
+
+/** True inside a page that gathers parts (`features/app/pages/ConfigPage`): a part leaves out what the page says once. */
+export const PartHostContext = createContext(false);
+
+/** True inside a part that its page folds under a button: its own heading is then the button's, kept for a reader but not drawn. */
+export const PartFoldedContext = createContext(false);
+
+/** What a part writes its save state to, inside a page that has one bar for all of them (`saveHost.tsx`). */
+export interface SaveRegistry {
+  set: (id: string, bar: SaveBarHandle) => void;
+  remove: (id: string) => void;
+}
+export const SaveRegistryContext = createContext<SaveRegistry | null>(null);
 
 /**
  * The icons the register gives the subsections, by the label of each: the settings' layout provides

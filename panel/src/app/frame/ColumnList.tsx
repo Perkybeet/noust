@@ -3,6 +3,7 @@ import type { LucideIcon } from "lucide-react";
 import { useId, useMemo } from "react";
 import type { ReactNode } from "react";
 
+import { Badge } from "../../components/ui/Badge";
 import { SlidingIndicator } from "../../components/ui/SlidingIndicator";
 import { cx } from "../../lib/cx";
 import { currentItem } from "../columns";
@@ -20,6 +21,12 @@ export interface ListItem {
   exact?: boolean;
   /** A count after the name, `null` while it loads: its room is kept, so the list does not change when it arrives. */
   count?: number | null;
+  /** A small word after the name that says something about the section as a whole ("All the fleet"). */
+  tag?: string;
+  /** The label is the operator's word (a project's name), not the console's: it is never translated. */
+  literal?: boolean;
+  /** A line under the name, for a name that does not say what the section is for ("With the company account"). */
+  hint?: string;
 }
 
 export interface ListGroup {
@@ -29,6 +36,11 @@ export interface ListGroup {
   /** The block above the group where the same groups exist more than once (a server's name on a fleet). */
   scope?: ReactNode;
   danger?: boolean;
+  /**
+   * A small word at the end of the heading that holds for every item of the group, said once there and not on each one
+   * ("All the fleet" over the sections that are all the fleet's).
+   */
+  tag?: string;
   items: ListItem[];
 }
 
@@ -46,14 +58,18 @@ const ITEM =
  */
 export function ColumnList({ label, groups, currentKey }: { label: string; groups: readonly ListGroup[]; currentKey?: string }) {
   const route = useRouterState({ select: (state) => state.matches.at(-1)?.fullPath ?? "" });
+  const search = useRouterState({ select: (state) => state.location.search as Record<string, unknown> });
   const ids = useId();
   const all = useMemo(() => groups.flatMap((group) => group.items), [groups]);
   // A list whose views are one page with another filter (Databases' engines) says which is current itself:
-  // the route alone cannot tell them apart.
-  const current = currentKey === undefined ? currentItem(all, route) : all.find((item) => item.key === currentKey);
+  // the route alone cannot tell them apart. The fixed views of an area (Logs: the system's) are told apart by
+  // the search they set, which `currentItem` reads.
+  const current = currentKey === undefined ? currentItem(all, route, search) : all.find((item) => item.key === currentKey);
   return (
-    <nav aria-label={label} className="relative isolate flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-3 pb-4 scroll-thin">
-      <SlidingIndicator className="rounded-control bg-surface" />
+    // A section is another page of the same area: the focus stays on its link (data-keep-focus), as it does on a strip of tabs.
+    <nav aria-label={label} data-keep-focus="" className="relative isolate flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-3 pb-4 scroll-thin">
+      {/* A group's tag arrives after the list is drawn (the servers are asked for later) and can make a heading wrap: the raised piece measures the list again by being drawn again. */}
+      <SlidingIndicator key={groups.map((group) => `${group.key}:${group.tag ?? ""}`).join("|")} className="rounded-control bg-surface" />
       {groups.map((group, position) => {
         const headingId = `${ids}-${String(position)}`;
         const previous = groups[position - 1];
@@ -62,9 +78,11 @@ export function ColumnList({ label, groups, currentKey }: { label: string; group
         return (
           <section key={group.key} className={cx("flex flex-col gap-0.5", newBlock && "border-t border-border pt-4")}>
             {titled ? (
-              <p id={headingId} className={cx("flex min-w-0 items-center gap-1.5 px-2.5 pb-1 text-13 font-semibold", group.danger === true ? "text-fail" : "text-fg-muted")}>
+              <p id={headingId} className={cx("flex min-w-0 gap-1.5 px-2.5 pb-1 text-13 font-semibold", group.tag === undefined ? "items-center" : "items-start", group.danger === true ? "text-fail" : "text-fg-muted")}>
                 {group.scope !== undefined ? <span className="min-w-0 truncate text-fg">{group.scope}</span> : null}
-                {group.heading !== undefined ? <span className="min-w-0 truncate">{group.heading}</span> : null}
+                {/* A long heading wraps beside its tag instead of being cut: "Compliance and audit" is a name, not a path. */}
+                {group.heading !== undefined ? <span className={cx("min-w-0 flex-1", group.tag === undefined && "truncate")}>{group.heading}</span> : null}
+                {group.tag !== undefined ? <Badge className="shrink-0">{group.tag}</Badge> : null}
               </p>
             ) : null}
             <ul aria-labelledby={titled ? headingId : undefined} className="flex flex-col gap-0.5">
@@ -74,9 +92,9 @@ export function ColumnList({ label, groups, currentKey }: { label: string; group
                     to={item.to}
                     params={item.params as never}
                     {...(item.search !== undefined ? { search: item.search as never } : {})}
-                    // Where views are one page with another filter (Databases' engines) the search is part of which one is
-                    // current; everywhere else a filter on the page leaves the section current.
-                    activeOptions={{ exact: true, includeSearch: currentKey !== undefined }}
+                    // Which section is current is decided above (`currentItem`), and the router must not mark another
+                    // one: a view of one page (Logs: the system's, Databases' engines) shares its path with the page.
+                    activeOptions={{ exact: true, includeSearch: true }}
                     {...(current === item ? { "aria-current": "page" as const } : {})}
                     className={ITEM}
                   >
@@ -86,7 +104,11 @@ export function ColumnList({ label, groups, currentKey }: { label: string; group
                       <item.icon aria-hidden="true" className="size-icon-md shrink-0 text-fg-faint group-hover:text-fg-muted group-aria-[current=page]:text-accent-fg" />
                     ) : null}
                     {/* A name that does not fit takes a second line: Spanish runs longer than the column, and a cut name is another name. */}
-                    <span className="min-w-0 flex-1">{item.label}</span>
+                    <span {...(item.literal === true ? { translate: "no" as const } : {})} className="min-w-0 flex-1">
+                      {item.label}
+                      {item.hint !== undefined ? <span className="block text-12 text-fg-muted">{item.hint}</span> : null}
+                    </span>
+                    {item.tag !== undefined ? <Badge>{item.tag}</Badge> : null}
                     {item.count !== undefined ? (
                       <span className={cx("mono min-w-5 rounded-chip bg-bg-sunken px-1 text-center text-12 text-fg-muted", item.count === null && "invisible")}>{item.count ?? 0}</span>
                     ) : null}

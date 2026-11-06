@@ -84,15 +84,26 @@ describe("the GitLab connections of the server", () => {
     if (!old) throw new Error("no row for old");
     expect(within(old).getByText("OAuth sign-in")).toBeInTheDocument();
     expect(within(old).getByText("Failed")).toBeInTheDocument();
-    // What GitLab answered, as it said it.
-    expect(within(old).getByText("401 Unauthorized: the token expired")).toBeInTheDocument();
+    // What GitLab answered, as it said it, under the table and in mono: the row says only that it failed.
+    expect(within(old).queryByText(/token expired/)).not.toBeInTheDocument();
+    expect(within(within(section).getByRole("list", { name: "What GitLab answered" })).getByText("401 Unauthorized: the token expired")).toHaveAttribute("translate", "no");
     expect(within(section).getByRole("table", { name: "GitLab OAuth applications" })).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 
-  it("says GitLab is not connected when nothing is", async () => {
+  it("says GitLab is not connected when nothing is: its state beside the title, and one sentence with the button that connects it", async () => {
     const { section } = await integrations({ "GET /api/integrations/gitlab": () => json(200, { connections: [], oauth_apps: [], redirect_uri: null }) });
-    expect(await within(section).findByText("GitLab is not connected")).toBeInTheDocument();
+    expect(await within(section).findByText("Not connected")).toHaveAttribute("data-state", "stopped");
+    expect(within(section).getByText("Connect gitlab.com or your own GitLab to create applications from its projects and to clone the private ones.")).toBeInTheDocument();
+    expect(within(section).getByRole("button", { name: "Connect GitLab" })).toHaveAttribute("data-variant", "primary");
+  });
+
+  it("says GitLab is connected with the state beside the title, and draws no command", async () => {
+    const { section } = await integrations();
+    await within(section).findByRole("table", { name: "GitLab connections" });
+    expect(within(section).getByText("Connected")).toHaveAttribute("data-state", "running");
+    expect(screen.queryByText("noust gitlab list")).not.toBeInTheDocument();
+    expect(within(section).getByRole("button", { name: "Connect GitLab" })).toHaveAttribute("data-variant", "secondary");
   });
 
   it("says when they cannot be read", async () => {
@@ -189,7 +200,8 @@ describe("the GitLab connections of the server", () => {
     await user.click(within(dialog).getByRole("radio", { name: "Sign in with GitLab" }));
 
     expect(within(dialog).getByText(/no public address for GitLab to send the browser back to/)).toBeInTheDocument();
-    expect(within(dialog).getByText(/noust config set web\.public_url/)).toBeInTheDocument();
+    expect(within(dialog).getByRole("link", { name: "General settings" })).toHaveAttribute("href", "/settings/general");
+    expect(within(dialog).queryByText(/noust config set web\.public_url/)).not.toBeInTheDocument();
   });
 
   it("checks a connection and shows GitLab's answer", { timeout: 40_000 }, async () => {
@@ -201,7 +213,9 @@ describe("the GitLab connections of the server", () => {
         return json(200, { ...BROKEN, last_status: "ok", last_error: null });
       },
     });
-    const row = (await within(section).findByText("old")).closest("tr");
+    // The name is also in the line of what GitLab answered under the table: the row is the table's.
+    const table = await within(section).findByRole("table", { name: "GitLab connections" });
+    const row = within(table).getByText("old").closest("tr");
     if (!row) throw new Error("no row");
     await user.click(within(row).getByRole("button", { name: "Actions for old" }));
     await user.click(await screen.findByRole("menuitem", { name: "Check the connection" }));
@@ -229,7 +243,7 @@ describe("the GitLab connections of the server", () => {
     await user.click(within(confirm).getByRole("button", { name: "Remove the connection" }));
 
     await waitFor(() => expect(backend.callsTo("DELETE /api/integrations/gitlab/connections/work")).toHaveLength(1));
-    expect(await within(section).findByText("GitLab is not connected")).toBeInTheDocument();
+    expect(await within(section).findByText("Not connected")).toBeInTheDocument();
   });
 
   it("removes an OAuth application after asking", { timeout: 40_000 }, async () => {

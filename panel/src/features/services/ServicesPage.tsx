@@ -4,8 +4,8 @@ import { useMemo, useState } from "react";
 
 import { appsQuery } from "../../api/queries/apps";
 import { servicesQuery } from "../../api/queries/services";
-import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
+import { GuardedButton, ReadOnlyLine } from "../../components/page/permissions";
 import { QueryState } from "../../components/page/QueryState";
 import { SegmentedControl } from "../../components/page/SegmentedControl";
 import { Button } from "../../components/ui/Button";
@@ -13,7 +13,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { ICONS } from "../../components/ui/icons";
 import { Select } from "../../components/ui/Select";
 import { useT } from "../../i18n";
-import { TabToolbar } from "../server/TabToolbar";
+import { HeaderActions } from "../server/headerSlot";
 import { CreateServiceDialog } from "./CreateServiceDialog";
 import { ServiceRowActions } from "./ServiceRowActions";
 import { ServicesTable } from "./ServicesTable";
@@ -66,15 +66,17 @@ export function ServicesPage({ search, onSearchChange }: ServicesPageProps) {
   const filtered = isFiltered(search);
   // Nothing to filter yet when the first list is empty, and nothing to filter when it did not load.
   const showFilters = services.isPending || (services.data !== undefined && (fetched.length > 0 || showAll));
+  // Creating a unit is a command systemd runs as root: the permission is the one the server holds the route to.
   const newService = (
-    <Button variant="primary" icon={<ICONS.add aria-hidden="true" />} onClick={() => setCreateOpen(true)}>
+    <GuardedButton permission="root_equivalent" variant="primary" icon={<ICONS.add aria-hidden="true" />} onClick={() => setCreateOpen(true)}>
       {t("services.page.newService")}
-    </Button>
+    </GuardedButton>
   );
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <TabToolbar summary={t("services.page.description")} actions={newService} />
+      <HeaderActions>{newService}</HeaderActions>
+      <ReadOnlyLine permission="root_equivalent" />
       {showFilters ? (
         <FilterBar
           label={t("services.page.filterLabel")}
@@ -143,7 +145,6 @@ export function ServicesPage({ search, onSearchChange }: ServicesPageProps) {
                 {t("services.page.showSystem")}
               </Button>
             }
-            command="noust service create --name worker --command '/usr/bin/node worker.js' --directory /var/www/worker"
           />
         }
       >
@@ -167,9 +168,6 @@ export function ServicesPage({ search, onSearchChange }: ServicesPageProps) {
           />
         )}
       </QueryState>
-      {/* Drawn with the rows, not before: under a list of unknown length it would only be
-          pushed down the page when they arrive. */}
-      {services.isPending ? null : <CommandHint command="noust service list" label={t("common.words.fromTerminal")} />}
       <CreateServiceDialog open={createOpen} onOpenChange={setCreateOpen} />
     </div>
   );

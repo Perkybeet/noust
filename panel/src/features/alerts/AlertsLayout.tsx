@@ -1,11 +1,11 @@
 import { Outlet, useRouterState } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { LinkTabs } from "../../app/LinkTabs";
 import { tabsOf } from "../../app/navCore";
 import { DetailPage } from "../../components/page/DetailPage";
 import { useT } from "../../i18n";
 import { ALERTS_SCREENS } from "../nav/alerts";
+import { SilenceNotifications } from "../settings/mute/SilenceNotifications";
 import { PrimarySlot } from "../settings/SettingsPrimaryAction";
 
 /** What each section says it is for, by the last segment of its address; the first section has none. */
@@ -40,10 +40,11 @@ export function AlertsLayout() {
       header={{
         title: t(current === undefined ? "nav.alerts.label" : current.label),
         description: t(DESCRIPTIONS[section]),
+        // Looking at what fires is when a person wants the messages quiet for a while: the same question as the switch of the channels.
+        ...(section === "alerts" ? { secondaryActions: <SilenceNotifications /> } : {}),
         // Empty (and boxless) unless the section on screen puts its primary action here.
         primaryAction: <span ref={setSlot} className="contents" />,
       }}
-      tabs={<LinkTabs label={t("nav.landmarks.alertsSections")} tabs={tabs} />}
     >
       <PrimarySlot.Provider value={slot}>
         <Outlet />

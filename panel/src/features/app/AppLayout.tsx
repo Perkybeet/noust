@@ -7,11 +7,8 @@ import { isApiError } from "../../api/client";
 import { appQuery, appsQuery } from "../../api/queries/apps";
 import type { App } from "../../api/queries/apps";
 import { certsQuery } from "../../api/queries/certs";
-import { deploymentsQuery } from "../../api/queries/deployments";
 import { appDomainsQuery } from "../../api/queries/domains";
 import { queueQuery } from "../../api/queries/queue";
-import { LinkTabs } from "../../app/LinkTabs";
-import { useColumnCarries } from "../../app/frame/columnContext";
 import type { PageHeaderProps } from "../../app/PageHeader";
 import { DetailPage } from "../../components/page/DetailPage";
 import { JobProgress } from "../../components/page/JobProgress";
@@ -33,15 +30,13 @@ import { CancelJobButton } from "../queue/CancelJobButton";
 import { useCancelJob } from "../queue/useCancelJob";
 import { cancelReasonWords, cancelState, mergedRequests, placeOf } from "../queue/words";
 import { useAppHeaderActions } from "./AppActions";
-import { AppBanner, RECENT_APP_DEPLOYS, useAppCondition } from "./AppBanner";
+import { AppBanner, useAppCondition } from "./AppBanner";
 import { HoldChip, NotAppliedChip } from "./HeaderChips";
 import { usePendingChanges } from "./PendingChanges";
 import { RollbackHost } from "./RollbackHost";
 import { ViewJobLog } from "./ViewJobLog";
 import { displayAddress } from "./displayAddress";
 import type { Address } from "./displayAddress";
-import { isAdopted } from "./adopted";
-import { appTabs } from "./tabs";
 import { stepWords } from "./stepWords";
 import { jobStep, jobWords, useAppJob } from "./useAppJob";
 import type { AppJob } from "./useAppJob";
@@ -176,34 +171,16 @@ function NotFound({ domain, header, t }: { domain: string; header: PageHeaderPro
             {t("appPages.layout.allApplications")}
           </Link>
         }
-        command="noust list"
       />
     </DetailPage>
   );
 }
 
 /**
- * What the tabs count: the deployments building or waiting, and the environment's settings that
- * are not applied yet. A count of nothing is not drawn; the tabs are held until both reads are in
- * (`ready` below), so the strip never grows as they arrive.
- */
-function useTabCounts(domain: string, job: AppJob, pending: ReturnType<typeof usePendingChanges>) {
-  const deploys = useQuery(deploymentsQuery({ domain, limit: RECENT_APP_DEPLOYS }));
-  const building = (deploys.data?.items ?? []).filter((item) => item.status === "running" || item.status === "queued").length;
-  // A job on the app counts before its deployment has a row of its own.
-  const inHand = building > 0 ? building : job.running !== null ? 1 : 0;
-  const unapplied = (pending.data?.items ?? []).filter((item) => item.area === "environment").length;
-  return {
-    ...(inHand > 0 ? { "/apps/$domain/deployments": inHand } : {}),
-    ...(unapplied > 0 ? { "/apps/$domain/environment": unapplied } : {}),
-  };
-}
-
-/**
- * One application, as a T2 page: a header that stays put on every tab (its name, its state with
+ * One application, as a T2 page: a header that stays put on every section (its name, its state with
  * what is not applied or held, its type, port and live address, Update and the other actions),
- * then what is wrong with it when something is, the job in hand, and its sections as tabs whose
- * state is the URL. The page is one tree from the first frame: the tab under it is never mounted
+ * then what is wrong with it when something is, the job in hand, and the section the column has
+ * open. The page is one tree from the first frame: the section under it is never mounted
  * twice as the app's details arrive. Going back is one question for the whole page
  * (`RollbackHost`), asked from the header, a deployment or Diagnose.
  */
@@ -219,13 +196,10 @@ export function AppLayout({ domain }: { domain: string }) {
 
 function AppPage({ domain, app, job }: { domain: string; app: UseQueryResult<App>; job: AppJob }) {
   const t = useT();
-  // The double bar's second column holds the sections: the strip under the header is for one bar.
-  const columnHasTabs = useColumnCarries("app");
   const certs = useQuery(certsQuery());
   const names = useQuery(appDomainsQuery(domain));
   const condition = useAppCondition(domain, app.data);
   const pending = usePendingChanges(domain);
-  const counts = useTabCounts(domain, job, pending);
   const matchRoute = useMatchRoute();
   const onDiagnose = matchRoute({ to: "/apps/$domain/diagnose", params: { domain } }) !== false;
   // On the page of a deployment the trail goes through the list it belongs to, and the page does not draw a way back of its own.
@@ -297,7 +271,6 @@ function AppPage({ domain, app, job }: { domain: string; app: UseQueryResult<App
         }}
         {...(banner !== null ? { banner } : {})}
         {...(job.running !== null || job.failed !== null ? { job: <Job job={job} domain={domain} t={t} /> } : {})}
-        {...(ready && !columnHasTabs ? { tabs: <LinkTabs label={t("nav.landmarks.appSections")} tabs={appTabs(domain, counts, { adopted: isAdopted(loaded) })} /> } : {})}
       >
         <div hidden={!ready}>
           <Outlet />

@@ -55,7 +55,9 @@ The console acts as root, so how it is reached matters more than anything else o
   but the forge webhooks, which get 5 MiB. A larger body is refused with `413` and
   `"error": "payload_too_large"`, from its `Content-Length` or, for a chunked body, as it is
   read. The API's largest legitimate bodies (a unit file, a site configuration, an `.env`)
-  are a few kilobytes.
+  are a few kilobytes. The one other cap is the picture of the sign-in screen
+  (`PUT /api/auth/sign-in/appearance`), whose body carries a file of up to 1 MiB as base64; and a dump
+  uploaded in chunks has the size of one chunk.
 - `web.allowed_hosts` (names, or `*.example.com`) makes the console answer only those `Host`
   headers, plus loopback and the hosts of `web.public_url` and `web.hooks_url`; any other host
   gets `400`. Empty answers any host.
@@ -69,7 +71,8 @@ every response carries the same headers whatever it answers: a page, the API, an
 a refusal made before routing (a host or an address that is not allowed, a rate limit, a body too
 large). `Strict-Transport-Security` is added when the request came over TLS (directly, or through a
 declared proxy); everything is `Cache-Control: no-store` except the content-hashed files under
-`/assets/`, which are immutable for a year. The exact values of every header are printed in
+`/assets/` and the picture of the sign-in screen asked for by its own digest (`?v=<sha256>`), which are
+immutable for a year. The exact values of every header are printed in
 [SECURITY-MODEL.md](SECURITY-MODEL.md#the-browser), generated from the code that sends them and
 checked against it by a test.
 

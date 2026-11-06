@@ -29,6 +29,36 @@ describe("CommandHint", () => {
     await expectNoAxeViolations(container);
   });
 
+  it("says why the page shows a command, in the words of its reason, when no label leads it", () => {
+    const { rerender } = render(<CommandHint command="noust central seal" reason="solo-terminal" />);
+    expect(screen.getByText("Only from a terminal")).toBeInTheDocument();
+    rerender(<CommandHint command="noust fleet authorize" reason="otro-servidor" />);
+    expect(screen.getByText("On the other server")).toBeInTheDocument();
+    rerender(<CommandHint command="nginx -t" reason="salida-del-sistema" />);
+    expect(screen.getByText("What the system tells you to run")).toBeInTheDocument();
+  });
+
+  it("keeps a label it was given over the words of the reason, and marks the reason on the element for the tests that count them", () => {
+    const { container } = render(<CommandHint command="noust central seal" label="Sealing is done on the machine" reason="solo-terminal" />);
+    expect(screen.getByText("Sealing is done on the machine")).toBeInTheDocument();
+    expect(screen.queryByText("Only from a terminal")).not.toBeInTheDocument();
+    expect(container.firstElementChild).toHaveAttribute("data-reason", "solo-terminal");
+  });
+
+  it("leads with nothing and marks nothing when it has neither a label nor a reason", () => {
+    const { container } = render(<CommandHint command="noust list" />);
+    expect(container.firstElementChild).not.toHaveAttribute("data-reason");
+    expect(container.querySelector("span.text-fg-faint:not([aria-hidden])")).toBeNull();
+  });
+
+  it("says the reason in Spanish", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    render(<CommandHint command="noust central seal" reason="solo-terminal" />);
+    expect(screen.getByText("Solo desde un terminal")).toBeInTheDocument();
+  });
+
   it("labels the copy button in Spanish", async () => {
     await act(async () => {
       await setLocale("es");

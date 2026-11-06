@@ -165,7 +165,7 @@ describe("Settings > Accounts", () => {
     renderConsole("/settings/accounts");
     await screen.findByText("ana");
     const invite = screen.getByRole("button", { name: "Invite a person" });
-    const header = screen.getByRole("heading", { level: 1, name: "People" }).closest("header");
+    const header = screen.getByRole("heading", { level: 1, name: "Accounts" }).closest("header");
     if (header === null) throw new Error("no page header");
     expect(header).toContainElement(invite);
     expect(invite).toHaveAttribute("data-variant", "primary");

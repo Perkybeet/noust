@@ -1,0 +1,19 @@
+Dependencies resolved.
+================================================================================
+ Package                    Architecture Version               Repository  Size
+================================================================================
+Removing:
+ nginx                      x86_64       1:1.20.1-14.el9_2.1   @appstream  1.7 M
+Removing dependent packages:
+ nginx-mod-stream           x86_64       1:1.20.1-14.el9_2.1   @appstream   94 k
+ nginx-mod-http-image-filter-with-a-very-long-name
+                            x86_64       1:1.20.1-14.el9_2.1   @appstream   31 k
+Removing unused dependencies:
+ nginx-filesystem           noarch       1:1.20.1-14.el9_2.1   @appstream    0
+
+Transaction Summary
+================================================================================
+Remove  4 Packages
+
+Freed space: 1.8 M
+Operation aborted.

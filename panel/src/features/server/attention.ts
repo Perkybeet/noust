@@ -18,7 +18,7 @@ export type Severity = "critical" | "warning";
 
 /** Where an item's action takes the operator: a tab, or the reboot dialog. */
 export type AttentionAction =
-  | { kind: "tab"; to: "/server/system" | "/server/files" | "/server/security" | "/server/network"; view?: string }
+  | { kind: "tab"; to: "/server/updates" | "/server/machine" | "/server/files" | "/security" | "/security/ssh" | "/security/blocks" | "/network/firewall" }
   | { kind: "services"; state: "failed" }
   | { kind: "reboot" };
 
@@ -53,7 +53,7 @@ function fromSummary(summary: ServerSummary): AttentionItem[] {
   const items: AttentionItem[] = [];
   const updates = summary.updates;
   if (updates.broken === true) {
-    items.push({ id: "packages-broken", kind: "packagesBroken", severity: "critical", action: { kind: "tab", to: "/server/system" } });
+    items.push({ id: "packages-broken", kind: "packagesBroken", severity: "critical", action: { kind: "tab", to: "/server/updates" } });
   }
   if ((updates.security ?? 0) > 0) {
     items.push({
@@ -62,12 +62,12 @@ function fromSummary(summary: ServerSummary): AttentionItem[] {
       count: updates.security ?? 0,
       // A warning, as the Overview's tile says it: the server marks no update critical.
       severity: "warning",
-      action: { kind: "tab", to: "/server/system" },
+      action: { kind: "tab", to: "/server/updates" },
     });
   }
   const eol = summary.os.eol;
   if (eol.status === "expired") {
-    items.push({ id: "os-eol", kind: "osUnsupported", name: summary.os.name, date: eol.end_date ?? null, severity: "critical", action: { kind: "tab", to: "/server/system" } });
+    items.push({ id: "os-eol", kind: "osUnsupported", name: summary.os.name, date: eol.end_date ?? null, severity: "critical", action: { kind: "tab", to: "/server/updates" } });
   } else if (eol.status === "warn" && eol.days_left != null) {
     items.push({
       id: "os-eol",
@@ -76,7 +76,7 @@ function fromSummary(summary: ServerSummary): AttentionItem[] {
       days: eol.days_left,
       date: eol.end_date ?? null,
       severity: "warning",
-      action: { kind: "tab", to: "/server/system" },
+      action: { kind: "tab", to: "/server/updates" },
     });
   }
   const disk = summary.disk;
@@ -102,7 +102,7 @@ function fromSummary(summary: ServerSummary): AttentionItem[] {
     });
   }
   if (summary.time.synchronized === false) {
-    items.push({ id: "clock", kind: "clockUnsynced", timezone: summary.time.timezone ?? null, severity: "warning", action: { kind: "tab", to: "/server/system" } });
+    items.push({ id: "clock", kind: "clockUnsynced", timezone: summary.time.timezone ?? null, severity: "warning", action: { kind: "tab", to: "/server/machine" } });
   }
   if (summary.swap.recommended === true && (summary.swap.total_bytes ?? 0) === 0) {
     items.push({ id: "swap", kind: "noSwap", severity: "warning", action: { kind: "tab", to: "/server/files" } });
@@ -123,6 +123,12 @@ export function checkSeverity(check: Pick<SecurityCheck, "severity" | "status">)
 }
 
 /** The Security view a check's finding is read and fixed in. */
+export function checkTarget(group: string): "/security" | "/security/ssh" | "/security/blocks" {
+  const view = checkView(group);
+  return view === "ssh" ? "/security/ssh" : view === "bans" ? "/security/blocks" : "/security";
+}
+
+/** Which view of Security a check group is fixed in: `checks`, `ssh` or `bans`. */
 export function checkView(group: string): string {
   switch (group) {
     case "ssh":
@@ -142,7 +148,7 @@ function fromChecks(security: SecurityOverview): AttentionItem[] {
     if (severity === null || COVERED_BY_SUMMARY.has(check.id)) return [];
     // The firewall is Network and ports' since 4.1: its findings are fixed there.
     const action: Extract<AttentionItem["action"], { kind: "tab" }> =
-      check.group === "firewall" ? { kind: "tab", to: "/server/network", view: "firewall" } : { kind: "tab", to: "/server/security", view: checkView(check.group) };
+      check.group === "firewall" ? { kind: "tab", to: "/network/firewall" } : { kind: "tab", to: checkTarget(check.group) };
     return [{ id: `check:${check.id}`, kind: "check", check, severity, action }];
   });
 }

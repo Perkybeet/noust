@@ -184,6 +184,86 @@ def test_a_network_the_stack_made_is_shown_while_its_containers_are_down(
     assert answer.isolated
 
 
+def test_what_is_worth_knowing_about_a_network_is_sentences_with_codes(
+    runner: FakeRunner, app: App
+) -> None:
+    proxy = network(
+        "proxy",
+        (OWN_WEB, "shop-web-1", "172.19.0.5/16"),
+        (OTHER, "traefik", "172.19.0.2/16"),
+        subnet="172.19.0.0/16",
+    )
+    other = network(
+        "blog_default",
+        (OWN_WEB, "shop-web-1", "172.20.0.5/16"),
+        (OTHER, "blog-web-1", "172.20.0.2/16"),
+        project="blog",
+    )
+    bridge = network("bridge", (OWN_WEB, "shop-web-1", "172.17.0.2/16"), subnet="172.17.0.0/16")
+    host = network("host", (OWN_DB, "shop-db-1", ""), driver="host")
+    private = network(
+        "shop-example-com_backend",
+        (OWN_DB, "shop-db-1", "172.21.0.2/16"),
+        project="shop-example-com",
+        internal=True,
+    )
+    docker(runner, STACK, [OWN, proxy, other, bridge, host, private])
+
+    by_name = {n.name: n for n in stack_networks(app, runner=runner).networks}
+
+    said = {
+        name: [(f.code, dict(f.params)) for f in found.findings_coded]
+        for name, found in by_name.items()
+    }
+    assert said["proxy"] == [
+        ("networks.finding.shared_one", {"members": "traefik"}),
+        ("networks.finding.made_elsewhere", {}),
+    ]
+    assert said["blog_default"] == [
+        ("networks.finding.shared_one", {"members": "blog-web-1"}),
+        ("networks.finding.owned_by_another", {"owner": "blog"}),
+    ]
+    assert said["bridge"][0][0] == "networks.finding.default_bridge"
+    assert said["host"] == [("networks.finding.host", {})]
+    assert said["shop-example-com_backend"] == [("networks.finding.internal", {})]
+    # The English is the catalog's text with the values put in, one finding for each sentence.
+    for found in by_name.values():
+        assert found.findings == tuple(f.text for f in found.findings_coded)
+        assert [f["code"] for f in found.to_dict()["findings_coded"]] == [
+            f.code for f in found.findings_coded
+        ]
+
+
+def test_who_shares_a_network_is_said_for_one_for_several_and_for_many(
+    runner: FakeRunner, app: App
+) -> None:
+    def shared_with(count: int) -> str:
+        others = tuple((f"{i:064d}", f"other-{i}", f"172.19.0.{i + 10}/16") for i in range(count))
+        docker(runner, STACK, [network("proxy", (OWN_WEB, "shop-web-1", "172.19.0.5/16"), *others)])
+        (found,) = stack_networks(app, runner=runner).networks
+        return found.findings_coded[0].code + ":" + str(dict(found.findings_coded[0].params))
+
+    assert shared_with(1).startswith("networks.finding.shared_one:")
+    assert shared_with(3) == (
+        "networks.finding.shared_several:{'members': 'other-0, other-1, other-2'}"
+    )
+    assert shared_with(7) == (
+        "networks.finding.shared_many:"
+        "{'members': 'other-0, other-1, other-2, other-3, other-4', 'more': 2}"
+    )
+
+
+def test_an_application_that_does_not_run_in_docker_says_why_with_a_code(
+    runner: FakeRunner,
+) -> None:
+    answer = stack_networks(App(domain="x.example.com", app_type="nodejs"), runner=runner)
+
+    assert answer.reason_coded is not None
+    assert answer.reason_coded.code == "networks.not_applicable"
+    assert answer.reason == answer.reason_coded.text
+    assert answer.to_dict()["reason_coded"] == {"code": "networks.not_applicable", "params": {}}
+
+
 def test_an_application_that_does_not_run_in_docker_has_no_network_and_docker_is_not_asked(
     runner: FakeRunner,
 ) -> None:

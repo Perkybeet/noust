@@ -50,20 +50,3 @@ export function patchedApp(search: AppLogsSearch, patch: { [K in Exclude<keyof A
   return validateAppLogsSearch({ ...search, ...patch });
 }
 
-const quote = (value: string): string => (/^[\w.@%+=:,/-]+$/.test(value) ? value : `'${value.replaceAll("'", `'\\''`)}'`);
-
-/**
- * The command that reads the same lines from a terminal, or nothing when it cannot be said yet.
- *
- * @param deployedAt - When the last deployment started, Unix seconds: what "since the last deploy" is for the command.
- */
-export function appLogsCommand(domain: string, source: AppLogSource, search: AppLogsSearch, deployedAt: number | null): string | null {
-  if (source !== "app") return `noust site logs ${domain} --kind ${source}`;
-  const range = search.since ?? "live";
-  if (range === "live") return `noust logs ${domain} --follow`;
-  if (range === "deploy" && deployedAt === null) return null;
-  const parts = ["noust log search"];
-  if (search.q !== undefined) parts.push(quote(search.q));
-  parts.push(`--app ${domain}`, `--since ${range === "deploy" ? String(deployedAt) : range}`);
-  return parts.join(" ");
-}

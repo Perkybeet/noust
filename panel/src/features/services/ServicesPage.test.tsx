@@ -81,7 +81,7 @@ async function servicesAt(path = "/server/services", extra: Record<string, Route
     ...extra,
   });
   const harness = renderConsole(path);
-  await screen.findByRole("heading", { level: 1, name: "web-01" });
+  await screen.findByRole("heading", { level: 1, name: "Services" });
   const table = await findLoadedRegion(/Services/);
   return { ...harness, backend, table };
 }
@@ -93,19 +93,16 @@ describe("the services tab", () => {
     const row = running.closest("tr");
     if (!row) throw new Error("no row");
     expect(within(row).getByText("Running")).toBeInTheDocument();
-    // Starting at boot is an on/off at a glance: green with a dot, grey with a ring.
-    expect(within(row).getByText("Starts")).toHaveAttribute("data-state", "running");
 
     const stopped = within(table).getByText("admin-example-com").closest("tr");
     if (!stopped) throw new Error("no row");
     expect(within(stopped).getByText("Stopped")).toBeInTheDocument();
-    expect(within(stopped).getByText("Does not start")).toHaveAttribute("data-state", "stopped");
   });
 
   it("is a tab of the Server area, with the old address sending there", async () => {
     fakeBackend({ ...signedInRoutes(), ...serverRoutes(), "GET /api/services": () => json(200, { services: SERVICES, total: SERVICES.length }) });
     const { location } = renderConsole("/services?q=shop");
-    await screen.findByRole("heading", { level: 1, name: "web-01" });
+    await screen.findByRole("heading", { level: 1, name: "Services" });
     await waitFor(() => {
       expect(location().pathname).toBe("/server/services");
     });
@@ -132,7 +129,10 @@ describe("the services tab", () => {
     });
     const row = (await within(table).findByText("shop-example-com")).closest("tr");
     if (!row) throw new Error("no row");
-    expect(within(row).getByText("Runs shop.example.com")).toBeInTheDocument();
+    // Whose each unit is has a column of its own: an application's domain, what a person made by hand, or the system's.
+    expect(within(row).getByText("shop.example.com")).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "Belongs to" })).toBeInTheDocument();
+    expect(within(within(table).getByText("admin-example-com").closest("tr") as HTMLElement).getByText("By hand")).toBeInTheDocument();
   });
 
   it("filters by the search box, written into the URL", async () => {
@@ -218,6 +218,41 @@ describe("the services tab", () => {
     expect(await screen.findByText("Created e2e-worker")).toBeInTheDocument();
   });
 
+  it("checks a unit written by hand the way the unit file page does, and shows systemd's own words", async () => {
+    const { user, backend, table } = await servicesAt("/server/services", {
+      "POST /api/services/verify": () => json(200, { success: false, output: "noust-verify.service: Service has no ExecStart= setting. Refusing." }),
+    });
+    await within(table).findByText("shop-example-com");
+    await user.click(screen.getByRole("button", { name: "New service" }));
+    const dialog = await screen.findByRole("dialog", { name: "New service" });
+    await user.click(within(dialog).getByRole("radio", { name: "Advanced" }));
+    await user.click(within(dialog).getByRole("button", { name: "Check the unit file" }));
+    expect(await within(dialog).findByText(/Service has no ExecStart= setting/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Nothing was written: systemd-analyze rejected the service file/)).toBeInTheDocument();
+    // What is checked is the text in the form, the template the advanced mode starts from.
+    expect((backend.callsTo("POST /api/services/verify")[0]?.body as { content: string }).content).toContain("[Service]");
+    expect(backend.callsTo("POST /api/services")).toHaveLength(0);
+  });
+
+  it("shows the server's refusal of a unit written by hand, in its words, in the form that sent it", async () => {
+    const { user, table } = await servicesAt("/server/services", {
+      "POST /api/services": () =>
+        problem(400, "validation_error", "systemd rejected the unit file", {
+          hint: "Fix what systemd says and create it again; nothing was written.",
+          output: "noust-verify.service: Service has no ExecStart= setting. Refusing.",
+          fields: { raw_content: "systemd rejected the unit file" },
+        }),
+    });
+    await within(table).findByText("shop-example-com");
+    await user.click(screen.getByRole("button", { name: "New service" }));
+    const dialog = await screen.findByRole("dialog", { name: "New service" });
+    await user.type(within(dialog).getByLabelText("Name", { exact: true }), "worker");
+    await user.click(within(dialog).getByRole("radio", { name: "Advanced" }));
+    await user.click(within(dialog).getByRole("button", { name: "Create service" }));
+    expect(await within(dialog).findByText(/Service has no ExecStart= setting/)).toBeInTheDocument();
+    expect(within(dialog).getByText("The service was not created")).toBeInTheDocument();
+  });
+
   it("confirms it's you before creating a service, and retries once confirmed", { timeout: 20_000 }, async () => {
     let elevated = false;
     const { user, backend, table } = await servicesAt("/server/services", {
@@ -262,8 +297,8 @@ describe("the services tab", () => {
       expect(backend.callsTo("GET /api/services").some((call) => call.search.get("noust_only") === "true")).toBe(true);
     });
     expect(within(table).queryByText("postgresql")).not.toBeInTheDocument();
-    // Every row is Noust's: a column saying so on each would say nothing.
-    expect(within(table).queryByRole("columnheader", { name: /Managed/ })).not.toBeInTheDocument();
+    // Every row is Noust's: each says whose it is (an application, or by hand), and none says it is the system's.
+    expect(within(table).queryByText("The system's")).not.toBeInTheDocument();
   });
 
   it("shows every unit, a foreign one read only, when the whole system is chosen", async () => {
@@ -280,8 +315,8 @@ describe("the services tab", () => {
     // The list of the other scope is a table of its own, drawn after a skeleton.
     const whole = await findLoadedRegion(/Services/);
     const foreignRow = (await within(whole).findByText("postgresql")).closest("tr");
-    expect(within(whole).getByRole("columnheader", { name: /Managed/ })).toBeInTheDocument();
     if (!foreignRow) throw new Error("no row");
+    expect(within(foreignRow).getByText("The system's")).toBeInTheDocument();
     await user.click(within(foreignRow).getByRole("button", { name: "Actions for postgresql" }));
     expect(await screen.findByRole("menuitem", { name: "View logs" })).toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: "Restart" })).not.toBeInTheDocument();
@@ -327,13 +362,12 @@ describe("the services tab, in Spanish", () => {
       "GET /api/services": () => json(200, { services: SERVICES, total: SERVICES.length }),
     });
     renderConsole("/server/services");
-    await screen.findByRole("heading", { level: 1, name: "web-01" });
+    await screen.findByRole("heading", { level: 1, name: "Servicios" });
     const table = await findLoadedRegion(/Servicios/);
     const running = await within(table).findByText("shop-example-com");
     const row = running.closest("tr");
     if (!row) throw new Error("no row");
     expect(within(row).getByText("En ejecución")).toBeInTheDocument();
-    expect(within(row).getByText("Arranca")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Nuevo servicio" })).toBeInTheDocument();
     expect(screen.getByRole("searchbox", { name: "Buscar servicios" })).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));

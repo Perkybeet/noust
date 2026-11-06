@@ -3,7 +3,6 @@ import { ArrowRightLeft, CircleArrowUp, Copy, PackageCheck, Play, RotateCw, Squa
 import { useState } from "react";
 import type { ReactNode } from "react";
 
-import { ElevationCancelledError } from "../../api/errors";
 import type { App } from "../../api/queries/apps";
 import type { Job } from "../../api/queries/jobs";
 import { appStatus } from "../../components/page/status";
@@ -19,12 +18,10 @@ import { isAdopted } from "./adopted";
 import { useCloneApp, usePromoteApp } from "../promotion/useAppTransfers";
 import { FrozenDeployDialog } from "../apps/FrozenDeployDialog";
 import { NothingNewDialog } from "../apps/NothingNewDialog";
-import { reportActionError, useAppActions } from "../apps/useAppActions";
-import { DeleteAppDialog } from "./DeleteAppDialog";
+import { useAppActions } from "../apps/useAppActions";
 import { useRollback } from "./RollbackHost";
 import { StopAppDialog } from "./StopAppDialog";
 import { useHasPermission } from "../terminal/queries";
-import { useConfirmItsYou } from "./useDeleteApp";
 import { useStageRelease } from "./useStagedRelease";
 import { OBJECT_ICONS, VERB_ICONS } from "../../components/ui/objectIcons";
 
@@ -82,11 +79,9 @@ export function useAppHeaderActions(
   const wide = useMediaQuery(SM_UP);
   const { restart, start, stop, update, rebuildAnyway, rebuildFresh, nothingNew, dismissNothingNew, frozen, deployAnyway, dismissFrozen } = useAppActions(domain, { onJobQueued });
   const stage = useStageRelease(domain, onJobQueued);
-  const confirmItsYou = useConfirmItsYou();
   const navigate = useNavigate();
   const [confirmStop, setConfirmStop] = useState(false);
   const { openRollback } = useRollback();
-  const [deleteOpen, setDeleteOpen] = useState(false);
   // The terminal is offered to whoever may open it; the server decides again when it is asked.
   const canOpenTerminal = useHasPermission("apps.terminal") === true;
   const promote = usePromoteApp(app);
@@ -149,21 +144,8 @@ export function useAppHeaderActions(
         </MenuItem>
       ) : null}
       <MenuSeparator />
-      <MenuItem
-        icon={<Delete />}
-        destructive
-        onClick={() => {
-          // Sudo mode first, so "Confirm it's you" never opens on top of the typed confirmation.
-          confirmItsYou().then(
-            () => {
-              setDeleteOpen(true);
-            },
-            (error: unknown) => {
-              if (!(error instanceof ElevationCancelledError)) reportActionError(t("appPages.actions.deletionCouldNotStart", { domain }), error);
-            },
-          );
-        }}
-      >
+      {/* What goes with it is chosen where each thing is shown, one box for each: the page of deleting it. */}
+      <MenuItem icon={<Delete />} destructive onClick={() => void navigate({ to: "/apps/$domain/delete", params: { domain } })}>
         {adopted ? t("runtime.adopted.stopManaging") : t("appPages.actions.deleteApplication")}
       </MenuItem>
     </>
@@ -188,7 +170,6 @@ export function useAppHeaderActions(
         }}
         onClose={dismissFrozen}
       />
-      <DeleteAppDialog app={app} open={deleteOpen} onOpenChange={setDeleteOpen} />
       {promote.dialog}
       {clone.dialog}
     </>

@@ -690,7 +690,8 @@ export function LogViewer({
           ) : lines.length === 0 ? (
             <p className="px-4 py-3 font-sans text-13 text-fg-faint">{emptyMessage ?? t("common.logViewer.empty")}</p>
           ) : (
-            <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+            // What a system printed is shown as it printed it: never translated, by the console or by the browser.
+            <div translate="no" className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
               {virtualizer.getVirtualItems().map((item) => {
                 const line = lines[item.index];
                 if (!line) return null;

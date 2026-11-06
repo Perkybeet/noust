@@ -84,18 +84,8 @@ test("Update queues a job; the header follows it over the event stream to its en
   await expect(pill(page)).toHaveAttribute("data-state", "running");
   await expect(header(page).getByRole("button", { name: "Update", exact: true })).not.toHaveAttribute("aria-busy");
 
-  // The job's failure also raised the notice toast. Base UI hides a high-priority toast from
-  // assistive technology until it is focused (its live region speaks for it) while leaving it
-  // focusable, which axe reports as aria-hidden-focus: a design-system finding, reported, not
-  // this page's. Dismissed here so axe judges the page. (A role query cannot see into it for
-  // the same reason.)
-  const toasts = page.locator('.toast button[aria-label="Dismiss notification"]');
-  await expect(toasts).not.toHaveCount(0);
-  // Stacked toasts behind the front one are transparent, so they are closed without a pointer.
-  await toasts.evaluateAll((buttons) => {
-    for (const button of buttons) (button as HTMLButtonElement).click();
-  });
-  await expect(toasts).toHaveCount(0);
+  // The task ended on its own page, which says it in the header: the task centre raises no toast over it.
+  await expect(page.locator(".toast")).toHaveCount(0);
   await stillness(page);
   await expectNoA11yViolations(page, "a failed update in the header");
   await page.getByRole("button", { name: "Dismiss", exact: true }).click();
@@ -170,12 +160,15 @@ test("Stop asks first; the header follows the unit down and back up", async ({ p
   await expect(header(page).getByRole("button", { name: "Stop", exact: true })).toBeVisible();
 });
 
-test("Delete stays disabled until the domain is typed", async ({ page, consoleServer }) => {
+test("Delete application in the menu leads to the page of deleting, where it stays disabled until the domain is typed", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/apps/${DOMAIN}`);
   await header(page).getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Delete application" }).click();
+  // Deleting is a page of its own, alone under Danger (item 120): what goes is chosen there, not in a question that comes first.
+  await expect(page).toHaveURL(new RegExp(`/apps/${DOMAIN.replace(/\./g, "\\.")}/delete$`));
 
   // Deleting is a sudo-mode action: "Confirm it's you" comes first, never on top of the dialog.
+  await page.getByRole("button", { name: "Delete…" }).click();
   const elevate = page.getByRole("dialog", { name: "Confirm it's you" });
   await expect(elevate).toBeVisible();
   await elevate.getByLabel("Authentication code").fill(consoleServer.secondFactor());
@@ -184,9 +177,6 @@ test("Delete stays disabled until the domain is typed", async ({ page, consoleSe
 
   const dialog = page.getByRole("alertdialog", { name: `Delete ${DOMAIN}` });
   await expect(dialog).toBeVisible();
-  // What cannot be made again goes only when ticked: both start unticked.
-  await expect(dialog.getByRole("checkbox", { name: "Also delete its files" })).not.toBeChecked();
-  await expect(dialog.getByRole("checkbox", { name: "Also delete its certificate" })).not.toBeChecked();
   const confirm = dialog.getByRole("button", { name: "Delete application" });
   await expect(confirm).toBeDisabled();
   await dialog.getByRole("textbox").fill("shop");
@@ -198,7 +188,6 @@ test("Delete stays disabled until the domain is typed", async ({ page, consoleSe
   // Not confirmed: the worker's machine keeps its app.
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await expect(dialog).toBeHidden();
-  await expect(header(page).getByRole("button", { name: "More actions" })).toBeFocused();
 });
 
 test("Roll back asks one question that names what it will do, for an app kept in a single folder", async ({ page, consoleServer }) => {
@@ -229,11 +218,11 @@ test("the overview tab says what is live, lists the last deployments, and reads 
   await expect(page.getByRole("region", { name: "How it runs" })).toHaveCount(0);
   const health = page.getByRole("region", { name: "Health" });
   await expect(health).toBeVisible();
-  await expect(health.getByRole("link", { name: "Edit limits" })).toHaveAttribute("href", `/apps/${domain}/settings/resources`);
+  await expect(health.getByRole("link", { name: "Edit limits" })).toHaveAttribute("href", `/apps/${domain}/resources`);
   await expect(page.getByRole("list", { name: `Where ${domain} answers and what deploys it` })).toBeVisible();
 
   // The banner is the page's, not the tab's: it stays on every tab.
-  await page.getByRole("navigation", { name: "Application sections" }).getByRole("link", { name: "Environment" }).click();
+  await page.getByRole("navigation", { name: "Application sections" }).getByRole("link", { name: "Variables" }).click();
   await expect(page.getByText("The service has stopped with an error")).toBeVisible();
   await page.goBack();
 

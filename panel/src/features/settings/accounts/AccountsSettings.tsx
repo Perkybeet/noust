@@ -7,11 +7,12 @@ import { sessionQuery } from "../../../api/queries/auth";
 import { rolesQuery } from "../../../api/queries/roles";
 import type { Role as RoleDef } from "../../../api/queries/roles";
 import { useDocumentTitle } from "../../../app/documentTitle";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { FilterBar } from "../../../components/page/FilterBar";
 import { ErrorBlock, QueryState } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
-import { Section, Sections } from "../../../components/page/Section";
+import { Sections } from "../../../components/page/Section";
+import { SurfaceSection } from "../../../components/page/SurfaceSection";
+import { Can, GuardedButton, ReadOnlyLine } from "../../../components/page/permissions";
 import { Badge } from "../../../components/ui/Badge";
 import { Button, buttonClassName } from "../../../components/ui/Button";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
@@ -24,6 +25,7 @@ import { MenuItem, MenuSeparator } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
+import { TextLink } from "../../../components/ui/TextLink";
 import { StatusGlyph, StatusPill, stateTextClass } from "../../../components/ui/StatusPill";
 import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
@@ -235,15 +237,19 @@ function ExceptionsSection({ t, canManage, onAdd }: { t: T; canManage: boolean; 
     },
   ];
   return (
-    <Section
+    <SurfaceSection
       title={t("accounts.exceptions.title")}
+      icon={OBJECT_ICONS.approval}
       description={t("accounts.exceptions.description")}
+      flush={live.length > 0}
       {...(canManage
         ? {
             actions: (
-              <Button icon={<ICONS.add aria-hidden="true" />} size="sm" onClick={onAdd}>
-                {t("accounts.exceptions.add")}
-              </Button>
+              <Can permission="accounts.manage">
+                <Button icon={<ICONS.add aria-hidden="true" />} size="sm" onClick={onAdd}>
+                  {t("accounts.exceptions.add")}
+                </Button>
+              </Can>
             ),
           }
         : {})}
@@ -259,6 +265,7 @@ function ExceptionsSection({ t, canManage, onAdd }: { t: T; canManage: boolean; 
           rows={live}
           getRowId={(item) => String(item.id)}
           density="compact"
+          embedded
           loading={query.isPending}
           skeletonRows={1}
           empty={<EmptyState variant="inline" title={t("accounts.exceptions.none")} />}
@@ -290,7 +297,7 @@ function ExceptionsSection({ t, canManage, onAdd }: { t: T; canManage: boolean; 
           }}
         />
       ) : null}
-    </Section>
+    </SurfaceSection>
   );
 }
 
@@ -334,21 +341,23 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
     void queryClient.invalidateQueries({ queryKey: accountKeys.list });
   };
 
-  const inviteButton = (variant: "primary" | "secondary") =>
-    canManage ? (
-      <Button variant={variant} icon={<UserPlus aria-hidden="true" />} onClick={() => setPending({ kind: "invite", recover: null })}>
-        {t("accounts.page.invite")}
-      </Button>
-    ) : undefined;
+  // The page's own action stays for a role that cannot take it, turned off with its reason (PM-1); the first-use one is not drawn.
+  const inviteButton = canManage ? (
+    <Button variant="secondary" icon={<UserPlus aria-hidden="true" />} onClick={() => setPending({ kind: "invite", recover: null })}>
+      {t("accounts.page.invite")}
+    </Button>
+  ) : undefined;
 
   const content = (
     <QueryState
       query={query}
       label={t("accounts.page.what")}
       skeleton={
-        <div className="flex min-w-0 flex-col gap-4">
-          <Skeleton className="h-control-md w-full max-w-md rounded-control" />
-          <DataTable caption={t("accounts.page.caption")} columns={columns} rows={[]} getRowId={(account) => account.username} loading skeletonRows={3} />
+        <div className="flex min-w-0 flex-col">
+          <div className="px-5 pb-3">
+            <Skeleton className="h-control-md w-full max-w-md rounded-control" />
+          </div>
+          <DataTable caption={t("accounts.page.caption")} columns={columns} rows={[]} getRowId={(account) => account.username} loading skeletonRows={3} embedded />
         </div>
       }
       isEmpty={() => all.length === 0}
@@ -364,16 +373,16 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
                 {t("accounts.page.createFirst")}
               </Link>
             ) : (
-              inviteButton("secondary")
+              inviteButton
             )
           }
-          command="noust user create NAME --role admin"
           level={3}
         />
       }
     >
       {() => (
-        <div className="flex min-w-0 flex-col gap-4">
+        <div className="flex min-w-0 flex-col">
+          <div className="px-5 pb-3">
           <FilterBar
             label={t("accounts.page.filterLabel")}
             search={{
@@ -417,10 +426,12 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
               : {})}
             count={filtered ? t("accounts.page.countFiltered", { shown: shown.length, total: all.length }) : t("accounts.page.count", { count: all.length })}
           />
+          </div>
           <DataTable
             caption={t("accounts.page.caption")}
             columns={columns}
             rows={shown}
+            embedded
             getRowId={(account) => account.username}
             {...(canManage ? { rowActions: (account: Account) => <AccountActions t={t} account={account} self={account.username === me} onOpen={setPending} /> } : {})}
             empty={
@@ -441,17 +452,32 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
   );
 
   return (
-    <Sections>
+    <Sections surfaces>
       {query.data !== undefined ? (
         <ConflictsNotice t={t} conflicts={query.data.conflicts} canManage={canManage} onException={(person) => setPending({ kind: "exception", person })} />
       ) : null}
-      {!empty ? <SettingsPrimaryAction>{inviteButton("primary")}</SettingsPrimaryAction> : null}
-      <Section title={t("accounts.page.title")} icon={OBJECT_ICONS.account} description={t("accounts.page.description")}>
+      {!empty ? (
+        <SettingsPrimaryAction>
+          <GuardedButton permission="accounts.manage" variant="primary" icon={<UserPlus aria-hidden="true" />} onClick={() => setPending({ kind: "invite", recover: null })}>
+            {t("accounts.page.invite")}
+          </GuardedButton>
+        </SettingsPrimaryAction>
+      ) : null}
+      <ReadOnlyLine permission="accounts.manage" />
+      <SurfaceSection title={t("accounts.page.title")} icon={OBJECT_ICONS.account} description={t("accounts.page.description")} flush>
         {content}
-      </Section>
+      </SurfaceSection>
+      <p className="max-w-measure text-13 text-pretty text-fg-muted">
+        {t.rich("accounts.page.ssoLine", {
+          link: (
+            <TextLink key="sso" to="/settings/sso" size="ui">
+              {t("accounts.page.ssoLink")}
+            </TextLink>
+          ),
+        })}
+      </p>
       {!empty ? <ExceptionsSection t={t} canManage={canManage} onAdd={() => setPending({ kind: "exception", person: "" })} /> : null}
       {!empty ? <AccessReviewSection canManage={canManage} /> : null}
-      <CommandHint label={t("common.words.fromTerminal")} command="noust user list" />
 
       {pending?.kind === "invite" ? <InviteDialog open accounts={all} recover={pending.recover} onClose={() => setPending(null)} /> : null}
       {pending?.kind === "email" ? <EmailDialog account={pending.account} onClose={() => setPending(null)} /> : null}

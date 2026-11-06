@@ -58,12 +58,12 @@ describe("Fleet > On several servers", () => {
     expect(web3).toHaveTextContent("noust fleet placement copy shop.example.com");
   });
 
-  it("explains itself when nothing is placed yet, with the command", { timeout: 30_000 }, async () => {
+  it("explains itself when nothing is placed yet, with the button and no command beside it", { timeout: 30_000 }, async () => {
     fakeBackend({ ...placementRoutes(), "GET /api/fleet/placements": () => json(200, { placements: [] }) });
     renderConsole("/fleet/placements");
 
     expect(await screen.findByRole("heading", { level: 3, name: "No application is placed on several servers yet" })).toBeInTheDocument();
-    expect(screen.getByText("noust fleet placement add shop.example.com --nodes web-1,web-2")).toBeInTheDocument();
+    expect(screen.queryByText("noust fleet placement add shop.example.com --nodes web-1,web-2")).not.toBeInTheDocument();
   });
 
   it("shows a server it could not compare as an error with a retry, never a blank card", { timeout: 30_000 }, async () => {

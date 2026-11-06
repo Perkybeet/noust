@@ -8,7 +8,6 @@ import { secretProviderKindsQuery, secretProvidersQuery, variableKeys } from "..
 import type { SecretProvider, SecretProviderKind } from "../../api/queries/variables";
 import { announce } from "../../app/Announcer";
 import { useDocumentTitle } from "../../app/documentTitle";
-import { CommandHint } from "../../components/page/CommandHint";
 import { ErrorBlock, QueryState } from "../../components/page/QueryState";
 import { Section } from "../../components/page/Section";
 import { StatusPill } from "../../components/ui/StatusPill";
@@ -32,7 +31,7 @@ import { useNode } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
 import { SettingsPrimaryAction } from "../settings/SettingsShell";
 import { useOrganization } from "../teams/useOrganization";
-import { useCan } from "./useCan";
+import { useCan } from "../../components/page/permissions";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** What a name may be, as the server reads it: lowercase letters, digits and dashes. */
@@ -340,14 +339,12 @@ export function SecretManagers() {
               icon={<KeyRound />}
               title={t("variables.providers.emptyTitle")}
               description={t("variables.providers.emptyDescription")}
-              command="noust secrets add NAME --kind vault --address https://vault.example.com:8200 --token-stdin"
             />
           }
         >
           {() => <DataTable caption={caption} columns={columns} rows={list} getRowId={(provider) => provider.name} rowActions={rowActions} density="compact" defaultSort={{ column: "name", direction: "ascending" }} />}
         </QueryState>
       </Section>
-      <CommandHint command="noust secrets list" label={t("common.words.fromTerminal")} />
 
       {kinds.data !== undefined ? <ProviderDialog target={editing} kinds={kinds.data.kinds} onClose={() => setEditing(null)} onSubmit={save} /> : null}
       <ConfirmDialog

@@ -12,11 +12,12 @@ import { request } from "../../../api/client";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../../components/page/KeyValueList";
 import { Button } from "../../../components/ui/Button";
-import { Card } from "../../../components/ui/Card";
+import { SurfaceSection } from "../../../components/page/SurfaceSection";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
+import { ServerText } from "../../../components/ui/ServerText";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { ICONS } from "../../../components/ui/icons";
 import { useT } from "../../../i18n";
@@ -40,9 +41,9 @@ export function SwapCard() {
       label={t("server.swap.label")}
       skeleton={
         // The header keeps the room of its action, so the card's body does not drop when it lands.
-        <Card loading level={2} title={t("server.swap.title")} icon={OBJECT_ICONS.resources} padding="sm" actions={<Skeleton className="h-control-sm w-32 rounded-control" />}>
+        <SurfaceSection loading title={t("server.swap.title")} icon={OBJECT_ICONS.resources} actions={<Skeleton className="h-control-sm w-32 rounded-control" />}>
           <Skeleton className="h-32 w-full" />
-        </Card>
+        </SurfaceSection>
       }
     >
       {(data) => <SwapPanel data={data} />}
@@ -79,9 +80,9 @@ function SwapPanel({ data }: { data: Swap }) {
     { label: t("server.swap.swappiness"), value: data.swappiness != null ? String(data.swappiness) : null },
   ];
   return (
-    <Card level={2}
-      title={t("server.swap.title")} icon={OBJECT_ICONS.resources}
-      padding="sm"
+    <SurfaceSection
+      title={t("server.swap.title")}
+      icon={OBJECT_ICONS.resources}
       actions={
         data.supported && data.swappiness != null ? (
           <Button
@@ -99,7 +100,11 @@ function SwapPanel({ data }: { data: Swap }) {
     >
       <div className="flex flex-col gap-3">
         <KeyValueList items={items} />
-        {!data.supported ? <p className="text-13 text-fg-muted">{data.reason}</p> : null}
+        {!data.supported ? (
+          <p className="text-13 text-fg-muted">
+            <ServerText coded={data.reason_coded} text={data.reason} />
+          </p>
+        ) : null}
         {data.supported && none && data.recommended ? (
           <p className="text-13 text-pretty text-fg-muted">
             <span className="font-medium text-fg">{t("server.swap.recommendedTitle")}.</span> {t("server.swap.recommended", { memory: formatBytes(data.memory_bytes, t.locale) })}
@@ -126,9 +131,9 @@ function SwapPanel({ data }: { data: Swap }) {
             </Button>
           </div>
         ) : null}
-        {data.warnings.map((warning) => (
+        {data.warnings.map((warning, index) => (
           <p key={warning} className="text-12 text-fg-muted">
-            {warning}
+            <ServerText coded={data.warnings_coded?.[index]} text={warning} />
           </p>
         ))}
       </div>
@@ -195,6 +200,6 @@ function SwapPanel({ data }: { data: Swap }) {
           </Field>
         </ConfirmDialog>
       ) : null}
-    </Card>
+    </SurfaceSection>
   );
 }

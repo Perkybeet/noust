@@ -7827,6 +7827,116 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/dashboards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Dashboards
+         * @description List the panels of the account asking.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its panels in order, and the limits.
+         *
+         *     Raises:
+         *         ValidationError: 400 when the principal is not an account.
+         */
+        get: operations["list_dashboards_api_auth_dashboards_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/dashboards/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Order Dashboards
+         * @description Put the account's panels in the order given.
+         *
+         *     Args:
+         *         body: The id of every panel, each once.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The panels in their new order.
+         *
+         *     Raises:
+         *         ValidationError: 400 when the principal is not an account, or the list does not name
+         *             every panel of the account exactly once.
+         */
+        post: operations["order_dashboards_api_auth_dashboards_order_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/dashboards/{dashboard_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Dashboard
+         * @description Create a panel, or replace the one the account has under that id.
+         *
+         *     A new panel goes last; one that exists keeps its place.
+         *
+         *     Args:
+         *         dashboard_id: The panel's id, the person's own.
+         *         body: Its name, scope and layout.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The panel as it is now.
+         *
+         *     Raises:
+         *         ValidationError: 400 when the principal is not an account, anything in the body is not
+         *             valid (the error's ``fields`` names it), or the account keeps 20 panels already and
+         *             this one is new.
+         */
+        put: operations["save_dashboard_api_auth_dashboards__dashboard_id__put"];
+        post?: never;
+        /**
+         * Delete Dashboard
+         * @description Delete one of the account's panels.
+         *
+         *     Args:
+         *         dashboard_id: The panel's id.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The panels that are left.
+         *
+         *     Raises:
+         *         ValidationError: 400 when the principal is not an account.
+         *         ResourceNotFoundError: 404 when the account has no panel by that id, whoever has one.
+         */
+        delete: operations["delete_dashboard_api_auth_dashboards__dashboard_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/elevate": {
         parameters: {
             query?: never;
@@ -9683,6 +9793,97 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/sign-in/appearance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Appearance
+         * @description Say what the sign-in screen draws in place of Noust's own drawing, if anything.
+         *
+         *     Public: the screen is drawn before there is a session, so this carries nothing but what is shown
+         *     on it.
+         *
+         *     Returns:
+         *         The picture and how it is fitted, or ``image: null``; and the limits a picture is held to.
+         */
+        get: operations["get_appearance_api_auth_sign_in_appearance_get"];
+        /**
+         * Put Appearance
+         * @description Put a picture on the sign-in screen, or change how the one there is drawn.
+         *
+         *     The picture is judged by its bytes and rewritten without its metadata before it is kept; see
+         *     :mod:`noust.validators.sign_in_image`. Asks for sudo mode.
+         *
+         *     Args:
+         *         body: The picture as base64 (left out to keep the one there), its fit and its description.
+         *         session: The authenticated session in sudo mode.
+         *
+         *     Returns:
+         *         What the screen shows now.
+         *
+         *     Raises:
+         *         ValidationError: 400, with a code the console translates, when the file is not a PNG, JPEG
+         *             or WebP within the limits, is damaged or animated, when the fit or the description is not
+         *             valid, or when no picture is sent and there is none to change.
+         */
+        put: operations["put_appearance_api_auth_sign_in_appearance_put"];
+        post?: never;
+        /**
+         * Delete Appearance
+         * @description Take the picture off the sign-in screen: Noust's own drawing comes back.
+         *
+         *     Asks for sudo mode. Removing what is not there is not an error.
+         *
+         *     Args:
+         *         session: The authenticated session in sudo mode.
+         *
+         *     Returns:
+         *         What the screen shows now: no picture.
+         */
+        delete: operations["delete_appearance_api_auth_sign_in_appearance_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/sign-in/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Image
+         * @description Serve the picture of the sign-in screen.
+         *
+         *     Public, like the screen it is on. With ``v`` set to its digest it is cacheable for a year; the
+         *     digest of anything but the current picture is a 404.
+         *
+         *     Args:
+         *         request: The incoming request, for an ETag the client already has.
+         *         v: The digest the picture is addressed by, from ``GET /appearance``. Without it the current
+         *             picture is served and not cached.
+         *
+         *     Returns:
+         *         The file, with the type its bytes were judged to be.
+         *
+         *     Raises:
+         *         ResourceNotFoundError: 404 when there is no picture, or ``v`` is not the current one's digest.
+         */
+        get: operations["get_image_api_auth_sign_in_image_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/tokens": {
         parameters: {
             query?: never;
@@ -11386,13 +11587,19 @@ export interface paths {
          *
          *     Reads the server's state (the last hardening report, the accounts, the backups);
          *     a pass means the technical control is in force, never that the server complies.
+         *     By default it judges the frameworks that are on, and nothing when none is: a server
+         *     that never turned one on is not shown a report in red. ``format=markdown`` is the
+         *     same result as a document to hand to an auditor, with its SHA-256 in the
+         *     ``X-Noust-Report-SHA256`` header.
          *
          *     Args:
+         *         request: The request.
          *         framework: Frameworks to judge; the ones that are on by default.
-         *         _session: The authenticated payload.
+         *         format: ``json`` (the result) or ``markdown`` (a download).
+         *         session: The authenticated payload.
          *
          *     Returns:
-         *         The findings per framework.
+         *         The findings per framework, or their Markdown rendering as an attachment.
          *
          *     Raises:
          *         ValidationError: For a framework that does not exist.
@@ -13148,9 +13355,11 @@ export interface paths {
          *
          *     Returns:
          *         Every database the running engines report, the tracked ones they
-         *         no longer have (``missing``), and the engines that could not be read
-         *         (``problems``). A team member sees the databases its teams own: one an
-         *         engine holds that Noust never recorded belongs to nobody.
+         *         no longer have (``missing``), the tracked ones of an engine that is
+         *         stopped (``unverified``: whether they are there is not known until it
+         *         runs), and the engines that could not be read (``problems``). A team
+         *         member sees the databases its teams own: one an engine holds that
+         *         Noust never recorded belongs to nobody.
          */
         get: operations["list_databases_api_databases_databases_get"];
         put?: never;
@@ -14566,7 +14775,9 @@ export interface paths {
          * Uninstall Engine
          * @description Queue the removal of an engine, with sudo mode.
          *
-         *     Removing an engine can take every database it hosts with it.
+         *     The manager refuses while the engine holds databases, and the route asks it first so the
+         *     answer is immediate (409, naming them) instead of a job that fails. The manager records the
+         *     event when the removal finishes, fails or is refused, so this route records nothing.
          *
          *     Args:
          *         engine: Engine name.
@@ -14575,6 +14786,9 @@ export interface paths {
          *
          *     Returns:
          *         The queued job.
+         *
+         *     Raises:
+         *         EngineInUseError: The engine holds databases (409).
          */
         post: operations["uninstall_engine_api_databases_engines__engine__uninstall_post"];
         delete?: never;
@@ -17926,6 +18140,11 @@ export interface paths {
          * Ens Check
          * @description Compare this server with the ens-medium profile, check by check.
          *
+         *     Judges only a server where a framework of the ENS family is on. Without one the
+         *     answer says ``enabled: false`` and carries no findings: a server that never asked
+         *     for the ENS is not told it fails it (``GET /api/compliance/check`` says how far it
+         *     is from any framework, on or off).
+         *
          *     Args:
          *         request: The request.
          *         session: Authenticated session, injected.
@@ -18978,6 +19197,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/fleet/jobs/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fleet Jobs Active
+         * @description What every server is running now: its jobs and the long operations that are not jobs.
+         *
+         *     Asks each node's ``/api/jobs/active`` and ``/api/operations/active`` through its tunnel, all
+         *     at once and each with its own time limit. A row says how the server answered: ``ok``;
+         *     ``unsupported``, for a node that has not been updated to offer the route (it answers 404 and
+         *     will count its tasks when it is); or ``unreachable``. A server that is down or old never
+         *     fails the view, and this central's own row is there when its role is ``server``. Declared
+         *     before ``/jobs/{job_id}``, which would take ``active`` for a job.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *
+         *     Returns:
+         *         One row per server, with its ``jobs`` and its ``operations``.
+         */
+        get: operations["fleet_jobs_active_api_fleet_jobs_active_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/fleet/jobs/{job_id}": {
         parameters: {
             query?: never;
@@ -19798,6 +20053,38 @@ export interface paths {
          *         NoustPermissionError: 403 without the permission of that kind.
          */
         delete: operations["remove_setting_api_fleet_settings__resource___name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/software": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fleet Software
+         * @description The software of every server: how much of what Noust manages is installed, and how much of
+         *     that Noust installed.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *
+         *     Returns:
+         *         One row per server: ``installed``, ``total``, ``by_noust``, ``managed``, ``family`` and
+         *         its page on that server's console. A server that runs a Noust of before 4.2 is
+         *         ``unsupported``: it will count its software when it is updated.
+         */
+        get: operations["fleet_software_api_fleet_software_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -22778,6 +23065,37 @@ export interface paths {
          *         writes to ``panel/openapi.json``.
          */
         get: operations["get_openapi_schema_api_openapi_json_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/operations/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Active Operations Now
+         * @description List the long operations that are running now.
+         *
+         *     The session is asked for by name, as every route of the jobs does: the router's guard already
+         *     refuses a request without one, and this keeps the route in the graph the authentication test
+         *     reads whatever version of FastAPI includes the routers.
+         *
+         *     Args:
+         *         session: The caller's session.
+         *
+         *     Returns:
+         *         What runs, oldest first. For a principal that does not see every team, only the
+         *         operations on an application it sees: what is about the machine is the instance's.
+         */
+        get: operations["active_operations_now_api_operations_active_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -26138,6 +26456,140 @@ export interface paths {
          *         The queued job.
          */
         post: operations["remove_ssh_key_api_server_security_ssh_keys_remove_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/software": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Software
+         * @description Every piece of software Noust manages: installed or not, its version, who installed it, who
+         *     depends on it.
+         *
+         *     Kept for a minute; ``refresh`` asks the machine again. A system whose packages Noust does not
+         *     change answers with ``managed`` false and why, and the list as it is.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         refresh: Ask again whatever the age of the last answer.
+         *
+         *     Returns:
+         *         The software.
+         */
+        get: operations["list_software_api_server_software_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/software/{component}/impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Software Impact
+         * @description What removing a component would do and whether it may, changing nothing.
+         *
+         *     Asks the package manager for a simulation, so it takes about a second.
+         *
+         *     Args:
+         *         component: The registry's id.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The packages, what else would go, the repository files, and what stands in the way.
+         *
+         *     Raises:
+         *         ResourceNotFoundError: The registry has no such component (404).
+         */
+        get: operations["software_impact_api_server_software__component__impact_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/software/{component}/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Install Software
+         * @description Queue the installation of a component, with sudo mode.
+         *
+         *     What can be refused before a job exists is refused here: an id the registry does not have
+         *     (404), a system Noust installs nothing on (409 ``software_refused``), another package manager
+         *     running (409 ``host_busy``). The job installs it through the installer that already knows it.
+         *
+         *     Args:
+         *         component: The registry's id.
+         *         request: The request, whose client fail2ban never bans.
+         *         session: The authenticated, elevated session.
+         *         body: ``epel`` to agree to enable EPEL where the component comes from it.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         ResourceNotFoundError: The registry has no such component (404).
+         */
+        post: operations["install_software_api_server_software__component__install_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/software/{component}/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove Software
+         * @description Queue the removal of a component, with sudo mode. Never a purge.
+         *
+         *     The manager's own check runs first and answers at once: 409 ``software_refused`` with its
+         *     ``reason`` and what depends on the component, or 409 ``confirmation_required`` for one whose
+         *     origin is not Noust's. The repository and the key Noust added go with the package.
+         *
+         *     Args:
+         *         component: The registry's id.
+         *         session: The authenticated, elevated session.
+         *         body: ``confirm_unknown_origin`` to go ahead with something Noust did not install.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         ResourceNotFoundError: The registry has no such component (404).
+         */
+        post: operations["remove_software_api_server_software__component__remove_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -32412,8 +32864,10 @@ export interface components {
          *         permissions: Permissions to narrow it to instead of its scope's; all
          *             must be held by the issuing account.
          *         allowed_cidrs: Networks it is accepted from; any when omitted.
-         *         allow_elevated: Let it act where sudo mode is asked. Off by default,
-         *             refused under the ENS profile.
+         *         allow_elevated: Let it act where sudo mode is asked, with nobody confirming each
+         *             time. Off by default; only whoever governs accounts (``accounts.manage``) may
+         *             issue one, never where the ``restricted_tokens`` control is on, and each action
+         *             it takes there is audited as ``auth.token.elevated``.
          *         team: Bind the token to this team (and, with ``project`` and
          *             ``environment``, to a project or an environment of it): it sees
          *             that and nothing else of the server (I-34).
@@ -35541,6 +35995,35 @@ export interface components {
             total: number;
         };
         /**
+         * BlockerOut
+         * @description A reason a component is not removed now.
+         *
+         *     Attributes:
+         *         reason: ``never``, ``dependents``, ``takes_never``, ``takes_in_use``, ``not_installed``
+         *             or ``cannot_tell``.
+         *         text: The sentence, in English.
+         *         hint: What to do about it, when the sentence has a fix.
+         *         code: The sentence's code in the console's catalog.
+         *         params: The values the sentence is said with.
+         *         dependents: What depends on the component, where that is the reason.
+         */
+        BlockerOut: {
+            /** Code */
+            code: string;
+            /** Dependents */
+            dependents?: components["schemas"]["DependentOut"][];
+            /** Hint */
+            hint?: string | null;
+            /** Params */
+            params?: {
+                [key: string]: unknown;
+            };
+            /** Reason */
+            reason: string;
+            /** Text */
+            text: string;
+        };
+        /**
          * BootOut
          * @description One boot the journal remembers.
          */
@@ -37138,6 +37621,14 @@ export interface components {
         /**
          * CleanupPlanOut
          * @description What a cleanup would do.
+         *
+         *     Attributes:
+         *         action: The action.
+         *         commands: The commands it would run, as text.
+         *         effect: What it does, in a sentence.
+         *         needs_confirmation: It takes something the operator may want back.
+         *         items: What it would remove, when the action can list it.
+         *         effect_coded: ``effect`` as a code and its values, for the console to translate.
          */
         CleanupPlanOut: {
             /** Action */
@@ -37146,6 +37637,7 @@ export interface components {
             commands: string[];
             /** Effect */
             effect: string;
+            effect_coded?: components["schemas"]["CodedText"] | null;
             /** Items */
             items?: string[];
             /** Needs Confirmation */
@@ -37245,6 +37737,8 @@ export interface components {
          *         freed_bytes: The total freed, when known.
          *         actions: What each action did.
          *         reason: Why nothing ran, when it did not.
+         *         reason_coded: ``reason`` as a code and its values, when it is a sentence of the
+         *             server's catalog.
          *         actor: Who asked; empty for the timer.
          */
         CleanupRunOut: {
@@ -37266,6 +37760,7 @@ export interface components {
             percent_before?: number | null;
             /** Reason */
             reason?: string | null;
+            reason_coded?: components["schemas"]["CodedText"] | null;
             /** Started At */
             started_at: string;
             /** Status */
@@ -37707,7 +38202,12 @@ export interface components {
          *     Attributes:
          *         frameworks: Every framework, in catalog order.
          *         controls: Every control, in catalog order.
-         *         legacy_profile: What ``security.profile`` holds.
+         *         legacy_profile: What ``security.profile`` holds, as written.
+         *         legacy_profile_valid: Whether that is a value Noust knows (empty, ``standard`` or
+         *             a spelling of ``ens-medium``). False for a typo, which is read strict.
+         *         legacy_profile_read_as: What it is read as, ``standard`` or ``ens-medium``. A value
+         *             that is not valid is read as ``ens-medium``, so ENS MEDIA is on through it
+         *             (``source: profile`` on that framework) until the value is corrected.
          *         unknown: Names in ``security.frameworks`` this version does not know.
          */
         ComplianceState: {
@@ -37717,6 +38217,16 @@ export interface components {
             frameworks: components["schemas"]["FrameworkInfo"][];
             /** Legacy Profile */
             legacy_profile: string;
+            /**
+             * Legacy Profile Read As
+             * @default standard
+             */
+            legacy_profile_read_as: string;
+            /**
+             * Legacy Profile Valid
+             * @default true
+             */
+            legacy_profile_valid: boolean;
             /** Unknown */
             unknown: string[];
         };
@@ -39695,6 +40205,120 @@ export interface components {
             total: number;
         };
         /**
+         * DashboardBody
+         * @description What a panel is saved as.
+         *
+         *     Attributes:
+         *         name: What it is called, 1 to 60 characters.
+         *         scope: ``server`` or ``fleet``.
+         *         layout: The document, version 1. Judged in full by the server; see
+         *             :mod:`noust.validators.dashboards`.
+         */
+        DashboardBody: {
+            /** Layout */
+            layout: {
+                [key: string]: unknown;
+            };
+            /** Name */
+            name: string;
+            /** Scope */
+            scope: string;
+        };
+        /**
+         * DashboardLimits
+         * @description What a panel and an account may hold, so a client need not hard-code it.
+         *
+         *     Attributes:
+         *         dashboards: Panels an account keeps.
+         *         widgets: Widgets in one panel.
+         *         columns: Columns of the grid a widget is placed on.
+         *         document_bytes: Bytes of a panel's layout, as it is stored.
+         *         settings_bytes: Bytes of one widget's settings.
+         */
+        DashboardLimits: {
+            /**
+             * Columns
+             * @default 12
+             */
+            columns: number;
+            /**
+             * Dashboards
+             * @default 20
+             */
+            dashboards: number;
+            /**
+             * Document Bytes
+             * @default 32768
+             */
+            document_bytes: number;
+            /**
+             * Settings Bytes
+             * @default 2048
+             */
+            settings_bytes: number;
+            /**
+             * Widgets
+             * @default 40
+             */
+            widgets: number;
+        };
+        /**
+         * DashboardOrder
+         * @description The order the panels are kept in.
+         *
+         *     Attributes:
+         *         order: The id of every panel the account has, each once.
+         */
+        DashboardOrder: {
+            /** Order */
+            order: string[];
+        };
+        /**
+         * DashboardOut
+         * @description One panel.
+         *
+         *     Attributes:
+         *         id: The id the person gave it.
+         *         name: What it is called.
+         *         scope: ``server`` (follows the server in the selector) or ``fleet``.
+         *         position: Its place among the account's panels, from 0.
+         *         layout: The document: ``{version: 1, widgets: [{id, type, x, y, w, h, settings}]}``.
+         *         created_at: When it was first saved, UNIX seconds.
+         *         updated_at: When it was last saved, UNIX seconds.
+         */
+        DashboardOut: {
+            /** Created At */
+            created_at: number;
+            /** Id */
+            id: string;
+            /** Layout */
+            layout: {
+                [key: string]: unknown;
+            };
+            /** Name */
+            name: string;
+            /** Position */
+            position: number;
+            /** Scope */
+            scope: string;
+            /** Updated At */
+            updated_at: number;
+        };
+        /**
+         * DashboardsResponse
+         * @description The panels of the account asking.
+         *
+         *     Attributes:
+         *         dashboards: In the order the account keeps them; empty when it never saved one (the
+         *             console then draws its own defaults).
+         *         limits: What a panel and an account may hold.
+         */
+        DashboardsResponse: {
+            /** Dashboards */
+            dashboards: components["schemas"]["DashboardOut"][];
+            limits?: components["schemas"]["DashboardLimits"];
+        };
+        /**
          * DatabaseInfoResponse
          * @description One database, as the engine and the store together describe it.
          *
@@ -40291,6 +40915,22 @@ export interface components {
             state: string;
         };
         /**
+         * DependentOut
+         * @description Something that stops working without a component.
+         *
+         *     Attributes:
+         *         kind: ``application``, ``site``, ``database``, ``tunnel``, ``published_port``,
+         *             ``certificate``, ``zone``, ``destination``, ``instance``, ``console`` or
+         *             ``unreadable`` (an engine that runs and cannot be asked what it holds).
+         *         names: Which ones, by the name the operator knows them by.
+         */
+        DependentOut: {
+            /** Kind */
+            kind: string;
+            /** Names */
+            names?: string[];
+        };
+        /**
          * DeployKeyCreateRequest
          * @description Make a key for the application's repository, or assign one that exists.
          *
@@ -40842,8 +41482,11 @@ export interface components {
          *         status: ``"ok"``, ``"warn"``, ``"fail"`` or ``"skip"``.
          *         summary: One line, in Noust's own words.
          *         evidence: Raw output the probe collected, verbatim.
+         *         coded: ``summary`` as a code and its values, for the console to translate; null for
+         *             a check nobody gave a code.
          */
         DiagnoseCheck: {
+            coded?: components["schemas"]["CodedText"] | null;
             /**
              * Evidence
              * @default
@@ -40870,6 +41513,8 @@ export interface components {
          *         probable_cause: One sentence naming the most likely explanation, or
          *             ``None`` when the checks disagree with each other or are all clean.
          *         checks: Every probe that ran, in the order it ran in.
+         *         probable_cause_coded: ``probable_cause`` as a code and its values; null when there
+         *             is no cause.
          */
         DiagnoseResponse: {
             /** Checks */
@@ -40878,6 +41523,7 @@ export interface components {
             domain: string;
             /** Probable Cause */
             probable_cause: string | null;
+            probable_cause_coded?: components["schemas"]["CodedText"] | null;
             /** Verdict */
             verdict: string;
         };
@@ -42675,6 +43321,9 @@ export interface components {
          *         findings: One per check, in catalog order.
          *         indicators: The op.mon.2 figures.
          *         errors: Areas that could not be read, verbatim.
+         *         enabled: Whether a framework of the ENS family is on. When it is not, nothing
+         *             is judged: ``findings`` is empty and ``verdict`` is ``ok`` because no
+         *             control was asked for, not because the server passes.
          */
         EnsCheckResponse: {
             /** Checked At */
@@ -42683,6 +43332,11 @@ export interface components {
             counts: {
                 [key: string]: number;
             };
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
             /** Errors */
             errors?: {
                 [key: string]: string;
@@ -45786,6 +46440,47 @@ export interface components {
             reason: string;
         };
         /**
+         * ImpactOut
+         * @description What removing a component would do, decided before anything is touched.
+         *
+         *     Attributes:
+         *         id: The component.
+         *         installed: Whether it is on the machine.
+         *         origin: ``noust``, ``unknown`` or null.
+         *         severity: ``never``, ``critical_while`` or ``removable``.
+         *         dependents: What depends on it.
+         *         removes: Its own packages that are installed.
+         *         also_removes: What else the package manager says would go with them.
+         *         repository_files: The repository source and key files Noust would take back out.
+         *         blockers: Why it cannot be removed now; none means it can.
+         *         removable: Whether nothing stands in the way.
+         *         needs_confirmation: Its origin is unknown, so removing it needs the operator's yes.
+         */
+        ImpactOut: {
+            /** Also Removes */
+            also_removes?: string[];
+            /** Blockers */
+            blockers?: components["schemas"]["BlockerOut"][];
+            /** Dependents */
+            dependents?: components["schemas"]["DependentOut"][];
+            /** Id */
+            id: string;
+            /** Installed */
+            installed: boolean;
+            /** Needs Confirmation */
+            needs_confirmation: boolean;
+            /** Origin */
+            origin?: string | null;
+            /** Removable */
+            removable: boolean;
+            /** Removes */
+            removes?: string[];
+            /** Repository Files */
+            repository_files?: string[];
+            /** Severity */
+            severity: string;
+        };
+        /**
          * ImportAppRequest
          * @description An export document to create an application from.
          */
@@ -46057,6 +46752,20 @@ export interface components {
              * @description Git URL, archive URL or local path
              */
             source: string;
+        };
+        /**
+         * InstallRequest
+         * @description What an install may be told beyond which component.
+         *
+         *     Attributes:
+         *         epel: Agree to enable EPEL, where Knot and fail2ban come from it on RHEL and its rebuilds.
+         */
+        InstallRequest: {
+            /**
+             * Epel
+             * @default false
+             */
+            epel: boolean;
         };
         /**
          * InstallResponse
@@ -46977,6 +47686,8 @@ export interface components {
             created_at: string;
             /** Current Step */
             current_step: string;
+            /** @description current_step as a sentence of the server's catalog (code and values), when it is one; each entry of logs carries its own under coded */
+            current_step_coded?: components["schemas"]["CodedText"] | null;
             /** Deployment Id */
             deployment_id?: number | null;
             /** Description */
@@ -47016,6 +47727,8 @@ export interface components {
             state: string;
             /** Status */
             status: string;
+            /** @description What the job is, as a sentence of the server's catalog (code and values) for the console to say in its language; name is the same in English */
+            title?: components["schemas"]["CodedText"] | null;
             /** Total Steps */
             total_steps: number;
             /** Type */
@@ -50015,6 +50728,8 @@ export interface components {
          *         signal: Which check produced it.
          *         severity: notice or warning.
          *         detail: Human-readable explanation.
+         *         detail_coded: ``detail`` as a code and its values, for the console to translate; null for
+         *             a detail the catalog does not hold (one written before 4.2 in other words).
          *         acknowledged: Whether an operator dismissed it.
          */
         ObservationEntry: {
@@ -50029,6 +50744,7 @@ export interface components {
             cpu_percent?: number | null;
             /** Detail */
             detail?: string | null;
+            detail_coded?: components["schemas"]["CodedText"] | null;
             /** Id */
             id?: number | null;
             /** Memory Percent */
@@ -50064,6 +50780,42 @@ export interface components {
             stats?: {
                 [key: string]: number;
             } | null;
+        };
+        /**
+         * OperationOut
+         * @description One operation that is running.
+         *
+         *     Attributes:
+         *         id: Names its start and its end in the ``operation`` event.
+         *         title: What it is, as a sentence of the server's catalog (code and values).
+         *         target: Its subject (an application, a service, a node), or null for the whole server.
+         *         domain: The application it concerns, when its subject is one.
+         *         actor: Who asked, as the audit trail names them.
+         *         started_at: When it started, ISO 8601 in UTC.
+         */
+        OperationOut: {
+            /** Actor */
+            actor?: string | null;
+            /** Domain */
+            domain?: string | null;
+            /** Id */
+            id: string;
+            /** Started At */
+            started_at: string;
+            /** Target */
+            target?: string | null;
+            title: components["schemas"]["CodedText"];
+        };
+        /**
+         * OperationsResponse
+         * @description The operations running now.
+         *
+         *     Attributes:
+         *         operations: Oldest first. A team member's holds only what concerns its own applications.
+         */
+        OperationsResponse: {
+            /** Operations */
+            operations: components["schemas"]["OperationOut"][];
         };
         /**
          * OsOut
@@ -55176,8 +55928,15 @@ export interface components {
         /**
          * ReloadResponse
          * @description Response for a web server reload.
+         *
+         *     Attributes:
+         *         success: It reloaded.
+         *         message: What was done, in a sentence.
+         *         webserver: The web server that was reloaded.
+         *         coded: ``message`` as a code and its values.
          */
         ReloadResponse: {
+            coded?: components["schemas"]["CodedText"] | null;
             /** Message */
             message: string;
             /** Success */
@@ -55445,6 +56204,22 @@ export interface components {
             name: string;
             /** Warnings */
             warnings: string[];
+        };
+        /**
+         * RemoveRequest
+         * @description What a removal needs besides which component.
+         *
+         *     Attributes:
+         *         confirm_unknown_origin: The operator knows Noust did not install it and other things on
+         *             the system may use it. Without it, a component of unknown origin is a question
+         *             (409 ``confirmation_required``).
+         */
+        RemoveRequest: {
+            /**
+             * Confirm Unknown Origin
+             * @default false
+             */
+            confirm_unknown_origin: boolean;
         };
         /**
          * RemovedResponse
@@ -57059,6 +57834,9 @@ export interface components {
          *     point it at a server of its own and send itself a test email. There is no
          *     way to explicitly blank the password through this endpoint; ``noust config
          *     set monitor.smtp.password ''`` still does that directly.
+         *
+         *     ``recipients`` works the same way: left out, the stored list stays; an empty
+         *     list is the explicit way to clear it.
          */
         SMTPConfig: {
             /**
@@ -57087,9 +57865,9 @@ export interface components {
             port: number;
             /**
              * Recipients
-             * @description Addresses the monitor's reports and test message are sent to
+             * @description Addresses the monitor's reports and test message are sent to. Leave it out (or null) to keep the ones already stored; an empty list clears them
              */
-            recipients?: string[];
+            recipients?: string[] | null;
             /**
              * Use Ssl
              * @description Connect with implicit TLS (SMTPS), usually port 465
@@ -59484,6 +60262,105 @@ export interface components {
             message?: string | null;
         };
         /**
+         * SignInAppearance
+         * @description What the sign-in screen needs to draw itself.
+         *
+         *     Attributes:
+         *         image: The picture an operator chose; null when there is none and the console draws its
+         *             own.
+         *         limits: What a picture may be.
+         */
+        SignInAppearance: {
+            image?: components["schemas"]["SignInImageOut"] | null;
+            limits?: components["schemas"]["SignInImageLimits"];
+        };
+        /**
+         * SignInAppearanceBody
+         * @description What the sign-in picture is set to.
+         *
+         *     Attributes:
+         *         image: The file, as base64 text. Left out, the picture that is there stays and only its
+         *             fit and description change.
+         *         fit: ``cover`` to fill the space, ``contain`` to show the whole picture.
+         *         alt: What a screen reader says in its place, up to 120 characters; empty or left out says
+         *             the picture is decoration.
+         */
+        SignInAppearanceBody: {
+            /** Alt */
+            alt?: string | null;
+            /**
+             * Fit
+             * @default contain
+             */
+            fit: string;
+            /** Image */
+            image?: string | null;
+        };
+        /**
+         * SignInImageLimits
+         * @description What a picture may be, so a client need not hard-code it.
+         *
+         *     Attributes:
+         *         bytes: The most a file weighs, as it is sent.
+         *         side: The most pixels on a side.
+         *         alt_chars: The most characters of its description.
+         *         types: The types a file may be, by what its bytes are.
+         */
+        SignInImageLimits: {
+            /**
+             * Alt Chars
+             * @default 120
+             */
+            alt_chars: number;
+            /**
+             * Bytes
+             * @default 1048576
+             */
+            bytes: number;
+            /**
+             * Side
+             * @default 4096
+             */
+            side: number;
+            /** Types */
+            types?: string[];
+        };
+        /**
+         * SignInImageOut
+         * @description The picture the sign-in screen shows.
+         *
+         *     Attributes:
+         *         url: Where it is, with its digest in ``v`` so it can be cached for good.
+         *         sha256: The digest of the file served.
+         *         content_type: What it is: ``image/png``, ``image/jpeg`` or ``image/webp``.
+         *         width: Pixels across.
+         *         height: Pixels down.
+         *         size: Bytes of the file served.
+         *         fit: ``cover`` fills the space and crops; ``contain`` shows the whole picture in it.
+         *         alt: What a screen reader says in its place; empty for decoration.
+         *         updated_at: When it was set, ISO 8601 in UTC.
+         */
+        SignInImageOut: {
+            /** Alt */
+            alt: string;
+            /** Content Type */
+            content_type: string;
+            /** Fit */
+            fit: string;
+            /** Height */
+            height: number;
+            /** Sha256 */
+            sha256: string;
+            /** Size */
+            size: number;
+            /** Updated At */
+            updated_at: string;
+            /** Url */
+            url: string;
+            /** Width */
+            width: number;
+        };
+        /**
          * SinkOut
          * @description One shipping destination.
          *
@@ -59518,8 +60395,16 @@ export interface components {
         /**
          * SiteActionResponse
          * @description Response for site actions.
+         *
+         *     Attributes:
+         *         success: The action was done.
+         *         message: What was done, in a sentence.
+         *         site: The site's domain.
+         *         coded: ``message`` as a code and its values, for the console to say it in its own
+         *             language and to tell a warning from a success by the code, never by the words.
          */
         SiteActionResponse: {
+            coded?: components["schemas"]["CodedText"] | null;
             /** Message */
             message: string;
             /** Site */
@@ -60458,10 +61343,11 @@ export interface components {
          *
          *     Attributes:
          *         available: Whether the engine keeps statement statistics.
-         *         source: ``pg_stat_statements`` or ``performance_schema``.
+         *         source: ``pg_stat_statements``, ``performance_schema`` or ``slowlog``.
          *         reason: Why not: ``not_loaded``, ``not_created``,
-         *             ``performance_schema_off`` or ``not_supported``.
-         *         how_to_enable: The steps, in English, commands included.
+         *             ``performance_schema_off`` or, for Redis, ``slowlog``.
+         *         how_to_enable: The steps, in English, commands included; for Redis,
+         *             the command that reads its slow log.
          */
         SlowQueriesResponse: {
             /** Available */
@@ -60495,6 +61381,80 @@ export interface components {
             rows?: number | null;
             /** Total Ms */
             total_ms?: number | null;
+        };
+        /**
+         * SoftwareItemOut
+         * @description One component, as the page shows it.
+         *
+         *     Attributes:
+         *         id: The registry's id.
+         *         purpose: What Noust uses it for, in English.
+         *         purpose_code: The same sentence as a code of the console's catalog.
+         *         severity: ``never``, ``critical_while`` or ``removable``.
+         *         installed: Whether it is on the machine.
+         *         version: The version, when it is installed and the package manager says one.
+         *         origin: ``noust``, ``unknown``, or null when it is not installed. What was installed
+         *             before the ledger existed is ``noust`` only when a file Noust writes is there.
+         *         installable: Whether Noust installs it on this system.
+         *         removable: Whether Noust would remove it now.
+         *         dependents: What depends on it.
+         *         packages: Its packages that are installed.
+         *         installed_at: When Noust installed it, from the ledger.
+         *         installed_by: As whom.
+         *         installed_via: Through which installer.
+         */
+        SoftwareItemOut: {
+            /** Dependents */
+            dependents?: components["schemas"]["DependentOut"][];
+            /** Id */
+            id: string;
+            /** Installable */
+            installable: boolean;
+            /** Installed */
+            installed: boolean;
+            /** Installed At */
+            installed_at?: string | null;
+            /** Installed By */
+            installed_by?: string | null;
+            /** Installed Via */
+            installed_via?: string | null;
+            /** Origin */
+            origin?: string | null;
+            /** Packages */
+            packages?: string[];
+            /** Purpose */
+            purpose: string;
+            /** Purpose Code */
+            purpose_code: string;
+            /** Removable */
+            removable: boolean;
+            /** Severity */
+            severity: string;
+            /** Version */
+            version?: string | null;
+        };
+        /**
+         * SoftwareOut
+         * @description The software of the server.
+         *
+         *     Attributes:
+         *         managed: Whether Noust changes this system's packages.
+         *         reason: Why it does not, when it does not.
+         *         reason_coded: ``reason`` as a code and its values, for the console to translate; null
+         *             when Noust does change this system's software.
+         *         family: ``apt``, ``dnf``, ``zypper`` or ``none``.
+         *         items: One per component, in the order the page shows them.
+         */
+        SoftwareOut: {
+            /** Family */
+            family: string;
+            /** Items */
+            items?: components["schemas"]["SoftwareItemOut"][];
+            /** Managed */
+            managed: boolean;
+            /** Reason */
+            reason?: string | null;
+            reason_coded?: components["schemas"]["CodedText"] | null;
         };
         /**
          * SourceChangeRequest
@@ -60623,6 +61583,9 @@ export interface components {
          *             is: false when a program the type needs is missing.
          *         verdict: What Noust found, in a sentence.
          *         suggestion: What to do before deploying, when there is something.
+         *         verdict_coded: ``verdict`` as a code and its values, for the console to translate.
+         *         suggestion_coded: ``suggestion`` as a code and its values, when it is a sentence of
+         *             its own (what to install); null when there is none.
          */
         SourceInspectionResponse: {
             /** App Type */
@@ -60657,11 +61620,15 @@ export interface components {
              * @description What to do before deploying, when there is something
              */
             suggestion?: string | null;
+            /** @description The suggestion as a code and its values, when it has one */
+            suggestion_coded?: components["schemas"]["CodedText"] | null;
             /**
              * Verdict
              * @description What Noust found, in a sentence
              */
             verdict?: string | null;
+            /** @description The verdict as a code and its values */
+            verdict_coded?: components["schemas"]["CodedText"] | null;
         };
         /**
          * SourceOptionsRequest
@@ -61084,12 +62051,15 @@ export interface components {
          *         shared: Containers that are not the stack's are on it.
          *         members: The containers on it.
          *         findings: What is worth knowing about it, as Docker reported it.
+         *         findings_coded: ``findings`` as codes and values, in the same order.
          */
         StackNetworkModel: {
             /** Driver */
             driver: string;
             /** Findings */
             findings: string[];
+            /** Findings Coded */
+            findings_coded?: components["schemas"]["CodedText"][];
             /** Id */
             id: string;
             /** Internal */
@@ -61128,6 +62098,7 @@ export interface components {
          *         app: The application's domain.
          *         applicable: It is a stack Docker runs.
          *         reason: Why not, when it is not.
+         *         reason_coded: ``reason`` as a code and its values; null when it is applicable.
          *         containers: The names of the stack's containers.
          *         isolated: Every network is the stack's own and nothing else is on it.
          *         networks: The networks.
@@ -61148,6 +62119,7 @@ export interface components {
              * @default
              */
             reason: string;
+            reason_coded?: components["schemas"]["CodedText"] | null;
         };
         /**
          * StageRequest
@@ -61440,6 +62412,7 @@ export interface components {
          *         support: What nginx offers.
          *         warnings: Things that are probably wrong and do not stop it.
          *         firewall: The rules the firewall would be asked for.
+         *         warnings_coded: ``warnings`` as codes and values, in the same order.
          */
         StreamPlanResponse: {
             /** Config */
@@ -61456,6 +62429,8 @@ export interface components {
             support: components["schemas"]["StreamSupportModel"];
             /** Warnings */
             warnings: string[];
+            /** Warnings Coded */
+            warnings_coded?: components["schemas"]["CodedText"][];
         };
         /**
          * StreamRequest
@@ -61506,13 +62481,18 @@ export interface components {
          *         exposure: The exposure.
          *         warnings: Things the operator should know.
          *         firewall: A sentence on the firewall.
+         *         warnings_coded: ``warnings`` as codes and values, in the same order.
+         *         firewall_coded: ``firewall`` as a code and its values; null when there is none.
          */
         StreamResultResponse: {
             exposure: components["schemas"]["StreamExposureModel"];
             /** Firewall */
             firewall: string;
+            firewall_coded?: components["schemas"]["CodedText"] | null;
             /** Warnings */
             warnings: string[];
+            /** Warnings Coded */
+            warnings_coded?: components["schemas"]["CodedText"][];
         };
         /**
          * StreamSupportModel
@@ -61524,12 +62504,20 @@ export interface components {
          *         loader: ``present``, ``installable``, ``foreign`` or ``manual``.
          *         problem: What is missing, when something is.
          *         hint: How to fix it: a command, or the line to add.
+         *         install: The software component that supplies what is missing (``nginx``,
+         *             ``nginx_stream_module``), to install with ``POST /api/server/software/{id}/install``;
+         *             null when Noust installs nothing for it here.
+         *         coded: ``problem`` and ``hint`` as a code and its values, for the console to translate;
+         *             null when nothing is wrong. A ``hint`` that is nginx's own output has no code.
          */
         StreamSupportModel: {
             /** Available */
             available: boolean;
+            coded?: components["schemas"]["CodedText"] | null;
             /** Hint */
             hint?: string | null;
+            /** Install */
+            install?: string | null;
             /** Loader */
             loader: string;
             /** Module */
@@ -61673,6 +62661,7 @@ export interface components {
             noust_swapfile: boolean;
             /** Reason */
             reason: string;
+            reason_coded?: components["schemas"]["CodedText"] | null;
             /** Recommended */
             recommended: boolean;
             /** Suggested Bytes */
@@ -61687,6 +62676,8 @@ export interface components {
             used_bytes: number;
             /** Warnings */
             warnings: string[];
+            /** Warnings Coded */
+            warnings_coded?: components["schemas"]["CodedText"][];
         };
         /**
          * SwapSummary
@@ -66655,18 +67646,41 @@ export interface components {
          *         frameworks: One per framework judged.
          *         errors: Areas that could not be read.
          *         disclaimer: What a pass does and does not mean.
+         *         enabled: The frameworks that are on right now, in catalog order, whichever were
+         *             judged. Empty when nothing is on: then a check that names no framework
+         *             judges nothing and ``verdict`` is ``ok`` because nothing was asked for.
+         *         checked_at: When, ISO 8601 UTC.
+         *         host: This server's name.
+         *         version: The Noust it runs.
          */
         noust__web__api__compliance__CheckResponse: {
+            /**
+             * Checked At
+             * @default
+             */
+            checked_at: string;
             /** Disclaimer */
             disclaimer: string;
+            /** Enabled */
+            enabled?: string[];
             /** Errors */
             errors: {
                 [key: string]: string;
             };
             /** Frameworks */
             frameworks: components["schemas"]["CheckFramework"][];
+            /**
+             * Host
+             * @default
+             */
+            host: string;
             /** Verdict */
             verdict: string;
+            /**
+             * Version
+             * @default
+             */
+            version: string;
         };
         /**
          * PolicyDestination
@@ -76992,6 +78006,125 @@ export interface operations {
             };
         };
     };
+    list_dashboards_api_auth_dashboards_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardsResponse"];
+                };
+            };
+        };
+    };
+    order_dashboards_api_auth_dashboards_order_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DashboardOrder"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_dashboard_api_auth_dashboards__dashboard_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dashboard_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DashboardBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_dashboard_api_auth_dashboards__dashboard_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dashboard_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     elevate_api_auth_elevate_post: {
         parameters: {
             query?: never;
@@ -78693,6 +79826,112 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RevokedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_appearance_api_auth_sign_in_appearance_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignInAppearance"];
+                };
+            };
+        };
+    };
+    put_appearance_api_auth_sign_in_appearance_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignInAppearanceBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignInAppearance"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_appearance_api_auth_sign_in_appearance_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignInAppearance"];
+                };
+            };
+        };
+    };
+    get_image_api_auth_sign_in_image_get: {
+        parameters: {
+            query?: {
+                v?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The picture. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": unknown;
+                    "image/png": unknown;
+                    "image/webp": unknown;
                 };
             };
             /** @description Validation Error */
@@ -80506,6 +81745,7 @@ export interface operations {
         parameters: {
             query?: {
                 framework?: string[] | null;
+                format?: "json" | "markdown";
             };
             header?: never;
             path?: never;
@@ -80520,6 +81760,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["noust__web__api__compliance__CheckResponse"];
+                    "text/markdown": unknown;
                 };
             };
             /** @description Validation Error */
@@ -89258,6 +90499,40 @@ export interface operations {
             };
         };
     };
+    fleet_jobs_active_api_fleet_jobs_active_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_fleet_job_api_fleet_jobs__job_id__get: {
         parameters: {
             query?: never;
@@ -90130,6 +91405,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FleetSettingRemovedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fleet_software_api_fleet_software_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetViewOut"];
                 };
             };
             /** @description Validation Error */
@@ -93136,6 +94445,26 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    active_operations_now_api_operations_active_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationsResponse"];
                 };
             };
         };
@@ -96734,6 +98063,138 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RemoveKeyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_software_api_server_software_get: {
+        parameters: {
+            query?: {
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SoftwareOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    software_impact_api_server_software__component__impact_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                component: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImpactOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    install_software_api_server_software__component__install_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                component: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["InstallRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_software_api_server_software__component__remove_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                component: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RemoveRequest"] | null;
             };
         };
         responses: {

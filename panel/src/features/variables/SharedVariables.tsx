@@ -40,7 +40,7 @@ export function referenceSyntax(scope: VariableScope): string {
 }
 
 /** The scope's own words: its section title, what it is for, and how it is named in a sentence. */
-function words(t: T, scope: VariableScope, name: string): { title: string; description: string; of: string; command: string } {
+function words(t: T, scope: VariableScope, name: string): { title: string; description: string; of: string } {
   const syntax = referenceSyntax(scope);
   switch (scope.kind) {
     case "preview":
@@ -48,25 +48,22 @@ function words(t: T, scope: VariableScope, name: string): { title: string; descr
         title: t("variables.shared.title.preview"),
         description: t("variables.shared.description.preview", { example: syntax }),
         of: name,
-        command: `noust preview vars list ${scope.domain}`,
       };
     case "server":
-      return { title: t("variables.shared.title.server"), description: t("variables.shared.description.server", { syntax }), of: t("variables.shared.scopeNames.server"), command: "noust variables list server" };
+      return { title: t("variables.shared.title.server"), description: t("variables.shared.description.server", { syntax }), of: t("variables.shared.scopeNames.server") };
     case "team":
-      return { title: t("variables.shared.title.team"), description: t("variables.shared.description.team", { syntax }), of: name, command: `noust variables list team --team ${scope.team}` };
+      return { title: t("variables.shared.title.team"), description: t("variables.shared.description.team", { syntax }), of: name };
     case "project":
       return {
         title: t("variables.shared.title.project"),
         description: t("variables.shared.description.project", { syntax }),
         of: name,
-        command: `noust variables list project --team ${scope.team} --project ${scope.project}`,
       };
     case "environment":
       return {
         title: t("variables.shared.title.environment", { name }),
         description: t("variables.shared.description.environment", { syntax }),
         of: name,
-        command: `noust variables list environment --team ${scope.team} --project ${scope.project} --environment ${scope.environment}`,
       };
   }
 }
@@ -134,8 +131,6 @@ export interface SharedVariablesProps {
   primary?: boolean;
   /** Heading level of the section: 2 under a page's h1, 3 inside another section. */
   level?: 2 | 3;
-  /** Whether the empty state says how to do this from a terminal. */
-  command?: boolean;
   /**
    * Draw "nothing yet" as one line, not as the page's first-use block: for a page that holds
    * more (a project's page), where a second first-use block would be one too many.
@@ -149,7 +144,7 @@ export interface SharedVariablesProps {
  * once and reaches an application at its next deploy; a secret stays hidden until revealed, and
  * revealing it (or editing it, which needs its value) asks to confirm it's you.
  */
-export function SharedVariables({ scope, name = "", canManage, primary = false, level = 2, command = true, inlineEmpty = false }: SharedVariablesProps) {
+export function SharedVariables({ scope, name = "", canManage, primary = false, level = 2, inlineEmpty = false }: SharedVariablesProps) {
   const t = useT();
   const { node } = useNode();
   const queryClient = useQueryClient();
@@ -344,7 +339,6 @@ export function SharedVariables({ scope, name = "", canManage, primary = false, 
               title={t("variables.shared.emptyTitle")}
               description={t("variables.shared.emptyDescription")}
               {...(addButton !== null && !primary ? { action: addButton } : {})}
-              {...(command ? { command: text.command } : {})}
             />
           )
         }

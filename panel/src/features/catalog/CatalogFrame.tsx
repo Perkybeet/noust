@@ -3,13 +3,11 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 
 import { recipesQuery } from "../../api/queries/recipes";
-import { CommandHint } from "../../components/page/CommandHint";
 import { ListPage } from "../../components/page/ListPage";
 import { Button } from "../../components/ui/Button";
 import { useT } from "../../i18n";
 import { CatalogPackageDialog } from "./CatalogPackage";
 import { CatalogProblems } from "./CatalogProblems";
-import { CatalogTabs } from "./CatalogTabs";
 import { OwnRecipesDialog } from "./OwnRecipes";
 
 export interface CatalogFrameProps {
@@ -17,8 +15,6 @@ export interface CatalogFrameProps {
   filters?: ReactNode;
   /** The tab's own notice (a job in hand, a failure). */
   notice?: ReactNode;
-  /** The CLI equivalent of the tab, once, at the foot. */
-  command: string;
   children: ReactNode;
 }
 
@@ -27,7 +23,7 @@ export interface CatalogFrameProps {
  * then the view. The title and the strip are the same on both, so switching moves nothing but the
  * content under them.
  */
-export function CatalogFrame({ filters, notice, command, children }: CatalogFrameProps) {
+export function CatalogFrame({ filters, notice, children }: CatalogFrameProps) {
   const t = useT();
   const everything = useQuery(recipesQuery());
   const [adding, setAdding] = useState(false);
@@ -53,10 +49,8 @@ export function CatalogFrame({ filters, notice, command, children }: CatalogFram
             </>
           ),
         }}
-        tabs={<CatalogTabs />}
         {...(shownNotice !== undefined ? { notice: shownNotice } : {})}
         {...(filters !== undefined ? { filters } : {})}
-        footer={<CommandHint command={command} label={t("common.words.fromTerminal")} />}
       >
         {children}
       </ListPage>

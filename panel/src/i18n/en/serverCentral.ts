@@ -1,10 +1,13 @@
 /** Strings of the console's "Central's permissions" section: what the central may do on a server. */
 export const serverCentral = {
   label: "the central's permissions",
-  title: "What the central may do",
-  description: "This is the most the central can do on this server, whatever its own people may do.",
-  descriptionOf: "This is the most the central {central} can do on this server, whatever its own people may do.",
-  summary: "{node} lets the central: {level}.",
+  hereTitle: "What {central} can do here",
+  hereTitleUnnamed: "What the central can do here",
+  connected: "Connected",
+  levelLabel: "Level",
+  systemLabel: "System access",
+  systemYes: "Yes: it can change how the server is reached and install software",
+  systemNo: "No: it cannot touch SSH, the firewall or install software",
   summaryUnknown: "{node} does not say what it lets the central do.",
   check: "Check again",
   choose: "What {node} lets the central do",

@@ -1,32 +1,32 @@
 /**
  * What the command palette finds inside the application on screen (checklist M-04): each of its
- * pages and each section of its settings, named with the application, so "build" finds
- * "Build: shop.example.com" and a section moved to another page is still found by its name.
+ * sections, named with the application, so "build" finds "Code and build: shop.example.com". What
+ * were subsections of its settings in 4.1 are gathered into four pages, and each page carries the old
+ * names as search words (the register's `keywords`), so "Previews" still finds the page that holds them.
  *
- * Read from the definitions that draw the pages, never copied from them: the tabs are `APP_TABS`
- * and the settings sections are `SETTINGS_SECTIONS`, the lists their navigations render.
+ * Read from the register, never copied from it: the sections are `APP_TABS`, the list the column draws.
  */
 
 import { Box } from "lucide-react";
 
 import type { App } from "../api/queries/apps";
-import { OBJECT_ICONS } from "../components/ui/objectIcons";
-import { SETTINGS_SECTIONS } from "../features/app/settings/sections";
 import type { T } from "../i18n";
 import type { Command } from "./CommandPalette";
 import { APP_TABS } from "./nav";
+import { isAdopted } from "../features/app/adopted";
+import { ADOPTED_TABS } from "../features/app/tabs";
 
 /**
  * @param domain - The application on screen.
- * @param app - Its record, when it is read: a section it does not concern (the container's own
- * settings on a Node application) is left out; unknown, every section is offered.
+ * @param app - Its record, when it is read: a section it does not concern (the building and deploying
+ * of an adopted site) is left out; unknown, every section is offered.
  * @param t - The translator.
  * @param go - Opens a route of the console with its path parameters.
- * @returns One command per page of the application and per section of its settings.
+ * @returns One command per section of the application.
  */
 export function appSectionCommands(domain: string, app: App | undefined, t: T, go: (to: string, params?: Record<string, string>) => () => void): Command[] {
   const params = { domain };
-  const pages = APP_TABS.filter((tab) => tab.exact !== true).map(
+  return APP_TABS.filter((tab) => tab.exact !== true && (app === undefined || !isAdopted(app) || ADOPTED_TABS.has(tab.to))).map(
     (tab): Command => ({
       id: `app-section:${tab.to}`,
       group: "Pages",
@@ -37,17 +37,4 @@ export function appSectionCommands(domain: string, app: App | undefined, t: T, g
       run: go(tab.to, params),
     }),
   );
-  const settings = SETTINGS_SECTIONS.filter((section) => section.path !== "" && (section.when === undefined || app === undefined || section.when(app))).map(
-    (section): Command => ({
-      id: `app-setting:${section.path}`,
-      group: "Pages",
-      label: t("shell.commands.appSetting", { section: t(section.label), domain }),
-      // What the section is and the words it is known by are the register's (features/nav/app.ts), the same as the list on the side.
-      icon: section.icon === undefined ? <OBJECT_ICONS.settings /> : <section.icon />,
-      keywords: [t("nav.appTabs.settings.label"), section.keywords !== undefined ? t(section.keywords) : "", domain].join(" "),
-      kind: "navigate",
-      run: go(`/apps/$domain/settings${section.path}`, params),
-    }),
-  );
-  return [...pages, ...settings];
 }

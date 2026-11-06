@@ -7,7 +7,6 @@ import {
   journalFilters,
   paramsOf,
   rangeOf,
-  searchCommand,
   stamp,
   stretchOf,
   validateLogsSearch,
@@ -69,15 +68,6 @@ describe("the log search's question", () => {
     // Live reads the newest quarter of an hour, again and again.
     expect(paramsOf({ since: "live" }).since).toBe("15m");
   });
-
-  it("writes the command that asks the same thing from a terminal, quoting what needs it", () => {
-    expect(searchCommand({})).toBe("noust log search --since 1h");
-    expect(searchCommand({ q: "timeout", app: "shop.example.com", since: "24h", level: "err" })).toBe("noust log search timeout --app shop.example.com --since 24h --level err");
-    expect(searchCommand({ q: "connection refused -health" })).toBe("noust log search 'connection refused -health' --since 1h");
-    expect(searchCommand({ q: "it's" })).toBe("noust log search 'it'\\''s' --since 1h");
-    // Every server has a command of its own, which has no application filter.
-    expect(searchCommand({ scope: "fleet", q: "timeout", app: "shop.example.com", level: "err" })).toBe("noust fleet logs timeout --since 1h --level err");
-  });
 });
 
 describe("the range of a search", () => {
@@ -134,14 +124,6 @@ describe("what the system's journal is asked", () => {
     expect(stretchOf({}, 10_000)).toEqual([6_400, 10_000]);
     expect(stretchOf({ since: "24h" }, 100_000)).toEqual([13_600, 100_000]);
     expect(stretchOf({ source: "system", since: "boot" }, 100_000)).toBeNull();
-  });
-
-  it("says the command that reads the same thing", () => {
-    expect(searchCommand({ source: "system" })).toBe("noust server logs --since -1h");
-    expect(searchCommand({ source: "system", unit: "nginx.service", level: "err", since: "boot", q: "it's" })).toBe(
-      "noust server logs -Q '@unit:nginx.service @level:err it'\\''s' -b 0",
-    );
-    expect(searchCommand({ source: "system", unit: "kernel", from: 100, to: 200 })).toBe("noust server logs -k --since @100 --until @200");
   });
 });
 

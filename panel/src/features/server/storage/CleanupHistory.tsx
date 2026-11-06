@@ -9,13 +9,14 @@ import { useState } from "react";
 
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Button } from "../../../components/ui/Button";
-import { Card } from "../../../components/ui/Card";
+import { SurfaceSection } from "../../../components/page/SurfaceSection";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
 import { Drawer } from "../../../components/ui/Drawer";
 import { EmptyCell } from "../../../components/ui/EmptyCell";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Mono } from "../../../components/ui/Mono";
+import { ServerText } from "../../../components/ui/ServerText";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import type { Status } from "../../../components/ui/StatusPill";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
@@ -99,7 +100,11 @@ function RunDrawer({ run, onClose }: { run: CleanupRun; onClose: () => void }) {
           </p>
         ) : null}
         {/* Why a run did nothing, in Noust's own words. */}
-        {run.reason ? <p className="text-13 text-fg-muted">{run.reason}</p> : null}
+        {run.reason ? (
+          <p className="text-13 text-fg-muted">
+            <ServerText coded={run.reason_coded} text={run.reason} />
+          </p>
+        ) : null}
         {actions.length > 0 ? (
           <ul aria-label={t("server.storage.history.actionsLabel")} className="flex flex-col divide-y divide-border">
             {actions.map((action, index) => {
@@ -191,7 +196,7 @@ function CleanupRuns({ runs }: { runs: CleanupRun[] }) {
     },
   ];
   return (
-    <Card level={2} title={t("server.storage.history.title")} icon={OBJECT_ICONS.activity} description={t("server.storage.history.description")} padding="none">
+    <SurfaceSection title={t("server.storage.history.title")} icon={OBJECT_ICONS.activity} description={t("server.storage.history.short")} help={t("server.storage.history.description")} flush>
       <DataTable
         columns={columns}
         rows={runs}
@@ -205,6 +210,6 @@ function CleanupRuns({ runs }: { runs: CleanupRun[] }) {
         )}
       />
       {opened !== null ? <RunDrawer run={opened} onClose={() => setOpened(null)} /> : null}
-    </Card>
+    </SurfaceSection>
   );
 }

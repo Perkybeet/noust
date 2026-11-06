@@ -16,10 +16,11 @@ function card(): HTMLElement {
   return section;
 }
 
+/** The comparison is drawn under the machine's charts on Alerts > Metrics, for a central with no server chosen. */
 async function summary(extra: Record<string, RouteHandler> = {}) {
   const backend = fakeBackend({ ...fleetRoutes(), ...extra });
-  const harness = renderConsole("/fleet");
-  await screen.findByRole("heading", { level: 1, name: "Home" });
+  const harness = renderConsole("/alerts/metrics");
+  await screen.findByRole("heading", { level: 1, name: "Metrics" });
   return { ...harness, backend };
 }
 
@@ -71,7 +72,7 @@ describe("comparing the servers of a fleet", () => {
       await setLocale("es");
     });
     fakeBackend(fleetRoutes());
-    const { container } = renderConsole("/fleet");
+    const { container } = renderConsole("/alerts/metrics");
     expect(await screen.findByRole("heading", { name: "Comparar servidores", level: 2 })).toBeInTheDocument();
     expect(await screen.findByRole("list", { name: "CPU de todos los servidores, últimas 24 horas" })).toBeInTheDocument();
     await expectNoAxeViolations(container, { page: true });

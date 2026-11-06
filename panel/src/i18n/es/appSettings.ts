@@ -3,10 +3,8 @@ import type { Catalog } from "../types";
 
 export const appSettings: Catalog<typeof en> = {
   documentTitle: "{section} - Ajustes - {domain}",
-  loading: "Cargando los ajustes",
   jobFailedSilently: "La tarea falló sin decir por qué. Su registro está en la página Actividad.",
   nav: {
-    label: "Ajustes de la aplicación",
     general: "General",
     deploys: "Versiones y vuelta atrás",
     automation: "Automatización",
@@ -18,32 +16,16 @@ export const appSettings: Catalog<typeof en> = {
     resources: "Recursos",
     source: "Origen",
     previews: "Vistas previas",
-    export: "Exportar",
-  },
-  groups: {
-    code: "Código",
-    deploys: "Despliegues",
-    triggers: "Disparadores",
-    runtime: "Ejecución",
-    access: "Acceso",
-    danger: "Exportar y eliminar",
   },
   general: {
     tags: "Etiquetas que despliega",
     noTags: "Ninguna: despliega su rama",
     tagsHint: "Se despliegan las releases y etiquetas que casan, la más reciente por versión.",
     noTagsHint: "Puede desplegar releases y etiquetas en su lugar.",
-    title: "General",
+    title: "Cómo corre",
     description: "Qué es esta aplicación y cómo se ejecuta.",
-    type: "Tipo",
-    port: "Puerto",
-    source: "Origen",
-    branch: "Rama",
     noBranch: "Ninguna fijada",
     noBranchHint: "Con el despliegue al hacer push, un push a cualquier rama la despliega",
-    buildCommand: "Comando de compilación",
-    noCommand: "Ninguno",
-    startCommand: "Comando de arranque",
     directory: "Directorio",
     deploysWork: "Modo de despliegue",
     layoutReleases: "Vuelta atrás instantánea",
@@ -56,7 +38,6 @@ export const appSettings: Catalog<typeof en> = {
     servedBy: "La sirve",
     servedByStatic: "El servidor web, sin proceso",
     notRecorded: "No registrado",
-    readOnlyNote: "Se fijan al desplegar la aplicación. La rama desde la que se despliega se puede fijar aquí.",
   },
   deploys: {
     title: "Versiones y vuelta atrás",
@@ -612,13 +593,6 @@ export const appSettings: Catalog<typeof en> = {
     stateTitle: "Vistas previas de esta aplicación",
   },
   danger: {
-    description: "Lo que no se puede deshacer, apartado de todo lo demás.",
-    actionTitle: "Eliminar esta aplicación",
-    actionDescription:
-      "La detiene y elimina su servicio y su sitio del servidor web. Sus archivos y su certificado solo se van si los marcas en el paso siguiente; las copias de seguridad se conservan siempre.",
-    actionDescriptionWithPath:
-      "La detiene y elimina su servicio y su sitio del servidor web. Sus archivos de {path} y su certificado solo se van si los marcas en el paso siguiente; las copias de seguridad se conservan siempre.",
-    deleteButton: "Eliminar aplicación…",
     startFailed: "La eliminación de {domain} no pudo comenzar",
   },
   migrationPlan: {
@@ -665,12 +639,5 @@ export const appSettings: Catalog<typeof en> = {
     deploysGroup: "Despliegues automáticos",
     backupsGroup: "Copias antes de una actualización",
     planGroup: "Retenciones y programaciones",
-  },
-  keywords: {
-    build: "comandos de compilación build instalar arrancar runtime sandbox compilaciones paquetes caché tipos de proceso",
-    deploys: "despliegues vuelta atrás instantánea versiones releases comprobación de arranque sin cortes",
-    automation: "despliegues automáticos pausa congelar programación actualizaciones programadas copia obligatoria límites de despliegue historial",
-    compose: "docker compose perfiles redes cuentas de registro argumentos",
-    protection: "límite de peticiones cabeceras hsts http3 quic waf cortafuegos certificados de cliente mtls seguridad",
   },
 };

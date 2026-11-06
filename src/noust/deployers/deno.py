@@ -39,6 +39,7 @@ from typing import Any, ClassVar
 from noust.core.exceptions import DeploymentError
 from noust.core.fs import FileSystem
 from noust.core.runner import CommandResult, CommandRunner
+from noust.core.server_text import ServerText, say
 from noust.deployers.base import COMMAND_TIMEOUT, BaseDeployer
 from noust.deployers.compiled import has_container_file
 from noust.deployers.helpers import jsonc
@@ -412,7 +413,7 @@ class DenoDeployer(BaseDeployer):
     # Reporting -------------------------------------------------------------------------
 
     @classmethod
-    def install_suggestion(cls, runner: CommandRunner) -> str | None:
+    def install_suggestion(cls, runner: CommandRunner) -> ServerText | None:
         """
         Say how to get Deno, for ``noust inspect``.
 
@@ -422,10 +423,11 @@ class DenoDeployer(BaseDeployer):
         Returns:
             The next step, which is the same on every distribution.
         """
-        return (
-            "Install Deno 2 system-wide, where the build account can run it (npm install -g "
-            "deno, or the installer of https://docs.deno.com/runtime/getting_started/"
-            "installation/ with DENO_INSTALL=/usr/local). Then deploy it."
+        return say(
+            "inspect.install_deno",
+            command="npm install -g deno",
+            url="https://docs.deno.com/runtime/getting_started/installation/",
+            env_command="DENO_INSTALL=/usr/local",
         )
 
     def _missing_dependencies_issue(self, missing: list[str]) -> str:

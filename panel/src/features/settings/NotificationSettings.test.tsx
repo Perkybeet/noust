@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
-import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
+import { SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 
 /** The notifications block as GET /api/config answers it: every secret redacted, set or not. */
 function configBody(notifications: Record<string, unknown> = {}) {
@@ -186,6 +186,11 @@ function notificationsBackend(
   });
 }
 
+/** The keys the page wrote to the configuration: a write that asks "Confirm it's you" is asked twice, and counted once. */
+function writtenKeys(backend: ReturnType<typeof fakeBackend>): string[] {
+  return [...new Set(backend.callsTo("PATCH /api/config").map((call) => (call.body as { path: string }).path))];
+}
+
 /** A channel's row in the list, found by its name. */
 function row(name: string): HTMLElement {
   const list = screen.getByRole("list", { name: "Notification channels" });
@@ -212,11 +217,14 @@ describe("Settings > Notifications", () => {
     const { container } = renderConsole("/settings/notifications");
     const master = await screen.findByRole("switch", { name: /Send notifications/ });
     expect(master).not.toBeChecked();
-    // Item 106: it governs the whole page, so it is in the header beside where the action would be, with its own
-    // look, and the list it governs is drawn off while it is off. It is not one more row of the channels.
-    const header = screen.getByRole("heading", { level: 1 }).closest("header");
+    // Items 106 and 109: it governs the whole page, so it is in the header on the title's line, right after the title and
+    // not at the far end among the actions, and the list it governs is drawn off while it is off. It is not one more
+    // row of the channels.
+    const title = screen.getByRole("heading", { level: 1 });
+    const header = title.closest("header");
     if (header === null) throw new Error("no page header");
     expect(header).toContainElement(master);
+    expect(title.parentElement).toContainElement(master);
     expect(master.closest('[data-slot="section-switch"]')).not.toBeNull();
     const channelList = screen.getByRole("list", { name: "Notification channels" });
     expect(within(channelList).queryByRole("switch")).toBeNull();
@@ -824,6 +832,105 @@ describe("Settings > Notifications", () => {
     expect(within(at(1)).getByText("for the summary")).toBeInTheDocument();
     // A delivery held before the cause was recorded was held by the quiet hours.
     expect(within(at(2)).getByText("quiet hours")).toBeInTheDocument();
+  });
+
+  it("asks until when before turning notifications off, and an hour is a pause that leaves the switch alone", { timeout: 30_000 }, async () => {
+    const backend = notificationsBackend({ config: configBody({ enabled: true }) });
+    const { user } = renderConsole("/settings/notifications");
+    const master = await screen.findByRole("switch", { name: /Send notifications/ });
+    expect(master).toBeChecked();
+
+    await user.click(master);
+    const dialog = await screen.findByRole("dialog", { name: "Silence the notifications until when?" });
+    // The common answers are a click each, the shortest first and chosen; the last one is the switch's own meaning.
+    expect(within(dialog).getByRole("radio", { name: /For an hour/ })).toBeChecked();
+    expect(within(dialog).getByRole("radio", { name: /Until tomorrow at 09:00/ })).not.toBeChecked();
+    expect(within(dialog).getByRole("radio", { name: /Until I turn them on/ })).not.toBeChecked();
+    await expectNoAxeViolations(dialog);
+    // Nothing is written by opening it.
+    expect(backend.callsTo("PATCH /api/config")).toHaveLength(0);
+
+    const before = Date.now();
+    await user.click(within(dialog).getByRole("button", { name: "Silence" }));
+    await confirmItsYou(user);
+    await waitFor(() => {
+      expect(writtenKeys(backend)).toEqual(["notifications.muted_until"]);
+    });
+    const written = backend.callsTo("PATCH /api/config").at(-1)?.body as { path: string; value: string };
+    expect(written.path).toBe("notifications.muted_until");
+    // A moment with its zone, an hour from now: the server ends the pause by itself.
+    expect(Date.parse(written.value) - before).toBeGreaterThan(59 * 60_000);
+    expect(Date.parse(written.value) - before).toBeLessThan(61 * 60_000);
+    expect(written.value).toMatch(/Z$/);
+  });
+
+  it("writes tomorrow at 09:00 as a moment of the person's own clock", { timeout: 30_000 }, async () => {
+    const backend = notificationsBackend({ config: configBody({ enabled: true }) });
+    const { user } = renderConsole("/settings/notifications");
+    await user.click(await screen.findByRole("switch", { name: /Send notifications/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Silence the notifications until when?" });
+    await user.click(within(dialog).getByRole("radio", { name: /Until tomorrow at 09:00/ }));
+    await user.click(within(dialog).getByRole("button", { name: "Silence" }));
+    await confirmItsYou(user);
+    await waitFor(() => {
+      expect(writtenKeys(backend)).toEqual(["notifications.muted_until"]);
+    });
+    const written = backend.callsTo("PATCH /api/config").at(-1)?.body as { path: string; value: string };
+    const until = new Date(written.value);
+    expect(until.getHours()).toBe(9);
+    expect(until.getMinutes()).toBe(0);
+    expect(until.getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it("turns them off for good when the answer is until the person turns them on", { timeout: 30_000 }, async () => {
+    const backend = notificationsBackend({ config: configBody({ enabled: true }) });
+    const { user } = renderConsole("/settings/notifications");
+    await user.click(await screen.findByRole("switch", { name: /Send notifications/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Silence the notifications until when?" });
+    await user.click(within(dialog).getByRole("radio", { name: /Until I turn them on/ }));
+    await user.click(within(dialog).getByRole("button", { name: "Silence" }));
+    await confirmItsYou(user);
+    await waitFor(() => {
+      expect(writtenKeys(backend)).toEqual(["notifications.enabled"]);
+    });
+    expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({ path: "notifications.enabled", value: false });
+  });
+
+  it("says until when while they are silenced, draws the page off, and ends the pause from its line", { timeout: 30_000 }, async () => {
+    const until = new Date(Date.now() + 3 * 3_600_000).toISOString();
+    const backend = notificationsBackend({ config: configBody({ enabled: true, muted_until: until }) });
+    const { user } = renderConsole("/settings/notifications");
+    const master = await screen.findByRole("switch", { name: /Send notifications/ });
+    // On in the file, and off on the page: nothing is sent, and the switch says it.
+    expect(master).not.toBeChecked();
+    expect(await screen.findByText(/^Silenced until /)).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Notification channels" }).closest('[data-slot="switched-region"]')).toHaveAttribute("data-state", "off");
+
+    await user.click(screen.getByRole("button", { name: "Turn on now" }));
+    await confirmItsYou(user);
+    await waitFor(() => {
+      expect(writtenKeys(backend)).toEqual(["notifications.muted_until"]);
+    });
+    // The switch was on already: only the pause is taken off.
+    expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({ path: "notifications.muted_until", value: "" });
+  });
+
+  it("does not take a pause that has ended for one that has not", { timeout: 20_000 }, async () => {
+    notificationsBackend({ config: configBody({ enabled: true, muted_until: new Date(Date.now() - 60_000).toISOString() }) });
+    renderConsole("/settings/notifications");
+    const master = await screen.findByRole("switch", { name: /Send notifications/ });
+    expect(master).toBeChecked();
+    expect(screen.queryByText(/^Silenced until /)).toBeNull();
+  });
+
+  it("keeps the switch off, with its reason, from a role that may not change settings", { timeout: 20_000 }, async () => {
+    notificationsBackend({
+      routes: { ...signedInRoutes({ ...SESSION, permissions: (SESSION.permissions ?? []).filter((permission) => permission !== "settings.manage") }) },
+    });
+    renderConsole("/settings/notifications");
+    const master = await screen.findByRole("switch", { name: /Send notifications/ });
+    expect(master.hasAttribute("disabled") || master.getAttribute("aria-disabled") === "true").toBe(true);
+    expect(screen.getByText("Your role cannot change this setting.")).toBeInTheDocument();
   });
 
   it("reads in Spanish, with no accessibility violations", { timeout: 20_000 }, async () => {

@@ -299,6 +299,26 @@ MARIADB_KEY = SigningKey(
     fingerprint="177F4010FE56CA3336300305F1656F24C74CD1D8",
 )
 
+#: The apt source file and the keyring Noust writes for each flavour's upstream repository, as
+#: ``(source, keyring)``: the one place their names are spelled. The plans below put them in the
+#: repository they add, and an uninstall asks which of them are Noust's to take back out
+#: (:func:`apt_repository_files`). MongoDB's are named by its series, as its own instructions
+#: name them, so nothing marks them as Noust's and they are never withdrawn.
+APT_REPOSITORY_FILES: dict[str, tuple[Path, Path]] = {
+    "postgresql": (
+        Path("/etc/apt/sources.list.d/noust-pgdg.list"),
+        Path("/usr/share/keyrings/noust-pgdg.gpg"),
+    ),
+    "mariadb": (
+        Path("/etc/apt/sources.list.d/noust-mariadb.list"),
+        Path("/usr/share/keyrings/noust-mariadb.gpg"),
+    ),
+    "mysql": (
+        Path("/etc/apt/sources.list.d/noust-mysql.list"),
+        Path("/usr/share/keyrings/noust-mysql.gpg"),
+    ),
+}
+
 #: MongoDB signs each series with a key of its own.
 MONGODB_KEYS: dict[str, SigningKey] = {
     "7.0": SigningKey(
@@ -641,8 +661,8 @@ def _plan_postgresql(
     repository = Repository(
         name="apt.postgresql.org",
         key=PGDG_KEY,
-        keyring=Path("/usr/share/keyrings/noust-pgdg.gpg"),
-        sources=Path("/etc/apt/sources.list.d/noust-pgdg.list"),
+        keyring=APT_REPOSITORY_FILES["postgresql"][1],
+        sources=APT_REPOSITORY_FILES["postgresql"][0],
         url="https://apt.postgresql.org/pub/repos/apt",
         suite=f"{codename}-pgdg main",
     )
@@ -706,8 +726,8 @@ def _plan_mariadb(
     repository = Repository(
         name="deb.mariadb.org",
         key=MARIADB_KEY,
-        keyring=Path("/usr/share/keyrings/noust-mariadb.gpg"),
-        sources=Path("/etc/apt/sources.list.d/noust-mariadb.list"),
+        keyring=APT_REPOSITORY_FILES["mariadb"][1],
+        sources=APT_REPOSITORY_FILES["mariadb"][0],
         url=f"https://deb.mariadb.org/{version}/{distro}",
         suite=f"{codename} main",
         family="https://deb.mariadb.org/",
@@ -839,8 +859,8 @@ def _plan_mysql(
     repository = Repository(
         name="repo.mysql.com",
         key=MYSQL_KEY,
-        keyring=Path("/usr/share/keyrings/noust-mysql.gpg"),
-        sources=Path("/etc/apt/sources.list.d/noust-mysql.list"),
+        keyring=APT_REPOSITORY_FILES["mysql"][1],
+        sources=APT_REPOSITORY_FILES["mysql"][0],
         url=f"https://repo.mysql.com/apt/{distro}/",
         suite=f"{codename} mysql-{series}-lts",
         architectures="amd64",
@@ -1686,6 +1706,43 @@ def withdraw_repository(created: list[Path], *, fs: FileSystem) -> list[Path]:
             fs.remove(path)
             removed.append(path)
     return removed
+
+
+def apt_repository_files(engine: str, *, host: HostPaths | None = None) -> list[Path]:
+    """
+    Find the apt repositories Noust added for an engine, source files and keyrings.
+
+    A source file is Noust's when its line is signed by the keyring Noust exported for it
+    (:meth:`Repository.line` writes exactly that): a file that only has Noust's name, written by
+    an operator, is left alone. A keyring is Noust's by its name, which no other tool writes,
+    unless its source file is something else.
+
+    Args:
+        engine: The engine's manager name (``postgresql``, ``mysql``): every flavour it runs is
+            looked at, since an uninstall takes out the packages of all of them.
+        host: Where the system files are; :data:`HOST` by default.
+
+    Returns:
+        The files that exist and are Noust's, to take out together.
+    """
+    paths = host or HOST
+    found: list[Path] = []
+    for flavour, (source, keyring) in APT_REPOSITORY_FILES.items():
+        if FLAVOURS[flavour].engine != engine:
+            continue
+        source_file = paths.at(str(source))
+        keyring_file = paths.at(str(keyring))
+        if source_file.is_file():
+            try:
+                text = source_file.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            if f"signed-by={keyring}" not in text:
+                continue
+            found.append(source_file)
+        if keyring_file.exists():
+            found.append(keyring_file)
+    return found
 
 
 def refuse_other_flavour(installed: str | None, chosen: str | None) -> None:

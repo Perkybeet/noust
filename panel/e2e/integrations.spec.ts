@@ -97,12 +97,12 @@ test("a connected App: what it is, where it is installed and that GitHub deliver
   );
 
   await expect(github.getByText("Receiving pushes")).toBeVisible();
-  await expect(github.getByText(HOOKS)).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "a connected GitHub App");
 
-  // Syncing asks GitHub (the fake) for the App's installations: the same two.
-  await page.getByRole("button", { name: "Sync", exact: true }).click();
+  // Syncing asks GitHub (the fake) for the App's installations: the same two. It is in the App's menu.
+  await github.getByRole("button", { name: `Actions for ${APP}` }).click();
+  await page.getByRole("menuitem", { name: "Sync", exact: true }).click();
   await expect(toasts(page).getByText("Synced 2 installations from GitHub")).toBeVisible();
   await expect(rows).toHaveCount(3);
 });
@@ -149,9 +149,10 @@ const STATES: readonly { name: string; change: (status: GitHubStatus) => GitHubS
     expect: async (page) => {
       await expect(page.getByText("Connect GitHub with an App of your own")).toBeVisible();
       await expect(page.getByRole("button", { name: "Create GitHub App" })).toBeVisible();
-      await expect(page.getByText("Not connected", { exact: true })).toBeVisible();
+      // GitHub says so beside its title, and so does GitLab below it.
+      await expect(page.getByText("Not connected", { exact: true }).first()).toBeVisible();
       await expect(page.getByRole("heading", { name: "Create the App" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "More actions for GitHub" })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: `Actions for ${APP}` })).toHaveCount(0);
     },
   },
   {
@@ -278,7 +279,7 @@ test("removing the App forgets it here and says where to delete it on GitHub; cr
   problems.expect(/status of 403 .* \/api\/integrations\/github$/);
   problems.expect(/status of 403 .* \/api\/integrations\/github\/manifest$/);
   await signIn(page, consoleServer, "/settings/integrations");
-  await page.getByRole("button", { name: "More actions for GitHub" }).click();
+  await page.getByRole("button", { name: `Actions for ${APP}` }).click();
   await page.getByRole("menuitem", { name: "Remove GitHub App" }).click();
   const dialog = page.getByRole("alertdialog", { name: `Remove ${APP}` });
   await expect(dialog).toBeVisible();

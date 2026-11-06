@@ -94,7 +94,14 @@ one from a browser session needs sudo mode.
 `POST /api/auth/tokens` takes `name`, `scope` (`read`, `deploy` or `admin`), `expires_hours`,
 `permissions` (a list to narrow it to, each held by the issuing account), `allowed_cidrs` (the
 networks it is accepted from) and `allow_elevated` (whether it may call routes that need sudo
-mode; off by default, refused under the ENS profile). A token acts for its owner and never holds
+mode; off by default, refused wherever the `restricted_tokens` control is on, as the ENS frameworks
+do). A token cannot confirm sudo mode, so one made for an account is refused on those routes unless
+it was made to be an exception, and that is a decision of whoever governs accounts: only an account
+with `accounts.manage` (in sudo mode, as every issue of a token from a browser session is) can set
+`allow_elevated`, `noust token create NAME --owner USER --elevated` is the same from the terminal,
+`noust token list` and `GET /api/auth/tokens` show which tokens have it, and every action such a
+token takes where sudo mode is asked is recorded in the audit trail as `auth.token.elevated`, with
+the token's name, the method and the path. A token acts for its owner and never holds
 more than the owner's permissions, whatever its scope; if the owner's role changes or the owner
 is disabled, the token follows at its next request. Under the `ens-medium` profile every token
 expires within `auth.tokens.max_days` (90).
@@ -261,7 +268,7 @@ Location: /api/approvals/17
 X-Noust-Approval-Request: 17
 
 {"error": "approval_required",
- "detail": "This needs a second person's approval, whoever you are. Request 17 is waiting for an account with one of these roles to decide it: security. The control approvals asks for it, and it was turned on in Settings > Controls (or with the command line). It applies to everybody, whatever their role. To turn it off there, or:\n  noust compliance set approvals off",
+ "detail": "This needs a second person's approval, whoever you are. Request 17 is waiting for an account with one of these roles to decide it: security. The control approvals asks for it, and it was turned on in Settings > Compliance (or with the command line). It applies to everybody, whatever their role. To turn it off there, or:\n  noust compliance set approvals off",
  "hint": "Once approved, send exactly the same call again with the header X-Noust-Approval: 17, within 30 minutes.",
  "fields": {"approval": "17", "state": "requested"},
  "coded": {"code": "approvals.asked_waiting", "params": {"request": 17, "approvers": "security", "header": "X-Noust-Approval", "minutes": 30}},
@@ -358,7 +365,15 @@ with its **values**:
   reason that is asked for; on `problem`/`hint` of `GET /api/tunnels`' `support`; `coded` and
   `notes_coded` next to `text` and `notes` on a line of `GET /api/system/doctor`, `key` and
   `explain_coded` on its sections; `email_error_coded` on an invitation; `server.coded` next to
-  `server.reason` and `server.how` on `GET /api/terminal/status`. A field that is `null` or
+  `server.reason` and `server.how` on `GET /api/terminal/status`. Since 4.2 also: `support.coded`,
+  `warnings_coded` and `firewall_coded` of the published ports; `coded` on each check of
+  `GET /api/apps/{domain}/diagnose` and `probable_cause_coded` beside `probable_cause`;
+  `findings_coded` and `reason_coded` of a stack's networks; `effect_coded` of a cleanup, `reason_coded`
+  and `warnings_coded` of the swap and `reason_coded` of a cleanup's run; `coded` of what creating,
+  enabling, disabling, deleting, saving and reloading a site did; `verdict_coded` and `suggestion_coded`
+  of an inspection; and `current_step_coded` and the `coded` of each log entry of a job. An error whose
+  `detail` is one of the server's sentences carries it as `coded`, and its `hint` is that sentence's fix.
+  A field that is `null` or
   absent is a sentence nobody coded: another program's output, or a line from a module that has
   not been given codes yet. Show it as written.
 - A client translates by the code and puts the values in: the console's catalog has the sentence
@@ -408,6 +423,53 @@ with its **values**:
   `state` `cancelled` for a job that waited and `cancelling` for one that was building; from
   the moment its release is being activated it is `409 cancel_refused`, as it is for a job
   that ended or that cannot be interrupted (a restore, an in-place build).
+- **Every job says what it is.** Beside its English `name`, a job carries `title`: `{code, params}`, a
+  sentence of the server's catalog ([Sentences with a code](#sentences-with-a-code)) such as
+  `jobs.title.deploy` with `{"domain": "shop.example.com"}`. Every type of job has one, and a job
+  that does not know its subject says its type's sentence without it (`jobs.title.deploy_any`). It is
+  derived from the job's type and subject, so jobs in the history have it too, and it is in the `job`
+  event. `name` is unchanged.
+- **Long operations that are not jobs.** Starting, stopping and restarting an application, a service
+  or a database engine, running a cron entry, verifying a backup, installing or scanning with the
+  monitor, checking a probe, testing a node, installing the web application firewall, importing a
+  Compose project, syncing or moving an application's environment, clearing its build cache, applying
+  its build or a declaration, rebooting or shutting the server down, reloading the sites, applying
+  the fleet's settings and turning on or rotating backup encryption keep answering `200` when they
+  are done; none changes its response code. While one runs it is announced as the `operation` event
+  and listed by `GET /api/operations/active` (`{operations: [{id, title, target, domain, actor,
+  started_at}]}`, permission `apps.read`). The list is closed. A principal that does not see every
+  team gets the operations on its own applications only; one about the whole server (a reboot, a
+  service) is the instance's. A central lists what its servers run with `GET /api/fleet/jobs/active`:
+  one row per server with its `jobs` and `operations` and a `status` (`ok`; `unsupported` for a
+  server that has not been updated to offer the route and answers 404; `unreachable`), never failing
+  as a whole.
+- **Home panels.** Each account keeps its own panels of the console's Home under `/api/auth/dashboards`:
+  `GET` lists them with the limits (`{dashboards, limits}`), `PUT /api/auth/dashboards/{id}` creates
+  or replaces one (`{name, scope, layout}`; `scope` is `server` or `fleet`), `DELETE` removes one and
+  `POST /api/auth/dashboards/order` takes `{order: [ids]}`, every id once. `layout` is the closed
+  document `{version: 1, widgets: [{id, type, x, y, w, h, settings}]}` on a grid of 12 columns: at
+  most 40 widgets, 20 panels per account, 32 KB per document and 2 KB of scalar settings per
+  widget; a key it does not have is a `400` naming the field (`layout.widgets[2].w`). They are under
+  `/api/auth`, so a central never forwards them to a node and a fleet token never reaches them: a
+  panel is the operator's, one set across the whole fleet. The master token has no account and is
+  answered `400`.
+- **The picture on the sign-in screen.** An operator can show a company's logo, or any picture, where
+  Noust draws its own. `GET /api/auth/sign-in/appearance` (public: the screen is drawn before there is a
+  session) answers `{image, limits}`: `image` is null when nothing is set, else `{url, sha256,
+  content_type, width, height, size, fit, alt, updated_at}`, with `url` pointing at `GET
+  /api/auth/sign-in/image?v=<sha256>`, the picture itself (public), cacheable for a year under its own
+  digest and a `404` under any other. `PUT /api/auth/sign-in/appearance` takes `{image, fit, alt}`: `image`
+  is the file as base64 (leave it out to change only the other two), `fit` is `cover` (fill the space,
+  cropping) or `contain` (show it whole) and `alt` is the description a screen reader says, up to 120
+  characters, empty for decoration. `DELETE` removes it. Both need `security.manage` and sudo mode, and are
+  audited (`auth.sign_in_image.set`, `auth.sign_in_image.remove`). The file is judged by what its bytes
+  are, never by a name or a type the client sent: a PNG, a JPEG or a WebP of at most 1 MiB and 4096 pixels
+  on a side. An SVG is refused (it is code, and this is served to anyone), so is an animation, and the
+  metadata of the file (EXIF, XMP, comments, a thumbnail) is removed before it is kept. The refusals are
+  `400` with a `coded` sentence (`sign_in_image.*`) naming the field. This is the one request whose body
+  may exceed a mebibyte, as large as a file of the limit is as base64. It is under `/api/auth`, so a
+  central never forwards it to a node and a fleet token never reaches it: what a server shows before
+  anyone signs in is its own. `noust console sign-in-image` does the same from the command line.
 - **The deploy queue.** A push or a request that arrives while an application builds waits
   its turn (`409 app_busy` is for an operation of another kind): `GET /api/jobs/queue` lists
   what runs and what waits, with the limits, and every job carries `state` (`queued`,
@@ -475,7 +537,8 @@ stream ends, and the reconnection answers `401`.
 |---|---|---|
 | `machine` | Every 5 seconds | `{hostname, uptime_s, load: [1m, 5m, 15m], load_history, cpu_percent, memory: {used, total, percent}, disk: {used, total, percent}, units: {running, failed, stopped, scheduled}, apps: {running, failed, stopped, static}}`. `scheduled` counts the services a timer starts (a backup, a cron job) between two runs: waiting, not stopped. Same object as `GET /api/system/machine`. |
 | `metrics` | Every 2 seconds | A flat map of the latest samples: `cpu.percent`, `mem.used_bytes`, `mem.total_bytes`, `swap.used_bytes`, `disk.used_bytes`, `disk.total_bytes`, `net.rx_bytes_s`, `net.tx_bytes_s`, `load.1m`, and per application `app.<domain>.cpu.percent`, `app.<domain>.mem.bytes`. |
-| `job` | On every job transition and log line | The job as `GET /api/jobs/{id}` returns it, with `logs` trimmed to the newest entry, plus `domain`, `message`, `level` and `finished`. |
+| `job` | On every job transition and log line | The job as `GET /api/jobs/{id}` returns it (with its `title`), with `logs` trimmed to the newest entry, plus `domain`, `message`, `level` and `finished`. |
+| `operation` | When a long operation that is not a job starts and when it ends | `{id, phase, title, target, domain, actor, at}` with `phase` `start` or `end`, and `result` (`ok` or `failed`) at the end. `title` is a sentence with a code; `domain` is the application it concerns, if any. A principal that does not see every team receives only those with a `domain` it sees. |
 | `state` | With every `job` event | `{id, state}` for the job, and again for its domain when it has one. `state` is `busy`, `active`, `failed` or `idle`. |
 | `notice` | When a job completes, fails or is cancelled | `{text, state}`: a one-line message for a toast. |
 | `app` | When an application changes (a job on it ends, an action on it succeeds) | The application as `GET /api/apps/{domain}` returns it; `{domain, status: "deploying"}` while a deploy, update or restore runs; `{domain, deleted: true}` when it is gone. |
@@ -1148,6 +1211,7 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/jobs/cert` | POST `apps.manage` |  |
 | `/api/jobs/cleanup` | DELETE `audit.manage` | Forget finished jobs in memory; the history stays |
 | `/api/jobs/queue` | GET `apps.read` | What runs, what waits and the limits: `{running, queued, builds_running, max_concurrent_builds, queue_limit, builds_queued}` |
+| `/api/operations/active` | GET `apps.read` | The long operations that answer on their request and are not jobs, while they run: `{operations}`. A team member's holds only those on its own applications |
 | `/api/jobs/delete` | POST `apps.manage`, sudo | `{domain, remove_files, remove_ssl, remove_adopted_directory}` |
 | `/api/jobs/rollback` | POST `apps.deploy` | `{domain, backup_id, schema_changed_ok}`: restore a backup. `409 schema_changed` unless confirmed |
 | `/api/jobs/update` | POST `apps.deploy` | `{domain, force}` |
@@ -1356,6 +1420,10 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/server/security/ssh/fixes/{fix}` | GET `server.read`; POST `server.host_access`, sudo |  |
 | `/api/server/security/ssh/keys` | GET `server.read`; POST `server.host_access`, sudo |  |
 | `/api/server/security/ssh/keys/remove` | POST `server.host_access`, sudo |  |
+| `/api/server/software` | GET `server.read` | The software Noust manages (nginx, certbot, an engine, cloudflared, the stream module...): installed or not, its version, who installed it (`noust`, or `unknown` when nothing says so), who depends on it |
+| `/api/server/software/{component}/impact` | GET `server.read` | What removing it would do: its packages, what else the package manager says would go, the repository files Noust would take back out, and what stops it |
+| `/api/server/software/{component}/install` | POST `server.manage`, sudo | A job. Also the permission each function has always taken (`server.host_access` for Knot, the stream module and packages no function installed before; `databases.manage` for an engine). A system Noust installs nothing on is 409 `software_refused` with `reason` `not_installable` |
+| `/api/server/software/{component}/remove` | POST `server.host_access`, sudo | A job, never a purge. 409 `software_refused` with `reason` (`never`, `dependents`, `takes_never`, `takes_in_use`, `not_installed`, `cannot_tell`), what depends on it in `dependents` and the sentence in `coded`; 409 `confirmation_required` for an origin that is not Noust's, repeated with `confirm_unknown_origin`. An engine also needs `databases.manage` |
 | `/api/server/storage` | GET `server.read` |  |
 | `/api/server/storage/analyze` | POST `server.read` | Measure what takes space; it changes nothing, so a read-only credential may ask |
 | `/api/server/storage/analyze/latest` | GET `server.read` |  |
@@ -1399,6 +1467,7 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/fleet/activity` | GET `fleet.read` | Deprecated: use `/api/views/activity` |
 | `/api/fleet/apps` | GET `fleet.read` | Deprecated: use `/api/views/apps` |
 | `/api/fleet/backups` | GET `fleet.read` | Deprecated: use `/api/views/backups` |
+| `/api/fleet/jobs/active` | GET `fleet.read` | What every server runs now: one row per server with its `jobs` and `operations`, and its `status` (`ok`, `unsupported` for a server not yet updated, `unreachable`) |
 | `/api/fleet/certificates` | GET `fleet.read` | Deprecated: use `/api/views/certificates` |
 | `/api/fleet/cloud/accounts` | GET `fleet.manage`; POST `fleet.manage`, sudo, four-eyes | The provider accounts (Hetzner, DigitalOcean, Vultr) this central creates servers with; adding one checks its token with the provider and keeps it as a secret. The token is left out of the approval's fingerprint and of every response (only its last four characters are shown) |
 | `/api/fleet/cloud/accounts/{name}` | DELETE `fleet.manage`, sudo | Remove an account and its token (`force` when servers made with it are still on record) |
@@ -1429,6 +1498,7 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/fleet/placements/{domain}/upstreams` | GET `fleet.read` | The servers written for a load balancer (`format` `nginx`, `list` or `json`; `port`), marking those that serve now |
 | `/api/fleet/servers` | GET `fleet.read` |  |
 | `/api/fleet/servers/{node}/labels` | PUT `fleet.manage` |  |
+| `/api/fleet/software` | GET `fleet.read` | Each server's software in a row (`installed`, `total`, `by_noust`, `managed`, `family`): the fleet's view of `/api/server/software`. A server that runs a Noust of before 4.2 is `unsupported`, never an empty list |
 | `/api/fleet/summary` | GET `fleet.read` |  |
 | `/api/fleet/updates` | GET `fleet.read` |  |
 | `/api/nodes` | GET `fleet.read`; POST `fleet.manage`, sudo, four-eyes |  |
@@ -1493,6 +1563,11 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/auth/2fa/disable` | POST `self`, sudo |  |
 | `/api/auth/2fa/enroll` | POST `self` |  |
 | `/api/auth/accounts` | GET `accounts.read`; POST `accounts.manage`, sudo, four-eyes |  |
+| `/api/auth/dashboards` | GET `self` | The caller's panels of Home, in order, with the limits |
+| `/api/auth/dashboards/order` | POST `self` | `{order}`: every panel's id once, in the order wanted |
+| `/api/auth/dashboards/{dashboard_id}` | PUT `self`; DELETE `self` | Create or replace a panel (`{name, scope, layout}`); delete it |
+| `/api/auth/sign-in/appearance` | GET public; PUT `security.manage`, sudo; DELETE `security.manage`, sudo | The picture of the sign-in screen and the limits; set it (`{image, fit, alt}`, the file as base64); remove it |
+| `/api/auth/sign-in/image` | GET public | The picture, cacheable under `?v=<sha256>` |
 | `/api/auth/accounts/{username}` | GET `accounts.read`; PATCH `accounts.manage`, sudo, four-eyes; DELETE `accounts.manage`, sudo |  |
 | `/api/auth/accounts/{username}/disable` | POST `accounts.manage`, sudo |  |
 | `/api/auth/accounts/{username}/enable` | POST `accounts.manage`, sudo |  |

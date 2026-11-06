@@ -1,4 +1,5 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
+import { openFolds, saveBar } from "./testKit";
 import { describe, expect, it, vi } from "vitest";
 
 import { previewsInterval } from "../../../api/queries/previews";
@@ -96,7 +97,9 @@ async function previewsOf(state: () => object, extra: Record<string, RouteHandle
     [`GET /api/jobs/${JOB.id}`]: () => json(200, JOB),
     ...extra,
   });
-  const harness = renderConsole(`/apps/${DOMAIN}/settings/previews`);
+  const harness = renderConsole(`/apps/${DOMAIN}/triggers`);
+  // The page folds Previews under its title, as it does what most operators never open.
+  await openFolds(harness.user, "/previews");
   const section = await screen.findByRole("region", { name: "Pull request previews" });
   return { ...harness, backend, section };
 }
@@ -199,7 +202,7 @@ describe("pull request previews", () => {
         return json(200, saved);
       },
     });
-    const save = await within(section).findByRole("button", { name: "Save" });
+    const save = await within(saveBar()).findByRole("button", { name: "Save" });
     expect(save).toBeDisabled();
     await user.click(within(section).getByRole("radio", { name: "All of the app's" }));
     await user.type(within(section).getByRole("textbox", { name: /Never copied to previews/ }), "STRIPE_SECRET_KEY,  SMTP_PASSWORD STRIPE_SECRET_KEY");
@@ -223,7 +226,7 @@ describe("pull request previews", () => {
     await waitFor(() => {
       expect(within(section).getByRole("textbox", { name: /Never copied to previews/ })).toHaveValue("STRIPE_SECRET_KEY, SMTP_PASSWORD");
     });
-    expect(await within(section).findByText("No unsaved changes")).toBeInTheDocument();
+    expect(await within(saveBar()).findByText("No unsaved changes")).toBeInTheDocument();
     expect(within(section).getByRole("checkbox", { name: "Allow pull requests from bots" })).toBeChecked();
   });
 
@@ -235,14 +238,14 @@ describe("pull request previews", () => {
     await user.click(await within(section).findByRole("radio", { name: "All of the app's" }));
     const names = await within(section).findByRole("textbox", { name: /Never copied to previews/ });
     await user.type(names, "1TOKEN");
-    await user.click(within(section).getByRole("button", { name: "Save" }));
+    await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
     expect(await within(section).findByText(/Not a variable name: 1TOKEN\./)).toBeInTheDocument();
     expect(names).toHaveAttribute("aria-invalid", "true");
     expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/previews/settings`)).toHaveLength(0);
 
     await user.clear(names);
     await user.type(names, "SECRET_KEY");
-    await user.click(within(section).getByRole("button", { name: "Save" }));
+    await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
     expect(await within(section).findByText("Invalid variable name: 'SECRET-KEY'")).toBeInTheDocument();
     expect(names).toHaveAttribute("aria-invalid", "true");
   });
@@ -333,7 +336,7 @@ describe("pull request previews", () => {
   it("on a preview, points at the application it previews instead", async () => {
     const { backend, section } = await previewsOf(() => OFF, {}, { ...APP, preview_parent: "store.example.com" });
     expect(within(section).getByText(/This app is a preview of/)).toBeInTheDocument();
-    expect(within(section).getByRole("link", { name: "store.example.com" })).toHaveAttribute("href", "/apps/store.example.com/settings/previews");
+    expect(within(section).getByRole("link", { name: "store.example.com" })).toHaveAttribute("href", "/apps/store.example.com/triggers#previews");
     expect(within(section).queryByRole("textbox")).not.toBeInTheDocument();
     expect(backend.callsTo(`GET /api/apps/${DOMAIN}/previews`)).toHaveLength(0);
   });

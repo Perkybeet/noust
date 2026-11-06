@@ -5,7 +5,6 @@ import { useState } from "react";
 import { appsQuery } from "../../api/queries/apps";
 import type { BackupSchedule } from "../../api/queries/backups";
 import { backupSchedulesQuery } from "../../api/queries/backups";
-import { CommandHint } from "../../components/page/CommandHint";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { RowMenu } from "../../components/page/RowMenu";
@@ -171,7 +170,6 @@ export function SchedulesPage() {
             </Link>
           )
         }
-        command={hasApps || apps.isPending ? "noust backup schedule create <domain> --schedule daily" : "noust create -d example.com -s https://github.com/you/app"}
       />
     );
   } else {
@@ -192,7 +190,6 @@ export function SchedulesPage() {
   return (
     <BackupsListPage
       {...(hasApps ? { primaryAction: newButton("primary") } : {})}
-      {...(empty ? {} : { footer: <CommandHint command="noust backup schedule list" label={t("common.words.fromTerminal")} /> })}
     >
       {content}
       {creating ? <ScheduleDialog open onOpenChange={(next) => !next && setCreating(false)} /> : null}

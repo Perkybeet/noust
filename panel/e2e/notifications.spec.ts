@@ -130,6 +130,11 @@ test("sets up channels in their drawers and reports what the receiving server an
     // A press while the write is still in flight is ignored (the switch draws its arc): wait for it to land.
     await expect(toggle).not.toHaveAttribute("aria-busy", "true");
     await toggle.click();
+    // Turning every notification off asks until when (item 109); "until I turn them on" is the switch left off.
+    const until = page.getByRole("dialog", { name: "Silence the notifications until when?" });
+    await until.getByRole("radio", { name: /Until I turn them on/ }).check();
+    await until.getByRole("button", { name: "Silence" }).click();
+    await expect(until).toBeHidden();
     await expect(toggle).not.toBeChecked();
 
     // Everything back as it was: each destination removed after one question.

@@ -26,10 +26,13 @@ stays organisational is listed with each framework and printed after the finding
 
 from __future__ import annotations
 
+import socket
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from noust import __version__
+from noust.core import timeutil
 from noust.core.compliance import controls, frameworks, resolve
 
 STATUS_OK = "ok"
@@ -143,10 +146,20 @@ class CheckResult:
     Attributes:
         results: One per framework judged.
         errors: Areas of the server that could not be read, verbatim.
+        enabled: The frameworks that are on, in catalog order: what the server was
+            asked to hold itself to, whichever frameworks this check judged. Empty
+            means nothing is on and a default check judges nothing.
+        checked_at: When, ISO 8601 UTC.
+        host: This server's name.
+        version: The Noust it runs.
     """
 
     results: list[FrameworkResult]
     errors: dict[str, str] = field(default_factory=dict)
+    enabled: list[str] = field(default_factory=list)
+    checked_at: str = field(default_factory=lambda: timeutil.utc_now_iso("seconds"))
+    host: str = field(default_factory=socket.gethostname)
+    version: str = field(default_factory=lambda: __version__)
 
     @property
     def verdict(self) -> str:
@@ -167,6 +180,10 @@ class CheckResult:
             "frameworks": [result.to_dict() for result in self.results],
             "errors": self.errors,
             "disclaimer": DISCLAIMER,
+            "enabled": list(self.enabled),
+            "checked_at": self.checked_at,
+            "host": self.host,
+            "version": self.version,
         }
 
 
@@ -533,4 +550,4 @@ def run(
     results = [
         judge(frameworks.get(name), resolutions, facts, enabled=name in enabled) for name in names
     ]
-    return CheckResult(results, errors)
+    return CheckResult(results, errors, enabled=list(enabled))

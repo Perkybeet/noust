@@ -37,8 +37,8 @@ def cli() -> None:
     """Check this server against Spain's ENS (category MEDIUM) and write the evidence."""
 
 
-def _run(cached: bool) -> tuple[checks.ComplianceCheck, checks.Facts]:
-    return checks.run_check(checks.Sources(refresh_hardening=not cached))
+def _run(cached: bool, *, even_if_off: bool = False) -> tuple[checks.ComplianceCheck, checks.Facts]:
+    return checks.run_check(checks.Sources(refresh_hardening=not cached), even_if_off=even_if_off)
 
 
 @cli.command("check", read_only=True)
@@ -55,12 +55,18 @@ def check_command(ctx: Context, cached: bool, show_all: bool) -> None:
     Compare this server with the ens-medium profile, measure by measure.
 
     Exits 0 when every check passes, 1 when some only warn and 2 when any
-    fails, so it can run from a monitoring system.
+    fails, so it can run from a monitoring system. A server with no ENS
+    framework on is not judged (it exits 0 and says how to see how far it is).
     """
     result, _facts = _run(cached)
     audit.record("compliance.read", actor=audit.cli_actor(), target="ens:check")
     if ctx.json_output:
         click.echo(json.dumps(result.to_dict(), indent=2, default=str))
+    elif not result.enabled:
+        ctx.logger.info(
+            "No ENS framework is on, so nothing is judged against it. See how far this server "
+            "is from ENS MEDIA with: noust compliance check --framework ens-media"
+        )
     else:
         logger = ctx.logger
         counts = result.counts()
@@ -106,7 +112,8 @@ def report_command(ctx: Context, output: Path | None, cached: bool) -> None:
     its destinations, backups, hardening and accepted risks, inventory and
     fleet. Its SHA-256 goes to the audit log.
     """
-    result, facts = _run(cached)
+    # What a person asks for to hand to an auditor judges whether or not the ENS is on.
+    result, facts = _run(cached, even_if_off=True)
     built = report.build_report(result, facts)
     if ctx.json_output:
         audit.record(

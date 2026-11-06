@@ -2020,7 +2020,7 @@
         "type": "object"
       },
       "ApiTokenRequest": {
-        "description": "Request to issue an API token.\n\nAttributes:\n    name: Human-chosen name, unique across all tokens ever issued.\n    scope: ``read``, ``deploy`` or ``admin``; narrowed to what the\n        issuing account holds.\n    expires_hours: Lifetime in hours; omit for a token that only dies by\n        revocation (under the ENS profile, the longest allowed).\n    permissions: Permissions to narrow it to instead of its scope's; all\n        must be held by the issuing account.\n    allowed_cidrs: Networks it is accepted from; any when omitted.\n    allow_elevated: Let it act where sudo mode is asked. Off by default,\n        refused under the ENS profile.\n    team: Bind the token to this team (and, with ``project`` and\n        ``environment``, to a project or an environment of it): it sees\n        that and nothing else of the server (I-34).\n    project: Bind it to this project of the team.\n    environment: Bind it to this environment of the project.",
+        "description": "Request to issue an API token.\n\nAttributes:\n    name: Human-chosen name, unique across all tokens ever issued.\n    scope: ``read``, ``deploy`` or ``admin``; narrowed to what the\n        issuing account holds.\n    expires_hours: Lifetime in hours; omit for a token that only dies by\n        revocation (under the ENS profile, the longest allowed).\n    permissions: Permissions to narrow it to instead of its scope's; all\n        must be held by the issuing account.\n    allowed_cidrs: Networks it is accepted from; any when omitted.\n    allow_elevated: Let it act where sudo mode is asked, with nobody confirming each\n        time. Off by default; only whoever governs accounts (``accounts.manage``) may\n        issue one, never where the ``restricted_tokens`` control is on, and each action\n        it takes there is audited as ``auth.token.elevated``.\n    team: Bind the token to this team (and, with ``project`` and\n        ``environment``, to a project or an environment of it): it sees\n        that and nothing else of the server (I-34).\n    project: Bind it to this project of the team.\n    environment: Bind it to this environment of the project.",
         "properties": {
           "allow_elevated": {
             "default": false,
@@ -7920,6 +7920,53 @@
         "title": "BindingsResponse",
         "type": "object"
       },
+      "BlockerOut": {
+        "description": "A reason a component is not removed now.\n\nAttributes:\n    reason: ``never``, ``dependents``, ``takes_never``, ``takes_in_use``, ``not_installed``\n        or ``cannot_tell``.\n    text: The sentence, in English.\n    hint: What to do about it, when the sentence has a fix.\n    code: The sentence's code in the console's catalog.\n    params: The values the sentence is said with.\n    dependents: What depends on the component, where that is the reason.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "dependents": {
+            "items": {
+              "$ref": "#/components/schemas/DependentOut"
+            },
+            "title": "Dependents",
+            "type": "array"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "params": {
+            "additionalProperties": true,
+            "title": "Params",
+            "type": "object"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "text",
+          "code"
+        ],
+        "title": "BlockerOut",
+        "type": "object"
+      },
       "BootOut": {
         "description": "One boot the journal remembers.",
         "properties": {
@@ -10699,7 +10746,7 @@
         "type": "object"
       },
       "CleanupPlanOut": {
-        "description": "What a cleanup would do.",
+        "description": "What a cleanup would do.\n\nAttributes:\n    action: The action.\n    commands: The commands it would run, as text.\n    effect: What it does, in a sentence.\n    needs_confirmation: It takes something the operator may want back.\n    items: What it would remove, when the action can list it.\n    effect_coded: ``effect`` as a code and its values, for the console to translate.",
         "properties": {
           "action": {
             "title": "Action",
@@ -10715,6 +10762,16 @@
           "effect": {
             "title": "Effect",
             "type": "string"
+          },
+          "effect_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "items": {
             "items": {
@@ -10854,7 +10911,7 @@
         "type": "object"
       },
       "CleanupRunOut": {
-        "description": "One run in the history of cleanups.\n\nAttributes:\n    id: Its number.\n    trigger: ``schedule``, ``manual`` or ``policy``.\n    status: ``ok``, ``partial``, ``failed`` or ``skipped``.\n    started_at: When it began.\n    ended_at: When it ended.\n    mount: The fullest writable disk.\n    percent_before: How full it was before.\n    percent_after: How full it was after.\n    freed_bytes: The total freed, when known.\n    actions: What each action did.\n    reason: Why nothing ran, when it did not.\n    actor: Who asked; empty for the timer.",
+        "description": "One run in the history of cleanups.\n\nAttributes:\n    id: Its number.\n    trigger: ``schedule``, ``manual`` or ``policy``.\n    status: ``ok``, ``partial``, ``failed`` or ``skipped``.\n    started_at: When it began.\n    ended_at: When it ended.\n    mount: The fullest writable disk.\n    percent_before: How full it was before.\n    percent_after: How full it was after.\n    freed_bytes: The total freed, when known.\n    actions: What each action did.\n    reason: Why nothing ran, when it did not.\n    reason_coded: ``reason`` as a code and its values, when it is a sentence of the\n        server's catalog.\n    actor: Who asked; empty for the timer.",
         "properties": {
           "actions": {
             "items": {
@@ -10943,6 +11000,16 @@
               }
             ],
             "title": "Reason"
+          },
+          "reason_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "started_at": {
             "title": "Started At",
@@ -11695,7 +11762,7 @@
         "type": "object"
       },
       "ComplianceState": {
-        "description": "The frameworks and the controls.\n\nAttributes:\n    frameworks: Every framework, in catalog order.\n    controls: Every control, in catalog order.\n    legacy_profile: What ``security.profile`` holds.\n    unknown: Names in ``security.frameworks`` this version does not know.",
+        "description": "The frameworks and the controls.\n\nAttributes:\n    frameworks: Every framework, in catalog order.\n    controls: Every control, in catalog order.\n    legacy_profile: What ``security.profile`` holds, as written.\n    legacy_profile_valid: Whether that is a value Noust knows (empty, ``standard`` or\n        a spelling of ``ens-medium``). False for a typo, which is read strict.\n    legacy_profile_read_as: What it is read as, ``standard`` or ``ens-medium``. A value\n        that is not valid is read as ``ens-medium``, so ENS MEDIA is on through it\n        (``source: profile`` on that framework) until the value is corrected.\n    unknown: Names in ``security.frameworks`` this version does not know.",
         "properties": {
           "controls": {
             "items": {
@@ -11714,6 +11781,16 @@
           "legacy_profile": {
             "title": "Legacy Profile",
             "type": "string"
+          },
+          "legacy_profile_read_as": {
+            "default": "standard",
+            "title": "Legacy Profile Read As",
+            "type": "string"
+          },
+          "legacy_profile_valid": {
+            "default": true,
+            "title": "Legacy Profile Valid",
+            "type": "boolean"
           },
           "unknown": {
             "items": {
@@ -15354,6 +15431,145 @@
         "title": "CronRunsResponse",
         "type": "object"
       },
+      "DashboardBody": {
+        "description": "What a panel is saved as.\n\nAttributes:\n    name: What it is called, 1 to 60 characters.\n    scope: ``server`` or ``fleet``.\n    layout: The document, version 1. Judged in full by the server; see\n        :mod:`noust.validators.dashboards`.",
+        "properties": {
+          "layout": {
+            "additionalProperties": true,
+            "title": "Layout",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "scope",
+          "layout"
+        ],
+        "title": "DashboardBody",
+        "type": "object"
+      },
+      "DashboardLimits": {
+        "description": "What a panel and an account may hold, so a client need not hard-code it.\n\nAttributes:\n    dashboards: Panels an account keeps.\n    widgets: Widgets in one panel.\n    columns: Columns of the grid a widget is placed on.\n    document_bytes: Bytes of a panel's layout, as it is stored.\n    settings_bytes: Bytes of one widget's settings.",
+        "properties": {
+          "columns": {
+            "default": 12,
+            "title": "Columns",
+            "type": "integer"
+          },
+          "dashboards": {
+            "default": 20,
+            "title": "Dashboards",
+            "type": "integer"
+          },
+          "document_bytes": {
+            "default": 32768,
+            "title": "Document Bytes",
+            "type": "integer"
+          },
+          "settings_bytes": {
+            "default": 2048,
+            "title": "Settings Bytes",
+            "type": "integer"
+          },
+          "widgets": {
+            "default": 40,
+            "title": "Widgets",
+            "type": "integer"
+          }
+        },
+        "title": "DashboardLimits",
+        "type": "object"
+      },
+      "DashboardOrder": {
+        "description": "The order the panels are kept in.\n\nAttributes:\n    order: The id of every panel the account has, each once.",
+        "properties": {
+          "order": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Order",
+            "type": "array"
+          }
+        },
+        "required": [
+          "order"
+        ],
+        "title": "DashboardOrder",
+        "type": "object"
+      },
+      "DashboardOut": {
+        "description": "One panel.\n\nAttributes:\n    id: The id the person gave it.\n    name: What it is called.\n    scope: ``server`` (follows the server in the selector) or ``fleet``.\n    position: Its place among the account's panels, from 0.\n    layout: The document: ``{version: 1, widgets: [{id, type, x, y, w, h, settings}]}``.\n    created_at: When it was first saved, UNIX seconds.\n    updated_at: When it was last saved, UNIX seconds.",
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "layout": {
+            "additionalProperties": true,
+            "title": "Layout",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "scope",
+          "position",
+          "layout",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "DashboardOut",
+        "type": "object"
+      },
+      "DashboardsResponse": {
+        "description": "The panels of the account asking.\n\nAttributes:\n    dashboards: In the order the account keeps them; empty when it never saved one (the\n        console then draws its own defaults).\n    limits: What a panel and an account may hold.",
+        "properties": {
+          "dashboards": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardOut"
+            },
+            "title": "Dashboards",
+            "type": "array"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/DashboardLimits"
+          }
+        },
+        "required": [
+          "dashboards"
+        ],
+        "title": "DashboardsResponse",
+        "type": "object"
+      },
       "DatabaseInfoResponse": {
         "description": "One database, as the engine and the store together describe it.\n\nAttributes:\n    owner: The owning role or account. Null for engines with no such\n        concept: MySQL/MariaDB and Redis have none, and MongoDB grants\n        roles to users rather than owning a database with one.\n    tables: Tables or collections; null when the listing does not count\n        them.\n    keys: Keys in a Redis slot.\n    tracked: Recorded by Noust: backed up with its application, linkable.\n    missing: Recorded by Noust but gone from the engine.\n    unverified: Recorded by Noust, on an engine that could not be read.\n    app: The application it belongs to, whose backups include it.\n    apps: Every application linked to it.\n    detected_apps: Applications whose environment names it, without a\n        recorded link.\n    username: The account Noust provisioned for it.\n    engine_version: The engine's version.\n    last_backup: When its newest dump was taken.\n    team: The slug of the team it belongs to; None for one an engine holds\n        that Noust never recorded, which belongs to nobody.\n    project: The slug of its project.\n    environment: The slug of its environment.\n    tags: Its tags, sorted.\n    noust_state: What Noust knows of it, apart from where it runs: ``added`` (Noust manages\n        it), ``not_added`` (the engine holds it and Noust does not manage it), ``missing`` or\n        ``unverified`` (see ``missing`` and ``unverified``). ``engine`` is the key of the\n        server it runs on (``GET /api/databases/servers``).\n    actions: What can be done to it now: ``add_to_noust`` for one that is ``not_added``\n        (``POST .../databases/{engine}/{name}/adopt``).",
         "properties": {
@@ -16411,6 +16627,27 @@
         "title": "DeliveryOut",
         "type": "object"
       },
+      "DependentOut": {
+        "description": "Something that stops working without a component.\n\nAttributes:\n    kind: ``application``, ``site``, ``database``, ``tunnel``, ``published_port``,\n        ``certificate``, ``zone``, ``destination``, ``instance``, ``console`` or\n        ``unreadable`` (an engine that runs and cannot be asked what it holds).\n    names: Which ones, by the name the operator knows them by.",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Names",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "DependentOut",
+        "type": "object"
+      },
       "DeployKeyCreateRequest": {
         "description": "Make a key for the application's repository, or assign one that exists.\n\nAttributes:\n    name: The new key's name; the application's name by default.\n    key: The name of an existing key to assign instead of making one.",
         "properties": {
@@ -17441,8 +17678,18 @@
         "type": "object"
       },
       "DiagnoseCheck": {
-        "description": "One diagnostic probe's result.\n\nMirrors :class:`noust.managers.diagnose.Check` field for field: this module\nonly translates it to HTTP, it does not reinterpret it.\n\nAttributes:\n    name: Stable identifier for the probe, such as ``\"unit\"`` or ``\"port\"``.\n    status: ``\"ok\"``, ``\"warn\"``, ``\"fail\"`` or ``\"skip\"``.\n    summary: One line, in Noust's own words.\n    evidence: Raw output the probe collected, verbatim.",
+        "description": "One diagnostic probe's result.\n\nMirrors :class:`noust.managers.diagnose.Check` field for field: this module\nonly translates it to HTTP, it does not reinterpret it.\n\nAttributes:\n    name: Stable identifier for the probe, such as ``\"unit\"`` or ``\"port\"``.\n    status: ``\"ok\"``, ``\"warn\"``, ``\"fail\"`` or ``\"skip\"``.\n    summary: One line, in Noust's own words.\n    evidence: Raw output the probe collected, verbatim.\n    coded: ``summary`` as a code and its values, for the console to translate; null for\n        a check nobody gave a code.",
         "properties": {
+          "coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "evidence": {
             "default": "",
             "title": "Evidence",
@@ -17470,7 +17717,7 @@
         "type": "object"
       },
       "DiagnoseResponse": {
-        "description": "The full answer to \"why is this app down\".\n\nMirrors :class:`noust.managers.diagnose.Diagnosis`, which is also what\n``noust diagnose --json`` prints - the console and the CLI read the same\nshape.\n\nAttributes:\n    domain: The domain that was diagnosed.\n    verdict: ``\"healthy\"``, ``\"degraded\"`` or ``\"down\"``.\n    probable_cause: One sentence naming the most likely explanation, or\n        ``None`` when the checks disagree with each other or are all clean.\n    checks: Every probe that ran, in the order it ran in.",
+        "description": "The full answer to \"why is this app down\".\n\nMirrors :class:`noust.managers.diagnose.Diagnosis`, which is also what\n``noust diagnose --json`` prints - the console and the CLI read the same\nshape.\n\nAttributes:\n    domain: The domain that was diagnosed.\n    verdict: ``\"healthy\"``, ``\"degraded\"`` or ``\"down\"``.\n    probable_cause: One sentence naming the most likely explanation, or\n        ``None`` when the checks disagree with each other or are all clean.\n    checks: Every probe that ran, in the order it ran in.\n    probable_cause_coded: ``probable_cause`` as a code and its values; null when there\n        is no cause.",
         "properties": {
           "checks": {
             "items": {
@@ -17493,6 +17740,16 @@
               }
             ],
             "title": "Probable Cause"
+          },
+          "probable_cause_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "verdict": {
             "title": "Verdict",
@@ -21041,7 +21298,7 @@
         "type": "object"
       },
       "EnsCheckResponse": {
-        "description": "The result of the compliance check.\n\nAttributes:\n    profile: ``standard`` or ``ens-medium``.\n    checked_at: When, ISO 8601 UTC.\n    host: The server's name.\n    version: The Noust it runs.\n    verdict: ``ok``, ``warning`` or ``fail``: the worst finding.\n    counts: Findings per status.\n    findings: One per check, in catalog order.\n    indicators: The op.mon.2 figures.\n    errors: Areas that could not be read, verbatim.",
+        "description": "The result of the compliance check.\n\nAttributes:\n    profile: ``standard`` or ``ens-medium``.\n    checked_at: When, ISO 8601 UTC.\n    host: The server's name.\n    version: The Noust it runs.\n    verdict: ``ok``, ``warning`` or ``fail``: the worst finding.\n    counts: Findings per status.\n    findings: One per check, in catalog order.\n    indicators: The op.mon.2 figures.\n    errors: Areas that could not be read, verbatim.\n    enabled: Whether a framework of the ENS family is on. When it is not, nothing\n        is judged: ``findings`` is empty and ``verdict`` is ``ok`` because no\n        control was asked for, not because the server passes.",
         "properties": {
           "checked_at": {
             "title": "Checked At",
@@ -21053,6 +21310,11 @@
             },
             "title": "Counts",
             "type": "object"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
           },
           "errors": {
             "additionalProperties": {
@@ -26827,6 +27089,86 @@
         "title": "ImageCheckResponse",
         "type": "object"
       },
+      "ImpactOut": {
+        "description": "What removing a component would do, decided before anything is touched.\n\nAttributes:\n    id: The component.\n    installed: Whether it is on the machine.\n    origin: ``noust``, ``unknown`` or null.\n    severity: ``never``, ``critical_while`` or ``removable``.\n    dependents: What depends on it.\n    removes: Its own packages that are installed.\n    also_removes: What else the package manager says would go with them.\n    repository_files: The repository source and key files Noust would take back out.\n    blockers: Why it cannot be removed now; none means it can.\n    removable: Whether nothing stands in the way.\n    needs_confirmation: Its origin is unknown, so removing it needs the operator's yes.",
+        "properties": {
+          "also_removes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Also Removes",
+            "type": "array"
+          },
+          "blockers": {
+            "items": {
+              "$ref": "#/components/schemas/BlockerOut"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "dependents": {
+            "items": {
+              "$ref": "#/components/schemas/DependentOut"
+            },
+            "title": "Dependents",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "installed": {
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "needs_confirmation": {
+            "title": "Needs Confirmation",
+            "type": "boolean"
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin"
+          },
+          "removable": {
+            "title": "Removable",
+            "type": "boolean"
+          },
+          "removes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Removes",
+            "type": "array"
+          },
+          "repository_files": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Repository Files",
+            "type": "array"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "installed",
+          "severity",
+          "removable",
+          "needs_confirmation"
+        ],
+        "title": "ImpactOut",
+        "type": "object"
+      },
       "ImportAppRequest": {
         "description": "An export document to create an application from.",
         "properties": {
@@ -27264,6 +27606,18 @@
           "source"
         ],
         "title": "InspectSourceRequest",
+        "type": "object"
+      },
+      "InstallRequest": {
+        "description": "What an install may be told beyond which component.\n\nAttributes:\n    epel: Agree to enable EPEL, where Knot and fail2ban come from it on RHEL and its rebuilds.",
+        "properties": {
+          "epel": {
+            "default": false,
+            "title": "Epel",
+            "type": "boolean"
+          }
+        },
+        "title": "InstallRequest",
         "type": "object"
       },
       "InstallResponse": {
@@ -28972,6 +29326,17 @@
             "title": "Current Step",
             "type": "string"
           },
+          "current_step_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "current_step as a sentence of the server's catalog (code and values), when it is one; each entry of logs carries its own under coded"
+          },
           "deployment_id": {
             "anyOf": [
               {
@@ -29067,6 +29432,17 @@
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the job is, as a sentence of the server's catalog (code and values) for the console to say in its language; name is the same in English"
           },
           "total_steps": {
             "title": "Total Steps",
@@ -34711,7 +35087,7 @@
         "type": "object"
       },
       "ObservationEntry": {
-        "description": "One thing the monitor wrote down.\n\nAttributes:\n    id: Row identifier, absent for an observation not yet stored.\n    observed_at: When it was noticed, ISO 8601.\n    pid: Process identifier at the time.\n    process_name: Executable name.\n    user: Account the process ran as.\n    cpu_percent: CPU usage percentage.\n    memory_percent: Resident memory percentage.\n    command: Command line, truncated.\n    signal: Which check produced it.\n    severity: notice or warning.\n    detail: Human-readable explanation.\n    acknowledged: Whether an operator dismissed it.",
+        "description": "One thing the monitor wrote down.\n\nAttributes:\n    id: Row identifier, absent for an observation not yet stored.\n    observed_at: When it was noticed, ISO 8601.\n    pid: Process identifier at the time.\n    process_name: Executable name.\n    user: Account the process ran as.\n    cpu_percent: CPU usage percentage.\n    memory_percent: Resident memory percentage.\n    command: Command line, truncated.\n    signal: Which check produced it.\n    severity: notice or warning.\n    detail: Human-readable explanation.\n    detail_coded: ``detail`` as a code and its values, for the console to translate; null for\n        a detail the catalog does not hold (one written before 4.2 in other words).\n    acknowledged: Whether an operator dismissed it.",
         "properties": {
           "acknowledged": {
             "default": false,
@@ -34750,6 +35126,16 @@
               }
             ],
             "title": "Detail"
+          },
+          "detail_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "id": {
             "anyOf": [
@@ -34849,6 +35235,79 @@
           "count"
         ],
         "title": "ObservationListResponse",
+        "type": "object"
+      },
+      "OperationOut": {
+        "description": "One operation that is running.\n\nAttributes:\n    id: Names its start and its end in the ``operation`` event.\n    title: What it is, as a sentence of the server's catalog (code and values).\n    target: Its subject (an application, a service, a node), or null for the whole server.\n    domain: The application it concerns, when its subject is one.\n    actor: Who asked, as the audit trail names them.\n    started_at: When it started, ISO 8601 in UTC.",
+        "properties": {
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "started_at": {
+            "title": "Started At",
+            "type": "string"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          },
+          "title": {
+            "$ref": "#/components/schemas/CodedText"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "started_at"
+        ],
+        "title": "OperationOut",
+        "type": "object"
+      },
+      "OperationsResponse": {
+        "description": "The operations running now.\n\nAttributes:\n    operations: Oldest first. A team member's holds only what concerns its own applications.",
+        "properties": {
+          "operations": {
+            "items": {
+              "$ref": "#/components/schemas/OperationOut"
+            },
+            "title": "Operations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "operations"
+        ],
+        "title": "OperationsResponse",
         "type": "object"
       },
       "OsOut": {
@@ -44577,8 +45036,18 @@
         "type": "object"
       },
       "ReloadResponse": {
-        "description": "Response for a web server reload.",
+        "description": "Response for a web server reload.\n\nAttributes:\n    success: It reloaded.\n    message: What was done, in a sentence.\n    webserver: The web server that was reloaded.\n    coded: ``message`` as a code and its values.",
         "properties": {
+          "coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "message": {
             "title": "Message",
             "type": "string"
@@ -45069,6 +45538,18 @@
           "warnings"
         ],
         "title": "RemovePlanResponse",
+        "type": "object"
+      },
+      "RemoveRequest": {
+        "description": "What a removal needs besides which component.\n\nAttributes:\n    confirm_unknown_origin: The operator knows Noust did not install it and other things on\n        the system may use it. Without it, a component of unknown origin is a question\n        (409 ``confirmation_required``).",
+        "properties": {
+          "confirm_unknown_origin": {
+            "default": false,
+            "title": "Confirm Unknown Origin",
+            "type": "boolean"
+          }
+        },
+        "title": "RemoveRequest",
         "type": "object"
       },
       "RemovedResponse": {
@@ -47653,7 +48134,7 @@
         "type": "object"
       },
       "SMTPConfig": {
-        "description": "SMTP settings for the monitor's email notifications and test message.\n\n``password`` is write-only: it is never sent back by ``GET /config/smtp``\n(see :class:`SMTPSettingsResponse`), so unlike a secret round-tripped\nthrough the generic ``PUT``/``PATCH /api/config`` there is no\n:data:`~noust.core.config.REDACTED` placeholder for the console to echo\nback untouched. Instead an empty ``password`` keeps whatever is already\nstored - but only while it would still go where it went before: the same\nhost, port, username and transport. Changing any of those with a blank\npassword is refused (see :func:`_refuse_smtp_password_move`), so a\ncredential that may write this section but never saw the password cannot\npoint it at a server of its own and send itself a test email. There is no\nway to explicitly blank the password through this endpoint; ``noust config\nset monitor.smtp.password ''`` still does that directly.",
+        "description": "SMTP settings for the monitor's email notifications and test message.\n\n``password`` is write-only: it is never sent back by ``GET /config/smtp``\n(see :class:`SMTPSettingsResponse`), so unlike a secret round-tripped\nthrough the generic ``PUT``/``PATCH /api/config`` there is no\n:data:`~noust.core.config.REDACTED` placeholder for the console to echo\nback untouched. Instead an empty ``password`` keeps whatever is already\nstored - but only while it would still go where it went before: the same\nhost, port, username and transport. Changing any of those with a blank\npassword is refused (see :func:`_refuse_smtp_password_move`), so a\ncredential that may write this section but never saw the password cannot\npoint it at a server of its own and send itself a test email. There is no\nway to explicitly blank the password through this endpoint; ``noust config\nset monitor.smtp.password ''`` still does that directly.\n\n``recipients`` works the same way: left out, the stored list stays; an empty\nlist is the explicit way to clear it.",
         "properties": {
           "from_address": {
             "default": "",
@@ -47682,12 +48163,19 @@
             "type": "integer"
           },
           "recipients": {
-            "description": "Addresses the monitor's reports and test message are sent to",
-            "items": {
-              "type": "string"
-            },
-            "title": "Recipients",
-            "type": "array"
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Addresses the monitor's reports and test message are sent to. Leave it out (or null) to keep the ones already stored; an empty list clears them",
+            "title": "Recipients"
           },
           "use_ssl": {
             "default": true,
@@ -52311,6 +52799,143 @@
         "title": "ShutdownRequest",
         "type": "object"
       },
+      "SignInAppearance": {
+        "description": "What the sign-in screen needs to draw itself.\n\nAttributes:\n    image: The picture an operator chose; null when there is none and the console draws its\n        own.\n    limits: What a picture may be.",
+        "properties": {
+          "image": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignInImageOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "limits": {
+            "$ref": "#/components/schemas/SignInImageLimits"
+          }
+        },
+        "title": "SignInAppearance",
+        "type": "object"
+      },
+      "SignInAppearanceBody": {
+        "description": "What the sign-in picture is set to.\n\nAttributes:\n    image: The file, as base64 text. Left out, the picture that is there stays and only its\n        fit and description change.\n    fit: ``cover`` to fill the space, ``contain`` to show the whole picture.\n    alt: What a screen reader says in its place, up to 120 characters; empty or left out says\n        the picture is decoration.",
+        "properties": {
+          "alt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alt"
+          },
+          "fit": {
+            "default": "contain",
+            "title": "Fit",
+            "type": "string"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          }
+        },
+        "title": "SignInAppearanceBody",
+        "type": "object"
+      },
+      "SignInImageLimits": {
+        "description": "What a picture may be, so a client need not hard-code it.\n\nAttributes:\n    bytes: The most a file weighs, as it is sent.\n    side: The most pixels on a side.\n    alt_chars: The most characters of its description.\n    types: The types a file may be, by what its bytes are.",
+        "properties": {
+          "alt_chars": {
+            "default": 120,
+            "title": "Alt Chars",
+            "type": "integer"
+          },
+          "bytes": {
+            "default": 1048576,
+            "title": "Bytes",
+            "type": "integer"
+          },
+          "side": {
+            "default": 4096,
+            "title": "Side",
+            "type": "integer"
+          },
+          "types": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Types",
+            "type": "array"
+          }
+        },
+        "title": "SignInImageLimits",
+        "type": "object"
+      },
+      "SignInImageOut": {
+        "description": "The picture the sign-in screen shows.\n\nAttributes:\n    url: Where it is, with its digest in ``v`` so it can be cached for good.\n    sha256: The digest of the file served.\n    content_type: What it is: ``image/png``, ``image/jpeg`` or ``image/webp``.\n    width: Pixels across.\n    height: Pixels down.\n    size: Bytes of the file served.\n    fit: ``cover`` fills the space and crops; ``contain`` shows the whole picture in it.\n    alt: What a screen reader says in its place; empty for decoration.\n    updated_at: When it was set, ISO 8601 in UTC.",
+        "properties": {
+          "alt": {
+            "title": "Alt",
+            "type": "string"
+          },
+          "content_type": {
+            "title": "Content Type",
+            "type": "string"
+          },
+          "fit": {
+            "title": "Fit",
+            "type": "string"
+          },
+          "height": {
+            "title": "Height",
+            "type": "integer"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "width": {
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "url",
+          "sha256",
+          "content_type",
+          "width",
+          "height",
+          "size",
+          "fit",
+          "alt",
+          "updated_at"
+        ],
+        "title": "SignInImageOut",
+        "type": "object"
+      },
       "SinkOut": {
         "description": "One shipping destination.\n\nAttributes:\n    sink_id: Its name.\n    seq: The last event it received.\n    delivered_at: When it last received one.\n    error: Its last error, verbatim.\n    error_at: When that happened.\n    lag_seconds: How far behind the log it is.\n    degraded: It has been failing for longer than ``audit.sink_lag_minutes``.",
         "properties": {
@@ -52386,8 +53011,18 @@
         "type": "object"
       },
       "SiteActionResponse": {
-        "description": "Response for site actions.",
+        "description": "Response for site actions.\n\nAttributes:\n    success: The action was done.\n    message: What was done, in a sentence.\n    site: The site's domain.\n    coded: ``message`` as a code and its values, for the console to say it in its own\n        language and to tell a warning from a success by the code, never by the words.",
         "properties": {
+          "coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "message": {
             "title": "Message",
             "type": "string"
@@ -54289,7 +54924,7 @@
         "type": "object"
       },
       "SlowQueriesResponse": {
-        "description": "The statements that take longest on average.\n\nAttributes:\n    available: Whether the engine keeps statement statistics.\n    source: ``pg_stat_statements`` or ``performance_schema``.\n    reason: Why not: ``not_loaded``, ``not_created``,\n        ``performance_schema_off`` or ``not_supported``.\n    how_to_enable: The steps, in English, commands included.",
+        "description": "The statements that take longest on average.\n\nAttributes:\n    available: Whether the engine keeps statement statistics.\n    source: ``pg_stat_statements``, ``performance_schema`` or ``slowlog``.\n    reason: Why not: ``not_loaded``, ``not_created``,\n        ``performance_schema_off`` or, for Redis, ``slowlog``.\n    how_to_enable: The steps, in English, commands included; for Redis,\n        the command that reads its slow log.",
         "properties": {
           "available": {
             "title": "Available",
@@ -54398,6 +55033,166 @@
           "query"
         ],
         "title": "SlowQueryResponse",
+        "type": "object"
+      },
+      "SoftwareItemOut": {
+        "description": "One component, as the page shows it.\n\nAttributes:\n    id: The registry's id.\n    purpose: What Noust uses it for, in English.\n    purpose_code: The same sentence as a code of the console's catalog.\n    severity: ``never``, ``critical_while`` or ``removable``.\n    installed: Whether it is on the machine.\n    version: The version, when it is installed and the package manager says one.\n    origin: ``noust``, ``unknown``, or null when it is not installed. What was installed\n        before the ledger existed is ``noust`` only when a file Noust writes is there.\n    installable: Whether Noust installs it on this system.\n    removable: Whether Noust would remove it now.\n    dependents: What depends on it.\n    packages: Its packages that are installed.\n    installed_at: When Noust installed it, from the ledger.\n    installed_by: As whom.\n    installed_via: Through which installer.",
+        "properties": {
+          "dependents": {
+            "items": {
+              "$ref": "#/components/schemas/DependentOut"
+            },
+            "title": "Dependents",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "installable": {
+            "title": "Installable",
+            "type": "boolean"
+          },
+          "installed": {
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "installed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Installed At"
+          },
+          "installed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Installed By"
+          },
+          "installed_via": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Installed Via"
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin"
+          },
+          "packages": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Packages",
+            "type": "array"
+          },
+          "purpose": {
+            "title": "Purpose",
+            "type": "string"
+          },
+          "purpose_code": {
+            "title": "Purpose Code",
+            "type": "string"
+          },
+          "removable": {
+            "title": "Removable",
+            "type": "boolean"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "id",
+          "purpose",
+          "purpose_code",
+          "severity",
+          "installed",
+          "installable",
+          "removable"
+        ],
+        "title": "SoftwareItemOut",
+        "type": "object"
+      },
+      "SoftwareOut": {
+        "description": "The software of the server.\n\nAttributes:\n    managed: Whether Noust changes this system's packages.\n    reason: Why it does not, when it does not.\n    reason_coded: ``reason`` as a code and its values, for the console to translate; null\n        when Noust does change this system's software.\n    family: ``apt``, ``dnf``, ``zypper`` or ``none``.\n    items: One per component, in the order the page shows them.",
+        "properties": {
+          "family": {
+            "title": "Family",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SoftwareItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "managed": {
+            "title": "Managed",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "reason_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "managed",
+          "family"
+        ],
+        "title": "SoftwareOut",
         "type": "object"
       },
       "SourceChangeRequest": {
@@ -54561,7 +55356,7 @@
         "type": "object"
       },
       "SourceInspectionResponse": {
-        "description": "What a repository is, discovered before anything is deployed from it.\n\nAttributes:\n    app_type: The application type the new-app wizard would deploy as;\n        the first entry of ``detected_types``.\n    detected_types: Every registered application type that recognised\n        the repository, most specific first (registry priority order).\n    package_manager: The Node package manager the repository's lock file\n        implies, or None when it is not a Node project.\n    install_command: Argv the chosen deployer would run to install\n        dependencies. Empty when the type has none.\n    build_command: Argv the chosen deployer would run to build the\n        project. Empty when there is nothing to build.\n    start_command: Shell command the chosen deployer would run as the\n        service's ``ExecStart``. Empty for a static site.\n    default_port: Port the chosen deployer uses when none is requested.\n    env_keys: Environment variables discovered from ``.env.example``.\n    branch: The branch inspected, or the checkout's current branch when\n        none was requested.\n    commit: Short commit hash of the checkout, empty when the source is\n        not a Git repository.\n    compatible: Whether this server can deploy it as ``app_type`` as it\n        is: false when a program the type needs is missing.\n    verdict: What Noust found, in a sentence.\n    suggestion: What to do before deploying, when there is something.",
+        "description": "What a repository is, discovered before anything is deployed from it.\n\nAttributes:\n    app_type: The application type the new-app wizard would deploy as;\n        the first entry of ``detected_types``.\n    detected_types: Every registered application type that recognised\n        the repository, most specific first (registry priority order).\n    package_manager: The Node package manager the repository's lock file\n        implies, or None when it is not a Node project.\n    install_command: Argv the chosen deployer would run to install\n        dependencies. Empty when the type has none.\n    build_command: Argv the chosen deployer would run to build the\n        project. Empty when there is nothing to build.\n    start_command: Shell command the chosen deployer would run as the\n        service's ``ExecStart``. Empty for a static site.\n    default_port: Port the chosen deployer uses when none is requested.\n    env_keys: Environment variables discovered from ``.env.example``.\n    branch: The branch inspected, or the checkout's current branch when\n        none was requested.\n    commit: Short commit hash of the checkout, empty when the source is\n        not a Git repository.\n    compatible: Whether this server can deploy it as ``app_type`` as it\n        is: false when a program the type needs is missing.\n    verdict: What Noust found, in a sentence.\n    suggestion: What to do before deploying, when there is something.\n    verdict_coded: ``verdict`` as a code and its values, for the console to translate.\n    suggestion_coded: ``suggestion`` as a code and its values, when it is a sentence of\n        its own (what to install); null when there is none.",
         "properties": {
           "app_type": {
             "title": "App Type",
@@ -54657,6 +55452,17 @@
             "description": "What to do before deploying, when there is something",
             "title": "Suggestion"
           },
+          "suggestion_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The suggestion as a code and its values, when it has one"
+          },
           "verdict": {
             "anyOf": [
               {
@@ -54668,6 +55474,17 @@
             ],
             "description": "What Noust found, in a sentence",
             "title": "Verdict"
+          },
+          "verdict_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The verdict as a code and its values"
           }
         },
         "required": [
@@ -55467,7 +56284,7 @@
         "type": "object"
       },
       "StackNetworkModel": {
-        "description": "One network a stack is on, or defines.\n\nAttributes:\n    name: Its Docker name.\n    id: Its id, shortened.\n    logical: Its name in the compose file.\n    driver: ``bridge``, ``overlay``, ``host``...\n    scope: ``local`` or ``swarm``.\n    internal: Containers on it cannot reach the outside.\n    ipv6: IPv6 is enabled on it.\n    subnets: Its address ranges.\n    owner: The Compose project that made it.\n    shared: Containers that are not the stack's are on it.\n    members: The containers on it.\n    findings: What is worth knowing about it, as Docker reported it.",
+        "description": "One network a stack is on, or defines.\n\nAttributes:\n    name: Its Docker name.\n    id: Its id, shortened.\n    logical: Its name in the compose file.\n    driver: ``bridge``, ``overlay``, ``host``...\n    scope: ``local`` or ``swarm``.\n    internal: Containers on it cannot reach the outside.\n    ipv6: IPv6 is enabled on it.\n    subnets: Its address ranges.\n    owner: The Compose project that made it.\n    shared: Containers that are not the stack's are on it.\n    members: The containers on it.\n    findings: What is worth knowing about it, as Docker reported it.\n    findings_coded: ``findings`` as codes and values, in the same order.",
         "properties": {
           "driver": {
             "title": "Driver",
@@ -55478,6 +56295,13 @@
               "type": "string"
             },
             "title": "Findings",
+            "type": "array"
+          },
+          "findings_coded": {
+            "items": {
+              "$ref": "#/components/schemas/CodedText"
+            },
+            "title": "Findings Coded",
             "type": "array"
           },
           "id": {
@@ -55545,7 +56369,7 @@
         "type": "object"
       },
       "StackNetworksResponse": {
-        "description": "The networks of an application.\n\nAttributes:\n    app: The application's domain.\n    applicable: It is a stack Docker runs.\n    reason: Why not, when it is not.\n    containers: The names of the stack's containers.\n    isolated: Every network is the stack's own and nothing else is on it.\n    networks: The networks.",
+        "description": "The networks of an application.\n\nAttributes:\n    app: The application's domain.\n    applicable: It is a stack Docker runs.\n    reason: Why not, when it is not.\n    reason_coded: ``reason`` as a code and its values; null when it is applicable.\n    containers: The names of the stack's containers.\n    isolated: Every network is the stack's own and nothing else is on it.\n    networks: The networks.",
         "properties": {
           "app": {
             "title": "App",
@@ -55577,6 +56401,16 @@
             "default": "",
             "title": "Reason",
             "type": "string"
+          },
+          "reason_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -56109,7 +56943,7 @@
         "type": "object"
       },
       "StreamPlanResponse": {
-        "description": "What publishing a port would do.\n\nAttributes:\n    exposure: The exposure as it would be recorded.\n    config: The text of its nginx file.\n    file: Where that file goes.\n    loader: ``present``, or ``write`` when Noust would write the block that carries it.\n    support: What nginx offers.\n    warnings: Things that are probably wrong and do not stop it.\n    firewall: The rules the firewall would be asked for.",
+        "description": "What publishing a port would do.\n\nAttributes:\n    exposure: The exposure as it would be recorded.\n    config: The text of its nginx file.\n    file: Where that file goes.\n    loader: ``present``, or ``write`` when Noust would write the block that carries it.\n    support: What nginx offers.\n    warnings: Things that are probably wrong and do not stop it.\n    firewall: The rules the firewall would be asked for.\n    warnings_coded: ``warnings`` as codes and values, in the same order.",
         "properties": {
           "config": {
             "title": "Config",
@@ -56142,6 +56976,13 @@
               "type": "string"
             },
             "title": "Warnings",
+            "type": "array"
+          },
+          "warnings_coded": {
+            "items": {
+              "$ref": "#/components/schemas/CodedText"
+            },
+            "title": "Warnings Coded",
             "type": "array"
           }
         },
@@ -56223,7 +57064,7 @@
         "type": "object"
       },
       "StreamResultResponse": {
-        "description": "What publishing or closing a port did.\n\nAttributes:\n    exposure: The exposure.\n    warnings: Things the operator should know.\n    firewall: A sentence on the firewall.",
+        "description": "What publishing or closing a port did.\n\nAttributes:\n    exposure: The exposure.\n    warnings: Things the operator should know.\n    firewall: A sentence on the firewall.\n    warnings_coded: ``warnings`` as codes and values, in the same order.\n    firewall_coded: ``firewall`` as a code and its values; null when there is none.",
         "properties": {
           "exposure": {
             "$ref": "#/components/schemas/StreamExposureModel"
@@ -56232,11 +57073,28 @@
             "title": "Firewall",
             "type": "string"
           },
+          "firewall_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "warnings": {
             "items": {
               "type": "string"
             },
             "title": "Warnings",
+            "type": "array"
+          },
+          "warnings_coded": {
+            "items": {
+              "$ref": "#/components/schemas/CodedText"
+            },
+            "title": "Warnings Coded",
             "type": "array"
           }
         },
@@ -56249,11 +57107,21 @@
         "type": "object"
       },
       "StreamSupportModel": {
-        "description": "Whether nginx here can publish a port, and what is missing.\n\nAttributes:\n    available: Everything needed is in place or Noust can put it in place.\n    module: ``static``, ``dynamic`` or ``missing``.\n    loader: ``present``, ``installable``, ``foreign`` or ``manual``.\n    problem: What is missing, when something is.\n    hint: How to fix it: a command, or the line to add.",
+        "description": "Whether nginx here can publish a port, and what is missing.\n\nAttributes:\n    available: Everything needed is in place or Noust can put it in place.\n    module: ``static``, ``dynamic`` or ``missing``.\n    loader: ``present``, ``installable``, ``foreign`` or ``manual``.\n    problem: What is missing, when something is.\n    hint: How to fix it: a command, or the line to add.\n    install: The software component that supplies what is missing (``nginx``,\n        ``nginx_stream_module``), to install with ``POST /api/server/software/{id}/install``;\n        null when Noust installs nothing for it here.\n    coded: ``problem`` and ``hint`` as a code and its values, for the console to translate;\n        null when nothing is wrong. A ``hint`` that is nginx's own output has no code.",
         "properties": {
           "available": {
             "title": "Available",
             "type": "boolean"
+          },
+          "coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "hint": {
             "anyOf": [
@@ -56265,6 +57133,17 @@
               }
             ],
             "title": "Hint"
+          },
+          "install": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Install"
           },
           "loader": {
             "title": "Loader",
@@ -56609,6 +57488,16 @@
             "title": "Reason",
             "type": "string"
           },
+          "reason_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "recommended": {
             "title": "Recommended",
             "type": "boolean"
@@ -56645,6 +57534,13 @@
               "type": "string"
             },
             "title": "Warnings",
+            "type": "array"
+          },
+          "warnings_coded": {
+            "items": {
+              "$ref": "#/components/schemas/CodedText"
+            },
+            "title": "Warnings Coded",
             "type": "array"
           }
         },
@@ -66057,11 +66953,23 @@
         "type": "object"
       },
       "noust__web__api__compliance__CheckResponse": {
-        "description": "The result of the compliance check.\n\nAttributes:\n    verdict: The worst verdict among the frameworks.\n    frameworks: One per framework judged.\n    errors: Areas that could not be read.\n    disclaimer: What a pass does and does not mean.",
+        "description": "The result of the compliance check.\n\nAttributes:\n    verdict: The worst verdict among the frameworks.\n    frameworks: One per framework judged.\n    errors: Areas that could not be read.\n    disclaimer: What a pass does and does not mean.\n    enabled: The frameworks that are on right now, in catalog order, whichever were\n        judged. Empty when nothing is on: then a check that names no framework\n        judges nothing and ``verdict`` is ``ok`` because nothing was asked for.\n    checked_at: When, ISO 8601 UTC.\n    host: This server's name.\n    version: The Noust it runs.",
         "properties": {
+          "checked_at": {
+            "default": "",
+            "title": "Checked At",
+            "type": "string"
+          },
           "disclaimer": {
             "title": "Disclaimer",
             "type": "string"
+          },
+          "enabled": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Enabled",
+            "type": "array"
           },
           "errors": {
             "additionalProperties": {
@@ -66077,8 +66985,18 @@
             "title": "Frameworks",
             "type": "array"
           },
+          "host": {
+            "default": "",
+            "title": "Host",
+            "type": "string"
+          },
           "verdict": {
             "title": "Verdict",
+            "type": "string"
+          },
+          "version": {
+            "default": "",
+            "title": "Version",
             "type": "string"
           }
         },
@@ -82717,6 +83635,168 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/auth/dashboards": {
+      "get": {
+        "description": "List the panels of the account asking.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Its panels in order, and the limits.\n\nRaises:\n    ValidationError: 400 when the principal is not an account.",
+        "operationId": "list_dashboards_api_auth_dashboards_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Dashboards",
+        "tags": [
+          "Dashboards"
+        ],
+        "x-noust-permission": "self"
+      }
+    },
+    "/api/auth/dashboards/order": {
+      "post": {
+        "description": "Put the account's panels in the order given.\n\nArgs:\n    body: The id of every panel, each once.\n    session: The authenticated session.\n\nReturns:\n    The panels in their new order.\n\nRaises:\n    ValidationError: 400 when the principal is not an account, or the list does not name\n        every panel of the account exactly once.",
+        "operationId": "order_dashboards_api_auth_dashboards_order_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DashboardOrder"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Order Dashboards",
+        "tags": [
+          "Dashboards"
+        ],
+        "x-noust-permission": "self"
+      }
+    },
+    "/api/auth/dashboards/{dashboard_id}": {
+      "delete": {
+        "description": "Delete one of the account's panels.\n\nArgs:\n    dashboard_id: The panel's id.\n    session: The authenticated session.\n\nReturns:\n    The panels that are left.\n\nRaises:\n    ValidationError: 400 when the principal is not an account.\n    ResourceNotFoundError: 404 when the account has no panel by that id, whoever has one.",
+        "operationId": "delete_dashboard_api_auth_dashboards__dashboard_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "dashboard_id",
+            "required": true,
+            "schema": {
+              "title": "Dashboard Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Dashboard",
+        "tags": [
+          "Dashboards"
+        ],
+        "x-noust-permission": "self"
+      },
+      "put": {
+        "description": "Create a panel, or replace the one the account has under that id.\n\nA new panel goes last; one that exists keeps its place.\n\nArgs:\n    dashboard_id: The panel's id, the person's own.\n    body: Its name, scope and layout.\n    session: The authenticated session.\n\nReturns:\n    The panel as it is now.\n\nRaises:\n    ValidationError: 400 when the principal is not an account, anything in the body is not\n        valid (the error's ``fields`` names it), or the account keeps 20 panels already and\n        this one is new.",
+        "operationId": "save_dashboard_api_auth_dashboards__dashboard_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "dashboard_id",
+            "required": true,
+            "schema": {
+              "title": "Dashboard Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DashboardBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Dashboard",
+        "tags": [
+          "Dashboards"
+        ],
+        "x-noust-permission": "self"
+      }
+    },
     "/api/auth/elevate": {
       "post": {
         "description": "Confirm the caller's identity again, opening sudo mode.\n\nD5: deleting an application, a database, a service or a site, writing raw\nconfiguration or a unit file, running a write against a database console,\nrevealing a ``.env`` in clear, issuing an API token and turning\ntwo-factor authentication off all require a cookie session to have\ncalled this recently; see :func:`noust.web.api.deps.require_elevated`.\n\nThe window stays open while it is used: it ends ``auth.sudo.idle_minutes``\nafter the last elevated action, and never later than\n``auth.sudo.max_minutes`` after this confirmation\n(:meth:`noust.web.auth.TokenManager.extend_elevation`).\n\nA session already proved the account's password and second factor when it\nsigned in, so an account confirms with one factor: a code from its\nauthenticator or a backup code here, or a passkey at\n``/api/auth/passkeys/elevate``. The password is asked as well only when\nthe policy says so (``auth.sudo.require_password``, always under the ENS\nprofile). An account without a second factor cannot enter sudo mode. The\nmaster token confirms as it signs in: the console's two-factor code when\nthat is enabled, the master token otherwise. A wrong factor is counted by\nthe same lockout a login failure is, through the same chokepoint.\n\nArgs:\n    request: The incoming request.\n    body: The factors.\n    session: The authenticated session being elevated.\n\nReturns:\n    The new elevation deadline.\n\nRaises:\n    HTTPException: 401 with ``error`` ``invalid_totp`` (an account's\n        wrong code), ``totp_required`` (an account's missing one) or\n        ``invalid_credentials`` (an account that must give its password\n        too, whatever was wrong) for an account; ``totp_required``,\n        ``invalid_totp`` or ``invalid_token`` for the master token, when\n        the factors do not verify; 403 ``notice_required`` before the\n        usage notice is accepted.",
@@ -85093,6 +86173,142 @@
           "Authentication"
         ],
         "x-noust-permission": "self"
+      }
+    },
+    "/api/auth/sign-in/appearance": {
+      "delete": {
+        "description": "Take the picture off the sign-in screen: Noust's own drawing comes back.\n\nAsks for sudo mode. Removing what is not there is not an error.\n\nArgs:\n    session: The authenticated session in sudo mode.\n\nReturns:\n    What the screen shows now: no picture.",
+        "operationId": "delete_appearance_api_auth_sign_in_appearance_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInAppearance"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Delete Appearance",
+        "tags": [
+          "Authentication"
+        ],
+        "x-noust-permission": "security.manage",
+        "x-noust-requires-elevation": true
+      },
+      "get": {
+        "description": "Say what the sign-in screen draws in place of Noust's own drawing, if anything.\n\nPublic: the screen is drawn before there is a session, so this carries nothing but what is shown\non it.\n\nReturns:\n    The picture and how it is fitted, or ``image: null``; and the limits a picture is held to.",
+        "operationId": "get_appearance_api_auth_sign_in_appearance_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInAppearance"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Appearance",
+        "tags": [
+          "Authentication"
+        ],
+        "x-noust-permission": "public"
+      },
+      "put": {
+        "description": "Put a picture on the sign-in screen, or change how the one there is drawn.\n\nThe picture is judged by its bytes and rewritten without its metadata before it is kept; see\n:mod:`noust.validators.sign_in_image`. Asks for sudo mode.\n\nArgs:\n    body: The picture as base64 (left out to keep the one there), its fit and its description.\n    session: The authenticated session in sudo mode.\n\nReturns:\n    What the screen shows now.\n\nRaises:\n    ValidationError: 400, with a code the console translates, when the file is not a PNG, JPEG\n        or WebP within the limits, is damaged or animated, when the fit or the description is not\n        valid, or when no picture is sent and there is none to change.",
+        "operationId": "put_appearance_api_auth_sign_in_appearance_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignInAppearanceBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInAppearance"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Appearance",
+        "tags": [
+          "Authentication"
+        ],
+        "x-noust-permission": "security.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/auth/sign-in/image": {
+      "get": {
+        "description": "Serve the picture of the sign-in screen.\n\nPublic, like the screen it is on. With ``v`` set to its digest it is cacheable for a year; the\ndigest of anything but the current picture is a 404.\n\nArgs:\n    request: The incoming request, for an ETag the client already has.\n    v: The digest the picture is addressed by, from ``GET /appearance``. Without it the current\n        picture is served and not cached.\n\nReturns:\n    The file, with the type its bytes were judged to be.\n\nRaises:\n    ResourceNotFoundError: 404 when there is no picture, or ``v`` is not the current one's digest.",
+        "operationId": "get_image_api_auth_sign_in_image_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "v",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "V"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {},
+              "image/png": {},
+              "image/webp": {}
+            },
+            "description": "The picture."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Image",
+        "tags": [
+          "Authentication"
+        ],
+        "x-noust-permission": "public"
       }
     },
     "/api/auth/tokens": {
@@ -87627,7 +88843,7 @@
     },
     "/api/compliance/check": {
       "get": {
-        "description": "Judge this server framework by framework, with the clause of each finding.\n\nReads the server's state (the last hardening report, the accounts, the backups);\na pass means the technical control is in force, never that the server complies.\n\nArgs:\n    framework: Frameworks to judge; the ones that are on by default.\n    _session: The authenticated payload.\n\nReturns:\n    The findings per framework.\n\nRaises:\n    ValidationError: For a framework that does not exist.",
+        "description": "Judge this server framework by framework, with the clause of each finding.\n\nReads the server's state (the last hardening report, the accounts, the backups);\na pass means the technical control is in force, never that the server complies.\nBy default it judges the frameworks that are on, and nothing when none is: a server\nthat never turned one on is not shown a report in red. ``format=markdown`` is the\nsame result as a document to hand to an auditor, with its SHA-256 in the\n``X-Noust-Report-SHA256`` header.\n\nArgs:\n    request: The request.\n    framework: Frameworks to judge; the ones that are on by default.\n    format: ``json`` (the result) or ``markdown`` (a download).\n    session: The authenticated payload.\n\nReturns:\n    The findings per framework, or their Markdown rendering as an attachment.\n\nRaises:\n    ValidationError: For a framework that does not exist.",
         "operationId": "check_compliance_api_compliance_check_get",
         "parameters": [
           {
@@ -87648,6 +88864,20 @@
               ],
               "title": "Framework"
             }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "json",
+              "enum": [
+                "json",
+                "markdown"
+              ],
+              "title": "Format",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -87657,7 +88887,8 @@
                 "schema": {
                   "$ref": "#/components/schemas/noust__web__api__compliance__CheckResponse"
                 }
-              }
+              },
+              "text/markdown": {}
             },
             "description": "Successful Response"
           },
@@ -90572,7 +91803,7 @@
     },
     "/api/databases/databases": {
       "get": {
-        "description": "List databases across the running engines, joined with the store.\n\nArgs:\n    engine: Engine to restrict the listing to.\n    session: The authenticated session.\n    team: Only this team's databases.\n    project: Only the projects with this slug.\n    environment: Only the environments with this slug.\n    tag: Only the databases that carry this tag.\n\nReturns:\n    Every database the running engines report, the tracked ones they\n    no longer have (``missing``), and the engines that could not be read\n    (``problems``). A team member sees the databases its teams own: one an\n    engine holds that Noust never recorded belongs to nobody.",
+        "description": "List databases across the running engines, joined with the store.\n\nArgs:\n    engine: Engine to restrict the listing to.\n    session: The authenticated session.\n    team: Only this team's databases.\n    project: Only the projects with this slug.\n    environment: Only the environments with this slug.\n    tag: Only the databases that carry this tag.\n\nReturns:\n    Every database the running engines report, the tracked ones they\n    no longer have (``missing``), the tracked ones of an engine that is\n    stopped (``unverified``: whether they are there is not known until it\n    runs), and the engines that could not be read (``problems``). A team\n    member sees the databases its teams own: one an engine holds that\n    Noust never recorded belongs to nobody.",
         "operationId": "list_databases_api_databases_databases_get",
         "parameters": [
           {
@@ -93764,7 +94995,7 @@
     },
     "/api/databases/engines/{engine}/uninstall": {
       "post": {
-        "description": "Queue the removal of an engine, with sudo mode.\n\nRemoving an engine can take every database it hosts with it.\n\nArgs:\n    engine: Engine name.\n    purge: Also remove configuration and data.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.",
+        "description": "Queue the removal of an engine, with sudo mode.\n\nThe manager refuses while the engine holds databases, and the route asks it first so the\nanswer is immediate (409, naming them) instead of a job that fails. The manager records the\nevent when the removal finishes, fails or is refused, so this route records nothing.\n\nArgs:\n    engine: Engine name.\n    purge: Also remove configuration and data.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    EngineInUseError: The engine holds databases (409).",
         "operationId": "uninstall_engine_api_databases_engines__engine__uninstall_post",
         "parameters": [
           {
@@ -99288,7 +100519,7 @@
     },
     "/api/ens/check": {
       "get": {
-        "description": "Compare this server with the ens-medium profile, check by check.\n\nArgs:\n    request: The request.\n    session: Authenticated session, injected.\n    refresh: Probe the hardening checks again.\n\nReturns:\n    The findings, their counts and verdict, and the op.mon.2 indicators.",
+        "description": "Compare this server with the ens-medium profile, check by check.\n\nJudges only a server where a framework of the ENS family is on. Without one the\nanswer says ``enabled: false`` and carries no findings: a server that never asked\nfor the ENS is not told it fails it (``GET /api/compliance/check`` says how far it\nis from any framework, on or off).\n\nArgs:\n    request: The request.\n    session: Authenticated session, injected.\n    refresh: Probe the hardening checks again.\n\nReturns:\n    The findings, their counts and verdict, and the op.mon.2 indicators.",
         "operationId": "ens_check_api_ens_check_get",
         "parameters": [
           {
@@ -101283,6 +102514,74 @@
         "x-noust-permission": "fleet.read"
       }
     },
+    "/api/fleet/jobs/active": {
+      "get": {
+        "description": "What every server is running now: its jobs and the long operations that are not jobs.\n\nAsks each node's ``/api/jobs/active`` and ``/api/operations/active`` through its tunnel, all\nat once and each with its own time limit. A row says how the server answered: ``ok``;\n``unsupported``, for a node that has not been updated to offer the route (it answers 404 and\nwill count its tasks when it is); or ``unreachable``. A server that is down or old never\nfails the view, and this central's own row is there when its role is ``server``. Declared\nbefore ``/jobs/{job_id}``, which would take ``active`` for a job.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n\nReturns:\n    One row per server, with its ``jobs`` and its ``operations``.",
+        "operationId": "fleet_jobs_active_api_fleet_jobs_active_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fleet Jobs Active",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.read"
+      }
+    },
     "/api/fleet/jobs/{job_id}": {
       "get": {
         "description": "Describe one fleet job, with every server's state and words.\n\nArgs:\n    job_id: The job.\n    session: The authenticated session.\n\nReturns:\n    The job: ``status`` (``running``, ``succeeded``, ``failed``,\n    ``aborted``, ``interrupted``), ``summary`` and ``nodes``.\n\nRaises:\n    HTTPException: 404 for an unknown job.",
@@ -102795,6 +104094,74 @@
         ],
         "x-noust-permission": "fleet.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/fleet/software": {
+      "get": {
+        "description": "The software of every server: how much of what Noust manages is installed, and how much of\nthat Noust installed.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n\nReturns:\n    One row per server: ``installed``, ``total``, ``by_noust``, ``managed``, ``family`` and\n    its page on that server's console. A server that runs a Noust of before 4.2 is\n    ``unsupported``: it will count its software when it is updated.",
+        "operationId": "fleet_software_api_fleet_software_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FleetViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fleet Software",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "fleet.read"
       }
     },
     "/api/fleet/sources": {
@@ -107301,6 +108668,29 @@
           "OpenAPI"
         ],
         "x-noust-permission": "self"
+      }
+    },
+    "/api/operations/active": {
+      "get": {
+        "description": "List the long operations that are running now.\n\nThe session is asked for by name, as every route of the jobs does: the router's guard already\nrefuses a request without one, and this keeps the route in the graph the authentication test\nreads whatever version of FastAPI includes the routers.\n\nArgs:\n    session: The caller's session.\n\nReturns:\n    What runs, oldest first. For a principal that does not see every team, only the\n    operations on an application it sees: what is about the machine is the instance's.",
+        "operationId": "active_operations_now_api_operations_active_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Active Operations Now",
+        "tags": [
+          "Jobs"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/overview": {
@@ -112983,6 +114373,219 @@
           }
         },
         "summary": "Remove Ssh Key",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "server.host_access",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/server/software": {
+      "get": {
+        "description": "Every piece of software Noust manages: installed or not, its version, who installed it, who\ndepends on it.\n\nKept for a minute; ``refresh`` asks the machine again. A system whose packages Noust does not\nchange answers with ``managed`` false and why, and the list as it is.\n\nArgs:\n    session: The authenticated session.\n    refresh: Ask again whatever the age of the last answer.\n\nReturns:\n    The software.",
+        "operationId": "list_software_api_server_software_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SoftwareOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Software",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "server.read"
+      }
+    },
+    "/api/server/software/{component}/impact": {
+      "get": {
+        "description": "What removing a component would do and whether it may, changing nothing.\n\nAsks the package manager for a simulation, so it takes about a second.\n\nArgs:\n    component: The registry's id.\n    session: The authenticated session.\n\nReturns:\n    The packages, what else would go, the repository files, and what stands in the way.\n\nRaises:\n    ResourceNotFoundError: The registry has no such component (404).",
+        "operationId": "software_impact_api_server_software__component__impact_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "component",
+            "required": true,
+            "schema": {
+              "title": "Component",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImpactOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Software Impact",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "server.read"
+      }
+    },
+    "/api/server/software/{component}/install": {
+      "post": {
+        "description": "Queue the installation of a component, with sudo mode.\n\nWhat can be refused before a job exists is refused here: an id the registry does not have\n(404), a system Noust installs nothing on (409 ``software_refused``), another package manager\nrunning (409 ``host_busy``). The job installs it through the installer that already knows it.\n\nArgs:\n    component: The registry's id.\n    request: The request, whose client fail2ban never bans.\n    session: The authenticated, elevated session.\n    body: ``epel`` to agree to enable EPEL where the component comes from it.\n\nReturns:\n    The queued job.\n\nRaises:\n    ResourceNotFoundError: The registry has no such component (404).",
+        "operationId": "install_software_api_server_software__component__install_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "component",
+            "required": true,
+            "schema": {
+              "title": "Component",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/InstallRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Install Software",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "server.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/server/software/{component}/remove": {
+      "post": {
+        "description": "Queue the removal of a component, with sudo mode. Never a purge.\n\nThe manager's own check runs first and answers at once: 409 ``software_refused`` with its\n``reason`` and what depends on the component, or 409 ``confirmation_required`` for one whose\norigin is not Noust's. The repository and the key Noust added go with the package.\n\nArgs:\n    component: The registry's id.\n    session: The authenticated, elevated session.\n    body: ``confirm_unknown_origin`` to go ahead with something Noust did not install.\n\nReturns:\n    The queued job.\n\nRaises:\n    ResourceNotFoundError: The registry has no such component (404).",
+        "operationId": "remove_software_api_server_software__component__remove_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "component",
+            "required": true,
+            "schema": {
+              "title": "Component",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RemoveRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Software",
         "tags": [
           "Server"
         ],

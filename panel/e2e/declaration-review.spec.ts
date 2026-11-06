@@ -22,7 +22,7 @@ async function elevate(page: Page, server: ConsoleServer): Promise<void> {
 }
 
 test("a draft starts from what runs, shows the lines that change, and puts one block back", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, `/apps/${APP}/settings/export`);
+  await signIn(page, consoleServer, `/apps/${APP}/export`);
   await elevate(page, consoleServer);
   await settle(page);
 

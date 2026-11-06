@@ -50,15 +50,16 @@ def tables_of(path: Path) -> set[str]:
 
 def test_the_version_follows_v15() -> None:
     assert schema_v16.VERSION == 16
-    assert SCHEMA_VERSION == schema_v16.VERSION
+    assert SCHEMA_VERSION >= schema_v16.VERSION
 
 
-def test_a_fresh_store_is_born_at_v16(tmp_path: Path, fresh: None) -> None:
+def test_a_fresh_store_is_born_with_the_tables_of_v16(tmp_path: Path, fresh: None) -> None:
     path = tmp_path / "noust.db"
 
     NoustStore(path)
 
-    assert version_of(path) == 16
+    assert version_of(path) == SCHEMA_VERSION
+    assert "roles" in tables_of(path)
 
 
 def test_a_store_at_v15_climbs_to_v16(tmp_path: Path, fresh: None) -> None:
@@ -73,7 +74,7 @@ def test_a_store_at_v15_climbs_to_v16(tmp_path: Path, fresh: None) -> None:
 
     NoustStore(path)
 
-    assert version_of(path) == 16
+    assert version_of(path) == SCHEMA_VERSION
 
 
 def test_a_fragment_written_after_a_store_was_stamped_v16_is_added_when_it_opens(
@@ -88,7 +89,7 @@ def test_a_fragment_written_after_a_store_was_stamped_v16_is_added_when_it_opens
     NoustStore(path)
 
     assert "v16_probe" in tables_of(path)
-    assert version_of(path) == 16
+    assert version_of(path) == SCHEMA_VERSION
 
 
 def test_a_column_written_later_is_added_and_a_complete_store_is_left_alone(
@@ -128,4 +129,4 @@ def test_a_store_that_climbs_from_v15_has_the_tables_of_v16_the_first_time_it_op
     # The climb itself adds them: waiting for the next opening leaves a process that has just
     # upgraded a server running on a store without the tables its own code reads.
     assert "v16_probe" in tables_of(path)
-    assert version_of(path) == 16
+    assert version_of(path) == SCHEMA_VERSION

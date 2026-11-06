@@ -237,7 +237,7 @@ are not included, and a Compose stack's bind-mounted data is, because it is insi
 
   Over the API it is `PUT /api/apps/{domain}/disk/kernel` with `{"enabled": true}` (`apps.manage`, sudo mode; a
   job, because the project id is written on every file already in the tree), and the console offers it under
-  **Settings > Disk** once the filesystem has project quotas. What it does, and does not:
+  **Resources and running** (Disk) once the filesystem has project quotas. What it does, and does not:
 
   - It sets a project id of Noust's own range (3000000000 plus the application's id, kept in the store) on the
     application's directory, with `xfs_quota` on XFS and `chattr` and `setquota` on ext4, and the limit on the
@@ -287,7 +287,7 @@ noust app replication shop.example.com
 It reads this server's records of the application, its `.env` (the names of the variables, never their
 values), a Compose stack's compose file and the list of the server's scheduled tasks, and changes nothing and
 reaches no other server. `GET /api/apps/{domain}/replication` (`apps.read`) answers the same, and the console
-shows it under **Settings > Export**.
+shows it under **Export and declaration**.
 
 | Finding | Says | |
 |---|---|---|

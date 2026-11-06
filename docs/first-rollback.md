@@ -75,7 +75,7 @@ log. The previous releases stay on disk, so going back rebuilds nothing.
 
    It prints the secret, the payload URL, the events to enable and where to add them on the Git
    host. `noust app webhook show wrenfield.io` says later how far it is set up. In the console:
-   the application's **Settings > Deploy on push**. A push that arrives while a build runs waits
+   the application's **Deploys and triggers** (Deploy on push). A push that arrives while a build runs waits
    its turn; several pushes become one update.
 
 ## What you should see

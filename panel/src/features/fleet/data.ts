@@ -20,7 +20,7 @@ import type { PlainKey } from "../../i18n";
 export type FleetView = ResponseOf<"/api/fleet/summary", "get">;
 export type NodeOutcome = FleetView["nodes"][number];
 export type FleetRow = FleetView["items"][number];
-export type FleetResource = "summary" | "servers" | "apps" | "certificates" | "backups" | "updates" | "activity";
+export type FleetResource = "summary" | "servers" | "apps" | "certificates" | "backups" | "updates" | "software" | "activity";
 
 export type FleetActions = ResponseOf<"/api/fleet/actions", "get">;
 export type FleetActionSpec = FleetActions["actions"][number];
@@ -29,7 +29,6 @@ export type FleetActionAnswer = ResponseOf<"/api/fleet/actions", "post">;
 export type FleetPlan = FleetActionAnswer["plan"];
 export type FleetNodeState = FleetPlan["nodes"][number];
 export type FleetJob = ResponseOf<"/api/fleet/jobs/{job_id}", "get">;
-export type FleetJobList = ResponseOf<"/api/fleet/jobs", "get">;
 
 // ---------------------------------------------------------------------------------------
 // Queries
@@ -50,6 +49,7 @@ export const VIEW_POLL_MS: Readonly<Record<FleetResource, number>> = {
   certificates: 60_000,
   backups: 60_000,
   updates: 60_000,
+  software: 60_000,
   activity: 30_000,
 };
 
@@ -60,6 +60,7 @@ const VIEW_PATHS = {
   certificates: "/api/views/certificates",
   backups: "/api/fleet/backups",
   updates: "/api/fleet/updates",
+  software: "/api/fleet/software",
   activity: "/api/fleet/activity",
 } as const;
 
@@ -88,14 +89,6 @@ export const fleetActionsQuery = () =>
     queryKey: fleetKeys.actions,
     queryFn: ({ signal }) => request("get", "/api/fleet/actions", { signal }),
     staleTime: Number.POSITIVE_INFINITY,
-  });
-
-/** The fleet's own jobs, newest first. */
-export const fleetJobsQuery = (limit = 10) =>
-  queryOptions({
-    queryKey: [...fleetKeys.jobs, limit] as const,
-    queryFn: ({ signal }) => request("get", "/api/fleet/jobs", { query: { limit }, signal }),
-    refetchInterval: 15_000,
   });
 
 /** How often a running job is read again. */
@@ -283,9 +276,12 @@ export interface OsUpdates {
   os: string | null;
 }
 
-/** A server's operating system updates, from its own server summary; null when it gave none. */
+/**
+ * A server's operating system updates, from its own server summary; null when it gave none. The updates view gives them
+ * as `os`, and the summary view as `server` (the same `GET /api/server/summary`): one reader for both.
+ */
 export function osUpdatesOf(row: FleetRow): OsUpdates | null {
-  const os = object(row["os"]);
+  const os = object(row["os"]) ?? object(row["server"]);
   if (os === null) return null;
   const updates = object(os["updates"]);
   const reboot = object(os["reboot"]);
@@ -296,6 +292,34 @@ export function osUpdatesOf(row: FleetRow): OsUpdates | null {
     reboot: typeof reboot?.["required"] === "boolean" ? reboot["required"] : typeof os["reboot"] === "boolean" ? os["reboot"] : null,
     os: text(system?.["name"]) ?? text(system?.["pretty_name"]),
   };
+}
+
+/** How loaded a server is now, in percent: the machine snapshot the summary view carries. */
+export interface Load {
+  cpu: number | null;
+  memory: number | null;
+  disk: number | null;
+}
+
+/** A server's processor, memory and disk as it last said them; null when it gave no snapshot (an older Noust, a server that was down). */
+export function loadOf(row: FleetRow): Load | null {
+  const machine = object(row["machine"]);
+  if (machine === null) return null;
+  return {
+    cpu: number(machine["cpu_percent"]),
+    memory: number(object(machine["memory"])?.["percent"]),
+    disk: number(object(machine["disk"])?.["percent"]),
+  };
+}
+
+/** The system a server runs ("Debian 12"), from its own server summary; null when it gave none. */
+export function systemNameOf(row: FleetRow): string | null {
+  const server = object(row["server"]) ?? object(object(row["os"])?.["os"]);
+  const os = object(server?.["os"]) ?? server;
+  const name = text(os?.["name"]) ?? text(os?.["pretty_name"]);
+  const version = text(os?.["version"]);
+  if (name === null) return null;
+  return version !== null && !name.includes(version) ? `${name} ${version}` : name;
 }
 
 /** A server's own "needs attention" list, from its Overview; null for a server too old to give one. */

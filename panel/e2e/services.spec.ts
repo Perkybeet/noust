@@ -9,9 +9,8 @@ import { confirmItsYou } from "./settings.helpers";
 
 test("lists a seeded Noust-managed service in the Server area and opens its page", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/server/services");
-  // A server's page is titled by the server: the machine's own name, which the session carries.
-  const { hostname } = (await (await page.request.get("/api/auth/session")).json()) as { hostname: string };
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(hostname);
+  // A section is titled by itself, not by the machine: Services says what it lists on the line under it.
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Services");
   await expect(page.getByRole("navigation", { name: "Server sections" }).getByRole("link", { name: "Services" })).toHaveAttribute("aria-current", "page");
 
   const table = page.getByRole("region", { name: /^Services/ });
@@ -144,8 +143,12 @@ test("shows every unit of the system, one Noust did not create read only", async
   // seeded backup timer of a PostgreSQL database has "postgresql" inside its name, and a count of
   // zero taken before the rows arrive passes for the wrong reason (and fails once a page loads
   // faster, as the second test of a worker does).
+  // The units that fail come first and the rest by name, so the seeded one is asked for by its name.
+  await expect(page.getByRole("region", { name: /^Services/ }).getByRole("link").first()).toBeVisible();
+  await page.getByRole("searchbox", { name: "Search services" }).fill("noust-web");
   await expect(page.getByRole("link", { name: "noust-web", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "postgresql", exact: true })).toHaveCount(0);
+  await page.getByRole("searchbox", { name: "Search services" }).fill("");
 
   await page.getByRole("radio", { name: "Whole system" }).click();
   await expect(page).toHaveURL(/[?&]all=true/);
@@ -156,8 +159,8 @@ test("shows every unit of the system, one Noust did not create read only", async
   await page.getByRole("searchbox", { name: "Search services" }).fill("postgresql");
   const row = page.getByRole("row").filter({ has: page.getByText("postgresql", { exact: true }) });
   await expect(row).toBeVisible();
-  // The Managed column on a desktop (a phone says it beside the name instead).
-  await expect(row.getByRole("cell", { name: "Foreign", exact: true })).toBeVisible();
+  // Whose a unit is has a column of its own on a desktop (a phone says it beside the name instead).
+  await expect(row.getByRole("cell", { name: "The system's", exact: true })).toBeVisible();
 
   await settle(page);
   await expectNoA11yViolations(page, "the services tab with every unit shown");

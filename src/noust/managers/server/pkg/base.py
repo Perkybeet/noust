@@ -24,10 +24,12 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
+from noust.core.exceptions import ValidationError
 from noust.core.fs import FileSystem, get_fs
 from noust.core.runner import CommandResult, CommandRunner, get_runner
 from noust.managers.server.errors import HostBusyError, ServerError
 from noust.managers.server.host import HostPaths, Platform
+from noust.validators.package import validate_package
 
 #: Deadline of a probe that only asks the machine a question.
 PROBE_TIMEOUT = 20
@@ -202,6 +204,30 @@ class AutoUpdates:
     reboots: bool = False
     last_run: str | None = None
     detail: str = ""
+
+
+def named_packages(packages: Sequence[str]) -> list[str]:
+    """
+    Check the names a removal is about to be given to a package manager.
+
+    A name that begins with a dash is an option, one with ``*`` a pattern, and a removal is the
+    one command here that cannot be taken back: the names are judged where the argv is built,
+    whoever the caller is.
+
+    Args:
+        packages: The names.
+
+    Returns:
+        The same names, each judged by :func:`~noust.validators.package.validate_package`.
+
+    Raises:
+        ValidationError: There are none, or one is not a package name.
+    """
+    if not packages:
+        raise ValidationError(
+            "No package was named", "A removal is given the packages it takes out."
+        )
+    return [validate_package(name) for name in packages]
 
 
 class PackageBackend(ABC):
@@ -417,6 +443,95 @@ class PackageBackend(ABC):
         """
         return self.install_argv(packages)
 
+    @abstractmethod
+    def remove_argv(self, packages: Sequence[str]) -> list[str]:
+        """
+        Build the command that removes packages, and only them.
+
+        Never a purge: what a package left in ``/etc`` stays, because the operator may install it
+        again and an engine's data is deleted by its own explicit action. Never ``autoremove``
+        either: what else goes is what :meth:`simulate_remove_argv` said and the caller decided.
+
+        Args:
+            packages: Package names; each is judged by :func:`named_packages`.
+
+        Returns:
+            The argv.
+
+        Raises:
+            ValidationError: A name is not a package name, or there are none.
+            UnsupportedHostError: Packages are not managed by Noust here.
+        """
+
+    @abstractmethod
+    def simulate_remove_argv(self, packages: Sequence[str]) -> list[str]:
+        """
+        Build the command that says what removing packages would take, changing nothing.
+
+        It is declared a read-only probe (``managers/server/probes.py``), so a ``--dry-run`` runs it.
+
+        Args:
+            packages: Package names; each is judged by :func:`named_packages`.
+
+        Returns:
+            The argv; read its result with :meth:`removal_names`.
+
+        Raises:
+            ValidationError: A name is not a package name, or there are none.
+            UnsupportedHostError: Packages are not managed by Noust here.
+        """
+
+    @abstractmethod
+    def removal_names(self, result: CommandResult) -> list[str]:
+        """
+        Read which packages a simulated removal would take out.
+
+        Args:
+            result: What :meth:`simulate_remove_argv` printed.
+
+        Returns:
+            The package names, the ones asked for and what depends on them; empty when nothing
+            is installed to remove.
+
+        Raises:
+            ServerError: The simulation failed for a reason other than "nothing to remove"; the
+                error carries the tool's own words.
+        """
+
+    def simulate_remove(self, packages: Sequence[str]) -> list[str]:
+        """
+        Say which packages removing some would take out, without removing anything.
+
+        Args:
+            packages: Package names.
+
+        Returns:
+            Every package that would go, the named ones included.
+
+        Raises:
+            ValidationError: A name is not a package name.
+            ServerError: The package manager could not simulate it.
+        """
+        result = self.probe(self.simulate_remove_argv(packages), timeout=LIST_TIMEOUT)
+        return self.removal_names(result)
+
+    def remove(self, packages: Sequence[str], *, timeout: int) -> CommandResult:
+        """
+        Remove packages and report what the package manager said.
+
+        Args:
+            packages: Package names; each is judged by :func:`named_packages`.
+            timeout: Seconds the removal may take.
+
+        Returns:
+            The result; read ``success`` and the output. A failure is the caller's to explain.
+
+        Raises:
+            ValidationError: A name is not a package name.
+            UnsupportedHostError: Packages are not managed by Noust here.
+        """
+        return self.runner.run(self.remove_argv(packages), env=self.env(), timeout=timeout)
+
     def installed_argv(self, packages: Sequence[str]) -> list[str]:
         """
         Build the command that asks which of some packages are installed. Changes nothing.
@@ -444,6 +559,51 @@ class PackageBackend(ABC):
         """
         asked = set(packages)
         return {line.strip() for line in result.stdout.splitlines() if line.strip() in asked}
+
+    def versions_argv(self, packages: Sequence[str]) -> list[str]:
+        """
+        Build the command that prints the version of each of some packages. Changes nothing.
+
+        Args:
+            packages: Package names, already validated by the caller.
+
+        Returns:
+            The argv; read its result with :meth:`read_versions`. The rpm families' ``rpm -q``,
+            which apt's backend replaces.
+        """
+        return ["rpm", "-q", "--qf", "%{NAME} %{VERSION}-%{RELEASE}\\n", *packages]
+
+    def read_versions(self, result: CommandResult, packages: Sequence[str]) -> dict[str, str]:
+        """
+        Read the versions :meth:`versions_argv` printed.
+
+        Args:
+            result: What it printed; ``rpm -q`` exits non-zero when any package is missing, so
+                the output is read whatever the status.
+            packages: The names that were asked about.
+
+        Returns:
+            Each installed package's name and version; a package that is not installed is absent.
+        """
+        asked = set(packages)
+        found: dict[str, str] = {}
+        for line in result.stdout.splitlines():
+            parts = line.split()
+            if len(parts) == 2 and parts[0] in asked:
+                found[parts[0]] = parts[1]
+        return found
+
+    def installed_versions(self, packages: Sequence[str]) -> dict[str, str]:
+        """
+        Ask which of some packages are installed, and in which version.
+
+        Args:
+            packages: Package names, already validated by the caller.
+
+        Returns:
+            Name to version for each one that is installed.
+        """
+        return self.read_versions(self.probe(self.versions_argv(packages)), packages)
 
     @abstractmethod
     def repair_commands(self) -> list[list[str]]:

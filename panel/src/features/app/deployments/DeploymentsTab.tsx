@@ -318,7 +318,6 @@ export function DeploymentsTab({ domain, search, onSearchChange }: DeploymentsTa
         icon={<OBJECT_ICONS.deployment />}
         title={t("appPages.deployments.tab.emptyTitle")}
         description={t("appPages.deployments.tab.emptyDescription")}
-        command={`noust update ${domain}`}
       />
     ) : (
       <EmptyState

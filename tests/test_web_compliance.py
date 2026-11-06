@@ -128,6 +128,22 @@ class TestReading:
 
         assert own_counts()["token_max_days"] is True
 
+    def test_a_profile_that_is_not_one_says_so(self, app: Any, real_config: Config) -> None:
+        viewer = Person(app, "vera", "viewer")
+        before = viewer.get("/api/compliance").json()
+        real_config.set("security.profile", "off")
+
+        body = viewer.get("/api/compliance").json()
+
+        assert (before["legacy_profile_valid"], before["legacy_profile_read_as"]) == (
+            True,
+            "standard",
+        )
+        assert body["legacy_profile"] == "off"
+        assert body["legacy_profile_valid"] is False
+        assert body["legacy_profile_read_as"] == "ens-medium"
+        assert next(f for f in body["frameworks"] if f["id"] == "ens-media")["enabled"] is True
+
     def test_nobody_anonymous_does(self, app: Any) -> None:
         anonymous = TestClient(app, client=("testclient", 50000))
 
@@ -291,6 +307,85 @@ class TestTheCheck:
         maria = Person(app, "maria", "admin")
 
         assert maria.get("/api/compliance/check?framework=nope").status_code == 400
+
+
+class TestTheReportOfTheFrameworksThatAreOn:
+    """What the ENS report gave, for every framework that is on: the result and a download."""
+
+    @pytest.fixture(autouse=True)
+    def nothing_is_read_from_the_server(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from datetime import datetime, timezone
+
+        from noust.core.ens import checks
+
+        facts = checks.Facts(profile="standard", now=datetime.now(timezone.utc))
+        monkeypatch.setattr(checks, "gather", lambda sources=None: facts)
+
+    def test_nothing_on_means_nothing_judged_and_nothing_red(self, app: Any) -> None:
+        maria = Person(app, "maria", "admin")
+
+        body = maria.get("/api/compliance/check").json()
+
+        assert body["enabled"] == [] and body["frameworks"] == []
+        assert body["verdict"] == "ok"
+
+    def test_each_framework_that_is_on_is_judged_with_its_result(self, app: Any) -> None:
+        maria = Person(app, "maria", "admin")
+        maria.put({"enable": ["nis2", "iso-27001"], "acknowledge": True})
+
+        body = maria.get("/api/compliance/check").json()
+
+        assert body["enabled"] == ["iso-27001", "nis2"]
+        assert [f["framework"] for f in body["frameworks"]] == ["iso-27001", "nis2"]
+        assert all(f["enabled"] and f["counts"] and f["verdict"] for f in body["frameworks"])
+        assert body["host"] and body["version"] and body["checked_at"]
+
+    def test_the_result_downloads_as_markdown_with_its_digest(self, app: Any) -> None:
+        maria = Person(app, "maria", "admin")
+        maria.put({"enable": ["nis2"], "acknowledge": True})
+
+        response = maria.get("/api/compliance/check?format=markdown")
+
+        assert response.status_code == 200, response.text
+        assert response.headers["content-type"].startswith("text/markdown")
+        disposition = response.headers["content-disposition"]
+        assert "attachment" in disposition and ".md" in disposition
+        assert len(response.headers["x-noust-report-sha256"]) == 64
+        assert response.text.startswith("# Compliance report")
+        assert "NIS2" in response.text
+
+    def test_the_download_can_be_one_framework(self, app: Any) -> None:
+        maria = Person(app, "maria", "admin")
+
+        response = maria.get("/api/compliance/check?framework=iso-27001&format=markdown")
+
+        assert response.status_code == 200, response.text
+        assert "ISO/IEC 27001" in response.text and "NIS2" not in response.text
+
+    def test_an_unknown_format_is_refused(self, app: Any) -> None:
+        maria = Person(app, "maria", "admin")
+
+        assert maria.get("/api/compliance/check?format=pdf").status_code == 422
+
+    def test_reading_the_result_and_downloading_it_are_recorded(self, app: Any) -> None:
+        maria = Person(app, "maria", "admin")
+        maria.put({"enable": ["nis2"], "acknowledge": True})
+
+        maria.get("/api/compliance/check")
+        download = maria.get("/api/compliance/check?format=markdown")
+
+        newest_first = audited("compliance.read")
+        assert [e["resource"] for e in newest_first[:2]] == ["compliance:check"] * 2
+        assert newest_first[0]["details"]["sha256"] == download.headers["x-noust-report-sha256"]
+        assert newest_first[1]["details"]["format"] == "json"
+
+    def test_an_auditor_reads_it_and_a_viewer_does_not(self, app: Any) -> None:
+        auditor = Person(app, "ana", "auditor")
+        viewer = Person(app, "vera", "viewer")
+
+        assert auditor.get("/api/compliance/check").status_code == 200
+        assert viewer.get("/api/compliance/check").status_code == 403
+        assert viewer.get("/api/compliance/check?format=markdown").status_code == 403
 
 
 class TestOneAccountIsEnough:

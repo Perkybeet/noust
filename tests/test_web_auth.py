@@ -83,6 +83,10 @@ PUBLIC_API_PATHS = frozenset(
         "/api/auth/saml/start",
         "/api/auth/saml/acs",
         "/api/auth/saml/metadata/{provider}",
+        # The picture and the words the sign-in screen shows before anyone is signed in: an
+        # operator's own logo and its alternative text, nothing about the server (item 129).
+        "/api/auth/sign-in/appearance",
+        "/api/auth/sign-in/image",
         # A provisioning source presents the bearer token issued for it, checked by the handlers
         # once; a wrong one is counted against the address.
         "/api/scim/v2/ServiceProviderConfig",
@@ -128,6 +132,9 @@ PUBLIC_PATHS = frozenset(
         # the address on the account.
         "/api/auth/password-reset/request",
         "/api/auth/password-reset/confirm",
+        # What the sign-in screen draws before a session (item 129).
+        "/api/auth/sign-in/appearance",
+        "/api/auth/sign-in/image",
         "/api/auth/passkeys/login/options",
         "/api/auth/passkeys/login",
         # The identity provider's answer is the credential; a guess at it is counted.

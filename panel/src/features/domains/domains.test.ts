@@ -3,11 +3,11 @@ import { describe, expect, it } from "vitest";
 import { ApiError } from "../../api/errors";
 import type { Job } from "../../api/queries/jobs";
 import { setLocale } from "../../app/locale";
-import { createSiteBody } from "./CreateSiteDialog";
+import { createSiteBody, siteOutcome } from "./siteForm";
 import { issueRequest } from "./IssueCertificateDialog";
 import { byUrgency, certificateJobFor, certificateView, covers, issuerName } from "./certificates";
 import { configRejection, failingLine, lineOffset } from "./configErrors";
-import { cdnName, dnsVerdict, isPrivateAddress, recordsToCreate } from "./dns";
+import { cdnName, dnsCellOf, dnsVerdict, isPrivateAddress, recordsToCreate } from "./dns";
 import { domainProblem, parseNames, truncatedNames, wwwOf } from "./names";
 import { validateCertificatesSearch, validateSitesSearch } from "./search";
 
@@ -98,6 +98,14 @@ describe("DNS checks", () => {
     expect(dnsVerdict(check(["203.0.113.10"], true))).toBe("here");
     expect(dnsVerdict(check(["198.51.100.23"], false))).toBe("elsewhere");
     expect(dnsVerdict(check([], false))).toBe("missing");
+  });
+
+  it("tells a name in the DNS column of the list: well when it points here or behind a CDN, not well when it points elsewhere or nowhere", () => {
+    expect(dnsCellOf({ ...check(["203.0.113.10"], true), cdn: null })).toEqual({ state: "running", verdict: "here" });
+    expect(dnsCellOf({ ...check(["104.16.0.1"], false), verdict: "cdn", cdn: "cloudflare" })).toEqual({ state: "running", verdict: "cdn", cdn: "Cloudflare" });
+    expect(dnsCellOf({ ...check(["10.0.0.1"], false), verdict: "unknown", cdn: null })).toEqual({ state: "unknown", verdict: "unknown" });
+    expect(dnsCellOf({ ...check(["198.51.100.23"], false), cdn: null })).toEqual({ state: "warning", verdict: "elsewhere" });
+    expect(dnsCellOf({ ...check([], false), cdn: null })).toEqual({ state: "warning", verdict: "missing" });
   });
 
   it("proposes A and AAAA records for public addresses only", () => {
@@ -208,6 +216,15 @@ describe("creating a site", () => {
     expect(createSiteBody({ ...form, domain: "nope", port: "70000" })).toEqual({
       errors: { domain: expect.stringMatching(/two parts/) as string, port: expect.stringMatching(/between 1 and 65535/) as string },
     });
+  });
+
+  it("tells a site that came without HTTPS, or that the web server would not load, by the code the server sent and never by its English", () => {
+    for (const code of ["sites.created.without_tls", "sites.created.without_tls_because"]) expect(siteOutcome({ code })).toBe("withoutHttps");
+    expect(siteOutcome({ code: "sites.created.not_loaded" })).toBe("notLoaded");
+    for (const code of ["sites.created.with_ssl", "sites.created.reload", "sites.reloaded", "sites.created.something_new"]) expect(siteOutcome({ code })).toBe("made");
+    // The server's sentence is not read: a reworded one is the same answer, and no code is a success.
+    expect(siteOutcome(null)).toBe("made");
+    expect(siteOutcome(undefined)).toBe("made");
   });
 });
 

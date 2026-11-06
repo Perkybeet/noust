@@ -45,11 +45,14 @@ describe("tags on databases", () => {
     return { ...harness, backend, table };
   }
 
-  it("shows each database's tags under its name and offers the filter only once one has a tag", async () => {
+  it("shows each database's tags on the line of its name and offers the filter only once one has a tag", async () => {
     const { table, user } = await listAt();
     const row = (await within(table).findByText("example_production")).closest("tr");
     if (!row) throw new Error("no row");
-    expect(within(within(row).getByRole("list", { name: "Tags" })).getByText("customer-a")).toBeInTheDocument();
+    // The tags follow the name on its one line (item 122), not stacked under it.
+    const line = within(row).getByText("customer-a").closest("[data-slot=name-with-tags]");
+    expect(line).toHaveTextContent("example_production");
+    expect(line).toHaveTextContent("prod");
 
     await user.click(await screen.findByRole("combobox", { name: "Tag" }));
     await user.click(await screen.findByRole("option", { name: "prod" }));
@@ -153,17 +156,19 @@ describe("tags on services", () => {
       ...extra,
     });
     const harness = renderConsole("/server/services");
-    await screen.findByRole("heading", { level: 1, name: "web-01" });
+    await screen.findByRole("heading", { level: 1, name: "Services" });
     // A list replaces its skeleton: the region to look in is the loaded one.
     const table = await findLoadedRegion(/Services/);
     return { ...harness, backend, table };
   }
 
-  it("shows each unit's tags under its name and narrows the list to one", async () => {
+  it("shows each unit's tags on the line of its name and narrows the list to one", async () => {
     const { table, user } = await servicesAt();
     const row = (await within(table).findByText("worker")).closest("tr");
     if (!row) throw new Error("no row");
-    expect(within(within(row).getByRole("list", { name: "Tags" })).getByText("prod")).toBeInTheDocument();
+    // The tags follow the unit's name on its one line (item 122), not stacked under it.
+    const line = within(row).getByText("prod").closest("[data-slot=name-with-tags]");
+    expect(line).toHaveTextContent("worker");
 
     await user.click(await screen.findByRole("combobox", { name: "Tag" }));
     await user.click(await screen.findByRole("option", { name: "prod" }));

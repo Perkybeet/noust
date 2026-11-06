@@ -209,6 +209,9 @@ export function sinceOf(item: OverviewAttentionItem): string | null {
 // ---------------------------------------------------------------------------------------
 // What happened
 
+/** How many things that happened a panel keeps to show: the widget draws the first ones its room has for. */
+export const ACTIVITY_SHOWN = 8;
+
 /** One thing that happened, with the server it happened on when the console has more than one. */
 export interface ActivityLine {
   key: string;

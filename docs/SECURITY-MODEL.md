@@ -127,9 +127,9 @@ central that has been compromised, an application that has been compromised.
 
 **The failure it answers.** A confirmation that stays valid for hours is not a fresh proof. Coolify's password confirmation lasts three hours (`password_timeout` is 10800 in `config/auth.php:113`; 4.4.0, read on 2026-10-13); Noust's sudo mode closes fifteen minutes after the last elevated action, and a window it opened never outlives its ceiling.
 
-**The guarantee.** Five roles with least privilege. Actions that are destructive or root-equivalent need sudo mode, a fresh proof of who is asking with a password or a passkey, for every kind of identity (a single-sign-on user's provider never stands in for the second factor). Where approvals are on, a root-equivalent change waits for a second person, and the approver cannot be the requester. The master token is break-glass, not the normal way in, and is reduced to account recovery under the ENS profile.
+**The guarantee.** Five roles with least privilege. Actions that are destructive or root-equivalent need sudo mode, a fresh proof of who is asking with a password or a passkey, for every kind of identity (a single-sign-on user's provider never stands in for the second factor). Where approvals are on, a root-equivalent change waits for a second person, and the approver cannot be the requester. The master token is break-glass, not the normal way in, and is reduced to account recovery under the ENS profile. An API token never opens sudo mode, so one made for an account is refused wherever it is asked; the one way round is explicit (`noust token create --elevated`, `allow_elevated` in the API), issued only by whoever governs accounts, listed as such, refused wherever the `restricted_tokens` control is on, and every action it takes there is audited as `auth.token.elevated` with the token's name.
 
-**How it is enforced.** `web/api/deps.py` (`require_elevated`), `core/accounts/approvals.py`, `web/permissions/roles.py`.
+**How it is enforced.** `web/api/deps.py` (`require_elevated`, `ensure_elevated`), `web/auth/tokens.py` (`create_api_token`), `core/accounts/approvals.py`, `web/permissions/roles.py`.
 
 **What fails if it stops holding.**
 
@@ -141,8 +141,12 @@ central that has been compromised, an application that has been compromised.
   - `tests/test_web_oidc.py::TestTheWholeSignIn::test_the_provider_alone_is_never_the_whole_sign_in`
   - `tests/test_approvals.py::TestExecution::test_only_the_requester_executes`
   - `tests/test_approvals.py::TestDeciding::test_security_approves_and_the_requester_executes_once`
+  - `tests/test_elevated_tokens.py::TestOverHttp::test_a_token_that_was_not_made_to_is_asked_for_sudo_mode`
+  - `tests/test_elevated_tokens.py::TestOverHttp::test_one_that_was_acts_and_every_action_is_recorded_with_its_name`
+  - `tests/test_elevated_tokens.py::TestAtTheChokepoint::test_somebody_who_does_not_may_not_issue_it_even_for_themselves`
+  - `tests/test_elevated_tokens.py::TestFromTheCommandLine::test_it_is_refused_where_tokens_are_restricted`
 
-**What it does not cover.** Four-eyes approval is off by default and a single-person installation cannot use it.
+**What it does not cover.** Four-eyes approval is off by default and a single-person installation cannot use it. A token issued to act in sudo mode is a standing exemption: nobody confirms what it does, so its power is its owner's role and its trail is the audit log.
 
 ### 6. The sign-in surface is limited by a client that cannot choose its own identity
 
@@ -359,8 +363,8 @@ only what recovering an account takes.
 ### The routes
 
 <!-- generated:routes -->
-- **1129** API operations. **1087** need a permission (`x-noust-permission`) and **42** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **373** operations need sudo mode and **54** can need a second person.
+- **1144** API operations. **1100** need a permission (`x-noust-permission`) and **44** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **377** operations need sudo mode and **54** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
@@ -370,7 +374,7 @@ only what recovering an account takes.
 | `apps.deploy` | 39 |
 | `apps.manage` | 146 |
 | `apps.operate` | 34 |
-| `apps.read` | 151 |
+| `apps.read` | 152 |
 | `apps.terminal` | 12 |
 | `audit.manage` | 1 |
 | `audit.read` | 10 |
@@ -382,15 +386,15 @@ only what recovering an account takes.
 | `databases.read` | 71 |
 | `databases.write` | 13 |
 | `fleet.manage` | 54 |
-| `fleet.read` | 29 |
-| `public` | 42 |
+| `fleet.read` | 31 |
+| `public` | 44 |
 | `root_equivalent` | 20 |
 | `secrets.reveal` | 16 |
-| `security.manage` | 8 |
-| `self` | 41 |
-| `server.host_access` | 26 |
-| `server.manage` | 67 |
-| `server.read` | 85 |
+| `security.manage` | 10 |
+| `self` | 45 |
+| `server.host_access` | 27 |
+| `server.manage` | 68 |
+| `server.read` | 87 |
 | `server.terminal` | 1 |
 | `settings.manage` | 34 |
 | `settings.read` | 26 |
@@ -411,7 +415,7 @@ only what recovering an account takes.
 | `Permissions-Policy` | `accelerometer=(), bluetooth=(), browsing-topics=(), camera=(), display-capture=(), geolocation=(), gyroscope=(), hid=(), interest-cohort=(), magnetometer=(), microphone=(), midi=(), payment=(), serial=(), usb=()` |
 | `X-Permitted-Cross-Domain-Policies` | `none` |
 | `Strict-Transport-Security` (over TLS, direct or through a declared proxy) | `max-age=31536000; includeSubDomains` |
-| `Cache-Control` | `no-store`, except hashed files under `/assets/`: `public, max-age=31536000, immutable` |
+| `Cache-Control` | `no-store`, except hashed files under `/assets/` and the sign-in picture asked for by its own digest: `public, max-age=31536000, immutable` |
 
 The policy:
 
@@ -485,14 +489,14 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **532** events.
+The catalogue holds **537** events.
 
 | Category | Events |
 |---|---|
-| access | 48 |
+| access | 49 |
 | account | 40 |
-| config | 30 |
-| change | 352 |
+| config | 32 |
+| change | 354 |
 | read | 21 |
 | denial | 16 |
 | system | 22 |

@@ -55,9 +55,9 @@ const HOSTS = {
   total: 2,
 };
 
-async function integrations(routes: Record<string, RouteHandler> = {}) {
+async function integrations(routes: Record<string, RouteHandler> = {}, session: typeof SESSION = ELEVATED) {
   const backend = fakeBackend({
-    ...signedInRoutes(ELEVATED),
+    ...signedInRoutes(session),
     "GET /api/integrations/github": () => json(200, { configured: false, installations: [], hooks_url: null, hooks_active: false }),
     "GET /api/config": () => json(200, { config: { web: { hooks_url: "" } }, path: "/etc/noust/config.yaml", writable: true }),
     "GET /api/deploy-keys": () => json(200, { keys: [KEY, MACHINE_USER], total: 2 }),
@@ -65,10 +65,11 @@ async function integrations(routes: Record<string, RouteHandler> = {}) {
     ...routes,
   });
   const harness = renderConsole("/settings/deploy-keys");
-  const heading = await screen.findByRole("heading", { level: 2, name: "Keys of this server" });
-  const section = heading.closest("section");
-  if (!section) throw new Error("no deploy keys section");
-  return { ...harness, backend, section };
+  // The page holds the three slabs: the keys, the code hosts this server trusts and the form that adds one.
+  await screen.findByRole("heading", { level: 2, name: "Keys of this server" });
+  const page = screen.getByRole("heading", { level: 1, name: "Deploy keys" }).closest("[data-template=detail]");
+  if (!(page instanceof HTMLElement)) throw new Error("no page");
+  return { ...harness, backend, section: page };
 }
 
 describe("the deploy keys of the server, in Settings", () => {
@@ -82,8 +83,9 @@ describe("the deploy keys of the server, in Settings", () => {
     expect(within(own).getByText("ssh-ed25519")).toBeInTheDocument();
     expect(within(own).getByText(KEY.fingerprint)).toBeInTheDocument();
     expect(within(own).getByText("github.com/shop/storefront")).toBeInTheDocument();
-    expect(within(own).getByText("In use")).toBeInTheDocument();
-    expect(within(own).getByRole("link", { name: "shop.example.com" })).toHaveAttribute("href", "/apps/shop.example.com/settings/source");
+    // A key in use is the common one and says nothing: only the one being replaced says its state.
+    expect(within(own).queryByText("In use")).not.toBeInTheDocument();
+    expect(within(own).getByRole("link", { name: "shop.example.com" })).toHaveAttribute("href", "/apps/shop.example.com/code");
   });
 
   it("says a key that is being replaced, and names two applications and counts the rest", async () => {
@@ -92,17 +94,47 @@ describe("the deploy keys of the server, in Settings", () => {
     const shared = within(table).getByText("machine-user").closest("tr");
     if (!shared) throw new Error("no row for the shared key");
     expect(within(shared).getByText("Being replaced")).toBeInTheDocument();
+    // The applications are tags of the key's name, on its line: the first, and "+N" for the rest.
     expect(within(shared).getByRole("link", { name: "api.example.com" })).toBeInTheDocument();
-    expect(within(shared).getByRole("link", { name: "web.example.com" })).toBeInTheDocument();
-    expect(within(shared).queryByRole("link", { name: "docs.example.com" })).not.toBeInTheDocument();
-    expect(within(shared).getByText("and 1 more")).toBeInTheDocument();
+    expect(within(shared).queryByRole("link", { name: "web.example.com" })).not.toBeInTheDocument();
+    expect(within(shared).getByRole("button", { name: /2 more tags: web.example.com, docs.example.com/ })).toHaveTextContent("+2");
     expect(within(shared).getByText("Never used")).toBeInTheDocument();
   });
 
-  it("says there are none yet and where one is made", async () => {
+  it("says in one sentence what appears here the first time, and takes you to where a key is made", async () => {
     const { section } = await integrations({ "GET /api/deploy-keys": () => json(200, { keys: [], total: 0 }) });
-    expect(await within(section).findByText("No deploy keys yet")).toBeInTheDocument();
-    expect(within(section).getByText(/Open an application's Source settings to make one for its repository/)).toBeInTheDocument();
+    expect(await within(section).findByText("When you deploy from a private repository, its key appears here.")).toBeInTheDocument();
+    expect(within(section).getByRole("link", { name: "Go to Applications" })).toHaveAttribute("href", "/apps");
+  });
+
+  it("is three slabs that say what they are, with no command that repeats a button (items 121 and 123)", async () => {
+    const { section } = await integrations();
+    await within(section).findByRole("table", { name: "Deploy keys of this server" });
+    for (const name of ["Keys of this server", "Trusted code hosts", "Add one before the first connection"]) {
+      expect(screen.getByRole("heading", { level: 2, name })).toBeInTheDocument();
+    }
+    expect(screen.queryByText("noust app deploy-key list")).not.toBeInTheDocument();
+    expect(screen.queryByText("The same, from a terminal")).not.toBeInTheDocument();
+    // The old name of the trusted hosts is gone, and why they are trusted is behind the ? and not on the page.
+    expect(screen.queryByText("Pinned host keys")).not.toBeInTheDocument();
+    expect(screen.queryByText(/pose as GitHub/)).not.toBeInTheDocument();
+  });
+
+  it("keeps why a code host is trusted behind a ? beside its name", async () => {
+    const { user, section } = await integrations();
+    await within(section).findByRole("table", { name: "Deploy keys of this server" });
+    await user.click(screen.getByRole("button", { name: "About Trusted code hosts" }));
+    expect(await screen.findByRole("dialog", { name: "Trusted code hosts" })).toHaveTextContent("So nobody can pose as GitHub or your Gitea between this server and the real one.");
+  });
+
+  it("shows the keys and the hosts to a role that cannot change them: no forgetting, no form, one line on top", async () => {
+    const { section, container } = await integrations({}, { ...SESSION, permissions: ["self", "apps.read"], role: "viewer" });
+    await within(section).findByRole("table", { name: "Deploy keys of this server" });
+    expect(await within(section).findByRole("table", { name: "Code hosts this server trusts" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Forget / })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Add one before the first connection" })).not.toBeInTheDocument();
+    expect(container.querySelector("[data-slot=read-only]")).toHaveTextContent("Your role, viewer, can see this page and not change it. Changing it takes the permission server.host_access.");
+    await expectNoAxeViolations(container);
   });
 
   it("says when they cannot be read", async () => {
@@ -121,7 +153,7 @@ describe("the host keys Noust pinned", () => {
 
   it("lists each host with the key it showed the first time", async () => {
     const { section } = await integrations();
-    const table = await within(section).findByRole("table", { name: "Host keys pinned by this server" });
+    const table = await within(section).findByRole("table", { name: "Code hosts this server trusts" });
     expect(within(table).getByText("github.com")).toBeInTheDocument();
     expect(within(table).getByText("[git.example.com]:2222")).toBeInTheDocument();
     expect(within(table).getByText("ED25519")).toBeInTheDocument();
@@ -165,16 +197,16 @@ describe("the host keys Noust pinned", () => {
         return json(201, GITHUB_HOST);
       },
     });
-    const form = within(await within(section).findByRole("heading", { name: "Pin a host before the first connection" }).then((heading) => heading.closest("section") ?? section));
-    expect(form.getByRole("button", { name: "Pin the host key" })).toBeDisabled();
+    const form = within(await within(section).findByRole("heading", { name: "Add one before the first connection" }).then((heading) => heading.closest("section") ?? section));
+    expect(form.getByRole("button", { name: "Save the fingerprint" })).toBeDisabled();
 
     await user.type(form.getByRole("textbox", { name: /^Host/ }), "github.com");
     await user.type(form.getByRole("textbox", { name: /^Fingerprint/ }), GITHUB_HOST.fingerprint);
-    await user.click(form.getByRole("button", { name: "Pin the host key" }));
+    await user.click(form.getByRole("button", { name: "Save the fingerprint" }));
 
     await waitFor(() => expect(backend.callsTo("POST /api/deploy-keys/hosts")).toHaveLength(1));
     expect(backend.callsTo("POST /api/deploy-keys/hosts")[0]?.body).toEqual({ host: "github.com", fingerprint: GITHUB_HOST.fingerprint });
-    expect(await within(section).findByRole("table", { name: "Host keys pinned by this server" })).toBeInTheDocument();
+    expect(await within(section).findByRole("table", { name: "Code hosts this server trusts" })).toBeInTheDocument();
     expect(form.getByRole("textbox", { name: /^Host/ })).toHaveValue("");
   });
 
@@ -185,11 +217,11 @@ describe("the host keys Noust pinned", () => {
           hint: "It showed: SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU. Compare with the fingerprints the code host publishes.",
         }),
     });
-    const form = within(await within(section).findByRole("heading", { name: "Pin a host before the first connection" }).then((heading) => heading.closest("section") ?? section));
+    const form = within(await within(section).findByRole("heading", { name: "Add one before the first connection" }).then((heading) => heading.closest("section") ?? section));
 
     await user.type(form.getByRole("textbox", { name: /^Host/ }), "github.com");
     await user.type(form.getByRole("textbox", { name: /^Fingerprint/ }), "SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-    await user.click(form.getByRole("button", { name: "Pin the host key" }));
+    await user.click(form.getByRole("button", { name: "Save the fingerprint" }));
 
     expect(await form.findByText("The host key of github.com was not pinned")).toBeInTheDocument();
     expect(form.getByText(/It showed: SHA256:\+DiY3wvvV6TuJJhbpZisF/)).toBeInTheDocument();
@@ -197,13 +229,13 @@ describe("the host keys Noust pinned", () => {
 
   it("has no accessibility violations, and speaks Spanish", async () => {
     const { section } = await integrations();
-    await within(section).findByRole("table", { name: "Host keys pinned by this server" });
+    await within(section).findByRole("table", { name: "Code hosts this server trusts" });
     await expectNoAxeViolations(section);
     await act(() => setLocale("es"));
     expect(await screen.findByRole("heading", { level: 2, name: "Claves de este servidor" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Claves de host fijadas" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Servidores de código de confianza" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Olvidar github.com" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Fijar la clave del host" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Guardar la huella" })).toBeInTheDocument();
     await expectNoAxeViolations(section);
   });
 });

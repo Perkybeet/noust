@@ -57,7 +57,7 @@ class TestAControlTheOperatorSwitchedOn:
 
         assert why.control == "approvals" and why.forced_by == ()
         assert why.command == "noust compliance set approvals off"
-        assert "Settings > Controls" in why.sentence()
+        assert "Settings > Compliance" in why.sentence()
         assert "approvals" in why.sentence() and why.command in why.sentence()
 
     def test_it_is_a_sentence_of_the_catalog_with_the_control_and_the_command_as_values(
@@ -148,7 +148,7 @@ class TestTheReasonTheCommandLineAsksFor:
         assert result.exit_code == 2
         assert "change_reasons" in result.output
         assert "noust compliance set change_reasons off" in result.output
-        assert "Settings > Controls" in result.output
+        assert "Settings > Compliance" in result.output
 
     def test_the_command_it_names_works(self, real_config: Config) -> None:
         real_config.set("security.change_reasons", True)

@@ -1,0 +1,1 @@
+function e(e,t){return{title:e(`teams.projects.title`),description:e(`teams.frame.description`),...t===void 0?{}:{primaryAction:t}}}export{e as t};

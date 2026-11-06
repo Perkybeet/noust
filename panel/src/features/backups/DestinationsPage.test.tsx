@@ -119,12 +119,13 @@ describe("the Destinations tab", () => {
     expect(screen.queryByRole("button", { name: "Encrypt credentials" })).not.toBeInTheDocument();
   });
 
-  it("shows the empty state and its CLI hint when there are none yet", async () => {
+  it("shows the empty state with its one action, and no command that repeats it, when there are none yet", async () => {
     fakeBackend(baseRoutes([]));
     renderConsole("/backups/destinations");
     await screen.findByRole("heading", { level: 1, name: "Backups" });
     expect(await screen.findByRole("heading", { level: 2, name: "No destinations yet" })).toBeInTheDocument();
-    expect(screen.getByText("noust backup destination add <name> --type <backend>")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Add destination" }).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/noust backup destination add/)).not.toBeInTheDocument();
     // One first-use state, not a table with column headers.
     expect(screen.queryByRole("region", { name: "Backup destinations" })).not.toBeInTheDocument();
   });

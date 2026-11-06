@@ -26,7 +26,6 @@ export const backups = {
   },
 
   tabs: {
-    label: "Backup sections",
     backups: "Backups",
     schedules: "Schedules",
     destinations: "Destinations",
@@ -201,7 +200,7 @@ export const backups = {
     title: "Copy {id}",
     description: "Sends this backup to one of your destinations, in the background.",
     submit: "Copy",
-    noDestinations: "No destinations yet. Add one in the Destinations tab.",
+    noDestinations: "No destinations yet. Add one in the Destinations section.",
     error: "The copy was not queued",
   },
 
@@ -304,7 +303,7 @@ export const backups = {
     dumpDatabases: "Include its databases",
     destinationsLegend: "Also copy to",
     noDestinations: "No destinations yet",
-    noDestinationsHint: "Add one in the Destinations tab to copy backups off this server.",
+    noDestinationsHint: "Add one in the Destinations section to copy backups off this server.",
     backupsSuffix: "backups",
     remoteOnly: "Keep nothing on this server",
     remoteOnlyHelp: "Each backup this schedule makes is deleted here once every destination holds it and its upload was checked, and one that could not be sent stays.",

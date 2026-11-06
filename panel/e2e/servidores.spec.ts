@@ -1,6 +1,7 @@
 /**
  * 4.1: a server's page as sections, the list that opens it and the catalog's honest tiles, against
- * the real backend. A lone server first (its page is its name and eight sections, the ports say who
+ * the real backend (4.2: the system's views are sections of the server, and Security and Network are areas of their own).
+ * A lone server first (its page is its name and ten sections, the ports say who
  * holds each, the web server says what moving would do, the files say what is kept), then a central
  * with a node: the Servers area opens the list, a row opens that server, and its permissions section
  * shows what the server lets the central do.
@@ -16,27 +17,27 @@ import { expect, expectNoA11yViolations, settle, signIn, startConsoleServer, tes
 import type { ConsoleServer, RunningServer } from "./fixtures";
 import { confirmItsYou } from "./settings.helpers";
 
-const SECTIONS = ["Status", "System and updates", "Security and SSH", "Network and ports", "Services", "Web server", "Terminal", "Files"] as const;
+const SECTIONS = ["Status", "Machine", "Processes", "Resource monitor", "Updates", "Services", "Web server", "Software", "Files", "Terminal"] as const;
 
 function column(page: Page) {
   return page.getByRole("navigation", { name: "Server sections" });
 }
 
-test("a lone server's page is its name and eight sections, and every one opens without a violation", async ({ page, consoleServer }) => {
+test("a lone server's page is its name and ten sections, each titled by itself, and every one opens without a violation", async ({ page, consoleServer }) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, consoleServer, "/server");
   const links = await column(page).getByRole("link").allTextContents();
   // A count rides after a name that has one ("System and updates8"): the names are what is held.
   expect(links.map((text) => SECTIONS.find((name) => text.startsWith(name)))).toEqual([...SECTIONS]);
-  // The header names the machine: the one page where it does.
+  // Status is named after the machine; every other section after itself.
   const title = await page.getByRole("heading", { level: 1 }).textContent();
   expect(title).not.toBe("Server");
   expect(await column(page).getByRole("link", { name: "Central's permissions" }).count()).toBe(0);
 
   for (const name of SECTIONS) {
     await column(page).getByRole("link", { name: new RegExp(`^${name}`) }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText(title ?? "");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(name === "Status" ? (title ?? "") : name);
     await expect(column(page).getByRole("link", { name: new RegExp(`^${name}`) })).toHaveAttribute("aria-current", "page");
     await settle(page);
     await expectNoA11yViolations(page, `Server > ${name}`);
@@ -44,18 +45,31 @@ test("a lone server's page is its name and eight sections, and every one opens w
 });
 
 test("the 4.0 addresses of a server's tabs go to where each thing is now", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/server/updates");
-  await expect(page).toHaveURL(/\/server\/system$/);
+  await signIn(page, consoleServer, "/server/system");
+  await expect(page).toHaveURL(/\/server\/updates$/);
   await page.goto("/server/storage");
   await expect(page).toHaveURL(/\/server\/files$/);
   await page.goto("/server/security?view=firewall");
-  await expect(page).toHaveURL(/\/server\/network\?view=firewall$/);
+  await expect(page).toHaveURL(/\/network\/firewall$/);
   await page.goto("/server/system?view=network");
-  await expect(page).toHaveURL(/\/server\/network$/);
+  await expect(page).toHaveURL(/\/network\/interfaces$/);
+  // 4.2: Security and Network are areas of their own, and the views of System are sections of the server.
+  await page.goto("/server/security");
+  await expect(page).toHaveURL(/\/security$/);
+  await page.goto("/server/security?view=bans");
+  await expect(page).toHaveURL(/\/security\/blocks$/);
+  await page.goto("/server/network?view=interfaces");
+  await expect(page).toHaveURL(/\/network\/interfaces$/);
+  await page.goto("/server/system?view=processes");
+  await expect(page).toHaveURL(/\/server\/processes$/);
+  await page.goto("/domains/ports");
+  await expect(page).toHaveURL(/\/network$/);
+  await page.goto("/domains/tunnels");
+  await expect(page).toHaveURL(/\/network\/tunnels$/);
 });
 
-test("Network and ports: who uses a port, a free one is offered to open, the firewall is a view of it, and Domains has the ports an application is published on", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/server/network");
+test("Network and ports: who uses a port, a free one is offered to open, the firewall is a section of Network, and Published ports are the first of its sections", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer, "/network/listening");
   const claims = (await (await page.request.get("/api/server/ports")).json()) as { claims: { port: number; protocol: string; kind: string; owner: string }[] };
   const application = claims.claims.find((claim) => claim.kind === "app");
   expect(application, "the seeded server has an application holding a port").toBeDefined();
@@ -70,23 +84,24 @@ test("Network and ports: who uses a port, a free one is offered to open, the fir
   await search.fill("65001");
   await expect(page.getByText("Nothing on this server uses port 65001.")).toBeVisible();
   await page.getByRole("button", { name: "Open port 65001" }).click();
-  const dialog = page.getByRole("alertdialog", { name: "Open or close a port" });
-  await expect(dialog.getByLabel("Port")).toHaveValue("65001");
+  const dialog = page.getByRole("alertdialog", { name: "Open a port" });
+  await expect(dialog.getByRole("textbox", { name: "Port", exact: true })).toHaveValue("65001");
   await settle(page);
   await expectNoA11yViolations(page, "the dialog that opens a port");
   await dialog.getByRole("button", { name: "Cancel" }).click();
 
-  await page.getByRole("radio", { name: "Firewall" }).click();
-  await expect(page).toHaveURL(/view=firewall/);
-  await expect(page.getByRole("region", { name: "Ports that listen" })).toBeVisible();
-  await page.getByRole("radio", { name: "Interfaces" }).click();
+  const sections = page.getByRole("navigation", { name: "Network sections" });
+  await sections.getByRole("link", { name: "Firewall" }).click();
+  await expect(page).toHaveURL(/\/network\/firewall$/);
+  await expect(page.getByRole("region", { name: "Rules", exact: true })).toBeVisible();
+  await sections.getByRole("link", { name: "Interfaces" }).click();
   await expect(page.getByRole("table", { name: "Network interfaces" })).toBeVisible();
-  // Each side leads to the other with one line: this is where what listens is, Domains is where an application is published.
-  await page.getByRole("link", { name: "Published ports" }).click();
-  await expect(page).toHaveURL(/\/domains\/ports$/);
-  await expect(page.getByRole("button", { name: "Publish a port" }).first()).toBeVisible();
-  await page.getByRole("main").getByRole("link", { name: "Network and ports" }).click();
-  await expect(page).toHaveURL(/\/server\/network$/);
+  // What listens is one table, and a port is opened with one dialog from the first section of Network.
+  await sections.getByRole("link", { name: "Published ports" }).click();
+  await expect(page).toHaveURL(/\/network$/);
+  await expect(page.getByRole("button", { name: "Open a port" }).first()).toBeVisible();
+  await sections.getByRole("link", { name: "Listening ports" }).click();
+  await expect(page).toHaveURL(/\/network\/listening$/);
 });
 
 test("Web server: both servers and what is behind each, and the move says what it would do before it asks for anything", async ({ page, consoleServer }) => {
@@ -119,7 +134,7 @@ test("Files: what each application keeps between deployments is listed beside th
 test("Security and SSH: the server's SSH key is made from the console and shown whole to copy", async ({ page, consoleServer, problems }) => {
   // Making the key writes the server's SSH identity: it asks for sudo mode first.
   problems.expect(/status of 403 .*\/api\/deploy-keys\/server$/);
-  await signIn(page, consoleServer, "/server/security?view=ssh");
+  await signIn(page, consoleServer, "/security/ssh");
   const card = page.locator("section", { has: page.getByRole("heading", { name: "The server's SSH key" }) });
   await expect(card).toBeVisible();
   const create = card.getByRole("button", { name: "Create the key" });
@@ -188,9 +203,13 @@ withFleet("on a fleet Servers opens the list, a row opens that server, and its p
   // under test are not about that wait, so it is spent here, once, and not inside the 10 s a page is given to arrive.
   const reached = await page.request.get("/api/nodes/fleet-node/api/system/version", { timeout: 90_000 });
   expect(reached.ok(), await reached.text()).toBe(true);
-  // The sidebar's link says how many services failed after its name ("Servers 1 failed") once the counts arrive, which is
-  // sometime after the first heading: an exact name found the link only until then. And it leads to the fleet's list only
-  // once the console knows it is a central's, so it is pressed when it does.
+  // With a server chosen (this one) the bar's link is that server's own page, "Server"; the list of servers is what All servers
+  // shows there ("Servers"), which the selector chooses. The bar's link says how many services failed after its name
+  // ("Servers 1 failed") once the counts arrive, sometime after the first heading, and leads to the fleet's list only once
+  // the console knows it is a central's, so it is pressed when it does.
+  await page.getByRole("button", { name: /^Server: / }).click();
+  await page.getByRole("menuitemradio", { name: /^All servers/ }).click();
+  await expect(page).toHaveURL(/\/fleet$/);
   const servers = page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: /^Servers\b/ });
   await expect(servers).toHaveAttribute("href", /\/fleet\/servers$/);
   await servers.click();
@@ -203,15 +222,16 @@ withFleet("on a fleet Servers opens the list, a row opens that server, and its p
   await expect(page).toHaveURL(/\/n\/fleet-node\/server$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("fleet-node");
   await column(page).getByRole("link", { name: "Central's permissions" }).click();
-  await expect(page.getByText("fleet-node lets the central: Everything.")).toBeVisible();
+  await expect(page.getByRole("region", { name: /^What .* can do here$/ }).getByText(/^Everything: /)).toBeVisible();
   await page.getByRole("radio", { name: /Read only/ }).click();
   await expect(page.getByText("noust fleet access --level read --host-access off")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the central's permissions on a server");
 
-  // From the permissions column of the list the same section opens.
+  // From the menu of the server's row in the list the same section opens.
   await page.goto("/fleet/servers");
-  await page.getByRole("link", { name: "Everything" }).first().click();
+  await page.getByRole("button", { name: "Actions for fleet-node" }).click();
+  await page.getByRole("menuitem", { name: "What the central may do here" }).click();
   await expect(page).toHaveURL(/\/n\/fleet-node\/server\/central$/);
 });
 
@@ -238,10 +258,10 @@ withFleet("@screens a server's sections, the list of servers and the permissions
   const pages: readonly { name: string; to: string }[] = [
     { name: "servers", to: "/fleet/servers" },
     { name: "server-status", to: "/n/fleet-node/server" },
-    { name: "server-system", to: "/n/fleet-node/server/system" },
-    { name: "server-security", to: "/n/fleet-node/server/security?view=ssh" },
-    { name: "server-network", to: "/n/fleet-node/server/network" },
-    { name: "domains-published-ports", to: "/domains/ports" },
+    { name: "server-system", to: "/n/fleet-node/server/updates" },
+    { name: "server-security", to: "/n/fleet-node/security/ssh" },
+    { name: "server-network", to: "/n/fleet-node/network/listening" },
+    { name: "network-published-ports", to: "/network" },
     { name: "server-webserver", to: "/n/fleet-node/server/webserver" },
     { name: "server-files", to: "/n/fleet-node/server/files" },
     { name: "server-central", to: "/n/fleet-node/server/central" },

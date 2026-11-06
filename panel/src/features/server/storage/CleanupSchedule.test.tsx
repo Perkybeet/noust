@@ -6,7 +6,7 @@ import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { fakeBackend, json, signedInRoutes } from "../../../test/fakes";
 import type { RouteHandler } from "../../../test/fakes";
-import { CLEANUP_RUN, CLEANUP_SCHEDULE, onDesktop, serverRoutes } from "../testing";
+import { CLEANUP_RUN, CLEANUP_SCHEDULE, SWAP, onDesktop, serverRoutes } from "../testing";
 
 beforeEach(onDesktop);
 
@@ -173,5 +173,79 @@ describe("the cleanup history", () => {
     expect(await within(card).findByText("Cuando un disco está al 75% o más")).toBeInTheDocument();
     expect(await cardTitled("Historial de limpiezas")).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
+  });
+});
+
+describe("what the server says on this page, in Spanish", () => {
+  it("says why a run did nothing", { timeout: 20_000 }, async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    const { user } = storage({
+      "GET /api/server/storage/history": () =>
+        json(200, [
+          {
+            id: 8,
+            trigger: "schedule",
+            status: "skipped",
+            started_at: "2026-09-30T02:00:00+00:00",
+            mount: "/",
+            percent_before: 41.2,
+            actions: [],
+            reason: "/ is 41.2% full, below the 80% the policy waits for",
+            reason_coded: { code: "storage.run.below_threshold", params: { mount: "/", percent: "41.2", threshold: 80 } },
+          },
+        ]),
+    });
+
+    const table = await screen.findByRole("table", { name: "Limpiezas ejecutadas en este servidor" });
+    await user.click(await within(table).findByRole("button", { name: /Detalles de la limpieza 8/ }));
+    const drawer = await screen.findByRole("dialog", { name: "Limpieza 8" });
+    expect(within(drawer).getByText("/ está al 41.2%, por debajo del 80% que espera la política")).toBeInTheDocument();
+    expect(within(drawer).queryByText(/below the 80%/)).not.toBeInTheDocument();
+  });
+
+  it("says what a cleanup would do before it does it", { timeout: 20_000 }, async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    const { user } = storage({
+      "GET /api/server/storage/cleanup/plan": () =>
+        json(200, {
+          action: "journal",
+          commands: ["journalctl --rotate"],
+          effect: "Rotates the journal and deletes archived files beyond the limit. The active file is not touched.",
+          effect_coded: { code: "storage.effect.journal", params: {} },
+          needs_confirmation: false,
+          items: [],
+        }),
+    });
+
+    await user.click(await screen.findByRole("button", { name: "Limpiar…" }));
+    const dialog = await screen.findByRole("alertdialog", { name: /Limpiar/ });
+    expect(await within(dialog).findByText("Rota el diario y borra los archivos archivados que pasen del límite. El archivo activo no se toca.")).toBeInTheDocument();
+    expect(within(dialog).queryByText(/Rotates the journal/)).not.toBeInTheDocument();
+  });
+
+  it("says why a container has no swap, and what cloud-init would do to it", { timeout: 20_000 }, async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    storage({
+      "GET /api/server/swap": () =>
+        json(200, {
+          ...SWAP,
+          supported: false,
+          reason: "This is a container (lxc), where swap belongs to the host: swapon is refused inside it.",
+          reason_coded: { code: "swap.unsupported_container", params: { container: "lxc" } },
+          warnings: ["cloud-init is configured with a swap: section, so it recreates the swap on every boot. Remove that section, or leave the swap to cloud-init."],
+          warnings_coded: [{ code: "swap.cloud_init", params: {} }],
+        }),
+    });
+
+    expect(await screen.findByText("Esto es un contenedor (lxc), donde el swap es del anfitrión: swapon se rechaza dentro de él.")).toBeInTheDocument();
+    expect(screen.getByText(/cloud-init está configurado con una sección swap:/)).toBeInTheDocument();
+    expect(screen.queryByText(/swap belongs to the host/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/recreates the swap/)).not.toBeInTheDocument();
   });
 });

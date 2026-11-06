@@ -45,9 +45,11 @@ describe("the verbs of the console", () => {
     expect(new Set(words).size).toBe(words.length);
   });
 
-  it("call the operating system's updates system updates wherever they are a destination", () => {
-    expect(en.server.tabs.system).toMatch(/system/i);
-    expect(es.server.tabs.system).toMatch(/sistema/i);
+  it("call the one page of the server's updates Updates, and the operating system's part of it the system's", () => {
+    expect(en.server.system.views.updates).toBe("Updates");
+    expect(es.server.system.views.updates).toBe("Actualizaciones");
+    expect(en.server.updates.systemTitle).toMatch(/system/i);
+    expect(es.server.updates.systemTitle).toMatch(/sistema/i);
   });
 
   it("call the fleet's updates view what it holds: Noust and the system", () => {
@@ -58,7 +60,7 @@ describe("the verbs of the console", () => {
   });
 
   it("keep 'Update Noust' for Noust itself, never for an application", () => {
-    expect(en.fleet.updates.updateNoust).toBe("Update Noust");
+    expect(en.server.noust.update).toBe("Update Noust");
     expect(en.fleet.actions.apps_update.label).not.toMatch(/Noust/);
     expect(en.fleet.actions.noust_update.label).toBe("Update Noust");
   });

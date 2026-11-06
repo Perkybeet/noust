@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 
 import { backupStorageQuery } from "../../api/queries/backups";
 import type { BackupStorage } from "../../api/queries/backups";
-import { CommandHint } from "../../components/page/CommandHint";
 import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
 import { Mono } from "../../components/ui/Mono";
@@ -48,9 +47,9 @@ export function StorageSummary() {
     return <span className="text-fg-faint">{t("backups.storage.loadError")}</span>;
   }
   if (storage.data === undefined) {
-    // The loaded line's height: its tallest part is the 20px info button.
+    // The loaded line's height: its tallest part is the info button, a 32px control with 4px taken off above and below.
     return (
-      <span aria-hidden="true" className="flex h-5 items-center gap-3">
+      <span aria-hidden="true" className="flex h-6 items-center gap-3">
         <Skeleton className="h-3 w-32" />
         <Skeleton className="h-3 w-48" />
       </span>
@@ -98,7 +97,6 @@ export function StorageSummary() {
               />
             ) : null}
             <p className="text-13 text-fg-muted">{t.rich("backups.storage.keptIn", { path: <Mono tone="default">{data.path}</Mono> })}</p>
-            <CommandHint command="noust backup storage" />
           </div>
         </Popover>
       </span>

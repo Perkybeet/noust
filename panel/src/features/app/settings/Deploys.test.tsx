@@ -431,7 +431,8 @@ describe("a static site", () => {
     await deploys(STATIC_APP);
     expect(within(part("Startup check")).getByText(/A static site is served as files by the web server/)).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Zero-downtime deploys" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Unsaved changes" })).not.toBeInTheDocument();
+    // The page's one bar is there and has nothing to save: a static site has no field of Deploys' own.
+    expect(within(saveBar()).getByText("No unsaved changes")).toBeInTheDocument();
   });
 });
 

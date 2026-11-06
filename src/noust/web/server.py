@@ -69,10 +69,12 @@ from noust.core.notifications.composers import (
 from noust.core.notifications.context import NotificationContext
 from noust.core.notifications.model import Notification
 from noust.core.notifier import fresh_config, notify_in_background
+from noust.core.sign_in_image import APPEARANCE_PATH, IMAGE_PATH
 from noust.core.tls_policy import TLS12_CIPHERS, harden_server_context
 from noust.managers.backup_failures import record_failure
 from noust.managers.database.backup_notifications import database_job_notification, database_subject
 from noust.managers.database.uploads import MAX_CHUNK_BYTES
+from noust.validators.sign_in_image import MAX_UPLOAD_CHARS as SIGN_IN_IMAGE_UPLOAD_CHARS
 from noust.web.auth import (
     CSRF_HEADER_NAMES,
     SAFE_METHODS,
@@ -109,6 +111,7 @@ from noust.web.auth import (
     settle_credential_failures,
     shared_address,
 )
+from noust.web.config_watch import ConfigWatchMiddleware
 from noust.web.events import (
     AppStatePublisher,
     announce_app_mutation,
@@ -128,6 +131,10 @@ HOOKS_PATH_PREFIX = "/hooks/"
 #: one chunk (:data:`~noust.managers.database.uploads.MAX_CHUNK_BYTES`) where every
 #: other API request carries at most the panel's ``max_body_bytes``.
 IMPORT_UPLOAD_PATH_PREFIX = "/api/databases/imports/uploads/"
+
+#: The picture of the sign-in screen is set with a JSON body that carries it as base64, so this route
+#: alone may be as large as a file of the limit makes it (the digits of it, plus the other fields).
+SIGN_IN_IMAGE_BODY_BYTES = SIGN_IN_IMAGE_UPLOAD_CHARS + 16 * 1024
 
 #: Prefix of the anonymous rate key forge deliveries are counted under, in
 #: front of the client address: a budget apart from the console's own.
@@ -266,8 +273,11 @@ _IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable"
 #: What every response gets that is not a hashed asset actually served.
 _NO_STORE_CACHE_CONTROL = "no-store"
 
+#: The whole query of a request for the sign-in picture by its digest.
+_DIGEST_QUERY = re.compile(r"v=[0-9a-f]{64}")
 
-def _cache_control_for(path: str, status_code: int = 200) -> str:
+
+def _cache_control_for(path: str, status_code: int = 200, query: str = "") -> str:
     """
     Decide the ``Cache-Control`` an outgoing response carries.
 
@@ -276,13 +286,19 @@ def _cache_control_for(path: str, status_code: int = 200) -> str:
         status_code: The status being answered. Only a served asset is
             immutable: a 404 for ``/assets/x.js`` cached for a year would
             outlive the deploy that ships the file.
+        query: The request's query string. The sign-in picture asked for by its
+            digest (``v=<sha256>``) is immutable too: it is public, and the
+            same address is always the same bytes, because the route answers
+            404 to a digest that is not the current picture's.
 
     Returns:
         :data:`_IMMUTABLE_CACHE_CONTROL` for a hashed build asset under
-        ``/assets/`` that was found, :data:`_NO_STORE_CACHE_CONTROL` for
-        everything else.
+        ``/assets/`` that was found, and for the sign-in picture found under
+        its own digest; :data:`_NO_STORE_CACHE_CONTROL` for everything else.
     """
     if path.startswith("/assets/") and status_code in (200, 304):
+        return _IMMUTABLE_CACHE_CONTROL
+    if path == IMAGE_PATH and status_code in (200, 304) and _DIGEST_QUERY.fullmatch(query):
         return _IMMUTABLE_CACHE_CONTROL
     return _NO_STORE_CACHE_CONTROL
 
@@ -1126,6 +1142,9 @@ def create_app(config: SecurityConfig | None = None) -> FastAPI:
     # whitelist, the rate limiter, the audit trail or the router see the
     # path, and a refusal the security layer makes still names the API version.
     app.add_middleware(ApiVersionMiddleware)
+    # Outermost of all: a change another process made to config.yaml (a framework turned on at
+    # the terminal) is read before the request, or the WebSocket, that comes after it.
+    app.add_middleware(ConfigWatchMiddleware)
 
     from noust.web.api import router as api_router
     from noust.web.api.deps import API_PATH_PREFIX, handle_http_exception, install_error_handlers
@@ -1858,12 +1877,15 @@ class SecurityMiddleware:
 
         Returns:
             The forge webhook's cap under ``/hooks/``, one chunk's under the
-            dump upload, the API's everywhere else.
+            dump upload, a file of the limit as base64 for the sign-in picture,
+            the API's everywhere else.
         """
         if path.startswith(HOOKS_PATH_PREFIX):
             return self.config.max_hook_body_bytes
         if path.startswith(IMPORT_UPLOAD_PATH_PREFIX):
             return max(self.config.max_body_bytes, MAX_CHUNK_BYTES + 64 * 1024)
+        if path == APPEARANCE_PATH:
+            return max(self.config.max_body_bytes, SIGN_IN_IMAGE_BODY_BYTES)
         return self.config.max_body_bytes
 
     @staticmethod
@@ -2075,7 +2097,9 @@ class SecurityMiddleware:
         """
         for name, value in HARDENING_HEADERS.items():
             headers[name] = value
-        headers["Cache-Control"] = _cache_control_for(connection.url.path, status_code)
+        headers["Cache-Control"] = _cache_control_for(
+            connection.url.path, status_code, connection.url.query
+        )
 
         if self.config.require_https or is_secure_request(connection, self.config):
             headers["Strict-Transport-Security"] = HSTS_VALUE

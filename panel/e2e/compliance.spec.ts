@@ -1,12 +1,12 @@
 /**
- * Settings > Security > Compliance against the real backend.
+ * Settings > Compliance against the real backend.
  *
- * - Nothing is on until it is chosen: the frameworks are listed off, with one line on what each is,
- *   and the section never says a server complies.
- * - A framework is turned on after the dialog lists the controls it will change and the clause each
- *   one serves; the controls it asks for are then locked with the framework's name, and turning it off
- *   is a dangerous confirmation behind "Confirm it's you".
- * - The page passes axe with the section open, in the dialog and in both themes.
+ * - Nothing is on until it is chosen, and with none on nothing is red: the page says it as a fact, lists the nine frameworks
+ *   the server offers, off, with one line on what each is, and never says a server complies.
+ * - A framework is turned on after the dialog lists the controls it will change and the clause each one serves; once it is
+ *   on the page is its report; the controls it asks for are locked with the framework's name, and turning it off is a
+ *   dangerous confirmation behind "Confirm it's you".
+ * - The page passes axe in both themes, with nothing on, in the dialog and with a framework on.
  */
 
 import type { Locator } from "@playwright/test";
@@ -29,19 +29,24 @@ test("frameworks are off by default, turn on after listing what changes, and loc
 }) => {
   // Turning one off asks "Confirm it's you" by answering 403 first, by design.
   problems.expect(/status of 403 .* \/api\/compliance$/);
-  await signIn(page, consoleServer, "/settings/controls");
-  const section = page.getByRole("region", { name: "Compliance" });
-  await expect(section.getByRole("heading", { level: 3, name: "Frameworks" })).toBeVisible();
+  await signIn(page, consoleServer, "/settings/compliance");
+  const main = page.getByRole("main");
+  await expect(main.getByRole("heading", { level: 2, name: "No framework is on" })).toBeVisible();
 
   for (const name of ["ENS BÁSICA", "ENS MEDIA", "ENS ALTA", "ISO/IEC 27001:2022", "NIS2", "CIS Controls v8, IG1", "CIS Controls v8, IG2", "SOC 2, Security", "GDPR / RGPD, article 32"]) {
-    await expect(section.getByRole("heading", { level: 3, name })).toBeVisible();
+    await expect(main.getByRole("heading", { level: 3, name })).toBeVisible();
   }
-  await expect(section).toContainText("It does not make a server compliant");
-  await expect(section).not.toContainText(/is compliant|are compliant/);
+  // The honest half is one press away, in the "?", and no word says a server complies.
+  await page.getByRole("button", { name: "About compliance" }).click();
+  await expect(page.getByText(/It does not make a server compliant/)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(main).not.toContainText(/is compliant|are compliant/);
+  // With none on there is nothing in red.
+  await expect(page.locator('main [data-state="failed"], main [data-state="warning"]')).toHaveCount(0);
+  await settle(page);
+  await expectNoA11yViolations(page, "Compliance with no framework on");
 
-  // The framework's card is the innermost section holding its heading: its action sits in the card's
-  // header, beside the div that holds the heading, so a div around the heading would miss the button.
-  const card = section.locator("section").filter({ has: page.getByRole("heading", { level: 3, name: "NIS2" }) }).last();
+  const card = page.locator("article").filter({ has: page.getByRole("heading", { level: 3, name: "NIS2" }) });
   await card.getByRole("button", { name: "Turn on…" }).click();
   const dialog = page.getByRole("alertdialog", { name: "Turn on NIS2" });
   await expect(dialog.getByText("Encrypted backups")).toBeVisible();
@@ -51,19 +56,24 @@ test("frameworks are off by default, turn on after listing what changes, and loc
   await dialog.getByRole("button", { name: "Turn on" }).click();
   await expect(toastSaying(page, "NIS2 is on")).toBeVisible();
 
-  await openControlGroups(section);
-  const locked = section.getByRole("switch", { name: "Restricted API tokens" });
+  // The page is its report now, and the controls it asks for are locked with its name.
+  const report = page.locator("section").filter({ has: page.getByRole("heading", { level: 2, name: "NIS2" }) }).last();
+  await expect(report.getByText(/controls in force|The control is in force/)).toBeVisible();
+  const controls = page.locator("section").filter({ has: page.getByRole("heading", { level: 2, name: "Controls" }) }).last();
+  await openControlGroups(controls);
+  const locked = controls.getByRole("switch", { name: "Restricted API tokens" });
   await expect(locked).toBeDisabled();
-  await expect(section.getByText("Required by NIS2").first()).toBeVisible();
+  await expect(controls.getByText("Required by NIS2").first()).toBeVisible();
   await settle(page);
-  await expectNoA11yViolations(page, "the compliance section with a framework on");
+  await expectNoA11yViolations(page, "Compliance with a framework on");
 
   // Turning it off puts the server back as it was, behind "Confirm it's you".
-  await card.getByRole("button", { name: "Turn off…" }).click();
+  await report.getByRole("button", { name: "Turn off…" }).click();
   const off = page.getByRole("alertdialog", { name: "Turn off NIS2" });
   await expect(off.getByText(/Protection goes down/)).toBeVisible();
   await off.getByRole("button", { name: "Turn off" }).click();
   await confirmItsYou(page, consoleServer);
   await expect(toastSaying(page, "NIS2 is off")).toBeVisible();
-  await expect(section.getByRole("switch", { name: "Restricted API tokens" })).toBeEnabled();
+  await expect(main.getByRole("heading", { level: 2, name: "No framework is on" })).toBeVisible();
+  await expect(controls.getByRole("switch", { name: "Restricted API tokens" })).toBeEnabled();
 });

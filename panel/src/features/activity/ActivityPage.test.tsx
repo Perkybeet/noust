@@ -314,6 +314,13 @@ describe("the activity timeline", () => {
     expect(within(table).getByText("shop.example.com")).toBeInTheDocument();
   });
 
+  it("finds a job by its id: \"Open on a server\" of a fleet action arrives with it in the search", async () => {
+    const { table } = await activityAt({}, "/activity?q=b2");
+    // The id of the failed deploy is all the search says, and it is that job and no other that remains.
+    await within(table).findByText("admin.example.com");
+    expect(within(table).queryByText("shop.example.com")).not.toBeInTheDocument();
+  });
+
   it("invites nothing to create on an empty machine: activity has no wizard", async () => {
     fakeBackend({
       ...signedInRoutes(),

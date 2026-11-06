@@ -18,6 +18,7 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
+from noust.core.server_text import say
 from noust.managers import app_disk
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import (
@@ -169,10 +170,10 @@ def measure_job(domain: str, job_context: JobContext | None = None) -> dict[str,
     """
     if job_context is not None:
         job_context.set_metadata("domain", domain)
-        job_context.update("Measuring the application's directory", 10)
+        job_context.update(say("jobs.step.disk.measuring"), 10)
     usage = app_disk.measure_domain(domain)
     if job_context is not None:
-        job_context.update("Done", 100)
+        job_context.update(say("jobs.step.done"), 100)
     return usage.to_dict()
 
 
@@ -236,11 +237,11 @@ def kernel_job(
     if job_context is not None:
         job_context.set_metadata("domain", domain)
         job_context.update(
-            "Giving the limit to the kernel" if enabled else "Taking the limit off the kernel", 10
+            say("jobs.step.disk.giving_limit" if enabled else "jobs.step.disk.taking_limit"), 10
         )
     state = app_disk.kernel_state_after(domain, enabled, actor=actor)
     if job_context is not None:
-        job_context.update("Done", 100)
+        job_context.update(say("jobs.step.done"), 100)
     return state.to_dict()
 
 

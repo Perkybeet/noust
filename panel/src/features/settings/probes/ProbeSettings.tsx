@@ -1,5 +1,4 @@
 import { useDocumentTitle } from "../../../app/documentTitle";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { Sections } from "../../../components/page/Section";
 import { useT } from "../../../i18n";
 import { ProbeList } from "./ProbeList";
@@ -11,7 +10,6 @@ export function ProbeSettings() {
   return (
     <Sections>
       <ProbeList />
-      <CommandHint command="noust probe list" label={t("common.words.fromTerminal")} />
     </Sections>
   );
 }

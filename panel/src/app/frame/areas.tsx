@@ -1,13 +1,14 @@
 /**
- * The areas of the main bar as a page draws them, whichever bar it is (the rail of the double bar, the
- * one bar, the foot of a phone): which are offered, where each opens, which is current and what is
- * worth counting beside it. One answer, so the three bars never disagree about any of it.
+ * The areas of the main bar as a page draws them, wherever they are drawn (the rail, the foot of a
+ * phone and the sheet of all the areas): which are offered, where each opens, which is current and what
+ * is worth counting beside it. One answer, so the three never disagree about any of it.
  */
 
 import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
 import type { LucideIcon } from "lucide-react";
 
+import { sessionQuery } from "../../api/queries/auth";
 import { activeJobsQuery } from "../../api/queries/jobs";
 import { StatusGlyph } from "../../components/ui/StatusPill";
 import { Tooltip } from "../../components/ui/Tooltip";
@@ -15,11 +16,13 @@ import { isLocalOnlyPath, useCentral } from "../../features/central/central";
 import { useAttention } from "../../features/inbox/useAttention";
 import { iconOf } from "../../features/nav/icons";
 import { useT } from "../../i18n";
+import type { PlainKey } from "../../i18n";
 import { cx } from "../../lib/cx";
-import { useHasFleet, useReturnServer } from "../../nodes/servers";
-import { useConsoleContext, useNode } from "../../nodes/useNode";
+import { useReturnServer } from "../../nodes/servers";
+import { useConsoleContext, useSelection } from "../../nodes/useNode";
 import { areaOf, areaTarget, dest, sidebarFor } from "../nav";
 import type { ConsolePath, Dest, Scope } from "../nav";
+import type { NavContext } from "../navCore";
 import { useNavScope } from "../useNavScope";
 
 /** What to say beside an area: how many have failed, how many are about to, how many are running. */
@@ -34,6 +37,8 @@ export interface AreaItem {
   to: ConsolePath;
   /** The server the link opens, when the page on screen is the fleet's or the central's and the area has no face there. */
   node?: string | null;
+  /** The name when it is not the register's: the machine is "Server" on one and "Servers" over all of them. */
+  labelKey?: PlainKey;
   Icon: LucideIcon;
   current: boolean;
   counts: AreaCounts;
@@ -72,28 +77,31 @@ function useCounts(enabled: boolean): Readonly<Record<string, AreaCounts>> {
  * The bar's areas for the page on screen. On a hub, which deploys nothing of its own, the areas about a
  * machine's deployments are left out of a server's pages (they only redirect to the fleet), and from the
  * fleet's pages the ones with no fleet face lead back to the server the person came from (what Settings has always done).
+ * An area the principal may not read (the machine's, for a role of a team) is not offered. On a page of the instance, which
+ * is no server's, the bar follows the selector, which such a page leaves where it was.
  */
 export function useAreas(): Areas {
   const context = useConsoleContext();
   const { role } = useCentral();
   const back = useReturnServer();
   const scope = useNavScope();
-  const hasFleet = useHasFleet();
-  const { node: onNode } = useNode();
+  const selection = useSelection(role === "hub");
+  const { data: permissions } = useQuery({ ...sessionQuery(), select: (session) => session.permissions });
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const counts = useCounts(scope === "server");
   const onHub = role === "hub" && context.kind === "server" && context.node === null;
   const current = areaOf(pathname);
-  // The server the area opens, when it opens one from a page that is no server's.
-  const node = context.kind === "server" ? undefined : (back?.node ?? null);
+  // The server the area opens, when it opens one from a page that is no server's: the one the selector is on, or the one to go back to.
+  const node = context.kind === "server" ? undefined : scope === "server" && selection.kind === "server" ? selection.node : (back?.node ?? null);
+  const can: NavContext = permissions === undefined ? {} : { can: (permission) => permissions.includes(permission) };
 
   const item = (entry: Dest): AreaItem => {
     const face = scope === "fleet" && entry.fleetTo !== undefined;
     return {
       entry,
-      // On a server of the fleet the bar keeps to that server, like every other entry; the list is the central's.
-      to: areaTarget(entry, scope, hasFleet && onNode === null),
-      ...(scope === "fleet" && !face && node !== undefined ? { node } : {}),
+      to: areaTarget(entry, scope),
+      ...(!face && node !== undefined ? { node } : {}),
+      ...(entry.id === "server" ? { labelKey: scope === "fleet" ? ("nav.server.label" as const) : ("nav.server.labelOne" as const) } : {}),
       Icon: iconOf(entry),
       current: current?.id === entry.id,
       counts: counts[entry.id] ?? NONE,
@@ -101,10 +109,10 @@ export function useAreas(): Areas {
   };
   const offered = (entry: Dest): boolean => !onHub || (entry.to !== "/" && !isLocalOnlyPath(entry.to));
   return {
-    groups: sidebarFor()
+    groups: sidebarFor(can)
       .map((group) => group.filter(offered).map(item))
       .filter((group) => group.length > 0),
-    settings: { ...item(dest("settings")), ...(context.kind === "server" ? {} : { node: back?.node ?? null }) },
+    settings: item(dest("settings")),
     scope,
   };
 }
@@ -159,13 +167,14 @@ const ROW =
   "hover:bg-surface-raised hover:text-fg focus-visible:-outline-offset-2 " +
   "aria-[current=page]:bg-transparent aria-[current=page]:text-fg aria-[current=page]:hover:transform-none aria-[current=page]:hover:shadow-none";
 
-export type AreaLinkVariant = "rail" | "folded" | "single" | "bottom";
+export type AreaLinkVariant = "rail" | "folded" | "sheet" | "bottom";
 
 const VARIANT: Record<AreaLinkVariant, string> = {
   // Less room on the right than on the left: the longest name (Tareas programadas) fits the bar whole in Spanish.
   rail: "h-10 gap-3 pr-2 pl-3 text-14 font-medium",
   folded: "size-11 justify-center text-14 font-medium",
-  single: "h-9 gap-2.5 px-3 text-14 font-medium",
+  // The phone's sheet of areas: two to a row, each as tall as a thumb needs.
+  sheet: "h-11 gap-2.5 px-3 text-14 font-medium",
   // A name that needs two lines (Bases de datos) takes them, from the top, so every icon of the foot is on one line.
   bottom: "h-14 w-full flex-col justify-start gap-0.5 px-1 pt-1.5 text-12 font-medium",
 };
@@ -183,7 +192,7 @@ export function AreaLink({
   onNavigate?: (() => void) | undefined;
 }) {
   const t = useT();
-  const name = label ?? t(item.entry.label);
+  const name = label ?? t(item.labelKey ?? item.entry.label);
   const folded = variant === "folded";
   const link = (
     <Link

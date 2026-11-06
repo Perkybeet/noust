@@ -92,7 +92,7 @@ test("the bar counts the same things, beside the places that have them", async (
   await signIn(page, consoleServer, "/databases");
   const main = page.getByRole("navigation", { name: "Main" });
   await expect(main.getByRole("link", { name: /^Applications \d+ failed/ })).toBeVisible();
-  await expect(main.getByRole("link", { name: /^Servers \d+ failed/ })).toBeVisible();
+  await expect(main.getByRole("link", { name: /^Server \d+ failed/ })).toBeVisible();
   await expect(main.getByRole("link", { name: /^Domains .*certificate/ })).toBeVisible();
 });
 

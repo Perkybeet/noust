@@ -9,13 +9,9 @@ import { announce } from "../../app/Announcer";
 import { getLocale } from "../../app/locale";
 import { translate } from "../../i18n";
 import { elevate } from "../auth/elevation";
+import type { DeleteOptions } from "./deletion";
 
-export interface DeleteAppOptions {
-  /** Also delete the application's directory. */
-  removeFiles: boolean;
-  /** Also delete its certificate. */
-  removeSsl: boolean;
-}
+export type { DeleteOptions as DeleteAppOptions } from "./deletion";
 
 /**
  * Whether the session can run a sudo-mode action without asking. Only cookie sessions are ever
@@ -50,16 +46,22 @@ export function useConfirmItsYou(): () => Promise<void> {
 
 /**
  * Deletes an application: `DELETE /api/apps/{domain}`, the endpoint behind sudo mode, which
- * queues the deletion as a job. The service, the site and, when asked, the files and the
- * certificate go; backups stay.
+ * queues the deletion as a job. The service and the site go; the files, the certificate, the
+ * volumes of its containers and its own databases go only when asked; backups stay.
  */
 export function useDeleteApp(domain: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ removeFiles, removeSsl }: DeleteAppOptions) =>
+    mutationFn: ({ removeFiles, removeSsl, removeVolumes, removeDatabases, removeAdoptedDirectory }: DeleteOptions) =>
       request("delete", "/api/apps/{domain}", {
         params: { domain },
-        query: { remove_files: removeFiles, remove_ssl: removeSsl },
+        query: {
+          remove_files: removeFiles,
+          remove_ssl: removeSsl,
+          remove_volumes: removeVolumes,
+          remove_databases: removeDatabases,
+          ...(removeAdoptedDirectory !== null ? { remove_adopted_directory: removeAdoptedDirectory } : {}),
+        },
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: jobKeys.active });

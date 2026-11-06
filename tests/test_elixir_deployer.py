@@ -495,4 +495,4 @@ class TestReporting:
     def test_inspect_suggests_the_same(self) -> None:
         suggestion = ElixirDeployer.install_suggestion(FakeRunner().only_knows("dnf"))
         assert suggestion is not None
-        assert "dnf install elixir erlang gcc make" in suggestion
+        assert "dnf install elixir erlang gcc make" in suggestion.text

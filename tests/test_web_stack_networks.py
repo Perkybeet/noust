@@ -16,6 +16,7 @@ from typing import Any
 
 import pytest
 
+from noust.core.server_text import say
 from noust.core.store import NoustStore
 from noust.managers.stack_networks import Member, StackNetwork, StackNetworks
 from tests.support.teams_support import World, build_world
@@ -52,6 +53,7 @@ def answer() -> StackNetworks:
                     Member("traefik", "172.19.0.2", False),
                 ),
                 findings=("It is shared: traefik is on it too.",),
+                findings_coded=(say("networks.finding.shared_one", members="traefik"),),
             ),
         ),
     )
@@ -76,6 +78,9 @@ def test_the_applications_team_reads_its_networks_without_sudo_mode(
         ("traefik", False),
     ]
     assert network["findings"] == ["It is shared: traefik is on it too."]
+    assert network["findings_coded"] == [
+        {"code": "networks.finding.shared_one", "params": {"members": "traefik"}}
+    ]
 
 
 def test_another_teams_application_is_not_there_to_ask_about(world: World) -> None:
@@ -92,5 +97,6 @@ def test_an_application_that_does_not_run_in_docker_says_so_instead_of_failing(
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["applicable"] is False and "does not run in Docker" in body["reason"]
+    assert body["reason_coded"] == {"code": "networks.not_applicable", "params": {}}
     assert body["networks"] == []
     assert not any(call[0] == "docker" for call in runner.calls)

@@ -28,6 +28,11 @@ written in Spanish because its readers are Spanish auditors and security officer
 - **`noust ens check`** compares the server with the profile, check by check, each mapped to its
   RD 311/2022 measure, and exits 0/1/2 like a monitoring check. **`noust ens report`** writes the
   evidence bundle (JSON and Markdown, hashed). The console shows both under Settings > ENS report (`GET /api/ens/check`, `GET /api/ens/report`).
+  A server with no ENS framework on is not judged: `noust ens check` exits 0 and says so, and
+  `GET /api/ens/check` answers `enabled: false` with no findings, so a fresh install never opens on
+  a red report against a standard nobody chose. To see how far a server is from ENS MEDIA before
+  turning it on, ask the generic check (`noust compliance check --framework ens-media`); the
+  evidence report judges either way, because it is what a person asks for to give an auditor.
 - Evidence commands: `noust audit verify|review|export`, `noust ens access-review`,
   `noust ens inventory`, `noust backup verify`, `noust central backup`, `noust incident freeze`.
 - What stays the organisation's (policy, roles and their appointment, risk analysis, personnel,
@@ -241,6 +246,13 @@ noust ens check --all      # también lo que pasa
 noust ens check --json     # para un sistema de monitorización
 noust ens report           # paquete de evidencias (JSON, Markdown y SHA256SUMS)
 ```
+
+Un servidor sin ninguna normativa ENS activa no se juzga: `noust ens check` sale con 0 y lo dice, y
+`GET /api/ens/check` responde `enabled: false` sin comprobaciones (un servidor que nunca pidió el ENS
+no estrena la consola con un informe en rojo contra un esquema que no eligió). Para ver cuánto le
+falta antes de activarlo: `noust compliance check --framework ens-media`. El informe de evidencias
+(`noust ens report`, `GET /api/ens/report`) sí juzga en cualquier caso, porque es lo que se pide
+para entregarlo a un auditor.
 
 | Id | Comprobación | Medidas |
 |---|---|---|

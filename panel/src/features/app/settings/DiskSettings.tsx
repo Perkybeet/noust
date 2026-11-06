@@ -8,13 +8,10 @@ import type { AppDisk, DiskPart } from "../../../api/queries/disk";
 import type { App } from "../../../api/queries/apps";
 import { isJobFinished, useFollowedJob } from "../../../api/queries/jobs";
 import { announce } from "../../../app/Announcer";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { ResourceMeter } from "../../../components/page/ResourceMeter";
-import { SaveBar } from "../../../components/page/SaveBar";
-import { Section } from "../../../components/page/Section";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Field } from "../../../components/ui/Field";
@@ -30,6 +27,7 @@ import { useSaveBar } from "./formParts";
 import type { FormPart } from "./formParts";
 import { useSettingsApp, useSubsectionIcon, useSubsectionTitle } from "./settingsApp";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
+import { PartSaveBar, PartSection } from "./saveHost";
 
 /** The least a limit can be (MB), the backend's own floor: a release has to fit in it. */
 const MIN_LIMIT_MB = 64;
@@ -246,7 +244,6 @@ function DiskCard({ app, disk, limit }: { app: App; disk: UseQueryResult<AppDisk
           <KernelQuota disk={disk.data} domain={domain} />
         </div>
       </Card>
-      <CommandHint command={`noust app disk ${domain} --measure --limit 2048`} label={t("common.words.fromTerminal")} />
     </>
   );
 }
@@ -262,10 +259,10 @@ export function DiskSettings() {
   const bar = useSaveBar([limit.part], t("runtime.disk.saveFailed"));
   return (
     <>
-      <Section title={t("runtime.disk.title")} {...headerIcon} description={t("runtime.disk.description")}>
+      <PartSection title={t("runtime.disk.title")} {...headerIcon} description={t("runtime.disk.description")}>
         <DiskCard app={app} disk={disk} limit={limit} />
-      </Section>
-      {disk.data !== undefined ? <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} /> : null}
+      </PartSection>
+      {disk.data !== undefined ? <PartSaveBar bar={bar} /> : null}
     </>
   );
 }

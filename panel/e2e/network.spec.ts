@@ -1,6 +1,6 @@
 /**
- * The network pages against the real backend: the Domains page's DNS, Tunnels and Published ports tabs are
- * one click apart and each says what is missing in the server's own words (the sandbox has no
+ * The network pages against the real backend: Domains' DNS section and Network's Tunnels and Published ports
+ * are one click from their columns and each says what is missing in the server's own words (the sandbox has no
  * DNS account, no cloudflared and an nginx without the stream module), and an application's
  * Access settings are two clicks from its Settings. Runs in both themes, with the CSP and
  * console gates of the `problems` fixture and axe on every state.
@@ -8,49 +8,56 @@
 
 import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
 
-test("the DNS, Tunnels and Published ports tabs are one click from the domains, and each says what it holds", async ({ page, consoleServer }) => {
+test("DNS is one click from the domains, and Network has the tunnels and the published ports, each saying what it holds", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/domains");
   const tabs = page.getByRole("navigation", { name: "Domains sections" });
   await expect(tabs.getByRole("link", { name: /^Domains/ })).toHaveAttribute("aria-current", "page");
 
   await tabs.getByRole("link", { name: /^DNS/ }).click();
   await expect(page).toHaveURL(/\/domains\/dns$/);
-  await expect(page.getByText("No DNS accounts yet")).toBeVisible();
+  await expect(page.getByText(/Is your domain at IONOS, OVH or another provider/)).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the DNS tab");
 
-  await tabs.getByRole("link", { name: /^Tunnels/ }).click();
-  await expect(page).toHaveURL(/\/domains\/tunnels$/);
-  // The sandbox has no cloudflared: the page says what a tunnel needs, in the console's words, and offers to install it.
-  await expect(page.getByText("It also needs cloudflared, the connector, which is not installed.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Install cloudflared" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Create a tunnel" })).toHaveCount(0);
+  // The tunnels and the published ports are Network's, not Domains': another area, and its own column.
+  await expect(tabs.getByRole("link", { name: /^Tunnels/ })).toHaveCount(0);
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Network" }).click();
+  await expect(page).toHaveURL(/\/network$/);
+  const network = page.getByRole("navigation", { name: "Network sections" });
+  await expect(network.getByRole("link", { name: /^Published ports/ })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("button", { name: "Open a port" }).first()).toBeVisible();
+  await settle(page);
+  await expectNoA11yViolations(page, "the Published ports section");
+
+  await network.getByRole("link", { name: /^Tunnels/ }).click();
+  await expect(page).toHaveURL(/\/network\/tunnels$/);
+  // The sandbox has no cloudflared: the page says it is missing, as every missing piece is said, and offers to install it.
+  await expect(page.getByText("cloudflared is missing")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Install" })).toBeVisible();
+  // The action is there and says why it cannot be used yet, rather than a form that fails.
+  await expect(page.getByRole("button", { name: "New tunnel" })).toBeDisabled();
   await settle(page);
   await expectNoA11yViolations(page, "the Tunnels tab");
 
-  await tabs.getByRole("link", { name: /^Published ports/ }).click();
-  await expect(page).toHaveURL(/\/domains\/ports$/);
-  await expect(page.getByRole("button", { name: "Publish a port" }).first()).toBeVisible();
-  await settle(page);
-  await expectNoA11yViolations(page, "the Published ports tab");
 });
 
-test("an application's Access settings are two clicks from its Settings", async ({ page, consoleServer }) => {
+test("an application's Access settings are one click from its column", async ({ page, consoleServer }) => {
   const app = "tienda.example.org";
   await signIn(page, consoleServer, `/apps/${app}`);
-  await page.getByRole("navigation", { name: "Application sections" }).getByRole("link", { name: "Settings" }).click();
-  await page.getByRole("navigation", { name: "Application settings" }).first().getByRole("link", { name: "Access" }).click();
-  await expect(page).toHaveURL(new RegExp(`/apps/${app.replace(/\./g, "\\.")}/settings/access$`));
-  await expect(page.getByRole("heading", { level: 2, name: "Access" })).toBeVisible();
+  await page.getByRole("navigation", { name: "Application sections" }).getByRole("link", { name: "Access and protection" }).click();
+  await expect(page).toHaveURL(new RegExp(`/apps/${app.replace(/\./g, "\\.")}/access$`));
+  await expect(page.getByRole("heading", { level: 2, name: "Access", exact: true })).toBeVisible();
   await expect(page.getByRole("checkbox", { name: /Ask for a password/ })).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the Access settings");
 });
 
-test("the private certificate authority is one menu away from the certificates, and says what it is before it is made", async ({ page, consoleServer }) => {
+test("the private certificate authority is a card of the certificates, and says what it is before it is made", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/domains/certificates");
-  await page.getByRole("button", { name: "More actions" }).click();
-  await page.getByRole("menuitem", { name: "Private authority" }).click();
+  const authorities = page.getByRole("region", { name: "Authorities" });
+  await expect(authorities.getByText("The server's own authority")).toBeVisible();
+  await expect(authorities.getByText("Not made")).toBeVisible();
+  await authorities.getByRole("button", { name: "Create it" }).click();
 
   const dialog = page.getByRole("dialog", { name: "Private certificate authority" });
   await expect(dialog.getByText("This server has no private authority yet")).toBeVisible();

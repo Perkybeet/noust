@@ -229,6 +229,8 @@ export const auditEvents: Catalog<typeof en> = {
     server_hostname: "Nombre del servidor cambiado",
     server_reboot: "Reinicio o apagado solicitado",
     server_refresh: "Lista de paquetes actualizada",
+    server_software_install: "Software instalado",
+    server_software_remove: "Software quitado, o su retirada rechazada",
     server_ssh: "SSH cambiado",
     server_storage: "Almacenamiento limpiado o swap cambiada",
     server_time: "Reloj o zona horaria cambiados",

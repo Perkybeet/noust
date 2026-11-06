@@ -1,15 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { Table2 } from "lucide-react";
 
 import { catalogQuery, databaseOverviewQuery, enginesQuery } from "../../../api/queries/databases";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
+import { buttonClassName } from "../../../components/ui/Button";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Select } from "../../../components/ui/Select";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { LG_UP, useMediaQuery } from "../../../components/ui/useMediaQuery";
 import { useT } from "../../../i18n";
+import { DatabasePage, useAsking } from "../DatabasePage";
 import { can } from "../engines";
 import { KeysView } from "./KeysView";
 import { RelationList } from "./RelationList";
@@ -35,6 +37,24 @@ function defaultRelation<T extends { schema: string; name: string; kind: string;
  * view, order and filters are the URL's.
  */
 export function DataTab({ engine, name, search, onSearchChange }: DataTabProps) {
+  const t = useT();
+  const keys = useKeyStore(engine, name);
+  return (
+    <DatabasePage title={keys === true ? t("databases.detailTabs.keys") : t("databases.detailTabs.data")} needsEngine needs={["tables", "keys"]}>
+      <DataBody engine={engine} name={name} search={search} onSearchChange={onSearchChange} />
+    </DatabasePage>
+  );
+}
+
+/** Whether the database is a key-value store's: it has keys and no tables. Undefined until its engine says. */
+function useKeyStore(engine: string, name: string): boolean | undefined {
+  const engines = useQuery(enginesQuery());
+  const overview = useQuery({ ...databaseOverviewQuery(engine, name), retry: false, enabled: useAsking(["tables", "keys"]) });
+  const capabilities = overview.data?.capabilities ?? engines.data?.engines.find((item) => item.name === engine)?.capabilities;
+  return capabilities === undefined ? undefined : can({ capabilities }, "keys") && !can({ capabilities }, "tables");
+}
+
+function DataBody({ engine, name, search, onSearchChange }: DataTabProps) {
   const t = useT();
   const wide = useMediaQuery(LG_UP);
   const engines = useQuery(enginesQuery());
@@ -67,7 +87,12 @@ export function DataTab({ engine, name, search, onSearchChange }: DataTabProps) 
         icon={<Table2 />}
         title={t("databases.data.emptyTitle")}
         description={t("databases.data.emptyDescription")}
-        command={`noust db tables ${name} -e ${engine}`}
+        action={
+          // Where a table is made: the console, or a dump that carries them.
+          <Link to="/databases/$engine/$name/query" params={{ engine, name }} className={buttonClassName("secondary")}>
+            {t("databases.data.emptyAction")}
+          </Link>
+        }
       />
     );
   }
@@ -120,7 +145,6 @@ export function DataTab({ engine, name, search, onSearchChange }: DataTabProps) 
           ) : null}
         </div>
       </div>
-      <CommandHint command={`noust db rows ${name} ${selected?.name ?? "<table>"} -e ${engine}`} label={t("common.words.fromTerminal")} />
     </div>
   );
 }

@@ -69,6 +69,7 @@ from noust.core.exceptions import (
     DomainConflictError,
     DomainError,
     DomainOverlapError,
+    EngineInUseError,
     FleetUnavailableError,
     IntegrationError,
     NodeError,
@@ -173,6 +174,8 @@ _STATUS_BY_ERROR: tuple[tuple[type[NoustError], int], ...] = (
     (AccountNotFoundError, 404),
     (AuthenticationFailed, 401),
     (DatabaseExistsError, 409),
+    # An engine that still holds databases is a state of the server the operator changes.
+    (EngineInUseError, 409),
     (DomainConflictError, 409),
     # An authority that already exists is a state of the server, not a fault.
     (CertificateConflictError, 409),
@@ -856,6 +859,34 @@ def _refuse_elevation(request: Request, session: dict[str, Any], detail: dict[st
     raise HTTPException(status_code=403, detail=dict(detail))
 
 
+def _record_token_elevation(request: Request, session: dict[str, Any]) -> None:
+    """
+    Audit an API token acting where sudo mode is asked.
+
+    A person's sudo mode is a window they opened by proving who they are, and the action
+    that follows is audited as itself. A token opens nothing: it passes because it was
+    issued to (or, before 3.1, never asked), so each time it does is recorded here, once
+    per check, with the token's name and what it did, which is what lets the owner of a
+    standing exemption see how it is used.
+
+    Args:
+        request: The incoming request.
+        session: The authenticated payload, already known to satisfy sudo mode.
+    """
+    if session.get("type") != "api_token":
+        return
+    audit = get_audit_logger()
+    if audit:
+        audit.record(
+            action="auth.token.elevated",
+            result="success",
+            client_ip=get_client_ip(request),
+            actor=actor_label(session),
+            resource=request.url.path,
+            detail=f"{request.method} {request.url.path} with a token that acts in sudo mode",
+        )
+
+
 def ensure_elevated(request: Request, session: dict[str, Any]) -> None:
     """
     Refuse a destructive action from a session that has not confirmed recently.
@@ -903,6 +934,7 @@ def ensure_elevated(request: Request, session: dict[str, Any]) -> None:
         _refuse_elevation(request, session, _FLEET_ELEVATION_REQUIRED_DETAIL)
 
     if elevation_satisfied(session):
+        _record_token_elevation(request, session)
         # An elevated action is being performed: this is the moment that
         # keeps sudo mode open, and the only one. A credential that is exempt
         # has no window to extend and the call does nothing for it.

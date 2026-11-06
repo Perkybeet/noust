@@ -4,16 +4,20 @@ import { Mail, Play, Power, Square } from "lucide-react";
 import { monitorConfigQuery, monitorStatusQuery, observationsQuery } from "../../api/queries/monitor";
 import type { MonitorStatus } from "../../api/queries/monitor";
 import { RelativeTime } from "../../components/page/RelativeTime";
+import { Can } from "../../components/page/permissions";
 import { Subsection } from "../../components/page/Subsection";
+import { SurfaceSection } from "../../components/page/SurfaceSection";
 import { Button } from "../../components/ui/Button";
-import { Card } from "../../components/ui/Card";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
 import { Mono } from "../../components/ui/Mono";
+import { ServerText } from "../../components/ui/ServerText";
 import { SkeletonText, SkeletonRows } from "../../components/ui/Skeleton";
 import { StatusGlyph, StatusPill } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import type { CodedText } from "../../lib/serverSentence";
 import { useMonitorActions } from "./useMonitorActions";
 import { ServerQueryState } from "./errors";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -26,6 +30,7 @@ function ObservationRow({
   severity,
   signal,
   detail,
+  detailCoded,
   when,
   onAcknowledge,
   pending,
@@ -36,6 +41,7 @@ function ObservationRow({
   severity: string;
   signal: string;
   detail: string | null | undefined;
+  detailCoded: CodedText | null | undefined;
   when: string;
   onAcknowledge: () => void;
   pending: boolean;
@@ -50,7 +56,11 @@ function ObservationRow({
             <Mono>{process}</Mono>
             <span className="text-fg-faint">{t("server.monitor.pidSignal", { pid, signal })}</span>
           </p>
-          {detail ? <p className="text-12 text-fg-muted">{detail}</p> : null}
+          {detail ? (
+            <p className="text-12 text-fg-muted">
+              <ServerText coded={detailCoded} text={detail} />
+            </p>
+          ) : null}
           <RelativeTime value={when} className="text-12 text-fg-faint" />
         </div>
       </div>
@@ -81,6 +91,7 @@ function UnitRow({ t, status }: { t: T; status: MonitorStatus }) {
         )}
         {status.uptime ? <span className="text-12 text-fg-faint">{t("server.monitor.since", { uptime: status.uptime })}</span> : null}
       </div>
+      <Can permission="server.manage">
       <div className="flex items-center gap-2">
         {!status.installed ? (
           <Button size="sm" loading={install.isPending} onClick={() => install.mutate()}>
@@ -109,6 +120,7 @@ function UnitRow({ t, status }: { t: T; status: MonitorStatus }) {
           </>
         )}
       </div>
+      </Can>
     </div>
   );
 }
@@ -125,17 +137,19 @@ export function MonitorCard() {
   const { testEmail, acknowledge } = useMonitorActions();
 
   return (
-    <Card level={2}
-      title={t("server.monitor.title")}
+    <SurfaceSection
+      title={t("server.monitor.watcherTitle")}
+      icon={OBJECT_ICONS.overview}
       description={t("server.monitor.description")}
       actions={
         status.data?.installed ? (
-          <Button size="sm" icon={<Mail aria-hidden="true" />} loading={testEmail.isPending} onClick={() => testEmail.mutate()}>
-            {t("server.monitor.sendTestEmail")}
-          </Button>
+          <Can permission="server.manage">
+            <Button size="sm" icon={<Mail aria-hidden="true" />} loading={testEmail.isPending} onClick={() => testEmail.mutate()}>
+              {t("server.monitor.sendTestEmail")}
+            </Button>
+          </Can>
         ) : undefined
       }
-      padding="sm"
     >
       <ServerQueryState query={status} label={t("server.monitor.statusLabel")} skeleton={<SkeletonText lines={4} />}>
         {(data) => (
@@ -168,6 +182,7 @@ export function MonitorCard() {
                         severity={observation.severity}
                         signal={observation.signal}
                         detail={observation.detail}
+                        detailCoded={observation.detail_coded}
                         when={observation.observed_at}
                         pending={acknowledge.isPending}
                         onAcknowledge={() => {
@@ -182,6 +197,6 @@ export function MonitorCard() {
           </div>
         )}
       </ServerQueryState>
-    </Card>
+    </SurfaceSection>
   );
 }

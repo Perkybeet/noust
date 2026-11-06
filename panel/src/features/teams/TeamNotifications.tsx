@@ -6,7 +6,6 @@ import { removeTeamChannel, saveTeamChannel, teamChannelKeys, teamChannelsQuery,
 import type { TeamChannel, TeamChannelBody, TeamChannelType } from "../../api/queries/teamNotifications";
 import { announce } from "../../app/Announcer";
 import { useDocumentTitle } from "../../app/documentTitle";
-import { CommandHint } from "../../components/page/CommandHint";
 import { QueryState } from "../../components/page/QueryState";
 import { Section } from "../../components/page/Section";
 import { Button } from "../../components/ui/Button";
@@ -380,7 +379,6 @@ export function TeamNotifications() {
       {adding ? (
         <TeamChannelDrawer team={team.slug} channel={null} types={types} open onOpenChange={setAdding} />
       ) : null}
-      <CommandHint label={t("notifyRouting.team.fromTerminal")} command={`noust notify channel set alerts --team ${team.slug} --type slack --secret-stdin webhook_url`} />
     </div>
   );
 }

@@ -35,7 +35,7 @@ from typing import Any
 import pytest
 
 import noust
-from noust.core import schema_v14, schema_v16
+from noust.core import schema_v14, schema_v16, schema_v17
 from noust.core.accounts import AuthPolicy
 from noust.core.store import NoustStore
 from noust.core.teams import ScopedStore
@@ -455,6 +455,9 @@ class TestEveryRouteIsHeldToTheScope:
             "GET /api/terminal/sessions",
             "DELETE /api/terminal/sessions/{session_id}",
             "GET /api/jobs/active",
+            # The long operations that are not jobs: the handler keeps to the applications the
+            # caller sees, and what is about the machine is the instance's.
+            "GET /api/operations/active",
             "GET /api/jobs/queue",
             "GET /api/logs/search",
             "POST /api/jobs/update-many",
@@ -823,6 +826,9 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
 
 #: Tables with a column that looks like an owner and is not one, and why.
 NOT_OWNED: dict[str, str] = {
+    "installed_software": "what Noust installed on the server (nginx, cloudflared, an engine's "
+    "packages): the server's, with no column that names an application or a database, and its "
+    "routes under /api/server/software are the instance's",
     "secret_providers": "the secret managers a deploy can fetch from: the server's, which decides "
     "what any team's deploy can reach (the optional team only narrows who may name one)",
     "console_exposure": "the name the console itself is published on: the server's, not an application's",
@@ -852,6 +858,10 @@ NOT_OWNED: dict[str, str] = {
     "fleet_node_settings": "whether a central pushes the fleet's settings to a server or leaves it "
     "independent, and whether it should look at it again: the central's own, reached only through "
     "/api/fleet/settings, which is the instance's",
+    "account_dashboards": "the panels of the console's Home that a person keeps: the account's own, "
+    "reached only through /api/auth/dashboards, which is open to every account and answers about "
+    "the caller alone. It names no application or database: a widget's data is read through the "
+    "routes of what it shows, each held to the caller's teams",
 }
 
 #: Prefixes whose routes belong to what the tables above hold. None of them may be "open": a route
@@ -888,7 +898,7 @@ def fragment_tables() -> dict[str, set[str]]:
         than the teams' own.
     """
     found: dict[str, set[str]] = {}
-    for module in (schema_v14, schema_v16):
+    for module in (schema_v14, schema_v16, schema_v17):
         for name in vars(module):
             if not name.endswith("_SQL") or name.removesuffix("_SQL") == TEAMS_FRAGMENT:
                 continue
@@ -910,7 +920,7 @@ def fragment_altered_tables() -> set[str]:
     """
     return {
         table
-        for module in (schema_v14, schema_v16)
+        for module in (schema_v14, schema_v16, schema_v17)
         for name in vars(module)
         if name.endswith("_COLUMNS") and name.removesuffix("_COLUMNS") != TEAMS_FRAGMENT
         for table, _column, _definition in getattr(module, name)

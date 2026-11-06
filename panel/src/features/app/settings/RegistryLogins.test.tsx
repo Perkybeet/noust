@@ -88,7 +88,7 @@ describe("the registry accounts of an application", () => {
   });
 
   it("is not shown for an application that neither pulls nor builds images", { timeout: 30_000 }, async () => {
-    const { backend } = await renderSettings("/compose", "Compose", RELEASE_APP, {});
+    const { backend } = await renderSettings("/compose", "Releases and rollback", RELEASE_APP, {});
 
     expect(screen.queryByRole("heading", { name: "Registry accounts" })).not.toBeInTheDocument();
     expect(backend.callsTo(`GET /api/apps/${DOMAIN}/registry-logins`)).toHaveLength(0);

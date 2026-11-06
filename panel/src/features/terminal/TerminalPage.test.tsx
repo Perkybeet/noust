@@ -18,7 +18,7 @@ const CONTROL_REFUSES = {
   allowed: false,
   enabled: true,
   reason: "The control server_terminal is set to refused on this server, so the terminal on the server itself stays off",
-  how: "No framework asks for it: it was set in Settings > Controls or with the command line. To allow it: noust compliance set server_terminal allowed",
+  how: "No framework asks for it: it was set in Settings > Compliance or with the command line. To allow it: noust compliance set server_terminal allowed",
   coded: { code: "terminal.server_control", params: { control: "server_terminal", command: "noust compliance set server_terminal allowed" } },
 };
 
@@ -255,8 +255,8 @@ describe("an application's terminal page", () => {
       const list = await screen.findByRole("list", { name: "Run as" });
       expect(within(list).getAllByRole("listitem").map((item) => item.textContent)).toEqual(["rails", "runner", "puts User.count", "|", "wc", "-l"]);
       expect(screen.getByText("These are passed as text, not interpreted: |")).toBeInTheDocument();
-      // The same thing, for a terminal.
-      expect(screen.getByText(/noust app exec shop\.example\.com -- rails runner 'puts User\.count' '\|' wc -l/)).toBeInTheDocument();
+      // The console runs it itself: the command that does the same is not drawn.
+      expect(screen.queryByText(/noust app exec/)).not.toBeInTheDocument();
     });
 
     it("will not run a line that ends inside a quote", async () => {
@@ -495,7 +495,7 @@ describe("the server's terminal page", () => {
       "POST /api/server/terminal": () => json(200, ticketBody({ domain: null })),
     });
     const harness = renderConsole("/server/terminal");
-    await screen.findByRole("heading", { level: 1, name: "web-01" });
+    await screen.findByRole("heading", { level: 1, name: "Terminal" });
     return { ...harness, backend };
   }
 
@@ -570,16 +570,16 @@ describe("the server's terminal page", () => {
     expect(harness.backend.callsTo("POST /api/server/terminal")).toHaveLength(1);
   });
 
-  it("is offered in the server's menu to an account that holds the permission", async () => {
-    const harness = await serverPage(STATUS_BODY);
-    await harness.user.click(await screen.findByRole("button", { name: "More actions" }));
-    expect(await screen.findByRole("menuitem", { name: "Open a terminal" })).toBeInTheDocument();
+  it("is offered in the server's column to an account that holds the permission", async () => {
+    await serverPage(STATUS_BODY);
+    expect(within(screen.getByRole("navigation", { name: "Server sections" })).getByRole("link", { name: "Terminal" })).toHaveAttribute("aria-current", "page");
   });
 
   it("is not offered to one that does not", async () => {
-    const harness = await serverPage(STATUS_BODY, WITHOUT_TERMINAL);
-    await harness.user.click(await screen.findByRole("button", { name: "More actions" }));
-    await screen.findByRole("menu");
-    expect(screen.queryByRole("menuitem", { name: "Open a terminal" })).not.toBeInTheDocument();
+    fakeBackend({ ...routes({}, WITHOUT_TERMINAL), ...serverRoutes(), "GET /api/terminal/status": () => json(200, STATUS_BODY) });
+    renderConsole("/server");
+    const sections = await screen.findByRole("navigation", { name: "Server sections" });
+    await within(sections).findByRole("link", { name: "Services" });
+    expect(within(sections).queryByRole("link", { name: "Terminal" })).not.toBeInTheDocument();
   });
 });

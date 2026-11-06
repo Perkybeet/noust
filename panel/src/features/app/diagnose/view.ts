@@ -9,6 +9,7 @@ import type { Diagnosis } from "../../../api/queries/apps";
 import { getLocale } from "../../../app/locale";
 import type { Locale } from "../../../app/locale";
 import { translate } from "../../../i18n";
+import { serverSentence } from "../../../lib/serverSentence";
 
 export type Tone = "ok" | "warn" | "fail" | "idle";
 
@@ -82,6 +83,10 @@ export function checkLabel(name: string, locale: Locale = getLocale()): string {
       return translate(locale, "appPages.diagnose.check.blueGreen");
     case "zero_downtime":
       return translate(locale, "appPages.diagnose.check.zeroDowntime");
+    case "php_fpm":
+      return translate(locale, "appPages.diagnose.check.phpFpm");
+    case "containers":
+      return translate(locale, "appPages.diagnose.check.containers");
     default:
       return capitalise(name);
   }
@@ -126,7 +131,10 @@ export function opensByDefault(check: Check): boolean {
 /** What an operator says after a re-run, for the live region. */
 export function verdictAnnouncement(domain: string, diagnosis: Diagnosis, locale: Locale = getLocale()): string {
   const verdict = verdictView(diagnosis.verdict, locale).word;
-  const cause = diagnosis.probable_cause ?? causeFallback(diagnosis.verdict, locale);
+  const cause =
+    diagnosis.probable_cause !== null
+      ? serverSentence(locale, diagnosis.probable_cause_coded, diagnosis.probable_cause, "text")
+      : causeFallback(diagnosis.verdict, locale);
   return translate(locale, "appPages.diagnose.announcement", { domain, verdict, cause });
 }
 

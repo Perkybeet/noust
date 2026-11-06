@@ -10,19 +10,17 @@ import { isJobFinished, useFollowedJob } from "../../api/queries/jobs";
 import { machineQuery, systemKeys, versionQuery } from "../../api/queries/system";
 import { useDocumentTitle } from "../../app/documentTitle";
 import { autoUpdateQuery } from "../../api/queries/autoUpdate";
-import { CommandHint } from "../../components/page/CommandHint";
 import { KeyValueList } from "../../components/page/KeyValueList";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Section, Sections } from "../../components/page/Section";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
-import { Disclosure } from "../../components/ui/Disclosure";
 import { ExternalLink } from "../../components/ui/ExternalLink";
 import { ICONS } from "../../components/ui/icons";
 import { Mono } from "../../components/ui/Mono";
 import { Skeleton } from "../../components/ui/Skeleton";
-import { TextLink } from "../../components/ui/TextLink";
+import { TextLink, textLinkClassName } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { isHttpUrl } from "../../lib/url";
@@ -34,6 +32,8 @@ import { InstallCheck } from "./InstallCheck";
 import { SupportReport } from "./SupportReport";
 import { UpdateNotes, WhatsNew } from "./WhatsNew";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
+import { useRenderedPathname } from "../../app/renderedPath";
+import { openReport } from "../report/store";
 
 type UpdateInfo = ResponseOf<"/api/system/version", "get">;
 
@@ -43,19 +43,7 @@ function links(t: T): readonly { label: string; href: string; description: strin
   return [
     { label: t("settings.about.links.documentation.label"), href: `${REPOSITORY}#readme`, description: t("settings.about.links.documentation.description") },
     { label: t("settings.about.links.releaseNotes.label"), href: `${REPOSITORY}/releases`, description: t("settings.about.links.releaseNotes.description") },
-    { label: t("settings.about.links.reportProblem.label"), href: `${REPOSITORY}/issues`, description: t("settings.about.links.reportProblem.description") },
     { label: t("settings.about.links.getHelp.label"), href: `${REPOSITORY}/blob/main/docs/SUPPORT.md`, description: t("settings.about.links.getHelp.description") },
-  ];
-}
-
-/** What the console does, and the command that does it from a terminal. */
-function terminalRows(t: T): readonly { task: string; command: string }[] {
-  return [
-    { task: t("settings.about.terminal.installedVersion"), command: "noust --version" },
-    { task: t("settings.about.terminal.showConfig"), command: "noust config show" },
-    { task: t("settings.about.terminal.checkMachine"), command: "noust health" },
-    { task: t("settings.about.terminal.consoleStatus"), command: "noust web status" },
-    { task: t("settings.about.terminal.restartConsole"), command: "noust web restart" },
   ];
 }
 
@@ -114,15 +102,14 @@ function IndexBehind({ info, version }: { info: UpdateInfo; version: string }): 
       </div>
       {failed ? <ErrorBlock live compact error={{ detail: job.error ?? "" }} title={t("settings.about.version.refreshFailed")} /> : null}
       <UpdateNotes version={version} />
-      {info.refresh_command ? <CommandHint label={t("settings.about.version.refreshFromTerminal")} command={info.refresh_command} /> : null}
     </StateLine>
   );
 }
 
 /**
  * Whether a newer Noust exists, told truthfully: a release on GitHub is only "available" once
- * the package this server installs from has it; until then it is "on the way", with no command
- * that would install nothing.
+ * the package this server installs from has it; until then it is "on the way", with no link
+ * to an update that would install nothing.
  */
 function UpdateState({ info }: { info: UpdateInfo }): ReactNode {
   const t = useT();
@@ -158,7 +145,7 @@ function UpdateState({ info }: { info: UpdateInfo }): ReactNode {
   if (info.has_update && info.latest_version) {
     return (
       <StateLine icon={<CircleArrowUp aria-hidden="true" className={icon} />} title={t("settings.about.version.available", { version: info.latest_version })}>
-        {info.update_command ? <CommandHint label={t("settings.about.version.updateFromTerminal")} command={info.update_command} /> : null}
+        <TextLink to="/server/updates">{t("settings.about.version.updateLink")}</TextLink>
         <ReleaseNotesLink url={info.release_url} version={info.latest_version} />
         <UpdateNotes version={info.latest_version} />
       </StateLine>
@@ -176,7 +163,7 @@ function UpdateState({ info }: { info: UpdateInfo }): ReactNode {
 
 /**
  * A release newer than the running one fixes a vulnerability: said apart from the update, which
- * is still offered below with its command. The advisory link is only a link when it is http(s).
+ * is still offered below with the link to where it is made. The advisory link is only a link when it is http(s).
  */
 function SecurityRelease({ info }: { info: UpdateInfo }): ReactNode {
   const t = useT();
@@ -309,6 +296,7 @@ function LegalNotice() {
 /** Where the project lives and its legal notices. */
 function ProjectSection() {
   const t = useT();
+  const pathname = useRenderedPathname();
   return (
     <Section level={3} title={t("settings.about.project.title")}>
       <Card padding="sm">
@@ -321,21 +309,20 @@ function ProjectSection() {
               <span className="text-12 text-fg-muted">{link.description}</span>
             </li>
           ))}
+          {/* A problem is reported from the console itself, the same three steps the help menu opens. */}
+          <li className="flex min-w-0 flex-col gap-0.5">
+            <button
+              type="button"
+              className={textLinkClassName("inline", "w-fit cursor-pointer text-left text-13")}
+              onClick={() => void openReport({ from: "help", pathname })}
+            >
+              {t("settings.about.links.reportProblem.label")}
+            </button>
+            <span className="text-12 text-fg-muted">{t("settings.about.links.reportProblem.description")}</span>
+          </li>
         </ul>
       </Card>
       <LegalNotice />
-      <Disclosure variant="card" label={t("settings.about.terminal.title")}>
-        <dl className="flex flex-col divide-y divide-border">
-          {terminalRows(t).map((row) => (
-            <div key={row.command} className="flex min-w-0 flex-col gap-1 py-2.5 sm:flex-row sm:items-center sm:gap-6">
-              <dt className="text-13 text-fg-muted sm:w-64 sm:shrink-0">{row.task}</dt>
-              <dd className="min-w-0">
-                <CommandHint command={row.command} />
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </Disclosure>
     </Section>
   );
 }

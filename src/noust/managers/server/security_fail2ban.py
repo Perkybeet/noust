@@ -38,6 +38,7 @@ from noust.managers.server.host import PROBE_TIMEOUT, PackageFamily, detect_plat
 from noust.managers.server.security_pending import FAIL2BAN_JAIL, FAIL2BAN_WEB_JAIL, audit
 from noust.managers.server.security_probe import SecurityProbe
 from noust.managers.server.security_sshd import read_no_follow
+from noust.managers.server.software_record import packages_named_in, record_install
 
 #: Environment of every fail2ban and package command.
 ENV = {"LC_ALL": "C", "TERM": "dumb", "DEBIAN_FRONTEND": "noninteractive"}
@@ -666,7 +667,22 @@ class Fail2ban:
                     output=(result.stderr or result.stdout).strip() or None,
                 )
         audit("server.fail2ban", FAIL2BAN_JAIL, action="install", ignored=addresses, ports=ports)
+        self._record_install(commands)
         return {"jail_file": FAIL2BAN_JAIL, "ignored": addresses, "ports": ports}
+
+    def _record_install(self, commands: list[list[str]]) -> None:
+        """
+        Write down in the ledger of installed software what the install commands brought.
+
+        Args:
+            commands: The commands :meth:`_install_plan` made and that all succeeded.
+        """
+        record_install(
+            "fail2ban",
+            via="fail2ban",
+            packages=packages_named_in("fail2ban", commands),
+            host=self.probe.host,
+        )
 
     # -- the web server's jails ------------------------------------------------
 

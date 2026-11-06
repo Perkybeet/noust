@@ -69,6 +69,8 @@ const SERVER_TEXT: readonly { page: string; text: RegExp; origin: string }[] = [
   { page: "app-diagnose", text: /^Last \d+ journal line\(s\) for \S+$/, origin: "managers/diagnose.py" },
   // Not the server's words but data: a seeded commit's subject, which reads like "Show the {label}".
   { page: "overview", text: /^Show the refund status on receipts$/, origin: "a commit message" },
+  // Another seeded commit's subject, which reads like "Upgrade {engine} to {version}", on every page that lists the deploys.
+  ...["overview", "app-overview", "app-deployments", "app-deployment-failed"].map((page) => ({ page, text: /^Upgrade Next\.js to 15\.2$/, origin: "a commit message" })),
   // A recipe's name is the product's, marked as such on its card; its heading wraps the marked
   // span, so the page's text still holds the name, which here reads like "Open {name}".
   { page: "/apps/new (recipe)", text: /^Open WebUI$/, origin: "a recipe's name" },

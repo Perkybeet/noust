@@ -102,7 +102,7 @@ from noust.core.store import (
 )
 from noust.core.templates import text_environment
 from noust.core.utils import domain_to_app_name
-from noust.managers import unit_states
+from noust.managers import unit_check, unit_states
 from noust.managers.base_manager import BaseManager
 from noust.validators.environment import validate_environment, validate_unit_value
 from noust.validators.names import validate_service_name
@@ -2382,7 +2382,7 @@ class ServiceManager(BaseManager):
             ServiceError: When a unit of that name already exists anywhere
                 systemd looks, when the body lacks the Noust marker, or when the
                 write fails.
-            ValidationError: When the name is not a safe unit name.
+            ValidationError: When the name is not a safe unit name or systemd refuses the body.
         """
         unit = self._get_service_name(name)
         self._check_unit_body(unit, content)
@@ -2398,7 +2398,7 @@ class ServiceManager(BaseManager):
                 f"Refusing to create a unit that is not Noust's to create: {info.unit}",
                 details=f"{info.reason}. Choose a different service name.",
             )
-
+        unit_check.require_accepted(*self.verify_unit(content))
         self._write_unit_atomically(self._get_service_file(unit), content)
         self.daemon_reload()
 

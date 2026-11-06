@@ -6,7 +6,8 @@ import { accessBindingsQuery, accessKeys, accessRolesQuery, isScopeKind, unbindR
 import type { AccessBinding } from "../../../api/queries/access";
 import { QueryState } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
-import { Section } from "../../../components/page/Section";
+import { SurfaceSection } from "../../../components/page/SurfaceSection";
+import { Can } from "../../../components/page/permissions";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
@@ -92,24 +93,26 @@ export function GrantsSection() {
   );
 
   return (
-    <Section
+    <SurfaceSection
       title={t("access.grants.title")}
       icon={OBJECT_ICONS.role}
       description={t("access.grants.description")}
-      {...(query.data !== undefined && query.data.bindings.length > 0 ? { actions: grant } : {})}
+      flush={query.data !== undefined && query.data.bindings.length > 0}
+      {...(query.data !== undefined && query.data.bindings.length > 0 ? { actions: <Can permission="accounts.manage">{grant}</Can> } : {})}
     >
       <QueryState
         query={query}
         label={t("access.loadingLabel")}
-        skeleton={<DataTable caption={t("access.grants.tableCaption")} columns={columns} rows={[]} getRowId={(binding) => String(binding.id)} loading skeletonRows={3} />}
+        skeleton={<DataTable caption={t("access.grants.tableCaption")} columns={columns} rows={[]} getRowId={(binding) => String(binding.id)} loading skeletonRows={3} embedded />}
         isEmpty={(data) => data.bindings.length === 0}
-        empty={<EmptyState variant="firstUse" level={3} icon={<UsersRound />} title={t("access.grants.emptyTitle")} description={t("access.grants.emptyDescription")} action={grant} command="noust access grant maria --role admin --team acme --project web" />}
+        empty={<EmptyState variant="firstUse" level={3} icon={<UsersRound />} title={t("access.grants.emptyTitle")} description={t("access.grants.emptyDescription")} action={grant} />}
       >
         {(data) => (
           <DataTable
             caption={t("access.grants.tableCaption")}
             columns={columns}
             rows={data.bindings}
+            embedded
             getRowId={(binding) => `${String(binding.id)}-${binding.username}-${binding.scope}`}
             pagination="access-grants"
             rowActions={(binding) =>
@@ -158,6 +161,6 @@ export function GrantsSection() {
           }}
         />
       ) : null}
-    </Section>
+    </SurfaceSection>
   );
 }

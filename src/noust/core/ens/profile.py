@@ -270,6 +270,24 @@ def normalise_profile(value: Any) -> str:
     return PROFILE_ENS_MEDIUM
 
 
+def is_recognised(value: Any) -> bool:
+    """
+    Report whether ``security.profile`` holds a value Noust knows.
+
+    :func:`normalise_profile` reads a value it does not know as ``ens-medium`` (failing
+    strict); this is how a caller says that is what it did, so that it can tell the
+    person rather than switch the ENS on without a word.
+
+    Args:
+        value: What the configuration holds.
+
+    Returns:
+        True for an empty value, ``standard`` and any spelling of ``ens-medium``.
+    """
+    text = str(value or "").strip().lower()
+    return text in ("", PROFILE_STANDARD) or text in _ENS_SPELLINGS
+
+
 def defaults_for(value: Any) -> ProfileDefaults:
     """
     The values a profile fixes.

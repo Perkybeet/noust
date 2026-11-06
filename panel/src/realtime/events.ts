@@ -42,6 +42,7 @@ import { toast } from "../components/ui/toast";
 import { hasNamespace, loadNamespaces } from "../i18n/catalogs";
 import { leadingSentence } from "../lib/serverSentence";
 import type { CodedText } from "../lib/serverSentence";
+import { takeJobEndHandled } from "./jobEnds";
 import { useNode } from "../nodes/useNode";
 import { reconnectDelay } from "./backoff";
 import { recordNotice } from "./notices";
@@ -72,13 +73,15 @@ export interface ServerEventMap {
   metrics: MetricsSnapshot;
   app: AppEvent;
   job: JobEvent;
+  /** A long operation that answers on its request began or ended (`phase`): read by the task centre, which keeps no cache entry for it. */
+  operation: Record<string, unknown>;
   notice: NoticeEvent;
   state: StateEvent;
 }
 
 export type ServerEventName = keyof ServerEventMap;
 
-export const SERVER_EVENTS: readonly ServerEventName[] = ["machine", "metrics", "app", "job", "notice", "state"];
+export const SERVER_EVENTS: readonly ServerEventName[] = ["machine", "metrics", "app", "job", "operation", "notice", "state"];
 
 export type StreamStatus = "connecting" | "live" | "reconnecting";
 
@@ -272,9 +275,15 @@ export function applyServerEvent(queryClient: QueryClient, name: ServerEventName
       }
       return;
     }
+    case "operation":
+      // The task centre's store is what holds it (features/tasks/feeds.ts): nothing in the cache is about one.
+      return;
     case "notice": {
       const sent = typeof data["text"] === "string" ? data["text"] : null;
       if (sent === null) return;
+      // The end of a job of the person's is said by the task centre, with a way to see it, or not at all on its page: said
+      // once, in one channel (docs/DESIGN.md, 6.12). Its mark is taken now, in the frame order the server sent.
+      const handled = takeJobEndHandled(typeof data["state"] === "string" ? data["state"] : "");
       // A sentence of Noust's own, in this console's language; what a tool said is shown as it came, so a failure
       // whose first line is one keeps everything after it.
       const coded = isRecord(data["coded"]) ? (data["coded"] as unknown as CodedText) : null;
@@ -284,6 +293,7 @@ export function applyServerEvent(queryClient: QueryClient, name: ServerEventName
         const text = leadingSentence(getLocale(), coded, sent);
         // The toast is gone in seconds; the inbox keeps the last thirty (NV-17).
         recordNotice(text, state === "failed" || state === "active" || state === "busy" ? state : "idle", node);
+        if (handled) return;
         if (state === "failed") {
           const { title, detail } = failureWords(text);
           if (detail === undefined) toast.error(title);

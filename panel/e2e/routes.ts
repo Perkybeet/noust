@@ -40,29 +40,20 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "app-diagnose", path: "/apps/clientes.example.com/diagnose" },
   // 3.4: a shell as the application's account, and a command run once.
   { name: "app-terminal", path: "/apps/tienda.example.org/terminal" },
-  { name: "app-settings", path: "/apps/shop.example.net/settings" },
-  // 3.1: each subsection of an app's settings is a URL of its own.
-  { name: "app-settings-source", path: "/apps/taller.example.com/settings/source" },
-  { name: "app-settings-deploys", path: "/apps/tienda.example.org/settings/deploys" },
-  { name: "app-settings-push", path: "/apps/tienda.example.org/settings/deploy-on-push" },
-  { name: "app-settings-hooks", path: "/apps/tienda.example.org/settings/hooks" },
-  { name: "app-settings-access", path: "/apps/tienda.example.org/settings/access" },
-  // 4.0: what deploys by itself, and what the site limits and sends back, are subsections of their own.
-  { name: "app-settings-automation", path: "/apps/tienda.example.org/settings/automation" },
-  { name: "app-settings-protection", path: "/apps/tienda.example.org/settings/protection" },
-  // 4.0: how the application is built and the sandbox its builds run in; /builds redirects here.
-  { name: "app-settings-build", path: "/apps/shop.example.net/settings/build" },
-  { name: "app-settings-resources", path: "/apps/shop.example.net/settings/resources" },
-  { name: "app-settings-disk", path: "/apps/shop.example.net/settings/disk" },
-  // 3.4: what runs beside the web process, the sandbox of its unit and the files kept for it.
-  { name: "app-settings-processes", path: "/apps/tienda.example.org/settings/processes" },
-  { name: "app-settings-security", path: "/apps/tienda.example.org/settings/security" },
-  { name: "app-settings-mounts", path: "/apps/shop.example.net/settings/mounts" },
+  // 4.2: an application's settings are the pages of its column (item 116): what they gather, one page each.
+  { name: "app-code", path: "/apps/shop.example.net/code" },
+  { name: "app-code-source", path: "/apps/taller.example.com/code" },
+  { name: "app-triggers", path: "/apps/tienda.example.org/triggers" },
+  { name: "app-triggers-previews", path: "/apps/portal.example.org/triggers" },
+  { name: "app-triggers-zero-downtime", path: "/apps/pagos.example.org/triggers" },
+  { name: "app-resources", path: "/apps/shop.example.net/resources" },
+  { name: "app-resources-processes", path: "/apps/tienda.example.org/resources" },
+  { name: "app-access", path: "/apps/tienda.example.org/access" },
+  // 3.4: the files kept for an application, and a shell as its account.
   { name: "app-files", path: "/apps/tienda.example.org/files" },
-  { name: "app-settings-delete", path: "/apps/shop.example.net/settings/delete" },
-  // 2.2: an application in blue/green mode, and one with pull request previews.
-  { name: "app-settings-zero-downtime", path: "/apps/pagos.example.org/settings/deploys" },
-  { name: "app-settings-previews", path: "/apps/portal.example.org/settings/previews" },
+  { name: "app-export", path: "/apps/shop.example.net/export" },
+  { name: "app-servers", path: "/apps/shop.example.net/servers" },
+  { name: "app-delete", path: "/apps/shop.example.net/delete" },
   // 3.4: teams, projects and environments.
   { name: "projects", path: "/projects" },
   { name: "project", path: "/projects/default/default" },
@@ -79,13 +70,15 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "settings-variables", path: "/settings/variables" },
   { name: "settings-secret-managers", path: "/settings/secret-managers" },
   { name: "databases", path: "/databases" },
-  { name: "databases-servers", path: "/databases/servers" },
+  { name: "databases-engines", path: "/databases/engines" },
   { name: "database-engine-settings", path: "/databases/engines/postgresql/settings" },
   { name: "database", path: "/databases/postgresql/example_production" },
   { name: "database-data", path: "/databases/postgresql/example_production/data?schema=public&table=orders" },
   { name: "database-query", path: "/databases/postgresql/example_production/query" },
   { name: "database-backups", path: "/databases/postgresql/example_production/backups" },
-  { name: "database-users", path: "/databases/postgresql/example_production/users" },
+  { name: "database-access", path: "/databases/postgresql/example_production/access" },
+  { name: "database-settings", path: "/databases/postgresql/example_production/settings" },
+  { name: "database-delete", path: "/databases/postgresql/example_production/delete" },
   { name: "database-connect", path: "/databases/postgresql/example_production/connect" },
   { name: "database-metrics", path: "/databases/postgresql/example_production/metrics" },
   { name: "app-database", path: "/apps/example.com/database" },
@@ -100,27 +93,43 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "domains-site", path: "/domains/sites/example.net" },
   { name: "domains-dns", path: "/domains/dns" },
   { name: "domains-noust-dns", path: "/domains/dns/noust" },
-  { name: "domains-tunnels", path: "/domains/tunnels" },
+  // 4.2: the machine's network and its security are areas of the bar, and the tunnels and published ports left Domains for Network.
+  { name: "network", path: "/network" },
+  { name: "network-tunnels", path: "/network/tunnels" },
+  { name: "network-firewall", path: "/network/firewall" },
+  { name: "network-listening", path: "/network/listening" },
+  { name: "network-interfaces", path: "/network/interfaces" },
+  { name: "security", path: "/security" },
+  { name: "security-ssh", path: "/security/ssh" },
+  { name: "security-blocks", path: "/security/blocks" },
   { name: "backups", path: "/backups" },
   { name: "backups-schedules", path: "/backups/schedules" },
   { name: "backups-volumes", path: "/backups/volumes" },
   { name: "backups-noust", path: "/backups/noust" },
   { name: "backups-destinations", path: "/backups/destinations" },
   { name: "activity", path: "/activity" },
+  // 4.2: the task centre's list, and one task's own page (the newest job the seed holds).
+  { name: "tasks", path: "/activity/tasks" },
+  {
+    name: "task",
+    path: async (page: Page): Promise<string> => {
+      const jobs = ((await (await page.request.get("/api/jobs?limit=1")).json()) as { jobs: { id: string }[] }).jobs;
+      const newest = jobs[0];
+      if (newest === undefined) throw new Error("the seed has no job");
+      return `/activity/tasks/${newest.id}`;
+    },
+  },
   // 3.4: one search over the logs of every application.
   { name: "logs", path: "/logs" },
-  { name: "map", path: "/map" },
   { name: "server", path: "/server" },
-  // 4.1: a server's page is ten sections: the system and its updates, security and SSH, network and ports, services,
-  // the web server, a shell, files and what the central may do there.
-  { name: "server-system", path: "/server/system" },
-  { name: "server-system-machine", path: "/server/system?view=machine" },
-  { name: "server-security", path: "/server/security" },
-  { name: "server-security-ssh", path: "/server/security?view=ssh" },
-  { name: "server-security-bans", path: "/server/security?view=bans" },
-  { name: "server-network", path: "/server/network" },
-  { name: "server-network-firewall", path: "/server/network?view=firewall" },
+  // 4.2: the views of the System section are sections of the server, and Security and Network are areas of their own.
+  { name: "server-machine", path: "/server/machine" },
+  { name: "server-processes", path: "/server/processes" },
+  { name: "server-monitor", path: "/server/monitor" },
+  { name: "server-updates", path: "/server/updates" },
   { name: "server-webserver", path: "/server/webserver" },
+  // 4.2: what the machine is made of as far as Noust is concerned, and removing or installing it.
+  { name: "server-software", path: "/server/software" },
   { name: "server-files", path: "/server/files" },
   { name: "logs-system", path: "/logs?source=system" },
   { name: "server-terminal", path: "/server/terminal" },
@@ -132,7 +141,8 @@ export const ROUTES: readonly ConsoleRoute[] = [
   // 4.0: the person's own pages, and the controls that left Security (its old address redirects to the account).
   { name: "account", path: "/account" },
   { name: "account-security", path: "/account/security" },
-  { name: "settings-controls", path: "/settings/controls" },
+  { name: "settings-compliance", path: "/settings/compliance" },
+  { name: "settings-access-security", path: "/settings/access-security" },
   { name: "settings-notifications", path: "/settings/notifications" },
   // 4.1: what warns an operator is an area of the bar.
   { name: "alerts", path: "/alerts" },

@@ -29,6 +29,7 @@ from typing import Any
 from noust.core.exceptions import ValidationError
 from noust.core.fs import SECRET_MODE, FileSystem, get_fs
 from noust.core.runner import CommandRunner, get_runner
+from noust.core.server_text import ServerText, say
 from noust.managers.server.errors import ServerError, UnsupportedHostError
 from noust.managers.server.host import HostPaths, Platform, detect_platform, read_text
 
@@ -101,6 +102,8 @@ class SwapStatus:
         reason: Why not, when it cannot.
         noust_swapfile: The active swap includes the file Noust made.
         warnings: Things to know: cloud-init would recreate the swap on every boot.
+        reason_coded: ``reason`` as a sentence with a code; None when a swap file can be made.
+        warnings_coded: ``warnings`` as sentences with a code, in the same order.
     """
 
     devices: list[SwapDevice] = field(default_factory=list)
@@ -114,6 +117,8 @@ class SwapStatus:
     reason: str = ""
     noust_swapfile: bool = False
     warnings: list[str] = field(default_factory=list)
+    reason_coded: ServerText | None = None
+    warnings_coded: list[ServerText] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -253,19 +258,16 @@ class SwapManager:
         """
         return any(SWAPFILE in line and FSTAB_MARK in line for line in self._fstab().splitlines())
 
-    def _why_unsupported(self) -> str:
+    def _why_unsupported(self) -> ServerText | None:
         """
         Say why a swap file cannot be made here.
 
         Returns:
-            A sentence; empty when it can.
+            The sentence; None when it can.
         """
         if self.platform.container:
-            return (
-                f"This is a container ({self.platform.container}), where swap belongs to the "
-                "host: swapon is refused inside it."
-            )
-        return ""
+            return say("swap.unsupported_container", container=self.platform.container)
+        return None
 
     def _cloud_init_swap(self) -> bool:
         """
@@ -301,10 +303,7 @@ class SwapManager:
         reason = self._why_unsupported()
         warnings = []
         if self._cloud_init_swap():
-            warnings.append(
-                "cloud-init is configured with a swap: section, so it recreates the swap on "
-                "every boot. Remove that section, or leave the swap to cloud-init."
-            )
+            warnings.append(say("swap.cloud_init"))
         return SwapStatus(
             devices=devices,
             total_bytes=sum(d.size_bytes for d in devices),
@@ -313,10 +312,12 @@ class SwapManager:
             memory_bytes=memory,
             suggested_bytes=suggested_swap_bytes(memory),
             recommended=not devices and 0 < memory <= 2 * 1024**3,
-            supported=not reason,
-            reason=reason,
+            supported=reason is None,
+            reason=reason.text if reason else "",
             noust_swapfile=any(d.noust for d in devices),
-            warnings=warnings,
+            warnings=[warning.text for warning in warnings],
+            reason_coded=reason,
+            warnings_coded=warnings,
         )
 
     # -- making ---------------------------------------------------------------
@@ -431,7 +432,7 @@ class SwapManager:
         emit = on_line or (lambda line: None)
         reason = self._why_unsupported()
         if reason:
-            raise UnsupportedHostError("Swap cannot be made here", reason)
+            raise UnsupportedHostError("Swap cannot be made here", reason.text)
         if self.swapfile.exists():
             raise ServerError(
                 f"{SWAPFILE} already exists",

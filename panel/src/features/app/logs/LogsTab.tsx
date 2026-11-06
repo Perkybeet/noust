@@ -19,7 +19,7 @@ import { LogToolbar } from "../../logs/LogToolbar";
 import type { ToolbarChoice } from "../../logs/LogToolbar";
 import { readQuery, renderQuery } from "../../logs/query";
 import { AppJournal } from "./AppJournal";
-import { appLogsCommand, patchedApp, APP_RANGES } from "./data";
+import { patchedApp, APP_RANGES } from "./data";
 import type { AppLogRange, AppLogSource, AppLogsSearch } from "./data";
 import { SiteLogs } from "./SiteLogs";
 import { StackLogs, isStack } from "./StackLogs";
@@ -92,7 +92,6 @@ export function LogsTab({ domain, search, onSearchChange }: LogsTabProps) {
     );
   }
 
-  const command = appLogsCommand(domain, source, search, deployedAt === null ? null : Math.floor(deployedAt.getTime() / 1000));
   const stack = isStack(app.data.app_type ?? "");
 
   return (
@@ -130,18 +129,18 @@ export function LogsTab({ domain, search, onSearchChange }: LogsTabProps) {
         error={windowed || read.ok ? undefined : read.error.message}
       />
       {source !== "app" ? (
-        <SiteLogs domain={domain} kind={source} filter={filter} command={command ?? ""} />
+        <SiteLogs domain={domain} kind={source} filter={filter} />
       ) : windowed ? (
         fromDeploy && newest.data !== undefined && deploy === undefined ? (
           <EmptyState variant="inline" title={t("logs.app.noDeploy")} />
         ) : (
-          <WindowLines domain={domain} query={found} deploy={deploy !== undefined ? { id: deploy.id } : undefined} command={command ?? undefined} />
+          <WindowLines domain={domain} query={found} deploy={deploy !== undefined ? { id: deploy.id } : undefined} />
         )
       ) : stack ? (
         // A stack's unit only starts its containers: what they printed is the tab, and the journal one choice of it.
-        <StackLogs domain={domain} filter={filter} unit={<AppJournal domain={domain} filter={filter} command={command ?? ""} />} />
+        <StackLogs domain={domain} filter={filter} unit={<AppJournal domain={domain} filter={filter} />} />
       ) : (
-        <AppJournal domain={domain} filter={filter} command={command ?? ""} />
+        <AppJournal domain={domain} filter={filter} />
       )}
     </div>
   );

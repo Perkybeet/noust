@@ -1017,6 +1017,32 @@ def list_jobs(session: Session, limit: Annotated[int, Query(ge=1, le=200)] = 50)
     return {"jobs": FleetJobs().list(limit)}
 
 
+@router.get("/jobs/active", response_model=FleetViewOut)
+async def fleet_jobs_active(
+    request: Request, session: Session, node: NodeFilter = None, refresh: Refresh = False
+) -> dict[str, Any]:
+    """
+    What every server is running now: its jobs and the long operations that are not jobs.
+
+    Asks each node's ``/api/jobs/active`` and ``/api/operations/active`` through its tunnel, all
+    at once and each with its own time limit. A row says how the server answered: ``ok``;
+    ``unsupported``, for a node that has not been updated to offer the route (it answers 404 and
+    will count its tasks when it is); or ``unreachable``. A server that is down or old never
+    fails the view, and this central's own row is there when its role is ``server``. Declared
+    before ``/jobs/{job_id}``, which would take ``active`` for a job.
+
+    Args:
+        request: The request.
+        session: The authenticated session.
+        node: Only these servers.
+        refresh: Ask again.
+
+    Returns:
+        One row per server, with its ``jobs`` and its ``operations``.
+    """
+    return await _view("jobs_active", request, session, node, refresh)
+
+
 @router.get("/jobs/{job_id}", response_model=FleetJobOut)
 def get_fleet_job(job_id: str, session: Session) -> dict[str, Any]:
     """

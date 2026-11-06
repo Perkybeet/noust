@@ -71,8 +71,18 @@ describe("a site's history", { timeout: 20_000 }, () => {
     expect(within(row).getByText(/\+server \{ listen 81; \}/)).toBeInTheDocument();
   });
 
-  it("puts a version in the editor as a draft and writes nothing", async () => {
-    const { user, backend } = page();
+  it("puts a version back through the server's restore, and the editor reads the file again", async () => {
+    let text = SMALL_CONFIG;
+    const { user, backend } = page(
+      {},
+      {
+        [`GET /api/sites/${SITE}/config`]: () => json(200, { site: SITE, webserver: "nginx", config: text, path: PATH }),
+        [`POST /api/sites/${SITE}/config/versions/1/restore`]: () => {
+          text = OLDER;
+          return json(200, { success: true, message: `Version 1 of ${SITE} is back. Reload nginx to apply it.`, site: SITE });
+        },
+      },
+    );
 
     await user.click(await screen.findByRole("button", { name: "History" }));
     const dialog = await screen.findByRole("dialog", { name: `History of ${SITE}` });
@@ -84,9 +94,51 @@ describe("a site's history", { timeout: 20_000 }, () => {
     await user.click(within(row).getByRole("button", { name: "Use this version" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog", { name: `History of ${SITE}` })).not.toBeInTheDocument());
-    expect(await screen.findByRole("textbox", { name: `Configuration of ${SITE}` })).toHaveValue(OLDER);
-    expect(screen.getByText(/unsaved change/)).toBeInTheDocument();
+    // The server's own restore, not a draft made of the version's text: the file is the version and nothing is waiting to be saved.
+    expect(backend.callsTo(`POST /api/sites/${SITE}/config/versions/1/restore`)).toHaveLength(1);
     expect(backend.callsTo(`PUT /api/sites/${SITE}/config`)).toHaveLength(0);
+    await waitFor(() => expect(screen.getByRole("textbox", { name: `Configuration of ${SITE}` })).toHaveValue(OLDER));
+    expect(screen.queryByText(/^\d+ unsaved changes?$/)).not.toBeInTheDocument();
+    expect(await screen.findByText("Version 1 is back. Reload nginx to apply it.")).toBeInTheDocument();
+  });
+
+  it("says why the web server refused a version, in its own words, and leaves the file as it was", async () => {
+    const { user } = page(
+      {},
+      {
+        [`POST /api/sites/${SITE}/config/versions/1/restore`]: () =>
+          json(400, { error: "validation_error", detail: "nginx refused this text, so nothing was changed", output: "nginx: [emerg] unknown directive in /etc/nginx/sites-available/shop.example.com:1", hint: null, fields: null }),
+      },
+    );
+
+    await user.click(await screen.findByRole("button", { name: "History" }));
+    const dialog = await screen.findByRole("dialog", { name: `History of ${SITE}` });
+    const list = await within(dialog).findByRole("list", { name: `Versions of ${SITE}` });
+    const row = within(list).getByText("Version 1").closest("li");
+    if (row === null) throw new Error("no row");
+    await user.click(within(row).getByRole("button", { name: "Use this version" }));
+
+    expect(await within(dialog).findByText("Version 1 was not put back")).toBeInTheDocument();
+    expect(within(dialog).getByText(/unknown directive/)).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: `Configuration of ${SITE}`, hidden: true })).toHaveValue(SMALL_CONFIG);
+  });
+
+  it("asks once before it replaces what the editor holds, then restores", async () => {
+    const { user, backend } = page({}, { [`POST /api/sites/${SITE}/config/versions/1/restore`]: () => json(200, { success: true, message: "back", site: SITE }) });
+
+    await user.type(await screen.findByRole("textbox", { name: `Configuration of ${SITE}` }), " # mine");
+    await user.click(await screen.findByRole("button", { name: "History" }));
+    const dialog = await screen.findByRole("dialog", { name: `History of ${SITE}` });
+    const list = await within(dialog).findByRole("list", { name: `Versions of ${SITE}` });
+    const row = within(list).getByText("Version 1").closest("li");
+    if (row === null) throw new Error("no row");
+
+    await user.click(within(row).getByRole("button", { name: "Use this version" }));
+    expect(await within(dialog).findByText(/replaces the unsaved changes in the editor/)).toBeInTheDocument();
+    expect(backend.callsTo(`POST /api/sites/${SITE}/config/versions/1/restore`)).toHaveLength(0);
+
+    await user.click(within(row).getByRole("button", { name: "Use this version" }));
+    await waitFor(() => expect(backend.callsTo(`POST /api/sites/${SITE}/config/versions/1/restore`)).toHaveLength(1));
   });
 
   it("says when the file was changed outside Noust", async () => {

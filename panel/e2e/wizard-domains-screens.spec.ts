@@ -113,9 +113,9 @@ const SCREENS: readonly Screen[] = [
     act: async (page) => {
       if ((await page.getByText("soon.example.net", { exact: true }).count()) > 0) return;
       await page.getByRole("button", { name: "Add domain" }).click();
-      const dialog = page.getByRole("dialog", { name: "Add a domain to example.net" });
-      await dialog.getByLabel("Domain").fill("soon.example.net");
-      await dialog.getByRole("button", { name: "Check DNS" }).click();
+      const dialog = page.getByRole("dialog", { name: "Add a name to example.net" });
+      await dialog.getByRole("textbox", { name: "Name", exact: true }).fill("soon.example.net");
+      await dialog.getByRole("button", { name: "Check", exact: true }).click();
       await dialog.getByRole("button", { name: "Add anyway" }).click();
       await expect(page.getByText("The certificate was not extended")).toBeVisible({ timeout: 20_000 });
       await page.locator('.toast button[aria-label="Dismiss notification"]').evaluateAll((buttons) => {
@@ -128,9 +128,9 @@ const SCREENS: readonly Screen[] = [
     path: "/apps/example.org/domains",
     act: async (page) => {
       await page.getByRole("button", { name: "Add domain" }).click();
-      const dialog = page.getByRole("dialog", { name: "Add a domain to example.org" });
-      await dialog.getByLabel("Domain").fill("old.example.org");
-      await dialog.getByRole("button", { name: "Check DNS" }).click();
+      const dialog = page.getByRole("dialog", { name: "Add a name to example.org" });
+      await dialog.getByRole("textbox", { name: "Name", exact: true }).fill("old.example.org");
+      await dialog.getByRole("button", { name: "Check", exact: true }).click();
       await expect(dialog.getByText("old.example.org points somewhere else")).toBeVisible();
     },
   },

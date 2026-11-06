@@ -1,6 +1,5 @@
 import { Play } from "lucide-react";
 
-import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { textLinkClassName } from "../../components/ui/TextLink";
@@ -230,7 +229,6 @@ export function CertificatesTab({ search, onSearchChange }: CertificatesTabProps
           )
         }
       />
-      <CommandHint label={t("common.words.fromTerminal")} command="noust fleet certs" />
     </div>
   );
 }

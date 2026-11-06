@@ -105,10 +105,10 @@ export const serverText: Catalog<typeof en> = {
   controls: {
     asked_by_framework: {
       text: "El control {control} lo pide, y el marco de cumplimiento en vigor ({frameworks}) pide ese control, así que sigue activo mientras el marco lo esté y no se puede desactivar por sí solo.",
-      hint: "Para desactivar el marco (Ajustes > Controles):\n  {command}",
+      hint: "Para desactivar el marco (Ajustes > Cumplimiento):\n  {command}",
     },
     asked_by_setting: {
-      text: "El control {control} lo pide, y se activó en Ajustes > Controles (o con la línea de comandos). Se aplica a todo el mundo, sea cual sea su rol.",
+      text: "El control {control} lo pide, y se activó en Ajustes > Cumplimiento (o con la línea de comandos). Se aplica a todo el mundo, sea cual sea su rol.",
       hint: "Para desactivarlo allí, o:\n  {command}",
     },
   },
@@ -182,6 +182,310 @@ export const serverText: Catalog<typeof en> = {
     stack_nothing_before: { text: "La actualización de {domain} no superó la comprobación de arranque; antes no había nada en marcha, así que no hay nada que recuperar" },
     stack_not_restored: { text: "La actualización de {domain} no superó la comprobación de arranque; lo que estaba sirviendo no se pudo recuperar por completo" },
     stack_unhealthy: { text: "La actualización de {domain} no superó la comprobación de arranque" },
+  },
+  diagnose: {
+    blue_green: {
+      idle_failed: {
+        text: "{serving} sirve en el puerto {port}; {idle} está {idle_state}; su último arranque falló, así que {serving} siguió sirviendo",
+      },
+      idle_failed_release: {
+        text: "{serving} sirve la versión {release} en el puerto {port}; {idle} está {idle_state}; su último arranque falló, así que {serving} siguió sirviendo",
+      },
+      leftover: {
+        text: "{unit}.service sigue en marcha junto a las instancias; la próxima activación se negará a arrancar blue en el puerto {port}",
+      },
+      no_instance: {
+        text: "El modo sin cortes está activado, pero ninguna instancia consta como la que sirve",
+      },
+      off: {
+        text: "No está en modo sin cortes",
+      },
+      serving: {
+        text: "{serving} sirve en el puerto {port}; {idle} está {idle_state}",
+      },
+      serving_release: {
+        text: "{serving} sirve la versión {release} en el puerto {port}; {idle} está {idle_state}",
+      },
+      upstream_mismatch: {
+        text: "nginx envía al {upstream_port}, pero {serving} sirve en el {port}",
+      },
+      upstream_none: {
+        text: "nginx no envía a ningún servidor, pero {serving} sirve en el {port}",
+      },
+    },
+    cause: {
+      certificate_expired: {
+        text: "El certificado TLS de {domain} caducó el {expiry}.",
+      },
+      crash_loop: {
+        text: "El proceso termina con el estado {status} al arrancar; mira las últimas líneas del diario más abajo.",
+      },
+      disk_full: {
+        text: "El disco que contiene el directorio de aplicaciones está al {percent}%.",
+      },
+      nginx_status: {
+        text: "La aplicación responde directamente, pero nginx devuelve {status} para {domain}; nginx no llega a la aplicación.",
+      },
+      nginx_unreachable: {
+        text: "La aplicación responde directamente, pero nginx no puede conectar ({error}) para {domain}; nginx no llega a la aplicación.",
+      },
+      no_unit: {
+        text: "No hay unidad de systemd para {unit}; nunca se arrancó o se quitó su unidad.",
+      },
+      oom: {
+        text: "El kernel la mató por quedarse sin memoria (por el límite o por la máquina).",
+      },
+      port_elsewhere: {
+        text: "Escucha en el {actual_port}, pero Noust enruta al {recorded_port}.",
+      },
+      port_silent: {
+        text: "El proceso está en marcha, pero no escucha en el puerto {port}.",
+      },
+      unit_failed: {
+        text: "La unidad no pudo arrancar (Result={result}, estado de salida {status}); mira las últimas líneas del diario más abajo.",
+      },
+      upstream_mismatch: {
+        text: "nginx envía {domain} al {upstream_port}, pero la instancia {serving} escucha en el {port}.",
+      },
+      upstream_none: {
+        text: "nginx no envía {domain} a ningún servidor, pero la instancia {serving} escucha en el {port}.",
+      },
+      worker: {
+        text: "El worker: {summary}; mira su salida más abajo.",
+      },
+      worker_port: {
+        text: "{domain} no publica ningún puerto, pero tiene registrado el {port}: quítalo con {command}.",
+      },
+    },
+    certificate: {
+      bad_expiry: {
+        text: "La fecha de caducidad de {label} no se puede leer",
+      },
+      expired: {
+        text: "El certificado de {label} caducó el {expiry}",
+      },
+      expires_one: {
+        text: "El certificado de {label} caduca en 1 día",
+      },
+      expires_several: {
+        text: "El certificado de {label} caduca en {days} días",
+      },
+      missing: {
+        text: "TLS está activado para {domain}, pero no se encontró ningún certificado",
+      },
+      no_expiry: {
+        text: "No se pudo leer la fecha de caducidad de {label}",
+      },
+      none: {
+        text: "No se encontró ningún certificado para {domain}",
+      },
+      valid_one: {
+        text: "El certificado de {label} es válido 1 día más",
+      },
+      valid_several: {
+        text: "El certificado de {label} es válido {days} días más",
+      },
+    },
+    check: {
+      incomplete: {
+        text: "No se pudo completar esta comprobación",
+      },
+    },
+    containers: {
+      no_app: {
+        text: "No hay ninguna aplicación registrada",
+      },
+      publishes_port: {
+        text: "El stack publica un puerto: se juzga como una web, más abajo",
+      },
+      worker: {
+        text: "Un worker: {summary}",
+      },
+      worker_with_port: {
+        text: "Un worker: {summary}; tiene registrado el puerto {port} y no publica ninguno. Quítalo con: {command}",
+      },
+    },
+    disk: {
+      usage: {
+        text: "{free} libres ({percent}% usado) en el sistema de archivos que contiene {path}",
+      },
+    },
+    http_direct: {
+      no_port: {
+        text: "No hay puerto de servicio que sondear directamente",
+      },
+      status: {
+        text: "HTTP {status} desde 127.0.0.1:{port}",
+      },
+      unreachable: {
+        text: "No se pudo llegar a la aplicación directamente, en el puerto {port}",
+      },
+    },
+    http_nginx: {
+      status: {
+        text: "HTTP {status} desde nginx para Host: {domain}",
+      },
+      unreachable: {
+        text: "No se pudo llegar a nginx para {domain}",
+      },
+    },
+    journal: {
+      empty: {
+        text: "No hay entradas en el diario de {unit_file}",
+      },
+      lines_one: {
+        text: "Última línea del diario de {unit_file}",
+      },
+      lines_several: {
+        text: "Últimas {count} líneas del diario de {unit_file}",
+      },
+      no_unit: {
+        text: "No hay ninguna unidad llamada {unit} de la que leer el registro",
+      },
+      skipped_php: {
+        text: "Aplicación PHP: se ejecuta en su pool de PHP-FPM, que se comprueba aparte; no hay unidad de la que leer el registro",
+      },
+      skipped_static: {
+        text: "Sitio estático: lo sirve directamente el servidor web; no hay unidad de la que leer el registro",
+      },
+      unreadable: {
+        text: "No se pudo leer el diario de {unit_file}",
+      },
+    },
+    last_deployment: {
+      cancelled: {
+        text: "El último despliegue se canceló; lo que servía antes sigue sirviendo",
+      },
+      cancelled_by: {
+        text: "El último despliegue lo canceló {actor}; lo que servía antes sigue sirviendo",
+      },
+      failed: {
+        text: "El último despliegue falló",
+      },
+      failed_with: {
+        text: "El último despliegue falló: {error}",
+      },
+      none: {
+        text: "No hay ningún despliegue registrado para este dominio",
+      },
+      state: {
+        text: "El último despliegue está {status}",
+      },
+      succeeded: {
+        text: "El último despliegue salió bien",
+      },
+    },
+    nginx_log: {
+      clean: {
+        text: "Ninguna línea del registro de errores de nginx menciona este dominio",
+      },
+      lines_one: {
+        text: "Una línea del registro de errores de nginx menciona este dominio o un servidor de destino",
+      },
+      lines_several: {
+        text: "{count} líneas del registro de errores de nginx mencionan este dominio o un servidor de destino",
+      },
+      unreadable: {
+        text: "No se pudo leer {path}",
+      },
+    },
+    oom: {
+      found: {
+        text: "El registro del kernel muestra actividad por falta de memoria en los últimos 7 días",
+      },
+      none: {
+        text: "No hay procesos matados por falta de memoria en el registro del kernel en los últimos 7 días",
+      },
+      unreadable: {
+        text: "No se pudo leer el registro del kernel",
+      },
+    },
+    php_fpm: {
+      config_refused: {
+        text: "PHP-FPM rechaza su configuración; mira {command} más abajo.",
+      },
+      no_answer: {
+        text: "El pool de PHP-FPM no responde a la comprobación de arranque; mira los errores de PHP más abajo.",
+      },
+      no_record: {
+        text: "No hay registro de la aplicación",
+      },
+      ok: {
+        text: "El pool de PHP-FPM responde ({service} {state})",
+      },
+      pool_disabled: {
+        text: "El pool de PHP-FPM está desactivado (parado); arráncalo con {command}.",
+      },
+      pool_missing: {
+        text: "Falta el archivo del pool de PHP-FPM {pool_file}; vuelve a desplegar con {command}.",
+      },
+      service_down: {
+        text: "{service}, que ejecuta todos los pools de PHP, está {state}.",
+      },
+    },
+    port: {
+      elsewhere: {
+        text: "La aplicación escucha en el {actual_port}, no en el puerto registrado, el {recorded_port}",
+      },
+      listening: {
+        text: "El puerto {port} está a la escucha",
+      },
+      listening_process: {
+        text: "El puerto {port} está a la escucha ({processes})",
+      },
+      not_recorded: {
+        text: "No hay ningún puerto registrado para esta aplicación",
+      },
+      silent: {
+        text: "Nada escucha en el puerto {port}",
+      },
+      skipped_php: {
+        text: "Aplicación PHP: se ejecuta en su pool de PHP-FPM, que se comprueba aparte; no hay puerto que comprobar",
+      },
+      skipped_static: {
+        text: "Sitio estático: lo sirve directamente el servidor web; no hay puerto que comprobar",
+      },
+    },
+    unit: {
+      active: {
+        text: "{unit_file} está activa (en marcha)",
+      },
+      active_unmanaged: {
+        text: "{unit_file} está activa (en marcha) (no la gestiona Noust)",
+      },
+      failed: {
+        text: "{unit_file} ha fallado (Result={result})",
+      },
+      failed_unmanaged: {
+        text: "{unit_file} ha fallado (no la gestiona Noust) (Result={result})",
+      },
+      missing: {
+        text: "No se encontró ninguna unidad de systemd para {unit}",
+      },
+      restarting: {
+        text: "{unit_file} se está reiniciando ({restarts} reinicios hasta ahora)",
+      },
+      restarting_unmanaged: {
+        text: "{unit_file} se está reiniciando (no la gestiona Noust) ({restarts} reinicios hasta ahora)",
+      },
+      skipped_php: {
+        text: "Aplicación PHP: se ejecuta en su pool de PHP-FPM, que se comprueba aparte; no hay unidad",
+      },
+      skipped_static: {
+        text: "Sitio estático: lo sirve directamente el servidor web; no hay unidad",
+      },
+      state: {
+        text: "{unit_file} está en {active_state}/{sub_state}",
+      },
+      state_unmanaged: {
+        text: "{unit_file} está en {active_state}/{sub_state} (no la gestiona Noust)",
+      },
+    },
+    zero_downtime: {
+      could: {
+        text: "Sus actualizaciones la reinician en el sitio; podría actualizarse sin cortes",
+      },
+    },
   },
   doctor: {
     config: {
@@ -557,10 +861,458 @@ export const serverText: Catalog<typeof en> = {
       text: "Este {kind} es mayor que los {limit} bytes que puede ocupar un ajuste",
     },
   },
+  host: {
+    updates_unsupported: {
+      no_manager: {
+        text: "Noust maneja apt, dnf y zypper, y aquí no hay ninguno instalado. Actualiza este sistema con su propio gestor de paquetes.",
+      },
+      transactional: {
+        text: "Este sistema instala los paquetes mediante transacciones y un reinicio (transactional-update o un sistema basado en imágenes), así que Noust solo informa de su estado. Actualízalo con su propia herramienta.",
+      },
+    },
+  },
+  inspect: {
+    can_deploy: {
+      text: "Noust puede desplegar esto como {type}.",
+    },
+    can_deploy_also: {
+      text: "Noust puede desplegar esto como {type}. También se parece a {others}; elige ese tipo en su lugar para desplegarlo así.",
+    },
+    container_dockerfile: {
+      text: "Noust puede desplegar esto como un contenedor, construido con su Dockerfile.",
+    },
+    container_dockerfile_also: {
+      text: "Noust puede desplegar esto como un contenedor, construido con su Dockerfile. También se parece a {others}; elige ese tipo en su lugar para desplegarlo así.",
+    },
+    container_railpack: {
+      text: "Noust puede desplegar esto como un contenedor, construido con Railpack: no tiene Dockerfile.",
+    },
+    container_railpack_also: {
+      text: "Noust puede desplegar esto como un contenedor, construido con Railpack: no tiene Dockerfile. También se parece a {others}; elige ese tipo en su lugar para desplegarlo así.",
+    },
+    dockerfile: {
+      unreadable: {
+        text: "El repositorio tiene un {dockerfile}, pero no se pudo leer como tal.",
+        hint: "Despliégalo como contenedor: {command}. Comprueba que el {dockerfile} es un archivo, no un enlace, y que está confirmado en esta rama.",
+      },
+    },
+    dotnet: {
+      no_web_project: {
+        text: "Es un proyecto .NET ({marker}), pero Noust no encontró ningún proyecto web que ejecutar en él.",
+        hint: "Despliégalo como contenedor: añade un Dockerfile al repositorio y despliégalo con --type container. Sin Dockerfile, instala Railpack ({setup_command}), que lo construye como contenedor por sí solo: --type container --builder railpack.",
+      },
+      no_web_project_with_railpack: {
+        text: "Es un proyecto .NET ({marker}), pero Noust no encontró ningún proyecto web que ejecutar en él.",
+        hint: "Despliégalo como contenedor, que Railpack construye sin Dockerfile (está instalado aquí): {command}. O añade un Dockerfile y despliégalo con --type container.",
+      },
+    },
+    install_deno: {
+      text: "Instala Deno 2 para todo el sistema, donde la cuenta de compilación pueda ejecutarlo ({command}, o el instalador de {url} con {env_command}). Después despliégalo.",
+    },
+    install_setup_init: {
+      text: "Instala lo que necesita con {command} y después despliégalo.",
+    },
+    install_toolchain: {
+      text: "Instala las herramientas con: {command}. Después despliégalo.",
+    },
+    missing_programs: {
+      text: "Es un proyecto {type}, pero este servidor no tiene {programs}.",
+    },
+    no_match: {
+      text: "Nada del repositorio coincide con un tipo de aplicación que Noust despliegue.",
+      hint: "Noust reconoce un proyecto por los archivos de la raíz del repositorio ({examples}, o un package.json con un script start). Revisa la rama, o elige un tipo explícitamente en vez de fiarte de la detección automática.",
+    },
+    package_json: {
+      no_start: {
+        text: "package.json no tiene un script start, ni una entrada main, ni ningún framework que Noust reconozca (Next.js, Vite, Nuxt, SvelteKit, Astro, Remix, Angular).",
+        hint: "Añade un script start a package.json ({example_command}) o una entrada \"main\", para que Noust sepa cómo ejecutarlo; o elige el tipo explícitamente.",
+      },
+      unreadable: {
+        text: "package.json no se puede leer como JSON.",
+        hint: "Arregla package.json y vuelve a inspeccionar ({error}).",
+      },
+    },
+    stack: {
+      no_deployer: {
+        text: "Es un proyecto {stack} ({marker}); Noust no tiene un desplegador de {stack}.",
+        hint: "Despliégalo como contenedor: añade un Dockerfile al repositorio y despliégalo con --type container. Sin Dockerfile, instala Railpack ({setup_command}), que lo construye como contenedor por sí solo: --type container --builder railpack.",
+      },
+      no_deployer_with_railpack: {
+        text: "Es un proyecto {stack} ({marker}); Noust no tiene un desplegador de {stack}.",
+        hint: "Despliégalo como contenedor, que Railpack construye sin Dockerfile (está instalado aquí): {command}. O añade un Dockerfile y despliégalo con --type container.",
+      },
+      no_program: {
+        text: "Es un proyecto {stack} ({marker}), pero Noust no encontró ningún programa que ejecutar en él.",
+        hint: "Despliégalo como contenedor: añade un Dockerfile al repositorio y despliégalo con --type container. Sin Dockerfile, instala Railpack ({setup_command}), que lo construye como contenedor por sí solo: --type container --builder railpack.",
+      },
+      no_program_with_railpack: {
+        text: "Es un proyecto {stack} ({marker}), pero Noust no encontró ningún programa que ejecutar en él.",
+        hint: "Despliégalo como contenedor, que Railpack construye sin Dockerfile (está instalado aquí): {command}. O añade un Dockerfile y despliégalo con --type container.",
+      },
+    },
+    subprojects: {
+      text: "En la raíz del repositorio no hay nada que Noust despliegue; se encontró {found}.",
+      hint: "Noust despliega un repositorio desde su raíz, o una aplicación por proyecto: un monorepo de JavaScript (workspaces de npm, Yarn, pnpm, Lerna, Nx o Turborepo) se lee con '{detect_command}' y cada aplicación se crea con '{create_command}', con versiones y vigilando solo sus propios archivos. Si no, despliega cada proyecto desde un repositorio propio, o añade en la raíz un compose.yaml que los construya y despliégalo como Docker Compose.",
+    },
+    turbo: {
+      no_apps: {
+        text: "El repositorio usa Turborepo (turbo.json), pero no es un monorepo que Noust despliegue: ninguna app de apps/ tiene un package.json.",
+        hint: "El tipo monorepo necesita turbo.json, una configuración de workspace y al menos dos apps en apps/, cada una con su propio package.json. Con una sola app, llévala a la raíz del repositorio; o añade en la raíz un compose.yaml que construya las apps y despliégalo como Docker Compose.",
+      },
+      no_workspace: {
+        text: "El repositorio usa Turborepo (turbo.json), pero no es un monorepo que Noust despliegue: no hay workspace (pnpm-workspace.yaml, o \"workspaces\" en package.json).",
+        hint: "El tipo monorepo necesita turbo.json, una configuración de workspace y al menos dos apps en apps/, cada una con su propio package.json. Con una sola app, llévala a la raíz del repositorio; o añade en la raíz un compose.yaml que construya las apps y despliégalo como Docker Compose.",
+      },
+      no_workspace_no_apps: {
+        text: "El repositorio usa Turborepo (turbo.json), pero no es un monorepo que Noust despliegue: no hay workspace (pnpm-workspace.yaml, o \"workspaces\" en package.json); ninguna app de apps/ tiene un package.json.",
+        hint: "El tipo monorepo necesita turbo.json, una configuración de workspace y al menos dos apps en apps/, cada una con su propio package.json. Con una sola app, llévala a la raíz del repositorio; o añade en la raíz un compose.yaml que construya las apps y despliégalo como Docker Compose.",
+      },
+      no_workspace_one_app: {
+        text: "El repositorio usa Turborepo (turbo.json), pero no es un monorepo que Noust despliegue: no hay workspace (pnpm-workspace.yaml, o \"workspaces\" en package.json); solo apps/{app}/ tiene un package.json en apps/.",
+        hint: "El tipo monorepo necesita turbo.json, una configuración de workspace y al menos dos apps en apps/, cada una con su propio package.json. Con una sola app, llévala a la raíz del repositorio; o añade en la raíz un compose.yaml que construya las apps y despliégalo como Docker Compose.",
+      },
+      one_app: {
+        text: "El repositorio usa Turborepo (turbo.json), pero no es un monorepo que Noust despliegue: solo apps/{app}/ tiene un package.json en apps/.",
+        hint: "El tipo monorepo necesita turbo.json, una configuración de workspace y al menos dos apps en apps/, cada una con su propio package.json. Con una sola app, llévala a la raíz del repositorio; o añade en la raíz un compose.yaml que construya las apps y despliégalo como Docker Compose.",
+      },
+      other: {
+        text: "El repositorio usa Turborepo (turbo.json), pero no es un monorepo que Noust despliegue.",
+        hint: "El tipo monorepo necesita turbo.json, una configuración de workspace y al menos dos apps en apps/, cada una con su propio package.json. Con una sola app, llévala a la raíz del repositorio; o añade en la raíz un compose.yaml que construya las apps y despliégalo como Docker Compose.",
+      },
+    },
+  },
   invitation: {
     mail_failed: {
       text: "No se pudo enviar la invitación por correo: {reason}",
       hint: "La invitación existe: entrega su enlace tú mismo.",
+    },
+  },
+  jobs: {
+    step: {
+      backup: {
+        complete: {
+          text: "Copia de seguridad completada",
+        },
+        creating: {
+          text: "Creando la copia de seguridad",
+        },
+        upload_complete: {
+          text: "Subida completada",
+        },
+        uploading: {
+          text: "Subiendo a {destination}",
+        },
+      },
+      bundle: {
+        active: {
+          text: "Versión activa",
+        },
+        building: {
+          text: "Compilando para enviar",
+        },
+        packed: {
+          text: "Empaquetada, a la espera de que la recojan",
+        },
+        receiving: {
+          text: "Recibiendo la versión",
+        },
+      },
+      certificate: {
+        created: {
+          text: "Certificado creado",
+        },
+        requesting: {
+          text: "Pidiendo el certificado",
+        },
+        serving: {
+          text: "Sirviéndolo",
+        },
+      },
+      clone: {
+        complete: {
+          text: "Clonado completado",
+        },
+      },
+      complete: {
+        text: "Completado",
+      },
+      delete: {
+        complete: {
+          text: "Eliminación completada",
+        },
+      },
+      deploy: {
+        complete: {
+          text: "Despliegue completado",
+        },
+        copying_data: {
+          text: "Copiando los datos",
+        },
+        database: {
+          text: "Creando la base de datos {engine}",
+        },
+        deploying: {
+          text: "Desplegando la aplicación",
+        },
+        preparing: {
+          text: "Preparando el despliegue",
+        },
+        recipe: {
+          text: "Preparando la receta {recipe}",
+        },
+      },
+      disk: {
+        giving_limit: {
+          text: "Pasando el límite al kernel",
+        },
+        measuring: {
+          text: "Midiendo el directorio de la aplicación",
+        },
+        taking_limit: {
+          text: "Quitando el límite al kernel",
+        },
+      },
+      domains: {
+        deleted: {
+          text: "El certificado está borrado",
+        },
+        deleting: {
+          text: "Borrando el certificado de {name}",
+        },
+        extended: {
+          text: "El certificado cubre todos los dominios",
+        },
+        extending: {
+          text: "Ampliando el certificado a todos los dominios",
+        },
+        giving_back: {
+          text: "Devolviéndolo",
+        },
+        in_place: {
+          text: "El certificado está en su sitio",
+        },
+        ordering: {
+          text: "Pidiendo un certificado propio",
+        },
+        removed: {
+          text: "El certificado cubre solo los dominios que quedan",
+        },
+        removing: {
+          text: "Quitando el dominio del certificado",
+        },
+      },
+      done: {
+        text: "Todo hecho",
+      },
+      engine: {
+        installing: {
+          text: "Instalando {engine}",
+        },
+        uninstalling: {
+          text: "Desinstalando {engine}",
+        },
+      },
+      exec: {
+        finished: {
+          text: "Comando terminado",
+        },
+        running: {
+          text: "Ejecutando un comando en {domain}",
+        },
+      },
+      hardening: {
+        changing: {
+          text: "Cambiando el aislamiento de la unidad de la aplicación",
+        },
+      },
+      identity: {
+        moving: {
+          text: "Pasando la aplicación a su propia cuenta",
+        },
+      },
+      import: {
+        complete: {
+          text: "Importación completada",
+        },
+      },
+      migrate: {
+        complete: {
+          text: "Migración completada",
+        },
+        moving: {
+          text: "Pasando el árbol a versiones",
+        },
+        planning: {
+          text: "Planificando la migración",
+        },
+      },
+      packages: {
+        installing: {
+          text: "Instalando los paquetes del sistema",
+        },
+      },
+      pitr: {
+        recovering: {
+          text: "Recuperación a un momento dado: {action}",
+        },
+      },
+      promote: {
+        complete: {
+          text: "Promoción completada",
+        },
+      },
+      renewal: {
+        complete: {
+          text: "Renovación completada",
+        },
+        none_due: {
+          text: "Ningún certificado tocaba renovarse",
+        },
+        renewing: {
+          text: "Renovando certificados",
+        },
+        unreadable: {
+          text: "No se pudo leer la lista de certificados de certbot, así que no se sabe cuáles se renovaron",
+        },
+      },
+      replicas: {
+        starting: {
+          text: "Arrancando las copias y preguntando a cada una si responde",
+        },
+      },
+      restore: {
+        complete: {
+          text: "Restauración completada",
+        },
+        downloading: {
+          text: "Descargando y restaurando la copia de seguridad",
+        },
+        restoring: {
+          text: "Restaurando la copia de seguridad",
+        },
+      },
+      rollback: {
+        complete: {
+          text: "Vuelta atrás completada",
+        },
+        rolling_back: {
+          text: "Volviendo atrás",
+        },
+        to_deployment: {
+          text: "Volviendo al despliegue {deployment}",
+        },
+      },
+      sandbox: {
+        building: {
+          text: "Compilando el commit actual en el entorno aislado",
+        },
+      },
+      staged: {
+        building: {
+          text: "Compilando sin activar",
+        },
+        built: {
+          text: "Compilada, a la espera de promoverla",
+        },
+        promoted: {
+          text: "Promovida",
+        },
+        promoting: {
+          text: "Poniendo la versión en servicio",
+        },
+      },
+      tuning: {
+        tuning: {
+          text: "Ajustando la unidad de la aplicación",
+        },
+      },
+      update: {
+        complete: {
+          text: "Actualización completada",
+        },
+        unit_not_running: {
+          text: "Se reinició, pero la unidad no está en marcha: mira sus registros",
+        },
+      },
+      zero_downtime: {
+        off: {
+          text: "Desactivando las actualizaciones sin cortes",
+        },
+        on: {
+          text: "Activando las actualizaciones sin cortes",
+        },
+      },
+    },
+    title: {
+      app_exec: { text: "Ejecutar un comando en {domain}" },
+      app_exec_any: { text: "Ejecutar un comando en una aplicación" },
+      backup: { text: "Hacer una copia de {domain}" },
+      backup_any: { text: "Hacer una copia de una aplicación" },
+      cert_acme_account: { text: "Registrar la cuenta ACME" },
+      cert_create: { text: "Conseguir un certificado para {domain}" },
+      cert_create_any: { text: "Conseguir un certificado" },
+      cert_renew: { text: "Renovar el certificado de {domain}" },
+      cert_renew_all: { text: "Renovar los certificados que toca renovar" },
+      cleanup: { text: "Limpiar el servidor" },
+      cloudflared_install: { text: "Instalar cloudflared" },
+      custom: { text: "Hacer una tarea" },
+      custom_of_app: { text: "Hacer una tarea para {domain}" },
+      database: { text: "Hacer una tarea de bases de datos" },
+      database_of_app: { text: "Trabajar en una base de datos de {domain}" },
+      delete: { text: "Eliminar {domain}" },
+      delete_any: { text: "Eliminar una aplicación" },
+      deploy: { text: "Desplegar {domain}" },
+      deploy_any: { text: "Desplegar una aplicación" },
+      disk: { text: "Medir el disco que usa {domain}" },
+      disk_any: { text: "Medir el disco que usa una aplicación" },
+      disk_scan: { text: "Medir qué ocupa el disco" },
+      fleet: { text: "Ejecutar una acción en toda la flota" },
+      hardening: { text: "Cambiar el sandbox de {domain}" },
+      hardening_any: { text: "Cambiar el sandbox de una aplicación" },
+      identity_migrate: { text: "Dar a {domain} su propia cuenta de sistema" },
+      identity_migrate_any: { text: "Dar a una aplicación su propia cuenta de sistema" },
+      manifest: { text: "Aplicar un manifiesto" },
+      migrate: { text: "Pasar {domain} a la disposición por releases" },
+      migrate_any: { text: "Pasar una aplicación a la disposición por releases" },
+      node_enroll: { text: "Añadir {node}" },
+      node_enroll_any: { text: "Añadir un servidor" },
+      node_provision: { text: "Crear el servidor {node}" },
+      node_provision_any: { text: "Crear un servidor" },
+      os_refresh: { text: "Actualizar las listas de paquetes" },
+      os_update: { text: "Actualizar el sistema" },
+      push: { text: "Enviar una copia a {destination}" },
+      push_any: { text: "Enviar una copia a su destino" },
+      replicas: { text: "Cambiar las copias en marcha de {domain}" },
+      replicas_any: { text: "Cambiar las copias en marcha de una aplicación" },
+      restore: { text: "Restaurar una copia en {domain}" },
+      restore_any: { text: "Restaurar una copia" },
+      rollback: { text: "Volver atrás en {domain}" },
+      rollback_any: { text: "Volver atrás en una aplicación" },
+      sandbox_test: { text: "Probar {domain} en el sandbox de compilación" },
+      sandbox_test_any: { text: "Probar una aplicación en el sandbox de compilación" },
+      self_update: { text: "Actualizar Noust" },
+      server_action: { text: "Hacer una tarea del servidor" },
+      server_action_dns_install: { text: "Instalar Knot DNS" },
+      server_action_dns_setup: { text: "Configurar Noust DNS como {role}" },
+      server_action_software_install: { text: "Instalar {component}" },
+      server_action_software_remove: { text: "Quitar {component}" },
+      server_security: { text: "Hacer una tarea de seguridad" },
+      service_action: { text: "Reiniciar servicios" },
+      site_action: { text: "Cambiar un sitio" },
+      site_console_expose: { text: "Publicar la consola en {domain}" },
+      site_console_unexpose: { text: "Dejar de publicar la consola" },
+      site_status_page_publish: { text: "Publicar la página de estado en {domain}" },
+      site_status_page_unpublish: { text: "Dejar de publicar la página de estado" },
+      site_webserver_move: { text: "Pasar los sitios a {webserver}" },
+      swap: { text: "Cambiar el archivo de intercambio" },
+      swap_create: { text: "Crear un archivo de intercambio" },
+      swap_remove: { text: "Quitar el archivo de intercambio" },
+      tuning: { text: "Ajustar {domain}" },
+      tuning_any: { text: "Ajustar una aplicación" },
+      update: { text: "Actualizar {domain}" },
+      update_any: { text: "Actualizar una aplicación" },
+      zero_downtime: { text: "Cambiar la activación sin cortes de {domain}" },
+      zero_downtime_any: { text: "Cambiar la activación sin cortes" },
     },
   },
   mail: {
@@ -570,7 +1322,7 @@ export const serverText: Catalog<typeof en> = {
     },
     no_transport: {
       text: "Este servidor no tiene ninguna forma de enviar correo",
-      hint: "Define monitor.smtp.* o monitor.email_api.* (Ajustes > Canales) y vuelve a pedirlo.",
+      hint: "Define monitor.smtp.* o monitor.email_api.* (Ajustes > Canales de aviso) y vuelve a pedirlo.",
     },
   },
   names: {
@@ -585,6 +1337,77 @@ export const serverText: Catalog<typeof en> = {
         text: "Usa letras minúsculas, dígitos, '-' y '_', empezando por una letra, con un máximo de {max} caracteres.",
       },
     },
+  },
+  monitor: {
+    observation: {
+      name_pattern: {
+        text: "El nombre del ejecutable empieza por «{prefix}», un nombre que usan programas maliciosos conocidos de minería de criptomonedas y botnets. Es un aviso, no un veredicto: identifica el binario antes de actuar.",
+      },
+      resource_usage: {
+        text: "Uso sostenido de recursos: CPU al {cpu} % (umbral {cpu_threshold} %), memoria al {memory} % (umbral {memory_threshold} %).",
+      },
+    },
+  },
+  networks: {
+    finding: {
+      default_bridge: {
+        text: "Es el puente por defecto de Docker: todo contenedor que se arranca sin una red está en él, y se alcanzan entre sí por la dirección.",
+      },
+      host: {
+        text: "Es la red propia del anfitrión: los contenedores no tienen una red propia.",
+      },
+      internal: {
+        text: "Es interna: los contenedores que están en ella no pueden salir al exterior.",
+      },
+      made_elsewhere: {
+        text: "No la creó Compose: se hizo a mano o con otra herramienta.",
+      },
+      owned_by_another: {
+        text: "Pertenece a la pila {owner}, que la creó.",
+      },
+      shared_many: {
+        text: "Está compartida: {members} y {more} más también están en ella.",
+      },
+      shared_one: {
+        text: "Está compartida: {members} también está en ella.",
+      },
+      shared_several: {
+        text: "Está compartida: {members} también están en ella.",
+      },
+    },
+    not_applicable: {
+      text: "Esta aplicación no se ejecuta en Docker, así que no tiene red de Docker.",
+    },
+  },
+  operations: {
+    app_apply: { text: "Aplicar una declaración a {target}" },
+    app_move: { text: "Mover {target} a otro proyecto" },
+    app_restart: { text: "Reiniciar {target}" },
+    app_start: { text: "Iniciar {target}" },
+    app_stop: { text: "Detener {target}" },
+    backup_verify: { text: "Verificar la copia {target}" },
+    build_apply: { text: "Aplicar los ajustes de compilación de {target}" },
+    build_cache_clear: { text: "Vaciar la caché de compilación de {target}" },
+    compose_import: { text: "Importar un proyecto de Compose" },
+    cron_run: { text: "Ejecutar la tarea programada {target}" },
+    encryption_enable: { text: "Activar el cifrado de las copias" },
+    encryption_rotate: { text: "Rotar la clave de cifrado de las copias" },
+    engine_restart: { text: "Reiniciar el motor de bases de datos {target}" },
+    engine_start: { text: "Iniciar el motor de bases de datos {target}" },
+    engine_stop: { text: "Detener el motor de bases de datos {target}" },
+    env_sync: { text: "Sincronizar el entorno de {target}" },
+    fleet_settings_apply: { text: "Aplicar los ajustes de la flota" },
+    monitor_install: { text: "Instalar el monitor" },
+    monitor_scan: { text: "Analizar el servidor con el monitor" },
+    node_test: { text: "Probar la conexión con {target}" },
+    power_reboot: { text: "Reiniciar el servidor" },
+    power_shutdown: { text: "Apagar el servidor" },
+    probe_check: { text: "Comprobar la sonda {target}" },
+    service_restart: { text: "Reiniciar el servicio {target}" },
+    service_start: { text: "Iniciar el servicio {target}" },
+    service_stop: { text: "Detener el servicio {target}" },
+    sites_reload: { text: "Recargar los sitios del servidor web" },
+    waf_install: { text: "Instalar el cortafuegos de aplicaciones web" },
   },
   power_checks: {
     jobs_running: { text: "En marcha ahora: {jobs}" },
@@ -733,6 +1556,269 @@ export const serverText: Catalog<typeof en> = {
       hint: "Lista los roles con: {command}",
     },
   },
+  sign_in_image: {
+    alt_control: {
+      text: "La descripción debe ser una sola línea de texto sin formato",
+      hint: "Quita los saltos de línea y los caracteres de control.",
+    },
+    alt_too_long: {
+      text: "La descripción tiene más de {limit} caracteres",
+      hint: "Acórtala: un lector de pantalla la lee entera.",
+    },
+    animated: {
+      text: "Una imagen animada no se admite como imagen del inicio de sesión",
+      hint: "Usa una imagen fija: una animación no se puede pausar, y esta pantalla se lee.",
+    },
+    bad_fit: {
+      text: "El ajuste debe ser cover o contain",
+      hint: "Usa cover para rellenar el espacio (recortando lo que no quepa) o contain para mostrarla entera.",
+    },
+    damaged: {
+      text: "El archivo {kind} está dañado o incompleto",
+      hint: "Exporta la imagen otra vez y envía el archivo nuevo.",
+    },
+    no_image_yet: {
+      text: "No hay una imagen del inicio de sesión a la que cambiar el ajuste o la descripción",
+      hint: "Envía también la imagen.",
+    },
+    not_an_image: {
+      text: "El archivo no es una imagen PNG, JPEG ni WebP",
+      hint: "El tipo se lee del propio archivo, no de su nombre: exporta la imagen como PNG, JPEG o WebP.",
+    },
+    not_base64: {
+      text: "La imagen debe enviarse como texto base64",
+      hint: "Envía los bytes del archivo codificados en base64, sin prefijo data: y sin saltos de línea.",
+    },
+    svg_refused: {
+      text: "Un SVG no se admite como imagen del inicio de sesión",
+      hint: "Un SVG es código, y esta imagen la ve cualquiera que abra la consola antes de entrar. Expórtala como PNG, JPEG o WebP.",
+    },
+    too_large: {
+      text: "La imagen pesa más de {limit}",
+      hint: "Expórtala otra vez más pequeña o con más compresión y vuelve a enviarla.",
+    },
+    too_many_pixels: {
+      text: "La imagen mide {width} por {height} píxeles, y el máximo es {limit} por cada lado",
+      hint: "Redúcela y vuelve a enviarla.",
+    },
+    unsupported: {
+      text: "Este archivo {kind} usa una codificación que no todos los navegadores dibujan",
+      hint: "Guárdalo otra vez como imagen estándar, de 8 bits y no jerárquica, y vuelve a enviarlo.",
+    },
+  },
+  sites: {
+    config_updated: {
+      text: "Configuración actualizada de {domain}. Recarga {webserver} para aplicarla.",
+    },
+    created: {
+      not_loaded: {
+        text: "Sitio creado: {domain}, pero {webserver} no lo cargó: {error}",
+      },
+      reload: {
+        text: "Sitio creado: {domain}. Recarga {webserver} para servirlo.",
+      },
+      with_ssl: {
+        text: "Sitio creado con SSL: {domain}.",
+      },
+      without_tls: {
+        text: "Sitio creado: {domain}. Se pidió TLS, pero no se activó.",
+      },
+      without_tls_because: {
+        text: "Sitio creado: {domain}. Se pidió TLS, pero no se activó: {error}.",
+      },
+    },
+    deleted: {
+      text: "Sitio eliminado: {domain}",
+    },
+    disabled: {
+      text: "Sitio desactivado: {domain}",
+    },
+    enabled: {
+      text: "Sitio activado: {domain}",
+    },
+    reloaded: {
+      text: "{webserver} recargado",
+    },
+  },
+  software: {
+    apache: {
+      purpose: {
+        text: "Otro servidor web",
+      },
+    },
+    auto_updates: {
+      purpose: {
+        text: "Instala solas las actualizaciones de seguridad",
+      },
+    },
+    certbot: {
+      purpose: {
+        text: "Obtiene y renueva certificados HTTPS",
+      },
+    },
+    chrony: {
+      purpose: {
+        text: "Mantiene el reloj en hora",
+      },
+    },
+    cloudflared: {
+      purpose: {
+        text: "Conector de Cloudflare Tunnel",
+      },
+    },
+    curl: {
+      never: {
+        text: "Noust descarga con él las claves y los instaladores que comprueba",
+      },
+      purpose: {
+        text: "Descarga claves e instaladores",
+      },
+    },
+    docker: {
+      purpose: {
+        text: "Ejecuta contenedores y aplicaciones Compose",
+      },
+    },
+    fail2ban: {
+      purpose: {
+        text: "Bloquea direcciones que adivinan contraseñas",
+      },
+    },
+    firewall: {
+      never: {
+        text: "Noust abre y cierra puertos con él, y es lo que mantiene cerrado el servidor",
+      },
+      purpose: {
+        text: "Abre y cierra puertos",
+      },
+    },
+    git: {
+      never: {
+        text: "Todo despliegue desde un repositorio lo necesita",
+      },
+      purpose: {
+        text: "Descarga el código de las aplicaciones",
+      },
+    },
+    gnupg: {
+      never: {
+        text: "Noust comprueba con él la clave de firma de cada repositorio que añade",
+      },
+      purpose: {
+        text: "Comprueba las claves de los repositorios",
+      },
+    },
+    hub: {
+      text: "Esta central es un hub: no tiene software propio",
+    },
+    knot: {
+      purpose: {
+        text: "Servidor de nombres de las zonas DNS de Noust",
+      },
+    },
+    mongodb: {
+      purpose: {
+        text: "Base de datos de documentos",
+      },
+    },
+    mysql: {
+      purpose: {
+        text: "Motor de bases de datos MySQL o MariaDB",
+      },
+    },
+    nginx: {
+      purpose: {
+        text: "Sirve las aplicaciones y termina el HTTPS",
+      },
+    },
+    nginx_stream_module: {
+      purpose: {
+        text: "Publica puertos TCP y UDP",
+      },
+    },
+    nodejs: {
+      purpose: {
+        text: "Ejecuta aplicaciones Node.js",
+      },
+    },
+    noust: {
+      never: {
+        text: "Quitarlo sacaría a Noust, y la consola que estás usando, de este servidor",
+      },
+      purpose: {
+        text: "Noust y sus bibliotecas",
+      },
+    },
+    php: {
+      purpose: {
+        text: "Ejecuta aplicaciones PHP",
+      },
+    },
+    postgresql: {
+      purpose: {
+        text: "Motor de bases de datos PostgreSQL",
+      },
+    },
+    rclone: {
+      purpose: {
+        text: "Sube las copias a destinos remotos",
+      },
+    },
+    redis: {
+      purpose: {
+        text: "Caché y almacén Redis o Valkey",
+      },
+    },
+    sshd: {
+      never: {
+        text: "Quitarlo te dejaría sin acceso a esta máquina",
+      },
+      purpose: {
+        text: "Cómo entras en esta máquina",
+      },
+    },
+    systemd: {
+      never: {
+        text: "Todo lo de este servidor, Noust incluido, corre bajo él",
+      },
+      purpose: {
+        text: "Ejecuta todos los servicios del servidor",
+      },
+    },
+    waf: {
+      purpose: {
+        text: "Cortafuegos de aplicaciones web para sitios",
+      },
+    },
+    refused: {
+      cannot_tell: {
+        text: "Noust no puede saber qué depende de {component}",
+        hint: "{reason} Quitarlo sin saberlo podría romper lo que dependa de él.",
+      },
+      dependents: {
+        text: "{component} no se puede quitar mientras algo dependa de él: {dependents}",
+        hint: "Deja de usarlo primero (quita o mueve lo que sale en la lista) y luego quítalo.",
+      },
+      never: {
+        text: "{component} no se quita nunca",
+      },
+      not_installed: {
+        text: "{component} no está instalado",
+      },
+      takes_in_use: {
+        text: "Quitar {component} quitaría también {other}, que está en uso: {dependents}",
+        hint: "No se ha quitado nada. Deja de usar {other} primero.",
+      },
+      takes_never: {
+        text: "Quitar {component} quitaría también {other}, que no se quita nunca",
+        hint: "No se ha quitado nada.",
+      },
+      unknown_origin: {
+        text: "Noust no instaló {component}",
+        hint: "Otras cosas del sistema pueden usarlo. Repite la petición confirmándolo para quitarlo igualmente.",
+      },
+    },
+  },
   sources: {
     central_only: {
       text: "Solo la central que gestiona este servidor puede cederle acceso a GitHub",
@@ -799,6 +1885,107 @@ export const serverText: Catalog<typeof en> = {
       hint: "Los servidores que gestiona no tienen una dirección a la que GitHub pueda llamar: el webhook de la App es de esta central. En un servidor con servidor web, dale un nombre propio: {command}. Detrás de un proxy tuyo, di dónde responde: {config_command}",
     },
   },
+  storage: {
+    effect: {
+      docker_build_cache: {
+        text: "Borra la caché de compilación de más de una semana. La próxima compilación será más lenta por ello.",
+      },
+      docker_dangling_images: {
+        text: "Borra las imágenes que no tienen nombre ni contenedor. Las imágenes con nombre se conservan, igual que todas las noust_previous.",
+      },
+      docker_image: {
+        text: "Borra la imagen {image}, sin --force: Docker se niega si un contenedor la usa.",
+      },
+      journal: {
+        text: "Rota el diario y borra los archivos archivados que pasen del límite. El archivo activo no se toca.",
+      },
+      pkg_cache: {
+        text: "Borra los archivos de paquetes descargados.",
+      },
+      releases: {
+        text: "Borra las versiones que cada aplicación guarda por encima de su propio límite. La versión activa y a la que llevaría una vuelta atrás se conservan siempre.",
+      },
+    },
+    run: {
+      below_threshold: {
+        text: "{mount} está al {percent}%, por debajo del {threshold}% que espera la política",
+      },
+      policy_off: {
+        text: "la política de limpieza está desactivada",
+      },
+    },
+  },
+  streams: {
+    firewall: {
+      allowed_one: {
+        text: "{backend} ahora permite 1 regla para este puerto",
+      },
+      allowed_several: {
+        text: "{backend} ahora permite {count} reglas para este puerto",
+      },
+      unchanged: {
+        text: "No se ha cambiado el cortafuegos",
+      },
+      unchanged_because: {
+        text: "No se ha cambiado el cortafuegos: {note}",
+      },
+    },
+    plan: {
+      nothing_listens: {
+        text: "Todavía no escucha nada en {target}: los visitantes serán rechazados hasta que el servicio esté en marcha",
+      },
+      open_to_everyone: {
+        text: "{protocol} {port} estará abierto a todo el mundo",
+      },
+      open_to_everyone_without_login: {
+        text: "{protocol} {port} estará abierto a todo el mundo; un servicio sin autenticación propia debería limitarse a direcciones conocidas",
+      },
+    },
+    support: {
+      config_unparsable: {
+        text: "La configuración de nginx no se puede leer: {reason}",
+      },
+      config_unreadable: {
+        text: "nginx no puede leer su propia configuración",
+      },
+      foreign_block: {
+        text: "nginx.conf ya tiene un bloque stream que no incluye los puertos de Noust",
+        hint: "Añade esta línea dentro y vuelve a intentarlo: {line_command}",
+      },
+      module_not_loaded: {
+        text: "El módulo stream está compilado como módulo y nada lo carga",
+        hint: "Instala el módulo con: {command}",
+      },
+      module_not_loaded_suse: {
+        text: "El módulo stream está compilado como módulo y nada lo carga",
+        hint: "Añade {line_command} al principio de nginx.conf.",
+      },
+      no_nginx: {
+        text: "nginx no está instalado",
+        hint: "Instálalo con: {command}",
+      },
+      no_stream_block: {
+        text: "nginx.conf no tiene un bloque stream para los puertos de Noust",
+        hint: "Añade esto en el nivel superior de nginx.conf (junto a http) y vuelve a intentarlo: {block_command}",
+      },
+      no_stream_module: {
+        text: "Este nginx se compiló sin el módulo stream",
+        hint: "Instala el módulo con: {command}",
+      },
+      no_stream_module_suse: {
+        text: "Este nginx se compiló sin el módulo stream",
+        hint: "openSUSE incluye nginx con stream; instala el paquete nginx de la distribución o de nginx.org.",
+      },
+    },
+  },
+  swap: {
+    cloud_init: {
+      text: "cloud-init está configurado con una sección swap:, así que vuelve a crear el swap en cada arranque. Quita esa sección o deja el swap a cloud-init.",
+    },
+    unsupported_container: {
+      text: "Esto es un contenedor ({container}), donde el swap es del anfitrión: swapon se rechaza dentro de él.",
+    },
+  },
   terminal: {
     disabled: {
       text: "Los terminales están desactivados en este servidor",
@@ -814,7 +2001,7 @@ export const serverText: Catalog<typeof en> = {
     },
     server_control: {
       text: "El control {control} está en refused en este servidor, así que el terminal del propio servidor sigue desactivado",
-      hint: "Ningún marco de cumplimiento lo pide: se fijó en Ajustes > Controles o con la línea de comandos. Para permitirlo: {command}",
+      hint: "Ningún marco de cumplimiento lo pide: se fijó en Ajustes > Cumplimiento o con la línea de comandos. Para permitirlo: {command}",
     },
     server_framework: {
       text: "El marco de cumplimiento en vigor ({frameworks}) mantiene desactivado el terminal del propio servidor (el control {control} está en refused)",

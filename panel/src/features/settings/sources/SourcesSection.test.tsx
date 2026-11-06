@@ -55,7 +55,7 @@ function central(extra: Record<string, RouteHandler> = {}) {
   });
 }
 
-describe("Settings > Connections, on a central", () => {
+describe("Settings > Integrations, on a central", () => {
   it("says how each server reaches its repositories, what keeps one from it, and passes axe", { timeout: 90_000 }, async () => {
     central();
     const { container } = renderConsole("/settings/integrations");
@@ -108,7 +108,7 @@ describe("Settings > Connections, on a central", () => {
   it("is not drawn on a server with no fleet", { timeout: 90_000 }, async () => {
     fakeBackend({ ...signedInRoutes(ADMIN), "GET /api/fleet/sources": () => json(200, SOURCES) });
     renderConsole("/settings/integrations");
-    await screen.findByRole("heading", { level: 1, name: "Connections" });
+    await screen.findByRole("heading", { level: 1, name: "Integrations" });
     expect(screen.queryByText("Code on your servers")).toBeNull();
   });
 });

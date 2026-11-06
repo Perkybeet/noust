@@ -10,7 +10,8 @@ import { KeyValueList } from "../../../components/page/KeyValueList";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
-import { Section } from "../../../components/page/Section";
+import { Can } from "../../../components/page/permissions";
+import { SurfaceSection } from "../../../components/page/SurfaceSection";
 import { Button } from "../../../components/ui/Button";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { StatusPill } from "../../../components/ui/StatusPill";
@@ -20,8 +21,8 @@ import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
 import { reportActionError } from "../../apps/useAppActions";
-import { SecretShown } from "../users/SecretShown";
-import type { SecretShownProps } from "../users/SecretShown";
+import { SecretShown } from "../access/SecretShown";
+import type { SecretShownProps } from "../access/SecretShown";
 import { OpenPublicDialog } from "./OpenPublicDialog";
 import { namedSources } from "./publicAccess";
 import type { AccessProfile } from "./publicAccess";
@@ -89,9 +90,11 @@ export function PublicAccessSection({ engine, name }: { engine: string; name: st
   const unreachable = exposure !== null && exposure.state === "exposed" && !exposure.listening;
   const stuck = exposure !== null && exposure.state !== "exposed";
   const open = (
-    <Button size="sm" variant="secondary" icon={<OBJECT_ICONS.addresses aria-hidden="true" />} onClick={() => setOpening(true)}>
-      {t("publicAccess.actions.open")}
-    </Button>
+    <Can permission="databases.manage">
+      <Button size="sm" variant="secondary" icon={<OBJECT_ICONS.addresses aria-hidden="true" />} onClick={() => setOpening(true)}>
+        {t("publicAccess.actions.open")}
+      </Button>
+    </Can>
   );
 
   // The state is a pill after the title, three ways (colour, shape and word), not a block of its own.
@@ -116,7 +119,7 @@ export function PublicAccessSection({ engine, name }: { engine: string; name: st
 
   if (data === undefined) {
     return (
-      <Section icon={OBJECT_ICONS.addresses} title={t("publicAccess.title")} description={t("publicAccess.description")}>
+      <SurfaceSection icon={OBJECT_ICONS.addresses} title={t("publicAccess.title")} description={t("publicAccess.description")}>
         {detail.isError ? (
           <ErrorBlock compact error={detail.error} title={t("publicAccess.loadFailed")} onRetry={() => void detail.refetch()} retrying={detail.isRefetching} />
         ) : (
@@ -124,15 +127,16 @@ export function PublicAccessSection({ engine, name }: { engine: string; name: st
             <Skeleton className="h-24 w-full rounded-card" />
           </LoadingRegion>
         )}
-      </Section>
+      </SurfaceSection>
     );
   }
 
   return (
     <>
-      <Section
-        title={t("publicAccess.title")} icon={OBJECT_ICONS.addresses}
-        badge={status}
+      <SurfaceSection
+        title={t("publicAccess.title")}
+        icon={OBJECT_ICONS.addresses}
+        status={status}
         description={sentence}
         actions={
           exposure === null ? (
@@ -140,13 +144,17 @@ export function PublicAccessSection({ engine, name }: { engine: string; name: st
           ) : (
             <>
               {!stuck ? (
-                <Button size="sm" icon={<Eye aria-hidden="true" />} loading={reveal.isPending} onClick={() => reveal.mutate()}>
-                  {t("publicAccess.actions.reveal")}
-                </Button>
+                <Can permission="secrets.reveal">
+                  <Button size="sm" icon={<Eye aria-hidden="true" />} loading={reveal.isPending} onClick={() => reveal.mutate()}>
+                    {t("publicAccess.actions.reveal")}
+                  </Button>
+                </Can>
               ) : null}
-              <Button size="sm" variant="secondary" icon={<Lock aria-hidden="true" />} onClick={() => setClosing(true)}>
-                {t("publicAccess.actions.close")}
-              </Button>
+              <Can permission="databases.manage">
+                <Button size="sm" variant="secondary" icon={<Lock aria-hidden="true" />} onClick={() => setClosing(true)}>
+                  {t("publicAccess.actions.close")}
+                </Button>
+              </Can>
             </>
           )
         }
@@ -165,7 +173,7 @@ export function PublicAccessSection({ engine, name }: { engine: string; name: st
             ]}
           />
         )}
-      </Section>
+      </SurfaceSection>
       <OpenPublicDialog
         key={`${engine}/${name}`}
         engine={engine}

@@ -8,7 +8,6 @@ import { complianceQuery } from "../../api/queries/compliance";
 import type { ComplianceState } from "../../api/queries/compliance";
 import { useDocumentTitle } from "../../app/documentTitle";
 import { nodeOfConsolePath } from "../../app/nodeRoute";
-import { CommandHint } from "../../components/page/CommandHint";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Stepper } from "../../components/page/Stepper";
 import { Button } from "../../components/ui/Button";
@@ -255,7 +254,6 @@ export function FirstAccountPage({ next }: FirstAccountPageProps) {
               {t("auth.firstAccount.notNow")}
             </Button>
           ) : null}
-          <CommandHint label={t("auth.firstAccount.fromTerminal")} command={step === "security" ? "noust user create NAME --role security" : "noust user create NAME --role admin"} />
         </div>
       }
     >

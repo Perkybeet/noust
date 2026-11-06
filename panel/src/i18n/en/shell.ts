@@ -9,9 +9,6 @@ export const shell = {
   sidebarOverview: "Noust Console, overview",
   version: "Version {version}",
   skipToContent: "Skip to content",
-  menu: {
-    title: "Menu",
-  },
   session: {
     label: "Session and preferences",
     /** The same button for a person: its name starts with the initials drawn on it, so what is said is what is read (label in name). */
@@ -35,6 +32,16 @@ export const shell = {
     needs: { one: "Inbox, {count} thing needs you", other: "Inbox, {count} things need you" },
     clear: "Inbox, nothing needs you",
   },
+  /** The help menu of the top bar: where the guide, the shortcuts, "Report a problem" and "About" are. */
+  help: {
+    label: "Help",
+    report: "Report a problem",
+  },
+  /** The icon of the task centre in the top bar (features/tasks): what its accessible name says. */
+  tasks: {
+    label: "Tasks: {running} running, {queued} queued",
+    idle: "Tasks, nothing running",
+  },
   search: {
     label: "Search",
     placeholder: "Search apps, databases, domains, servers, settings and actions",
@@ -48,7 +55,7 @@ export const shell = {
     scopeHint: "to switch server",
     noMatchesHint: "Try the name of a page, a setting or an application, > for actions or @ for another server.",
     noMatchesCli: "The terminal can do everything: {command}",
-    scope: { server: "Server", application: "Application", all: "All servers", central: "This central" },
+    scope: { server: "Server", application: "Application", all: "All servers" },
   },
   commandGroups: {
     recent: "Recent",
@@ -79,8 +86,6 @@ export const shell = {
       update: "Update {domain}",
       updateKeywords: "update deploy pull build new release",
     },
-    openMap: "Open the map of this server",
-    openMapKeywords: "map graph diagram topology overview applications databases dependencies",
     newApplication: "New application",
     newApplicationKeywords: "deploy create",
     newFromRecipe: "New application from a recipe",
@@ -97,12 +102,15 @@ export const shell = {
     newDatabaseKeywords: "create postgres postgresql mysql mariadb mongodb redis",
     newBackup: "New backup",
     newBackupKeywords: "create back up now copy snapshot save",
+    addName: "Add a name",
+    addNameKeywords: "domain hostname dns https alias redirect subdomain",
+    openPort: "Open a port",
+    openPortKeywords: "firewall tcp udp publish game minecraft database reach outside",
     newSite: "New site",
     newSiteKeywords: "create web server nginx apache vhost domain",
     issueCertificate: "Issue a certificate",
     issueCertificateKeywords: "new create tls ssl https letsencrypt certbot",
     appSection: "{section}: {domain}",
-    appSetting: "Settings, {section}: {domain}",
     deployment: "{domain}: deploy {id}",
     daysLeft: { one: "{count} day left", other: "{count} days left" },
     certificateExpired: "Expired",
@@ -165,11 +173,12 @@ export const shell = {
     breadcrumb: "Breadcrumb",
   },
   pageError: {
-    title: "This page could not be displayed",
-    defaultHint: "Reload to try again. If it fails the same way, the message below is what to report.",
+    title: "This page broke",
+    defaultHint: "The rest of the console still works. Try again; if it happens again, tell us: the error will already be in the report.",
     label: "The error",
     tryAgain: "Try again",
     reload: "Reload page",
+    report: "Report a problem",
   },
   pending: {
     label: "Loading the page",

@@ -47,6 +47,11 @@ EXPECTED_PUBLIC = {
     # Step 2 of sign-in: authenticated by step 1's signed, single-use challenge.
     ("POST", "/api/auth/login/second-factor"),
     ("GET", "/api/auth/session"),
+    # The screen is drawn before there is a session, so the picture an operator put on it, and what says
+    # which one it is, are public: nothing in either is a secret, and the picture is only ever the one that
+    # was judged by its bytes and rewritten without its metadata.
+    ("GET", "/api/auth/sign-in/appearance"),
+    ("GET", "/api/auth/sign-in/image"),
     ("POST", "/api/auth/invitations/open"),
     ("POST", "/api/auth/invitations/accept"),
     # A mailed link and a code of the second factor are the credential; a wrong one is counted.

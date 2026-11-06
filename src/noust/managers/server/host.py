@@ -27,6 +27,7 @@ from pathlib import Path
 
 from noust.core.package_family import PackageFamily, detect_family
 from noust.core.runner import CommandRunner, get_runner
+from noust.core.server_text import ServerText, say
 
 #: Deadline of a probe that only asks the machine a question.
 PROBE_TIMEOUT = 20
@@ -282,6 +283,19 @@ class Platform:
         """Whether "security updates only" means something on this system."""
         return self.updates_supported and not self.rolling
 
+    def updates_unsupported(self) -> ServerText | None:
+        """
+        Say why updates cannot be managed here, as a sentence with a code.
+
+        Returns:
+            The sentence, or None when updates are supported.
+        """
+        if self.transactional:
+            return say("host.updates_unsupported.transactional")
+        if self.family is PackageFamily.NONE:
+            return say("host.updates_unsupported.no_manager")
+        return None
+
     def why_updates_unsupported(self) -> str:
         """
         Say why updates cannot be managed here.
@@ -289,18 +303,8 @@ class Platform:
         Returns:
             One sentence for the operator, empty when updates are supported.
         """
-        if self.transactional:
-            return (
-                "This system installs packages through transactions and a reboot "
-                "(transactional-update or an image-based system), so Noust only "
-                "reports its state. Update it with its own tool."
-            )
-        if self.family is PackageFamily.NONE:
-            return (
-                "Noust drives apt, dnf and zypper, and none of them is installed here. "
-                "Update this system with its own package manager."
-            )
-        return ""
+        said = self.updates_unsupported()
+        return said.text if said is not None else ""
 
 
 _cached: Platform | None = None

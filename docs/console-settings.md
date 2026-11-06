@@ -8,7 +8,7 @@ roles there are, which version runs). The side list has the same seven groups, w
 **People and access**, **Notifications and channels**, **Connections**, **Security and frameworks**, **API**,
 **Fleet** and **Noust**. They are the same on a lone server and on a fleet: a section the central keeps whichever
 server you choose opens the central's page. From twelve sections the list has a filter that also finds a section by
-the name it had before (Integrations, Accounts, ENS report), and on a phone the page it opens on is the index. Your own
+the name it had before (Connections, Accounts, ENS report), and on a phone the page it opens on is the index. Your own
 password, authenticator app, passkeys and sessions are not here: they are **Account** and **Account > Sign-in
 security**, in the avatar menu.
 
@@ -16,16 +16,17 @@ security**, in the avatar menu.
 |---|---|---|
 | General | Noust | Applications directory, web server, certificate email, backups, the server's name, and the console address `--open` links use; and **Deploy freeze**, which holds every deploy on the server for a stretch ([delivery.md](delivery.md#freezing-deploys)) |
 | Channels | Notifications and channels | Whether notifications are on, at the top (amber when they are on but no channel is set up; see [Features that are on or off](console.md#features-that-are-on-or-off)); channels (webhook, Slack, Discord, Telegram, email, Pushover, ntfy, Gotify, Microsoft Teams, Mattermost, Matrix, Lark, PagerDuty) in drawers, with a test each; email by SMTP or through Resend, Postmark, Brevo or Amazon SES; per channel its own events, its route, quiet hours, a **cap on messages** and a **daily summary**; the record of deliveries with why one is held; which events notify, among them **Deployed with warnings** (`deploy_hook_failed`), **Application not answering** (`app_unreachable`) and **Application answering again** (`app_recovered`), all on by default; private destinations allowed |
-| Connections | Connections | The GitHub App, the address for webhooks, the address and an entry to paste for a metrics scraper (Prometheus, Grafana Alloy, an OpenTelemetry Collector), and the server's **deploy keys** (each with the repositories it reaches and the applications built from them) and the **host keys it pinned**, which can be forgotten after comparing the fingerprint |
+| Integrations | Connections | The GitHub App, the address for webhooks, the address and an entry to paste for a metrics scraper (Prometheus, Grafana Alloy, an OpenTelemetry Collector), and the server's **deploy keys** (each with the repositories it reaches and the applications built from them) and the **host keys it pinned**, which can be forgotten after comparing the fingerprint |
 | Alert rules | (Alerts, an area of the bar) | Rules that fire when a measure stays past a limit for a while, the alerts firing now, and the built-in checks (disk, certificates, backups, patches, tokens) as boxes whose number shows only while they are on. A firing alert is **taken** by whoever is on call, with who and when, and **reopened**; the same buttons are in the inbox. See [notifications.md](notifications.md#alert-rules) |
 | Logs and metrics export | Notifications and channels | Where the logs of applications are sent besides the journal: Grafana Loki, Axiom, New Relic, an HTTP endpoint, OpenTelemetry or a remote syslog; how each destination is doing and what it answered when it failed, verbatim; add, edit, turn off, test with one line, remove. See [runtime.md](runtime.md#log-shipping). Below it, **Keeping the logs**: how many days and how much disk the journal may take, whether it survives a reboot, and a way back to journald's defaults ([logs.md](logs.md)) |
 | Probes and status page | (Alerts, an area of the bar) | Addresses the monitor asks from outside the application: where each stands, what it last answered, its uptime over a day, a week, a month and a quarter, its incidents, and a button to ask it now; and the **public status page** made of the ones marked public, kept up to date, titled, and put on a name of its own through a job. See [probes.md](probes.md) |
 | Variables | Noust | The server's shared variables, which every application can refer to as `{{server.NAME}}`; the team's, the project's and the environment's are on their own pages (below) |
 | Secret managers | Connections | Vault, Doppler and Infisical, which a variable refers to with `{{secret:NAME/path}}`: the address, the settings of the kind, the team that may name it and a token that is written and never shown again; **Test connection** proves it answers. A secret's value is fetched at every deploy and never kept. See [variables.md](variables.md) |
-| About Noust | Noust | Version and updates; **Automatic updates** (whether this server installs Noust's own new releases by itself, the releases it takes, the hours and days, the next window and what the last run did; saving writes or removes a timer, in sudo mode; [release-policy.md](release-policy.md#updating-by-itself)); installation, CLI equivalents, links |
+| About Noust | Noust | Version and updates; **Automatic updates** (whether this server installs Noust's own new releases by itself, the releases it takes, the hours and days, the next window and what the last run did; saving writes or removes a timer, in sudo mode; [release-policy.md](release-policy.md#updating-by-itself)); installation, the installation check, the support report, links |
 | Servers | Fleet | Every server, its reachability, version, ceiling and labels, and, under its state, how long it has been silent or why its monitoring is paused; **Add a server** takes an address and a credential used once, confirms the host key, installs Noust if it is missing and joins the server (below), or, a link away, walks through `noust fleet authorize` and the join code, or, for a server behind NAT, makes it dial in; **Create at a provider** opens the wizard of Settings > Cloud providers; test, pause monitoring and remove |
 | Cloud providers | Connections | The provider accounts (Hetzner, DigitalOcean, Vultr) with their tokens as secrets, the servers this central created and why one did not join, and the cloud-init library new servers boot with (below) |
 | Console address | People and access | Publishes the console on a name of its own over TLS, or takes it down (below) |
+| Sign-in image | People and access | The picture the screens before the console show in place of Noust's drawing: a company's logo or any picture, with how it fills the space and what a screen reader says in its place (below) |
 | MCP | API | Turns the endpoint for MCP clients on or off, switches its groups of tools, lists the tools with the permission each needs ([mcp.md](mcp.md)) |
 | Manifest | API | Previews what applying a manifest of applications would change here, then applies exactly that as you ([manifest.md](manifest.md)) |
 | API reference | API | Every route the server answers, with the permission it needs, what it takes and answers, a curl to copy, and a way to try the call with your own session (a change asks first; the status, the headers and the server's words are shown) |
@@ -79,6 +80,21 @@ console on loopback unless you force it with an allow-list; a name that is not a
 or a site Noust did not write), the dialog previews what will be done, and publishing and
 unpublishing are jobs followed in the page (sudo mode). Unpublishing removes exactly what
 publishing made and leaves what was already there.
+
+**Sign-in image** puts a picture of your own where Noust draws its noust on the sign-in screen and the
+screens around it (the second factor, the first account, an invitation, a new password): a logo, or any
+photograph. The page is the screen as it will be seen, with the picture in it; choose a file or drop it on the
+screen, say whether it **fills the space** (a photograph, cropped to fit) or is **fitted whole** (a logo, on the
+surface of the space), add what a screen reader says in its place (empty says it is decoration) and save.
+It takes a PNG, a JPEG or a WebP of up to 1 MB and 4096 pixels on a side; an SVG is code and is refused, and so is
+an animation, and what a camera or an editor left in the file (a place, a name, a thumbnail) is removed before it
+is kept. Only that space changes: the logo of Noust, its sentence, the line you chose with `auth.login_label` and
+the licence notice stay. **Remove the image** brings the drawing back. It is **seen by anyone who opens the
+console**, before they sign in, so the page says so. Changing it needs the sign-in policy's permission
+(`security.manage`) and sudo mode; without it the page reads and its action is turned off, with the reason one
+press away. Each server has its own: a central does not set it on its servers, as it does not set their sign-in.
+`noust console sign-in-image set logo.png --fit contain --alt "Acme logo"` does the same from a terminal, and the
+backup of Noust's own state carries it.
 
 On a server without a fleet, every section is the server's own. What a server's own accounts,
 tokens and second factor are cannot be changed from a central; the page says how to manage them

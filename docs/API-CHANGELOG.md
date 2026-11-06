@@ -20,6 +20,127 @@ them before the rest):
   `panel/openapi.baseline.json` in the same commit (`python scripts/api_compat.py --update
   --accept-breaking`).
 
+## 4.2.0
+
+API version 1. No operation is removed or deprecated, no documented response code changes, and
+`python scripts/api_compat.py` keeps passing against the schema of 4.1.0. What a client may notice is
+under Changed: one field that becomes optional, one refusal that is new and one that is tighter.
+
+### Added
+
+- **Home panels, one set per account.** `GET /api/auth/dashboards`, `PUT /api/auth/dashboards/{dashboard_id}`,
+  `DELETE /api/auth/dashboards/{dashboard_id}` and `POST /api/auth/dashboards/order` (permission `self`)
+  keep each account's panels of the console's Home: a name, whether it follows the server or the
+  fleet, and a closed version 1 layout on a grid of 12 columns (40 widgets, 20 panels per account, 32 KB).
+  They are under `/api/auth`, so a central never forwards them. The master token, which is no account,
+  is answered `400`.
+- **A picture of the operator's own on the sign-in screen.** `GET /api/auth/sign-in/appearance` says what
+  the screen draws in place of Noust's own drawing (`image: null` when nothing is set) and what a picture
+  may be, and `GET /api/auth/sign-in/image` serves it; both are public, because the screen is drawn before
+  there is a session. With `?v=<sha256>`, the digest `appearance` gave, the picture is cacheable for a year
+  (`public, max-age=31536000, immutable`); any other digest is `404`. It is served as `image/png`,
+  `image/jpeg` or `image/webp`, whichever its bytes are, with `nosniff`. `PUT /api/auth/sign-in/appearance`
+  sets it (`{image: <base64>, fit: "cover" | "contain", alt}`; leave `image` out to change only the fit and the
+  description) and `DELETE` removes it: permission `security.manage`, sudo mode, one audit event each
+  (`auth.sign_in_image.set` and `.remove`). The file is judged by its content (PNG, JPEG or WebP, up to
+  1 MiB and 4096 pixels on a side; an SVG or an animation is refused) and stored without its metadata. The
+  refusals are `400` with a `coded` sentence (`sign_in_image.*`). It is the only route whose request body
+  may be larger than a mebibyte. Under `/api/auth`, so a central never forwards it to a node and a fleet
+  token never reaches it.
+- **Every job says what it is.** A job (`GET /api/jobs`, `/api/jobs/{id}`, `/api/jobs/active`, the queue,
+  the `job` event) carries `title`, `{code, params}`: a sentence of the server's catalog for the console
+  to say in its language. `name` is unchanged.
+- **Long operations that are not jobs are announced.** The `operation` event of `/events` (a `start` and
+  an `end` with `id`, `title`, `target`, `domain`, `actor`, `at` and the result) and
+  `GET /api/operations/active` (permission `apps.read`) cover starting, stopping and restarting
+  applications, services and database engines, running a cron entry, verifying a backup, the monitor's
+  install and scan, a probe's check, a node's test, the firewall's install, importing Compose, syncing
+  and moving an environment, clearing the build cache, applying a build or a declaration, rebooting or
+  shutting the server down, reloading the sites, applying the fleet's settings and turning on or
+  rotating backup encryption. None of those routes changes its response code.
+- **What every server of a fleet runs now.** `GET /api/fleet/jobs/active` (permission `fleet.read`): one
+  row per server with its jobs and operations and a `status` (`ok`, `unsupported` for a server that has
+  not been updated to 4.2, `unreachable`); it never fails as a whole.
+- **The server's software.** `GET /api/server/software` (permission `server.read`) lists every component
+  Noust uses: whether it is installed, its version, who installed it (`noust` or `unknown`) and what
+  depends on it. `GET /api/server/software/{component}/impact` says what a removal would take with it.
+  `POST /api/server/software/{component}/install` keeps the permission each feature had for its install;
+  `POST /api/server/software/{component}/remove` needs `server.host_access` and sudo mode (and
+  `databases.manage` for an engine), is refused with its reason while something uses the component, and
+  never purges. `GET /api/fleet/software` (permission `fleet.read`) gives one row per server, `unsupported`
+  for a server that has not been updated to 4.2.
+- **Compliance reports per active framework.** `GET /api/compliance/check` carries `enabled`, `checked_at`,
+  `host` and `version`, and `format=markdown` downloads the report (with `X-Noust-Report-SHA256`).
+  `GET /api/ens/check` carries `enabled`: with no ENS framework on it judges nothing.
+- **What an unknown security profile was read as.** `GET /api/compliance` carries `legacy_profile_valid` and
+  `legacy_profile_read_as`.
+- **More of what the server says carries a code** ([api.md](api.md#sentences-with-a-code)): beside the English
+  text a client already read, never instead of it, and the text of the sentences below is unchanged unless
+  its line says so.
+  - Published ports: `GET /api/streams` carries `support.coded` (nginx missing, built without the stream module,
+    nothing loading it, an unreadable or foreign configuration; a fix that is nginx's own output stays in
+    `support.hint` with no code of its own). `POST /api/streams/plan` and `POST /api/streams` carry
+    `warnings_coded` beside `warnings`, and the latter `firewall_coded` beside `firewall`, which now says
+    "1 rule" and "N rules" where it said "rule(s)". A refusal to publish (`409`) carries `coded`.
+  - Diagnosis: every check of `GET /api/apps/{domain}/diagnose` carries `coded` beside `summary`, and the
+    response `probable_cause_coded` beside `probable_cause`, for the checks `unit`, `port`, `http_direct`,
+    `http_nginx`, `journal`, `nginx_log`, `certificate`, `last_deployment`, `oom`, `disk`, `blue_green`,
+    `zero_downtime`, `php_fpm` and `containers`. `evidence` is what the system printed and has no code.
+    A count says "1 day" and "N days" where it said "day(s)". `noust diagnose --json` prints the same fields.
+  - A Compose stack's Docker networks: `GET /api/apps/{domain}/networks` carries `findings_coded` beside each
+    network's `findings` and `reason_coded` beside `reason`.
+  - Files: `GET /api/server/storage/cleanup/plan` carries `effect_coded` beside `effect`; `GET /api/server/swap`
+    carries `reason_coded` beside `reason` and `warnings_coded` beside `warnings`; and a run of
+    `GET /api/server/storage/history` (and the result of a cleanup job) carries `reason_coded` beside `reason`
+    when the reason is one of the server's sentences, which the history keeps as text and reads back.
+  - The process monitor: each entry of `GET /api/monitor/observations` and of a scan carries `detail_coded`
+    beside `detail` (`monitor.observation.resource_usage`, `monitor.observation.name_pattern`), read back from
+    the detail the monitor stored; a detail stored in other words before 4.2 has none.
+  - Sites: the answer of creating, enabling, disabling, deleting and saving the configuration of a site
+    (`SiteActionResponse`) and of `POST /api/sites/reload` carries `coded` beside `message`. A client tells a
+    site created without HTTPS from one that came well by the code (`sites.created.without_tls` and
+    `sites.created.without_tls_because` are the warnings, and so is `sites.created.not_loaded`, which said
+    only that the web server would not load it), never by looking for words in `message`.
+  - The new-application wizard: `POST /api/apps/inspect` carries `verdict_coded` beside `verdict` and
+    `suggestion_coded` beside `suggestion` (a sentence of its own: what to install). A source nothing
+    recognised is still a `400` whose `detail` and `hint` are English, and the body now carries `coded`: the
+    hint is the fix of that sentence, the entry of the server's catalog that ends in `.hint`. The text of the
+    sentence for a missing program says "noust setup init" without the backticks it had.
+  - What a job is doing: a job (`GET /api/jobs`, `/api/jobs/{id}`, `/api/jobs/active`, the `job` event) carries
+    `current_step_coded` beside `current_step`, and each entry of `logs` carries `coded` (null for a line a tool
+    printed), when the step or the line is one of the server's sentences: the standard jobs (deploy, update,
+    rollback, backup, restore, upload, delete, migrate, point-in-time recovery, a database engine's
+    installation, a certificate, a command in an application, the renewal) and the jobs of an application's
+    own pages (sandbox test, system packages, hardening, tuning, identity, replicas, zero downtime, staged
+    builds, release bundles, the disk limit, clone, import and the certificates of its domains). The jobs of the
+    server's own pages (updates, security, swap, software, backups of the console, DNS, tunnels) keep saying
+    their steps as text.
+  - Software: `GET /api/server/software` carries `reason_coded` beside `reason` (why Noust does not change
+    this system's packages: an image-based system, no package manager, a hub), null when it does. The title
+    of the job an install or a removal queues says its component (`jobs.title.server_action_software_install`
+    and `jobs.title.server_action_software_remove`, with the registry's id as `component`) where it said "Run a
+    server task". The text of the reason is unchanged.
+
+### Changed
+
+- `PUT /api/config/smtp`: `recipients` is optional; leaving it out keeps the list, an empty list clears it.
+- `POST /api/auth/tokens`: `allow_elevated` needs `accounts.manage` from whoever issues the token. Before,
+  an operator in sudo mode could issue one to themselves.
+- `DELETE` of a database engine (uninstall) answers `409` naming the databases while the engine holds any.
+  The `409` bodies of the server's refusals carry `coded` as well as the sentence.
+- `POST /api/databases/query`, `/api/databases/query/explain` and `/api/databases/query/export`: a database of
+  an engine that does not speak SQL (Redis, MongoDB, ClickHouse) is refused with `400`, "has no query console",
+  in both modes. Before, a write sent to one of them ran as the engine's administrator.
+- `GET /api/databases/databases` also lists the tracked databases of an installed engine that is stopped, with
+  `unverified: true` and no size: whether they are still there is not known until it runs. They were left out.
+- A MongoDB engine no longer lists `metrics` among its `capabilities` (it never had metrics to read), and
+  `GET /api/databases/databases/{engine}/{name}/slow-queries` of a Redis database answers `reason: "slowlog"`
+  where it said `not_supported`, with the command that reads its slow log in `how_to_enable`.
+- `POST /api/services` with `raw_content` (a whole unit file written by hand) is refused with `400` when
+  `systemd-analyze verify` rejects it: `output` carries systemd's own words, `fields.raw_content` says which
+  field, and nothing is written. Before, only the console's unit file page asked for that check (through
+  `POST /api/services/verify`) before it saved; the manager now asks it for whoever creates a unit this way.
+
 ## 4.1.0
 
 API version 1. This section is everything that differs from 4.0.0, the schema that release shipped. The

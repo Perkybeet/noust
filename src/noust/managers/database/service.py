@@ -87,6 +87,7 @@ from noust.managers.database.detect_links import (
     Detected,
     Endpoint,
     detect,
+    mark_detected,
     read_environment,
     references_in,
 )
@@ -1031,7 +1032,9 @@ class DatabaseService:
         """
         return self.listing(engine).databases
 
-    def listing(self, engine: str | None = None) -> DatabaseListing:
+    def listing(
+        self, engine: str | None = None, *, include_stopped: bool = False
+    ) -> DatabaseListing:
         """
         List the databases of every running engine, and say which failed.
 
@@ -1044,6 +1047,12 @@ class DatabaseService:
 
         Args:
             engine: Only this engine.
+            include_stopped: Also list the tracked databases of an installed
+                engine that is not running, as ``unverified`` (what the
+                engine holds is not known, and nothing is read from it). For
+                a page that says the engine is stopped; whoever dumps or
+                moves every database of an engine leaves it off, since those
+                cannot be reached.
 
         Returns:
             The databases, engine by engine, and the problems.
@@ -1055,7 +1064,11 @@ class DatabaseService:
             managers = [*self.host_managers(), *self.instance_managers(problems)]
         views: list[DatabaseView] = []
         for manager in managers:
-            if not manager.is_installed() or not manager.is_running():
+            if not manager.is_installed():
+                continue
+            if not manager.is_running():
+                if include_stopped:
+                    views.extend(self._views(manager, [], readable=False))
                 continue
             try:
                 entries = manager.list_databases()
@@ -1075,7 +1088,7 @@ class DatabaseService:
                 views.extend(self._views(manager, [], readable=False))
                 continue
             views.extend(self._views(manager, entries))
-        self._mark_detected(views, self.detected(managers))
+        mark_detected(views, self.detected(managers))
         return DatabaseListing(views, problems)
 
     # ------------------------------------------------------------- detected links
@@ -1136,27 +1149,6 @@ class DatabaseService:
                 project = app.compose_project or domain_to_app_name(app.domain)
                 entries.append(AppReferences(app=app, references=references, project=project))
         return detect(entries, endpoints)
-
-    @staticmethod
-    def _mark_detected(views: list[DatabaseView], found: list[Detected]) -> None:
-        """
-        Name, on each database, the applications that use it without a link.
-
-        Args:
-            views: The databases.
-            found: What the environments name.
-        """
-        users: dict[tuple[str, str], set[str]] = {}
-        for entry in found:
-            database = entry.reference.database or (
-                "0" if entry.reference.engine == "redis" else None
-            )
-            if entry.engine is None or database is None:
-                continue
-            users.setdefault((entry.engine, database), set()).add(entry.domain)
-        for view in views:
-            domains = users.get((view.engine, view.name), set()) - set(view.apps)
-            view.detected_apps = sorted(domains)
 
     def record_detected_link(self, engine: str, name: str, domain: str) -> LinkView:
         """

@@ -14,6 +14,7 @@ from typing import Any
 
 from .machine import Unit
 from .sandbox import Sandbox
+from .software_host import Packages
 
 #: The cluster's configuration directory, as it is on the machine.
 _PG_CONFIG_DIR = "/etc/postgresql/16/main"
@@ -247,6 +248,8 @@ class ServerHost:
         self.boot_id = "3f1c2a4b5d6e7f8091a2b3c4d5e6f708"
         self.operator_key, self.operator_fingerprint = _server_key("yago@laptop", 1)
         self.deploy_key, self.deploy_fingerprint = _server_key("github-actions@deploy", 2)
+        # What is installed, which Server > Software reads and its installs and removals change.
+        self.packages = Packages()
 
     # -- the host tree ----------------------------------------------------------------
 
@@ -357,6 +360,9 @@ class ServerHost:
         def ok(stdout: str = "", code: int = 0) -> CommandResult:
             return CommandResult(argv=args, exit_code=code, stdout=stdout, stderr="")
 
+        packages = self.packages.answer(args)
+        if packages is not None:
+            return packages
         program, rest = (args[0], args[1:]) if args else ("", ())
         if program == "systemd-detect-virt":
             return ok("none\n", 1)
@@ -842,8 +848,32 @@ def seed_server_analysis() -> None:
     from noust.web.api.server.common import get_server_context
     from noust.web.api.server.storage import ANALYSIS_KEY
 
+    seed_software_ledger()
     context = get_server_context()
     context.cache.put(ANALYSIS_KEY, context.storage.analyze())
     # The hardening checks ran this morning, as they do on a server someone looks after: the
     # Overview and the Security tab read their last run, and never probe on their own.
     ServerSecurity(actor="console-server").checks(refresh=True)
+
+
+def seed_software_ledger() -> None:
+    """
+    Write down what Noust installed on the modelled VPS, so Server > Software tells it from what was there.
+
+    The rest of the packages (systemd, git, curl, chrony, rclone...) came with the image or were put there by
+    hand: they are installed and the page says Noust did not install them, which is what a removal asks for
+    a stronger yes about.
+    """
+    from noust.core.software_ledger import SoftwareLedger
+
+    ledger = SoftwareLedger()
+    for component, packages, via, actor in (
+        ("noust", ("noust",), "package", "cli:root"),
+        ("nginx", ("nginx", "nginx-core"), "package", "yago"),
+        ("certbot", ("certbot", "python3-certbot-nginx"), "package", "yago"),
+        ("nodejs", ("nodejs",), "package", "yago"),
+        ("php", ("php8.3-fpm",), "package", "yago"),
+        ("fail2ban", ("fail2ban", "python3-systemd"), "fail2ban", "cli:root"),
+        ("auto_updates", ("unattended-upgrades",), "package", "cli:root"),
+    ):
+        ledger.record(component, packages=packages, via=via, actor=actor)

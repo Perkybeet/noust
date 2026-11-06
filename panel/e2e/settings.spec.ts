@@ -12,7 +12,8 @@ import { confirmItsYou, stillness } from "./settings.helpers";
 
 const PAGES = [
   { path: "/settings/general", heading: "This server", title: /^General settings/ },
-  { path: "/settings/registries", heading: "Container registries", title: /^Image registries/ },
+  // Nothing recorded yet: the first time is one sentence in a region named by what the page holds, not a heading.
+  { path: "/settings/registries", region: "Accounts", title: /^Image registries/ },
   { path: "/settings/notifications", heading: "Channels", title: /^Notifications settings/ },
   { path: "/settings/integrations", heading: "GitHub", title: /^Integrations/ },
   { path: "/settings/variables", heading: "Server variables", title: /^Server variables settings/ },
@@ -29,7 +30,9 @@ test("every server settings page loads its sections and passes axe", async ({ pa
   const tabs = page.getByRole("navigation", { name: "Settings sections" });
   for (const entry of PAGES) {
     await page.goto(entry.path);
-    await expect(page.getByRole("heading", { level: 2, name: entry.heading, exact: true })).toBeVisible();
+    await expect(
+      "region" in entry ? page.getByRole("region", { name: entry.region, exact: true }) : page.getByRole("heading", { level: 2, name: entry.heading, exact: true }),
+    ).toBeVisible();
     await expect(page).toHaveTitle(entry.title);
     await expect(tabs.locator('a[aria-current="page"]')).toHaveCount(1);
     // Nothing still loading when axe looks.
@@ -130,7 +133,8 @@ test("on a phone each subsection is its own page, with its way back", async ({ p
   await page.setViewportSize({ width: 390, height: 844 });
   await signIn(page, consoleServer, "/settings/notifications");
   await expect(page.getByRole("heading", { level: 2, name: "Channels", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "All sections" })).toBeVisible();
+  // The way back is the selector at the top of the page (4.2): it says the section and opens the list of every one.
+  await expect(page.getByRole("main").getByRole("button", { name: /Notification channels/ })).toBeVisible();
   // The whole page, not what has drawn so far: the widest thing on it (the language of the messages)
   // is far below the channels and arrives with them. Measured as soon as the way back showed, the
   // width was 390 on a fast machine and 409 on a slow one, for the same page.

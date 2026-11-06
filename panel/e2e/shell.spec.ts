@@ -24,8 +24,8 @@ const DESTINATIONS: readonly { link: string; path: string; title: string }[] = [
   { link: "Alerts", path: "/alerts", title: "Alerts" },
   { link: "Activity", path: "/activity", title: "Activity" },
   { link: "Backups", path: "/backups", title: "Backups" },
-  // Services live under Servers (its tab), not in the bar.
-  { link: "Servers", path: "/server", title: "Server" },
+  // The machine is one page of the bar on a server of its own ("Server"), and its sections are in the column.
+  { link: "Server", path: "/server", title: "Server" },
   { link: "Catalog", path: "/catalog", title: "Catalog" },
   { link: "Settings", path: "/settings", title: "Settings" },
 ];
@@ -131,8 +131,8 @@ test("every destination renders its page with no accessibility or policy violati
       await link.click();
 
       await expect(page).toHaveURL(new RegExp(`${destination.path === "/" ? "/" : destination.path}$`));
-      // A server's page is titled by the server.
-      await expect(heading(page)).toHaveText(destination.path === "/server" ? hostname : destination.title);
+      // A server's page is titled by the server, and Home by the panel that is open (the one that comes with the console is "This server").
+      await expect(heading(page)).toHaveText(destination.path === "/server" ? hostname : destination.path === "/" ? "This server" : destination.title);
       await expect(link).toHaveAttribute("aria-current", "page");
       await settle(page);
       await expectNoA11yViolations(page, destination.title);

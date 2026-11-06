@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1129 operations.
+1144 operations.
 
 ## Access
 
@@ -280,6 +280,10 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/auth/sessions/revoke-all` | Revoke All Sessions | `self` |  |  |
 | POST | `/api/auth/sessions/revoke-others` | Revoke Other Sessions | `self` |  |  |
 | DELETE | `/api/auth/sessions/{sid_prefix}` | Revoke One Session | `self` |  |  |
+| GET | `/api/auth/sign-in/appearance` | Get Appearance | `public` |  |  |
+| PUT | `/api/auth/sign-in/appearance` | Put Appearance | `security.manage` | yes |  |
+| DELETE | `/api/auth/sign-in/appearance` | Delete Appearance | `security.manage` | yes |  |
+| GET | `/api/auth/sign-in/image` | Get Image | `public` |  |  |
 | GET | `/api/auth/tokens` | List Api Tokens | `self` |  |  |
 | POST | `/api/auth/tokens` | Create Api Token | `self` | yes |  |
 | PATCH | `/api/auth/tokens/{token_id}` | Restrict Api Token | `self` |  |  |
@@ -482,6 +486,15 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/dns/providers/{name}/verify` | Verify Provider | `server.manage` |  |  |
 | GET | `/api/dns/records` | List Records | `apps.read` |  |  |
 | POST | `/api/dns/sweep` | Sweep Records | `server.manage` |  |  |
+
+## Dashboards
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| GET | `/api/auth/dashboards` | List Dashboards | `self` |  |  |
+| POST | `/api/auth/dashboards/order` | Order Dashboards | `self` |  |  |
+| PUT | `/api/auth/dashboards/{dashboard_id}` | Save Dashboard | `self` |  |  |
+| DELETE | `/api/auth/dashboards/{dashboard_id}` | Delete Dashboard | `self` |  |  |
 
 ## Databases
 
@@ -744,6 +757,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/fleet/enroll` | Enroll Server | `fleet.manage` | yes | yes |
 | POST | `/api/fleet/enroll/host-key` | Scan Host Key | `fleet.manage` |  |  |
 | GET | `/api/fleet/jobs` | List Jobs | `fleet.read` |  |  |
+| GET | `/api/fleet/jobs/active` | Fleet Jobs Active | `fleet.read` |  |  |
 | GET | `/api/fleet/jobs/{job_id}` | Get Fleet Job | `fleet.read` |  |  |
 | POST | `/api/fleet/jobs/{job_id}/retry` | Retry Job | `fleet.manage` |  |  |
 | GET | `/api/fleet/link` | Link Status | `fleet.manage` |  |  |
@@ -762,6 +776,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/fleet/placements/{domain}/upstreams` | Get Upstreams | `fleet.read` |  |  |
 | GET | `/api/fleet/servers` | Fleet Servers | `fleet.read` |  |  |
 | PUT | `/api/fleet/servers/{node}/labels` | Set Labels | `fleet.manage` |  |  |
+| GET | `/api/fleet/software` | Fleet Software | `fleet.read` |  |  |
 | GET | `/api/fleet/summary` | Fleet Summary | `fleet.read` |  |  |
 | GET | `/api/fleet/updates` | Fleet Updates | `fleet.read` |  |  |
 | GET | `/api/views/activity` | View Activity | `audit.read` |  |  |
@@ -846,6 +861,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/jobs/{job_id}` | Get Job | `apps.read` |  |  |
 | POST | `/api/jobs/{job_id}/cancel` | Cancel Job | `apps.operate` |  |  |
 | GET | `/api/jobs/{job_id}/log` | Get Job Log | `apps.read` |  |  |
+| GET | `/api/operations/active` | Active Operations Now | `apps.read` |  |  |
 
 ## Log drains
 
@@ -1143,6 +1159,10 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/server/security/ssh/keys` | Get Ssh Keys | `server.read` |  |  |
 | POST | `/api/server/security/ssh/keys` | Add Ssh Key | `server.host_access` | yes |  |
 | POST | `/api/server/security/ssh/keys/remove` | Remove Ssh Key | `server.host_access` | yes |  |
+| GET | `/api/server/software` | List Software | `server.read` |  |  |
+| GET | `/api/server/software/{component}/impact` | Software Impact | `server.read` |  |  |
+| POST | `/api/server/software/{component}/install` | Install Software | `server.manage` | yes |  |
+| POST | `/api/server/software/{component}/remove` | Remove Software | `server.host_access` | yes |  |
 | GET | `/api/server/storage` | Get Storage | `server.read` |  |  |
 | POST | `/api/server/storage/analyze` | Analyze Storage | `server.read` |  |  |
 | GET | `/api/server/storage/analyze/latest` | Get Last Analysis | `server.read` |  |  |

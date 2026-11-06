@@ -1,10 +1,12 @@
 /**
- * SSH as it runs: sshd's effective settings (`sshd -T -C`, not the files, which Include and
- * Match make unreliable to read), the fixes that would tighten them with their guard, the keys
- * that open root and every account that can become root, and who is connected now.
+ * SSH as it runs: who may enter (the keys that open root and every account that can become root) and how they enter
+ * (whether a password opens a session, whether root may sign in), with sshd's effective settings (`sshd -T -C`, not
+ * the files, which Include and Match make unreliable to read) one press away and the rest of the fixes that would
+ * tighten it. Who is connected, and who was, is the page of access next to this one.
  *
- * Every change here goes through the confirm-or-revert protocol: it undoes itself unless it is
- * confirmed from a new SSH login (see PendingChanges).
+ * Every change here goes through the confirm-or-revert protocol: it undoes itself unless it is confirmed from a new SSH
+ * login (see PendingChanges). A switch that removes a way in asks for the host's name to be typed, and one that has
+ * no way back from here (passwords once off) says where it is turned on again.
  */
 
 import { Wrench } from "lucide-react";
@@ -12,41 +14,42 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { request } from "../../../api/client";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../../components/page/KeyValueList";
+import { Can, GuardedButton, ReadOnlyLine, useCan } from "../../../components/page/permissions";
 import { RelativeTime } from "../../../components/page/RelativeTime";
+import { SurfaceSection } from "../../../components/page/SurfaceSection";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
-import { Card } from "../../../components/ui/Card";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
+import { Disclosure } from "../../../components/ui/Disclosure";
 import { EmptyCell } from "../../../components/ui/EmptyCell";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field } from "../../../components/ui/Field";
-import { IconButton } from "../../../components/ui/IconButton";
 import { ICONS } from "../../../components/ui/icons";
-import { Menu, MenuItem } from "../../../components/ui/Menu";
+import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 import { Select } from "../../../components/ui/Select";
-import { StatusPill } from "../../../components/ui/StatusPill";
+import { Setting } from "../../../components/ui/Setting";
 import { SkeletonCard } from "../../../components/ui/Skeleton";
+import { StatusPill } from "../../../components/ui/StatusPill";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { Textarea } from "../../../components/ui/Textarea";
+import { TextLink } from "../../../components/ui/TextLink";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
-import { formatDate, parseTimestamp } from "../../../lib/format";
 import { ServerErrorBlock, useServerConfirm, ServerQueryState } from "../errors";
 import { typedHost } from "../friction";
+import { HeaderActions } from "../headerSlot";
 import { identityQuery, sshKeysQuery, sshQuery } from "../queries";
 import type { AccountKeys, FixPlan, SshKey, SshStatus } from "../queries";
 import { useServerJob } from "../serverJob";
 import { DirectiveChanges, FixBlocked } from "./FixDialogs";
 import { ServerKeyCard } from "./ServerKeyCard";
-import { InlineMessage } from "../../../components/ui/InlineMessage";
-import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
 /** The sshd settings worth reading, in the order a person asks about them. */
 const SETTINGS: readonly { directive: string; label: "passwords" | "root" | "keys" | "keyboard" | "empty" | "tries" | "log" | "x11" }[] = [
@@ -87,26 +90,6 @@ export function effectiveValue(effective: Readonly<Record<string, string>>, dire
   return found?.[1] ?? null;
 }
 
-function Settings({ ssh }: { ssh: SshStatus }) {
-  const t = useT();
-  const items: KeyValueItem[] = [
-    { label: t("server.ssh.settings.ports"), value: ssh.ports.length > 0 ? ssh.ports.join(", ") : null },
-    ...SETTINGS.map((setting) => ({ label: settingLabel(t, setting.label), value: effectiveValue(ssh.effective, setting.directive) })),
-    { label: t("server.ssh.settings.dropin"), value: ssh.dropin ?? null },
-  ];
-  return (
-    <Card level={2} title={t("server.ssh.settingsTitle")} description={t("server.ssh.settingsDescription")} padding="sm" footer={<CommandHint command="noust server security ssh status" label={t("common.words.fromTerminal")} />}>
-      {ssh.error ? (
-        <ServerErrorBlock compact error={{ detail: ssh.error, output: ssh.error_output ?? null }} title={t("server.ssh.readFailed")} />
-      ) : (
-        <KeyValueList items={items} />
-      )}
-      {!ssh.include_present ? <InlineMessage tone="warning" className="mt-3">{t("server.ssh.noInclude")}</InlineMessage> : null}
-      {ssh.dropin_error ? <ServerErrorBlock compact error={{ detail: ssh.dropin_error }} title={t("server.ssh.dropinFailed")} className="mt-3" /> : null}
-    </Card>
-  );
-}
-
 function fixLabel(t: T, fix: string, plan: FixPlan): string {
   switch (fix) {
     case "disable-passwords":
@@ -129,64 +112,152 @@ function fixLabel(t: T, fix: string, plan: FixPlan): string {
 /** Turning off passwords or root logins can lock people out: the host name is typed. */
 const TYPED_FIXES: ReadonlySet<string> = new Set(["disable-passwords", "root-no"]);
 
-function Fixes({ ssh, hostname }: { ssh: SshStatus; hostname: string }) {
+/** The two fixes the switches of "How people sign in" apply: the others stay in the list of changes below them. */
+const SWITCHED: ReadonlySet<string> = new Set(["disable-passwords", "root-no"]);
+
+type Applying = { fix: string; plan: FixPlan } | null;
+
+/** The question before an sshd fix: what changes, what proves another way in works, and how long it waits to be confirmed. */
+function ApplyFix({ applying, hostname, minutes, onClose }: { applying: NonNullable<Applying>; hostname: string; minutes: number; onClose: () => void }) {
   const t = useT();
   const confirmation = useServerConfirm();
   const jobs = useServerJob();
-  const [applying, setApplying] = useState<{ fix: string; plan: FixPlan } | null>(null);
-  const needed = Object.entries(ssh.fixes).filter(([, plan]) => plan.needed);
-  // The window comes in seconds; people think of it in minutes.
-  const minutes = Math.max(1, Math.round(ssh.confirm_window / 60));
-  if (needed.length === 0) {
-    return (
-      <Card level={2} title={t("server.ssh.fixesTitle")} padding="sm">
-        <EmptyState variant="inline" title={t("server.ssh.fixesNone")} />
-      </Card>
-    );
-  }
   return (
-    <Card level={2} title={t("server.ssh.fixesTitle")} description={t("server.ssh.fixesDescription", { count: minutes })} padding="none">
-      <ul aria-label={t("server.ssh.fixesLabel")} className="flex flex-col divide-y divide-border">
-        {needed.map(([fix, plan]) => (
-          <li key={fix} className="flex min-w-0 flex-col gap-2 px-5 py-3">
-            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-              <span className="text-13 font-medium text-fg">{fixLabel(t, fix, plan)}</span>
-              {plan.allowed ? (
-                // design-exception: card-save applying a fix opens its own confirmation; nothing is saved from the card
-                <Button icon={<Wrench aria-hidden="true" />} size="sm" onClick={() => setApplying({ fix, plan })}>
-                  {t("server.ssh.apply")}
-                </Button>
-              ) : null}
-            </div>
-            <DirectiveChanges plan={plan} />
-            {!plan.allowed ? <FixBlocked plan={plan} /> : null}
-          </li>
-        ))}
-      </ul>
-      {applying !== null ? (
-        <ConfirmDialog
-          {...confirmation}
-          {...typedHost(hostname, TYPED_FIXES.has(applying.fix))}
-          open
-          onOpenChange={(open) => {
-            if (!open) setApplying(null);
+    <ConfirmDialog
+      {...confirmation}
+      {...typedHost(hostname, TYPED_FIXES.has(applying.fix))}
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      destructive={false}
+      size="md"
+      title={fixLabel(t, applying.fix, applying.plan)}
+      description={t("server.ssh.applyDescription", { count: minutes })}
+      actionLabel={t("server.ssh.applyAction")}
+      onConfirm={async () => {
+        // design-exception: write-without-permission opened from a switch or a button drawn only for server.host_access
+        const accepted = await request("post", "/api/server/security/ssh/fixes/{fix}", { params: { fix: applying.fix } });
+        jobs.track(accepted.job_id, "security");
+      }}
+    >
+      <DirectiveChanges plan={applying.plan} />
+      {/* The evidence that another way in works, as the guard found it. */}
+      {applying.plan.proof ? <p className="text-13 text-fg-muted">{applying.plan.proof}</p> : null}
+    </ConfirmDialog>
+  );
+}
+
+/**
+ * How people sign in, as two switches: with a password, and as root. Each is what it says while it is on; pressing
+ * one that is on asks the question of its fix (the host's name typed, what changes, how long it waits to be confirmed).
+ * One that is off is read: a change that loosens sshd is made on the server, and the row says so.
+ */
+function HowPeopleSignIn({ ssh, hostname }: { ssh: SshStatus; hostname: string }) {
+  const t = useT();
+  const [applying, setApplying] = useState<Applying>(null);
+  const minutes = Math.max(1, Math.round(ssh.confirm_window / 60));
+  const root = effectiveValue(ssh.effective, "permitrootlogin");
+  const passwordsOn = ssh.passwords_accepted !== false;
+  const rootOn = root !== "no";
+  const passwords = ssh.fixes["disable-passwords"];
+  const rootFix = ssh.fixes["root-no"];
+  const others = Object.entries(ssh.fixes).filter(([fix, plan]) => plan.needed && !SWITCHED.has(fix));
+  const items: KeyValueItem[] = [
+    { label: t("server.ssh.settings.ports"), value: ssh.ports.length > 0 ? ssh.ports.join(", ") : null },
+    ...SETTINGS.map((setting) => ({ label: settingLabel(t, setting.label), value: effectiveValue(ssh.effective, setting.directive) })),
+    { label: t("server.ssh.settings.dropin"), value: ssh.dropin ?? null },
+  ];
+  const offReason = t("server.ssh.turnedOffHere");
+  const canChange = useCan("server.host_access");
+  const needsPermission = t.rich("server.ssh.needsPermission", { permission: <Mono key="permission">server.host_access</Mono> });
+  return (
+    <SurfaceSection
+      title={t("server.ssh.howTitle")}
+      icon={OBJECT_ICONS.signIn}
+      description={t.rich("server.ssh.howDescription", {
+        port: <Mono key="port">{ssh.ports.length > 0 ? ssh.ports.join(", ") : "22"}</Mono>,
+        link: (
+          <TextLink key="blocks" to="/security/blocks" size="ui">
+            {t("server.ssh.blocksLink")}
+          </TextLink>
+        ),
+      })}
+    >
+      <div className="flex min-w-0 flex-col">
+        {/* What a role may not change is still read: the switch stands where it is, off limits, with the reason said. */}
+        <Setting
+          label={t("server.ssh.allowPasswords")}
+          help={t("server.ssh.allowPasswordsHelp")}
+          checked={passwordsOn}
+          onCheckedChange={(checked) => {
+            if (!checked && passwords !== undefined) setApplying({ fix: "disable-passwords", plan: passwords });
           }}
-          destructive={false}
-          size="md"
-          title={fixLabel(t, applying.fix, applying.plan)}
-          description={t("server.ssh.applyDescription", { count: minutes })}
-          actionLabel={t("server.ssh.applyAction")}
-          onConfirm={async () => {
-            const accepted = await request("post", "/api/server/security/ssh/fixes/{fix}", { params: { fix: applying.fix } });
-            jobs.track(accepted.job_id, "security");
+          {...(!canChange
+            ? { disabled: true as const, reason: needsPermission }
+            : !passwordsOn
+              ? { disabled: true as const, reason: offReason }
+              : passwords !== undefined && !passwords.allowed
+                ? { disabled: true as const, reason: t("server.ssh.blockedHere") }
+                : {})}
+        />
+        <Setting
+          label={t("server.ssh.allowRoot")}
+          help={root === "prohibit-password" || root === "without-password" ? t("server.ssh.allowRootKeysOnly") : t("server.ssh.allowRootHelp")}
+          checked={rootOn}
+          onCheckedChange={(checked) => {
+            if (!checked && rootFix !== undefined) setApplying({ fix: "root-no", plan: rootFix });
           }}
-        >
-          <DirectiveChanges plan={applying.plan} />
-          {/* The evidence that another way in works, as the guard found it. */}
-          {applying.plan.proof ? <p className="text-13 text-fg-muted">{applying.plan.proof}</p> : null}
-        </ConfirmDialog>
-      ) : null}
-    </Card>
+          {...(!canChange
+            ? { disabled: true as const, reason: needsPermission }
+            : !rootOn
+              ? { disabled: true as const, reason: offReason }
+              : rootFix !== undefined && !rootFix.allowed
+                ? { disabled: true as const, reason: t("server.ssh.blockedHere") }
+                : {})}
+        />
+        {passwords !== undefined && !passwords.allowed && passwordsOn ? (
+          <div className="px-5 py-3">
+            <FixBlocked plan={passwords} />
+          </div>
+        ) : null}
+        {others.length > 0 ? (
+          <div className="flex flex-col gap-2 border-t border-border px-5 py-3">
+            <p className="text-13 font-medium text-fg">{t("server.ssh.moreChanges")}</p>
+            <ul aria-label={t("server.ssh.fixesLabel")} className="flex flex-col divide-y divide-border">
+              {others.map(([fix, plan]) => (
+                <li key={fix} className="flex min-w-0 flex-col gap-2 py-2.5 first:pt-0 last:pb-0">
+                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                    <span className="text-13 text-fg">{fixLabel(t, fix, plan)}</span>
+                    {plan.allowed ? (
+                      <Can permission="server.host_access">
+                        <Button icon={<Wrench aria-hidden="true" />} size="sm" onClick={() => setApplying({ fix, plan })}>
+                          {t("server.ssh.apply")}
+                        </Button>
+                      </Can>
+                    ) : null}
+                  </div>
+                  <DirectiveChanges plan={plan} />
+                  {!plan.allowed ? <FixBlocked plan={plan} /> : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        <div className="border-t border-border px-5 py-3">
+          <Disclosure label={t("server.ssh.settingsTitle")}>
+            {ssh.error ? (
+              <ServerErrorBlock compact error={{ detail: ssh.error, output: ssh.error_output ?? null }} title={t("server.ssh.readFailed")} />
+            ) : (
+              <KeyValueList items={items} />
+            )}
+            {!ssh.include_present ? <InlineMessage tone="warning" className="mt-3">{t("server.ssh.noInclude")}</InlineMessage> : null}
+            {ssh.dropin_error ? <ServerErrorBlock compact error={{ detail: ssh.dropin_error }} title={t("server.ssh.dropinFailed")} className="mt-3" /> : null}
+          </Disclosure>
+        </div>
+      </div>
+      {applying !== null ? <ApplyFix applying={applying} hostname={hostname} minutes={minutes} onClose={() => setApplying(null)} /> : null}
+    </SurfaceSection>
   );
 }
 
@@ -219,6 +290,7 @@ function lastUsed(t: T, key: SshKey) {
   );
 }
 
+/** Who may enter: every key that opens root or an account that can become root, who it enters as and when it was last seen. */
 function Keys({ hostname }: { hostname: string }) {
   const t = useT();
   const confirmation = useServerConfirm();
@@ -241,43 +313,39 @@ function Keys({ hostname }: { hostname: string }) {
       card: "title",
       cell: (row) => (
         <span className="flex min-w-0 flex-col">
-          <Mono truncate>{row.key.fingerprint}</Mono>
-          {row.key.comment !== "" ? <Mono tone="muted" truncate>{row.key.comment}</Mono> : null}
+          <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <span className="min-w-0 truncate text-13 font-medium text-fg">{row.key.comment !== "" ? row.key.comment : row.key.type}</span>
+            {kindLabel(t, row.key.kind) !== null ? <Badge>{kindLabel(t, row.key.kind)}</Badge> : null}
+            {row.key.weak !== "" ? <StatusPill state="warning" label={t("server.ssh.keys.weak")} appearance="inline" size="sm" /> : null}
+          </span>
+          <Mono tone="muted" truncate>
+            {row.key.fingerprint}
+          </Mono>
         </span>
       ),
     },
-    { id: "user", header: t("server.ssh.keys.account"), cell: (row) => <Mono>{row.user}</Mono>, sortValue: (row) => row.user },
-    {
-      id: "type",
-      header: t("server.ssh.keys.type"),
-      hideBelow: "md",
-      cell: (row) => (
-        <span className="flex flex-wrap items-center gap-1.5">
-          <Mono>{row.key.bits ? `${row.key.type} ${String(row.key.bits)}` : row.key.type}</Mono>
-          {kindLabel(t, row.key.kind) !== null ? <Badge>{kindLabel(t, row.key.kind)}</Badge> : null}
-          {row.key.weak !== "" ? <StatusPill state="warning" label={t("server.ssh.keys.weak")} appearance="inline" size="sm" /> : null}
-        </span>
-      ),
-    },
-    { id: "used", header: t("server.ssh.keys.lastUsed"), hideBelow: "sm", cell: (row) => lastUsed(t, row.key) },
+    { id: "user", header: t("server.ssh.keys.account"), hideBelow: "sm", cell: (row) => <Mono>{row.user}</Mono>, sortValue: (row) => row.user },
+    { id: "used", header: t("server.ssh.keys.lastUsed"), hideBelow: "md", cell: (row) => lastUsed(t, row.key) },
   ];
   return (
-    <Card level={2}
+    <SurfaceSection
       title={t("server.ssh.keys.title")}
+      icon={OBJECT_ICONS.key}
       description={t("server.ssh.keys.description")}
-      padding="none"
-      actions={
-        <Button size="sm" icon={<ICONS.add aria-hidden="true" />} onClick={() => setAdding(true)}>
-          {t("server.ssh.keys.add")}
-        </Button>
-      }
+      flush
     >
+      <HeaderActions>
+        <GuardedButton permission="server.host_access" variant="primary" icon={<ICONS.add aria-hidden="true" />} onClick={() => setAdding(true)}>
+          {t("server.ssh.keys.add")}
+        </GuardedButton>
+      </HeaderActions>
       {keys.isError ? (
-        <div className="px-5 pb-4">
+        <div className="px-5 py-4">
           <ServerErrorBlock compact error={keys.error} title={t("server.ssh.keys.loadFailed")} onRetry={() => void keys.refetch()} />
         </div>
       ) : (
         <DataTable
+          embedded
           columns={columns}
           rows={rows}
           getRowId={(row) => `${row.user}:${row.key.fingerprint}`}
@@ -286,16 +354,16 @@ function Keys({ hostname }: { hostname: string }) {
           skeletonRows={2}
           empty={<EmptyState variant="inline" title={t("server.ssh.keys.none")} />}
           rowActions={(row) => (
-            <Menu align="end" trigger={<IconButton label={t("server.ssh.keys.actionsFor", { fingerprint: row.key.fingerprint })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
-              <MenuItem destructive icon={<ICONS.delete />} onClick={() => setRemoving(row)}>
-                {t("server.ssh.keys.remove")}
-              </MenuItem>
-            </Menu>
+            <Can permission="server.host_access">
+              <Button size="sm" variant="ghost" aria-label={t("common.words.removeNamed", { name: row.key.comment !== "" ? row.key.comment : row.key.fingerprint })} onClick={() => setRemoving(row)}>
+                {t("common.words.remove")}
+              </Button>
+            </Can>
           )}
         />
       )}
       {problems.length > 0 ? (
-        <div className="px-5 py-3">
+        <div className="border-t border-border px-5 py-3">
           <Notice tone="warning" title={t("server.ssh.keys.problemsTitle")}>
             <SystemOutput label={t("server.ssh.keys.problemsLabel")}>{problems.join("\n")}</SystemOutput>
           </Notice>
@@ -315,6 +383,7 @@ function Keys({ hostname }: { hostname: string }) {
           description={t("server.ssh.keys.addDescription")}
           actionLabel={t("server.ssh.keys.addAction")}
           onConfirm={async () => {
+            // design-exception: write-without-permission opened from the page's primary action, a GuardedButton for server.host_access
             const accepted = await request("post", "/api/server/security/ssh/keys", { body: { user, public_key: publicKey.trim() } });
             jobs.track(accepted.job_id, "security");
           }}
@@ -340,6 +409,7 @@ function Keys({ hostname }: { hostname: string }) {
           description={t("server.ssh.keys.removeDescription", { user: removing.user })}
           actionLabel={t("server.ssh.keys.removeAction")}
           onConfirm={async () => {
+            // design-exception: write-without-permission opened from the row's button, drawn only for server.host_access
             const accepted = await request("post", "/api/server/security/ssh/keys/remove", { body: { user: removing.user, fingerprint: removing.key.fingerprint, force: false } });
             jobs.track(accepted.job_id, "security");
           }}
@@ -350,53 +420,11 @@ function Keys({ hostname }: { hostname: string }) {
           {removing.key.in_use ? <InlineMessage tone="warning">{t("server.ssh.keys.inUse")}</InlineMessage> : null}
         </ConfirmDialog>
       ) : null}
-    </Card>
+    </SurfaceSection>
   );
 }
 
-function Sessions({ ssh }: { ssh: SshStatus }) {
-  const t = useT();
-  const recent = ssh.logins.recent.slice(0, 5);
-  return (
-    <Card level={2} title={t("server.ssh.sessionsTitle")} icon={OBJECT_ICONS.session} padding="sm">
-      <div className="flex flex-col gap-3">
-        {ssh.sessions.length === 0 ? (
-          <p className="text-13 text-fg-muted">{t("server.ssh.noSessions")}</p>
-        ) : (
-          <ul aria-label={t("server.ssh.sessionsLabel")} className="flex flex-col gap-1">
-            {ssh.sessions.map((session) => (
-              <li key={`${session.peer}:${String(session.port)}`} className="text-13 text-fg">
-                <Mono>{session.user ? `${session.user}@${session.peer}` : session.peer}</Mono>
-              </li>
-            ))}
-          </ul>
-        )}
-        <p className="text-12 text-fg-muted">{t("server.ssh.loginsTitle")}</p>
-        {ssh.logins.error ? (
-          <p className="text-12 text-fg-muted">{ssh.logins.error}</p>
-        ) : recent.length === 0 ? (
-          <p className="text-13 text-fg-muted">{t("server.ssh.noLogins", { count: ssh.logins.days })}</p>
-        ) : (
-          <ul aria-label={t("server.ssh.loginsLabel")} className="flex flex-col divide-y divide-border">
-            {recent.map((login) => {
-              const at = parseTimestamp(login.at);
-              return (
-                <li key={`${String(login.at)}-${login.source}`} className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 py-1.5 text-13">
-                  <Mono>{`${login.user}@${login.source}`}</Mono>
-                  <span className="text-12 text-fg-muted">
-                    {login.method} · {at ? formatDate(at, {}, t.locale) : String(login.at)}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
-    </Card>
-  );
-}
-
-/** The SSH view of the Security tab. */
+/** The SSH section: who may enter, how, and the server's own key for code hosts. */
 export function SshView() {
   const t = useT();
   const ssh = useQuery(sshQuery());
@@ -407,24 +435,18 @@ export function SshView() {
       query={ssh}
       label={t("server.ssh.label")}
       skeleton={
-        <div className="grid gap-6 xl:grid-cols-2">
-          <SkeletonCard lines={6} />
-          <SkeletonCard lines={6} />
+        <div className="flex flex-col gap-6">
+          <SkeletonCard lines={4} />
+          <SkeletonCard lines={4} />
         </div>
       }
     >
       {(data) => (
         <div className="flex min-w-0 flex-col gap-6">
-          {data.passwords_accepted === true ? <Notice tone="warning" title={t("server.ssh.passwordsTitle")}>{t("server.ssh.passwordsDescription")}</Notice> : null}
-          <div className="grid min-w-0 items-start gap-6 xl:grid-cols-2">
-            <Settings ssh={data} />
-            <div className="flex min-w-0 flex-col gap-6">
-              <Fixes ssh={data} hostname={hostname} />
-              <ServerKeyCard />
-              <Sessions ssh={data} />
-            </div>
-          </div>
+          <ReadOnlyLine permission="server.host_access" />
           <Keys hostname={hostname} />
+          <HowPeopleSignIn ssh={data} hostname={hostname} />
+          <ServerKeyCard />
         </div>
       )}
     </ServerQueryState>

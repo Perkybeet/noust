@@ -1,15 +1,16 @@
 import { area, hidden, strip, tab } from "../../app/navCore";
 
 /**
- * The machine, which is Servers on the bar: its sections (4.1, the page of each server), and Terminal,
- * which is reached from "More actions" on one bar. Where the console holds a fleet the area opens the
- * list of servers (`fleetTo`), and each server has its page, this one. The register is app/nav.ts;
- * this is one group of it.
+ * The machine, which is Server on the bar (Servers over every server): its sections, and Terminal, which is
+ * reached from "More actions" as well. Where the console holds a fleet the area opens the list of servers
+ * (`fleetTo`), and each server has its page, this one. The register is app/nav.ts; this is one group of it.
  *
- * The order is the one an operator goes through a machine in: how it is, the system and what it
- * waits to be updated with, who may get in, what is open to the network, what runs on it, the web
- * server in front of it, a shell, where its files are, and what the central may do there. Bases de
- * datos del servidor is Databases filtered by this server, not a section of its own.
+ * The sections are in the order an operator goes through a machine in, in the groups of the column: this
+ * machine (how it is, the system, what runs on it, what it uses and what waits to be updated), what runs on
+ * it (services and the web server in front of them), its tools (files and a shell) and what the central may
+ * do there. The views of the System section of 4.1 are sections of their own now, and Security and Network
+ * are areas of their own (features/nav/security.ts and network.ts). Databases of a server is Databases
+ * filtered by it, not a section of its own.
  */
 export const SERVER_SCREENS = strip(
   area("server", "/server", "nav.server.label", {
@@ -20,21 +21,25 @@ export const SERVER_SCREENS = strip(
     goTo: "nav.server.goTo",
     keywords: "nav.server.keywords",
     rootLabel: "server.tabs.overview",
+    column: "machine",
   }),
   (server) => [
-    tab(server, "system", "server.tabs.system", { keywords: "server.tabs.systemKeywords" }),
-    tab(server, "security", "server.tabs.security", { keywords: "server.tabs.securityKeywords" }),
-    tab(server, "network", "server.tabs.network", { keywords: "server.tabs.networkKeywords", permission: "server.read" }),
-    tab(server, "services", "server.tabs.services"),
-    tab(server, "webserver", "server.tabs.webserver", { keywords: "server.tabs.webserverKeywords", permission: "server.read" }),
+    tab(server, "machine", "server.system.views.machine", { column: "machine", keywords: "server.tabs.systemKeywords" }),
+    tab(server, "processes", "server.system.views.processes", { column: "machine", keywords: "nav.screens.processes.keywords" }),
+    tab(server, "monitor", "server.system.views.monitor", { column: "machine", keywords: "nav.screens.monitor.keywords" }),
+    tab(server, "updates", "server.system.views.updates", { column: "machine", keywords: "nav.screens.updates.keywords" }),
+    tab(server, "services", "server.tabs.services", { column: "running" }),
+    tab(server, "webserver", "server.tabs.webserver", { column: "running", keywords: "server.tabs.webserverKeywords", permission: "server.read" }),
+    tab(server, "software", "server.tabs.software", { column: "running", keywords: "server.tabs.softwareKeywords", permission: "server.read" }),
+    tab(server, "files", "server.tabs.files", { column: "tools", keywords: "server.tabs.filesKeywords" }),
     hidden("server.terminal", "/server/terminal", "terminal.page.title", "server", {
       parent: "server",
       permission: "server.terminal",
       intent: "fix",
+      column: "tools",
       keywords: "nav.screens.terminal.keywords",
     }),
-    tab(server, "files", "server.tabs.files", { keywords: "server.tabs.filesKeywords" }),
-    tab(server, "central", "server.tabs.central", { keywords: "server.tabs.centralKeywords", when: "fleet" }),
+    tab(server, "central", "server.tabs.central", { column: "fleet", keywords: "server.tabs.centralKeywords", when: "fleet" }),
   ],
 );
 

@@ -4,6 +4,7 @@ import { localSignInQuery, ssoConfigQuery, ssoIdentitiesQuery } from "../../../a
 import { useDocumentTitle } from "../../../app/documentTitle";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { Sections } from "../../../components/page/Section";
+import { ReadOnlyLine } from "../../../components/page/permissions";
 import { SkeletonCard, SkeletonSection } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import { ConnectionsSection } from "./ConnectionsSection";
@@ -40,7 +41,8 @@ export function SsoSettings() {
     );
   }
   return (
-    <Sections>
+    <Sections surfaces>
+      <ReadOnlyLine permission="accounts.manage" />
       <ConnectionsSection />
       <LocalSignInSection />
       <ScimSection />

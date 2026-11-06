@@ -512,12 +512,10 @@ def _uninstall(engine: str, *, purge: bool, force: bool, logger: Logger) -> int:
             logger.info(f"{manager.DISPLAY_NAME} is not installed")
             return 0
 
+        manager.refuse_uninstall()  # before the question; the manager refuses again to remove
         question = f"Uninstall {manager.DISPLAY_NAME} from this server?"
         if purge:
-            question = (
-                f"Uninstall {manager.DISPLAY_NAME} and delete every database it holds, "
-                "along with its configuration? This cannot be undone"
-            )
+            question = f"Uninstall {manager.DISPLAY_NAME}, its data and configuration? This cannot be undone"
         if not _confirm(question, force=force):
             logger.info("Cancelled")
             return 0

@@ -29,7 +29,7 @@ test("the server's verdict stands beside the reasons that make it, each with whe
     await expect(item.getByRole("link").or(item.getByRole("button"))).toHaveCount(1);
   }
   const exposed = reasons.getByRole("listitem").filter({ hasText: "A database or internal service is reachable from the internet" });
-  await expect(exposed.getByRole("link", { name: "Review" })).toHaveAttribute("href", "/server/network?view=firewall");
+  await expect(exposed.getByRole("link", { name: "Review" })).toHaveAttribute("href", "/network/firewall");
   const disk = reasons.getByRole("listitem").filter({ hasText: /^Warning\/srv is \d+% full/ });
   await expect(disk.getByRole("link", { name: "Free space" })).toHaveAttribute("href", "/server/files");
   await settle(page);
@@ -53,10 +53,11 @@ const withExpiredCertificate = test.extend<object, { consoleServer: ConsoleServe
 
 withExpiredCertificate("an expired certificate is named under Needs attention and links to where it is renewed", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/");
-  const attention = page.getByRole("region", { name: "Needs attention" });
+  // Home's Needs attention is a widget of its panel: a list of what needs the operator, each with the way to it.
+  const attention = page.getByRole("article").filter({ has: page.getByRole("heading", { level: 2, name: "Needs attention" }) });
   // example.com is an application's name: the expiry is one more reason on that application.
-  const issue = attention.getByRole("listitem").filter({ has: page.getByRole("link", { name: "example.com", exact: true }) }).first();
-  await expect(issue.getByText("Certificate expired", { exact: true })).toBeVisible();
+  const issue = attention.getByRole("listitem").filter({ hasText: "example.com" }).filter({ hasText: "Certificate expired" }).first();
+  await expect(issue).toBeVisible();
   const renew = issue.getByRole("link", { name: "Certificate of example.com" });
   await expect(renew).toHaveAttribute("href", "/apps/example.com/domains");
   await settle(page);

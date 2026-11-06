@@ -60,7 +60,8 @@ describe("Logs", () => {
     // The lines are drawn by the viewer, which only lays out the rows that fit; how a line reads
     // (whose it is, then the message verbatim) is held by data.test.ts.
     expect(screen.getByRole("region", { name: "Matching log lines" })).toBeInTheDocument();
-    expect(screen.getByText("noust log search --since 1h")).toBeInTheDocument();
+    // The page searches; the command that asks the same from a terminal is not drawn under it.
+    expect(screen.queryByText(/noust log search/)).not.toBeInTheDocument();
     // A lone server has no other servers to search.
     expect(screen.queryByRole("radio", { name: "Every server" })).toBeNull();
     await expectNoAxeViolations(screen.getByRole("main"));
@@ -75,7 +76,6 @@ describe("Logs", () => {
     expect(call?.search.get("since")).toBe("24h");
     expect(call?.search.get("level")).toBe("err");
     expect(screen.getByRole("searchbox", { name: "Search the logs" })).toHaveValue("timeout");
-    expect(screen.getByText("noust log search timeout --app shop.example.com --since 24h --level err")).toBeInTheDocument();
     // The sidebar has it, as a destination of its own.
     expect(screen.getAllByRole("link", { name: "Logs" }).some((link) => link.getAttribute("href") === "/logs")).toBe(true);
   });
@@ -130,7 +130,6 @@ describe("Logs", () => {
     await waitFor(() => {
       expect(backend.callsTo("GET /api/logs/search").at(-1)?.search.get("since")).toBe("15m");
     });
-    expect(screen.getByText("noust log search --since 15m")).toBeInTheDocument();
   });
 
   it("moves to the system's journal and back, taking the words along", { timeout: 40_000 }, async () => {
@@ -212,7 +211,6 @@ describe("Logs", () => {
       // A server that could not search, and one that did not answer, are said rather than hidden.
       expect(screen.getByText("old-1: The search stopped at its scan limit; older matches may exist.")).toBeInTheDocument();
       expect(screen.getByText("2 of 4 servers did not answer fully")).toBeInTheDocument();
-      expect(screen.getByText("noust fleet logs --since 1h")).toBeInTheDocument();
       // One server's applications are not another's: the filter waits until a single server is searched.
       expect(screen.getByRole("combobox", { name: "Application" })).toBeDisabled();
     });

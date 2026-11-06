@@ -8,7 +8,6 @@ import { mountsQuery, runtimeKeys } from "../../../api/queries/runtime";
 import type { Mount } from "../../../api/queries/runtime";
 import { announce } from "../../../app/Announcer";
 import { ErrorBlock } from "../../../components/page/QueryState";
-import { Section } from "../../../components/page/Section";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -36,6 +35,7 @@ import {
 } from "./settingsApp";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
+import { PartSection } from "./saveHost";
 
 const OCTAL_MODE = /^[0-7]{3,4}$/;
 
@@ -463,7 +463,7 @@ function MountsSection({
   const [adding, setAdding] = useState<"file" | "path" | null>(null);
   const data = mounts.data;
   return (
-    <Section
+    <PartSection
       title={title}
       {...icon}
       description={t("runtime.mounts.description")}
@@ -547,7 +547,7 @@ function MountsSection({
           }}
         />
       ) : null}
-    </Section>
+    </PartSection>
   );
 }
 
@@ -567,8 +567,8 @@ export function MountsSettings() {
     );
   }
   return (
-    <Section title={t("runtime.nav.mounts")} {...headerIcon}>
+    <PartSection title={t("runtime.nav.mounts")} {...headerIcon}>
       <InlineMessage tone="info">{t("runtime.mounts.cannot")}</InlineMessage>
-    </Section>
+    </PartSection>
   );
 }

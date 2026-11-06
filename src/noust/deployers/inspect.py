@@ -63,6 +63,7 @@ from pathlib import Path, PurePosixPath
 
 from noust.core.exceptions import DeploymentError
 from noust.core.runner import CommandCancelled, cancellable, get_runner
+from noust.core.server_text import ServerText, say
 from noust.deployers.base import BaseDeployer
 from noust.deployers.container import RAILPACK_STACKS, ContainerDeployer
 from noust.deployers.docker_compose import COMPOSE_FILE_PRIORITY
@@ -255,6 +256,10 @@ class SourceInspection:
             is (see :class:`Verdict`).
         verdict: What Noust found, in a sentence.
         suggestion: What to do before deploying, or None.
+        verdict_coded: ``verdict`` as a sentence with a code, for the console to translate.
+        suggestion_coded: ``suggestion`` as a sentence with a code, when it is a sentence of its
+            own; None when there is none, or when it is the fix of ``verdict_coded`` (the entry
+            of its code that ends in ``.hint``).
         platform_proposal: What another platform's configuration in the
             repository (``vercel.json``, ``render.yaml``...) says, read by
             :func:`noust.deployers.importers.propose`, so the wizard can
@@ -276,6 +281,8 @@ class SourceInspection:
     verdict: str = ""
     suggestion: str | None = None
     platform_proposal: Proposal | None = None
+    verdict_coded: ServerText | None = None
+    suggestion_coded: ServerText | None = None
 
 
 @dataclass(frozen=True)
@@ -288,11 +295,34 @@ class Verdict:
             this server as it is.
         summary: What was found, in one or two sentences.
         suggestion: What to do about it, or None when there is nothing to do.
+        coded: ``summary`` as a sentence with a code. Where the suggestion is that sentence's own
+            fix it is the entry of its code that ends in ``.hint``.
+        suggestion_coded: ``suggestion`` as a sentence of its own, when it is one (what a
+            deployer says to install).
     """
 
     compatible: bool
     summary: str
     suggestion: str | None = None
+    coded: ServerText | None = None
+    suggestion_coded: ServerText | None = None
+
+
+def _verdict(compatible: bool, said: ServerText, suggestion: ServerText | None = None) -> Verdict:
+    """
+    Make a verdict out of the sentences that say it.
+
+    Args:
+        compatible: Whether this server can deploy the source as it is.
+        said: What was found; its fix, when it has one, is the suggestion.
+        suggestion: What to do, when it is a sentence of its own.
+
+    Returns:
+        The verdict, whose words and codes are one thing.
+    """
+    if suggestion is not None:
+        return Verdict(compatible, said.text, suggestion.text, said, suggestion)
+    return Verdict(compatible, said.text, said.hint, said)
 
 
 def _matching_types(path: Path) -> list[type[AppDeployer]]:
@@ -582,7 +612,9 @@ def _describe(
         matched = [ContainerDeployer]
     if not matched:
         verdict = _unmatched_verdict(checkout, listing)
-        raise DeploymentError(verdict.summary, details=verdict.suggestion or "")
+        raise DeploymentError(
+            verdict.summary, details=verdict.suggestion or "", coded=verdict.coded
+        )
 
     winner = matched[0]
     instance = winner(verbose=False)
@@ -643,6 +675,8 @@ def _describe(
         verdict=verdict.summary,
         suggestion=verdict.suggestion,
         platform_proposal=propose(checkout),
+        verdict_coded=verdict.coded,
+        suggestion_coded=verdict.suggestion_coded,
     )
 
 
@@ -682,27 +716,24 @@ def _matched_verdict(matched: list[type[AppDeployer]], checkout: Path) -> Verdic
         program for program in getattr(winner, "SYSTEM_DEPS", ()) if not runner.exists(program)
     ]
     if missing:
-        return Verdict(
-            compatible=False,
-            summary=(
-                f"This is a {winner.DISPLAY_NAME} project, but this server does not have "
-                f"{', '.join(missing)}."
+        return _verdict(
+            False,
+            say(
+                "inspect.missing_programs",
+                type=winner.DISPLAY_NAME,
+                programs=", ".join(missing),
             ),
-            suggestion=getattr(winner, "install_suggestion", lambda _runner: None)(runner)
-            or "Install what it needs with `noust setup init`, then deploy it.",
+            getattr(winner, "install_suggestion", lambda _runner: None)(runner)
+            or say("inspect.install_setup_init", command="noust setup init"),
         )
-    summary = (
-        ContainerDeployer.inspection_note(checkout)
-        if winner is ContainerDeployer
-        else f"Noust can deploy this as {winner.DISPLAY_NAME}."
-    )
-    others = [deployer_class.DISPLAY_NAME for deployer_class in matched[1:]]
+    others = ", ".join(deployer_class.DISPLAY_NAME for deployer_class in matched[1:])
+    if winner is ContainerDeployer:
+        return _verdict(True, ContainerDeployer.inspection_note(checkout, others))
     if others:
-        summary += (
-            f" It also looks like {', '.join(others)}; choose that type instead to deploy "
-            "it that way."
+        return _verdict(
+            True, say("inspect.can_deploy_also", type=winner.DISPLAY_NAME, others=others)
         )
-    return Verdict(compatible=True, summary=summary)
+    return _verdict(True, say("inspect.can_deploy", type=winner.DISPLAY_NAME))
 
 
 def _unmatched_verdict(checkout: Path, listing: list[str]) -> Verdict:
@@ -720,61 +751,62 @@ def _unmatched_verdict(checkout: Path, listing: list[str]) -> Verdict:
         An incompatible verdict with a suggestion.
     """
     root_files = {name for name in listing if "/" not in name}
-    container_route = _container_route()
+    # Which way to a container is told, as the fix of the sentence, depends on this server.
+    railpack = get_runner().exists("railpack")
+    route = _container_route(railpack)
 
     if "turbo.json" in root_files:
         return _near_miss_monorepo(checkout, listing)
 
     dockerfile = next((name for name in _DOCKERFILES if name in root_files), None)
     if dockerfile:
-        return Verdict(
-            compatible=False,
-            summary=f"The repository has a {dockerfile}, but it could not be read as one.",
-            suggestion=(
-                f"Deploy it as a container: noust create --type container. Check the {dockerfile} "
-                "is a file, not a link, and is committed on this branch."
+        return _verdict(
+            False,
+            say(
+                "inspect.dockerfile.unreadable",
+                dockerfile=dockerfile,
+                command="noust create --type container",
             ),
         )
 
     for marker, stack in _UNSUPPORTED_STACKS:
         if marker in root_files:
-            reason = (
-                "but Noust found no program to run in it"
-                if marker in _NATIVE_STACK_MARKERS
-                else f"Noust has no {stack} deployer"
-            )
-            separator = ", " if marker in _NATIVE_STACK_MARKERS else "; "
-            return Verdict(
-                compatible=False,
-                summary=f"This is a {stack} project ({marker}){separator}{reason}.",
-                suggestion=container_route,
-            )
+            if marker in _NATIVE_STACK_MARKERS:
+                code = (
+                    "inspect.stack.no_program_with_railpack"
+                    if railpack
+                    else "inspect.stack.no_program"
+                )
+            else:
+                code = (
+                    "inspect.stack.no_deployer_with_railpack"
+                    if railpack
+                    else "inspect.stack.no_deployer"
+                )
+            return _verdict(False, say(code, stack=stack, marker=marker, **route))
 
     dotnet = next((name for name in sorted(root_files) if name.endswith(_DOTNET_ROOT_FILES)), None)
     if dotnet:
-        return Verdict(
-            compatible=False,
-            summary=f"This is a .NET project ({dotnet}), but Noust found no web project to run in it.",
-            suggestion=container_route,
+        code = (
+            "inspect.dotnet.no_web_project_with_railpack"
+            if railpack
+            else "inspect.dotnet.no_web_project"
         )
+        return _verdict(False, say(code, marker=dotnet, **route))
 
     if "package.json" in root_files:
-        return _unrecognised_package_json(checkout / "package.json", container_route)
+        return _unrecognised_package_json(checkout / "package.json")
 
     projects = _subprojects(listing)
     if projects:
         found = ", ".join(f"{directory}/ ({marker})" for directory, marker in projects)
-        return Verdict(
-            compatible=False,
-            summary=f"Nothing Noust deploys at the root of the repository; found {found}.",
-            suggestion=(
-                "Noust deploys a repository from its root, or one application per project "
-                "of it: a JavaScript monorepo (npm, Yarn, pnpm, Lerna, Nx or Turborepo "
-                "workspaces) is read with 'noust workspace detect SOURCE' and each "
-                "application created with 'noust workspace create SOURCE --app "
-                "WORKSPACE=DOMAIN', on releases and watching only its own files. "
-                "Otherwise deploy each project from a repository of its own, or add a "
-                "compose.yaml at the root that builds them and deploy it as Docker Compose."
+        return _verdict(
+            False,
+            say(
+                "inspect.subprojects",
+                found=found,
+                detect_command="noust workspace detect SOURCE",
+                create_command="noust workspace create SOURCE --app WORKSPACE=DOMAIN",
             ),
         )
 
@@ -786,36 +818,23 @@ def _unmatched_verdict(checkout: Path, listing: list[str]) -> Verdict:
             for name in deployer_class.DETECTION_FILES
         }
     )
-    return Verdict(
-        compatible=False,
-        summary="Nothing in the repository matches an application type Noust deploys.",
-        suggestion=(
-            "Noust recognises a project by the files at the root of the repository ("
-            f"{', '.join(examples)}, or a package.json with a start script). Check the "
-            "branch, or choose a type explicitly instead of relying on auto-detection."
-        ),
-    )
+    return _verdict(False, say("inspect.no_match", examples=", ".join(examples)))
 
 
-def _container_route() -> str:
+def _container_route(railpack: bool) -> dict[str, str]:
     """
-    Say how a repository nothing here deploys can be deployed as a container.
+    Give the values that say how a repository nothing here deploys can be deployed as a container.
+
+    Args:
+        railpack: Whether this server has Railpack, which builds a container without a Dockerfile.
 
     Returns:
-        The suggestion: a Dockerfile, or Railpack, which says which of them
-        this server has.
+        The values of the fix of a sentence whose code ends in ``_with_railpack`` when Railpack is
+        here, and of the one that does not when it is not.
     """
-    if get_runner().exists("railpack"):
-        return (
-            "Deploy it as a container, which Railpack builds without a Dockerfile (it is "
-            "installed here): noust create --type container --builder railpack. Or add a "
-            "Dockerfile and deploy it with --type container."
-        )
-    return (
-        "Deploy it as a container: add a Dockerfile to the repository and deploy it with "
-        "--type container. Without a Dockerfile, install Railpack (noust setup railpack), "
-        "which builds it into a container by itself: --type container --builder railpack."
-    )
+    if railpack:
+        return {"command": "noust create --type container --builder railpack"}
+    return {"setup_command": "noust setup railpack"}
 
 
 def _near_miss_monorepo(checkout: Path, listing: list[str]) -> Verdict:
@@ -841,34 +860,27 @@ def _near_miss_monorepo(checkout: Path, listing: list[str]) -> Verdict:
     workspace = "pnpm-workspace.yaml" in listing or "workspaces" in _read_package_json(
         checkout / "package.json"
     )
-    problems = []
-    if not workspace:
-        problems.append('no workspace (pnpm-workspace.yaml, or "workspaces" in package.json)')
-    if not apps:
-        problems.append("no app under apps/ has a package.json")
+    if not workspace and not apps:
+        said = say("inspect.turbo.no_workspace_no_apps")
+    elif not workspace and len(apps) < 2:
+        said = say("inspect.turbo.no_workspace_one_app", app=apps[0])
+    elif not workspace:
+        said = say("inspect.turbo.no_workspace")
+    elif not apps:
+        said = say("inspect.turbo.no_apps")
     elif len(apps) < 2:
-        problems.append(f"only apps/{apps[0]}/ has a package.json under apps/")
-    summary = "The repository uses Turborepo (turbo.json) but is not a monorepo Noust deploys"
-    summary += f": {'; '.join(problems)}." if problems else "."
-    return Verdict(
-        compatible=False,
-        summary=summary,
-        suggestion=(
-            "The monorepo type needs turbo.json, a workspace config and at least two apps "
-            "under apps/, each with its own package.json. With a single app, move it to the "
-            "root of the repository; or add a compose.yaml at the root that builds the apps "
-            "and deploy it as Docker Compose."
-        ),
-    )
+        said = say("inspect.turbo.one_app", app=apps[0])
+    else:
+        said = say("inspect.turbo.other")
+    return _verdict(False, said)
 
 
-def _unrecognised_package_json(package_json: Path, container_route: str) -> Verdict:
+def _unrecognised_package_json(package_json: Path) -> Verdict:
     """
     Explain why a root ``package.json`` matched no Node type.
 
     Args:
         package_json: The file.
-        container_route: The generic "build it into a container" suggestion.
 
     Returns:
         An incompatible verdict.
@@ -876,11 +888,7 @@ def _unrecognised_package_json(package_json: Path, container_route: str) -> Verd
     try:
         package = json.loads(package_json.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-        return Verdict(
-            compatible=False,
-            summary="package.json cannot be read as JSON.",
-            suggestion=f"Fix package.json and inspect again ({exc}).",
-        )
+        return _verdict(False, say("inspect.package_json.unreadable", error=str(exc)))
     if not isinstance(package, dict):
         package = {}
     dependencies = {
@@ -889,20 +897,25 @@ def _unrecognised_package_json(package_json: Path, container_route: str) -> Verd
     }
     for dependency, framework in _UNSUPPORTED_NODE_FRAMEWORKS:
         if dependency in dependencies:
-            return Verdict(
-                compatible=False,
-                summary=f"This is a {framework} project; Noust has no {framework} deployer.",
-                suggestion=container_route,
+            code = (
+                "inspect.stack.no_deployer_with_railpack"
+                if get_runner().exists("railpack")
+                else "inspect.stack.no_deployer"
             )
-    return Verdict(
-        compatible=False,
-        summary=(
-            "package.json has no start script, no main entry and no framework Noust "
-            "recognises (Next.js, Vite, Nuxt, SvelteKit, Astro, Remix, Angular)."
-        ),
-        suggestion=(
-            'Add a start script to package.json ("scripts": {"start": "node server.js"}) '
-            'or a "main" entry, so Noust knows how to run it; or choose the type explicitly.'
+            return _verdict(
+                False,
+                say(
+                    code,
+                    stack=framework,
+                    marker="package.json",
+                    **_container_route(get_runner().exists("railpack")),
+                ),
+            )
+    return _verdict(
+        False,
+        say(
+            "inspect.package_json.no_start",
+            example_command='"scripts": {"start": "node server.js"}',
         ),
     )
 

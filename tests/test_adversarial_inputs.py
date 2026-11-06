@@ -47,6 +47,7 @@ from noust.validators import (
     health,
     names,
     object_names,
+    package,
     port,
     source,
 )
@@ -664,6 +665,26 @@ class TestPorts:
         if accepted:
             assert isinstance(result, int) and not isinstance(result, bool)
             assert 1 <= result <= 65535
+
+
+class TestPackageNames:
+    @SETTINGS
+    @given(value=st.one_of(HOSTILE, st.integers(), st.none(), st.binary(max_size=20)))
+    def test_a_name_is_a_word_that_cannot_be_an_option_a_path_or_a_pattern(
+        self, value: object
+    ) -> None:
+        accepted, result = verdict(package.validate_package, value)
+
+        if accepted:
+            assert isinstance(result, str)
+            assert re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9+._-]{0,99}", result)
+
+    @pytest.mark.parametrize("payload", [p for p in PAYLOADS if p])
+    def test_a_payload_is_refused_or_comes_back_as_nothing_but_a_name(self, payload: str) -> None:
+        # The name that comes back is stripped, and it is the one that is used.
+        accepted, result = verdict(package.validate_package, payload)
+
+        assert not accepted or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9+._-]*", result)
 
 
 class TestContainerReferences:
@@ -1678,3 +1699,297 @@ class TestALogoThatIsServedFromTheConsolesOwnOrigin:
                 kinds.append(result[offset + 4 : offset + 8])
                 offset += 12 + length
             assert set(kinds) <= {b"IHDR", b"PLTE", b"tRNS", b"sRGB", b"IDAT", b"IEND"}
+
+
+# ---------------------------------------------------------------------------
+# The panels of the console's Home
+# ---------------------------------------------------------------------------
+
+#: Any JSON-shaped value, as a hostile client could send as a layout.
+ANY_JSON = st.recursive(
+    st.none() | st.booleans() | st.integers() | st.floats() | st.text(max_size=20),
+    lambda inner: st.lists(inner, max_size=4)
+    | st.dictionaries(st.text(max_size=10), inner, max_size=4),
+    max_leaves=40,
+)
+
+
+def one_widget(**changes: Any) -> dict[str, Any]:
+    widget: dict[str, Any] = {
+        "id": "a",
+        "type": "a",
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1,
+        "settings": {},
+    }
+    return {"version": 1, "widgets": [{**widget, **changes}]}
+
+
+class TestThePanelsOfTheHome:
+    """A person writes the document a panel is kept as; the server keeps it for the console to draw."""
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_the_id_of_a_panel_is_a_short_slug_and_never_the_name_of_a_route(
+        self, value: str
+    ) -> None:
+        from noust.validators import dashboards
+
+        accepted, result = verdict(dashboards.check_dashboard_id, value)
+
+        # It is a segment of a path and a primary key.
+        if accepted:
+            assert result == value and result != "order"
+            assert re.fullmatch(r"[a-z0-9][a-z0-9-]{0,39}", result), result
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_the_name_of_a_panel_is_one_line_of_text(self, value: str) -> None:
+        from noust.validators import dashboards
+
+        accepted, result = verdict(dashboards.check_dashboard_name, value)
+
+        if accepted:
+            assert result == value.strip() and 1 <= len(result) <= 60
+            assert not CONTROL.search(result)
+            assert not re.search("[\u202a-\u202e\u2066-\u2069]", result)
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_a_panel_follows_the_server_or_the_fleet_and_nothing_else(self, value: str) -> None:
+        from noust.validators import dashboards
+
+        accepted, result = verdict(dashboards.check_dashboard_scope, value)
+
+        if accepted:
+            assert result in ("server", "fleet")
+
+    @SETTINGS
+    @given(value=ANY_JSON)
+    def test_whatever_shape_a_layout_has_it_is_judged_without_failing(self, value: Any) -> None:
+        import json
+
+        from noust.validators import dashboards
+
+        accepted, result = verdict(dashboards.check_layout, value)
+
+        # What is accepted is exactly the closed document, small enough to keep and to send back.
+        if accepted:
+            assert set(result) == {"version", "widgets"} and result["version"] == 1
+            assert len(result["widgets"]) <= dashboards.MAX_WIDGETS
+            assert len(dashboards.layout_text(result).encode()) <= dashboards.MAX_DOCUMENT_BYTES
+            assert json.loads(dashboards.layout_text(result)) == result
+
+    @SETTINGS
+    @given(
+        ident=HOSTILE,
+        kind=HOSTILE,
+        key=HOSTILE,
+        setting=st.one_of(HOSTILE, st.integers(), st.floats(), st.booleans()),
+        x=st.integers(min_value=-5, max_value=20),
+        w=st.integers(min_value=-5, max_value=20),
+    )
+    def test_a_widget_that_is_accepted_is_inert_where_it_is_kept_and_on_the_grid(
+        self, ident: str, kind: str, key: str, setting: Any, x: int, w: int
+    ) -> None:
+        from noust.validators import dashboards
+
+        document = one_widget(id=ident, type=kind, x=x, w=w, settings={key: setting})
+        accepted, result = verdict(dashboards.check_layout, document)
+
+        if accepted:
+            (widget,) = result["widgets"]
+            assert re.fullmatch(r"[a-z0-9][a-z0-9-]{0,39}", widget["id"])
+            assert re.fullmatch(r"[a-z][a-z0-9-]{0,40}", widget["type"])
+            assert 0 <= widget["x"] and 1 <= widget["w"] and widget["x"] + widget["w"] <= 12
+            for name, value in widget["settings"].items():
+                assert re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,39}", name)
+                assert isinstance(value, (str, int, float, bool))
+                if isinstance(value, str):
+                    assert not CONTROL.search(value) and len(value) <= 200
+
+    @pytest.mark.parametrize("payload", [p for p in PAYLOADS if p])
+    def test_a_payload_where_a_slug_goes_is_refused(self, payload: str) -> None:
+        from noust.validators import dashboards
+
+        for check in (dashboards.check_dashboard_id, dashboards.check_dashboard_scope):
+            with pytest.raises(NoustError):
+                check(payload)
+        for field in ("id", "type"):
+            with pytest.raises(NoustError):
+                dashboards.check_layout(one_widget(**{field: payload}))
+        with pytest.raises(NoustError):
+            dashboards.check_layout(one_widget(settings={payload: 1}))
+
+    @pytest.mark.parametrize("payload", [p for p in PAYLOADS if p])
+    def test_a_payload_as_the_value_of_a_setting_is_refused_unless_it_is_plain_text(
+        self, payload: str
+    ) -> None:
+        from noust.validators import dashboards
+
+        accepted, _ = verdict(dashboards.check_layout, one_widget(settings={"a": payload}))
+
+        # Text that reorders what is drawn around it, or ends a line, or is long, is not a setting.
+        plain = (
+            not CONTROL.search(payload)
+            and not re.search("[\u202a-\u202e\u2066-\u2069\ufeff]", payload)
+            and len(payload) <= 200
+        )
+        assert accepted == plain
+
+
+# ---------------------------------------------------------------------------
+# The picture on the sign-in screen
+# ---------------------------------------------------------------------------
+
+
+class TestThePictureOnTheSignInScreen:
+    """
+    A picture someone with the right permission uploads, served to everyone who opens the console.
+
+    The type comes from the bytes, the size from the file's own header, and what is kept is a
+    rewrite that carries pixels and nothing else: whatever a damaged or hostile file does to the
+    parsers, the answer is a refusal of the Noust kind, and what is accepted is a file this very
+    validator would accept again, within the limits, with nothing in it that is not a picture.
+    """
+
+    #: What must never be inside a file that was kept, whatever it was hidden behind.
+    PAYLOAD = b"<svg onload=alert(1)>SECRET-GPS-NAME"
+
+    @staticmethod
+    def specimens() -> list[bytes]:
+        from tests.support import sign_in_images as make
+
+        text = TestThePictureOnTheSignInScreen.PAYLOAD
+        return [
+            make.png(
+                extra=(make.png_chunk(b"tEXt", text), make.png_chunk(b"eXIf", text)),
+                trailer=text,
+            ),
+            make.jpeg(
+                before_frame=(
+                    make.jfif(thumbnail=text[:30]),
+                    make.jpeg_segment(0xE1, text),
+                    make.jpeg_segment(0xFE, text),
+                ),
+                trailer=text,
+            ),
+            make.webp_extended(
+                flags=0x0C,
+                after=(make.riff_chunk(b"EXIF", text), make.riff_chunk(b"XMP ", text)),
+            ),
+            make.webp(lossless=True) + text,
+        ]
+
+    @SETTINGS
+    @given(data=st.binary(max_size=600))
+    def test_bytes_that_are_not_a_picture_are_refused_cleanly(self, data: bytes) -> None:
+        from noust.validators import sign_in_image
+
+        accepted, _ = verdict(sign_in_image.check_image, data)
+
+        assert not accepted
+
+    @SETTINGS
+    @given(
+        index=st.integers(min_value=0, max_value=3),
+        position=st.integers(min_value=0, max_value=400),
+        replacement=st.binary(min_size=0, max_size=12),
+        cut=st.integers(min_value=0, max_value=60),
+    )
+    def test_a_picture_damaged_anywhere_is_refused_or_kept_as_a_clean_one(
+        self, index: int, position: int, replacement: bytes, cut: int
+    ) -> None:
+        from noust.validators import sign_in_image
+
+        original = self.specimens()[index]
+        damaged = original[:position] + replacement + original[position + len(replacement) :]
+        damaged = damaged[: max(0, len(damaged) - cut)]
+        accepted, kept = verdict(sign_in_image.check_image, damaged)
+
+        if not accepted:
+            return
+        assert 0 < kept.width <= sign_in_image.MAX_SIDE
+        assert 0 < kept.height <= sign_in_image.MAX_SIDE
+        assert len(kept.data) <= sign_in_image.MAX_IMAGE_BYTES
+        assert kept.content_type in ("image/png", "image/jpeg", "image/webp")
+        assert b"SECRET" not in kept.data and b"<svg" not in kept.data
+        again = sign_in_image.check_image(kept.data)
+        assert again.data == kept.data and again.sha256 == kept.sha256
+
+    @pytest.mark.parametrize("index", range(4))
+    def test_what_was_hidden_in_a_picture_is_not_in_what_is_kept(self, index: int) -> None:
+        from noust.validators import sign_in_image
+
+        kept = sign_in_image.check_image(self.specimens()[index])
+
+        assert b"SECRET" not in kept.data and b"<svg" not in kept.data
+        assert b"alert" not in kept.data
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "an svg with a png's name",
+            "an svg after a byte-order mark",
+            "a png truncated before its end",
+            "a jpeg whose frame header lies",
+            "a file of one mebibyte and a byte",
+            "a webp with no bitstream",
+            "a webp that says it is larger than it is",
+        ],
+    )
+    def test_the_files_the_plan_names_are_refused(self, name: str) -> None:
+        from noust.validators import sign_in_image
+        from tests.support import sign_in_images as make
+
+        files = {
+            "an svg with a png's name": b'<svg xmlns="http://www.w3.org/2000/svg" onload="x"/>',
+            "an svg after a byte-order mark": b"\xef\xbb\xbf<svg onload=alert(1)>",
+            "a png truncated before its end": make.png(end=False)[:-5],
+            "a jpeg whose frame header lies": make.jpeg(65535, 65535),
+            "a file of one mebibyte and a byte": make.PNG_SIGNATURE + b"\x00" * (1024 * 1024 - 7),
+            "a webp with no bitstream": b"RIFF\x0c\x00\x00\x00WEBPVP8X\x00\x00\x00\x00",
+            "a webp that says it is larger than it is": b"RIFF\xff\xff\xff\x7fWEBPVP8 ",
+        }
+
+        with pytest.raises(NoustError):
+            sign_in_image.check_image(files[name])
+
+    @SETTINGS
+    @given(value=st.one_of(HOSTILE, st.integers(), st.none(), st.binary(max_size=8)))
+    def test_a_fit_is_one_of_two_words(self, value: Any) -> None:
+        from noust.validators import sign_in_image
+
+        accepted, result = verdict(sign_in_image.check_fit, value)
+
+        if accepted:
+            assert result in ("cover", "contain") and result == value
+
+    @SETTINGS
+    @given(
+        value=st.one_of(HOSTILE, st.integers(), st.none(), st.text(alphabet=NASTY, max_size=200))
+    )
+    def test_a_description_is_one_line_of_plain_text_of_limited_length(self, value: Any) -> None:
+        from noust.validators import sign_in_image
+
+        accepted, result = verdict(sign_in_image.check_alt, value)
+
+        if accepted:
+            assert len(result) <= sign_in_image.MAX_ALT_CHARS and result == result.strip()
+            assert not CONTROL.search(result)
+            assert not re.search("[\u202a-\u202e\u2066-\u2069\ufeff]", result)
+
+    @SETTINGS
+    @given(value=st.one_of(HOSTILE, st.integers(), st.none(), st.binary(max_size=16)))
+    def test_what_is_sent_as_base64_is_base64_or_refused(self, value: Any) -> None:
+        import base64
+
+        from noust.validators import sign_in_image
+
+        accepted, result = verdict(sign_in_image.decode_upload, value)
+
+        if accepted:
+            assert isinstance(value, str)
+            assert base64.b64encode(result).decode() == value

@@ -59,7 +59,7 @@ export function CollectorNotice({ collector }: { collector: MetricsCollector | u
             {reason ? collectorReasonText(t, reason) : null}
             {last !== null ? ` ${t("overview.history.lastReading", { time: formatDateTime(new Date(last * 1000), t.locale) })}` : ""}
           </p>
-          {reason?.fix ? <CommandHint label={t("overview.history.fixLead")} command={reason.fix} /> : null}
+          {reason?.fix ? <CommandHint label={t("overview.history.fixLead")} command={reason.fix} reason="salida-del-sistema" /> : null}
           {reason?.evidence ? <SystemOutput label={t("appPages.metrics.evidenceLabel")}>{reason.evidence}</SystemOutput> : null}
         </div>
       </Notice>
@@ -71,7 +71,7 @@ export function CollectorNotice({ collector }: { collector: MetricsCollector | u
     <Notice title={t("overview.history.consoleOnlyTitle")}>
       <div className="flex flex-col items-start gap-2">
         <p>{t("overview.history.consoleOnly")}</p>
-        {advice.fix ? <CommandHint command={advice.fix} /> : null}
+        {advice.fix ? <CommandHint command={advice.fix} reason="salida-del-sistema" /> : null}
       </div>
     </Notice>
   );

@@ -41,7 +41,9 @@ def recorded(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, dict[str, Any]]
 
 @pytest.fixture
 def client(store, monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    def run(refresh: bool) -> tuple[checks.ComplianceCheck, checks.Facts]:
+    def run(
+        refresh: bool, even_if_off: bool = False
+    ) -> tuple[checks.ComplianceCheck, checks.Facts]:
         facts = checks.Facts(profile="ens-medium", now=datetime(2026, 9, 30, tzinfo=timezone.utc))
         result = checks.ComplianceCheck(
             profile="ens-medium",
@@ -65,6 +67,10 @@ def client(store, monkeypatch: pytest.MonkeyPatch) -> TestClient:
         return result, facts
 
     monkeypatch.setattr(ens_api, "_run", run)
+    return _client()
+
+
+def _client() -> TestClient:
     app = FastAPI()
     install_error_handlers(app)
     app.include_router(ens_api.router, prefix=PREFIX)
@@ -74,6 +80,23 @@ def client(store, monkeypatch: pytest.MonkeyPatch) -> TestClient:
         "role": "auditor",
     }
     return TestClient(app, raise_server_exceptions=False)
+
+
+class FakeTokens:
+    def list_api_tokens(self) -> list[dict[str, Any]]:
+        return []
+
+    def current_master_generation(self) -> str | None:
+        return None
+
+
+@pytest.fixture
+def fresh_server(store, real_config, monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    """The real check over a server nobody configured: no framework is on."""
+    monkeypatch.setattr("noust.web.server.get_token_manager", lambda: FakeTokens())
+    # Where the ENS is on the hardening probes run; they are not what is under test.
+    monkeypatch.setattr(checks, "_default_hardening", lambda refresh: [])
+    return _client()
 
 
 class TestTheCheck:
@@ -87,6 +110,9 @@ class TestTheCheck:
         assert body["findings"][0]["measures"] == ["op.acc.6.r2"]
         assert body["indicators"]["mfa_percent"] == 50.0
         assert recorded[0][0] == "compliance.read" and recorded[0][1]["target"] == "ens:check"
+
+    def test_the_check_says_the_ens_is_on(self, client, recorded) -> None:
+        assert client.get(f"{PREFIX}/check").json()["enabled"] is True
 
     def test_the_report_carries_its_digest(self, client, recorded) -> None:
         body = client.get(f"{PREFIX}/report").json()
@@ -110,6 +136,37 @@ class TestTheCheck:
 
         assert body["profile"] in ("standard", "ens-medium")
         assert any(item["key"] == "auth.session.idle_minutes" for item in body["baseline"])
+
+
+class TestAServerThatNeverAskedForTheEns:
+    def test_the_check_is_not_red(self, fresh_server, recorded) -> None:
+        response = fresh_server.get(f"{PREFIX}/check")
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["enabled"] is False
+        assert body["verdict"] == "ok"
+        assert body["counts"] == {"fail": 0, "warning": 0, "ok": 0, "n/a": 0}
+        assert body["findings"] == []
+        assert recorded[0][1]["target"] == "ens:check"
+
+    def test_turning_an_ens_framework_on_brings_the_judging_back(
+        self, fresh_server, real_config, recorded, store
+    ) -> None:
+        real_config.set("security.frameworks", ["ens-media"])
+
+        body = fresh_server.get(f"{PREFIX}/check").json()
+
+        assert body["enabled"] is True
+        assert any(item["id"] == "ENS-PRF-01" for item in body["findings"])
+
+    def test_the_evidence_report_is_still_there_to_be_asked_for(
+        self, fresh_server, recorded
+    ) -> None:
+        response = fresh_server.get(f"{PREFIX}/report")
+
+        assert response.status_code == 200, response.text
+        assert response.json()["report"]["verdict"] in ("ok", "warning", "fail")
 
 
 class TestTheInventory:

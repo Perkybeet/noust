@@ -50,13 +50,15 @@ for (const mode of ["recipe", "import"] as const) {
     await page.setViewportSize(DESKTOP);
     await useSpanish(page);
     await signInSpanish(page, consoleServer, "/apps/new");
-    // The step opens on its one box; the catalog is the button under it and the rest of the ways are folded.
+    // The page opens on five cards; the catalog is one of them, and an import is the second choice of the card of what already runs.
     if (mode === "recipe") {
-      await page.getByRole("button", { name: /^Ver las \d+ recetas$/ }).click();
+      await page.getByRole("radio", { name: new RegExp(`^${spanish.newApp.origins.catalog.label}`) }).click();
+      // The catalog is alphabetical and paged: a recipe is found by its name.
+      await page.getByRole("searchbox", { name: spanish.catalog.filters.search }).fill("WordPress");
       await expect(page.getByRole("button", { name: /WordPress/ })).toBeVisible();
     } else {
-      await page.getByRole("button", { name: spanish.newApp.box.otherWays, exact: true }).click();
-      await page.getByRole("button", { name: spanish.newApp.modes.import, exact: true }).click();
+      await page.getByRole("radio", { name: new RegExp(`^${spanish.newApp.origins.existing.label}`) }).click();
+      await page.getByRole("radio", { name: spanish.newApp.origins.existingOther, exact: true }).click();
       await expect(page.getByLabel(spanish.newApp.importApp.file)).toBeVisible();
     }
     await settle(page);

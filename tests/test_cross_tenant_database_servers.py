@@ -32,7 +32,7 @@ def world(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, runner: Any) -> Any:
     monkeypatch.setattr(
         DatabaseService,
         "listing",
-        lambda self, engine=None: DatabaseListing(
+        lambda self, engine=None, include_stopped=False: DatabaseListing(
             [
                 DatabaseView(name="shop_db", engine="postgresql", tracked=True),
                 DatabaseView(name="blog_db", engine="postgresql", tracked=True),

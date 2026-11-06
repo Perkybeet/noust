@@ -16,6 +16,7 @@ import {
   detailOf,
   inKind,
   jobActionLabel,
+  matchesResult,
   matchesText,
   mergeActivity,
   resourceOf,
@@ -285,6 +286,13 @@ describe("resultValidFor / resultOptions", () => {
     expect(resultOptions(t, "access").find((o) => o.value === "denied")?.label).toBe("Denied");
   });
 
+  it("offers the audit's words alone, with no prefix, where there are no jobs to tell them from (every server at once)", () => {
+    const options = resultOptions(t, undefined, false);
+    // "ok" and "success" are one word to a person ("Succeeded"), so one option; matchesResult counts both.
+    expect(options.map((o) => o.value)).toEqual(["success", "denied", "failure", "locked"]);
+    expect(options.find((o) => o.value === "failure")?.label).toBe("Failed");
+  });
+
   it("prefixes both vocabularies where jobs and actions mix, so the same word is not offered twice unlabelled", () => {
     const options = resultOptions(t, undefined);
     expect(options.find((o) => o.value === "failed")?.label).toBe("Job: Failed");
@@ -357,6 +365,44 @@ describe("views", () => {
     expect(matchesText(row, "reinició", ["Reinició una aplicación"])).toBe(true);
     expect(matchesText(row, "blog")).toBe(false);
     expect(matchesText(row, "")).toBe(true);
+  });
+
+  it("finds a job by its own id, which is what \"Open on a server\" puts in the search", () => {
+    const [row] = mergeActivity({ jobs: [job({ id: "nj-1", name: "", description: "" })], jobsComplete: true, entries: [], auditComplete: true }).rows;
+    if (row === undefined) throw new Error("no row");
+    expect(matchesText(row, "nj-1")).toBe(true);
+    expect(matchesText(row, "NJ-1")).toBe(true);
+    expect(matchesText(row, "nj-2")).toBe(false);
+  });
+});
+
+describe("matchesResult", () => {
+  const merged = mergeActivity({
+    jobs: [],
+    jobsComplete: true,
+    entries: [entry({ result: "denied", action: "auth.login" }), entry({ result: "ok", action: "apps.restart", timestamp: "2026-09-25T10:05:00+00:00" })],
+    auditComplete: true,
+  }).rows;
+  // The merge is newest first, so the rows are found by what they recorded and not by where they landed.
+  const denied = merged.find((row) => row.kind === "audit" && row.entry.result === "denied");
+  const succeeded = merged.find((row) => row.kind === "audit" && row.entry.result === "ok");
+  const [done] = mergeActivity({ jobs: [job({ status: "completed" })], jobsComplete: true, entries: [], auditComplete: true }).rows;
+
+  it("keeps what the audit log recorded with that result, and counts success and ok as one", () => {
+    if (denied === undefined || succeeded === undefined) throw new Error("no rows");
+    expect(matchesResult(denied, "denied")).toBe(true);
+    expect(matchesResult(denied, "success")).toBe(false);
+    expect(matchesResult(succeeded, "success")).toBe(true);
+    expect(matchesResult(succeeded, "ok")).toBe(true);
+    expect(matchesResult(succeeded, "denied")).toBe(false);
+  });
+
+  it("keeps a job by its status, and everything when no result is chosen", () => {
+    if (done === undefined || denied === undefined) throw new Error("no rows");
+    expect(matchesResult(done, "completed")).toBe(true);
+    expect(matchesResult(done, "failed")).toBe(false);
+    expect(matchesResult(denied, undefined)).toBe(true);
+    expect(matchesResult(done, undefined)).toBe(true);
   });
 });
 

@@ -103,19 +103,24 @@ describe("deploy hooks in an app's settings", { timeout: 20_000 }, () => {
   });
 });
 
-describe("tags and the account in General", { timeout: 20_000 }, () => {
+describe("the tags it follows, beside the source, and the account in How it runs", { timeout: 20_000 }, () => {
   it("follows tags with PATCH, and says it", async () => {
     let app: object = COMPOSE_APP;
-    const { user, backend } = await renderSettings("", "General", COMPOSE_APP, {
+    const { user, backend } = await renderSettings("/source", "Source", COMPOSE_APP, {
       ...ELEVATED_SESSION,
       [`GET /api/apps/${DOMAIN}`]: () => json(200, app),
-      [`GET /api/apps/${DOMAIN}/identity`]: () => json(200, IDENTITY_SHARED),
+      // The stack is built from a repository this server reads with its own key: nothing here is about the key.
+      [`GET /api/apps/${DOMAIN}/deploy-key`]: () =>
+        json(200, { domain: DOMAIN, repository: null, source_is_ssh: false, ssh_url: null, key: null, shared_with: [], server_key_fingerprint: "SHA256:server", warnings: [] }),
       [`PATCH /api/apps/${DOMAIN}/follow-tags`]: () => {
         app = { ...COMPOSE_APP, follow_tags: "v*" };
         return json(200, { domain: DOMAIN, follow_tags: "v*", following: true, previous: null });
       },
-    });
-    expect(screen.getByText("None: it deploys its branch")).toBeInTheDocument();
+    },
+    // No repository to reach with a key, so nothing is folded.
+    { folds: false });
+    // The repository is read before the card draws what it deploys.
+    expect(await screen.findByText("None: it deploys its branch")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Follow tags…" }));
     const dialog = await screen.findByRole("dialog", { name: "Deploy by tag" });
     await user.click(within(dialog).getByRole("button", { name: "Follow these tags" }));
@@ -128,7 +133,7 @@ describe("tags and the account in General", { timeout: 20_000 }, () => {
   it("says the app shares an account, and moves it to its own as a job", async () => {
     const job = jobOf("id1", "identity_migrate");
     let identity: object = IDENTITY_SHARED;
-    const { user, backend } = await renderSettings("", "General", COMPOSE_APP, {
+    const { user, backend } = await renderSettings("", "How it runs", COMPOSE_APP, {
       ...ELEVATED_SESSION,
       [`GET /api/apps/${DOMAIN}/identity`]: () => json(200, identity),
       [`POST /api/apps/${DOMAIN}/identity/migrate`]: () => {
@@ -225,7 +230,7 @@ describe("a worker a 1.x deploy gave a port", { timeout: 20_000 }, () => {
 
   it("says why it is reported down, and records it as a worker, removing its site only when ticked", async () => {
     let check: object = CHECK;
-    const { user, backend } = await renderSettings("", "General", WORKER, {
+    const { user, backend } = await renderSettings("", "How it runs", WORKER, {
       ...ELEVATED_SESSION,
       [`GET /api/apps/${DOMAIN}/identity`]: () => json(200, IDENTITY_SHARED),
       [`GET /api/apps/${DOMAIN}/headless`]: () => json(200, check),
@@ -253,7 +258,7 @@ describe("a worker a 1.x deploy gave a port", { timeout: 20_000 }, () => {
   });
 
   it("offers no site removal when the command would not, and keeps the site", async () => {
-    const { user, backend } = await renderSettings("", "General", WORKER, {
+    const { user, backend } = await renderSettings("", "How it runs", WORKER, {
       ...ELEVATED_SESSION,
       [`GET /api/apps/${DOMAIN}/identity`]: () => json(200, IDENTITY_SHARED),
       [`GET /api/apps/${DOMAIN}/headless`]: () => json(200, { ...CHECK, site_retirable: false }),
@@ -270,7 +275,7 @@ describe("a worker a 1.x deploy gave a port", { timeout: 20_000 }, () => {
   });
 
   it("says nothing about a stack that publishes a port", async () => {
-    const { backend } = await renderSettings("", "General", WORKER, {
+    const { backend } = await renderSettings("", "How it runs", WORKER, {
       [`GET /api/apps/${DOMAIN}/identity`]: () => json(200, IDENTITY_SHARED),
       [`GET /api/apps/${DOMAIN}/headless`]: () => json(200, { ...CHECK, headless: false, site_retirable: false }),
     });

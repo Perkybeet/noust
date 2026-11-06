@@ -16,6 +16,7 @@ export type Diagnosis = ResponseOf<"/api/apps/{domain}/diagnose", "get">;
 export type MigrationPlan = ResponseOf<"/api/apps/{domain}/migrate/plan", "get">;
 export type AppTypesResponse = ResponseOf<"/api/apps/types", "get">;
 export type AppTypeInfo = AppTypesResponse["types"][number];
+export type DeletionPlan = ResponseOf<"/api/apps/{domain}/deletion", "get">;
 
 /**
  * Keys of the application queries. The list and each app are separate entries so that a
@@ -35,6 +36,7 @@ export const appKeys = {
   webhookDeliveries: (domain: string) => ["app", domain, "webhook-deliveries"] as const,
   diagnosis: (domain: string) => ["app", domain, "diagnosis"] as const,
   migrationPlan: (domain: string) => ["app", domain, "migration-plan"] as const,
+  deletion: (domain: string) => ["app", domain, "deletion"] as const,
 };
 
 export const appsQuery = () =>
@@ -150,5 +152,18 @@ export const migrationPlanQuery = (domain: string) =>
         throw error;
       }
     },
+    staleTime: 0,
+  });
+
+/**
+ * What deleting an application would touch (`GET /api/apps/{domain}/deletion`): its directory and whether Noust keeps
+ * it, whether it has Docker volumes, and each database it owns or uses with what would become of it. Nothing is
+ * changed by asking; the page of deleting an application shows it so each thing that holds data is a choice.
+ */
+export const deletionPlanQuery = (domain: string) =>
+  queryOptions({
+    queryKey: appKeys.deletion(domain),
+    queryFn: ({ signal }) => request("get", "/api/apps/{domain}/deletion", { params: { domain }, signal }),
+    // A choice made on what the page read a minute ago would be made on a stale list of databases.
     staleTime: 0,
   });

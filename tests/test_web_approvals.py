@@ -1211,7 +1211,7 @@ class TestTheAnswerSaysWhichControlAsks:
         body = asked.json()
         assert "whoever you are" in body["detail"]
         assert "noust compliance set approvals off" in body["detail"]
-        assert "Settings > Controls" in body["detail"]
+        assert "Settings > Compliance" in body["detail"]
         assert body["coded"]["code"] == "approvals.asked_waiting"
         assert body["coded"]["params"]["request"] == int(body["fields"]["approval"])
         assert body["notes_coded"] == [

@@ -25,7 +25,7 @@ function aboutRoutes(version: Record<string, unknown>): Record<string, RouteHand
 }
 
 describe("Settings > About", () => {
-  it("offers an update with the command that installs it, and passes axe", { timeout: 20_000 }, async () => {
+  it("offers an update with the way to install it, which is the Server's Updates, and passes axe", { timeout: 20_000 }, async () => {
     fakeBackend(
       aboutRoutes({
         current_version: "2.0.0",
@@ -39,7 +39,9 @@ describe("Settings > About", () => {
     const version = await screen.findByRole("region", { name: "Version" });
     expect(await within(version).findByText("Version 2.1.0 can be installed")).toBeInTheDocument();
     expect(within(version).getByText("2.0.0")).toBeInTheDocument();
-    expect(within(version).getByText("pip install --upgrade noust")).toBeInTheDocument();
+    expect(within(version).getByRole("link", { name: "Update Noust" })).toHaveAttribute("href", "/server/updates");
+    // The console updates Noust itself there: the command that does the same is not drawn beside the link.
+    expect(within(version).queryByText("pip install --upgrade noust")).not.toBeInTheDocument();
     expect(within(version).getByRole("link", { name: /What is new in 2.1.0/ })).toHaveAttribute(
       "href",
       "https://github.com/Perkybeet/noust/releases/tag/v2.1.0",
@@ -48,8 +50,23 @@ describe("Settings > About", () => {
     expect(await screen.findByText("the apt repository")).toBeInTheDocument();
     expect(screen.getByText("AGPL-3.0-or-later")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /github\.com\/Perkybeet\/noust/ })).toHaveAttribute("href", "https://github.com/Perkybeet/noust");
-    expect(screen.getByText("noust config show")).toBeInTheDocument();
+    // The commands of the terminal live in the documentation, not in a folded list of the page.
+    expect(screen.queryByText("noust config show")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Commands for Noust itself/ })).not.toBeInTheDocument();
     await expectNoAxeViolations(container);
+  });
+
+  it("reports a problem from the console itself, not from a page of GitHub", { timeout: 20_000 }, async () => {
+    fakeBackend(aboutRoutes({ current_version: "4.0.0", latest_version: "4.0.0", has_update: false }));
+    const { user } = renderConsole("/settings/about");
+    await user.click(await screen.findByRole("button", { name: "Report a problem" }));
+    expect(await screen.findByRole("dialog", { name: "Report a problem" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Report a problem" })).not.toBeInTheDocument();
+    // The report's state outlives a test: it is closed before the next one.
+    await user.keyboard("{Escape}");
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Report a problem" })).not.toBeInTheDocument();
+    });
   });
 
   it("shows the copyright, the licence, that there is no warranty and where the source is (AGPL-3.0, sections 5 and 13)", { timeout: 20_000 }, async () => {
@@ -93,9 +110,9 @@ describe("Settings > About", () => {
       "href",
       "https://github.com/Perkybeet/noust/security/advisories/GHSA-abcd-1234-wxyz",
     );
-    // The update itself is still offered, with its command.
+    // The update itself is still offered, with the link to where it is made.
     expect(within(version).getByText("Version 3.3.2 can be installed")).toBeInTheDocument();
-    expect(within(version).getByText("sudo apt update && sudo apt install --only-upgrade noust")).toBeInTheDocument();
+    expect(within(version).getByRole("link", { name: "Update Noust" })).toHaveAttribute("href", "/server/updates");
     await expectNoAxeViolations(container);
   });
 
@@ -196,7 +213,9 @@ describe("Settings > About", () => {
     const { user, container } = renderConsole("/settings/about");
     const version = await screen.findByRole("region", { name: "Version" });
     expect(await within(version).findByText("3.1.3 is published; this server's package index has not seen it yet")).toBeInTheDocument();
-    expect(within(version).getByText("noust server updates refresh")).toBeInTheDocument();
+    // The button refreshes the index; the command that does the same is not drawn beside it.
+    expect(within(version).getByRole("button", { name: "Refresh the package index" })).toBeInTheDocument();
+    expect(within(version).queryByText("noust server updates refresh")).not.toBeInTheDocument();
     expect(within(version).queryByText(/sudo apt/)).not.toBeInTheDocument();
     await expectNoAxeViolations(container);
 
@@ -219,7 +238,7 @@ describe("Settings > About", () => {
     );
     backend.on("GET /api/jobs/j9", () => json(200, { ...JOB, status: "completed", progress: 100 }));
     expect(await within(version).findByText("Version 3.1.3 can be installed", {}, { timeout: 10_000 })).toBeInTheDocument();
-    expect(within(version).getByText("sudo apt update && sudo apt install noust")).toBeInTheDocument();
+    expect(within(version).getByRole("link", { name: "Update Noust" })).toBeInTheDocument();
   });
 
   it("shows the package manager's own words when the refresh fails", { timeout: 20_000 }, async () => {
@@ -324,7 +343,6 @@ describe("Settings > About in Spanish", () => {
       "https://github.com/Perkybeet/noust/releases/tag/v2.1.0",
     );
     expect(screen.getByRole("region", { name: "Esta instalación" })).toBeInTheDocument();
-    expect(screen.getByText("noust config show")).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 

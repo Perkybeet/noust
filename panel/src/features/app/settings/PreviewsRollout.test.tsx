@@ -1,4 +1,5 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { openFolds, saveBar } from "./testKit";
 import { describe, expect, it, vi } from "vitest";
 
 import { setLocale } from "../../../app/locale";
@@ -62,7 +63,9 @@ async function previewsOf(state: () => object, extra: Record<string, RouteHandle
     [`GET /api/apps/${DOMAIN}/previews`]: () => json(200, state()),
     ...extra,
   });
-  const harness = renderConsole(`/apps/${DOMAIN}/settings/previews`);
+  const harness = renderConsole(`/apps/${DOMAIN}/triggers`);
+  // The page folds Previews under its title, as it does what most operators never open.
+  await openFolds(harness.user, "/previews");
   const section = await screen.findByRole("region", { name: "Pull request previews" });
   return { ...harness, backend, section };
 }
@@ -78,7 +81,7 @@ describe("what a preview is called", () => {
     expect(within(section).getByTestId("template-example")).toHaveTextContent("For example, pr-12-shop-example-com.previews.example.com");
     fireEvent.change(field, { target: { value: "{{pr_id}}.{{domain}}" } });
     expect(within(section).getByTestId("template-example")).toHaveTextContent("For example, 12.shop.example.com");
-    await user.click(await within(section).findByRole("button", { name: "Save" }));
+    await user.click(await within(saveBar()).findByRole("button", { name: "Save" }));
 
     await waitFor(() => {
       expect(backend.callsTo(PUT)[0]?.body).toMatchObject({ domain_template: "{{pr_id}}.{{domain}}", noindex: true, fork_policy: "refuse" });
@@ -89,7 +92,7 @@ describe("what a preview is called", () => {
     const { user, backend, section } = await previewsOf(() => ON);
 
     fireEvent.change(await within(section).findByRole("textbox", { name: /Name of a preview/ }), { target: { value: "{{name}}.{{base}}" } });
-    await user.click(await within(section).findByRole("button", { name: "Save" }));
+    await user.click(await within(saveBar()).findByRole("button", { name: "Save" }));
 
     expect(await within(section).findByText("The name needs {{pr_id}} or {{random}}, or two previews would share it.")).toBeInTheDocument();
     expect(backend.callsTo(PUT)).toHaveLength(0);
@@ -109,7 +112,7 @@ describe("what a preview is called", () => {
 
     // Known placeholders pass the quick check, so the refusal is the backend's own (a name that does not fit).
     fireEvent.change(await within(section).findByRole("textbox", { name: /Name of a preview/ }), { target: { value: "{{pr_id}}-{{name}}-{{name}}-{{name}}.{{base}}" } });
-    await user.click(await within(section).findByRole("button", { name: "Save" }));
+    await user.click(await within(saveBar()).findByRole("button", { name: "Save" }));
 
     expect(await within(section).findByText("Not a placeholder of a domain template: {{nope}}")).toBeInTheDocument();
   });
@@ -120,7 +123,7 @@ describe("what a preview is called", () => {
     const box = await within(section).findByRole("checkbox", { name: "Keep search engines out" });
     expect(box).toBeChecked();
     await user.click(box);
-    await user.click(await within(section).findByRole("button", { name: "Save" }));
+    await user.click(await within(saveBar()).findByRole("button", { name: "Save" }));
 
     await waitFor(() => {
       expect(backend.callsTo(PUT)[0]?.body).toMatchObject({ noindex: false });
@@ -136,7 +139,7 @@ describe("pull requests from forks", () => {
     expect(within(section).queryByText(/An approved commit runs on this server with the variables previews are given/)).not.toBeInTheDocument();
     await user.click(within(section).getByRole("radio", { name: "Wait for my approval" }));
     expect(within(section).getByText(/An approved commit runs on this server with the variables previews are given/)).toBeInTheDocument();
-    await user.click(await within(section).findByRole("button", { name: "Save" }));
+    await user.click(await within(saveBar()).findByRole("button", { name: "Save" }));
 
     await waitFor(() => {
       expect(backend.callsTo(PUT)[0]?.body).toMatchObject({ fork_policy: "approve" });
@@ -203,7 +206,7 @@ describe("a copy of the data", () => {
     const { user, backend, section } = await previewsOf(() => ON, { [PUT]: () => json(200, { ...SETTINGS, data_mode: "clone" }) });
 
     await user.click(await within(section).findByRole("radio", { name: "A copy of the database" }));
-    await user.click(await within(section).findByRole("button", { name: "Save" }));
+    await user.click(await within(saveBar()).findByRole("button", { name: "Save" }));
 
     await waitFor(() => {
       expect(backend.callsTo(PUT)[0]?.body).toMatchObject({ data_mode: "clone" });

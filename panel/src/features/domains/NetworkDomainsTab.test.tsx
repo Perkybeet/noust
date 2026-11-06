@@ -173,11 +173,11 @@ describe("an application's Domains tab, beyond its names", () => {
     });
 
     await user.click(await screen.findByRole("button", { name: "Add domain" }));
-    const dialog = await screen.findByRole("dialog", { name: `Add a domain to ${APP}` });
-    await user.type(within(dialog).getByLabelText("Domain"), `*.${APP}`);
+    const dialog = await screen.findByRole("dialog", { name: `Add a name to ${APP}` });
+    await user.type(within(dialog).getByLabelText("Name"), `*.${APP}`);
     expect(await within(dialog).findByText("A wildcard needs the DNS challenge")).toBeInTheDocument();
     // The name has no address of its own, so there is nothing to ask DNS: the first press adds it.
-    await user.click(within(dialog).getByRole("button", { name: "Add domain" }));
+    await user.click(within(dialog).getByRole("button", { name: "Add the name" }));
 
     await waitFor(() => {
       expect(backend.callsTo(`POST /api/apps/${APP}/domains`)).toHaveLength(1);
@@ -194,14 +194,14 @@ describe("an application's Domains tab, beyond its names", () => {
     });
 
     await user.click(await screen.findByRole("button", { name: "Add domain" }));
-    const dialog = await screen.findByRole("dialog", { name: `Add a domain to ${APP}` });
-    await user.type(within(dialog).getByLabelText("Domain"), `api.${APP}`);
+    const dialog = await screen.findByRole("dialog", { name: `Add a name to ${APP}` });
+    await user.type(within(dialog).getByLabelText("Name"), `api.${APP}`);
     await user.click(within(dialog).getByRole("button", { name: "More options" }));
     await user.type(within(dialog).getByLabelText(/^Port/), "9200");
     await user.click(within(dialog).getByRole("checkbox", { name: /Create its DNS record/ }));
     expect(await within(dialog).findByText(`api.${APP} points here`)).toBeInTheDocument();
     expect(within(dialog).getByText("Asked of 1.1.1.1, as the certificate authority will.")).toBeInTheDocument();
-    await user.click(within(dialog).getByRole("button", { name: "Add domain" }));
+    await user.click(within(dialog).getByRole("button", { name: "Add the name" }));
 
     await waitFor(() => {
       expect(backend.callsTo(`POST /api/apps/${APP}/domains`)).toHaveLength(1);
@@ -218,19 +218,19 @@ describe("an application's Domains tab, beyond its names", () => {
     });
 
     await user.click(await screen.findByRole("button", { name: "Add domain" }));
-    const dialog = await screen.findByRole("dialog", { name: `Add a domain to ${APP}` });
-    await user.type(within(dialog).getByLabelText("Domain"), `cdn.${APP}`);
+    const dialog = await screen.findByRole("dialog", { name: `Add a name to ${APP}` });
+    await user.type(within(dialog).getByLabelText("Name"), `cdn.${APP}`);
     await user.tab();
     expect(await within(dialog).findByText(`cdn.${APP} is behind Cloudflare's proxy`)).toBeInTheDocument();
-    expect(within(dialog).getByRole("button", { name: "Add domain" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Add the name" })).toBeInTheDocument();
 
-    const name = within(dialog).getByLabelText("Domain");
+    const name = within(dialog).getByLabelText("Name");
     await user.clear(name);
     await user.type(name, `nat.${APP}`);
     await user.tab();
     expect(await within(dialog).findByText(`nat.${APP} resolves, but this server cannot tell if that is its own address`)).toBeInTheDocument();
     expect(within(dialog).getByText("dns.public_addresses")).toBeInTheDocument();
-    expect(within(dialog).getByRole("button", { name: "Add domain" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Add the name" })).toBeInTheDocument();
   });
 
   it("asks before it adds a name another site already answers on, with that site's words in front", async () => {
@@ -248,11 +248,11 @@ describe("an application's Domains tab, beyond its names", () => {
     });
 
     await user.click(await screen.findByRole("button", { name: "Add domain" }));
-    const dialog = await screen.findByRole("dialog", { name: `Add a domain to ${APP}` });
-    await user.type(within(dialog).getByLabelText("Domain"), `legacy.${APP}`);
+    const dialog = await screen.findByRole("dialog", { name: `Add a name to ${APP}` });
+    await user.type(within(dialog).getByLabelText("Name"), `legacy.${APP}`);
     await user.tab();
     await within(dialog).findByText(`legacy.${APP} points here`);
-    await user.click(within(dialog).getByRole("button", { name: "Add domain" }));
+    await user.click(within(dialog).getByRole("button", { name: "Add the name" }));
 
     expect(await within(dialog).findByText(`Another site already answers on legacy.${APP}`)).toBeInTheDocument();
     expect(within(dialog).getByText("The site 'old' answers on it. Add it anyway with force.")).toBeInTheDocument();
@@ -274,14 +274,14 @@ describe("an application's Domains tab, beyond its names", () => {
     });
 
     await user.click(await screen.findByRole("button", { name: "Add domain" }));
-    const dialog = await screen.findByRole("dialog", { name: `Add a domain to ${APP}` });
-    await user.type(within(dialog).getByLabelText("Domain"), `shop2.${APP}`);
+    const dialog = await screen.findByRole("dialog", { name: `Add a name to ${APP}` });
+    await user.type(within(dialog).getByLabelText("Name"), `shop2.${APP}`);
     // Nothing asked while typing; leaving the field asks, and the verdict is in view before any press.
     expect(backend.calls.filter((call) => call.path.endsWith("/dns") && call.path.includes("shop2"))).toHaveLength(0);
     await user.tab();
     expect(await within(dialog).findByText(`shop2.${APP} points here`)).toBeInTheDocument();
     expect(within(dialog).queryByRole("button", { name: "Check DNS" })).not.toBeInTheDocument();
-    await user.click(within(dialog).getByRole("button", { name: "Add domain" }));
+    await user.click(within(dialog).getByRole("button", { name: "Add the name" }));
     await waitFor(() => {
       expect(backend.callsTo(`POST /api/apps/${APP}/domains`)).toHaveLength(1);
     });
@@ -295,10 +295,10 @@ describe("an application's Domains tab, beyond its names", () => {
     });
 
     await user.click(await screen.findByRole("button", { name: "Add domain" }));
-    const dialog = await screen.findByRole("dialog", { name: `Add a domain to ${APP}` });
-    await user.type(within(dialog).getByLabelText("Domain"), `elsewhere.${APP}`);
+    const dialog = await screen.findByRole("dialog", { name: `Add a name to ${APP}` });
+    await user.type(within(dialog).getByLabelText("Name"), `elsewhere.${APP}`);
     // The press that leaves the field is also the one that adds: DNS is still being asked when it lands.
-    await user.click(within(dialog).getByRole("button", { name: "Add domain" }));
+    await user.click(within(dialog).getByRole("button", { name: "Add the name" }));
     expect(await within(dialog).findByText(`elsewhere.${APP} points somewhere else`)).toBeInTheDocument();
     expect(backend.callsTo(`POST /api/apps/${APP}/domains`)).toHaveLength(0);
     // The button now says what pressing it does.
@@ -511,7 +511,7 @@ describe("where an application's certificate comes from", () => {
     });
 
     await user.click(await screen.findByRole("button", { name: "Add domain" }));
-    const dialog = await screen.findByRole("dialog", { name: `Add a domain to ${APP}` });
+    const dialog = await screen.findByRole("dialog", { name: `Add a name to ${APP}` });
     await user.click(within(dialog).getByRole("button", { name: "Use a temporary address" }));
 
     expect(await within(dialog).findByDisplayValue("203-0-113-10.sslip.io")).toBeInTheDocument();
@@ -525,7 +525,7 @@ describe("where an application's certificate comes from", () => {
     });
 
     await user.click(await screen.findByRole("button", { name: "Add domain" }));
-    const dialog = await screen.findByRole("dialog", { name: `Add a domain to ${APP}` });
+    const dialog = await screen.findByRole("dialog", { name: `Add a name to ${APP}` });
     await user.click(within(dialog).getByRole("button", { name: "Use a temporary address" }));
 
     expect(await within(dialog).findByText("This server has no public address to make a name of", { selector: "p, div, span" })).toBeInTheDocument();

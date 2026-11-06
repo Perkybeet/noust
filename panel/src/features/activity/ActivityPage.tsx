@@ -8,7 +8,6 @@ import { auditPagesQuery } from "../../api/queries/audit";
 import { sessionQuery } from "../../api/queries/auth";
 import { jobsQuery } from "../../api/queries/jobs";
 import { queueBusy, queueQuery } from "../../api/queries/queue";
-import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { ListPage } from "../../components/page/ListPage";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -26,7 +25,7 @@ import { originOf } from "../fleet/data";
 import { QueuePanelView } from "../queue/QueuePanel";
 import { ActivityTable } from "./ActivityTable";
 import { JobLogDrawer } from "./JobLogDrawer";
-import { actionWords, actorWords, auditCategoriesFor, fleetTimeline, inKind, matchesText, mergeActivity, peopleIn, resultOptions } from "./data";
+import { actionWords, actorWords, auditCategoriesFor, fleetTimeline, inKind, matchesResult, matchesText, mergeActivity, peopleIn, resultOptions } from "./data";
 import type { ActivityJob, ActivityRow, AuditEntry } from "./data";
 import { AUDIT_RESULTS, JOB_STATUSES, isFiltered, resultValidFor } from "./search";
 import type { ActivitySearch } from "./search";
@@ -81,9 +80,18 @@ function ActivityView({ search, onSearchChange, source }: { search: ActivitySear
   const t = useT();
   const { data: reads } = useQuery({ ...sessionQuery(), select: (session) => session.permissions?.includes("audit.read") ?? false });
   const people = useMemo(() => peopleIn(source.rows), [source.rows]);
+  // One server asks its own audit log and its jobs for the result chosen; the events of several servers come from the
+  // central's view, which has no result to ask for, so the page narrows them itself.
+  const narrowsResult = source.fleet !== undefined;
   const rows = useMemo(
-    () => source.rows.filter((row) => inKind(row, search.kind) && matchesText(row, search.q ?? "", [actionWords(t, row).label, actorWords(t, row).label])),
-    [source.rows, search.kind, search.q, t],
+    () =>
+      source.rows.filter(
+        (row) =>
+          inKind(row, search.kind) &&
+          (!narrowsResult || matchesResult(row, search.result)) &&
+          matchesText(row, search.q ?? "", [actionWords(t, row).label, actorWords(t, row).label]),
+      ),
+    [source.rows, search.kind, search.q, search.result, narrowsResult, t],
   );
   const filtered = isFiltered(search);
   const onlyView = search.result === undefined && search.q === undefined && search.actor === undefined && search.person === undefined && search.server === undefined;
@@ -112,7 +120,7 @@ function ActivityView({ search, onSearchChange, source }: { search: ActivitySear
     content = source.failure;
   } else if (nothingYet) {
     content = (
-      <EmptyState variant="firstUse" icon={<OBJECT_ICONS.activity />} title={t("activity.emptyTitle")} description={t("activity.emptyDescription")} command="noust audit list" />
+      <EmptyState variant="firstUse" icon={<OBJECT_ICONS.activity />} title={t("activity.emptyTitle")} description={t("activity.emptyDescription")} />
     );
   } else {
     const view = search.kind ?? "changes";
@@ -212,7 +220,7 @@ function ActivityView({ search, onSearchChange, source }: { search: ActivitySear
                       aria-label={t("activity.resultLabel")}
                       value={search.result ?? ALL}
                       onValueChange={(value) => set({ result: value === ALL ? undefined : value })}
-                      options={[{ value: ALL, label: t("activity.resultEvery") }, ...resultOptions(t, search.kind)]}
+                      options={[{ value: ALL, label: t("activity.resultEvery") }, ...resultOptions(t, search.kind, !narrowsResult)]}
                     />
                   </>
                 }
@@ -228,7 +236,6 @@ function ActivityView({ search, onSearchChange, source }: { search: ActivitySear
               />
             ),
           })}
-      {...(nothingYet ? {} : { footer: <CommandHint command={source.fleet === undefined ? "noust audit list" : "noust fleet activity"} label={t("common.words.fromTerminal")} /> })}
     >
       {content}
     </ListPage>

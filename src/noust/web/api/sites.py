@@ -36,6 +36,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from noust.core.exceptions import ValidationError
+from noust.core.server_text import say
 from noust.core.store import get_store
 from noust.core.teams import TeamStore, ownership_target, scoped_store
 from noust.managers.apache_manager import ApacheManager
@@ -61,7 +62,7 @@ from noust.managers.webserver import (
     list_all_sites,
 )
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
+from noust.web.api.deps import CodedText, NoustErrorRoute, require_elevated, strict_domain
 from noust.web.api.scope import resolve_target_for
 from noust.web.permissions import Permission
 from noust.web.pydantic_compat import PYDANTIC_V2, dump_model
@@ -142,11 +143,21 @@ class SiteListResponse(BaseModel):
 
 
 class SiteActionResponse(BaseModel):
-    """Response for site actions."""
+    """
+    Response for site actions.
+
+    Attributes:
+        success: The action was done.
+        message: What was done, in a sentence.
+        site: The site's domain.
+        coded: ``message`` as a code and its values, for the console to say it in its own
+            language and to tell a warning from a success by the code, never by the words.
+    """
 
     success: bool
     message: str
     site: str
+    coded: CodedText | None = None
 
 
 class SiteConfigResponse(BaseModel):
@@ -159,11 +170,38 @@ class SiteConfigResponse(BaseModel):
 
 
 class ReloadResponse(BaseModel):
-    """Response for a web server reload."""
+    """
+    Response for a web server reload.
+
+    Attributes:
+        success: It reloaded.
+        message: What was done, in a sentence.
+        webserver: The web server that was reloaded.
+        coded: ``message`` as a code and its values.
+    """
 
     success: bool
     message: str
     webserver: str
+    coded: CodedText | None = None
+
+
+def _acted(site: str, code: str, /, **params: str) -> SiteActionResponse:
+    """
+    Say what an action did, as the sentence of the catalog.
+
+    Args:
+        site: The site's domain.
+        code: The sentence's code.
+        **params: Its values.
+
+    Returns:
+        A successful response whose message and code are one thing.
+    """
+    said = say(code, **params)
+    return SiteActionResponse(
+        success=True, message=said.text, site=site, coded=CodedText(**said.to_dict())
+    )
 
 
 class CreateSiteRequest(BaseModel):
@@ -913,19 +951,26 @@ def create_site(
             enable=data.enable,
         )
 
-    if outcome.ssl_requested and not outcome.ssl_enabled:
-        message = (
-            f"Site created: {domain}. TLS was requested but not enabled"
-            f"{f': {outcome.certificate_error}' if outcome.certificate_error else ''}."
-        )
-    elif outcome.ssl_enabled:
-        message = f"Site created with SSL: {domain}."
-    else:
-        message = f"Site created: {domain}. Reload {webserver} to serve it."
     if outcome.load_error:
-        message = f"Site created: {domain}, but {webserver} did not load it: {outcome.load_error}"
-
-    return SiteActionResponse(success=True, message=message, site=domain)
+        return _acted(
+            domain,
+            "sites.created.not_loaded",
+            domain=domain,
+            webserver=webserver,
+            error=outcome.load_error,
+        )
+    if outcome.ssl_requested and not outcome.ssl_enabled:
+        if outcome.certificate_error:
+            return _acted(
+                domain,
+                "sites.created.without_tls_because",
+                domain=domain,
+                error=outcome.certificate_error,
+            )
+        return _acted(domain, "sites.created.without_tls", domain=domain)
+    if outcome.ssl_enabled:
+        return _acted(domain, "sites.created.with_ssl", domain=domain)
+    return _acted(domain, "sites.created.reload", domain=domain, webserver=webserver)
 
 
 @router.post("/reload", response_model=ReloadResponse)
@@ -962,7 +1007,13 @@ def reload_webserver(session: Annotated[dict, Depends(get_current_session)]) -> 
     if not manager.reload():
         raise HTTPException(status_code=500, detail=f"Failed to reload {webserver}")
 
-    return ReloadResponse(success=True, message=f"{webserver} reloaded", webserver=webserver)
+    said = say("sites.reloaded", webserver=webserver)
+    return ReloadResponse(
+        success=True,
+        message=said.text,
+        webserver=webserver,
+        coded=CodedText(**said.to_dict()),
+    )
 
 
 @router.get("/{domain}", response_model=SiteInfo)
@@ -1406,11 +1457,7 @@ def update_site_config(
 
     manager.replace_site_config(validated, data.config)
 
-    return SiteActionResponse(
-        success=True,
-        message=f"Configuration updated for {validated}. Reload {webserver} to apply it.",
-        site=validated,
-    )
+    return _acted(validated, "sites.config_updated", domain=validated, webserver=webserver)
 
 
 @router.post("/{domain}/enable", response_model=SiteActionResponse)
@@ -1437,7 +1484,7 @@ def enable_site(
     manager.enable_site(validated)
     manager.reload()
 
-    return SiteActionResponse(success=True, message=f"Site enabled: {validated}", site=validated)
+    return _acted(validated, "sites.enabled", domain=validated)
 
 
 @router.post("/{domain}/disable", response_model=SiteActionResponse)
@@ -1464,7 +1511,7 @@ def disable_site(
     manager.disable_site(validated)
     manager.reload()
 
-    return SiteActionResponse(success=True, message=f"Site disabled: {validated}", site=validated)
+    return _acted(validated, "sites.disabled", domain=validated)
 
 
 @router.delete("/{domain}", response_model=SiteActionResponse)
@@ -1498,4 +1545,4 @@ def delete_site(
     if not deletion.removed_anything:
         raise HTTPException(status_code=404, detail=f"Site not found: {validated}")
 
-    return SiteActionResponse(success=True, message=f"Site deleted: {validated}", site=validated)
+    return _acted(validated, "sites.deleted", domain=validated)

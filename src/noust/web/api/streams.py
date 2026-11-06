@@ -32,7 +32,7 @@ from noust.managers.stream_exposure import (
     StreamSupport,
 )
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, require_elevated
+from noust.web.api.deps import CodedText, NoustErrorRoute, require_elevated
 from noust.web.auth import actor_label
 
 router = APIRouter(route_class=NoustErrorRoute)
@@ -48,6 +48,11 @@ class StreamSupportModel(BaseModel):
         loader: ``present``, ``installable``, ``foreign`` or ``manual``.
         problem: What is missing, when something is.
         hint: How to fix it: a command, or the line to add.
+        install: The software component that supplies what is missing (``nginx``,
+            ``nginx_stream_module``), to install with ``POST /api/server/software/{id}/install``;
+            null when Noust installs nothing for it here.
+        coded: ``problem`` and ``hint`` as a code and its values, for the console to translate;
+            null when nothing is wrong. A ``hint`` that is nginx's own output has no code.
     """
 
     available: bool
@@ -55,6 +60,8 @@ class StreamSupportModel(BaseModel):
     loader: str
     problem: str | None = None
     hint: str | None = None
+    install: str | None = None
+    coded: CodedText | None = None
 
 
 class StreamFirewallModel(BaseModel):
@@ -159,6 +166,7 @@ class StreamPlanResponse(BaseModel):
         support: What nginx offers.
         warnings: Things that are probably wrong and do not stop it.
         firewall: The rules the firewall would be asked for.
+        warnings_coded: ``warnings`` as codes and values, in the same order.
     """
 
     exposure: StreamExposureModel
@@ -168,6 +176,7 @@ class StreamPlanResponse(BaseModel):
     support: StreamSupportModel
     warnings: list[str]
     firewall: list[dict[str, Any]]
+    warnings_coded: list[CodedText] = Field(default_factory=list)
 
 
 class StreamResultResponse(BaseModel):
@@ -178,11 +187,15 @@ class StreamResultResponse(BaseModel):
         exposure: The exposure.
         warnings: Things the operator should know.
         firewall: A sentence on the firewall.
+        warnings_coded: ``warnings`` as codes and values, in the same order.
+        firewall_coded: ``firewall`` as a code and its values; null when there is none.
     """
 
     exposure: StreamExposureModel
     warnings: list[str]
     firewall: str
+    warnings_coded: list[CodedText] = Field(default_factory=list)
+    firewall_coded: CodedText | None = None
 
 
 def _support(support: StreamSupport) -> StreamSupportModel:
@@ -223,6 +236,10 @@ def _result(result: StreamResult) -> StreamResultResponse:
         exposure=_exposure(result.exposure),
         warnings=list(result.warnings),
         firewall=result.firewall,
+        warnings_coded=[CodedText(**warning.to_dict()) for warning in result.warnings_coded],
+        firewall_coded=(
+            CodedText(**result.firewall_coded.to_dict()) if result.firewall_coded else None
+        ),
     )
 
 
@@ -292,6 +309,7 @@ def plan_stream(
         support=_support(plan.support),
         warnings=list(plan.warnings),
         firewall=list(plan.firewall),
+        warnings_coded=[CodedText(**warning.to_dict()) for warning in plan.warnings_coded],
     )
 
 

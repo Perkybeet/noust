@@ -122,7 +122,7 @@ export function CatalogPackageDialog({ open, onOpenChange }: CatalogPackageDialo
             </ul>
           </Notice>
         ) : null}
-        <CommandHint command="noust recipe catalog import FILE" label={t("common.words.fromTerminal")} />
+        <CommandHint reason="solo-terminal" command="noust recipe catalog import FILE" />
       </div>
       <ConfirmDialog
         open={removing}

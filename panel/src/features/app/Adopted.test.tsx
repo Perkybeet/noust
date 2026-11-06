@@ -5,8 +5,8 @@ import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { json } from "../../test/fakes";
 import { DOMAIN, ELEVATED, IN_PLACE_APP, jobOf, accepted, renderSettings } from "./settings/testKit";
-import { SETTINGS_SECTIONS } from "./settings/sections";
-import { appTabs } from "./tabs";
+import { CONFIG_PAGES, partsOf } from "./settings/sections";
+import { appColumn } from "../../app/columns";
 import { isAdopted } from "./adopted";
 
 /** A site Noust adopted: a unit the operator wrote behind nginx, with no source and no build. */
@@ -42,21 +42,30 @@ describe("what the console knows of an adopted site", () => {
     expect(isAdopted(undefined)).toBe(false);
   });
 
-  it("leaves out the tabs of what Noust does not manage", () => {
-    const names = (tabs: ReturnType<typeof appTabs>) => tabs.map((tab) => tab.to);
-    expect(names(appTabs(DOMAIN))).toContain("/apps/$domain/deployments");
-    expect(names(appTabs(DOMAIN, {}, { adopted: true }))).toEqual(["/apps/$domain", "/apps/$domain/logs", "/apps/$domain/metrics", "/apps/$domain/settings"]);
+  it("leaves out the sections of what Noust does not manage", () => {
+    const everything = { staged: true } as const;
+    const names = (adopted: boolean) => appColumn(everything, adopted).flatMap((group) => group.items.map((item) => item.to));
+    expect(names(false)).toContain("/apps/$domain/deployments");
+    expect(names(true)).toEqual([
+      "/apps/$domain",
+      "/apps/$domain/logs",
+      "/apps/$domain/metrics",
+      "/apps/$domain/diagnose",
+      "/apps/$domain/terminal",
+      "/apps/$domain/files",
+      "/apps/$domain/delete",
+    ]);
   });
 
-  it("keeps General and Delete of the settings and nothing about building", () => {
-    const adopted = SETTINGS_SECTIONS.filter((section) => section.when?.(ADOPTED_APP as never) !== false).map((section) => section.path);
-    expect(adopted).toEqual(["", "/delete"]);
+  it("keeps what it is and how it runs, and nothing about building", () => {
+    const adopted = CONFIG_PAGES.flatMap((page) => partsOf(page, ADOPTED_APP as never).map((part) => part.id));
+    expect(adopted).toEqual(["general"]);
   });
 });
 
 describe("an adopted site's page", () => {
   it("says what was adopted, in the operator's own terms", async () => {
-    await renderSettings("", "General", ADOPTED_APP, routes);
+    await renderSettings("", "How it runs", ADOPTED_APP, routes);
     const top = screen.getByRole("heading", { level: 1, name: DOMAIN }).closest("header");
     if (top === null) throw new Error("no page header");
 
@@ -65,13 +74,15 @@ describe("an adopted site's page", () => {
     expect(within(top).queryByRole("button", { name: "Update" })).not.toBeInTheDocument();
     expect(within(top).queryByRole("button", { name: "Roll back" })).not.toBeInTheDocument();
     expect(within(top).getByText("Adopted site")).toBeInTheDocument();
-    const nav = screen.getByRole("navigation", { name: "Application sections" });
-    expect(within(nav).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Logs", "Metrics", "Settings"]);
+    const nav = await screen.findByRole("navigation", { name: "Application sections" });
+    // What Noust does not manage is not in the column; the unit's own sections are, and so are the way to find out why it is down
+    // and the one to stop managing it, which the old strip kept in a menu and in the settings.
+    expect(within(nav).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Logs", "Metrics", "Diagnose", "Delete"]);
   });
 
   it("lists the operator's unit, site and directory on the overview, kept as they are", async () => {
-    const { user } = await renderSettings("", "General", ADOPTED_APP, routes);
-    await user.click(within(screen.getByRole("navigation", { name: "Application sections" })).getByRole("link", { name: "Overview" }));
+    const { user } = await renderSettings("", "How it runs", ADOPTED_APP, routes);
+    await user.click(within(await screen.findByRole("navigation", { name: "Application sections" })).getByRole("link", { name: "Overview" }));
 
     expect(await screen.findByText("It was running before Noust met it, and its unit, its site and its files are yours. Noust shows it, restarts its unit and reads its logs; it does not build, update, roll back or rewrite it.")).toBeInTheDocument();
     const what = (await screen.findByRole("heading", { name: "What Noust adopted" })).closest("section") ?? document.body;
@@ -84,7 +95,7 @@ describe("an adopted site's page", () => {
   });
 
   it("offers to stop managing it, not to delete it, and asks for nothing about its files", async () => {
-    const { user, backend } = await renderSettings("/delete", "Delete", ADOPTED_APP, {
+    const { user, backend } = await renderSettings("/delete", "Stop managing", ADOPTED_APP, {
       ...routes,
       "GET /api/auth/session": () => json(200, ELEVATED),
       [`DELETE /api/apps/${DOMAIN}`]: () => json(202, accepted(jobOf("d1", "delete"))),
@@ -103,12 +114,12 @@ describe("an adopted site's page", () => {
     await waitFor(() => {
       expect(backend.callsTo(`DELETE /api/apps/${DOMAIN}`)).toHaveLength(1);
     });
-    expect(Object.fromEntries(backend.callsTo(`DELETE /api/apps/${DOMAIN}`)[0]?.search ?? [])).toEqual({ remove_files: "false", remove_ssl: "false" });
+    expect(Object.fromEntries(backend.callsTo(`DELETE /api/apps/${DOMAIN}`)[0]?.search ?? [])).toEqual({ remove_files: "false", remove_ssl: "false", remove_volumes: "false", remove_databases: "false" });
   });
 
   it("speaks Spanish", async () => {
     await act(() => setLocale("es"));
-    await renderSettings("/delete", "Eliminar", ADOPTED_APP, routes);
+    await renderSettings("/delete", "Dejar de gestionar", ADOPTED_APP, routes);
     expect(await screen.findByText("Dejar de gestionar este sitio")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Dejar de gestionar…" })).toBeInTheDocument();
   });

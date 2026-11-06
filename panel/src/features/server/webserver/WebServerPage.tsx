@@ -10,7 +10,6 @@ import { useState } from "react";
 
 import { saveWebserver, webserverQuery } from "../../../api/queries/config";
 import { configKeys } from "../../../api/queries/config";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
@@ -130,7 +129,6 @@ function WebServer() {
               <ServerCard t={t} name="apache" row={data.servers["apache"]} holds={data.holds_ports === "apache"} />
             </div>
             <NewApplications t={t} status={data} />
-            <CommandHint command="noust webserver status" label={t("common.words.fromTerminal")} />
             {moving !== null ? <MoveDialog to={moving} onClose={() => setMoving(null)} /> : null}
           </div>
         );

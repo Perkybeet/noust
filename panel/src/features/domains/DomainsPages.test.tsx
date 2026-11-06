@@ -104,8 +104,8 @@ describe("an application's Domains tab", () => {
     await user.keyboard("{Escape}");
 
     await user.click(screen.getByRole("button", { name: "Add domain" }));
-    const dialog = await screen.findByRole("dialog", { name: `Add a domain to ${APP}` });
-    await user.type(within(dialog).getByLabelText("Domain"), `Blog.${APP}`);
+    const dialog = await screen.findByRole("dialog", { name: `Add a name to ${APP}` });
+    await user.type(within(dialog).getByLabelText("Name"), `Blog.${APP}`);
     // Choosing the kind leaves the field, which is what asks DNS: there is no button for it.
     await user.click(within(dialog).getByRole("button", { name: "More options" }));
     await user.click(within(dialog).getByRole("radio", { name: /Redirect/ }));
@@ -121,7 +121,7 @@ describe("an application's Domains tab", () => {
     expect(await screen.findByText(`Extending the certificate to blog.${APP}`)).toBeInTheDocument();
     // The page behind the dialog is hidden from assistive technology until the dialog has closed.
     await waitFor(() => {
-      expect(screen.queryByRole("dialog", { name: /Add a domain/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("dialog", { name: /Add a name/ })).not.toBeInTheDocument();
     });
     const blog = await within(table).findByRole("link", { name: /^blog\.shop\.example\.com/ });
     const blogRow = blog.closest("tr");
@@ -210,16 +210,19 @@ describe("the Domains and certificates page", () => {
     await within(table).findByText("later.example.com");
     const rows = within(table).getAllByRole("row");
     expect(rows[1]).toHaveTextContent(APP);
+    expect(rows[1]).toHaveTextContent("Let's Encrypt R11");
     expect(rows[1]).toHaveTextContent("Expires in 12 days");
-    expect(rows[1]).toHaveTextContent("Oct 7, 2026");
+    expect(rows[1]).toHaveTextContent("On its own");
     expect(rows[2]).toHaveTextContent("Valid for 67 days");
     // The header holds the tab's primary action; the count sits with the filters.
     expect(screen.getByRole("button", { name: "Issue certificate" })).toBeInTheDocument();
     expect(screen.getByText("2 certificates")).toBeInTheDocument();
-    expect(screen.getByText("noust cert list")).toBeInTheDocument();
+    // Who signs them is a section of its own, not a menu entry, and there is no command to type.
+    expect(screen.getByRole("heading", { level: 2, name: "Authorities" })).toBeInTheDocument();
+    expect(screen.queryByText("noust cert list")).not.toBeInTheDocument();
 
     // The issuer and how it renews are the same on nearly every row: they are in its drawer.
-    await harness.user.click(within(first(rows.slice(1))).getByRole("button", { name: APP }));
+    await harness.user.click(within(first(rows.slice(1))).getByRole("button", { name: /^shop\.example\.com/ }));
     const drawer = await screen.findByRole("dialog", { name: APP });
     expect(within(drawer).getByText("Let's Encrypt R11")).toBeInTheDocument();
     await harness.user.keyboard("{Escape}");
@@ -229,19 +232,19 @@ describe("the Domains and certificates page", () => {
       expect(harness.location().pathname).toBe("/domains/sites");
     });
     const sites = await screen.findByRole("region", { name: "Web server sites" });
-    const served = within(sites).getByRole("button", { name: APP }).closest("tr");
+    const served = within(sites).getByRole("link", { name: /^shop\.example\.com/ }).closest("tr");
     if (!served) throw new Error("no row");
     expect(within(served).getByText("Serving")).toBeInTheDocument();
     expect(within(served).getByText("HTTPS")).toBeInTheDocument();
-    // The first three names show inline, mono, with the rest counted rather than crowding the row.
-    expect(within(served).getByText(`${APP}, www.${APP}, shop.${APP}`)).toBeInTheDocument();
-    expect(within(served).getByText("+1 more")).toBeInTheDocument();
-    const tools = within(sites).getByRole("button", { name: "tools.example.net" }).closest("tr");
+    // The other names of the site follow its own on its line, one of them, with the rest counted rather than crowding the row.
+    expect(within(served).getByText(`www.${APP}`)).toBeInTheDocument();
+    expect(within(served).getByRole("button", { name: /^2 more tags: / })).toBeInTheDocument();
+    const tools = within(sites).getByRole("link", { name: "tools.example.net" }).closest("tr");
     if (!tools) throw new Error("no row");
     expect(within(tools).getByText("Disabled")).toBeInTheDocument();
     expect(within(tools).getByText("No HTTPS")).toBeInTheDocument();
     expect(screen.getByText("2 sites on nginx")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create site" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create a site" })).toBeInTheDocument();
     await expectNoAxeViolations(document.body, { page: true });
   });
 
@@ -467,21 +470,70 @@ describe("creating a site", () => {
       "POST /api/sites": () => json(200, { success: true, message: "Site created: status.example.com. Reload nginx to apply it.", site: "status.example.com" }),
     });
     const { user } = renderConsole("/domains/sites");
-    // The header's primary action; the empty state offers the same one.
-    await screen.findByRole("heading", { level: 2, name: "No sites yet" });
-    await user.click(first(screen.getAllByRole("button", { name: "Create site" })));
-    const dialog = await screen.findByRole("dialog", { name: "Create a site" });
+    // The header holds the primary action, and the first time says what a site gives.
+    await screen.findByText(/A site tells the web server how to answer a name/);
+    await user.click(screen.getByRole("button", { name: "Create a site" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add a name" });
+    expect(within(dialog).getByRole("radio", { name: /A site of its own/ })).toBeChecked();
 
     // Not a hardcoded list: an unlisted template never shows, and an unknown one still does,
     // titled from its own name.
     expect(await within(dialog).findByRole("radio", { name: /Megacorp/ })).toBeInTheDocument();
     expect(within(dialog).queryByText("Static files")).not.toBeInTheDocument();
 
-    await user.type(within(dialog).getByLabelText("Domain"), "status.example.com");
+    await user.type(within(dialog).getByLabelText("Name"), "status.example.com");
     await user.click(within(dialog).getByRole("radio", { name: /Megacorp/ }));
-    await user.click(within(dialog).getByRole("button", { name: /^Create site/ }));
+    await user.click(within(dialog).getByRole("button", { name: /^Add the name/ }));
     await waitFor(() => {
       expect(backend.callsTo("POST /api/sites")[0]?.body).toMatchObject({ domain: "status.example.com", template: "megacorp" });
     });
+  });
+
+  /** Makes a site with the answer the server gives, and returns what the console says of it. */
+  async function makeOne(answer: Record<string, unknown>): Promise<void> {
+    fakeBackend({
+      ...signedInRoutes(),
+      "GET /api/certs": () => json(200, { certificates: [], total: 0 }),
+      "GET /api/sites": () => json(200, { sites: [], total: 0, webserver: "nginx" }),
+      "GET /api/sites/templates": () => json(200, { templates: ["proxy"], webserver: "nginx" }),
+      "GET /api/domains/dns": () => json(200, { domain: "status.example.com", expected_addresses: ["203.0.113.10"], resolved_addresses: ["203.0.113.10"], points_here: true, verdict: "here", cdn: null, resolver: "" }),
+      "POST /api/sites": () => json(200, { success: true, site: "status.example.com", ...answer }),
+    });
+    const { user } = renderConsole("/domains/sites");
+    await user.click(await screen.findByRole("button", { name: "Create a site" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add a name" });
+    await user.type(await within(dialog).findByLabelText("Name"), "status.example.com");
+    await user.click(await within(dialog).findByRole("radio", { name: /Reverse proxy/ }));
+    await user.click(within(dialog).getByRole("button", { name: /^Add the name/ }));
+  }
+
+  it("says a site that came without HTTPS is a warning by the code the server sent, in the console's language", async () => {
+    await makeOne({
+      message: "Site created: status.example.com. TLS was requested but not enabled.",
+      coded: { code: "sites.created.without_tls", params: { domain: "status.example.com" } },
+    });
+
+    expect(await screen.findByText("Created status.example.com without HTTPS")).toBeInTheDocument();
+    expect(screen.getByText("Site created: status.example.com. TLS was requested but not enabled.")).toBeInTheDocument();
+  });
+
+  it("does not read the server's English to decide: a success that happens to say it is a success", async () => {
+    await makeOne({
+      message: "Site created with SSL: status.example.com. (TLS was requested but not enabled elsewhere, says this reworded text.)",
+      coded: { code: "sites.created.with_ssl", params: { domain: "status.example.com" } },
+    });
+
+    expect(await screen.findByText("Created status.example.com")).toBeInTheDocument();
+    expect(screen.queryByText("Created status.example.com without HTTPS")).not.toBeInTheDocument();
+  });
+
+  it("says the site its web server would not load is a warning too, which it showed as a success before", async () => {
+    await makeOne({
+      message: "Site created: status.example.com, but nginx did not load it: unknown directive",
+      coded: { code: "sites.created.not_loaded", params: { domain: "status.example.com", webserver: "nginx", error: "unknown directive" } },
+    });
+
+    expect(await screen.findByText("Created status.example.com, but the web server did not load it")).toBeInTheDocument();
+    expect(screen.queryByText("Created status.example.com without HTTPS")).not.toBeInTheDocument();
   });
 });

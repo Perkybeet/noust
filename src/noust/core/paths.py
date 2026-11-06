@@ -340,6 +340,21 @@ def uploads_dir() -> Path:
     return state_dir() / "uploads"
 
 
+def sign_in_image_dir() -> Path:
+    """
+    Return the directory holding the picture an operator chose for the sign-in screen.
+
+    The picture, named by its digest, and ``appearance.json`` that says which one is current, how it
+    is fitted and what it says to a screen reader. Inside the state directory, so a bundle of
+    Noust's own state carries it and a restored server shows the same screen; what is served from
+    it is served by the console, never by a web server that could be pointed at it.
+
+    Returns:
+        ``sign-in-image`` under the state directory.
+    """
+    return state_dir() / "sign-in-image"
+
+
 def state_dir() -> Path:
     """
     Return the directory holding the store, secrets, metrics and locks.

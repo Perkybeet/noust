@@ -41,6 +41,7 @@ AREAS: dict[str, str] = {
     "unit": "the systemd units of an application",
     "deploy": "a deployment: its gates, keys, notifications and target",
     "monitor": "the monitor: samples, watches and thresholds",
+    "console": "the console as a program: the machine it is developed on, how it is published, its headers and its proxies",
 }
 
 

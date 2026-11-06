@@ -6,7 +6,6 @@ import { announce } from "../../app/Announcer";
 import { isApiError } from "../../api/client";
 import type { Destination } from "../../api/queries/backupDestinations";
 import { backupDestinationsQuery } from "../../api/queries/backupDestinations";
-import { CommandHint } from "../../components/page/CommandHint";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { RowMenu } from "../../components/page/RowMenu";
@@ -283,7 +282,6 @@ export function DestinationsPage() {
         title={t("backups.destinations.empty.title")}
         description={t("backups.destinations.empty.description")}
         action={addButton("secondary")}
-        command="noust backup destination add <name> --type <backend>"
       />
     );
   } else {
@@ -315,7 +313,6 @@ export function DestinationsPage() {
           }
         : {})}
       primaryAction={addButton("primary")}
-      {...(empty ? {} : { footer: <CommandHint command="noust backup destination list" label={t("common.words.fromTerminal")} /> })}
     >
       {inClear.length > 0 ? (
         <Notice

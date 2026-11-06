@@ -462,7 +462,7 @@ class TestListsCanBeNarrowed:
         monkeypatch.setattr(
             DatabaseService,
             "listing",
-            lambda self, engine=None: DatabaseListing(
+            lambda self, engine=None, include_stopped=False: DatabaseListing(
                 [
                     DatabaseView(name="acme_db", engine="mysql", tracked=True),
                     DatabaseView(name="globex_db", engine="mysql", tracked=True),

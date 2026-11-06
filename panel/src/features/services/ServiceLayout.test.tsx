@@ -1,9 +1,9 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
-import { SERVICES, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
+import { SERVICES, SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import { onDesktop, serverRoutes } from "../server/testing";
 import { changedLines } from "../../lib/lineDiff";
@@ -41,6 +41,39 @@ describe("a service's page", () => {
     expect(screen.getByRole("button", { name: "Restart" })).toHaveAttribute("data-variant", "primary");
     expect(screen.getByRole("link", { name: "Configuration" })).toHaveAttribute("href", `/server/services/${NAME}/unit`);
     await expectNoAxeViolations(screen.getByRole("main"));
+  });
+
+  it("holds the sections of its column until the service is known: its state is a line the head gains then, and a list drawn before it would move", async () => {
+    let answer: () => void = () => undefined;
+    const record = SERVICES.find((service) => service.name === NAME);
+    servicePage(`/server/services/${NAME}`, {
+      [`GET /api/services/${NAME}`]: () => new Promise<Response>((resolve) => (answer = () => resolve(json(200, record)))),
+    });
+    await screen.findByRole("heading", { level: 1, name: NAME });
+
+    expect(await screen.findByText("Loading Service sections")).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Service sections" })).toBeNull();
+
+    act(() => {
+      answer();
+    });
+    const sections = await screen.findByRole("navigation", { name: "Service sections" });
+    expect(within(sections).getAllByRole("link").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Loading Service sections")).toBeNull();
+  });
+
+  it("lists the sections of its column all the same when the service cannot be read: each page says why", async () => {
+    servicePage(`/server/services/${NAME}`, { [`GET /api/services/${NAME}`]: () => problem(404, "not_found", "No such service") });
+    await screen.findByRole("heading", { level: 1, name: NAME });
+    expect(await screen.findByRole("navigation", { name: "Service sections" }, { timeout: 8000 })).toBeInTheDocument();
+  });
+
+  it("keeps the row of the name in the head of its column as tall with the switch to the other services as without it", async () => {
+    servicePage(`/server/services/${NAME}`);
+    await screen.findByRole("heading", { level: 1, name: NAME });
+    const column = await screen.findByRole("complementary", { name: "Service sections" });
+    // The row is the switch's height (28px) from the first frame, so the switch arriving with the list of services moves nothing.
+    expect(within(column).getByText(NAME).parentElement).toHaveClass("min-h-7");
   });
 
   it("keeps the old address working", async () => {
@@ -89,6 +122,47 @@ describe("a service's page", () => {
     });
     expect(await screen.findByText("Noust did not create this service")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Restart" })).not.toBeInTheDocument();
+  });
+});
+
+const FOREIGN: Record<string, RouteHandler> = {
+  "GET /api/services/postgresql.service": () => problem(404, "not_found", "Service postgresql.service is not managed by Noust"),
+  "GET /api/services": () =>
+    json(200, {
+      services: [{ name: "postgresql.service", description: null, active: true, enabled: true, status: "running", pid: 908, uptime: null, memory: null, managed: false }],
+      total: 1,
+    }),
+};
+
+describe("the journal and the configuration of a unit", () => {
+  it("is not offered for a unit Noust did not create, which the server refuses to follow", async () => {
+    servicePage("/server/services/postgresql.service", FOREIGN);
+    await screen.findByText("Noust did not create this service");
+    const tabs = await screen.findByRole("navigation", { name: "Service sections" });
+    expect(within(tabs).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview"]);
+  });
+
+  it("says where the journal is when somebody arrives at the address of the one that is not there, and opens no socket for it", async () => {
+    servicePage("/server/services/postgresql.service/logs", FOREIGN);
+    expect(await screen.findByText("The journal of this unit is the system's")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open in Server logs" })).toBeInTheDocument();
+  });
+
+  it("is not a link of the header for a role that cannot read a unit file, which can hold secrets", async () => {
+    const reader = { ...SESSION, permissions: (SESSION.permissions ?? []).filter((permission) => permission !== "secrets.reveal") };
+    servicePage(`/server/services/${NAME}`, { ...signedInRoutes(reader) });
+    await screen.findByRole("heading", { level: 1, name: NAME });
+    expect(await screen.findByRole("button", { name: "Restart" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Configuration" })).not.toBeInTheDocument();
+  });
+
+  it("says what a refusal to read the file means, in place of the server's bare 403", async () => {
+    servicePage(`/server/services/${NAME}/unit`, {
+      [`GET /api/services/${NAME}/config`]: () => problem(403, "permission_denied", "This needs the 'secrets.reveal' permission"),
+    });
+    expect(await screen.findByText("Opening this file takes more access")).toBeInTheDocument();
+    expect(screen.getByText("secrets.reveal")).toBeInTheDocument();
+    expect(screen.queryByText(/This needs the 'secrets.reveal' permission/)).not.toBeInTheDocument();
   });
 });
 

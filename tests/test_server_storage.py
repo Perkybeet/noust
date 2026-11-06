@@ -591,3 +591,41 @@ def test_a_rehearsal_is_reported_as_one(host) -> None:
     result = _manager(runner, host, fs=DryRunFileSystem()).cleanup("pkg-cache")
 
     assert result.dry_run is True
+
+
+class TestWhatACleanupSays:
+    """The effect of every action is a sentence with a code, beside the text it always had."""
+
+    @pytest.mark.parametrize(
+        ("action", "code"),
+        [
+            ("journal", "storage.effect.journal"),
+            ("pkg-cache", "storage.effect.pkg_cache"),
+            ("docker-build-cache", "storage.effect.docker_build_cache"),
+            ("docker-dangling-images", "storage.effect.docker_dangling_images"),
+            ("releases", "storage.effect.releases"),
+        ],
+    )
+    def test_each_action_says_what_it_does_with_a_code(self, host, action: str, code: str) -> None:
+        plan = _manager(FakeRunner(), host, release_apps=lambda: []).plan_cleanup(action)
+
+        assert plan.effect_coded is not None and plan.effect_coded.code == code
+        assert plan.effect == plan.effect_coded.text
+        assert plan.effect_coded.params == {}
+
+    def test_removing_an_image_names_it_as_a_value(self, host) -> None:
+        runner = FakeRunner()
+        runner.script(
+            ["docker", "image", "ls"],
+            stdout='{"Containers":"0","ID":"728109567b7e","Repository":"old","Size":"5MB","Tag":"1"}',
+        )
+
+        plan = _manager(runner, host).plan_cleanup("docker-image", target="728109567b7e")
+
+        assert plan.effect_coded is not None
+        assert plan.effect_coded.code == "storage.effect.docker_image"
+        assert plan.effect_coded.params == {"image": "728109567b7e"}
+        assert (
+            plan.effect
+            == "Deletes the image 728109567b7e, without --force: Docker refuses if a container uses it."
+        )

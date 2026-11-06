@@ -129,7 +129,6 @@ function Settings40() {
           <SettingsGroup
             title="Notifications"
             status={<StatusPill state="running" label="On" size="sm" />}
-            command="noust notify status"
           >
             <Setting
               label="Send notifications"

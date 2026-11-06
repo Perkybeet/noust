@@ -28,7 +28,6 @@ export const backups: Catalog<typeof en> = {
   },
 
   tabs: {
-    label: "Secciones de las copias de seguridad",
     backups: "Copias",
     schedules: "Programaciones",
     destinations: "Destinos",
@@ -201,7 +200,7 @@ export const backups: Catalog<typeof en> = {
     title: "Copiar {id}",
     description: "Envía esta copia a uno de tus destinos, en segundo plano.",
     submit: "Copiar",
-    noDestinations: "Todavía no hay destinos. Añade uno en la pestaña Destinos.",
+    noDestinations: "Todavía no hay destinos. Añade uno en la sección Destinos.",
     error: "La copia no se puso en cola",
   },
 
@@ -304,7 +303,7 @@ export const backups: Catalog<typeof en> = {
     dumpDatabases: "Incluir sus bases de datos",
     destinationsLegend: "Copiar también a",
     noDestinations: "Todavía no hay destinos",
-    noDestinationsHint: "Añade uno en la pestaña Destinos para copiar las copias fuera de este servidor.",
+    noDestinationsHint: "Añade uno en la sección Destinos para copiar las copias fuera de este servidor.",
     backupsSuffix: "copias",
     remoteOnly: "No guardar nada en este servidor",
     remoteOnlyHelp:

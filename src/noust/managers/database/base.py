@@ -64,7 +64,7 @@ from noust.core.fs import SECRET_MODE, get_fs
 from noust.core.package_family import PackageFamily, detect_family
 from noust.core.runner import CommandResult, CommandRunner, DryRunRunner, get_runner
 from noust.managers.base_manager import BaseManager
-from noust.managers.database import flavours
+from noust.managers.database import engine_removal
 from noust.managers.database.eol import support_notice
 from noust.managers.database.flavours import (
     FLAVOURS,
@@ -84,9 +84,6 @@ from noust.managers.database.pg_globals import GlobalsRestore
 from noust.managers.database.rpm_flavours import (
     default_rpm_plan,
     install_rpm_repository,
-    installed_packages,
-    key_file_of,
-    repository_files,
     rpm_manager,
     withdraw_rpm_repository,
 )
@@ -1575,10 +1572,35 @@ class BaseDatabaseManager(BaseManager):
             purge: Also delete the data and configuration directories.
 
         Raises:
+            EngineInUseError: While the engine holds databases, or cannot be asked what it
+                holds: nothing is stopped or removed, and the refusal is recorded.
             DatabaseEngineError: When every package set fails to be removed;
                 always for a container.
         """
         self.refuse_in_container("uninstall")
+        engine_removal.removal(self, purge=purge, remove=lambda: self._remove_engine(purge))
+
+    def refuse_uninstall(self) -> None:
+        """
+        Refuse now what :meth:`uninstall` would refuse, changing nothing.
+
+        For a caller that queues the removal and would rather answer the operator at once than
+        let a job fail later. The refusal is recorded here, as it is when ``uninstall`` makes it.
+
+        Raises:
+            EngineInUseError: While the engine holds databases, or cannot be asked what it holds.
+            DatabaseEngineError: For a container.
+        """
+        self.refuse_in_container("uninstall")
+        engine_removal.require_no_databases(self)
+
+    def _remove_engine(self, purge: bool) -> None:
+        """
+        Stop the engine and take its packages out, and its data when purging.
+
+        Args:
+            purge: Also delete the data and configuration directories.
+        """
         self.logger.info(f"Uninstalling {self.DISPLAY_NAME}...")
         family, _program = detect_family(self.runner)
 
@@ -1588,9 +1610,9 @@ class BaseDatabaseManager(BaseManager):
             self.logger.warning(f"Could not stop {self.DISPLAY_NAME} before removal: {exc}")
 
         if family is PackageFamily.APT or family is PackageFamily.NONE:
-            self._uninstall_apt(purge)
+            engine_removal.remove_apt_packages(self, purge)
         else:
-            self._uninstall_rpm(family)
+            engine_removal.remove_rpm_packages(self)
 
         if purge:
             for path in self.PURGE_PATHS:
@@ -1618,78 +1640,6 @@ class BaseDatabaseManager(BaseManager):
             behind when they go (PostgreSQL's meta packages do: see its override).
         """
         return self._package_sets()
-
-    def _uninstall_apt(self, purge: bool) -> None:
-        """
-        Remove the engine's packages with apt.
-
-        Args:
-            purge: Purge instead of remove.
-
-        Raises:
-            DatabaseEngineError: When every package set fails to be removed.
-        """
-        action = "purge" if purge else "remove"
-        failures: list[str] = []
-        removal = self._removal_sets()
-        for packages in removal:
-            result = self._exec(
-                ["apt-get", action, "-y", *packages],
-                env=APT_ENV,
-                timeout=PACKAGE_TIMEOUT,
-            )
-            if not result.success:
-                failures.append(f"{' '.join(packages)}: {result.stderr.strip()}")
-
-        if len(failures) == len(removal):
-            raise DatabaseEngineError(
-                f"Failed to remove {self.DISPLAY_NAME}",
-                details="\n".join(failures) or f"Run: apt-get {action} -y manually.",
-            )
-
-    def _uninstall_rpm(self, family: PackageFamily) -> None:
-        """
-        Remove the engine's packages with dnf or zypper.
-
-        The packages are the ones installed whose name is exactly one of the flavour's
-        (:func:`~noust.managers.database.rpm_flavours.installed_packages`), never a pattern
-        handed to the package manager.
-
-        Args:
-            family: The package manager.
-
-        Raises:
-            DatabaseEngineError: When the package manager fails.
-        """
-        flavour = self.installed_flavour() or self.ENGINE_NAME
-        listing = self._exec(
-            ["rpm", "-qa", "--qf", "%{NAME}\\n"], env=self._package_backend().env(), timeout=60
-        )
-        names = installed_packages(flavour, listing.stdout) if listing.success else []
-        if not names:
-            raise DatabaseEngineError(
-                f"No package of {self.DISPLAY_NAME} is installed",
-                details="'rpm -qa' lists none of its packages. Nothing was removed.",
-            )
-        backend = self._package_backend()
-        argv = (
-            ["dnf", "-y", "remove", *names]
-            if family is PackageFamily.DNF
-            else ["zypper", "--non-interactive", "remove", *names]
-        )
-        result = self._exec(argv, env=backend.env(), timeout=PACKAGE_TIMEOUT)
-        if not result.success:
-            raise DatabaseEngineError(
-                f"Failed to remove {self.DISPLAY_NAME}",
-                details=(result.stderr.strip() or "The package manager returned no output.")[
-                    -2000:
-                ],
-            )
-        # The repositories Noust added for this flavour go with it: left enabled, MariaDB's
-        # packages, which also provide `mysql-server`, would answer a later install of MySQL.
-        for definition in repository_files(flavour, host=flavours.HOST):
-            self.fs.remove(definition)
-            self.fs.remove(flavours.HOST.at(str(key_file_of(definition))))
 
     def service_unit(self) -> str:
         """

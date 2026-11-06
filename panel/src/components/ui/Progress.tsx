@@ -12,11 +12,33 @@ export interface ProgressProps {
   label: string;
   /** Show the percentage next to the label. */
   showValue?: boolean;
+  /**
+   * `inline`: the track alone with its figure after it on one line, and the label only for assistive technology,
+   * for a row that already says what is progressing (a task in the task centre's panel and its pinned chips).
+   */
+  layout?: "stacked" | "inline";
   className?: string;
 }
 
 /** How far a task with a known end has got: an upload, a restore, a build step. Amber: work in progress. */
-export function Progress({ value, label, showValue = true, className }: ProgressProps) {
+export function Progress({ value, label, showValue = true, layout = "stacked", className }: ProgressProps) {
+  if (layout === "inline") {
+    return (
+      <BaseProgress.Root value={value} className={cx("flex min-w-0 items-center gap-2", className)}>
+        <BaseProgress.Label className="sr-only">{label}</BaseProgress.Label>
+        <BaseProgress.Track className="elev-carved-fine relative h-1.5 min-w-0 flex-1 overflow-hidden rounded-pill bg-bg-sunken">
+          <BaseProgress.Indicator
+            className={cx(
+              "block h-full rounded-pill bg-warn transition-[width] duration-(--duration-move) ease-(--ease-standard)",
+              "data-indeterminate:w-2/5 data-indeterminate:animate-indeterminate",
+              "motion-reduce:data-indeterminate:w-full motion-reduce:data-indeterminate:opacity-40",
+            )}
+          />
+        </BaseProgress.Track>
+        {showValue && value !== null ? <BaseProgress.Value className="mono w-10 shrink-0 text-right text-12 text-fg-muted tabular-nums" /> : null}
+      </BaseProgress.Root>
+    );
+  }
   return (
     <BaseProgress.Root value={value} className={cx("flex min-w-0 flex-col gap-1.5", className)}>
       <div className="flex items-baseline justify-between gap-3">

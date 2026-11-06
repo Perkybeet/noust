@@ -3,6 +3,7 @@ import type { Catalog } from "../types";
 
 export const roles: Catalog<typeof en> = {
   documentTitle: "Roles",
+  section: { title: "Qué permite cada rol" },
   lead: "Un rol es lo que una persona puede hacer. Dale a cada persona uno o varios.",
   loading: "Cargando los roles",
   tableCaption: "Roles",

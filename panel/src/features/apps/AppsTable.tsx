@@ -1,7 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
-import type { MetricsSnapshot } from "../../api/queries/metrics";
 import { AppStatePill } from "../../components/page/AppStatePill";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { STATE_RANK, appStatus, deployStatus } from "../../components/page/status";
@@ -9,16 +8,15 @@ import { Checkbox } from "../../components/ui/Checkbox";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { EmptyCell } from "../../components/ui/EmptyCell";
-import { Mono } from "../../components/ui/Mono";
+import { NameWithTags } from "../../components/ui/NameWithTags";
 import { StatusGlyph, stateTextClass } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
-import { formatBytes, formatPercent, parseTimestamp } from "../../lib/format";
+import { parseTimestamp } from "../../lib/format";
 import { inRows, ownerColumns } from "../teams/ownership";
 import type { Labels, Scope } from "../teams/organization";
 import type { AppInfo, Deployment, LastDeployment } from "./data";
-import { appReading, deployMoment, lastDeployOf, previewParentOf, readsApps, useTypeName } from "./data";
-import { OBJECT_ICONS } from "../../components/ui/objectIcons";
+import { deployMoment, lastDeployOf, previewParentOf, useTypeName } from "./data";
 import type { NodeOutcome } from "../fleet/data";
 import { linkOfHref } from "../fleet/links";
 import { ServerCell } from "../fleet/parts";
@@ -44,9 +42,13 @@ export function DeployMoment({ deploy }: { deploy: Pick<Deployment, "status" | "
   );
 }
 
+/** The tag a pull request preview wears: what it is, in the place a tag is, so no row has a second line (item 122). */
+const PREVIEW_TAG = "preview";
+
 /**
- * The app's domain, a link to its page; a pull request preview says whose it is underneath, so
- * a list with previews in it still reads as the apps the operator deployed.
+ * The app's domain, a link to its page, with its tags after it on the same line. A pull request preview wears one more,
+ * "preview", and says whose it is to a screen reader and in the tag's own title, so a list with previews in it still
+ * reads as the apps the operator deployed and every row is as tall as the others.
  */
 export function AppName({ t, app, href }: { t: T; app: AppInfo; href?: string }) {
   const parent = previewParentOf(app);
@@ -63,23 +65,24 @@ export function AppName({ t, app, href }: { t: T; app: AppInfo; href?: string })
         {app.domain}
       </Link>
     );
-  if (parent === null) return link;
+  const tags = [...(parent !== null ? [PREVIEW_TAG] : []), ...(app.tags ?? [])];
+  if (tags.length === 0) return link;
   return (
-    <span className="flex max-w-full min-w-0 flex-col items-start">
-      {link}
-      <span className="inline-flex max-w-full min-w-0 items-center gap-1 text-12 text-fg-muted">
-        <OBJECT_ICONS.preview aria-hidden="true" className="size-icon-xs shrink-0 text-fg-faint" />
-        <span className="truncate">{t.rich("apps.table.previewOf", { parent: <Mono tone="muted">{parent}</Mono> })}</span>
-      </span>
-    </span>
+    <>
+      <NameWithTags
+        name={link}
+        tags={tags}
+        title={t("appTags.row.label")}
+        renderTag={(tag) => (tag === PREVIEW_TAG && parent !== null ? <span title={t("apps.table.previewOf", { parent })}>{t("apps.table.previewTag")}</span> : tag)}
+      />
+      {parent !== null ? <span className="sr-only">{t("apps.table.previewOf", { parent })}</span> : null}
+    </>
   );
 }
 
 interface Row {
   app: AppInfo | FleetApp;
   deploy: LastDeployment | Deployment | null;
-  cpu: number | null;
-  memory: number | null;
 }
 
 /** An application of the fleet's list: the server's own row, and which server it is and where its page is. */
@@ -89,7 +92,6 @@ export interface AppsTableProps {
   apps: readonly (AppInfo | FleetApp)[];
   /** The newest deploy of each domain (latestDeployByDomain), when the page read the history. */
   deploys: ReadonlyMap<string, Deployment>;
-  metrics: MetricsSnapshot | undefined;
   caption: string;
   loading?: boolean;
   /** How many rows to draw while loading: the count the page expects, so nothing jumps. */
@@ -107,20 +109,22 @@ export interface AppsTableProps {
   fleet?: { outcomes: ReadonlyMap<string, NodeOutcome> };
   /** The applications chosen for an action on several (checklist M-08): a checkbox on each row. */
   selection?: { selected: ReadonlySet<string>; onSelect: (domain: string, checked: boolean) => void };
+  /** The table sits in a `SurfaceSection` that is already a slab (a project's group of the list): it draws only its rows. */
+  embedded?: boolean;
   className?: string;
 }
 
 /**
- * Every application, identity first: its domain (a link to it, so it opens in a new tab like
- * any other link), its state, its type by the name people know it by, its last deploy and, when
- * the collector reads them, its CPU and memory now. On a phone each row is a card with its
- * actions always in view.
+ * Every application, identity first: its domain with its tags (a link to it, so it opens in a new tab like any other
+ * link), its state, its type by the name people know it by and its last deploy; where there is more than one place
+ * to tell apart, its project and its environment, and on a fleet, its server. It is the one table of applications: the
+ * list, a project's and the fleet's are this, and the views of the list (by project, by state) are this under a heading
+ * each, never another table. On a phone each row is a card with its actions always in view.
  */
-export function AppsTable({ apps, deploys, metrics, caption, loading = false, skeletonRows, empty, rowActions, owner, fleet, selection, className }: AppsTableProps) {
+export function AppsTable({ apps, deploys, caption, loading = false, skeletonRows, empty, rowActions, owner, fleet, selection, embedded = false, className }: AppsTableProps) {
   const t = useT();
   const typeName = useTypeName();
-  const rows: Row[] = apps.map((app) => ({ app, deploy: lastDeployOf(app, deploys), ...appReading(metrics, app.domain) }));
-  const withReadings = readsApps(metrics);
+  const rows: Row[] = apps.map((app) => ({ app, deploy: lastDeployOf(app, deploys) }));
 
   const columns: Column<Row>[] = [
     ...(selection !== undefined
@@ -202,32 +206,6 @@ export function AppsTable({ apps, deploys, metrics, caption, loading = false, sk
         return moment === null ? null : -moment.getTime();
       },
     },
-    ...(withReadings
-      ? ([
-          {
-            id: "cpu",
-            header: t("apps.table.columnCpu"),
-            align: "end",
-            mono: true,
-            width: "w-24",
-            hideBelow: "md",
-            card: "hidden",
-            cell: (row) => (row.cpu === null ? <EmptyCell reason={t("apps.table.noReading")} /> : formatPercent(row.cpu, t.locale)),
-            sortValue: (row) => row.cpu,
-          },
-          {
-            id: "memory",
-            header: t("apps.table.columnMemory"),
-            align: "end",
-            mono: true,
-            width: "w-28",
-            hideBelow: "md",
-            card: "hidden",
-            cell: (row) => (row.memory === null ? <EmptyCell reason={t("apps.table.noReading")} /> : formatBytes(row.memory, t.locale)),
-            sortValue: (row) => row.memory,
-          },
-        ] satisfies Column<Row>[])
-      : []),
   ];
 
   return (
@@ -242,6 +220,7 @@ export function AppsTable({ apps, deploys, metrics, caption, loading = false, sk
       getRowId={(row) => (isFleetApp(row.app) ? `${row.app.node}:${row.app.domain}` : row.app.domain)}
       defaultSort={{ column: "domain", direction: "ascending" }}
       pagination="apps"
+      {...(embedded ? { embedded: true } : {})}
       {...(className !== undefined ? { className } : {})}
     />
   );

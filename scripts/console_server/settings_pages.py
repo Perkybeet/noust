@@ -90,21 +90,26 @@ def pin_settings_update_check(*, up_to_date: bool = False) -> str:
         The version the check reports as released.
     """
     import noust
+    from noust.core import package_index
     from noust.core.update_checker import UpdateChecker
 
     numbers = [int(part) for part in re.findall(r"\d+", noust.__version__)[:2]] + [0, 0]
     latest = noust.__version__ if up_to_date else f"{numbers[0]}.{numbers[1] + 1}.0"
 
-    def fetch_latest(cls: type[UpdateChecker], *args: object) -> str:
-        """Report the pinned release, both published and installable."""
+    def fetch_latest(cls: type[UpdateChecker]) -> str:
+        """Report the pinned release as published."""
         return latest
+
+    def fetch_offer(cls: type[UpdateChecker], method: str) -> package_index.Offer:
+        """Report the pinned release as what the installation's source offers, without PyPI."""
+        return package_index.Offer(repository=latest)
 
     def detect(cls: type[UpdateChecker]) -> str:
         """Report a pip installation without asking the sandbox's fake runner."""
         return "pip"
 
     UpdateChecker._fetch_published_version = classmethod(fetch_latest)  # type: ignore[method-assign,assignment]
-    UpdateChecker._fetch_installable_version = classmethod(fetch_latest)  # type: ignore[method-assign,assignment]
+    UpdateChecker._fetch_offer = classmethod(fetch_offer)  # type: ignore[method-assign,assignment]
     UpdateChecker._detect_installation_method = classmethod(detect)  # type: ignore[method-assign,assignment]
     return latest
 

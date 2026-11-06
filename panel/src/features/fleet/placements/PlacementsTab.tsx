@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRightLeft, Copy, Pencil } from "lucide-react";
 import { useState } from "react";
 
-import { CommandHint } from "../../../components/page/CommandHint";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Section } from "../../../components/page/Section";
@@ -319,7 +318,6 @@ export function PlacementsTab() {
           title={t("placements.empty.title")}
           description={t("placements.empty.description")}
           action={place}
-          command="noust fleet placement add shop.example.com --nodes web-1,web-2"
         />
       ) : (
         <div className="flex min-w-0 flex-col gap-6">
@@ -328,7 +326,6 @@ export function PlacementsTab() {
           ))}
         </div>
       )}
-      <CommandHint label={t("common.words.fromTerminal")} command="noust fleet placement status shop.example.com" />
       {placing ? (
         <PlacementDialog
           placement={null}

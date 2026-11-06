@@ -113,7 +113,7 @@ src/noust/
     deploy_events.py  the deployment events every deployment publishes and its subscribers
     store.py        SQLite persistence (WAL) with versioned migrations
     schema_fragments.py  what a schema version written one fragment per area shares: apply it, and
-                    ask whether a store lacks any of it (v14 and v16, 4.1's, use it; each lane of a
+                    ask whether a store lacks any of it (v14, v16 and v17 use it; each lane of a
                     release fills its own `<AREA>_SQL` and `<AREA>_COLUMNS` and never another's)
     config.py       layered config; secrets written 0600, redacted on the way out
     exceptions.py   NoustError hierarchy, used for real
@@ -126,6 +126,10 @@ src/noust/
                     (an incident's snapshot, `store export`); a test fails on a column nobody ruled on
     compose_yaml.py  a Compose document read the way Compose reads it (PyYAML takes `2222:22` for a
                     base 60 number and `no` for false); every reader of a Compose file uses it
+    secret_detection.py  what is a secret: a variable by its name and its value, and `TEXT_SHAPES`, the
+                    shapes of a credential in text that `mask_secret_shapes` walks and that the console reads
+                    to mask the text of its browser (`scripts/generate_secret_shapes.py` writes them into
+                    `panel/src/api/secretShapes.gen.ts`, with the one table of cases in `tests/support/`)
     logsafe.py      every log record of the process reports its message on one line, so a value that
                     came from a request cannot start another line (installed by importing logger.py)
     templates.py    the one Jinja environment unit files, sites and pools are rendered with
@@ -140,6 +144,10 @@ src/noust/
                     `web`, with the error that says how to install its dependencies
     fleet_tokens.py what the name of a fleet token says of its central (`fleet-<central>`); the
                     audit trail and the central's calls both ask it
+    job_titles.py   what a background job is, as one sentence of `server_text` (code and values),
+                    derived from its type and subject: every client says a job the same way
+    account_dashboards.py  the panels of the console's Home, per account: the one reader and writer
+                    of `account_dashboards` (`validators/dashboards.py` judges the document)
   validators/       names, environments, sources, ports, domains
   managers/         adapters: web server, systemd, certs, backups, databases, source, cron
     diagnose.py     why an app is down: read-only probes, most likely cause first
@@ -225,6 +233,8 @@ src/noust/
     events.py       the /events SSE stream the console listens to
     jobs.py         background jobs, persisted with their logs
     job_reconcile.py  a job in a transient systemd unit is followed again after a restart
+    operations.py   the closed list of long operations that answer on their request and are not
+                    jobs, announced as the `operation` event and listed while they run
     gateway_client.py  the console's own API called back as whoever asked (the manifest's plan
                     and apply run on it): the engine is a client, never a second implementation
     manifest_jobs.py  applying a manifest as a job, outside the deploy queue it feeds
@@ -617,6 +627,7 @@ mypy                            # types (blocking in CI)
 python scripts/release.py --check         # version consistency
 python scripts/security_model.py --write  # regenerate docs/SECURITY-MODEL.md after changing a role, a header, a route or a guarantee
 python scripts/generate_command_summaries.py  # regenerate cli/command_summaries.py after changing a command's help or adding a command
+python scripts/generate_secret_shapes.py  # regenerate panel/src/api/secretShapes.gen.ts after changing a shape of core/secret_detection.py (the console masks its report with the same shapes; a test fails until you have)
 ```
 
 The integration harness deploys for real (nginx, systemd, Docker, a database) inside one privileged

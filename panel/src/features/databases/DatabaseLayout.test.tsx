@@ -3,94 +3,154 @@ import { describe, expect, it } from "vitest";
 
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
-import { fakeBackend, json } from "../../test/fakes";
+import { SESSION, fakeBackend, json, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import { screenWidth } from "../app/testRoutes";
-import { OVERVIEW, databaseRoutes } from "./testFixtures";
+import { DATABASES, ENGINES, OVERVIEW, SERVERS, databaseRoutes } from "./testFixtures";
 
+const BASE = "/api/databases/databases/postgresql/example_production";
 const JOB = { id: "drop-1", type: "database", name: "Drop example_production", description: "", status: "pending", progress: 0, total_steps: 100, current_step: "", created_at: "2026-09-29T10:00:00", logs: [], metadata: { engine: "postgresql", database: "example_production" } };
 
-async function pageAt(path: string, extra: Record<string, RouteHandler> = {}) {
+/** The same machine with PostgreSQL stopped: what the list of engines says of it, and nothing the engine itself could answer. */
+const STOPPED = SERVERS.map((server) => (server.key === "postgresql" ? { ...server, running: false, state: "stopped", actions: ["start"] } : server));
+const STOPPED_ROUTES: Record<string, RouteHandler> = {
+  "GET /api/databases/servers": () => json(200, { servers: STOPPED, problems: [] }),
+  "GET /api/databases/databases": () => json(200, { databases: DATABASES.map((item) => (item.engine === "postgresql" ? { ...item, size: null, unverified: true } : item)), total: DATABASES.length }),
+  [`GET ${BASE}/overview`]: () => json(500, { detail: "PostgreSQL is not running", error: "databaseengineerror" }),
+};
+
+async function pageAt(path: string, extra: Record<string, RouteHandler> = {}, title = "example_production") {
   screenWidth(1440);
   const backend = fakeBackend(databaseRoutes(extra));
   const harness = renderConsole(path);
-  await screen.findByRole("heading", { level: 1, name: "example_production" });
+  await screen.findByRole("heading", { level: 1, name: title });
   return { ...harness, backend };
 }
 
-describe("a database's page", () => {
-  it("names the database, its engine, owner and application, and draws its tabs from what the engine can do", async () => {
+describe("a database's page and its column", () => {
+  it("heads its overview with its name and state and puts its sections in the column, in three groups", async () => {
     await pageAt("/databases/postgresql/example_production");
-    expect(await screen.findByText("Online")).toBeInTheDocument();
-    const tabs = screen.getByRole("navigation", { name: "Database sections" });
-    expect(within(tabs).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Data", "Query", "Backups", "Users", "Connect", "Metrics"]);
+    expect((await screen.findAllByText("Running")).length).toBeGreaterThan(0);
+    const column = await screen.findByRole("navigation", { name: "Database sections" });
+    expect(within(column).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Data", "Query", "Metrics", "Access", "Connect", "Backups", "Settings", "Delete"]);
+    for (const heading of ["View", "Manage", "Danger"]) expect(within(column).getByText(heading)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Back up now" })).toHaveAttribute("data-variant", "primary");
-    expect(await screen.findByText("Every day at 02:00")).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
-  it("shows the address an application connects with whole, on the overview and on Connect, never cut by an ellipsis", async () => {
-    const address = "postgresql://example_production:********@localhost:5432/example_production";
-    const link = OVERVIEW.links[0];
-    const { user } = await pageAt("/databases/postgresql/example_production", {
-      "GET /api/databases/databases/postgresql/example_production/connect": () =>
-        json(200, {
-          engine: "postgresql",
-          database: "example_production",
-          port: 5432,
-          username: "example_production",
-          password_known: true,
-          apps: [link],
-          exposed: [],
-          tunnel: { command: "ssh -N -L 5432:127.0.0.1:5432 root@db.example.com", url: address, local_port: 5432, remote_port: 5432, server: "db.example.com", ssh_port: 22, ssh_user: "root", clients: {} },
-        }),
-    });
-    const onOverview = await screen.findByText(address);
-    expect(onOverview).not.toHaveClass("truncate");
-    expect(onOverview).toHaveClass("break-all");
-    await user.click(within(screen.getByRole("navigation", { name: "Database sections" })).getByRole("link", { name: "Connect" }));
-    // The same address is also the tunnel's step 2 (in full, in a box of its own): the application's row is the first.
-    const onConnect = (await screen.findAllByText(address))[0];
-    expect(onConnect).not.toHaveClass("truncate");
-    expect(onConnect).toHaveClass("break-all");
-  });
-
-  it("holds the place of the last day's charts while the metrics are read, and not when the engine reports none", async () => {
+  it("gives a key-value store Keys and no Query, as its engine says it can", async () => {
     await pageAt("/databases/postgresql/example_production", {
-      "GET /api/databases/databases/postgresql/example_production/metrics": () => new Promise<Response>(() => undefined),
+      [`GET ${BASE}/overview`]: () => json(200, { ...OVERVIEW, capabilities: ["dump", "keys", "metrics", "users", "profiles"] }),
     });
-    // Its heading is there before the series are: the cards under it do not move when they arrive.
-    const heading = await screen.findByRole("heading", { level: 2, name: "The last 24 hours" });
-    expect(heading.closest("section")).toHaveAttribute("aria-busy", "true");
-    expect(heading.closest("section")?.querySelectorAll('[aria-busy="true"]').length).toBeGreaterThanOrEqual(2);
+    const column = await screen.findByRole("navigation", { name: "Database sections" });
+    await waitFor(() => expect(within(column).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Keys", "Metrics", "Access", "Connect", "Backups", "Settings", "Delete"]));
+    expect(within(column).queryByRole("link", { name: "Query" })).toBeNull();
   });
 
-  it("draws no last day for an engine that reports no metrics", async () => {
-    await pageAt("/databases/postgresql/example_production", {
-      "GET /api/databases/databases/postgresql/example_production/overview": () => json(200, { ...OVERVIEW, capabilities: ["dump", "sql"] }),
-      "GET /api/databases/databases/postgresql/example_production/metrics": () => new Promise<Response>(() => undefined),
-    });
-    await screen.findByText("Every day at 02:00");
-    expect(screen.queryByRole("heading", { level: 2, name: "The last 24 hours" })).not.toBeInTheDocument();
+  it("names the page in the trail as its engine has it, Keys where a SQL engine has Data, and its switch lists no Query", async () => {
+    const capabilities = ["dump", "keys", "metrics", "users", "profiles"];
+    const { user } = await pageAt("/databases/postgresql/example_production/data", {
+      [`GET ${BASE}/overview`]: () => json(200, { ...OVERVIEW, capabilities }),
+      "GET /api/databases/engines": () => json(200, { engines: ENGINES.map((engine) => (engine.name === "postgresql" ? { ...engine, capabilities } : engine)) }),
+    }, "Keys");
+    const trail = await screen.findByRole("navigation", { name: "Breadcrumb" });
+    await waitFor(() => expect(within(trail).getByText("Keys")).toHaveAttribute("aria-current", "page"));
+    expect(within(trail).queryByText("Data")).toBeNull();
+    await user.click(within(trail).getByRole("button", { name: "Switch Keys" }));
+    expect(await screen.findByRole("menuitem", { name: "Metrics" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Query" })).toBeNull();
   });
 
-  it("draws Keys instead of Data for a Redis slot, and no Query tab", async () => {
-    await pageAt("/databases/postgresql/example_production", {
-      "GET /api/databases/databases/postgresql/example_production/overview": () => json(200, { ...OVERVIEW, capabilities: ["dump", "keys", "metrics"] }),
-    });
-    const tabs = screen.getByRole("navigation", { name: "Database sections" });
-    await waitFor(() => expect(within(tabs).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Keys", "Backups", "Connect", "Metrics"]));
+  it("does not offer a query typed into the address for an engine that has none: it says so and leads back", async () => {
+    const { backend } = await pageAt("/databases/postgresql/example_production/query", {
+      [`GET ${BASE}/overview`]: () => json(200, { ...OVERVIEW, capabilities: ["dump", "keys", "metrics"] }),
+    }, "Query");
+    expect(await screen.findByText("Query is not something this engine has")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to the overview" })).toHaveAttribute("href", "/databases/postgresql/example_production");
+    expect(screen.queryByRole("textbox", { name: /Statement/ })).toBeNull();
+    expect(backend.callsTo("POST /api/databases/query")).toHaveLength(0);
   });
 
-  it("drops the database only once its name is typed, taking it from its application first, as a job it follows", async () => {
+  it("says a stopped engine is stopped, offers to start it first, and asks it nothing", async () => {
     const { user, backend } = await pageAt("/databases/postgresql/example_production", {
+      ...STOPPED_ROUTES,
+      "POST /api/databases/engines/postgresql/start": () => json(200, { success: true, message: "started" }),
+    });
+    const slab = await screen.findByLabelText("Engine stopped");
+    expect(within(slab).getByText(/PostgreSQL 16 \(on the system\) is stopped/)).toBeInTheDocument();
+    // What it knows is still said; nothing is a skeleton that does not end, and the engine was never asked.
+    expect(screen.getAllByText("Stopped").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "Back up now" })).toBeNull();
+    expect(backend.callsTo(`GET ${BASE}/overview`)).toHaveLength(0);
+    await user.click(within(slab).getByRole("button", { name: "Start the engine" }));
+    await waitFor(() => expect(backend.callsTo("POST /api/databases/engines/postgresql/start")).toHaveLength(1));
+  });
+
+  it("draws the stopped engine in place of a section that needs it, and the section is not asked", async () => {
+    const { backend } = await pageAt("/databases/postgresql/example_production/query", STOPPED_ROUTES, "Query");
+    expect(await screen.findByLabelText("Engine stopped")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: /Statement/ })).toBeNull();
+    expect(backend.callsTo("POST /api/databases/query")).toHaveLength(0);
+    // The sections that do not need the engine are still there: its backups and its settings.
+    expect(within(await screen.findByRole("navigation", { name: "Database sections" })).getByRole("link", { name: "Backups" })).toBeInTheDocument();
+  });
+
+  it("ends in a banner with Try again, and not in a skeleton, when the engine's answer is an error that is not a 404", async () => {
+    const { user, backend } = await pageAt("/databases/postgresql/example_production", {
+      [`GET ${BASE}/overview`]: () => json(500, { detail: "could not read it", error: "internal" }),
+    });
+    expect(await screen.findByText("Could not load example_production")).toBeInTheDocument();
+    expect(screen.getAllByText("Not checked").length).toBeGreaterThan(0);
+    const before = backend.callsTo(`GET ${BASE}/overview`).length;
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(backend.callsTo(`GET ${BASE}/overview`).length).toBeGreaterThan(before));
+  });
+
+  it("says a database that does not exist is not there, and leads to the list", async () => {
+    screenWidth(1440);
+    fakeBackend(databaseRoutes({ [`GET ${BASE}/overview`]: () => json(404, { detail: "no such database", error: "databasenotfounderror" }) }));
+    renderConsole("/databases/postgresql/example_production");
+    expect(await screen.findByText("No such database")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "All databases" })).toHaveAttribute("href", "/databases");
+  });
+
+  it("opens the Access of a database from the address of its Users", async () => {
+    screenWidth(1440);
+    fakeBackend(databaseRoutes({ [`GET ${BASE}/access`]: () => json(200, { access: OVERVIEW.access }) }));
+    const { location } = renderConsole("/databases/postgresql/example_production/users");
+    await waitFor(() => expect(location().pathname).toBe("/databases/postgresql/example_production/access"));
+    expect(await screen.findByRole("heading", { level: 1, name: "Access" })).toBeInTheDocument();
+  });
+});
+
+describe("what a role that may not change a database is shown", () => {
+  const VIEWER = { ...SESSION, role: "viewer", permissions: ["self", "databases.read", "backups.read"] };
+
+  it("keeps the page's own action, disabled, with its reason one press away, and draws no action that would be refused", async () => {
+    screenWidth(1440);
+    fakeBackend(databaseRoutes({ ...signedInRoutes(VIEWER) }));
+    const { user } = renderConsole("/databases/postgresql/example_production/settings");
+    await screen.findByRole("heading", { level: 1, name: "Settings" });
+    expect(await screen.findByText(/can see this page and not change it/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Give it to/ })).toBeNull();
+    await user.click(within(screen.getByRole("navigation", { name: "Database sections" })).getByRole("link", { name: "Overview" }));
+    await screen.findByRole("heading", { level: 1, name: "example_production" });
+    const action = (await screen.findAllByRole("button", { name: "Back up now" }))[0];
+    expect(action).toBeDisabled();
+  });
+});
+
+describe("deleting a database", () => {
+  it("drops it only once its name is typed, telling first what it takes from its application, as a job it follows", async () => {
+    const { user, backend } = await pageAt("/databases/postgresql/example_production/delete", {
       "DELETE /api/databases/databases/postgresql/example_production": () => json(202, { job_id: JOB.id, status: "pending", message: "Dropping", job: JOB }),
       "GET /api/jobs/drop-1": () => json(200, JOB),
-    });
-    await user.click(screen.getByRole("button", { name: "More actions" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Drop database" }));
+    }, "Delete the database");
+    // A fact, not a choice: the server refuses to drop what an application uses unless it is taken from it.
+    expect(await screen.findByText(/It is taken away from shop\.example\.com, which restart without it/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Delete…" }));
     const dialog = await screen.findByRole("alertdialog", { name: "Drop example_production" });
-    expect(within(dialog).getByText(/taken away from shop\.example\.com first/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/A last dump is taken first/)).toBeInTheDocument();
     const drop = within(dialog).getByRole("button", { name: "Drop database" });
     expect(drop).toBeDisabled();
     await user.type(within(dialog).getByRole("textbox"), "example_production");
@@ -98,6 +158,35 @@ describe("a database's page", () => {
     await waitFor(() => expect(backend.callsTo("DELETE /api/databases/databases/postgresql/example_production")).toHaveLength(1));
     const call = backend.callsTo("DELETE /api/databases/databases/postgresql/example_production")[0];
     expect(Object.fromEntries(call?.search ?? [])).toEqual({ force: "false", keep_backup: "true", unlink: "true" });
-    expect(await screen.findByText("Dropping example_production")).toBeInTheDocument();
+  });
+
+  it("takes no last dump when the person says so, and says there is no way back", async () => {
+    const { user, backend } = await pageAt("/databases/postgresql/example_production/delete", {
+      "DELETE /api/databases/databases/postgresql/example_production": () => json(202, { job_id: JOB.id, status: "pending", message: "Dropping", job: JOB }),
+      "GET /api/jobs/drop-1": () => json(200, JOB),
+    }, "Delete the database");
+    await user.click(await screen.findByRole("checkbox", { name: "Take a last dump first" }));
+    expect(screen.getByText("Without it there is no way back.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Delete…" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Drop example_production" });
+    expect(within(dialog).getByText(/No dump is taken: there is no way back/)).toBeInTheDocument();
+    await user.type(within(dialog).getByRole("textbox"), "example_production");
+    await user.click(within(dialog).getByRole("button", { name: "Drop database" }));
+    await waitFor(() => expect(backend.callsTo("DELETE /api/databases/databases/postgresql/example_production")).toHaveLength(1));
+    expect(Object.fromEntries(backend.callsTo("DELETE /api/databases/databases/postgresql/example_production")[0]?.search ?? [])).toMatchObject({ keep_backup: "false" });
+  });
+
+  it("forgets, and does not delete, a database the engine no longer has, after one question", async () => {
+    const gone = { ...DATABASES[0], missing: true, size: null };
+    const { user, backend } = await pageAt("/databases/postgresql/example_production/delete", {
+      [`GET ${BASE}/overview`]: () => json(200, { ...OVERVIEW, database: gone }),
+      "GET /api/databases/databases": () => json(200, { databases: [gone, ...DATABASES.slice(1)], total: DATABASES.length }),
+      "POST /api/databases/databases/postgresql/example_production/forget": () => json(200, { forgotten: true }),
+    }, "Forget the database");
+    expect(await screen.findByText(/PostgreSQL no longer has it/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Forget it" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Forget example_production?" });
+    await user.click(within(dialog).getByRole("button", { name: "Forget it" }));
+    await waitFor(() => expect(backend.callsTo("POST /api/databases/databases/postgresql/example_production/forget")).toHaveLength(1));
   });
 });

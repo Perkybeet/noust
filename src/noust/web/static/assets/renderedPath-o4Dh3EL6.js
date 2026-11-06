@@ -1,1 +1,0 @@
-import{z as e}from"./useNode-CcVEc688.js";function t(){return e({select:e=>(e.resolvedLocation??e.location).pathname})}export{t};

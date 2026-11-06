@@ -42,7 +42,7 @@ test("zero-downtime deploys are turned off and on again, each confirmed and foll
   test.setTimeout(150_000);
   await page.setViewportSize({ width: 1440, height: 1000 });
   const seeded = await (async () => {
-    await signIn(page, consoleServer, `/apps/${ZD_APP}/settings/deploys`);
+    await signIn(page, consoleServer, `/apps/${ZD_APP}/triggers`);
     return zeroDowntimeOf(page, ZD_APP);
   })();
   expect(seeded.enabled, "the seed leaves the app in zero-downtime mode").toBe(true);
@@ -115,7 +115,7 @@ test("zero-downtime deploys are turned off and on again, each confirmed and foll
 
 test("an app in a single folder is told it needs instant rollback first, and offered nothing to try", async ({ page, consoleServer }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await signIn(page, consoleServer, `/apps/${IN_PLACE_APP}/settings/deploys`);
+  await signIn(page, consoleServer, `/apps/${IN_PLACE_APP}/triggers`);
   const status = await zeroDowntimeOf(page, IN_PLACE_APP);
   expect(status.enabled).toBe(false);
 
@@ -133,7 +133,7 @@ const RESTARTS_APP = "tienda.example.org";
 
 test("an app that restarts on every update is told so, and Diagnose suggests the fix and leads to it", async ({ page, consoleServer }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await signIn(page, consoleServer, `/apps/${RESTARTS_APP}/settings/deploys`);
+  await signIn(page, consoleServer, `/apps/${RESTARTS_APP}/triggers`);
   const zd = panel(page);
   await expect(zd.getByText(/New applications that can run as two copies start with this on\. This one restarts on every update until you turn it on\./)).toBeVisible();
   await expect(zd.getByText("deploy.zero_downtime")).toBeVisible();
@@ -147,5 +147,5 @@ test("an app that restarts on every update is told so, and Diagnose suggests the
   await stillness(page);
   await expectNoA11yViolations(page, "the suggestion to update without a cut");
   await page.getByRole("link", { name: "Turn on zero-downtime deploys" }).click();
-  await expect(page).toHaveURL(new RegExp(`/apps/${RESTARTS_APP.replace(/\./g, "\\.")}/settings/deploys$`));
+  await expect(page).toHaveURL(new RegExp(`/apps/${RESTARTS_APP.replace(/\./g, "\\.")}/triggers$`));
 });

@@ -1,4 +1,4 @@
-import { FileKey, KeyRound, Pencil, Play } from "lucide-react";
+import { Pencil, Play } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { ReactNode } from "react";
@@ -9,21 +9,20 @@ import { removeSamlProvider, samlKeys, samlProvidersQuery, testSamlProvider } fr
 import type { SamlProvider } from "../../../api/queries/saml";
 import { removeProvider, ssoAdminKeys, ssoConfigQuery, testProvider } from "../../../api/queries/ssoAdmin";
 import type { SsoProviderInfo, SsoTestResult } from "../../../api/queries/ssoAdmin";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { useNow } from "../../../components/page/clock";
 import { ErrorBlock, QueryState } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { RowMenu } from "../../../components/page/RowMenu";
-import { Section } from "../../../components/page/Section";
+import { SurfaceSection } from "../../../components/page/SurfaceSection";
+import { Can, GuardedButton } from "../../../components/page/permissions";
 import { Badge } from "../../../components/ui/Badge";
-import { Button } from "../../../components/ui/Button";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { CopyValue } from "../../../components/ui/CopyValue";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
-import { EmptyState } from "../../../components/ui/EmptyState";
+import { FirstUse } from "../../../components/ui/FirstUse";
 import { ICONS } from "../../../components/ui/icons";
-import { Menu, MenuItem, MenuSeparator } from "../../../components/ui/Menu";
+import { MenuItem, MenuSeparator } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { StatusPill } from "../../../components/ui/StatusPill";
@@ -31,10 +30,16 @@ import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { SettingsPrimaryAction } from "../SettingsShell";
 import { DirectoryDrawer } from "./DirectoryDrawer";
+import { AddProviderDialog } from "./AddProviderDialog";
+import type { Chosen } from "./AddProviderDialog";
 import { ProviderDrawer } from "./ProviderDrawer";
+import type { ProviderPreset } from "./providerForm";
 import { TestResultDialog } from "./TestResultDialog";
 import { SamlDrawer } from "./SamlDrawer";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
+
+/** The permission every change to a way of signing in takes (the server's, `routes_ldap.py` and its siblings). */
+const MANAGE = "accounts.manage";
 
 type Kind = "oidc" | "saml" | "directory";
 
@@ -50,7 +55,7 @@ interface Connection {
   source: SsoProviderInfo | SamlProvider | Directory;
 }
 
-type Editing = { kind: "oidc"; item: SsoProviderInfo | null } | { kind: "saml"; item: SamlProvider | null } | { kind: "directory"; item: Directory | null };
+type Editing = { kind: "oidc"; item: SsoProviderInfo | null; preset?: ProviderPreset } | { kind: "saml"; item: SamlProvider | null } | { kind: "directory"; item: Directory | null };
 
 function signUpWords(t: T, provisioning: string): string {
   switch (provisioning) {
@@ -138,6 +143,7 @@ export function ConnectionsSection() {
   const saml = useQuery(samlProvidersQuery());
   const ldap = useQuery(directoriesQuery());
   const [editing, setEditing] = useState<Editing | null>(null);
+  const [choosing, setChoosing] = useState(false);
   const [removing, setRemoving] = useState<Connection | null>(null);
   const [testing, setTesting] = useState<string | null>(null);
   const [tested, setTested] = useState<{ name: string; result: SsoTestResult } | null>(null);
@@ -264,30 +270,22 @@ export function ConnectionsSection() {
             action: t("ldapAdmin.removeDialog.action"),
           };
 
-  const add = (
-    <Menu
-      trigger={
-        <Button variant="primary" icon={<ICONS.add aria-hidden="true" />}>
-          {t("ssoAdmin.connections.add")}
-        </Button>
-      }
-    >
-      <MenuItem icon={<KeyRound />} onClick={() => setEditing({ kind: "oidc", item: null })} description={t("ssoAdmin.connections.addOidcHelp")}>
-        {t("ssoAdmin.connections.addOidc")}
-      </MenuItem>
-      <MenuItem icon={<FileKey />} onClick={() => setEditing({ kind: "saml", item: null })} description={t("ssoAdmin.connections.addSamlHelp")}>
-        {t("ssoAdmin.connections.addSaml")}
-      </MenuItem>
-      <MenuItem icon={<OBJECT_ICONS.identity />} onClick={() => setEditing({ kind: "directory", item: null })} description={t("ssoAdmin.connections.addDirectoryHelp")}>
-        {t("ssoAdmin.connections.addDirectory")}
-      </MenuItem>
-    </Menu>
-  );
+  // Which one comes first, and the form of that one: the person says what they have and the form is the one that fits.
+  const chosen = (what: Chosen): void => {
+    setChoosing(false);
+    if (what === "saml") setEditing({ kind: "saml", item: null });
+    else if (what === "directory") setEditing({ kind: "directory", item: null });
+    else setEditing({ kind: "oidc", item: null, ...(what === "oidc" ? {} : { preset: what }) });
+  };
   const columns = columnsFor(t);
 
   return (
-    <Section title={t("ssoAdmin.connections.title")} icon={OBJECT_ICONS.identity} description={t("ssoAdmin.connections.description")}>
-      {!pending && rows.length > 0 ? <SettingsPrimaryAction>{add}</SettingsPrimaryAction> : null}
+    <SurfaceSection title={t("ssoAdmin.connections.title")} icon={OBJECT_ICONS.identity} description={t("ssoAdmin.connections.description")} flush={!pending && rows.length > 0}>
+      <SettingsPrimaryAction>
+        <GuardedButton permission={MANAGE} variant="primary" icon={<ICONS.add aria-hidden="true" />} disabled={pending} onClick={() => setChoosing(true)}>
+          {t("ssoAdmin.connections.add")}
+        </GuardedButton>
+      </SettingsPrimaryAction>
       {plainHttp ? (
         <Notice tone="warning" title={t("samlAdmin.plainHttpTitle")}>
           {t("samlAdmin.plainHttp")}
@@ -298,53 +296,52 @@ export function ConnectionsSection() {
         query={list}
         label={t("ssoAdmin.connections.what")}
         skeleton={
-          <DataTable caption={t("ssoAdmin.connections.tableCaption")} columns={columns} rows={[]} getRowId={(connection) => `${connection.kind}:${connection.name}`} loading skeletonRows={2} />
+          <DataTable caption={t("ssoAdmin.connections.tableCaption")} columns={columns} rows={[]} getRowId={(connection) => `${connection.kind}:${connection.name}`} loading skeletonRows={2} embedded />
         }
         isEmpty={(connections) => connections.length === 0}
         empty={
-          // One line and its action, so the section is about as tall empty as it is while it loads: three
-          // first-use blocks on one page would push every section under them by a screen.
-          <div className="flex flex-col gap-3">
-            <EmptyState variant="inline" title={t("ssoAdmin.connections.emptyTitle")} action={add} />
-            <CommandHint command={t("ssoAdmin.commandProviders")} label={t("ssoAdmin.command")} />
-          </div>
+          // One sentence of what it gives you: the button that starts it is the header's, so the section is as tall empty as it is while it loads.
+          <FirstUse>{t("ssoAdmin.connections.first")}</FirstUse>
         }
       >
         {() => (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col">
             <DataTable
               caption={t("ssoAdmin.connections.tableCaption")}
               columns={columns}
               rows={rows}
+              embedded
               getRowId={(connection) => `${connection.kind}:${connection.name}`}
               onRowActivate={edit}
               rowActions={(connection) => (
-                <RowMenu name={connection.name}>
-                  <MenuItem icon={<Play />} disabled={testing === connection.name} onClick={() => void runTest(connection)}>
-                    {t("ssoAdmin.providers.test")}
-                  </MenuItem>
-                  <MenuItem icon={<Pencil />} onClick={() => edit(connection)}>{t("common.words.edit")}</MenuItem>
-                  <MenuSeparator />
-                  <MenuItem icon={<ICONS.delete />} destructive onClick={() => setRemoving(connection)}>
-                    {t("common.words.remove")}
-                  </MenuItem>
-                </RowMenu>
+                <Can permission={MANAGE}>
+                  <RowMenu name={connection.name}>
+                    <MenuItem icon={<Play />} disabled={testing === connection.name} onClick={() => void runTest(connection)}>
+                      {t("ssoAdmin.providers.test")}
+                    </MenuItem>
+                    <MenuItem icon={<Pencil />} onClick={() => edit(connection)}>{t("common.words.edit")}</MenuItem>
+                    <MenuSeparator />
+                    <MenuItem icon={<ICONS.delete />} destructive onClick={() => setRemoving(connection)}>
+                      {t("common.words.remove")}
+                    </MenuItem>
+                  </RowMenu>
+                </Can>
               )}
             />
             {hasOidc && oidc.data !== undefined ? (
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2 border-t border-border px-5 py-4">
                 <p className="text-13 font-medium text-fg">{t("ssoAdmin.providers.redirect.title")}</p>
                 <p className="max-w-measure text-13 text-fg-muted">{t("ssoAdmin.providers.redirect.description")}</p>
                 <CopyValue value={oidc.data.redirect_uri} label={t("ssoAdmin.providers.redirect.copy")} name={t("ssoAdmin.providers.redirect.name")} />
               </div>
             ) : null}
-            <CommandHint command={t("ssoAdmin.commandProviders")} label={t("ssoAdmin.command")} />
           </div>
         )}
       </QueryState>
 
+      {choosing ? <AddProviderDialog onChoose={chosen} onClose={() => setChoosing(false)} /> : null}
       {editing?.kind === "oidc" && oidc.data !== undefined ? (
-        <ProviderDrawer provider={editing.item} redirectUri={oidc.data.redirect_uri} onClose={() => setEditing(null)} />
+        <ProviderDrawer provider={editing.item} redirectUri={oidc.data.redirect_uri} preset={editing.preset ?? null} onClose={() => setEditing(null)} />
       ) : null}
       {editing?.kind === "saml" ? <SamlDrawer provider={editing.item} onClose={() => setEditing(null)} /> : null}
       {editing?.kind === "directory" ? <DirectoryDrawer directory={editing.item} onClose={() => setEditing(null)} /> : null}
@@ -363,6 +360,6 @@ export function ConnectionsSection() {
           onConfirm={() => remove(removing)}
         />
       ) : null}
-    </Section>
+    </SurfaceSection>
   );
 }

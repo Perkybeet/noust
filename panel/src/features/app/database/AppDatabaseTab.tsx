@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Eye, KeyRound, Link2, Plus, Unlink } from "lucide-react";
+import { Eye, KeyRound, Link2, Unlink } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { request } from "../../../api/client";
@@ -8,7 +8,6 @@ import { appDatabasesQuery, databaseKeys, enginesQuery } from "../../../api/quer
 import type { DatabaseLink } from "../../../api/queries/databases";
 import { activeJobsQuery, isJobFinished, jobKeys, useFollowedJob } from "../../../api/queries/jobs";
 import type { Job } from "../../../api/queries/jobs";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import { QueryState } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
@@ -28,10 +27,9 @@ import { engineName } from "../../databases/engines";
 import { DatabaseJobProgress } from "../../databases/jobs";
 import type { Accepted } from "../../databases/jobs";
 import { LinkDialog } from "../../databases/LinkDialog";
-import { SecretShown } from "../../databases/users/SecretShown";
-import type { SecretShownProps } from "../../databases/users/SecretShown";
+import { SecretShown } from "../../databases/access/SecretShown";
+import type { SecretShownProps } from "../../databases/access/SecretShown";
 import { TEXT_LINK } from "../../databases/ui";
-import { forgetPending, pendingFor } from "../../databases/wizard/pending";
 import { CreateLinkDialog } from "./CreateLinkDialog";
 import { SqliteSection } from "./SqliteSection";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
@@ -148,7 +146,6 @@ export function AppDatabaseTab({ domain }: { domain: string }) {
   const [unlinking, setUnlinking] = useState<DatabaseLink | null>(null);
   const [rotating, setRotating] = useState<DatabaseLink | null>(null);
   const [secret, setSecret] = useState<SecretShownProps["secret"]>(null);
-  const pending = pendingFor(domain, node);
 
   const elsewhere: Job | null = active.data?.jobs.find((job) => job.type === "database" && job.metadata?.["domain"] === domain && RUNNING.has(job.status)) ?? null;
   const shown = followed.job ?? elsewhere;
@@ -162,9 +159,6 @@ export function AppDatabaseTab({ domain }: { domain: string }) {
     void queryClient.invalidateQueries({ queryKey: databaseKeys.app(domain) });
     void queryClient.invalidateQueries({ queryKey: databaseKeys.lists });
   }, [finishedId, queryClient, domain]);
-  useEffect(() => {
-    if (pending !== null && list.length > 0) forgetPending(domain, node);
-  }, [pending, list.length, domain, node]);
 
   const track = (accepted: Accepted, next: Kind, label: string): void => {
     setTracked({ kind: next, label });
@@ -212,19 +206,6 @@ export function AppDatabaseTab({ domain }: { domain: string }) {
             : {})}
         />
       ) : null}
-      {pending !== null && list.length === 0 && shown === null ? (
-        <Notice
-          title={t("databases.appTab.pendingTitle", { engine: engineName(pending.engine, engines.data?.engines) })}
-          action={
-            <Button size="sm" icon={<Plus aria-hidden="true" />} onClick={() => setCreating(true)}>
-              {t("databases.appTab.create")}
-            </Button>
-          }
-        >
-          {t("databases.appTab.pendingBody")}
-        </Notice>
-      ) : null}
-
       <QueryState
         query={links}
         label={t("databases.appTab.noun")}
@@ -237,7 +218,6 @@ export function AppDatabaseTab({ domain }: { domain: string }) {
             title={t("databases.appTab.emptyTitle")}
             description={t("databases.appTab.emptyDescription")}
             action={actions}
-            command={`noust db provision ${domain} -e postgresql`}
           />
         }
         className="flex flex-col gap-4"
@@ -265,8 +245,6 @@ export function AppDatabaseTab({ domain }: { domain: string }) {
           </>
         )}
       </QueryState>
-
-      {list.length > 0 ? <CommandHint command={`noust db links ${domain}`} label={t("common.words.fromTerminal")} /> : null}
 
       <SqliteSection domain={domain} />
 

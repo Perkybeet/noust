@@ -199,8 +199,8 @@
   --width-page: 100rem;
   --width-wizard: 46rem;
   --width-settings-nav: 12.5rem;
-  --width-settings: 55rem;
-  --width-auth: 25rem;
+  --width-settings: 56rem;
+  --width-auth: 62rem;
   --width-dialog-sm: 27.5rem;
   --width-dialog-md: 35rem;
   --width-dialog-lg: 45rem;
@@ -208,13 +208,14 @@
   --width-drawer-md: 30rem;
   --width-drawer-lg: 45rem;
   --width-search: 18rem;
-  /* The navigation: the main bar unfolded and folded to icons, the second column, and the one bar. */
+  /* The navigation: the main bar unfolded and folded to icons, and the second column. */
   --width-rail: 13rem;
   --width-rail-folded: 4.25rem;
   --width-column: 16rem;
-  --width-sidebar: 16.5rem;
   /* A file editor or a full log takes the screen, less the header and its bar. */
   --height-editor: max(24rem, calc(100dvh - 20rem));
+  /* The most a sheet from the foot of a phone takes: it never covers the page whole, so the page is still there behind it. */
+  --height-sheet: 85dvh;
 
   /*
    * Elevation. Three heights and one light that falls from above, made of hard edges: a tone,
@@ -242,6 +243,13 @@
   --elev-raised-chosen-high: inset 0 0 0 2px var(--accent), 0 3px 0 var(--joint);
   --elev-raised-chosen-pressed: inset 0 0 0 2px var(--accent), 0 1px 0 var(--joint);
   --backdrop: light-dark(rgb(46 53 48 / 0.5), rgb(8 10 9 / 0.66));
+  /*
+   * The page ground as it looks under the veil: the same stone and the same share of it as --backdrop, mixed in,
+   * so the ground takes this tone while a veil is up. A veil is fixed to the window and does not reach the room
+   * the scrollbar keeps (scrollbar-gutter: stable), which would show the plain ground as a light strip beside it.
+   * Its numbers are --backdrop's: styles/veil.test.ts holds the two together.
+   */
+  --bg-veiled: light-dark(color-mix(in srgb, rgb(46 53 48) 50%, var(--bg)), color-mix(in srgb, rgb(8 10 9) 66%, var(--bg)));
 
   /*
    * Motion. Each curve has a job: what enters decelerates, what leaves accelerates and takes

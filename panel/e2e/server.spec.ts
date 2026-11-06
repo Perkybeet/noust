@@ -18,12 +18,42 @@ test("the overview puts what needs attention first, and fits the first screen", 
   await expect(attention.getByText(/security updates are pending/)).toBeVisible();
   await expect(attention.getByText(/A reboot is needed to finish updating/)).toBeVisible();
   await expect(attention.getByText("A database or internal service is reachable from the internet")).toBeVisible();
-  // The readings are the last thing of the tab: on a 1440x900 screen, in view without scrolling.
-  await expect(page.getByText("Fullest disk")).toBeInViewport();
+  // What is not well, with the readings above it, is in view without scrolling on a 1440x900 screen.
+  await expect(page.getByRole("heading", { level: 2, name: "What is not well" })).toBeInViewport();
 
   await settle(page);
   await expectNoA11yViolations(page, "the server overview");
 });
+
+// The card of what is not well is as wide as its column, and the line that wraps first is the one with the longest sentence and
+// the widest word on its button (the reboot's): it fell under its text on a window a few pixels narrower than the others.
+for (const width of [1100, 1280, 1366, 1440, 1600]) {
+  test(`what is not well puts the action of every line at its right on a ${String(width)}px window`, async ({ page, consoleServer }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await signIn(page, consoleServer, "/server");
+    const rows = page.getByRole("list", { name: "What needs attention" }).getByRole("listitem");
+    await expect(rows.first()).toBeVisible();
+    await settle(page);
+    const placed = await rows.evaluateAll((items) =>
+      items.map((row) => {
+        const edge = row.getBoundingClientRect();
+        const action = row.querySelector("a, button")?.getBoundingClientRect();
+        const sentence = row.querySelector("span.text-13")?.getBoundingClientRect();
+        return {
+          row: row.textContent,
+          beside: action !== undefined && sentence !== undefined && action.left >= sentence.right - 1 && action.top < sentence.bottom,
+          rightGap: action === undefined ? null : Math.round(edge.right - action.right),
+        };
+      }),
+    );
+    expect(placed.length).toBeGreaterThan(3);
+    // At the right of its line, always: where the card is too narrow for the sentence and the word it wraps under the sentence,
+    // and then it is at the same right edge all the same.
+    expect(new Set(placed.map((line) => line.rightGap)).size, JSON.stringify(placed)).toBe(1);
+    // Beside it wherever the card has the room for both, which is every desktop width but the narrowest.
+    if (width >= 1280) expect(placed.filter((line) => !line.beside), "an action that is not beside its line").toEqual([]);
+  });
+}
 
 test("schedules a reboot with its pre-checks in view, shows it on every tab and cancels it", async ({ page, consoleServer, problems }) => {
   problems.expect(/status of 403 .*\/api\/server\/power\/reboot$/);
@@ -50,8 +80,8 @@ test("schedules a reboot with its pre-checks in view, shows it on every tab and 
   await expect(page.getByText(/^Reboot scheduled for/)).toHaveCount(0);
 });
 
-test("the updates tab lists security updates first and shows the plan before installing", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/server/system");
+test("the updates section lists security updates first and shows the plan before installing", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer, "/server/updates");
   const table = page.getByRole("region", { name: "Pending updates" });
   const first = table.getByRole("row").nth(1);
   await expect(first).toContainText("linux-image-6.8.0-47-generic");
@@ -78,8 +108,8 @@ test("the updates tab lists security updates first and shows the plan before ins
   await all.getByRole("button", { name: "Cancel" }).click();
 });
 
-test("the security tab shows its findings, SSH as it runs, the firewall against what listens and the bans", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/server/security");
+test("Security shows its findings, SSH as it runs, the firewall against what listens and the bans", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer, "/security");
   const findings = page.getByRole("list", { name: "Open findings" });
   await expect(findings.getByText("SSH accepts passwords", { exact: true })).toBeVisible();
   await settle(page);
@@ -94,26 +124,27 @@ test("the security tab shows its findings, SSH as it runs, the firewall against 
   await expectNoA11yViolations(page, "the fix dialog");
   await fix.getByRole("button", { name: "Cancel" }).click();
 
-  await page.getByRole("radio", { name: "SSH" }).click();
-  await expect(page).toHaveURL(/view=ssh/);
-  await expect(page.getByRole("heading", { name: "Effective settings" })).toBeVisible();
+  await page.getByRole("navigation", { name: "Security sections" }).getByRole("link", { name: "SSH" }).click();
+  await expect(page).toHaveURL(/\/security\/ssh$/);
+  await expect(page.getByRole("button", { name: "Effective settings" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Authorized SSH keys" }).getByText("yago@laptop")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the SSH view");
 
-  // The firewall is Network and ports' since 4.1: its old address (a view of this tab) opens it where it is.
+  // The firewall is Network's: its old address (a view of this tab in 4.0) opens it where it is.
   await page.goto("/server/security?view=firewall");
-  await expect(page).toHaveURL(/\/server\/network\?view=firewall/);
-  const ports = page.getByRole("region", { name: "Ports that listen" });
-  await expect(ports.getByRole("row").filter({ hasText: "5432/tcp" }).getByText("Exposed")).toBeVisible();
+  await expect(page).toHaveURL(/\/network\/firewall$/);
+  // The rules are this page's table; what listens, and who is exposed, is the Listening ports' (one table for it).
+  const rules = page.getByRole("region", { name: "Rules", exact: true });
+  await expect(rules.getByRole("row").filter({ hasText: "5432" })).toBeVisible();
   await expect(page.getByText("1 internal service is reachable from the internet")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the firewall view");
 
-  // The bans stay with Security: back to it for the last view.
-  await page.goto("/server/security");
-  await page.getByRole("radio", { name: "Brute force" }).click();
-  await expect(page.getByRole("list", { name: "Addresses banned by sshd" }).getByText("185.220.101.4")).toBeVisible();
+  // The bans stay with Security: back to it for the last section.
+  await page.goto("/security");
+  await page.getByRole("navigation", { name: "Security sections" }).getByRole("link", { name: "Blocks" }).click();
+  await expect(page.getByRole("table", { name: "Addresses blocked now" }).getByText("185.220.101.4")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the bans view");
 });
@@ -121,7 +152,7 @@ test("the security tab shows its findings, SSH as it runs, the firewall against 
 test("the storage, logs and system tabs show the machine", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/server/files");
   await expect(page.getByRole("list", { name: "Filesystems" }).getByText("/srv")).toBeVisible();
-  await expect(page.getByRole("region", { name: "What takes space" }).getByText("System logs")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Places that take space" }).first().getByText("System logs")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the storage tab");
 
@@ -130,7 +161,7 @@ test("the storage, logs and system tabs show the machine", async ({ page, consol
   await settle(page);
   await expectNoA11yViolations(page, "the logs tab");
 
-  await page.goto("/server/system?view=machine");
+  await page.goto("/server/machine");
   await expect(page.getByText("Europe/Madrid")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Reboot and shutdown" })).toBeVisible();
   await settle(page);
@@ -138,20 +169,20 @@ test("the storage, logs and system tabs show the machine", async ({ page, consol
 });
 
 test("the resource monitor shows its unit and open findings under System", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/server/system?view=monitor");
-  const monitor = page.locator("section", { has: page.getByRole("heading", { name: "Resource monitor" }) });
+  await signIn(page, consoleServer, "/server/monitor");
+  const monitor = page.locator("section", { has: page.getByRole("heading", { name: "Resource watcher" }) });
   await expect(monitor).toBeVisible();
   await expect(monitor.getByText("Running")).toBeVisible();
-  await expect(monitor.getByText("xmrig")).toBeVisible();
+  await expect(monitor.getByText("xmrig", { exact: true })).toBeVisible();
 });
 
 test("acknowledging an open finding of the resource monitor removes it", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/server/system?view=monitor");
-  const monitor = page.locator("section", { has: page.getByRole("heading", { name: "Resource monitor" }) });
-  await expect(monitor.getByText("xmrig")).toBeVisible();
+  await signIn(page, consoleServer, "/server/monitor");
+  const monitor = page.locator("section", { has: page.getByRole("heading", { name: "Resource watcher" }) });
+  await expect(monitor.getByText("xmrig", { exact: true })).toBeVisible();
 
   const acknowledged = page.waitForResponse((response) => /\/api\/monitor\/observations\/\d+\/acknowledge$/.test(response.url()));
   await monitor.getByRole("button", { name: "Acknowledge finding about xmrig" }).click();
   expect((await acknowledged).status()).toBe(200);
-  await expect(monitor.getByText("xmrig")).toBeHidden();
+  await expect(monitor.getByText("xmrig", { exact: true })).toBeHidden();
 });

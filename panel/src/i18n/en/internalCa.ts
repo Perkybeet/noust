@@ -1,6 +1,5 @@
 /** The private certificate authority of the server: names that only resolve inside a network. */
 export const internalCa = {
-  menu: "Private authority",
   title: "Private certificate authority",
   description:
     "This server signs certificates for names that only resolve inside a private network, such as wiki.home.arpa or grafana.lan, where Let's Encrypt cannot prove them. A device trusts them once it trusts the authority's certificate.",

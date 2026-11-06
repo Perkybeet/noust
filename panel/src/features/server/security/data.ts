@@ -123,6 +123,30 @@ export function isOpen(check: Pick<SecurityCheck, "status">): boolean {
   return check.status === "fail" || check.status === "warn" || check.status === "unknown";
 }
 
+/**
+ * The page that looks after what a check judged, so that a check that passed says where it is kept right and one that
+ * did not has a way to its page: the firewall's rules, the blocks, SSH, the updates, the files' swap and disk, the
+ * machine's clock. Null for a check whose subject has no page of its own (the system's, Noust's).
+ */
+export function checkPlace(check: Pick<SecurityCheck, "id" | "group">): { to: "/network/firewall" | "/security/blocks" | "/security/ssh" | "/server/updates" | "/server/files" | "/server/machine"; label: PlainKey } | null {
+  switch (check.group) {
+    case "firewall":
+      return { to: "/network/firewall", label: "server.checks.places.firewall" };
+    case "fail2ban":
+      return { to: "/security/blocks", label: "server.checks.places.blocks" };
+    case "ssh":
+      return { to: "/security/ssh", label: "server.checks.places.ssh" };
+    case "updates":
+      return { to: "/server/updates", label: "server.checks.places.updates" };
+    default:
+      break;
+  }
+  if (check.id === "mem.no_swap" || check.id === "disk.full") return { to: "/server/files", label: "server.checks.places.files" };
+  if (check.id === "time.unsynced") return { to: "/server/machine", label: "server.checks.places.machine" };
+  if (check.id === "os.eol") return { to: "/server/updates", label: "server.checks.places.updates" };
+  return null;
+}
+
 /** The sshd fix an automatic check fix applies (`ssh:disable-passwords`), or null. */
 export function sshFixOf(action: string | null | undefined): string | null {
   return action?.startsWith("ssh:") === true ? action.slice(4) : null;
@@ -136,12 +160,12 @@ export function typedFriction(action: string | null | undefined): boolean {
 /** Where an `action` fix is done, by the route the API names: the tab that does it. */
 export function actionTarget(
   endpoint: string | null | undefined,
-): "/server/system" | "/server/files" | "/server/services" | "reboot" | null {
+): "/server/updates" | "/server/files" | "/server/services" | "reboot" | null {
   if (endpoint === null || endpoint === undefined) return null;
   if (endpoint.includes("/power/reboot")) return "reboot";
   // The failed units: the services list, every unit, filtered to the failed ones.
   if (endpoint.startsWith("GET /api/services")) return "/server/services";
-  if (endpoint.includes("/updates")) return "/server/system";
+  if (endpoint.includes("/updates")) return "/server/updates";
   if (endpoint.includes("/swap") || endpoint.includes("/storage")) return "/server/files";
   return null;
 }

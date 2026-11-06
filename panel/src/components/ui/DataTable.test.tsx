@@ -211,6 +211,33 @@ describe("DataTable", () => {
     expect(region).toHaveClass("relative", "overflow-x-auto");
   });
 
+  it("gives room above and below only the cells that stack lines, and no other cell, so no row grows for nothing (item 122)", () => {
+    // A cell is `h-11`, a minimum, with no vertical padding: a name with chips under it (44px of content or more) ran
+    // into the row's border. Padding on every cell is not the way: measured over the console, a 32px control and its
+    // border already fill 44px, and one cell of two lines made every row of a dozen tables taller.
+    const stacking: Column<App>[] = [
+      { id: "domain", header: "Application", cell: (row) => row.domain, stacked: (row) => row.port > 3005 },
+      { id: "port", header: "Port", cell: (row) => row.port },
+    ];
+    const { rerender } = render(<DataTable caption="Applications" columns={stacking} rows={ROWS} getRowId={(r) => r.domain} />);
+    const cellOf = (domain: string, column: number): HTMLElement => {
+      const row = screen.getByText(domain).closest("tr");
+      const cell = row ? within(row).getAllByRole("cell")[column] : undefined;
+      if (!cell) throw new Error(`no cell for ${domain}`);
+      return cell;
+    };
+    // The one the column says stacks has the room; the same column in another row, and every other cell, has none.
+    expect(cellOf("api.example.com", 0)).toHaveClass("h-11", "py-1.5");
+    expect(cellOf("shop.example.com", 0)).not.toHaveClass("py-1.5");
+    expect(cellOf("blog.example.com", 0)).toHaveClass("py-1.5");
+    expect(cellOf("api.example.com", 1)).not.toHaveClass("py-1.5");
+    // The minimum height is the same as it was, whether or not the cell stacks.
+    expect(cellOf("shop.example.com", 0)).toHaveClass("h-11");
+    rerender(<DataTable caption="Applications" columns={stacking} rows={ROWS} density="compact" getRowId={(r) => r.domain} />);
+    expect(cellOf("api.example.com", 0)).toHaveClass("h-9", "py-1.5");
+    expect(cellOf("shop.example.com", 0)).toHaveClass("h-9");
+  });
+
   it("translates its own built-in labels into Spanish", async () => {
     await act(async () => {
       await setLocale("es");
@@ -309,6 +336,46 @@ describe("DataTable", () => {
       expect(onRowActivate).toHaveBeenCalledWith(rows[1]);
     });
 
+    it("holds a list in a card's name or facts in a block, never in a paragraph that cuts it to a line (item 122)", () => {
+      wide(false);
+      // React reports a list inside a paragraph as invalid markup; a card must not draw one.
+      const problems = vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const tagged: Column<Row>[] = [
+        {
+          id: "domain",
+          header: "Application",
+          card: "title",
+          cell: (row) => (
+            <span className="flex flex-col">
+              <span>{row.domain}</span>
+              <ul aria-label="Tags">
+                <li>production</li>
+              </ul>
+            </span>
+          ),
+        },
+        {
+          id: "kind",
+          header: "Type",
+          card: "meta",
+          cell: (row) => (
+            <ul aria-label="Facts">
+              <li>{row.kind}</li>
+            </ul>
+          ),
+        },
+      ];
+      const { rerender } = render(<DataTable caption="Applications" columns={tagged} rows={rows} getRowId={(row) => row.domain} />);
+      for (const list of [...screen.getAllByRole("list", { name: "Tags" }), ...screen.getAllByRole("list", { name: "Facts" })]) {
+        expect(list.closest("p")).toBeNull();
+      }
+      // The same when the name opens the row.
+      rerender(<DataTable caption="Applications" columns={tagged} rows={rows} getRowId={(row) => row.domain} onRowActivate={() => undefined} />);
+      for (const list of screen.getAllByRole("list", { name: "Tags" })) expect(list.closest("p")).toBeNull();
+      expect(problems).not.toHaveBeenCalled();
+      problems.mockRestore();
+    });
+
     it("stays a table from 640px", () => {
       wide(true);
       render(<DataTable caption="Applications" columns={columns} rows={rows} getRowId={(row) => row.domain} />);
@@ -343,6 +410,29 @@ describe("DataTable", () => {
       wide(true);
       render(<DataTable caption="Applications" columns={columns} rows={rows} getRowId={(row) => row.domain} />);
       expect(screen.getByRole("table", { name: "Applications" })).toBeInTheDocument();
+    });
+
+    it("draws no slab of its own inside a surface that already is one, whether it is a table or the lines of a phone's list", () => {
+      wide(true);
+      const { container, rerender } = render(<DataTable embedded caption="Applications" columns={columns} rows={rows} getRowId={(row) => row.domain} />);
+      const region = container.querySelector("[role=region]");
+      expect(region).not.toHaveClass("elev-seated");
+      expect(region?.className).not.toContain("border-border");
+      expect(region?.className).not.toContain("rounded-card");
+      wide(false);
+      rerender(<DataTable embedded caption="Applications" columns={columns} rows={rows} getRowId={(row) => row.domain} />);
+      const list = screen.getByRole("list", { name: "Applications" });
+      expect(list.className).toContain("divide-y");
+      for (const line of within(list).getAllByRole("listitem")) {
+        expect(line).not.toHaveClass("elev-seated");
+        expect(line.className).not.toContain("rounded-card");
+      }
+    });
+
+    it("keeps its own slab when it is not embedded: a table that stands alone is a seated card", () => {
+      wide(true);
+      const { container } = render(<DataTable caption="Applications" columns={columns} rows={rows} getRowId={(row) => row.domain} />);
+      expect(container.querySelector("[role=region]")).toHaveClass("elev-seated", "rounded-card");
     });
 
     it("has no accessibility violations", async () => {

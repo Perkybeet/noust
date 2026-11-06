@@ -277,6 +277,10 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("authentication", "revoke_all_sessions"): ("POST", "/api/auth/sessions/revoke-all", "self", False),
     ("authentication", "revoke_other_sessions"): ("POST", "/api/auth/sessions/revoke-others", "self", False),
     ("authentication", "revoke_one_session"): ("DELETE", "/api/auth/sessions/{sid_prefix}", "self", False),
+    ("authentication", "get_appearance"): ("GET", "/api/auth/sign-in/appearance", "public", False),
+    ("authentication", "put_appearance"): ("PUT", "/api/auth/sign-in/appearance", "security.manage", True),
+    ("authentication", "delete_appearance"): ("DELETE", "/api/auth/sign-in/appearance", "security.manage", True),
+    ("authentication", "get_image"): ("GET", "/api/auth/sign-in/image", "public", False),
     ("authentication", "list_api_tokens"): ("GET", "/api/auth/tokens", "self", False),
     ("authentication", "create_api_token"): ("POST", "/api/auth/tokens", "self", True),
     ("authentication", "restrict_api_token"): ("PATCH", "/api/auth/tokens/{token_id}", "self", False),
@@ -424,6 +428,10 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("dns", "verify_provider"): ("POST", "/api/dns/providers/{name}/verify", "server.manage", False),
     ("dns", "list_records"): ("GET", "/api/dns/records", "apps.read", False),
     ("dns", "sweep_records"): ("POST", "/api/dns/sweep", "server.manage", False),
+    ("dashboards", "list_dashboards"): ("GET", "/api/auth/dashboards", "self", False),
+    ("dashboards", "order_dashboards"): ("POST", "/api/auth/dashboards/order", "self", False),
+    ("dashboards", "save_dashboard"): ("PUT", "/api/auth/dashboards/{dashboard_id}", "self", False),
+    ("dashboards", "delete_dashboard"): ("DELETE", "/api/auth/dashboards/{dashboard_id}", "self", False),
     ("databases", "list_app_databases"): ("GET", "/api/apps/{domain}/databases", "databases.read", False),
     ("databases", "provision_app_database"): ("POST", "/api/apps/{domain}/databases", "databases.write", False),
     ("databases", "link_app_database"): ("POST", "/api/apps/{domain}/databases/link", "databases.write", False),
@@ -661,6 +669,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("fleet", "enroll_server"): ("POST", "/api/fleet/enroll", "fleet.manage", True),
     ("fleet", "scan_host_key"): ("POST", "/api/fleet/enroll/host-key", "fleet.manage", False),
     ("fleet", "list_jobs"): ("GET", "/api/fleet/jobs", "fleet.read", False),
+    ("fleet", "fleet_jobs_active"): ("GET", "/api/fleet/jobs/active", "fleet.read", False),
     ("fleet", "get_fleet_job"): ("GET", "/api/fleet/jobs/{job_id}", "fleet.read", False),
     ("fleet", "retry_job"): ("POST", "/api/fleet/jobs/{job_id}/retry", "fleet.manage", False),
     ("fleet", "link_status"): ("GET", "/api/fleet/link", "fleet.manage", False),
@@ -679,6 +688,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("fleet", "get_upstreams"): ("GET", "/api/fleet/placements/{domain}/upstreams", "fleet.read", False),
     ("fleet", "fleet_servers"): ("GET", "/api/fleet/servers", "fleet.read", False),
     ("fleet", "set_labels"): ("PUT", "/api/fleet/servers/{node}/labels", "fleet.manage", False),
+    ("fleet", "fleet_software"): ("GET", "/api/fleet/software", "fleet.read", False),
     ("fleet", "fleet_summary"): ("GET", "/api/fleet/summary", "fleet.read", False),
     ("fleet", "fleet_updates"): ("GET", "/api/fleet/updates", "fleet.read", False),
     ("fleet", "view_activity"): ("GET", "/api/views/activity", "audit.read", False),
@@ -743,6 +753,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("jobs", "get_job"): ("GET", "/api/jobs/{job_id}", "apps.read", False),
     ("jobs", "cancel_job"): ("POST", "/api/jobs/{job_id}/cancel", "apps.operate", False),
     ("jobs", "get_job_log"): ("GET", "/api/jobs/{job_id}/log", "apps.read", False),
+    ("jobs", "active_operations_now"): ("GET", "/api/operations/active", "apps.read", False),
     ("log_drains", "list_drains"): ("GET", "/api/log-drains", "settings.read", False),
     ("log_drains", "save_drain"): ("PUT", "/api/log-drains/{name}", "settings.manage", True),
     ("log_drains", "delete_drain"): ("DELETE", "/api/log-drains/{name}", "settings.manage", True),
@@ -940,6 +951,10 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("server", "get_ssh_keys"): ("GET", "/api/server/security/ssh/keys", "server.read", False),
     ("server", "add_ssh_key"): ("POST", "/api/server/security/ssh/keys", "server.host_access", True),
     ("server", "remove_ssh_key"): ("POST", "/api/server/security/ssh/keys/remove", "server.host_access", True),
+    ("server", "list_software"): ("GET", "/api/server/software", "server.read", False),
+    ("server", "software_impact"): ("GET", "/api/server/software/{component}/impact", "server.read", False),
+    ("server", "install_software"): ("POST", "/api/server/software/{component}/install", "server.manage", True),
+    ("server", "remove_software"): ("POST", "/api/server/software/{component}/remove", "server.host_access", True),
     ("server", "get_storage"): ("GET", "/api/server/storage", "server.read", False),
     ("server", "analyze_storage"): ("POST", "/api/server/storage/analyze", "server.read", False),
     ("server", "get_last_analysis"): ("GET", "/api/server/storage/analyze/latest", "server.read", False),
@@ -2876,7 +2891,7 @@ class Audit:
 
 
 class Authentication:
-    """Authentication: 42 operations."""
+    """Authentication: 46 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -3168,6 +3183,38 @@ class Authentication:
 
         Needs: permission `self`."""
         return self._call("DELETE", f"/api/auth/sessions/{quote(str(sid_prefix), safe='')}", query=None, body=None)
+
+    def get_appearance(self) -> "SignInAppearance":
+        """GET /api/auth/sign-in/appearance
+
+        Get Appearance
+
+        Needs: permission `public`."""
+        return self._call("GET", "/api/auth/sign-in/appearance", query=None, body=None)
+
+    def put_appearance(self, body: "SignInAppearanceBody") -> "SignInAppearance":
+        """PUT /api/auth/sign-in/appearance
+
+        Put Appearance
+
+        Needs: permission `security.manage`, sudo mode."""
+        return self._call("PUT", "/api/auth/sign-in/appearance", query=None, body=body)
+
+    def delete_appearance(self) -> "SignInAppearance":
+        """DELETE /api/auth/sign-in/appearance
+
+        Delete Appearance
+
+        Needs: permission `security.manage`, sudo mode."""
+        return self._call("DELETE", "/api/auth/sign-in/appearance", query=None, body=None)
+
+    def get_image(self, *, v: Union[str, None] = None) -> bytes:
+        """GET /api/auth/sign-in/image
+
+        Get Image
+
+        Needs: permission `public`."""
+        return self._call("GET", "/api/auth/sign-in/image", query={"v": v}, body=None, binary=True)
 
     def list_api_tokens(self) -> "ApiTokenListResponse":
         """GET /api/auth/tokens
@@ -3761,13 +3808,13 @@ class Compliance:
         Needs: permission `security.manage`."""
         return self._call("PUT", "/api/compliance", query=None, body=body)
 
-    def check_compliance(self, *, framework: Union[list[str], None] = None) -> "NoustWebApiComplianceCheckResponse":
+    def check_compliance(self, *, framework: Union[list[str], None] = None, format: Union[Literal["json", "markdown"], None] = None) -> "NoustWebApiComplianceCheckResponse":
         """GET /api/compliance/check
 
         Check Compliance
 
         Needs: permission `compliance.read`."""
-        return self._call("GET", "/api/compliance/check", query={"framework": framework}, body=None)
+        return self._call("GET", "/api/compliance/check", query={"framework": framework, "format": format}, body=None)
 
     def plan_change(self, body: "ChangeRequest") -> "PlanInfo":
         """POST /api/compliance/plan
@@ -4432,6 +4479,46 @@ class DNS:
 
         Needs: permission `server.manage`."""
         return self._call("POST", "/api/dns/sweep", query=None, body=None)
+
+
+
+class Dashboards:
+    """Dashboards: 4 operations."""
+
+    def __init__(self, call: Call) -> None:
+        self._call = call
+
+    def list_dashboards(self) -> "DashboardsResponse":
+        """GET /api/auth/dashboards
+
+        List Dashboards
+
+        Needs: permission `self`."""
+        return self._call("GET", "/api/auth/dashboards", query=None, body=None)
+
+    def order_dashboards(self, body: "DashboardOrder") -> "DashboardsResponse":
+        """POST /api/auth/dashboards/order
+
+        Order Dashboards
+
+        Needs: permission `self`."""
+        return self._call("POST", "/api/auth/dashboards/order", query=None, body=body)
+
+    def save_dashboard(self, dashboard_id: str, body: "DashboardBody") -> "DashboardOut":
+        """PUT /api/auth/dashboards/{dashboard_id}
+
+        Save Dashboard
+
+        Needs: permission `self`."""
+        return self._call("PUT", f"/api/auth/dashboards/{quote(str(dashboard_id), safe='')}", query=None, body=body)
+
+    def delete_dashboard(self, dashboard_id: str) -> "DashboardsResponse":
+        """DELETE /api/auth/dashboards/{dashboard_id}
+
+        Delete Dashboard
+
+        Needs: permission `self`."""
+        return self._call("DELETE", f"/api/auth/dashboards/{quote(str(dashboard_id), safe='')}", query=None, body=None)
 
 
 
@@ -6076,7 +6163,7 @@ class Domains:
 
 
 class Fleet:
-    """Fleet: 67 operations."""
+    """Fleet: 69 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -6377,6 +6464,14 @@ class Fleet:
         Needs: permission `fleet.read`."""
         return self._call("GET", "/api/fleet/jobs", query={"limit": limit}, body=None)
 
+    def fleet_jobs_active(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None) -> "FleetViewOut":
+        """GET /api/fleet/jobs/active
+
+        Fleet Jobs Active
+
+        Needs: permission `fleet.read`."""
+        return self._call("GET", "/api/fleet/jobs/active", query={"node": node, "refresh": refresh}, body=None)
+
     def get_fleet_job(self, job_id: str) -> "FleetJobOut":
         """GET /api/fleet/jobs/{job_id}
 
@@ -6522,6 +6617,14 @@ class Fleet:
 
         Needs: permission `fleet.manage`."""
         return self._call("PUT", f"/api/fleet/servers/{quote(str(node), safe='')}/labels", query=None, body=body)
+
+    def fleet_software(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None) -> "FleetViewOut":
+        """GET /api/fleet/software
+
+        Fleet Software
+
+        Needs: permission `fleet.read`."""
+        return self._call("GET", "/api/fleet/software", query={"node": node, "refresh": refresh}, body=None)
 
     def fleet_summary(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None) -> "FleetViewOut":
         """GET /api/fleet/summary
@@ -6934,7 +7037,7 @@ class Integrations:
 
 
 class Jobs:
-    """Jobs: 16 operations."""
+    """Jobs: 17 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -7066,6 +7169,14 @@ class Jobs:
 
         Needs: permission `apps.read`."""
         return self._call("GET", f"/api/jobs/{quote(str(job_id), safe='')}/log", query={"tail": tail}, body=None)
+
+    def active_operations_now(self) -> "OperationsResponse":
+        """GET /api/operations/active
+
+        Active Operations Now
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", "/api/operations/active", query=None, body=None)
 
 
 
@@ -8438,7 +8549,7 @@ class SelfBackup:
 
 
 class Server:
-    """Server: 76 operations."""
+    """Server: 80 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -8802,6 +8913,38 @@ class Server:
 
         Needs: permission `server.host_access`, sudo mode."""
         return self._call("POST", "/api/server/security/ssh/keys/remove", query=None, body=body)
+
+    def list_software(self, *, refresh: Union[bool, None] = None) -> "SoftwareOut":
+        """GET /api/server/software
+
+        List Software
+
+        Needs: permission `server.read`."""
+        return self._call("GET", "/api/server/software", query={"refresh": refresh}, body=None)
+
+    def software_impact(self, component: str) -> "ImpactOut":
+        """GET /api/server/software/{component}/impact
+
+        Software Impact
+
+        Needs: permission `server.read`."""
+        return self._call("GET", f"/api/server/software/{quote(str(component), safe='')}/impact", query=None, body=None)
+
+    def install_software(self, component: str, *, body: Union["InstallRequest", None] = None) -> "JobAcceptedResponse":
+        """POST /api/server/software/{component}/install
+
+        Install Software
+
+        Needs: permission `server.manage`, sudo mode."""
+        return self._call("POST", f"/api/server/software/{quote(str(component), safe='')}/install", query=None, body=body)
+
+    def remove_software(self, component: str, *, body: Union["RemoveRequest", None] = None) -> "JobAcceptedResponse":
+        """POST /api/server/software/{component}/remove
+
+        Remove Software
+
+        Needs: permission `server.host_access`, sudo mode."""
+        return self._call("POST", f"/api/server/software/{quote(str(component), safe='')}/remove", query=None, body=body)
 
     def get_storage(self) -> "StorageOut":
         """GET /api/server/storage
@@ -10704,6 +10847,7 @@ class Api:
     console: Console
     cron_jobs: CronJobs
     dns: DNS
+    dashboards: Dashboards
     databases: Databases
     deploy_keys: DeployKeys
     deployments: Deployments
@@ -10766,6 +10910,7 @@ class Api:
         self.console = Console(call)
         self.cron_jobs = CronJobs(call)
         self.dns = DNS(call)
+        self.dashboards = Dashboards(call)
         self.databases = Databases(call)
         self.deploy_keys = DeployKeys(call)
         self.deployments = Deployments(call)

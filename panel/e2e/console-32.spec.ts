@@ -19,6 +19,7 @@
 import type { Page, Route } from "@playwright/test";
 
 import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
+import { openFold } from "./part-folds";
 import { chooseWay } from "./wizard-sources";
 
 const RELEASES_APP = "tienda.example.org";
@@ -127,7 +128,8 @@ test("going back past a schema change names the deployment, its migration and th
 });
 
 test("an application's deploy hooks: the operator's YAML saved behind sudo mode, then removed", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, `/apps/${LIVE_APP}/settings/hooks`);
+  await signIn(page, consoleServer, `/apps/${LIVE_APP}/triggers`);
+  await openFold(page, "Deploy hooks");
   await expect(page.getByRole("heading", { level: 2, name: "Deploy hooks" })).toBeVisible();
   const inUse = card(page, "In use");
   await expect(inUse.getByText("None", { exact: true })).toBeVisible();
@@ -148,7 +150,7 @@ test("an application's deploy hooks: the operator's YAML saved behind sudo mode,
 });
 
 test("the server's time zone is chosen from its own zones, with the offset and the time it will read", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/server/system?view=machine");
+  await signIn(page, consoleServer, "/server/machine");
   await page.getByRole("button", { name: "Change time zone" }).click();
   // A question the page asks, so an alert dialog (the server area asks all of its questions that way).
   const dialog = page.getByRole("alertdialog", { name: "Change the time zone" });
@@ -275,14 +277,14 @@ test("adopting a site lists what the server has and previews what is kept as it 
 test("the sites list says who wrote each site and which application it serves", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/domains/sites");
   await expect(page.getByRole("columnheader", { name: "Written by" })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: "Application" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Belongs to" })).toBeVisible();
   await expect(page.getByRole("cell", { name: "Noust" }).first()).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the sites list");
 });
 
 test("whether a feature is on reads at a glance: instant rollback and zero-downtime deploys", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, `/apps/${RELEASES_APP}/settings/deploys`);
+  await signIn(page, consoleServer, `/apps/${RELEASES_APP}/triggers`);
   const rollback = card(page, "Instant rollback");
   await expect(rollback.getByText("On", { exact: true })).toBeVisible();
   const zeroDowntime = card(page, "Zero-downtime deploys");

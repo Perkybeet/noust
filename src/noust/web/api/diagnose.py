@@ -20,11 +20,23 @@ from typing import Any
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from noust.core.server_text import ServerText
 from noust.managers.diagnose import diagnose
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, strict_domain
+from noust.web.api.deps import CodedText, NoustErrorRoute, strict_domain
 
 router = APIRouter(route_class=NoustErrorRoute)
+
+
+def _coded(sentence: ServerText | None) -> CodedText | None:
+    """
+    Args:
+        sentence: A sentence of the diagnosis, or None.
+
+    Returns:
+        Its code and values for the response, or None.
+    """
+    return CodedText(**sentence.to_dict()) if sentence is not None else None
 
 
 class DiagnoseCheck(BaseModel):
@@ -39,12 +51,15 @@ class DiagnoseCheck(BaseModel):
         status: ``"ok"``, ``"warn"``, ``"fail"`` or ``"skip"``.
         summary: One line, in Noust's own words.
         evidence: Raw output the probe collected, verbatim.
+        coded: ``summary`` as a code and its values, for the console to translate; null for
+            a check nobody gave a code.
     """
 
     name: str
     status: str
     summary: str
     evidence: str = ""
+    coded: CodedText | None = None
 
 
 class DiagnoseResponse(BaseModel):
@@ -61,12 +76,15 @@ class DiagnoseResponse(BaseModel):
         probable_cause: One sentence naming the most likely explanation, or
             ``None`` when the checks disagree with each other or are all clean.
         checks: Every probe that ran, in the order it ran in.
+        probable_cause_coded: ``probable_cause`` as a code and its values; null when there
+            is no cause.
     """
 
     domain: str
     verdict: str
     probable_cause: str | None
     checks: list[DiagnoseCheck]
+    probable_cause_coded: CodedText | None = None
 
 
 @router.get("/{domain}/diagnose", response_model=DiagnoseResponse)
@@ -97,12 +115,14 @@ def diagnose_app(
         domain=diagnosis.domain,
         verdict=diagnosis.verdict,
         probable_cause=diagnosis.probable_cause,
+        probable_cause_coded=_coded(diagnosis.probable_cause_coded),
         checks=[
             DiagnoseCheck(
                 name=check.name,
                 status=check.status,
                 summary=check.summary,
                 evidence=check.evidence,
+                coded=_coded(check.coded),
             )
             for check in diagnosis.checks
         ],

@@ -1,1 +1,0 @@
-import{t as e}from"./TeamLayout-DR6RadIM.js";import{t}from"./_team-DtZVO64N.js";import{dt as n}from"./useNode-CcVEc688.js";var r=n();function i(){let{team:n}=t.useParams();return(0,r.jsx)(e,{team:n},n)}export{i as component};

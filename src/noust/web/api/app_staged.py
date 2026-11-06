@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 
 from noust.core import deploy_guard
 from noust.core.appdir.releases import is_release_id
+from noust.core.server_text import say
 from noust.core.store import DeploymentTrigger
 from noust.deployers.lifecycle import list_releases
 from noust.deployers.recorder import CapturingLogger
@@ -85,7 +86,7 @@ def stage_release_job(
     logger = CapturingLogger(verbose=False)
     if job_context is not None:
         job_context.set_metadata("domain", domain)
-        job_context.update("Building without activating", 10)
+        job_context.update(say("jobs.step.staged.building"), 10)
         logger.attach_sink(job_context.log)
     built = stage_build(
         domain,
@@ -98,7 +99,7 @@ def stage_release_job(
         no_cache=no_cache,
     )
     if job_context is not None:
-        job_context.update("Built, waiting to be promoted", 100)
+        job_context.update(say("jobs.step.staged.built"), 100)
     return {
         "domain": domain,
         "status": "built",
@@ -134,7 +135,7 @@ def promote_release_job(
     logger = CapturingLogger(verbose=False)
     if job_context is not None:
         job_context.set_metadata("domain", domain)
-        job_context.update("Making the release serve", 10)
+        job_context.update(say("jobs.step.staged.promoting"), 10)
         logger.attach_sink(job_context.log)
     promoted = promote_staged(
         domain,
@@ -147,7 +148,7 @@ def promote_release_job(
         schema_changed_ok=schema_changed_ok,
     )
     if job_context is not None:
-        job_context.update("Promoted", 100)
+        job_context.update(say("jobs.step.staged.promoted"), 100)
     return {
         "domain": domain,
         "status": "promoted",

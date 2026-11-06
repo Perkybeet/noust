@@ -112,7 +112,7 @@ describe("the cron jobs list", () => {
     expect(within(disabledRow).getByText("Never run")).toBeInTheDocument();
     expect(within(disabledRow).getByText("Every hour, on the hour")).toBeInTheDocument();
     expect(screen.getByText("2 tasks")).toBeInTheDocument();
-    expect(screen.getByText("noust cron list")).toBeInTheDocument();
+    expect(screen.queryByText("noust cron list")).not.toBeInTheDocument();
   });
 
   it("opens a job's run history from its row", async () => {

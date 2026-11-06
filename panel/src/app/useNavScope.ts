@@ -1,19 +1,21 @@
 import { useCentral } from "../features/central/central";
 import { useHasFleet } from "../nodes/servers";
-import { useConsoleContext } from "../nodes/useNode";
+import { useConsoleContext, useSelection } from "../nodes/useNode";
 import type { Scope } from "./nav";
 
 /**
- * Whose destinations the console shows: a server's, or the fleet's. The fleet's pages are the
- * fleet's. The central's own pages (the account, the accounts, the tokens) are it only on a console
- * that has a fleet, or is a hub, which has no server of its own to show: on a lone server they are
- * that server's pages, and its bar, its shortcuts and its search stay what they were. One answer
- * for the sidebar, the shortcuts and the palette.
+ * Whose destinations the console shows: a server's, or the fleet's. A server's pages are that server's and the
+ * fleet's pages are the fleet's. A page of the instance (the account, the accounts, the tokens) belongs to no
+ * server and leaves the selector where it was, so the bar follows the selector: the fleet's faces when it is on
+ * "All servers", the server's pages when it is on a server. On a lone server there is nothing to tell apart and the
+ * bar, the shortcuts and the search stay what they were. One answer for the sidebar, the shortcuts and the palette.
  */
 export function useNavScope(): Scope {
   const context = useConsoleContext();
   const hasFleet = useHasFleet();
   const { role } = useCentral();
+  const selection = useSelection(role === "hub");
   if (context.kind === "server") return "server";
-  return context.kind === "fleet" || hasFleet || role === "hub" ? "fleet" : "server";
+  if (context.kind === "fleet") return "fleet";
+  return hasFleet && selection.kind === "all" ? "fleet" : "server";
 }

@@ -286,6 +286,29 @@ export const common = {
   keyValueList: {
     empty: "Not set",
   },
+  help: {
+    about: "About {name}",
+  },
+  tags: {
+    title: { one: "{count} tag", other: "{count} tags" },
+    more: { one: "{count} more tag: {names}", other: "{count} more tags: {names}" },
+  },
+  commandHint: {
+    reason: {
+      terminalOnly: "Only from a terminal",
+      otherServer: "On the other server",
+      systemOutput: "What the system tells you to run",
+    },
+  },
+  readOnly: {
+    line: "Your role, {role}, can see this page and not change it. Changing it takes the permission {permission}.",
+    lineNoRole: "This access can see this page and not change it. Changing it takes the permission {permission}.",
+    notYetLabel: "Why you cannot do this yet",
+    notYetTitle: "Why not yet",
+    whyLabel: "Why you cannot do this",
+    whyTitle: "Why you cannot",
+    why: "This takes the permission {permission}, which your role does not hold. Whoever manages roles can add it, in Settings, Roles.",
+  },
   resourceMeter: {
     missing: "No reading",
     ofLimit: "{value} of {limit}",
@@ -361,7 +384,6 @@ export const common = {
     name: "Name",
     cancel: "Cancel",
     fromTerminal: "From a terminal",
-    sameFromTerminal: "The same, from a terminal",
     remove: "Remove",
     close: "Close",
     edit: "Edit",

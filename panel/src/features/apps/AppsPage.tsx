@@ -4,7 +4,6 @@ import { X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { appsQuery } from "../../api/queries/apps";
-import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { ListPage } from "../../components/page/ListPage";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -16,18 +15,20 @@ import { STATUS } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import { useOwnerScope } from "../teams/ownership";
 import { useOrganization } from "../teams/useOrganization";
+import { AllDeployments } from "./AllDeployments";
+import { AppsByProject, AppsByState } from "./AppGroups";
 import { AppRowActions } from "./AppRowActions";
 import { AppsTable } from "./AppsTable";
 import { appsHeader } from "./appsHeader";
 import { BulkAppsDialog } from "./BulkAppsDialog";
-import { latestDeployByDomain, recentDeploysQuery, useLatestMetrics, useTypeName } from "./data";
+import { latestDeployByDomain, recentDeploysQuery, useTypeName } from "./data";
+import type { AppInfo } from "./data";
 import { STATE_FILTERS, appTagNames, appTypes, filterApps, isFiltered } from "./filters";
 import type { AppsSearch } from "./filters";
 import { RestartTaggedApps } from "./RestartTaggedApps";
 import { UpdateTaggedApps } from "./UpdateTaggedApps";
 import { useStateTransitions } from "./useStateTransitions";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
-import { useOrganised } from "../teams/useOrganised";
 
 const ALL = "all";
 
@@ -65,12 +66,8 @@ function NewAppLink() {
  */
 export function AppsPage({ search, onSearchChange }: AppsPageProps) {
   const t = useT();
-  // Projects is the other view of the list, for a server whose people organised theirs: a link in the header, which
-  // arrives without moving the list (a strip that appeared once the teams were read would push every row down).
-  const { organised } = useOrganised();
   const apps = useQuery(appsQuery());
   const deploys = useQuery(recentDeploysQuery());
-  const metrics = useLatestMetrics();
   const typeName = useTypeName();
   // The applications chosen for an action on several, in the order they were chosen.
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
@@ -109,6 +106,19 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
     setSelected(new Set([...selected, ...shown.map((app) => app.domain)]));
   };
 
+  // A group of the by-project and by-state views is the one table of applications, in its own slab.
+  const inGroup = (rows: readonly AppInfo[], caption: string) => (
+    <AppsTable
+      apps={rows}
+      owner={{ scope: owner.scope, labels: owner.labels }}
+      deploys={latest}
+      caption={caption}
+      loading={apps.isPending || orgLoading}
+      rowActions={(app) => <AppRowActions app={app} />}
+      embedded
+    />
+  );
+
   const filtered = isFiltered(search);
   const firstUse = apps.data !== undefined && all.length === 0;
   const count =
@@ -118,22 +128,11 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
         ? t("apps.page.countFiltered", { shown: shown.length, total: owner.inTeam.length })
         : t("apps.page.count", { count: owner.inTeam.length });
 
-  const header = appsHeader(t, {
+  const header = appsHeader(
+    t,
+    {
     secondaryActions: (
       <>
-        {organised ? (
-          <>
-            <Link to="/projects" className={buttonClassName("secondary")}>
-              <OBJECT_ICONS.project aria-hidden="true" />
-              {t("nav.projects.label")}
-            </Link>
-            {/* A team's pages are the deepest of the console: through Projects they would be a fifth click from the Overview (NV-2). */}
-            <Link to="/projects/teams" className={buttonClassName("secondary")}>
-              <OBJECT_ICONS.team aria-hidden="true" />
-              {t("teams.list.title")}
-            </Link>
-          </>
-        ) : null}
         {/* A bulk update is offered where the list is narrowed to one tag, and not before. */}
         {search.tag !== undefined && shown.length > 0 && canDeploy ? <UpdateTaggedApps tag={search.tag} count={shown.length} /> : null}
         {search.tag !== undefined && shown.length > 0 && canOperate ? <RestartTaggedApps tag={search.tag} count={shown.length} /> : null}
@@ -141,7 +140,9 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
     ),
     // While there is no application the empty state carries the action, so the page has it once.
     ...(firstUse ? {} : { primaryAction: <NewAppLink /> }),
-  });
+    },
+    search.view,
+  );
 
   if (apps.isError && apps.data === undefined) {
     return (
@@ -168,7 +169,6 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
               </Link>
             </>
           }
-          command="noust create --domain example.com --source https://github.com/you/app.git"
         />
       </ListPage>
     );
@@ -178,6 +178,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
     <ListPage
       header={header}
       filters={
+        search.view === "deployments" ? undefined : (
         <FilterBar
           label={t("apps.page.filterLabel")}
           search={{
@@ -258,43 +259,48 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
               }
             : {})}
         />
+        )
       }
-      // Drawn with the rows, not before: under a list of unknown length it would only be pushed
-      // down the page when they arrive.
-      {...(apps.isPending ? {} : { footer: <CommandHint command="noust list" label={t("common.words.fromTerminal")} /> })}
     >
-      <AppsTable
-        apps={shown}
-        owner={{ scope: owner.scope, labels: owner.labels }}
-        deploys={latest}
-        metrics={metrics}
-        caption={filtered ? t("apps.page.captionFiltered") : t("apps.page.caption")}
-        loading={apps.isPending || orgLoading}
-        skeletonRows={SKELETON_ROWS}
-        rowActions={(app) => <AppRowActions app={app} />}
-        selection={{
-          selected,
-          onSelect: (domain, checked) => {
-            setSelected((current) => {
-              const next = new Set(current);
-              if (checked) next.add(domain);
-              else next.delete(domain);
-              return next;
-            });
-          },
-        }}
-        empty={
-          <EmptyState
-            variant="inline"
-            title={t("apps.page.noMatchTitle")}
-            action={
-              <Button size="sm" variant="ghost" onClick={clear}>
-                {t("common.words.clearFilters")}
-              </Button>
-            }
-          />
-        }
-      />
+      {search.view === "deployments" ? (
+        <AllDeployments deployments={deploys.data?.items} loading={deploys.isPending} />
+      ) : search.view === "projects" ? (
+        <AppsByProject apps={shown} labels={owner.labels} table={inGroup} />
+      ) : search.view === "states" ? (
+        <AppsByState apps={shown} table={inGroup} />
+      ) : (
+        <AppsTable
+          apps={shown}
+          owner={{ scope: owner.scope, labels: owner.labels }}
+          deploys={latest}
+          caption={filtered ? t("apps.page.captionFiltered") : t("apps.page.caption")}
+          loading={apps.isPending || orgLoading}
+          skeletonRows={SKELETON_ROWS}
+          rowActions={(app) => <AppRowActions app={app} />}
+          selection={{
+            selected,
+            onSelect: (domain, checked) => {
+              setSelected((current) => {
+                const next = new Set(current);
+                if (checked) next.add(domain);
+                else next.delete(domain);
+                return next;
+              });
+            },
+          }}
+          empty={
+            <EmptyState
+              variant="inline"
+              title={t("apps.page.noMatchTitle")}
+              action={
+                <Button size="sm" variant="ghost" onClick={clear}>
+                  {t("common.words.clearFilters")}
+                </Button>
+              }
+            />
+          }
+        />
+      )}
       {acting && chosen.length > 0 ? (
         <BulkAppsDialog
           apps={chosen}

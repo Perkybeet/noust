@@ -1,16 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
-import { BellOff, BellRing, Download, FileUp, KeyRound, Link2, Play, RotateCw, Tags, UsersRound, X } from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { Bell, BellOff, Download, FileUp, KeyRound, Link2, Play, RotateCw, Tags, UsersRound, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { sessionQuery } from "../../api/queries/auth";
-import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
+import { Can } from "../../components/page/permissions";
 import { ErrorBlock } from "../../components/page/QueryState";
-import { RelativeTime } from "../../components/page/RelativeTime";
 import { RowMenu } from "../../components/page/RowMenu";
-import { Badge } from "../../components/ui/Badge";
-import { Button } from "../../components/ui/Button";
+import { Button, buttonClassName } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
@@ -19,10 +17,14 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { InlineMessage } from "../../components/ui/InlineMessage";
 import { MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
-import { TextLink, textLinkClassName } from "../../components/ui/TextLink";
+import { NameWithTags } from "../../components/ui/NameWithTags";
+import { Meter } from "../../components/ui/Progress";
+import { StatusGlyph, StatusPill, stateTextClass } from "../../components/ui/StatusPill";
+import { TextLink } from "../../components/ui/TextLink";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { cx } from "../../lib/cx";
 import { downloadText } from "../../lib/clipboard";
 import { describeError } from "../../lib/errors";
 import { MonitoringNote } from "../settings/servers/MonitoringNote";
@@ -31,7 +33,7 @@ import { RemoveServerDialog } from "../settings/servers/RemoveServerDialog";
 import { nodeKeys, nodesQuery, setNodeMonitoring, testNode } from "./nodes";
 import type { NodeMonitoring } from "./nodes";
 import { useFleetActions } from "./BulkActionDialog";
-import { accessOf, fleetKeys, formatLabels, labelsOf, noustOf, originOf, outcomeKind } from "./data";
+import { fleetKeys, formatLabels, labelsOf, loadOf, noustOf, noustUpdatable, originOf, osUpdatesOf, outcomeKind, systemNameOf } from "./data";
 import type { FleetRow, NodeOutcome } from "./data";
 import { isFiltered, matchesQuery, patchSearch } from "./filters";
 import type { FleetSearch, FleetSearchPatch } from "./filters";
@@ -40,12 +42,15 @@ import { ServerLink } from "./links";
 import { NodeTeamDialog, RekeyDialog } from "./NodeAccessDialogs";
 import { ConnectionDialog, InventoryDialog, LinkMachineDialog } from "./NodeToolsDialogs";
 import { fetchInventory } from "./nodeTools";
-import { OutcomePill, PartialNotice, ServerCell, StateFilter, useFleetView } from "./parts";
+import { NAME_LINK, OutcomePill, PartialNotice, StaleFrom, StateFilter, useFleetView } from "./parts";
 import { ICONS } from "../../components/ui/icons";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** The Servers view's own states, for its filter. */
 const SERVER_STATES = ["answering", "down", "older"] as const;
+
+/** What a server can be waiting for, for the filter of the servers that have an update. */
+const UPDATE_STATES = ["noust", "os", "reboot"] as const;
 
 function stateOf(outcome: NodeOutcome | undefined): (typeof SERVER_STATES)[number] | null {
   if (outcome === undefined) return null;
@@ -55,20 +60,17 @@ function stateOf(outcome: NodeOutcome | undefined): (typeof SERVER_STATES)[numbe
   return "answering";
 }
 
-/** What the central may do on a server, in words, and whether it may also change how it is reached. */
-function AccessCell({ t, row }: { t: T; row: FleetRow }) {
-  const origin = originOf(row);
-  if (origin.local) return <EmptyCell reason={t("fleet.access.thisCentral")} />;
-  const access = accessOf(row);
-  if (access === null) return <EmptyCell reason={t("fleet.access.unknown")} />;
-  return (
-    <span className="flex min-w-0 flex-col">
-      <ServerLink node={origin.node} path="/server/central" className={textLinkClassName("inline", "min-w-0", "row")}>
-        {t(`fleet.access.level.${access.level}`)}
-      </ServerLink>
-      <span className="text-12 text-fg-muted">{access.hostAccess ? t("fleet.access.hostAccessOn") : t("fleet.access.hostAccessOff")}</span>
-    </span>
-  );
+/** Whether a server is waiting for Noust, for its system, or for a reboot. */
+function needs(row: FleetRow, what: (typeof UPDATE_STATES)[number]): boolean {
+  if (what === "noust") return noustUpdatable(noustOf(row).state);
+  const os = osUpdatesOf(row);
+  if (what === "os") return (os?.pending ?? 0) > 0;
+  return os?.reboot === true;
+}
+
+/** The servers of the list that have something waiting: what the "With an update" view of the column lists. */
+function waiting(row: FleetRow): boolean {
+  return UPDATE_STATES.some((what) => needs(row, what));
 }
 
 interface RowHandlers {
@@ -76,6 +78,69 @@ interface RowHandlers {
   onSelect: (node: string, checked: boolean) => void;
   /** How long each server has been silent, or that its monitoring is paused. */
   monitoring: ReadonlyMap<string, NodeMonitoring | null>;
+  /** Starts Noust's update on a server, through the same bulk action the header's button uses. */
+  onUpdate: (node: string) => void;
+  /** The view is the servers that are waiting for something: it says what, and leaves out the meters. */
+  updates: boolean;
+}
+
+/** One reading of a server as a small meter that turns amber and red by itself; nothing where the server gave none. */
+function LoadCell({ label, value }: { label: string; value: number | null | undefined }) {
+  const t = useT();
+  if (value === null || value === undefined) return <EmptyCell reason={t("fleet.summary.notRead")} />;
+  return <Meter size="sm" label={label} value={value} className="w-full min-w-24" />;
+}
+
+/**
+ * Which Noust a server runs and what to do about it: "up to date" beside the version, or the one press that updates it
+ * and says to what. The version it is told is the one the server's own package source offers: nothing is written here.
+ */
+function NoustCell({ t, row, onUpdate }: { t: T; row: FleetRow; onUpdate: (node: string) => void }) {
+  const noust = noustOf(row);
+  const origin = originOf(row);
+  if (noust.current === null) return <EmptyCell reason={t("fleet.summary.notRead")} />;
+  const target = noust.latest;
+  const behind = noust.state === "update_available" || noust.state === "index_behind";
+  return (
+    <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+      <Mono>{noust.current}</Mono>
+      {noust.state === "up_to_date" ? <span className="text-12 text-fg-muted">{t("fleet.servers.upToDate")}</span> : null}
+      {behind && target !== null ? (
+        // This central updates from its own page, where it can watch itself come back; a server is updated from here.
+        origin.local ? (
+          <Link to="/server/updates" className={buttonClassName("secondary", "sm")}>
+            {t("fleet.servers.updateTo", { version: target })}
+          </Link>
+        ) : (
+          <Can permission="fleet.manage">
+            <Button size="sm" icon={<RotateCw aria-hidden="true" />} onClick={() => onUpdate(origin.node)}>
+              {t("fleet.servers.updateTo", { version: target })}
+            </Button>
+          </Can>
+        )
+      ) : null}
+      {noust.state === "on_the_way" ? <StatusPill state="queued" label={t("fleet.updates.noust.onTheWay")} appearance="inline" size="sm" /> : null}
+    </span>
+  );
+}
+
+/** What the system has waiting, in a cell: how many packages, how many of them security ones, and a reboot that is due. */
+function SystemCell({ t, row }: { t: T; row: FleetRow }) {
+  const os = osUpdatesOf(row);
+  const pending = os?.pending ?? null;
+  if (os === null || pending === null) return <EmptyCell reason={t("fleet.updates.osUnknown")} />;
+  return (
+    <span className="flex min-w-0 flex-col text-13">
+      {pending === 0 ? <span className="text-fg-muted">{t("fleet.updates.osNone")}</span> : <span className="text-fg tabular-nums">{t("fleet.updates.osPending", { count: pending })}</span>}
+      {os.security !== null && os.security > 0 ? (
+        <span className={cx("inline-flex items-center gap-1 font-medium", stateTextClass("warning"))}>
+          <StatusGlyph state="warning" size={10} />
+          {t("fleet.updates.osSecurity", { count: os.security })}
+        </span>
+      ) : null}
+      {os.reboot === true ? <span className="text-12 text-fg-muted">{t("fleet.updates.rebootNeeded")}</span> : null}
+    </span>
+  );
 }
 
 function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>, handlers: RowHandlers): Column<FleetRow>[] {
@@ -106,7 +171,27 @@ function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>, handlers: Row
       header: t("fleet.column.server"),
       card: "title",
       sortValue: (row) => (originOf(row).local ? "" : originOf(row).node),
-      cell: (row) => <ServerCell origin={originOf(row)} outcome={outcomes.get(originOf(row).node)} />,
+      // The labels follow the name on its line, the first ones and "+N" for the rest: a server with many does not grow its row.
+      cell: (row) => {
+        const origin = originOf(row);
+        const system = systemNameOf(row);
+        // This central is said once, as a tag on its line: it is the one server of the list that is not a node.
+        const tags = [...(origin.local ? [t("fleet.server.centralTag")] : []), ...labelsOf(row).map(([key, value]) => `${key}=${value}`)];
+        return (
+          <span className="flex min-w-0 flex-col items-start gap-0.5">
+            <NameWithTags
+              name={
+                <ServerLink node={origin.local ? null : origin.node} path="/server" className={NAME_LINK} aria-label={t("fleet.server.open", { name: origin.node })}>
+                  <Mono truncate>{origin.node}</Mono>
+                </ServerLink>
+              }
+              tags={tags}
+            />
+            {system !== null ? <span className="text-12 text-fg-muted">{system}</span> : null}
+            <StaleFrom outcome={outcomes.get(origin.node)} />
+          </span>
+        );
+      },
     },
     {
       id: "state",
@@ -125,58 +210,43 @@ function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>, handlers: Row
       },
     },
     {
-      id: "version",
-      header: t("fleet.column.version"),
+      id: "noust",
+      header: t("fleet.column.noust"),
       card: "meta",
-      cell: (row) => {
-        const noust = noustOf(row);
-        if (noust.current === null) return <EmptyCell reason={t("fleet.summary.notRead")} />;
-        return (
-          <span className="flex flex-wrap items-center gap-1.5">
-            <Mono>{noust.current}</Mono>
-            {noust.state === "update_available" && noust.latest !== null ? <Badge>{t("fleet.servers.updateAvailable", { version: noust.latest })}</Badge> : null}
-          </span>
-        );
-      },
+      cell: (row) => <NoustCell t={t} row={row} onUpdate={handlers.onUpdate} />,
     },
-    {
-      id: "labels",
-      header: t("fleet.column.labels"),
-      hideBelow: "md",
-      // A phone hides the column as a narrow table would: the labels are edited from the menu.
-      card: "hidden",
-      cell: (row) => {
-        const labels = labelsOf(row);
-        if (originOf(row).local) return <EmptyCell reason={t("fleet.labels.notForCentral")} />;
-        if (labels.length === 0) return <span className="text-13 text-fg-muted">{t("fleet.labels.none")}</span>;
-        return (
-          <span className="flex flex-wrap gap-1">
-            {labels.map(([key, value]) => (
-              <Badge key={key} mono>{`${key}=${value}`}</Badge>
-            ))}
-          </span>
-        );
-      },
-    },
-    {
-      id: "access",
-      header: t("fleet.column.access"),
-      hideBelow: "lg",
-      card: "hidden",
-      cell: (row) => <AccessCell t={t} row={row} />,
-    },
-    {
-      id: "last-seen",
-      header: t("fleet.column.lastSeen"),
-      hideBelow: "md",
-      card: "meta",
-      cell: (row) =>
-        originOf(row).local ? (
-          <span className="text-13 text-fg-muted">{t("fleet.servers.now")}</span>
-        ) : (
-          <RelativeTime value={typeof row["last_seen"] === "string" ? row["last_seen"] : null} fallback={t("fleet.servers.never")} className="text-13 text-fg-muted" />
-        ),
-    },
+    ...(handlers.updates
+      ? [
+          {
+            id: "system",
+            header: t("fleet.column.osUpdates"),
+            card: "meta" as const,
+            cell: (row: FleetRow) => <SystemCell t={t} row={row} />,
+          },
+        ]
+      : [
+          {
+            id: "cpu",
+            header: t("fleet.servers.cpu"),
+            hideBelow: "md" as const,
+            card: "hidden" as const,
+            cell: (row: FleetRow) => <LoadCell label={t("fleet.servers.cpu")} value={loadOf(row)?.cpu} />,
+          },
+          {
+            id: "memory",
+            header: t("fleet.servers.memory"),
+            hideBelow: "md" as const,
+            card: "hidden" as const,
+            cell: (row: FleetRow) => <LoadCell label={t("fleet.servers.memory")} value={loadOf(row)?.memory} />,
+          },
+          {
+            id: "disk",
+            header: t("fleet.servers.disk"),
+            hideBelow: "md" as const,
+            card: "hidden" as const,
+            cell: (row: FleetRow) => <LoadCell label={t("fleet.servers.disk")} value={loadOf(row)?.disk} />,
+          },
+        ]),
   ];
 }
 
@@ -257,11 +327,30 @@ function ServerMenu({
           <MenuItem icon={<RotateCw />} disabled={test.isPending} onClick={() => test.mutate()}>
             {t("fleet.servers.test")}
           </MenuItem>
+          <MenuItem
+            icon={<OBJECT_ICONS.update />}
+            onClick={() => {
+              actions.open({ action: "os_updates", nodes: [origin.node] });
+            }}
+          >
+            {t("fleet.servers.installSystemUpdates")}
+          </MenuItem>
+          <MenuItem
+            icon={<RotateCw />}
+            onClick={() => {
+              actions.open({ action: "index_refresh", nodes: [origin.node] });
+            }}
+          >
+            {t("fleet.updates.refreshLists")}
+          </MenuItem>
+          <MenuItem icon={<OBJECT_ICONS.central />} onClick={() => void navigate({ to: "/server/central", search: { node: origin.node } })}>
+            {t("fleet.servers.centralPermissions")}
+          </MenuItem>
           <MenuItem icon={<Tags />} onClick={onLabels}>
             {t("fleet.servers.editLabels")}
           </MenuItem>
           {paused ? (
-            <MenuItem icon={<BellRing />} onClick={onResume}>
+            <MenuItem icon={<Bell />} onClick={onResume}>
               {t("servers.settings.monitoring.resume")}
             </MenuItem>
           ) : (
@@ -334,17 +423,26 @@ function ServerMenu({
 export interface ServersTabProps {
   search: FleetSearch;
   onSearchChange: (search: FleetSearch, options?: { replace?: boolean }) => void;
+  /**
+   * `updates`: the servers that are waiting for something (Noust, their system, a reboot), with what each waits for in
+   * place of the meters. The same list, read the other way: the column of the area has it as "With an update".
+   */
+  preset?: "all" | "updates";
 }
 
 /**
- * Every server of the fleet (T1): whether it answers, which Noust it runs, its labels, what it
- * lets this central do there, and when it last answered. Servers are chosen here, by hand, for
- * a bulk action; their labels, which aim an action at a group, are edited here too.
+ * Every server of the fleet (T1), in one list that is also where they are updated (4.2, item 125: what were two views
+ * of one list are one): whether it answers, which Noust it runs and the press that updates it, how loaded it is, its
+ * labels after its name, and the menu of what can be done to it. Servers are chosen here, by hand, for a bulk
+ * action; their labels, which aim an action at a group, are edited here too.
  */
-export function ServersTab({ search, onSearchChange }: ServersTabProps) {
+export function ServersTab({ search, onSearchChange, preset = "all" }: ServersTabProps) {
   const t = useT();
-  const view = useFleetView("servers");
+  // The summary view carries what every server says of itself (its version, its machine snapshot and its server summary),
+  // which is what both readings of the list need: the servers view had only who they are.
+  const view = useFleetView("summary");
   const actions = useFleetActions();
+  const updates = preset === "updates";
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [labelling, setLabelling] = useState<FleetRow | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
@@ -370,9 +468,13 @@ export function ServersTab({ search, onSearchChange }: ServersTabProps) {
   });
 
   const rows = useMemo(() => view.data?.items ?? [], [view.data]);
-  const shown = rows.filter((row) => {
+  const listed = updates ? rows.filter(waiting) : rows;
+  const shown = listed.filter((row) => {
     const origin = originOf(row);
-    if (search.state !== undefined && stateOf(view.outcomes.get(origin.node)) !== search.state) return false;
+    if (search.state !== undefined) {
+      const wanted = updates ? UPDATE_STATES.some((what) => what === search.state && needs(row, what)) : stateOf(view.outcomes.get(origin.node)) === search.state;
+      if (!wanted) return false;
+    }
     return matchesQuery([origin.node, formatLabels(labelsOf(row)), noustOf(row).current], search.q);
   });
   const chosen = [...selected].filter((node) => rows.some((row) => originOf(row).node === node));
@@ -417,10 +519,14 @@ export function ServersTab({ search, onSearchChange }: ServersTabProps) {
             onChange={(state) => {
               set({ state });
             }}
-            options={SERVER_STATES.map((state) => ({ value: state, label: t(`fleet.servers.state.${state}`) }))}
+            options={
+              updates
+                ? UPDATE_STATES.map((state) => ({ value: state, label: t(`fleet.updates.state.${state}`) }))
+                : SERVER_STATES.map((state) => ({ value: state, label: t(`fleet.servers.state.${state}`) }))
+            }
           />
         }
-        count={view.data === undefined ? "" : isFiltered(search) ? t("fleet.servers.countFiltered", { shown: shown.length, total: rows.length }) : t("fleet.servers.count", { count: rows.length })}
+        count={view.data === undefined ? "" : isFiltered(search) ? t("fleet.servers.countFiltered", { shown: shown.length, total: listed.length }) : t("fleet.servers.count", { count: listed.length })}
         actions={
           <>
             {chosen.length > 0 ? (
@@ -446,10 +552,14 @@ export function ServersTab({ search, onSearchChange }: ServersTabProps) {
         }
       />
       <DataTable
-        caption={t("fleet.servers.caption")}
+        caption={updates ? t("fleet.updates.caption") : t("fleet.servers.caption")}
         columns={columns(t, view.outcomes, {
           monitoring,
           selected,
+          updates,
+          onUpdate: (node) => {
+            actions.open({ action: "noust_update", nodes: [node] });
+          },
           onSelect: (node, checked) => {
             setSelected((current) => {
               const next = new Set(current);
@@ -488,24 +598,27 @@ export function ServersTab({ search, onSearchChange }: ServersTabProps) {
           />
         )}
         empty={
-          <EmptyState
-            variant="inline"
-            title={t("fleet.filters.noMatch")}
-            action={
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  onSearchChange({});
-                }}
-              >
-                {t("common.words.clearFilters")}
-              </Button>
-            }
-          />
+          updates && !isFiltered(search) ? (
+            <EmptyState variant="inline" title={t("fleet.updates.allCurrent")} />
+          ) : (
+            <EmptyState
+              variant="inline"
+              title={t("fleet.filters.noMatch")}
+              action={
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    onSearchChange({});
+                  }}
+                >
+                  {t("common.words.clearFilters")}
+                </Button>
+              }
+            />
+          )
         }
       />
-      <CommandHint label={t("common.words.fromTerminal")} command="noust node list" />
       {labelling !== null ? (
         <LabelsDialog
           node={originOf(labelling).node}

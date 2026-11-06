@@ -66,6 +66,12 @@ export interface PageHeaderProps {
   mono?: boolean;
   /** Facts about the resource on one line under the title: "Next.js · :3001 · shop.example.com". */
   meta?: ReactNode;
+  /**
+   * The master switch of what the page governs (a `SectionSwitch`, owner item 106), on the title's line, right after
+   * the title and its state: it belongs to the thing it turns on and off, not at the far end of the header, where it
+   * reads as one more action and is a window's width from what it governs.
+   */
+  master?: ReactNode;
   /** Actions other than the primary one, before it. */
   secondaryActions?: ReactNode;
   /** The one primary action of the view (Button variant="primary"), after the others. */
@@ -91,6 +97,7 @@ export function PageHeader({
   mono = false,
   mark,
   meta,
+  master,
   secondaryActions,
   primaryAction,
   overflow,
@@ -141,6 +148,7 @@ export function PageHeader({
             </h1>
             {statusBelow ? null : status}
             {statusBelow ? null : statusExtras}
+            {master}
           </div>
           {statusBelow && (status !== undefined || statusExtras !== undefined) ? (
             <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">

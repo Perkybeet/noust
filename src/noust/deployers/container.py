@@ -60,6 +60,7 @@ from noust.core.exceptions import (
 from noust.core.fs import FileSystem
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.secrets import SecretStore
+from noust.core.server_text import ServerText, say
 from noust.core.store import (
     App,
     AppStatus,
@@ -236,19 +237,24 @@ class ContainerDeployer(DockerComposeDeployer):
         return any((path / marker).is_file() for marker, _ in RAILPACK_STACKS)
 
     @classmethod
-    def inspection_note(cls, path: Path) -> str:
+    def inspection_note(cls, path: Path, others: str = "") -> ServerText:
         """
         Say how a repository would be built, for ``noust inspect``.
 
         Args:
             path: The repository.
+            others: The other types it also looks like, named, when it does.
 
         Returns:
-            A sentence naming the Dockerfile, or Railpack.
+            A sentence naming the Dockerfile, or Railpack, and the other types when there are.
         """
         if cls().detect(path):
-            return "Noust can deploy this as a container, built from its Dockerfile."
-        return "Noust can deploy this as a container, built by Railpack: it has no Dockerfile."
+            if others:
+                return say("inspect.container_dockerfile_also", others=others)
+            return say("inspect.container_dockerfile")
+        if others:
+            return say("inspect.container_railpack_also", others=others)
+        return say("inspect.container_railpack")
 
     @classmethod
     def inspected_port(cls, path: Path) -> int | None:

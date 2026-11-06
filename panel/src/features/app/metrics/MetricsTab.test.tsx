@@ -364,7 +364,7 @@ describe("the metrics tab", () => {
       read: (metrics) => metricsReadFixture(metrics, { now: NOW, cells: 60, recordedFrom: 60 }),
     });
     expect(await screen.findByRole("heading", { name: "Nothing is running to measure" })).toBeInTheDocument();
-    expect(screen.getByText(`noust service start ${TAB_DOMAIN}`)).toBeInTheDocument();
+    expect(screen.getByText(`noust service start ${TAB_DOMAIN}`).closest("[data-reason]")).toHaveAttribute("data-reason", "salida-del-sistema");
     expect(screen.getByText("ActiveState=inactive")).toBeInTheDocument();
     expect(screen.queryByRole("img", { name: /^CPU/ })).not.toBeInTheDocument();
   });

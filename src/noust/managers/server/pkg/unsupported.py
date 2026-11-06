@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 
+from noust.core.runner import CommandResult
 from noust.managers.server.errors import UnsupportedHostError
 from noust.managers.server.host import natural_key, newest_installed_kernel, running_kernel
 from noust.managers.server.pkg.base import (
@@ -66,6 +67,15 @@ class UnsupportedBackend(PackageBackend):
 
     def install_argv(self, packages: Sequence[str]) -> list[str]:
         raise self._refuse()
+
+    def remove_argv(self, packages: Sequence[str]) -> list[str]:
+        raise self._refuse()
+
+    def simulate_remove_argv(self, packages: Sequence[str]) -> list[str]:
+        raise self._refuse()
+
+    def removal_names(self, result: CommandResult) -> list[str]:
+        return []
 
     def repair_commands(self) -> list[list[str]]:
         return []

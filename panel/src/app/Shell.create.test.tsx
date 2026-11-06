@@ -6,7 +6,7 @@
  * also finds that application's pages and the sections of its settings, from the lists that draw them.
  */
 
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { frameRoutes } from "../features/backups/frameRoutes";
@@ -57,9 +57,37 @@ describe("create mode", () => {
     await search(user, "new site");
     await user.click(await screen.findByRole("option", { name: /New site/ }));
 
-    expect(await screen.findByRole("dialog", { name: "Create a site" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Add a name" })).toBeInTheDocument();
     await waitFor(() => expect(router.state.location.search).not.toHaveProperty("new"));
     expect(router.state.location.pathname).toBe("/domains/sites");
+  });
+
+  it("opens the one dialog that adds a name from the palette, and spends the link", async () => {
+    fakeBackend(routes());
+    const { user, router } = renderConsole("/");
+    await screen.findByRole("heading", { level: 1 });
+
+    await search(user, "add a name");
+    await user.click(await screen.findByRole("option", { name: /Add a name/ }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Add a name" });
+    // Not the site's dialog: what the name is for is asked, and an application is the first answer.
+    expect(within(dialog).getByRole("radio", { name: /For an application/ })).toBeChecked();
+    await waitFor(() => expect(router.state.location.search).not.toHaveProperty("new"));
+    expect(router.state.location.pathname).toBe("/domains");
+  });
+
+  it("opens the one dialog that opens a port from the palette, and spends the link", async () => {
+    fakeBackend(routes({ "GET /api/streams": () => json(200, { exposures: [], support: { available: true } }), "GET /api/server/security/changes": () => json(200, []) }));
+    const { user, router } = renderConsole("/");
+    await screen.findByRole("heading", { level: 1 });
+
+    await search(user, "open a port");
+    await user.click(await screen.findByRole("option", { name: /Open a port/ }));
+
+    expect(await screen.findByRole("alertdialog", { name: "Open a port" })).toBeInTheDocument();
+    await waitFor(() => expect(router.state.location.search).not.toHaveProperty("new"));
+    expect(router.state.location.pathname).toBe("/network");
   });
 
   it("opens the certificate dialog from the palette", async () => {
@@ -79,7 +107,7 @@ describe("create mode", () => {
     fakeBackend(routes());
     const { router } = renderConsole("/domains/sites?new=true");
 
-    expect(await screen.findByRole("dialog", { name: "Create a site" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Add a name" })).toBeInTheDocument();
     await waitFor(() => expect(router.state.location.search).not.toHaveProperty("new"));
   });
 
@@ -99,14 +127,14 @@ describe("create mode", () => {
 });
 
 describe("inside an application", () => {
-  it("finds its pages and the sections of its settings, named with the application", async () => {
+  it("finds its pages, and the old name of what was a settings section, named with the application", async () => {
     fakeBackend(routes());
     const { user } = renderConsole("/apps/shop.example.com");
     await screen.findByRole("heading", { level: 1 });
 
     await search(user, "build");
 
-    expect(await screen.findByRole("option", { name: /Settings, Build: shop.example.com/ })).toBeInTheDocument();
+    expect(await screen.findByRole("option", { name: /Code and build: shop.example.com/ })).toBeInTheDocument();
   });
 
   it("opens the section it finds", async () => {
@@ -115,9 +143,9 @@ describe("inside an application", () => {
     await screen.findByRole("heading", { level: 1 });
 
     await search(user, "resources");
-    await user.click(await screen.findByRole("option", { name: /Settings, Resources: shop.example.com/ }));
+    await user.click(await screen.findByRole("option", { name: /Resources and running: shop.example.com/ }));
 
-    await waitFor(() => expect(router.state.location.pathname).toBe("/apps/shop.example.com/settings/resources"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/apps/shop.example.com/resources"));
   });
 
   it("finds the application's own tabs by their words", async () => {

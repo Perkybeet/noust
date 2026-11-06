@@ -304,6 +304,8 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/deploy", INSTANCE, methods=("POST",)),
     _rule("/api/jobs", SCOPED),
     _rule("/api/jobs/active", SCOPED),
+    # What runs on a request and is not a job: the handler lists the ones on the caller's applications.
+    _rule("/api/operations/active", SCOPED),
     _rule("/api/jobs/queue", SCOPED),
     _rule("/api/jobs/cleanup", INSTANCE),
     _rule("/api/jobs/update", RESOURCE, _BODY_DOMAIN),
@@ -351,6 +353,8 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/auth/scim/**", INSTANCE),
     _rule("/api/auth/ldap/**", INSTANCE),
     _rule("/api/auth/saml/**", INSTANCE),
+    # What the sign-in screen shows before anyone signs in is this server's, whatever team a person is in.
+    _rule("/api/auth/sign-in/**", INSTANCE),
     _rule("/api/auth/**", OPEN),
     _rule("/api/scim/**", OPEN),
     _rule("/api/approvals/**", OPEN),

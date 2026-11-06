@@ -33,11 +33,11 @@ test("an alias is added after DNS says it points here, and the certificate is ex
   await expectNoA11yViolations(page, "an application's Domains tab");
 
   await page.getByRole("button", { name: "Add domain" }).click();
-  const dialog = page.getByRole("dialog", { name: `Add a domain to ${app}` });
+  const dialog = page.getByRole("dialog", { name: `Add a name to ${app}` });
   // DNS is asked when the operator leaves the field; nothing is added yet.
   const lookup = page.waitForResponse((response) => response.url().endsWith(`/api/apps/${app}/domains/${alias}/dns`));
-  await dialog.getByLabel("Domain").fill(alias);
-  await dialog.getByLabel("Domain").blur();
+  await dialog.getByRole("textbox", { name: "Name", exact: true }).fill(alias);
+  await dialog.getByRole("textbox", { name: "Name", exact: true }).blur();
   expect((await lookup).status()).toBe(200);
   await expect(dialog.getByText(`${alias} points here`)).toBeVisible();
   // A name that points here needs no table of addresses to say so: the records are only offered when it does not.
@@ -46,7 +46,7 @@ test("an alias is added after DNS says it points here, and the certificate is ex
   await expectNoA11yViolations(page, "the DNS verdict");
 
   const added = page.waitForRequest((request) => request.url().endsWith(`/api/apps/${app}/domains`) && request.method() === "POST");
-  await dialog.getByRole("button", { name: "Add domain" }).click();
+  await dialog.getByRole("button", { name: "Add the name" }).click();
   expect((await added).postDataJSON()).toEqual({ domain: alias, kind: "alias", force: false, dns: true });
   await expect(dialog).toBeHidden();
 
@@ -68,8 +68,8 @@ test("a name that does not point here is added, and the failed order is shown in
   problems.expect(/status of 403 .* \/api\/apps\/example\.org\/domains\/new\.example\.org$/);
   await signIn(page, consoleServer, `/apps/${app}/domains`);
   await page.getByRole("button", { name: "Add domain" }).click();
-  const dialog = page.getByRole("dialog", { name: `Add a domain to ${app}` });
-  await dialog.getByLabel("Domain").fill(name);
+  const dialog = page.getByRole("dialog", { name: `Add a name to ${app}` });
+  await dialog.getByRole("textbox", { name: "Name", exact: true }).fill(name);
   // Choosing the kind leaves the field, which is what asks DNS.
   await dialog.getByRole("button", { name: "More options" }).click();
   await dialog.getByRole("radio", { name: /Redirect/ }).check();
@@ -207,14 +207,13 @@ test("the certificates and sites tabs: the most urgent certificate first, renewi
 
   // SiteInfo.server_names: example.net's site was seeded to answer on more than its own name.
   // Another test may since have added an alias to it too, so the expectation comes from the
-  // API rather than a fixed list.
+  // API rather than a fixed list. The other names follow the site's own on its line, and the rest wait behind "+N".
   const exampleNet = (await (await page.request.get("/api/sites/example.net")).json()) as { server_names: string[] };
   expect(exampleNet.server_names.length).toBeGreaterThan(1);
   const exampleNetRow = row(page, "Web server sites", "example.net");
-  const shownNames = exampleNet.server_names.slice(0, 3).join(", ");
-  await expect(exampleNetRow).toContainText(shownNames);
-  const hiddenCount = exampleNet.server_names.length - 3;
-  if (hiddenCount > 0) await expect(exampleNetRow).toContainText(`+${String(hiddenCount)} more`);
+  const others = exampleNet.server_names.filter((name) => name !== "example.net");
+  await expect(exampleNetRow).toContainText(others[0] ?? "");
+  if (others.length > 1) await expect(exampleNetRow.getByRole("button", { name: new RegExp(`^\\+${String(others.length - 1)}|more`, "i") })).toBeVisible();
   await dismissToasts(page);
   await settle(page);
   await expectNoA11yViolations(page, "the sites tab");
@@ -228,10 +227,10 @@ test("a site's own page lists every name it serves, and a template is offered fr
   await expect(sites).toBeVisible();
 
   // GET /api/sites/templates, not a list the dialog invents: every template it names is one
-  // this call actually returned. The button is the header's primary action.
+  // this call actually returned. The button is the header's primary action, and it opens the one dialog that adds a name.
   const templatesResponse = page.waitForResponse((response) => response.url().endsWith("/api/sites/templates"));
-  await page.getByRole("button", { name: "Create site" }).click();
-  const createDialog = page.getByRole("dialog", { name: "Create a site" });
+  await page.getByRole("button", { name: "Create a site" }).click();
+  const createDialog = page.getByRole("dialog", { name: "Add a name" });
   await expect(createDialog).toBeVisible();
   const { templates: offeredTemplates } = (await (await templatesResponse).json()) as { templates: string[] };
   expect(offeredTemplates.length).toBeGreaterThan(0);
@@ -241,7 +240,7 @@ test("a site's own page lists every name it serves, and a template is offered fr
     await expect(createDialog.locator(`input[type="radio"][value="${name}"]`)).toBeAttached();
   }
   await stillness(page);
-  await expectNoA11yViolations(page, "the create site dialog");
+  await expectNoA11yViolations(page, "the dialog that adds a name for a site");
   await page.keyboard.press("Escape");
   await expect(createDialog).toBeHidden();
 

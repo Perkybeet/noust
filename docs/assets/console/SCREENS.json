@@ -1,18 +1,18 @@
 {
   "about": "Written by scripts/docs_screens.py. The release is the one the pictures show.",
-  "release": "4.1",
+  "release": "4.2",
   "images": {
-    "app-deployment.png": "51301c4a2919b967c00857735c6e6f08297207f8feb404557db2aa86908e9047",
-    "app-deployments.png": "d767d9602dc357c7a61aedc7d38e5398649b25817beebe3c88c1e995150d8b9a",
-    "app-diagnose.png": "3f1ab96ce4dc9c4e44acbc68f5ae7e50b1e35d1e3d61455810e25657cc1fbba1",
-    "app-overview.png": "c5e29f1c99276420c537e909afba9c4e22622c6cc65af8dc2becada92d06cb9f",
-    "apps-new.png": "d823040ece671fea24683435e00ad05b8bffdd76f61d1dba819d3618fc34db3d",
-    "apps.png": "972b683735735a33a984ba40c7de382792480c08f33bf28d741f11a132a084d3",
-    "domains.png": "9f80e95d45370d8e3bc9d00479c7a998c85a9f4be3c77d15341f4591560aee05",
-    "fleet-servers.png": "10a87a3a567d74f29d691e5f3873aee86ec62ea88afd893e3c4e413f0be6aa04",
-    "fleet.png": "e9c12db76784d7632aac285994b04eeb4e00fc49e6fce59d4fb42d3248003ea0",
-    "login.png": "6a5fbd4ec050cea728a771b8449df0507d9b7fd91e2740a264a056e358ccc03d",
-    "node-apps.png": "829c7a30808f8ca65b9c22e748266e6ee3ec027db209fffc0a23d945f451eb63",
-    "overview.png": "785b2ebf2b1f5cca2ef9d03551232c5137323475fbf40d657f4e42e013af1f84"
+    "app-deployment.png": "2809a10674e2d5d8dda1369dfdb63c0c16e593db61b6a7352f3a472df9f2a6f7",
+    "app-deployments.png": "b6953b07f5c89eda838633e09022cb7b175e0a90fa5d7093f9fbf49c6698ed1f",
+    "app-diagnose.png": "6afa757ff35e14f93e8e50ff6d93f16e0454c91a20b82cafe04b2173e2273a3e",
+    "app-overview.png": "c4ec390508920c32b471684ac05c3fbb269ee73d0e93730c0fcc85ef6f4e0a89",
+    "apps-new.png": "ae1e83f251b6c066d41c3036674ea048a6b41ca41bcbe3ca64555cd3eba7a905",
+    "apps.png": "aaa04ad9c60999aac4e0b98aca782178fcde9977e5807454068b5211cb00cb96",
+    "domains.png": "3fd2c212a769ee67f732cd56411c5ba50d32fc1bae6b225b96bbf7ad0c110f16",
+    "fleet-servers.png": "9f8e5318c2f8a5da66b61c923ec44cbdad4582c738348ddfacc3976595e302ed",
+    "fleet.png": "46dd4c5b3b2ca6397be2499884d389fe6f27361ab8635b2c34532d52b022e8af",
+    "login.png": "c9f67c68920d55c11dcb04c7e64537388f382a2708f15897d8ffc08638a87877",
+    "node-apps.png": "5e8a654dc288de3de5c5414158b9a5e574ad733f3a0d40e3560150d5733600a2",
+    "overview.png": "45ed316a15b6d0f159d257fff1809fe760d9f90756208a05c9b2b3cfa902ef9e"
   }
 }

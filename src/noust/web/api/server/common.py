@@ -38,9 +38,16 @@ from noust.managers.server.errors import (
     ConfirmationRequiredError,
     HostBusyError,
     PreflightError,
+    SoftwareRefusedError,
     UnsupportedHostError,
 )
-from noust.web.api.deps import ErrorResponse, JobAcceptedResponse, NoustErrorRoute, error_response
+from noust.web.api.deps import (
+    CodedText,
+    ErrorResponse,
+    JobAcceptedResponse,
+    NoustErrorRoute,
+    error_response,
+)
 from noust.web.jobs import Job, JobContext, JobStatus, JobType, get_job_manager
 from noust.web.pydantic_compat import dump_model
 
@@ -66,6 +73,7 @@ _REFUSALS: tuple[tuple[type[NoustError], int, str], ...] = (
     (ConfirmationRequiredError, 409, "confirmation_required"),
     (HostBusyError, 409, "host_busy"),
     (PreflightError, 409, "preflight_failed"),
+    (SoftwareRefusedError, 409, "software_refused"),
     (UnsupportedHostError, 501, "unsupported_platform"),
 )
 
@@ -124,9 +132,12 @@ def refusal_response(exc: NoustError, status: int, code: str) -> Response:
             hint=exc.details or None,
             error=code,
             output=exc.output,
+            coded=CodedText(code=exc.coded.code, params=dict(exc.coded.params))
+            if exc.coded
+            else None,
         )
     )
-    for attribute in ("required", "blockers", "holders"):
+    for attribute in ("required", "blockers", "holders", "reason", "dependents"):
         value = getattr(exc, attribute, None)
         if value:
             body[attribute] = value

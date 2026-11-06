@@ -1,46 +1,44 @@
 /**
- * The Server area (T2): the machine's header, what is pending on it, the job in hand, and the
- * seven tabs, each a URL. The header and the tabs belong to this layout, so they keep their
- * place and height whichever tab is open.
+ * The Server area: the header of the section on screen, what is pending on the machine and the job in hand, over the
+ * section the second column has open. Status is titled with the machine's own name, its state and the facts that
+ * answer "how is it"; every other section is titled with its own name and says which machine it is about on the
+ * line under it, so the title is what the page is for and the column is how a person got there.
  *
- * On a central with a node selected every read and action goes to that node through the
- * proxy, and the node is named above the title. A node whose Noust predates this area answers
- * none of it: its tabs say so, except Services, which every version has.
+ * On a central with a node selected every read and action goes to that node through the proxy, and the node is
+ * named in the column and in the selector. A node whose Noust predates this area answers none of it: its sections
+ * say so, except Services, which every version has.
  */
 
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { Outlet, useNavigate } from "@tanstack/react-router";
-import { ListChecks, Power, RotateCw } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Link, Outlet } from "@tanstack/react-router";
+import { RotateCw } from "lucide-react";
+import { useState } from "react";
+import type { ReactNode } from "react";
 
-import { request } from "../../api/client";
 import { sessionQuery } from "../../api/queries/auth";
-import { LinkTabs } from "../../app/LinkTabs";
-import type { LinkTab } from "../../app/LinkTabs";
-import { useColumnCarries } from "../../app/frame/columnContext";
-import { tabsOf, withCounts } from "../../app/navCore";
+import { versionQuery } from "../../api/queries/system";
+import { useRenderedPathname } from "../../app/renderedPath";
 import { DetailPage } from "../../components/page/DetailPage";
+import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
-import { MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusPill } from "../../components/ui/StatusPill";
+import { textLinkClassName } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
-import { formatDuration } from "../../lib/format";
 import { useNodeCapability } from "../../nodes/capability";
+import { useHasFleet } from "../../nodes/servers";
 import { useNode } from "../../nodes/useNode";
-import { reportActionError } from "../apps/useAppActions";
-import { SERVER_SCREENS } from "../nav/server";
-import { useHasPermission } from "../terminal/queries";
 import { attentionItems, verdictOf } from "./attention";
 import type { Verdict } from "./attention";
-import { explainServerError } from "./errors";
+import { HeaderSlot } from "./headerSlot";
 import { PendingChanges } from "./PendingChanges";
 import { PowerProvider, ScheduledPowerBanner, usePowerDialog } from "./PowerDialog";
-import { SERVER_CAPABILITY, changesQuery, securityOverviewQuery, summaryQuery } from "./queries";
+import { SERVER_CAPABILITY, changesQuery, firewallQuery, securityOverviewQuery, summaryQuery } from "./queries";
 import type { ServerSummary } from "./queries";
-import { ServerJobProvider, ServerJobSlot, useHasServerJob, useServerJob } from "./serverJob";
-import { OBJECT_ICONS } from "../../components/ui/objectIcons";
+import { serverSection } from "./sections";
+import { ServerJobProvider, ServerJobSlot, useHasServerJob } from "./serverJob";
 
 function verdictLabel(t: T, verdict: Verdict): string {
   switch (verdict.label) {
@@ -53,13 +51,44 @@ function verdictLabel(t: T, verdict: Verdict): string {
   }
 }
 
-/** One line of facts: the system, the kernel, how long it has been up. The name is the page's title. */
-function Facts({ summary, t }: { summary: ServerSummary; t: T }) {
+/** The system as its own name and version say it ("Debian 12"): the version is left out where the name already holds it. */
+function systemName(summary: ServerSummary): string {
+  const { name, version } = summary.os;
+  return `${name}${version !== "" && !name.includes(version) ? ` ${version}` : ""}`;
+}
+
+/** The Noust this server runs, or a placeholder of its width while the version is not known. */
+function NoustVersion() {
+  const t = useT();
+  const version = useQuery(versionQuery());
+  return version.data === undefined ? null : <span>{t.rich("server.header.noust", { version: <Mono key="version">{version.data.current_version}</Mono> })}</span>;
+}
+
+/**
+ * How many ports answer from outside, and where to look at them: Network is where ports are opened and closed, and a
+ * person who comes to the machine to see "what is open" would otherwise look for it here (the walk of the
+ * recorded tasks needed a detour through Security before this line).
+ */
+function OpenPorts() {
+  const t = useT();
+  const firewall = useQuery(firewallQuery());
+  if (firewall.data === undefined || firewall.data.ports_error) return null;
+  const open = new Set(firewall.data.ports.filter((port) => port.reachable).map((port) => `${port.proto}:${String(port.port)}`)).size;
+  return (
+    <Link to="/network/listening" className={textLinkClassName("inline")}>
+      {t("server.header.openPorts", { count: open })}
+    </Link>
+  );
+}
+
+/** One line of facts under a section's title: the machine it is about, its system and its Noust. */
+function Facts({ summary, name, overview }: { summary: ServerSummary; name: string; overview: boolean }) {
   return (
     <>
-      <span>{`${summary.os.name}${summary.os.version !== "" && !summary.os.name.includes(summary.os.version) ? ` ${summary.os.version}` : ""}`}</span>
-      <span>{t.rich("server.header.kernel", { kernel: <Mono>{summary.kernel}</Mono> })}</span>
-      {summary.uptime_seconds != null ? <span>{t("server.header.uptime", { duration: formatDuration(summary.uptime_seconds, t.locale) })}</span> : null}
+      {overview ? null : <Mono>{name}</Mono>}
+      <span>{systemName(summary)}</span>
+      <NoustVersion />
+      {overview ? <OpenPorts /> : null}
     </>
   );
 }
@@ -67,41 +96,31 @@ function Facts({ summary, t }: { summary: ServerSummary; t: T }) {
 function Layout() {
   const t = useT();
   const { node } = useNode();
+  const pathname = useRenderedPathname();
+  const section = serverSection(pathname);
+  const overview = section.title === null && (pathname === "/server" || pathname === "/server/");
   const { data: sessionHostname } = useQuery({ ...sessionQuery(), select: (session) => session.hostname });
   const power = usePowerDialog();
-  // The double bar's second column holds the sections: the strip under the header is for one bar.
-  const columnHasTabs = useColumnCarries("server");
-  const jobs = useServerJob();
   const hasJob = useHasServerJob();
-  const navigate = useNavigate();
-  // A root shell is offered to whoever holds its permission; whether it is on is the page's to say.
-  const canOpenTerminal = useHasPermission("server.terminal") === true;
+  const hasFleet = useHasFleet();
   const capability = useNodeCapability(SERVER_CAPABILITY);
   const available = capability.status === "available" || capability.status === "unknown";
   const summary = useQuery({ ...summaryQuery(), enabled: available });
-  const security = useQuery({ ...securityOverviewQuery(), enabled: available });
+  const security = useQuery({ ...securityOverviewQuery(), enabled: available && overview });
   const changes = useQuery({ ...changesQuery(), enabled: available });
+  // Where the section's own actions are drawn: the page puts them here (`HeaderActions`), and the slot is a box with no
+  // size of its own, so the header is the same height before they arrive.
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
 
-  const refresh = useMutation({
-    mutationFn: () => request("post", "/api/server/updates/refresh"),
-    onSuccess: (accepted) => jobs.track(accepted.job_id, "refresh"),
-    onError: (error) => reportActionError(t("server.job.refresh.failed"), explainServerError(t, error, node)),
-  });
-  const runChecks = useMutation({
-    mutationFn: () => request("post", "/api/server/security/checks/refresh"),
-    onSuccess: (accepted) => jobs.track(accepted.job_id, "checks"),
-    onError: (error) => reportActionError(t("server.job.checks.failed"), explainServerError(t, error, node)),
-  });
-
-  const loaded = summary.data !== undefined;
-  const verdict = loaded ? verdictOf(attentionItems(summary.data, security.data)) : null;
+  const name = node ?? sessionHostname ?? t("server.title");
+  const verdict = available && summary.data !== undefined ? verdictOf(attentionItems(summary.data, security.data)) : null;
   const pending = (changes.data ?? []).filter((change) => change.status === "pending");
   const scheduled = summary.data?.power.scheduled ?? null;
-  const counts = security.data?.counts;
-  const openFindings = counts ? counts.critical + counts.warning : null;
-
-  // The central's permissions exist for a server a central manages: on a fleet, any server but the central itself.
-  const tabs: readonly LinkTab[] = withCounts(tabsOf(SERVER_SCREENS, { when: { fleet: node !== null } }), available ? { "/server/system": summary.data?.updates.pending ?? null, "/server/security": openFindings } : {});
+  // The reboot is asked for where the machine is looked at as a whole: Status and This machine. Everywhere else it is a
+  // distraction from the section's own work.
+  const rebootHere = overview || pathname === "/server/machine";
+  // Only the central itself is marked: any other server is named by the column and the selector.
+  const isCentral = hasFleet && node === null;
 
   const banner =
     pending.length > 0 || scheduled !== null ? (
@@ -111,53 +130,47 @@ function Layout() {
       </div>
     ) : undefined;
 
+  const meta: ReactNode = !available ? undefined : summary.data !== undefined ? (
+    <Facts summary={summary.data} name={name} overview={overview} />
+  ) : (
+    <span className="flex h-5 w-80 max-w-full items-center">
+      <Skeleton className="h-3.5 w-full" />
+    </span>
+  );
+
   return (
-    <DetailPage
-      header={{
-        // The server's own name: this page is the one place a header names the machine (item 92).
-        title: node ?? sessionHostname ?? t("server.title"),
-        mono: true,
-        status: !available ? undefined : verdict !== null ? <StatusPill state={verdict.state} label={verdictLabel(t, verdict)} /> : <Skeleton className="h-6 w-28 rounded-pill" />,
-        meta: !available ? undefined : summary.data !== undefined ? <Facts summary={summary.data} t={t} /> : (
-          <span className="flex h-5 w-80 max-w-full items-center">
-            <Skeleton className="h-3.5 w-full" />
-          </span>
-        ),
-        ...(available
-          ? {
-              secondaryActions: (
+    <HeaderSlot value={slot}>
+      <DetailPage
+        header={{
+          // Status is named after the machine; any other section after itself, so a heading says what the page is for.
+          title: section.title === null ? name : t(section.title),
+          mono: section.title === null,
+          ...(overview && available
+            ? {
+                status: verdict !== null ? <StatusPill state={verdict.state} label={verdictLabel(t, verdict)} /> : <Skeleton className="h-6 w-28 rounded-pill" />,
+                ...(isCentral ? { statusExtras: <Badge>{t("server.header.central")}</Badge> } : {}),
+              }
+            : {}),
+          ...(section.facts || overview ? (meta !== undefined ? { meta } : {}) : {}),
+          ...(section.description !== undefined ? { description: t(section.description) } : {}),
+          // A box that holds what the section puts here, and no size when it holds nothing.
+          actions: (
+            <>
+              <span ref={setSlot} className="contents" />
+              {available && rebootHere ? (
                 <Button icon={<RotateCw aria-hidden="true" />} onClick={() => power.open("reboot")}>
                   {t("server.header.reboot")}
                 </Button>
-              ),
-              overflow: (
-                <>
-                  <MenuItem icon={<OBJECT_ICONS.update />} disabled={jobs.busy || refresh.isPending} onClick={() => refresh.mutate()}>
-                    {t("server.header.checkUpdates")}
-                  </MenuItem>
-                  <MenuItem icon={<ListChecks />} disabled={runChecks.isPending} onClick={() => runChecks.mutate()}>
-                    {t("server.header.runChecks")}
-                  </MenuItem>
-                  {canOpenTerminal ? (
-                    <MenuItem icon={<OBJECT_ICONS.terminal />} onClick={() => void navigate({ to: "/server/terminal" })}>
-                      {t("server.header.terminal")}
-                    </MenuItem>
-                  ) : null}
-                  <MenuSeparator />
-                  <MenuItem icon={<Power />} destructive onClick={() => power.open("shutdown")}>
-                    {t("server.header.shutdown")}
-                  </MenuItem>
-                </>
-              ),
-            }
-          : {}),
-      }}
-      banner={banner}
-      job={hasJob ? <ServerJobSlot /> : undefined}
-      {...(columnHasTabs ? {} : { tabs: <LinkTabs label={t("server.tabs.label")} tabs={tabs} /> })}
-    >
-      <Outlet />
-    </DetailPage>
+              ) : null}
+            </>
+          ),
+        }}
+        banner={banner}
+        job={hasJob ? <ServerJobSlot /> : undefined}
+      >
+        <Outlet />
+      </DetailPage>
+    </HeaderSlot>
   );
 }
 

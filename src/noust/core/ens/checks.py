@@ -7,9 +7,12 @@
 Every check has a stable id (``ENS-ACC-02``), the RD 311/2022 measures it
 answers (``op.acc.6.r2``), a status (``ok``, ``warning``, ``fail``, ``n/a``),
 the evidence verbatim (values and paths, never a secret) and what to do. The
-checks judge against the profile's values whatever profile is on: a server on
-the standard profile is told how far it is from ``ens-medium``, not told it
-passes.
+checks judge against the profile's values, and they judge only a server where a
+framework of the ENS family is on: one that never asked for the ENS is not told it
+fails a standard it did not choose (:func:`run_check` answers ``enabled: false``
+and judges nothing). How far a server is from the ENS before it turns it on is the
+generic check's to say (``noust compliance check --framework ens-media``), and the
+evidence report asks to be judged anyway (``even_if_off``).
 
 The work is split in two so each half can be tested on its own:
 
@@ -38,7 +41,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from noust.core.ens.profile import ENS_MEDIUM, ProfileDefaults, current_profile
+from noust.core.ens.profile import ENS_MEDIUM, ProfileDefaults, current_profile, is_ens
 from noust.core.exceptions import NoustError
 
 #: Statuses, most serious first.
@@ -236,9 +239,12 @@ class ComplianceCheck:
         checked_at: When, ISO 8601 UTC.
         host: This server's name.
         version: The Noust it runs.
-        findings: One per check, in catalog order.
+        findings: One per check, in catalog order; none when the server has no ENS
+            framework on and was not asked to be judged anyway.
         indicators: The figures of op.mon.2 (MFA, reviews, patches...).
         errors: Areas that could not be read, verbatim.
+        enabled: Whether a framework of the ENS family is on. False means the checks
+            are not a verdict on this server: nothing asked for the ENS.
     """
 
     profile: str
@@ -248,6 +254,7 @@ class ComplianceCheck:
     findings: list[Finding]
     indicators: dict[str, Any] = field(default_factory=dict)
     errors: dict[str, str] = field(default_factory=dict)
+    enabled: bool = True
 
     def counts(self) -> dict[str, int]:
         """
@@ -284,6 +291,7 @@ class ComplianceCheck:
             "findings": [finding.to_dict() for finding in self.findings],
             "indicators": self.indicators,
             "errors": self.errors,
+            "enabled": self.enabled,
         }
 
 
@@ -2034,27 +2042,48 @@ def indicators(facts: Facts) -> dict[str, Any]:
     }
 
 
-def run_check(sources: Sources | None = None) -> tuple[ComplianceCheck, Facts]:
+def run_check(
+    sources: Sources | None = None, *, even_if_off: bool = False
+) -> tuple[ComplianceCheck, Facts]:
     """
     Gather and judge: ``noust ens check`` and ``GET /api/ens/check``.
 
+    A server where no framework of the ENS family is on is not judged: nothing is read
+    from it and the result says ``enabled: false`` with no findings, so a fresh
+    install does not open on a red report against a standard it never chose.
+
     Args:
         sources: Where to read each area; the running system by default.
+        even_if_off: Judge against ``ens-medium`` although no ENS framework is on. For
+            what is explicitly the ENS's evidence (``noust ens report``), which is
+            asked for by a person who wants it.
 
     Returns:
-        The result, and the facts it judged (the report includes them).
+        The result, and the facts it judged (the report includes them; empty
+        when nothing was judged).
     """
     from noust import __version__
+    from noust.core.config import Config
 
-    facts = gather(sources)
+    sources = sources or Sources()
+    config = sources.config if sources.config is not None else Config()
+    enabled = is_ens(config)
+    if enabled or even_if_off:
+        facts = gather(sources)
+        findings = evaluate(facts)
+        figures = indicators(facts)
+    else:
+        facts = Facts(profile=current_profile(config), now=sources.clock())
+        findings, figures = [], {}
     result = ComplianceCheck(
         profile=facts.profile,
         checked_at=facts.now.isoformat(timespec="seconds"),
         host=socket.gethostname(),
         version=__version__,
-        findings=evaluate(facts),
-        indicators=indicators(facts),
+        findings=findings,
+        indicators=figures,
         errors=dict(facts.errors),
+        enabled=enabled,
     )
     return result, facts
 

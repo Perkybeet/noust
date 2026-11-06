@@ -156,13 +156,16 @@ export function AppBanner({ domain, condition, onDiagnose = false }: { domain: s
           tone="warning"
           title={t.rich("appPages.banner.deployFailedTitle", { time: <RelativeTime value={deployMoment(condition.deploy)} /> })}
           action={
-            <Link
-              to="/apps/$domain/deployments/$id"
-              params={{ domain, id: String(condition.deploy.id) }}
-              className={buttonClassName("secondary", "sm")}
-            >
-              {t("appPages.common.viewLog")}
-            </Link>
+            <span className="flex flex-wrap items-center gap-2">
+              {diagnose}
+              <Link
+                to="/apps/$domain/deployments/$id"
+                params={{ domain, id: String(condition.deploy.id) }}
+                className={buttonClassName("ghost", "sm")}
+              >
+                {t("appPages.common.viewLog")}
+              </Link>
+            </span>
           }
         >
           {t("appPages.banner.deployFailedBody")}

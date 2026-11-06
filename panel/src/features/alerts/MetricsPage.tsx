@@ -1,5 +1,4 @@
 import { useDocumentTitle } from "../../app/documentTitle";
-import { CommandHint } from "../../components/page/CommandHint";
 import { Sections } from "../../components/page/Section";
 import { useT } from "../../i18n";
 import { useHasFleet } from "../../nodes/servers";
@@ -37,7 +36,6 @@ export function MetricsPage({ search, onSearchChange }: MetricsPageProps) {
     <Sections>
       <MachineCharts range={range} onRangeChange={change} only={FOUR} />
       {hasFleet && node === null ? <FleetMetricsCard /> : null}
-      <CommandHint command="noust health" label={t("common.words.fromTerminal")} />
     </Sections>
   );
 }

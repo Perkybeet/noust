@@ -38,9 +38,14 @@ describe("the central's permissions", () => {
   it("is in the server's column on a fleet, and says what this server lets the central do", async () => {
     onWeb2("/n/web-2/server/central", ["/api/auth/fleet/self"], { [`GET ${SELF_PATH}`]: () => json(200, SELF) });
 
-    expect(await screen.findByText("web-2 lets the central: Operate and update.")).toBeInTheDocument();
-    const column = screen.getByRole("navigation", { name: "Server sections" });
-    expect(within(column).getByRole("link", { name: "Central's permissions" })).toHaveAttribute("aria-current", "page");
+    // The page says whose central it is, then the two facts it is made of: the level, and whether it may touch how the server is reached.
+    expect(await screen.findByText("What fra-1 can do here")).toBeInTheDocument();
+    expect(await screen.findByText(/^Operate and update: /)).toBeInTheDocument();
+    expect(screen.getByText("No: it cannot touch SSH, the firewall or install software")).toBeInTheDocument();
+    const column = await screen.findByRole("navigation", { name: "Server sections" });
+    await waitFor(() => {
+      expect(within(column).getByRole("link", { name: "Central's permissions" })).toHaveAttribute("aria-current", "page");
+    });
     // The level it has now is marked, in the fleet's own words.
     const now = screen.getByRole("radio", { name: /Operate and update/ });
     expect(now).toBeChecked();
@@ -49,7 +54,7 @@ describe("the central's permissions", () => {
 
   it("shows the command that sets another level, as it is chosen, and says only the server can run it", async () => {
     const { user } = onWeb2("/n/web-2/server/central", ["/api/auth/fleet/self"], { [`GET ${SELF_PATH}`]: () => json(200, SELF) });
-    await screen.findByText("web-2 lets the central: Operate and update.");
+    await screen.findByText(/^Operate and update: /);
     expect(screen.getByText("This is what web-2 lets the central do now.")).toBeInTheDocument();
 
     await user.click(screen.getByRole("radio", { name: /Read only/ }));
@@ -64,7 +69,7 @@ describe("the central's permissions", () => {
 
   it("does not offer host access below the level that allows everything, and says why", async () => {
     const { user } = onWeb2("/n/web-2/server/central", ["/api/auth/fleet/self"], { [`GET ${SELF_PATH}`]: () => json(200, SELF) });
-    await screen.findByText("web-2 lets the central: Operate and update.");
+    await screen.findByText(/^Operate and update: /);
     await user.click(screen.getByRole("radio", { name: /Read only/ }));
 
     expect(screen.getByRole("checkbox", { name: /Also change how the server is reached/ })).toHaveAttribute("aria-disabled", "true");
@@ -74,12 +79,12 @@ describe("the central's permissions", () => {
   it("reads the server again on request, to learn the command was run", async () => {
     let level = "read";
     const { user, backend } = onWeb2("/n/web-2/server/central", ["/api/auth/fleet/self"], { [`GET ${SELF_PATH}`]: () => json(200, { ...SELF, level }) });
-    await screen.findByText("web-2 lets the central: Read only.");
+    await screen.findByText(/^Read only: /);
 
     level = "admin";
     await user.click(screen.getByRole("button", { name: "Check again" }));
 
-    expect(await screen.findByText("web-2 lets the central: Everything.")).toBeInTheDocument();
+    expect(await screen.findByText(/^Everything: /)).toBeInTheDocument();
     expect(backend.callsTo(`GET ${SELF_PATH}`).length).toBeGreaterThanOrEqual(2);
   });
 
@@ -108,7 +113,7 @@ describe("the central's permissions", () => {
 
   it("has no accessibility violations", async () => {
     onWeb2("/n/web-2/server/central", ["/api/auth/fleet/self"], { [`GET ${SELF_PATH}`]: () => json(200, SELF) });
-    await screen.findByText("web-2 lets the central: Operate and update.");
+    await screen.findByText(/^Operate and update: /);
 
     await expectNoAxeViolations(screen.getByRole("main"));
   });
@@ -265,9 +270,12 @@ describe("Noust's own update, beside the system's", () => {
   it("keeps the system's updates the view's primary action, and Noust's a secondary one", async () => {
     system({ "GET /api/system/version": () => json(200, VERSION), "GET /api/system/update": () => json(200, METHOD) });
     const noust = await screen.findByRole("button", { name: "Update Noust" });
+    // The page's one primary action installs what is waiting; the security ones beside it and Noust's own are secondary.
+    const everything = await screen.findByRole("button", { name: /^Install all/ });
     const security = await screen.findByRole("button", { name: /Install security updates/ });
 
-    expect(noust.className).not.toEqual(security.className);
+    expect(noust.className).not.toEqual(everything.className);
+    expect(noust.className).toEqual(security.className);
   });
 
   it("says Noust is up to date, with no button", async () => {
@@ -289,17 +297,26 @@ describe("Noust's own update, beside the system's", () => {
     expect(screen.queryByRole("button", { name: "Update Noust" })).toBeNull();
   });
 
-  it("opens on the updates, and the machine, the processes and the resources are views beside them", async () => {
+  it("opens on the updates, and the machine, the processes and the resources are sections beside them", async () => {
     const { user } = system({ "GET /api/system/version": () => json(200, VERSION), "GET /api/system/update": () => json(200, METHOD) });
-    expect(await screen.findByRole("radio", { name: "Updates", checked: true })).toBeInTheDocument();
+    const sections = await screen.findByRole("navigation", { name: "Server sections" });
+    await waitFor(() => {
+      expect(within(sections).getByRole("link", { name: /^Updates/ })).toHaveAttribute("aria-current", "page");
+    });
+    // The views are the column's sections now, and the page draws no switch of them.
+    expect(screen.queryByRole("radio", { name: "Updates" })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("radio", { name: "This server" }));
-    expect(await screen.findByText("Operating system")).toBeInTheDocument();
+    await user.click(within(sections).getByRole("link", { name: "Machine" }));
+    expect(await screen.findByRole("heading", { level: 1, name: "Machine" })).toBeInTheDocument();
+    expect(await screen.findByText("Kernel")).toBeInTheDocument();
   });
 
-  it("keeps the 4.0 address of the updates and of the storage, which went to where they are now", async () => {
+  it("keeps the 4.0 and 4.1 addresses of the updates and of the storage, which go to where they are now", async () => {
     fakeBackend({ ...signedInRoutes(), ...serverRoutes() });
-    renderConsole("/server/updates");
-    expect(await screen.findByRole("radio", { name: "Updates", checked: true })).toBeInTheDocument();
+    const { location } = renderConsole("/server/system");
+    await waitFor(() => {
+      expect(location().pathname).toBe("/server/updates");
+    });
+    expect(await screen.findByRole("navigation", { name: "Server sections" })).toBeInTheDocument();
   });
 });

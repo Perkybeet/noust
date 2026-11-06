@@ -90,19 +90,17 @@ export function SettingsHome() {
   const { facts, asking } = useFacts();
   const groups = groupsOf(items);
   return (
-    <div className="flex min-w-0 flex-col gap-6">
-      <p className="max-w-measure text-14 text-pretty text-fg-muted">{t("settingsHome.lead")}</p>
-      <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-        {groups.map((group) => (
-          <Card key={group.key} title={group.title} level={2} padding="none" className="self-start" loading={group.sections.some((section) => asking.has(section.id))}>
-            <ul aria-label={t("settingsHome.doors", { group: group.title })} className="m-0 flex list-none flex-col divide-y divide-border border-t border-border p-0">
-              {group.sections.map((section) => (
-                <Door key={section.id} section={section} fact={facts[section.id]} asking={asking.has(section.id)} />
-              ))}
-            </ul>
-          </Card>
-        ))}
-      </div>
+    // What the page is for is its header's line (SettingsShell), under the title like every other page's.
+    <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+      {groups.map((group) => (
+        <Card key={group.key} title={group.title} level={2} padding="none" className="self-start" loading={group.sections.some((section) => asking.has(section.id))}>
+          <ul aria-label={t("settingsHome.doors", { group: group.title })} className="m-0 flex list-none flex-col divide-y divide-border border-t border-border p-0">
+            {group.sections.map((section) => (
+              <Door key={section.id} section={section} fact={facts[section.id]} asking={asking.has(section.id)} />
+            ))}
+          </ul>
+        </Card>
+      ))}
     </div>
   );
 }

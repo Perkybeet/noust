@@ -46,7 +46,7 @@ function Outcome({ name, proposal }: { name: string; proposal: Proposal }) {
           {t("remoteImport.notDeployableBody")}
         </Notice>
       )}
-      {!proposal.deployable && equivalent !== null ? <CommandHint command={equivalent} label={t("common.words.sameFromTerminal")} /> : null}
+      {!proposal.deployable && equivalent !== null ? <CommandHint reason="salida-del-sistema" command={equivalent} /> : null}
       {warnings.length > 0 ? (
         <div className="flex flex-col gap-1.5">
           <p className="text-12 font-medium text-fg">{t("remoteImport.warnings")}</p>
@@ -211,7 +211,6 @@ export function RemoteImport({ onLoaded }: RemoteImportProps) {
         ) : null}
 
         {lastRead !== null ? <Outcome name={lastRead.name} proposal={lastRead.proposal} /> : null}
-        <CommandHint command={`noust import --from ${platform} --url ${url.trim() === "" ? "https://coolify.example.com" : url.trim()} --token-file FILE`} label={t("common.words.sameFromTerminal")} />
       </div>
     </Card>
   );

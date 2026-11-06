@@ -3,10 +3,13 @@ import type { Catalog } from "../types";
 
 export const serverCentral: Catalog<typeof en> = {
   label: "los permisos de la central",
-  title: "Lo que puede hacer la central",
-  description: "Es lo máximo que la central puede hacer en este servidor, sea lo que sea lo que puedan hacer sus propias personas.",
-  descriptionOf: "Es lo máximo que la central {central} puede hacer en este servidor, sea lo que sea lo que puedan hacer sus propias personas.",
-  summary: "{node} deja a la central: {level}.",
+  hereTitle: "Lo que puede hacer {central} aquí",
+  hereTitleUnnamed: "Lo que puede hacer la central aquí",
+  connected: "Conectada",
+  levelLabel: "Nivel",
+  systemLabel: "Acceso al sistema",
+  systemYes: "Sí: puede cambiar cómo se llega al servidor e instalar software",
+  systemNo: "No: no puede tocar SSH, el cortafuegos ni instalar software",
   summaryUnknown: "{node} no dice qué deja hacer a la central.",
   check: "Comprobar de nuevo",
   choose: "Lo que {node} deja hacer a la central",

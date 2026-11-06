@@ -37,6 +37,35 @@ function strings(values: Values): Record<string, string> {
 }
 
 /**
+ * The sentence an error carries beside its English `detail` and `hint` (`coded` in an error body, which
+ * the API client keeps with the members beyond the contract), when it carries one.
+ */
+export function codedOf(error: unknown): CodedText | null {
+  const extra: unknown = typeof error === "object" && error !== null ? (error as { extra?: unknown }).extra : undefined;
+  if (typeof extra !== "object" || extra === null) return null;
+  return asCoded((extra as Record<string, unknown>)["coded"]);
+}
+
+/** A code and its values as the API sends them (a log entry's `coded`), or null when it is not one. */
+export function asCoded(value: unknown): CodedText | null {
+  if (typeof value !== "object" || value === null) return null;
+  const { code, params } = value as { code?: unknown; params?: unknown };
+  if (typeof code !== "string") return null;
+  return { code, params: typeof params === "object" && params !== null ? (params as NonNullable<CodedText["params"]>) : {} };
+}
+
+/**
+ * The newest line a job logged, in this console's language when it is one of the server's own sentences
+ * (its entry carries `coded`) and as the job said it otherwise: what the job is doing now.
+ */
+export function newestLine(logs: readonly Readonly<Record<string, unknown>>[] | null | undefined, locale: Locale): string | null {
+  const last = logs?.at(-1);
+  const message = last?.["message"];
+  if (typeof message !== "string" || message.trim() === "") return null;
+  return serverSentence(locale, asCoded(last?.["coded"]), message.trim(), "text");
+}
+
+/**
  * The words of a sentence as text: this console's, or the English the server sent beside the code. Where a
  * page draws it, `ServerText` is the component; this is for what is said outside a render (a toast) or inside
  * a string (a title).

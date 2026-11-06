@@ -1,1 +1,0 @@
-import{r as e}from"./app-B9yPLRSt.js";var t=new Set([`/apps/$domain`,`/apps/$domain/logs`,`/apps/$domain/metrics`,`/apps/$domain/settings`]);function n(n,r={},i={}){return e.filter(e=>i.adopted!==!0||t.has(e.to)).map(e=>{let t=r[e.to];return{...e,params:{domain:n},...t===void 0?{}:{count:t}}})}export{n,t};

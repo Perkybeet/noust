@@ -124,6 +124,33 @@ def test_creating_a_service_via_raw_content_without_the_marker_is_refused(
     assert not (unit_dir / "infra-naked.service").exists()
 
 
+def test_a_unit_systemd_refuses_is_not_created_and_the_answer_carries_its_words(
+    services_client: TestClient, unit_dir: Path, runner: Any
+) -> None:
+    """
+    The advanced form of a new service passes the check the unit file page passes.
+
+    The page asks ``systemd-analyze verify`` before it saves and shows its output; the endpoint that creates
+    a service from a whole unit now asks it too, so a client that skips the page cannot install what systemd
+    refuses, and the answer says why in systemd's words, where the form can show them.
+    """
+    runner.script(
+        ["systemd-analyze", "verify"],
+        exit_code=1,
+        stderr="noust-verify.service: Service has no ExecStart= setting. Refusing.\n",
+    )
+    body = f"# {UNIT_MARKER}\n[Unit]\nDescription=No command\n\n[Service]\nType=simple\n"
+
+    response = services_client.post(
+        "/api/services", json={"name": "infra-empty", "raw_content": body}
+    )
+
+    assert 400 <= response.status_code < 500, response.text
+    assert "has no ExecStart= setting" in response.json()["output"]
+    assert response.json()["fields"] == {"raw_content": response.json()["detail"]}
+    assert not (unit_dir / "infra-empty.service").exists()
+
+
 # ---------------------------------------------------------------------------
 # Sites: duplicates and reload
 # ---------------------------------------------------------------------------
@@ -207,3 +234,121 @@ def test_a_failed_config_test_blocks_the_reload(sites_client: TestClient, runner
 
     assert response.status_code >= 400, response.text
     assert ("systemctl", "reload", "nginx") not in runner.calls
+
+
+# -- what a site action says, as a sentence with a code ----------------------------------------
+
+
+def _secured(**fields: Any) -> Any:
+    """What ``create_secured_site`` would have said, so each outcome can be asked for by name."""
+    from noust.managers.webserver import SecuredSite
+
+    return SecuredSite(domain="panel.example.com", webserver="nginx", **fields)
+
+
+@pytest.mark.parametrize(
+    ("outcome", "code", "params"),
+    [
+        (
+            {"ssl_requested": True, "ssl_enabled": True},
+            "sites.created.with_ssl",
+            {"domain": "panel.example.com"},
+        ),
+        (
+            {"ssl_requested": False},
+            "sites.created.reload",
+            {"domain": "panel.example.com", "webserver": "nginx"},
+        ),
+        (
+            {"ssl_requested": True, "ssl_enabled": False},
+            "sites.created.without_tls",
+            {"domain": "panel.example.com"},
+        ),
+        (
+            {"ssl_requested": True, "ssl_enabled": False, "certificate_error": "rate limited"},
+            "sites.created.without_tls_because",
+            {"domain": "panel.example.com", "error": "rate limited"},
+        ),
+        (
+            {"ssl_requested": True, "ssl_enabled": True, "load_error": "nginx: [emerg] bad"},
+            "sites.created.not_loaded",
+            {"domain": "panel.example.com", "webserver": "nginx", "error": "nginx: [emerg] bad"},
+        ),
+    ],
+)
+def test_creating_a_site_says_how_it_went_with_a_code_and_never_by_a_phrase(
+    sites_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    outcome: dict[str, Any],
+    code: str,
+    params: dict[str, Any],
+) -> None:
+    # The console used to tell a site that came without HTTPS from one that came well by looking
+    # for an English phrase in the message: the code is what it reads now.
+    monkeypatch.setattr(sites_api, "create_secured_site", lambda *a, **k: _secured(**outcome))
+
+    response = sites_client.post("/api/sites", json={"domain": "panel.example.com"})
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["coded"] == {"code": code, "params": params}
+    from noust.core.server_text import say
+
+    assert body["message"] == say(code, **params).text
+
+
+def test_enabling_disabling_and_reloading_say_what_they_did_with_a_code(
+    sites_client: TestClient,
+) -> None:
+    assert sites_client.post("/api/sites", json={"domain": "panel.example.com"}).status_code == 200
+
+    disabled = sites_client.post("/api/sites/panel.example.com/disable").json()
+    enabled = sites_client.post("/api/sites/panel.example.com/enable").json()
+    reloaded = sites_client.post("/api/sites/reload").json()
+
+    assert disabled["coded"] == {
+        "code": "sites.disabled",
+        "params": {"domain": "panel.example.com"},
+    }
+    assert enabled["coded"] == {"code": "sites.enabled", "params": {"domain": "panel.example.com"}}
+    assert reloaded["coded"] == {"code": "sites.reloaded", "params": {"webserver": "nginx"}}
+    assert enabled["message"] == "Site enabled: panel.example.com"
+    assert reloaded["message"] == "nginx reloaded"
+
+
+def test_deleting_a_site_says_so_with_a_code(
+    sites_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Deleting walks both web servers and the certificate, which is not the sandbox's to answer.
+    import types
+
+    monkeypatch.setattr(
+        sites_api,
+        "delete_site_completely",
+        lambda domain: types.SimpleNamespace(removed_anything=True),
+    )
+    sites_client.app.dependency_overrides[sites_api.require_elevated] = lambda: {
+        "session_id": "test",
+        "type": "master",
+    }
+
+    deleted = sites_client.delete("/api/sites/panel.example.com").json()
+
+    assert deleted["coded"] == {"code": "sites.deleted", "params": {"domain": "panel.example.com"}}
+    assert deleted["message"] == "Site deleted: panel.example.com"
+
+
+def test_saving_a_configuration_says_it_needs_a_reload_with_a_code(
+    sites_client: TestClient,
+) -> None:
+    assert sites_client.post("/api/sites", json={"domain": "panel.example.com"}).status_code == 200
+
+    response = sites_client.put(
+        "/api/sites/panel.example.com/config", json={"config": "server { listen 80; }\n"}
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["coded"] == {
+        "code": "sites.config_updated",
+        "params": {"domain": "panel.example.com", "webserver": "nginx"},
+    }

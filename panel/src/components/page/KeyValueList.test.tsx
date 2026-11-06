@@ -52,6 +52,28 @@ describe("KeyValueList", () => {
     expect(writeText).toHaveBeenCalledWith("c07d5e3a91");
   });
 
+  it("draws the copy button of a value that is pasted somewhere else always, not found on hover, and wraps the value so what is copied is what is seen", async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    stubClipboard(writeText);
+    render(
+      <KeyValueList
+        items={[
+          { label: "Address", value: "https://hooks.example.com/hooks", pasted: true },
+          { label: "Directory", value: "/var/www/apps/shop.example.net" },
+        ]}
+      />,
+    );
+    const pasted = screen.getByRole("button", { name: "Copy address" });
+    const hidden = screen.getByRole("button", { name: "Copy directory" });
+    // A fact among facts shows its copy on hover and on focus; a value that is pasted elsewhere does not hide it.
+    expect(hidden.className).toContain("opacity-0");
+    expect(pasted.className).not.toContain("opacity-0");
+    expect(screen.getByText("https://hooks.example.com/hooks").className).toContain("break-all");
+    expect(screen.getByText("https://hooks.example.com/hooks").className).not.toContain("truncate");
+    await userEvent.click(pasted);
+    expect(writeText).toHaveBeenCalledWith("https://hooks.example.com/hooks");
+  });
+
   it("keeps its shape while loading, hidden from assistive technology", () => {
     const { container } = render(<KeyValueListSkeleton rows={3} />);
     expect(container.firstElementChild).toHaveAttribute("aria-hidden", "true");

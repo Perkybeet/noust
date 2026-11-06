@@ -4,7 +4,6 @@ import { useState } from "react";
 import { request } from "../../../api/client";
 import { databaseKeys, keyQuery } from "../../../api/queries/databases";
 import type { KeyValue, KeysPage, RedisKey } from "../../../api/queries/databases";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { FilterBar } from "../../../components/page/FilterBar";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import { ErrorBlock } from "../../../components/page/QueryState";
@@ -186,7 +185,6 @@ export function KeysView({ engine, name, search, onSearchChange }: { engine: str
           </Button>
         </div>
       ) : null}
-      <CommandHint command={`noust db keys ${name}${search.match ? ` --match '${search.match}'` : ""}`} label={t("common.words.fromTerminal")} />
       {open !== null ? <KeyDrawer engine={engine} name={name} redisKey={open} onClose={() => setOpen(null)} /> : null}
     </div>
   );

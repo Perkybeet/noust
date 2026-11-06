@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { request } from "../../api/client";
 import { serviceKeys } from "../../api/queries/services";
+import { Can } from "../../components/page/permissions";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
@@ -44,9 +45,12 @@ export function ServiceRowActions({ service }: { service: ServiceInfo }) {
       </MenuItem>
       {service.managed ? (
         <>
-          <MenuItem icon={<Tags />} onClick={() => setEditingTags(true)}>
-            {t("services.actions.editTags")}
-          </MenuItem>
+          <Can permission="server.manage">
+            <MenuItem icon={<Tags />} onClick={() => setEditingTags(true)}>
+              {t("services.actions.editTags")}
+            </MenuItem>
+          </Can>
+          <Can permission="apps.operate">
           <MenuSeparator />
           {service.active ? (
             <MenuItem icon={<CirclePause />} disabled={stop.isPending} onClick={() => setConfirmStop(true)}>
@@ -70,6 +74,7 @@ export function ServiceRowActions({ service }: { service: ServiceInfo }) {
               {t("services.actions.enableAtBoot")}
             </MenuItem>
           )}
+          </Can>
         </>
       ) : null}
     </Menu>

@@ -10,6 +10,7 @@ import type { Page } from "@playwright/test";
 
 import { csrf } from "./apps-cleanup";
 import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
+import { openFold } from "./part-folds";
 
 const APP = "tienda.example.org";
 
@@ -19,7 +20,8 @@ function row(page: Page, label: string) {
 }
 
 test("automatic deploys are paused with a reason and resumed from the same switch", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, `/apps/${APP}/settings/automation`);
+  await signIn(page, consoleServer, `/apps/${APP}/triggers`);
+  await openFold(page, "Automation");
   const toggle = page.getByRole("switch", { name: "Automatic deploys", exact: true });
   await expect(toggle).toBeChecked();
   await expect(page.getByText("Paused", { exact: true })).toHaveCount(0);
@@ -40,14 +42,16 @@ test("automatic deploys are paused with a reason and resumed from the same switc
   await page.goto(`/apps/${APP}/deployments`);
   await expect(page.getByText("Reason: Looking into the checkout bug")).toBeVisible();
 
-  await page.goto(`/apps/${APP}/settings/automation`);
+  await page.goto(`/apps/${APP}/triggers`);
+  await openFold(page, "Automation");
   await page.getByRole("switch", { name: "Automatic deploys", exact: true }).click();
   await expect(page.getByRole("switch", { name: "Automatic deploys", exact: true })).toBeChecked();
   await expect(page.getByText("Paused", { exact: true })).toHaveCount(0);
 });
 
 test("a freeze needs its reason, is seen on the Deployments page and is lifted", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, `/apps/${APP}/settings/automation`);
+  await signIn(page, consoleServer, `/apps/${APP}/triggers`);
+  await openFold(page, "Automation");
   const freezes = page.getByRole("list", { name: "Freeze deploys" });
   await expect(freezes).toHaveCount(0);
 
@@ -71,14 +75,16 @@ test("a freeze needs its reason, is seen on the Deployments page and is lifted",
   expect(response.status()).toBe(409);
   expect(((await response.json()) as { error: string }).error).toBe("deploys_frozen");
 
-  await page.goto(`/apps/${APP}/settings/automation`);
+  await page.goto(`/apps/${APP}/triggers`);
+  await openFold(page, "Automation");
   await page.getByRole("button", { name: /Lift the freeze/ }).click();
   await page.getByRole("alertdialog", { name: "Lift the freeze?" }).getByRole("button", { name: "Lift the freeze" }).click();
   await expect(page.getByRole("list", { name: "Freeze deploys" })).toHaveCount(0);
 });
 
 test("an app is scheduled to update itself and stopped doing so", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, `/apps/${APP}/settings/automation`);
+  await signIn(page, consoleServer, `/apps/${APP}/triggers`);
+  await openFold(page, "Automation");
   const schedule = row(page, "Scheduled updates");
   await expect(schedule.getByText("On", { exact: true })).toHaveCount(0);
 
@@ -100,7 +106,8 @@ test("an app is scheduled to update itself and stopped doing so", async ({ page,
 });
 
 test("the history kept and the stop policy are saved from the deploy limits drawer, and put back", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, `/apps/${APP}/settings/automation`);
+  await signIn(page, consoleServer, `/apps/${APP}/triggers`);
+  await openFold(page, "Automation");
   await page.getByRole("button", { name: "Edit deploy limits…" }).click();
   const drawer = page.getByRole("dialog", { name: "Deploy limits" });
   const history = drawer.getByRole("textbox", { name: "Deploys kept in history" });

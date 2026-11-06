@@ -49,7 +49,8 @@ test("log shipping adds a destination whose token is only written, lists it, and
 });
 
 test("an application's unit security says which sandbox it runs in and how exposed systemd finds it", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, `/apps/${APP}/settings/security`);
+  // The service's security is a folded part of Resources and running: its address opens it.
+  await signIn(page, consoleServer, `/apps/${APP}/resources#security`);
   await expect(page.getByRole("heading", { level: 2, name: "Service security" })).toBeVisible();
   // The three profiles are choices of the page, with what each takes away.
   await expect(page.getByRole("radio", { name: /Default/ })).toBeVisible();
@@ -59,7 +60,7 @@ test("an application's unit security says which sandbox it runs in and how expos
 });
 
 test("processes shows the copies of the web process and offers to add a background process", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, `/apps/${APP}/settings/processes`);
+  await signIn(page, consoleServer, `/apps/${APP}/resources#processes`);
   await expect(page.getByRole("heading", { level: 2, name: "Processes" })).toBeVisible();
   await expect(page.getByText("Copies of the web process")).toBeVisible();
 

@@ -92,21 +92,28 @@ export async function fillStorefrontVariables(page: Page): Promise<void> {
   }
 }
 
-/** The ways of starting that are not a thing to paste or search for: folded under "Other ways to start". */
-const OTHER_WAYS = new Set(["Compose", "Import an application", "Already running"]);
-
 /**
- * Gets to one of the wizard's ways of starting by its name, the way a person does. A repository, a folder or an image
- * is not a way to choose (it goes in the box); the catalog is "Browse all recipes" under it; the rest of the ways are
- * behind "Other ways to start".
+ * Gets to one of the wizard's ways of starting by its name, the way a person does: the page opens on five cards (a
+ * repository, the catalog, an image, files, something that already runs here), and a repository, an image or a name
+ * to search goes in the box under them. Compose is a button of the files card, and importing an application is the
+ * second choice of the card for what already runs.
  */
 export async function chooseWay(page: Page, name: string): Promise<void> {
-  if (name === "From a recipe") {
-    await page.getByRole("button", { name: /^Browse (all \d+ recipes|the \d+ recipe)$/ }).click();
-    return;
-  }
-  if (OTHER_WAYS.has(name)) {
-    await page.getByRole("button", { name: "Other ways to start", exact: true }).click();
-    await page.getByRole("button", { name, exact: true }).click();
+  const card = (label: string) => page.getByRole("radio", { name: new RegExp(`^${label}`) });
+  switch (name) {
+    case "From a recipe":
+      await card("From the catalog").click();
+      return;
+    case "Compose":
+      await card("Upload files").click();
+      await page.getByRole("button", { name: "Compose", exact: true }).click();
+      return;
+    case "Import an application":
+      await card("Something that already runs here").click();
+      await page.getByRole("radio", { name: "From another platform or a file" }).click();
+      return;
+    case "Already running":
+      await card("Something that already runs here").click();
+      return;
   }
 }

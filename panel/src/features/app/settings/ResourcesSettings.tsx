@@ -9,10 +9,7 @@ import type { App } from "../../../api/queries/apps";
 import { tuningQuery } from "../../../api/queries/runtime";
 import type { UnitTuning } from "../../../api/queries/runtime";
 import { systemInfoQuery } from "../../../api/queries/system";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { ErrorBlock } from "../../../components/page/QueryState";
-import { SaveBar } from "../../../components/page/SaveBar";
-import { Section } from "../../../components/page/Section";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Checkbox } from "../../../components/ui/Checkbox";
@@ -35,6 +32,7 @@ import {
 } from "./settingsApp";
 import { AdvancedLimitsFields, useTuningPart } from "./TuningFields";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
+import { PartSaveBar, PartSection } from "./saveHost";
 
 type LimitsResult = ResponseOf<"/api/apps/{domain}/limits", "patch">;
 
@@ -274,40 +272,36 @@ function LimitsForm({
               <Skeleton className="h-control-sm w-32" />
             </LoadingRegion>
           ) : null}
-          <Checkbox
-            label={t("appSettings.limits.restartLabel")}
-            description={t("appSettings.limits.restartDescription")}
-            checked={restart}
-            onCheckedChange={setRestart}
-          />
-          {save.isError && Object.keys(serverFields).length === 0 ? (
-            <ErrorBlock
-              live
-              compact
-              error={save.error}
-              title={t("appSettings.limits.saveFailed")}
-            />
-          ) : null}
-          {saved !== null ? <Saved result={saved} domain={domain} /> : null}
-          <p className="text-12 text-fg-muted">
-            {now.length > 0
-              ? t.rich("appSettings.limits.now", {
-                  directives: <Mono>{now.join(" ")}</Mono>,
-                })
-              : t("appSettings.limits.noLimits")}
-          </p>
+          {/* What is under the tuning waits for it: the section above opens when the unit has something set in it, which a skeleton cannot know, so anything drawn before would be pushed out of the page. */}
+          {reading ? null : (
+            <>
+              <Checkbox
+                label={t("appSettings.limits.restartLabel")}
+                description={t("appSettings.limits.restartDescription")}
+                checked={restart}
+                onCheckedChange={setRestart}
+              />
+              {save.isError && Object.keys(serverFields).length === 0 ? (
+                <ErrorBlock
+                  live
+                  compact
+                  error={save.error}
+                  title={t("appSettings.limits.saveFailed")}
+                />
+              ) : null}
+              {saved !== null ? <Saved result={saved} domain={domain} /> : null}
+              <p className="text-12 text-fg-muted">
+                {now.length > 0
+                  ? t.rich("appSettings.limits.now", {
+                      directives: <Mono>{now.join(" ")}</Mono>,
+                    })
+                  : t("appSettings.limits.noLimits")}
+              </p>
+            </>
+          )}
         </div>
       </Card>
-      <CommandHint
-        command={`noust app limits ${domain} --memory 512M --cpu 50% --tasks 256`}
-        label={t("common.words.fromTerminal")}
-      />
-      <SaveBar
-        changes={bar.changes}
-        saving={bar.saving}
-        onSave={bar.onSave}
-        onDiscard={bar.onDiscard}
-      />
+      <PartSaveBar bar={bar} />
     </>
   );
 }
@@ -323,7 +317,7 @@ export function ResourcesSettings() {
     enabled: hasUnit(app),
   });
   return (
-    <Section
+    <PartSection
       title={t("appSettings.limits.title")}
       {...headerIcon}
       description={t("appSettings.limits.description")}
@@ -337,6 +331,6 @@ export function ResourcesSettings() {
           </p>
         </Card>
       )}
-    </Section>
+    </PartSection>
   );
 }

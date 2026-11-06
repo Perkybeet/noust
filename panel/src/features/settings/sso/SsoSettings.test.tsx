@@ -204,10 +204,21 @@ function ssoBackend(initial: Partial<Fixture> = {}, extra: Record<string, RouteH
 
 type Pointer = ReturnType<typeof renderConsole>["user"];
 
-/** Adds a connection of one of the three kinds from the one menu. */
-async function addConnection(user: Pointer, kind: "OpenID Connect provider" | "SAML provider" | "Directory"): Promise<void> {
-  await user.click(await screen.findByRole("button", { name: "Add a connection" }));
-  await user.click(await screen.findByRole("menuitem", { name: new RegExp(`^${kind}`) }));
+/** What a person says they have, and the words the first step gives it. */
+const CHOICES = {
+  "OpenID Connect provider": /Another one, with OpenID Connect/,
+  "SAML provider": /One that speaks SAML/,
+  Directory: /A LDAP directory/,
+  "Microsoft Entra ID": /Microsoft Entra ID/,
+  "Google Workspace": /Google Workspace/,
+} as const;
+
+/** Adds a connection: the first step names what the company has, and the form that fits opens after it. */
+async function addConnection(user: Pointer, kind: keyof typeof CHOICES): Promise<void> {
+  await user.click(await screen.findByRole("button", { name: "Add a provider" }));
+  const choice = await screen.findByRole("dialog", { name: "Add a provider" });
+  await user.click(within(choice).getByRole("radio", { name: CHOICES[kind] }));
+  await user.click(within(choice).getByRole("button", { name: "Continue" }));
 }
 
 /** One of a row's actions, from the menu at its end. */
@@ -250,20 +261,44 @@ describe("Settings > Single sign-on", () => {
   it("is in the settings navigation, as the central's section", async () => {
     await pageAt();
     const nav = await screen.findByRole("navigation", { name: "Settings sections" });
-    expect(within(nav).getByRole("link", { name: "Single sign-on" })).toHaveAttribute("aria-current", "page");
+    // Under its name, what it is for in the words of a person who does not know the initials.
+    expect(within(nav).getByRole("link", { name: /^Single sign-on\s*With the company account/ })).toHaveAttribute("aria-current", "page");
   });
 
-  it("offers to add the first connection, of three kinds, when there is none", async () => {
+  it("offers to add the first provider from the page's header, by what the company has, when there is none", async () => {
     const { user } = await pageAt({ providers: [], identities: [], local: { enabled: true, exempt: [], providers: 0, survivors: ["ana"] } });
-    expect(await screen.findByText("No sign-in connection yet")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Add a connection" }));
-    expect(await screen.findByRole("menuitem", { name: /^OpenID Connect provider/ })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: /^SAML provider/ })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: /^Directory/ })).toBeInTheDocument();
+    expect(await screen.findByText(/Connect the company's Microsoft or Google account/)).toBeInTheDocument();
+    // The one button that starts it is the header's, and the first step asks which the company has, in its own words.
+    const add = screen.getByRole("button", { name: "Add a provider" });
+    expect(screen.getByRole("heading", { level: 1, name: "Single sign-on" }).closest("header")).toContainElement(add);
+    await user.click(add);
+    const choice = await screen.findByRole("dialog", { name: "Add a provider" });
+    expect(within(choice).getByRole("radio", { name: /Microsoft Entra ID/ })).toBeChecked();
+    for (const name of [/Google Workspace/, /Another one, with OpenID Connect/, /One that speaks SAML/, /A LDAP directory/]) expect(within(choice).getByRole("radio", { name })).toBeInTheDocument();
+    await expectNoAxeViolations(choice);
     await user.keyboard("{Escape}");
     // With none, turning passwords off would lock everybody out: it is not offered, and says why.
     expect(screen.getByRole("switch", { name: "Sign in with passwords and passkeys" })).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByText(/Add a provider and test it first/)).toBeInTheDocument();
+  });
+
+  it("starts from what the company has: Microsoft and Google come with their name and label, and Google with its address", { timeout: 30_000 }, async () => {
+    const { user } = await pageAt({ providers: [], identities: [], local: { enabled: true, exempt: [], providers: 0, survivors: ["ana"] } });
+    await addConnection(user, "Microsoft Entra ID");
+    let drawer = await screen.findByRole("dialog", { name: "Add an identity provider" });
+    expect(within(drawer).getByLabelText(/^Name/)).toHaveValue("entra");
+    expect(within(drawer).getByLabelText(/^Button label/)).toHaveValue("Microsoft Entra ID");
+    // Microsoft's address carries the company's own tenant: the person writes it, and nothing is guessed for them.
+    expect(within(drawer).getByLabelText(/^Issuer/)).toHaveValue("");
+    await user.keyboard("{Escape}");
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Add an identity provider" })).not.toBeInTheDocument();
+    });
+
+    await addConnection(user, "Google Workspace");
+    drawer = await screen.findByRole("dialog", { name: "Add an identity provider" });
+    expect(within(drawer).getByLabelText(/^Name/)).toHaveValue("google");
+    expect(within(drawer).getByLabelText(/^Issuer/)).toHaveValue("https://accounts.google.com");
   });
 
   it("adds a provider with the settings typed, the secret apart, and reads the list again", { timeout: 30_000 }, async () => {
@@ -414,7 +449,7 @@ describe("Settings > Single sign-on", () => {
     await waitFor(() => {
       expect(backend.callsTo("DELETE /api/auth/oidc/config/corp")).toHaveLength(1);
     });
-    expect(await screen.findByText("No sign-in connection yet")).toBeInTheDocument();
+    expect(await screen.findByText(/Connect the company's Microsoft or Google account/)).toBeInTheDocument();
   });
 
   describe("passwords and passkeys", () => {
@@ -927,7 +962,7 @@ describe("Settings > Single sign-on", () => {
     });
     expect(screen.getByRole("region", { name: "Conexiones de inicio de sesión" })).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Añadir una conexión" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Añadir un proveedor" })).toBeInTheDocument();
     });
     await act(() => setLocale("en"));
   });

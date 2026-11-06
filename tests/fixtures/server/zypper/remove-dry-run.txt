@@ -1,0 +1,9 @@
+Loading repository data...
+Reading installed packages...
+Resolving package dependencies...
+
+The following 3 packages are going to be REMOVED:
+  nginx nginx-module-stream python3-certbot-nginx
+
+3 packages to remove.
+After the operation, 4.1 MiB will be freed.

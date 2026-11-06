@@ -29,7 +29,7 @@ export type Owner = "account" | "resource" | "group" | "server" | "instance" | "
  * What a section of a resource is for, which is how the second column groups it (usar, configurar,
  * arreglar, peligro): the entries of a resource say it, the column and the strip of one bar read it.
  */
-export type Intent = "use" | "configure" | "fix" | "danger";
+export type Intent = "use" | "configure" | "fix" | "move" | "danger";
 
 /** A condition under which a destination exists at all; one that does not apply is absent, not disabled (NV-12). */
 export type When = "organised" | "fleet" | "compose" | "unit" | "built";
@@ -51,6 +51,11 @@ export interface Dest {
   faceOf?: string;
   /** What the section is for, in the second column of its resource. */
   intent?: Intent;
+  /**
+   * The titled group of an area's second column it is drawn in ("publish", "this machine"); an area whose
+   * column has no groups gives none. A hidden screen that has one is in the column all the same.
+   */
+  column?: string;
   /** Settings only: whose the section is (NV-7). */
   owner?: Owner;
   /** One name, the same in the sidebar, the title, the tab and the palette (NV-5). */
@@ -74,6 +79,13 @@ export interface Dest {
   exact?: true;
   /** The central's, whichever server is selected: a node refuses a central on it on purpose (nodeRoute.ts). */
   central?: true;
+  /**
+   * With `central`: the central's own, and no fleet's. What a server shows before anyone signs in is its own, so
+   * its page is the central's whichever server is selected, and it is not "All the fleet": the other servers keep theirs.
+   */
+  own?: true;
+  /** Settings only: a line under the name in the list, for a name that does not say what it is for ("With the company account"). */
+  hint?: PlainKey;
   /** A screen that is in no list says where it is reached from (NV-13). */
   reachedFrom?: string;
 }

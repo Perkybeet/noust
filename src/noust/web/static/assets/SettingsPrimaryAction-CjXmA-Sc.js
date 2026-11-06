@@ -1,1 +1,0 @@
-import{n as e}from"./rolldown-runtime-WkwZ5CU-.js";import{er as t}from"./lucide-DAghnoaZ.js";import{Wn as n}from"./icons-KT6rJ_o9.js";var r=e(t(),1),i=e(n(),1),a=(0,r.createContext)(null);function o({children:e}){let t=(0,r.useContext)(a);return t===null?null:(0,i.createPortal)(e,t)}export{o as n,a as t};

@@ -40,7 +40,7 @@ test("the page of the Teams tab is the page /teams always was", async ({ page, c
   await expect.poll(pathnameOf(page)).toBe("/projects/teams");
   // Teams are the second tab of Projects: the same title, the tab marked.
   await expect(page.getByRole("heading", { level: 1, name: "Projects" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Project sections" }).getByRole("link", { name: "Teams" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("navigation", { name: "Applications sections" }).getByRole("link", { name: "Teams" })).toHaveAttribute("aria-current", "page");
   await settle(page);
   await expectNoA11yViolations(page, "the teams list, at its new address");
 });
@@ -69,7 +69,7 @@ test("a route whose page is yet to come opens the screen that holds the same thi
   await expectNoA11yViolations(page, "the screen a new route opens");
 });
 
-test("the account, its sign-in security and Controls are pages of their own, in both themes", async ({ page, consoleServer }) => {
+test("the account, its sign-in security and Compliance are pages of their own, in both themes", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/account");
   await expect(page.getByRole("heading", { level: 1, name: "Account" })).toBeVisible();
   await settle(page);
@@ -77,9 +77,9 @@ test("the account, its sign-in security and Controls are pages of their own, in 
   await page.goto("/account/security");
   await expect(page.getByRole("heading", { level: 1, name: "Account" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Two-factor authentication" })).toBeVisible();
-  await page.goto("/settings/controls");
-  await expect(page.getByRole("heading", { level: 1, name: "Controls" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Security profile" })).toBeVisible();
+  await page.goto("/settings/compliance");
+  await expect(page.getByRole("heading", { level: 1, name: "Compliance" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Controls", exact: true })).toBeVisible();
   await settle(page);
-  await expectNoA11yViolations(page, "the controls page");
+  await expectNoA11yViolations(page, "the compliance page");
 });

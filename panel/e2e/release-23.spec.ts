@@ -54,9 +54,12 @@ test("a recipe from the gallery is reviewed, deployed, and says what to do next"
   await signIn(page, consoleServer, "/apps/new");
   await chooseStart(page, "From a recipe");
 
-  // GET /api/recipes, answered from the recipe files the package ships.
+  // GET /api/recipes, answered from the recipe files the package ships. The catalog is alphabetical and paged (hundreds of
+  // recipes), so each one is looked for by its name, as a person would.
   const recipes = page.getByRole("list", { name: "Recipes" });
+  const search = page.getByRole("searchbox", { name: "Search recipes" });
   for (const title of ["WordPress", "Uptime Kuma", "Umami", "n8n"]) {
+    await search.fill(title);
     // Exact: "Use n8n" is also the start of "Use n8n with workers", the queue-mode recipe beside it.
     await expect(recipes.getByRole("button", { name: `Use ${title}`, exact: true })).toBeEnabled();
   }
@@ -67,6 +70,7 @@ test("a recipe from the gallery is reviewed, deployed, and says what to do next"
   // They are on a list of their own after the ones that can be installed ("Not available here"), with their reason.
   const unavailable = page.getByRole("list", { name: "Not available here" });
   for (const title of ["MinIO", "Excalidraw"]) {
+    await search.fill(title);
     const card = unavailable.getByRole("listitem").filter({ has: page.getByRole("heading", { name: title, exact: true }) });
     await expect(card.getByText("Not available in this release", { exact: true })).toBeVisible();
     await expect(card.getByRole("button", { name: `Use ${title}` })).toHaveCount(0);
@@ -75,7 +79,8 @@ test("a recipe from the gallery is reviewed, deployed, and says what to do next"
   await settle(page);
   await expectNoA11yViolations(page, "the recipe gallery");
 
-  await recipes.getByRole("button", { name: "Use WordPress" }).click();
+  await search.fill("WordPress");
+  await recipes.getByRole("button", { name: "Use WordPress", exact: true }).click();
   // One step for a recipe: where it answers, and its variables, with a Deploy of its own.
   await expect(page.getByRole("heading", { level: 2, name: "Address and variables" })).toBeFocused();
   // The archive and where its checksum is published, straight from wordpress.yaml, under Details.
@@ -147,15 +152,15 @@ test("a repository configured for Railway gets its proposal, and its health chec
   const body = (await queued).postDataJSON() as Record<string, unknown>;
   expect(body).toMatchObject({ domain, app_type: "nodejs", health_path: "/healthz", health_timeout: 60 });
 
-  await expect(page).toHaveURL(new RegExp(`/apps/${domain.replace(/\./g, "\\.")}/deployments/\\d+$`), { timeout: 30_000 });
+  await expect(page).toHaveURL(new RegExp(`/apps/${domain.replace(/\./g, "\\.")}$`), { timeout: 30_000 });
   await forgetApp(page, consoleServer, domain);
 });
 
 test("an application exports from its settings, with its secret values only after sudo mode", async ({ page, consoleServer, problems }) => {
   // Secret values need a recent confirmation: the first request is refused, by design.
   problems.expect(new RegExp(`status of 403 .* /api/apps/${EXPORTED.replace(/\./g, "\\.")}/export$`));
-  await signIn(page, consoleServer, `/apps/${EXPORTED}/settings/export`);
-  const section = page.getByRole("region", { name: "Export" });
+  await signIn(page, consoleServer, `/apps/${EXPORTED}/export`);
+  const section = page.locator("section").filter({ has: page.getByRole("heading", { name: "Export", exact: true }) }).last();
   await expect(section).toBeVisible();
   await section.scrollIntoViewIfNeeded();
   await settle(page);

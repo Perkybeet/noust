@@ -48,7 +48,7 @@ What follows from that:
 | Health check | The health gate | Runs on every activation and also on a rollback; configurable per application (`noust app health`). |
 | Resource limits | Resource limits | `noust app limits`; systemd resource control. |
 | API token (Root, Write, Deploy, Read, Read sensitive) | A token with a scope, and roles | Settings > API tokens; roles are `viewer`, `operator`, `admin`, `security`, `auditor`. |
-| Tags | App tags | The labels that group applications, set under an application's **Settings > General**. The Applications list narrows to one, and **Update tagged apps** updates every application that carries it ([console.md](console.md)). Databases and services carry tags too, and `noust app tag restart` restarts everything that has one ([teams.md](teams.md#tags-on-applications)). Projects and environments group resources too. |
+| Tags | App tags | The labels that group applications, set under an application's **Resources and running**. The Applications list narrows to one, and **Update tagged apps** updates every application that carries it ([console.md](console.md)). Databases and services carry tags too, and `noust app tag restart` restarts everything that has one ([teams.md](teams.md#tags-on-applications)). Projects and environments group resources too. |
 | Shared variables | Shared variables and references | A variable of a team, a project, an environment or the server, used as `{{project.NAME}}` in an application's own variables; **Settings > Variables** holds the server's, a team's **Variables** tab and a project's page the others ([variables.md](variables.md)). |
 
 ## Screens
@@ -64,13 +64,13 @@ command palette (`Ctrl K`) too.
 | Servers | **Server** (this server: system, services, storage, security, updates) and **All servers** (the fleet) |
 | Sources | **Settings > Integrations** |
 | Destinations | None: no Docker networks |
-| Registries | **Settings > Integrations > Container registries**: the accounts, kept once, and an application's **Settings > Compose** or **Container** says which it uses ([containers.md](containers.md#registry-accounts)) |
+| Registries | **Settings > Integrations > Container registries**: the accounts, kept once, and an application's **Deploys and triggers** (Compose) or **Code and build** (Container) says which it uses ([containers.md](containers.md#registry-accounts)) |
 | S3 Storage | **Backups > Destinations** |
 | Shared Variables | **Settings > Variables** (the server's), a team's **Variables** tab and a project's page ([variables.md](variables.md)) |
 | Team | **Settings > Accounts**, and **Projects > Teams** |
-| Notifications | **Settings > Channels**: email, Telegram, Slack, Discord, webhook |
+| Notifications | **Settings > Notification channels**: email, Telegram, Slack, Discord, webhook |
 | Keys & Tokens | **Settings > API tokens**; deploy keys on each application and **Settings > Integrations**; SSH keys under **Server > Security** |
-| Tags | **Applications**, narrowed to a tag, and an application's **Settings > General** |
+| Tags | **Applications**, narrowed to a tag, and an application's **Resources and running** |
 | Settings > General | **Settings > General** |
 | Settings > Updates | **Settings > About Noust** (the version, what's new and, if you turn it on, the hours Noust may update itself in) and **Server > System and updates** (the operating system's) |
 | Server Patching | **Server > System and updates**: what is pending, security first, applied all or only the security fixes; it says when a reboot is due and why, and never reboots by itself; automatic updates and the history of runs ([console.md](console.md)) |
@@ -79,17 +79,17 @@ command palette (`Ctrl K`) too.
 | Analytics, Sentinel | **Metrics** on each application, **Server > System**, and the resource monitor with **Settings > Alert rules**. There is no agent to install: Noust reads the machine itself ([MONITOR.md](MONITOR.md)) |
 | Scheduled Jobs of the instance | **Activity**: every job and event of this server with its log and who started it; the applications' own tasks are in **Cron** |
 | Cloud Tokens, provisioning a server | **Settings > Cloud providers** on a central: provider accounts (Hetzner, DigitalOcean, Vultr), the wizard that creates a server and its cloud-init ([cloud-init.md](cloud-init.md), [CENTRAL.md](CENTRAL.md)) |
-| Settings > Email | **Settings > Channels > Email** |
+| Settings > Email | **Settings > Notification channels > Email** |
 | Settings > Authentication | **Account > Sign-in security** (two-step verification, passkeys), **Settings > Single sign-on** ([sso.md](sso.md)) |
 | Settings > Backup (the instance) | **Backups > Noust's own state** (`noust self-backup`, one encrypted file) |
 | Profile, 2FA | **Account > Sign-in security** |
 | An application: General, Domains, Environment, Storage | The application's **Overview**, **Domains**, **Environment** and **Settings** (General, Source, Build, Releases and rollback, Automation, Deploy on push, Deploy hooks, Previews, Resources, Access, Protection, Export, Delete) |
 | Runtime Logs, Deployment Logs | **Logs** and **Deployments** |
 | Metrics | **Metrics** |
-| Preview Deployments, Webhooks | The application's **Settings > Previews** and **Settings > Deploy on push** |
+| Preview Deployments, Webhooks | The application's **Deploys and triggers** (Previews and Deploy on push) |
 | Scheduled Tasks | **Cron** |
 | Rollback | **Roll back** on the application, from **Deployments** |
-| Resource Limits | The application's **Settings > Resources** |
+| Resource Limits | The application's **Resources and running** |
 | Danger Zone | The application's **Settings > Delete** |
 
 ## What Noust does not do, on purpose

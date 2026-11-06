@@ -391,6 +391,8 @@ def test_diagnose_judges_the_worker_by_its_containers(
     assert names[0] == "containers"
     assert not {"port", "http_direct", "http_nginx", "certificate"} & set(names)
     assert result.verdict == "healthy", [(c.name, c.status, c.summary) for c in result.checks]
+    worker = result.checks[0].coded
+    assert worker is not None and worker.code == "diagnose.containers.worker"
     assert "12 avisos enviados" in result.checks[0].evidence
     assert not docker.probed_ports()
 
@@ -444,6 +446,8 @@ def test_diagnose_names_the_container_that_fails(
 
     assert result.verdict == "down"
     assert result.probable_cause and "restarting" in result.probable_cause
+    assert result.probable_cause_coded is not None
+    assert result.probable_cause_coded.code == "diagnose.cause.worker"
 
 
 def test_diagnose_gives_the_fix_for_a_recorded_port(
@@ -455,6 +459,9 @@ def test_diagnose_gives_the_fix_for_a_recorded_port(
 
     assert result.verdict == "degraded"
     assert result.probable_cause and f"noust app headless {DOMAIN}" in result.probable_cause
+    assert result.probable_cause_coded is not None
+    assert result.probable_cause_coded.code == "diagnose.cause.worker_port"
+    assert result.probable_cause_coded.params["command"] == f"noust app headless {DOMAIN}"
 
 
 @pytest.fixture

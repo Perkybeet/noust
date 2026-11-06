@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 
 import type { LogSearchResult } from "../../../api/queries/logSearch";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { QueryState } from "../../../components/page/QueryState";
 import type { QueryLike } from "../../../components/page/QueryState";
 import { LogViewer } from "../../../components/ui/LogViewer";
@@ -15,8 +14,6 @@ export interface WindowLinesProps {
   query: QueryLike<LogSearchResult>;
   /** The deployment the window starts at, when it starts at one: its mark opens the output. */
   deploy?: { id: number } | undefined;
-  /** The command that reads the same from a terminal, when there is one. */
-  command?: string | undefined;
 }
 
 /**
@@ -25,7 +22,7 @@ export interface WindowLinesProps {
  * window that starts at a deployment says so on its first line, so the output before and after it
  * is told apart.
  */
-export function WindowLines({ domain, query, deploy, command }: WindowLinesProps) {
+export function WindowLines({ domain, query, deploy }: WindowLinesProps) {
   const t = useT();
   const answer = query.data;
   // Newest first from the server; a viewer reads oldest first.
@@ -66,7 +63,6 @@ export function WindowLines({ domain, query, deploy, command }: WindowLinesProps
               emptyMessage={t("logs.empty")}
             />
           </div>
-          {command !== undefined ? <CommandHint command={command} label={t("common.words.fromTerminal")} /> : null}
         </div>
       )}
     </QueryState>

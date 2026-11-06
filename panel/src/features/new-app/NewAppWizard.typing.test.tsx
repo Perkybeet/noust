@@ -11,13 +11,14 @@ import { renderConsole } from "../../test/console";
 import { fakeBackend, json, signedInRoutes } from "../../test/fakes";
 import { RECIPES } from "./testFixtures";
 
-type View = "popular" | "results" | "source";
+type View = "empty" | "results" | "source";
 
-/** What the page under the box shows: the popular recipes, what the catalog found for words, or the source's own. */
+/** What the page under the box shows: nothing while an address is only begun, what the catalog found for words, or the source's own. */
 function view(): View {
-  if (screen.queryByRole("list", { name: "Popular recipes" }) !== null) return "popular";
-  if (screen.queryByText("noust recipe list") !== null) return "results";
-  return "source";
+  // The catalog's results, or the skeleton that holds their place while the catalog is asked.
+  if (screen.queryByRole("list", { name: "Recipes" }) !== null || screen.queryByText("Loading the recipes") !== null) return "results";
+  if (screen.queryByLabelText(/^Branch/) !== null) return "source";
+  return "empty";
 }
 
 function wizard() {
@@ -51,15 +52,15 @@ describe("an address typed letter by letter", () => {
     async (address) => {
       const { user } = wizard();
       await screen.findByRole("heading", { level: 1, name: "New application" });
-      await screen.findByRole("list", { name: "Popular recipes" });
+      await screen.findByLabelText("What to deploy");
 
       const seen = await typeOut(user, address);
 
       expect(seen).not.toContain("results");
-      // The popular recipes stay under the first letters, then the source's own page takes their place, and stays.
+      // Nothing is drawn under the first letters, then the source's own page takes their place, and stays.
       const first = seen.indexOf("source");
       expect(first).toBeGreaterThan(0);
-      expect(seen.slice(0, first).every((shown) => shown === "popular")).toBe(true);
+      expect(seen.slice(0, first).every((shown) => shown === "empty")).toBe(true);
       expect(seen.slice(first).every((shown) => shown === "source")).toBe(true);
     },
   );
@@ -67,7 +68,7 @@ describe("an address typed letter by letter", () => {
   it("still looks in the catalog for words, from the first letter that cannot begin an address", { timeout: 30_000 }, async () => {
     const { user } = wizard();
     await screen.findByRole("heading", { level: 1, name: "New application" });
-    await screen.findByRole("list", { name: "Popular recipes" });
+    await screen.findByLabelText("What to deploy");
 
     const seen = await typeOut(user, "wordp");
 

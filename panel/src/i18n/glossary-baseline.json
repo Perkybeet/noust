@@ -5,12 +5,12 @@
       "alerts": 1,
       "appPages": 5,
       "apps": 4,
-      "auth": 10,
+      "auth": 9,
       "databases": 1,
       "fleet": 3,
       "inbox": 3,
       "server": 3,
-      "settings": 14
+      "settings": 11
     }
   }
 }

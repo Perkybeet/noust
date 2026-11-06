@@ -3,7 +3,7 @@
  * reading (dismissable with Escape; a click never freezes it), the same moment marked by the
  * crosshair in every chart of the grid, the arrow keys stepping through the readings and saying each one politely, and Expand
  * opening the chart large, where zooming reads the stretch again and the numbers are a tab of the
- * same height, never a reflow of the page. The Overview's machine charts are fed by the live
+ * same height, never a reflow of the page. The machine's charts (Alerts > Metrics) are fed by the live
  * collector (a young history); an application's charts by thirty days of seeded history. Both
  * themes, with axe and the CSP and console gates of every test.
  */
@@ -18,9 +18,9 @@ function figure(page: Page, title: string): Locator {
   return page.getByRole("region", { name: "Machine" }).locator("figure").filter({ has: page.getByRole("heading", { name: title, exact: true }) });
 }
 
-/** The Overview on its last hour, where the live collector's few minutes of readings are. */
+/** Alerts > Metrics on its last hour, where the live collector's few minutes of readings are. */
 async function lastHour(page: Page, consoleServer: Parameters<typeof signIn>[1]): Promise<Locator> {
-  await signIn(page, consoleServer, "/?window=1h");
+  await signIn(page, consoleServer, "/alerts/metrics?window=1h");
   const cpu = figure(page, "CPU");
   await expect(cpu.getByRole("img", { name: /^CPU, last hour/ })).toBeVisible();
   // The collector records every few seconds: wait for a line to point at.
@@ -67,7 +67,7 @@ test("hovering reads the moment in a card beside the cursor, and in every chart 
   await pointAt(page, cpu.getByRole("img"), 0.5);
   await expect(cpu.locator("[data-readout-time] time")).not.toHaveAttribute("datetime", before ?? "");
   await settle(page);
-  await expectNoA11yViolations(page, "the overview with a reading");
+  await expectNoA11yViolations(page, "the metrics with a reading");
 
   // Off the chart: back to the newest values everywhere.
   await page.mouse.move(5, 5);
@@ -90,7 +90,7 @@ test("the arrow keys step through the readings and say each one", async ({ page,
   await page.keyboard.press("Escape");
   await expect(cpu.locator("[data-readout-time]")).toHaveText("Latest");
   await settle(page);
-  await expectNoA11yViolations(page, "the overview with a chart focused");
+  await expectNoA11yViolations(page, "the metrics with a chart focused");
 });
 
 test("Expand opens the chart large; its data is a tab, and the page behind never moves", async ({ page, consoleServer }) => {
@@ -124,7 +124,7 @@ test("Expand opens the chart large; its data is a tab, and the page behind never
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   // Nothing in the grid moved: the table never lived on the page.
-  await page.goto("/?window=1h");
+  await page.goto("/alerts/metrics?window=1h");
   await expect(grid.getByRole("img", { name: /^CPU, last hour/ })).toBeVisible();
   const after = await Promise.all(["CPU", "Memory", "Network", "Disk"].map((title) => figure(page, title).boundingBox()));
   after.forEach((box, i) => {

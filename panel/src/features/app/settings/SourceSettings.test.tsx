@@ -5,7 +5,7 @@ import { setLocale } from "../../../app/locale";
 import { expectNoAxeViolations } from "../../../test/axe";
 import { json, problem } from "../../../test/fakes";
 import type { RouteHandler } from "../../../test/fakes";
-import { DOMAIN, ELEVATED, RELEASE_APP, part, renderSettings } from "./testKit";
+import { DOMAIN, ELEVATED, IN_PLACE_APP, RELEASE_APP, part, renderSettings } from "./testKit";
 import { deployKeysUrl } from "./sourceForge";
 
 const REPOSITORY = "github.com/shop/storefront";
@@ -59,14 +59,21 @@ const CREDENTIAL = { ...NO_CREDENTIAL, configured: true, username: "deploy-bot" 
 
 /** Renders the Source subsection and waits for its two cards, which come after the repository is read. */
 async function source(view: object | (() => object), routes: Record<string, RouteHandler> = {}, app: object = RELEASE_APP, { cards = true } = {}) {
-  const rendered = await renderSettings("/source", "Source", app, {
-    "GET /api/auth/session": () => json(200, ELEVATED),
-    [`GET /api/apps/${DOMAIN}/deploy-key`]: () => json(200, typeof view === "function" ? view() : view),
-    [`GET /api/apps/${DOMAIN}/git-credential`]: () => json(200, NO_CREDENTIAL),
-    [`GET /api/apps/${DOMAIN}/webhook`]: () => json(200, FORGE),
-    "GET /api/deploy-keys": () => json(200, { keys: [], total: 0 }),
-    ...routes,
-  });
+  const rendered = await renderSettings(
+    "/source",
+    "Source",
+    app,
+    {
+      "GET /api/auth/session": () => json(200, ELEVATED),
+      [`GET /api/apps/${DOMAIN}/deploy-key`]: () => json(200, typeof view === "function" ? view() : view),
+      [`GET /api/apps/${DOMAIN}/git-credential`]: () => json(200, NO_CREDENTIAL),
+      [`GET /api/apps/${DOMAIN}/webhook`]: () => json(200, FORGE),
+      "GET /api/deploy-keys": () => json(200, { keys: [], total: 0 }),
+      ...routes,
+    },
+    // Without the cards the repository is not one, and there is nothing folded to open.
+    { folds: cards },
+  );
   if (cards) {
     await screen.findByRole("heading", { name: "Deploy key" });
     await screen.findByRole("heading", { name: "HTTPS credential" });
@@ -398,8 +405,82 @@ describe("the source of an application that is not a git repository", () => {
     );
     expect(await screen.findByText("Could not read the deploy key")).toBeInTheDocument();
     expect(screen.getByText("The key store is unreadable")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Try again" }));
+    // The page holds the build too, which has its own way to read again: this is the source's.
+    await user.click(within(screen.getByRole("region", { name: "Source" })).getByRole("button", { name: "Try again" }));
     expect(await screen.findByText("No key of its own")).toBeInTheDocument();
+  });
+});
+
+describe("the branch an application deploys from", () => {
+  it("says when no branch is pinned, and that any push then deploys", async () => {
+    await source(NO_KEY, {}, { ...RELEASE_APP, branch: null });
+    expect(await screen.findByText("None pinned")).toBeInTheDocument();
+    expect(screen.getByText("With deploy on push, a push to any branch deploys it")).toBeInTheDocument();
+  });
+
+  it("pins it, checked on the remote, and shows it at once", async () => {
+    let app: object = { ...RELEASE_APP, branch: null };
+    const { user, backend } = await source(NO_KEY, {
+      [`GET /api/apps/${DOMAIN}`]: () => json(200, app),
+      [`PATCH /api/apps/${DOMAIN}/branch`]: () => {
+        app = { ...RELEASE_APP, branch: "release" };
+        return json(200, { domain: DOMAIN, branch: "release", pinned: true, commit: "4f2a9c1", previous: null });
+      },
+    }, { ...RELEASE_APP, branch: null });
+    await user.click(await screen.findByRole("button", { name: "Pin the branch" }));
+    const dialog = await screen.findByRole("dialog", { name: "Pin the branch that deploys" });
+    const field = within(dialog).getByRole("textbox", { name: "Branch" });
+    expect(field).toHaveValue("main");
+    await user.clear(field);
+    await user.type(field, "release");
+    await expectNoAxeViolations(dialog);
+    await user.click(within(dialog).getByRole("button", { name: "Pin branch" }));
+    await waitFor(() => {
+      expect(backend.callsTo(`PATCH /api/apps/${DOMAIN}/branch`)[0]?.body).toEqual({ branch: "release" });
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    expect(await screen.findByText("release")).toBeInTheDocument();
+    expect(screen.queryByText("None pinned")).not.toBeInTheDocument();
+  });
+
+  it("shows git's own words when the branch is not on the remote, and keeps the dialog open", async () => {
+    const { user } = await source(NO_KEY, {
+      [`PATCH /api/apps/${DOMAIN}/branch`]: () => problem(400, "source_error", "No branch 'relase' on https://github.com/shop/storefront.git", { hint: "Check the name, or push the branch first." }),
+    });
+    await user.click(await screen.findByRole("button", { name: "Change the branch" }));
+    const dialog = await screen.findByRole("dialog", { name: "Change the branch that deploys" });
+    const field = within(dialog).getByRole("textbox", { name: "Branch" });
+    await user.clear(field);
+    await user.type(field, "relase");
+    await user.click(within(dialog).getByRole("button", { name: "Pin branch" }));
+    expect(await within(dialog).findByText("No branch 'relase' on https://github.com/shop/storefront.git")).toBeInTheDocument();
+    expect(within(dialog).getByText("Check the name, or push the branch first.")).toBeInTheDocument();
+  });
+
+  it("unpins it after asking once, since any push then deploys", async () => {
+    let app: object = RELEASE_APP;
+    const { user, backend } = await source(NO_KEY, {
+      [`GET /api/apps/${DOMAIN}`]: () => json(200, app),
+      [`PATCH /api/apps/${DOMAIN}/branch`]: () => {
+        app = { ...RELEASE_APP, branch: null };
+        return json(200, { domain: DOMAIN, branch: null, pinned: false, commit: null, previous: "main" });
+      },
+    });
+    await user.click(await screen.findByRole("button", { name: "Unpin" }));
+    const dialog = await screen.findByRole("alertdialog", { name: `Unpin the branch of ${DOMAIN}?` });
+    await user.click(within(dialog).getByRole("button", { name: "Unpin branch" }));
+    await waitFor(() => {
+      expect(backend.callsTo(`PATCH /api/apps/${DOMAIN}/branch`)[0]?.body).toEqual({ branch: null });
+    });
+    expect(await screen.findByText("None pinned")).toBeInTheDocument();
+  });
+
+  it("offers no branch to pin for an app that does not deploy from git", async () => {
+    await source({ ...NO_KEY, repository: null, source_is_ssh: false }, {}, IN_PLACE_APP, { cards: false });
+    await screen.findByText("Not built from a git repository");
+    expect(screen.queryByRole("button", { name: "Pin the branch" })).not.toBeInTheDocument();
   });
 });
 
@@ -408,7 +489,7 @@ describe("the source settings, for everyone", () => {
     await source(NO_KEY);
     await screen.findByText("No key of its own", { exact: true });
     const push = screen.getByText(/A push to the repository can deploy this application: GitHub, GitLab, Gitea and Bitbucket are set up in/);
-    expect(within(push).getByRole("link", { name: "Deploy on push" })).toHaveAttribute("href", `/apps/${DOMAIN}/settings/deploy-on-push`);
+    expect(within(push).getByRole("link", { name: "Deploy on push" })).toHaveAttribute("href", `/apps/${DOMAIN}/triggers#deploy-on-push`);
     const keys = screen.getByText(/Every deploy key on this server is listed in/);
     expect(within(keys).getByRole("link", { name: "Settings, Integrations" })).toHaveAttribute("href", "/settings/integrations");
   });

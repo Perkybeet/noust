@@ -27,7 +27,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { ACCOUNT_SCREENS } from "../features/nav/account";
 import { ALERTS_SCREENS } from "../features/nav/alerts";
-import { APP_SCREENS, APP_SETTINGS_SCREENS } from "../features/nav/app";
+import { APP_SCREENS } from "../features/nav/app";
 import { APPS_SCREENS } from "../features/nav/apps";
 import { BACKUPS_SCREENS } from "../features/nav/backups";
 import { CATALOG_SCREENS } from "../features/nav/catalog";
@@ -36,8 +36,10 @@ import { DOMAINS_SCREENS } from "../features/nav/domains";
 import { FLEET_SCREENS } from "../features/nav/fleet";
 import { iconOf, sectionIcon } from "../features/nav/icons";
 import { ACTIVITY_SCREENS, CRON_SCREENS, LOGS_SCREENS } from "../features/nav/machine";
+import { NETWORK_SCREENS } from "../features/nav/network";
 import { OVERVIEW_SCREENS } from "../features/nav/overview";
 import { PROJECTS_SCREENS } from "../features/nav/projects";
+import { SECURITY_SCREENS } from "../features/nav/security";
 import { SERVER_SCREENS, SERVICE_SCREENS } from "../features/nav/server";
 import { RENAMED, SETTINGS_SCREENS, groupSettings } from "../features/nav/settings";
 import { TEAM_SCREENS } from "../features/nav/team";
@@ -59,26 +61,26 @@ const BY_ID = new Map<string, Dest>();
 /** Every screen, in the order its list draws it. */
 export const DESTS: readonly Dest[] = REGISTERED;
 
-// The twelve areas of the bar in the order it draws them (home; what runs; how it is reached; what
-// happens; what is kept safe; where it runs), then what is under them, then the fleet's faces, Settings
-// and the account.
+// The areas of the bar in the order it draws them (home; applications and data; network; observe;
+// protect; infrastructure), then what is under them, then the fleet's faces, Settings and the account.
 for (const group of [
   OVERVIEW_SCREENS,
   APPS_SCREENS,
   PROJECTS_SCREENS,
+  CATALOG_SCREENS,
   DATABASES_SCREENS,
   CRON_SCREENS,
   DOMAINS_SCREENS,
+  NETWORK_SCREENS,
   LOGS_SCREENS,
   ALERTS_SCREENS,
   ACTIVITY_SCREENS,
   BACKUPS_SCREENS,
+  SECURITY_SCREENS,
   SERVER_SCREENS,
-  CATALOG_SCREENS,
   SERVICE_SCREENS,
   DATABASE_SCREENS,
   APP_SCREENS,
-  APP_SETTINGS_SCREENS,
   TEAM_SCREENS,
   FLEET_SCREENS,
   SETTINGS_SCREENS,
@@ -113,9 +115,10 @@ export const EXCEPTIONS: Readonly<Record<string, string>> = {
   "/integrations/gitlab/callback": "where GitLab sends the browser back after authorising the application",
   "/apps/$domain/deployments/$id": "one deployment, opened from the Deployments list (L4)",
   "/catalog/$name": "one recipe, opened from the catalog",
-  "/databases/engines/$engine/settings": "one database server's settings, opened from its menu in Database servers",
+  "/databases/engines/$engine/settings": "one engine's settings, opened from its menu in Engines",
   "/domains/sites/$site": "one site's web server file, opened from the Sites tab",
   "/domains/dns/zones/$zone": "one zone of Noust DNS, opened from its list of zones",
+  "/activity/tasks/$id": "one task, opened from the task centre in the top bar or from the list of tasks",
   "/fleet/jobs/$id": "one fleet job, opened from the notice that started it",
   "/projects/$team/$project": "one project, opened from the Projects list",
   "/server/services/$name/unit": "a service's unit file, opened from the service's page",
@@ -128,9 +131,10 @@ export const EXCEPTIONS: Readonly<Record<string, string>> = {
 export const EXCEPTION_CRUMBS: Readonly<Record<string, { from: string; name: { param: string; prefix?: string } | { key: PlainKey } }>> = {
   "/apps/$domain/deployments/$id": { from: "app.deployments", name: { param: "id", prefix: "#" } },
   "/catalog/$name": { from: "catalog", name: { param: "name" } },
-  "/databases/engines/$engine/settings": { from: "databases.servers", name: { param: "engine" } },
+  "/databases/engines/$engine/settings": { from: "databases.engines", name: { param: "engine" } },
   "/domains/sites/$site": { from: "domains.sites", name: { param: "site" } },
   "/domains/dns/zones/$zone": { from: "domains.dns.noust", name: { param: "zone" } },
+  "/activity/tasks/$id": { from: "activity.tasks", name: { param: "id", prefix: "#" } },
   "/fleet/jobs/$id": { from: "activity", name: { param: "id", prefix: "#" } },
   "/projects/$team/$project": { from: "apps.projects", name: { param: "project" } },
   "/server/services/$name/unit": { from: "service", name: { key: "services.actions.unitFile" } },
@@ -187,11 +191,10 @@ export function sidebarFor(ctx: NavContext = {}): Dest[][] {
 
 /**
  * Where an area opens: its fleet face from the fleet's pages, where it has one, and its own page otherwise.
- * Servers is the exception that makes a fleet usable: where the console holds one, it opens the list of
- * servers from anywhere (`hasFleet`), because choosing a server is picking a row of it, not a scope to be in.
+ * Server is no exception since 4.2: with a server chosen it opens that server's page, and from "All servers" the
+ * list of them; the central is one more server of the list, so choosing it is choosing it in the selector.
  */
-export function areaTarget(entry: Dest, scope: Scope, hasFleet = false): ConsolePath {
-  if (entry.id === "server" && hasFleet) return entry.fleetTo ?? entry.to;
+export function areaTarget(entry: Dest, scope: Scope): ConsolePath {
   return scope === "fleet" ? (entry.fleetTo ?? entry.to) : entry.to;
 }
 
@@ -233,7 +236,7 @@ export function staticPrefix(to: string): string {
 }
 
 /** The area, or the resource, an entry belongs to: where its chain of parents ends. */
-function rootOf(entry: Dest): Dest {
+export function rootOf(entry: Dest): Dest {
   let current = entry;
   for (let guard = 0; current.parent !== undefined && guard < 8; guard += 1) current = dest(current.parent);
   return current;
@@ -268,12 +271,12 @@ export function areaOf(pathname: string): Dest | undefined {
  * The `g` shortcuts, in the order the shortcut list shows them, of one scope (or of all). The areas
  * are in both: the same two keys open each from a server and from the fleet.
  */
-export function shortcuts(scope?: Scope, hasFleet = false): { id: string; keys: readonly string[]; description: PlainKey; to: ConsolePath }[] {
+export function shortcuts(scope?: Scope): { id: string; keys: readonly string[]; description: PlainKey; to: ConsolePath }[] {
   return REGISTERED.flatMap((entry) => {
     if (entry.shortcut === undefined || entry.goTo === undefined) return [];
     if (scope !== undefined && entry.scope !== "both" && entry.scope !== scope) return [];
     // The fleet's pages open an area at its fleet face, where it has one.
-    return [{ id: entry.id, keys: entry.shortcut, description: entry.goTo, to: scope === undefined ? entry.to : areaTarget(entry, scope, hasFleet) }];
+    return [{ id: entry.id, keys: entry.shortcut, description: entry.goTo, to: scope === undefined ? entry.to : areaTarget(entry, scope) }];
   });
 }
 

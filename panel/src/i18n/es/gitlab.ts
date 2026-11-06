@@ -11,8 +11,9 @@ export const gitlab: Catalog<typeof en> = {
   columnHost: "GitLab",
   columnAccount: "Cuenta",
   columnState: "Última comprobación",
-  emptyTitle: "GitLab no está conectado",
-  emptyDescription: "Conecta con un token de acceso, o inicia sesión con GitLab cuando su aplicación OAuth esté registrada aquí.",
+  firstUse: "Conecta gitlab.com o tu propio GitLab para crear aplicaciones desde sus proyectos y clonar los privados.",
+  refusalsLabel: "Lo que respondió GitLab",
+  refusalSaid: "{name}: GitLab respondió {said}",
   signIn: {
     token: "Token de acceso",
     oauth: "Iniciar sesión con GitLab",
@@ -24,6 +25,8 @@ export const gitlab: Catalog<typeof en> = {
   state: {
     ok: "Funciona",
     unchecked: "Sin comprobar",
+    connected: "Conectado",
+    notConnected: "Sin conectar",
   },
   actions: {
     test: "Comprobar la conexión",
@@ -44,7 +47,7 @@ export const gitlab: Catalog<typeof en> = {
     connected: "{name} se conectó a {host}",
     oauthHelp: "GitLab te pide aprobar este servidor y te devuelve aquí. Necesita una aplicación OAuth registrada en GitLab para este host.",
     redirect: "URI de redirección que registrar en GitLab",
-    noRedirect: "La consola no tiene una dirección pública a la que GitLab pueda devolver el navegador.",
+    noRedirect: "La consola no tiene una dirección pública a la que GitLab pueda devolver el navegador. Defínela en {general}.",
     scopes: "Permisos que conceder: read_api y read_repository.",
     clientId: "ID de la aplicación",
     clientSecret: "Secreto",

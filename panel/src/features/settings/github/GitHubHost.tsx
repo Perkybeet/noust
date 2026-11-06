@@ -5,7 +5,6 @@ import type { SyntheticEvent } from "react";
 import { githubKeys, setGitHubHost } from "../../../api/queries/github";
 import type { GitHubStatus } from "../../../api/queries/github";
 import { announce } from "../../../app/Announcer";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -52,6 +51,7 @@ export function GitHubHost({ status }: { status: GitHubStatus }) {
 
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
+    // design-exception: write-without-permission the form is drawn only in the GitHub section's setup, which is for apps.manage
     if (changed && !save.isPending) save.mutate();
   };
 
@@ -80,7 +80,6 @@ export function GitHubHost({ status }: { status: GitHubStatus }) {
           {t("githubHost.save")}
         </Button>
       </div>
-      <CommandHint command="noust github host set ghe.example.com" label={t("common.words.sameFromTerminal")} />
       </form>
     </Card>
   );

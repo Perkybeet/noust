@@ -18,6 +18,7 @@ import { databaseKeys } from "../../../api/queries/databases";
 import type { DbServer } from "../../../api/queries/databases";
 import { jobKeys } from "../../../api/queries/jobs";
 import { useNavigate } from "@tanstack/react-router";
+import { useCan } from "../../../components/page/permissions";
 import { RowMenu } from "../../../components/page/RowMenu";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { ICONS } from "../../../components/ui/icons";
@@ -30,6 +31,7 @@ import { InstallEngineDialog } from "../InstallEngineDialog";
 import { useInstanceActions } from "../instances/useInstanceActions";
 import type { InstanceActions } from "../instances/useInstanceActions";
 import { canMoveUp, serverTitle } from "../servers";
+import { AddEngineDialog } from "./AddEngineDialog";
 import { ServerLogs } from "./ServerLogs";
 
 export interface ServerActions {
@@ -45,6 +47,12 @@ export interface ServerActions {
   other: InstanceActions["openCreate"];
   /** "Install an engine" of the system's own. */
   install: () => void;
+  /** "Add an engine": asks which way (the system's, or a container) and goes on in the dialog of that one. */
+  add: () => void;
+  /** Starts a stopped engine: the system's own at once, a container as a job the notice follows. */
+  start: (server: DbServer) => void;
+  /** An engine is starting: the button that asked says so and is not pressed twice. */
+  starting: boolean;
   /** Whether a job is followed: another is not offered until it is dismissed. */
   busy: boolean;
   /** Follows a job a menu queued, in the notice slot. */
@@ -63,12 +71,16 @@ export function useServerActions(): ServerActions {
   const queryClient = useQueryClient();
   const instanceActions = useInstanceActions();
   const instances = useQuery(instancesQuery());
+  // What a menu offers is what the person may do: starting and stopping take `apps.operate`, the rest of an engine `databases.manage`.
+  const operate = useCan("apps.operate");
+  const manage = useCan("databases.manage");
   const [logsOf, setLogsOf] = useState<DbServer | null>(null);
   const [uninstalling, setUninstalling] = useState<DbServer | null>(null);
   const [removing, setRemoving] = useState<DbServer | null>(null);
   const [refreshing, setRefreshing] = useState<DbServer | null>(null);
   // `null`: closed; otherwise open, on the engine of the row it was opened from, if any.
   const [installing, setInstalling] = useState<{ engine?: string } | null>(null);
+  const [adding, setAdding] = useState(false);
 
   const refresh = (): void => {
     void queryClient.invalidateQueries({ queryKey: databaseKeys.servers });
@@ -137,22 +149,22 @@ export function useServerActions(): ServerActions {
     const busy = instanceActions.busy;
     return (
       <RowMenu name={title}>
-        {actions.has("set_default") ? (
+        {actions.has("set_default") && manage ? (
           <MenuItem icon={<Star />} description={t("dbServers.makeDefaultDescription")} disabled={setDefault.isPending} onClick={() => setDefault.mutate(server)}>
             {t("dbServers.makeDefault")}
           </MenuItem>
         ) : null}
-        {actions.has("clear_default") ? (
+        {actions.has("clear_default") && manage ? (
           <MenuItem icon={<Star />} disabled={clearDefault.isPending} onClick={() => clearDefault.mutate(server)}>
             {t("dbServers.clearDefault")}
           </MenuItem>
         ) : null}
-        {actions.has("other_version") && system ? (
+        {actions.has("other_version") && system && manage ? (
           <MenuItem icon={<CopyPlus />} disabled={busy} onClick={() => instanceActions.openCreate(server.flavour)}>
             {t("dbServers.otherVersion", { engine: server.display_name })}
           </MenuItem>
         ) : null}
-        {canMoveUp(server) ? (
+        {canMoveUp(server) && manage ? (
           <MenuItem icon={<ArrowUpFromLine />} disabled={busy} onClick={() => upgrade(server)}>
             {t("dbServers.upgradeVersion")}
           </MenuItem>
@@ -162,12 +174,12 @@ export function useServerActions(): ServerActions {
             {t("dbServers.settings")}
           </MenuItem>
         ) : null}
-        {container && actions.has("upgrade") ? (
+        {container && actions.has("upgrade") && manage ? (
           <MenuItem icon={<VERB_ICONS.refresh />} disabled={busy || !server.running} onClick={() => setRefreshing(server)}>
             {t("dbServers.updateImage")}
           </MenuItem>
         ) : null}
-        {instance !== undefined ? (
+        {instance !== undefined && manage ? (
           <>
             <MenuItem icon={<Lock />} disabled={busy || !server.running} onClick={() => instanceActions.openTls(instance)}>
               {t("databases.tls.open")}
@@ -180,17 +192,17 @@ export function useServerActions(): ServerActions {
         <MenuItem icon={<OBJECT_ICONS.log />} onClick={() => setLogsOf(server)}>
           {t("dbServers.logs")}
         </MenuItem>
-        {actions.has("start") ? (
+        {actions.has("start") && operate ? (
           <MenuItem icon={<Play />} disabled={start.isPending || busy} onClick={() => start.mutate(server)}>
             {t("common.words.start")}
           </MenuItem>
         ) : null}
-        {actions.has("stop") ? (
+        {actions.has("stop") && operate ? (
           <MenuItem icon={<Square />} disabled={stop.isPending} onClick={() => stop.mutate(server)}>
             {t("common.words.stop")}
           </MenuItem>
         ) : null}
-        {actions.has("remove") && container ? (
+        {actions.has("remove") && container && manage ? (
           <>
             <MenuSeparator />
             <MenuItem icon={<ICONS.delete />} destructive disabled={busy} onClick={() => setRemoving(server)}>
@@ -198,7 +210,7 @@ export function useServerActions(): ServerActions {
             </MenuItem>
           </>
         ) : null}
-        {system ? (
+        {system && manage ? (
           <>
             <MenuSeparator />
             <MenuItem icon={<ICONS.delete />} destructive disabled={busy} onClick={() => setUninstalling(server)}>
@@ -213,6 +225,7 @@ export function useServerActions(): ServerActions {
   const dialogs = (
     <>
       {instanceActions.dialogs}
+      {adding ? <AddEngineDialog onClose={() => setAdding(false)} onSystem={() => setInstalling({})} onContainer={() => instanceActions.openCreate()} /> : null}
       {logsOf !== null ? <ServerLogs server={logsOf} onClose={() => setLogsOf(null)} /> : null}
       {installing !== null ? (
         <InstallEngineDialog
@@ -301,6 +314,9 @@ export function useServerActions(): ServerActions {
     dialogs,
     other: instanceActions.openCreate,
     install: () => setInstalling({}),
+    add: () => setAdding(true),
+    start: (server) => start.mutate(server),
+    starting: start.isPending,
     busy: instanceActions.busy,
     follow: instanceActions.follow,
   };

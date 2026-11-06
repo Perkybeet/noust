@@ -1,11 +1,12 @@
-import { useRouter } from "@tanstack/react-router";
+import { useRouter, useRouterState } from "@tanstack/react-router";
 import type { ErrorComponentProps } from "@tanstack/react-router";
-import { RotateCw } from "lucide-react";
+import { Bug, RotateCw } from "lucide-react";
 import { Component } from "react";
 import type { ErrorInfo, ReactNode } from "react";
 
 import { Button } from "../components/ui/Button";
 import { SystemOutput } from "../components/ui/SystemOutput";
+import { openReport } from "../features/report/store";
 import { useT } from "../i18n";
 import { describeError } from "../lib/errors";
 import { nodeErrorWords } from "../nodes/nodeErrors";
@@ -20,6 +21,7 @@ export function PageError({ error, onRetry }: { error: unknown; onRetry?: () => 
   const t = useT();
   const { node } = useNode();
   const { hint, detail, output } = describeError(error);
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   // A node the central could not use is the whole story: it is named, not "this page".
   const nodeWords = nodeErrorWords(t, error, node);
   return (
@@ -53,6 +55,16 @@ export function PageError({ error, onRetry }: { error: unknown; onRetry?: () => 
           })}
         >
           {onRetry ? t("shell.pageError.tryAgain") : t("shell.pageError.reload")}
+        </Button>
+        {/* The error goes into the report as it was shown: what the person would otherwise have to copy by hand. */}
+        <Button
+          variant="secondary"
+          icon={<Bug aria-hidden="true" />}
+          onClick={() => {
+            void openReport({ from: "error", pathname, error: output !== null && output.trim() !== detail.trim() ? `${detail}\n${output}` : detail });
+          }}
+        >
+          {t("shell.pageError.report")}
         </Button>
       </div>
     </section>

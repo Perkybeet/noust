@@ -5,7 +5,7 @@ import { expectNoAxeViolations } from "../../../test/axe";
 import { json, problem } from "../../../test/fakes";
 import type { RouteHandler } from "../../../test/fakes";
 import type { AppBuild } from "../../build/model";
-import { DOMAIN, ELEVATED, RELEASE_APP, STATIC_APP, first, renderSettings, saveBar } from "./testKit";
+import { DOMAIN, ELEVATED, RELEASE_APP, STATIC_APP, renderSettings, saveBar } from "./testKit";
 
 const REPO: AppBuild = {
   domain: DOMAIN,
@@ -45,8 +45,6 @@ function buildOf(build: AppBuild, app: object = RELEASE_APP, extra: Record<strin
 describe("the Build commands subsection", () => {
   it("is listed for a type that has a block, and says where the commands come from", { timeout: 30_000 }, async () => {
     const { container } = await buildOf(REPO);
-    const nav = first(screen.getAllByRole("navigation", { name: "Application settings" }));
-    expect(within(nav).getByRole("link", { name: "Build" })).toHaveAttribute("href", `/apps/${DOMAIN}/settings/build`);
     const main = screen.getByRole("main");
     expect(await within(main).findByText("The repository's noust.yaml", { selector: "span" })).toBeInTheDocument();
     // The precedence rule is the hint of where they come from, and the repository's values say what saving does.
@@ -215,9 +213,7 @@ describe("the Build commands subsection", () => {
     const { backend } = await renderSettings("/build", "Build", { ...RELEASE_APP, app_type: "docker-compose" });
     expect(screen.getByText("A docker-compose application is built by its own configuration, so it has no build commands here.")).toBeInTheDocument();
     expect(backend.callsTo(`GET /api/apps/${DOMAIN}/build`)).toHaveLength(0);
-    // The page is still there: what is guarded about a stack's build is its card.
-    const nav = first(screen.getAllByRole("navigation", { name: "Application settings" }));
-    expect(within(nav).getByRole("link", { name: "Build" })).toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Unsaved changes" })).not.toBeInTheDocument();
+    // The page's bar is there and has nothing to save: what is guarded about a stack's build is its card.
+    expect(within(saveBar()).getByText("No unsaved changes")).toBeInTheDocument();
   });
 });

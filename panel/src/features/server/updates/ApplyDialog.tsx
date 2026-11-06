@@ -149,7 +149,7 @@ export function ApplyDialog({ scope, keptBack, onClose }: ApplyDialogProps) {
               </Notice>
             ) : null}
             <p className="text-13 text-fg-muted">{t("server.updates.apply.noReboot")}</p>
-            <CommandHint command={plan.data.command} label={t("server.updates.apply.runs")} />
+            <CommandHint command={plan.data.command} label={t("server.updates.apply.runs")} reason="salida-del-sistema" />
           </>
         )}
         {missing ? (

@@ -217,25 +217,19 @@ describe("importing a dump from the browser", () => {
     expect(within(dialog).getByText("Free space on that disk first; nothing was received.")).toBeInTheDocument();
   });
 
-  it("is started from the databases list too, with the engine and the database chosen", { timeout: 30_000 }, async () => {
+  it("is not a button of the list any more: the dialog that makes a database takes the dump, and imports it as a new one", { timeout: 30_000 }, async () => {
     screenWidth(1440);
     const server = serverRoutes(10);
     const backend = fakeBackend(databaseRoutes({ ...server.routes }));
     const { user } = renderConsole("/databases");
-    // A dump from elsewhere is rarer than the first database: it is in the page's menu, not beside the primary action.
-    await user.click(await screen.findByRole("button", { name: "More actions" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Import a dump…" }));
-    const dialog = await screen.findByRole("dialog", { name: "Import a dump" });
-    await user.click(await within(dialog).findByRole("combobox", { name: "Engine" }));
-    await user.click(await screen.findByRole("option", { name: /^PostgreSQL/ }));
-    await user.type(within(dialog).getByLabelText(/^Database/), "from_elsewhere");
+    await user.click(await screen.findByRole("button", { name: "New database" }));
+    const dialog = await screen.findByRole("dialog", { name: "New database" });
+    await user.click(within(dialog).getByRole("radio", { name: "From a dump" }));
+    await user.type(within(dialog).getByLabelText("Name"), "from_elsewhere");
     await user.upload(within(dialog).getByLabelText(/^Dump file/), dump());
     await within(dialog).findByText("Uploaded and checked");
-    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
-    expect(await within(dialog).findByText("A new database is created")).toBeInTheDocument();
-    expect(within(dialog).queryByRole("checkbox", { name: /Drop and recreate it first/ })).not.toBeInTheDocument();
-    await user.click(within(dialog).getByRole("button", { name: "Import" }));
+    await user.click(within(dialog).getByRole("button", { name: "Create the database" }));
     await waitFor(() => expect(backend.callsTo("POST /api/databases/imports")).toHaveLength(1));
-    expect(backend.callsTo("POST /api/databases/imports")[0]?.body).toMatchObject({ engine: "postgresql", database: "from_elsewhere", replace: false });
+    expect(backend.callsTo("POST /api/databases/imports")[0]?.body).toMatchObject({ engine: "postgresql", database: "from_elsewhere", replace: false, safety_backup: false });
   });
 });

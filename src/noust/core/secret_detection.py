@@ -89,8 +89,12 @@ from noust.core.config import REDACTED, is_secret_key
 #: (the lookbehind), a long line of letters made the search try every letter as
 #: a start and read to the end of the run each time: quadratic, and a build log
 #: is a place a line can be a megabyte long.
+#:
+#: Group 1 is everything up to the password, and the ``@`` that ends it is only looked
+#: at, not part of the match: that is what lets :data:`TEXT_SHAPES` keep a head and hide
+#: the rest, as the console does with the very same pattern.
 URL_CREDENTIALS = re.compile(
-    r"(?<![A-Za-z0-9+.\-])(?P<prefix>[A-Za-z][A-Za-z0-9+.\-]*://[^:/?#@\s]*:)[^@\s/?#]*@"
+    r"(?<![A-Za-z0-9+.\-])([A-Za-z][A-Za-z0-9+.\-]*://[^:/?#@\s]*:)[^@\s/?#]*(?=@)"
 )
 
 
@@ -106,7 +110,7 @@ def redact_url_credentials(value: str, placeholder: str = REDACTED) -> str:
         The value with every embedded password replaced. Text carrying no
         credential is returned unchanged.
     """
-    return URL_CREDENTIALS.sub(lambda match: f"{match.group('prefix')}{placeholder}@", value)
+    return URL_CREDENTIALS.sub(lambda match: f"{match.group(1)}{placeholder}", value)
 
 
 #: Substrings that mark a variable's *name* as a secret, matched
@@ -182,7 +186,7 @@ _VALUE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
             rf"\b(?:noust_tok_|{re.escape(legacy_names.API_TOKEN_PREFIX)})[A-Za-z0-9_\-]{{16,}}"
         ),
     ),
-    ("telegram bot token", re.compile(r"\b\d{8,10}:[A-Za-z0-9_\-]{30,}\b")),
+    ("telegram bot token", re.compile(r"\b[0-9]{8,10}:[A-Za-z0-9_\-]{30,}\b")),
     # Provider API keys of the form "sk-" followed by at least 32 more
     # characters. Checked after Stripe, which uses "sk_" (underscore) rather
     # than "sk-" (hyphen), so the two shapes cannot collide.
@@ -506,7 +510,7 @@ def classify_all(
 #: text when a log was cut before its footer. Bounded, so a header with no end cannot
 #: make the search quadratic.
 _PRIVATE_KEY_BLOCK = re.compile(
-    r"-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----[\s\S]{0,16384}?(?:-----END (?:[A-Z]+ )*PRIVATE KEY-----|\Z)"
+    r"-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----[\s\S]{0,16384}?(?:-----END (?:[A-Z]+ )*PRIVATE KEY-----|(?![\s\S]))"
 )
 
 #: A JSON Web Token as it appears in a log: three base64url segments, the
@@ -521,11 +525,65 @@ _BEARER = re.compile(r"(?i)\b(Bearer\s+)[A-Za-z0-9._~+/=\-]{16,}")
 #: ``DB_PASSWORD``, ``X-Api-Key``, ``client_secret``) so ``tokenizer`` and
 #: ``bypass`` are left alone; the value is at least six characters, as
 #: everything the value-based scrubber ignores shorter than that, and
-#: ``***`` (what an earlier pass wrote) is too short to be masked twice.
+#: ``***`` (what an earlier pass wrote) is too short to be masked twice. The
+#: scheme word is never the value: ``Authorization: Bearer ***`` masked again
+#: would otherwise find "Bearer" itself six characters to hide.
 _ASSIGNED_SECRET = re.compile(
-    r"(?i)(?P<head>(?<![A-Za-z])(?:password|passwd|secret|token|api[_-]?key|private[_-]?key|"
+    r"(?i)((?<![A-Za-z])(?:password|passwd|secret|token|api[_-]?key|private[_-]?key|"
     r"access[_-]?key|authorization)(?![A-Za-z])[A-Za-z0-9_.\-]*[\"']?\s*[=:]\s*"
-    r"(?:(?:bearer|basic|token)\s+)?[\"']?)(?P<value>[^\s\"'&;,<>]{6,})"
+    r"(?:(?:bearer|basic|token)\s+)?[\"']?)(?!(?:bearer|basic|token)\b)([^\s\"'&;,<>]{6,})"
+)
+
+
+@dataclass(frozen=True)
+class TextShape:
+    """
+    One shape of text that is a credential, and what masking it leaves.
+
+    Attributes:
+        name: What the shape is, for a message and for the console's list.
+        pattern: The regular expression. It is written in the dialect Python and JavaScript read
+            the same way (no ``\\A``, ``\\Z`` or ``$``, no named group, no inline flag but a
+            leading ``(?i)``, no ``\\d`` or ``\\w``), because the console masks the text of its
+            browser with this very pattern: ``scripts/generate_secret_shapes.py`` writes it into
+            ``panel/src/api/secretShapes.gen.ts`` and refuses what the two would read differently.
+        keep_head: Whether group 1 is left as it was (the word ``Bearer``, the name of a
+            ``password=``, the address up to a password) and only what follows it is replaced.
+    """
+
+    name: str
+    pattern: re.Pattern[str]
+    keep_head: bool = False
+
+    def mask(self, text: str, placeholder: str) -> str:
+        """
+        Replace what this shape finds in a text.
+
+        Args:
+            text: The text.
+            placeholder: What to put where a credential was.
+
+        Returns:
+            The text with every match replaced (the head of each kept, when the shape keeps one).
+        """
+        if self.keep_head:
+            return self.pattern.sub(lambda match: f"{match.group(1)}{placeholder}", text)
+        return self.pattern.sub(lambda _match: placeholder, text)
+
+
+#: Every shape :func:`mask_secret_shapes` hides, in the order it applies them: the one list, in
+#: Python and in the console. A PEM private key block before its bare header; a vendor's token by
+#: its prefix; a JWT; then the value of an assignment (``password=``, ``Authorization:``) before the
+#: bare ``Bearer`` rule, because an Authorization header keeps its scheme word and the bare rule
+#: would otherwise find "Bearer" itself a value to mask; and last the password of a URL.
+TEXT_SHAPES: tuple[TextShape, ...] = (
+    TextShape("private key block", _PRIVATE_KEY_BLOCK),
+    TextShape("private key", _PRIVATE_KEY_PEM),
+    *(TextShape(kind, pattern) for kind, pattern in _VALUE_PATTERNS),
+    TextShape("jwt", _JWT_TEXT),
+    TextShape("assigned secret", _ASSIGNED_SECRET, keep_head=True),
+    TextShape("bearer", _BEARER, keep_head=True),
+    TextShape("url credentials", URL_CREDENTIALS, keep_head=True),
 )
 
 
@@ -557,13 +615,7 @@ def mask_secret_shapes(text: str, placeholder: str = REDACTED) -> str:
     """
     if not text:
         return text
-    masked = _PRIVATE_KEY_BLOCK.sub(placeholder, text)
-    masked = _PRIVATE_KEY_PEM.sub(placeholder, masked)
-    for _kind, pattern in _VALUE_PATTERNS:
-        masked = pattern.sub(placeholder, masked)
-    masked = _JWT_TEXT.sub(placeholder, masked)
-    # Before the bare Bearer rule: an Authorization header keeps its scheme word,
-    # and the bare rule would otherwise find "Bearer" itself a value to mask.
-    masked = _ASSIGNED_SECRET.sub(lambda match: f"{match.group('head')}{placeholder}", masked)
-    masked = _BEARER.sub(lambda match: f"{match.group(1)}{placeholder}", masked)
-    return redact_url_credentials(masked, placeholder)
+    masked = text
+    for shape in TEXT_SHAPES:
+        masked = shape.mask(masked, placeholder)
+    return masked

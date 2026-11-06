@@ -4,28 +4,12 @@ import type { SyntheticEvent } from "react";
 
 import { announce } from "../../../app/Announcer";
 import { ErrorBlock } from "../../../components/page/QueryState";
-import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { useT } from "../../../i18n";
 import { MAX_TAGS, tagsOf, tagsProblem, tagsText } from "./appTags";
-
-/** The tags a database or a service carries, as chips under its name; nothing when it carries none. */
-export function TagChips({ tags }: { tags: readonly string[] | undefined }) {
-  const t = useT();
-  if (tags === undefined || tags.length === 0) return null;
-  return (
-    <ul aria-label={t("appTags.resource.chips")} className="flex min-w-0 flex-wrap items-center gap-1">
-      {tags.map((tag) => (
-        <li key={tag}>
-          <Badge mono>{tag}</Badge>
-        </li>
-      ))}
-    </ul>
-  );
-}
 
 export interface ResourceTagsDialogProps {
   /** What is being tagged, as the dialog names it: the database `shop`, the service `worker`. */

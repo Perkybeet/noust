@@ -57,6 +57,25 @@ _SEND_AGAIN = (
     "within {minutes} minutes."
 )
 
+#: What a source nothing deploys is told to do, said by several sentences of the wizard below: as
+#: a container, with a Dockerfile or with Railpack, which says whether this server has it.
+_CONTAINER_ROUTE = (
+    "Deploy it as a container: add a Dockerfile to the repository and deploy it with --type "
+    "container. Without a Dockerfile, install Railpack ({setup_command}), which builds it into a "
+    "container by itself: --type container --builder railpack."
+)
+_CONTAINER_ROUTE_RAILPACK = (
+    "Deploy it as a container, which Railpack builds without a Dockerfile (it is installed "
+    "here): {command}. Or add a Dockerfile and deploy it with --type container."
+)
+
+#: What a Turborepo that is not a monorepo Noust deploys is told, whatever it lacks.
+_TURBO_FIX = (
+    "The monorepo type needs turbo.json, a workspace config and at least two apps under apps/, "
+    "each with its own package.json. With a single app, move it to the root of the repository; "
+    "or add a compose.yaml at the root that builds the apps and deploy it as Docker Compose."
+)
+
 #: Every sentence, by code. Grouped by the area that says it. ``tests/test_server_text.py`` holds
 #: it to the code: a code asked for and absent fails, and a sentence nobody says fails.
 CATALOG: dict[str, str] = {
@@ -144,6 +163,49 @@ CATALOG: dict[str, str] = {
         "Use lower-case letters, digits and single underscores, starting with a letter, "
         "at most {max} characters."
     ),
+    # -- The picture on the sign-in screen (noust.validators.sign_in_image): why a file is not one -
+    "sign_in_image.too_large": "The image is larger than {limit}",
+    "sign_in_image.too_large.hint": (
+        "Export it again at a smaller size or with more compression, and send it again."
+    ),
+    "sign_in_image.not_an_image": "The file is not a PNG, JPEG or WebP image",
+    "sign_in_image.not_an_image.hint": (
+        "The type is read from the file itself, not from its name: export the picture as a PNG, "
+        "JPEG or WebP."
+    ),
+    "sign_in_image.svg_refused": "An SVG is not accepted as the sign-in image",
+    "sign_in_image.svg_refused.hint": (
+        "An SVG is code, and this image is shown to anyone who opens the console before they "
+        "sign in. Export it as a PNG, JPEG or WebP."
+    ),
+    "sign_in_image.damaged": "The {kind} file is damaged or incomplete",
+    "sign_in_image.damaged.hint": "Export the picture again and send the new file.",
+    "sign_in_image.unsupported": "This {kind} file uses an encoding that browsers do not all draw",
+    "sign_in_image.unsupported.hint": (
+        "Save it again as a standard, 8-bit, non-hierarchical image and send it again."
+    ),
+    "sign_in_image.too_many_pixels": (
+        "The image is {width} by {height} pixels, and the most is {limit} on each side"
+    ),
+    "sign_in_image.too_many_pixels.hint": "Scale it down and send it again.",
+    "sign_in_image.animated": "An animated image is not accepted as the sign-in image",
+    "sign_in_image.animated.hint": (
+        "Use a still picture: an animation cannot be paused, and people read this screen."
+    ),
+    "sign_in_image.not_base64": "The image must be sent as base64 text",
+    "sign_in_image.not_base64.hint": (
+        "Send the file's bytes encoded as base64, without a data: prefix and without line breaks."
+    ),
+    "sign_in_image.bad_fit": "The fit must be cover or contain",
+    "sign_in_image.bad_fit.hint": (
+        "Use cover to fill the space (cropping what does not fit) or contain to show it whole."
+    ),
+    "sign_in_image.alt_too_long": "The description is longer than {limit} characters",
+    "sign_in_image.alt_too_long.hint": "Say it shorter: a screen reader reads all of it.",
+    "sign_in_image.alt_control": "The description must be one line of plain text",
+    "sign_in_image.alt_control.hint": "Remove the line breaks and control characters.",
+    "sign_in_image.no_image_yet": "There is no sign-in image to change the fit or the description of",
+    "sign_in_image.no_image_yet.hint": "Send the image itself too.",
     # -- A fleet view: why some servers did not show their part of it --------------------------
     # One sentence for all the servers that refused the same permission; the console counts and
     # names them from the group, so no number or list of names is glued into it.
@@ -262,7 +324,7 @@ CATALOG: dict[str, str] = {
     # -- Mail an account is sent (an invitation, a password reset) -------------------------
     "mail.no_transport": "There is no way to send mail from this server",
     "mail.no_transport.hint": (
-        "Set monitor.smtp.* or monitor.email_api.* (Settings > Channels), then ask again."
+        "Set monitor.smtp.* or monitor.email_api.* (Settings > Notification channels), then ask again."
     ),
     "mail.no_public_url": "The console has no public address to put in the link",
     "mail.no_public_url.hint": "Set web.public_url to the address people open the console at.",
@@ -421,7 +483,7 @@ CATALOG: dict[str, str] = {
         "itself stays off"
     ),
     "terminal.server_control.hint": (
-        "No framework asks for it: it was set in Settings > Controls or with the command line. "
+        "No framework asks for it: it was set in Settings > Compliance or with the command line. "
         "To allow it: {command}"
     ),
     "terminal.server_framework": (
@@ -698,7 +760,7 @@ CATALOG: dict[str, str] = {
     # -- Which control asks something of a person, and how to stop it asking -----------------
     # (noust.core.compliance.explain decides which one; the words are here.)
     "controls.asked_by_setting": (
-        "The control {control} asks for it, and it was turned on in Settings > Controls (or "
+        "The control {control} asks for it, and it was turned on in Settings > Compliance (or "
         "with the command line). It applies to everybody, whatever their role."
     ),
     "controls.asked_by_setting.hint": "To turn it off there, or:\n  {command}",
@@ -708,7 +770,7 @@ CATALOG: dict[str, str] = {
         "itself."
     ),
     "controls.asked_by_framework.hint": (
-        "To turn the framework off (Settings > Controls):\n  {command}"
+        "To turn the framework off (Settings > Compliance):\n  {command}"
     ),
     # -- A call that needs a second person's approval, or a reason ---------------------------
     "approvals.asked_waiting": (
@@ -969,6 +1031,683 @@ CATALOG: dict[str, str] = {
     "deploy_failure.build_failed": "Build failed",
     "deploy_failure.build_timeout": "Build did not finish within {seconds}s and was stopped",
     "deploy_failure.build_oom": "Build killed due to insufficient memory (exit code 137)",
+    # -- What a background job is (noust.core.job_titles): one sentence for each type, and for the ----
+    # types that are about an application, one for a job that does not know which. A client says
+    # these in its language; the job's own English name is what a script has always read.
+    "jobs.title.deploy": "Deploy {domain}",
+    "jobs.title.deploy_any": "Deploy an application",
+    "jobs.title.update": "Update {domain}",
+    "jobs.title.update_any": "Update an application",
+    "jobs.title.backup": "Back up {domain}",
+    "jobs.title.backup_any": "Back up an application",
+    "jobs.title.restore": "Restore a backup into {domain}",
+    "jobs.title.restore_any": "Restore a backup",
+    "jobs.title.rollback": "Roll back {domain}",
+    "jobs.title.rollback_any": "Roll back an application",
+    "jobs.title.push": "Send a backup to {destination}",
+    "jobs.title.push_any": "Send a backup to its destination",
+    "jobs.title.cert_create": "Get a certificate for {domain}",
+    "jobs.title.cert_create_any": "Get a certificate",
+    "jobs.title.cert_acme_account": "Register the ACME account",
+    "jobs.title.cert_renew": "Renew the certificate of {domain}",
+    "jobs.title.cert_renew_all": "Renew the certificates that are due",
+    "jobs.title.service_action": "Restart services",
+    "jobs.title.site_status_page_publish": "Publish the status page at {domain}",
+    "jobs.title.site_status_page_unpublish": "Unpublish the status page",
+    "jobs.title.site_console_expose": "Publish the console at {domain}",
+    "jobs.title.site_console_unexpose": "Unpublish the console",
+    "jobs.title.site_webserver_move": "Move the sites to {webserver}",
+    "jobs.title.site_action": "Change a site",
+    "jobs.title.delete": "Delete {domain}",
+    "jobs.title.delete_any": "Delete an application",
+    "jobs.title.migrate": "Move {domain} onto the release layout",
+    "jobs.title.migrate_any": "Move an application onto the release layout",
+    "jobs.title.zero_downtime": "Change zero-downtime activation for {domain}",
+    "jobs.title.zero_downtime_any": "Change zero-downtime activation",
+    "jobs.title.sandbox_test": "Try {domain} in the build sandbox",
+    "jobs.title.sandbox_test_any": "Try an application in the build sandbox",
+    "jobs.title.identity_migrate": "Give {domain} its own system account",
+    "jobs.title.identity_migrate_any": "Give an application its own system account",
+    "jobs.title.cloudflared_install": "Install cloudflared",
+    "jobs.title.hardening": "Change the sandbox of {domain}",
+    "jobs.title.hardening_any": "Change the sandbox of an application",
+    "jobs.title.tuning": "Tune {domain}",
+    "jobs.title.tuning_any": "Tune an application",
+    "jobs.title.disk": "Measure the disk use of {domain}",
+    "jobs.title.disk_any": "Measure the disk use of an application",
+    "jobs.title.replicas": "Change the copies of {domain}",
+    "jobs.title.replicas_any": "Change the copies of an application",
+    "jobs.title.os_refresh": "Refresh the package lists",
+    "jobs.title.os_update": "Update the system",
+    "jobs.title.cleanup": "Clean up the server",
+    "jobs.title.swap_create": "Create a swap file",
+    "jobs.title.swap_remove": "Remove the swap file",
+    "jobs.title.swap": "Change the swap file",
+    "jobs.title.disk_scan": "Measure what takes disk space",
+    "jobs.title.server_action_dns_install": "Install Knot DNS",
+    "jobs.title.server_action_dns_setup": "Set up Noust DNS as a {role}",
+    # An install or a removal from the Software page: the component is the registry's id, which the console says by name.
+    "jobs.title.server_action_software_install": "Install {component}",
+    "jobs.title.server_action_software_remove": "Remove {component}",
+    "jobs.title.server_action": "Run a server task",
+    "jobs.title.server_security": "Run a security task",
+    "jobs.title.database_of_app": "Work on a database of {domain}",
+    "jobs.title.database": "Run a database task",
+    "jobs.title.fleet": "Run an action across the fleet",
+    "jobs.title.node_enroll": "Enroll {node}",
+    "jobs.title.node_enroll_any": "Enroll a server",
+    "jobs.title.node_provision": "Create the server {node}",
+    "jobs.title.node_provision_any": "Create a server",
+    "jobs.title.self_update": "Update Noust",
+    "jobs.title.app_exec": "Run a command in {domain}",
+    "jobs.title.app_exec_any": "Run a command in an application",
+    "jobs.title.manifest": "Apply a manifest",
+    "jobs.title.custom_of_app": "Run a task for {domain}",
+    "jobs.title.custom": "Run a task",
+    # -- What the process monitor noticed about a process (noust.monitor.signals) ---------------
+    # The numbers are values, written as the monitor rounds them (one decimal).
+    "monitor.observation.name_pattern": (
+        "Executable name starts with '{prefix}', a name used by known cryptomining and botnet "
+        "malware. This is a note, not a verdict: identify the binary before acting on it."
+    ),
+    "monitor.observation.resource_usage": (
+        "Sustained resource usage: CPU {cpu}% (threshold {cpu_threshold}%), memory {memory}% "
+        "(threshold {memory_threshold}%)."
+    ),
+    # -- What runs on a request and is not a job (noust.web.operations): the closed list the ----
+    # server announces as the `operation` event, said with the subject it names as `target`.
+    "operations.app_start": "Start {target}",
+    "operations.app_stop": "Stop {target}",
+    "operations.app_restart": "Restart {target}",
+    "operations.service_start": "Start the service {target}",
+    "operations.service_stop": "Stop the service {target}",
+    "operations.service_restart": "Restart the service {target}",
+    "operations.engine_start": "Start the database engine {target}",
+    "operations.engine_stop": "Stop the database engine {target}",
+    "operations.engine_restart": "Restart the database engine {target}",
+    "operations.cron_run": "Run the scheduled task {target}",
+    "operations.backup_verify": "Verify the backup {target}",
+    "operations.monitor_install": "Install the monitor",
+    "operations.monitor_scan": "Scan the server with the monitor",
+    "operations.probe_check": "Check the probe {target}",
+    "operations.node_test": "Test the connection to {target}",
+    "operations.waf_install": "Install the web application firewall",
+    "operations.compose_import": "Import a Compose project",
+    "operations.env_sync": "Sync the environment of {target}",
+    "operations.app_move": "Move {target} to another project",
+    "operations.build_cache_clear": "Clear the build cache of {target}",
+    "operations.build_apply": "Apply the build settings of {target}",
+    "operations.power_reboot": "Restart the server",
+    "operations.power_shutdown": "Shut the server down",
+    "operations.sites_reload": "Reload the web server's sites",
+    "operations.app_apply": "Apply a declaration to {target}",
+    "operations.fleet_settings_apply": "Apply the fleet's settings",
+    "operations.encryption_enable": "Turn on backup encryption",
+    "operations.encryption_rotate": "Rotate the backup encryption key",
+    # -- The server's software (noust.managers.server.components): what Noust uses each piece for, --
+    # and why one is not removed (item 118). A removal is refused with one of the sentences of
+    # ``software.refused``; a piece that is never removed says why in its own ``.never``.
+    "software.noust.purpose": "Noust itself, with the Python libraries it is built on",
+    "software.noust.never": (
+        "Removing it would take Noust, and the console you are using, off this server"
+    ),
+    "software.systemd.purpose": (
+        "The service manager every application, site and unit of Noust runs under"
+    ),
+    "software.systemd.never": "Everything on this server, Noust included, runs under it",
+    "software.sshd.purpose": "The SSH server: how you, and a central, reach this machine",
+    "software.sshd.never": "Removing it would lock you out of this machine",
+    "software.firewall.purpose": (
+        "The firewall Noust opens and closes ports through, for published ports and for the "
+        "databases it exposes"
+    ),
+    "software.firewall.never": (
+        "Noust opens and closes ports through it, and it is what keeps the server closed"
+    ),
+    "software.git.purpose": "Fetches the source of every application that deploys from a repository",
+    "software.git.never": "Every deployment from a repository needs it",
+    "software.curl.purpose": (
+        "Downloads the signing keys and the installers Noust verifies before it trusts them"
+    ),
+    "software.curl.never": "Noust downloads the keys and the installers it verifies with it",
+    "software.gnupg.purpose": "Checks the signing key of every repository Noust adds",
+    "software.gnupg.never": "Noust checks the signing key of every repository it adds with it",
+    "software.nginx.purpose": "The web server that serves applications and ends their HTTPS",
+    "software.apache.purpose": "The Apache web server, for the sites that run behind it",
+    "software.certbot.purpose": "Gets and renews HTTPS certificates from Let's Encrypt and other authorities",
+    "software.nodejs.purpose": "Builds and runs Node.js applications",
+    "software.php.purpose": "PHP-FPM, which runs PHP applications",
+    "software.docker.purpose": (
+        "Runs container and Compose applications, and the database engines Noust runs in containers"
+    ),
+    "software.postgresql.purpose": "PostgreSQL, a database engine for applications",
+    "software.mysql.purpose": "MySQL or MariaDB, a database engine for applications",
+    "software.redis.purpose": "Redis or Valkey, a key-value store and cache for applications",
+    "software.mongodb.purpose": "MongoDB, a document database for applications",
+    "software.cloudflared.purpose": (
+        "The connector a Cloudflare Tunnel runs through, to reach this server without opening a port"
+    ),
+    "software.nginx_stream_module.purpose": (
+        "Lets nginx publish a TCP or UDP port, such as a database or a game server"
+    ),
+    "software.waf.purpose": "ModSecurity and the OWASP Core Rule Set: the web application firewall of a site",
+    "software.knot.purpose": "Knot DNS, the name server of Noust's own DNS zones",
+    "software.fail2ban.purpose": "Bans the addresses that guess passwords or probe the web server",
+    "software.chrony.purpose": "Keeps the clock right by network time, which certificates and logs rely on",
+    "software.auto_updates.purpose": "Installs the system's security updates by itself",
+    "software.rclone.purpose": "Uploads backups to remote destinations",
+    # -- Why Noust does not change a system's packages (noust.managers.server.host, software) --
+    "host.updates_unsupported.transactional": (
+        "This system installs packages through transactions and a reboot (transactional-update or an "
+        "image-based system), so Noust only reports its state. Update it with its own tool."
+    ),
+    "host.updates_unsupported.no_manager": (
+        "Noust drives apt, dnf and zypper, and none of them is installed here. Update this system "
+        "with its own package manager."
+    ),
+    "software.hub": "This central is a hub: it has no software of its own",
+    # -- Why a piece of software is not removed or installed here (noust.managers.server.software) --
+    "software.refused.never": "{component} is never removed",
+    "software.refused.not_installed": "{component} is not installed",
+    "software.refused.dependents": (
+        "{component} cannot be removed while something depends on it: {dependents}"
+    ),
+    "software.refused.dependents.hint": (
+        "Stop using it first (remove or move what is listed), then remove it."
+    ),
+    "software.refused.takes_never": (
+        "Removing {component} would also remove {other}, which is never removed"
+    ),
+    "software.refused.takes_never.hint": "Nothing was removed.",
+    "software.refused.takes_in_use": (
+        "Removing {component} would also remove {other}, which is in use: {dependents}"
+    ),
+    "software.refused.takes_in_use.hint": "Nothing was removed. Stop using {other} first.",
+    "software.refused.cannot_tell": "Noust cannot tell what depends on {component}",
+    "software.refused.cannot_tell.hint": (
+        "{reason} Removing it without knowing could break what depends on it."
+    ),
+    "software.refused.unknown_origin": "Noust did not install {component}",
+    "software.refused.unknown_origin.hint": (
+        "Other things on the system may use it. Repeat the request confirming it to remove it "
+        "anyway."
+    ),
+    # -- Publishing a TCP or UDP port: what nginx here lacks (noust.managers.stream_exposure) ----
+    # Where a distribution builds the stream module into nginx there is no package to install, so
+    # the fix is its own sentence and not an install command: a second code for the same problem.
+    "streams.support.no_nginx": "nginx is not installed",
+    "streams.support.no_nginx.hint": "Install it with: {command}",
+    "streams.support.no_stream_module": "This nginx was built without the stream module",
+    "streams.support.no_stream_module.hint": "Install the module with: {command}",
+    "streams.support.no_stream_module_suse": "This nginx was built without the stream module",
+    "streams.support.no_stream_module_suse.hint": (
+        "openSUSE ships nginx with stream; install the nginx package from the distribution or "
+        "from nginx.org."
+    ),
+    "streams.support.module_not_loaded": (
+        "The stream module is built as a module and nothing loads it"
+    ),
+    "streams.support.module_not_loaded.hint": "Install the module with: {command}",
+    "streams.support.module_not_loaded_suse": (
+        "The stream module is built as a module and nothing loads it"
+    ),
+    "streams.support.module_not_loaded_suse.hint": "Add {line_command} at the top of nginx.conf.",
+    # nginx's own words are the fix of this one (what `nginx -T` printed), so it has none here.
+    "streams.support.config_unreadable": "nginx cannot read its own configuration",
+    "streams.support.config_unparsable": "nginx's configuration is not readable: {reason}",
+    "streams.support.foreign_block": (
+        "nginx.conf already has a stream block that does not include Noust's ports"
+    ),
+    "streams.support.foreign_block.hint": (
+        "Add this line inside it, then run the command again: {line_command}"
+    ),
+    "streams.support.no_stream_block": "nginx.conf has no stream block for Noust's ports",
+    "streams.support.no_stream_block.hint": (
+        "Add this at the top level of nginx.conf (beside http), then run the command again: "
+        "{block_command}"
+    ),
+    # -- Publishing a TCP or UDP port: what a plan warns of, and what the firewall came to ------
+    "streams.plan.nothing_listens": (
+        "Nothing listens on {target} yet: visitors will be refused until the service is running"
+    ),
+    "streams.plan.open_to_everyone": "{protocol} {port} will be open to everyone",
+    "streams.plan.open_to_everyone_without_login": (
+        "{protocol} {port} will be open to everyone; a service without its own authentication "
+        "should be restricted to known addresses"
+    ),
+    # One rule and several, because the plural of "rule" is not a suffix in every language.
+    "streams.firewall.allowed_one": "{backend} now allows 1 rule for it",
+    "streams.firewall.allowed_several": "{backend} now allows {count} rules for it",
+    "streams.firewall.unchanged": "The firewall was not changed",
+    "streams.firewall.unchanged_because": "The firewall was not changed: {note}",
+    # -- Diagnose (noust.managers.diagnose): what each probe found, one sentence under its name ---
+    # The evidence under a sentence is what the system printed and is never one of these. A probe
+    # that is unmanaged says so in its own sentence (``..._unmanaged``) and a count has one form for
+    # one and one for several, because neither is a suffix in every language.
+    "diagnose.check.incomplete": "Could not complete this check",
+    "diagnose.php_fpm.no_record": "No application record",
+    "diagnose.php_fpm.ok": "The PHP-FPM pool answers ({service} {state})",
+    "diagnose.php_fpm.pool_disabled": (
+        "The PHP-FPM pool is disabled (stopped); start it with {command}."
+    ),
+    "diagnose.php_fpm.pool_missing": (
+        "The PHP-FPM pool file {pool_file} is missing; redeploy with {command}."
+    ),
+    "diagnose.php_fpm.service_down": "{service}, which runs every PHP pool, is {state}.",
+    "diagnose.php_fpm.config_refused": "PHP-FPM refuses its configuration; see {command} below.",
+    "diagnose.php_fpm.no_answer": (
+        "The PHP-FPM pool does not answer the health check; see PHP's errors below."
+    ),
+    "diagnose.containers.no_app": "No application recorded",
+    "diagnose.containers.publishes_port": "The stack publishes a port: judged as a web below",
+    "diagnose.containers.worker": "A worker: {summary}",
+    "diagnose.containers.worker_with_port": (
+        "A worker: {summary}; port {port} is recorded for it, and it publishes none. "
+        "Clear it with: {command}"
+    ),
+    "diagnose.unit.skipped_php": (
+        "PHP application: it runs in its PHP-FPM pool, checked under php_fpm, no unit"
+    ),
+    "diagnose.unit.skipped_static": "Static site: served directly by the web server, no unit",
+    "diagnose.unit.missing": "No systemd unit found for {unit}",
+    "diagnose.unit.active": "{unit_file} is active (running)",
+    "diagnose.unit.active_unmanaged": "{unit_file} is active (running) (not managed by Noust)",
+    "diagnose.unit.restarting": "{unit_file} is restarting ({restarts} restarts so far)",
+    "diagnose.unit.restarting_unmanaged": (
+        "{unit_file} is restarting (not managed by Noust) ({restarts} restarts so far)"
+    ),
+    "diagnose.unit.failed": "{unit_file} failed (Result={result})",
+    "diagnose.unit.failed_unmanaged": "{unit_file} failed (not managed by Noust) (Result={result})",
+    "diagnose.unit.state": "{unit_file} is {active_state}/{sub_state}",
+    "diagnose.unit.state_unmanaged": (
+        "{unit_file} is {active_state}/{sub_state} (not managed by Noust)"
+    ),
+    "diagnose.port.skipped_php": (
+        "PHP application: it runs in its PHP-FPM pool, checked under php_fpm, "
+        "no backend port to check"
+    ),
+    "diagnose.port.skipped_static": (
+        "Static site: served directly by the web server, no backend port to check"
+    ),
+    "diagnose.port.not_recorded": "No port recorded for this app",
+    "diagnose.port.listening": "Port {port} is listening",
+    "diagnose.port.listening_process": "Port {port} is listening ({processes})",
+    "diagnose.port.elsewhere": (
+        "The app listens on {actual_port}, not the recorded port {recorded_port}"
+    ),
+    "diagnose.port.silent": "Nothing is listening on port {port}",
+    "diagnose.http_direct.no_port": "No backend port to probe directly",
+    "diagnose.http_direct.unreachable": "Could not reach the app directly on port {port}",
+    "diagnose.http_direct.status": "HTTP {status} from 127.0.0.1:{port}",
+    "diagnose.http_nginx.unreachable": "Could not reach nginx for {domain}",
+    "diagnose.http_nginx.status": "HTTP {status} from nginx for Host: {domain}",
+    "diagnose.journal.skipped_php": (
+        "PHP application: it runs in its PHP-FPM pool, checked under php_fpm, "
+        "no unit to read logs from"
+    ),
+    "diagnose.journal.skipped_static": (
+        "Static site: served directly by the web server, no unit to read logs from"
+    ),
+    "diagnose.journal.no_unit": "No unit named {unit} to read logs from",
+    "diagnose.journal.unreadable": "Could not read the journal for {unit_file}",
+    "diagnose.journal.empty": "No journal entries for {unit_file}",
+    "diagnose.journal.lines_one": "Last journal line for {unit_file}",
+    "diagnose.journal.lines_several": "Last {count} journal lines for {unit_file}",
+    "diagnose.blue_green.off": "Not in zero-downtime mode",
+    "diagnose.blue_green.no_instance": (
+        "Zero-downtime mode is on but no instance is recorded as serving"
+    ),
+    "diagnose.blue_green.upstream_mismatch": (
+        "nginx proxies to {upstream_port}, but {serving} serves on {port}"
+    ),
+    "diagnose.blue_green.upstream_none": "nginx proxies to no upstream, but {serving} serves on {port}",
+    "diagnose.blue_green.leftover": (
+        "{unit}.service still runs beside the instances; "
+        "the next activation will refuse to start blue on port {port}"
+    ),
+    "diagnose.blue_green.serving": "{serving} serves on port {port}; {idle} is {idle_state}",
+    "diagnose.blue_green.serving_release": (
+        "{serving} serves release {release} on port {port}; {idle} is {idle_state}"
+    ),
+    "diagnose.blue_green.idle_failed": (
+        "{serving} serves on port {port}; {idle} is {idle_state}; "
+        "its last start failed, so {serving} kept serving"
+    ),
+    "diagnose.blue_green.idle_failed_release": (
+        "{serving} serves release {release} on port {port}; {idle} is {idle_state}; "
+        "its last start failed, so {serving} kept serving"
+    ),
+    "diagnose.nginx_log.unreadable": "Could not read {path}",
+    "diagnose.nginx_log.clean": "No nginx error log lines mention this domain",
+    "diagnose.nginx_log.lines_one": "1 nginx error log line mentions this domain or an upstream",
+    "diagnose.nginx_log.lines_several": (
+        "{count} nginx error log lines mention this domain or an upstream"
+    ),
+    "diagnose.certificate.missing": "TLS is enabled for {domain} but no certificate was found",
+    "diagnose.certificate.none": "No certificate found for {domain}",
+    "diagnose.certificate.no_expiry": "Could not read the expiry date for {label}",
+    "diagnose.certificate.bad_expiry": "Unreadable expiry date for {label}",
+    "diagnose.certificate.expired": "The certificate for {label} expired on {expiry}",
+    "diagnose.certificate.expires_one": "The certificate for {label} expires in 1 day",
+    "diagnose.certificate.expires_several": "The certificate for {label} expires in {days} days",
+    "diagnose.certificate.valid_one": "The certificate for {label} is valid for 1 more day",
+    "diagnose.certificate.valid_several": (
+        "The certificate for {label} is valid for {days} more days"
+    ),
+    "diagnose.last_deployment.none": "No deployment recorded for this domain",
+    "diagnose.last_deployment.cancelled": (
+        "The last deployment was cancelled; what served before still serves"
+    ),
+    "diagnose.last_deployment.cancelled_by": (
+        "The last deployment was cancelled by {actor}; what served before still serves"
+    ),
+    "diagnose.last_deployment.failed": "The last deployment failed",
+    "diagnose.last_deployment.failed_with": "The last deployment failed: {error}",
+    "diagnose.last_deployment.succeeded": "The last deployment succeeded",
+    "diagnose.last_deployment.state": "The last deployment is {status}",
+    "diagnose.oom.unreadable": "Could not read the kernel log",
+    "diagnose.oom.none": "No OOM kills in the kernel log in the last 7 days",
+    "diagnose.oom.found": "The kernel log shows OOM activity in the last 7 days",
+    "diagnose.disk.usage": "{free} free ({percent}% used) on the filesystem holding {path}",
+    "diagnose.zero_downtime.could": "Its updates restart it in place; it could update without a cut",
+    # What the checks add up to, the most likely cause (``probable_cause``). A pool's cause is the
+    # sentence of its own check, so it has no entry here.
+    "diagnose.cause.worker": "The worker's {summary}; see their output below.",
+    "diagnose.cause.no_unit": (
+        "No systemd unit found for {unit}; it has never been started or its unit was removed."
+    ),
+    "diagnose.cause.oom": "Killed by the kernel for running out of memory (limit or machine).",
+    "diagnose.cause.crash_loop": (
+        "The process exits with status {status} at start; see the last journal lines below."
+    ),
+    "diagnose.cause.unit_failed": (
+        "The unit failed to start (Result={result}, exit status {status}); "
+        "see the last journal lines below."
+    ),
+    "diagnose.cause.upstream_mismatch": (
+        "nginx proxies {domain} to {upstream_port}, but the {serving} instance listens on {port}."
+    ),
+    "diagnose.cause.upstream_none": (
+        "nginx proxies {domain} to no upstream, but the {serving} instance listens on {port}."
+    ),
+    "diagnose.cause.port_elsewhere": "Listening on {actual_port}, Noust routes to {recorded_port}.",
+    "diagnose.cause.port_silent": "The process is running but not listening on port {port}.",
+    "diagnose.cause.nginx_status": (
+        "The app answers directly, but nginx returns {status} for {domain}; "
+        "nginx cannot reach the app."
+    ),
+    "diagnose.cause.nginx_unreachable": (
+        "The app answers directly, but nginx cannot connect ({error}) for {domain}; "
+        "nginx cannot reach the app."
+    ),
+    "diagnose.cause.certificate_expired": "The TLS certificate for {domain} expired on {expiry}.",
+    "diagnose.cause.worker_port": (
+        "{domain} publishes no port, yet port {port} is recorded for it: clear it with {command}."
+    ),
+    "diagnose.cause.disk_full": "The disk holding the apps directory is {percent}% full.",
+    # -- The Docker networks of a Compose stack (noust.managers.stack_networks): what is worth ------
+    # knowing about each, read from Docker and never changed. Who else is on a network is said for
+    # one container, for several and for many (the first five by name), because the verb and the
+    # count do not follow one rule in every language.
+    "networks.not_applicable": (
+        "This application does not run in Docker, so it has no Docker network."
+    ),
+    "networks.finding.host": (
+        "It is the host's own network: the containers have no network of their own."
+    ),
+    "networks.finding.default_bridge": (
+        "It is Docker's default bridge: every container started without a network is on it, "
+        "and they reach each other by address."
+    ),
+    "networks.finding.shared_one": "It is shared: {members} is on it too.",
+    "networks.finding.shared_several": "It is shared: {members} are on it too.",
+    "networks.finding.shared_many": "It is shared: {members} and {more} more are on it too.",
+    "networks.finding.owned_by_another": "It belongs to the stack {owner}, which made it.",
+    "networks.finding.made_elsewhere": (
+        "Compose did not make it: it was made by hand or by another tool."
+    ),
+    "networks.finding.internal": "It is internal: containers on it cannot reach the outside.",
+    # -- Files > Storage (noust.managers.server.storage): what a cleanup would do, one sentence ----
+    # for each action, said before anything is deleted.
+    "storage.effect.journal": (
+        "Rotates the journal and deletes archived files beyond the limit. The active file is "
+        "not touched."
+    ),
+    "storage.effect.pkg_cache": "Deletes the downloaded package files.",
+    "storage.effect.docker_build_cache": (
+        "Deletes build cache older than a week. The next build is slower for it."
+    ),
+    "storage.effect.docker_dangling_images": (
+        "Deletes images that have no name and no container. Named images are kept, and so is "
+        "every noust_previous image."
+    ),
+    "storage.effect.docker_image": (
+        "Deletes the image {image}, without --force: Docker refuses if a container uses it."
+    ),
+    "storage.effect.releases": (
+        "Deletes the releases each application keeps beyond its own limit. The active release "
+        "and the one a rollback goes to always stay."
+    ),
+    # -- Files > Storage: why a scheduled cleanup did nothing. The history keeps these as text, so ---
+    # a row written before the codes read back as the sentence it is (``read_back``).
+    "storage.run.policy_off": "the cleanup policy is switched off",
+    "storage.run.below_threshold": (
+        "{mount} is {percent}% full, below the {threshold}% the policy waits for"
+    ),
+    # -- Files > Swap (noust.managers.server.swap): why a swap file cannot be made, and what to know --
+    "swap.unsupported_container": (
+        "This is a container ({container}), where swap belongs to the host: swapon is refused "
+        "inside it."
+    ),
+    "swap.cloud_init": (
+        "cloud-init is configured with a swap: section, so it recreates the swap on every boot. "
+        "Remove that section, or leave the swap to cloud-init."
+    ),
+    # -- Domains > Sites (noust.web.api.sites): what a site action did. The console tells a site ----
+    # that came without HTTPS, or that its web server would not load, from one that came well by
+    # these codes: ``sites.created.without_tls``, ``sites.created.without_tls_because`` and
+    # ``sites.created.not_loaded`` are the three that are a warning and not a success.
+    "sites.created.with_ssl": "Site created with SSL: {domain}.",
+    "sites.created.reload": "Site created: {domain}. Reload {webserver} to serve it.",
+    "sites.created.without_tls": "Site created: {domain}. TLS was requested but not enabled.",
+    "sites.created.without_tls_because": (
+        "Site created: {domain}. TLS was requested but not enabled: {error}."
+    ),
+    "sites.created.not_loaded": "Site created: {domain}, but {webserver} did not load it: {error}",
+    "sites.config_updated": "Configuration updated for {domain}. Reload {webserver} to apply it.",
+    "sites.enabled": "Site enabled: {domain}",
+    "sites.disabled": "Site disabled: {domain}",
+    "sites.deleted": "Site deleted: {domain}",
+    "sites.reloaded": "{webserver} reloaded",
+    # -- The new-application wizard (noust.deployers.inspect): what Noust found in a source -----
+    # The verdict, and what to do about it. A source nothing recognised is refused with one of the
+    # ``inspect.*`` sentences and its fix (the entry that ends in .hint); a source that was
+    # recognised and that this server cannot build yet has its fix as a sentence of its own,
+    # because the fix is the deployer's.
+    "inspect.can_deploy": "Noust can deploy this as {type}.",
+    "inspect.can_deploy_also": (
+        "Noust can deploy this as {type}. It also looks like {others}; choose that type instead "
+        "to deploy it that way."
+    ),
+    "inspect.container_dockerfile": (
+        "Noust can deploy this as a container, built from its Dockerfile."
+    ),
+    "inspect.container_dockerfile_also": (
+        "Noust can deploy this as a container, built from its Dockerfile. It also looks like "
+        "{others}; choose that type instead to deploy it that way."
+    ),
+    "inspect.container_railpack": (
+        "Noust can deploy this as a container, built by Railpack: it has no Dockerfile."
+    ),
+    "inspect.container_railpack_also": (
+        "Noust can deploy this as a container, built by Railpack: it has no Dockerfile. It also "
+        "looks like {others}; choose that type instead to deploy it that way."
+    ),
+    "inspect.missing_programs": "This is a {type} project, but this server does not have {programs}.",
+    "inspect.install_toolchain": "Install the toolchain with: {command}. Then deploy it.",
+    "inspect.install_deno": (
+        "Install Deno 2 system-wide, where the build account can run it ({command}, or the "
+        "installer of {url} with {env_command}). Then deploy it."
+    ),
+    "inspect.install_setup_init": "Install what it needs with {command}, then deploy it.",
+    "inspect.dockerfile.unreadable": (
+        "The repository has a {dockerfile}, but it could not be read as one."
+    ),
+    "inspect.dockerfile.unreadable.hint": (
+        "Deploy it as a container: {command}. Check the {dockerfile} is a file, not a link, and "
+        "is committed on this branch."
+    ),
+    "inspect.stack.no_program": (
+        "This is a {stack} project ({marker}), but Noust found no program to run in it."
+    ),
+    "inspect.stack.no_program.hint": _CONTAINER_ROUTE,
+    "inspect.stack.no_program_with_railpack": (
+        "This is a {stack} project ({marker}), but Noust found no program to run in it."
+    ),
+    "inspect.stack.no_program_with_railpack.hint": _CONTAINER_ROUTE_RAILPACK,
+    "inspect.stack.no_deployer": (
+        "This is a {stack} project ({marker}); Noust has no {stack} deployer."
+    ),
+    "inspect.stack.no_deployer.hint": _CONTAINER_ROUTE,
+    "inspect.stack.no_deployer_with_railpack": (
+        "This is a {stack} project ({marker}); Noust has no {stack} deployer."
+    ),
+    "inspect.stack.no_deployer_with_railpack.hint": _CONTAINER_ROUTE_RAILPACK,
+    "inspect.dotnet.no_web_project": (
+        "This is a .NET project ({marker}), but Noust found no web project to run in it."
+    ),
+    "inspect.dotnet.no_web_project.hint": _CONTAINER_ROUTE,
+    "inspect.dotnet.no_web_project_with_railpack": (
+        "This is a .NET project ({marker}), but Noust found no web project to run in it."
+    ),
+    "inspect.dotnet.no_web_project_with_railpack.hint": _CONTAINER_ROUTE_RAILPACK,
+    "inspect.package_json.unreadable": "package.json cannot be read as JSON.",
+    "inspect.package_json.unreadable.hint": "Fix package.json and inspect again ({error}).",
+    "inspect.package_json.no_start": (
+        "package.json has no start script, no main entry and no framework Noust recognises "
+        "(Next.js, Vite, Nuxt, SvelteKit, Astro, Remix, Angular)."
+    ),
+    "inspect.package_json.no_start.hint": (
+        'Add a start script to package.json ({example_command}) or a "main" entry, so Noust '
+        "knows how to run it; or choose the type explicitly."
+    ),
+    "inspect.subprojects": ("Nothing Noust deploys at the root of the repository; found {found}."),
+    "inspect.subprojects.hint": (
+        "Noust deploys a repository from its root, or one application per project of it: a "
+        "JavaScript monorepo (npm, Yarn, pnpm, Lerna, Nx or Turborepo workspaces) is read with "
+        "'{detect_command}' and each application created with '{create_command}', on releases and "
+        "watching only its own files. Otherwise deploy each project from a repository of its "
+        "own, or add a compose.yaml at the root that builds them and deploy it as Docker Compose."
+    ),
+    "inspect.no_match": "Nothing in the repository matches an application type Noust deploys.",
+    "inspect.no_match.hint": (
+        "Noust recognises a project by the files at the root of the repository ({examples}, or a "
+        "package.json with a start script). Check the branch, or choose a type explicitly "
+        "instead of relying on auto-detection."
+    ),
+    # A Turborepo that is close to a monorepo and is not one: what it lacks, as one sentence for
+    # each way of lacking it.
+    "inspect.turbo.no_workspace_no_apps": (
+        "The repository uses Turborepo (turbo.json) but is not a monorepo Noust deploys: no "
+        'workspace (pnpm-workspace.yaml, or "workspaces" in package.json); no app under apps/ '
+        "has a package.json."
+    ),
+    "inspect.turbo.no_workspace_no_apps.hint": _TURBO_FIX,
+    "inspect.turbo.no_workspace_one_app": (
+        "The repository uses Turborepo (turbo.json) but is not a monorepo Noust deploys: no "
+        'workspace (pnpm-workspace.yaml, or "workspaces" in package.json); only apps/{app}/ '
+        "has a package.json under apps/."
+    ),
+    "inspect.turbo.no_workspace_one_app.hint": _TURBO_FIX,
+    "inspect.turbo.no_workspace": (
+        "The repository uses Turborepo (turbo.json) but is not a monorepo Noust deploys: no "
+        'workspace (pnpm-workspace.yaml, or "workspaces" in package.json).'
+    ),
+    "inspect.turbo.no_workspace.hint": _TURBO_FIX,
+    "inspect.turbo.no_apps": (
+        "The repository uses Turborepo (turbo.json) but is not a monorepo Noust deploys: no app "
+        "under apps/ has a package.json."
+    ),
+    "inspect.turbo.no_apps.hint": _TURBO_FIX,
+    "inspect.turbo.one_app": (
+        "The repository uses Turborepo (turbo.json) but is not a monorepo Noust deploys: only "
+        "apps/{app}/ has a package.json under apps/."
+    ),
+    "inspect.turbo.one_app.hint": _TURBO_FIX,
+    "inspect.turbo.other": "The repository uses Turborepo (turbo.json) but is not a monorepo Noust deploys.",
+    "inspect.turbo.other.hint": _TURBO_FIX,
+    # -- What a background job is doing (noust.web.jobs and the jobs of the application's pages): the ---
+    # step it reports and the lines it leaves, one sentence each. A step that is a tool's own output,
+    # or a phase a deployer names, is not one of these and travels as it came.
+    "jobs.step.done": "Done",
+    "jobs.step.complete": "Complete",
+    "jobs.step.deploy.preparing": "Preparing deployment",
+    "jobs.step.deploy.recipe": "Preparing the {recipe} recipe",
+    "jobs.step.deploy.database": "Creating the {engine} database",
+    "jobs.step.deploy.copying_data": "Copying the data",
+    "jobs.step.deploy.deploying": "Deploying",
+    "jobs.step.deploy.complete": "Deployment complete",
+    "jobs.step.promote.complete": "Promotion complete",
+    "jobs.step.update.complete": "Update complete",
+    "jobs.step.update.unit_not_running": ("Restarted, but the unit is not running: check its logs"),
+    "jobs.step.delete.complete": "Deletion complete",
+    "jobs.step.migrate.planning": "Planning the migration",
+    "jobs.step.migrate.moving": "Moving the tree onto releases",
+    "jobs.step.migrate.complete": "Migration complete",
+    "jobs.step.backup.creating": "Creating backup",
+    "jobs.step.backup.complete": "Backup complete",
+    "jobs.step.backup.uploading": "Uploading to {destination}",
+    "jobs.step.backup.upload_complete": "Upload complete",
+    "jobs.step.restore.restoring": "Restoring backup",
+    "jobs.step.restore.downloading": "Downloading and restoring backup",
+    "jobs.step.restore.complete": "Restore complete",
+    "jobs.step.rollback.rolling_back": "Rolling back",
+    "jobs.step.rollback.to_deployment": "Going back to deployment {deployment}",
+    "jobs.step.rollback.complete": "Rollback complete",
+    "jobs.step.pitr.recovering": "Point-in-time recovery: {action}",
+    "jobs.step.engine.installing": "Installing {engine}",
+    "jobs.step.engine.uninstalling": "Uninstalling {engine}",
+    "jobs.step.certificate.requesting": "Requesting certificate",
+    "jobs.step.certificate.serving": "Serving it",
+    "jobs.step.certificate.created": "Certificate created",
+    "jobs.step.exec.running": "Running a command in {domain}",
+    "jobs.step.exec.finished": "Command finished",
+    "jobs.step.renewal.renewing": "Renewing certificates",
+    "jobs.step.renewal.complete": "Renewal complete",
+    "jobs.step.renewal.none_due": "No certificate was due for renewal",
+    "jobs.step.renewal.unreadable": (
+        "certbot's certificate list could not be read, so which ones were renewed is unknown"
+    ),
+    "jobs.step.sandbox.building": "Building the current commit in the sandbox",
+    "jobs.step.packages.installing": "Installing the system packages",
+    "jobs.step.hardening.changing": "Changing the sandbox of the application's unit",
+    "jobs.step.tuning.tuning": "Tuning the application's unit",
+    "jobs.step.identity.moving": "Moving the application to its own account",
+    "jobs.step.replicas.starting": "Starting the copies and asking each one if it answers",
+    "jobs.step.zero_downtime.on": "Turning zero downtime on",
+    "jobs.step.zero_downtime.off": "Turning zero downtime off",
+    "jobs.step.staged.building": "Building without activating",
+    "jobs.step.staged.built": "Built, waiting to be promoted",
+    "jobs.step.staged.promoting": "Making the release serve",
+    "jobs.step.staged.promoted": "Promoted",
+    "jobs.step.bundle.building": "Building to ship",
+    "jobs.step.bundle.packed": "Packed, waiting to be fetched",
+    "jobs.step.bundle.receiving": "Receiving the release",
+    "jobs.step.bundle.active": "Release active",
+    "jobs.step.disk.measuring": "Measuring the application's directory",
+    "jobs.step.disk.giving_limit": "Giving the limit to the kernel",
+    "jobs.step.disk.taking_limit": "Taking the limit off the kernel",
+    "jobs.step.clone.complete": "Clone complete",
+    "jobs.step.import.complete": "Import complete",
+    "jobs.step.domains.extending": "Extending the certificate to every domain",
+    "jobs.step.domains.extended": "Certificate covers every domain",
+    "jobs.step.domains.removing": "Removing the domain from the certificate",
+    "jobs.step.domains.removed": "Certificate covers only the remaining domains",
+    "jobs.step.domains.deleting": "Deleting the certificate of {name}",
+    "jobs.step.domains.deleted": "The certificate is deleted",
+    "jobs.step.domains.ordering": "Ordering the certificate of its own",
+    "jobs.step.domains.giving_back": "Giving it back",
+    "jobs.step.domains.in_place": "The certificate is in place",
 }
 
 

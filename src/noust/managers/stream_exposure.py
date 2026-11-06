@@ -55,12 +55,14 @@ from noust.core.exceptions import (
     ValidationError,
 )
 from noust.core.fs import FileSystem, get_fs, is_rehearsal
-from noust.core.package_family import PackageFamily, install_hint
+from noust.core.package_family import PackageFamily, install_hint, package_family
 from noust.core.runner import CommandRunner, get_runner
+from noust.core.server_text import ServerText, say
 from noust.core.store import NoustStore, get_store
 from noust.core.stream_store import CLOSING, OPEN, OPENING, StreamExposure, StreamStore
 from noust.managers.database.exposure import listening_sockets
 from noust.managers.port_claims import PortClaims
+from noust.managers.server import components
 from noust.managers.server.security_firewall import Firewall, RuleRequest
 from noust.managers.server.security_probe import SecurityProbe
 from noust.managers.siteconf import ParseError, parse
@@ -89,6 +91,9 @@ MAX_TIMEOUT = 86400
 DEFAULT_TIMEOUT = 3600
 
 _PROBE_TIMEOUT = 15
+
+#: The component of the software registry that supplies nginx's stream module.
+STREAM_MODULE = "nginx_stream_module"
 _FIREWALL_COMMENT = "noust stream"
 
 
@@ -105,6 +110,12 @@ class StreamSupport:
             has to include the directory) or ``manual`` (add a block to ``nginx.conf``).
         problem: What is missing, when something is.
         hint: How to fix it, as a command or as the line to add.
+        install: The software component that supplies what is missing, to install from
+            Server > Software (``nginx``, or ``nginx_stream_module``): None when nothing is
+            missing that Noust installs here.
+        coded: ``problem`` and ``hint`` as a sentence with a code, for the console to translate;
+            None when nothing is wrong. Where the fix is nginx's own output ``hint`` is that
+            output and the sentence has no fix of its own.
     """
 
     available: bool
@@ -112,6 +123,8 @@ class StreamSupport:
     loader: str
     problem: str | None = None
     hint: str | None = None
+    install: str | None = None
+    coded: ServerText | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -124,7 +137,46 @@ class StreamSupport:
             "loader": self.loader,
             "problem": self.problem,
             "hint": self.hint,
+            "install": self.install,
+            "coded": self.coded.to_dict() if self.coded else None,
         }
+
+
+#: The package that carries nginx's stream module, per family. openSUSE builds it in.
+_STREAM_PACKAGES = {
+    PackageFamily.APT: "libnginx-mod-stream",
+    PackageFamily.DNF: "nginx-mod-stream",
+    PackageFamily.ZYPPER: "",
+}
+
+#: The line that loads the module when it is a shared object nothing loads.
+_LOAD_MODULE_LINE = "load_module modules/ngx_stream_module.so;"
+
+
+def _refused(
+    module: str,
+    loader: str,
+    coded: ServerText,
+    *,
+    install: str | None = None,
+    hint: str | None = None,
+) -> StreamSupport:
+    """
+    Make the answer for something nginx lacks, from the sentence that says what.
+
+    Args:
+        module: ``static``, ``dynamic`` or ``missing``.
+        loader: ``present``, ``installable``, ``foreign`` or ``manual``.
+        coded: The sentence; its text is the problem and its fix the hint.
+        install: The software component that supplies what is missing, when Noust installs it.
+        hint: The fix when it is not the sentence's own (a program's output).
+
+    Returns:
+        An answer that says Noust cannot publish a port yet.
+    """
+    return StreamSupport(
+        False, module, loader, coded.text, hint if hint is not None else coded.hint, install, coded
+    )
 
 
 @dataclass(frozen=True)
@@ -140,6 +192,7 @@ class StreamPlan:
         support: What nginx offers.
         warnings: Things that are probably wrong and do not stop it.
         firewall: What the firewall would be asked for, one entry per rule.
+        warnings_coded: ``warnings`` as sentences with a code, in the same order.
     """
 
     exposure: StreamExposure
@@ -149,6 +202,7 @@ class StreamPlan:
     support: StreamSupport
     warnings: tuple[str, ...] = ()
     firewall: tuple[dict[str, Any], ...] = ()
+    warnings_coded: tuple[ServerText, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -162,6 +216,7 @@ class StreamPlan:
             "loader": self.loader,
             "support": self.support.to_dict(),
             "warnings": list(self.warnings),
+            "warnings_coded": [warning.to_dict() for warning in self.warnings_coded],
             "firewall": list(self.firewall),
         }
 
@@ -176,12 +231,16 @@ class StreamResult:
         warnings: Things the operator should know.
         firewall: A sentence on the firewall: what was opened, or why nothing was.
         rehearsal: Nothing was changed: this is what would have been.
+        warnings_coded: ``warnings`` as sentences with a code, in the same order.
+        firewall_coded: ``firewall`` as a sentence with a code; None when there is none.
     """
 
     exposure: StreamExposure
     warnings: tuple[str, ...] = field(default_factory=tuple)
     firewall: str = ""
     rehearsal: bool = False
+    warnings_coded: tuple[ServerText, ...] = ()
+    firewall_coded: ServerText | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -191,7 +250,9 @@ class StreamResult:
         return {
             "exposure": self.exposure.to_dict(),
             "warnings": list(self.warnings),
+            "warnings_coded": [warning.to_dict() for warning in self.warnings_coded],
             "firewall": self.firewall,
+            "firewall_coded": self.firewall_coded.to_dict() if self.firewall_coded else None,
             "rehearsal": self.rehearsal,
         }
 
@@ -319,91 +380,110 @@ class StreamExposures:
         """
         runner = self.runner
         if not runner.exists("nginx"):
-            return StreamSupport(
-                False,
+            return _refused(
                 "missing",
                 "manual",
-                "nginx is not installed",
-                install_hint("nginx", runner=runner),
+                say("streams.support.no_nginx", command=install_hint("nginx", runner=runner)),
+                install=self._supplied_by("nginx"),
             )
         version = runner.run(["nginx", "-V"], timeout=_PROBE_TIMEOUT)
         built = _WITH_STREAM.search(f"{version.stdout}\n{version.stderr}")
         if built is None:
-            return StreamSupport(
-                False,
+            return _refused(
                 "missing",
                 "manual",
-                "This nginx was built without the stream module",
-                install_hint(
-                    {
-                        PackageFamily.APT: "libnginx-mod-stream",
-                        PackageFamily.DNF: "nginx-mod-stream",
-                        PackageFamily.ZYPPER: "",
-                    },
-                    notes={
-                        PackageFamily.ZYPPER: "openSUSE ships nginx with stream; install the "
-                        "nginx package from the distribution or from nginx.org."
-                    },
-                    runner=runner,
-                ),
+                self._no_stream_module(),
+                install=self._supplied_by(STREAM_MODULE),
             )
         kind = "dynamic" if built.group("kind") == "dynamic" else "static"
         dump = runner.run(["nginx", "-T"], timeout=_PROBE_TIMEOUT)
         if not dump.success:
-            return StreamSupport(
-                False,
+            # nginx's own words are the fix: they are not paraphrased into a sentence of ours.
+            return _refused(
                 kind,
                 "manual",
-                "nginx cannot read its own configuration",
-                (dump.stderr or dump.stdout).strip() or "Run: nginx -t",
+                say("streams.support.config_unreadable"),
+                hint=(dump.stderr or dump.stdout).strip() or "Run: nginx -t",
             )
         try:
             tree = parse(dump.stdout, "nginx")
         except ParseError as exc:
-            return StreamSupport(
-                False, kind, "manual", f"nginx's configuration is not readable: {exc}"
+            return _refused(
+                kind, "manual", say("streams.support.config_unparsable", reason=str(exc))
             )
         loaded = kind == "static" or _loads_stream_module(tree)
         if not loaded:
-            return StreamSupport(
-                False,
+            return _refused(
                 kind,
                 "manual",
-                "The stream module is built as a module and nothing loads it",
-                install_hint(
-                    {
-                        PackageFamily.APT: "libnginx-mod-stream",
-                        PackageFamily.DNF: "nginx-mod-stream",
-                        PackageFamily.ZYPPER: "",
-                    },
-                    notes={
-                        PackageFamily.ZYPPER: "Add 'load_module modules/ngx_stream_module.so;' "
-                        "at the top of nginx.conf."
-                    },
-                    runner=runner,
-                ),
+                self._module_not_loaded(),
+                install=self._supplied_by(STREAM_MODULE),
             )
         loader = self._loader_state(tree)
-        if loader == "present":
-            return StreamSupport(True, kind, loader)
-        if loader == "installable":
+        if loader in ("present", "installable"):
             return StreamSupport(True, kind, loader)
         if loader == "foreign":
-            return StreamSupport(
-                False,
+            return _refused(
                 kind,
                 loader,
-                "nginx.conf already has a stream block that does not include Noust's ports",
-                f"Add this line inside it, then run the command again: {self.include_line}",
+                say("streams.support.foreign_block", line_command=self.include_line),
             )
-        return StreamSupport(
-            False,
+        return _refused(
             kind,
             loader,
-            "nginx.conf has no stream block for Noust's ports",
-            "Add this at the top level of nginx.conf (beside http), then run the command "
-            f"again: stream {{ {self.include_line} }}",
+            say(
+                "streams.support.no_stream_block",
+                block_command=f"stream {{ {self.include_line} }}",
+            ),
         )
+
+    def _install_command(self) -> str | None:
+        """
+        Returns:
+            The command that installs the stream module on this system, every family's when
+            it is not known; None on openSUSE, which builds the module into nginx.
+        """
+        family = package_family(self.runner)
+        if family is PackageFamily.ZYPPER:
+            return None
+        return install_hint(_STREAM_PACKAGES, runner=self.runner, family=family)
+
+    def _no_stream_module(self) -> ServerText:
+        """
+        Returns:
+            What to do about an nginx built without the stream module, on this system.
+        """
+        command = self._install_command()
+        if command is None:
+            return say("streams.support.no_stream_module_suse")
+        return say("streams.support.no_stream_module", command=command)
+
+    def _module_not_loaded(self) -> ServerText:
+        """
+        Returns:
+            What to do about a stream module that nothing loads, on this system.
+        """
+        command = self._install_command()
+        if command is None:
+            return say("streams.support.module_not_loaded_suse", line_command=_LOAD_MODULE_LINE)
+        return say("streams.support.module_not_loaded", command=command)
+
+    def _supplied_by(self, component_id: str) -> str | None:
+        """
+        Say which component of the software registry supplies what is missing, when Noust
+        installs it on this system.
+
+        Args:
+            component_id: ``nginx`` or ``nginx_stream_module``.
+
+        Returns:
+            The id, or None where Noust installs no package for it (openSUSE builds the stream
+            module into nginx) or does not manage this system's packages.
+        """
+        found = components.component(component_id)
+        if found is None or not found.installable_on(package_family(self.runner)):
+            return None
+        return component_id
 
     def _loader_state(self, tree: Tree) -> str:
         """
@@ -513,6 +593,7 @@ class StreamExposures:
             raise PrerequisiteError(
                 support.problem or "nginx cannot publish a TCP or UDP port",
                 details=support.hint or "",
+                coded=support.coded,
             )
         warnings = self._warnings(exposure)
         rules = tuple(
@@ -525,7 +606,8 @@ class StreamExposures:
             file=self.file_for(exposure.name),
             loader="present" if support.loader == "present" else "write",
             support=support,
-            warnings=warnings,
+            warnings=tuple(warning.text for warning in warnings),
+            warnings_coded=warnings,
             firewall=rules,
         )
 
@@ -691,7 +773,7 @@ class StreamExposures:
             reveal=True,
         )
 
-    def _warnings(self, exposure: StreamExposure) -> tuple[str, ...]:
+    def _warnings(self, exposure: StreamExposure) -> tuple[ServerText, ...]:
         """
         Find what is probably wrong with an exposure and does not stop it.
 
@@ -701,7 +783,7 @@ class StreamExposures:
         Returns:
             One sentence per finding.
         """
-        found: list[str] = []
+        found: list[ServerText] = []
         if (
             exposure.protocol == "tcp"
             and ipaddress.ip_address(exposure.target_host).is_loopback
@@ -709,20 +791,14 @@ class StreamExposures:
                 socket.port == exposure.target_port for socket in listening_sockets(self.runner)
             )
         ):
-            found.append(
-                f"Nothing listens on {exposure.target} yet: visitors will be refused until "
-                "the service is running"
-            )
+            found.append(say("streams.plan.nothing_listens", target=exposure.target))
         if not exposure.sources:
-            found.append(
-                f"{exposure.protocol.upper()} {exposure.listen_port} will be open to everyone"
-                + (
-                    "; a service without its own authentication should be restricted to "
-                    "known addresses"
-                    if exposure.target_port in _AUTH_FREE_PORTS
-                    else ""
-                )
+            code = (
+                "streams.plan.open_to_everyone_without_login"
+                if exposure.target_port in _AUTH_FREE_PORTS
+                else "streams.plan.open_to_everyone"
             )
+            found.append(say(code, protocol=exposure.protocol.upper(), port=exposure.listen_port))
         return tuple(found)
 
     # ------------------------------------------------------------------ opening
@@ -778,7 +854,13 @@ class StreamExposures:
             actor=actor,
         )
         if is_rehearsal():
-            return StreamResult(plan.exposure, plan.warnings, "", rehearsal=True)
+            return StreamResult(
+                plan.exposure,
+                plan.warnings,
+                "",
+                rehearsal=True,
+                warnings_coded=plan.warnings_coded,
+            )
         exposure = plan.exposure
         if self.records.get(exposure.name) is None:
             try:
@@ -813,7 +895,14 @@ class StreamExposures:
                 "app": exposure.app_domain,
             },
         )
-        return StreamResult(saved, plan.warnings, _firewall_sentence(firewall))
+        said = _firewall_sentence(firewall)
+        return StreamResult(
+            saved,
+            plan.warnings,
+            said.text,
+            warnings_coded=plan.warnings_coded,
+            firewall_coded=said,
+        )
 
     def _write_loader(self) -> None:
         """Write the file that gives nginx a ``stream`` block carrying Noust's directory."""
@@ -1065,18 +1154,25 @@ def _loads_stream_module(tree: Tree) -> bool:
     )
 
 
-def _firewall_sentence(firewall: dict[str, Any]) -> str:
+def _firewall_sentence(firewall: dict[str, Any]) -> ServerText:
     """
     Args:
         firewall: What the firewall came to, as recorded.
 
     Returns:
-        A sentence for the operator.
+        A sentence for the operator; the firewall's own reason for changing nothing is a value
+        in it, as the firewall said it.
     """
     made = firewall.get("made") or []
+    if len(made) == 1:
+        return say("streams.firewall.allowed_one", backend=str(firewall.get("backend")))
     if made:
-        return f"{firewall.get('backend')} now allows {len(made)} rule(s) for it"
+        return say(
+            "streams.firewall.allowed_several",
+            backend=str(firewall.get("backend")),
+            count=len(made),
+        )
     note = str(firewall.get("note") or "")
     if note:
-        return f"The firewall was not changed: {note}"
-    return "The firewall was not changed"
+        return say("streams.firewall.unchanged_because", note=note)
+    return say("streams.firewall.unchanged")

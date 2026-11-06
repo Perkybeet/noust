@@ -147,7 +147,7 @@ test("the grid follows the window, and the keyboard can leave the terminal", asy
   await expect(terminal(page)).not.toBeFocused();
 });
 
-test("it is reached from the application's More actions, and from the server's", async ({ page, consoleServer }) => {
+test("it is reached from the application's More actions, and from the server's column", async ({ page, consoleServer }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, consoleServer, `/apps/${APP}`);
   await expect(page.getByRole("heading", { level: 1, name: APP })).toBeVisible();
@@ -158,8 +158,8 @@ test("it is reached from the application's More actions, and from the server's",
 
   await page.goto("/server");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await page.getByRole("button", { name: "More actions" }).click();
-  await page.getByRole("menuitem", { name: "Open a terminal" }).click();
+  // The server's terminal is one of its tools, in its column.
+  await page.getByRole("navigation", { name: "Server sections" }).getByRole("link", { name: "Terminal" }).click();
   await expect(page).toHaveURL(/\/server\/terminal$/);
 });
 
@@ -175,7 +175,7 @@ test("a command runs once, as a job, and its output is shown as it was printed",
   const argv = page.getByRole("list", { name: "Run as" });
   await expect(argv.getByRole("listitem")).toHaveText(["echo", "hello", "two words", "|", "wc"]);
   await expect(page.getByText("These are passed as text, not interpreted: |")).toBeVisible();
-  await expect(page.getByText("noust app exec tienda.example.org -- echo hello 'two words' '|' wc")).toBeVisible();
+  await expect(page.getByText(/noust app exec/)).toHaveCount(0);
 
   await command.fill("echo hello world");
   await page.getByRole("button", { name: "Run command" }).click();

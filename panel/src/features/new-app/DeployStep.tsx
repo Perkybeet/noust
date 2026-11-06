@@ -12,7 +12,7 @@ import { Disclosure } from "../../components/ui/Disclosure";
 import { textLinkClassName } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
-import { readAppPage, readDeploymentPage } from "../app/prefetch";
+import { readAppPage } from "../app/prefetch";
 import { stepWords } from "../app/stepWords";
 import { containerSummary } from "../container/summary";
 import { normalizeDomain } from "../domains/names";
@@ -181,8 +181,10 @@ function Landing({ target, followedJob, onGone }: { target: LandingTarget; follo
   useEffect(() => {
     if (deploymentId === null && !toApp) return;
     let live = true;
-    const to = deploymentId !== null ? ({ to: "/apps/$domain/deployments/$id", params: { domain, id: String(deploymentId) }, replace: true } as const) : ({ to: "/apps/$domain", params: { domain }, replace: true } as const);
-    const reads = [readAppPage(queryClient, domain), router.preloadRoute(to), ...(deploymentId !== null ? [readDeploymentPage(queryClient, deploymentId)] : [])];
+    // The application's own page: it says it is deploying for the first time, with its steps and the build's output as it is
+    // written, and the task centre follows the deploy if the operator goes elsewhere.
+    const to = { to: "/apps/$domain", params: { domain }, replace: true } as const;
+    const reads = [readAppPage(queryClient, domain), router.preloadRoute(to)];
     void Promise.allSettled(reads).then(() => {
       if (!live) return;
       onGone();
@@ -209,7 +211,7 @@ function Landing({ target, followedJob, onGone }: { target: LandingTarget; follo
     <JobProgress
       state={followedJob.job?.status === "pending" ? "queued" : "running"}
       title={t("newApp.deploy.deploying", { domain: target.domain })}
-      step={followedJob.job === null ? null : stepWords(followedJob.job.type, followedJob.job.current_step, t.locale)}
+      step={followedJob.job === null ? null : stepWords(followedJob.job.type, followedJob.job.current_step, t.locale, followedJob.job.current_step_coded)}
       description={t("newApp.deploy.buildLogSoon")}
     />
   );

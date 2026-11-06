@@ -837,6 +837,44 @@ def test_verify_unit_reports_the_checkers_own_words_on_failure(
     assert "Failed to parse Exec syntax" in output
 
 
+def test_a_unit_written_by_hand_is_checked_by_systemd_before_it_is_written(
+    manager: ServiceManager, runner: FakeRunner, unit_dirs: dict[str, Path]
+) -> None:
+    """
+    The advanced form of a new service passes the check the unit file page passes.
+
+    The unit editor asks ``systemd-analyze verify`` before it saves; the form that creates a service
+    from a whole unit did not, so a script (or that form) could install a unit systemd refuses. The
+    check is the manager's, whoever asks, and a refusal carries systemd's own words and writes nothing.
+    """
+    runner.script(
+        ["systemd-analyze", "verify"],
+        exit_code=1,
+        stderr="noust-verify.service: Service has no ExecStart= setting. Refusing.\n",
+    )
+
+    with pytest.raises(ValidationError) as refused:
+        manager.create_from_unit("worker", f"# {UNIT_MARKER}\n[Service]\nType=simple\n")
+
+    assert refused.value.output is not None
+    assert "has no ExecStart= setting" in refused.value.output
+    assert refused.value.field == "raw_content"
+    assert list(unit_dirs["managed"].iterdir()) == []
+
+
+def test_a_unit_written_by_hand_that_systemd_accepts_is_written_verbatim(
+    manager: ServiceManager, runner: FakeRunner, unit_dirs: dict[str, Path]
+) -> None:
+    """The check is a gate, not a rewrite: what passes is the file, byte for byte."""
+    runner.script(["systemd-analyze", "verify"], stdout="")
+    body = f"# {UNIT_MARKER}\n[Service]\nExecStart=/usr/bin/true\n"
+
+    manager.create_from_unit("worker", body)
+
+    assert (unit_dirs["managed"] / "worker.service").read_text() == body
+    assert len([call for call in runner.calls if call[:2] == ("systemd-analyze", "verify")]) == 1
+
+
 def test_verify_unit_cleans_up_even_when_systemd_analyze_is_missing(
     manager: ServiceManager, runner: FakeRunner
 ) -> None:

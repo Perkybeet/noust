@@ -117,10 +117,11 @@ class SlowQueriesResponse(BaseModel):
 
     Attributes:
         available: Whether the engine keeps statement statistics.
-        source: ``pg_stat_statements`` or ``performance_schema``.
+        source: ``pg_stat_statements``, ``performance_schema`` or ``slowlog``.
         reason: Why not: ``not_loaded``, ``not_created``,
-            ``performance_schema_off`` or ``not_supported``.
-        how_to_enable: The steps, in English, commands included.
+            ``performance_schema_off`` or, for Redis, ``slowlog``.
+        how_to_enable: The steps, in English, commands included; for Redis,
+            the command that reads its slow log.
     """
 
     available: bool

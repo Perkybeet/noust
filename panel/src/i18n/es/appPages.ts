@@ -43,6 +43,31 @@ export const appPages: Catalog<typeof en> = {
     frozen: "Despliegues congelados",
   },
 
+  /** Las páginas que reúnen lo que eran los apartados de los ajustes de una aplicación. */
+  config: {
+    foldRepository: "Cómo llega Noust al repositorio",
+    foldBuild: "Aislamiento, paquetes y caché",
+    documentTitle: "{section} - {domain}",
+    loading: "Cargando {section}",
+    notSaved: "No se guardaron los ajustes de {domain}",
+    notBuilt: "{domain} es un sitio que Noust no ha construido, así que aquí no hay nada que ajustar. Su estado, sus registros y lo que gasta están en las otras secciones.",
+  },
+
+  /** La página que dice si la aplicación podría correr en más de un servidor. */
+  servers: {
+    placements: "Dónde está colocada, y moverla entre servidores, está en {link}.",
+    placementsLink: "Aplicaciones en varios servidores",
+  },
+
+  /** Lo que dice la página de una aplicación mientras corre su primer despliegue. */
+  firstDeploy: {
+    title: "Desplegando por primera vez",
+    line: "Puedes irte a otra página: el centro de tareas lo sigue y te avisa al terminar.",
+    starting: "Empezando el despliegue",
+    logTitle: "Registro del despliegue",
+    logLine: "Lo que va saliendo, tal cual.",
+  },
+
   layout: {
     portFact: "Puerto {port}",
     liveSite: "{domain}, el sitio en producción",
@@ -54,18 +79,18 @@ export const appPages: Catalog<typeof en> = {
   },
 
   banner: {
-    diagnose: "Diagnosticar",
+    diagnose: "Ver por qué",
     viewLogs: "Ver registros",
     failedTitle: "El servicio se detuvo con un error",
-    failedBody: "systemd no pudo mantenerlo en marcha. Diagnóstico lee sus registros, su puerto y el servidor web para decir por qué.",
+    failedBody: "systemd no pudo mantenerlo en marcha. Ver por qué lee sus registros, su puerto y el servidor web para decir qué lo paró.",
     failedAfterDeploy: "Se detuvo después de que fallara el último despliegue, {time}.",
     noAnswerTitle: "Nada responde en el puerto {port}",
     noAnswerTitleNoPort: "La aplicación no responde",
-    noAnswerBody: "El servicio está en marcha, pero la aplicación no responde a las peticiones. Diagnóstico comprueba el puerto, HTTP y sus registros.",
+    noAnswerBody: "El servicio está en marcha, pero la aplicación no responde a las peticiones. Ver por qué comprueba el puerto, HTTP y sus registros.",
     restartingTitle: "El servicio se reinicia una y otra vez",
     restartingBody: "Se detiene poco después de arrancar, y systemd lo vuelve a iniciar. Sus últimas líneas de registro suelen decir por qué.",
-    deployFailedTitle: "El último despliegue falló {time}",
-    deployFailedBody: "La versión que estaba en producción sigue sirviendo.",
+    deployFailedTitle: "El último despliegue falló {time} y sigue sirviendo el anterior",
+    deployFailedBody: "No se ha caído nada: la versión que estaba en marcha sigue siendo la que responde.",
     unmanagedTitle: "Está en marcha fuera de Noust",
     unmanagedBody: "Sus contenedores están en marcha, pero su unidad está parada: Noust no la supervisa. Seguramente alguien la arrancó a mano con docker compose.",
   },
@@ -112,21 +137,43 @@ export const appPages: Catalog<typeof en> = {
     stopApplication: "Detener aplicación",
     deletionQueued: "Eliminación de {domain} en cola",
     deletionQueuedDescription: "Se te avisará cuando termine.",
-    deletionCouldNotStart: "No se pudo iniciar la eliminación de {domain}",
   },
 
   deleteApp: {
     title: "Eliminar {domain}",
-    summaryKeepsBoth: "Se eliminan su servicio y su sitio del servidor web. Se conservan sus archivos, su certificado y sus copias de seguridad.",
-    summaryFiles: "Se eliminan su servicio, su sitio del servidor web y sus archivos. Se conservan su certificado y sus copias de seguridad.",
-    summaryCertificate: "Se eliminan su servicio, su sitio del servidor web y su certificado. Se conservan sus archivos y sus copias de seguridad.",
-    summaryFilesAndCertificate: "Se eliminan su servicio, su sitio del servidor web, sus archivos y su certificado. Se conservan sus copias de seguridad.",
+    action: "Eliminar aplicación",
+    page: {
+      title: "Qué se elimina",
+      line: "Se paran y quitan el servicio y el sitio. Lo demás solo si lo marcas: nada viene marcado, y las copias de seguridad siempre se conservan.",
+      reading: "Cargando lo que guarda {domain}",
+      readFailed: "No se pudo leer lo que tocaría eliminar {domain}",
+      button: "Eliminar…",
+    },
     filesLabel: "Eliminar también sus archivos",
     filesDescription: "Todo lo que hay en {path}, subidas incluidas. No se puede deshacer.",
     filesDescriptionNoPath: "Todo lo que hay en la carpeta de la aplicación, subidas incluidas. No se puede deshacer.",
+    folderLabel: "Eliminar también su carpeta",
+    folderDescription: "{path} no está en la carpeta de aplicaciones de Noust: ya estaba ahí antes, y se elimina solo porque marcas esto. No se puede deshacer.",
+    volumesLabel: "Eliminar también los volúmenes de sus contenedores",
+    volumesDescription: "Guardan lo que guardan los contenedores, como los ficheros de una base de datos. No se puede deshacer.",
+    databasesLabel: { one: "Eliminar también su base de datos {names}", other: "Eliminar también sus bases de datos {names}" },
+    databasesDescription: "Antes de eliminar cada una se hace un último volcado.",
+    databaseKeptShared: "{name} se queda: la usan también {apps}.",
+    databaseKeptUsed: "{name} se queda: esta aplicación la usa, pero no es solo suya.",
     certificateLabel: "Eliminar también su certificado",
     certificateDescription: "Se emite uno nuevo si el dominio se vuelve a desplegar, dentro de los límites de Let's Encrypt.",
-    action: "Eliminar aplicación",
+    things: {
+      service: "su servicio",
+      site: "su sitio del servidor web",
+      files: "sus archivos",
+      folder: "su carpeta",
+      volumes: "los volúmenes de sus contenedores",
+      databases: "sus bases de datos",
+      certificate: "su certificado",
+      backups: "sus copias de seguridad",
+    },
+    removes: "Se borra: {things}.",
+    keeps: "Se conserva: {things}.",
   },
 
   rollback: {
@@ -174,8 +221,8 @@ export const appPages: Catalog<typeof en> = {
     prismaAutomatic: "Prisma, automáticamente:",
     inService: "en el servicio {service}",
     restoreTitle: "Devolver también la base de datos",
-    restoreKnown: "La copia {id} se hizo antes del primero de ellos. Restáurala desde un terminal:",
-    restoreUnknown: "Restaura la copia hecha antes del primero de ellos, desde un terminal:",
+    restoreKnown: "La copia {id} se hizo antes del primero de ellos. Al restaurarla, la base de datos vuelve a como estaba:",
+    restoreUnknown: "Restaura la copia hecha antes del primero de ellos; su identificador está en las copias de esta aplicación:",
     goBackAnyway: "Volver atrás igualmente",
   },
   sourceLink: {
@@ -486,6 +533,8 @@ export const appPages: Catalog<typeof en> = {
       disk: "Espacio en disco",
       blueGreen: "Copia que sirve",
       zeroDowntime: "Actualizaciones sin cortes",
+      phpFpm: "Pool de PHP-FPM",
+      containers: "Contenedores del worker",
     },
     headline: {
       unit: "La aplicación se cierra al arrancar",

@@ -45,7 +45,7 @@ function Row({ item }: { item: Item }) {
             {note}
           </span>
         ))}
-        {item.fix ? <CommandHint label={t("settings.about.installCheck.fix")} command={item.fix} /> : null}
+        {item.fix ? <CommandHint label={t("settings.about.installCheck.fix")} command={item.fix} reason="salida-del-sistema" /> : null}
       </div>
     </li>
   );
@@ -86,7 +86,6 @@ function Details({ report }: { report: InstallCheckResult }) {
           ))}
         </div>
       </Card>
-      <CommandHint label={t("settings.about.installCheck.fromTerminal")} command="noust setup doctor" />
     </div>
   );
 }

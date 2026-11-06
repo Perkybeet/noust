@@ -1319,6 +1319,15 @@ BindingsResponse = TypedDict("BindingsResponse", {
     "total": Required[int],
 })
 
+BlockerOut = TypedDict("BlockerOut", {
+    "code": Required[str],
+    "dependents": NotRequired[list["DependentOut"]],
+    "hint": NotRequired[Union[str, None]],
+    "params": NotRequired[dict[str, Any]],
+    "reason": Required[str],
+    "text": Required[str],
+})
+
 BootOut = TypedDict("BootOut", {
     "boot_id": Required[str],
     "first": Required[str],
@@ -1841,6 +1850,7 @@ CleanupPlanOut = TypedDict("CleanupPlanOut", {
     "action": Required[str],
     "commands": Required[list[str]],
     "effect": Required[str],
+    "effect_coded": NotRequired[Union["CodedText", None]],
     "items": NotRequired[list[str]],
     "needs_confirmation": Required[bool],
 })
@@ -1877,6 +1887,7 @@ CleanupRunOut = TypedDict("CleanupRunOut", {
     "percent_after": NotRequired[Union[float, None]],
     "percent_before": NotRequired[Union[float, None]],
     "reason": NotRequired[Union[str, None]],
+    "reason_coded": NotRequired[Union["CodedText", None]],
     "started_at": Required[str],
     "status": Required[str],
     "trigger": Required[str],
@@ -2013,6 +2024,8 @@ ComplianceState = TypedDict("ComplianceState", {
     "controls": Required[list["ControlInfo"]],
     "frameworks": Required[list["FrameworkInfo"]],
     "legacy_profile": Required[str],
+    "legacy_profile_read_as": NotRequired[str],
+    "legacy_profile_valid": NotRequired[bool],
     "unknown": Required[list[str]],
 })
 
@@ -2596,6 +2609,39 @@ CronRunsResponse = TypedDict("CronRunsResponse", {
     "total": Required[int],
 })
 
+DashboardBody = TypedDict("DashboardBody", {
+    "layout": Required[dict[str, Any]],
+    "name": Required[str],
+    "scope": Required[str],
+})
+
+DashboardLimits = TypedDict("DashboardLimits", {
+    "columns": NotRequired[int],
+    "dashboards": NotRequired[int],
+    "document_bytes": NotRequired[int],
+    "settings_bytes": NotRequired[int],
+    "widgets": NotRequired[int],
+})
+
+DashboardOrder = TypedDict("DashboardOrder", {
+    "order": Required[list[str]],
+})
+
+DashboardOut = TypedDict("DashboardOut", {
+    "created_at": Required[float],
+    "id": Required[str],
+    "layout": Required[dict[str, Any]],
+    "name": Required[str],
+    "position": Required[int],
+    "scope": Required[str],
+    "updated_at": Required[float],
+})
+
+DashboardsResponse = TypedDict("DashboardsResponse", {
+    "dashboards": Required[list["DashboardOut"]],
+    "limits": NotRequired["DashboardLimits"],
+})
+
 DatabaseInfoResponse = TypedDict("DatabaseInfoResponse", {
     "actions": NotRequired[list[str]],
     "app": NotRequired[Union[str, None]],
@@ -2778,6 +2824,11 @@ DeliveryOut = TypedDict("DeliveryOut", {
     "state": Required[str],
 })
 
+DependentOut = TypedDict("DependentOut", {
+    "kind": Required[str],
+    "names": NotRequired[list[str]],
+})
+
 DeployKeyCreateRequest = TypedDict("DeployKeyCreateRequest", {
     "key": NotRequired[Union[str, None]],
     "name": NotRequired[Union[str, None]],
@@ -2943,6 +2994,7 @@ DestinationListResponse = TypedDict("DestinationListResponse", {
 })
 
 DiagnoseCheck = TypedDict("DiagnoseCheck", {
+    "coded": NotRequired[Union["CodedText", None]],
     "evidence": NotRequired[str],
     "name": Required[str],
     "status": Required[str],
@@ -2953,6 +3005,7 @@ DiagnoseResponse = TypedDict("DiagnoseResponse", {
     "checks": Required[list["DiagnoseCheck"]],
     "domain": Required[str],
     "probable_cause": Required[Union[str, None]],
+    "probable_cause_coded": NotRequired[Union["CodedText", None]],
     "verdict": Required[str],
 })
 
@@ -3559,6 +3612,7 @@ EnsBaselineItem = TypedDict("EnsBaselineItem", {
 EnsCheckResponse = TypedDict("EnsCheckResponse", {
     "checked_at": Required[str],
     "counts": Required[dict[str, int]],
+    "enabled": NotRequired[bool],
     "errors": NotRequired[dict[str, str]],
     "findings": Required[list["EnsFinding"]],
     "host": Required[str],
@@ -4588,6 +4642,20 @@ ImageCheckResponse = TypedDict("ImageCheckResponse", {
     "reason": Required[str],
 })
 
+ImpactOut = TypedDict("ImpactOut", {
+    "also_removes": NotRequired[list[str]],
+    "blockers": NotRequired[list["BlockerOut"]],
+    "dependents": NotRequired[list["DependentOut"]],
+    "id": Required[str],
+    "installed": Required[bool],
+    "needs_confirmation": Required[bool],
+    "origin": NotRequired[Union[str, None]],
+    "removable": Required[bool],
+    "removes": NotRequired[list[str]],
+    "repository_files": NotRequired[list[str]],
+    "severity": Required[str],
+})
+
 ImportAppRequest = TypedDict("ImportAppRequest", {
     "document": Required["AppExportDocument"],
     "domain": NotRequired[Union[str, None]],
@@ -4665,6 +4733,10 @@ InspectSourceRequest = TypedDict("InspectSourceRequest", {
     "branch": NotRequired[Union[str, None]],
     "github_installation_id": NotRequired[Union[int, None]],
     "source": Required[str],
+})
+
+InstallRequest = TypedDict("InstallRequest", {
+    "epel": NotRequired[bool],
 })
 
 InstallResponse = TypedDict("InstallResponse", {
@@ -4970,6 +5042,7 @@ JobResponse = TypedDict("JobResponse", {
     "completed_at": NotRequired[Union[str, None]],
     "created_at": Required[str],
     "current_step": Required[str],
+    "current_step_coded": NotRequired[Union["CodedText", None]],
     "deployment_id": NotRequired[Union[int, None]],
     "description": Required[str],
     "error": NotRequired[Union[str, None]],
@@ -4983,6 +5056,7 @@ JobResponse = TypedDict("JobResponse", {
     "started_at": NotRequired[Union[str, None]],
     "state": NotRequired[str],
     "status": Required[str],
+    "title": NotRequired[Union["CodedText", None]],
     "total_steps": Required[int],
     "type": Required[str],
     "waiting_for": NotRequired[Union[str, None]],
@@ -6013,6 +6087,7 @@ ObservationEntry = TypedDict("ObservationEntry", {
     "command": NotRequired[Union[str, None]],
     "cpu_percent": NotRequired[Union[float, None]],
     "detail": NotRequired[Union[str, None]],
+    "detail_coded": NotRequired[Union["CodedText", None]],
     "id": NotRequired[Union[int, None]],
     "memory_percent": NotRequired[Union[float, None]],
     "observed_at": Required[str],
@@ -6027,6 +6102,19 @@ ObservationListResponse = TypedDict("ObservationListResponse", {
     "count": Required[int],
     "observations": Required[list["ObservationEntry"]],
     "stats": NotRequired[Union[dict[str, int], None]],
+})
+
+OperationOut = TypedDict("OperationOut", {
+    "actor": NotRequired[Union[str, None]],
+    "domain": NotRequired[Union[str, None]],
+    "id": Required[str],
+    "started_at": Required[str],
+    "target": NotRequired[Union[str, None]],
+    "title": Required["CodedText"],
+})
+
+OperationsResponse = TypedDict("OperationsResponse", {
+    "operations": Required[list["OperationOut"]],
 })
 
 OsOut = TypedDict("OsOut", {
@@ -7633,6 +7721,7 @@ ReleasesResponse = TypedDict("ReleasesResponse", {
 })
 
 ReloadResponse = TypedDict("ReloadResponse", {
+    "coded": NotRequired[Union["CodedText", None]],
     "message": Required[str],
     "success": Required[bool],
     "webserver": Required[str],
@@ -7726,6 +7815,10 @@ RemovePlanResponse = TypedDict("RemovePlanResponse", {
     "databases": Required[list[str]],
     "name": Required[str],
     "warnings": Required[list[str]],
+})
+
+RemoveRequest = TypedDict("RemoveRequest", {
+    "confirm_unknown_origin": NotRequired[bool],
 })
 
 RemovedResponse = TypedDict("RemovedResponse", {
@@ -8220,7 +8313,7 @@ SMTPConfig = TypedDict("SMTPConfig", {
     "host": NotRequired[str],
     "password": NotRequired[str],
     "port": NotRequired[int],
-    "recipients": NotRequired[list[str]],
+    "recipients": NotRequired[Union[list[str], None]],
     "use_ssl": NotRequired[bool],
     "use_tls": NotRequired[bool],
     "username": NotRequired[str],
@@ -8962,6 +9055,36 @@ ShutdownRequest = TypedDict("ShutdownRequest", {
     "message": NotRequired[Union[str, None]],
 })
 
+SignInAppearance = TypedDict("SignInAppearance", {
+    "image": NotRequired[Union["SignInImageOut", None]],
+    "limits": NotRequired["SignInImageLimits"],
+})
+
+SignInAppearanceBody = TypedDict("SignInAppearanceBody", {
+    "alt": NotRequired[Union[str, None]],
+    "fit": NotRequired[str],
+    "image": NotRequired[Union[str, None]],
+})
+
+SignInImageLimits = TypedDict("SignInImageLimits", {
+    "alt_chars": NotRequired[int],
+    "bytes": NotRequired[int],
+    "side": NotRequired[int],
+    "types": NotRequired[list[str]],
+})
+
+SignInImageOut = TypedDict("SignInImageOut", {
+    "alt": Required[str],
+    "content_type": Required[str],
+    "fit": Required[str],
+    "height": Required[int],
+    "sha256": Required[str],
+    "size": Required[int],
+    "updated_at": Required[str],
+    "url": Required[str],
+    "width": Required[int],
+})
+
 SinkOut = TypedDict("SinkOut", {
     "degraded": NotRequired[bool],
     "delivered_at": NotRequired[Union[str, None]],
@@ -8973,6 +9096,7 @@ SinkOut = TypedDict("SinkOut", {
 })
 
 SiteActionResponse = TypedDict("SiteActionResponse", {
+    "coded": NotRequired[Union["CodedText", None]],
     "message": Required[str],
     "site": Required[str],
     "success": Required[bool],
@@ -9303,6 +9427,31 @@ SlowQueryResponse = TypedDict("SlowQueryResponse", {
     "total_ms": NotRequired[Union[float, None]],
 })
 
+SoftwareItemOut = TypedDict("SoftwareItemOut", {
+    "dependents": NotRequired[list["DependentOut"]],
+    "id": Required[str],
+    "installable": Required[bool],
+    "installed": Required[bool],
+    "installed_at": NotRequired[Union[str, None]],
+    "installed_by": NotRequired[Union[str, None]],
+    "installed_via": NotRequired[Union[str, None]],
+    "origin": NotRequired[Union[str, None]],
+    "packages": NotRequired[list[str]],
+    "purpose": Required[str],
+    "purpose_code": Required[str],
+    "removable": Required[bool],
+    "severity": Required[str],
+    "version": NotRequired[Union[str, None]],
+})
+
+SoftwareOut = TypedDict("SoftwareOut", {
+    "family": Required[str],
+    "items": NotRequired[list["SoftwareItemOut"]],
+    "managed": Required[bool],
+    "reason": NotRequired[Union[str, None]],
+    "reason_coded": NotRequired[Union["CodedText", None]],
+})
+
 SourceChangeRequest = TypedDict("SourceChangeRequest", {
     "branch": NotRequired[Union[str, None]],
     "check": NotRequired[bool],
@@ -9341,7 +9490,9 @@ SourceInspectionResponse = TypedDict("SourceInspectionResponse", {
     "platform_proposal": NotRequired[Union["PlatformProposalResponse", None]],
     "start_command": Required[str],
     "suggestion": NotRequired[Union[str, None]],
+    "suggestion_coded": NotRequired[Union["CodedText", None]],
     "verdict": NotRequired[Union[str, None]],
+    "verdict_coded": NotRequired[Union["CodedText", None]],
 })
 
 SourceOptionsRequest = TypedDict("SourceOptionsRequest", {
@@ -9471,6 +9622,7 @@ SshUnitOut = TypedDict("SshUnitOut", {
 StackNetworkModel = TypedDict("StackNetworkModel", {
     "driver": Required[str],
     "findings": Required[list[str]],
+    "findings_coded": NotRequired[list["CodedText"]],
     "id": Required[str],
     "internal": Required[bool],
     "ipv6": Required[bool],
@@ -9490,6 +9642,7 @@ StackNetworksResponse = TypedDict("StackNetworksResponse", {
     "isolated": Required[bool],
     "networks": Required[list["StackNetworkModel"]],
     "reason": NotRequired[str],
+    "reason_coded": NotRequired[Union["CodedText", None]],
 })
 
 StageRequest = TypedDict("StageRequest", {
@@ -9591,6 +9744,7 @@ StreamPlanResponse = TypedDict("StreamPlanResponse", {
     "loader": Required[str],
     "support": Required["StreamSupportModel"],
     "warnings": Required[list[str]],
+    "warnings_coded": NotRequired[list["CodedText"]],
 })
 
 StreamRequest = TypedDict("StreamRequest", {
@@ -9607,12 +9761,16 @@ StreamRequest = TypedDict("StreamRequest", {
 StreamResultResponse = TypedDict("StreamResultResponse", {
     "exposure": Required["StreamExposureModel"],
     "firewall": Required[str],
+    "firewall_coded": NotRequired[Union["CodedText", None]],
     "warnings": Required[list[str]],
+    "warnings_coded": NotRequired[list["CodedText"]],
 })
 
 StreamSupportModel = TypedDict("StreamSupportModel", {
     "available": Required[bool],
+    "coded": NotRequired[Union["CodedText", None]],
     "hint": NotRequired[Union[str, None]],
+    "install": NotRequired[Union[str, None]],
     "loader": Required[str],
     "module": Required[str],
     "problem": NotRequired[Union[str, None]],
@@ -9684,6 +9842,7 @@ SwapOut = TypedDict("SwapOut", {
     "memory_bytes": Required[int],
     "noust_swapfile": Required[bool],
     "reason": Required[str],
+    "reason_coded": NotRequired[Union["CodedText", None]],
     "recommended": Required[bool],
     "suggested_bytes": Required[int],
     "supported": Required[bool],
@@ -9691,6 +9850,7 @@ SwapOut = TypedDict("SwapOut", {
     "total_bytes": Required[int],
     "used_bytes": Required[int],
     "warnings": Required[list[str]],
+    "warnings_coded": NotRequired[list["CodedText"]],
 })
 
 SwapSummary = TypedDict("SwapSummary", {
@@ -11332,10 +11492,14 @@ NoustWebApiCloudProviderOut = TypedDict("NoustWebApiCloudProviderOut", {
 })
 
 NoustWebApiComplianceCheckResponse = TypedDict("NoustWebApiComplianceCheckResponse", {
+    "checked_at": NotRequired[str],
     "disclaimer": Required[str],
+    "enabled": NotRequired[list[str]],
     "errors": Required[dict[str, str]],
     "frameworks": Required[list["CheckFramework"]],
+    "host": NotRequired[str],
     "verdict": Required[str],
+    "version": NotRequired[str],
 })
 
 NoustWebApiDatabasesBackupsPolicyDestination = TypedDict("NoustWebApiDatabasesBackupsPolicyDestination", {

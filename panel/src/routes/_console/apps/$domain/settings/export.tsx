@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { ExportSettings } from "../../../../../features/app/settings/ExportSection";
-
-/** An application's settings, Export: everything that defines it, as a file. */
+/** 4.2: the settings of an application are the pages of its column; this subsection is now in export. */
 export const Route = createFileRoute("/_console/apps/$domain/settings/export")({
-  component: ExportSettings,
+  beforeLoad: ({ params }) => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect protocol
+    throw redirect({ to: "/apps/$domain/export", params, replace: true });
+  },
 });

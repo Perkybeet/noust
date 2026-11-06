@@ -27,13 +27,15 @@ async function signIn(page: Page, server: ConsoleServer, path: string): Promise<
 }
 
 
-test("the list says where each database runs and whether it is backed up, and the servers are under it", async ({ page, consoleServer }) => {
+test("the list says whether each database answers, where it runs and whether it is backed up, and the engines are their own page", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/databases");
   await expect(page.getByRole("heading", { level: 1, name: "Databases" })).toBeVisible();
   const table = page.getByRole("region", { name: "Databases" });
   const production = table.getByRole("row", { name: /example_production/ });
   await expect(production.getByText("Verified")).toBeVisible();
-  await expect(production.getByText(/PostgreSQL 16/)).toBeVisible();
+  await expect(production.getByText("Running")).toBeVisible();
+  // The widest screens say where it runs too; a laptop's width says the engine and its release, and the whole is where the pointer rests.
+  await expect(production.getByText("PostgreSQL 16", { exact: true })).toBeVisible();
   await expect(production.getByRole("link", { name: "example.com" })).toBeVisible();
   const staging = table.getByRole("row", { name: /example_staging/ });
   // A database Noust does not hold is not a kind of database: where its backup would be, its row offers to add it.
@@ -41,17 +43,15 @@ test("the list says where each database runs and whether it is backed up, and th
   await expect(staging.getByText("No backup")).toHaveCount(0);
   // One Noust holds with nothing scheduled says so in words.
   await expect(table.getByRole("row", { name: /shop_wp/ }).getByText("No backup")).toBeVisible();
-  await expect(page.getByText(/databases? (has|have) no backup schedule/)).toHaveCount(0);
   await expect(page.getByRole("radio", { name: /^No schedule \(\d+\)$/ })).toBeVisible();
-  // The servers they run on are the second part of the page, MySQL's support said in words and tinted.
-  const servers = page.getByRole("list", { name: "Database servers" });
-  await expect(servers.getByRole("heading", { level: 3, name: "MySQL 8.0" })).toBeVisible();
-  await expect(servers.getByText(/No support since Apr 2026/)).toBeVisible();
-  await expect(servers.getByRole("button", { name: "Upgrade version" })).toBeVisible();
+  // The engine that is stopped keeps its databases in the list, and says it is stopped.
+  await expect(table.getByRole("row", { name: /sessions/ }).getByText("Stopped")).toBeVisible();
+  // The engines are not a second half of this page.
+  await expect(page.getByRole("list", { name: "Engines" })).toHaveCount(0);
   await settle(page);
   await expectNoA11yViolations(page, "the databases list");
 
-  // The column on the side narrows both parts by engine.
+  // The column on the side narrows the list by engine.
   const column = page.getByRole("navigation", { name: "Databases" });
   await column.getByRole("link", { name: /MySQL/ }).click();
   await expect(page).toHaveURL(/\/databases\?engine=mysql$/);
@@ -59,27 +59,29 @@ test("the list says where each database runs and whether it is backed up, and th
   await expect(table.getByRole("row", { name: /example_shop/ })).toBeVisible();
 });
 
-test("the database servers have a section of their own, and a server's settings are saved and applied", async ({ page, consoleServer, problems }) => {
+test("the engines have a page of their own, and an engine's settings are saved and applied", async ({ page, consoleServer, problems }) => {
   // Saving settings is behind sudo mode: the first answer is the 403 that asks for it.
   problems.expect(/status of 403 .*\/api\/databases\/engines\/postgresql\/settings$/);
   await signIn(page, consoleServer, "/databases");
-  await page.getByRole("navigation", { name: "Databases" }).getByRole("link", { name: /Database servers/ }).click();
-  await expect(page).toHaveURL(/\/databases\/servers$/);
-  await expect(page.getByRole("heading", { level: 1, name: "Database servers" })).toBeVisible();
-  const servers = page.getByRole("list", { name: "Database servers" });
-  const stack = servers.getByRole("listitem").filter({ hasText: "In the stack of" });
+  await page.getByRole("navigation", { name: "Databases" }).getByRole("link", { name: /^Engines/ }).click();
+  await expect(page).toHaveURL(/\/databases\/engines$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Engines" })).toBeVisible();
+  const engines = page.getByRole("list", { name: "Engines" });
+  const stack = engines.getByRole("listitem").filter({ hasText: "In the stack of" });
   await expect(stack.getByRole("link", { name: "catalogo.example.org" })).toBeVisible();
+  // The one that is stopped is grey, and what it asks is on its card.
+  await expect(engines.getByRole("listitem").filter({ hasText: "Redis" }).getByRole("button", { name: "Start" })).toBeVisible();
   await settle(page);
-  await expectNoA11yViolations(page, "the database servers");
+  await expectNoA11yViolations(page, "the engines");
 
-  await servers.getByRole("button", { name: /^Actions for PostgreSQL 16/ }).first().click();
+  await engines.getByRole("button", { name: /^Actions for PostgreSQL 16/ }).first().click();
   await page.getByRole("menuitem", { name: "Settings" }).click();
   await expect(page).toHaveURL(/\/databases\/engines\/postgresql\/settings$/);
   await expect(page.getByRole("heading", { level: 1, name: "PostgreSQL settings" })).toBeVisible();
   const slow = page.getByRole("textbox", { name: "log_min_duration_statement", exact: true });
   await expect(slow).toBeVisible();
   await settle(page);
-  await expectNoA11yViolations(page, "a server's settings");
+  await expectNoA11yViolations(page, "an engine's settings");
   // A value no earlier run left there, so there is always something to save.
   await slow.fill(String(1000 + (Date.now() % 9000)));
   await page.getByRole("button", { name: "Save" }).click();
@@ -88,55 +90,124 @@ test("the database servers have a section of their own, and a server's settings 
   await expect(page.getByText("No unsaved changes")).toBeVisible();
 });
 
-test("the old address of the engines opens the database servers", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/databases/engines");
-  await expect(page).toHaveURL(/\/databases\/servers$/);
-  await expect(page.getByRole("heading", { level: 1, name: "Database servers" })).toBeVisible();
+test("the old addresses of the engines and of a database's users open their new places", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer, "/databases/servers");
+  await expect(page).toHaveURL(/\/databases\/engines$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Engines" })).toBeVisible();
+  await page.goto(`${DATABASE}/users`);
+  await expect(page).toHaveURL(/\/example_production\/access$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Access" })).toBeVisible();
 });
 
-test("creating a database asks for an engine, not for where it runs, and opens its page", async ({ page, consoleServer }) => {
+test("one dialog makes a database, empty or from a dump, on the engine chosen as a card, and opens its page", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/databases");
   await page.getByRole("button", { name: "New database" }).click();
   const dialog = page.getByRole("dialog", { name: "New database" });
-  await dialog.getByRole("combobox", { name: "Engine" }).click();
-  await page.getByRole("option", { name: "PostgreSQL", exact: true }).click();
-  // Two servers run PostgreSQL here (the system's and a stack's): the default one is chosen already.
-  await expect(dialog.getByRole("combobox", { name: "Database server" })).toContainText("(default)");
+  // The default engine is chosen already; the other that can hold a database is one card away.
+  await expect(dialog.getByRole("radio", { name: /PostgreSQL 16/ })).toBeChecked();
+  await expect(dialog.getByRole("radio", { name: /Another engine or version/ })).toBeVisible();
+  await dialog.getByRole("radio", { name: "From a dump" }).click();
+  await expect(dialog.getByLabel("Dump file")).toBeVisible();
+  await expectNoA11yViolations(page, "the new database dialog, from a dump");
+  await dialog.getByRole("radio", { name: "Empty" }).click();
   const name = `acme_${String(Date.now()).slice(-6)}`;
   await dialog.getByLabel("Name").fill(name);
   await expectNoA11yViolations(page, "the new database dialog");
-  await dialog.getByRole("button", { name: "Create database" }).click();
+  await dialog.getByRole("button", { name: "Create the database" }).click();
   await expect(page).toHaveURL(new RegExp(`/databases/postgresql/${name}$`));
   await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
+  // The whole flow is in the column: from the new database to how to connect to it is one click.
+  await page.getByRole("navigation", { name: "Database sections" }).getByRole("link", { name: "Connect" }).click();
+  await expect(page).toHaveURL(new RegExp(`/databases/postgresql/${name}/connect$`));
+  await expect(page.getByRole("heading", { level: 2, name: "From your computer" })).toBeVisible();
 });
 
-test("another version of an engine says its support, and needs no more than the engine and the version", async ({ page, consoleServer }) => {
+test("upgrading an engine says first that it makes a new instance and moves the databases, from the engine's page and from each old database", async ({ page, consoleServer }) => {
+  // The MySQL of this machine is past its support: its databases say so, and the way to a newer one.
+  await signIn(page, consoleServer, "/databases/mysql/shop_wp");
+  const engine = page.getByRole("region", { name: "Engine" });
+  await expect(engine.getByText("MySQL 8.0 (on the system)")).toBeVisible();
+  await expect(engine.getByText(/No support since Apr 2026/)).toBeVisible();
+  await settle(page);
+  await expectNoA11yViolations(page, "a database whose engine is past its support");
+  await engine.getByRole("button", { name: "Upgrade version" }).click();
+  const dialog = page.getByRole("dialog", { name: "Upgrade MySQL 8.0" });
+  await expect(dialog.getByText("It is not upgraded in place: a new instance with the newer version is made, and the databases are moved to it.")).toBeVisible();
+  // This machine has no Docker, and the dialog says so as every page that lacks a tool does, before anything is asked of it.
+  await expect(dialog.getByText("Docker is missing")).toBeVisible();
+  // Said once: the plan is not asked of a machine that cannot make the instance, so its refusal is not a second explanation.
+  await expect(dialog.getByText("Could not work out the move")).toHaveCount(0);
+  await expectNoA11yViolations(page, "the upgrade dialog");
+});
+
+test("a stopped engine is said and started from the database's page, and what it needs is not asked of it", async ({ page, consoleServer, problems }) => {
+  // The seeded Redis database is named, and Redis numbers its databases: once the engine runs, the engine's own refusal is what is read.
+  problems.expect(/status of (500|400) .*\/api\/databases\/databases\/redis\/sessions\//);
   await signIn(page, consoleServer, "/databases");
-  await page.getByRole("button", { name: "Another version" }).click();
-  const dialog = page.getByRole("dialog", { name: "Another version" });
-  await dialog.getByRole("combobox", { name: "Engine" }).click();
-  await page.getByRole("option", { name: "PostgreSQL" }).click();
-  await dialog.getByRole("combobox", { name: "Version" }).click();
-  await expect(page.getByRole("option", { name: /^12: No support since/ })).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expectNoA11yViolations(page, "the other version dialog");
+  const row = page.getByRole("region", { name: "Databases" }).getByRole("row", { name: /sessions/ });
+  await expect(row.getByText("Stopped")).toBeVisible();
+  await row.getByRole("button", { name: "sessions", exact: true }).click();
+  await expect(page).toHaveURL(/\/databases\/redis\/sessions$/);
+  const slab = page.getByLabel("Engine stopped");
+  await expect(slab.getByText(/Redis \(on the system\) is stopped/)).toBeVisible();
+  // A key-value store has Keys and no Query, stopped or not.
+  const column = page.getByRole("navigation", { name: "Database sections" });
+  await expect(column.getByRole("link", { name: "Keys" })).toBeVisible();
+  await expect(column.getByRole("link", { name: "Query" })).toHaveCount(0);
+  await settle(page);
+  await expectNoA11yViolations(page, "a database whose engine is stopped");
+  await column.getByRole("link", { name: "Keys" }).click();
+  await expect(page.getByLabel("Engine stopped")).toBeVisible();
+  await page.getByRole("button", { name: "Start the engine" }).click();
+  await expect(page.getByLabel("Engine stopped")).toHaveCount(0);
 });
 
-test("a database's overview: its state, figures, application, access and schedule", async ({ page, consoleServer }) => {
+test("the query console says what its plan runs: showing it does not, measuring it does and waits for changes to be allowed", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer, `${DATABASE}/query`);
+  await page.getByRole("button", { name: "Explain" }).click();
+  await expect(page.getByRole("menuitem", { name: /Show the plan/ })).toBeEnabled();
+  const measure = page.getByRole("menuitem", { name: /Measure it by running it/ });
+  await expect(measure).toBeDisabled();
+  await expect(measure).toContainText("Turn on Allow changes: it runs the statement for real.");
+  await page.keyboard.press("Escape");
+  await page.getByRole("checkbox", { name: "Allow changes" }).check();
+  await page.getByRole("button", { name: "Explain" }).click();
+  await expect(page.getByRole("menuitem", { name: /Measure it by running it/ })).toBeEnabled();
+  await page.keyboard.press("Escape");
+  await settle(page);
+  await expectNoA11yViolations(page, "the SQL console");
+});
+
+test("a database's overview: its state, figures, engine and charts, and its sections in the column", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, DATABASE);
   await expect(page.getByRole("heading", { level: 1, name: "example_production" })).toBeVisible();
-  const tabs = page.getByRole("navigation", { name: "Database sections" });
-  await expect(tabs.getByRole("link")).toHaveText(["Overview", "Data", "Query", "Backups", "Users", "Connect", "Metrics"]);
-  await expect(page.getByRole("heading", { level: 2, name: "Used by" })).toBeVisible();
-  await expect(page.getByText("Every day at 02:00")).toBeVisible();
+  const column = page.getByRole("navigation", { name: "Database sections" });
+  await expect(column.getByRole("link")).toHaveText(["Overview", "Data", "Query", "Metrics", "Access", "Connect", "Backups", "Settings", "Delete"]);
+  for (const heading of ["View", "Manage", "Danger"]) await expect(column.getByText(heading, { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Engine" }).getByText("PostgreSQL 16 (on the system)")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Back up now" })).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "a database's overview");
+});
+
+test("settings and delete: what the database holds and how it is set up, and what deleting it takes", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer, `${DATABASE}/settings`);
+  await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "This database" })).toBeVisible();
+  await settle(page);
+  await expectNoA11yViolations(page, "a database's settings");
+  await page.getByRole("navigation", { name: "Database sections" }).getByRole("link", { name: "Delete" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Delete the database" })).toBeVisible();
+  await expect(page.getByText(/It is taken away from example\.com, which restart without it/)).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: "Take a last dump first" })).toBeChecked();
+  await settle(page);
+  await expectNoA11yViolations(page, "deleting a database");
 });
 
 test("extensions: the loaded ones are listed, and loading and unloading one goes through sudo mode", async ({ page, consoleServer, problems }) => {
   // Loading an extension runs its script as the superuser: the first answer is the 403 that asks for sudo mode.
   problems.expect(/status of 403 .*\/api\/databases\/databases\/postgresql\/example_production\/extensions$/);
-  await signIn(page, consoleServer, DATABASE);
+  await signIn(page, consoleServer, `${DATABASE}/settings`);
   const card = page.locator("section").filter({ has: page.getByRole("heading", { level: 2, name: "Extensions" }) });
   await expect(card.getByText("pg_trgm", { exact: true })).toBeVisible();
   await settle(page);
@@ -210,7 +281,7 @@ test("the SQL console reads, explains, and keeps a statement under a name", asyn
   await expectNoA11yViolations(page, "the SQL console with a result");
 
   await page.getByRole("button", { name: "Explain" }).click();
-  await page.getByRole("menuitem", { name: "Show the plan", exact: true }).click();
+  await page.getByRole("menuitem", { name: /^Show the plan/ }).click();
   await expect(page.getByRole("list", { name: "The plan, step by step" })).toContainText("Index Scan Backward");
 
   await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -249,7 +320,7 @@ test("backups: the schedule in plain words, and a restore into a new database fo
 });
 
 test("accounts: a new user's password is shown once", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, `${DATABASE}/users`);
+  await signIn(page, consoleServer, `${DATABASE}/access`);
   const table = page.getByRole("region", { name: "Accounts of example_production" });
   await expect(table.getByRole("row", { name: /analytics_reader/ }).getByText("Read only")).toBeVisible();
   await settle(page);
@@ -307,4 +378,23 @@ test("an application's Database tab shows what it uses and offers to create one"
   await expect(dialog.getByText("What Noust will write")).toBeVisible();
   await expect(dialog.getByText(/postgresql:\/\/.*\*{8}/)).toBeVisible();
   await expectNoA11yViolations(page, "the create-and-link dialog");
+});
+
+test("adding an engine asks how first, and a container goes on to another version with its support said beside its number", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer, "/databases/engines");
+  await page.getByRole("button", { name: "Add an engine" }).click();
+  const choose = page.getByRole("dialog", { name: "Add an engine" });
+  await expect(choose.getByRole("radio", { name: /On the system/ })).toBeChecked();
+  await choose.getByRole("radio", { name: /In a container/ }).click();
+  // No Docker on this machine: said here, as every page says a missing tool, with the way to install it.
+  await expect(choose.getByText("Docker is missing")).toBeVisible();
+  await expectNoA11yViolations(page, "adding an engine");
+  await choose.getByRole("button", { name: "Continue" }).click();
+  const dialog = page.getByRole("dialog", { name: "Another version" });
+  await dialog.getByRole("combobox", { name: "Engine" }).click();
+  await page.getByRole("option", { name: "PostgreSQL" }).click();
+  await dialog.getByRole("combobox", { name: "Version" }).click();
+  await expect(page.getByRole("option", { name: /^12: No support since/ })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expectNoA11yViolations(page, "the other version dialog");
 });
