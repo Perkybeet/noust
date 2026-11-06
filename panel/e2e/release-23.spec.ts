@@ -54,9 +54,12 @@ test("a recipe from the gallery is reviewed, deployed, and says what to do next"
   await signIn(page, consoleServer, "/apps/new");
   await chooseStart(page, "From a recipe");
 
-  // GET /api/recipes, answered from the recipe files the package ships.
+  // GET /api/recipes, answered from the recipe files the package ships. The catalog is alphabetical and paged (hundreds of
+  // recipes), so each one is looked for by its name, as a person would.
   const recipes = page.getByRole("list", { name: "Recipes" });
+  const search = page.getByRole("searchbox", { name: "Search recipes" });
   for (const title of ["WordPress", "Uptime Kuma", "Umami", "n8n"]) {
+    await search.fill(title);
     // Exact: "Use n8n" is also the start of "Use n8n with workers", the queue-mode recipe beside it.
     await expect(recipes.getByRole("button", { name: `Use ${title}`, exact: true })).toBeEnabled();
   }
@@ -67,6 +70,7 @@ test("a recipe from the gallery is reviewed, deployed, and says what to do next"
   // They are on a list of their own after the ones that can be installed ("Not available here"), with their reason.
   const unavailable = page.getByRole("list", { name: "Not available here" });
   for (const title of ["MinIO", "Excalidraw"]) {
+    await search.fill(title);
     const card = unavailable.getByRole("listitem").filter({ has: page.getByRole("heading", { name: title, exact: true }) });
     await expect(card.getByText("Not available in this release", { exact: true })).toBeVisible();
     await expect(card.getByRole("button", { name: `Use ${title}` })).toHaveCount(0);
@@ -75,7 +79,8 @@ test("a recipe from the gallery is reviewed, deployed, and says what to do next"
   await settle(page);
   await expectNoA11yViolations(page, "the recipe gallery");
 
-  await recipes.getByRole("button", { name: "Use WordPress" }).click();
+  await search.fill("WordPress");
+  await recipes.getByRole("button", { name: "Use WordPress", exact: true }).click();
   // One step for a recipe: where it answers, and its variables, with a Deploy of its own.
   await expect(page.getByRole("heading", { level: 2, name: "Address and variables" })).toBeFocused();
   // The archive and where its checksum is published, straight from wordpress.yaml, under Details.

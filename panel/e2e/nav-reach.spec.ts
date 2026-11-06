@@ -220,6 +220,9 @@ test.describe("a server on its own", () => {
     // The second column lists Files for every application, and the walk opens it: an application of the seeded machine has no
     // directory to list, which the API says with a 400 that the browser logs. What the page does with it is files.spec's.
     problems.expect(/status of 400 .*\/api\/apps\/[^/]+\/files/);
+    // The seeded export's application names a database the engine does not hold (an export names it, an import never makes
+    // it): its page says it is not there, from the 404 of each of its sections the walk opens.
+    problems.expect(/status of 404 .*\/api\/databases\/databases\/postgresql\/lanzamiento_newsletter\//);
     // The same links in both themes: the walk is run once.
     test.skip(testInfo.project.name !== "light", "the links are the same in both themes");
     await page.setViewportSize({ width: 1440, height: 900 });
