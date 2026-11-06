@@ -1846,6 +1846,10 @@ each held by the test it names:
   server), `salida-del-sistema` (the system's own output names it). The reason leads the command when no label does.
   A command that repeats a button is taken out. *Enforced by:* `CommandHint.test.tsx`; ratchet `command-hint-reason`
   (the commands with no reason, which may only go down; the four pages of K1 owe none).
+- **HD-1** A header is as wide as its content: the title and its actions end where the content does, and never at the edge of
+  the window (`DetailPage measure="settings"` for a settings section and the account). The master switch of what a page
+  governs is on the title's line, right after it (`PageHeader master`, `SettingsMasterSwitch`). *Enforced by:*
+  `templates.test.tsx`, `PageHeader.test.tsx`, `NotificationSettings.test.tsx`.
 - **MS-1** A feature that lacks the tool it runs on says "X is missing" with `MissingSoftware`
   (`features/server/software/MissingSoftware.tsx`): one notice, drawn where the feature's own warning was, that names the piece
   by the Software page's name for it, says what the feature loses without it in a sentence (`whyKey`, or the piece's purpose),
@@ -1856,11 +1860,6 @@ each held by the test it names:
   says so and what to run there, which is a command with a reason (`otro-servidor`, CL-1). A page does not write its own
   paragraph about a missing program, a `Notice` with an "install" button of its own, or a command to paste. *Enforced by:*
   `MissingSoftware.test.tsx`; G-7.
-- **HD-1** A header is as wide as its content: the title and its actions end where the content does, and never at the edge of
-  the window (`DetailPage measure="settings"` for a settings section and the account). The master switch of what a page
-  governs is on the title's line, right after it (`PageHeader master`, `SettingsMasterSwitch`). *Enforced by:*
-  `templates.test.tsx`, `PageHeader.test.tsx`, `NotificationSettings.test.tsx`.
-
 ---
 
 ## 7. Content
