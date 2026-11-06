@@ -1,4 +1,5 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
 import { configQuery, patchConfig, smtpSettingsQuery } from "../../api/queries/config";
 import type { SmtpSettings } from "../../api/queries/config";
@@ -6,12 +7,14 @@ import { notificationChannelsQuery } from "../../api/queries/notifications";
 import { useDocumentTitle } from "../../app/documentTitle";
 import { LOCALE_CHOICES } from "../../app/locale";
 import type { Locale } from "../../app/locale";
-import { CommandHint } from "../../components/page/CommandHint";
+import { useNow } from "../../components/page/clock";
+import { useCan } from "../../components/page/permissions";
 import { QueryState } from "../../components/page/QueryState";
 import { SaveBar } from "../../components/page/SaveBar";
 import { Section, Sections } from "../../components/page/Section";
 import { SegmentedControl } from "../../components/page/SegmentedControl";
 import { Badge } from "../../components/ui/Badge";
+import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { Disclosure } from "../../components/ui/Disclosure";
@@ -35,6 +38,9 @@ import { EVENT_GROUPS, EVENT_KINDS, channels, eventSpec, isChannelConfigured, pa
 import type { EventGroupId, NotificationSettings as Settings } from "./notifications";
 import { FormFailure, useRefreshConfig } from "./SettingsForm";
 import { SettingsMasterSwitch } from "./SettingsPrimaryAction";
+import { MuteDialog } from "./mute/MuteDialog";
+import { pausedUntil, untilLabel } from "./mute/mute";
+import { useResume } from "./mute/useMute";
 import { TelegramChannel } from "./TelegramChannel";
 import { useSettingsForm } from "./useSettingsForm";
 import type { SettingsForm } from "./useSettingsForm";
@@ -48,31 +54,75 @@ import type { SettingsForm } from "./useSettingsForm";
  * off (`SwitchedRegion`). It applies at once and is not part of the form below. "On" with nowhere to go is
  * not on, which the line over the channels says with the one sentence that fixes it.
  */
-function DeliverySwitch({ settings }: { settings: Settings }) {
+function DeliverySwitch({ settings, paused }: { settings: Settings; paused: boolean }) {
   const t = useT();
-  const refresh = useRefreshConfig();
-  const toggle = useMutation({
-    mutationFn: async (next: boolean) => {
-      await patchConfig("notifications.enabled", next);
-      await refresh();
-    },
-    onError: (error, next) => {
-      reportActionError(next ? t("settings.notifications.delivery.turnOnFailed") : t("settings.notifications.delivery.turnOffFailed"), error);
-    },
-  });
+  const allowed = useCan("settings.manage");
+  const [asking, setAsking] = useState(false);
+  const resume = useResume();
+  const state = { enabled: settings.enabled, mutedUntil: settings.mutedUntil };
   // While the write is in flight (and "Confirm it's you" is open) the switch shows where it is going.
-  const checked = toggle.isPending ? toggle.variables : settings.enabled;
+  const checked = resume.isPending ? true : settings.enabled && !paused;
+  const change = (next: boolean): void => {
+    // Turning them off asks until when ("for a while" is nearly always the answer); turning them on asks nothing.
+    if (!next) {
+      setAsking(true);
+      return;
+    }
+    resume.mutate(state, {
+      onError: (error) => {
+        reportActionError(t("settings.notifications.delivery.turnOnFailed"), error);
+      },
+    });
+  };
+  const label = t("settings.notifications.delivery.switchLabel");
   return (
     <SettingsMasterSwitch>
-      <SectionSwitch
-        label={t("settings.notifications.delivery.switchLabel")}
-        checked={checked}
-        busy={toggle.isPending}
-        onCheckedChange={(next) => {
-          toggle.mutate(next);
-        }}
-      />
+      {allowed ? (
+        <SectionSwitch label={label} checked={checked} busy={resume.isPending} onCheckedChange={change} />
+      ) : (
+        <SectionSwitch label={label} checked={checked} onCheckedChange={change} disabled reason={t("settings.notifications.delivery.noPermission")} />
+      )}
+      {asking ? (
+        <MuteDialog
+          state={state}
+          onClose={() => {
+            setAsking(false);
+          }}
+        />
+      ) : null}
     </SettingsMasterSwitch>
+  );
+}
+
+/** What the pause says while there is one: until when, and the way to end it. The page under it is dimmed, as when the switch is off. */
+function PausedLine({ until, now, settings }: { until: Date; now: number; settings: Settings }) {
+  const t = useT();
+  const allowed = useCan("settings.manage");
+  const resume = useResume();
+  return (
+    <InlineMessage tone="warning">
+      <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span>{t("settings.notifications.mute.silencedUntil", { when: untilLabel(until, new Date(now)) })}</span>
+        {allowed ? (
+          <Button
+            size="sm"
+            loading={resume.isPending}
+            onClick={() => {
+              resume.mutate(
+                { enabled: settings.enabled, mutedUntil: settings.mutedUntil },
+                {
+                  onError: (error) => {
+                    reportActionError(t("settings.notifications.delivery.turnOnFailed"), error);
+                  },
+                },
+              );
+            }}
+          >
+            {t("settings.notifications.mute.turnOn")}
+          </Button>
+        ) : null}
+      </span>
+    </InlineMessage>
   );
 }
 
@@ -318,15 +368,18 @@ function NotificationsForm({ settings, publicUrl, smtp }: { settings: Settings; 
     },
   });
   const bar = useSaveBar([events.part, language.part, privateHosts.part], t("settings.notifications.notSaved"));
+  // A pause ends by itself, so the page is read against the clock: the minute it ends, it is on again.
+  const now = useNow(() => 30_000);
+  const until = pausedUntil(settings.mutedUntil, new Date(now));
   return (
     <>
-      <DeliverySwitch settings={settings} />
-      <SwitchedRegion on={settings.enabled} className="flex flex-col gap-8">
+      <DeliverySwitch settings={settings} paused={until !== null} />
+      {until !== null ? <PausedLine until={until} now={now} settings={settings} /> : null}
+      <SwitchedRegion on={settings.enabled && until === null} className="flex flex-col gap-8">
         <Channels settings={settings} smtp={smtp} />
         <MoreChannels />
         <EventsCard form={events} language={language} privateHosts={privateHosts} publicUrl={publicUrl} />
       </SwitchedRegion>
-      <CommandHint command="noust notify test telegram" label={t("settings.notifications.fromTerminal")} />
       <DeliveryLog />
       <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} />
     </>

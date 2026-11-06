@@ -40,3 +40,22 @@ export function planCompliance(body: ComplianceChange) {
 export function changeCompliance(body: ComplianceChange) {
   return request("put", "/api/compliance", { body: { ...body, acknowledge: body.acknowledge ?? false } });
 }
+
+export type ComplianceCheck = ResponseOf<"/api/compliance/check", "get">;
+export type ComplianceVerdict = ComplianceCheck["frameworks"][number];
+export type ComplianceFinding = ComplianceVerdict["findings"][number];
+
+/**
+ * Each framework that is on, judged clause by clause (`GET /api/compliance/check`): nothing when none is on, which is
+ * not a server that passes but a server nobody asked anything of. It reads the server's state at the moment it is
+ * asked, so it is asked once a page is opened and again on demand, never kept for long.
+ */
+export const complianceCheckQuery = () =>
+  queryOptions({
+    queryKey: [...complianceKeys.all, "check"] as const,
+    queryFn: ({ signal }) => request("get", "/api/compliance/check", { signal }),
+    staleTime: 30_000,
+  });
+
+/** The report as a document to hand to an auditor: the frameworks that are on, in Markdown, with its hash in a header. */
+export const COMPLIANCE_REPORT_URL = "/api/compliance/check?format=markdown";

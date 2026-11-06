@@ -7,6 +7,7 @@ import type { SsoProviderInfo } from "../../../api/queries/ssoAdmin";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Checkbox } from "../../../components/ui/Checkbox";
+import { CopyValue } from "../../../components/ui/CopyValue";
 import { Disclosure } from "../../../components/ui/Disclosure";
 import { Drawer } from "../../../components/ui/Drawer";
 import { Field } from "../../../components/ui/Field";
@@ -17,8 +18,8 @@ import { useT } from "../../../i18n";
 import { focusFirstInvalid, splitErrors } from "../formErrors";
 import { ADMISSION_FOLDED, AdmissionFields } from "./AdmissionFields";
 import { ChoiceCards } from "../../../components/ui/ChoiceCards";
-import { KINDS, NEW_DRAFT, draftOf, settingsOf } from "./providerForm";
-import type { ProviderDraft } from "./providerForm";
+import { KINDS, draftFromPreset, draftOf, settingsOf } from "./providerForm";
+import type { ProviderDraft, ProviderPreset } from "./providerForm";
 
 const FIELDS = [
   "label",
@@ -43,6 +44,8 @@ export interface ProviderDrawerProps {
   provider: SsoProviderInfo | null;
   /** The address every provider is registered with, for the field that overrides it. */
   redirectUri: string;
+  /** When adding: the provider the person chose, whose name, label and address are already in the form. */
+  preset?: ProviderPreset | null;
   onClose: () => void;
 }
 
@@ -52,12 +55,12 @@ export interface ProviderDrawerProps {
  * server refuses is shown beside the field it is about, and a refusal about a folded field is
  * said above the form too, so it is not missed behind a closed fold.
  */
-export function ProviderDrawer({ provider, redirectUri, onClose }: ProviderDrawerProps) {
+export function ProviderDrawer({ provider, redirectUri, preset = null, onClose }: ProviderDrawerProps) {
   const t = useT();
   const queryClient = useQueryClient();
   const formId = useId();
   const creating = provider === null;
-  const [draft, setDraft] = useState<ProviderDraft>(provider === null ? NEW_DRAFT : draftOf(provider));
+  const [draft, setDraft] = useState<ProviderDraft>(provider === null ? draftFromPreset(preset) : draftOf(provider));
   const [badLine, setBadLine] = useState<number | null>(null);
 
   const set = <K extends keyof ProviderDraft>(key: K, value: ProviderDraft[K]): void => {
@@ -178,6 +181,14 @@ export function ProviderDrawer({ provider, redirectUri, onClose }: ProviderDrawe
             }}
           />
         </Field>
+        {/* The provider asks for this address when the company registers the console with it, which is before the form can be finished. */}
+        {creating ? (
+          <div className="flex flex-col gap-1.5">
+            <p className="text-13 font-medium text-fg">{t("ssoAdmin.providers.redirect.title")}</p>
+            <CopyValue value={redirectUri} label={t("ssoAdmin.providers.redirect.copy")} name={t("ssoAdmin.providers.redirect.name")} />
+            <p className="text-12 text-pretty text-fg-muted">{t("ssoAdmin.providers.redirect.paste")}</p>
+          </div>
+        ) : null}
         <Field
           label={github ? t("ssoAdmin.form.fields.githubHost") : t("ssoAdmin.form.fields.issuer")}
           {...(github ? { optional: true } : {})}

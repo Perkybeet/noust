@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import type { ReactNode } from "react";
 
 import { changeCompliance, complianceKeys, planCompliance } from "../../../api/queries/compliance";
 import type { ComplianceChange, ComplianceControl, CompliancePlan } from "../../../api/queries/compliance";
@@ -37,6 +38,8 @@ export interface ChangeDialogProps {
   names: ReadonlyMap<string, string>;
   /** A plan the caller already has (a control's change that raised a warning), so it is not asked twice. */
   plan?: CompliancePlan;
+  /** What the caller adds under what changes (what a framework leaves to the organisation). */
+  extra?: ReactNode;
   onClose: () => void;
 }
 
@@ -78,7 +81,7 @@ function effectColumns(t: T, controls: readonly ComplianceControl[], names: Read
  * the button. The plan is the server's, asked when the dialog opens and writing nothing; turning
  * protection down opens the usual "Confirm it's you" when the button is pressed.
  */
-export function ChangeDialog({ request, title, lead, action, loosens = false, done, controls, names, plan: given, onClose }: ChangeDialogProps) {
+export function ChangeDialog({ request, title, lead, action, loosens = false, done, controls, names, plan: given, extra, onClose }: ChangeDialogProps) {
   const t = useT();
   const queryClient = useQueryClient();
   const [understood, setUnderstood] = useState(false);
@@ -141,6 +144,7 @@ export function ChangeDialog({ request, title, lead, action, loosens = false, do
             density="compact"
           />
         )}
+        {extra}
         {warnings.length > 0 ? (
           <Notice tone="warning" title={t("complianceSetup.warning.heading")}>
             <ul className="flex list-disc flex-col gap-1 pl-4">

@@ -8,7 +8,8 @@ import { linkIdentity, ssoAdminKeys, ssoConfigQuery, ssoIdentitiesQuery, unlinkI
 import type { SsoIdentity } from "../../../api/queries/ssoAdmin";
 import { ErrorBlock, QueryState } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
-import { Section } from "../../../components/page/Section";
+import { SurfaceSection } from "../../../components/page/SurfaceSection";
+import { Can } from "../../../components/page/permissions";
 import { Button } from "../../../components/ui/Button";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { DataTable } from "../../../components/ui/DataTable";
@@ -177,29 +178,38 @@ export function IdentitiesSection() {
   );
 
   return (
-    <Section title={t("ssoAdmin.identities.title")} icon={OBJECT_ICONS.identity} description={t("ssoAdmin.identities.description")} actions={query.data !== undefined && query.data.identities.length > 0 ? link : undefined}>
+    <SurfaceSection
+      title={t("ssoAdmin.identities.title")}
+      icon={OBJECT_ICONS.identity}
+      description={t("ssoAdmin.identities.description")}
+      flush={query.data !== undefined && query.data.identities.length > 0}
+      actions={query.data !== undefined && query.data.identities.length > 0 ? <Can permission="accounts.manage">{link}</Can> : undefined}
+    >
       <QueryState
         query={query}
         label={t("ssoAdmin.loadingLabel")}
-        skeleton={<DataTable caption={t("ssoAdmin.identities.tableCaption")} columns={columns} rows={[]} getRowId={(identity) => String(identity.id)} loading skeletonRows={2} />}
+        skeleton={<DataTable caption={t("ssoAdmin.identities.tableCaption")} columns={columns} rows={[]} getRowId={(identity) => String(identity.id)} loading skeletonRows={2} embedded />}
         isEmpty={(data) => data.identities.length === 0}
-        empty={<EmptyState variant="inline" title={t("ssoAdmin.identities.emptyTitle")} description={t("ssoAdmin.identities.emptyDescription")} action={link} />}
+        empty={<EmptyState variant="inline" title={t("ssoAdmin.identities.emptyTitle")} description={t("ssoAdmin.identities.emptyDescription")} action={<Can permission="accounts.manage">{link}</Can>} />}
       >
         {(data) => (
           <DataTable
             caption={t("ssoAdmin.identities.tableCaption")}
             columns={columns}
             rows={data.identities}
+            embedded
             getRowId={(identity) => String(identity.id)}
             rowActions={(identity) => (
-              <RowAction
-                label={t("ssoAdmin.identities.unlinkLabel", { account: identity.account, provider: identity.provider })}
-                text={t("ssoAdmin.identities.unlink")}
-                icon={<ICONS.delete />}
-                onClick={() => {
-                  setUnlinking(identity);
-                }}
-              />
+              <Can permission="accounts.manage">
+                <RowAction
+                  label={t("ssoAdmin.identities.unlinkLabel", { account: identity.account, provider: identity.provider })}
+                  text={t("ssoAdmin.identities.unlink")}
+                  icon={<ICONS.delete />}
+                  onClick={() => {
+                    setUnlinking(identity);
+                  }}
+                />
+              </Can>
             )}
           />
         )}
@@ -229,6 +239,6 @@ export function IdentitiesSection() {
           }}
         />
       ) : null}
-    </Section>
+    </SurfaceSection>
   );
 }

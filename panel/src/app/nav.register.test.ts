@@ -450,7 +450,7 @@ describe("6. the palette finds every screen", () => {
     expect(byId.get("network.tunnels")).toBe("Network › Tunnels");
     expect(byId.get("security.ssh")).toBe("Security › SSH");
     expect(byId.get("alerts.probes")).toBe("Alerts › Probes");
-    expect(byId.get("settings.notifications")).toBe("Settings › Channels");
+    expect(byId.get("settings.notifications")).toBe("Settings › Notification channels");
     expect(byId.get("backups.schedules")).toBe("Backups › Schedules");
     expect(byId.get("server.terminal")).toBe("Servers › Terminal");
     expect(byId.get("catalog.installed")).toBe("Catalog › Installed recipes");
@@ -549,13 +549,13 @@ describe("whose a screen is", () => {
   it("holds the groups a person looks for a setting by, in the order of the second column", () => {
     const names = settingsGroups(EVERYTHING).map((group) => [group.id, group.sections.map((entry) => entry.id.replace(/^settings\./, ""))]);
     expect(names).toEqual([
-      ["people", ["accounts", "access", "sso", "approvals", "console", "sign-in-image"]],
-      ["notices", ["notifications", "log-shipping"]],
-      ["connections", ["integrations", "registries", "deploy-keys", "secret-managers", "cloud"]],
-      ["security", ["compliance", "controls", "audit"]],
+      ["people", ["accounts", "access", "sso", "access-security", "approvals"]],
+      ["notices", ["notifications"]],
+      ["connections", ["integrations", "log-shipping", "registries", "deploy-keys", "cloud", "secret-managers"]],
+      ["security", ["compliance", "audit"]],
       ["api", ["tokens", "api", "manifest", "mcp"]],
       ["fleet", ["fleet", "central"]],
-      ["noust", ["general", "variables", "about"]],
+      ["noust", ["general", "console", "sign-in-image", "variables", "about"]],
     ]);
   });
 
@@ -569,15 +569,16 @@ describe("whose a screen is", () => {
   it("names the settings sections with the words of the glossary (5.4), the old ones kept as search words", () => {
     const names = Object.fromEntries(DESTS.filter((entry) => entry.parent === "settings").map((entry) => [entry.id, label(entry)]));
     expect(names).toMatchObject({
-      "settings.notifications": "Channels",
+      "settings.notifications": "Notification channels",
       "settings.log-shipping": "Logs and metrics export",
       "settings.console": "Console address",
       "settings.about": "About Noust",
       "settings.access": "Roles",
-      "settings.controls": "Controls",
-      "settings.compliance": "Frameworks",
+      "settings.access-security": "Access security",
+      "settings.compliance": "Compliance",
       "settings.integrations": "Connections",
-      "settings.accounts": "People",
+      "settings.accounts": "Accounts",
+      "settings.central": "Central and sealing",
       "settings.registries": "Image registries",
       "settings.fleet": "Fleet settings",
       "settings.cloud": "Cloud providers",

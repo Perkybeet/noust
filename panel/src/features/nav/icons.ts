@@ -72,7 +72,7 @@ const OBJECT_OF: Readonly<Record<string, ObjectName>> = {
   "settings.sso": "identity",
   "settings.approvals": "approval",
   "settings.audit": "audit",
-  "settings.controls": "control",
+  "settings.access-security": "passkey",
   "settings.compliance": "report",
   "settings.cloud": "cloud",
   "settings.central": "central",

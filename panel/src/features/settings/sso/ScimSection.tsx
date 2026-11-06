@@ -4,18 +4,19 @@ import { useState } from "react";
 
 import { removeScimSource, scimKeys, scimSourcesQuery } from "../../../api/queries/scim";
 import type { ScimSource } from "../../../api/queries/scim";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { QueryState } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { RowMenu } from "../../../components/page/RowMenu";
-import { Section } from "../../../components/page/Section";
+import { SurfaceSection } from "../../../components/page/SurfaceSection";
+import { Can } from "../../../components/page/permissions";
 import { Button } from "../../../components/ui/Button";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { CopyValue } from "../../../components/ui/CopyValue";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
-import { EmptyState } from "../../../components/ui/EmptyState";
+import { FirstUse } from "../../../components/ui/FirstUse";
 import { ICONS } from "../../../components/ui/icons";
+import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 import { MenuItem, MenuSeparator } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
 import { StatusPill } from "../../../components/ui/StatusPill";
@@ -92,38 +93,44 @@ export function ScimSection() {
   );
 
   return (
-    <Section title={t("scimAdmin.title")} description={t("scimAdmin.description")} actions={query.data !== undefined && query.data.sources.length > 0 ? add : undefined}>
+    <SurfaceSection
+      title={t("scimAdmin.title")}
+      icon={OBJECT_ICONS.identity}
+      description={t("scimAdmin.description")}
+      flush={query.data !== undefined && query.data.sources.length > 0}
+      actions={query.data !== undefined && query.data.sources.length > 0 ? <Can permission="accounts.manage">{add}</Can> : undefined}
+    >
       <QueryState
         query={query}
         label={t("scimAdmin.loadingLabel")}
-        skeleton={<DataTable caption={t("scimAdmin.tableCaption")} columns={columns} rows={[]} getRowId={(source) => source.name} loading skeletonRows={1} />}
+        skeleton={<DataTable caption={t("scimAdmin.tableCaption")} columns={columns} rows={[]} getRowId={(source) => source.name} loading skeletonRows={1} embedded />}
         isEmpty={(data) => data.sources.length === 0}
         empty={
-          <div className="flex flex-col gap-3">
-            <EmptyState variant="inline" title={t("scimAdmin.emptyTitle")} action={add} />
-            <CommandHint command="noust auth scim set entra --label 'Entra ID'" label={t("ssoAdmin.command")} />
-          </div>
+          <FirstUse action={<Can permission="accounts.manage">{add}</Can>}>{t("scimAdmin.emptyTitle")}</FirstUse>
         }
       >
         {(data) => (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col">
             <DataTable
               caption={t("scimAdmin.tableCaption")}
               columns={columns}
+              embedded
               rows={data.sources}
               getRowId={(source) => source.name}
               onRowActivate={(source) => setEditing(source)}
               rowActions={(source) => (
-                <RowMenu name={source.name}>
-                  <MenuItem icon={<Pencil />} onClick={() => setEditing(source)}>{t("common.words.edit")}</MenuItem>
-                  <MenuSeparator />
-                  <MenuItem icon={<ICONS.delete />} destructive onClick={() => setRemoving(source)}>
-                    {t("common.words.remove")}
-                  </MenuItem>
-                </RowMenu>
+                <Can permission="accounts.manage">
+                  <RowMenu name={source.name}>
+                    <MenuItem icon={<Pencil />} onClick={() => setEditing(source)}>{t("common.words.edit")}</MenuItem>
+                    <MenuSeparator />
+                    <MenuItem icon={<ICONS.delete />} destructive onClick={() => setRemoving(source)}>
+                      {t("common.words.remove")}
+                    </MenuItem>
+                  </RowMenu>
+                </Can>
               )}
             />
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 border-t border-border px-5 py-4">
               <p className="text-13 font-medium text-fg">{t("scimAdmin.endpoint")}</p>
               <p className="max-w-measure text-13 text-fg-muted">{t("scimAdmin.endpointHelp")}</p>
               <CopyValue value={data.base_url} label={t("scimAdmin.endpoint")} name={t("scimAdmin.endpoint")} />
@@ -158,6 +165,6 @@ export function ScimSection() {
           }}
         />
       ) : null}
-    </Section>
+    </SurfaceSection>
   );
 }

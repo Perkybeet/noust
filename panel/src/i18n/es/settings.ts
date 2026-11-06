@@ -171,12 +171,6 @@ export const settings: Catalog<typeof en> = {
       tokenCredentialHint: "Esta consola inició sesión con un token de API, no con una sesión de navegador. Inicia sesión desde el navegador para usar esto.",
       revokeOthersFailed: "No se pudieron cerrar las demás sesiones",
     },
-    lockout: {
-      requestLimitLabel: "Límite de solicitudes",
-      requestLimitValue: "{count} solicitudes {window}",
-      allowedAddressesLabel: "Direcciones permitidas",
-      anyAddress: "Cualquier dirección",
-    },
   },
 
   tokens: {
@@ -243,7 +237,6 @@ export const settings: Catalog<typeof en> = {
     documentTitle: "Ajustes de notificaciones",
     loadingLabel: "los ajustes de notificaciones",
     notSaved: "No se guardaron los ajustes de notificaciones",
-    fromTerminal: "Enviar una prueba desde un terminal",
     delivery: {
       switchLabel: "Enviar notificaciones",
       on: "Activadas",
@@ -253,7 +246,23 @@ export const settings: Catalog<typeof en> = {
       helpNoChannel: "No se envía nada hasta que un canal esté configurado y probado.",
       helpOn: { one: "Los eventos elegidos abajo van a {count} canal.", other: "Los eventos elegidos abajo van a {count} canales." },
       turnOnFailed: "No se pudieron activar las notificaciones",
-      turnOffFailed: "No se pudieron desactivar las notificaciones",
+      noPermission: "Tu rol no puede cambiar este ajuste.",
+    },
+    mute: {
+      open: "Silenciar los avisos…",
+      title: "¿Hasta cuándo silenciar los avisos?",
+      description: "Mientras tanto no se envía nada, y lo que pase entretanto no se envía después. La prueba de un canal sí sale.",
+      legend: "Cuánto tiempo",
+      hour: "Una hora",
+      hourHelp: "Vuelven solos a las {when}.",
+      morning: "Hasta mañana a las {hour}",
+      morningHelp: "Vuelven solos por la mañana.",
+      off: "Hasta que los encienda",
+      offHelp: "No se envía nada hasta que vuelvas a encender el interruptor.",
+      action: "Silenciar",
+      failed: "No se pudieron silenciar los avisos",
+      silencedUntil: "Silenciados hasta {when}.",
+      turnOn: "Encender ya",
     },
     channels: {
       title: "Canales",

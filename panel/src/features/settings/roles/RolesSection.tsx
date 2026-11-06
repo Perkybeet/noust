@@ -6,9 +6,9 @@ import { sessionQuery } from "../../../api/queries/auth";
 import { deleteRole, resetRole, rolesChanged, rolesQuery } from "../../../api/queries/roles";
 import type { Role } from "../../../api/queries/roles";
 import { QueryState } from "../../../components/page/QueryState";
+import { GuardedButton } from "../../../components/page/permissions";
 import { RowMenu } from "../../../components/page/RowMenu";
 import { Badge } from "../../../components/ui/Badge";
-import { Button } from "../../../components/ui/Button";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
@@ -99,17 +99,15 @@ export function RolesSection() {
 
   return (
     <>
-      {canManage ? (
-        <SettingsPrimaryAction>
-          <Button variant="primary" icon={<ICONS.add aria-hidden="true" />} onClick={() => setOpen({ kind: "edit", role: null })}>
-            {t("roles.newRole")}
-          </Button>
-        </SettingsPrimaryAction>
-      ) : null}
+      <SettingsPrimaryAction>
+        <GuardedButton permission="accounts.manage" variant="primary" icon={<ICONS.add aria-hidden="true" />} onClick={() => setOpen({ kind: "edit", role: null })}>
+          {t("roles.newRole")}
+        </GuardedButton>
+      </SettingsPrimaryAction>
       <QueryState
         query={query}
         label={t("roles.loading")}
-        skeleton={<DataTable caption={t("roles.tableCaption")} columns={columns} rows={[]} getRowId={(role) => role.name} loading skeletonRows={6} />}
+        skeleton={<DataTable caption={t("roles.tableCaption")} columns={columns} rows={[]} getRowId={(role) => role.name} loading skeletonRows={6} embedded />}
       >
         {(data) => (
           <>
@@ -117,6 +115,7 @@ export function RolesSection() {
               caption={t("roles.tableCaption")}
               columns={columns}
               rows={data.roles}
+              embedded
               getRowId={(role) => role.name}
               onRowActivate={(role) => setOpen({ kind: "edit", role })}
               rowActions={(role) => (

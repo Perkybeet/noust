@@ -4,7 +4,8 @@
  * framework turns on, what cannot be loosened) arrives in the answer; this only words it.
  */
 
-import type { ComplianceControl, ComplianceFramework } from "../../../api/queries/compliance";
+import type { ComplianceControl, ComplianceFinding, ComplianceFramework } from "../../../api/queries/compliance";
+import type { ConsolePath } from "../../../app/navCore";
 import { hasMessage } from "../../../i18n";
 import type { PlainKey, T } from "../../../i18n";
 
@@ -14,6 +15,23 @@ export function asText(value: unknown): string {
   if (typeof value === "number") return String(value);
   return "";
 }
+
+/**
+ * The controls about getting into the console: Access security draws them as settings, so the list of controls on
+ * Compliance leaves them out. In the order that page lists them.
+ */
+export const ACCESS_PAGE_CONTROLS: readonly string[] = [
+  "second_factor",
+  "password_min_length",
+  "lockout_threshold",
+  "lockout_minutes",
+  "session_idle_minutes",
+  "session_absolute_hours",
+  "sudo_password",
+  "sudo_idle_minutes",
+  "sudo_max_minutes",
+  "master_token",
+];
 
 /** The groups a screen lists controls in, in the order they read. */
 export const GROUPS = ["access", "accountability", "backup", "network"] as const;
@@ -93,4 +111,56 @@ export function inGroup(controls: readonly ComplianceControl[], group: string): 
 /** How many controls a framework asks for more than the default of: what enabling it changes. */
 export function changeCount(framework: ComplianceFramework): number {
   return framework.changes.length;
+}
+
+/** Where a control that is not met is mended, as a page of the console and the words of the way there. */
+export interface FixLink {
+  to: ConsolePath;
+  label: PlainKey;
+}
+
+const ACCOUNTS: FixLink = { to: "/settings/accounts", label: "complianceSetup.fix.accounts" };
+const ACCESS: FixLink = { to: "/settings/access-security", label: "complianceSetup.fix.accessSecurity" };
+const BACKUPS: FixLink = { to: "/backups", label: "complianceSetup.fix.backups" };
+
+/**
+ * The page of the console that mends each control a check can name, so a finding is never a dead end: the question
+ * "what do I do about it" has a link. A control that no page of the console mends has none, and the server's own
+ * remediation, which is always shown, is all it says.
+ */
+export const FIX_LINKS: Readonly<Record<string, FixLink>> = {
+  second_factor: ACCOUNTS,
+  separation_of_duties: ACCOUNTS,
+  single_role_per_account: ACCOUNTS,
+  roles_split: ACCOUNTS,
+  sso_no_admin: ACCOUNTS,
+  access_review_days: ACCOUNTS,
+  stale_account_days: ACCOUNTS,
+  approvals: { to: "/settings/approvals", label: "complianceSetup.fix.approvals" },
+  restricted_tokens: { to: "/settings/tokens", label: "complianceSetup.fix.tokens" },
+  token_max_days: { to: "/settings/tokens", label: "complianceSetup.fix.tokens" },
+  master_token: ACCESS,
+  session_idle_minutes: ACCESS,
+  session_absolute_hours: ACCESS,
+  lockout_threshold: ACCESS,
+  lockout_minutes: ACCESS,
+  password_min_length: ACCESS,
+  sudo_password: ACCESS,
+  sudo_idle_minutes: ACCESS,
+  sudo_max_minutes: ACCESS,
+  audit_retention_days: { to: "/settings/audit", label: "complianceSetup.fix.audit" },
+  audit_review_days: { to: "/settings/audit", label: "complianceSetup.fix.audit" },
+  external_audit_sink: { to: "/settings/log-shipping", label: "complianceSetup.fix.logShipping" },
+  log_shipping_tls: { to: "/settings/log-shipping", label: "complianceSetup.fix.logShipping" },
+  backup_encryption: BACKUPS,
+  backup_verify_days: BACKUPS,
+  backup_max_age_hours: BACKUPS,
+  backup_offsite: BACKUPS,
+  console_exposure: { to: "/settings/console", label: "complianceSetup.fix.console" },
+};
+
+/** The findings that need somebody (not met first, then needing attention): what is met, and what does not apply, is left out. */
+export function findingsToMend(findings: readonly ComplianceFinding[]): ComplianceFinding[] {
+  const rank: Readonly<Record<string, number>> = { fail: 0, warning: 1 };
+  return findings.filter((finding) => finding.status in rank).sort((a, b) => (rank[a.status] ?? 9) - (rank[b.status] ?? 9));
 }

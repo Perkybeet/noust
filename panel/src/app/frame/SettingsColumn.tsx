@@ -13,8 +13,9 @@ import type { ListGroup } from "./ColumnList";
 /**
  * Settings: whose each section is, in the groups the register gives, and from twelve sections a box that
  * narrows them by name and by the name they had before (NV-11): twenty-four sections are searched, not read.
- * On a fleet, the sections that are of the whole instance (accounts, tokens, compliance...) say so beside
- * their name, "All the fleet", instead of changing which server is chosen: Settings never moves the selector.
+ * On a fleet, the sections that are every server's (accounts, tokens, compliance...) say so, "All the fleet", once over
+ * a group whose sections all are and beside the name in a group that mixes, instead of changing which server is chosen:
+ * Settings never moves the selector.
  */
 export function SettingsColumn() {
   const t = useT();
@@ -23,22 +24,34 @@ export function SettingsColumn() {
   const filterable = items.length >= SETTINGS_FILTER_FROM;
   const narrowing = filterable && query.trim() !== "";
   const kept = narrowing ? items.filter((item) => answersFilter(item, query)) : items;
-  const wide = new Set(items.filter((item) => item.central).map((item) => item.to));
+  const wide = new Set(items.filter((item) => item.fleetWide).map((item) => item.to));
+  // "All the fleet" is said once for a group in which every section is the fleet's, over the group, and on the row of
+  // the ones that are in a group that is not (the groups are judged whole: a filter that narrows the list leaves them be).
+  const wholeGroups = new Set(
+    groupNavItems(items)
+      .filter((group) => group.items.every((item) => wide.has(item.to)))
+      .map((group) => group.key),
+  );
   const Search = ICONS.search;
-  const groups: ListGroup[] = groupNavItems(kept).map((group) => ({
-    key: group.key,
-    ...(group.heading !== undefined ? { heading: group.heading } : {}),
-    ...(group.scope !== undefined ? { scope: group.scope } : {}),
-    items: group.items.map((item) => ({
-      key: item.to,
-      to: item.to,
-      ...(item.search !== undefined ? { search: item.search } : {}),
-      label: item.label,
-      ...(item.icon !== undefined ? { icon: item.icon } : {}),
-      ...(item.exact === true ? { exact: true } : {}),
-      ...(hasFleet && wide.has(item.to) ? { tag: t("nav.column.fleetWide") } : {}),
-    })),
-  }));
+  const groups: ListGroup[] = groupNavItems(kept).map((group) => {
+    const whole = hasFleet && wholeGroups.has(group.key);
+    return {
+      key: group.key,
+      ...(group.heading !== undefined ? { heading: group.heading } : {}),
+      ...(group.scope !== undefined ? { scope: group.scope } : {}),
+      ...(whole ? { tag: t("nav.column.fleetWide") } : {}),
+      items: group.items.map((item) => ({
+        key: item.to,
+        to: item.to,
+        ...(item.search !== undefined ? { search: item.search } : {}),
+        label: item.label,
+        ...(item.icon !== undefined ? { icon: item.icon } : {}),
+        ...(item.exact === true ? { exact: true } : {}),
+        ...(item.hint !== undefined ? { hint: item.hint } : {}),
+        ...(hasFleet && !whole && wide.has(item.to) ? { tag: t("nav.column.fleetWide") } : {}),
+      })),
+    };
+  });
   return (
     <>
       <ColumnHead title={t("nav.settings.label")} />

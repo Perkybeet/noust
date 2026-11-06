@@ -155,6 +155,7 @@ const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/settings/fleet", "/settings/fleet"],
   ["/settings/about", "/settings/about"],
   ["/settings/access", "/settings/access"],
+  ["/settings/access-security", "/settings/access-security"],
   ["/settings/accounts", "/settings/accounts"],
   ["/settings/alerts", "/settings/alerts"],
   ["/settings/api", "/settings/api"],

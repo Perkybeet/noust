@@ -90,7 +90,7 @@ palette (`Ctrl K`) too.
 | Settings > DNS Providers | **Domains**: DNS accounts (`noust dns`) |
 | Settings > S3 Destinations | **Backups > Destinations** |
 | Settings > Certificates | **Domains**: the certificates tab |
-| Settings > Notifications | **Settings > Channels** |
+| Settings > Notifications | **Settings > Notification channels** |
 | Settings > SSO | **Settings > Single sign-on** ([sso.md](sso.md)) |
 | Settings > Billing, License, Whitelabeling | None. Noust is AGPL-3.0-or-later and has one edition; nothing is licensed per server or per seat |
 | An application: General, Environment, Domains, Deployments, Preview Deployments, Schedules, Volume Backups, Logs, Monitoring, Advanced | The application's **Overview**, **Environment**, **Domains**, **Deployments**, **Settings > Previews**, **Cron**, **Backups**, **Logs**, **Metrics** and **Settings** |

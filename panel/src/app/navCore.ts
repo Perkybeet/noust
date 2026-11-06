@@ -79,6 +79,13 @@ export interface Dest {
   exact?: true;
   /** The central's, whichever server is selected: a node refuses a central on it on purpose (nodeRoute.ts). */
   central?: true;
+  /**
+   * With `central`: the central's own, and no fleet's. What a server shows before anyone signs in is its own, so
+   * its page is the central's whichever server is selected, and it is not "All the fleet": the other servers keep theirs.
+   */
+  own?: true;
+  /** Settings only: a line under the name in the list, for a name that does not say what it is for ("With the company account"). */
+  hint?: PlainKey;
   /** A screen that is in no list says where it is reached from (NV-13). */
   reachedFrom?: string;
 }

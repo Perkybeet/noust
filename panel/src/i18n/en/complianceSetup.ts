@@ -6,28 +6,28 @@
  * with is shown as it was written.
  */
 export const complianceSetup = {
-  title: "Compliance",
   description:
     "Nothing is on until you choose it. Several frameworks can be on together, and each control takes the strictest value any of them asks.",
   honest:
     "A framework turns on technical controls. It does not make a server compliant: what stays organisational is yours, and only an auditor can say the rest.",
   loadFailed: "Could not read the compliance settings",
   loading: "Loading the compliance settings",
+  helpLabel: "About compliance",
+  none: {
+    title: "No framework is on",
+    description: "Noust uses its normal values and there is no report to read. That is not a warning: it is normal when nothing obliges you.",
+  },
   frameworks: {
     title: "Frameworks",
+    others: "Other frameworks you can turn on",
     description: "Turn one on to switch on the controls it names. You see what changes, and the clause each one serves, before you confirm.",
-    on: "On",
     off: "Off",
-    viaProfile: "On through security.profile",
     controlsCount: { one: "{count} control", other: "{count} controls" },
-    changesCount: { one: "turns on or tightens {count} control", other: "turns on or tightens {count} controls" },
-    nothingNew: "Everything it asks is already in force",
-    show: "What it turns on",
     enable: "Turn on…",
     disable: "Turn off…",
+    staysYours: "What stays yours",
     organisational: "Stays organisational",
     notCovered: "Technical, and not enforced here",
-    forcedHere: "Forces {count} of the controls below",
     summary: {
       ensBasica:
         "Spain's National Security Scheme, category BÁSICA: the measures of Annex II that apply to the lowest category.",
@@ -71,10 +71,50 @@ export const complianceSetup = {
         "{count} people hold accounts that cannot go together. Split them, or record a documented exception, or they will be refused.",
     },
   },
+  report: {
+    download: "Download the report",
+    line: "On. Its report is made when you open this page.",
+    viaProfile: "On through security.profile. Its report is made when you open this page.",
+    forbidden: "Your role cannot read the report. Whoever holds compliance.read can.",
+    loading: "Loading the report",
+    loadFailed: "Could not read the report",
+    allMet: { one: "The control is in force", other: "All {count} controls are in force" },
+    someMet: "{met} of {total} controls in force",
+    caption: "What {name} asks that is not in force yet",
+    met: {
+      one: "The other {count} control is in force or does not apply. The report you download lists every one.",
+      other: "The other {count} controls are in force or do not apply. The report you download lists every one.",
+    },
+    nothingToMend: "Everything it asks is in force or does not apply here.",
+    status: { fail: "Not met", warning: "Partly met", ok: "Met", na: "Does not apply" },
+    column: { control: "Control", state: "State", fix: "Where to mend it" },
+    moreLabel: "What was found for {name}",
+    fix: "How to fix it:",
+  },
+  fix: {
+    accounts: "See the accounts",
+    accessSecurity: "Open access security",
+    backups: "See the backups",
+    approvals: "Open approvals",
+    tokens: "Open the tokens",
+    audit: "Open the audit log",
+    logShipping: "Open the log export",
+    console: "Open the console address",
+  },
+  lockdown: {
+    title: "The console is locked down for an incident",
+    description: "Only the access token signs in until the lockdown is lifted. The evidence taken when it started is kept.",
+    since: "Since",
+    by: "By",
+    reason: "Incident",
+    package: "Evidence",
+    command: "Lift it from a terminal on this server",
+  },
   controls: {
     title: "Controls",
     description:
       "Each control has its own setting. A framework that is on locks the ones it asks for; you can always tighten one further.",
+    help: "A control is one rule with its own setting. A framework that is on locks the ones it asks for at its value or stricter: you can always tighten one further, and never loosen a locked one.",
     lockedBy: "Required by {names}",
     change: "Change…",
     noPermission: "Your role cannot change security settings.",

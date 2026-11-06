@@ -237,7 +237,7 @@ describe("from 1440 px, the main bar and the column both open", () => {
     expect(screen.getAllByRole("searchbox", { name: "Filter sections" })).toHaveLength(1);
     await user.type(filter, "notifications");
     expect(within(settings).getAllByRole("link")).toHaveLength(1);
-    expect(within(settings).getByRole("link", { name: "Channels" })).toBeInTheDocument();
+    expect(within(settings).getByRole("link", { name: "Notification channels" })).toBeInTheDocument();
     await user.clear(filter);
     await user.type(filter, "zzzz");
     expect(within(settings).queryAllByRole("link")).toHaveLength(0);
