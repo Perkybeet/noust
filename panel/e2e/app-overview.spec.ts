@@ -84,18 +84,8 @@ test("Update queues a job; the header follows it over the event stream to its en
   await expect(pill(page)).toHaveAttribute("data-state", "running");
   await expect(header(page).getByRole("button", { name: "Update", exact: true })).not.toHaveAttribute("aria-busy");
 
-  // The job's failure also raised the notice toast. Base UI hides a high-priority toast from
-  // assistive technology until it is focused (its live region speaks for it) while leaving it
-  // focusable, which axe reports as aria-hidden-focus: a design-system finding, reported, not
-  // this page's. Dismissed here so axe judges the page. (A role query cannot see into it for
-  // the same reason.)
-  const toasts = page.locator('.toast button[aria-label="Dismiss notification"]');
-  await expect(toasts).not.toHaveCount(0);
-  // Stacked toasts behind the front one are transparent, so they are closed without a pointer.
-  await toasts.evaluateAll((buttons) => {
-    for (const button of buttons) (button as HTMLButtonElement).click();
-  });
-  await expect(toasts).toHaveCount(0);
+  // The task ended on its own page, which says it in the header: the task centre raises no toast over it.
+  await expect(page.locator(".toast")).toHaveCount(0);
   await stillness(page);
   await expectNoA11yViolations(page, "a failed update in the header");
   await page.getByRole("button", { name: "Dismiss", exact: true }).click();

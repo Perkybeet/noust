@@ -66,15 +66,14 @@ test("the labels of the health are whole in Spanish at 1440px", async ({ page, c
   expect(await cutTexts(health)).toEqual([]);
 });
 
-test("a phone keeps the two names of the trail whole and the facts of a card apart", async ({ page, consoleServer }) => {
+test("a phone keeps the two names of where it is whole and the facts of a card apart", async ({ page, consoleServer }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await signIn(page, consoleServer, `/apps/${APP}/deployments`);
-  const trail = page.getByRole("main").getByRole("navigation", { name: "Breadcrumb" });
-  await expect(trail).toBeVisible();
-  expect(await cutTexts(trail)).toEqual([]);
-  // The page and what it is under: not a third step cut to nothing.
-  await expect(trail.getByRole("link", { name: APP })).toBeVisible();
-  await expect(trail.getByRole("link", { name: "Applications" })).toBeHidden();
+  // On a phone the column is the selector at the top of the page: the application and the section, never a trail.
+  const where = page.getByRole("main").getByRole("button", { name: `${APP} Deployments Sections` });
+  await expect(where).toBeVisible();
+  expect(await cutTexts(where)).toEqual([]);
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveCount(0);
   const cards = page.getByRole("list", { name: `Deploys of ${APP}, newest first` });
   await expect(cards.getByRole("listitem").first()).toBeVisible();
   // No mark between the facts of a card: nothing to wrap alone.

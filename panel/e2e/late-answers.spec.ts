@@ -46,12 +46,12 @@ for (const path of ["/apps", "/catalog"]) {
   test(`${path} does not shift while the teams are read`, async ({ page, consoleServer }) => {
     const { score, report, shifts } = await shiftOf(page, consoleServer, path, "**/api/teams/mine");
     expect(score, report).toBeLessThanOrEqual(CLS_LIMIT);
-    // The main bar is the same twelve areas whether the teams are known or not (Projects is a link in the header
+    // The main bar is the same fourteen destinations whether the teams are known or not (Projects is a link in the header
     // of the list of applications, not a destination of the bar), so none of its links is ever a shift. A link of
     // the bar is `group elev-lift relative flex h-10` (the rail) or `h-9` (one bar).
     const bar = shifts.filter((shift) => shift.sources.some((source) => /<a\.group\.elev-lift\.relative\.flex\.h-(?:9|10)\b/.test(source)));
     expect(bar, report).toEqual([]);
-    await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link")).toHaveCount(12);
+    await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link")).toHaveCount(14);
     // What was waited for did arrive, in the header of the list, where a link arriving moves nothing.
     if (path === "/apps") await expect(page.getByRole("link", { name: "Projects" })).toBeVisible();
   });
@@ -62,5 +62,5 @@ test("a database's overview does not shift while its metrics are read", async ({
   expect(score, report).toBeLessThanOrEqual(CLS_LIMIT);
 
   // The charts the place was held for did arrive.
-  await expect(page.getByRole("heading", { level: 2, name: "The last 24 hours" })).toBeVisible();
+  await expect(page.getByRole("img", { name: /^Connections, last 24 hours/ })).toBeVisible();
 });
