@@ -423,12 +423,10 @@ test("someone who may only read the page sees the picture, with its action turne
     await expect(page.getByRole("button", { name: "Remove the image" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Save" })).toHaveCount(0);
 
-    // The primary action stays where it is, turned off with a lock, and a press says why.
-    const locked = page.getByRole("button", { name: "Change the image" });
-    await expect(locked).toHaveAttribute("aria-disabled", "true");
-    // Playwright takes aria-disabled for a button nobody can press and waits for it: a person's finger does not.
-    await locked.click({ force: true });
-    await expect(page.getByText("Why you cannot change it")).toBeVisible();
+    // The primary action stays where it is, turned off with a lock (the kit's GuardedButton), and the reason is one press away.
+    await expect(page.getByRole("button", { name: "Change the image" })).toBeDisabled();
+    await page.getByRole("button", { name: "Why you cannot do this" }).click();
+    await expect(page.getByText(/What is seen before signing in is part of how the console is protected/)).toBeVisible();
     await expect(page.getByText("security.manage")).toBeVisible();
     await capture(page, project, "settings-readonly-1440");
     await expectNoA11yViolations(page, "Settings > Sign-in image read-only");
