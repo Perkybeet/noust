@@ -90,7 +90,7 @@ describe("the Noust tab", () => {
     expect(screen.queryByRole("region", { name: "Bundles of Noust's own state" })).toBeNull();
     expect(screen.queryByText(/A bundle is one file/)).toBeNull();
 
-    await act(async () => {
+    act(() => {
       answer();
     });
     expect(await screen.findByRole("heading", { name: "Schedule" })).toBeInTheDocument();

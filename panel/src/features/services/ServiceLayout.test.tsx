@@ -54,7 +54,7 @@ describe("a service's page", () => {
     expect(await screen.findByText("Loading Service sections")).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Service sections" })).toBeNull();
 
-    await act(async () => {
+    act(() => {
       answer();
     });
     const sections = await screen.findByRole("navigation", { name: "Service sections" });
