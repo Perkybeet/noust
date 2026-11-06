@@ -8,6 +8,7 @@ import type { Locale, T } from "../../../i18n";
 import { bindT } from "../../../i18n/useT";
 import { asCoded, serverSentence } from "../../../lib/serverSentence";
 import type { CodedText } from "../../../lib/serverSentence";
+import { SOFTWARE_JOB_TITLES } from "./jobTitles";
 import { nameKey } from "./registry";
 import type { Dependent, SoftwareItem } from "./queries";
 
@@ -85,9 +86,6 @@ export function shortVersion(version: string): string {
   const trimmed = upstream.replace(/\+(?:dfsg|ds|git|nmu|really|deb|ubuntu)\S*$/i, "");
   return trimmed === "" ? version : trimmed;
 }
-
-/** The sentences that title an install and a removal: the server puts the registry's id in them (`nginx_stream_module`). */
-const SOFTWARE_JOB_TITLES: ReadonlySet<string> = new Set(["jobs.title.server_action_software_install", "jobs.title.server_action_software_remove"]);
 
 /**
  * The title of a job, with the component it names said as the Software page says it ("nginx stream module"), for a job of

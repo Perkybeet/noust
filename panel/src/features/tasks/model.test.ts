@@ -136,7 +136,7 @@ describe("whose a task is", () => {
 });
 
 describe("where a task's page is", () => {
-  const base = { kind: "job", id: "ab12", server: null, domain: null, target: null, code: null } as const;
+  const base = { kind: "job", id: "ab12", server: null, domain: null, target: null, code: null, title: null } as const;
 
   it("is its own page for a job, on its server when it is not this one", () => {
     expect(placeOf(base)).toEqual({ to: "/activity/tasks/$id", params: { id: "ab12" } });
@@ -159,5 +159,23 @@ describe("where a task's page is", () => {
     expect(isOnItsPage(deploy, "/apps/other.example.com")).toBe(false);
     expect(isOnItsPage(deploy, "/databases")).toBe(false);
     expect(isOnItsPage(base, "/activity/tasks/ab123")).toBe(false);
+  });
+
+  it("is the Software page for an install or a removal of a component, which that page follows to its end", () => {
+    const install = { ...base, title: { code: "jobs.title.server_action_software_install", params: { component: "nginx_stream_module" } } };
+    const removal = { ...base, title: { code: "jobs.title.server_action_software_remove", params: { component: "nginx_stream_module" } } };
+    for (const job of [install, removal]) {
+      expect(isOnItsPage(job, "/server/software")).toBe(true);
+      expect(isOnItsPage(job, "/server/software/")).toBe(true);
+    }
+    // Not the rest of the Server area, whose pages do not follow it, nor a neighbour of the same prefix.
+    expect(isOnItsPage(install, "/server/updates")).toBe(false);
+    expect(isOnItsPage(install, "/server/softwares")).toBe(false);
+    expect(isOnItsPage(install, "/databases")).toBe(false);
+  });
+
+  it("is not the Software page for any other job of the Server area", () => {
+    const update = { ...base, title: { code: "jobs.title.os_update" } };
+    expect(isOnItsPage(update, "/server/software")).toBe(false);
   });
 });
