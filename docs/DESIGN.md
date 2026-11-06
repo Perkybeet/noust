@@ -1837,7 +1837,7 @@ each held by the test it names:
   `can("...")`; the counts may only go down; the four pages of K1 owe none).
 - **CL-1** A `CommandHint` has a `reason`: `solo-terminal` (the console cannot do it), `otro-servidor` (it is for another
   server), `salida-del-sistema` (the system's own output names it). The reason leads the command when no label does.
-  A command that repeats a button is taken out, the one an `EmptyState` draws beside its action included. *Enforced by:*
+  A command that repeats a button is taken out; an `EmptyState` has no command to draw beside its action. *Enforced by:*
   `CommandHint.test.tsx`; ratchet `command-hint-reason` (the commands with no reason, which may only go down; the four pages
   of K1 owe none); `features/terminalHints.test.ts` holds the areas of applications, data and network to the list of the
   commands that stay, each with its reason, and to no command in a first-use empty state.
