@@ -37,7 +37,7 @@ describe("an engine's resource limits", { timeout: 40_000 }, () => {
     expect(screen.getByRole("textbox", { name: "Tasks" })).toHaveAccessibleDescription(/The kernel does not enforce it/);
     expect(screen.getByText(/PostgreSQL uses 310 MB now\./)).toBeInTheDocument();
     expect(screen.getByText(/Also set outside Noust's file: TasksMax/)).toBeInTheDocument();
-    expect(screen.getByText("noust db limits postgresql")).toBeInTheDocument();
+    expect(screen.queryByText("noust db limits postgresql")).not.toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 

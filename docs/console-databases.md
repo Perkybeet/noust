@@ -13,7 +13,7 @@ pixels the list keeps the engine and its release and leaves out its size and whe
 where the pointer rests on the engine, and the size is on the database's Overview), so it never scrolls
 sideways; a phone draws each database as a card.
 
-**New database** is the one dialog that makes a database, from the list, from an application's Database tab
+**New database** is the one dialog that makes a database, from the list, from an application's Database section
 and from Home: a name, whether it starts **Empty** or **From a dump** (the file goes up in chunks, as below,
 and the database is made by loading it), the engine as a card each (where it runs, its port and how many
 databases it holds), and the application that will use it. **Another engine or version** goes on to adding
@@ -27,7 +27,7 @@ another). **Add an engine** asks how first: the system's own (a package), or a c
 or an engine the machine lacks. A version that no longer gets security fixes is made only after you say you
 know it.
 
-One database's page has no tabs: its sections are the side column, in three groups. **View**: **Overview**
+One database's sections are the side column, in three groups. **View**: **Overview**
 (size, connections, cache, last backup, the engine it runs on and, for an old one, **Upgrade version**, and
 two charts), **Data** (tables and rows, read-only, paged and filtered, with the columns' types; editing one
 row needs sudo mode) or **Keys** (a Redis database's keys: it has no query), **Query** (the SQL console:
@@ -58,7 +58,7 @@ its accounts on the target, loads it and points each application that uses it at
 health gate, leaving the source untouched. On a PostgreSQL database's **Settings**, **Extensions** lists
 the ones loaded and loads or unloads one from what the server offers (one that is not trusted is the whole
 server's to load). Linking an existing database offers **Connection security** (encrypt, check the
-authority, check the authority and the name); the application's Database tab says how each is reached.
+authority, check the authority and the name); the application's Database section says how each is reached.
 See [databases.md](databases.md).
 
 A database is **private** until you open it: **Public access** on **Connect** makes it reachable

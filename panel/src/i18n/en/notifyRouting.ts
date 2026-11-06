@@ -112,7 +112,6 @@ export const notifyRouting = {
     empty: "This team has no channel of its own yet. Add a Slack, a ntfy or a webhook and the notices about its applications go there.",
     emptyReadOnly: "This team has no channel of its own.",
     readOnly: "You can see the team's channels. Changing them takes the admin role in the team.",
-    fromTerminal: "Or from a terminal:",
     addTitle: "Add a channel to {team}",
     editTitle: "Channel {name}",
     drawerDescription: "It hears the applications of this team. What is left empty under the applications applies to all of them.",

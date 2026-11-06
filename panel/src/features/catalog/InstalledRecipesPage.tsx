@@ -157,7 +157,6 @@ export function InstalledRecipesPage() {
           {t("catalog.installed.browse")}
         </Link>
       }
-      command="noust recipe install vaultwarden -d vault.example.com"
     />
   ) : (
     <DataTable
@@ -181,7 +180,6 @@ export function InstalledRecipesPage() {
 
   return (
     <CatalogFrame
-      command="noust recipe outdated"
       notice={
         job !== null ? (
           <DatabaseJobProgress

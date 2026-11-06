@@ -3,7 +3,6 @@ import { FileCheck2 } from "lucide-react";
 import type { ChangeEvent } from "react";
 
 import type { AppExportDocument } from "../../api/queries/appImport";
-import { CommandHint } from "../../components/page/CommandHint";
 import { Card } from "../../components/ui/Card";
 import { Disclosure } from "../../components/ui/Disclosure";
 import { Field } from "../../components/ui/Field";
@@ -73,7 +72,6 @@ export function ImportFile({ loaded, problem, types, onFile, onRemote }: ImportF
         <RemoteImport onLoaded={onRemote} />
       </Disclosure>
 
-      <CommandHint command="noust app import app.noust-app.json --domain example.com" label={t("common.words.fromTerminal")} />
     </div>
   );
 }

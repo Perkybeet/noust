@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { noustCheckQuery, noustDelegationQuery } from "../../../api/queries/noustDns";
 import type { NoustDelegationCheck, NoustSentence } from "../../../api/queries/noustDns";
 import type { KeyValueItem } from "../../../components/page/KeyValueList";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { Subsection } from "../../../components/page/Subsection";
@@ -157,7 +156,6 @@ export function DelegationView({ zone }: { zone: string }) {
               <CheckResult check={check.data} />
             ) : null}
           </Card>
-          <CommandHint command={`noust dns zone check ${zone}`} label={t("common.words.fromTerminal")} />
         </div>
       )}
     </QueryState>

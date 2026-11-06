@@ -110,20 +110,20 @@ in the server's words. See [recipes.md](recipes.md).
 ## One application
 
 The header shows the domain, state, type, port and a link to the live site. A banner between the
-header and the tabs appears while a job runs on it, when its last deploy failed or when it is
+header and the section appears while a job runs on it, when its last deploy failed or when it is
 down. An application whose last deploy failed says so with **See why**, which leads to **Diagnose**
 with the cause first, and **View log** beside it. The sections are listed in the column, in five groups:
 **Use** (Overview, Deployments, Logs, Metrics), **Configure** (Variables, Domains, Database, Code and build, Deploys and
 triggers, Resources and running, Access and protection), **Fix** (Diagnose, and Terminal and Files for whoever may
 open a terminal), **Move elsewhere** (Export and declaration, Several servers) and **Danger** (Delete, alone):
 
-| Tab | What it has |
+| Section | What it has |
 |---|---|
 | Overview | What is live now and what changed, the last deployments (a failed one says which version kept serving), the application's health (uptime, certificate, CPU and memory, with the way to change its limits), its previews, and where it answers and whether a push deploys it |
 | Deployments | The application's [queue](#the-deploy-queue-and-cancelling) when something builds or waits for it; the deployment history in one list: what serves is marked **Live**, a failed deploy says which version kept serving, a deploy that was cancelled is drawn as **Cancelled** and never as a failure, search and filters (state, branch, who started it) are in the address, and each row opens its page or acts from its menu (**View log**, **Roll back to this**, **Retry**, **Rebuild this commit**, **Copy commit**); a build made with **Build without serving** waits at the top with **Go live**; an application kept in a single folder lists its backups under the list |
 | Logs | The unit's journal, live; for a Docker Compose stack or a container application, what the containers printed (all services or one, read again every few seconds), with the unit's journal as one choice |
 | Metrics | CPU and memory (requests and errors for a static site) over an hour, a day, a week or a month, against its limits, with deploys marked; or why there is nothing to show. A Compose stack of two containers or more adds CPU, memory, disk and network **by container** (the busiest three of each), and a site whose access log is read adds **who asks for what**: requests and errors by the hour, data served, and the pages, networks, status codes and referrers that appear most |
-| Environment | The `.env`, redacted; revealing a secret needs sudo mode. A row opens on press, and a hidden value is never read to be edited: it is kept, or replaced (**Replace value**). A change shows in its row, the old value struck beside the new one, and the bar at the foot writes only what changed: **Save and restart**, or **Save only** from its menu, which leaves the change waiting as "not applied". A pasted file, or more than six changes, is looked over in full first. A value made of references (`{{project.NAME}}`, `{{secret:vault/...}}`) is shown as written, not as what it resolved to, and **Resolve references** reads them again without a deploy. **Given to** (build and runtime, build only, runtime only) is in each row's menu and in the add dialog, and saved with the values. **Given by Noust** lists `NOUST_URL`, `NOUST_BRANCH` and the rest, read-only. See [variables.md](variables.md) |
+| Variables | The `.env`, redacted; revealing a secret needs sudo mode. A row opens on press, and a hidden value is never read to be edited: it is kept, or replaced (**Replace value**). A change shows in its row, the old value struck beside the new one, and the bar at the foot writes only what changed: **Save and restart**, or **Save only** from its menu, which leaves the change waiting as "not applied". A pasted file, or more than six changes, is looked over in full first. A value made of references (`{{project.NAME}}`, `{{secret:vault/...}}`) is shown as written, not as what it resolved to, and **Resolve references** reads them again without a deploy. **Given to** (build and runtime, build only, runtime only) is in each row's menu and in the add dialog, and saved with the values. **Given by Noust** lists `NOUST_URL`, `NOUST_BRANCH` and the rest, read-only. See [variables.md](variables.md) |
 | Database | The databases it uses, creating and linking one, and its connection string |
 | Domains | Primary, aliases and redirects, with a DNS check per name; add a name as an alias or a redirect (Docker Compose stacks that publish a port and monorepos included; see [domains.md](domains.md)) |
 | Code and build | Where the code comes from and how it is built: **Source** (the repository, branch and tags it deploys, how the server signs in to it), **Container** for a container application and **Build** (commands, runtime, sandbox, packages and cache) |
@@ -138,7 +138,7 @@ open a terminal), **Move elsewhere** (Export and declaration, Several servers) a
 
 **Changes not applied yet.** When an application has been set to something it does not run
 with yet (a variable, a limit, a command, the sandbox, a mounted file), a chip on the header's
-state line says how many (**2 not applied**), and the Environment tab counts its own. The chip
+state line says how many (**2 not applied**), and the Variables section counts its own. The chip
 lists each change by area with what it needs, a restart, a build or the next deploy; the values
 of secret settings are never shown, only that they changed, and **Restart now** (or **Build
 again now**) applies them when that is all they need. **Deploys paused** and **Deploys frozen**
@@ -150,9 +150,9 @@ asked from (the header, a row of the history, a deployment's page, Diagnose): wh
 what goes back, what stays as it is, and whether automatic deploys will pause.
 See [runtime.md](runtime.md#changes-not-applied-yet).
 
-**Files** is in **More actions**, for whoever may open a terminal: the application's files a
+**Files** is in the column, under **Fix**, for whoever may open a terminal: the application's files a
 folder at a time (the folder is in the address), as the account the application runs as, with
-edit, upload, download, new folder, rename and delete. Environment files are the Environment's
+edit, upload, download, new folder, rename and delete. Environment files are the Variables'
 and are not opened here. See [runtime.md](runtime.md#files).
 
 Each deployment has its own page: commit, trigger, duration, a phase timeline, the build log
@@ -220,7 +220,7 @@ part has:
 Builds of different applications run side by side, up to the server's limit (`deploy.max_concurrent_builds`);
 one application builds one thing at a time, so what is asked meanwhile waits its turn and nothing is lost
 (see [releases.md](releases-deploys.md#the-deploy-queue)). The queue is on **Activity** when something builds or
-waits, and on an application's **Deployments** tab for what is its own:
+waits, and in an application's **Deployments** for what is its own:
 
 - every job is a row with its state (queued, in progress, stopping), its **place in line** ("Next in line",
   "Place 3 in line") and, for one that waits, **what it waits for** in the queue's own words, set in mono: the
@@ -259,7 +259,7 @@ logs`; when a port is still recorded for it, the report says so and names `noust
 
 ## Terminal
 
-Off the tab strip, under **More actions > Terminal** (`/apps/<domain>/terminal`): a shell as the
+In the column, under **Fix** (`/apps/<domain>/terminal`): a shell as the
 account the application runs as, in its sandbox and with its environment (a stack's, in its
 container), and below it **Run a command once**, which splits what you type into the program and
 its arguments, shows the list it will run, and shows the output as the job's log. The server's own

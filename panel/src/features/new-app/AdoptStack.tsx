@@ -19,7 +19,6 @@ import { isApiError, request } from "../../api/client";
 import type { ResponseOf } from "../../api/client";
 import { appKeys } from "../../api/queries/apps";
 import { announce } from "../../app/Announcer";
-import { CommandHint } from "../../components/page/CommandHint";
 import { KeyValueList } from "../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../components/page/KeyValueList";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -235,8 +234,6 @@ function useStackAdoption(): AdoptionState {
 
   const fieldError = (key: keyof AdoptForm, api: (typeof FIELDS)[number]): string | undefined => errors[key] ?? split.fields[api];
   const optionalChanged = form.composeFile !== "" || form.site !== "" || form.source !== "" || form.branch !== "";
-  const shownDomain = form.domain.trim() === "" ? "example.com" : normalizeDomain(form.domain);
-  const shownPath = form.path.trim() === "" ? "/srv/stack" : form.path.trim();
 
   const content = (
     <div className="flex flex-col gap-5">
@@ -285,7 +282,6 @@ function useStackAdoption(): AdoptionState {
 
       {ready ? <Found preview={previewed.answer} t={t} /> : null}
 
-      <CommandHint command={`noust app adopt ${shownDomain} --path ${shownPath}`} label={t("common.words.fromTerminal")} />
     </div>
   );
 

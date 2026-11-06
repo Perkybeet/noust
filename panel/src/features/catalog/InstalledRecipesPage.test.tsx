@@ -104,7 +104,7 @@ describe("the installed recipes page", () => {
     const { harness } = installedPage([]);
     expect(await screen.findByText("Nothing installed from a recipe yet")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Browse the catalog" })).toHaveAttribute("href", "/catalog");
-    expect(screen.getByText(/noust recipe install vaultwarden/)).toBeInTheDocument();
+    expect(screen.queryByText(/noust recipe install vaultwarden/)).not.toBeInTheDocument();
     await expectNoAxeViolations(harness.container);
   });
 

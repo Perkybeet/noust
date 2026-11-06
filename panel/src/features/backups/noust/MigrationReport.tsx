@@ -1,4 +1,3 @@
-import { CommandHint } from "../../../components/page/CommandHint";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { StatusPill } from "../../../components/ui/StatusPill";
@@ -40,7 +39,6 @@ export function MigrationReport({ report }: { report: MigrationReportView }) {
             ))}
           </ol>
         </div>
-        <CommandHint command="noust server migrate check" label={t("common.words.fromTerminal")} />
       </div>
     </Notice>
   );

@@ -37,7 +37,7 @@ function Requirement({ item }: { item: RecipeRequirement }) {
         {!item.met && item.installable ? <Badge>{t("catalog.requirements.installable")}</Badge> : null}
       </span>
       <span className="text-12 text-pretty text-fg-muted">{item.detail}</span>
-      {!item.met && item.fix ? <CommandHint command={item.fix} label={t("catalog.requirements.fix")} /> : null}
+      {!item.met && item.fix ? <CommandHint reason="salida-del-sistema" command={item.fix} label={t("catalog.requirements.fix")} /> : null}
     </li>
   );
 }

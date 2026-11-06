@@ -6,7 +6,6 @@ import { isApiError, request } from "../../../api/client";
 import { isJobFinished, useFollowedJob } from "../../../api/queries/jobs";
 import { noustDnsKeys } from "../../../api/queries/noustDns";
 import type { NoustServer } from "../../../api/queries/noustDns";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { JobProgress } from "../../../components/page/JobProgress";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -148,7 +147,6 @@ export function SetupPanel({ server }: { server: NoustServer }) {
           </div>
         </form>
       </Card>
-      <CommandHint command="noust dns server setup --role primary --hostname ns1.example.net" label={t("common.words.fromTerminal")} />
     </div>
   );
 }

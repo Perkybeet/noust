@@ -20,7 +20,6 @@ import {
   useFollowedJob,
 } from "../../api/queries/jobs";
 import { useDocumentTitle } from "../../app/documentTitle";
-import { CommandHint } from "../../components/page/CommandHint";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { Section, Sections } from "../../components/page/Section";
@@ -667,10 +666,6 @@ export function AppDomainsTab({ domain }: { domain: string }) {
 
       <AppDnsSection domain={domain} />
 
-      <CommandHint
-        command={`noust domain list ${domain}`}
-        label={t("common.words.fromTerminal")}
-      />
 
       <AddDomainDialog
         app={domain}

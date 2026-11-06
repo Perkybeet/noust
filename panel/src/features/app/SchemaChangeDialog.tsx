@@ -73,15 +73,14 @@ function SchemaChangeDetails({ domain, refusal, t }: { domain: string; refusal: 
     restore = (
       <>
         <p className="text-13 text-pretty text-fg">{t("appPages.schemaChange.restoreKnown", { id: backup.id })}</p>
-        <CommandHint command={restoreCommand(backup.id, appType)} />
+        <CommandHint reason="solo-terminal" command={restoreCommand(backup.id, appType)} />
       </>
     );
   } else {
     restore = (
       <>
         <p className="text-13 text-pretty text-fg">{t("appPages.schemaChange.restoreUnknown")}</p>
-        <CommandHint command={`noust backup list ${domain}`} />
-        <CommandHint command={restoreCommand("BACKUP_ID", appType)} />
+        <CommandHint reason="solo-terminal" command={restoreCommand("BACKUP_ID", appType)} />
       </>
     );
   }

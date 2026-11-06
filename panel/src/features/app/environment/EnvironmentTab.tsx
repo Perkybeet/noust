@@ -10,7 +10,6 @@ import { AUDIENCES } from "../../../api/queries/variables";
 import type { VariableAudience } from "../../../api/queries/variables";
 import { announce } from "../../../app/Announcer";
 import { useDocumentTitle } from "../../../app/documentTitle";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { QueryState } from "../../../components/page/QueryState";
 import { SaveBar } from "../../../components/page/SaveBar";
 import { appStatus } from "../../../components/page/status";
@@ -522,7 +521,6 @@ export function EnvironmentTab({ domain }: { domain: string }) {
             title={t("environment.tab.emptyTitle")}
             description={isStatic ? t("environment.tab.emptyDescriptionStatic") : t("environment.tab.emptyDescriptionRuntime")}
             action={actions}
-            command={`noust env show ${domain}`}
           />
         }
       >
@@ -571,14 +569,10 @@ export function EnvironmentTab({ domain }: { domain: string }) {
                   ),
                 })}
           />
-          {/* The empty state carries the same command; said once. */}
-          <div className="flex flex-col gap-2">
-            <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-12 text-fg-muted">
-              {t.rich("environment.tab.storedIn", { file: <Mono tone="muted">{file}</Mono> })}
-              <CopyButton value={file} label={t("environment.tab.copyPath")} />
-            </p>
-            <CommandHint command={`noust env show ${domain}`} label={t("common.words.fromTerminal")} />
-          </div>
+          <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-12 text-fg-muted">
+            {t.rich("environment.tab.storedIn", { file: <Mono tone="muted">{file}</Mono> })}
+            <CopyButton value={file} label={t("environment.tab.copyPath")} />
+          </p>
         </>
       )}
 

@@ -1,4 +1,3 @@
-import { CommandHint } from "../../components/page/CommandHint";
 import { KeyValueList } from "../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../components/page/KeyValueList";
 import { RelativeTime } from "../../components/page/RelativeTime";
@@ -95,7 +94,6 @@ export function TeamOverview() {
           {t("teams.overview.allProjects")}
         </TextLink>
       </Section>
-      <CommandHint command={`noust team members ${team.slug}`} label={t("teams.fromTerminal")} />
       {actions.dialogs}
     </Sections>
   );

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { isApiError, request } from "../../api/client";
 import { databaseKeys, engineLimitsQuery } from "../../api/queries/databases";
 import type { EngineLimits as EngineLimitsData, EngineLimitsOutcome } from "../../api/queries/databases";
-import { CommandHint } from "../../components/page/CommandHint";
 import { ErrorBlock, QueryState } from "../../components/page/QueryState";
 import { Section } from "../../components/page/Section";
 import { Button } from "../../components/ui/Button";
@@ -207,7 +206,6 @@ function LimitsForm({ engine, display, data }: { engine: string; display: string
           </div>
         </div>
       </Card>
-      <CommandHint command={`noust db limits ${engine}`} label={t("common.words.fromTerminal")} />
       {warnings !== null ? (
         <ConfirmDialog
           open

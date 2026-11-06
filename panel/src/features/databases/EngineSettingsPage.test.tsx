@@ -41,6 +41,18 @@ describe("an engine's settings", () => {
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
+  it("says what a setting does behind its question mark, and leaves the page with the state of each", async () => {
+    const { user } = await settingsAt();
+    // The engine's explanation is read once, when asked: twenty of them drawn under their fields were the page's whole weight.
+    expect(screen.queryByText("Memory PostgreSQL keeps for its own cache.")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("shared_buffers")).not.toHaveAccessibleDescription(/Memory PostgreSQL keeps/);
+    // A size says its unit in the help too, and not under every size.
+    expect(screen.queryByText(/A size with its unit/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "About shared_buffers" }));
+    expect(await screen.findByText("Memory PostgreSQL keeps for its own cache.")).toBeInTheDocument();
+    expect(screen.getAllByText(/A size with its unit/)).toHaveLength(1);
+  });
+
   it("sends only what changed, an emptied setting as default, and says how it was applied", async () => {
     const { user, backend } = await settingsAt({ [ROUTE]: () => json(200, OUTCOME) });
     await user.type(screen.getByLabelText("max_connections"), "150");

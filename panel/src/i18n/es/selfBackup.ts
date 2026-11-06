@@ -74,7 +74,7 @@ export const selfBackup: Catalog<typeof en> = {
     destination: "Destino",
     destinationHelp: "Los dos servidores deben alcanzarlo. El estado se cifra con una contraseña antes de enviarse.",
     choose: "Elige un destino",
-    noDestinations: "Todavía no hay ningún destino de copias. Añade uno en la pestaña Destinos.",
+    noDestinations: "Todavía no hay ningún destino de copias. Añade uno en la sección Destinos.",
     planning: "Calculando qué haría falta para mover",
     planFailed: "No se pudo calcular qué haría falta para mover",
     blockedTitle: "No puede empezar",

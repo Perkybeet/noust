@@ -84,6 +84,8 @@ test("an application's logs read a window of the past, bound to it, and the choi
   await page.getByRole("option", { name: "24 hours" }).click();
   await expect(page).toHaveURL(/since=24h/);
   await expect(page.getByRole("status").filter({ hasText: /examined/ })).toBeVisible();
+  // The window is read here: the terminal's way of asking for it is not repeated under it.
+  await expect(page.getByText(`noust log search --app ${DOMAIN} --since 24h`)).toHaveCount(0);
 
   await page.getByRole("radio", { name: "Web server requests" }).click();
   await expect(page.getByRole("combobox", { name: "How far back" })).toHaveCount(0);

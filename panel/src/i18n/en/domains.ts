@@ -324,7 +324,7 @@ export const domains = {
     testPassedNotSaved: "This passed {webserver}'s configuration test. Nothing was saved yet.",
     loadingConfigurationSr: "Loading the configuration",
     noSiteTitle: "No site with this name",
-    noSiteDescription: "It may have been deleted, or the address has a typo. Every site on this machine is in the Sites tab.",
+    noSiteDescription: "It may have been deleted, or the address has a typo. Every site on this machine is in the Sites section.",
     allSites: "All sites",
     belongsTo: "Serves the application {app}",
     couldNotReadConfig: "Could not read the configuration of {site}",

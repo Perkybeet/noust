@@ -4,7 +4,6 @@ import { Search, ShieldQuestion } from "lucide-react";
 import { isApiError, request } from "../../../api/client";
 import { appSqliteQuery } from "../../../api/queries/databases";
 import type { SqliteCheck, SqliteFile } from "../../../api/queries/databases";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
@@ -119,7 +118,6 @@ export function SqliteSection({ domain }: { domain: string }) {
           <FileCard key={file.path} domain={domain} file={file} t={t} />
         ))}
       </ul>
-      <CommandHint command={`noust db sqlite list ${domain}`} label={t("common.words.fromTerminal")} />
     </Section>
   );
 }

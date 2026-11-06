@@ -4,7 +4,6 @@ import { X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { appsQuery } from "../../api/queries/apps";
-import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { ListPage } from "../../components/page/ListPage";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -170,7 +169,6 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
               </Link>
             </>
           }
-          command="noust create --domain example.com --source https://github.com/you/app.git"
         />
       </ListPage>
     );
@@ -263,9 +261,6 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
         />
         )
       }
-      // Drawn with the rows, not before: under a list of unknown length it would only be pushed
-      // down the page when they arrive.
-      {...(apps.isPending ? {} : { footer: <CommandHint command="noust list" label={t("common.words.fromTerminal")} /> })}
     >
       {search.view === "deployments" ? (
         <AllDeployments deployments={deploys.data?.items} loading={deploys.isPending} />

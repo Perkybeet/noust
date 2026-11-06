@@ -4,7 +4,6 @@ import { useState } from "react";
 import { isApiError, request } from "../../api/client";
 import { databaseKeys, engineSettingsQuery, enginesQuery } from "../../api/queries/databases";
 import type { EngineSetting, EngineSettings, EngineSettingsOutcome } from "../../api/queries/databases";
-import { CommandHint } from "../../components/page/CommandHint";
 import { DetailPage } from "../../components/page/DetailPage";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -13,6 +12,7 @@ import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { Field } from "../../components/ui/Field";
+import { HelpPopover } from "../../components/ui/HelpPopover";
 import { InlineMessage } from "../../components/ui/InlineMessage";
 import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
@@ -82,14 +82,11 @@ function outcomeText(t: T, outcome: EngineSettingsOutcome): string {
   }
 }
 
-/** The lines under a setting: what it does, what it is now, the advice, and what changing it costs. */
+/** The lines under a setting: what it is now, the advice, and what changing it costs. What it does is behind its "?". */
 function Explanation({ setting, engine, t }: { setting: EngineSetting; engine: string; t: T }) {
   const locked = !setting.editable;
   return (
     <>
-      {/* The engine's own explanation, from the server: Noust's words about the engine's setting. */}
-      <span className="block max-w-measure-help">{setting.description}</span>
-      {setting.kind === "size" && !locked ? <span className="block">{t("databases.engineSettings.sizeHelp")}</span> : null}
       <span className="block">
         {setting.current !== null && setting.current !== undefined
           ? t.rich("databases.engineSettings.now", { value: <Mono>{setting.current}</Mono> })
@@ -99,6 +96,20 @@ function Explanation({ setting, engine, t }: { setting: EngineSetting; engine: s
       {setting.restart && !locked ? <span className="block">{t("databases.engineSettings.restarts", { engine })}</span> : null}
       {locked && setting.locked_reason ? <span className="block max-w-measure-help text-fg">{setting.locked_reason}</span> : null}
     </>
+  );
+}
+
+/** What a setting does, in the engine's own words, behind the "?" beside its control: the rule is read once, not drawn for every setting. */
+function About({ setting, t }: { setting: EngineSetting; t: T }) {
+  const locked = !setting.editable;
+  return (
+    <HelpPopover label={t("common.help.about", { name: setting.key })} title={setting.key}>
+      <div className="flex flex-col gap-2">
+        {/* The engine's own explanation, from the server: Noust's words about the engine's setting. */}
+        <p>{setting.description}</p>
+        {setting.kind === "size" && !locked ? <p>{t("databases.engineSettings.sizeHelp")}</p> : null}
+      </div>
+    </HelpPopover>
   );
 }
 
@@ -217,21 +228,22 @@ function SettingsForm({ engine, data }: { engine: string; data: EngineSettings }
                   nativeLabel={setting.kind !== "boolean" && (setting.choices ?? []).length === 0}
                   description={<Explanation setting={setting} engine={display} t={t} />}
                   error={fieldErrors[setting.key]}
-                  {...(recommendable
-                    ? {
-                        action: (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            aria-label={t("databases.engineSettings.useRecommendedFor", { key: setting.key })}
-                            disabled={value.trim().toLowerCase() === (setting.recommended ?? "").toLowerCase()}
-                            onClick={() => edit(setting.key, setting.kind === "boolean" ? (setting.recommended ?? "").toLowerCase() : (setting.recommended ?? ""))}
-                          >
-                            {t("databases.engineSettings.useRecommended")}
-                          </Button>
-                        ),
-                      }
-                    : {})}
+                  action={
+                    <>
+                      {recommendable ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          aria-label={t("databases.engineSettings.useRecommendedFor", { key: setting.key })}
+                          disabled={value.trim().toLowerCase() === (setting.recommended ?? "").toLowerCase()}
+                          onClick={() => edit(setting.key, setting.kind === "boolean" ? (setting.recommended ?? "").toLowerCase() : (setting.recommended ?? ""))}
+                        >
+                          {t("databases.engineSettings.useRecommended")}
+                        </Button>
+                      ) : null}
+                      <About setting={setting} t={t} />
+                    </>
+                  }
                 >
                   <Control setting={setting} value={value} onChange={(next) => edit(setting.key, next)} t={t} />
                 </Field>
@@ -241,7 +253,6 @@ function SettingsForm({ engine, data }: { engine: string; data: EngineSettings }
           {failure !== null ? <ErrorBlock live compact error={failure} title={t("databases.engineSettings.saveFailed", { engine: display })} /> : null}
         </div>
       </Card>
-      <CommandHint command={`noust db settings ${engine}`} label={t("common.words.fromTerminal")} />
       <SaveBar
         changes={changes}
         saving={save.isPending && exposure === null}

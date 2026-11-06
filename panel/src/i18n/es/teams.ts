@@ -6,7 +6,6 @@ export const teams: Catalog<typeof en> = {
     description: "Los proyectos agrupan las aplicaciones, bases de datos y sitios de un mismo trabajo. Los equipos deciden quién los ve y quién puede actuar.",
   },
   couldNotLoad: "No se pudieron cargar los equipos",
-  fromTerminal: "Desde el terminal",
   teamLabel: "Equipo",
   shortName: "Nombre corto",
   shortNameHelp: "Cómo lo llaman los comandos y los enlaces. Se forma con el nombre si lo dejas vacío.",

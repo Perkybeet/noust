@@ -13,7 +13,6 @@ import type { ReactNode } from "react";
 
 import { request } from "../../api/client";
 import { announce } from "../../app/Announcer";
-import { CommandHint } from "../../components/page/CommandHint";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
@@ -188,7 +187,6 @@ export function useComposeDocument(): ComposeDocumentState {
       {converted !== null ? <Converted {...converted} /> : null}
       {analyze.isError ? <ErrorBlock live compact error={analyze.error} title={t("newApp.compose.notLooked")} /> : null}
       {analysis !== null ? <Found analysis={analysis} /> : null}
-      <CommandHint command="noust compose check FILE" label={t("common.words.fromTerminal")} />
     </div>
   );
 

@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 
 import { backupStorageQuery } from "../../api/queries/backups";
 import type { BackupStorage } from "../../api/queries/backups";
-import { CommandHint } from "../../components/page/CommandHint";
 import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
 import { Mono } from "../../components/ui/Mono";
@@ -98,7 +97,6 @@ export function StorageSummary() {
               />
             ) : null}
             <p className="text-13 text-fg-muted">{t.rich("backups.storage.keptIn", { path: <Mono tone="default">{data.path}</Mono> })}</p>
-            <CommandHint command="noust backup storage" />
           </div>
         </Popover>
       </span>

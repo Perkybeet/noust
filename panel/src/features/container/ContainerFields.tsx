@@ -294,7 +294,7 @@ export function ContainerFields({ draft, errors, onChange, existing = false, sho
           {draft.method === "railpack" ? (
             <div className="flex flex-col gap-2">
               <Notice title={t("containers.method.railpackNeeds")}>{t("containers.method.railpackNeedsBody")}</Notice>
-              <CommandHint command="noust setup railpack" label={t("common.words.fromTerminal")} />
+              <CommandHint reason="solo-terminal" command="noust setup railpack" />
             </div>
           ) : null}
         </div>

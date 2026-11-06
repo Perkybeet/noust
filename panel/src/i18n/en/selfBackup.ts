@@ -74,7 +74,7 @@ export const selfBackup = {
     destination: "Destination",
     destinationHelp: "Both servers must reach it. The state is sealed under a passphrase before it is sent.",
     choose: "Choose a destination",
-    noDestinations: "There is no backup destination yet. Add one in the Destinations tab.",
+    noDestinations: "There is no backup destination yet. Add one in the Destinations section.",
     planning: "Working out what moving would take",
     planFailed: "Could not work out what moving would take",
     blockedTitle: "It cannot start",

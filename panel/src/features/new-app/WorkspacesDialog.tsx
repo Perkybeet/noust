@@ -5,7 +5,6 @@ import type { SyntheticEvent } from "react";
 import { request } from "../../api/client";
 import type { ResponseOf } from "../../api/client";
 import { announce } from "../../app/Announcer";
-import { CommandHint } from "../../components/page/CommandHint";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Subsection } from "../../components/page/Subsection";
 import { Button } from "../../components/ui/Button";
@@ -295,7 +294,6 @@ export function WorkspacesDialog({ open, source: initialSource, branch: initialB
             </ul>
           </Notice>
         ) : null}
-        <CommandHint command={`noust workspace create ${source.trim() === "" ? "https://github.com/acme/monorepo.git" : source.trim()} --app WORKSPACE=DOMAIN`} label={t("common.words.sameFromTerminal")} />
       </div>
     </Dialog>
   );

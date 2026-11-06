@@ -7,7 +7,6 @@ import { appQuery, diagnosisQuery } from "../../../api/queries/apps";
 import type { Diagnosis } from "../../../api/queries/apps";
 import { announce } from "../../../app/Announcer";
 import { useDocumentTitle } from "../../../app/documentTitle";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { QueryState } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Section, Sections } from "../../../components/page/Section";
@@ -573,10 +572,6 @@ export function DiagnoseTab({ domain }: { domain: string }) {
           )}
         </QueryState>
       </section>
-      <CommandHint
-        command={`noust diagnose ${domain}`}
-        label={t("common.words.fromTerminal")}
-      />
     </Sections>
   );
 }

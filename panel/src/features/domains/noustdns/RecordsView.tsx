@@ -5,7 +5,6 @@ import type { SyntheticEvent } from "react";
 import { isApiError, request } from "../../../api/client";
 import { noustDnsKeys, RECORD_TYPES } from "../../../api/queries/noustDns";
 import type { NoustRecord, NoustZone, RecordType } from "../../../api/queries/noustDns";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RowMenu } from "../../../components/page/RowMenu";
 import { Badge } from "../../../components/ui/Badge";
@@ -208,7 +207,6 @@ export function RecordsView({ zone, editable, onAdd }: { zone: NoustZone; editab
             }
           : {})}
       />
-      <CommandHint command="noust dns zone record add example.com www A 203.0.113.7" label={t("common.words.fromTerminal")} />
       <RecordDialog key={editing?.id ?? "none"} zone={zone.name} record={editing} open={editing !== null} onOpenChange={(open) => !open && setEditing(null)} />
       <ConfirmDialog
         open={deleting !== null}

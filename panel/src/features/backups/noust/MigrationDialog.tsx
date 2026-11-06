@@ -5,7 +5,6 @@ import type { SyntheticEvent } from "react";
 import { request } from "../../../api/client";
 import { backupDestinationsQuery } from "../../../api/queries/backupDestinations";
 import { migrationPlanQuery } from "../../../api/queries/serverMigration";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Dialog } from "../../../components/ui/Dialog";
@@ -170,7 +169,6 @@ export function MigrationDialog({ open, onOpenChange, onQueued }: MigrationDialo
           </div>
         ) : null}
         {start.isError ? <ErrorBlock live compact error={start.error} title={t("selfBackup.migrate.failed")} /> : null}
-        <CommandHint command="noust server migrate prepare --to DESTINATION" label={t("common.words.fromTerminal")} />
       </form>
     </Dialog>
   );

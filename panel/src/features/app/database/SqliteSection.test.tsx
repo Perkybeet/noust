@@ -62,7 +62,7 @@ describe("the SQLite files in an application's Database tab", { timeout: 40_000 
     expect(within(plain).queryByText("Committed, waiting in the log")).not.toBeInTheDocument();
     expect(within(live).getByText("WAL (write-ahead log)")).toBeInTheDocument();
     expect(within(live).getByText("Committed, waiting in the log")).toBeInTheDocument();
-    expect(screen.getByText("noust db sqlite list " + TAB_DOMAIN)).toBeInTheDocument();
+    expect(screen.queryByText("noust db sqlite list " + TAB_DOMAIN)).not.toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
