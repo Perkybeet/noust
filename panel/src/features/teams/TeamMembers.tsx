@@ -6,7 +6,6 @@ import { isTeamRole, removeMember, setMemberRole, teamMembersQuery, TEAM_ROLES }
 import type { Member, TeamRole } from "../../api/queries/teams";
 import { sessionQuery } from "../../api/queries/auth";
 import { announce } from "../../app/Announcer";
-import { CommandHint } from "../../components/page/CommandHint";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { QueryState } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
@@ -184,7 +183,6 @@ export function TeamMembers() {
           icon={<OBJECT_ICONS.team />}
           title={t("teams.members.emptyTitle")}
           description={t("teams.members.emptyDescription")}
-          command={`noust team add-member ${team.slug} <account> --role owner`}
           level={3}
         />
       }
@@ -203,7 +201,6 @@ export function TeamMembers() {
       {!governs && org.available ? <Notice title={t("teams.members.readOnlyTitle")}>{t("teams.members.readOnly")}</Notice> : null}
       {content}
       <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("teams.members.rolesNote")}</p>
-      <CommandHint command={`noust team members ${team.slug}`} label={t("teams.fromTerminal")} />
       <AddMemberDialog open={adding} onOpenChange={setAdding} team={team} />
       {mayInvite ? (
         <InviteDialog

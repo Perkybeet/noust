@@ -1,7 +1,6 @@
 import { useState } from "react";
 
 import type { RecipeSummary } from "../../api/queries/recipes";
-import { CommandHint } from "../../components/page/CommandHint";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Subsection } from "../../components/page/Subsection";
@@ -55,7 +54,6 @@ export function RecipeGallery({ query, browse = false, opening, failure, onChoos
         {/* Paged like the catalog's page: the whole catalog is 440 cards, a page of 32,000px in this column (item 117). The
             size is this step's own: "All" chosen on the catalog's page is not a choice about a step of a wizard. */}
         <CatalogResults paged pageList={WIZARD_RECIPES_LIST} catalog={catalog} search={search} opening={opening} onClear={() => setFilters({})} onChoose={onChoose} {...(notice !== undefined ? { notice } : {})} />
-        <CommandHint command="noust recipe list" label={t("common.words.fromTerminal")} />
       </div>
     );
   }

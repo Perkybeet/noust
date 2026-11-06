@@ -68,7 +68,6 @@ export function TeamLayout({ team: slug }: { team: string }) {
               {t("teams.team.allTeams")}
             </Link>
           }
-          command="noust team list"
         />
       </DetailPage>
     );

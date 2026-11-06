@@ -186,6 +186,7 @@ function ReasonDetail({ t, reason }: { t: T; reason: MetricsReason }) {
     <div className="flex min-w-0 flex-col items-start gap-2 text-left">
       {command !== null ? (
         <CommandHint
+          reason="salida-del-sistema"
           {...(lead !== null ? { label: lead } : {})}
           command={command}
         />

@@ -6,7 +6,6 @@ import { useMemo, useState } from "react";
 import { appsQuery } from "../../api/queries/apps";
 import { backupSchedulesQuery, backupsQuery } from "../../api/queries/backups";
 import type { BackupSchedule } from "../../api/queries/backups";
-import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Button, buttonClassName } from "../../components/ui/Button";
@@ -122,7 +121,6 @@ export function BackupsPage({ search, onSearchChange }: BackupsPageProps) {
             {t("backups.coverage.empty.action")}
           </Link>
         }
-        command="noust create -d example.com -s https://github.com/you/app"
       />
     );
   } else {
@@ -189,8 +187,6 @@ export function BackupsPage({ search, onSearchChange }: BackupsPageProps) {
               />
             ),
           })}
-      // The first-use state says its own command: one per view.
-      {...(nothing ? {} : { footer: <CommandHint command="noust backup list" label={t("common.words.fromTerminal")} /> })}
     >
       {content}
 

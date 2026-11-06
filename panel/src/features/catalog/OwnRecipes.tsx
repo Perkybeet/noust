@@ -5,7 +5,6 @@ import { request } from "../../api/client";
 import { recipeKeys } from "../../api/queries/recipes";
 import type { PrivateRecipeResult } from "../../api/queries/recipes";
 import { announce } from "../../app/Announcer";
-import { CommandHint } from "../../components/page/CommandHint";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
@@ -96,7 +95,6 @@ export function OwnRecipesDialog({ open, onOpenChange }: OwnRecipesDialogProps) 
           </Notice>
         ) : null}
         {send.isError ? <ErrorBlock live compact error={send.error} title={t("catalog.own.refused")} /> : null}
-        <CommandHint command="noust recipe add FILE" label={t("common.words.fromTerminal")} />
       </div>
     </Dialog>
   );

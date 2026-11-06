@@ -4,7 +4,6 @@ import { useState } from "react";
 import { isApiError, request } from "../../api/client";
 import { databaseKeys, engineSettingsQuery, enginesQuery } from "../../api/queries/databases";
 import type { EngineSetting, EngineSettings, EngineSettingsOutcome } from "../../api/queries/databases";
-import { CommandHint } from "../../components/page/CommandHint";
 import { DetailPage } from "../../components/page/DetailPage";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -241,7 +240,6 @@ function SettingsForm({ engine, data }: { engine: string; data: EngineSettings }
           {failure !== null ? <ErrorBlock live compact error={failure} title={t("databases.engineSettings.saveFailed", { engine: display })} /> : null}
         </div>
       </Card>
-      <CommandHint command={`noust db settings ${engine}`} label={t("common.words.fromTerminal")} />
       <SaveBar
         changes={changes}
         saving={save.isPending && exposure === null}

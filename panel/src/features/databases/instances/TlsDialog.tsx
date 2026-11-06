@@ -7,7 +7,6 @@ import { request } from "../../../api/client";
 import { instanceKeys, tlsStatusQuery } from "../../../api/queries/databaseInstances";
 import type { DbInstance, TlsMode, TlsPlan, TlsStatus } from "../../../api/queries/databaseInstances";
 import { jobKeys } from "../../../api/queries/jobs";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Badge } from "../../../components/ui/Badge";
@@ -237,7 +236,6 @@ export function TlsDialog({ instance, onOpenChange, onQueued }: TlsDialogProps) 
           </>
         ) : null}
         {apply.isError ? <ErrorBlock live compact error={apply.error} title={t("databases.tls.failed")} /> : null}
-        <CommandHint command={`noust db instance tls ${instance.name} --mode ${chosen}`} label={t("common.words.fromTerminal")} />
       </div>
       {renewing ? (
         <ConfirmDialog

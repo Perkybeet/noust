@@ -52,7 +52,7 @@ describe("the Volumes tab", () => {
   it("says what it is for when no application has data backups yet", async () => {
     await volumesAt("/backups/volumes", {}, { policies: [], backups: [] });
     expect(await screen.findByRole("heading", { level: 2, name: "No data backups yet" })).toBeInTheDocument();
-    expect(screen.getByText(/noust backup volumes schedule set/)).toBeInTheDocument();
+    expect(screen.queryByText(/noust backup volumes schedule set/)).not.toBeInTheDocument();
   });
 
   // Two dozen interactions through a drawer and a menu: 1.7 s on an idle machine, so the default 5 s

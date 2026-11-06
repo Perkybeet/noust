@@ -1,7 +1,6 @@
 import { X } from "lucide-react";
 import { useEffect, useMemo } from "react";
 
-import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { ListPage } from "../../components/page/ListPage";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -97,7 +96,6 @@ export function ProjectsPage({ search, onSearchChange }: ProjectsPageProps) {
                 ),
               }
             : {})}
-          command="noust project create 'Mobile app'"
         />
         {actions.dialogs}
       </ListPage>
@@ -148,7 +146,6 @@ export function ProjectsPage({ search, onSearchChange }: ProjectsPageProps) {
             : {})}
         />
       }
-      {...(org.available ? { footer: <CommandHint command="noust project list" label={t("teams.fromTerminal")} /> } : {})}
     >
       <ProjectsTable
         projects={shown}

@@ -6,7 +6,6 @@ import type { SyntheticEvent } from "react";
 import { deleteTeam, renameTeam, teamKeys } from "../../api/queries/teams";
 import type { MyTeams } from "../../api/queries/teams";
 import { announce } from "../../app/Announcer";
-import { CommandHint } from "../../components/page/CommandHint";
 import { DangerAction, DangerZone } from "../../components/page/DangerZone";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { SaveBar } from "../../components/page/SaveBar";
@@ -134,7 +133,6 @@ export function TeamSettings() {
           />
         </DangerZone>
       ) : null}
-      <CommandHint command={`noust team rename ${team.slug} "New name"`} label={t("teams.fromTerminal")} />
       <ConfirmDialog friction="type"
         open={deleting}
         onOpenChange={setDeleting}

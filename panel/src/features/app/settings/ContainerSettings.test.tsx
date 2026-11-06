@@ -186,7 +186,8 @@ describe("the Container subsection", () => {
     });
     await user.click(await screen.findByRole("radio", { name: /Railpack/ }));
     expect(screen.getByText("Railpack has to be installed on this server")).toBeInTheDocument();
-    expect(screen.getByText("noust setup railpack")).toBeInTheDocument();
+    // Nothing in the console installs it: the command is the way, and the page says only the terminal has it.
+    expect(screen.getByText("noust setup railpack").closest("[data-reason]")).toHaveAttribute("data-reason", "solo-terminal");
     // Railpack has no Dockerfile and no stage, and its arguments are its variables.
     expect(screen.queryByLabelText(/^Dockerfile/)).not.toBeInTheDocument();
     expect(screen.getByText("Railpack variables")).toBeInTheDocument();

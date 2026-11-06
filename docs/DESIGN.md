@@ -932,7 +932,7 @@ new password, a sealed central. All of them are the same slab.
 
 | Pattern | Rule |
 |---|---|
-| First-use empty state | One per page, in the content's place: an icon, what this is and what is missing, one sentence, the one action possible now, and its CLI command. `EmptyState variant="firstUse"` |
+| First-use empty state | One per page, in the content's place: an icon, what this is and what is missing, one sentence and the one action possible now: no command beside it, which would repeat the button (CL-1). `EmptyState variant="firstUse"` |
 | Inline empty state | Inside a section or a table filtered to nothing: one line with a link or a small button, no icon, no frame, 56px at most. `EmptyState variant="inline"` |
 | Drawer | A row's detail with the page behind it: 480px for forms and detail, 720px for logs |
 | Dialog | sm 440 a question, md 560 a form of up to six fields, lg 720 two columns or steps, xl 1280 only to look closely (an enlarged chart) |
@@ -1837,8 +1837,10 @@ each held by the test it names:
   `can("...")`; the counts may only go down; the four pages of K1 owe none).
 - **CL-1** A `CommandHint` has a `reason`: `solo-terminal` (the console cannot do it), `otro-servidor` (it is for another
   server), `salida-del-sistema` (the system's own output names it). The reason leads the command when no label does.
-  A command that repeats a button is taken out. *Enforced by:* `CommandHint.test.tsx`; ratchet `command-hint-reason`
-  (the commands with no reason, which may only go down; the four pages of K1 owe none).
+  A command that repeats a button is taken out, the one an `EmptyState` draws beside its action included. *Enforced by:*
+  `CommandHint.test.tsx`; ratchet `command-hint-reason` (the commands with no reason, which may only go down; the four pages
+  of K1 owe none); `features/terminalHints.test.ts` holds the areas of applications, data and network to the list of the
+  commands that stay, each with its reason, and to no command in a first-use empty state.
 - **HD-1** A header is as wide as its content: the title and its actions end where the content does, and never at the edge of
   the window (`DetailPage measure="settings"` for a settings section and the account). The master switch of what a page
   governs is on the title's line, right after it (`PageHeader master`, `SettingsMasterSwitch`). *Enforced by:*

@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import { adoptionQuery } from "../../api/queries/adoption";
 import type { SiteAdoption } from "../../api/queries/adoption";
 import type { App } from "../../api/queries/apps";
-import { CommandHint } from "../../components/page/CommandHint";
 import { KeyValueList, KeyValueListSkeleton } from "../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../components/page/KeyValueList";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -57,7 +56,6 @@ export function AdoptedOverview({ app, resources }: { app: App; resources: React
           )}
         </Card>
       </Section>
-      <CommandHint command={`noust status ${app.domain}`} label={t("common.words.fromTerminal")} />
     </div>
   );
 }

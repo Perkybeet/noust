@@ -227,8 +227,8 @@ export const appPages = {
     prismaAutomatic: "Prisma, automatically:",
     inService: "in the {service} service",
     restoreTitle: "Putting the database back too",
-    restoreKnown: "Backup {id} was taken before the first of them. Restore it from a terminal:",
-    restoreUnknown: "Restore the backup taken before the first of them, from a terminal:",
+    restoreKnown: "Backup {id} was taken before the first of them. Restoring it puts the database back as it was:",
+    restoreUnknown: "Restore the backup taken before the first of them; its id is in this application's backups:",
     goBackAnyway: "Go back anyway",
   },
   sourceLink: {

@@ -35,7 +35,7 @@ export function MisplacedBackupsNotice() {
               <p className="text-fg">
                 {t.rich("backups.misplaced.foundIn", { count: found.count, directory: <Mono tone="default">{found.directory}</Mono> })}
               </p>
-              <CommandHint command={found.command} label={t("backups.misplaced.importLabel")} />
+              <CommandHint reason="salida-del-sistema" command={found.command} label={t("backups.misplaced.importLabel")} />
             </li>
           ))}
         </ul>

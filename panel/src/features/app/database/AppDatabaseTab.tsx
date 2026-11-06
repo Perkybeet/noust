@@ -8,7 +8,6 @@ import { appDatabasesQuery, databaseKeys, enginesQuery } from "../../../api/quer
 import type { DatabaseLink } from "../../../api/queries/databases";
 import { activeJobsQuery, isJobFinished, jobKeys, useFollowedJob } from "../../../api/queries/jobs";
 import type { Job } from "../../../api/queries/jobs";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import { QueryState } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
@@ -219,7 +218,6 @@ export function AppDatabaseTab({ domain }: { domain: string }) {
             title={t("databases.appTab.emptyTitle")}
             description={t("databases.appTab.emptyDescription")}
             action={actions}
-            command={`noust db provision ${domain} -e postgresql`}
           />
         }
         className="flex flex-col gap-4"
@@ -247,8 +245,6 @@ export function AppDatabaseTab({ domain }: { domain: string }) {
           </>
         )}
       </QueryState>
-
-      {list.length > 0 ? <CommandHint command={`noust db links ${domain}`} label={t("common.words.fromTerminal")} /> : null}
 
       <SqliteSection domain={domain} />
 

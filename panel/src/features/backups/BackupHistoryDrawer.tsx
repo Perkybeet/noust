@@ -1,6 +1,5 @@
 import { Play } from "lucide-react";
 
-import { CommandHint } from "../../components/page/CommandHint";
 import { Button } from "../../components/ui/Button";
 import { Drawer } from "../../components/ui/Drawer";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -63,7 +62,6 @@ export function BackupHistoryDrawer({ row, domain, loading, onClose, onBackUp, .
             {...handlers}
           />
           {row?.deployed === true ? <RestoreDrillsSection domain={name} /> : null}
-          <CommandHint command={`noust backup list ${name}`} label={t("common.words.fromTerminal")} />
         </div>
       )}
     </Drawer>

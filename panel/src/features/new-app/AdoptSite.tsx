@@ -17,7 +17,6 @@ import { nativeSitesQuery } from "../../api/queries/adoption";
 import type { NativeSite, SiteAdoptionPlan } from "../../api/queries/adoption";
 import { appKeys } from "../../api/queries/apps";
 import { announce } from "../../app/Announcer";
-import { CommandHint } from "../../components/page/CommandHint";
 import { KeyValueList } from "../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../components/page/KeyValueList";
 import type { WizardActionsProps } from "../../components/page/Wizard";
@@ -222,7 +221,6 @@ export function useSiteAdoption(): SiteAdoptionState {
 
   const fieldError = (key: keyof AdoptSiteForm): string | undefined => errors[key] ?? split.fields[key];
   const optionalChanged = form.site !== "" || form.unit !== "" || form.path !== "";
-  const shownDomain = form.domain.trim() === "" ? "example.com" : normalizeDomain(form.domain);
 
   const content = (
     <div className="flex flex-col gap-5">
@@ -250,7 +248,6 @@ export function useSiteAdoption(): SiteAdoptionState {
 
       {ready ? <Plan plan={previewed.answer} t={t} /> : null}
 
-      <CommandHint command={`noust app adopt-site ${shownDomain}`} label={t("common.words.fromTerminal")} />
     </div>
   );
 

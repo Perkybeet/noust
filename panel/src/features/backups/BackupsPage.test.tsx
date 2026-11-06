@@ -147,7 +147,8 @@ describe("the Backups tab", () => {
     expect(within(old).getByText("No longer deployed")).toBeInTheDocument();
 
     expect(screen.getByText("3 applications")).toBeInTheDocument();
-    expect(screen.getByText("noust backup list")).toBeInTheDocument();
+    // The page lists them: the terminal's way of listing is not repeated under the table.
+    expect(screen.queryByText("noust backup list")).not.toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 
@@ -184,7 +185,7 @@ describe("the Backups tab", () => {
     expect(within(backupRow(drawer, "b-ok")).getByText("Files, .env, and databases")).toBeInTheDocument();
     expect(within(backupRow(drawer, "b-bad")).getByText("Check failed")).toBeInTheDocument();
     expect(within(backupRow(drawer, "b-bad")).getByText("Before the migration · Files and .env")).toBeInTheDocument();
-    expect(within(drawer).getByText("noust backup list shop.example.com")).toBeInTheDocument();
+    expect(within(drawer).queryByText("noust backup list shop.example.com")).not.toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 
@@ -463,6 +464,8 @@ describe("the Backups tab", () => {
     expect(notice).toHaveTextContent("3 backups in /root");
     expect(notice).toHaveTextContent("1 backup in /var/backups/noust");
     expect(notice).toHaveTextContent("noust backup import /root");
+    // The command is what the server said to run, and the page says so.
+    expect(within(notice).getByText("noust backup import /root").closest("[data-reason]")).toHaveAttribute("data-reason", "salida-del-sistema");
     expect(notice).toHaveTextContent("--dry-run shows what would move");
     // The disk could not be read: said so, never an empty meter.
     expect(screen.getByText("Disk: free space unknown")).toBeInTheDocument();

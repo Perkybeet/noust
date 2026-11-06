@@ -5,7 +5,6 @@ import { useCallback, useMemo, useState } from "react";
 import { request } from "../../../api/client";
 import { volumeBackupsQuery, volumeKeys, volumePoliciesQuery } from "../../../api/queries/volumeBackups";
 import type { VolumePolicy } from "../../../api/queries/volumeBackups";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { RowMenu } from "../../../components/page/RowMenu";
@@ -146,7 +145,6 @@ export function VolumesPage({ search, onSearchChange }: VolumesPageProps) {
             {t("volumeBackups.empty.action")}
           </Button>
         }
-        command="noust backup volumes schedule set shop.example.com --schedule daily"
       />
     );
   } else {
@@ -193,7 +191,6 @@ export function VolumesPage({ search, onSearchChange }: VolumesPageProps) {
             ),
           })}
       {...(job.notice !== null ? { notice: job.notice } : {})}
-      {...(rows.length > 0 ? { footer: <CommandHint command="noust backup volumes schedule set shop.example.com --schedule daily" label={t("common.words.fromTerminal")} /> } : {})}
     >
       {content}
 

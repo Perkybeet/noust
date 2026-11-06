@@ -197,7 +197,7 @@ describe("the logs tab", { timeout: 20_000 }, () => {
     expect(asked?.search.get("since")).toBe("24h");
     expect(location().search).toEqual({ since: "24h" });
     expect(screen.getByText("2 of 2 matching lines shown, out of 120 examined.")).toBeInTheDocument();
-    expect(screen.getByText("noust log search --app shop.example.com --since 24h")).toBeInTheDocument();
+    expect(screen.queryByText("noust log search --app shop.example.com --since 24h")).not.toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 

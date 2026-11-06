@@ -7,7 +7,6 @@ import { useState } from "react";
 import { createTeam, teamQuery } from "../../api/queries/teams";
 import type { Team, TeamDetail } from "../../api/queries/teams";
 import { announce } from "../../app/Announcer";
-import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { ListPage } from "../../components/page/ListPage";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -184,7 +183,6 @@ export function TeamsPage({ search, onSearchChange }: TeamsPageProps) {
           icon={<OBJECT_ICONS.team />}
           title={t("teams.list.emptyTitle")}
           description={t("teams.list.emptyDescription")}
-          command="noust team list"
         />
       </ListPage>
     );
@@ -216,7 +214,6 @@ export function TeamsPage({ search, onSearchChange }: TeamsPageProps) {
             : {})}
         />
       }
-      {...(org.available ? { footer: <CommandHint command="noust team list" label={t("teams.fromTerminal")} /> } : {})}
     >
       <DataTable
         columns={columns}

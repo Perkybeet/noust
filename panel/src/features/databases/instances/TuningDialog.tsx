@@ -6,7 +6,6 @@ import { request } from "../../../api/client";
 import { instanceKeys, tuningQuery } from "../../../api/queries/databaseInstances";
 import type { DbInstance, TuningPlan, TuningStatus } from "../../../api/queries/databaseInstances";
 import { jobKeys } from "../../../api/queries/jobs";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
@@ -236,7 +235,6 @@ function Form({ instance, status, onOpenChange, onQueued }: TuningDialogProps & 
           </div>
         ) : null}
         {apply.isError ? <ErrorBlock live compact error={apply.error} title={t("databases.tuning.failed")} /> : null}
-        <CommandHint command={`noust db instance limits ${instance.name}`} label={t("common.words.fromTerminal")} />
       </div>
     </Dialog>
   );

@@ -9,7 +9,6 @@ export const teams = {
     description: "Projects group the applications, databases and sites of one piece of work. Teams decide who sees them and who may act.",
   },
   couldNotLoad: "Could not load the teams",
-  fromTerminal: "From the terminal",
   teamLabel: "Team",
   shortName: "Short name",
   shortNameHelp: "What commands and links call it. Made from the name when you leave it empty.",

@@ -221,8 +221,8 @@ export const appPages: Catalog<typeof en> = {
     prismaAutomatic: "Prisma, automáticamente:",
     inService: "en el servicio {service}",
     restoreTitle: "Devolver también la base de datos",
-    restoreKnown: "La copia {id} se hizo antes del primero de ellos. Restáurala desde un terminal:",
-    restoreUnknown: "Restaura la copia hecha antes del primero de ellos, desde un terminal:",
+    restoreKnown: "La copia {id} se hizo antes del primero de ellos. Al restaurarla, la base de datos vuelve a como estaba:",
+    restoreUnknown: "Restaura la copia hecha antes del primero de ellos; su identificador está en las copias de esta aplicación:",
     goBackAnyway: "Volver atrás igualmente",
   },
   sourceLink: {

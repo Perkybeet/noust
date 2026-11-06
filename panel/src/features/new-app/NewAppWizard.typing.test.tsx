@@ -15,7 +15,8 @@ type View = "empty" | "results" | "source";
 
 /** What the page under the box shows: nothing while an address is only begun, what the catalog found for words, or the source's own. */
 function view(): View {
-  if (screen.queryByText("noust recipe list") !== null) return "results";
+  // The catalog's results, or the skeleton that holds their place while the catalog is asked.
+  if (screen.queryByRole("list", { name: "Recipes" }) !== null || screen.queryByText("Loading the recipes") !== null) return "results";
   if (screen.queryByLabelText(/^Branch/) !== null) return "source";
   return "empty";
 }

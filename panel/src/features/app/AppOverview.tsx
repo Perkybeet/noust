@@ -13,7 +13,6 @@ import type { Preview } from "../../api/queries/previews";
 
 import { useDocumentTitle } from "../../app/documentTitle";
 import { DeployStatePill } from "../../components/page/AppStatePill";
-import { CommandHint } from "../../components/page/CommandHint";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
@@ -746,10 +745,6 @@ export function AppOverview({ domain }: { domain: string }) {
       </div>
       {/* A static site has no process and so nothing printed: asking its journal is an error, not an empty list. */}
       {hasUnit(app.data) ? <RecentLogs domain={domain} t={t} /> : null}
-      <CommandHint
-        command={`noust status ${domain}`}
-        label={t("common.words.fromTerminal")}
-      />
     </div>
   );
 }

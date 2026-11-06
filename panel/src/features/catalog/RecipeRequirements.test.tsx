@@ -70,7 +70,7 @@ describe("what a recipe needs from the server", { timeout: 40_000 }, () => {
     expect(within(nth(items, 1)).getByText("Missing")).toBeInTheDocument();
     expect(within(nth(items, 1)).getByText("Noust can install it")).toBeInTheDocument();
     expect(within(nth(items, 1)).getByText("Node.js 22 is not installed")).toBeInTheDocument();
-    expect(within(nth(items, 1)).getByText("noust runtime install node 22")).toBeInTheDocument();
+    expect(within(nth(items, 1)).getByText("noust runtime install node 22").closest("[data-reason]")).toHaveAttribute("data-reason", "salida-del-sistema");
     expect(within(nth(items, 2)).queryByText("Noust can install it")).not.toBeInTheDocument();
     expect(screen.getByText("2 things are missing on this server.")).toBeInTheDocument();
     // On the page it reports; it offers nothing to tick.

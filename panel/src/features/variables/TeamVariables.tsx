@@ -1,4 +1,3 @@
-import { CommandHint } from "../../components/page/CommandHint";
 import { useDocumentTitle } from "../../app/documentTitle";
 import { useT } from "../../i18n";
 import { useOrganization } from "../teams/useOrganization";
@@ -17,8 +16,7 @@ export function TeamVariables() {
   useDocumentTitle(t("variables.shared.team.documentTitle", { team: team.name }), 1);
   return (
     <div className="flex flex-col gap-6">
-      <SharedVariables scope={{ kind: "team", team: team.slug }} name={team.name} canManage={org.can("apps.manage", team.slug)} command={false} />
-      <CommandHint command={`noust variables list team --team ${team.slug}`} label={t("common.words.fromTerminal")} />
+      <SharedVariables scope={{ kind: "team", team: team.slug }} name={team.name} canManage={org.can("apps.manage", team.slug)} />
     </div>
   );
 }

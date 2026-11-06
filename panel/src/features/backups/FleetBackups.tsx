@@ -1,7 +1,6 @@
 import { Play } from "lucide-react";
 import { useMemo } from "react";
 
-import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { ListPage } from "../../components/page/ListPage";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -155,7 +154,7 @@ export function FleetBackups({ search, onSearchChange }: FleetBackupsProps) {
   if (view.isError && view.data === undefined) {
     content = <ErrorBlock error={view.error} title={t("fleet.page.loadFailed")} onRetry={() => void view.refetch()} retrying={view.isRefetching} />;
   } else if (view.data !== undefined && rows.length === 0 && !isFiltered(search)) {
-    content = <EmptyState variant="firstUse" icon={<OBJECT_ICONS.backup />} title={t("fleet.backups.empty")} description={t("backups.coverage.empty.description")} command="noust backup list" />;
+    content = <EmptyState variant="firstUse" icon={<OBJECT_ICONS.backup />} title={t("fleet.backups.empty")} description={t("backups.coverage.empty.description")} />;
   } else {
     content = (
       <DataTable
@@ -246,7 +245,6 @@ export function FleetBackups({ search, onSearchChange }: FleetBackupsProps) {
           count={view.data === undefined ? "" : isFiltered(search) ? t("fleet.backups.countFiltered", { shown: shown.length, total: rows.length }) : t("fleet.backups.count", { count: rows.length })}
         />
       }
-      footer={<CommandHint label={t("common.words.fromTerminal")} command="noust fleet backups" />}
     >
       {content}
     </ListPage>

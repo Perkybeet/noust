@@ -6,7 +6,6 @@ import { isApiError, request } from "../../../api/client";
 import { instanceCatalogQuery, instanceKeys } from "../../../api/queries/databaseInstances";
 import type { CatalogEngine } from "../../../api/queries/databaseInstances";
 import { jobKeys } from "../../../api/queries/jobs";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Checkbox } from "../../../components/ui/Checkbox";
@@ -268,7 +267,6 @@ export function OtherVersionDialog({ open, onOpenChange, onQueued, flavour: pres
         </Disclosure>
         <p className="text-12 text-fg-muted">{t("dbServers.other.private")}</p>
         {failure !== null ? <ErrorBlock live compact error={failure} title={t("dbServers.other.failed")} /> : null}
-        <CommandHint command={`noust db instance create ${made === "" ? "NAME" : made} --engine ${chosen?.flavour ?? "ENGINE"}${picked === null ? "" : ` --version ${picked.version}`}`} label={t("common.words.fromTerminal")} />
       </form>
     </Dialog>
   );

@@ -5,7 +5,6 @@ import { useCallback, useState } from "react";
 import { ElevationCancelledError, request } from "../../../api/client";
 import { selfBackupKeys, selfBackupQuery } from "../../../api/queries/selfBackup";
 import type { Bundle, SelfSchedule } from "../../../api/queries/selfBackup";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
@@ -241,7 +240,6 @@ export function SelfBackupPage() {
           {t("selfBackup.backUpNow")}
         </Button>
       }
-      footer={<CommandHint command="noust self-backup schedule set --schedule daily --keep 7" label={t("common.words.fromTerminal")} />}
     >
       <div className="flex min-w-0 flex-col gap-6">
         {job.notice}

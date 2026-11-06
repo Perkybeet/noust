@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
 import { cronJobsQuery } from "../../api/queries/cron";
-import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { ListPage } from "../../components/page/ListPage";
 import { QueryState } from "../../components/page/QueryState";
@@ -59,7 +58,6 @@ export function CronPage({ search, onSearchChange }: CronPageProps) {
           title={t("cron.page.empty.title")}
           description={t("cron.page.empty.description")}
           action={newJobButton("primary")}
-          command="noust cron create nightly-report --schedule daily --command '...'"
         />
       }
     >
@@ -111,7 +109,6 @@ export function CronPage({ search, onSearchChange }: CronPageProps) {
               />
             ),
           })}
-      {...(empty ? {} : { footer: <CommandHint command="noust cron list" label={t("common.words.fromTerminal")} /> })}
     >
       {content}
 

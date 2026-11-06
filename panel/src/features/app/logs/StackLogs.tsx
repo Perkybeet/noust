@@ -3,7 +3,6 @@ import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
 import { appLogsQuery } from "../../../api/queries/apps";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { LogViewer } from "../../../components/ui/LogViewer";
@@ -132,7 +131,6 @@ export function StackLogs({ domain, unit, filter }: { domain: string; unit: Reac
               emptyMessage={query.isPending ? t("appPages.logs.readingContainers") : t("appPages.logs.emptyContainers")}
             />
           </div>
-          <CommandHint command={`noust logs ${domain} --follow`} label={t("common.words.fromTerminal")} />
         </div>
       )}
     </div>

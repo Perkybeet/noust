@@ -583,7 +583,7 @@ export function PreviewsSettings() {
         <>
           <PreviewSettingsForm domain={domain} settings={settings} previews={data.previews} hasDatabase={data.has_database}>
             {data.enabled || data.previews.length > 0 ? <PreviewList domain={domain} data={data} onGithub={onGithub} can={can} /> : null}
-            {data.enabled ? <SharedVariables scope={{ kind: "preview", domain }} name={domain} canManage={can.manage} level={3} command={false} inlineEmpty /> : null}
+            {data.enabled ? <SharedVariables scope={{ kind: "preview", domain }} name={domain} canManage={can.manage} level={3} inlineEmpty /> : null}
           </PreviewSettingsForm>
         </>
       )}

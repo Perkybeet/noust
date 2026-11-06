@@ -171,7 +171,6 @@ function NotFound({ domain, header, t }: { domain: string; header: PageHeaderPro
             {t("appPages.layout.allApplications")}
           </Link>
         }
-        command="noust list"
       />
     </DetailPage>
   );
