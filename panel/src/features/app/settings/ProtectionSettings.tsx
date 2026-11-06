@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { appHttp3Query, appPolicyQuery } from "../../../api/queries/network";
 import type { AppPolicy } from "../../../api/queries/network";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
+import { GuardedButton } from "../../../components/page/permissions";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Card } from "../../../components/ui/Card";
 import { Checkbox } from "../../../components/ui/Checkbox";
@@ -16,6 +17,7 @@ import { SkeletonCard } from "../../../components/ui/Skeleton";
 import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
+import { useOpenPort } from "../../network/OpenPortDialog";
 import { ClientCertsCard } from "./ClientCertsCard";
 import { WafCard } from "./WafCard";
 import { useSaveBar } from "./formParts";
@@ -126,6 +128,8 @@ function HeadersCard({ form, policy, t }: { form: AccessForm; policy: AppPolicy;
  */
 function Http3Card({ form, domain, t }: { form: AccessForm; domain: string; t: T }) {
   const support = useQuery(appHttp3Query(domain));
+  // The one dialog that opens a port (network): the console does what the firewall's command does, so the card shows no command.
+  const openPort = useOpenPort();
   const { draft, edit } = form;
   const data = support.data;
   const cannot = data !== undefined && !data.available;
@@ -135,20 +139,15 @@ function Http3Card({ form, domain, t }: { form: AccessForm; domain: string; t: T
     data === undefined
       ? null
       : !data.available
-        ? { title: data.problem, body: data.hint }
+        ? { title: data.problem, body: data.hint, action: undefined }
         : data.udp_allowed === false
           ? {
               title: t("network.access.http3.udpClosed"),
-              body: (
-                <>
-                  {t("network.access.http3.udpClosedHelp")}
-                  {data.firewall_hint !== "" ? (
-                    <>
-                      {" "}
-                      <Mono>{data.firewall_hint}</Mono>
-                    </>
-                  ) : null}
-                </>
+              body: t("network.access.http3.udpClosedHelp"),
+              action: (
+                <GuardedButton permission="server.host_access" size="sm" variant="secondary" onClick={() => openPort.open({ port: 443, proto: "udp" })}>
+                  {t("network.access.http3.openUdp")}
+                </GuardedButton>
               ),
             }
           : null;
@@ -165,11 +164,12 @@ function Http3Card({ form, domain, t }: { form: AccessForm; domain: string; t: T
         {refused !== undefined ? <GroupError id="http3-refused">{refused}</GroupError> : null}
         {support.isError ? <ErrorBlock compact error={support.error} title={t("network.access.http3.readFailed")} /> : null}
         {problem !== null ? (
-          <Notice tone="warning" title={problem.title}>
+          <Notice tone="warning" title={problem.title} {...(problem.action !== undefined ? { action: problem.action } : {})}>
             {problem.body}
           </Notice>
         ) : null}
       </div>
+      {openPort.dialog}
     </Card>
   );
 }

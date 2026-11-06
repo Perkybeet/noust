@@ -209,7 +209,8 @@ export const network: Catalog<typeof en> = {
       enableHelp: "Necesita HTTPS, nginx 1.25 o posterior con el módulo HTTP/3, y envía Alt-Svc para avisar a los navegadores. Un sitio pequeño de Noust guarda el socket compartido.",
       readFailed: "No se pudo saber si este servidor puede servir HTTP/3",
       udpClosed: "El cortafuegos no deja entrar el UDP 443",
-      udpClosedHelp: "Los navegadores probarán HTTP/3, fallarán y usarán HTTP/2, así que nada se rompe, pero nada se gana. Abre el puerto:",
+      udpClosedHelp: "Los navegadores probarán HTTP/3, fallarán y usarán HTTP/2, así que nada se rompe, pero nada se gana.",
+      openUdp: "Abrir UDP 443",
     },
     forward: {
       title: "Servicio de inicio de sesión",
