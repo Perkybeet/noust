@@ -63,7 +63,9 @@ jobs:
       - name: Run tests
         env:
           NOUST_TEST_SHARD: ${{ matrix.shard }}/6
-        run: pytest -n logical
+        # A slice runs some of the files a snapshot directory serves: the snapshots of the files another slice runs
+        # are not stale, so an unused one is said and does not stop the release (as in ci.yml).
+        run: pytest -n logical --snapshot-warn-unused
 
       # A tag whose version does not match the files is a release nobody can
       # reproduce, and the distribution packages would carry the wrong number.
