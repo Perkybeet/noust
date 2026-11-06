@@ -723,7 +723,7 @@ grow).
 |                    | +--------------------------------------------------------+ |
 |                    | ## 2 unsaved changes                    [Discard] [Save] | |  <- sticky bar
 +--------------------+------------------------------------------------------------+
- 200px navigation + content of 880px at most, starting on the header's left edge.
+ 200px navigation + content of 896px at most, starting on the header's left edge.
  390px: the navigation is an index page of its own; each subsection has "< All sections".
 ```
 
@@ -1209,7 +1209,7 @@ rules**:
   know before acting. If a help line, a risk line or nothing says it, there is no notice. *Enforced
   by:* ratchets `notice-info-bare` and `notice-stack`; review.
 - **NT-2** Size: an inline notice has a title of 8 words or fewer and a body of 30 words or fewer
-  (three lines at 880px); a banner has a title of 8 words or fewer and a body of 25 or fewer. More
+  (three lines at 896px); a banner has a title of 8 words or fewer and a body of 25 or fewer. More
   than that goes behind "What changes" (`Popover`), a `Disclosure`, a `Drawer` or the documentation.
   One action. *Enforced by:* ratchet `notice-long` (the test resolves the keys of every `<Notice>`
   and holds the hard ceiling of 45 words; the limits above are held by review).
