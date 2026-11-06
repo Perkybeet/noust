@@ -553,7 +553,7 @@ stylesheets are scanned for the same.
 |---|---|---|
 | `--width-page` | 1600px | The shell's cap: T1, T2, T4, T6 |
 | `--width-settings-nav` | 200px | T3's side navigation, T5's step rail |
-| `--width-settings` | 880px | T3's content |
+| `--width-settings` | 896px | T3's content: the page's own column at 1440 (L-2), so a section ends where every other page does |
 | `--width-wizard` | 736px | T5's step |
 | `--width-auth` | 992px | T7's slab |
 | `--width-dialog-sm / md / lg / xl` | 440 / 560 / 720 / 1280px | A question / a form of up to six fields / two columns or steps / looking closely |
@@ -1644,6 +1644,13 @@ forms go in a drawer.
   project, its environment and its server. The views of the Applications column (by project, by state) are this table under a
   heading each (`embedded` in a `SurfaceSection`), never another table. *Enforced by:* `features/apps/AppsViews.test.tsx`;
   `features/apps/groups.test.ts`.
+- **One table per group** (4.2). Rows that belong to named groups (the Software page's pieces by what they are for, the
+  Applications column's views by project or by state) are the same table under a heading each: a `Section` or
+  `SurfaceSection` titled by the group, a table named by it (`caption`: "Software: The machine"), and the group left out when it has no row
+  to show. Never one long table with a column that names the group, header rows inside it, or a second kind of table for the
+  grouped view: sorting, paging, the phone's cards and the keyboard are the table's, once, and a group is a place to read, not
+  a thing to learn. A group of a single row is still a table. *Enforced by:* `features/server/software/SoftwarePage.test.tsx`
+  (a table for each group, none for an empty one); `features/apps/AppsViews.test.tsx`; G-2.
 - Headers are 12px, 500, `text-muted`, sortable with `aria-sort`.
 - Paging is the operator's: 20 rows to a page to start with, 50, 100 or all on request, kept
   per list, with "Showing X-Y of Z" and a page-size control that is always where the rows are
@@ -1839,6 +1846,16 @@ each held by the test it names:
   server), `salida-del-sistema` (the system's own output names it). The reason leads the command when no label does.
   A command that repeats a button is taken out. *Enforced by:* `CommandHint.test.tsx`; ratchet `command-hint-reason`
   (the commands with no reason, which may only go down; the four pages of K1 owe none).
+- **MS-1** A feature that lacks the tool it runs on says "X is missing" with `MissingSoftware`
+  (`features/server/software/MissingSoftware.tsx`): one notice, drawn where the feature's own warning was, that names the piece
+  by the Software page's name for it, says what the feature loses without it in a sentence (`whyKey`, or the piece's purpose),
+  and offers to install it right there, as a task the task centre follows and the notice shows while it runs. It reads the
+  registry the Software page reads, so the two never disagree about what is missing, and a page that reads something else says
+  what to show when the registry has nothing to add (`fallback`). For a role that may not install, it says what it takes and
+  whom to ask (never a disabled button repeated beside it); on a server that did not give the central access to its system, it
+  says so and what to run there, which is a command with a reason (`otro-servidor`, CL-1). A page does not write its own
+  paragraph about a missing program, a `Notice` with an "install" button of its own, or a command to paste. *Enforced by:*
+  `MissingSoftware.test.tsx`; G-7.
 - **HD-1** A header is as wide as its content: the title and its actions end where the content does, and never at the edge of
   the window (`DetailPage measure="settings"` for a settings section and the account). The master switch of what a page
   governs is on the title's line, right after it (`PageHeader master`, `SettingsMasterSwitch`). *Enforced by:*
