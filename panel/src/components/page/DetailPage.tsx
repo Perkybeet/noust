@@ -25,7 +25,7 @@ export interface DetailPageProps {
    * How wide the page is, header and content together: `page` (the shell's column, the default) or `settings` (the
    * width of a settings subsection, `--width-settings`). A header is as wide as its content, so the title and its
    * actions end where the content does and never at the edge of the window, a screen away from what they govern
-   * (owner item 109: the master switch of Notifications at the far right of a page 880px wide).
+   * (owner item 109: the master switch of Notifications at the far right of a page 896px wide).
    */
   measure?: "page" | "settings";
   className?: string;

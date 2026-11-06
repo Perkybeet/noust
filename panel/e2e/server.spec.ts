@@ -25,6 +25,36 @@ test("the overview puts what needs attention first, and fits the first screen", 
   await expectNoA11yViolations(page, "the server overview");
 });
 
+// The card of what is not well is as wide as its column, and the line that wraps first is the one with the longest sentence and
+// the widest word on its button (the reboot's): it fell under its text on a window a few pixels narrower than the others.
+for (const width of [1100, 1280, 1366, 1440, 1600]) {
+  test(`what is not well puts the action of every line at its right on a ${String(width)}px window`, async ({ page, consoleServer }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await signIn(page, consoleServer, "/server");
+    const rows = page.getByRole("list", { name: "What needs attention" }).getByRole("listitem");
+    await expect(rows.first()).toBeVisible();
+    await settle(page);
+    const placed = await rows.evaluateAll((items) =>
+      items.map((row) => {
+        const edge = row.getBoundingClientRect();
+        const action = row.querySelector("a, button")?.getBoundingClientRect();
+        const sentence = row.querySelector("span.text-13")?.getBoundingClientRect();
+        return {
+          row: row.textContent,
+          beside: action !== undefined && sentence !== undefined && action.left >= sentence.right - 1 && action.top < sentence.bottom,
+          rightGap: action === undefined ? null : Math.round(edge.right - action.right),
+        };
+      }),
+    );
+    expect(placed.length).toBeGreaterThan(3);
+    // At the right of its line, always: where the card is too narrow for the sentence and the word it wraps under the sentence,
+    // and then it is at the same right edge all the same.
+    expect(new Set(placed.map((line) => line.rightGap)).size, JSON.stringify(placed)).toBe(1);
+    // Beside it wherever the card has the room for both, which is every desktop width but the narrowest.
+    if (width >= 1280) expect(placed.filter((line) => !line.beside), "an action that is not beside its line").toEqual([]);
+  });
+}
+
 test("schedules a reboot with its pre-checks in view, shows it on every tab and cancels it", async ({ page, consoleServer, problems }) => {
   problems.expect(/status of 403 .*\/api\/server\/power\/reboot$/);
   await signIn(page, consoleServer, "/server");
