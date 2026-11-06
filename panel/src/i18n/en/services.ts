@@ -65,7 +65,7 @@ export const services = {
   },
   detail: {
     notFoundTitle: "No service by this name",
-    notFoundDescription: "It may have been deleted, or the name has a typo. Every service Noust manages is in the Services tab.",
+    notFoundDescription: "It may have been deleted, or the name has a typo.",
     allServices: "All services",
     foreignTitle: "Noust did not create this service",
     foreignLogsTitle: "The journal of this unit is the system's",

@@ -138,7 +138,6 @@ export const terminal = {
     exitStatus: "Exit status {code}.",
     cannotQueue: "The command could not be started",
     viewActivity: "View in Activity",
-    hint: "From a terminal:",
     previewEmpty: "Type a command to see how it will run.",
     timeoutInvalid: "Whole seconds, from 1 to {max}.",
     optionsLabel: "Service and time limit",

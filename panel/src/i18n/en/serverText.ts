@@ -1654,27 +1654,27 @@ export const serverText = {
   software: {
     apache: {
       purpose: {
-        text: "The Apache web server, for the sites that run behind it",
+        text: "Another web server",
       },
     },
     auto_updates: {
       purpose: {
-        text: "Installs the system's security updates by itself",
+        text: "Installs security updates by itself",
       },
     },
     certbot: {
       purpose: {
-        text: "Gets and renews HTTPS certificates from Let's Encrypt and other authorities",
+        text: "Gets and renews HTTPS certificates",
       },
     },
     chrony: {
       purpose: {
-        text: "Keeps the clock right by network time, which certificates and logs rely on",
+        text: "Keeps the clock right",
       },
     },
     cloudflared: {
       purpose: {
-        text: "The connector a Cloudflare Tunnel runs through, to reach this server without opening a port",
+        text: "Cloudflare Tunnel connector",
       },
     },
     curl: {
@@ -1682,17 +1682,17 @@ export const serverText = {
         text: "Noust downloads the keys and the installers it verifies with it",
       },
       purpose: {
-        text: "Downloads the signing keys and the installers Noust verifies before it trusts them",
+        text: "Downloads keys and installers",
       },
     },
     docker: {
       purpose: {
-        text: "Runs container and Compose applications, and the database engines Noust runs in containers",
+        text: "Runs containers and Compose applications",
       },
     },
     fail2ban: {
       purpose: {
-        text: "Bans the addresses that guess passwords or probe the web server",
+        text: "Bans addresses that guess passwords",
       },
     },
     firewall: {
@@ -1700,7 +1700,7 @@ export const serverText = {
         text: "Noust opens and closes ports through it, and it is what keeps the server closed",
       },
       purpose: {
-        text: "The firewall Noust opens and closes ports through, for published ports and for the databases it exposes",
+        text: "Opens and closes ports",
       },
     },
     git: {
@@ -1708,7 +1708,7 @@ export const serverText = {
         text: "Every deployment from a repository needs it",
       },
       purpose: {
-        text: "Fetches the source of every application that deploys from a repository",
+        text: "Fetches the source of applications",
       },
     },
     gnupg: {
@@ -1716,7 +1716,7 @@ export const serverText = {
         text: "Noust checks the signing key of every repository it adds with it",
       },
       purpose: {
-        text: "Checks the signing key of every repository Noust adds",
+        text: "Checks repository signing keys",
       },
     },
     hub: {
@@ -1724,32 +1724,32 @@ export const serverText = {
     },
     knot: {
       purpose: {
-        text: "Knot DNS, the name server of Noust's own DNS zones",
+        text: "Name server for Noust's DNS zones",
       },
     },
     mongodb: {
       purpose: {
-        text: "MongoDB, a document database for applications",
+        text: "A document database",
       },
     },
     mysql: {
       purpose: {
-        text: "MySQL or MariaDB, a database engine for applications",
+        text: "MySQL or MariaDB database engine",
       },
     },
     nginx: {
       purpose: {
-        text: "The web server that serves applications and ends their HTTPS",
+        text: "Serves applications and ends HTTPS",
       },
     },
     nginx_stream_module: {
       purpose: {
-        text: "Lets nginx publish a TCP or UDP port, such as a database or a game server",
+        text: "Publishes TCP and UDP ports",
       },
     },
     nodejs: {
       purpose: {
-        text: "Builds and runs Node.js applications",
+        text: "Runs Node.js applications",
       },
     },
     noust: {
@@ -1757,17 +1757,17 @@ export const serverText = {
         text: "Removing it would take Noust, and the console you are using, off this server",
       },
       purpose: {
-        text: "Noust itself, with the Python libraries it is built on",
+        text: "Noust and its libraries",
       },
     },
     php: {
       purpose: {
-        text: "PHP-FPM, which runs PHP applications",
+        text: "Runs PHP applications",
       },
     },
     postgresql: {
       purpose: {
-        text: "PostgreSQL, a database engine for applications",
+        text: "PostgreSQL database engine",
       },
     },
     rclone: {
@@ -1777,7 +1777,7 @@ export const serverText = {
     },
     redis: {
       purpose: {
-        text: "Redis or Valkey, a key-value store and cache for applications",
+        text: "Redis or Valkey cache and store",
       },
     },
     sshd: {
@@ -1785,7 +1785,7 @@ export const serverText = {
         text: "Removing it would lock you out of this machine",
       },
       purpose: {
-        text: "The SSH server: how you, and a central, reach this machine",
+        text: "How you reach this machine",
       },
     },
     systemd: {
@@ -1793,12 +1793,12 @@ export const serverText = {
         text: "Everything on this server, Noust included, runs under it",
       },
       purpose: {
-        text: "The service manager every application, site and unit of Noust runs under",
+        text: "Runs every service on this server",
       },
     },
     waf: {
       purpose: {
-        text: "ModSecurity and the OWASP Core Rule Set: the web application firewall of a site",
+        text: "Web application firewall for sites",
       },
     },
     refused: {

@@ -169,7 +169,6 @@ export function FleetLayout({ hub, adding: addingProp, onAddingChange }: FleetLa
                 {create}
               </>
             }
-            command="noust node key web-2"
           />
         ) : (
           <Outlet />

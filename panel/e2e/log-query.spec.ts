@@ -75,7 +75,6 @@ test("Live is a range of the system's logs, and the viewer's Follow is the only 
   await expect(page).toHaveURL(/since=live/);
   await expect(page.getByRole("combobox", { name: "How far back" })).toHaveText("Live");
   await expect(page.getByRole("button", { name: "Follow" })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByText("noust server logs --since -15min")).toBeVisible();
 });
 
 test("the old address of the Server's logs lands on the system source, with its filters", async ({ page, consoleServer }) => {

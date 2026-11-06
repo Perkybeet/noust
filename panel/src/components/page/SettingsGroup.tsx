@@ -2,7 +2,6 @@ import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Card } from "../ui/Card";
-import { CommandHint } from "./CommandHint";
 
 export interface SettingsGroupProps {
   /** The subject of the rows: "Backups", "Notifications". */
@@ -18,8 +17,6 @@ export interface SettingsGroupProps {
   status?: ReactNode;
   /** Controls for the whole group, aligned with the title: the button that turns a feature on. */
   actions?: ReactNode;
-  /** The CLI command that does the same, once, at the foot of the group. */
-  command?: string;
   /** Heading level of the title. */
   level?: 2 | 3 | 4;
   /** The rows: `Setting`s, or a row of your own with the same padding. */
@@ -33,7 +30,7 @@ export interface SettingsGroupProps {
  * `Field`s, not a group of rows: a `Setting` applies the moment it is moved and never shares a
  * surface with a Save button.
  */
-export function SettingsGroup({ title, icon, description, status, actions, command, level = 3, children, className }: SettingsGroupProps) {
+export function SettingsGroup({ title, icon, description, status, actions, level = 3, children, className }: SettingsGroupProps) {
   return (
     <Card
       title={title}
@@ -47,7 +44,6 @@ export function SettingsGroup({ title, icon, description, status, actions, comma
     >
       <div data-slot="settings-group" className="flex flex-col divide-y divide-border">
         {children}
-        {command !== undefined ? <CommandHint command={command} className="px-5 py-3" /> : null}
       </div>
     </Card>
   );

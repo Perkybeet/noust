@@ -102,7 +102,7 @@ function TokenOnce({ t, token }: { t: T; token: CreatedToken }) {
           {t("settings.tokens.once.copyToken")}
         </CopyTextButton>
       </div>
-      <CommandHint label={t("settings.tokens.once.tryIt")} command={example} />
+      <CommandHint label={t("settings.tokens.once.tryIt")} command={example} reason="otro-servidor" />
     </div>
   );
 }

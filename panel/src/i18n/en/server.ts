@@ -142,7 +142,6 @@ export const server = {
     proofUnreadable: "Noust cannot see new SSH logins from the console",
     proofUnreadableDetail: "Keep the change stays off because Noust cannot tell a new login from an old one. Log in from a new terminal, then keep the change from the server.",
     proofUnreadableLabel: "Why the logins cannot be read",
-    fromTerminal: "Or, on the server",
     id: "Change {id}",
     confirm: "Keep the change",
     confirmFailed: "Could not keep the change",

@@ -8,7 +8,6 @@ import { auditPagesQuery } from "../../api/queries/audit";
 import { sessionQuery } from "../../api/queries/auth";
 import { jobsQuery } from "../../api/queries/jobs";
 import { queueBusy, queueQuery } from "../../api/queries/queue";
-import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { ListPage } from "../../components/page/ListPage";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -121,7 +120,7 @@ function ActivityView({ search, onSearchChange, source }: { search: ActivitySear
     content = source.failure;
   } else if (nothingYet) {
     content = (
-      <EmptyState variant="firstUse" icon={<OBJECT_ICONS.activity />} title={t("activity.emptyTitle")} description={t("activity.emptyDescription")} command="noust audit list" />
+      <EmptyState variant="firstUse" icon={<OBJECT_ICONS.activity />} title={t("activity.emptyTitle")} description={t("activity.emptyDescription")} />
     );
   } else {
     const view = search.kind ?? "changes";
@@ -237,7 +236,6 @@ function ActivityView({ search, onSearchChange, source }: { search: ActivitySear
               />
             ),
           })}
-      {...(nothingYet ? {} : { footer: <CommandHint command={source.fleet === undefined ? "noust audit list" : "noust fleet activity"} label={t("common.words.fromTerminal")} /> })}
     >
       {content}
     </ListPage>

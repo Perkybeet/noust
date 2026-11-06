@@ -192,7 +192,6 @@ export const auth = {
     notNow: "Not now",
     signInFailed: "The account {name} was created, but signing in with it failed",
     signInAs: "Sign in as {name}",
-    fromTerminal: "Or from a terminal on this server",
   },
   invite: {
     documentTitle: "Invitation",

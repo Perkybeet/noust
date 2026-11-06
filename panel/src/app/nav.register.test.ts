@@ -485,6 +485,18 @@ describe("6. the palette finds every screen", () => {
   });
 });
 
+describe("the Integrations section of Settings, which 4.1 called Connections", () => {
+  it("is found by the name it had, and by the one it has", () => {
+    const everything = paletteEntries(paletteContext({ staged: true }));
+    const commandsOf = everything.map((entry): Command => ({ id: entry.id, group: "Pages", label: entry.text, keywords: entry.keywords, aliases: entry.aliases, detail: entry.path, kind: "navigate", run: () => undefined }));
+    for (const typed of ["Connections", "Integrations"]) {
+      const found = filterCommands(commandsOf, typed).flatMap((group) => group.items.map((item) => item.id));
+      expect(found, typed).toContain("settings.integrations");
+    }
+    expect(everything.find((entry) => entry.id === "settings.integrations")?.text).toMatch(/^Integrations/);
+  });
+});
+
 describe("7. what a role cannot see is not found", () => {
   // A screen of a resource (an application's Terminal) is offered by the page of that resource, not by the palette alone.
   const permissions = [...new Set(DESTS.flatMap((entry) => (entry.permission !== undefined && !entry.to.includes("$") ? [entry.permission] : [])))];
@@ -575,7 +587,7 @@ describe("whose a screen is", () => {
       "settings.access": "Roles",
       "settings.access-security": "Access security",
       "settings.compliance": "Compliance",
-      "settings.integrations": "Connections",
+      "settings.integrations": "Integrations",
       "settings.accounts": "Accounts",
       "settings.central": "Central and sealing",
       "settings.registries": "Image registries",

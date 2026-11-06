@@ -1,5 +1,4 @@
 import { useDocumentTitle } from "../../app/documentTitle";
-import { CommandHint } from "../../components/page/CommandHint";
 import { Button } from "../../components/ui/Button";
 import { useT } from "../../i18n";
 import { AuthFrame } from "../auth/AuthFrame";
@@ -27,7 +26,6 @@ export function CentralLockScreen({ onContinue }: CentralLockScreenProps) {
         <div className="flex flex-col items-start gap-2 border-t border-border pt-6">
           <Button onClick={onContinue}>{t("servers.lock.continueLocked")}</Button>
           <p className="text-12 text-pretty text-fg-muted">{t("servers.lock.continueNote")}</p>
-          <CommandHint className="mt-3" label={t("servers.lock.fromTerminal")} command="noust central unlock" />
         </div>
       }
     >

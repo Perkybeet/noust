@@ -1,6 +1,5 @@
 import { Link } from "@tanstack/react-router";
 
-import { CommandHint } from "../../components/page/CommandHint";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { buttonClassName } from "../../components/ui/Button";
@@ -40,7 +39,6 @@ function ManagedLogs({ name }: { name: string }) {
         />
       </div>
       {stream.truncated ? <p className="text-12 text-fg-faint">{t("services.detail.truncated")}</p> : null}
-      <CommandHint command={`noust server logs ${name} -f`} label={t("common.words.fromTerminal")} />
     </div>
   );
 }

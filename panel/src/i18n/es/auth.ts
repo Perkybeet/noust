@@ -188,7 +188,6 @@ export const auth: Catalog<typeof en> = {
     notNow: "Ahora no",
     signInFailed: "La cuenta {name} se creó, pero no se pudo iniciar sesión con ella",
     signInAs: "Iniciar sesión como {name}",
-    fromTerminal: "O desde un terminal en este servidor",
   },
   invite: {
     documentTitle: "Invitación",

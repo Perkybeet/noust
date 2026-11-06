@@ -93,7 +93,7 @@ function NodeAccessNote({ node }: { node: string }) {
     <Notice title={t("nav.settingsGroups.nodeNoteTitle", { node })}>
       <div className="flex flex-col gap-2">
         <p className="max-w-measure text-pretty">{t("nav.settingsGroups.nodeNote", { node })}</p>
-        <CommandHint label={t("nav.settingsGroups.nodeNoteCommands", { node })} command="noust user list && noust token list" />
+        <CommandHint label={t("nav.settingsGroups.nodeNoteCommands", { node })} command="noust user list && noust token list" reason="otro-servidor" />
       </div>
     </Notice>
   );

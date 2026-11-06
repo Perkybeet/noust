@@ -376,7 +376,6 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
               inviteButton
             )
           }
-          command="noust user create NAME --role admin"
           level={3}
         />
       }

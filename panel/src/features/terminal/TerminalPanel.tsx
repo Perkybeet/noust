@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { announce } from "../../app/Announcer";
 import { useNow } from "../../components/page/clock";
+import { CommandHint } from "../../components/page/CommandHint";
 import { ErrorBlock, QueryState } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
@@ -136,7 +137,7 @@ function Off({ target, status, t }: { target: TerminalTarget; status: TerminalSt
       icon={<OBJECT_ICONS.terminal />}
       title={t("terminal.disabled.title")}
       description={`${t("terminal.disabled.description")} ${t("terminal.disabled.enable")}`}
-      command={TERMINALS_ENABLE_COMMAND}
+      action={<CommandHint command={TERMINALS_ENABLE_COMMAND} reason="solo-terminal" />}
     />
   );
 }

@@ -680,7 +680,7 @@ export function LoginForm({ next, expired, initialWay, recoveryHelp = false, sso
         title={t("auth.token.title")}
         description={t("auth.token.description")}
         back={back}
-        footer={<CommandHint label={t("auth.token.lostIt")} command="noust web token" />}
+        footer={<CommandHint label={t("auth.token.lostIt")} command="noust web token" reason="solo-terminal" />}
       >
         {tokenWay}
       </AuthFrame>

@@ -114,3 +114,25 @@ The choice is kept in the browser's local storage (`noust.theme`) and applies to
 available. The address comes from `web.host` and `web.port` in the configuration (Settings >
 General), which only affect these links: where the console listens is decided by the options
 of `noust web start`.
+
+The console does not repeat a command beside the button that does the same, so what the command line
+offers for the pages that follow is here. Each runs on the server it names, as root:
+
+| Page | From a terminal |
+|---|---|
+| Home | `noust health`, and `noust fleet apps` for the applications of every server |
+| Activity | `noust audit list`, and `noust fleet activity` for every server |
+| Approvals, Audit log | `noust approval list`; `noust audit verify` and `noust audit list` |
+| Logs | `noust log search` for the applications, `noust fleet logs` for every server, `noust server logs` for the system |
+| Alerts | `noust alert list`; the thresholds of the checks with `noust config get monitor.disk_threshold`; `noust probe list` and `noust probe status-page show` for the probes |
+| Server, Web server | `noust webserver status` |
+| Server, Services | `noust service status NAME`, and `noust server logs NAME -f` to follow one's journal |
+| Fleet | `noust fleet status`, `noust fleet certs`, `noust fleet apps`, `noust fleet placement status APP`, `noust fleet placement add APP --nodes A,B`, `noust fleet enroll NAME --host ADDRESS` and `noust node key NAME` |
+| Settings, General and About | `noust config show`, `noust --version`, `noust web status`, `noust web restart`, `noust setup doctor` for the installation check and `noust support report` |
+| Settings, People and access | `noust user create NAME --role admin`, `noust access grant NAME --role ROLE --team TEAM --project PROJECT`, `noust token create NAME --scope deploy --expires-hours 2160 --owner NAME` and `noust console expose --domain NAME --allow-ip RANGE` |
+| Settings, MCP and Integrations | `noust mcp enable` and `noust mcp token NAME --preset deploy --owner NAME`; `noust token create prometheus --scope read` and `noust monitor export --format openmetrics` for a metrics scraper; `noust github host set HOST` |
+| A sealed central | `noust central unlock`, which asks for the passphrase |
+| An application's terminal | `noust app exec DOMAIN -- COMMAND` |
+
+The console does show a command where it cannot do the thing itself: sealing a central, the commands to run
+on another server (the one being added, the laptop that calls the API) and what the system itself says to run.

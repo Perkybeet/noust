@@ -96,34 +96,6 @@ export function stretchOf(search: LogsSearch, now: number): [number, number] | n
   return span === undefined ? null : [now - span * 3600, now];
 }
 
-// -- The terminal's way of asking the same ---------------------------------------------------
-
-const quote = (value: string): string => (/^[\w.@%+=:,/-]+$/.test(value) ? value : `'${value.replaceAll("'", `'\\''`)}'`);
-
-/** The command that asks the same thing from a terminal. */
-export function searchCommand(search: LogsSearch): string {
-  if (search.source === "system") {
-    const parts = ["noust server logs"];
-    if (search.unit === KERNEL) parts.push("-k");
-    const query = effectiveQuery(search);
-    if (query !== "") parts.push(`-Q '${query.replaceAll("'", "'\\''")}'`);
-    const range = rangeOf(search);
-    if (search.from !== undefined && search.to !== undefined) parts.push(`--since @${String(search.from)} --until @${String(search.to)}`);
-    else if (range === "boot") parts.push("-b 0");
-    else if (range === "previous") parts.push("-b -1");
-    else parts.push(`--since ${JOURNAL_SINCE[range] ?? "-1h"}`);
-    return parts.join(" ");
-  }
-  const fleet = search.scope === "fleet";
-  const parts = [fleet ? "noust fleet logs" : "noust log search"];
-  if (search.q !== undefined) parts.push(quote(search.q));
-  if (search.app !== undefined && !fleet) parts.push(`--app ${quote(search.app)}`);
-  const range = rangeOf(search);
-  parts.push(`--since ${range === "live" ? LIVE_WINDOW : range}`);
-  if (search.level !== undefined) parts.push(`--level ${search.level}`);
-  return parts.join(" ");
-}
-
 // -- Lines ----------------------------------------------------------------------------------
 
 /** The journal's levels as the viewer draws them: errors in red, warnings in amber. */

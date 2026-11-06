@@ -53,6 +53,4 @@ export const mcpSettings = {
     prompts: "Prompts",
     resources: "Resources",
   },
-  commandEnable: "noust mcp enable",
-  commandToken: "noust mcp token ci-bot --preset deploy --owner maria",
 } as const;

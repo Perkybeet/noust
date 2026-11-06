@@ -6,7 +6,6 @@ import { announce } from "../../app/Announcer";
 import { auditPagesQuery } from "../../api/queries/audit";
 import type { AuditEntry } from "../../api/queries/audit";
 import { useDocumentTitle } from "../../app/documentTitle";
-import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { KeyValueList } from "../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../components/page/KeyValueList";
@@ -483,7 +482,6 @@ export function AuditPage({ search, onSearchChange }: AuditPageProps) {
         </div>
       </Section>
       <ReviewsSection t={t} />
-      <CommandHint label={t("common.words.fromTerminal")} command="noust audit verify && noust audit list" />
       {open !== null ? (
         <EntryDrawer
           entry={open}

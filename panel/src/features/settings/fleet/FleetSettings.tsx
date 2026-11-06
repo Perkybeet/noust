@@ -3,7 +3,6 @@ import { useState } from "react";
 
 import { sessionQuery } from "../../../api/queries/auth";
 import { useDocumentTitle } from "../../../app/documentTitle";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock, QueryState } from "../../../components/page/QueryState";
 import { RowMenu } from "../../../components/page/RowMenu";
@@ -300,7 +299,6 @@ export function FleetSettings() {
           />
         )}
       </Section>
-      <CommandHint command="noust fleet status" label={t("common.words.fromTerminal")} />
 
       {open?.kind === "share" && list.data !== undefined ? <ShareDialog kinds={list.data.kinds} setting={open.setting} servers={servers} node={open.node} onClose={() => setOpen(null)} /> : null}
       {open?.kind === "apply" ? <ApplyDialog onClose={() => setOpen(null)} /> : null}

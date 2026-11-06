@@ -18,7 +18,6 @@ export const settings = {
     documentTitle: "General settings",
     what: "the general settings",
     notSaved: "The general settings were not saved",
-    fromTerminal: "Every setting, from a terminal",
     notWritableTitle: "Saving will fail",
     notWritable: "The console cannot write {path}. Check its owner and permissions.",
     server: {
@@ -201,6 +200,7 @@ export const settings = {
     revokeText: "Revoke",
     usingTitle: "Using a token",
     usingDescription: "Send it in the Authorization header. A token cannot open the console in a browser; it is for the API only.",
+    usingFrom: "From the machine that calls the API",
     revokeDialogTitle: "Revoke {name}",
     revokeDialogDescription: "Requests that present this token stop working at once. It cannot be turned back on, and its name stays taken so the audit log always names one token.",
     revokeAction: "Revoke token",
@@ -714,10 +714,9 @@ export const settings = {
       indexBehindDescription: "The package manager installs what its index lists, and the system refreshes it about once a day. Refresh it now, and the update can then be installed.",
       refreshIndex: "Refresh the package index",
       refreshingIndex: "Refreshing the package index",
-      refreshFromTerminal: "Refresh from a terminal",
       refreshFailed: "Could not refresh the package index",
       available: "Version {version} can be installed",
-      updateFromTerminal: "Update from a terminal",
+      updateLink: "Update Noust",
       upToDate: "Up to date: {version} is the newest version.",
       unknown: "Could not find out whether a newer version exists.",
       unknownHint: "The server asks GitHub and the repository it installs Noust from. Check that it can reach them, then check again.",
@@ -760,7 +759,6 @@ export const settings = {
       listLabel: "Checks of {section}",
       status: { ok: "Passed", info: "Optional", warn: "Warning", fail: "Missing" },
       fix: "Fix",
-      fromTerminal: "From a terminal",
     },
     supportReport: {
       title: "Support report",
@@ -775,7 +773,6 @@ export const settings = {
       journalLeftOut: "The journal is left out: reading it needs the right to reveal secrets.",
       copy: "Copy the report",
       download: "Download the report",
-      fromTerminal: "From a terminal",
     },
     installation: {
       title: "This installation",
@@ -803,14 +800,6 @@ export const settings = {
       releaseNotes: { label: "Release notes", description: "What changed in each version." },
       reportProblem: { label: "Report a problem", description: "Include the output of noust support report." },
       getHelp: { label: "Getting help", description: "Where to ask, and what to include." },
-    },
-    terminal: {
-      title: "Commands for Noust itself",
-      installedVersion: "Installed version",
-      showConfig: "Show the configuration in effect",
-      checkMachine: "Check this machine",
-      consoleStatus: "Console status",
-      restartConsole: "Restart the console",
     },
   },
 } as const;

@@ -239,7 +239,7 @@ for (const viewport of VIEWPORTS) {
 
     test("Integrations: four slabs, the address as a pair to copy, GitHub as a card beside where it is installed, GitLab as its first time", async ({ page, consoleServer }) => {
       await signIn(page, consoleServer, "/settings/integrations");
-      await expect(page.getByRole("heading", { level: 1, name: "Connections" })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: "Integrations" })).toBeVisible();
       for (const name of ["Address for webhooks", "GitHub", "GitLab", "Gitea, Forgejo and Bitbucket"]) {
         await expect(page.getByRole("heading", { level: 2, name })).toBeVisible();
       }
@@ -276,7 +276,7 @@ for (const viewport of VIEWPORTS) {
 test("a settings page is as wide as its header: the title's actions end where the content does, at 1920", async ({ page, consoleServer }) => {
   await page.setViewportSize({ width: 1920, height: 1000 });
   await signIn(page, consoleServer, "/settings/integrations");
-  await expect(page.getByRole("heading", { level: 1, name: "Connections" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Integrations" })).toBeVisible();
   await settle(page);
   const edges = await page.evaluate(() => {
     const template = document.querySelector("[data-template=detail][data-measure=settings]");

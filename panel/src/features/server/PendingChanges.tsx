@@ -18,7 +18,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useState } from "react";
 
 import { request } from "../../api/client";
-import { CommandHint } from "../../components/page/CommandHint";
 import { useNow } from "../../components/page/clock";
 import { Button } from "../../components/ui/Button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
@@ -122,7 +121,6 @@ function PendingDetails({ change, proof, open, onOpenChange }: { change: Pending
             {proof.error !== "" ? <SystemOutput label={t("server.pending.proofUnreadableLabel")}>{proof.error}</SystemOutput> : null}
           </>
         ) : null}
-        <CommandHint command={`noust server security confirm ${change.id}`} label={t("server.pending.fromTerminal")} />
         <p className="text-12">{t.rich("server.pending.id", { id: <Mono>{change.id}</Mono> })}</p>
       </div>
     </Drawer>

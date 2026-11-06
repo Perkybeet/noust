@@ -105,7 +105,7 @@ export function GrantsSection() {
         label={t("access.loadingLabel")}
         skeleton={<DataTable caption={t("access.grants.tableCaption")} columns={columns} rows={[]} getRowId={(binding) => String(binding.id)} loading skeletonRows={3} embedded />}
         isEmpty={(data) => data.bindings.length === 0}
-        empty={<EmptyState variant="firstUse" level={3} icon={<UsersRound />} title={t("access.grants.emptyTitle")} description={t("access.grants.emptyDescription")} action={grant} command="noust access grant maria --role admin --team acme --project web" />}
+        empty={<EmptyState variant="firstUse" level={3} icon={<UsersRound />} title={t("access.grants.emptyTitle")} description={t("access.grants.emptyDescription")} action={grant} />}
       >
         {(data) => (
           <DataTable

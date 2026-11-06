@@ -1,5 +1,4 @@
 import { useDocumentTitle } from "../../../app/documentTitle";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { Sections } from "../../../components/page/Section";
 import { useT } from "../../../i18n";
 import { AlertsReach } from "../../alerts/AlertsReach";
@@ -16,7 +15,6 @@ export function AlertSettings() {
     <Sections>
       <AlertsReach />
       <RuleList />
-      <CommandHint command="noust alert list" label={t("common.words.sameFromTerminal")} />
     </Sections>
   );
 }

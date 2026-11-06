@@ -1643,27 +1643,27 @@ export const serverText: Catalog<typeof en> = {
   software: {
     apache: {
       purpose: {
-        text: "El servidor web Apache, para los sitios que corren detrás de él",
+        text: "Otro servidor web",
       },
     },
     auto_updates: {
       purpose: {
-        text: "Instala por sí solo las actualizaciones de seguridad del sistema",
+        text: "Instala solas las actualizaciones de seguridad",
       },
     },
     certbot: {
       purpose: {
-        text: "Obtiene y renueva los certificados HTTPS de Let's Encrypt y de otras autoridades",
+        text: "Obtiene y renueva certificados HTTPS",
       },
     },
     chrony: {
       purpose: {
-        text: "Mantiene el reloj en hora por red, de lo que dependen los certificados y los registros",
+        text: "Mantiene el reloj en hora",
       },
     },
     cloudflared: {
       purpose: {
-        text: "El conector por el que pasa un túnel de Cloudflare, para llegar a este servidor sin abrir un puerto",
+        text: "Conector de Cloudflare Tunnel",
       },
     },
     curl: {
@@ -1671,17 +1671,17 @@ export const serverText: Catalog<typeof en> = {
         text: "Noust descarga con él las claves y los instaladores que comprueba",
       },
       purpose: {
-        text: "Descarga las claves de firma y los instaladores que Noust comprueba antes de fiarse de ellos",
+        text: "Descarga claves e instaladores",
       },
     },
     docker: {
       purpose: {
-        text: "Ejecuta las aplicaciones de contenedor y de Compose, y los motores de bases de datos que Noust corre en contenedores",
+        text: "Ejecuta contenedores y aplicaciones Compose",
       },
     },
     fail2ban: {
       purpose: {
-        text: "Bloquea las direcciones que prueban contraseñas o sondean el servidor web",
+        text: "Bloquea direcciones que adivinan contraseñas",
       },
     },
     firewall: {
@@ -1689,7 +1689,7 @@ export const serverText: Catalog<typeof en> = {
         text: "Noust abre y cierra puertos con él, y es lo que mantiene cerrado el servidor",
       },
       purpose: {
-        text: "El cortafuegos por el que Noust abre y cierra puertos, para los puertos publicados y para las bases de datos que expone",
+        text: "Abre y cierra puertos",
       },
     },
     git: {
@@ -1697,7 +1697,7 @@ export const serverText: Catalog<typeof en> = {
         text: "Todo despliegue desde un repositorio lo necesita",
       },
       purpose: {
-        text: "Descarga el código de toda aplicación que se despliega desde un repositorio",
+        text: "Descarga el código de las aplicaciones",
       },
     },
     gnupg: {
@@ -1705,7 +1705,7 @@ export const serverText: Catalog<typeof en> = {
         text: "Noust comprueba con él la clave de firma de cada repositorio que añade",
       },
       purpose: {
-        text: "Comprueba la clave de firma de cada repositorio que Noust añade",
+        text: "Comprueba las claves de los repositorios",
       },
     },
     hub: {
@@ -1713,32 +1713,32 @@ export const serverText: Catalog<typeof en> = {
     },
     knot: {
       purpose: {
-        text: "Knot DNS, el servidor de nombres de las zonas DNS propias de Noust",
+        text: "Servidor de nombres de las zonas DNS de Noust",
       },
     },
     mongodb: {
       purpose: {
-        text: "MongoDB, una base de datos de documentos para las aplicaciones",
+        text: "Base de datos de documentos",
       },
     },
     mysql: {
       purpose: {
-        text: "MySQL o MariaDB, un motor de bases de datos para las aplicaciones",
+        text: "Motor de bases de datos MySQL o MariaDB",
       },
     },
     nginx: {
       purpose: {
-        text: "El servidor web que sirve las aplicaciones y termina su HTTPS",
+        text: "Sirve las aplicaciones y termina el HTTPS",
       },
     },
     nginx_stream_module: {
       purpose: {
-        text: "Permite que nginx publique un puerto TCP o UDP, como el de una base de datos o el de un servidor de juegos",
+        text: "Publica puertos TCP y UDP",
       },
     },
     nodejs: {
       purpose: {
-        text: "Compila y ejecuta aplicaciones Node.js",
+        text: "Ejecuta aplicaciones Node.js",
       },
     },
     noust: {
@@ -1746,27 +1746,27 @@ export const serverText: Catalog<typeof en> = {
         text: "Quitarlo sacaría a Noust, y la consola que estás usando, de este servidor",
       },
       purpose: {
-        text: "Noust mismo, con las bibliotecas de Python sobre las que está hecho",
+        text: "Noust y sus bibliotecas",
       },
     },
     php: {
       purpose: {
-        text: "PHP-FPM, que ejecuta las aplicaciones PHP",
+        text: "Ejecuta aplicaciones PHP",
       },
     },
     postgresql: {
       purpose: {
-        text: "PostgreSQL, un motor de bases de datos para las aplicaciones",
+        text: "Motor de bases de datos PostgreSQL",
       },
     },
     rclone: {
       purpose: {
-        text: "Sube las copias de seguridad a destinos remotos",
+        text: "Sube las copias a destinos remotos",
       },
     },
     redis: {
       purpose: {
-        text: "Redis o Valkey, un almacén de clave-valor y caché para las aplicaciones",
+        text: "Caché y almacén Redis o Valkey",
       },
     },
     sshd: {
@@ -1774,7 +1774,7 @@ export const serverText: Catalog<typeof en> = {
         text: "Quitarlo te dejaría sin acceso a esta máquina",
       },
       purpose: {
-        text: "El servidor SSH: por donde entras tú, y una central, a esta máquina",
+        text: "Cómo entras en esta máquina",
       },
     },
     systemd: {
@@ -1782,12 +1782,12 @@ export const serverText: Catalog<typeof en> = {
         text: "Todo lo de este servidor, Noust incluido, corre bajo él",
       },
       purpose: {
-        text: "El gestor de servicios bajo el que corren todas las aplicaciones, los sitios y las unidades de Noust",
+        text: "Ejecuta todos los servicios del servidor",
       },
     },
     waf: {
       purpose: {
-        text: "ModSecurity y las reglas OWASP Core Rule Set: el cortafuegos de aplicaciones web de un sitio",
+        text: "Cortafuegos de aplicaciones web para sitios",
       },
     },
     refused: {

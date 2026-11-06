@@ -71,8 +71,8 @@ describe("the pending change banner, before a new login", () => {
     expect(within(details).getByText(/Open a new SSH session to this server from another terminal/)).toBeInTheDocument();
     expect(within(details).getByText(/A session that was already open proves nothing/)).toBeInTheDocument();
     expect(within(details).getByText(/Keep the change turns on as soon as one is seen/)).toBeInTheDocument();
-    // The terminal's way is there too.
-    expect(within(details).getByText("noust server security confirm c1a2b3")).toBeInTheDocument();
+    // The console confirms it with its own button; the terminal's command is not repeated beside it.
+    expect(within(details).queryByText("noust server security confirm c1a2b3")).not.toBeInTheDocument();
     await expectNoAxeViolations(details);
   });
 
@@ -135,7 +135,7 @@ describe("the pending change banner, before a new login", () => {
 
     const details = await openDetails(user, notice);
     expect(within(details).getByText(error)).toBeInTheDocument();
-    expect(within(details).getByText("noust server security confirm c1a2b3")).toBeInTheDocument();
+    expect(within(details).queryByText("noust server security confirm c1a2b3")).not.toBeInTheDocument();
   });
 });
 
@@ -155,7 +155,7 @@ describe("a pending change from a server that does not report the proof", () => 
     const details = await openDetails(user, notice);
     expect(within(details).getByText(/Open a new SSH session to this server from another terminal/)).toBeInTheDocument();
     expect(within(details).queryByText("Why the logins cannot be read")).not.toBeInTheDocument();
-    expect(within(details).getByText("noust server security confirm c1a2b3")).toBeInTheDocument();
+    expect(within(details).queryByText("noust server security confirm c1a2b3")).not.toBeInTheDocument();
   });
 
   it("says that any login counts for a firewall change, and lets the server's confirm answer", async () => {

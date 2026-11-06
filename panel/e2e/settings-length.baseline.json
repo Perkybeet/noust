@@ -7,19 +7,19 @@
   "routes": {
     "settings-general": {
       "path": "/settings/general",
-      "height": 1471,
+      "height": 1413,
       "reason": "One form holds the server's identity, the console address, the folders, the limits, the web server and the deploy freeze; the console address has its own section, and what stays is measured again when it leaves."
     },
     "settings-registries": { "path": "/settings/registries", "height": 125 },
     "settings-deploy-keys": { "path": "/settings/deploy-keys", "height": 703 },
-    "settings-fleet": { "path": "/settings/fleet", "height": 565 },
+    "settings-fleet": { "path": "/settings/fleet", "height": 495 },
     "settings-variables": { "path": "/settings/variables", "height": 330 },
     "settings-secret-managers": { "path": "/settings/secret-managers", "height": 430 },
-    "settings-console": { "path": "/settings/console", "height": 460 },
+    "settings-console": { "path": "/settings/console", "height": 394 },
     "settings-integrations": { "path": "/settings/integrations", "height": 983 },
     "settings-about": {
       "path": "/settings/about",
-      "height": 1658,
+      "height": 1532,
       "reason": "Three sections (version and updates, this installation and support, what is new): the automatic update card, the installation check, the support report, the project links and the licence notices. The check and the support report can leave for a subsection of their own."
     },
     "settings-notifications": {
@@ -27,19 +27,19 @@
       "height": 1833,
       "reason": "The switch, thirteen channels, more channels, the events, their language, private hosts and the delivery log on one page. The channels and the events are different subjects, and the delivery log is a list of its own."
     },
-    "settings-log-shipping": { "path": "/settings/log-shipping", "height": 1085 },
+    "settings-log-shipping": { "path": "/settings/log-shipping", "height": 977 },
     "settings-tokens": { "path": "/settings/tokens", "height": 427 },
     "settings-api": { "path": "/settings/api", "height": 1163 },
     "settings-manifest": { "path": "/settings/manifest", "height": 554 },
     "settings-mcp": {
       "path": "/settings/mcp",
-      "height": 2068,
+      "height": 1953,
       "reason": "The endpoint, how to connect, the three groups of tools and the table of 27 tools on one page; the table of tools is a list of its own and can leave for its own subsection."
     },
-    "settings-accounts": { "path": "/settings/accounts", "height": 463 },
+    "settings-accounts": { "path": "/settings/accounts", "height": 403 },
     "settings-access": {
       "path": "/settings/access",
-      "height": 904,
+      "height": 893,
       "tolerance": 60,
       "toleranceReason": "The roles and who holds them are slabs with a header each in 4.2, and the second says its first step while nobody is granted anything: what the seeded server shows is about fifty pixels of header and first step more than the flat page measured. It goes down when the grants' first step shares the line of its header."
     },
@@ -49,10 +49,10 @@
       "tolerance": 135,
       "toleranceReason": "The three sections are slabs with a header each in 4.2 (Connections, Passwords and passkeys, Provisioning), and with nothing connected each of the two lists says its first step: the page is the same fields under three headers and two first steps, about 120 pixels more than the flat page measured. It goes down when a section with nothing in it folds its first step into its header."
     },
-    "settings-approvals": { "path": "/settings/approvals", "height": 305 },
+    "settings-approvals": { "path": "/settings/approvals", "height": 245 },
     "settings-audit": {
       "path": "/settings/audit",
-      "height": 1308,
+      "height": 1291,
       "tolerance": 160,
       "toleranceReason": "The page is the audit trail, one row of 36px per event the server has recorded, and the server records the sign-in's own retries: a quiet machine measures 1308 (CI as well) and a loaded one 1345 to 1453. A page that grew is still caught: more than four rows over the quiet length fails."
     },

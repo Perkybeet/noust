@@ -255,8 +255,8 @@ describe("an application's terminal page", () => {
       const list = await screen.findByRole("list", { name: "Run as" });
       expect(within(list).getAllByRole("listitem").map((item) => item.textContent)).toEqual(["rails", "runner", "puts User.count", "|", "wc", "-l"]);
       expect(screen.getByText("These are passed as text, not interpreted: |")).toBeInTheDocument();
-      // The same thing, for a terminal.
-      expect(screen.getByText(/noust app exec shop\.example\.com -- rails runner 'puts User\.count' '\|' wc -l/)).toBeInTheDocument();
+      // The console runs it itself: the command that does the same is not drawn.
+      expect(screen.queryByText(/noust app exec/)).not.toBeInTheDocument();
     });
 
     it("will not run a line that ends inside a quote", async () => {

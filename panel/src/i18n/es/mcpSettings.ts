@@ -53,6 +53,4 @@ export const mcpSettings: Catalog<typeof en> = {
     prompts: "Prompts",
     resources: "Recursos",
   },
-  commandEnable: "noust mcp enable",
-  commandToken: "noust mcp token ci-bot --preset deploy --owner maria",
 };

@@ -43,7 +43,6 @@ function NotFound({ name }: { name: string }) {
             {t("services.detail.allServices")}
           </Link>
         }
-        command="noust service list"
       />
     </DetailPage>
   );

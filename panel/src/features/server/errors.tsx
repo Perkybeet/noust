@@ -96,7 +96,7 @@ export function ServerErrorBlock({ error, title, ...rest }: ErrorBlockProps) {
     return (
       <div className="flex min-w-0 flex-col gap-2">
         <ErrorBlock {...rest} error={explainServerError(t, error, node, false)} title={t("server.hostAccess.title", { node: node ?? "" })} />
-        <CommandHint command={HOST_ACCESS_COMMAND} label={t("server.hostAccess.onNode", { node: node ?? "" })} />
+        <CommandHint command={HOST_ACCESS_COMMAND} label={t("server.hostAccess.onNode", { node: node ?? "" })} reason="otro-servidor" />
       </div>
     );
   }
@@ -138,6 +138,6 @@ export function useServerConfirm(): Pick<ConfirmDialogProps, "server" | "explain
     server: node,
     explainError: (error) => explainServerError(t, error, node, false),
     failureAction: (error) =>
-      isHostAccessRefusal(error, node) ? <CommandHint command={HOST_ACCESS_COMMAND} label={t("server.hostAccess.onNode", { node: node ?? "" })} /> : null,
+      isHostAccessRefusal(error, node) ? <CommandHint command={HOST_ACCESS_COMMAND} label={t("server.hostAccess.onNode", { node: node ?? "" })} reason="otro-servidor" /> : null,
   };
 }

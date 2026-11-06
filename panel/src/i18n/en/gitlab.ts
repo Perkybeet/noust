@@ -49,7 +49,7 @@ export const gitlab = {
     connected: "{name} was connected to {host}",
     oauthHelp: "GitLab asks you to approve this server, then sends you back here. It needs an OAuth application registered in GitLab for this host.",
     redirect: "Redirect URI to register in GitLab",
-    noRedirect: "The console has no public address for GitLab to send the browser back to.",
+    noRedirect: "The console has no public address for GitLab to send the browser back to. Set it in {general}.",
     scopes: "Scopes to grant: read_api and read_repository.",
     clientId: "Application ID",
     clientSecret: "Secret",

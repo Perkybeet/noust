@@ -47,7 +47,7 @@ export const gitlab: Catalog<typeof en> = {
     connected: "{name} se conectó a {host}",
     oauthHelp: "GitLab te pide aprobar este servidor y te devuelve aquí. Necesita una aplicación OAuth registrada en GitLab para este host.",
     redirect: "URI de redirección que registrar en GitLab",
-    noRedirect: "La consola no tiene una dirección pública a la que GitLab pueda devolver el navegador.",
+    noRedirect: "La consola no tiene una dirección pública a la que GitLab pueda devolver el navegador. Defínela en {general}.",
     scopes: "Permisos que conceder: read_api y read_repository.",
     clientId: "ID de la aplicación",
     clientSecret: "Secreto",

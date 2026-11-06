@@ -1,4 +1,3 @@
-import { CommandHint } from "../../components/page/CommandHint";
 import { KeyValueList, KeyValueListSkeleton } from "../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../components/page/KeyValueList";
 import { QueryState } from "../../components/page/QueryState";
@@ -29,12 +28,12 @@ export function ServiceOverviewTab({ name }: { name: string }) {
         </Card>
       }
     >
-      {(data) => <ServiceFacts name={name} data={data} record={record} />}
+      {(data) => <ServiceFacts data={data} record={record} />}
     </QueryState>
   );
 }
 
-function ServiceFacts({ name, data, record }: { name: string; data: ServiceInfo; record: ServiceRecord }) {
+function ServiceFacts({ data, record }: { data: ServiceInfo; record: ServiceRecord }) {
   const t = useT();
   const items: KeyValueItem[] = [
     { label: t("services.detail.commandLabel"), value: data.description ?? null },
@@ -65,7 +64,6 @@ function ServiceFacts({ name, data, record }: { name: string; data: ServiceInfo;
       <Card level={2} title={t("services.detail.factsTitle")} icon={OBJECT_ICONS.service} padding="sm">
         <KeyValueList items={items} />
       </Card>
-      <CommandHint command={record.foreign ? `systemctl status ${name}` : `noust service status ${name}`} label={t("common.words.fromTerminal")} />
     </div>
   );
 }

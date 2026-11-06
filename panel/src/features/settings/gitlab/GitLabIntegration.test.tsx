@@ -200,7 +200,8 @@ describe("the GitLab connections of the server", () => {
     await user.click(within(dialog).getByRole("radio", { name: "Sign in with GitLab" }));
 
     expect(within(dialog).getByText(/no public address for GitLab to send the browser back to/)).toBeInTheDocument();
-    expect(within(dialog).getByText(/noust config set web\.public_url/)).toBeInTheDocument();
+    expect(within(dialog).getByRole("link", { name: "General settings" })).toHaveAttribute("href", "/settings/general");
+    expect(within(dialog).queryByText(/noust config set web\.public_url/)).not.toBeInTheDocument();
   });
 
   it("checks a connection and shows GitLab's answer", { timeout: 40_000 }, async () => {

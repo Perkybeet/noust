@@ -57,7 +57,7 @@ const PAGES: [path: string, heading: string, content: string][] = [
   ["/settings/audit", "Audit log", "Events"],
   ["/settings/compliance", "Compliance", "No framework is on"],
   ["/settings/about", "About Noust", "Version"],
-  ["/settings/integrations", "Connections", "GitHub"],
+  ["/settings/integrations", "Integrations", "GitHub"],
   ["/settings/registries", "Image registries", "Accounts"],
   ["/settings/cloud", "Cloud providers", "Provider accounts"],
   ["/fleet", "Fleet", "No servers in this fleet yet"],

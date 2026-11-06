@@ -6,7 +6,6 @@ import type { SyntheticEvent } from "react";
 import { request } from "../../api/client";
 import { isJobFinished, jobLogQuery, useFollowedJob } from "../../api/queries/jobs";
 import type { Job } from "../../api/queries/jobs";
-import { CommandHint } from "../../components/page/CommandHint";
 import { JobProgress } from "../../components/page/JobProgress";
 import type { JobState } from "../../components/page/JobProgress";
 import { Button } from "../../components/ui/Button";
@@ -19,7 +18,7 @@ import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
-import { commandLine, parseCommand, shellSyntaxIn } from "../../lib/terminal/command";
+import { parseCommand, shellSyntaxIn } from "../../lib/terminal/command";
 import { reportActionError } from "../apps/useAppActions";
 import { jobStep } from "../app/useAppJob";
 import { outputLines } from "./output";
@@ -243,7 +242,6 @@ export function ExecPanel({ domain }: { domain: string }) {
         </div>
       ) : null}
 
-      {parsed.argv.length > 0 ? <CommandHint label={t("terminal.exec.hint")} command={`noust app exec ${domain} -- ${commandLine(parsed.argv)}`} /> : null}
     </div>
   );
 }

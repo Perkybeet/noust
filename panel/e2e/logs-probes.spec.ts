@@ -42,7 +42,7 @@ test("the logs of every application are searched from one page, and the question
   await page.getByRole("searchbox", { name: "Search the logs" }).fill("zzz-nothing-says-this");
   await expect(page).toHaveURL(/q=zzz-nothing-says-this/);
   await expect(page.getByText("No line matches this search.")).toBeVisible();
-  await expect(page.getByText("noust log search zzz-nothing-says-this --since 1h")).toBeVisible();
+  await expect(page.getByText(/noust log search/)).toHaveCount(0);
 
   await page.getByRole("combobox", { name: "How far back" }).click();
   await page.getByRole("option", { name: "24 hours" }).click();

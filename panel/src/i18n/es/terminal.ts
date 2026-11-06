@@ -127,7 +127,6 @@ export const terminal: Catalog<typeof en> = {
     exitStatus: "Estado de salida {code}.",
     cannotQueue: "No se pudo iniciar el comando",
     viewActivity: "Ver en Actividad",
-    hint: "Desde un terminal:",
     previewEmpty: "Escribe un comando para ver cómo se ejecutará.",
     timeoutInvalid: "Segundos enteros, de 1 a {max}.",
     optionsLabel: "Servicio y límite de tiempo",

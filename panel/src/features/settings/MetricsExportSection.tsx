@@ -1,5 +1,4 @@
 import { Section } from "../../components/page/Section";
-import { CommandHint } from "../../components/page/CommandHint";
 import { Card } from "../../components/ui/Card";
 import { CopyValue } from "../../components/ui/CopyValue";
 import { TextLink } from "../../components/ui/TextLink";
@@ -56,8 +55,6 @@ export function MetricsExportSection() {
               ),
             })}
           </p>
-          <CommandHint command="noust token create prometheus --scope read" label={t("metricsExport.createToken")} />
-          <CommandHint command="noust monitor export --format openmetrics" label={t("metricsExport.fromTerminal")} />
         </div>
       </Card>
     </Section>

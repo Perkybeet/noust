@@ -1161,7 +1161,7 @@ button ("Turn on...") and not a switch (SW-5). The rules of its text are SW-3 an
 by `styles/setting-copy.test.ts`. Not for a filter or a view mode, a parameter of an action, or
 anything saved with a Save button.
 
-**`SettingsGroup`** (`title`, `icon`, `description`, `status`, `actions`, `command`, `level`). The rows of
+**`SettingsGroup`** (`title`, `icon`, `description`, `status`, `actions`, `level`). The rows of
 one subject on one surface: a `Card padding="none"` whose children are separated by a hairline. A
 subsection that saves with a Save button is a form of `Field`s, not a group of rows (FM-1).
 
