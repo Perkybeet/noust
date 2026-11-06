@@ -14,7 +14,7 @@
     "settings-deploy-keys": { "path": "/settings/deploy-keys", "height": 703 },
     "settings-fleet": { "path": "/settings/fleet", "height": 495 },
     "settings-variables": { "path": "/settings/variables", "height": 330 },
-    "settings-secret-managers": { "path": "/settings/secret-managers", "height": 430 },
+    "settings-secret-managers": { "path": "/settings/secret-managers", "height": 308 },
     "settings-console": { "path": "/settings/console", "height": 394 },
     "settings-integrations": { "path": "/settings/integrations", "height": 983 },
     "settings-about": {
