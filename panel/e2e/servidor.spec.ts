@@ -201,7 +201,7 @@ test("the web firewall has a page: whether the server can run it, and the level 
   const row = sites.getByRole("row").nth(1);
   await expect(row).toBeVisible();
   // Each site's level is its own protection setting: the row says where to change it.
-  await expect(row.getByRole("link", { name: /^(Change|Turn it on)/ })).toHaveAttribute("href", /\/apps\/.+\/settings\/protection/);
+  await expect(row.getByRole("link", { name: /^(Change|Turn it on)/ })).toHaveAttribute("href", /\/apps\/.+\/access#protection$/);
   await settle(page);
   await expectNoA11yViolations(page, "the web firewall");
 });

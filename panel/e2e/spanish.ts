@@ -63,12 +63,16 @@ const CANDIDATES = englishLeftoverCandidates();
 const SERVER_TEXT: readonly { page: string; text: RegExp; origin: string }[] = [
   // managers/health.py: the names and verdicts of the server-wide health report.
   { page: "server", text: /^(Applications|Memory|Running|Not installed)$/, origin: "managers/health.py" },
+  // monitor/signals.py: an observation's detail, in the monitor's own words (the seeded one reads like a rule's sentence).
+  { page: "server-monitor", text: /^CPU above 90% for more than five minutes$/, origin: "the process monitor's observation" },
   // A job's description, recorded with the job by whoever queued it.
   { page: "activity", text: /^Deploying \S+$/, origin: "the job's description" },
   // managers/diagnose.py: the evidence heading of the journal it read.
   { page: "app-diagnose", text: /^Last \d+ journal line\(s\) for \S+$/, origin: "managers/diagnose.py" },
   // Not the server's words but data: a seeded commit's subject, which reads like "Show the {label}".
   { page: "overview", text: /^Show the refund status on receipts$/, origin: "a commit message" },
+  // Another seeded commit's subject, which reads like "Upgrade {engine} to {version}", on every page that lists the deploys.
+  ...["overview", "app-overview", "app-deployments", "app-deployment-failed"].map((page) => ({ page, text: /^Upgrade Next\.js to 15\.2$/, origin: "a commit message" })),
   // A recipe's name is the product's, marked as such on its card; its heading wraps the marked
   // span, so the page's text still holds the name, which here reads like "Open {name}".
   { page: "/apps/new (recipe)", text: /^Open WebUI$/, origin: "a recipe's name" },

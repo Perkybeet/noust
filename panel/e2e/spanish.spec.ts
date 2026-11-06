@@ -53,6 +53,8 @@ for (const mode of ["recipe", "import"] as const) {
     // The page opens on five cards; the catalog is one of them, and an import is the second choice of the card of what already runs.
     if (mode === "recipe") {
       await page.getByRole("radio", { name: new RegExp(`^${spanish.newApp.origins.catalog.label}`) }).click();
+      // The catalog is alphabetical and paged: a recipe is found by its name.
+      await page.getByRole("searchbox", { name: spanish.catalog.filters.search }).fill("WordPress");
       await expect(page.getByRole("button", { name: /WordPress/ })).toBeVisible();
     } else {
       await page.getByRole("radio", { name: new RegExp(`^${spanish.newApp.origins.existing.label}`) }).click();

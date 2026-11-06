@@ -56,7 +56,7 @@ test("a server chart investigates the window on screen, from every source", asyn
   // The seeded peak is forty minutes older than the server it was written for, so the last hour holds
   // it only while the server is under twenty minutes old and a worker's server lives for the whole
   // run; the last day holds it for as long as the suite can take.
-  await signIn(page, consoleServer, "/?window=24h");
+  await signIn(page, consoleServer, "/alerts/metrics?window=24h");
   const machine = page.getByRole("region", { name: "Machine" });
   const cpu = machine.locator("figure").filter({ has: page.getByRole("heading", { name: "CPU", exact: true }) });
   await expect(cpu.getByRole("img", { name: /^CPU, last 24 hours/ })).toBeVisible();
