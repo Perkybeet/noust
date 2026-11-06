@@ -116,10 +116,10 @@ export const serverText = {
   controls: {
     asked_by_framework: {
       text: "The control {control} asks for it, and the framework in force ({frameworks}) asks for that control, so it stays on while the framework is on and cannot be turned off by itself.",
-      hint: "To turn the framework off (Settings > Controls):\n  {command}",
+      hint: "To turn the framework off (Settings > Compliance):\n  {command}",
     },
     asked_by_setting: {
-      text: "The control {control} asks for it, and it was turned on in Settings > Controls (or with the command line). It applies to everybody, whatever their role.",
+      text: "The control {control} asks for it, and it was turned on in Settings > Compliance (or with the command line). It applies to everybody, whatever their role.",
       hint: "To turn it off there, or:\n  {command}",
     },
   },
@@ -2002,7 +2002,7 @@ export const serverText = {
     },
     server_control: {
       text: "The control {control} is set to refused on this server, so the terminal on the server itself stays off",
-      hint: "No framework asks for it: it was set in Settings > Controls or with the command line. To allow it: {command}",
+      hint: "No framework asks for it: it was set in Settings > Compliance or with the command line. To allow it: {command}",
     },
     server_framework: {
       text: "The compliance framework in force ({frameworks}) keeps the terminal on the server itself off (the control {control} is refused)",

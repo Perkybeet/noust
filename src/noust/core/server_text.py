@@ -483,7 +483,7 @@ CATALOG: dict[str, str] = {
         "itself stays off"
     ),
     "terminal.server_control.hint": (
-        "No framework asks for it: it was set in Settings > Controls or with the command line. "
+        "No framework asks for it: it was set in Settings > Compliance or with the command line. "
         "To allow it: {command}"
     ),
     "terminal.server_framework": (
@@ -760,7 +760,7 @@ CATALOG: dict[str, str] = {
     # -- Which control asks something of a person, and how to stop it asking -----------------
     # (noust.core.compliance.explain decides which one; the words are here.)
     "controls.asked_by_setting": (
-        "The control {control} asks for it, and it was turned on in Settings > Controls (or "
+        "The control {control} asks for it, and it was turned on in Settings > Compliance (or "
         "with the command line). It applies to everybody, whatever their role."
     ),
     "controls.asked_by_setting.hint": "To turn it off there, or:\n  {command}",
@@ -770,7 +770,7 @@ CATALOG: dict[str, str] = {
         "itself."
     ),
     "controls.asked_by_framework.hint": (
-        "To turn the framework off (Settings > Controls):\n  {command}"
+        "To turn the framework off (Settings > Compliance):\n  {command}"
     ),
     # -- A call that needs a second person's approval, or a reason ---------------------------
     "approvals.asked_waiting": (

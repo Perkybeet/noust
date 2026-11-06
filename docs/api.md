@@ -268,7 +268,7 @@ Location: /api/approvals/17
 X-Noust-Approval-Request: 17
 
 {"error": "approval_required",
- "detail": "This needs a second person's approval, whoever you are. Request 17 is waiting for an account with one of these roles to decide it: security. The control approvals asks for it, and it was turned on in Settings > Controls (or with the command line). It applies to everybody, whatever their role. To turn it off there, or:\n  noust compliance set approvals off",
+ "detail": "This needs a second person's approval, whoever you are. Request 17 is waiting for an account with one of these roles to decide it: security. The control approvals asks for it, and it was turned on in Settings > Compliance (or with the command line). It applies to everybody, whatever their role. To turn it off there, or:\n  noust compliance set approvals off",
  "hint": "Once approved, send exactly the same call again with the header X-Noust-Approval: 17, within 30 minutes.",
  "fields": {"approval": "17", "state": "requested"},
  "coded": {"code": "approvals.asked_waiting", "params": {"request": 17, "approvers": "security", "header": "X-Noust-Approval", "minutes": 30}},

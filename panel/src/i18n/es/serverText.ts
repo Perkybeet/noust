@@ -105,10 +105,10 @@ export const serverText: Catalog<typeof en> = {
   controls: {
     asked_by_framework: {
       text: "El control {control} lo pide, y el marco de cumplimiento en vigor ({frameworks}) pide ese control, así que sigue activo mientras el marco lo esté y no se puede desactivar por sí solo.",
-      hint: "Para desactivar el marco (Ajustes > Controles):\n  {command}",
+      hint: "Para desactivar el marco (Ajustes > Cumplimiento):\n  {command}",
     },
     asked_by_setting: {
-      text: "El control {control} lo pide, y se activó en Ajustes > Controles (o con la línea de comandos). Se aplica a todo el mundo, sea cual sea su rol.",
+      text: "El control {control} lo pide, y se activó en Ajustes > Cumplimiento (o con la línea de comandos). Se aplica a todo el mundo, sea cual sea su rol.",
       hint: "Para desactivarlo allí, o:\n  {command}",
     },
   },
@@ -1991,7 +1991,7 @@ export const serverText: Catalog<typeof en> = {
     },
     server_control: {
       text: "El control {control} está en refused en este servidor, así que el terminal del propio servidor sigue desactivado",
-      hint: "Ningún marco de cumplimiento lo pide: se fijó en Ajustes > Controles o con la línea de comandos. Para permitirlo: {command}",
+      hint: "Ningún marco de cumplimiento lo pide: se fijó en Ajustes > Cumplimiento o con la línea de comandos. Para permitirlo: {command}",
     },
     server_framework: {
       text: "El marco de cumplimiento en vigor ({frameworks}) mantiene desactivado el terminal del propio servidor (el control {control} está en refused)",

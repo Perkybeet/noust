@@ -18,7 +18,7 @@ const CONTROL_REFUSES = {
   allowed: false,
   enabled: true,
   reason: "The control server_terminal is set to refused on this server, so the terminal on the server itself stays off",
-  how: "No framework asks for it: it was set in Settings > Controls or with the command line. To allow it: noust compliance set server_terminal allowed",
+  how: "No framework asks for it: it was set in Settings > Compliance or with the command line. To allow it: noust compliance set server_terminal allowed",
   coded: { code: "terminal.server_control", params: { control: "server_terminal", command: "noust compliance set server_terminal allowed" } },
 };
 
