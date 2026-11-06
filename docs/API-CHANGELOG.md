@@ -125,6 +125,10 @@ under Changed: one field that becomes optional, one refusal that is new and one 
   an operator in sudo mode could issue one to themselves.
 - `DELETE` of a database engine (uninstall) answers `409` naming the databases while the engine holds any.
   The `409` bodies of the server's refusals carry `coded` as well as the sentence.
+- `POST /api/services` with `raw_content` (a whole unit file written by hand) is refused with `400` when
+  `systemd-analyze verify` rejects it: `output` carries systemd's own words, `fields.raw_content` says which
+  field, and nothing is written. Before, only the console's unit file page asked for that check (through
+  `POST /api/services/verify`) before it saved; the manager now asks it for whoever creates a unit this way.
 
 ## 4.1.0
 

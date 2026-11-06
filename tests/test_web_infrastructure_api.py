@@ -124,6 +124,33 @@ def test_creating_a_service_via_raw_content_without_the_marker_is_refused(
     assert not (unit_dir / "infra-naked.service").exists()
 
 
+def test_a_unit_systemd_refuses_is_not_created_and_the_answer_carries_its_words(
+    services_client: TestClient, unit_dir: Path, runner: Any
+) -> None:
+    """
+    The advanced form of a new service passes the check the unit file page passes.
+
+    The page asks ``systemd-analyze verify`` before it saves and shows its output; the endpoint that creates
+    a service from a whole unit now asks it too, so a client that skips the page cannot install what systemd
+    refuses, and the answer says why in systemd's words, where the form can show them.
+    """
+    runner.script(
+        ["systemd-analyze", "verify"],
+        exit_code=1,
+        stderr="noust-verify.service: Service has no ExecStart= setting. Refusing.\n",
+    )
+    body = f"# {UNIT_MARKER}\n[Unit]\nDescription=No command\n\n[Service]\nType=simple\n"
+
+    response = services_client.post(
+        "/api/services", json={"name": "infra-empty", "raw_content": body}
+    )
+
+    assert 400 <= response.status_code < 500, response.text
+    assert "has no ExecStart= setting" in response.json()["output"]
+    assert response.json()["fields"] == {"raw_content": response.json()["detail"]}
+    assert not (unit_dir / "infra-empty.service").exists()
+
+
 # ---------------------------------------------------------------------------
 # Sites: duplicates and reload
 # ---------------------------------------------------------------------------
