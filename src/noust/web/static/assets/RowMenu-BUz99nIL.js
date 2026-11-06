@@ -1,1 +1,0 @@
-import{Q as e,a as t}from"./objectIcons-Cxi6ZyBP.js";import{n,t as r}from"./icons-D0p5Mmzx.js";import{t as i}from"./Menu-BdEuTKlr.js";var a=e();function o({name:e,children:o,align:s=`end`}){let c=t();return(0,a.jsx)(i,{align:s,trigger:(0,a.jsx)(n,{label:c(`common.rowActions`,{name:e}),icon:(0,a.jsx)(r.more,{}),size:`sm`,tooltip:!1}),children:o})}export{o as t};

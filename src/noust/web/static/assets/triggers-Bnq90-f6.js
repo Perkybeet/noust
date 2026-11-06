@@ -1,1 +1,0 @@
-import{t as e}from"./ConfigPage-nrN2CXYk.js";import{t}from"./triggers-HI7EAIb_.js";import{Q as n}from"./objectIcons-Cxi6ZyBP.js";var r=n();function i(){let{domain:n}=t.useParams();return(0,r.jsx)(e,{page:`triggers`,domain:n})}export{i as component};

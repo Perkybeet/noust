@@ -1,0 +1,1 @@
+import{d as e}from"./objectIcons-B_YzKDZz.js";function t(t,n,r=null){if(!e(n))return null;let i=n.node??r;if(i===null)return null;let a=n.error===`node_refused`;return{title:t(a?`fleet.errors.refusedTitle`:`fleet.errors.unreachableTitle`,{node:i}),hint:n.hint??t(a?`fleet.errors.refusedHint`:`fleet.errors.unreachableHint`,{node:i})}}export{t};

@@ -1,1 +1,0 @@
-import{t as e}from"./Checkbox-2YKDS4Vh.js";import{Q as t}from"./objectIcons-Cxi6ZyBP.js";var n=t();function r({words:t,value:r,onChange:i,destinations:a}){let o=a>0;return(0,n.jsx)(e,{checked:r&&o,onCheckedChange:i,disabled:!o,label:t.label,description:o?t.help:t.needsDestination})}export{r as t};

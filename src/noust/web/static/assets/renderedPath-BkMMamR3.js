@@ -1,1 +1,0 @@
-import{i as e}from"./lastServer-F5XNGpsO.js";function t(){return e({select:e=>(e.resolvedLocation??e.location).pathname})}export{t};

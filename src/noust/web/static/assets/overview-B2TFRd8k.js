@@ -1,0 +1,1 @@
+import{C as e,a as t}from"./client-titvk-y6.js";var n={all:[`overview`]},r=15e3,i=()=>e({queryKey:n.all,queryFn:({signal:e})=>t(`get`,`/api/overview`,{signal:e}),refetchInterval:r});export{i as n,n as t};
