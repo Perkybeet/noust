@@ -121,7 +121,6 @@ export function MachineCharts({ range, onRangeChange, only, className }: Machine
       actions={control}
       {...(className !== undefined ? { className } : {})}
     >
-      <CollectorNotice collector={read.data?.collector} />
       <ChartGroup>
         {/* Sized by the room the page gives it, not the viewport: the sidebar comes and goes.
             Two abreast from a tablet, three only where each still gets a readable width. */}
@@ -147,6 +146,8 @@ export function MachineCharts({ range, onRangeChange, only, className }: Machine
           </div>
         </div>
       </ChartGroup>
+      {/* Whether the history is recorded is known with the readings: said under the charts it explains, its arrival moves none of them. */}
+      <CollectorNotice collector={read.data?.collector} />
     </Section>
   );
 }
