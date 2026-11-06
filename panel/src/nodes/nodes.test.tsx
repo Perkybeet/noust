@@ -255,7 +255,7 @@ describe("the server selector", () => {
     });
     // Focus goes to the new page, not to a control that was replaced.
     await waitFor(() => {
-      expect(screen.getByRole("heading", { level: 1, name: "web-2" })).toHaveFocus();
+      expect(screen.getByRole("heading", { level: 1, name: "Services" })).toHaveFocus();
     });
   });
 

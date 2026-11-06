@@ -495,7 +495,7 @@ describe("the server's terminal page", () => {
       "POST /api/server/terminal": () => json(200, ticketBody({ domain: null })),
     });
     const harness = renderConsole("/server/terminal");
-    await screen.findByRole("heading", { level: 1, name: "web-01" });
+    await screen.findByRole("heading", { level: 1, name: "Terminal" });
     return { ...harness, backend };
   }
 
@@ -570,16 +570,16 @@ describe("the server's terminal page", () => {
     expect(harness.backend.callsTo("POST /api/server/terminal")).toHaveLength(1);
   });
 
-  it("is offered in the server's menu to an account that holds the permission", async () => {
-    const harness = await serverPage(STATUS_BODY);
-    await harness.user.click(await screen.findByRole("button", { name: "More actions" }));
-    expect(await screen.findByRole("menuitem", { name: "Open a terminal" })).toBeInTheDocument();
+  it("is offered in the server's column to an account that holds the permission", async () => {
+    await serverPage(STATUS_BODY);
+    expect(within(screen.getByRole("navigation", { name: "Server sections" })).getByRole("link", { name: "Terminal" })).toHaveAttribute("aria-current", "page");
   });
 
   it("is not offered to one that does not", async () => {
-    const harness = await serverPage(STATUS_BODY, WITHOUT_TERMINAL);
-    await harness.user.click(await screen.findByRole("button", { name: "More actions" }));
-    await screen.findByRole("menu");
-    expect(screen.queryByRole("menuitem", { name: "Open a terminal" })).not.toBeInTheDocument();
+    fakeBackend({ ...routes({}, WITHOUT_TERMINAL), ...serverRoutes(), "GET /api/terminal/status": () => json(200, STATUS_BODY) });
+    renderConsole("/server");
+    const sections = await screen.findByRole("navigation", { name: "Server sections" });
+    await within(sections).findByRole("link", { name: "Services" });
+    expect(within(sections).queryByRole("link", { name: "Terminal" })).not.toBeInTheDocument();
   });
 });
