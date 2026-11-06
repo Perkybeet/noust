@@ -157,10 +157,19 @@ an application that moved to the other web server is still on it while the copy 
 is a service of the system that goes on answering: move the applications back and take Noust DNS away
 before you go back. [UPGRADING-4.1.md](UPGRADING-4.1.md#rolling-back) says how.
 
+## What 4.2 wrote that an earlier release ignores
+
+4.2 writes the store at schema 17: each account's Home panels (`account_dashboards`) and the ledger of the
+software Noust installed (`installed_software`). The copy that going back restores holds neither: the console
+of 4.1 draws its fixed Home, and software installed while on 4.2 stays installed but is no longer known to have
+been Noust's. Outside the store, the sign-in picture stays in `sign-in-image` under the state directory and 4.1
+does not show it, and a pause of the notifications (`notifications.muted_until`) ends. Nothing needs undoing
+first. [UPGRADING-4.2.md](UPGRADING-4.2.md#rolling-back) says how.
+
 ## What an upgrade guide says about it
 
 Each minor's upgrade guide has a "Rolling back" section that is specific to what that release
-changed: [4.1](UPGRADING-4.1.md#rolling-back), [4.0](UPGRADING-4.0.md#rolling-back),
+changed: [4.2](UPGRADING-4.2.md#rolling-back), [4.1](UPGRADING-4.1.md#rolling-back), [4.0](UPGRADING-4.0.md#rolling-back),
 [3.3](UPGRADING-3.3.md#rolling-back), [3.2](UPGRADING-3.2.md#rolling-back),
 [3.1](UPGRADING-3.1.md#rolling-back). Read it first: it names the files the release wrote that the
 older one ignores.

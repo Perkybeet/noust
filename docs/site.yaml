@@ -723,6 +723,10 @@ tabs:
             summary: Going back to an earlier Noust, and which releases can open which store.
       - title: Upgrading
         pages:
+          - source: docs/UPGRADING-4.2.md
+            slug: releases/upgrading-4.2
+            type: guide
+            summary: What to do before updating a 4.1 server or fleet to 4.2, where the console's pages went, and how to go back.
           - source: docs/UPGRADING-4.1.md
             slug: releases/upgrading-4.1
             type: guide
@@ -749,6 +753,10 @@ tabs:
             summary: From 2.x, upgrade to 3.3.x first.
       - title: Changelog
         pages:
+          - source: docs/CHANGELOG-4.2.md
+            slug: releases/changelog-4.2
+            type: reference
+            summary: What changed in 4.2.
           - source: docs/CHANGELOG-4.1.md
             slug: releases/changelog-4.1
             type: reference
