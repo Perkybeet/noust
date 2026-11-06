@@ -7,6 +7,7 @@ import { selfBackupKeys, selfBackupQuery } from "../../../api/queries/selfBackup
 import type { Bundle, SelfSchedule } from "../../../api/queries/selfBackup";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { RowMenu } from "../../../components/page/RowMenu";
@@ -21,6 +22,7 @@ import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { ICONS } from "../../../components/ui/icons";
 import { MenuItem, MenuSeparator } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
+import { Skeleton } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
@@ -249,6 +251,11 @@ export function SelfBackupPage() {
         {failure !== null ? <ErrorBlock live compact error={failure} title={t("selfBackup.passphrase.failed")} /> : null}
         {overview.isError && data === undefined ? (
           <ErrorBlock error={overview.error} title={t("selfBackup.loadFailed")} onRetry={() => void overview.refetch()} retrying={overview.isRefetching} />
+        ) : data === undefined ? (
+          <LoadingRegion label={t("common.queryState.loading", { label: t("selfBackup.caption") })} className="flex flex-col gap-6">
+            <Skeleton className="h-48 w-full rounded-card" />
+            <Skeleton className="h-40 w-full rounded-card" />
+          </LoadingRegion>
         ) : (
           <>
             {stateCard}
@@ -256,8 +263,6 @@ export function SelfBackupPage() {
             <DataTable<Bundle>
               caption={t("selfBackup.caption")}
               rows={bundles}
-              loading={data === undefined}
-              skeletonRows={3}
               getRowId={(bundle) => bundle.name}
               empty={<EmptyState variant="inline" title={t("selfBackup.table.empty")} description={t("selfBackup.table.emptyHint")} />}
               columns={[

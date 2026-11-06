@@ -176,7 +176,8 @@ export function ServiceColumn({ name }: { name: string }) {
         siblings={siblings}
         siblingsLabel={t("nav.column.switchService")}
       />
-      <ColumnList label={t("nav.landmarks.serviceSections")} groups={sections} />
+      {/* The state is a line of the head that arrives with the service: the list waits for it, as an application's does, and a service that cannot be read lists its sections all the same (each says why). */}
+      {service.data === undefined && !service.isError ? <SectionsSkeleton label={t("nav.landmarks.serviceSections")} /> : <ColumnList label={t("nav.landmarks.serviceSections")} groups={sections} />}
     </>
   );
 }
