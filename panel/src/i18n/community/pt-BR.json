@@ -14236,7 +14236,7 @@
   "settings.about.links.releaseNotes.label": "Notas da versão",
   "settings.about.links.releaseNotes.description": "O que mudou em cada versão.",
   "settings.about.links.reportProblem.label": "Relatar um problema",
-  "settings.about.links.reportProblem.description": "Inclua a saída de noust support report.",
+  "settings.about.links.reportProblem.description": "Pelo console: um zip com o que o servidor e esta aba viram, e o formulário do GitHub já preenchido.",
   "settings.about.links.getHelp.label": "Como obter ajuda",
   "settings.about.links.getHelp.description": "Onde perguntar e o que incluir.",
   "settingsHome.documentTitle": "Configurações",

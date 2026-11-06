@@ -14228,7 +14228,7 @@
   "settings.about.links.releaseNotes.label": "Release Notes",
   "settings.about.links.releaseNotes.description": "Was sich in jeder Version geändert hat.",
   "settings.about.links.reportProblem.label": "Ein Problem melden",
-  "settings.about.links.reportProblem.description": "Fügen Sie die Ausgabe von noust support report bei.",
+  "settings.about.links.reportProblem.description": "Aus der Konsole: ein Zip mit dem, was der Server und dieser Tab gesehen haben, und das ausgefüllte GitHub-Formular.",
   "settings.about.links.getHelp.label": "Hilfe erhalten",
   "settings.about.links.getHelp.description": "Wo Sie fragen können und was Sie angeben sollten.",
   "settingsHome.documentTitle": "Einstellungen",

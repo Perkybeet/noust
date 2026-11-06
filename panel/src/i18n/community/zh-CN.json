@@ -13929,7 +13929,7 @@
   "settings.about.links.releaseNotes.label": "发布说明",
   "settings.about.links.releaseNotes.description": "每个版本的变化。",
   "settings.about.links.reportProblem.label": "报告问题",
-  "settings.about.links.reportProblem.description": "请附上 noust support report 的输出。",
+  "settings.about.links.reportProblem.description": "在控制台中完成：一个包含服务器和此标签页所见内容的 zip，以及已填好的 GitHub 表单。",
   "settings.about.links.getHelp.label": "获取帮助",
   "settings.about.links.getHelp.description": "在哪里提问，以及要附上什么。",
   "settingsHome.documentTitle": "设置",

@@ -56,6 +56,19 @@ describe("Settings > About", () => {
     await expectNoAxeViolations(container);
   });
 
+  it("reports a problem from the console itself, not from a page of GitHub", { timeout: 20_000 }, async () => {
+    fakeBackend(aboutRoutes({ current_version: "4.0.0", latest_version: "4.0.0", has_update: false }));
+    const { user } = renderConsole("/settings/about");
+    await user.click(await screen.findByRole("button", { name: "Report a problem" }));
+    expect(await screen.findByRole("dialog", { name: "Report a problem" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Report a problem" })).not.toBeInTheDocument();
+    // The report's state outlives a test: it is closed before the next one.
+    await user.keyboard("{Escape}");
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Report a problem" })).not.toBeInTheDocument();
+    });
+  });
+
   it("shows the copyright, the licence, that there is no warranty and where the source is (AGPL-3.0, sections 5 and 13)", { timeout: 20_000 }, async () => {
     fakeBackend(aboutRoutes({ current_version: "4.0.0", latest_version: "4.0.0", has_update: false }));
     const { container } = renderConsole("/settings/about");

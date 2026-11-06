@@ -782,7 +782,7 @@ export const settings: Catalog<typeof en> = {
     links: {
       documentation: { label: "Documentación", description: "Instalación, despliegue y todos los comandos." },
       releaseNotes: { label: "Notas de versión", description: "Qué cambió en cada versión." },
-      reportProblem: { label: "Informar de un problema", description: "Incluye la salida de noust support report." },
+      reportProblem: { label: "Informar de un problema", description: "Desde la consola: un zip con lo que vieron el servidor y esta pesta\u00f1a, y el formulario de GitHub ya relleno." },
       getHelp: { label: "Obtener ayuda", description: "Dónde preguntar y qué incluir." },
     },
   },

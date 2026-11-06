@@ -20,7 +20,7 @@ import { ExternalLink } from "../../components/ui/ExternalLink";
 import { ICONS } from "../../components/ui/icons";
 import { Mono } from "../../components/ui/Mono";
 import { Skeleton } from "../../components/ui/Skeleton";
-import { TextLink } from "../../components/ui/TextLink";
+import { TextLink, textLinkClassName } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { isHttpUrl } from "../../lib/url";
@@ -32,6 +32,8 @@ import { InstallCheck } from "./InstallCheck";
 import { SupportReport } from "./SupportReport";
 import { UpdateNotes, WhatsNew } from "./WhatsNew";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
+import { useRenderedPathname } from "../../app/renderedPath";
+import { openReport } from "../report/store";
 
 type UpdateInfo = ResponseOf<"/api/system/version", "get">;
 
@@ -41,7 +43,6 @@ function links(t: T): readonly { label: string; href: string; description: strin
   return [
     { label: t("settings.about.links.documentation.label"), href: `${REPOSITORY}#readme`, description: t("settings.about.links.documentation.description") },
     { label: t("settings.about.links.releaseNotes.label"), href: `${REPOSITORY}/releases`, description: t("settings.about.links.releaseNotes.description") },
-    { label: t("settings.about.links.reportProblem.label"), href: `${REPOSITORY}/issues`, description: t("settings.about.links.reportProblem.description") },
     { label: t("settings.about.links.getHelp.label"), href: `${REPOSITORY}/blob/main/docs/SUPPORT.md`, description: t("settings.about.links.getHelp.description") },
   ];
 }
@@ -295,6 +296,7 @@ function LegalNotice() {
 /** Where the project lives and its legal notices. */
 function ProjectSection() {
   const t = useT();
+  const pathname = useRenderedPathname();
   return (
     <Section level={3} title={t("settings.about.project.title")}>
       <Card padding="sm">
@@ -307,6 +309,17 @@ function ProjectSection() {
               <span className="text-12 text-fg-muted">{link.description}</span>
             </li>
           ))}
+          {/* A problem is reported from the console itself, the same three steps the help menu opens. */}
+          <li className="flex min-w-0 flex-col gap-0.5">
+            <button
+              type="button"
+              className={textLinkClassName("inline", "w-fit cursor-pointer text-left text-13")}
+              onClick={() => void openReport({ from: "help", pathname })}
+            >
+              {t("settings.about.links.reportProblem.label")}
+            </button>
+            <span className="text-12 text-fg-muted">{t("settings.about.links.reportProblem.description")}</span>
+          </li>
         </ul>
       </Card>
       <LegalNotice />

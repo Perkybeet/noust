@@ -798,7 +798,7 @@ export const settings = {
     links: {
       documentation: { label: "Documentation", description: "Installing, deploying and every command." },
       releaseNotes: { label: "Release notes", description: "What changed in each version." },
-      reportProblem: { label: "Report a problem", description: "Include the output of noust support report." },
+      reportProblem: { label: "Report a problem", description: "From the console: a zip with what the server and this tab saw, and GitHub's form filled in." },
       getHelp: { label: "Getting help", description: "Where to ask, and what to include." },
     },
   },
