@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { mcpKeys, mcpStatusQuery, saveMcpSettings } from "../../../api/queries/mcp";
 import type { McpStatus, McpTool } from "../../../api/queries/mcp";
 import { useDocumentTitle } from "../../../app/documentTitle";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import { ErrorBlock, QueryState } from "../../../components/page/QueryState";
 import { Section, Sections } from "../../../components/page/Section";
@@ -124,7 +123,6 @@ export function McpSettings() {
               title={t("mcpSettings.state.title")} icon={OBJECT_ICONS.mcp}
               description={t("mcpSettings.state.description")}
               status={<StatusPill state={status.enabled ? "running" : "stopped"} label={status.enabled ? t("mcpSettings.state.on") : t("mcpSettings.state.off")} size="sm" />}
-              command={t("mcpSettings.commandEnable")}
             >
               <Setting
                 label={t("mcpSettings.state.label")}
@@ -184,7 +182,6 @@ export function McpSettings() {
               </div>
             </Section>
 
-            <CommandHint command={t("mcpSettings.commandToken")} />
           </>
         )}
       </QueryState>

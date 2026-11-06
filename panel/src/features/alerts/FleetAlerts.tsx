@@ -149,7 +149,7 @@ export function FleetAlerts({ search, onSearchChange }: FleetAlertsProps) {
   if (view.isError && view.data === undefined) {
     content = <ErrorBlock error={view.error} title={t("alerts.fleet.loadFailed")} onRetry={() => void view.refetch()} retrying={view.isRefetching} />;
   } else if (view.data !== undefined && rows.length === 0 && !isFiltered(search)) {
-    content = <EmptyState variant="firstUse" icon={<OBJECT_ICONS.alert />} title={t("alerts.rules.emptyTitle")} description={t("alerts.rules.emptyDescription")} command="noust alert list" />;
+    content = <EmptyState variant="firstUse" icon={<OBJECT_ICONS.alert />} title={t("alerts.rules.emptyTitle")} description={t("alerts.rules.emptyDescription")} />;
   } else {
     content = (
       <DataTable

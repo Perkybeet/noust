@@ -6,7 +6,6 @@ import { consoleExposureQuery, exposureKeys } from "../../../api/queries/console
 import type { ConsoleExposure } from "../../../api/queries/consoleExposure";
 import { jobKeys } from "../../../api/queries/jobs";
 import { useDocumentTitle } from "../../../app/documentTitle";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
@@ -195,7 +194,6 @@ export function ConsoleAccessSettings() {
 
           {exposure.exposed || stuck ? null : <Prerequisites exposure={exposure} lacking={lacking} />}
 
-          <CommandHint command="noust console expose --domain console.example.com --allow-ip 203.0.113.0/24" label={t("common.words.fromTerminal")} />
         </>
       )}
 

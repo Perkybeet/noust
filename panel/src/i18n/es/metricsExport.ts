@@ -10,6 +10,4 @@ export const metricsExport: Catalog<typeof en> = {
   copyConfig: "Copiar la entrada de Prometheus",
   credential: "El recolector necesita un token que solo pueda leer, en el archivo indicado arriba. Crea uno en {tokens}; no hace falta nada más, y no puede cambiar nada.",
   tokensLink: "Tokens de API",
-  createToken: "Crear el token desde un terminal",
-  fromTerminal: "El mismo texto, desde un terminal",
 };

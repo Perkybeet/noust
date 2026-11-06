@@ -163,7 +163,6 @@ export function TokensSettings() {
               title={t("settings.tokens.emptyTitle")}
               description={t("accounts.tokens.emptyDescription")}
               action={create}
-              command="noust token create ci-deploy --scope deploy --expires-hours 2160 --owner NAME"
             />
           }
         >
@@ -202,7 +201,7 @@ export function TokensSettings() {
       {/* Under a list of unknown length: drawn with it, never pushed down the page by it. */}
       {query.data !== undefined || query.isError ? (
         <Section title={t("settings.tokens.usingTitle")} description={t("settings.tokens.usingDescription")}>
-          <CommandHint command={`curl -H "Authorization: Bearer noust_tok_..." ${window.location.origin}/api/apps`} />
+          <CommandHint command={`curl -H "Authorization: Bearer noust_tok_..." ${window.location.origin}/api/apps`} label={t("settings.tokens.usingFrom")} reason="otro-servidor" />
         </Section>
       ) : null}
 

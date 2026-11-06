@@ -1,5 +1,4 @@
 import { useDocumentTitle } from "../../../app/documentTitle";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { Sections } from "../../../components/page/Section";
 import { useT } from "../../../i18n";
 import { StatusPageSection } from "./StatusPageSection";
@@ -11,7 +10,6 @@ export function StatusPageSettings() {
   return (
     <Sections>
       <StatusPageSection />
-      <CommandHint command="noust probe status-page show" label={t("common.words.fromTerminal")} />
     </Sections>
   );
 }

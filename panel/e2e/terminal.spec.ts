@@ -175,7 +175,7 @@ test("a command runs once, as a job, and its output is shown as it was printed",
   const argv = page.getByRole("list", { name: "Run as" });
   await expect(argv.getByRole("listitem")).toHaveText(["echo", "hello", "two words", "|", "wc"]);
   await expect(page.getByText("These are passed as text, not interpreted: |")).toBeVisible();
-  await expect(page.getByText("noust app exec tienda.example.org -- echo hello 'two words' '|' wc")).toBeVisible();
+  await expect(page.getByText(/noust app exec/)).toHaveCount(0);
 
   await command.fill("echo hello world");
   await page.getByRole("button", { name: "Run command" }).click();

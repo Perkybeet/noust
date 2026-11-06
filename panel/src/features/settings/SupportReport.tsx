@@ -4,7 +4,6 @@ import { useState } from "react";
 
 import { request } from "../../api/client";
 import type { SupportReport as Report } from "../../api/queries/system";
-import { CommandHint } from "../../components/page/CommandHint";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Section } from "../../components/page/Section";
 import { Button } from "../../components/ui/Button";
@@ -75,7 +74,6 @@ export function SupportReport() {
             </div>
           </Card>
         ) : null}
-        <CommandHint label={t("settings.about.supportReport.fromTerminal")} command="noust support report" />
       </div>
     </Section>
   );

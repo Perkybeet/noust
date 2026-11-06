@@ -155,7 +155,6 @@ export const server: Catalog<typeof en> = {
     proofUnreadableDetail:
       "Conservar el cambio queda desactivado porque Noust no puede distinguir un acceso nuevo de uno anterior. Entra desde un terminal nuevo y conserva el cambio desde el servidor.",
     proofUnreadableLabel: "Por qué no se pueden leer los accesos",
-    fromTerminal: "O, en el servidor",
     id: "Cambio {id}",
     confirm: "Conservar el cambio",
     confirmFailed: "No se pudo conservar el cambio",

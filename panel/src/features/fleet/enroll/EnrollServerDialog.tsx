@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 
 import { ElevationCancelledError, request } from "../../../api/client";
 import { isJobFinished, jobKeys, useFollowedJob } from "../../../api/queries/jobs";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Stepper } from "../../../components/page/Stepper";
@@ -272,7 +271,6 @@ export function EnrollServerDialog({ open, onClose, onManual, onLink }: EnrollSe
               {t("enroll.linkInstead")}
             </Button>
           ) : null}
-          <CommandHint command="noust fleet enroll web-2 --host 203.0.113.9" label={t("common.words.fromTerminal")} />
         </div>
         {scan.isError ? <ErrorBlock live compact error={scan.error} title={t("enroll.hostKey.scanFailed")} /> : null}
       </form>

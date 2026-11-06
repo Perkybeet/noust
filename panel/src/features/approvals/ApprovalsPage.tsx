@@ -5,7 +5,6 @@ import { useMemo, useState } from "react";
 import { sendApproved } from "../../api/client";
 import { sessionQuery } from "../../api/queries/auth";
 import { useDocumentTitle } from "../../app/documentTitle";
-import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { KeyValueList } from "../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../components/page/KeyValueList";
@@ -286,7 +285,6 @@ export function ApprovalsPage({ search, onSearchChange }: ApprovalsPageProps) {
           </QueryState>
         </div>
       </Section>
-      <CommandHint label={t("common.words.fromTerminal")} command="noust approval list" />
       {opened !== null ? <ApprovalDrawer key={opened.id} approval={opened} onClose={() => setOpen(null)} /> : null}
     </Sections>
   );

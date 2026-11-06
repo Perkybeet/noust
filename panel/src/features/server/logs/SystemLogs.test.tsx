@@ -74,7 +74,7 @@ describe("Logs from the system", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Logs" })).toBeInTheDocument();
     expect(await screen.findByRole("radio", { name: "System" })).toBeChecked();
     expect(screen.getByRole("radio", { name: "Applications" })).not.toBeChecked();
-    expect(await screen.findByText("noust server logs --since -1h")).toBeInTheDocument();
+    expect(screen.queryByText(/noust server logs/)).not.toBeInTheDocument();
   });
 
   it("puts the pickers into the query as fields", async () => {

@@ -225,7 +225,6 @@ export const servers: Catalog<typeof en> = {
     continueNote: "La consola sigue funcionando en esta máquina; sus servidores quedan fuera de alcance hasta que la desbloquees.",
     lostPassphrase: "Nadie puede recuperar una frase de paso perdida. Sin ella, hay que volver a autorizar todos los servidores.",
     unlockedToast: "Desbloqueada: los servidores vuelven a estar al alcance",
-    fromTerminal: "O desde un terminal en la central",
     bannerTitle: "Esta central está bloqueada",
     bannerDescription: "Sus servidores están fuera de alcance hasta que desbloquees sus secretos sellados.",
     bannerAction: "Desbloquear",

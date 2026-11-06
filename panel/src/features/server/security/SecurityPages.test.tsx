@@ -7,7 +7,7 @@ import { SESSION, fakeBackend, json, problem, signedInRoutes } from "../../../te
 import type { RouteHandler } from "../../../test/fakes";
 import { ITEMS, softwareRoutes } from "../software/testFixtures";
 import { fleetRoutes } from "../../fleet/testFixtures";
-import { FAIL2BAN, SSH, onDesktop, serverRoutes } from "../testing";
+import { CHECKS, FAIL2BAN, SSH, onDesktop, serverRoutes } from "../testing";
 
 beforeEach(onDesktop);
 
@@ -54,6 +54,30 @@ describe("Security > Checks", () => {
     const passwords = within(findings).getByText("SSH accepts passwords").closest("li");
     if (passwords === null) throw new Error("no row");
     expect(within(passwords).getByRole("button", { name: "Fix…" })).toBeInTheDocument();
+  });
+
+  it("does not repeat in the dialog of a fix the command its own button runs", async () => {
+    const { user } = page("/security");
+    const findings = await screen.findByRole("list", { name: "Open findings" });
+    const passwords = within(findings).getByText("SSH accepts passwords").closest("li");
+    if (passwords === null) throw new Error("no row");
+    await user.click(within(passwords).getByRole("button", { name: "Fix…" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByRole("heading", { name: "Fix: SSH accepts passwords" })).toBeInTheDocument();
+    expect(within(dialog).queryByText("noust server security fix ssh.password_auth")).not.toBeInTheDocument();
+  });
+
+  it("gives a fix that has no button its command, and says why it is shown: only the terminal does it", async () => {
+    const command = "noust server security fix fw.docker_bypass";
+    const checks = { ...CHECKS, checks: CHECKS.checks.map((check) => (check.id === "fw.docker_bypass" && check.fix ? { ...check, fix: { ...check.fix, cli: command } } : check)) };
+    const { user } = page("/security", { "GET /api/server/security/checks": () => json(200, checks) });
+    const findings = await screen.findByRole("list", { name: "Open findings" });
+    const docker = within(findings).getByText("Docker publishes ports around the firewall").closest("li");
+    if (docker === null) throw new Error("no row");
+    await user.click(within(docker).getByRole("button", { name: "How to fix" }));
+    const drawer = await screen.findByRole("dialog");
+    expect(within(drawer).getByText(command)).toBeInTheDocument();
+    expect(within(drawer).getByText("Only from a terminal")).toBeInTheDocument();
   });
 
   it("says where what is well is kept, and where a framework is chosen", async () => {

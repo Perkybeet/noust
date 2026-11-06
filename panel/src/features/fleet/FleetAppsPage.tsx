@@ -4,7 +4,6 @@ import { Play, X } from "lucide-react";
 import { useMemo } from "react";
 
 import { appsViewQuery } from "../../api/queries/views";
-import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
 import { ListPage } from "../../components/page/ListPage";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -217,7 +216,6 @@ export function FleetAppsPage({ search, onSearchChange }: FleetAppsPageProps) {
           />
         </div>
       }
-      {...(view.isPending ? {} : { footer: <CommandHint command="noust fleet apps" label={t("common.words.fromTerminal")} /> })}
     >
       <AppsTable
         apps={shown}

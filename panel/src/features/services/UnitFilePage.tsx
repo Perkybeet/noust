@@ -12,7 +12,6 @@ import { useState } from "react";
 
 import { isApiError } from "../../api/client";
 import { serviceConfigQuery } from "../../api/queries/services";
-import { CommandHint } from "../../components/page/CommandHint";
 import { FileEditorPage } from "../../components/page/FileEditorPage";
 import { ErrorBlock, QueryState } from "../../components/page/QueryState";
 import { Button, buttonClassName } from "../../components/ui/Button";
@@ -125,7 +124,6 @@ export function UnitFilePage({ name }: { name: string }) {
         testing: verifyUnit.isPending && !updateConfig.isPending,
         saving: updateConfig.isPending,
       }}
-      footer={<CommandHint command={`noust service status ${name}`} label={t("common.words.fromTerminal")} />}
     >
       {/* A unit file can hold secrets written into it, so reading one takes `secrets.reveal`: a role without it is told that, and not given the server's bare refusal. */}
       {config.isError && isApiError(config.error) && config.error.status === 403 ? (

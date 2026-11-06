@@ -19,7 +19,6 @@ import {
 import type { BackupSettings, ConsoleConfig, DeliverySettings, SslSettings, WebSettings } from "../../api/queries/config";
 import { machineQuery } from "../../api/queries/system";
 import { useDocumentTitle } from "../../app/documentTitle";
-import { CommandHint } from "../../components/page/CommandHint";
 import { KeyValueList, KeyValueListSkeleton } from "../../components/page/KeyValueList";
 import { QueryState } from "../../components/page/QueryState";
 import { SaveBar } from "../../components/page/SaveBar";
@@ -390,7 +389,6 @@ function GeneralForm({ loaded, hostname }: { loaded: Loaded; hostname: string | 
       {hub ? null : <ServerFreezeSection />}
 
       <Details loaded={loaded} />
-      <CommandHint command="noust config show" label={t("settings.general.fromTerminal")} />
       <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} />
     </>
   );

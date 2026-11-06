@@ -4,7 +4,6 @@ import type { SyntheticEvent } from "react";
 
 import { connectGitLab, gitlabKeys, saveGitLabOAuthApp, startGitLabSignIn } from "../../../api/queries/gitlab";
 import type { GitLabStatus } from "../../../api/queries/gitlab";
-import { CommandHint } from "../../../components/page/CommandHint";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { SegmentedControl } from "../../../components/page/SegmentedControl";
 import { Button } from "../../../components/ui/Button";
@@ -13,6 +12,7 @@ import { Dialog } from "../../../components/ui/Dialog";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Notice } from "../../../components/ui/Notice";
+import { TextLink } from "../../../components/ui/TextLink";
 import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import { splitErrors } from "../formErrors";
@@ -141,8 +141,15 @@ export function ConnectGitLabDialog({ open, status, onClose }: ConnectGitLabDial
             <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("gitlab.dialog.oauthHelp")}</p>
             {status.redirect_uri === null ? (
               <Notice tone="warning">
-                <p className="text-pretty">{t("gitlab.dialog.noRedirect")}</p>
-                <CommandHint command="noust config set web.public_url https://console.example.com" />
+                <p className="text-pretty">
+                  {t.rich("gitlab.dialog.noRedirect", {
+                    general: (
+                      <TextLink key="general" to="/settings/general">
+                        {t("settings.about.version.generalLink")}
+                      </TextLink>
+                    ),
+                  })}
+                </p>
               </Notice>
             ) : registered === undefined ? (
               <>

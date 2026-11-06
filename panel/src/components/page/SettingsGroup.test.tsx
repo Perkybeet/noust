@@ -56,20 +56,10 @@ describe("SettingsGroup", () => {
     expect(screen.getByText("Each deploy is kept apart; going back takes seconds.")).toBeInTheDocument();
   });
 
-  it("says the command once, at the foot", () => {
-    render(
-      <SettingsGroup title="Backups" command="noust app backup-required shop.example.com on">
-        <Setting label="Required backup" checked onCheckedChange={() => undefined} />
-      </SettingsGroup>,
-    );
-    expect(screen.getAllByText("noust app backup-required shop.example.com on")).toHaveLength(1);
-    expect(screen.getByRole("button", { name: "Copy command" })).toBeInTheDocument();
-  });
-
   it("has no accessibility violations", async () => {
     const { container } = render(
       <main>
-        <SettingsGroup title="Notifications" status={<StatusPill state="running" label="On" size="sm" />} command="noust notify status">
+        <SettingsGroup title="Notifications" status={<StatusPill state="running" label="On" size="sm" />}>
           <Setting label="Send notifications" help="Nothing is sent until a channel is set up." checked onCheckedChange={() => undefined} />
           <Setting label="Quiet hours" action={<Button size="sm">Set…</Button>} />
         </SettingsGroup>

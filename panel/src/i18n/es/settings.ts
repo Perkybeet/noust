@@ -17,7 +17,6 @@ export const settings: Catalog<typeof en> = {
     documentTitle: "Ajustes generales",
     what: "los ajustes generales",
     notSaved: "No se guardaron los ajustes generales",
-    fromTerminal: "Todos los ajustes, desde un terminal",
     notWritableTitle: "Guardar fallará",
     notWritable: "La consola no puede escribir en {path}. Comprueba su propietario y sus permisos.",
     server: {
@@ -194,6 +193,7 @@ export const settings: Catalog<typeof en> = {
     revokeText: "Revocar",
     usingTitle: "Usar un token",
     usingDescription: "Envíalo en la cabecera Authorization. Un token no puede abrir la consola en un navegador; es solo para la API.",
+    usingFrom: "Desde la máquina que llama a la API",
     revokeDialogTitle: "Revocar {name}",
     revokeDialogDescription: "Las solicitudes que presenten este token dejan de funcionar de inmediato. No se puede reactivar, y su nombre queda reservado para que el registro de auditoría siempre nombre un único token.",
     revokeAction: "Revocar token",
@@ -698,10 +698,9 @@ export const settings: Catalog<typeof en> = {
       indexBehindDescription: "El gestor de paquetes instala lo que lista su índice, y el sistema lo actualiza más o menos una vez al día. Actualízalo ahora y después se podrá instalar la actualización.",
       refreshIndex: "Actualizar el índice de paquetes",
       refreshingIndex: "Actualizando el índice de paquetes",
-      refreshFromTerminal: "Actualizar desde un terminal",
       refreshFailed: "No se pudo actualizar el índice de paquetes",
       available: "Se puede instalar la versión {version}",
-      updateFromTerminal: "Actualizar desde un terminal",
+      updateLink: "Actualizar Noust",
       upToDate: "Al día: {version} es la versión más reciente.",
       unknown: "No se pudo saber si hay una versión más nueva.",
       unknownHint: "El servidor pregunta a GitHub y al repositorio desde el que instala Noust. Comprueba que puede llegar a ellos y vuelve a comprobarlo.",
@@ -744,7 +743,6 @@ export const settings: Catalog<typeof en> = {
       listLabel: "Comprobaciones de {section}",
       status: { ok: "Superada", info: "Opcional", warn: "Aviso", fail: "Falta" },
       fix: "Arreglo",
-      fromTerminal: "Desde un terminal",
     },
     supportReport: {
       title: "Informe de soporte",
@@ -759,7 +757,6 @@ export const settings: Catalog<typeof en> = {
       journalLeftOut: "El diario queda fuera: leerlo requiere el derecho de revelar secretos.",
       copy: "Copiar el informe",
       download: "Descargar el informe",
-      fromTerminal: "Desde un terminal",
     },
     installation: {
       title: "Esta instalación",
@@ -787,14 +784,6 @@ export const settings: Catalog<typeof en> = {
       releaseNotes: { label: "Notas de versión", description: "Qué cambió en cada versión." },
       reportProblem: { label: "Informar de un problema", description: "Incluye la salida de noust support report." },
       getHelp: { label: "Obtener ayuda", description: "Dónde preguntar y qué incluir." },
-    },
-    terminal: {
-      title: "Comandos del propio Noust",
-      installedVersion: "Versión instalada",
-      showConfig: "Mostrar la configuración vigente",
-      checkMachine: "Comprobar esta máquina",
-      consoleStatus: "Estado de la consola",
-      restartConsole: "Reiniciar la consola",
     },
   },
 };

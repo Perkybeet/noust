@@ -284,7 +284,7 @@ export function LinkServerDialog({ open, onClose }: LinkServerDialogProps) {
                   <li key={problem}>{problem}</li>
                 ))}
               </ul>
-              <CommandHint command={status.data.setup_command} label={t("servers.link.notReady.run")} />
+              <CommandHint command={status.data.setup_command} label={t("servers.link.notReady.run")} reason="otro-servidor" />
             </div>
           </Notice>
         ) : null}

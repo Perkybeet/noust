@@ -8,14 +8,12 @@
 
 import { Suspense, lazy } from "react";
 
-import { CommandHint } from "../../components/page/CommandHint";
 import { ListPage } from "../../components/page/ListPage";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { SkeletonCard } from "../../components/ui/Skeleton";
 import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import { AppsLogs } from "./AppsLogs";
-import { searchCommand } from "./data";
 import type { LogsSearch } from "./data";
 
 // The system's source brings the timeline and the context drawer: only whoever asks for it loads them.
@@ -36,7 +34,6 @@ export function LogSearchPage({ search, onSearchChange }: LogSearchPageProps) {
         description: t("logs.description"),
         secondaryActions: <TextLink to="/settings/log-shipping">{t("logs.retentionLink")}</TextLink>,
       }}
-      footer={<CommandHint command={searchCommand(search)} label={t("common.words.fromTerminal")} />}
     >
       {search.source === "system" ? (
         <Suspense

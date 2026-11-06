@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 
 import { configQuery, patchConfig } from "../../api/queries/config";
 import { useDocumentTitle } from "../../app/documentTitle";
-import { CommandHint } from "../../components/page/CommandHint";
 import { SaveBar } from "../../components/page/SaveBar";
 import { QueryState } from "../../components/page/QueryState";
 import { Sections } from "../../components/page/Section";
@@ -46,7 +45,6 @@ export function ChecksPage() {
         {() => <Thresholds form={form} />}
       </QueryState>
       <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} />
-      <CommandHint command="noust config get monitor.disk_threshold" label={t("common.words.sameFromTerminal")} />
     </Sections>
   );
 }

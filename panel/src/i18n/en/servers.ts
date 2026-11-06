@@ -225,7 +225,6 @@ export const servers = {
     continueNote: "The console still works on this machine; its servers stay out of reach until you unlock.",
     lostPassphrase: "Nobody can recover a lost passphrase. Without it, every server has to be authorized again.",
     unlockedToast: "Unlocked: the servers are within reach again",
-    fromTerminal: "Or from a terminal on the central",
     bannerTitle: "This central is locked",
     bannerDescription: "Its servers are out of reach until you unlock its sealed secrets.",
     bannerAction: "Unlock",

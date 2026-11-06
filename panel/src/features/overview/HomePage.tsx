@@ -4,7 +4,6 @@ import { LayoutGrid } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { sessionQuery } from "../../api/queries/auth";
-import { CommandHint } from "../../components/page/CommandHint";
 import { DashboardPage } from "../../components/page/DashboardPage";
 import { Sections } from "../../components/page/Section";
 import { Button, buttonClassName } from "../../components/ui/Button";
@@ -190,11 +189,9 @@ function PanelView({ panel, panels, customising }: { panel: Panel; panels: Panel
             primaryAction: <NewAppLink scope={panel.scope} />,
           }),
   };
-  const footer = <CommandHint label={t("common.words.fromTerminal")} command={empty ? "noust create --temporary -s https://github.com/you/app" : panel.scope === "fleet" ? "noust fleet apps" : "noust health"} />;
-
   if (empty) {
     return (
-      <DashboardPage header={header} footer={footer}>
+      <DashboardPage header={header}>
         <Sections>
           <FirstSteps backupsScheduled={home.backupsScheduled} />
         </Sections>
@@ -203,7 +200,7 @@ function PanelView({ panel, panels, customising }: { panel: Panel; panels: Panel
   }
 
   return (
-    <DashboardPage header={header} footer={footer}>
+    <DashboardPage header={header}>
       {customising ? (
         <div className="-mt-4 mb-4 flex items-center gap-1 text-13 text-fg-muted">
           <p>{t("overview.panels.moveHint")}</p>
