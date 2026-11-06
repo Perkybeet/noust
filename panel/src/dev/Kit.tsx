@@ -220,7 +220,6 @@ function Empties() {
               title="No applications yet"
               description="Deploy a repository and Noust builds it, runs it as a service and serves it over HTTPS."
               action={<Button variant="primary">New application</Button>}
-              command="noust create -d example.com -s https://github.com/you/app"
             />
           </Stage>
         </Item>

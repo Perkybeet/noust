@@ -349,7 +349,6 @@ export const KIT_HEIGHTS: Readonly<Record<string, readonly Height[]>> = {
   "components/ui/Switch.tsx": ["carved", "raised"],
   "components/ui/Progress.tsx": ["carved"],
   "components/ui/CopyValue.tsx": ["carved"],
-  "components/ui/EmptyState.tsx": ["carved"],
   "components/ui/FirstUse.tsx": ["carved"],
   "components/ui/LogoTile.tsx": ["carved"],
   "components/page/SegmentedControl.tsx": ["carved", "raised"],

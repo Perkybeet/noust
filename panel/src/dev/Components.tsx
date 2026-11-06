@@ -800,7 +800,6 @@ function Cards() {
             New application
           </Button>
         }
-        command="noust create -d example.com -s git@github.com:you/app.git"
       />
     </Section>
   );

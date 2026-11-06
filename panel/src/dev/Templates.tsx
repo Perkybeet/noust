@@ -459,7 +459,6 @@ export function Templates() {
               title="No backups yet"
               description="A backup copies an application's files, its .env and its databases."
               action={<Button>Create backup</Button>}
-              command="noust backup create shop.example.com"
             />
           </ListPage>
         </Frame>
