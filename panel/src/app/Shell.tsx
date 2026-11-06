@@ -242,7 +242,7 @@ export function Shell() {
             />
             <Drawer open={accountOpen} onOpenChange={setAccountOpen} placement="bottom" title={t("shell.session.title")} description={sessionDescription}>
               <div className="px-4">
-                <SessionMenu onClose={() => setAccountOpen(false)} onOpenShortcuts={openShortcuts} />
+                <SessionMenu onClose={() => setAccountOpen(false)} onOpenShortcuts={openShortcuts} withHelp />
               </div>
             </Drawer>
           </>
