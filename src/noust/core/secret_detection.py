@@ -525,11 +525,13 @@ _BEARER = re.compile(r"(?i)\b(Bearer\s+)[A-Za-z0-9._~+/=\-]{16,}")
 #: ``DB_PASSWORD``, ``X-Api-Key``, ``client_secret``) so ``tokenizer`` and
 #: ``bypass`` are left alone; the value is at least six characters, as
 #: everything the value-based scrubber ignores shorter than that, and
-#: ``***`` (what an earlier pass wrote) is too short to be masked twice.
+#: ``***`` (what an earlier pass wrote) is too short to be masked twice. The
+#: scheme word is never the value: ``Authorization: Bearer ***`` masked again
+#: would otherwise find "Bearer" itself six characters to hide.
 _ASSIGNED_SECRET = re.compile(
     r"(?i)((?<![A-Za-z])(?:password|passwd|secret|token|api[_-]?key|private[_-]?key|"
     r"access[_-]?key|authorization)(?![A-Za-z])[A-Za-z0-9_.\-]*[\"']?\s*[=:]\s*"
-    r"(?:(?:bearer|basic|token)\s+)?[\"']?)([^\s\"'&;,<>]{6,})"
+    r"(?:(?:bearer|basic|token)\s+)?[\"']?)(?!(?:bearer|basic|token)\b)([^\s\"'&;,<>]{6,})"
 )
 
 

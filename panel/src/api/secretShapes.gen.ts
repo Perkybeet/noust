@@ -41,7 +41,7 @@ export const SECRET_SHAPES: readonly SecretShape[] = [
   { name: "telegram bot token", source: "\\b[0-9]{8,10}:[A-Za-z0-9_\\-]{30,}\\b", flags: "g", keepHead: false },
   { name: "api key", source: "\\bsk-[A-Za-z0-9_\\-]{32,}\\b", flags: "g", keepHead: false },
   { name: "jwt", source: "\\beyJ[A-Za-z0-9_\\-]{8,}\\.eyJ[A-Za-z0-9_\\-]{8,}\\.[A-Za-z0-9_\\-]{8,}", flags: "g", keepHead: false },
-  { name: "assigned secret", source: "((?<![A-Za-z])(?:password|passwd|secret|token|api[_-]?key|private[_-]?key|access[_-]?key|authorization)(?![A-Za-z])[A-Za-z0-9_.\\-]*[\\\"']?\\s*[=:]\\s*(?:(?:bearer|basic|token)\\s+)?[\\\"']?)([^\\s\\\"'&;,<>]{6,})", flags: "gi", keepHead: true },
+  { name: "assigned secret", source: "((?<![A-Za-z])(?:password|passwd|secret|token|api[_-]?key|private[_-]?key|access[_-]?key|authorization)(?![A-Za-z])[A-Za-z0-9_.\\-]*[\\\"']?\\s*[=:]\\s*(?:(?:bearer|basic|token)\\s+)?[\\\"']?)(?!(?:bearer|basic|token)\\b)([^\\s\\\"'&;,<>]{6,})", flags: "gi", keepHead: true },
   { name: "bearer", source: "\\b(Bearer\\s+)[A-Za-z0-9._~+/=\\-]{16,}", flags: "gi", keepHead: true },
   { name: "url credentials", source: "(?<![A-Za-z0-9+.\\-])([A-Za-z][A-Za-z0-9+.\\-]*://[^:/?#@\\s]*:)[^@\\s/?#]*(?=@)", flags: "g", keepHead: true },
 ];
@@ -66,6 +66,7 @@ export const SECRET_SHAPE_CASES: readonly SecretShapeCase[] = [
   { name: "a token at the start of the line", text: "ghp_abcdefghijklmnopqrstuvwxyz0123456789", masked: "***" },
   { name: "a token given to curl", text: "curl -u glpat-abcdefghij0123456789 https://x.example.test", masked: "curl -u *** https://x.example.test" },
   { name: "an authorization header keeps its scheme", text: "Authorization: Bearer abcdefghijklmnop12345", masked: "Authorization: Bearer ***" },
+  { name: "an authorization header already masked keeps its scheme", text: "Authorization: Bearer ***", masked: "Authorization: Bearer ***" },
   { name: "a basic authorization header", text: "authorization: basic dXNlcjpwYXNzd29yZA==", masked: "authorization: basic ***" },
   { name: "a bearer token in a curl line", text: "curl -H 'Authorization: Bearer abcdefghijklmnop12345' x", masked: "curl -H 'Authorization: Bearer ***' x" },
   { name: "a bare bearer credential", text: "sent Bearer abcdefghijklmnopqrstuvwxyz to the api", masked: "sent Bearer *** to the api" },

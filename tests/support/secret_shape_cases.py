@@ -94,6 +94,9 @@ CASES: tuple[ShapeCase, ...] = (
         "Authorization: Bearer abcdefghijklmnop12345",
         f"Authorization: Bearer {MASK}",
     ),
+    _keeps(
+        "an authorization header already masked keeps its scheme", f"Authorization: Bearer {MASK}"
+    ),
     _hides(
         "a basic authorization header",
         "authorization: basic dXNlcjpwYXNzd29yZA==",

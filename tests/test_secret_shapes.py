@@ -27,6 +27,7 @@ from noust.core.secret_detection import mask_secret_shapes
 from noust.core.store import App, NoustStore
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app, get_token_manager
+from tests.support.secret_shape_cases import CASES, ShapeCase
 
 KNOWN: dict[str, str] = {
     "github token": "ghp_abcdefghijklmnopqrstuvwxyz0123456789",
@@ -246,6 +247,13 @@ def test_an_ordinary_line_is_returned_unchanged() -> None:
     line = "2026-10-13T10:00:01+0000 web-01 noust-web[412]: GET /api/apps 200 12ms"
 
     assert mask_secret_shapes(line) == line
+
+
+@pytest.mark.parametrize("case", CASES, ids=lambda case: case.name)
+def test_every_case_masked_again_stays_as_it_was(case: ShapeCase) -> None:
+    once = mask_secret_shapes(case.text)
+
+    assert mask_secret_shapes(once) == once
 
 
 def test_a_placeholder_is_not_hidden_twice() -> None:
