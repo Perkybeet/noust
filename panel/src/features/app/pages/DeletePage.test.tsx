@@ -119,6 +119,8 @@ describe("the page of deleting an application", () => {
   it("says plainly that it could not read what deleting would touch, and does not guess", async () => {
     fakeBackend(settingsRoutes(IN_PLACE_APP, { [`GET /api/apps/${DOMAIN}/deletion`]: () => json(500, { error: "boom", detail: "The plan could not be read." }) }));
     renderConsole(`/apps/${DOMAIN}/delete`);
+    expect(await screen.findByText(`Could not read what deleting ${DOMAIN} would touch`)).toBeInTheDocument();
+    expect(screen.getByText("The plan could not be read.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Delete…" })).not.toBeInTheDocument();
   });
 });
