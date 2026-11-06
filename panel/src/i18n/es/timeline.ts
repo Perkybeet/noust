@@ -35,7 +35,7 @@ export const timeline: Catalog<typeof en> = {
     memoryCaption: "Los procesos con más memoria a las {time}",
     pid: "PID",
     process: "Proceso",
-    owner: "Pertenece a",
+    owner: "Es de",
     user: "Usuario",
     cpu: "CPU",
     memory: "Memoria",
