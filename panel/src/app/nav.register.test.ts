@@ -446,7 +446,7 @@ describe("6. the palette finds every screen", () => {
 
   it("says where each one lives, in words", () => {
     const byId = new Map(entries.map((entry) => [entry.id, entry.path]));
-    expect(byId.get("server.updates")).toBe("Servers › System updates");
+    expect(byId.get("server.updates")).toBe("Servers › Updates");
     expect(byId.get("network.tunnels")).toBe("Network › Tunnels");
     expect(byId.get("security.ssh")).toBe("Security › SSH");
     expect(byId.get("alerts.probes")).toBe("Alerts › Probes");
@@ -627,7 +627,7 @@ describe("what the pages draw from the register", () => {
     expect(paths(tabsOf(FLEET_SERVERS_SCREENS))).toEqual(["/fleet/servers", "/fleet/updates", "/fleet/software"]);
     expect(paths(tabsById("server"))).toEqual(["/server", "/server/machine", "/server/processes", "/server/monitor", "/server/updates", "/server/services", "/server/webserver", "/server/software", "/server/files", "/server/central"]);
     expect(paths(tabsById("network"))).toEqual(["/network", "/network/tunnels", "/network/firewall", "/network/listening", "/network/interfaces"]);
-    expect(paths(tabsById("security"))).toEqual(["/security", "/security/ssh", "/security/blocks"]);
+    expect(paths(tabsById("security"))).toEqual(["/security", "/security/ssh", "/security/blocks", "/security/waf", "/security/access"]);
     expect(paths(tabsById("backups"))).toEqual(["/backups", "/backups/schedules", "/backups/volumes", "/backups/noust", "/backups/destinations"]);
     expect(paths(tabsById("domains"))).toEqual(["/domains", "/domains/sites", "/domains/certificates", "/domains/dns"]);
     expect(paths(tabsById("apps"))).toEqual(["/apps", "/projects"]);

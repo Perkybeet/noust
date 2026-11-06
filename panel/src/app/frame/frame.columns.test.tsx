@@ -110,7 +110,7 @@ describe("every area has a column", () => {
 
   it("lists the machine's sections, Security's in its own column and the Server's in its own", async () => {
     await shellAt("/security");
-    expect(links(await screen.findByRole("navigation", { name: "Security sections" }))).toEqual(["Checks", "SSH", "Brute force"]);
+    expect(links(await screen.findByRole("navigation", { name: "Security sections" }))).toEqual(["Checks", "SSH", "Blocks", "Web firewall (WAF)", "Access and sessions"]);
   });
 
   it("has Databases' own column with the engines, and Settings' with its groups, as before", async () => {

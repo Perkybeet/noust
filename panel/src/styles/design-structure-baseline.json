@@ -148,7 +148,6 @@
       "features/promotion/CloneDialog.tsx": 1,
       "features/promotion/PromoteDialog.tsx": 1,
       "features/server/PowerDialog.tsx": 1,
-      "features/server/system/SystemCards.tsx": 2,
       "features/server/useMonitorActions.ts": 2,
       "features/services/CreateServiceDialog.tsx": 1,
       "features/services/useServiceActions.ts": 2,

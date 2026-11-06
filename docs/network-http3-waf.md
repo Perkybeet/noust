@@ -96,7 +96,7 @@ installed. **Who is never banned** matters more than who is: a ban is made from 
 logs, which behind a CDN is the CDN's, and banning a CDN's edge takes every site behind it down. So
 besides who is connected over SSH now and the console's client, Cloudflare's published ranges and every
 proxy a site declares (`real_ip custom`) are ignored. A site behind a CDN Noust does not know about has
-to declare it first. A file fail2ban refuses is put back. Console: **Server, Security, Brute force**.
+to declare it first. A file fail2ban refuses is put back. Console: **Security, Blocks**.
 API: `POST /api/server/security/fail2ban/web` (sudo mode). Bans lift like the SSH ones
 (`noust server security fail2ban unban ADDRESS`).
 

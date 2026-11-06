@@ -199,7 +199,7 @@ test.describe("the main bar and the column", () => {
     await expect(page.locator('[data-frame="column"]')).toHaveCount(1);
     await page.goto("/security");
     const security = column(page, "Security sections");
-    for (const name of ["Checks", "SSH", "Brute force"]) await expect(security.getByRole("link", { name })).toBeVisible();
+    for (const name of ["Checks", "SSH", "Blocks", "Web firewall (WAF)", "Access and sessions"]) await expect(security.getByRole("link", { name })).toBeVisible();
     await page.goto("/logs");
     await column(page, "Logs sections").getByRole("link", { name: "System" }).click();
     await expect(page).toHaveURL(/source=system/);
