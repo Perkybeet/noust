@@ -29,7 +29,19 @@ export function OutcomePill({ outcome }: { outcome: NodeOutcome }) {
   return <StatusPill state={view.state} label={t(view.label)} appearance="inline" size="sm" />;
 }
 
-const NAME_LINK = textLinkClassName("inline", "min-w-0", "row");
+export const NAME_LINK = textLinkClassName("inline", "min-w-0", "row");
+
+/** A row shown from a server's last good answer says how old it is. */
+export function StaleFrom({ outcome }: { outcome: NodeOutcome | undefined }) {
+  const t = useT();
+  if (outcome === undefined || outcomeKind(outcome) !== "stale" || outcome.fetched_at === null || outcome.fetched_at === undefined) return null;
+  return (
+    <span className="inline-flex items-center gap-1 text-12 text-warn">
+      <StatusGlyph state="warning" size={10} />
+      <span className="text-fg-muted">{t.rich("fleet.server.staleFrom", { age: <RelativeTime key="age" value={outcome.fetched_at} /> })}</span>
+    </span>
+  );
+}
 
 /**
  * The server a row came from, named in mono and opening that server; this central is said to
@@ -37,7 +49,6 @@ const NAME_LINK = textLinkClassName("inline", "min-w-0", "row");
  */
 export function ServerCell({ origin, outcome }: { origin: RowOrigin; outcome?: NodeOutcome | undefined }) {
   const t = useT();
-  const stale = outcome !== undefined && outcomeKind(outcome) === "stale";
   return (
     <span className="flex min-w-0 flex-col items-start gap-0.5">
       <ServerLink
@@ -49,12 +60,7 @@ export function ServerCell({ origin, outcome }: { origin: RowOrigin; outcome?: N
         <Mono truncate>{origin.node}</Mono>
       </ServerLink>
       {origin.local ? <span className="text-12 text-fg-muted">{t("fleet.server.thisCentral")}</span> : null}
-      {stale && outcome.fetched_at !== null && outcome.fetched_at !== undefined ? (
-        <span className="inline-flex items-center gap-1 text-12 text-warn">
-          <StatusGlyph state="warning" size={10} />
-          <span className="text-fg-muted">{t.rich("fleet.server.staleFrom", { age: <RelativeTime key="age" value={outcome.fetched_at} /> })}</span>
-        </span>
-      ) : null}
+      <StaleFrom outcome={outcome} />
     </span>
   );
 }

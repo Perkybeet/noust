@@ -682,13 +682,14 @@ withPartialFleet("a node that is down and one on an older Noust: the views answe
   const { central } = partialFleet;
   problems.expect(/status of 50\d .*\/api\/nodes\/db-1\//);
   problems.expect(/status of 404 .*\/api\/nodes\/old-1\//);
-  // Servers is where the central says which of its servers did not answer, in their own words. Its list is the
-  // central's own, so the server on an older Noust is listed and answered: only the views that read each server's
-  // own API (updates, below) say that one cannot.
+  // Servers is where the central says which of its servers did not answer, in their own words. Its list now carries
+  // what each server says of itself (its version, how loaded it is, what it has waiting), so the server on an older
+  // Noust, which cannot say that, is named beside the one that is down.
   await signInAt(page, central, "/fleet/servers");
-  await expect(page.getByText("1 of 4 servers did not answer fully")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText("2 of 4 servers did not answer fully")).toBeVisible({ timeout: 20_000 });
   const notice = page.getByRole("list", { name: "Servers that did not answer fully" });
   await expect(notice.getByText("db-1", { exact: true })).toBeVisible();
+  await expect(notice.getByText("old-1", { exact: true })).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "a partial fleet's servers");
 
@@ -698,12 +699,14 @@ withPartialFleet("a node that is down and one on an older Noust: the views answe
   await page.getByRole("searchbox", { name: "Search applications" }).fill(NODE_APP);
   await expect(page.getByRole("link", { name: NODE_APP, exact: true })).toBeVisible();
 
-  // Updates is the second view of the fleet's Servers, a tab of that page and no longer a link of the bar.
+  // The servers' list is also where they are updated: the one that is too old says which Noust it runs, and the view of
+  // the ones with an update (a section of the column) is the same list.
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: /^Servers\b/ }).click();
-  await page.getByRole("navigation", { name: "Server sections" }).getByRole("link", { name: "Updates" }).click();
-  const updates = page.getByRole("region", { name: "Noust and system updates of every server" });
-  await expect(updates.getByRole("row").filter({ hasText: "old-1" })).toContainText("3.0.0");
-  // The updates are read from each server's own API: the one that is down and the one that is too old are both named, in their words.
+  const servers = page.getByRole("region", { name: "Servers of this fleet" });
+  await expect(servers.getByRole("row").filter({ hasText: "old-1" })).toContainText("3.0.0");
+  await page.getByRole("navigation", { name: "Server sections" }).getByRole("link", { name: "With an update" }).click();
+  await expect(page.getByRole("region", { name: "Noust and system updates of every server" })).toBeVisible();
+  // What the servers say is read from each one's own API: the one that is down and the one that is too old are both named, in their words.
   await expect(page.getByText("2 of 4 servers did not answer fully")).toBeVisible();
   const partial = page.getByRole("list", { name: "Servers that did not answer fully" });
   await expect(partial.getByText("db-1", { exact: true })).toBeVisible();
@@ -711,4 +714,34 @@ withPartialFleet("a node that is down and one on an older Noust: the views answe
   await expect(partial.getByText("Older Noust", { exact: true })).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "a partial fleet's updates");
+});
+
+// The pictures of the pages a fleet gives to the machine's areas: the servers with the press that updates each, the
+// summary of Security by server, and what a node's own page and its central's permissions look like from the central.
+// Only with `NOUST_SCREENS=1 NOUST_SCREENS_DIR=<dir>` (see e2e/servidor.spec.ts for the pages of one machine).
+withFleet("@screens the fleet's servers and the machine's areas from a central, at 1440 and 390", async ({ page, consoleServer }, testInfo) => {
+  test.setTimeout(5 * 60_000);
+  const theme = testInfo.project.name;
+  const folder = process.env.NOUST_SCREENS_DIR ?? "e2e/__screens__";
+  await signIn(page, consoleServer, "/");
+  const pages = [
+    { name: "flota-servidores", to: "/fleet/servers" },
+    { name: "flota-con-actualizacion", to: "/fleet/updates" },
+    { name: "flota-seguridad", to: "/fleet/security" },
+    { name: "nodo-estado", to: `/n/${NODE_NAME}/server` },
+    { name: "nodo-permisos-central", to: `/n/${NODE_NAME}/server/central` },
+    { name: "nodo-seguridad", to: `/n/${NODE_NAME}/security` },
+  ];
+  for (const size of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(size);
+    for (const entry of pages) {
+      await page.goto(entry.to);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await settle(page);
+      await page.screenshot({ path: `${folder}/${theme}/${entry.name}-${String(size.width)}.png`, fullPage: false });
+    }
+  }
 });

@@ -196,7 +196,7 @@ describe("the fleet's views", () => {
     expect(await rowOf(await rows("Applications"), "api.example.com")).toBeInTheDocument();
   });
 
-  it("lists certificates soonest first, backups gaps first, updates and activity, with no violations", { timeout: 40_000 }, async () => {
+  it("lists certificates soonest first, backups gaps first and activity, with no violations", { timeout: 40_000 }, async () => {
     fakeBackend(fleetRoutes());
     const { container, router } = renderConsole("/fleet/certificates");
     const certificates = await rows("Certificates on every server");
@@ -208,21 +208,6 @@ describe("the fleet's views", () => {
     // The gap leads the list: the application with nothing backed up says so in its own state.
     expect(within(backups).getAllByRole("listitem")[0]).toHaveTextContent("api.example.com");
 
-    await act(() => router.navigate({ to: "/fleet/updates" }));
-    const updates = await rows("Noust and system updates of every server");
-    expect(within(await rowOf(updates, "web-2")).getByText("3 for security")).toBeInTheDocument();
-    expect(within(await rowOf(updates, "db-1")).getByText("Update available")).toBeInTheDocument();
-    expect(within(await rowOf(updates, "old-1")).getByText("Package index behind")).toBeInTheDocument();
-    expect(within(await rowOf(updates, "old-1")).getByText("1.8.0 → 2.1.0")).toBeInTheDocument();
-    // A server whose package is still being published shows the version it will get (item 81).
-    expect(within(await rowOf(updates, "pub-1")).getByText("Being published")).toBeInTheDocument();
-    expect(within(await rowOf(updates, "pub-1")).getByText("2.0.0 → 2.1.0")).toBeInTheDocument();
-    // And the fleet says where it is heading and how many servers are there.
-    const target = screen.getByRole("group", { name: "Target version of the fleet" });
-    expect(within(target).getByText("Noust 2.1.0")).toBeInTheDocument();
-    expect(within(target).getByText("2 can update now.")).toBeInTheDocument();
-    expect(within(target).getByText("1 waits for its package to be published.")).toBeInTheDocument();
-
     await act(() => router.navigate({ to: "/fleet/activity" }));
     const activity = await rows("Activity");
     // The view opens on the changes: the update of web-2 and the central's restart, not the refused sign-in.
@@ -230,16 +215,17 @@ describe("the fleet's views", () => {
     await expectNoAxeViolations(container, { page: true });
   });
 
-  it("reaches the updates of every server from the column of Server, since the bar has no item for them", { timeout: 30_000 }, async () => {
+  it("reaches the servers with an update from the column of Server, since the bar has no item for them", { timeout: 30_000 }, async () => {
     fakeBackend(fleetRoutes());
     const { user } = renderConsole("/fleet/servers");
     const views = await screen.findByRole("navigation", { name: "Server sections" });
     expect(within(views).getByRole("link", { name: "Servers" })).toHaveAttribute("aria-current", "page");
-    await user.click(within(views).getByRole("link", { name: "Updates" }));
+    await user.click(within(views).getByRole("link", { name: "With an update" }));
     const updates = await rows("Noust and system updates of every server");
+    // What waits on a server is what it says of itself: its packages, how many are for security, and a restart that is due.
     expect(within(await rowOf(updates, "web-2")).getByText("3 for security")).toBeInTheDocument();
     // The column stays beside the view, with the other one to go back to; the page draws no strip of them.
-    expect(within(screen.getByRole("navigation", { name: "Server sections" })).getByRole("link", { name: "Updates" })).toHaveAttribute("aria-current", "page");
+    expect(within(screen.getByRole("navigation", { name: "Server sections" })).getByRole("link", { name: "With an update" })).toHaveAttribute("aria-current", "page");
     expect(screen.queryByRole("navigation", { name: "Fleet server views" })).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Fleet application views" })).not.toBeInTheDocument();
   });
@@ -343,8 +329,8 @@ describe("a bulk action", () => {
       ...fleetRoutes(),
       "POST /api/fleet/actions": () => json(200, { plan: { ...PLAN, action: "index_refresh", title: "Refresh the package lists", options: {} }, job: null }),
     });
-    const { user } = renderConsole("/fleet/updates");
-    const updates = await rows("Noust and system updates of every server");
+    const { user } = renderConsole("/fleet/servers");
+    const updates = await rows("Servers of this fleet");
     await user.click(within(await rowOf(updates, "old-1")).getByRole("button", { name: "Actions for old-1" }));
     await user.click(await screen.findByRole("menuitem", { name: /package lists/i }));
     const dialog = await screen.findByRole("dialog", { name: "Run an action on several servers" });

@@ -143,7 +143,7 @@ export const SUMMARY_VIEW = {
       certificates_expiring: 1,
       machine: { ...MACHINE, hostname: "web-2", cpu_percent: 7.5 },
       overview: { attention: ATTENTION_WEB2, attention_total: 1 },
-      server: { reboot: { required: true } },
+      server: { updates: { pending: 12, security: 3 }, reboot: { required: true } },
     }),
     server("db-1", {
       apps: { running: 1, failed: 0, stopped: 0, static: 0 },

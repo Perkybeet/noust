@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { MachineAreaServers } from "../../../features/fleet/MachineAreaServers";
+import { FleetSecurity } from "../../../features/server/security/FleetSecurity";
 
-/** Fleet > Security: the servers, to choose one: what this area holds belongs to a machine. */
+/** Fleet > Security: the servers, each with its own security at a glance, to choose one: what this area holds belongs to a machine. */
 export const Route = createFileRoute("/_console/fleet/security")({
-  component: () => <MachineAreaServers area="security" />,
+  component: FleetSecurity,
 });
