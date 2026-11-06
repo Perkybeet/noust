@@ -135,13 +135,6 @@ export const fleet: Catalog<typeof en> = {
   },
   summary: {
     notRead: "Sin leer",
-    actions: {
-      title: "Acciones recientes",
-      loading: "Cargando las acciones recientes",
-      loadFailed: "No se pudieron cargar las acciones recientes",
-      empty: "Aún no se ha ejecutado ninguna acción en la flota.",
-      servers: { one: "{count} servidor", other: "{count} servidores" },
-    },
   },
   view: {
     refused: { one: "{count} servidor no te deja ver {what}", other: "{count} servidores no te dejan ver {what}" },

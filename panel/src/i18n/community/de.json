@@ -7002,14 +7002,6 @@
   "fleet.servers.memory": "Speicher",
   "fleet.servers.disk": "Festplatte",
   "fleet.summary.notRead": "Nicht gelesen",
-  "fleet.summary.actions.title": "Letzte Aktionen",
-  "fleet.summary.actions.loading": "Die letzten Aktionen werden geladen",
-  "fleet.summary.actions.loadFailed": "Die letzten Aktionen konnten nicht geladen werden",
-  "fleet.summary.actions.empty": "Auf der Flotte wurde noch keine Aktion ausgeführt.",
-  "fleet.summary.actions.servers": {
-    "one": "{count} Server",
-    "other": "{count} Server"
-  },
   "fleet.view.refused": {
     "one": "{count} Server lässt Sie {what} nicht lesen",
     "other": "{count} Server lassen Sie {what} nicht lesen"

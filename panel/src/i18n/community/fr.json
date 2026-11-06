@@ -7002,14 +7002,6 @@
   "fleet.servers.memory": "Mémoire",
   "fleet.servers.disk": "Disque",
   "fleet.summary.notRead": "Non lu",
-  "fleet.summary.actions.title": "Actions récentes",
-  "fleet.summary.actions.loading": "Chargement des actions récentes",
-  "fleet.summary.actions.loadFailed": "Impossible de charger les actions récentes",
-  "fleet.summary.actions.empty": "Aucune action n'a encore été exécutée sur la flotte.",
-  "fleet.summary.actions.servers": {
-    "one": "{count} serveur",
-    "other": "{count} serveurs"
-  },
   "fleet.view.refused": {
     "one": "{count} serveur ne vous laisse pas lire {what}",
     "other": "{count} serveurs ne vous laissent pas lire {what}"

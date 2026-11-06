@@ -6846,13 +6846,6 @@
   "fleet.servers.memory": "内存",
   "fleet.servers.disk": "磁盘",
   "fleet.summary.notRead": "未读取",
-  "fleet.summary.actions.title": "最近的操作",
-  "fleet.summary.actions.loading": "正在加载最近的操作",
-  "fleet.summary.actions.loadFailed": "无法加载最近的操作",
-  "fleet.summary.actions.empty": "服务器群上还没有执行过任何操作。",
-  "fleet.summary.actions.servers": {
-    "other": "{count} 台服务器"
-  },
   "fleet.view.refused": {
     "other": "{count} 台服务器不允许你读取{what}"
   },
