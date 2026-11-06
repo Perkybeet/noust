@@ -108,12 +108,29 @@ describe("Logs from the system", () => {
     expect(screen.getAllByRole("button", { name: "Follow" })).toHaveLength(1);
   });
 
-  it("shows a query the server cannot read in the server's own words", async () => {
-    logs("/logs?source=system&q=%28unclosed", {
-      "GET /api/server/logs/search": () => problem(400, "validation_error", "A parenthesis is not closed (at character 1)", { hint: "Words, \"phrases\", @unit:..." }),
+  it("says a query the server cannot read was the query, shows the server's own words, and offers to clear the search", async () => {
+    const { user, backend } = logs("/logs?source=system&q=%28unclosed", {
+      "GET /api/server/logs/search": (call) =>
+        call.search.get("query") === null || call.search.get("query") === ""
+          ? json(200, search())
+          : problem(400, "validation_error", "A parenthesis is not closed (at character 1)", { hint: "Words, \"phrases\", @unit:..." }),
     });
-    expect(await screen.findByText("Could not load the system logs")).toBeInTheDocument();
+    expect(await screen.findByText("The server could not read this search")).toBeInTheDocument();
+    expect(screen.queryByText("Could not load the system logs")).not.toBeInTheDocument();
     expect(await screen.findByText(/A parenthesis is not closed \(at character 1\)/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Clear the search" }));
+    expect(await screen.findByText("3 of 40 entries match", { exact: false })).toBeInTheDocument();
+    expect(backend.callsTo("GET /api/server/logs/search").at(-1)?.search.get("query") ?? "").toBe("");
+  });
+
+  it("says a role that may not read the journal needs the permission, in place of a bare 403", async () => {
+    logs(SYSTEM, {
+      "GET /api/server/logs/search": () => problem(403, "permission_denied", "This needs the 'secrets.reveal' permission"),
+    });
+    expect(await screen.findByText("This role cannot read the system logs")).toBeInTheDocument();
+    expect(screen.getByText("secrets.reveal")).toBeInTheDocument();
+    expect(screen.queryByText(/This needs the 'secrets.reveal' permission/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Could not load the system logs")).not.toBeInTheDocument();
   });
 
   it("explains the syntax on request", async () => {

@@ -10,6 +10,7 @@ import { useState } from "react";
 
 import { DetailPage } from "../../components/page/DetailPage";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
+import { Can, GuardedButton } from "../../components/page/permissions";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
@@ -131,47 +132,54 @@ export function ServiceLayout({ name }: { name: string }) {
             ? {
                 secondaryActions: (
                   <>
-                    <Link to="/server/services/$name/unit" params={{ name }} className={buttonClassName("secondary")}>
-                      <OBJECT_ICONS.file aria-hidden="true" className="size-icon-md" />
-                      {t("services.actions.unitFile")}
-                    </Link>
-                    {service.active ? (
-                      <Button icon={<Square aria-hidden="true" />} disabled={stop.isPending} onClick={() => setConfirmStop(true)}>
-                        {t("common.words.stop")}
-                      </Button>
-                    ) : (
-                      <Button icon={<Play aria-hidden="true" />} loading={start.isPending} onClick={() => start.mutate()}>
-                        {t("common.words.start")}
-                      </Button>
-                    )}
+                    {/* A unit file can hold secrets written into it, so the server shows it to `secrets.reveal` alone: the link is for whoever it opens for. */}
+                    <Can permission="secrets.reveal">
+                      <Link to="/server/services/$name/unit" params={{ name }} className={buttonClassName("secondary")}>
+                        <OBJECT_ICONS.file aria-hidden="true" className="size-icon-md" />
+                        {t("services.actions.unitFile")}
+                      </Link>
+                    </Can>
+                    <Can permission="apps.operate">
+                      {service.active ? (
+                        <Button icon={<Square aria-hidden="true" />} disabled={stop.isPending} onClick={() => setConfirmStop(true)}>
+                          {t("common.words.stop")}
+                        </Button>
+                      ) : (
+                        <Button icon={<Play aria-hidden="true" />} loading={start.isPending} onClick={() => start.mutate()}>
+                          {t("common.words.start")}
+                        </Button>
+                      )}
+                    </Can>
                   </>
                 ),
                 primaryAction: (
-                  <Button variant="primary" icon={<RotateCw aria-hidden="true" />} loading={restart.isPending} onClick={() => restart.mutate()}>
+                  <GuardedButton permission="apps.operate" variant="primary" icon={<RotateCw aria-hidden="true" />} loading={restart.isPending} onClick={() => restart.mutate()}>
                     {t("common.words.restart")}
-                  </Button>
+                  </GuardedButton>
                 ),
                 overflow: (
                   <>
-                    {service.enabled ? (
-                      <MenuItem disabled={disable.isPending} onClick={() => disable.mutate()}>
-                        {t("services.actions.disableAtBoot")}
-                      </MenuItem>
-                    ) : (
-                      <MenuItem disabled={enable.isPending} onClick={() => enable.mutate()}>
-                        {t("services.actions.enableAtBoot")}
-                      </MenuItem>
-                    )}
+                    <Can permission="apps.operate">
+                      {service.enabled ? (
+                        <MenuItem disabled={disable.isPending} onClick={() => disable.mutate()}>
+                          {t("services.actions.disableAtBoot")}
+                        </MenuItem>
+                      ) : (
+                        <MenuItem disabled={enable.isPending} onClick={() => enable.mutate()}>
+                          {t("services.actions.enableAtBoot")}
+                        </MenuItem>
+                      )}
+                    </Can>
                     <MenuItem icon={<OBJECT_ICONS.log />} onClick={() => void navigate({ to: "/server/logs", search: { unit: name } })}>
                       {t("services.actions.openInLogs")}
                     </MenuItem>
                     {record.app === null ? (
-                      <>
+                      <Can permission="server.manage">
                         <MenuSeparator />
                         <MenuItem destructive icon={<ICONS.delete />} onClick={() => setConfirmDelete(true)}>
                           {t("services.detail.deleteService")}
                         </MenuItem>
-                      </>
+                      </Can>
                     ) : null}
                   </>
                 ),

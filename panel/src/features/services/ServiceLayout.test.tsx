@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
-import { SERVICES, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
+import { SERVICES, SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import { onDesktop, serverRoutes } from "../server/testing";
 import { changedLines } from "../../lib/lineDiff";
@@ -89,6 +89,47 @@ describe("a service's page", () => {
     });
     expect(await screen.findByText("Noust did not create this service")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Restart" })).not.toBeInTheDocument();
+  });
+});
+
+const FOREIGN: Record<string, RouteHandler> = {
+  "GET /api/services/postgresql.service": () => problem(404, "not_found", "Service postgresql.service is not managed by Noust"),
+  "GET /api/services": () =>
+    json(200, {
+      services: [{ name: "postgresql.service", description: null, active: true, enabled: true, status: "running", pid: 908, uptime: null, memory: null, managed: false }],
+      total: 1,
+    }),
+};
+
+describe("the journal and the configuration of a unit", () => {
+  it("is not offered for a unit Noust did not create, which the server refuses to follow", async () => {
+    servicePage("/server/services/postgresql.service", FOREIGN);
+    await screen.findByText("Noust did not create this service");
+    const tabs = await screen.findByRole("navigation", { name: "Service sections" });
+    expect(within(tabs).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview"]);
+  });
+
+  it("says where the journal is when somebody arrives at the address of the one that is not there, and opens no socket for it", async () => {
+    servicePage("/server/services/postgresql.service/logs", FOREIGN);
+    expect(await screen.findByText("The journal of this unit is the system's")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open in Server logs" })).toBeInTheDocument();
+  });
+
+  it("is not a link of the header for a role that cannot read a unit file, which can hold secrets", async () => {
+    const reader = { ...SESSION, permissions: (SESSION.permissions ?? []).filter((permission) => permission !== "secrets.reveal") };
+    servicePage(`/server/services/${NAME}`, { ...signedInRoutes(reader) });
+    await screen.findByRole("heading", { level: 1, name: NAME });
+    expect(await screen.findByRole("button", { name: "Restart" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Configuration" })).not.toBeInTheDocument();
+  });
+
+  it("says what a refusal to read the file means, in place of the server's bare 403", async () => {
+    servicePage(`/server/services/${NAME}/unit`, {
+      [`GET /api/services/${NAME}/config`]: () => problem(403, "permission_denied", "This needs the 'secrets.reveal' permission"),
+    });
+    expect(await screen.findByText("Opening this file takes more access")).toBeInTheDocument();
+    expect(screen.getByText("secrets.reveal")).toBeInTheDocument();
+    expect(screen.queryByText(/This needs the 'secrets.reveal' permission/)).not.toBeInTheDocument();
   });
 });
 

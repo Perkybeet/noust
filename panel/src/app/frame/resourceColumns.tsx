@@ -15,6 +15,7 @@ import { AppTypeMark } from "../../features/apps/AppTypeMark";
 import { ASSUMED_CAPABILITIES } from "../../features/databases/tabs";
 import { SERVER_CAPABILITY } from "../../features/server/queries";
 import { serviceState } from "../../features/services/data";
+import { useServiceRecord } from "../../features/services/useServiceRecord";
 import { useOrganization } from "../../features/teams/useOrganization";
 import { useT } from "../../i18n";
 import { useNodeCapability } from "../../nodes/capability";
@@ -131,8 +132,15 @@ export function ServiceColumn({ name }: { name: string }) {
   const route = useRouterState({ select: (state) => state.matches.at(-1)?.fullPath ?? "" });
   const ctx = useNavContext();
   const service = useQuery(serviceQuery(name));
+  const record = useServiceRecord(name);
   const services = useQuery({ ...servicesQuery(), select: (data) => data.services });
   const view = service.data === undefined ? undefined : serviceState(service.data);
+  // The server refuses the journal of a unit it did not create, so the section that would show it is not offered: a
+  // list of places never holds one that ends in a refusal.
+  const sections = toListGroups(resourceColumn("service", ctx), t, { name }).map((group) => ({
+    ...group,
+    items: record.foreign ? group.items.filter((item) => !item.key.endsWith(".logs")) : group.items,
+  }));
   const siblings: Sibling[] = (services.data ?? []).slice(0, SIBLINGS + 1).map((other) => ({
     key: other.name,
     label: other.name,
@@ -152,7 +160,7 @@ export function ServiceColumn({ name }: { name: string }) {
         siblings={siblings}
         siblingsLabel={t("nav.column.switchService")}
       />
-      <ColumnList label={t("nav.landmarks.serviceSections")} groups={toListGroups(resourceColumn("service", ctx), t, { name })} />
+      <ColumnList label={t("nav.landmarks.serviceSections")} groups={sections} />
     </>
   );
 }
