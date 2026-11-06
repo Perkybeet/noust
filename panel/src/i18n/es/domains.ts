@@ -322,7 +322,7 @@ export const domains: Catalog<typeof en> = {
     testPassedNotSaved: "Esto pasó la prueba de configuración de {webserver}. Todavía no se ha guardado nada.",
     loadingConfigurationSr: "Cargando la configuración",
     noSiteTitle: "No hay ningún sitio con este nombre",
-    noSiteDescription: "Puede que se haya eliminado, o que la dirección tenga una errata. Todos los sitios de esta máquina están en la pestaña Sitios.",
+    noSiteDescription: "Puede que se haya eliminado, o que la dirección tenga una errata. Todos los sitios de esta máquina están en la sección Sitios.",
     allSites: "Todos los sitios",
     belongsTo: "Sirve la aplicación {app}",
     couldNotReadConfig: "No se pudo leer la configuración de {site}",

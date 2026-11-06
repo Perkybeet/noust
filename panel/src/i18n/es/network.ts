@@ -579,7 +579,7 @@ export const network: Catalog<typeof en> = {
     action: "Subir certificado",
     title: "Subir un certificado",
     description: "Un certificado y su clave que traes: un Origin Certificate de Cloudflare, el de una CA corporativa, uno comprado. La clave debe ser la del certificado y no tener contraseña, y el certificado no debe haber caducado. Aquí no se renueva nunca, y se te avisa cuando caduque.",
-    nameHelp: "Letras minúsculas, dígitos, puntos, guiones y guiones bajos. Se sirve desde la pestaña Dominios de una aplicación.",
+    nameHelp: "Letras minúsculas, dígitos, puntos, guiones y guiones bajos. Se sirve desde la sección Dominios de una aplicación.",
     nameInvalid: "Usa letras minúsculas, dígitos, puntos, guiones y guiones bajos, empezando por una letra o un dígito.",
     certificateLabel: "Certificado",
     certificateHelp: "PEM. La cadena puede ir a continuación en el mismo texto.",

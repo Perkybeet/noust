@@ -581,7 +581,7 @@ export const network = {
     action: "Upload certificate",
     title: "Upload a certificate",
     description: "A certificate and its key you bring: a Cloudflare Origin Certificate, a corporate CA's, a purchased one. The key must be the certificate's, have no passphrase, and the certificate must not have expired. It is never renewed here, and you are warned as it expires.",
-    nameHelp: "Lower case letters, digits, dots, dashes and underscores. Serve it from an application's Domains tab.",
+    nameHelp: "Lower case letters, digits, dots, dashes and underscores. Serve it from an application's Domains section.",
     nameInvalid: "Use lower case letters, digits, dots, dashes and underscores, starting with a letter or digit.",
     certificateLabel: "Certificate",
     certificateHelp: "PEM. The chain can follow it in the same text.",

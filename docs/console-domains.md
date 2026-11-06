@@ -2,7 +2,7 @@
 
 Part of [The console, page by page](console.md).
 
-Six sections, as tabs under the title, and each is a page with its own title and its one sentence:
+Five sections, in the column beside the page, and each is a page with its own title and its one sentence. Cloudflare Tunnels and the published ports are in the Network area (see [network.md](network.md)):
 
 - **Domains**: every name the server answers on, with the application it belongs to and whether it
   has HTTPS (a certificate and the days it has left, or "No HTTPS"). **Add domain** is the way to put
@@ -24,24 +24,20 @@ Six sections, as tabs under the title, and each is a page with its own title and
   server's own, for names that only resolve inside a network: made, trusted on this server, how to
   trust it on each kind of device, the certificates it signed); see [certificates.md](certificates.md).
   On a central, the fleet's own face of this section lists every server's certificates at once.
-- **DNS**: the accounts Noust holds at DNS providers (Cloudflare, IONOS, Route 53 and the rest) and
-  the records it manages in them, and, above them, **Noust DNS**, the other way to have DNS: a name
-  server of your own (see below).
-- **Tunnels**: Cloudflare Tunnels and the names each carries. A server without `cloudflared` is said
-  to lack it, in the page's words, with **Install cloudflared** beside it; a server with no Cloudflare
-  account leads to the DNS section to add one.
-- **Ports**: the TCP and UDP ports nginx publishes, for what is not a web page.
+- **DNS providers**: the accounts Noust holds at DNS providers (Cloudflare, IONOS, Route 53 and the
+  rest) and the records it manages in them.
+- **Noust DNS**: the other way to have DNS, a name server of your own (see below).
 
-DNS, Tunnels and Ports are the server's own network and are shown to whoever may see the server.
+DNS providers and Noust DNS are the server's own network and are shown to whoever may see the server.
 See [network.md](network.md). An application's **Domains** section also shows and makes the DNS
-records of its names and chooses where its certificate comes from; its **Settings, Access** holds the
-password, the address lists, the private network, the sign-in service and the routes of its site, and
-**Settings, Protection** the limits, the response headers, HTTP/3, the firewall and the client
-certificates.
+records of its names and chooses where its certificate comes from; its **Access and protection**
+section holds the password, the address lists, the private network, the sign-in service and the routes
+of its site (**Access**) and, folded under its title, the limits, the response headers, HTTP/3, the
+firewall and the client certificates (**Protection**).
 
 ## Noust DNS
 
-**DNS, Noust DNS** is one page with three states, the same as `noust dns server status`:
+**Noust DNS** is one page with three states, the same as `noust dns server status`:
 
 1. **Not installed.** It says what running a name server takes on, in the server's own two
    sentences (that the whole internet depends on it, and that a name server can be used to flood
