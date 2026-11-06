@@ -15693,7 +15693,6 @@
   "signInImage.refreshFailed": "Impossible d'actualiser l'image de connexion",
   "signInImage.public": "Elle se voit avant la connexion : toute personne qui ouvre la console la voit.",
   "signInImage.readOnly": "Vous pouvez voir cette page, pas la modifier. C'est l'affaire de qui s'occupe de la sécurité de la console.",
-  "signInImage.locked.title": "Pourquoi vous ne pouvez pas la modifier",
   "signInImage.locked.reason": "Ce qui se voit avant la connexion fait partie de la protection de la console. Elle est modifiée par qui détient la permission {permission}.",
   "signInImage.preview.label": "L'écran de connexion tel qu'il apparaît",
   "signInImage.preview.none": "Le dessin de Noust, tel qu'il est maintenant",

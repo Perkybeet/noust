@@ -18,7 +18,6 @@ import { Field } from "../../../components/ui/Field";
 import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
-import { Popover } from "../../../components/ui/Popover";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { ICONS } from "../../../components/ui/icons";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
@@ -26,7 +25,7 @@ import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatBytes } from "../../../lib/format";
 import { useNode } from "../../../nodes/useNode";
-import { useCan } from "../../../components/page/permissions";
+import { GuardedButton, useCan } from "../../../components/page/permissions";
 import { FormFailure } from "../SettingsForm";
 import { SettingsPrimaryAction } from "../SettingsPrimaryAction";
 import { judgeFile, readPicture } from "./readPicture";
@@ -51,27 +50,6 @@ function problemWords(t: T, problem: PictureProblem, limitBytes: number): string
     case "unreadable":
       return t("signInImage.errors.unreadable");
   }
-}
-
-/**
- * The primary action of a page its reader may not use: it stays where it is, turned off and with a lock,
- * and a press says why instead of doing nothing (docs/DESIGN.md, the roles in read-only: the action stays,
- * disabled, with its reason one press away).
- */
-function LockedAction({ label }: { label: string }) {
-  const t = useT();
-  return (
-    <Popover
-      title={t("signInImage.locked.title")}
-      trigger={
-        <Button variant="primary" aria-disabled="true" icon={<ICONS.locked aria-hidden="true" />} className="opacity-50">
-          {label}
-        </Button>
-      }
-    >
-      <p className="text-13 text-fg-muted">{t.rich("signInImage.locked.reason", { permission: <Mono>{PERMISSION}</Mono> })}</p>
-    </Popover>
-  );
 }
 
 /**
@@ -186,13 +164,15 @@ export function SignInImageSettings() {
     <Sections>
       {limits === undefined ? null : (
         <SettingsPrimaryAction>
-          {canChange ? (
-            <Button variant="primary" icon={<OBJECT_ICONS.signInImage aria-hidden="true" />} onClick={choose}>
-              {chooseLabel}
-            </Button>
-          ) : (
-            <LockedAction label={chooseLabel} />
-          )}
+          <GuardedButton
+            permission={PERMISSION}
+            variant="primary"
+            icon={<OBJECT_ICONS.signInImage aria-hidden="true" />}
+            reason={t.rich("signInImage.locked.reason", { permission: <Mono key="permission">{PERMISSION}</Mono> })}
+            onClick={choose}
+          >
+            {chooseLabel}
+          </GuardedButton>
         </SettingsPrimaryAction>
       )}
 

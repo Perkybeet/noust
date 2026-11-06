@@ -15685,7 +15685,6 @@
   "signInImage.refreshFailed": "Das Anmeldebild konnte nicht aktualisiert werden",
   "signInImage.public": "Es ist vor der Anmeldung zu sehen: Jeder, der die Konsole öffnet, sieht es.",
   "signInImage.readOnly": "Sie können diese Seite ansehen, aber nicht ändern. Das tut, wer sich um die Sicherheit der Konsole kümmert.",
-  "signInImage.locked.title": "Warum Sie es nicht ändern können",
   "signInImage.locked.reason": "Was vor der Anmeldung zu sehen ist, gehört zum Schutz der Konsole. Es ändert, wer die Berechtigung {permission} besitzt.",
   "signInImage.preview.label": "So sieht der Anmeldebildschirm aus",
   "signInImage.preview.none": "Die Zeichnung von Noust, wie sie jetzt ist",

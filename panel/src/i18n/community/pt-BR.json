@@ -15693,7 +15693,6 @@
   "signInImage.refreshFailed": "Não foi possível atualizar a imagem da tela de entrada",
   "signInImage.public": "Ela aparece antes de entrar: qualquer pessoa que abrir o console a vê.",
   "signInImage.readOnly": "Você pode ver esta página, mas não alterá-la. Quem cuida da segurança do console é que faz isso.",
-  "signInImage.locked.title": "Por que você não pode alterá-la",
   "signInImage.locked.reason": "O que aparece antes de entrar faz parte da proteção do console. Quem altera é quem tem a permissão {permission}.",
   "signInImage.preview.label": "Como fica a tela de entrada",
   "signInImage.preview.none": "O desenho do Noust, como está agora",

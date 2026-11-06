@@ -15358,7 +15358,6 @@
   "signInImage.refreshFailed": "无法刷新登录图片",
   "signInImage.public": "它在登录前就能看到：任何打开控制台的人都能看到它。",
   "signInImage.readOnly": "你可以查看此页面，但不能更改。由负责控制台安全的人来改。",
-  "signInImage.locked.title": "为什么你不能更改",
   "signInImage.locked.reason": "登录前看到的内容属于控制台的保护范围。拥有 {permission} 权限的人才能更改。",
   "signInImage.preview.label": "登录界面的显示效果",
   "signInImage.preview.none": "Noust 自带的图画，保持现状",
