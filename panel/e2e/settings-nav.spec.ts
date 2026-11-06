@@ -15,7 +15,7 @@ test("the sections are in groups that say what they are for, in the order of the
   await signIn(page, consoleServer, "/settings/general");
   const list = page.getByRole("navigation", { name: "Settings sections" });
   await expect(list).toBeVisible();
-  // A group and one of its sections can share a name ("Connections"): the titles are the paragraphs.
+  // The titles are the paragraphs, so a section that shares a name with a group is never taken for one.
   for (const group of GROUPS) await expect(list.locator("p").getByText(group, { exact: true })).toBeVisible();
   const headings = await list.locator("p").allTextContents();
   expect(headings.map((text) => text.trim())).toEqual(GROUPS);

@@ -200,9 +200,9 @@ export const nav = {
       command: "Metrics of the servers",
     },
     integrations: {
-      label: "Connections",
-      keywords: "integrations github gitlab gitea bitbucket app repositories push pull request previews webhooks code host leases",
-      command: "Connections settings",
+      label: "Integrations",
+      keywords: "integrations connections github gitlab gitea bitbucket app repositories push pull request previews webhooks code host leases",
+      command: "Integrations settings",
     },
     probes: {
       label: "Probes",
@@ -294,7 +294,7 @@ export const nav = {
     logShipping: "Log shipping",
     cloud: "Cloud",
     security: "Security",
-    integrations: "Integrations",
+    integrations: "Connections",
     accounts: "Accounts",
     variables: "Variables",
     general: "Settings",

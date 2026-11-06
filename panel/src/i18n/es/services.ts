@@ -68,7 +68,7 @@ export const services: Catalog<typeof en> = {
   },
   detail: {
     notFoundTitle: "No hay ningún servicio con este nombre",
-    notFoundDescription: "Puede que se haya eliminado o que el nombre tenga una errata. Todos los servicios que gestiona Noust están en la pestaña Servicios.",
+    notFoundDescription: "Puede que se haya eliminado o que el nombre tenga una errata.",
     allServices: "Todos los servicios",
     foreignTitle: "Noust no creó este servicio",
     foreignLogsTitle: "El registro de esta unidad es el del sistema",

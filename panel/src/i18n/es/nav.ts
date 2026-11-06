@@ -201,9 +201,9 @@ export const nav: Catalog<typeof en> = {
       command: "Métricas de los servidores",
     },
     integrations: {
-      label: "Conexiones",
+      label: "Integraciones",
       keywords: "integraciones github gitlab gitea bitbucket app repositorios push pull request vistas previas webhooks arrendamientos integrations connections",
-      command: "Ajustes de conexiones",
+      command: "Ajustes de integraciones",
     },
     probes: {
       label: "Sondas",
@@ -293,7 +293,7 @@ export const nav: Catalog<typeof en> = {
     logShipping: "Envío de logs",
     cloud: "Nube",
     security: "Seguridad",
-    integrations: "Integraciones",
+    integrations: "Conexiones",
     accounts: "Cuentas",
     variables: "Variables",
     general: "Ajustes",

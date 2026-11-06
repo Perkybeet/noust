@@ -183,15 +183,15 @@ describe("Settings > Integrations", () => {
       name: "Settings sections",
     });
     expect(
-      within(tabs).getByRole("link", { name: "Connections" }),
+      within(tabs).getByRole("link", { name: "Integrations" }),
     ).toHaveAttribute("aria-current", "page");
     const names = within(tabs)
       .getAllByRole("link")
       .map((link) => link.textContent);
     // The card of each of these was on this page once: one subject a page (NV-9), each with its own door.
     // The log export is a connection too (it copies to a service); the cloud providers are the fleet's, and sit with the rest.
-    expect(names.slice(names.indexOf("Connections"), names.indexOf("Connections") + 6)).toEqual([
-      "Connections",
+    expect(names.slice(names.indexOf("Integrations"), names.indexOf("Integrations") + 6)).toEqual([
+      "Integrations",
       "Logs and metrics export",
       "Image registries",
       "Deploy keys",
@@ -228,9 +228,8 @@ describe("Settings > Integrations", () => {
       expect(
         within(section).getByRole("link", { name: "API tokens" }),
       ).toHaveAttribute("href", "/settings/tokens");
-      expect(
-        within(section).getByText("noust token create prometheus --scope read"),
-      ).toBeInTheDocument();
+      // The token is made in API tokens, which the line above links to: no command repeats it.
+      expect(within(section).queryByText(/noust token create/)).not.toBeInTheDocument();
       expect(section.textContent).not.toMatch(/noust_tok_|Bearer [A-Za-z0-9]/);
     },
   );
