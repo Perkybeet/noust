@@ -128,9 +128,12 @@ jobs:
       # so the order and the worker a test lands on do not matter.
       # Coverage is measured on the one version that uploads it, and 3.14 is
       # in the matrix of every run; pytest-cov combines the workers' data.
+      # A slice runs some of the files a snapshot directory serves, and the snapshots of the files
+      # another slice runs are not stale: an unused one is said, it does not fail the slice (the even
+      # slices failed with every test passed, on the web server managers' snapshots while PHP-FPM's ran).
       - name: Run tests
         if: matrix.python-version != '3.14'
-        run: pytest -n logical
+        run: pytest -n logical --snapshot-warn-unused
 
       # On Python 3.14 coverage measures through sys.monitoring by default, and on the slice of the
       # suite with the most console tests (6,969 tests, three workers) that held 12.2 GiB, where the
@@ -140,7 +143,7 @@ jobs:
         if: matrix.python-version == '3.14'
         env:
           COVERAGE_CORE: ctrace
-        run: pytest -n logical --cov=noust --cov-report=xml --cov-report=term-missing
+        run: pytest -n logical --snapshot-warn-unused --cov=noust --cov-report=xml --cov-report=term-missing
 
       - name: Upload coverage
         if: matrix.python-version == '3.14'
