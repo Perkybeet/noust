@@ -17,6 +17,7 @@ from typing import Any
 import pytest
 
 from noust.core.store import App, get_store
+from noust.managers.database.base import BaseDatabaseManager
 from noust.managers.server.components import COMPONENTS
 from noust.web.api.server import software as software_api
 from noust.web.jobs import JobType
@@ -45,6 +46,9 @@ def machine(api, monkeypatch: pytest.MonkeyPatch):
     api.machine.ctx._platform = platform_for("apt")
     api.machine.runner.only_knows("apt-get")
     api.machine.runner.script(["dpkg-query"], stdout="")
+    # What a database engine holds is asked of its own manager, which finds the engine with
+    # `shutil.which`: on a runner of CI with PostgreSQL installed it would ask a real systemctl.
+    monkeypatch.setattr(BaseDatabaseManager, "is_installed", lambda self: False)
     return api.machine
 
 
