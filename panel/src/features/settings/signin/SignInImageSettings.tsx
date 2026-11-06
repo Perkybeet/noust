@@ -26,7 +26,7 @@ import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatBytes } from "../../../lib/format";
 import { useNode } from "../../../nodes/useNode";
-import { useCan } from "../../variables/useCan";
+import { useCan } from "../../../components/page/permissions";
 import { FormFailure } from "../SettingsForm";
 import { SettingsPrimaryAction } from "../SettingsPrimaryAction";
 import { judgeFile, readPicture } from "./readPicture";

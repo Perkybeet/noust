@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import { Eye, Link2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { request } from "../../../api/client";
 import { accessQuery, connectQuery } from "../../../api/queries/databases";
@@ -23,6 +23,7 @@ import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 import { useT } from "../../../i18n";
 import { useServerList } from "../../../nodes/servers";
 import { useNode } from "../../../nodes/useNode";
+import { useDebounced } from "../../../lib/useDebounced";
 import { reportActionError } from "../../apps/useAppActions";
 import { DatabasePage, useDatabaseFrame } from "../DatabasePage";
 import { answers } from "../engineOf";
@@ -43,15 +44,6 @@ const CLIENT_NAMES: Readonly<Record<string, string>> = {
   mongosh: "mongosh",
   jdbc: "JDBC / DBeaver",
 };
-
-function useDebounced<T>(value: T, ms: number): T {
-  const [settled, setSettled] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setSettled(value), ms);
-    return () => clearTimeout(timer);
-  }, [value, ms]);
-  return settled;
-}
 
 /**
  * How to reach a database. From an application: the variable Noust wrote and its connection

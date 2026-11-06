@@ -11,7 +11,7 @@ import type { ReactNode } from "react";
 
 import { Checkbox } from "../../../components/ui/Checkbox";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
-import { useCan } from "../../../components/widgets/useCan";
+import { useCan } from "../../../components/page/permissions";
 import { useT } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
 import { reportActionError } from "../../apps/useAppActions";

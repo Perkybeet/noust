@@ -2,7 +2,7 @@ import { useDocumentTitle } from "../../app/documentTitle";
 import { CommandHint } from "../../components/page/CommandHint";
 import { useT } from "../../i18n";
 import { SharedVariables } from "./SharedVariables";
-import { useCan } from "./useCan";
+import { useCan } from "../../components/page/permissions";
 
 /**
  * The server's own shared variables, a section of Settings: defined once here, every

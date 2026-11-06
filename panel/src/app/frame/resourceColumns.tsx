@@ -5,6 +5,7 @@ import { appQuery, appsQuery } from "../../api/queries/apps";
 import { deploymentsQuery } from "../../api/queries/deployments";
 import { databaseOverviewQuery, databasesQuery, enginesQuery } from "../../api/queries/databases";
 import { serviceQuery, servicesQuery } from "../../api/queries/services";
+import { useCan } from "../../components/page/permissions";
 import { appStatus } from "../../components/page/status";
 import { LogoMark } from "../../components/ui/LogoTile";
 import { StatusGlyph, StatusPill } from "../../components/ui/StatusPill";
@@ -28,7 +29,7 @@ import { appColumn, areaColumn, resourceColumn } from "../columns";
 import { ColumnList } from "./ColumnList";
 import { ResourceHead } from "./ColumnHead";
 import type { Sibling } from "./ColumnHead";
-import { SectionsSkeleton, toListGroups, useAreaCounts, useCan, useNavContext } from "./columnBodies";
+import { SectionsSkeleton, toListGroups, useAreaCounts, useNavContext } from "./columnBodies";
 import { usePageServerName } from "./usePageServerName";
 
 /** How many other resources the switch lists: it is a way to jump, not the list (the area is). */

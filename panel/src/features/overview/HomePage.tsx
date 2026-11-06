@@ -19,7 +19,7 @@ import { GallerySheet } from "../../components/widgets/GallerySheet";
 import type { Placed } from "../../components/widgets/model";
 import { PanelSkeleton } from "../../components/widgets/PanelSkeleton";
 import type { PanelScope } from "../../components/widgets/types";
-import { useCan } from "../../components/widgets/useCan";
+import { useCan } from "../../components/page/permissions";
 import { useWidgetBoard } from "../../components/widgets/useWidgetBoard";
 import { DragGhost, WidgetGrid } from "../../components/widgets/WidgetGrid";
 import { useT } from "../../i18n";

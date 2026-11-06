@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { appsQuery } from "../../api/queries/apps";
-import { sessionQuery } from "../../api/queries/auth";
 import { backupDestinationsQuery } from "../../api/queries/backupDestinations";
 import { backupSchedulesQuery, backupsQuery } from "../../api/queries/backups";
 import { certsQuery } from "../../api/queries/certs";
@@ -11,6 +10,7 @@ import { installedRecipesQuery, recipesQuery } from "../../api/queries/recipes";
 import { sitesQuery } from "../../api/queries/sites";
 import { volumePoliciesQuery } from "../../api/queries/volumeBackups";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
+import { useCan } from "../../components/page/permissions";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { domainRows } from "../../features/domains/domainRows";
@@ -29,11 +29,6 @@ import type { NavContext } from "../navCore";
 import { ColumnHead } from "./ColumnHead";
 import { ColumnList } from "./ColumnList";
 import type { ListGroup } from "./ColumnList";
-
-export function useCan(): (permission: string) => boolean {
-  const { data: permissions } = useQuery({ ...sessionQuery(), select: (session) => session.permissions });
-  return (permission) => permissions?.includes(permission) ?? false;
-}
 
 /** What the register's lists are drawn for: who is looking and which optional parts apply. */
 export function useNavContext(extra: NavContext["when"] = {}): NavContext {

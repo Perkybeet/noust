@@ -10,7 +10,7 @@ import { useT } from "../../../i18n";
 import type { PlainKey } from "../../../i18n";
 import { ICONS } from "../../ui/icons";
 import { OBJECT_ICONS } from "../../ui/objectIcons";
-import { useCan } from "../useCan";
+import { useCan } from "../../page/permissions";
 
 interface Shortcut {
   id: string;

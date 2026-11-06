@@ -11,7 +11,7 @@ import { Field } from "../../components/ui/Field";
 import { InlineMessage } from "../../components/ui/InlineMessage";
 import { Input } from "../../components/ui/Input";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
-import { useCan } from "../../components/widgets/useCan";
+import { useCan } from "../../components/page/permissions";
 import type { PanelScope } from "../../components/widgets/types";
 import { useT } from "../../i18n";
 import { useHasFleet } from "../../nodes/servers";
