@@ -1,1 +1,0 @@
-import{n as e}from"./Match-BHdpRVBy.js";import{t}from"./SettingsShell-CmRl4zWc.js";import{Q as n}from"./objectIcons-BLPTlVXM.js";var r=n();function i(){return(0,r.jsx)(t,{children:(0,r.jsx)(e,{})})}export{i as component};

@@ -1,1 +1,0 @@
-import{t as e}from"./SystemTab-DYjxqwb2.js";import{Q as t}from"./objectIcons-BLPTlVXM.js";var n=t();function r(){return(0,n.jsx)(e,{view:`machine`})}export{r as component};

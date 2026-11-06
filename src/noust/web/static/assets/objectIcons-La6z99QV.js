@@ -1,1 +1,0 @@
-import{t as e}from"./icons-CwAkH7an.js";import{n as t,t as n}from"./objectIcons-BLPTlVXM.js";var r={...n,...t,remove:e.delete,add:e.add};export{r as t};

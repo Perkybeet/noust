@@ -1,0 +1,1 @@
+import{n as e}from"./MachinePage-D2e0o6sU.js";var t=e;export{t as component};

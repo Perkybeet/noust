@@ -1,1 +1,0 @@
-import{n as e}from"./MachinePage-CGVdp3AP.js";var t=e;export{t as component};

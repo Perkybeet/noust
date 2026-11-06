@@ -1,0 +1,1 @@
+import{t as e}from"./SystemTab-Dr6YERdd.js";import{Q as t}from"./objectIcons-Cxi6ZyBP.js";var n=t();function r(){return(0,n.jsx)(e,{view:`updates`})}export{r as component};
