@@ -1,0 +1,1 @@
+import{t as e}from"./HomePage-DFKhl91u.js";import{t}from"./fleet-DWJuBavX.js";import{Q as n}from"./objectIcons-BLPTlVXM.js";var r=n();function i(){let{panel:n,customise:i}=t.useSearch();return(0,r.jsx)(e,{scope:`fleet`,panelId:n,customising:i===!0})}export{i as component};

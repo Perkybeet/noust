@@ -1,0 +1,1 @@
+import{t as e}from"./useDatabaseServers-CTTT1eia.js";function t(e){return e===void 0?`unknown`:e.running?`running`:e.state===`stopped`?`stopped`:`changing`}function n(e){return!e.reading&&e.life!==`stopped`&&e.life!==`changing`}function r(n){let{servers:r,isError:i}=e(),a=r?.find(e=>e.key===n);return{server:a,life:t(a),reading:r===void 0&&!i}}export{t as n,r,n as t};

@@ -1,0 +1,1 @@
+import{n as e}from"./MachinePage-BS8nRrKg.js";var t=e;export{t as component};

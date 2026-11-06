@@ -1,1 +1,0 @@
-import{k as e}from"./useRenderElement-DPm3pG0H.js";import{a as t}from"./Tooltip-DGsRz-Rq.js";function n(n,r){let i=t(n);return e(()=>(r(i),()=>{r(e=>e===i?void 0:e)}),[i,r]),i}export{n as t};

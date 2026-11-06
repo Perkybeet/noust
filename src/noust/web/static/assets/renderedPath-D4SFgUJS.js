@@ -1,1 +1,0 @@
-import{i as e}from"./lastServer-r3Z5FMI4.js";function t(){return e({select:e=>(e.resolvedLocation??e.location).pathname})}export{t};

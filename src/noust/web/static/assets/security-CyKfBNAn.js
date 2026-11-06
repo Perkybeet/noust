@@ -1,1 +1,0 @@
-import{n as e}from"./MachinePage-Beve0I0P.js";var t=e;export{t as component};

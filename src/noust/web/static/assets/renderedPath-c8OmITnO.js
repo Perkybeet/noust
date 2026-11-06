@@ -1,0 +1,1 @@
+import{i as e}from"./lastServer-DM-XCN23.js";function t(){return e({select:e=>(e.resolvedLocation??e.location).pathname})}export{t};

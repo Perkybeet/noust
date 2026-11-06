@@ -1,0 +1,1 @@
+import{t as e}from"./ConfigPage-CXT67mM5.js";import{t}from"./access-6hxk-SvF.js";import{Q as n}from"./objectIcons-BLPTlVXM.js";var r=n();function i(){let{domain:n}=t.useParams();return(0,r.jsx)(e,{page:`access`,domain:n})}export{i as component};
