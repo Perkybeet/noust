@@ -16,6 +16,7 @@ import { openInbox } from "../../../features/approvals/store";
 import { describeActor, jobActionLabel } from "../../../features/activity/data";
 import { objectOf, textOf } from "../../../features/fleet/data";
 import { AttentionActionButton } from "../../../features/inbox/AttentionActionButton";
+import { attentionAction, attentionTarget } from "../../../features/overview/attentionTarget";
 import { reasonDetail, reasonText } from "../../../features/overview/attentionWords";
 import { sinceOf } from "../../../features/overview/homeData";
 import type { ActivityLine, HomeAttention } from "../../../features/overview/homeData";
@@ -44,7 +45,17 @@ const ATTENTION_ROWS = 8;
 function subjectOf(entry: HomeAttention) {
   const kind = entry.item.subject["kind"];
   const system = kind === "unit" || kind === "alert" || kind === "probe" || kind === "recipe";
-  return system ? <Mono>{entry.item.title}</Mono> : <span translate="no">{entry.item.title}</span>;
+  const name = system ? <Mono>{entry.item.title}</Mono> : <span translate="no">{entry.item.title}</span>;
+  // A firing alert's button takes it and goes nowhere, so the name is the way to the alerts (what every other line's button
+  // does): the one line with a button that stays here is the one whose subject leads away.
+  const target = attentionAction(entry.item)?.mode === "alert" ? attentionTarget(entry.item) : null;
+  if (target === null) return name;
+  const node = entry.server === null ? undefined : entry.server.node;
+  return (
+    <Link to={target.to as never} {...(node !== undefined ? { search: { node } as never } : {})} className={textLinkClassName("ui", "max-w-full", "row")}>
+      {name}
+    </Link>
+  );
 }
 
 function AttentionRow({ t, entry, showServer }: { t: T; entry: HomeAttention; showServer: boolean }) {

@@ -222,6 +222,27 @@ describe("Needs attention", () => {
     expect(screen.getByRole("link", { name: "Open service queue-worker.service" })).toBeInTheDocument();
   });
 
+  it("leads from a firing alert to the alerts: the button of its line takes it, it does not go anywhere", async () => {
+    renderWidget("attention", { size: "wide", routes: SERVER_ROUTES });
+    const content = await loaded();
+    const alert = within(content)
+      .getAllByRole("listitem")
+      .find((row) => row.textContent.includes("disk-high"));
+    if (alert === undefined) throw new Error("the firing alert has no line");
+    expect(within(alert).getByRole("button", { name: "Acknowledge disk-high" })).toBeInTheDocument();
+    expect(within(alert).getByRole("link", { name: "disk-high" })).toHaveAttribute("href", "/alerts");
+  });
+
+  it("does not link the subject of a line whose button already leads somewhere: two links to one place are one too many", async () => {
+    renderWidget("attention", { size: "wide", routes: SERVER_ROUTES });
+    const content = await loaded();
+    const failed = within(content)
+      .getAllByRole("listitem")
+      .find((row) => row.textContent.includes("queue-worker.service"));
+    if (failed === undefined) throw new Error("the failed service has no line");
+    expect(within(failed).getAllByRole("link")).toHaveLength(1);
+  });
+
   it("is one calm line when nothing needs anyone", async () => {
     renderWidget("attention", { size: "medium", routes: { ...SERVER_ROUTES, "GET /api/overview": () => json(200, overviewFixture()) } });
     expect(await screen.findByText("Nothing needs attention")).toBeInTheDocument();
