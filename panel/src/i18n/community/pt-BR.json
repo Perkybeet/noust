@@ -7001,14 +7001,6 @@
   "fleet.servers.memory": "Memória",
   "fleet.servers.disk": "Disco",
   "fleet.summary.notRead": "Não lido",
-  "fleet.summary.actions.title": "Ações recentes",
-  "fleet.summary.actions.loading": "Carregando as ações recentes",
-  "fleet.summary.actions.loadFailed": "Não foi possível carregar as ações recentes",
-  "fleet.summary.actions.empty": "Nenhuma ação foi executada na frota ainda.",
-  "fleet.summary.actions.servers": {
-    "one": "{count} servidor",
-    "other": "{count} servidores"
-  },
   "fleet.view.refused": {
     "one": "{count} servidor não deixa você ler {what}",
     "other": "{count} servidores não deixam você ler {what}"
@@ -8443,7 +8435,8 @@
   "network.access.http3.enableHelp": "Exige HTTPS, nginx 1.25 ou posterior com o módulo HTTP/3, e envia Alt-Svc para avisar os navegadores. Um pequeno site do Noust mantém o socket compartilhado.",
   "network.access.http3.readFailed": "Não foi possível saber se este servidor pode servir HTTP/3",
   "network.access.http3.udpClosed": "O firewall não deixa a UDP 443 entrar",
-  "network.access.http3.udpClosedHelp": "Os navegadores vão tentar HTTP/3, falhar e usar HTTP/2, então nada quebra, mas nada se ganha. Abra a porta:",
+  "network.access.http3.udpClosedHelp": "Os navegadores vão tentar HTTP/3, falhar e usar HTTP/2, então nada quebra, mas nada se ganha.",
+  "network.access.http3.openUdp": "Abrir UDP 443",
   "network.access.forward.title": "Serviço de login",
   "network.access.forward.description": "Consulte um serviço de autenticação sobre cada requisição antes de ela chegar à aplicação: oauth2-proxy, authentik ou qualquer serviço que responda 2xx para um visitante que entrou e 401 para um que não entrou. As contas, o segundo fator e o login único dele protegem a aplicação.",
   "network.access.forward.preset": "Começar de",
@@ -15681,7 +15674,6 @@
   "signInImage.refreshFailed": "Não foi possível atualizar a imagem da tela de entrada",
   "signInImage.public": "Ela aparece antes de entrar: qualquer pessoa que abrir o console a vê.",
   "signInImage.readOnly": "Você pode ver esta página, mas não alterá-la. Quem cuida da segurança do console é que faz isso.",
-  "signInImage.locked.title": "Por que você não pode alterá-la",
   "signInImage.locked.reason": "O que aparece antes de entrar faz parte da proteção do console. Quem altera é quem tem a permissão {permission}.",
   "signInImage.preview.label": "Como fica a tela de entrada",
   "signInImage.preview.none": "O desenho do Noust, como está agora",

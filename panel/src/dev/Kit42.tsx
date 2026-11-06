@@ -272,7 +272,7 @@ function HeaderMeasure() {
             master={<SectionSwitch label="Send notifications" checked onCheckedChange={() => undefined} />}
             primaryAction={<Button variant="primary" icon={<ICONS.add aria-hidden="true" />}>Add a channel</Button>}
           />
-          <div className="rounded-card border border-border bg-surface p-4 text-13 text-fg-muted">The content: 880px wide, as far as the header goes.</div>
+          <div className="rounded-card border border-border bg-surface p-4 text-13 text-fg-muted">The content: 896px wide, as far as the header goes.</div>
         </div>
       </Stage>
     </Section>

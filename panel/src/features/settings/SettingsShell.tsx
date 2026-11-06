@@ -54,6 +54,8 @@ export function SettingsShell({ children }: { children: ReactNode }) {
       measure={hub ? "page" : "settings"}
       header={{
         title: hub ? t("settings.page.title") : (current?.label ?? (named !== undefined ? t(named.label) : t("settings.page.title"))),
+        // Where Settings opens it says what it is for, under its title, as every page does.
+        ...(hub ? { description: t("settingsHome.lead") } : {}),
         // A section that holds for every server says so where it is read, on the title's line and in one sentence: opening it
         // never moves the selector, and what it says is the fleet's is not guessed from the column.
         ...(hasFleet && !hub && current?.fleetWide === true

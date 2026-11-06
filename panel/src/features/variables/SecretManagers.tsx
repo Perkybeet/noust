@@ -31,7 +31,7 @@ import { useNode } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
 import { SettingsPrimaryAction } from "../settings/SettingsShell";
 import { useOrganization } from "../teams/useOrganization";
-import { useCan } from "./useCan";
+import { useCan } from "../../components/page/permissions";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** What a name may be, as the server reads it: lowercase letters, digits and dashes. */

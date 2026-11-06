@@ -35,6 +35,18 @@ describe("useCan", () => {
     const wrapper = withSession(clientWith(null));
     expect(renderHook(() => useCan("apps.manage"), { wrapper }).result.current).toBe(false);
   });
+
+  it("without a permission is the question itself, for what asks about many (a list of sections, the panels a role may see)", () => {
+    const wrapper = withSession(clientWith(["apps.read", "server.read"]));
+    const { result } = renderHook(() => useCan(), { wrapper });
+    expect(result.current("apps.read")).toBe(true);
+    expect(["server.read", "fleet.manage"].map(result.current)).toEqual([true, false]);
+  });
+
+  it("without a permission answers no to everything while the session is not known", () => {
+    const { result } = renderHook(() => useCan(), { wrapper: withSession(clientWith(null)) });
+    expect(result.current("apps.read")).toBe(false);
+  });
 });
 
 describe("Can", () => {

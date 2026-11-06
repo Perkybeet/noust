@@ -315,7 +315,6 @@ export function fleetRoutes(session: SessionInfo = centralSession(), nodes: unkn
     // A search over the logs of four servers: two lines, a note from old-1, db-1 from its last answer.
     "GET /api/views/logs": () => json(200, { ...LOGS_VIEW, fleet: true, servers: SERVERS, refusals: [] }),
     "GET /api/fleet/actions": () => json(200, ACTIONS),
-    "GET /api/fleet/jobs": () => json(200, { jobs: [{ ...JOB, nodes: null }] }),
     "GET /api/fleet/jobs/fj-1": () => json(200, JOB),
   };
 }

@@ -32,6 +32,14 @@ describe("telling the person", () => {
     expect(endingOf(task({ state: "succeeded" }), me, "/apps/shop.example.com/deployments")).toBe("silent");
   });
 
+  it("is silent on the Software page for an install it started there, which the page already says it ended", () => {
+    const install = { title: { code: "jobs.title.server_action_software_install", params: { component: "nginx" } }, state: "succeeded" } as const;
+    expect(endingOf(task(install), me, "/server/software")).toBe("silent");
+    expect(endingOf(task({ ...install, state: "failed" }), me, "/server/software")).toBe("silent");
+    // Anywhere else the task centre is the only one that says so.
+    expect(endingOf(task(install), me, "/server/webserver")).toBe("toast");
+  });
+
   it("is not the task centre's for what is not the person's, nor for an operation", () => {
     expect(endingOf(task({ state: "succeeded", actor: "ben" }), me, "/databases")).toBe("none");
     expect(endingOf(task({ state: "succeeded", actor: null }), me, "/databases")).toBe("none");

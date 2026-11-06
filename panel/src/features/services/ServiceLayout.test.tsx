@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { expectNoAxeViolations } from "../../test/axe";
@@ -41,6 +41,39 @@ describe("a service's page", () => {
     expect(screen.getByRole("button", { name: "Restart" })).toHaveAttribute("data-variant", "primary");
     expect(screen.getByRole("link", { name: "Configuration" })).toHaveAttribute("href", `/server/services/${NAME}/unit`);
     await expectNoAxeViolations(screen.getByRole("main"));
+  });
+
+  it("holds the sections of its column until the service is known: its state is a line the head gains then, and a list drawn before it would move", async () => {
+    let answer: () => void = () => undefined;
+    const record = SERVICES.find((service) => service.name === NAME);
+    servicePage(`/server/services/${NAME}`, {
+      [`GET /api/services/${NAME}`]: () => new Promise<Response>((resolve) => (answer = () => resolve(json(200, record)))),
+    });
+    await screen.findByRole("heading", { level: 1, name: NAME });
+
+    expect(await screen.findByText("Loading Service sections")).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Service sections" })).toBeNull();
+
+    act(() => {
+      answer();
+    });
+    const sections = await screen.findByRole("navigation", { name: "Service sections" });
+    expect(within(sections).getAllByRole("link").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Loading Service sections")).toBeNull();
+  });
+
+  it("lists the sections of its column all the same when the service cannot be read: each page says why", async () => {
+    servicePage(`/server/services/${NAME}`, { [`GET /api/services/${NAME}`]: () => problem(404, "not_found", "No such service") });
+    await screen.findByRole("heading", { level: 1, name: NAME });
+    expect(await screen.findByRole("navigation", { name: "Service sections" }, { timeout: 8000 })).toBeInTheDocument();
+  });
+
+  it("keeps the row of the name in the head of its column as tall with the switch to the other services as without it", async () => {
+    servicePage(`/server/services/${NAME}`);
+    await screen.findByRole("heading", { level: 1, name: NAME });
+    const column = await screen.findByRole("complementary", { name: "Service sections" });
+    // The row is the switch's height (28px) from the first frame, so the switch arriving with the list of services moves nothing.
+    expect(within(column).getByText(NAME).parentElement).toHaveClass("min-h-7");
   });
 
   it("keeps the old address working", async () => {

@@ -144,13 +144,6 @@ export const fleet = {
   },
   summary: {
     notRead: "Not read",
-    actions: {
-      title: "Recent actions",
-      loading: "Loading the recent actions",
-      loadFailed: "Could not load the recent actions",
-      empty: "No action has run on the fleet yet.",
-      servers: { one: "{count} server", other: "{count} servers" },
-    },
   },
   view: {
     refused: { one: "{count} server does not let you read {what}", other: "{count} servers do not let you read {what}" },

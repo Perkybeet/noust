@@ -32,11 +32,13 @@ export function useSessionDescription(): ReactNode {
 }
 
 /**
- * The person's own session: the account, the theme and the language, the width of the page, the
- * documentation, the shortcuts and signing out. It is the body of a popover at the top bar on a
- * desktop and of a sheet from "More" on a phone, so the two are never two lists.
+ * The person's own session: the account, the theme and the language, the width of the page, and
+ * signing out. It is the body of a popover at the top bar on a desktop and of a sheet from "More" on a
+ * phone, so the two are never two lists. The documentation and the shortcuts are the "?" of the top bar's
+ * (`features/report/HelpMenu`) and are not said again here; a phone has no "?", so its sheet asks for them
+ * (`withHelp`) and they are in one place there too.
  */
-export function SessionMenu({ onClose, onOpenShortcuts }: { onClose: () => void; onOpenShortcuts: () => void }) {
+export function SessionMenu({ onClose, onOpenShortcuts, withHelp = false }: { onClose: () => void; onOpenShortcuts: () => void; withHelp?: boolean }) {
   const t = useT();
   const [theme, chooseTheme] = useTheme();
   const { data: session } = useQuery(sessionQuery());
@@ -79,26 +81,30 @@ export function SessionMenu({ onClose, onOpenShortcuts }: { onClose: () => void;
         />
       </div>
       <div className="-mx-4 flex flex-col border-t border-border px-2 pt-2">
-        <ExternalLink
-          href={helpUrl(helpFor(pathname))}
-          button="ghost"
-          className="justify-start"
-          icon={<BookOpen aria-hidden="true" className="size-icon-md shrink-0" />}
-        >
-          {t("shell.session.documentation")}
-        </ExternalLink>
-        <Button
-          variant="ghost"
-          icon={<Keyboard aria-hidden="true" />}
-          trailingIcon={<Kbd className="ml-auto">?</Kbd>}
-          className="justify-start"
-          onClick={() => {
-            onClose();
-            onOpenShortcuts();
-          }}
-        >
-          {t("shell.session.keyboardShortcuts")}
-        </Button>
+        {withHelp ? (
+          <>
+            <ExternalLink
+              href={helpUrl(helpFor(pathname))}
+              button="ghost"
+              className="justify-start"
+              icon={<BookOpen aria-hidden="true" className="size-icon-md shrink-0" />}
+            >
+              {t("shell.session.documentation")}
+            </ExternalLink>
+            <Button
+              variant="ghost"
+              icon={<Keyboard aria-hidden="true" />}
+              trailingIcon={<Kbd className="ml-auto">?</Kbd>}
+              className="justify-start"
+              onClick={() => {
+                onClose();
+                onOpenShortcuts();
+              }}
+            >
+              {t("shell.session.keyboardShortcuts")}
+            </Button>
+          </>
+        ) : null}
         <Button variant="ghost" icon={<LogOut aria-hidden="true" />} className="justify-start" loading={signingOut} onClick={() => void signOut()}>
           {t("shell.session.signOut")}
         </Button>

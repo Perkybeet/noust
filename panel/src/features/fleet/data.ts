@@ -29,7 +29,6 @@ export type FleetActionAnswer = ResponseOf<"/api/fleet/actions", "post">;
 export type FleetPlan = FleetActionAnswer["plan"];
 export type FleetNodeState = FleetPlan["nodes"][number];
 export type FleetJob = ResponseOf<"/api/fleet/jobs/{job_id}", "get">;
-export type FleetJobList = ResponseOf<"/api/fleet/jobs", "get">;
 
 // ---------------------------------------------------------------------------------------
 // Queries
@@ -90,14 +89,6 @@ export const fleetActionsQuery = () =>
     queryKey: fleetKeys.actions,
     queryFn: ({ signal }) => request("get", "/api/fleet/actions", { signal }),
     staleTime: Number.POSITIVE_INFINITY,
-  });
-
-/** The fleet's own jobs, newest first. */
-export const fleetJobsQuery = (limit = 10) =>
-  queryOptions({
-    queryKey: [...fleetKeys.jobs, limit] as const,
-    queryFn: ({ signal }) => request("get", "/api/fleet/jobs", { query: { limit }, signal }),
-    refetchInterval: 15_000,
   });
 
 /** How often a running job is read again. */

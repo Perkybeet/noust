@@ -47,9 +47,9 @@ export function StorageSummary() {
     return <span className="text-fg-faint">{t("backups.storage.loadError")}</span>;
   }
   if (storage.data === undefined) {
-    // The loaded line's height: its tallest part is the 20px info button.
+    // The loaded line's height: its tallest part is the info button, a 32px control with 4px taken off above and below.
     return (
-      <span aria-hidden="true" className="flex h-5 items-center gap-3">
+      <span aria-hidden="true" className="flex h-6 items-center gap-3">
         <Skeleton className="h-3 w-32" />
         <Skeleton className="h-3 w-48" />
       </span>

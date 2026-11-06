@@ -46,8 +46,10 @@ Each part of the console has a page of its own:
   turns on if you say yes. On **All servers** the panel is grouped by server, and a server that has not
   been updated says it will count its tasks when it is.
 - **Top bar**: the machine strip (host name, uptime, load, CPU, memory, disk, units running and
-  failed), the command palette, the **inbox** and the session menu (account, sign-in security, theme,
-  language, keyboard shortcuts, sign out). The inbox is a bell: **Needs you** lists what is wrong while
+  failed), the command palette, the **help** menu (the documentation of the page you are on, the keyboard
+  shortcuts, reporting a problem), the **inbox** and the session menu (account, sign-in security, theme,
+  language, page width, sign out; on a phone, which has no help menu, its sheet also holds the documentation
+  and the shortcuts). The inbox is a bell: **Needs you** lists what is wrong while
   it is wrong (a failed application, a certificate about to expire, an alert that fires, a probe that is
   down, a request waiting for your decision, a Noust or a recipe with a newer version), each row with
   one button that goes to it, and **Recent** keeps the last 30 things the server said while this tab

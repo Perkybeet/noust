@@ -15,7 +15,6 @@ export const signInImage: Catalog<typeof en> = {
   public: "Se ve antes de entrar: la ve cualquiera que abra la consola.",
   readOnly: "Puedes ver esta página, no cambiarla. Lo hace quien se ocupa de la seguridad de la consola.",
   locked: {
-    title: "Por qué no puedes cambiarla",
     reason: "Lo que se ve antes de entrar forma parte de cómo se protege la consola. Lo cambia quien tenga el permiso {permission}.",
   },
   preview: {

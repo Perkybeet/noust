@@ -20,7 +20,7 @@ import { StatusGlyph } from "../../ui/StatusPill";
 import { Mono } from "../../ui/Mono";
 import { Big, Glyph, StateLine, WidgetPending } from "../parts";
 import type { WidgetBodyProps } from "../types";
-import { useCan } from "../useCan";
+import { useCan } from "../../page/permissions";
 
 // ---------------------------------------------------------------------------------------
 // Certificates

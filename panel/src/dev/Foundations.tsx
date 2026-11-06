@@ -301,7 +301,7 @@ const SIZES: { token: string; value: string; use: string }[] = [
 const WIDTHS: { token: string; value: string; use: string }[] = [
   { token: "--width-page", value: "1600px", use: "The shell's cap: T1, T2, T4, T6" },
   { token: "--width-settings-nav", value: "200px", use: "T3's side navigation, T5's step rail" },
-  { token: "--width-settings", value: "880px", use: "T3's content column" },
+  { token: "--width-settings", value: "896px", use: "T3's content column" },
   { token: "--width-wizard", value: "736px", use: "T5's step column" },
   { token: "--width-auth", value: "992px", use: "T7's slab" },
   { token: "--width-dialog-sm | md | lg | xl", value: "440 / 560 / 720 / 1280", use: "Question / form / two columns or steps / looking closely" },

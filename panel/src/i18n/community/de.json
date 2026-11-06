@@ -7001,14 +7001,6 @@
   "fleet.servers.memory": "Speicher",
   "fleet.servers.disk": "Festplatte",
   "fleet.summary.notRead": "Nicht gelesen",
-  "fleet.summary.actions.title": "Letzte Aktionen",
-  "fleet.summary.actions.loading": "Die letzten Aktionen werden geladen",
-  "fleet.summary.actions.loadFailed": "Die letzten Aktionen konnten nicht geladen werden",
-  "fleet.summary.actions.empty": "Auf der Flotte wurde noch keine Aktion ausgeführt.",
-  "fleet.summary.actions.servers": {
-    "one": "{count} Server",
-    "other": "{count} Server"
-  },
   "fleet.view.refused": {
     "one": "{count} Server lässt Sie {what} nicht lesen",
     "other": "{count} Server lassen Sie {what} nicht lesen"
@@ -8443,7 +8435,8 @@
   "network.access.http3.enableHelp": "Braucht HTTPS und nginx 1.25 oder neuer mit dem HTTP/3-Modul und sendet Alt-Svc, um Browsern Bescheid zu geben. Eine kleine Site von Noust hält den gemeinsamen Socket.",
   "network.access.http3.readFailed": "Es konnte nicht festgestellt werden, ob dieser Server HTTP/3 ausliefern kann",
   "network.access.http3.udpClosed": "Die Firewall lässt UDP 443 nicht herein",
-  "network.access.http3.udpClosedHelp": "Browser versuchen HTTP/3, scheitern und nutzen HTTP/2, es geht also nichts kaputt, aber es wird nichts gewonnen. Öffnen Sie den Port:",
+  "network.access.http3.udpClosedHelp": "Browser versuchen HTTP/3, scheitern und nutzen HTTP/2, es geht also nichts kaputt, aber es wird nichts gewonnen.",
+  "network.access.http3.openUdp": "UDP 443 öffnen",
   "network.access.forward.title": "Anmeldedienst",
   "network.access.forward.description": "Einen Authentifizierungsdienst zu jeder Anfrage befragen, bevor sie die Anwendung erreicht: oauth2-proxy, authentik oder jeder Dienst, der einem angemeldeten Besucher mit 2xx und einem nicht angemeldeten mit 401 antwortet. Seine Konten, sein zweiter Faktor und sein Single Sign-on schützen die Anwendung.",
   "network.access.forward.preset": "Ausgehen von",
@@ -15673,7 +15666,6 @@
   "signInImage.refreshFailed": "Das Anmeldebild konnte nicht aktualisiert werden",
   "signInImage.public": "Es ist vor der Anmeldung zu sehen: Jeder, der die Konsole öffnet, sieht es.",
   "signInImage.readOnly": "Sie können diese Seite ansehen, aber nicht ändern. Das tut, wer sich um die Sicherheit der Konsole kümmert.",
-  "signInImage.locked.title": "Warum Sie es nicht ändern können",
   "signInImage.locked.reason": "Was vor der Anmeldung zu sehen ist, gehört zum Schutz der Konsole. Es ändert, wer die Berechtigung {permission} besitzt.",
   "signInImage.preview.label": "So sieht der Anmeldebildschirm aus",
   "signInImage.preview.none": "Die Zeichnung von Noust, wie sie jetzt ist",

@@ -49,6 +49,15 @@ describe("Settings, the hub", () => {
     await expectNoAxeViolations(container);
   });
 
+  it("says what it is for under its title, in the header, and not as a paragraph a gap away from it", { timeout: 30_000 }, async () => {
+    hub();
+    renderConsole("/settings");
+    const title = await screen.findByRole("heading", { level: 1, name: "Settings" });
+    const lead = await screen.findByText("Everything you can set up, by what it is for.");
+    // The header of the page holds both, so the rhythm between them is the header's and not the 32px that separates a header from its content.
+    expect(title.closest("header")?.contains(lead)).toBe(true);
+  });
+
   it("says what is true now where the console already knows it: how many people, how many roles", { timeout: 30_000 }, async () => {
     hub();
     renderConsole("/settings");

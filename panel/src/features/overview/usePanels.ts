@@ -21,7 +21,7 @@ import { isApiError } from "../../api/errors";
 import { toDocument } from "../../components/widgets/model";
 import type { Placed } from "../../components/widgets/model";
 import type { PanelScope } from "../../components/widgets/types";
-import { useCan } from "../../components/widgets/useCan";
+import { useCan } from "../../components/page/permissions";
 import { useT } from "../../i18n";
 import { useHasFleet } from "../../nodes/servers";
 import { reportActionError } from "../apps/useAppActions";

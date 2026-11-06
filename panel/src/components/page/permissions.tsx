@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import type { ReactNode } from "react";
 
 import { sessionQuery } from "../../api/queries/auth";
@@ -14,10 +15,23 @@ import { ICONS } from "../ui/icons";
  * What the signed-in credential holds, as a question: whether it holds a permission. Only the offer: the
  * server decides again on every call, so a stale answer costs a refusal and not a breach. Not yet known is a no,
  * so nothing that writes is drawn for a moment it should not be. A team's own roles are `useOrganization().can`.
+ *
+ * Given a permission it answers for that one. Given none it is the question itself, for what asks about many (the
+ * sections of a list, the panels a role may see, the permissions an install takes), where a hook cannot be called for
+ * each: the one place the session's permissions are read, so every list and every button agrees on what is not yet known.
  */
-export function useCan(permission: string): boolean {
-  const { data } = useQuery({ ...sessionQuery(), select: (session) => session.permissions?.includes(permission) ?? false });
-  return data ?? false;
+export function useCan(): (permission: string) => boolean;
+export function useCan(permission: string): boolean;
+export function useCan(permission?: string): boolean | ((permission: string) => boolean) {
+  const { data } = useQuery({
+    ...sessionQuery(),
+    select: (session) => (permission === undefined ? (session.permissions ?? []) : (session.permissions?.includes(permission) ?? false)),
+  });
+  // One question for as long as the permissions are the same, so a list built from it is not rebuilt on every render.
+  const held = permission === undefined && Array.isArray(data) ? data : null;
+  const asking = useMemo(() => (candidate: string): boolean => held?.includes(candidate) ?? false, [held]);
+  if (permission !== undefined) return data === true;
+  return asking;
 }
 
 /** The role the credential signs in with, for a sentence that says what it cannot do; null for a token with none. */

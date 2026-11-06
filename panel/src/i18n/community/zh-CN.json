@@ -6845,13 +6845,6 @@
   "fleet.servers.memory": "内存",
   "fleet.servers.disk": "磁盘",
   "fleet.summary.notRead": "未读取",
-  "fleet.summary.actions.title": "最近的操作",
-  "fleet.summary.actions.loading": "正在加载最近的操作",
-  "fleet.summary.actions.loadFailed": "无法加载最近的操作",
-  "fleet.summary.actions.empty": "服务器群上还没有执行过任何操作。",
-  "fleet.summary.actions.servers": {
-    "other": "{count} 台服务器"
-  },
   "fleet.view.refused": {
     "other": "{count} 台服务器不允许你读取{what}"
   },
@@ -8243,7 +8236,8 @@
   "network.access.http3.enableHelp": "需要 HTTPS、带 HTTP/3 模块的 nginx 1.25 或更高版本，并会发送 Alt-Svc 来通知浏览器。由 Noust 的一个小站点持有共享的套接字。",
   "network.access.http3.readFailed": "无法判断这台服务器是否能提供 HTTP/3",
   "network.access.http3.udpClosed": "防火墙不允许 UDP 443 进入",
-  "network.access.http3.udpClosedHelp": "浏览器会尝试 HTTP/3，失败后改用 HTTP/2，所以不会出问题，但也没有任何收益。请开放该端口：",
+  "network.access.http3.udpClosedHelp": "浏览器会尝试 HTTP/3，失败后改用 HTTP/2，所以不会出问题，但也没有任何收益。",
+  "network.access.http3.openUdp": "开放 UDP 443",
   "network.access.forward.title": "登录服务",
   "network.access.forward.description": "在每个请求到达应用之前，先向认证服务询问：oauth2-proxy、authentik，或任何对已登录访客返回 2xx、对未登录访客返回 401 的服务。它的账户、第二因素和单点登录会保护这个应用。",
   "network.access.forward.preset": "从以下开始",
@@ -15345,7 +15339,6 @@
   "signInImage.refreshFailed": "无法刷新登录图片",
   "signInImage.public": "它在登录前就能看到：任何打开控制台的人都能看到它。",
   "signInImage.readOnly": "你可以查看此页面，但不能更改。由负责控制台安全的人来改。",
-  "signInImage.locked.title": "为什么你不能更改",
   "signInImage.locked.reason": "登录前看到的内容属于控制台的保护范围。拥有 {permission} 权限的人才能更改。",
   "signInImage.preview.label": "登录界面的显示效果",
   "signInImage.preview.none": "Noust 自带的图画，保持现状",

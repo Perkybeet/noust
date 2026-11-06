@@ -213,7 +213,8 @@ export const network = {
       enableHelp: "Needs HTTPS, nginx 1.25 or later with the HTTP/3 module, and sends Alt-Svc to tell browsers. One small site of Noust's holds the shared socket.",
       readFailed: "Could not tell whether this server can serve HTTP/3",
       udpClosed: "The firewall does not let UDP 443 in",
-      udpClosedHelp: "Browsers will try HTTP/3, fail, and use HTTP/2, so nothing breaks, but nothing is gained. Open the port:",
+      udpClosedHelp: "Browsers will try HTTP/3, fail, and use HTTP/2, so nothing breaks, but nothing is gained.",
+      openUdp: "Open UDP 443",
     },
     forward: {
       title: "Sign-in service",

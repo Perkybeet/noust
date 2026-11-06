@@ -68,7 +68,8 @@ export function ResourceHead({ back, title, mark, icon: Icon, state, kind, serve
       <div className="mt-2 flex items-start gap-2.5 px-1">
         {mark !== undefined ? <span className="mt-0.5 flex shrink-0 items-center">{mark}</span> : Icon !== undefined ? <Icon aria-hidden="true" className="mt-2 size-icon-lg shrink-0 text-fg-faint" /> : null}
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1">
+          {/* The height of the switch to siblings, which arrives with their list: the name's row never grows when it does. */}
+          <div className="flex min-h-7 items-center gap-1">
             <p translate="no" className="title min-w-0 flex-1 truncate text-16 text-fg">
               {title}
             </p>

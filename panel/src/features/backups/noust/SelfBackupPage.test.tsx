@@ -72,6 +72,32 @@ async function pageAt(schedule: SelfSchedule, bundles: Bundle[] = [bundle(NAME)]
 }
 
 describe("the Noust tab", () => {
+  it("draws one shape of its body while the read is out, and neither the schedule's card nor the table: they arrive whole, and push nothing down", async () => {
+    let answer: () => void = () => undefined;
+    screenWidth(1440);
+    fakeBackend(
+      frameRoutes({
+        "GET /api/self-backup": () => new Promise<Response>((resolve) => (answer = () => resolve(json(200, { bundles: [bundle(NAME)], schedule: ON })))),
+      }),
+    );
+    renderConsole("/backups/noust");
+    await screen.findByRole("heading", { level: 1, name: "Backups" });
+
+    const reading = (await screen.findByText("Loading Bundles of Noust's own state")).closest("[aria-busy]");
+    expect(reading).toHaveAttribute("aria-busy", "true");
+    // Not a card that grows by its own height when the answer comes, nor a table whose rows are skeletons of the real ones.
+    expect(screen.queryByRole("heading", { name: "Schedule" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Bundles of Noust's own state" })).toBeNull();
+    expect(screen.queryByText(/A bundle is one file/)).toBeNull();
+
+    act(() => {
+      answer();
+    });
+    expect(await screen.findByRole("heading", { name: "Schedule" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Bundles of Noust's own state" })).toBeInTheDocument();
+    expect(screen.queryByText(/^Loading Bundles/)).toBeNull();
+  });
+
   it("says Noust's own state is not backed up when there is no schedule, and what that costs", async () => {
     await pageAt(OFF, []);
     const card = (await screen.findByRole("heading", { name: "Schedule" })).closest("section");

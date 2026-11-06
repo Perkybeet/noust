@@ -24,7 +24,7 @@ import { VERB_ICONS } from "../../../components/ui/objectIcons";
 import { ServerText } from "../../../components/ui/ServerText";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { TextLink } from "../../../components/ui/TextLink";
-import { useCan } from "../../../components/widgets/useCan";
+import { useCan } from "../../../components/page/permissions";
 import { useT } from "../../../i18n";
 import { useNodeCapability } from "../../../nodes/capability";
 import { ServerErrorBlock } from "../errors";

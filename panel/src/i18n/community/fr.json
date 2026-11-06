@@ -7001,14 +7001,6 @@
   "fleet.servers.memory": "Mémoire",
   "fleet.servers.disk": "Disque",
   "fleet.summary.notRead": "Non lu",
-  "fleet.summary.actions.title": "Actions récentes",
-  "fleet.summary.actions.loading": "Chargement des actions récentes",
-  "fleet.summary.actions.loadFailed": "Impossible de charger les actions récentes",
-  "fleet.summary.actions.empty": "Aucune action n'a encore été exécutée sur la flotte.",
-  "fleet.summary.actions.servers": {
-    "one": "{count} serveur",
-    "other": "{count} serveurs"
-  },
   "fleet.view.refused": {
     "one": "{count} serveur ne vous laisse pas lire {what}",
     "other": "{count} serveurs ne vous laissent pas lire {what}"
@@ -8443,7 +8435,8 @@
   "network.access.http3.enableHelp": "Exige HTTPS, nginx 1.25 ou plus récent avec le module HTTP/3, et envoie Alt-Svc pour le signaler aux navigateurs. Un petit site de Noust détient la socket partagée.",
   "network.access.http3.readFailed": "Impossible de savoir si ce serveur peut servir HTTP/3",
   "network.access.http3.udpClosed": "Le pare-feu ne laisse pas entrer UDP 443",
-  "network.access.http3.udpClosedHelp": "Les navigateurs essaieront HTTP/3, échoueront et utiliseront HTTP/2 : rien ne casse, mais rien n'est gagné. Ouvrez le port :",
+  "network.access.http3.udpClosedHelp": "Les navigateurs essaieront HTTP/3, échoueront et utiliseront HTTP/2 : rien ne casse, mais rien n'est gagné.",
+  "network.access.http3.openUdp": "Ouvrir l'UDP 443",
   "network.access.forward.title": "Service de connexion",
   "network.access.forward.description": "Interroger un service d'authentification sur chaque requête avant qu'elle n'atteigne l'application : oauth2-proxy, authentik ou tout service qui répond 2xx pour un visiteur connecté et 401 pour un visiteur qui ne l'est pas. Ses comptes, son second facteur et son authentification unique protègent l'application.",
   "network.access.forward.preset": "Partir de",
@@ -15681,7 +15674,6 @@
   "signInImage.refreshFailed": "Impossible d'actualiser l'image de connexion",
   "signInImage.public": "Elle se voit avant la connexion : toute personne qui ouvre la console la voit.",
   "signInImage.readOnly": "Vous pouvez voir cette page, pas la modifier. C'est l'affaire de qui s'occupe de la sécurité de la console.",
-  "signInImage.locked.title": "Pourquoi vous ne pouvez pas la modifier",
   "signInImage.locked.reason": "Ce qui se voit avant la connexion fait partie de la protection de la console. Elle est modifiée par qui détient la permission {permission}.",
   "signInImage.preview.label": "L'écran de connexion tel qu'il apparaît",
   "signInImage.preview.none": "Le dessin de Noust, tel qu'il est maintenant",

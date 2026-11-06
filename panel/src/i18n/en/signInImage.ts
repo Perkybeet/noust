@@ -18,7 +18,6 @@ export const signInImage = {
   /** The line a person without the permission reads once, at the top. */
   readOnly: "You can see this page, not change it. Whoever looks after the console's security does.",
   locked: {
-    title: "Why you cannot change it",
     reason: "What is seen before signing in is part of how the console is protected. It is changed by whoever holds the permission {permission}.",
   },
   preview: {

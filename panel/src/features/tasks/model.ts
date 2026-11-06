@@ -19,6 +19,7 @@ import type { Operation } from "../../api/queries/operations";
 import type { CodedText } from "../../lib/serverSentence";
 import { asCoded } from "../../lib/serverSentence";
 import { parseTimestamp } from "../../lib/format";
+import { SOFTWARE_PAGE, isSoftwareJob } from "../server/software/jobTitles";
 
 export type TaskKind = "job" | "operation";
 
@@ -362,12 +363,14 @@ export function pathOf(place: Place): string {
 }
 
 /**
- * Whether the page on screen is the task's: its own page, or the page of the application a job acts on, where the
- * screens that start one follow it today. A task that ends while the person is on one of these says nothing.
+ * Whether the page on screen is the task's: its own page, the page of the application a job acts on, or the Software page
+ * for an install or a removal, where the screens that start one follow it today. A task that ends while the person is on
+ * one of these says nothing.
  */
-export function isOnItsPage(task: Pick<Task, "kind" | "id" | "server" | "domain" | "target" | "code">, pathname: string): boolean {
+export function isOnItsPage(task: Pick<Task, "kind" | "id" | "server" | "domain" | "target" | "code" | "title">, pathname: string): boolean {
   const own = pathOf(placeOf(task));
   if (pathname === own || pathname.startsWith(`${own}/`)) return true;
+  if (isSoftwareJob(task.title) && (pathname === SOFTWARE_PAGE || pathname.startsWith(`${SOFTWARE_PAGE}/`))) return true;
   if (task.domain === null) return false;
   const app = `/apps/${encodeURIComponent(task.domain)}`;
   return pathname === app || pathname.startsWith(`${app}/`);

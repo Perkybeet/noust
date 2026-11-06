@@ -110,11 +110,12 @@ function AttentionAction({ item }: { item: AttentionItem }) {
   const t = useT();
   const power = usePowerDialog();
   const label = actionLabel(t, item);
-  const className = buttonClassName("secondary", "sm", "shrink-0");
+  // `ml-auto`: where a narrow card makes the action wrap under its sentence it stays at the right, where every other line has it.
+  const className = buttonClassName("secondary", "sm", "ml-auto shrink-0");
   switch (item.action.kind) {
     case "reboot":
       return (
-        <Button size="sm" className="shrink-0" onClick={() => power.open("reboot")}>
+        <Button size="sm" className="ml-auto shrink-0" onClick={() => power.open("reboot")}>
           {label}
         </Button>
       );
@@ -140,7 +141,7 @@ function AttentionRow({ item }: { item: AttentionItem }) {
     <li className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 px-5 py-2.5">
       <StatusGlyph state={state} size={12} className={`shrink-0 ${stateTextClass(state)}`} />
       <span className="sr-only">{item.severity === "critical" ? t("server.attention.critical") : t("common.statusPill.warning")}</span>
-      <span className="min-w-0 flex-1 basis-60 text-13 text-fg">{attentionText(t, item)}</span>
+      <span className="min-w-0 flex-1 basis-40 text-13 text-fg">{attentionText(t, item)}</span>
       <AttentionAction item={item} />
     </li>
   );

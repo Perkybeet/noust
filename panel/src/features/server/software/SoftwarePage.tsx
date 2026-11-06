@@ -22,7 +22,7 @@ import { Notice } from "../../../components/ui/Notice";
 import { OBJECT_ICONS, VERB_ICONS } from "../../../components/ui/objectIcons";
 import { ServerText } from "../../../components/ui/ServerText";
 import { SkeletonSection } from "../../../components/ui/Skeleton";
-import { useCan } from "../../../components/widgets/useCan";
+import { useCan } from "../../../components/page/permissions";
 import { useT } from "../../../i18n";
 import { NodeCapabilityGate } from "../../../nodes/capability";
 import { ServerQueryState } from "../errors";

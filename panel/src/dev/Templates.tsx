@@ -412,7 +412,7 @@ export function Templates() {
       <Section
         id="t3"
         title="T3 Settings with side navigation"
-        description="A 200px list of subsections, each its own URL, beside content of at most 880px; one form per subsection, saved from the bar at its foot; the destructive subsection last, apart. On a phone the list is its own index page."
+        description="A 200px list of subsections, each its own URL, beside content of at most 896px; one form per subsection, saved from the bar at its foot; the destructive subsection last, apart. On a phone the list is its own index page."
       >
         <Frame id="settings" name="SettingsLayout + SaveBar">
           <SettingsDemo />

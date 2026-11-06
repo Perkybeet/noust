@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 
 import { Gallery } from "../../components/widgets/Gallery";
-import { useCan } from "../../components/widgets/useCan";
+import { useCan } from "../../components/page/permissions";
 import { SlidingIndicator } from "../../components/ui/SlidingIndicator";
 import { ICONS } from "../../components/ui/icons";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";

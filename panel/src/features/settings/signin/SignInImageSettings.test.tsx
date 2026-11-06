@@ -224,12 +224,14 @@ describe("Settings > Sign-in image", () => {
     expect(slotOfPreview().querySelector("svg[viewBox='0 0 400 230']")).not.toBeNull();
   });
 
-  it("is read-only without the permission: the action is turned off with a lock and says why when pressed", async () => {
+  it("is read-only without the permission: the action is the kit's guarded button, turned off with a lock and with its reason one press away", async () => {
     const { user } = await pageAt(SET, {}, READER);
 
     expect(screen.getByText("You can see this page, not change it. Whoever looks after the console's security does.")).toBeInTheDocument();
     const locked = screen.getByRole("button", { name: "Change the image" });
-    expect(locked).toHaveAttribute("aria-disabled", "true");
+    expect(locked).toBeDisabled();
+    // The same one every action that takes a permission is: not a lock of this page's own.
+    expect(locked.closest('[data-slot="guarded-action"]')).not.toBeNull();
     // The page is read: the picture, its fit and its description are said, and nothing can be edited.
     expect(slotOfPreview().querySelector("img")).toHaveAttribute("src", PICTURE.url);
     expect(screen.getByText("Fit it whole")).toBeInTheDocument();
@@ -240,9 +242,9 @@ describe("Settings > Sign-in image", () => {
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
     expect(screen.queryByLabelText("Change the image")).toBeNull();
 
-    await user.click(locked);
+    await user.click(screen.getByRole("button", { name: "Why you cannot do this" }));
 
-    expect(await screen.findByText("Why you cannot change it")).toBeInTheDocument();
+    expect(await screen.findByText(/What is seen before signing in is part of how the console is protected/)).toBeInTheDocument();
     expect(screen.getByText("security.manage")).toBeInTheDocument();
   });
 

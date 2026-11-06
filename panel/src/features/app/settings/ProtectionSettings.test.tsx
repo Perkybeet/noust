@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 
 import { setLocale } from "../../../app/locale";
 import { expectNoAxeViolations } from "../../../test/axe";
-import { json, problem } from "../../../test/fakes";
+import { SESSION, json, problem } from "../../../test/fakes";
+import { serverRoutes } from "../../server/testing";
 import { certificate, clientCerts, HTTP3, OLD_SERIAL, openProtection, policy, SERIAL, WAF } from "./accessKit";
 import { DOMAIN, saveBar } from "./testKit";
 
@@ -68,13 +69,41 @@ describe("an application's protection settings", () => {
     expect(screen.getByRole("checkbox", { name: /Serve this site over HTTP\/3/ })).toHaveAttribute("aria-disabled", "true");
   });
 
-  it("warns when the firewall keeps UDP 443 out, with the command that opens it", async () => {
-    await protection({
+  it("warns when the firewall keeps UDP 443 out, and opens the one dialog for opening a port with UDP 443 filled in", async () => {
+    const { user } = await protection({
+      ...serverRoutes(),
       [`GET /api/apps/${DOMAIN}/http3`]: () => json(200, { ...HTTP3, udp_allowed: false, firewall_hint: "ufw allow 443/udp" }),
     });
 
     expect(await screen.findByText("The firewall does not let UDP 443 in")).toBeInTheDocument();
-    expect(screen.getByText("ufw allow 443/udp")).toBeInTheDocument();
+    // The command is the terminal's way; the console's is the dialog every place that opens a port opens.
+    expect(screen.queryByText("ufw allow 443/udp")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Open UDP 443" }));
+
+    const dialog = await screen.findByRole("alertdialog", { name: "Open a port" });
+    expect(within(dialog).getByLabelText("Port")).toHaveValue("443");
+    expect(await within(dialog).findByText("Server firewall: allow UDP 443 from anyone.")).toBeInTheDocument();
+  });
+
+  it("does not offer to open the port to a role that may not change the firewall, and says why", async () => {
+    await protection(
+      {
+        ...serverRoutes(),
+        "GET /api/auth/session": () => json(200, { ...SESSION, role: "operator", permissions: ["self", "apps.read", "apps.manage", "server.read"] }),
+        [`GET /api/apps/${DOMAIN}/http3`]: () => json(200, { ...HTTP3, udp_allowed: false, firewall_hint: "ufw allow 443/udp" }),
+      },
+    );
+
+    await screen.findByText("The firewall does not let UDP 443 in");
+    expect(screen.getByRole("button", { name: "Open UDP 443" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Why you cannot do this" })).toBeInTheDocument();
+  });
+
+  it("says nothing of the port while UDP 443 is open", async () => {
+    await protection({ ...serverRoutes() });
+
+    await screen.findByRole("heading", { name: "HTTP/3" });
+    expect(screen.queryByRole("button", { name: "Open UDP 443" })).not.toBeInTheDocument();
   });
 
   it("does not offer HTTP/3 for a site Apache serves", async () => {

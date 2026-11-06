@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
-import { FakeEventSource, SESSION, fakeBackend, json, signedInRoutes } from "../../test/fakes";
+import { FakeEventSource, NODES, SESSION, fakeBackend, json, signedInRoutes } from "../../test/fakes";
 import type { FakeBackend, RouteHandler } from "../../test/fakes";
 import { resetHandled } from "../../realtime/jobEnds";
 import { EMPTY, taskStore } from "./store";
@@ -277,6 +277,32 @@ describe("a task's page and the list", () => {
     await waitFor(() => {
       expect(location().pathname).toBe("/activity/tasks/mine1");
     });
+  });
+
+  it("lists the actions that ran on several servers once they are over, in the list of every task: it is the place for them, with no list of their own", async () => {
+    // A bulk action is a job of the central (JobType.FLEET): renewing certificates or applying settings on two servers.
+    const action = job({
+      id: "fleet-1",
+      type: "fleet",
+      name: "Renew certificates on 2 servers",
+      actor: "ana",
+      status: "completed",
+      state: "succeeded",
+      completed_at: new Date(Date.now() - 90_000).toISOString(),
+      started_at: new Date(Date.now() - 150_000).toISOString(),
+      metadata: { action: "certs_renew", nodes: ["web-2", "db-1"] },
+      title: { code: "fleet_job.certs_renew.several", params: { count: 2 } },
+    });
+    serve({
+      "GET /api/nodes": () => json(200, { items: NODES }),
+      "GET /api/jobs/active": () => json(200, { jobs: [], total: 0, active: 0 }),
+      "GET /api/jobs": () => json(200, { jobs: [action], total: 1, active: 0 }),
+    });
+    renderConsole("/activity/tasks");
+    const table = await screen.findByRole("table", { name: "Tasks, latest first" });
+    const row = (await within(table).findByText("Renew certificates on 2 servers")).closest("tr");
+    expect(row).not.toBeNull();
+    expect(within(row as HTMLElement).getByText("Succeeded")).toBeInTheDocument();
   });
 
   it("opens with its steps and its state, and offers to pin and to cancel it", async () => {
