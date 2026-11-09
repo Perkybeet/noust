@@ -674,7 +674,7 @@ jobs:
           sha256sum -c SHA256SUMS
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
         with:
           # Version 4 of the installer installs cosign 3 by default, which writes one bundle and not the
           # `.sig` and `.pem` this release publishes and documents; moving to it is a decision of its own.
@@ -783,7 +783,7 @@ jobs:
           (cd release-files && sha256sum -c "../signed/noust-${VERSION}.SHA256SUMS")
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
         with:
           cosign-release: v2.6.5
 
@@ -985,7 +985,7 @@ jobs:
       # to keep: the certificate names this workflow, and
       # `cosign verify` (docs/SECURITY-MODEL.md) checks that name.
       - name: Install cosign
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
         with:
           cosign-release: v2.6.5
 
