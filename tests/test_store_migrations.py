@@ -27,6 +27,7 @@ import pytest
 from noust.core import store as store_module
 from noust.core.exceptions import ValidationError
 from noust.core.fs import RecordingFileSystem
+from noust.core.sqlite_threads import ThreadConnections
 from noust.core.store import SCHEMA_VERSION, App, NoustStore
 from tests.support.store import V1_SCHEMA_SQL, V2_DEPLOYMENTS_SQL, V4_JOBS_SQL
 from tests.support.store_migrations import _create_v3_database
@@ -996,7 +997,7 @@ def _bare_store(db_path: Path) -> NoustStore:
     store = object.__new__(NoustStore)
     store._fs = RecordingFileSystem()
     store._db_path = db_path
-    store._local = threading.local()
+    store._connections = ThreadConnections()
     store._initialized = False
     return store
 

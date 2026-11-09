@@ -56,6 +56,7 @@ from noust.core.fs import (
     get_fs,
     is_rehearsal,
 )
+from noust.core.sqlite_threads import ThreadConnections
 from noust.core.teams import backfill as teams_backfill
 from noust.core.teams import ownership as teams_ownership
 
@@ -1660,7 +1661,7 @@ class NoustStore:
 
             self._fs = fs
             self._db_path = self._resolve_db_path(db_path)
-            self._local = threading.local()
+            self._connections = ThreadConnections()
             self._ensure_schema()
             self._initialized = True
 
@@ -1734,7 +1735,7 @@ class NoustStore:
 
     def _get_connection(self) -> sqlite3.Connection:
         """
-        Get a thread-local database connection.
+        Get the calling thread's database connection.
 
         Returns:
             The connection belonging to the calling thread.
@@ -1742,10 +1743,7 @@ class NoustStore:
         Raises:
             StoreError: If the database file cannot be opened.
         """
-        if getattr(self._local, "connection", None) is None:
-            self._local.connection = self._connect()
-        connection: sqlite3.Connection = self._local.connection
-        return connection
+        return self._connections.get(self._connect)
 
     def _connect(self) -> sqlite3.Connection:
         """
@@ -5853,10 +5851,8 @@ class NoustStore:
             return stats
 
     def close(self) -> None:
-        """Close database connections."""
-        if hasattr(self._local, "connection") and self._local.connection:
-            self._local.connection.close()
-            self._local.connection = None
+        """Close the calling thread's database connection."""
+        self._connections.close()
 
     @classmethod
     def reset_instance(cls) -> None:

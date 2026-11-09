@@ -46,7 +46,6 @@ from __future__ import annotations
 
 import os
 import sqlite3
-import threading
 import time
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
@@ -56,6 +55,7 @@ from pathlib import Path
 from noust.core import paths
 from noust.core.exceptions import ValidationError
 from noust.core.logger import Logger
+from noust.core.sqlite_threads import ThreadConnections
 from noust.monitor import traffic_store
 from noust.monitor.process_samples import ProcessSample
 from noust.monitor.traffic_digest import HourCounts
@@ -402,7 +402,7 @@ class MetricsStore:
         self.logger = Logger(verbose=verbose)
         self.db_path = db_path or default_metrics_db_path()
         self._clock = clock
-        self._local = threading.local()
+        self._connections = ThreadConnections()
         self.retention_days = resolve_retention_days(retention_days)
         self._init_db()
 
@@ -415,22 +415,30 @@ class MetricsStore:
         Returns:
             An open SQLite connection with row access by name.
         """
-        connection = getattr(self._local, "connection", None)
-        if connection is None:
-            connection = sqlite3.connect(str(self.db_path), timeout=BUSY_TIMEOUT)
-            connection.row_factory = sqlite3.Row
-            # The collector writes this file while the console reads it;
-            # without WAL one of them gets "database is locked" instead of an
-            # answer.
-            connection.execute("PRAGMA journal_mode=WAL")
-            connection.execute("PRAGMA synchronous=NORMAL")
-            # Consolidation sorts more than fits in SQLite's page cache, and a
-            # spilled sort is a temporary file in /var/tmp or /tmp, which the
-            # monitor's ProtectSystem=strict makes read-only: every
-            # consolidation failed with "disk I/O error" on a server whose
-            # history had grown, and the history was never consolidated.
-            connection.execute("PRAGMA temp_store=MEMORY")
-            self._local.connection = connection
+        return self._connections.get(self._connect)
+
+    def _connect(self) -> sqlite3.Connection:
+        """
+        Open and configure a new connection for the calling thread.
+
+        Returns:
+            The new connection.
+        """
+        connection = sqlite3.connect(
+            str(self.db_path), timeout=BUSY_TIMEOUT, check_same_thread=False
+        )
+        connection.row_factory = sqlite3.Row
+        # The collector writes this file while the console reads it;
+        # without WAL one of them gets "database is locked" instead of an
+        # answer.
+        connection.execute("PRAGMA journal_mode=WAL")
+        connection.execute("PRAGMA synchronous=NORMAL")
+        # Consolidation sorts more than fits in SQLite's page cache, and a
+        # spilled sort is a temporary file in /var/tmp or /tmp, which the
+        # monitor's ProtectSystem=strict makes read-only: every
+        # consolidation failed with "disk I/O error" on a server whose
+        # history had grown, and the history was never consolidated.
+        connection.execute("PRAGMA temp_store=MEMORY")
         return connection
 
     @contextmanager
@@ -458,10 +466,7 @@ class MetricsStore:
 
     def close(self) -> None:
         """Close this thread's connection, if it has one."""
-        connection = getattr(self._local, "connection", None)
-        if connection is not None:
-            connection.close()
-            self._local.connection = None
+        self._connections.close()
 
     # ---------------------------------------------------------------- schema
 

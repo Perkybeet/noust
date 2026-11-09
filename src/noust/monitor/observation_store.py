@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import os
 import sqlite3
-import threading
 from collections.abc import Sequence
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -31,6 +30,7 @@ from typing import Any
 
 from noust.core import paths
 from noust.core.logger import Logger
+from noust.core.sqlite_threads import ThreadConnections
 from noust.monitor.models import ProcessObservation
 
 #: Where the database lives when Noust is installed system-wide.
@@ -96,7 +96,7 @@ class ObservationStore:
         self.db_path = db_path or default_db_path()
         self.max_observations = max(0, int(max_observations))
         self.dedupe_window_seconds = max(0, int(dedupe_window_seconds))
-        self._local = threading.local()
+        self._connections = ThreadConnections()
         self._init_db()
 
     def _get_connection(self) -> sqlite3.Connection:
@@ -106,15 +106,23 @@ class ObservationStore:
         Returns:
             An open SQLite connection with row access by name.
         """
-        connection = getattr(self._local, "connection", None)
-        if connection is None:
-            connection = sqlite3.connect(str(self.db_path), timeout=BUSY_TIMEOUT)
-            connection.row_factory = sqlite3.Row
-            # The daemon writes this file while the web panel reads it; without
-            # WAL one of them gets "database is locked" instead of an answer.
-            connection.execute("PRAGMA journal_mode=WAL")
-            connection.execute("PRAGMA synchronous=NORMAL")
-            self._local.connection = connection
+        return self._connections.get(self._connect)
+
+    def _connect(self) -> sqlite3.Connection:
+        """
+        Open and configure a new connection for the calling thread.
+
+        Returns:
+            The new connection.
+        """
+        connection = sqlite3.connect(
+            str(self.db_path), timeout=BUSY_TIMEOUT, check_same_thread=False
+        )
+        connection.row_factory = sqlite3.Row
+        # The daemon writes this file while the web panel reads it; without
+        # WAL one of them gets "database is locked" instead of an answer.
+        connection.execute("PRAGMA journal_mode=WAL")
+        connection.execute("PRAGMA synchronous=NORMAL")
         return connection
 
     def _init_db(self) -> None:
