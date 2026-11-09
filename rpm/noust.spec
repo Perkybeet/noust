@@ -5,7 +5,7 @@
 #
 
 Name:           noust
-Version:        4.2.0
+Version:        4.2.1
 Release:        1%{?dist}
 Summary:        Deploy and manage web applications on Linux servers
 License:        AGPL-3.0-or-later
@@ -340,6 +340,9 @@ if [ -f /etc/systemd/system/noust-web.service ]; then
 fi
 
 %changelog
+* Mon Nov 09 2026 Yago López Prado <yago.lopez.adeje@gmail.com> - 4.2.1-1
+- The console no longer runs out of open files: the connections of a worker thread that has ended are closed at once instead of at a garbage collection, which on a busy central left every request answered with Too many open files after a few days
+- Every change: https://github.com/Perkybeet/noust/blob/main/docs/CHANGELOG-4.2.md#421
 * Fri Nov 06 2026 Yago López Prado <yago.lopez.adeje@gmail.com> - 4.2.0-1
 - Noust puts the console in order: one frame on every screen with Network and Security as areas of their own, a Home of widgets each person arranges, background work in sight from any page, and the server's software on one page
 - Pages that say what each thing is before they explain it, a hint to the terminal only where the console cannot do it, a redrawn sign-in with room for your own logo, and problems reported from the console in three steps

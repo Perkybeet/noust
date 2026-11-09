@@ -192,3 +192,13 @@ package manager) is still shown as it printed it.
   its scheme word on a second pass.
 - About reports a problem through the console's own three steps, and the session menu says Documentation and
   Shortcuts once.
+
+## 4.2.1
+
+- **The console no longer runs out of open files.** Each of the console's worker threads kept its own
+  connection to the store and to the metrics, and a thread that ended left its connections open until a
+  full garbage collection, which a busy process seldom runs. A central reached its limit of 1024 open
+  files in under three days and then answered every request with "Too many open files": the fleet said
+  "Internal Server Error" and a page "Failed to fetch dynamically imported module". A thread's
+  connections are now closed once it has ended, and the process observations a request reads close
+  theirs when it is answered. On 4.2.0, restarting `noust-web` is the way out until the update.

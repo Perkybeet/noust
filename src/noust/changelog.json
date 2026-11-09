@@ -1,6 +1,21 @@
 {
  "entries": [
   {
+   "version": "4.2.1",
+   "date": "2026-11-09",
+   "action_required": false,
+   "items": [
+    {
+     "text": "The console no longer runs out of open files: the connections of a worker thread that has ended are closed at once instead of at a garbage collection, which on a busy central left every request answered with Too many open files after a few days",
+     "action_required": false
+    },
+    {
+     "text": "Every change: https://github.com/Perkybeet/noust/blob/main/docs/CHANGELOG-4.2.md#421",
+     "action_required": false
+    }
+   ]
+  },
+  {
    "version": "4.2.0",
    "date": "2026-11-06",
    "action_required": true,
@@ -733,17 +748,6 @@
    "items": [
     {
      "text": "Fix: panel failed to start on distro pydantic v1 (Ubuntu 24.04); pydantic v1/v2 bridge with architecture guards and distro-import CI gates",
-     "action_required": false
-    }
-   ]
-  },
-  {
-   "version": "1.5.0",
-   "date": "2026-08-14",
-   "action_required": false,
-   "items": [
-    {
-     "text": "Observability and product polish: per-app charts with deploy markers, user cron jobs, CLI deep links, command palette, log search",
      "action_required": false
     }
    ]
