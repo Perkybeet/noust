@@ -457,6 +457,25 @@ describe("the new-app wizard", () => {
     expect(screen.getByText("Name or service not known")).toBeInTheDocument();
   });
 
+  it("brings the answer to Continue into view when it is a failure: on a small screen it sat below the fold and Continue seemed to do nothing", async () => {
+    const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
+    const { harness } = wizard({
+      "POST /api/apps/inspect": () =>
+        problem(400, "validationerror", "A Rust project needs a Dockerfile", { hint: "Add a Dockerfile to the repository.", output: "Cargo.toml found, no Dockerfile" }),
+    });
+    const { user } = harness;
+    await screen.findByRole("heading", { level: 1, name: "New application" });
+    await user.type(screen.getByLabelText("What to deploy"), "/var/www/src/storefront");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    const notice = await screen.findByText("Add a Dockerfile to the repository.");
+    await waitFor(() => {
+      // The element brought into view holds the failure the person is waiting for.
+      expect(scrolled.mock.contexts.some((element) => element instanceof HTMLElement && element.contains(notice))).toBe(true);
+    });
+    scrolled.mockRestore();
+  });
+
   it("shows git's own output verbatim for a private repository, with the backend's real fix", async () => {
     const { harness } = wizard({
       "POST /api/apps/inspect": () =>
