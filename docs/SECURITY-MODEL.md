@@ -489,14 +489,14 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **537** events.
+The catalogue holds **539** events.
 
 | Category | Events |
 |---|---|
 | access | 49 |
 | account | 40 |
 | config | 32 |
-| change | 354 |
+| change | 356 |
 | read | 21 |
 | denial | 16 |
 | system | 22 |
