@@ -28,6 +28,8 @@ ROUTES: dict[tuple[str, str], str] = {
     ("PUT", "/api/config/delivery"): Permission.SETTINGS_MANAGE,
     ("GET", "/api/config/ssl"): Permission.SETTINGS_READ,
     ("PUT", "/api/config/ssl"): Permission.SETTINGS_MANAGE,
+    ("GET", "/api/config/policy"): Permission.SETTINGS_READ,
+    ("PUT", "/api/config/policy"): Permission.SETTINGS_MANAGE,
     ("GET", "/api/config/web"): Permission.SETTINGS_READ,
     ("PUT", "/api/config/web"): Permission.SECURITY_MANAGE,
     ("GET", "/api/config/smtp"): Permission.SETTINGS_READ,
