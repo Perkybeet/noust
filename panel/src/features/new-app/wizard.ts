@@ -246,15 +246,7 @@ export function withScheme(value: string): string {
   return BARE_HOST.test(text) ? `https://${text}` : text;
 }
 
-/**
- * A source in a few characters, for places too narrow for all of it: the end of a path
- * (`src/storefront`), the repository of a URL (`you/app`).
- */
-export function shortSource(value: string): string {
-  const source = value.trim().replace(/\/+$/, "").replace(/\.git$/, "");
-  const parts = source.split(/[/:]/).filter((part) => part !== "");
-  return parts.slice(-2).join("/") || source;
-}
+export { shortSource } from "./shortSource";
 
 export const SOURCE_WORDS: Record<SourceKind, PlainKey> = {
   github: "newApp.source.kinds.github",

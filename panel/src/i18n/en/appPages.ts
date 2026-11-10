@@ -77,14 +77,14 @@ export const appPages = {
     state: "First deploy failed",
     title: "The first deploy of {domain} failed",
     when: "It failed {time}.",
-    nothing: "Nothing was created: Noust undid every step it had taken, so there is no application at this domain. Try again with what you had filled in, or dismiss this.",
+    nothing: "Nothing was created: Noust undid every step it had taken, so there is no application at this domain. Try again with what you had filled in, or forget this failure.",
     retry: "Try again",
     viewLog: "View the log",
-    dismiss: "Dismiss",
+    dismiss: "Forget this failure",
     sourceMasked: "The address had a password or a token in it, and Noust did not keep it: type it again.",
     recipe: "Recipe {name}",
     branch: "branch {branch}",
-    dismissFailed: "Could not dismiss it",
+    dismissFailed: "Could not forget the failure",
   },
 
   layout: {

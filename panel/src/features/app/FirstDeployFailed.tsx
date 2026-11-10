@@ -14,7 +14,7 @@ import { leadingSentence, serverSentence } from "../../lib/serverSentence";
 import { useTypeName } from "../apps/data";
 import { reportActionError } from "../apps/useAppActions";
 import { saveDraft } from "../new-app/draft";
-import { shortSource } from "../new-app/wizard";
+import { shortSource } from "../new-app/shortSource";
 import { retryOf, sourceWasMasked } from "./firstDeployRetry";
 
 /**

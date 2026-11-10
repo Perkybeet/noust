@@ -72,14 +72,14 @@ export const appPages: Catalog<typeof en> = {
     state: "Primer despliegue fallido",
     title: "El primer despliegue de {domain} falló",
     when: "Falló {time}.",
-    nothing: "No se ha creado nada: Noust deshizo cada paso que había dado, así que no hay ninguna aplicación en este dominio. Vuelve a intentarlo con lo que habías indicado, o descarta este aviso.",
-    retry: "Reintentar",
+    nothing: "No se ha creado nada: Noust deshizo cada paso que había dado, así que no hay ninguna aplicación en este dominio. Vuelve a intentarlo con lo que habías indicado, o olvida este fallo.",
+    retry: "Intentar de nuevo",
     viewLog: "Ver el registro",
-    dismiss: "Descartar",
+    dismiss: "Olvidar este fallo",
     sourceMasked: "La dirección llevaba una contraseña o un token y Noust no los guardó: vuelve a escribirla.",
     recipe: "Receta {name}",
     branch: "rama {branch}",
-    dismissFailed: "No se pudo descartar",
+    dismissFailed: "No se pudo olvidar el fallo",
   },
 
   layout: {

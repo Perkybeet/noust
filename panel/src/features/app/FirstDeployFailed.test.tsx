@@ -65,8 +65,8 @@ describe("the page of a domain whose first deploy failed", () => {
     await missingAt();
 
     expect(await screen.findByText("El primer despliegue de shop.example.com falló")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Descartar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Intentar de nuevo" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Olvidar este fallo" })).toBeInTheDocument();
   });
 
   it("opens the wizard again with what had been filled in", async () => {
@@ -83,7 +83,7 @@ describe("the page of a domain whose first deploy failed", () => {
   it("puts the failure away and goes to the applications", async () => {
     const { backend, user, location } = await missingAt({ "POST /api/first-deploys/aa11/dismiss": () => new Response(null, { status: 204 }) });
 
-    await user.click(await screen.findByRole("button", { name: "Dismiss" }));
+    await user.click(await screen.findByRole("button", { name: "Forget this failure" }));
 
     await waitFor(() => {
       expect(backend.calls.some((call) => call.method === "POST" && call.path === "/api/first-deploys/aa11/dismiss")).toBe(true);
