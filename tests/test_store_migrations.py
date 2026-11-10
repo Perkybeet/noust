@@ -648,7 +648,7 @@ class TestSchemaV14Migration:
 
         NoustStore(db_path, fs=RecordingFileSystem())
 
-        assert _raw_max_version(db_path) == SCHEMA_VERSION == 17
+        assert _raw_max_version(db_path) == SCHEMA_VERSION == 18
 
     def test_a_v13_store_climbs_to_v14_and_keeps_its_rows(self, fresh, tmp_path):
         db_path = tmp_path / "noust.db"

@@ -46,6 +46,7 @@ Copies kept before upgrading:
 | 15 | 4.0.0 | 4.0.0 and later |
 | 16 | 4.1.0 | 4.1.0 and later |
 | 17 | 4.2.0 | 4.2.0 and later |
+| 18 | 4.3.0 | 4.3.0 and later |
 
 The table is in the code (`noust.core.store_compat.SCHEMA_RELEASES`), and a test fails when the
 schema a release writes has no row in it. **A schema only ever changes in a minor release**

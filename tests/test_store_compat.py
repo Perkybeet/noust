@@ -13,6 +13,7 @@ for real: a store the current code migrated and kept a copy of can be put back a
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -52,6 +53,14 @@ def test_a_schema_first_appears_in_a_minor_release_never_in_a_patch() -> None:
         )
 
 
+def test_the_guide_lists_the_schemas_the_code_does() -> None:
+    """The way back is read in docs/downgrading.md: its table is the code's, not a second one."""
+    guide = Path(__file__).resolve().parents[1] / "docs" / "downgrading.md"
+    rows = re.findall(r"^\| (\d+) \| (\d+\.\d+\.\d+)\b[^|]*\|", guide.read_text("utf-8"), re.M)
+
+    assert {int(schema): release for schema, release in rows} == SCHEMA_RELEASES
+
+
 def test_the_table_only_moves_forward() -> None:
     releases = [store_compat.release_key(SCHEMA_RELEASES[s]) for s in sorted(SCHEMA_RELEASES)]
 
@@ -71,6 +80,10 @@ def test_the_table_only_moves_forward() -> None:
         ("3.9.0", 13),
         ("v4.0.0", 15),
         ("4.0.3", 15),
+        ("4.2.0", 17),
+        ("4.2.1", 17),
+        ("4.3.0", 18),
+        ("4.9.0", 18),
     ],
 )
 def test_a_release_understands_up_to_the_schema_it_or_an_earlier_one_wrote(
@@ -85,7 +98,15 @@ def test_a_release_older_than_the_table_understands_nothing_it_lists() -> None:
 
 @pytest.mark.parametrize(
     ("schema", "release"),
-    [(8, "2.0.0"), (11, "3.0.0"), (13, "3.2.0"), (14, "4.0.0"), (15, "4.0.0")],
+    [
+        (8, "2.0.0"),
+        (11, "3.0.0"),
+        (13, "3.2.0"),
+        (14, "4.0.0"),
+        (15, "4.0.0"),
+        (17, "4.2.0"),
+        (18, "4.3.0"),
+    ],
 )
 def test_the_oldest_release_that_opens_a_store_is_the_one_that_wrote_its_schema(
     schema: int, release: str
@@ -159,6 +180,19 @@ def test_a_release_that_cannot_open_the_store_gets_the_newest_copy_it_can_open(
     assert f"cp {right.path} {db} && chmod 600 {db}" in joined
     assert "before-downgrade" in joined
     assert "is not in it" in joined
+
+
+def test_going_back_from_4_3_to_4_2_needs_the_copy_kept_at_v17(tmp_path: Path) -> None:
+    db = tmp_path / "noust.db"
+    kept = copy(tmp_path, 17, "20261201T101500Z")
+
+    result = plan("4.2.1", 18, [kept], db_path=db)
+
+    assert not result.compatible
+    assert result.copy == kept
+    assert f"cp {kept.path} {db} && chmod 600 {db}" in "\n".join(result.steps)
+    # The same store, with a 4.3 release asked for, is simply opened.
+    assert plan("4.3.0", 18, [kept], db_path=db).compatible
 
 
 def _aside_command(tmp_path: Path) -> str:
