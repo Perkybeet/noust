@@ -35,6 +35,7 @@ from pydantic import BaseModel, Field
 
 from noust.core import audit
 from noust.core.exceptions import BackupError, DatabaseBackupError, ValidationError
+from noust.core.job_titles import database_backup_name
 from noust.managers.backup_scheduler import SCHEDULE_ALIASES, validate_calendar
 from noust.managers.database.backup_records import STATUS_FAILED
 from noust.managers.database.backups import ORIGIN_MANUAL, DatabaseBackups, PolicyView
@@ -593,7 +594,7 @@ def run_policy(
     return queue(
         session,
         job_type=JobType.BACKUP,
-        name=f"Back up {name}",
+        name=database_backup_name(name),
         description=f"Running the backup policy of the {manager.DISPLAY_NAME} database {name}",
         func=policy_run_job,
         kwargs={"engine": manager.ENGINE_NAME, "database": name},

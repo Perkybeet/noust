@@ -1248,6 +1248,7 @@ export const serverText: Catalog<typeof en> = {
       app_exec_any: { text: "Ejecutar un comando en una aplicación" },
       backup: { text: "Hacer una copia de {domain}" },
       backup_any: { text: "Hacer una copia de una aplicación" },
+      backup_database: { text: "Hacer una copia de la base de datos {database}" },
       cert_acme_account: { text: "Registrar la cuenta ACME" },
       cert_create: { text: "Conseguir un certificado para {domain}" },
       cert_create_any: { text: "Conseguir un certificado" },

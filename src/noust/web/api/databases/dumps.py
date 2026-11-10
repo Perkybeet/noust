@@ -23,6 +23,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
+from noust.core.job_titles import database_backup_name
 from noust.managers.database.backups import DatabaseBackups
 from noust.web.api.auth import get_current_session
 from noust.web.api.databases import jobs
@@ -189,7 +190,7 @@ def create_backup(
     return queue(
         session,
         job_type=JobType.BACKUP,
-        name=f"Dump {database}",
+        name=database_backup_name(database),
         description=f"Dumping the {manager.DISPLAY_NAME} database {database}",
         func=jobs.dump_job,
         kwargs={

@@ -367,6 +367,7 @@ export const SERVER_TEXT = {
   "jobs.title.app_exec_any": { text: [], hint: null, commands: [] },
   "jobs.title.backup": { text: ["domain"], hint: null, commands: [] },
   "jobs.title.backup_any": { text: [], hint: null, commands: [] },
+  "jobs.title.backup_database": { text: ["database"], hint: null, commands: [] },
   "jobs.title.cert_acme_account": { text: [], hint: null, commands: [] },
   "jobs.title.cert_create": { text: ["domain"], hint: null, commands: [] },
   "jobs.title.cert_create_any": { text: [], hint: null, commands: [] },

@@ -28,9 +28,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from noust.core.fleet_job_titles import coded as fleet_job_title
-from noust.core.server_text import Param, ServerText, say
+from noust.core.server_text import Param, ServerText, read_back, say
 
-__all__ = ["TITLES", "title_for"]
+__all__ = ["TITLES", "database_backup_name", "title_for"]
 
 
 @dataclass(frozen=True)
@@ -43,11 +43,16 @@ class Way:
         takes: ``(value of the sentence, key of the job's metadata)`` for each value it is said
             with. The way is used only when the job has every one as text, a number or a flag.
         when: ``(key, value)`` the job's metadata must hold for the way to apply.
+        from_name: The job's name is this sentence, and its values are read back from it: what a
+            job about something that is not an application (a database) has, because the store
+            keeps a job's name and its application and nothing else of its subject. Then the keys
+            of ``takes`` are not read from the metadata.
     """
 
     code: str
     takes: tuple[tuple[str, str], ...] = ()
     when: tuple[tuple[str, str], ...] = ()
+    from_name: bool = False
 
 
 def _app(code: str, any_code: str) -> tuple[Way, ...]:
@@ -68,7 +73,10 @@ def _app(code: str, any_code: str) -> tuple[Way, ...]:
 TITLES: dict[str, tuple[Way, ...]] = {
     "deploy": _app("jobs.title.deploy", "jobs.title.deploy_any"),
     "update": _app("jobs.title.update", "jobs.title.update_any"),
-    "backup": _app("jobs.title.backup", "jobs.title.backup_any"),
+    "backup": (
+        Way("jobs.title.backup_database", (("database", "database"),), from_name=True),
+        *_app("jobs.title.backup", "jobs.title.backup_any"),
+    ),
     "restore": _app("jobs.title.restore", "jobs.title.restore_any"),
     "rollback": _app("jobs.title.rollback", "jobs.title.rollback_any"),
     "push": (
@@ -168,11 +176,25 @@ TITLES: dict[str, tuple[Way, ...]] = {
 }
 
 
-def _values(way: Way, metadata: Mapping[str, Any]) -> dict[str, Param] | None:
+def database_backup_name(database: str) -> str:
+    """
+    Name the job that copies a database: its own title, so a stored job keeps it.
+
+    Args:
+        database: The database.
+
+    Returns:
+        ``Back up the database shop``, the sentence :func:`title_for` reads back from the name.
+    """
+    return say("jobs.title.backup_database", database=database).text
+
+
+def _values(way: Way, metadata: Mapping[str, Any], name: str) -> dict[str, Param] | None:
     """
     Args:
         way: One way to say a job.
         metadata: What the job knows of its subject.
+        name: The job's name.
 
     Returns:
         The values for the way's sentence, or None when the job lacks one or the way's condition
@@ -180,6 +202,9 @@ def _values(way: Way, metadata: Mapping[str, Any]) -> dict[str, Param] | None:
     """
     if any(metadata.get(key) != value for key, value in way.when):
         return None
+    if way.from_name:
+        said = read_back(name, [way.code])
+        return dict(said.params) if said is not None else None
     values: dict[str, Param] = {}
     for name, key in way.takes:
         found = metadata.get(key)
@@ -199,8 +224,9 @@ def title_for(job_type: str, metadata: Mapping[str, Any], name: str = "") -> Ser
             this version does not know, from a newer one, is a task.
         metadata: What the job knows of its subject, such as ``domain``. A stored job keeps only
             its application, and gets the sentence of its type for that.
-        name: The job's name. Only a fleet job's is read: it is already a sentence of the catalog
-            (:mod:`noust.core.fleet_job_titles`), which says more than its type does.
+        name: The job's name. A fleet job's is read, and so is a database copy's
+            (:func:`database_backup_name`): each is already a sentence of the catalog, which says
+            more than the type does and is all that a stored job keeps of it.
 
     Returns:
         The sentence. Its English text is always right; the console translates it by its code.
@@ -210,7 +236,7 @@ def title_for(job_type: str, metadata: Mapping[str, Any], name: str = "") -> Ser
         if coded is not None:
             return coded
     for way in TITLES.get(job_type, TITLES["custom"]):
-        values = _values(way, metadata)
+        values = _values(way, metadata, name)
         if values is not None:
             return say(way.code, **values)
     # Unreachable while the last way of every type needs nothing (a test holds the table to it).

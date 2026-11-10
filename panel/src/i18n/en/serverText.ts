@@ -1259,6 +1259,7 @@ export const serverText = {
       app_exec_any: { text: "Run a command in an application" },
       backup: { text: "Back up {domain}" },
       backup_any: { text: "Back up an application" },
+      backup_database: { text: "Back up the database {database}" },
       cert_acme_account: { text: "Register the ACME account" },
       cert_create: { text: "Get a certificate for {domain}" },
       cert_create_any: { text: "Get a certificate" },

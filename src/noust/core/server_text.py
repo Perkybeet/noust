@@ -1040,6 +1040,7 @@ CATALOG: dict[str, str] = {
     "jobs.title.update_any": "Update an application",
     "jobs.title.backup": "Back up {domain}",
     "jobs.title.backup_any": "Back up an application",
+    "jobs.title.backup_database": "Back up the database {database}",
     "jobs.title.restore": "Restore a backup into {domain}",
     "jobs.title.restore_any": "Restore a backup",
     "jobs.title.rollback": "Roll back {domain}",

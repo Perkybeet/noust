@@ -25,6 +25,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from noust.core.exceptions import DatabaseBackupError
+from noust.core.job_titles import title_for
 from noust.managers.database.backups import DatabaseBackups
 from noust.managers.database.base import BaseDatabaseManager
 from noust.web.api.databases.jobs import _service
@@ -253,6 +254,24 @@ def test_a_copy_made_from_the_console_survives_the_retention_of_the_next_schedul
     }
     assert kept[by_hand] == "manual"
     assert sorted(kept.values()) == ["manual", "scheduled"]
+
+
+def test_a_copy_of_a_database_queued_from_the_console_is_titled_as_one(
+    client: TestClient,
+    engine: type[BaseDatabaseManager],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    elevate(client)
+    created = _capture_queued_jobs(monkeypatch)
+
+    client.post(f"{BASE}/backup-policies/postgresql/shop/run")
+    client.post(f"{BASE}/backups", json={"engine": "postgresql", "database": "shop"})
+
+    assert len(created) == 2
+    for job in created:
+        sentence = title_for(job["job_type"].value, job["metadata"], job["name"])
+        assert sentence.code == "jobs.title.backup_database", job["name"]
+        assert sentence.params == {"database": "shop"}
 
 
 def test_a_policy_run_that_fails_its_check_fails_the_job_with_the_tools_words(
