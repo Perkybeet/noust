@@ -41,6 +41,7 @@ from noust.web.api.auth_accounts import AccountInfo
 from noust.web.api.auth_accounts import router as accounts_router
 from noust.web.api.central import CentralInfo, session_central
 from noust.web.api.deps import NoustErrorRoute, ensure_elevated, require_elevated
+from noust.web.api.identity_proof import ensure_first_factor_proof
 from noust.web.auth import (
     CSRF_COOKIE_NAME,
     CSRF_HEADER_NAME,
@@ -1756,6 +1757,18 @@ class TwoFactorEnrollment(BaseModel):
     uri: str
 
 
+class FirstFactorProof(BaseModel):
+    """
+    What a request that sets up an account's first second factor may carry to prove who is asking.
+
+    Attributes:
+        password: The account's password. Needed only when the session signed in more than ten
+            minutes ago (:mod:`noust.web.api.identity_proof`); ignored while it is recent.
+    """
+
+    password: str | None = Field(default=None, max_length=1024)
+
+
 class TwoFactorCode(BaseModel):
     """
     A second-factor code presented to confirm or disable.
@@ -1833,14 +1846,19 @@ def two_factor_status(session: dict[str, Any] = Depends(require_auth)) -> TwoFac
 
 @router.post("/2fa/enroll", response_model=TwoFactorEnrollment)
 def two_factor_enroll(
-    request: Request, session: dict[str, Any] = Depends(require_auth)
+    request: Request,
+    body: FirstFactorProof | None = None,
+    session: dict[str, Any] = Depends(require_auth),
 ) -> TwoFactorEnrollment:
     """
     Begin enrolment: generate a pending secret. Nothing is enforced yet.
 
     An account enrols its first authenticator right after signing in with
     its password - it can do nothing else until it has - so this asks for no
-    sudo mode; replacing one takes a security officer (``reset-mfa``). The
+    sudo mode; replacing one takes a security officer (``reset-mfa``). It asks
+    for a recent proof of who is asking instead: a sign-in at most ten minutes
+    old, or the account's password in the body (:func:`ensure_first_factor_proof`),
+    so the cookie of an old session cannot bind an authenticator of its own. The
     console's own factor, for the master token, asks for sudo mode confirmed
     with the master token: the factor enrolled here is the one every later
     confirmation asks for, so a session nobody re-confirmed must not be able
@@ -1848,6 +1866,7 @@ def two_factor_enroll(
 
     Args:
         request: The incoming request.
+        body: The account's password, when the sign-in is not recent.
         session: The authenticated session.
 
     Returns:
@@ -1855,12 +1874,16 @@ def two_factor_enroll(
 
     Raises:
         HTTPException: 403 with ``error: "elevation_required"`` for the master
-            token outside sudo mode.
+            token outside sudo mode; 403 ``identity_proof_required`` or
+            ``fresh_sign_in_required`` for an account whose sign-in is old
+            (see :mod:`noust.web.api.identity_proof`). 401
+            ``invalid_credentials`` for a wrong password.
         AccountError: When the account already has an authenticator.
     """
     token_manager = get_token_manager()
     account = _account_of(session)
     if account is not None:
+        ensure_first_factor_proof(request, session, account, body.password if body else None)
         secret = token_manager.accounts.begin_totp(account.id)
         uri = enrollment_uri(secret, account.username)
     else:

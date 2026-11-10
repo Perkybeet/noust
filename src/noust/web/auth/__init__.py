@@ -182,6 +182,7 @@ from noust.web.auth.payload import (
     master_payload,
     scope_satisfies,
     sees_command_lines,
+    signed_in_within,
 )
 from noust.web.auth.ratelimit import (
     IPV6_COUNTED_PREFIX,
@@ -362,6 +363,7 @@ __all__ = [
     "settle_credential_failures",
     "shared_address",
     "sign_in_lockout_key",
+    "signed_in_within",
     "state_file_exists",
     "subprotocol_token",
     "utcnow",

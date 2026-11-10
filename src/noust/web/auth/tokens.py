@@ -1680,6 +1680,9 @@ class TokenManager:
         payload["type"] = "session"
         payload["elevated_until"] = record.get("elevated_until")
         payload["auth_method"] = record.get("auth_method")
+        # When the login this session descends from happened, which a renewal keeps: what a recent
+        # proof of identity is measured from (noust.web.api.identity_proof).
+        payload["signed_in_at"] = float(record.get("created_at") or record["issued_at"])
         if not self._apply_principal(payload, record):
             self.sessions.revoke(session_id)
             return None

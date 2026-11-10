@@ -46,12 +46,14 @@ from noust.core.accounts.webauthn import WebAuthnError
 from noust.web.api.auth import (
     SIGN_IN_EXPIRED,
     ElevateResponse,
+    FirstFactorProof,
     LoginResponse,
     account_signed_in,
     login_failure,
     set_session_cookies,
 )
 from noust.web.api.deps import NoustErrorRoute, ensure_elevated
+from noust.web.api.identity_proof import ensure_first_factor_proof
 from noust.web.auth import (
     audit_event,
     get_client_ip,
@@ -555,13 +557,20 @@ def list_passkeys(
 
 @router.post("/registration/options", response_model=CeremonyOptions)
 def registration_options(
-    request: Request, session: dict[str, Any] = Depends(require_auth)
+    request: Request,
+    body: FirstFactorProof | None = None,
+    session: dict[str, Any] = Depends(require_auth),
 ) -> CeremonyOptions:
     """
     Start registering a passkey for the signed-in owner.
 
+    An account's first second factor asks for a recent proof of who is asking instead of sudo
+    mode (:func:`~noust.web.api.identity_proof.ensure_first_factor_proof`): the ceremony is
+    bound to this request, so the proof is asked here and not again when it finishes.
+
     Args:
         request: The request.
+        body: The account's password, when its sign-in is not recent.
         session: The authenticated payload.
 
     Returns:
@@ -569,12 +578,16 @@ def registration_options(
 
     Raises:
         HTTPException: 403 ``elevation_required`` outside sudo mode (except an
-            account's first second factor); ``passkeys_<reason>`` when
-            passkeys cannot work from this page.
+            account's first second factor); 403 ``identity_proof_required`` or
+            ``fresh_sign_in_required`` for that one when its sign-in is old;
+            ``passkeys_<reason>`` when passkeys cannot work from this page.
     """
     owner = _owner(session)
     if _needs_confirmation(owner):
         ensure_elevated(request, session)
+    elif owner.account_id is not None:
+        account = get_token_manager().accounts.require_id(owner.account_id)
+        ensure_first_factor_proof(request, session, account, body.password if body else None)
     rp = _party(request)
     options = passkeys().registration_options(owner, rp, binding=_binding(session))
     return CeremonyOptions(public_key=options, expires_in=int(options["timeout"]) // 1000)

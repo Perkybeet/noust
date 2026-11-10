@@ -23539,6 +23539,25 @@
         "title": "FirewallStateOut",
         "type": "object"
       },
+      "FirstFactorProof": {
+        "description": "What a request that sets up an account's first second factor may carry to prove who is asking.\n\nAttributes:\n    password: The account's password. Needed only when the session signed in more than ten\n        minutes ago (:mod:`noust.web.api.identity_proof`); ignored while it is recent.",
+        "properties": {
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          }
+        },
+        "title": "FirstFactorProof",
+        "type": "object"
+      },
       "FixOwnerRequest": {
         "description": "Request to give a database to its application's role.\n\nAttributes:\n    owner: The role; the one Noust provisioned for it when omitted.",
         "properties": {
@@ -83168,8 +83187,25 @@
     },
     "/api/auth/2fa/enroll": {
       "post": {
-        "description": "Begin enrolment: generate a pending secret. Nothing is enforced yet.\n\nAn account enrols its first authenticator right after signing in with\nits password - it can do nothing else until it has - so this asks for no\nsudo mode; replacing one takes a security officer (``reset-mfa``). The\nconsole's own factor, for the master token, asks for sudo mode confirmed\nwith the master token: the factor enrolled here is the one every later\nconfirmation asks for, so a session nobody re-confirmed must not be able\nto bind its own authenticator.\n\nArgs:\n    request: The incoming request.\n    session: The authenticated session.\n\nReturns:\n    The secret and its provisioning URI, shown to the operator once.\n\nRaises:\n    HTTPException: 403 with ``error: \"elevation_required\"`` for the master\n        token outside sudo mode.\n    AccountError: When the account already has an authenticator.",
+        "description": "Begin enrolment: generate a pending secret. Nothing is enforced yet.\n\nAn account enrols its first authenticator right after signing in with\nits password - it can do nothing else until it has - so this asks for no\nsudo mode; replacing one takes a security officer (``reset-mfa``). It asks\nfor a recent proof of who is asking instead: a sign-in at most ten minutes\nold, or the account's password in the body (:func:`ensure_first_factor_proof`),\nso the cookie of an old session cannot bind an authenticator of its own. The\nconsole's own factor, for the master token, asks for sudo mode confirmed\nwith the master token: the factor enrolled here is the one every later\nconfirmation asks for, so a session nobody re-confirmed must not be able\nto bind its own authenticator.\n\nArgs:\n    request: The incoming request.\n    body: The account's password, when the sign-in is not recent.\n    session: The authenticated session.\n\nReturns:\n    The secret and its provisioning URI, shown to the operator once.\n\nRaises:\n    HTTPException: 403 with ``error: \"elevation_required\"`` for the master\n        token outside sudo mode; 403 ``identity_proof_required`` or\n        ``fresh_sign_in_required`` for an account whose sign-in is old\n        (see :mod:`noust.web.api.identity_proof`). 401\n        ``invalid_credentials`` for a wrong password.\n    AccountError: When the account already has an authenticator.",
         "operationId": "two_factor_enroll_api_auth_2fa_enroll_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/FirstFactorProof"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -83180,6 +83216,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Two Factor Enroll",
@@ -85309,8 +85355,25 @@
     },
     "/api/auth/passkeys/registration/options": {
       "post": {
-        "description": "Start registering a passkey for the signed-in owner.\n\nArgs:\n    request: The request.\n    session: The authenticated payload.\n\nReturns:\n    The creation options.\n\nRaises:\n    HTTPException: 403 ``elevation_required`` outside sudo mode (except an\n        account's first second factor); ``passkeys_<reason>`` when\n        passkeys cannot work from this page.",
+        "description": "Start registering a passkey for the signed-in owner.\n\nAn account's first second factor asks for a recent proof of who is asking instead of sudo\nmode (:func:`~noust.web.api.identity_proof.ensure_first_factor_proof`): the ceremony is\nbound to this request, so the proof is asked here and not again when it finishes.\n\nArgs:\n    request: The request.\n    body: The account's password, when its sign-in is not recent.\n    session: The authenticated payload.\n\nReturns:\n    The creation options.\n\nRaises:\n    HTTPException: 403 ``elevation_required`` outside sudo mode (except an\n        account's first second factor); 403 ``identity_proof_required`` or\n        ``fresh_sign_in_required`` for that one when its sign-in is old;\n        ``passkeys_<reason>`` when passkeys cannot work from this page.",
         "operationId": "registration_options_api_auth_passkeys_registration_options_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/FirstFactorProof"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -85321,6 +85384,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Registration Options",

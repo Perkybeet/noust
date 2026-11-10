@@ -7515,7 +7515,10 @@ export interface paths {
          *
          *     An account enrols its first authenticator right after signing in with
          *     its password - it can do nothing else until it has - so this asks for no
-         *     sudo mode; replacing one takes a security officer (``reset-mfa``). The
+         *     sudo mode; replacing one takes a security officer (``reset-mfa``). It asks
+         *     for a recent proof of who is asking instead: a sign-in at most ten minutes
+         *     old, or the account's password in the body (:func:`ensure_first_factor_proof`),
+         *     so the cookie of an old session cannot bind an authenticator of its own. The
          *     console's own factor, for the master token, asks for sudo mode confirmed
          *     with the master token: the factor enrolled here is the one every later
          *     confirmation asks for, so a session nobody re-confirmed must not be able
@@ -7523,6 +7526,7 @@ export interface paths {
          *
          *     Args:
          *         request: The incoming request.
+         *         body: The account's password, when the sign-in is not recent.
          *         session: The authenticated session.
          *
          *     Returns:
@@ -7530,7 +7534,10 @@ export interface paths {
          *
          *     Raises:
          *         HTTPException: 403 with ``error: "elevation_required"`` for the master
-         *             token outside sudo mode.
+         *             token outside sudo mode; 403 ``identity_proof_required`` or
+         *             ``fresh_sign_in_required`` for an account whose sign-in is old
+         *             (see :mod:`noust.web.api.identity_proof`). 401
+         *             ``invalid_credentials`` for a wrong password.
          *         AccountError: When the account already has an authenticator.
          */
         post: operations["two_factor_enroll_api_auth_2fa_enroll_post"];
@@ -9100,8 +9107,13 @@ export interface paths {
          * Registration Options
          * @description Start registering a passkey for the signed-in owner.
          *
+         *     An account's first second factor asks for a recent proof of who is asking instead of sudo
+         *     mode (:func:`~noust.web.api.identity_proof.ensure_first_factor_proof`): the ceremony is
+         *     bound to this request, so the proof is asked here and not again when it finishes.
+         *
          *     Args:
          *         request: The request.
+         *         body: The account's password, when its sign-in is not recent.
          *         session: The authenticated payload.
          *
          *     Returns:
@@ -9109,8 +9121,9 @@ export interface paths {
          *
          *     Raises:
          *         HTTPException: 403 ``elevation_required`` outside sudo mode (except an
-         *             account's first second factor); ``passkeys_<reason>`` when
-         *             passkeys cannot work from this page.
+         *             account's first second factor); 403 ``identity_proof_required`` or
+         *             ``fresh_sign_in_required`` for that one when its sign-in is old;
+         *             ``passkeys_<reason>`` when passkeys cannot work from this page.
          */
         post: operations["registration_options_api_auth_passkeys_registration_options_post"];
         delete?: never;
@@ -44532,6 +44545,18 @@ export interface components {
             zone?: string | null;
         };
         /**
+         * FirstFactorProof
+         * @description What a request that sets up an account's first second factor may carry to prove who is asking.
+         *
+         *     Attributes:
+         *         password: The account's password. Needed only when the session signed in more than ten
+         *             minutes ago (:mod:`noust.web.api.identity_proof`); ignored while it is recent.
+         */
+        FirstFactorProof: {
+            /** Password */
+            password?: string | null;
+        };
+        /**
          * FixOwnerRequest
          * @description Request to give a database to its application's role.
          *
@@ -77698,7 +77723,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["FirstFactorProof"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -77707,6 +77736,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TwoFactorEnrollment"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -79226,7 +79264,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["FirstFactorProof"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -79235,6 +79277,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CeremonyOptions"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

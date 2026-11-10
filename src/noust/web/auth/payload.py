@@ -61,6 +61,28 @@ def is_elevated(payload: dict[str, Any]) -> bool:
     return float(elevated_until) > _now()
 
 
+def signed_in_within(payload: Mapping[str, Any], seconds: float) -> bool:
+    """
+    Report whether a browser session's sign-in happened at most this long ago.
+
+    The login a session descends from, not its last renewal: a session rotates its id as it
+    ages and the cookie of an old one stays old (:attr:`TokenManager.verify_session_token`
+    keeps ``created_at`` across rotations).
+
+    Args:
+        payload: A verified payload, as :func:`require_auth` builds it.
+        seconds: How recent counts.
+
+    Returns:
+        True for a cookie session whose login was within that time; False for any other
+        credential, which has no sign-in to be recent, and for a payload that does not say when.
+    """
+    when = payload.get("signed_in_at")
+    if payload.get("type") != "session" or not isinstance(when, (int, float)):
+        return False
+    return _now() - float(when) <= seconds
+
+
 def scope_satisfies(granted: str, required: str) -> bool:
     """
     Report whether a granted scope covers a required one.
