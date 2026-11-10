@@ -11,6 +11,7 @@ import { Kit40 } from "./Kit40";
 import { Kit42 } from "./Kit42";
 import { PageKit } from "./PageKit";
 import { Stone } from "./Stone";
+import { KitArrange } from "./KitArrange";
 import { Patterns } from "./Patterns";
 import { Templates } from "./Templates";
 
@@ -137,6 +138,7 @@ const NAV: { title: string; links: [string, string][] }[] = [
       ["p-notify", "Notifications"],
       ["p-fleet", "Which server"],
       ["p-content", "Words"],
+      ["p-arrange", "Arranging a panel"],
     ],
   },
   {
@@ -228,6 +230,7 @@ export function DesignGallery() {
           <Components />
           <PageKit />
           <Patterns />
+          <KitArrange />
         </main>
       </div>
     </div>

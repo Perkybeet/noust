@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { COLUMNS, PHONE_COLUMNS, SIZE_ORDER, SIZES, fromDocument, moveBy, nearestSize, newId, pack, reorder, sameLayout, sizeOf, slotsOf, spansFor, toDocument } from "./model";
+import { COLUMNS, PHONE_COLUMNS, SIZE_ORDER, SIZES, fromDocument, moveBy, nearestSize, newId, pack, reorder, sameLayout, sizeOf, sizeUnits, slotsOf, spansFor, stepSize, toDocument } from "./model";
 import type { Placed, SizeKey } from "./model";
 
 function item(id: string, size: SizeKey, type = id): Placed {
@@ -249,5 +249,58 @@ describe("sameLayout", () => {
     expect(sameLayout(a, [item("a", "medium"), item("b", "medium")])).toBe(false);
     expect(sameLayout(a, [item("a", "small")])).toBe(false);
     expect(sameLayout([{ ...item("a", "small"), settings: { m: "cpu" } }], [{ ...item("a", "small"), settings: { m: "memory" } }])).toBe(false);
+  });
+});
+
+describe("sizeUnits", () => {
+  it("counts a size in quarters of the panel and bands of two rows, so a medium one is 2 x 1", () => {
+    expect(Object.fromEntries(SIZE_ORDER.map((key) => [key, sizeUnits(key)]))).toEqual({
+      small: { w: 1, h: 1 },
+      medium: { w: 2, h: 1 },
+      large: { w: 2, h: 2 },
+      tall: { w: 1, h: 2 },
+      wide: { w: 4, h: 1 },
+      xlarge: { w: 4, h: 2 },
+    });
+  });
+});
+
+describe("stepSize", () => {
+  const ALL: SizeKey[] = ["small", "medium", "large", "tall", "wide", "xlarge"];
+
+  it("goes to the next wider size at the same height, and to the next narrower one back", () => {
+    expect(stepSize(ALL, "small", "w", 1)).toBe("medium");
+    expect(stepSize(ALL, "medium", "w", 1)).toBe("wide");
+    expect(stepSize(ALL, "wide", "w", -1)).toBe("medium");
+    expect(stepSize(ALL, "tall", "w", 1)).toBe("large");
+    expect(stepSize(ALL, "xlarge", "w", -1)).toBe("large");
+  });
+
+  it("goes to the next taller size at the same width, and to the next shorter one back", () => {
+    expect(stepSize(ALL, "small", "h", 1)).toBe("tall");
+    expect(stepSize(ALL, "medium", "h", 1)).toBe("large");
+    expect(stepSize(ALL, "wide", "h", 1)).toBe("xlarge");
+    expect(stepSize(ALL, "large", "h", -1)).toBe("medium");
+  });
+
+  it("skips a size the widget does not take, and is null where there is none", () => {
+    expect(stepSize(["small", "wide"], "small", "w", 1)).toBe("wide");
+    expect(stepSize(["small", "medium"], "small", "h", 1)).toBeNull();
+    expect(stepSize(["small", "medium"], "small", "w", -1)).toBeNull();
+    expect(stepSize(["medium", "large"], "large", "h", 1)).toBeNull();
+  });
+
+  it("never changes the other measure", () => {
+    for (const from of ALL) {
+      for (const axis of ["w", "h"] as const) {
+        for (const direction of [1, -1] as const) {
+          const to = stepSize(ALL, from, axis, direction);
+          if (to === null) continue;
+          const other = axis === "w" ? "h" : "w";
+          expect(SIZES[to][other]).toBe(SIZES[from][other]);
+          expect((SIZES[to][axis] - SIZES[from][axis]) * direction).toBeGreaterThan(0);
+        }
+      }
+    }
   });
 });
