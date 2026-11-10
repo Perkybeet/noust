@@ -45,6 +45,7 @@ from noust.managers.database.backup_verify import (
 )
 from noust.managers.database.backups import DatabaseBackups, remote_folder
 from noust.managers.database.base import BaseDatabaseManager
+from noust.managers.database.scope import ALL_DATABASES
 from noust.managers.retention import select_expired
 from tests.support.database_backup_support import (
     MYSQL_DUMP,
@@ -708,6 +709,70 @@ class TestRunPolicy:
         )
         deleted = [e for e in audited if e["event"] == "db.backup.delete"]
         assert {e["details"]["reason"] for e in deleted} == {"retention"}
+
+    def test_a_run_the_operator_asked_for_records_a_dump_taken_by_hand(
+        self, backups: DatabaseBackups
+    ) -> None:
+        backups.set_policy("postgresql", "shop")
+
+        result = backups.run_policy("postgresql", "shop", origin="manual")
+
+        assert result["dump"]["kind"] == "manual"
+
+    def test_a_run_says_scheduled_unless_told_otherwise(self, backups: DatabaseBackups) -> None:
+        # The timer's unit, written before the origin could be said, runs the command with no
+        # flag: what it takes is what a schedule made.
+        backups.set_policy("postgresql", "shop")
+
+        assert backups.run_policy("postgresql", "shop")["dump"]["kind"] == "scheduled"
+
+    @pytest.mark.parametrize(("origin", "survives"), [("scheduled", False), ("manual", True)])
+    def test_retention_deletes_an_old_scheduled_dump_and_never_the_one_taken_by_hand(
+        self, backups: DatabaseBackups, origin: str, survives: bool
+    ) -> None:
+        backups.set_policy("postgresql", "shop", retention_count=1, retention_days=None)
+        old = backups.run_policy("postgresql", "shop", origin=origin)["dump"]["name"]
+        age(next(v.info.path for v in backups.list_dumps("postgresql") if v.name == old), 100)
+
+        later = backups.run_policy("postgresql", "shop")
+
+        kept = {view.name for view in backups.list_dumps("postgresql")}
+        assert (old in kept) is survives
+        assert later["dump"]["name"] in kept
+        assert (old in later["local_deleted"]) is (not survives)
+
+    def test_a_dump_a_manual_run_sends_is_not_for_the_destinations_retention_either(
+        self, backups: DatabaseBackups, runner: RcloneRunner
+    ) -> None:
+        add_destination(runner)
+        backups.set_policy(
+            "postgresql",
+            "shop",
+            destinations=[{"name": "nas", "retention_count": 1, "retention_days": 7}],
+        )
+        by_hand = backups.run_policy("postgresql", "shop", origin="manual")["dump"]["name"]
+        age(next(runner.root.rglob(by_hand)), 500)
+
+        backups.run_policy("postgresql", "shop")
+
+        assert next(runner.root.rglob(by_hand)).is_file()
+
+    def test_the_all_databases_policy_takes_each_dump_as_asked(
+        self, backups: DatabaseBackups
+    ) -> None:
+        backups.set_policy("postgresql", ALL_DATABASES)
+
+        result = backups.run_policy("postgresql", ALL_DATABASES, origin="manual")
+
+        assert {outcome["dump"]["kind"] for outcome in result["databases"].values()} == {"manual"}
+
+    def test_an_origin_nobody_knows_is_refused_before_anything_is_dumped(
+        self, backups: DatabaseBackups
+    ) -> None:
+        with pytest.raises(ValidationError, match="origin"):
+            backups.run_policy("postgresql", "shop", origin="whenever")
+
+        assert backups.list_dumps("postgresql") == []
 
     def test_retention_by_age_alone(self, backups: DatabaseBackups, dumps_dir: Path) -> None:
         files = set_up_history(backups, dumps_dir)

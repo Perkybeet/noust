@@ -37,7 +37,7 @@ from noust.core import audit
 from noust.core.exceptions import BackupError, DatabaseBackupError, ValidationError
 from noust.managers.backup_scheduler import SCHEDULE_ALIASES, validate_calendar
 from noust.managers.database.backup_records import STATUS_FAILED
-from noust.managers.database.backups import DatabaseBackups, PolicyView
+from noust.managers.database.backups import ORIGIN_MANUAL, DatabaseBackups, PolicyView
 from noust.managers.database.scope import Exclusions
 from noust.web.api.auth import get_current_session
 from noust.web.api.databases.common import ActionResponse, queue, service, session_actor
@@ -558,7 +558,11 @@ def policy_run_job(
 
     backups = DatabaseBackups(_service(job_context, f"Running the policy of {database}", actor))
     # The job manager announces a failed job itself; announcing here too would say it twice.
-    result = backups.run_policy(engine, database, notify=False, on_step=progress)
+    # Somebody asked for this run ("Back up now"), so the copy is theirs: retention, which only
+    # deletes what a schedule made, must not take it.
+    result = backups.run_policy(
+        engine, database, notify=False, on_step=progress, origin=ORIGIN_MANUAL
+    )
     _done(job_context)
     return result
 

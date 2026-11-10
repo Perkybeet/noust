@@ -25,7 +25,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from noust.core.exceptions import DatabaseBackupError
+from noust.managers.database.backups import DatabaseBackups
 from noust.managers.database.base import BaseDatabaseManager
+from noust.web.api.databases.jobs import _service
 from tests.support.database_backup_support import PG_ARCHIVE, RcloneRunner
 from tests.support.database_backups import add_destination
 from tests.support.web_database_backups import (  # noqa: F401
@@ -219,11 +221,38 @@ def test_running_a_policy_is_a_job_that_does_what_the_timer_does(
     assert job["job_type"].value == "backup"
     assert job["metadata"] == {"engine": "postgresql", "database": "shop", "kind": "database"}
     result = job["func"](**job["kwargs"])
-    assert result["dump"]["kind"] == "scheduled"
+    # Asked for from the console ("Back up now"): the retention it promises not to touch manual
+    # copies must not delete it, so it is not recorded as a scheduled one (item 140).
+    assert result["dump"]["kind"] == "manual"
     assert result["dump"]["verify_status"] == "ok"
     assert result["destinations"]["nas"]["ok"] is True
     policy = client.get(f"{BASE}/backup-policies/postgresql/shop").json()
     assert policy["last_status"] == "ok"
+
+
+def test_a_copy_made_from_the_console_survives_the_retention_of_the_next_scheduled_run(
+    client: TestClient,
+    engine: type[BaseDatabaseManager],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    elevate(client)
+    client.put(
+        f"{BASE}/backup-policies/postgresql/shop",
+        json={"retention_count": 1, "retention_days": None},
+    )
+    created = _capture_queued_jobs(monkeypatch)
+    client.post(f"{BASE}/backup-policies/postgresql/shop/run")
+    by_hand = created[0]["func"](**created[0]["kwargs"])["dump"]["name"]
+
+    # What the timer's unit does at its hour.
+    DatabaseBackups(_service(None, "Running the policy", None)).run_policy("postgresql", "shop")
+
+    kept = {
+        dump["name"]: dump["kind"]
+        for dump in client.get(f"{BASE}/backups?engine=postgresql").json()["backups"]
+    }
+    assert kept[by_hand] == "manual"
+    assert sorted(kept.values()) == ["manual", "scheduled"]
 
 
 def test_a_policy_run_that_fails_its_check_fails_the_job_with_the_tools_words(

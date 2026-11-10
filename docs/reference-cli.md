@@ -5928,6 +5928,7 @@ Arguments: `database`
 |---|---|---|
 | `--engine`, `-e` | Engine the database is on. |  |
 | `--all` | Run the policy that covers every database. |  |
+| `--manual` | Keep the dump as one of your own: retention never deletes it. The timer does not pass this. |  |
 | `--json` | Print what the run did as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
