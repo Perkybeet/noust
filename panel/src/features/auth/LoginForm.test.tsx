@@ -479,6 +479,22 @@ describe("the access token", () => {
     expect(screen.queryByText("For recovery only")).toBeNull();
   });
 
+  it("tells a lost token the command that makes a new one, and what it costs", async () => {
+    tokenBackend();
+    renderConsole("/login?with=token");
+    await screen.findByLabelText("Access token");
+
+    // `noust web token` alone only reports; it is `--new` that gives a token, and it ends the one in use.
+    expect(screen.getByText("noust web token --new")).toBeInTheDocument();
+    expect(screen.queryByText("noust web token")).toBeNull();
+    expect(screen.getByText(/the one in use stops working/i)).toBeInTheDocument();
+    await act(async () => {
+      await setLocale("es");
+    });
+    expect(screen.getByText("noust web token --new")).toBeInTheDocument();
+    expect(screen.getByText(/el que usas ahora deja de valer/i)).toBeInTheDocument();
+  });
+
   it("closes every screen before the console with who holds the copyright and the licence", async () => {
     tokenBackend();
     renderConsole("/login?with=token");

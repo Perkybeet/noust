@@ -78,7 +78,8 @@ export const auth = {
     description: "The installer printed it once, in a box. Paste it here.",
     recoveryHelp:
       "The access token is the key of whoever is root on this machine. Once there are accounts, use it only to get back in: every use is recorded as a warning.",
-    lostIt: "Print it on the server",
+    lostIt: "Lost it? Issue a new one on the server",
+    lostItCost: "A new token cancels the old one: the one in use stops working.",
     passkeyRequiredTitle: "The access token has a passkey now",
   },
   legal: {

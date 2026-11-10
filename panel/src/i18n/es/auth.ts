@@ -74,7 +74,8 @@ export const auth: Catalog<typeof en> = {
     description: "El instalador lo mostró una vez, en un recuadro. Pégalo aquí.",
     recoveryHelp:
       "El token de acceso es la llave de quien sea root en esta máquina. Con cuentas creadas, úsalo solo para recuperar el acceso: cada uso queda registrado como aviso.",
-    lostIt: "Muéstralo en el servidor",
+    lostIt: "¿Lo has perdido? Genera uno nuevo en el servidor",
+    lostItCost: "El token nuevo anula al anterior: el que usas ahora deja de valer.",
     passkeyRequiredTitle: "El token de acceso ya tiene una llave de acceso",
   },
   legal: {
