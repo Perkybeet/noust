@@ -35,6 +35,26 @@ noust web install
 noust web enable
 ```
 
+## Every request fails with "Too many open files"
+
+The console has run out of file descriptors: it holds as many files and sockets open as its unit
+allows, so it cannot open another to answer. The API says it (HTTP 503, `descriptors_exhausted`, "File
+descriptors exhausted") instead of a bare error, a central that asks such a server is told that, and the
+diagnosis of an application says it instead of "Could not complete this check".
+
+```bash
+noust web restart          # frees them
+noust health               # "File descriptors": what noust-web and noust-monitor hold, against their limit
+noust setup doctor         # names a unit that still has the limit from before 4.3, and how to write it again
+```
+
+`noust health` warns from 80% of the limit and counts it as an issue when requests are failing, so a
+server is told while a restart is still a choice. The console's and the monitor's units are given 65536
+open files since 4.3 (a unit without a limit gets the system's 1024, which is what a central ran out of);
+`noust web refresh-unit` and `noust monitor install` write a unit again, and the package's upgrade runs
+both. The leak that made a console reach the limit was fixed in 4.2.1: on 4.2.0 the connections of a
+worker thread that had ended stayed open until a full garbage collection.
+
 ## Port 8080 is taken on your computer
 
 `ssh` says `bind [127.0.0.1]:8080: Address already in use`. Use another local port, and the same

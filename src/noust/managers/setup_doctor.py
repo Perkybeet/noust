@@ -27,8 +27,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
-from noust.core import paths
-from noust.core.config import DEFAULT_APPS_DIR, DEFAULT_CONFIG_PATH, DEFAULT_LOG_DIR
+from noust.core import descriptors, paths
+from noust.core.config import DEFAULT_APPS_DIR, DEFAULT_CONFIG_PATH, DEFAULT_LOG_DIR, SYSTEMD_DIR
 from noust.core.dependencies import NODE_RUNTIME_TYPES
 from noust.core.exceptions import NoustError
 from noust.core.package_family import INSTALL_COMMANDS, detect_family
@@ -752,6 +752,9 @@ def collect(env: DoctorEnvironment | None = None) -> DoctorReport:
     tasks = cron_section()
     if tasks is not None:
         sections.append(tasks)
+    limits = limits_section()
+    if limits is not None:
+        sections.append(limits)
     return DoctorReport(tuple(sections))
 
 
@@ -828,6 +831,52 @@ def _names_section() -> DoctorSection | None:
         key="names",
         explain_coded=explained,
     )
+
+
+#: What writes each of Noust's own units again, which is what gives it the limit of open files a
+#: unit is written with now. Both run when the package is upgraded, and by hand when it is not.
+_UNIT_REWRITES: dict[str, str] = {
+    paths.WEB_UNIT: "noust web refresh-unit",
+    paths.MONITOR_UNIT: "noust monitor install",
+}
+
+
+def limits_section(systemd_dir: Path | None = None) -> DoctorSection | None:
+    """
+    Name the units of Noust's own that still have the limit of open files from before 4.3.
+
+    A console that reached 1024 open files answered every request with "Too many open files"
+    (issue 19). The units written now carry :data:`~noust.core.descriptors.SERVICE_LIMIT`; one that
+    was written before keeps what it had until it is written again, which a package upgrade does
+    and a console installed another way does not.
+
+    Args:
+        systemd_dir: Where the units are; the system's unless a test describes another machine.
+
+    Returns:
+        The section, or None when none is to be named (a unit that is not there is not a finding:
+        a console run as a daemon, a monitor never installed).
+    """
+    directory = systemd_dir if systemd_dir is not None else SYSTEMD_DIR
+    items: list[DoctorItem] = []
+    for unit, command in _UNIT_REWRITES.items():
+        try:
+            text = (directory / f"{unit}.service").read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if not descriptors.has_old_limit(text):
+            continue
+        limit = descriptors.unit_limit(text)
+        new = str(descriptors.SERVICE_LIMIT)
+        if limit is None:
+            items.append(item("warn", "doctor.limits.default", fix=command, unit=unit, new=new))
+        else:
+            items.append(
+                item("warn", "doctor.limits.old", fix=command, unit=unit, limit=str(limit), new=new)
+            )
+    if not items:
+        return None
+    return DoctorSection("Noust's own units", tuple(items), key="limits")
 
 
 def cron_section() -> DoctorSection | None:

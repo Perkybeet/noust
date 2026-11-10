@@ -163,6 +163,7 @@ def quiet_machine(monkeypatch: pytest.MonkeyPatch) -> None:
         "_check_applications",
         "_check_certificates",
         "_check_memory",
+        "_check_descriptors",
     ):
         monkeypatch.setattr(health, name, lambda *a, **k: health.HealthCheck("x", "y", "ok"))
     monkeypatch.setattr(

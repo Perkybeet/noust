@@ -146,6 +146,54 @@ class TestClient:
 
         assert "nginx: [emerg] bad" in caught.value.details
 
+    STARVED = (
+        503,
+        {
+            "error": "descriptors_exhausted",
+            "detail": "File descriptors exhausted: the console has no file left to open",
+            "hint": "Restart the console to free them: noust web restart.",
+            "coded": {
+                "code": "server.descriptors_exhausted",
+                "params": {"command": "noust web restart"},
+            },
+        },
+    )
+
+    def test_a_node_out_of_file_descriptors_is_said_to_be_that(self, fleet):
+        # Issue 19: the node's console answered every request with "Too many open files"; the
+        # central said "answered 503", and the operator went looking in the wrong place.
+        fleet.added()
+        fleet.node.responses["/api/apps"] = self.STARVED
+
+        with pytest.raises(NodeError) as caught:
+            fleet.manager.client("web-2").get_json("/api/apps")
+
+        assert caught.value.message == "web-2 ran out of file descriptors"
+        assert "noust web restart" in caught.value.details
+        assert "File descriptors exhausted" in caught.value.details
+        assert caught.value.coded is not None
+        assert caught.value.coded.code == "fleet.node_descriptors_exhausted"
+        assert caught.value.coded.params == {"node": "web-2", "command": "noust web restart"}
+
+    def test_a_node_that_failed_another_way_is_not_said_to_be_starved(self, fleet):
+        fleet.added()
+        fleet.node.responses["/api/apps"] = (503, {"error": "internal", "detail": "busy"})
+
+        with pytest.raises(NodeError) as caught:
+            fleet.manager.client("web-2").get_json("/api/apps")
+
+        assert caught.value.message == "web-2 answered 503 to GET /api/apps"
+
+    def test_the_test_of_a_starved_node_says_so_in_the_outcome(self, fleet):
+        fleet.added()
+        fleet.node.responses["/api/system/version"] = self.STARVED
+
+        result = fleet.manager.test("web-2")
+
+        assert result["reachable"] is False
+        assert result["error"] == "web-2 ran out of file descriptors"
+        assert "noust web restart" in result["details"]
+
     @pytest.mark.parametrize("path", ["api/apps", "//evil.example/x", "/api\r\nX: y"])
     def test_only_paths_on_the_node(self, fleet, path):
         fleet.added()

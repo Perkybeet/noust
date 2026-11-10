@@ -28,9 +28,11 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal
 
+from noust.core import descriptors, paths
 from noust.core.app_state import RUNNING, RUNNING_UNMANAGED, STATIC, resolve_states
 from noust.core.config import Config
 from noust.core.exceptions import NoustError
+from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import App, WebServer, get_store
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.cert_manager import CertificateInfo, CertManager
@@ -108,6 +110,8 @@ class HealthReport:
         names: What still has a name from before 4.0 and waits for the operator: a token a
             script still signs in with, a repository's overrides file, a site that names an
             upstream. Warnings only, each with what to change.
+        descriptors: The files the console and the monitor hold open against their limit
+            (issue 19); a warning from 80 %, an issue where requests are failing.
     """
 
     disk: HealthCheck | None
@@ -126,6 +130,7 @@ class HealthReport:
     accounts: HealthCheck | None = None
     recipes: HealthCheck | None = None
     names: HealthCheck | None = None
+    descriptors: HealthCheck | None = None
 
     @property
     def checks(self) -> list[HealthCheck]:
@@ -139,6 +144,7 @@ class HealthReport:
                 self.applications,
                 self.certificates,
                 self.memory,
+                self.descriptors,
                 self.builds,
                 self.accounts,
                 self.names,
@@ -504,6 +510,83 @@ def _check_memory(issues: list[str], warnings: list[str]) -> HealthCheck:
         return HealthCheck("Memory", f"Could not check: {exc}", "warning")
 
 
+#: The units Noust runs for itself, and so the processes whose open files this measures.
+DESCRIPTOR_UNITS: tuple[str, ...] = (paths.WEB_UNIT, paths.MONITOR_UNIT)
+
+
+def _unit_pid(runner: CommandRunner, unit: str) -> int | None:
+    """
+    Find the main process of a unit.
+
+    Args:
+        runner: Runs ``systemctl``.
+        unit: The unit's name, without ``.service``.
+
+    Returns:
+        The pid; None when the unit does not run or systemd does not say.
+    """
+    result = runner.run(
+        ["systemctl", "show", "-p", "MainPID", "--value", f"{unit}.service"], timeout=10
+    )
+    value = result.stdout.strip() if result.success else ""
+    return int(value) if value.isdigit() and int(value) > 0 else None
+
+
+def _check_descriptors(issues: list[str], warnings: list[str]) -> HealthCheck:
+    """
+    Show the files the console and the monitor hold open against the limit each was given.
+
+    A console that reached its limit of 1024 answered every request with "Too many open files"
+    (issue 19). This says it from 80 %, while a restart is still a choice, and is an issue where
+    requests are already failing.
+
+    Args:
+        issues: Issue list to append to.
+        warnings: Warning list to append to.
+
+    Returns:
+        The file descriptors check.
+    """
+    runner = get_runner()
+    shown: list[str] = []
+    unreadable: list[str] = []
+    status = "ok"
+    for unit in DESCRIPTOR_UNITS:
+        pid = _unit_pid(runner, unit)
+        if pid is None:
+            continue
+        usage = descriptors.read_usage(pid)
+        if usage is None:
+            unreadable.append(unit)
+            continue
+        shown.append(
+            f"{unit} {usage.open} of {usage.limit}"
+            if usage.limit is not None
+            else f"{unit} {usage.open}, no limit"
+        )
+        if not usage.near or usage.fraction is None:
+            continue
+        sentence = (
+            f"{unit} holds {usage.open} of its {usage.limit} file descriptors "
+            f"({usage.fraction:.0%}). Restart it to free them with: noust web restart "
+            "(the monitor: systemctl restart noust-monitor), and run 'noust setup doctor': it "
+            "says whether the unit still has the limit from before 4.3."
+        )
+        if usage.critical:
+            issues.append(sentence)
+            status = "error"
+        else:
+            warnings.append(sentence)
+            status = status if status == "error" else "warning"
+    if not shown:
+        if unreadable:
+            return HealthCheck(
+                "File descriptors", f"{', '.join(unreadable)} could not be read", "info"
+            )
+        return HealthCheck("File descriptors", "No Noust service is running as a unit", "info")
+    return HealthCheck("File descriptors", ", ".join(shown), status)
+
+
 def _check_builds(warnings: list[str]) -> HealthCheck:
     """
     Report the applications whose builds or containers have root's access.
@@ -791,6 +874,7 @@ def collect_health_report(
     applications = _check_applications(verbose, warnings)
     certificates = _check_certificates(verbose, issues, warnings)
     memory = _check_memory(issues, warnings)
+    descriptors_check = _check_descriptors(issues, warnings)
     builds = _check_builds(warnings)
     accounts = _check_accounts(warnings)
     names = _check_names(warnings)
@@ -817,4 +901,5 @@ def collect_health_report(
         recipes=recipes,
         audit=audit_check,
         security=security_check,
+        descriptors=descriptors_check,
     )
