@@ -275,10 +275,7 @@ class EmailNotifier:
     @property
     def has_transport(self) -> bool:
         """True when mail can leave this server: a provider's API with what it needs, or SMTP."""
-        provider = self.provider
-        if provider:
-            return not email_api.missing(provider, self.api_settings)
-        return bool(self.smtp_config.host)
+        return email_api.can_send(self.smtp_config.host, self.api_settings)
 
     @property
     def is_configured(self) -> bool:

@@ -237,10 +237,14 @@ class ChannelInstance:
         Whether the instance has what its type needs to deliver.
 
         Email has no destination of its own (it uses the monitor's SMTP
-        account and recipients), so it counts as configured when it is on.
+        account or email service, and recipients), so it counts as configured
+        when it is on and mail can leave this server. It was configured when
+        it was on, and a channel saved with no server said so (item 137).
+        The recipients are not asked: the channel's own fall back to the
+        monitor's, which the notifier reads when it sends.
         """
         if self.type == "email":
-            return self.enabled
+            return self.enabled and _mail_can_leave()
         return self.spec.configured(self.settings)
 
     @property
@@ -248,6 +252,22 @@ class ChannelInstance:
         """The credentials this instance holds, for scrubbing a log."""
         values = (str(self.settings.get(key) or "") for key in self.spec.secret_keys)
         return tuple(value for value in values if value)
+
+
+def _mail_can_leave() -> bool:
+    """
+    Returns:
+        Whether the monitor's SMTP server or email service is set, as the notifier reads it.
+    """
+    # Imported when called: the configuration validates a channel with this module.
+    from noust.core import email_api
+    from noust.core.config import Config
+
+    config = Config()
+    api = config.get("monitor.email_api", {})
+    return email_api.can_send(
+        config.get("monitor.smtp.host", ""), api if isinstance(api, Mapping) else {}
+    )
 
 
 def _events(value: Any, where: str) -> dict[str, bool]:

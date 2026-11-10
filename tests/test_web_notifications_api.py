@@ -145,6 +145,25 @@ class TestChannels:
         assert SLACK not in config_path.read_text()
         assert SLACK in str(stored_config(config_path))
 
+    def test_the_email_channel_is_configured_only_once_mail_can_leave(
+        self, client: TestClient, config_path: Path
+    ) -> None:
+        # The reproduction of item 137: switched on with no server, it answered "configured".
+        elevate(client)
+
+        saved = client.put("/api/notifications/channels/email", json={"enabled": True})
+
+        assert saved.status_code == 200, saved.text
+        assert saved.json()["enabled"] is True
+        assert saved.json()["configured"] is False
+
+        config = Config()
+        config.set("monitor.smtp.host", "smtp.example.com")
+        assert config.save() is True
+        listed = client.get("/api/notifications/channels")
+
+        assert by_name(listed.json(), "email")["configured"] is True
+
     def test_a_second_channel_of_the_same_type(self, client: TestClient) -> None:
         elevate(client)
         client.put("/api/notifications/channels/slack", json={"settings": {"webhook_url": SLACK}})

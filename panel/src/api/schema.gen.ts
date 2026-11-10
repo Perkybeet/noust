@@ -12189,9 +12189,13 @@ export interface paths {
          *         ConfigError: 400, through the error boundary, for a host that is not
          *             a hostname, a port out of range, both ``use_ssl`` and ``use_tls``
          *             enabled, or an invalid ``from_address`` or recipient.
-         *         HTTPException: 422 on ``password`` when it is blank, a password is
-         *             stored, and the host, port, username or transport changed; or if
-         *             the configuration cannot be written.
+         *         HTTPException: 422 on ``host`` when there is none, since saving the
+         *             account of a server that is not named leaves mail that never
+         *             leaves (the email service is ``PUT /api/config/email-api``, and
+         *             taking the account away is a write of the whole block); 422 on
+         *             ``password`` when it is blank, a password is stored, and the host,
+         *             port, username or transport changed; or if the configuration
+         *             cannot be written.
          */
         put: operations["update_smtp_config_api_config_smtp_put"];
         post?: never;
