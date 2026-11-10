@@ -26,7 +26,7 @@ export type AppCondition =
   | { kind: "noAnswer"; port: number | null }
   | { kind: "restarting" }
   | { kind: "unmanaged" }
-  | { kind: "deployFailed"; deploy: Newest };
+  | { kind: "deployFailed"; deploy: Newest; serving: "answering" | "stopped"; inPlace: boolean };
 
 /**
  * Whether the app is broken, and how. Its service first (failed, not answering, or restarting
@@ -36,17 +36,23 @@ export type AppCondition =
  * version still serves. A stopped app is not broken: operators stop apps on purpose. A job running on the app is its own news, said
  * by its progress, so the caller asks only when none is.
  */
-export function appCondition(app: Pick<App, "status" | "port">, newest: Newest | null): AppCondition | null {
+export function appCondition(app: Pick<App, "status" | "port"> & Partial<Pick<App, "serving_port" | "layout">>, newest: Newest | null): AppCondition | null {
   const word = app.status.trim().toLowerCase().replace(/^no answer$/, "no_answer");
   // A deploy an operator cancelled is stored as failed, and is not a problem: it stopped what it
   // was building and left what serves as it was.
   const cancelled = newest !== null && "cancelled" in newest && newest.cancelled === true;
   const deployFailed = newest?.status === "failed" && !cancelled ? newest : null;
   if (word === "failed") return { kind: "failed", lastDeploy: deployFailed };
-  if (word === "no_answer") return { kind: "noAnswer", port: app.port ?? null };
+  // The port that is asked is the serving instance's: in zero-downtime mode it is not the one the record starts at.
+  if (word === "no_answer") return { kind: "noAnswer", port: app.serving_port ?? app.port ?? null };
   if (word === "restarting") return { kind: "restarting" };
   if (word === "running_unmanaged" || word === "running outside noust") return { kind: "unmanaged" };
-  if (deployFailed !== null) return { kind: "deployFailed", deploy: deployFailed };
+  // What the history says is that a deploy failed. Whether the application answers is its status; which version it
+  // answers with is only known in releases, where the failed one never became `current`: in its own folder a restart
+  // starts whatever the folder holds, and a layout the console was not told is not claimed to be releases.
+  if (deployFailed !== null) {
+    return { kind: "deployFailed", deploy: deployFailed, serving: word === "stopped" || word === "inactive" ? "stopped" : "answering", inPlace: app.layout !== "releases" };
+  }
   return null;
 }
 
@@ -168,7 +174,13 @@ export function AppBanner({ domain, condition, onDiagnose = false }: { domain: s
             </span>
           }
         >
-          {t("appPages.banner.deployFailedBody")}
+          {t(
+            condition.serving === "stopped"
+              ? "appPages.banner.deployFailedBodyStopped"
+              : condition.inPlace
+                ? "appPages.banner.deployFailedBodyInPlace"
+                : "appPages.banner.deployFailedBody",
+          )}
           {line !== null ? (
             <span className="mt-1 block min-w-0">
               <Mono tone="muted" truncate>

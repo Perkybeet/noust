@@ -115,6 +115,29 @@ describe("an application's page", () => {
     expect(primaries.size).toBe(1);
   });
 
+  it("shows the port that answers, which in zero-downtime mode is not the recorded one", async () => {
+    await appAt({ [`GET /api/apps/${DOMAIN}`]: () => json(200, { ...APPS[0], port: 3001, serving_port: 3002, zero_downtime: true }) });
+
+    // Green serves on the port after blue's: the header says where the traffic goes, not where the record starts.
+    expect((await within(header()).findByText("3002")).parentElement).toHaveTextContent("Port 3002");
+    expect(within(header()).queryByText("3001")).not.toBeInTheDocument();
+  });
+
+  it("says the same state in the column beside the page as in its header while a deploy runs", async () => {
+    // The unit is read as stopped (a first deploy has none yet) and a job runs: both places say what the job says.
+    await appAt({
+      [`GET /api/apps/${DOMAIN}`]: () => json(200, { ...APPS[0], status: "stopped" }),
+      "GET /api/jobs/active": () => json(200, { jobs: [{ ...JOB, type: "deploy" }], total: 1, active: 1 }),
+    });
+    const column = await screen.findByRole("navigation", { name: "Application sections" });
+
+    expect(await within(header()).findByText("Deploying")).toBeInTheDocument();
+    const side = column.closest("aside") ?? column.parentElement;
+    expect(side).not.toBeNull();
+    expect(within(side as HTMLElement).getByText("Deploying")).toBeInTheDocument();
+    expect(within(side as HTMLElement).queryByText("Stopped")).not.toBeInTheDocument();
+  });
+
   it("does Update from the main part and its variations from the menu beside it", async () => {
     const { user, backend } = await appAt({
       "POST /api/jobs/update": () => json(202, { message: "Update job created", job: JOB }),
@@ -558,10 +581,26 @@ describe("an app whose last deploy failed", () => {
     // In the page, over every section (the next test), and not in the column: the column lists, the page says.
     expect(within(screen.getByRole("main")).getByText(/^The last deploy failed/)).toBe(title);
     expect(within(await screen.findByRole("navigation", { name: "Application sections" })).queryByText(/^The last deploy failed/)).toBeNull();
-    expect(screen.getByText("Nothing went down: the version that was live is still the one answering.")).toBeInTheDocument();
+    // What the page knows, and no more: the application answers. Which version is not said of an application
+    // deployed in its own folder (the default fixture's), where a restart starts whatever the folder holds.
+    expect(screen.queryByText(/Nothing went down/)).not.toBeInTheDocument();
+    expect(screen.getByText(/The application still answers with what was already running/)).toBeInTheDocument();
     // The way to why is the first thing offered, and the log is one step beside it.
     expect(screen.getByRole("link", { name: "See why" })).toHaveAttribute("href", `/apps/${DOMAIN}/diagnose`);
     expect(screen.getByRole("link", { name: "View log" })).toHaveAttribute("href", `/apps/${DOMAIN}/deployments/12`);
+  });
+
+  it("says the version that was live still answers when the application is deployed in releases", async () => {
+    await appAt({ [`GET /api/apps/${DOMAIN}`]: () => json(200, { ...APPS[0], layout: "releases" }) });
+
+    expect(await screen.findByText("The application still answers with the version that was live.")).toBeInTheDocument();
+  });
+
+  it("says it is stopped when it is, and does not say that nothing went down", async () => {
+    await appAt({ [`GET /api/apps/${DOMAIN}`]: () => json(200, { ...APPS[0], status: "stopped", active: false }) });
+
+    expect(await screen.findByText("The application is stopped.")).toBeInTheDocument();
+    expect(screen.queryByText(/still answers/)).not.toBeInTheDocument();
   });
 
   it("keeps the banner on every tab", async () => {

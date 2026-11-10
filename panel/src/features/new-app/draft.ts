@@ -16,6 +16,11 @@ export interface WizardDraft {
   mode: DraftMode;
   source: string;
   branch: string;
+  /**
+   * The domain the first deploy that failed was for, when the wizard is opened to try it again: the address step
+   * starts on it. Never kept for coming back from GitHub, where the operator has not typed one yet.
+   */
+  domain?: string;
   /** Always the first step: connecting GitHub is something that happens there. */
   step: "source";
 }
@@ -33,11 +38,12 @@ function storage(): Storage | null {
 }
 
 /** Remembers where the operator was, before they leave the console to connect GitHub. */
-export function saveDraft(draft: Pick<WizardDraft, "mode" | "source" | "branch">): void {
+export function saveDraft(draft: Pick<WizardDraft, "mode" | "source" | "branch" | "domain">): void {
   const value: WizardDraft = {
     mode: draft.mode,
     source: draft.source.slice(0, MAX_FIELD),
     branch: draft.branch.slice(0, MAX_FIELD),
+    ...(draft.domain !== undefined && draft.domain !== "" ? { domain: draft.domain.slice(0, MAX_FIELD) } : {}),
     step: "source",
   };
   try {
@@ -63,10 +69,16 @@ export function readDraft(): WizardDraft | null {
     return null;
   }
   if (typeof parsed !== "object" || parsed === null) return null;
-  const { mode, source, branch } = parsed as Record<string, unknown>;
+  const { mode, source, branch, domain } = parsed as Record<string, unknown>;
   if (typeof mode !== "string" || !(MODES as readonly string[]).includes(mode)) return null;
   if (typeof source !== "string" || typeof branch !== "string") return null;
-  return { mode: mode as DraftMode, source: source.slice(0, MAX_FIELD), branch: branch.slice(0, MAX_FIELD), step: "source" };
+  return {
+    mode: mode as DraftMode,
+    source: source.slice(0, MAX_FIELD),
+    branch: branch.slice(0, MAX_FIELD),
+    ...(typeof domain === "string" && domain !== "" ? { domain: domain.slice(0, MAX_FIELD) } : {}),
+    step: "source",
+  };
 }
 
 /** Whether the wizard is waiting for the operator to come back. */

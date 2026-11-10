@@ -489,6 +489,17 @@ export function withAddressMode<T extends AddressChoice>(form: T, mode: AddressM
 }
 
 /**
+ * Starts the address on a domain the operator had already given: the one a first deploy that failed was for, which
+ * "Try again" brings back. A temporary address is made again from what the application is called, so it is not
+ * brought back, and the temporary choice stays where `withAddressMode` keeps it.
+ */
+export function withDomain<T extends AddressChoice>(form: T, domain: string): T {
+  const name = normalizeDomain(domain);
+  if (name === "" || isTemporaryDomain(name)) return form;
+  return { ...form, addressMode: "own", domain: name, ownDomain: name };
+}
+
+/**
  * Where an application starts answering. Where there is no domain of the operator's yet, on a
  * temporary address: there is something to open before any DNS. Where there is, on their own
  * (empty), because they usually want one. Asked again for another source or recipe, the temporary
