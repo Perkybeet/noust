@@ -411,6 +411,16 @@ CONTROLS: tuple[Control, ...] = (
         unit="days",
         zero_is_off=True,
     ),
+    # A restore that was tried, not only an archive that reads: ``noust backup drill``.
+    Control(
+        "restore_drill_days",
+        GROUP_BACKUP,
+        KIND_MIN,
+        30,
+        "backup.drill_days",
+        unit="days",
+        zero_is_off=True,
+    ),
     Control(
         "backup_max_age_hours",
         GROUP_BACKUP,
@@ -568,6 +578,11 @@ DESCRIPTIONS: dict[str, str] = {
     "backup_encryption": "Backups leave the server only encrypted.",
     "backup_verify_days": (
         "How often a backup is proved restorable; 0 turns it off where no framework asks."
+    ),
+    "restore_drill_days": (
+        "How often restoring a backup is rehearsed (`noust backup drill`), so that a restore that "
+        "was tried is evidence and not only an archive that reads; 0 turns it off where no "
+        "framework asks."
     ),
     "backup_max_age_hours": "The newest backup of an application must be younger than this.",
     "backup_offsite": "At least one backup is kept apart, in a different place from the server.",

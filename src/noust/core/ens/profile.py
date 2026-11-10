@@ -89,6 +89,8 @@ class ProfileDefaults:
             nothing leaves the server unencrypted (mp.si.2).
         backup_verify_days: A backup verification older than this is overdue
             (mp.info.6.r1).
+        restore_drill_days: A restore that was tried (``noust backup drill``) longer ago than
+            this is overdue (mp.info.6.r1): the archive reading is not the data loading.
         backup_max_age_hours: A newest backup older than this is overdue.
         tls_certificate: ``any`` or ``operator``: under ``operator`` the
             console is expected to serve a certificate the organisation's PKI
@@ -164,6 +166,7 @@ class ProfileDefaults:
     terminal_max_minutes: int = 720
     server_terminal: bool = True
     audit_fail_closed: bool = False
+    restore_drill_days: int = 30
 
     @property
     def ens(self) -> bool:
@@ -374,6 +377,7 @@ _FIELD_CONTROLS: dict[str, str] = {
     "master_token": "master_token",
     "backup_encryption": "backup_encryption",
     "backup_verify_days": "backup_verify_days",
+    "restore_drill_days": "restore_drill_days",
     "backup_max_age_hours": "backup_max_age_hours",
     "tls_certificate": "tls_certificate",
     "certificate_min_days": "certificate_min_days",
@@ -657,6 +661,13 @@ def baseline() -> list[BaselineItem]:
             "The newest backup of each application was verified this recently.",
             f"{std.backup_verify_days} days",
             f"{ens.backup_verify_days} days",
+            ("mp.info.6.r1",),
+        ),
+        BaselineItem(
+            "restore rehearsal",
+            "A restore of each application's backup was tried this recently (noust backup drill).",
+            f"every {std.restore_drill_days} days (0 turns it off)",
+            f"every {ens.restore_drill_days} days at most, never off",
             ("mp.info.6.r1",),
         ),
         BaselineItem(
