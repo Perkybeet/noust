@@ -275,7 +275,7 @@ export function ElevateDialog() {
         ) : failure !== null ? (
           <ErrorBlock live compact error={failure.error} title={failure.title} />
         ) : null}
-        {keepsOpen !== null ? <p className="text-12 text-fg-muted">{keepsOpen}</p> : null}
+        {keepsOpen !== null && !enrolling ? <p className="text-12 text-fg-muted">{keepsOpen}</p> : null}
       </div>
     </Dialog>
   );

@@ -391,6 +391,8 @@ export function OpenPortDialog({ onClose, preset = {} }: { onClose: () => void; 
                     {wide.map((entry) => (
                       <li key={entry.rule.id}>
                         <Mono>{entry.rule.spec}</Mono>
+                        {/* What its maker wrote about it ("temporary: migration from the old host") says more than the rule does. */}
+                        {entry.rule.comment.trim() !== "" ? <span className="block text-fg-muted">{entry.rule.comment.trim()}</span> : null}
                         {entry.removable ? null : <span className="block text-fg-muted">{isHeldOpen(entry.rule, firewall.data?.protected_ports ?? []) !== null ? t("network.openPort.wideKept") : t("network.openPort.wideMore")}</span>}
                       </li>
                     ))}

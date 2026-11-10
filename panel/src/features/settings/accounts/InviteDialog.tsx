@@ -110,7 +110,7 @@ function Result({ t, issued, expiresAt }: { t: T; issued: InvitationIssued; expi
             </TextLink>
           }
         >
-          {t("accounts.invite.localBody", { address: base })}
+          {t.rich("accounts.invite.localBody", { address: <Mono key="address">{base}</Mono> })}
         </Notice>
       ) : null}
       {issued.emailed ? (

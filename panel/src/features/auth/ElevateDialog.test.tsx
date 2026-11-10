@@ -194,6 +194,8 @@ describe("Confirm it's you, for an account that has no second factor yet (item 1
     // Not a field for a code nobody has: what is missing, and that it takes a minute to put right.
     expect(await within(dialog).findByText(/no second factor yet/)).toBeInTheDocument();
     expect(within(dialog).queryByLabelText("Authentication code")).toBeNull();
+    // How long a confirmation lasts is for after there is one.
+    expect(within(dialog).queryByText(/won't be asked again/)).toBeNull();
     await expectNoAxeViolations(dialog);
 
     await user.click(within(dialog).getByRole("button", { name: "Use an authenticator app" }));
