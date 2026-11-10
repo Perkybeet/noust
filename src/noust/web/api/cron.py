@@ -113,7 +113,8 @@ class CreateCronJobRequest(BaseModel):
     working_directory: str | None = Field(default=None, description="Absolute directory to run in")
     app_domain: str | None = Field(
         default=None,
-        description="Associate with a deployed app; its directory becomes the default",
+        description="Associate with a deployed app: the task runs in its directory, as its "
+        "account, with its .env and its own tools first on the PATH",
     )
     timeout: int | None = Field(
         default=None,

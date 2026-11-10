@@ -536,6 +536,11 @@ export const serverText = {
         text: "Processors: could not be read",
       },
     },
+    cron: {
+      without_environment: {
+        text: "The task {name} of {domain} runs without the application's .env and tools: it was written before a task loaded them",
+      },
+    },
     disk: {
       below_floor: {
         text: "Free disk: {free} free of {total} at {path}, under the {floor} Noust needs to run",

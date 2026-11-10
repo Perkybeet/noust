@@ -6063,7 +6063,7 @@ Unix user to run as. The configured service_user by default.
 Absolute directory to run the command in.
 .TP
 .B \-\-app
-Associate the job with a deployed application; its runtime directory (current/ for a releases application) becomes the default.
+Associate the job with a deployed application. It runs in the application's directory (current/ for a releases application), as its account, with its .env and its own tools (the virtual environment, node_modules/.bin) first on the PATH.
 .TP
 .B \-\-timeout
 Stop the command after this many seconds (1 to 86400); the run counts as failed.

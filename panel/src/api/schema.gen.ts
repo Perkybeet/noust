@@ -39486,7 +39486,7 @@ export interface components {
         CreateCronJobRequest: {
             /**
              * App Domain
-             * @description Associate with a deployed app; its directory becomes the default
+             * @description Associate with a deployed app: the task runs in its directory, as its account, with its .env and its own tools first on the PATH
              */
             app_domain?: string | null;
             /**

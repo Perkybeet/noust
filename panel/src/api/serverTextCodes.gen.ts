@@ -165,6 +165,7 @@ export const SERVER_TEXT = {
   "doctor.cpu.note": { text: [], hint: null, commands: [] },
   "doctor.cpu.ok": { text: ["amount", "minimum"], hint: null, commands: [] },
   "doctor.cpu.unreadable": { text: [], hint: null, commands: [] },
+  "doctor.cron.without_environment": { text: ["domain", "name"], hint: null, commands: [] },
   "doctor.disk.below_floor": { text: ["floor", "free", "path", "total"], hint: null, commands: [] },
   "doctor.disk.below_minimum": { text: ["free", "minimum", "path", "total"], hint: null, commands: [] },
   "doctor.disk.note": { text: [], hint: null, commands: [] },

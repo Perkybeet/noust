@@ -1,7 +1,9 @@
+import { useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
 import { isApiError } from "../../api/client";
+import { appsQuery } from "../../api/queries/apps";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
@@ -23,6 +25,9 @@ import type { Frequency, ScheduleChoice, Weekday } from "./schedule";
 import type { CreateCronJobBody } from "./useCronActions";
 import { useCronActions } from "./useCronActions";
 import { useCronPreview } from "./useCronPreview";
+
+/** Select's value for "no application": an option needs a value that is not empty, and a domain is never this. */
+const NO_APP = "__none";
 
 /** The longest a task may run, in seconds: the API's own bound. */
 const TIMEOUT_MAX = 86_400;
@@ -150,6 +155,9 @@ export function CronJobDialog({ open, onOpenChange, job }: CronJobDialogProps) {
   const [limited, setLimited] = useState(job?.timeout != null);
   const [timeout, setTimeoutText] = useState(job?.timeout == null ? TIMEOUT_START : String(job.timeout));
   const [service, setService] = useState(job?.service ?? "");
+  // A task of no application comes back with an empty domain.
+  const [app, setApp] = useState(() => ((job?.app_domain ?? "") === "" ? NO_APP : (job?.app_domain ?? NO_APP)));
+  const apps = useQuery(appsQuery());
   const [submitted, setSubmitted] = useState(false);
   const formId = useId();
 
@@ -185,7 +193,7 @@ export function CronJobDialog({ open, onOpenChange, job }: CronJobDialogProps) {
       ...(service.trim() !== "" ? { service: service.trim() } : {}),
       // Saving an existing task rewrites it: without its application it would lose the link
       // (and the working directory default that follows the app's layout).
-      ...(job?.app_domain ? { app_domain: job.app_domain } : {}),
+      ...(app !== NO_APP ? { app_domain: app } : {}),
     };
     create.mutate(body, { onSuccess: () => close(false) });
   };
@@ -193,6 +201,13 @@ export function CronJobDialog({ open, onOpenChange, job }: CronJobDialogProps) {
   const weekdays = SYSTEMD_DAYS.map((day) => ({ value: day, label: weekdayName(day, t.locale) }));
   const showTime = choice.frequency === "daily" || choice.frequency === "weekly" || choice.frequency === "monthly";
   const optionsDiffer = user !== "" || workingDirectory !== "" || limited || service !== "";
+  const known = (apps.data?.apps ?? []).map((candidate) => candidate.domain);
+  const appOptions = [
+    { value: NO_APP, label: t("cron.fields.applicationNone") },
+    ...known.map((domain) => ({ value: domain, label: domain })),
+    // The task's own application still shows as chosen while the list has not loaded.
+    ...(app !== NO_APP && !known.includes(app) ? [{ value: app, label: app }] : []),
+  ];
   return (
     <Dialog
       open={open}
@@ -216,6 +231,9 @@ export function CronJobDialog({ open, onOpenChange, job }: CronJobDialogProps) {
         </Field>
         <Field label={t("cron.fields.command")} name="command" description={t("cron.fields.commandDescription")} error={(submitted ? missing.command : null) ?? serverError("command")}>
           <Input value={command} onValueChange={setCommand} mono placeholder="/usr/bin/noust backup create example.com" autoComplete="off" spellCheck={false} />
+        </Field>
+        <Field label={t("cron.fields.application")} name="app_domain" nativeLabel={false} description={t("cron.fields.applicationDescription")} error={serverError("app_domain")}>
+          <Select value={app} onValueChange={setApp} options={appOptions} mono />
         </Field>
         <div className="flex flex-wrap items-start gap-4">
           <Field label={t("cron.fields.schedule")} name="schedule" nativeLabel={false} className="w-44">
@@ -263,7 +281,7 @@ export function CronJobDialog({ open, onOpenChange, job }: CronJobDialogProps) {
               ) : null}
             </div>
             {/* Only a task of an application can run in a service of its stack. */}
-            {job?.app_domain ? (
+            {app !== NO_APP ? (
               <Field label={t("cron.fields.service")} name="service" optional description={t("cron.fields.serviceDescription")} error={serverError("service")}>
                 <Input value={service} onValueChange={setService} mono placeholder="web" autoComplete="off" spellCheck={false} />
               </Field>

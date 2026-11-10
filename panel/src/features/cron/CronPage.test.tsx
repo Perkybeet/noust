@@ -240,6 +240,72 @@ describe("the cron jobs list", () => {
     expect(await screen.findByText("Created e2e-report")).toBeInTheDocument();
   });
 
+  it("ties a new task to an application chosen when it is created, and offers its service then", async () => {
+    const { user, backend } = await cronAt("/cron", {
+      "POST /api/cron": () =>
+        json(201, { success: true, message: "created", job: { ...JOBS[0], name: "migrate" } }),
+    });
+    await user.click(screen.getByRole("button", { name: "New task" }));
+    const dialog = await screen.findByRole("dialog", { name: "New scheduled task" });
+    await user.type(within(dialog).getByLabelText("Name", { exact: true }), "migrate");
+    await user.type(within(dialog).getByLabelText("Command", { exact: true }), "python manage.py migrate --noinput");
+    // Nothing of an application until one is chosen, and no service to choose in either.
+    expect(within(dialog).getByRole("combobox", { name: /Application/ })).toHaveTextContent("None: a task of the server");
+    await user.click(within(dialog).getByRole("button", { name: "More options" }));
+    expect(within(dialog).queryByRole("textbox", { name: /^Service/ })).not.toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("combobox", { name: /Application/ }));
+    await user.click(await screen.findByRole("option", { name: "admin.example.com" }));
+    expect(await within(dialog).findByRole("textbox", { name: /^Service/ })).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Create task" }));
+
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/cron")).toHaveLength(1);
+    });
+    expect(backend.callsTo("POST /api/cron")[0]?.body).toMatchObject({
+      name: "migrate",
+      command: "python manage.py migrate --noinput",
+      app_domain: "admin.example.com",
+    });
+  });
+
+  it("sends no application for a task that was not tied to one", async () => {
+    const { user, backend } = await cronAt("/cron", {
+      "POST /api/cron": () => json(201, { success: true, message: "created", job: { ...JOBS[0], name: "plain" } }),
+    });
+    await user.click(screen.getByRole("button", { name: "New task" }));
+    const dialog = await screen.findByRole("dialog", { name: "New scheduled task" });
+    await user.type(within(dialog).getByLabelText("Name", { exact: true }), "plain");
+    await user.type(within(dialog).getByLabelText("Command", { exact: true }), "/usr/bin/true");
+    await user.click(within(dialog).getByRole("button", { name: "Create task" }));
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/cron")).toHaveLength(1);
+    });
+    expect(backend.callsTo("POST /api/cron")[0]?.body).not.toHaveProperty("app_domain");
+  });
+
+  it("changes the application of a task that is edited", async () => {
+    const job = JOBS[0];
+    if (!job) throw new Error("no seeded job");
+    const { user, backend, table } = await cronAt("/cron", {
+      "GET /api/cron": () => json(200, { jobs: [job], total: 1 }),
+      "POST /api/cron": () => json(201, { success: true, message: "saved", job }),
+    });
+    const row = (await within(table).findByText(job.name)).closest("tr");
+    if (!row) throw new Error("no row");
+    await user.click(within(row).getByRole("button", { name: `Actions for ${job.name}` }));
+    await user.click(await screen.findByRole("menuitem", { name: "Edit" }));
+    const dialog = await screen.findByRole("dialog", { name: `Edit ${job.name}` });
+    expect(within(dialog).getByRole("combobox", { name: /Application/ })).toHaveTextContent("shop.example.com");
+    await user.click(within(dialog).getByRole("combobox", { name: /Application/ }));
+    await user.click(await screen.findByRole("option", { name: "None: a task of the server" }));
+    await user.click(within(dialog).getByRole("button", { name: "Save task" }));
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/cron")).toHaveLength(1);
+    });
+    expect(backend.callsTo("POST /api/cron")[0]?.body).not.toHaveProperty("app_domain");
+  });
+
   it("schedules a task the way a person says it: how often, and at what time", async () => {
     const { user, backend } = await cronAt("/cron", {
       "POST /api/cron": () => json(201, { success: true, message: "created", job: JOBS[0] }),

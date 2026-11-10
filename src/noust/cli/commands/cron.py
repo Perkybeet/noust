@@ -394,8 +394,9 @@ def list_jobs(ctx: Context) -> None:
     "app_domain",
     metavar="DOMAIN",
     help=(
-        "Associate the job with a deployed application; its runtime directory "
-        "(current/ for a releases application) becomes the default."
+        "Associate the job with a deployed application. It runs in the application's "
+        "directory (current/ for a releases application), as its account, with its .env "
+        "and its own tools (the virtual environment, node_modules/.bin) first on the PATH."
     ),
 )
 @click.option(

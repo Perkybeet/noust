@@ -525,6 +525,11 @@ export const serverText: Catalog<typeof en> = {
         text: "Procesadores: no se pudieron leer",
       },
     },
+    cron: {
+      without_environment: {
+        text: "La tarea {name} de {domain} se ejecuta sin el .env ni las herramientas de la aplicación: se escribió antes de que una tarea los cargara",
+      },
+    },
     disk: {
       below_floor: {
         text: "Disco libre: {free} libres de {total} en {path}, por debajo de los {floor} que Noust necesita para funcionar",

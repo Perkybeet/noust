@@ -5695,7 +5695,7 @@ Arguments: `name`, `command`
 | `--schedule` | hourly, daily, weekly, monthly, or a systemd OnCalendar expression. | `daily` |
 | `--user` | Unix user to run as. The configured service_user by default. |  |
 | `--working-directory` | Absolute directory to run the command in. |  |
-| `--app` | Associate the job with a deployed application; its runtime directory (current/ for a releases application) becomes the default. |  |
+| `--app` | Associate the job with a deployed application. It runs in the application's directory (current/ for a releases application), as its account, with its .env and its own tools (the virtual environment, node_modules/.bin) first on the PATH. |  |
 | `--timeout` | Stop the command after this many seconds (1 to 86400); the run counts as failed. |  |
 | `--service` | Run the command in this service of the --app application's Compose stack (docker compose exec) instead of on this server. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |

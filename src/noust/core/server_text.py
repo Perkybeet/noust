@@ -466,6 +466,10 @@ CATALOG: dict[str, str] = {
     "doctor.ssh.github_refused": "GitHub SSH: not configured",
     "doctor.ssh.github_note": "Add your key to GitHub: https://github.com/settings/keys",
     "doctor.ssh.github_untested": "GitHub SSH: not tested here",
+    "doctor.cron.without_environment": (
+        "The task {name} of {domain} runs without the application's .env and tools: it was "
+        "written before a task loaded them"
+    ),
     "doctor.relays.left": "{domain}: {what}",
     "doctor.relays.unread": "Not checked: {reason}",
     "doctor.names.explain": (

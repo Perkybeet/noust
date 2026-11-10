@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import logging
 import platform
+import shlex
 import sqlite3
 from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass, field
@@ -748,6 +749,9 @@ def collect(env: DoctorEnvironment | None = None) -> DoctorReport:
     names = _names_section()
     if names is not None:
         sections.append(names)
+    tasks = cron_section()
+    if tasks is not None:
+        sections.append(tasks)
     return DoctorReport(tuple(sections))
 
 
@@ -824,6 +828,72 @@ def _names_section() -> DoctorSection | None:
         key="names",
         explain_coded=explained,
     )
+
+
+def cron_section() -> DoctorSection | None:
+    """
+    Name the tasks of an application that still run without its environment.
+
+    A task tied to an application loads the application's ``.env`` and tools since 4.3, but the
+    ones written before change only when they are written again. Each is named with the command
+    that writes it again exactly as it is.
+
+    Returns:
+        The section, or None when there is none to name (or the tasks could not be read: the other
+        checks still stand).
+    """
+    from noust.managers.cron_manager import CronManager
+
+    try:
+        found = CronManager().tasks_without_their_environment()
+    except (NoustError, OSError, sqlite3.Error) as exc:
+        logger.debug("The scheduled tasks were not read: %s", exc)
+        return None
+    if not found:
+        return None
+    return DoctorSection(
+        "Scheduled tasks",
+        tuple(
+            item(
+                "warn",
+                "doctor.cron.without_environment",
+                fix=_cron_rewrite_command(task),
+                name=task["name"],
+                domain=task["app_domain"],
+            )
+            for task in found
+        ),
+        key="cron",
+    )
+
+
+def _cron_rewrite_command(task: dict[str, Any]) -> str:
+    """
+    Write the command that writes a task again as it is, now loading its application's environment.
+
+    Args:
+        task: One entry of :meth:`~noust.managers.cron_manager.CronManager.tasks_without_their_environment`.
+
+    Returns:
+        ``noust cron create NAME COMMAND ...``, with everything the task has.
+    """
+    parts = [
+        "noust",
+        "cron",
+        "create",
+        task["name"],
+        task["command"],
+        "--schedule",
+        task["on_calendar"],
+        "--app",
+        task["app_domain"],
+    ]
+    for flag, key in (("--user", "user"), ("--working-directory", "working_directory")):
+        if task[key]:
+            parts += [flag, task[key]]
+    if task["timeout"]:
+        parts += ["--timeout", str(task["timeout"])]
+    return " ".join(shlex.quote(part) for part in parts)
 
 
 def _relays_section() -> DoctorSection | None:
